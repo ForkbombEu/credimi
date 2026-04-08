@@ -48,7 +48,6 @@ var OrganizationTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
-
 func HandleGetMyOrganization() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		userID := e.Auth.Id

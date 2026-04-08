@@ -157,7 +157,11 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.Equal(t, "2026-04-03T00:00:00Z", pipeline1.LastExecutionDate)
 				require.Equal(t, 4, pipeline1.ManualExecutions)
 				require.Equal(t, 11, pipeline1.ScheduledExecutions)
-				require.ElementsMatch(t, []string{"runner-1", "runner-2", "runner-3"}, pipeline1.Runners)
+				require.ElementsMatch(
+					t,
+					[]string{"runner-1", "runner-2", "runner-3"},
+					pipeline1.Runners,
+				)
 				require.ElementsMatch(t, []string{"android", "ios"}, pipeline1.RunnerTypes)
 				require.NotNil(t, pipeline1.LastExecution)
 				require.Equal(t, "Pipeline 1", pipeline1.LastExecution.PipelineName)
@@ -170,7 +174,6 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.ElementsMatch(t, []string{"runner-3"}, pipeline2.Runners)
 				require.NotNil(t, pipeline2.LastExecution)
 				require.Equal(t, "Pipeline 2", pipeline2.LastExecution.PipelineName)
-
 			},
 		},
 		{

@@ -23,12 +23,12 @@ func setupOrganizationApp(t testing.TB) *tests.TestApp {
 }
 
 func setupOrganizationPublicApp(t testing.TB) *tests.TestApp {
-    app, err := tests.NewTestApp(testDataDir)
-    require.NoError(t, err)
-    canonify.RegisterCanonifyHooks(app)
-    OrganizationTemporalInternalRoutes.Add(app)
-    seedInternalAdminKey(t, app)  
-    return app
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	canonify.RegisterCanonifyHooks(app)
+	OrganizationTemporalInternalRoutes.Add(app)
+	seedInternalAdminKey(t, app)
+	return app
 }
 
 func getUserRecordFromName(name string) (*core.Record, error) {

@@ -223,12 +223,20 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			pipelineName := pipelineRecord.GetString("name")
 
 			runnerCache := make(map[string]map[string]any)
-			stats, lastSuccessfulRun := calculateStatsFromExecutions(pipelineExecutions, e.App, runnerCache)
+			stats, lastSuccessfulRun := calculateStatsFromExecutions(
+				pipelineExecutions,
+				e.App,
+				runnerCache,
+			)
 
 			response = append(response, PipelineStatsResponse{
-				PipelineID:          pipelineID,
-				PipelineName:        pipelineName,
-				PipelineIdentifier:  fmt.Sprintf("%s/%s", namespace, pipelineRecord.GetString("canonified_name")),
+				PipelineID:   pipelineID,
+				PipelineName: pipelineName,
+				PipelineIdentifier: fmt.Sprintf(
+					"%s/%s",
+					namespace,
+					pipelineRecord.GetString("canonified_name"),
+				),
 				RunnerTypes:         stats.RunnerTypes,
 				Runners:             stats.Runners,
 				TotalRuns:           stats.TotalRuns,
@@ -333,8 +341,8 @@ func getWorkflowExecutionWithDecodedAttrs(
 
 	execInfo := resp.GetWorkflowExecutionInfo()
 	var decodedAttrs DecodedWorkflowSearchAttributes
-	if execInfo.SearchAttributes != nil {
-		decodedAttrs, err = decodeWorkflowSearchAttributes(execInfo.SearchAttributes)
+	if execInfo.GetSearchAttributes() != nil {
+		decodedAttrs, err = decodeWorkflowSearchAttributes(execInfo.GetSearchAttributes())
 		if err != nil {
 			return nil, err
 		}
@@ -342,10 +350,10 @@ func getWorkflowExecutionWithDecodedAttrs(
 
 	return &WorkflowExecution{
 		Execution: &WorkflowIdentifier{
-			WorkflowID: execInfo.Execution.WorkflowId,
-			RunID:      execInfo.Execution.RunId,
+			WorkflowID: execInfo.GetExecution().GetWorkflowId(),
+			RunID:      execInfo.GetExecution().GetRunId(),
 		},
-		Type:             WorkflowType{Name: execInfo.Type.Name},
+		Type:             WorkflowType{Name: execInfo.GetType().GetName()},
 		SearchAttributes: &decodedAttrs,
 	}, nil
 }
@@ -409,7 +417,9 @@ func calculateStatsFromExecutions(
 	stats.RunnerTypes = resolveRunnerTypes(app, stats.Runners, runnerCache)
 
 	if stats.TotalRuns > 0 {
-		stats.SuccessRate = math.Round(float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000) / 100
+		stats.SuccessRate = math.Round(
+			float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000,
+		) / 100
 	}
 
 	stats.FirstExecutionDate = firstTime
@@ -491,7 +501,11 @@ func mapKeysToSlice(m map[string]struct{}) []string {
 	return keys
 }
 
-func resolveRunnerTypes(app core.App, runnerIDs []string, runnerCache map[string]map[string]any) []string {
+func resolveRunnerTypes(
+	app core.App,
+	runnerIDs []string,
+	runnerCache map[string]map[string]any,
+) []string {
 	if len(runnerIDs) == 0 || app == nil {
 		return []string{}
 	}
@@ -534,7 +548,10 @@ func extractFirstTwoParts(fullPath string) string {
 	return fullPath
 }
 
-func getPipelineResultFromRecord(app core.App, record *core.Record) (video, screenshot, logs string) {
+func getPipelineResultFromRecord(
+	app core.App,
+	record *core.Record,
+) (video, screenshot, logs string) {
 	if record == nil {
 		return "", "", ""
 	}

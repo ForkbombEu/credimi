@@ -138,10 +138,14 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		},
 	}
 
-	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).Get(ctx, &httpResult)
+	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).
+		Get(ctx, &httpResult)
 	if err != nil {
 		logger.Error("Failed to get namespaces", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 
 	body, ok := httpResult.Output.(map[string]any)["body"].(map[string]any)
@@ -183,7 +187,10 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 				ExpectedStatus: http.StatusOK,
 			},
 		}
-		scoreboardFutures = append(scoreboardFutures, workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest))
+		scoreboardFutures = append(
+			scoreboardFutures,
+			workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest),
+		)
 		scoreboardNamespaces = append(scoreboardNamespaces, namespace)
 	}
 
@@ -200,7 +207,13 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		var result workflowengine.ActivityResult
 		err := future.Get(ctx, &result)
 		if err != nil {
-			logger.Error("Failed to fetch scoreboard", "namespace", scoreboardNamespaces[i], "error", err)
+			logger.Error(
+				"Failed to fetch scoreboard",
+				"namespace",
+				scoreboardNamespaces[i],
+				"error",
+				err,
+			)
 			failedNamespaces = append(failedNamespaces, scoreboardNamespaces[i])
 			continue
 		}
@@ -219,8 +232,8 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 			continue
 		}
 
-		for _, item := range pipelines {
-			pipeline, ok := item.(map[string]any)
+		for _, p := range pipelines {
+			pipeline, ok := p.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -327,7 +340,9 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 
 	for _, stats := range aggregatedMap {
 		if stats.TotalRuns > 0 {
-			stats.SuccessRate = math.Round(float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000) / 100
+			stats.SuccessRate = math.Round(
+				float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000,
+			) / 100
 		}
 		sort.Strings(stats.Runners)
 		sort.Strings(stats.RunnerTypes)
@@ -392,8 +407,16 @@ func fetchExecutionDetails(
 ) (*LatestExecutionDetails, error) {
 	detailsRequest := workflowengine.ActivityInput{
 		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodGet,
-			URL:            utils.JoinURL(appURL, "api", "pipeline", "execution-details", run.Namespace, run.WorkflowID, run.RunID),
+			Method: http.MethodGet,
+			URL: utils.JoinURL(
+				appURL,
+				"api",
+				"pipeline",
+				"execution-details",
+				run.Namespace,
+				run.WorkflowID,
+				run.RunID,
+			),
 			ExpectedStatus: http.StatusOK,
 		},
 	}

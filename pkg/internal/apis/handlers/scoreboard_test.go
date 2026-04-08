@@ -333,13 +333,17 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.Equal(t, 2, stats1.TotalSuccesses)
 	require.Equal(t, 1, stats1.ScheduledExecutions)
 	require.Equal(t, 2, stats1.ManualExecutions)
-	require.ElementsMatch(t, []string{"usera-s-organization/runner-android", "usera-s-organization/runner-ios"}, stats1.Runners)
+	require.ElementsMatch(
+		t,
+		[]string{"usera-s-organization/runner-android", "usera-s-organization/runner-ios"},
+		stats1.Runners,
+	)
 	require.Equal(t, "1m45s", stats1.MinExecutionTime)
-	expectedFirstTime := exec1.Info.StartTime.AsTime()
+	expectedFirstTime := exec1.Info.GetStartTime().AsTime()
 	actualFirstTime, err := time.Parse(time.RFC3339Nano, stats1.FirstExecutionDate)
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedFirstTime, actualFirstTime, time.Second)
-	expectedLastTime := exec3.Info.StartTime.AsTime()
+	expectedLastTime := exec3.Info.GetStartTime().AsTime()
 	actualLastTime, err := time.Parse(time.RFC3339Nano, stats1.LastExecutionDate)
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedLastTime, actualLastTime, time.Second)
@@ -357,9 +361,13 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.Equal(t, 1, stats2.TotalSuccesses)
 	require.Equal(t, 1, stats2.ScheduledExecutions)
 	require.Equal(t, 0, stats2.ManualExecutions)
-	require.ElementsMatch(t, []string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"}, stats2.Runners)
+	require.ElementsMatch(
+		t,
+		[]string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"},
+		stats2.Runners,
+	)
 	require.Equal(t, "4m10s", stats2.MinExecutionTime)
-	expectedTime2 := exec4.Info.StartTime.AsTime()
+	expectedTime2 := exec4.Info.GetStartTime().AsTime()
 	actualTime2, err := time.Parse(time.RFC3339Nano, stats2.FirstExecutionDate)
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedTime2, actualTime2, time.Second)
@@ -416,10 +424,19 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 		now.Add(-1*time.Hour),
 	)
 	addEntitySearchAttributes(exec2.Info, map[string]any{
-		workflowengine.VersionsSearchAttribute:         []string{"org/wallet/v1-0-0"},
-		workflowengine.ActionsSearchAttribute:          []string{"org/action/maestro-1", "org/action/maestro-2"},
-		workflowengine.CredentialsSearchAttribute:      []string{"org/issuer/credential-1", "org/issuer/credential-2"},
-		workflowengine.UseCaseSearchAttribute:          []string{"org/verifier/uc-1", "org/verifier/uc-2"},
+		workflowengine.VersionsSearchAttribute: []string{"org/wallet/v1-0-0"},
+		workflowengine.ActionsSearchAttribute: []string{
+			"org/action/maestro-1",
+			"org/action/maestro-2",
+		},
+		workflowengine.CredentialsSearchAttribute: []string{
+			"org/issuer/credential-1",
+			"org/issuer/credential-2",
+		},
+		workflowengine.UseCaseSearchAttribute: []string{
+			"org/verifier/uc-1",
+			"org/verifier/uc-2",
+		},
 		workflowengine.ConformanceCheckSearchAttribute: []string{"conformance/check-1"},
 		workflowengine.CustomCheckSearchAttribute:      []string{"custom/check-1"},
 	})
@@ -435,7 +452,10 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 		now.Add(-1*time.Minute),
 	)
 	addEntitySearchAttributes(exec4.Info, map[string]any{
-		workflowengine.VersionsSearchAttribute:    []string{"org/wallet/v2-0-0", "org/wallet/v3-0-0"},
+		workflowengine.VersionsSearchAttribute: []string{
+			"org/wallet/v2-0-0",
+			"org/wallet/v3-0-0",
+		},
 		workflowengine.CredentialsSearchAttribute: []string{"org/issuer/credential-3"},
 	})
 
@@ -519,10 +539,22 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 
 		require.ElementsMatch(t, []string{"org/wallet"}, details.WalletUsed)
 		require.ElementsMatch(t, []string{"org/wallet/v1-0-0"}, details.WalletVersionUsed)
-		require.ElementsMatch(t, []string{"org/action/maestro-1", "org/action/maestro-2"}, details.MaestroScripts)
-		require.ElementsMatch(t, []string{"org/issuer/credential-1", "org/issuer/credential-2"}, details.Credentials)
+		require.ElementsMatch(
+			t,
+			[]string{"org/action/maestro-1", "org/action/maestro-2"},
+			details.MaestroScripts,
+		)
+		require.ElementsMatch(
+			t,
+			[]string{"org/issuer/credential-1", "org/issuer/credential-2"},
+			details.Credentials,
+		)
 		require.ElementsMatch(t, []string{"org/issuer"}, details.Issuers)
-		require.ElementsMatch(t, []string{"org/verifier/uc-1", "org/verifier/uc-2"}, details.UseCaseVerifications)
+		require.ElementsMatch(
+			t,
+			[]string{"org/verifier/uc-1", "org/verifier/uc-2"},
+			details.UseCaseVerifications,
+		)
 		require.ElementsMatch(t, []string{"org/verifier"}, details.Verifiers)
 		require.ElementsMatch(t, []string{"conformance/check-1"}, details.ConformanceTests)
 		require.ElementsMatch(t, []string{"custom/check-1"}, details.CustomChecks)
@@ -556,7 +588,11 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 		require.Equal(t, "ios-e2e-tests", details.PipelineName)
 
 		require.ElementsMatch(t, []string{"org/wallet"}, details.WalletUsed)
-		require.ElementsMatch(t, []string{"org/wallet/v2-0-0", "org/wallet/v3-0-0"}, details.WalletVersionUsed)
+		require.ElementsMatch(
+			t,
+			[]string{"org/wallet/v2-0-0", "org/wallet/v3-0-0"},
+			details.WalletVersionUsed,
+		)
 		require.ElementsMatch(t, []string{"org/issuer/credential-3"}, details.Credentials)
 		require.ElementsMatch(t, []string{"org/issuer"}, details.Issuers)
 	})
@@ -606,7 +642,7 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 }
 
 func addEntitySearchAttributes(info *workflow.WorkflowExecutionInfo, attrs map[string]any) {
-	if info.SearchAttributes == nil {
+	if info.GetSearchAttributes() == nil {
 		info.SearchAttributes = &common.SearchAttributes{
 			IndexedFields: make(map[string]*common.Payload),
 		}
