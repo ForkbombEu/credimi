@@ -128,29 +128,28 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 							},
 						},
 					}, nil).Once()
-
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{
-						Output: map[string]any{
-							"body": map[string]any{
-								"pipeline_name":          "Pipeline 1",
-								"org_logo":               "https://example.com/logo.png",
-								"video":                  "https://example.com/video.mp4",
-								"screenshots":            "https://example.com/screenshot.png",
-								"logs":                   "https://example.com/logs.txt",
-								"wallet_used":            []interface{}{"org/wallet-a", "org/wallet-b"},
-								"wallet_version_used":    []interface{}{"org/wallet-a/v1-0-0", "org/wallet-b/v2-0-0"},
-								"maestro_scripts":        []interface{}{"org/action/maestro-1", "org/action/maestro-2"},
-								"credentials":            []interface{}{"org/issuer/credential-1", "org/issuer/credential-2"},
-								"issuers":                []interface{}{"org/issuer"},
-								"use_case_verifications": []interface{}{"org/verifier/uc-1", "org/verifier/uc-2"},
-								"verifiers":              []interface{}{"org/verifier"},
-								"conformance_tests":      []interface{}{"conformance/check-1", "conformance/check-2"},
-								"custom_checks":          []interface{}{"custom/check-1"},
-							},
-						},
-					}, nil).Once()
-			},
+    				Return(workflowengine.ActivityResult{
+        				Output: map[string]any{
+            				"body": map[string]any{
+                				"pipeline_name":          "Pipeline 1",
+                				"org_logo":               "https://example.com/logo.png",
+                				"video":                  "https://example.com/video.mp4",
+                				"screenshots":            "https://example.com/screenshot.png",
+                				"logs":                   "https://example.com/logs.txt",
+                				"wallet_used":            []interface{}{"org/wallet-a", "org/wallet-b"},
+                				"wallet_version_used":    []interface{}{"org/wallet-a/v1-0-0", "org/wallet-b/v2-0-0"},
+                				"maestro_scripts":        []interface{}{"org/action/maestro-1", "org/action/maestro-2"},
+                				"credentials":            []interface{}{"org/issuer/credential-1", "org/issuer/credential-2"},
+                				"issuers":                []interface{}{"org/issuer"},
+                				"use_case_verifications": []interface{}{"org/verifier/uc-1", "org/verifier/uc-2"},
+                				"verifiers":              []interface{}{"org/verifier"},
+                				"conformance_tests":      []interface{}{"conformance/check-1", "conformance/check-2"},
+                				"custom_checks":          []interface{}{"custom/check-1"},
+            				},	
+        				},
+    				}, nil).Times(2)
+				},
 			expectError: false,
 			validateOutput: func(t *testing.T, output AggregateScoreboardWorkflowOutput) {
 				require.Equal(t, 3, output.NamespacesProcessed)
@@ -159,17 +158,17 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 
 				var pipeline1, pipeline2 *AggregatedPipelineStats
     			for i := range output.AggregatedPipelines {
-        			if output.AggregatedPipelines[i].PipelineID == "pipe-1" {
+        			if output.AggregatedPipelines[i].PipelineName == "Pipeline 1" {
             			pipeline1 = &output.AggregatedPipelines[i]
-        			} else if output.AggregatedPipelines[i].PipelineID == "pipe-2" {
+        			} else if output.AggregatedPipelines[i].PipelineName == "Pipeline 2" {
         				pipeline2 = &output.AggregatedPipelines[i]
     				}
 				}
 
-				require.NotNil(t, output.GlobalLatestExecution)
-    			require.Equal(t, "Pipeline 1", output.GlobalLatestExecution.PipelineName)
+				require.NotNil(t, pipeline1.LastExecution)
+    			require.Equal(t, "Pipeline 1", pipeline1.LastExecution.PipelineName)
 
-				lastExec := output.GlobalLatestExecution
+				lastExec := pipeline1.LastExecution
 
 				require.Equal(t, "Pipeline 1", lastExec.PipelineName)
 				require.Equal(t, "https://example.com/logo.png", lastExec.OrgLogo)
@@ -233,7 +232,6 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 			validateOutput: func(t *testing.T, output AggregateScoreboardWorkflowOutput) {
 				require.Equal(t, 0, output.NamespacesProcessed)
 				require.Len(t, output.AggregatedPipelines, 0)
-				require.Nil(t, output.GlobalLatestExecution)
 			},
 		},
 		{

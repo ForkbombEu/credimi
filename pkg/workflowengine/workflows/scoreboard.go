@@ -30,6 +30,7 @@ type AggregatedPipelineStats struct {
 	MinExecutionTime    string   `json:"min_execution_time"`
 	FirstExecutionDate  string   `json:"first_execution_date"`
 	LastExecutionDate   string   `json:"last_execution_date"`
+	LastExecution       *LatestExecutionDetails `json:"last_execution,omitempty"`
 }
 
 type LatestExecutionDetails struct {
@@ -51,7 +52,6 @@ type LatestExecutionDetails struct {
 
 type AggregateScoreboardWorkflowOutput struct {
 	AggregatedPipelines []AggregatedPipelineStats `json:"aggregated_pipelines"`
-	GlobalLatestExecution *LatestExecutionDetails `json:"global_latest_execution,omitempty"`
 	NamespacesProcessed int      `json:"namespaces_processed"`
 	NamespacesFailed    int      `json:"namespaces_failed"`
 	FailedNamespaces    []string `json:"failed_namespaces,omitempty"`
@@ -180,16 +180,15 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	type rawPipelineData struct {
 		Namespace   string
 		Pipeline    map[string]interface{}
+		LastRun     *struct {
+        	WorkflowID string
+        	RunID      string
+        	StartTime  string
+    	}
 	}
 	
 	var allRawPipelines []rawPipelineData
 	var failedNamespaces []string
-	var globalLastRun *struct {
-		Namespace          string
-		WorkflowID         string
-		RunID              string
-		StartTime          string
-	}
 
 	for i, future := range scoreboardFutures {
 		var result workflowengine.ActivityResult
@@ -220,57 +219,62 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 			if !ok {
 				continue
 			}
-			allRawPipelines = append(allRawPipelines, rawPipelineData{
-				Namespace: scoreboardNamespaces[i],
-				Pipeline:  pipeline,
-			})
+			var lastRun *struct {
+        		WorkflowID string
+        		RunID      string
+        		StartTime  string
+    		}
 			
 			if lastRunRaw, ok := pipeline["last_successful_run"]; ok && lastRunRaw != nil {
 				if lastRunMap, ok := lastRunRaw.(map[string]interface{}); ok {
 					if startTime, ok := lastRunMap["start_time"].(string); ok {
 						workflowID, _ := lastRunMap["workflow_id"].(string)
 						runID, _ := lastRunMap["run_id"].(string)						
-						if globalLastRun == nil || startTime > globalLastRun.StartTime {
-							logger.Info("Found last_successful_run", 
-        					"namespace", scoreboardNamespaces[i],
-        					"workflow_id", lastRunMap["workflow_id"],
-        					"start_time", lastRunMap["start_time"])
-							globalLastRun = &struct {
-								Namespace          string
-								WorkflowID         string
-								RunID              string
-								StartTime          string
-							}{
-								Namespace:          scoreboardNamespaces[i],
-								WorkflowID:         workflowID,
-								RunID:              runID,
-								StartTime:          startTime,
-							}
-						}
+						lastRun = &struct {
+                    		WorkflowID string
+                    		RunID      string
+                    		StartTime  string
+                		}{
+                    		WorkflowID: workflowID,
+                    		RunID:      runID,
+                    		StartTime:  startTime,
+                		}
 					}
 				}
 			}
+			allRawPipelines = append(allRawPipelines, rawPipelineData{
+        		Namespace: scoreboardNamespaces[i],
+        		Pipeline:  pipeline,
+        		LastRun:   lastRun,
+    		})
 		}
 	}
 
 	aggregatedMap := make(map[string]*AggregatedPipelineStats)
+
+	lastRunMap := make(map[string]*struct {
+    	WorkflowID string
+   		RunID      string
+		StartTime  string
+    	Namespace  string
+	})
+
 	for _, raw := range allRawPipelines {
 		p := raw.Pipeline
-		pipelineID, ok := p["pipeline_id"].(string)
-		if !ok || pipelineID == "" {
+		pipelineName, ok := p["pipeline_name"].(string)
+		if !ok || pipelineName == "" {
     		continue
 		}		
 
-		if _, exists := aggregatedMap[pipelineID]; !exists {
-    		aggregatedMap[pipelineID] = &AggregatedPipelineStats{
-        		PipelineID:         pipelineID,
-        		PipelineName:       p["pipeline_name"].(string),
+		if _, exists := aggregatedMap[pipelineName]; !exists {
+    		aggregatedMap[pipelineName] = &AggregatedPipelineStats{
+        		PipelineName:       pipelineName,
         		RunnerTypes:        []string{},
         		Runners:            []string{},
     		}
 		}
 
-		stats := aggregatedMap[pipelineID]
+		stats := aggregatedMap[pipelineName]
 
 		if totalRuns, ok := p["total_runs"].(float64); ok {
 			stats.TotalRuns += int(totalRuns)
@@ -317,6 +321,23 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 				stats.MinExecutionTime = minTime
 			}
 		}
+
+		if raw.LastRun != nil {
+        	existingLastRun := lastRunMap[pipelineName]
+        	if existingLastRun == nil || raw.LastRun.StartTime > existingLastRun.StartTime {
+            	lastRunMap[pipelineName] = &struct {
+                	WorkflowID string
+                	RunID      string
+                	StartTime  string
+                	Namespace  string
+            	}{
+                	WorkflowID: raw.LastRun.WorkflowID,
+                	RunID:      raw.LastRun.RunID,
+                	StartTime:  raw.LastRun.StartTime,
+                	Namespace:  raw.Namespace,
+            	}
+        	}
+    	}
 	}
 	
 	for _, stats := range aggregatedMap {
@@ -327,72 +348,73 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		sort.Strings(stats.RunnerTypes)
 	}
 	
+	for pipelineName, lastRun := range lastRunMap {
+    	if lastRun == nil {
+        	continue
+    	}
+		stats, exists := aggregatedMap[pipelineName]
+    	if !exists {
+        	logger.Error("Pipeline not found in aggregated map", "pipeline_name", pipelineName)
+        	continue
+    	}
+    
+    	detailsURL := utils.JoinURL(
+        	appURL,
+        	"api", "pipeline", "execution-details",
+        	lastRun.Namespace,
+        	lastRun.WorkflowID,
+        	lastRun.RunID,
+    	)
+    
+    	detailsRequest := workflowengine.ActivityInput{
+        	Payload: activities.InternalHTTPActivityPayload{
+            	Method:         http.MethodGet,
+            	URL:            detailsURL,
+            	ExpectedStatus: http.StatusOK,
+            	Headers: map[string]string{
+                	"Credimi-Api-Key": apiKey,
+            	},
+        	},
+    	}
+    
+    	var detailsResult workflowengine.ActivityResult
+    	err = workflow.ExecuteActivity(ctx, httpActivity.Name(), detailsRequest).Get(ctx, &detailsResult)
+    	if err != nil {
+        	logger.Error("Failed to fetch execution details", "pipeline_name", pipelineName, "error", err)
+        	continue
+    	}
+    
+    	if detailsBody, ok := detailsResult.Output.(map[string]any)["body"].(map[string]any); ok {
+        	stats.LastExecution = &LatestExecutionDetails{
+            	PipelineName:          getString(detailsBody, "pipeline_name"),
+            	OrgLogo:               getString(detailsBody, "org_logo"),
+            	Video:                 getString(detailsBody, "video"),
+            	Screenshot:            getString(detailsBody, "screenshots"),
+            	Logs:                  getString(detailsBody, "logs"),
+            	WalletUsed:            getStringSlice(detailsBody, "wallet_used"),
+            	WalletVersionUsed:     getStringSlice(detailsBody, "wallet_version_used"),
+            	MaestroScripts:        getStringSlice(detailsBody, "maestro_scripts"),
+            	Credentials:           getStringSlice(detailsBody, "credentials"),
+            	Issuers:               getStringSlice(detailsBody, "issuers"),
+            	UseCaseVerifications:  getStringSlice(detailsBody, "use_case_verifications"),
+            	Verifiers:             getStringSlice(detailsBody, "verifiers"),
+            	ConformanceTests:      getStringSlice(detailsBody, "conformance_tests"),
+            	CustomChecks:          getStringSlice(detailsBody, "custom_checks"),
+        	}
+		} else {
+			logger.Error("Invalid execution details response body", "pipeline_name", pipelineName)
+		}
+	}
 	aggregatedPipelines := make([]AggregatedPipelineStats, 0, len(aggregatedMap))
 	for _, stats := range aggregatedMap {
 		aggregatedPipelines = append(aggregatedPipelines, *stats)
 	}
-	
+
 	sort.Slice(aggregatedPipelines, func(i, j int) bool {
 		return aggregatedPipelines[i].PipelineName < aggregatedPipelines[j].PipelineName
 	})
-
-	var globalLatest *LatestExecutionDetails
-	
-	if globalLastRun != nil {
-		logger.Info("Fetching details for global latest execution",
-			"namespace", globalLastRun.Namespace,
-			"workflow_id", globalLastRun.WorkflowID,
-			"run_id", globalLastRun.RunID,
-		)
-
-		detailsURL := utils.JoinURL(
-			appURL,
-			"api", "pipeline", "execution-details",
-			globalLastRun.Namespace,
-			globalLastRun.WorkflowID,
-			globalLastRun.RunID,
-		)
-
-		detailsRequest := workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
-				Method:         http.MethodGet,
-				URL:            detailsURL,
-				ExpectedStatus: http.StatusOK,
-				Headers: map[string]string{
-					"Credimi-Api-Key": apiKey,
-				},
-			},
-		}
-
-		var detailsResult workflowengine.ActivityResult
-		err = workflow.ExecuteActivity(ctx, httpActivity.Name(), detailsRequest).Get(ctx, &detailsResult)
-		if err != nil {
-			logger.Error("Failed to fetch execution details", "error", err)
-		} else {
-			if detailsBody, ok := detailsResult.Output.(map[string]any)["body"].(map[string]any); ok {
-				globalLatest = &LatestExecutionDetails{
-					PipelineName:          getString(detailsBody, "pipeline_name"),
-					OrgLogo:               getString(detailsBody, "org_logo"),
-					Video:                 getString(detailsBody, "video"),
-					Screenshot:            getString(detailsBody, "screenshots"),
-					Logs:                  getString(detailsBody, "logs"),
-					WalletUsed:            getStringSlice(detailsBody, "wallet_used"),
-					WalletVersionUsed:     getStringSlice(detailsBody, "wallet_version_used"),
-					MaestroScripts:        getStringSlice(detailsBody, "maestro_scripts"),
-					Credentials:           getStringSlice(detailsBody, "credentials"),
-					Issuers:               getStringSlice(detailsBody, "issuers"),
-					UseCaseVerifications:  getStringSlice(detailsBody, "use_case_verifications"),
-					Verifiers:             getStringSlice(detailsBody, "verifiers"),
-					ConformanceTests:      getStringSlice(detailsBody, "conformance_tests"),
-					CustomChecks:          getStringSlice(detailsBody, "custom_checks"),
-				}
-			}
-		}
-	}
-
 	output := AggregateScoreboardWorkflowOutput{
 		AggregatedPipelines:   aggregatedPipelines,
-		GlobalLatestExecution: globalLatest,
 		NamespacesProcessed:   len(namespaces) - len(failedNamespaces),
 		NamespacesFailed:      len(failedNamespaces),
 		FailedNamespaces:      failedNamespaces,
