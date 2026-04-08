@@ -35,11 +35,6 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:  http.MethodGet,
-			Path:    "/checks",
-			Handler: HandleListMyChecks,
-		},
-		{
-			Method:  http.MethodGet,
 			Path:    "/checks/{workflowId}/{runId}",
 			Handler: HandleGetWorkflow,
 		},

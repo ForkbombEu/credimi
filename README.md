@@ -25,6 +25,13 @@ credimi is a platform designed to ensure that credential issuers and verifiers w
 
 credimi is more than just a tool – it's a platform designed to foster trust, security, and innovation in the world of decentralized identity.
 
+## 🛠️ Recent Development
+
+- **External Source Support**: Install apps from external sources with enhanced detection
+- **Pipeline Improvements**: Published pipeline run listings and refined Temporal API integration
+- **Enhanced Security**: Runner wallet routes now support user authentication
+- **Robust Retry Logic**: Improved retry mechanisms for external install app detection
+
 ## 🎯 Project Goals
 
 - **Promote Interoperability**: Facilitate the adoption of standardized identity solutions that work across various platforms and technologies.
@@ -70,7 +77,7 @@ Click the link above to dive into our comprehensive documentation, where you’l
 
 ## 😍 Acknowledgements
 
-Copyright © 2023-2025 by [Forkbomb BV](https://www.forkbomb.solutions), Amsterdam
+Copyright © 2023-2026 by [Forkbomb BV](https://www.forkbomb.solutions), Amsterdam
 
 <img align="left" src="https://github.com/ForkbombEu/DIDroom/raw/main/images/logo-ngi-trustchain-positive-rgb-PNG.png" width="145">
 

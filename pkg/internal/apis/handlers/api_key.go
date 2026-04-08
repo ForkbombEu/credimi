@@ -120,9 +120,9 @@ func generateAPIKeyForPrincipal(
 	}
 
 	switch collectionName {
-	case "users":
+	case apiKeyUserCollection:
 		return service.GenerateApiKey(auth.Id, name)
-	case "_superusers":
+	case apiKeySuperuserCollection:
 		return service.GenerateInternalAdminAPIKey(auth.Id, name)
 	default:
 		return "", apierror.New(

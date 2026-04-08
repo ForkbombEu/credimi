@@ -7,9 +7,11 @@ import { getRecordByCanonifiedPath } from '$lib/canonify';
 
 import type { PipelinesResponse } from '@/pocketbase/types/index.generated.js';
 
+import { getPaginationQueryParams, getStatusQueryParam } from '../../tests/runs/_partials';
+
 //
 
-export const load = async ({ params, fetch }) => {
+export const load = async ({ params, fetch, url }) => {
 	const pipeline = await getRecordByCanonifiedPath<PipelinesResponse>(params.pipeline_path, {
 		fetch
 	});
@@ -17,7 +19,14 @@ export const load = async ({ params, fetch }) => {
 		throw pipeline;
 	}
 
-	const workflows = await Pipeline.Workflows.list(pipeline.id, { fetch });
+	const status = getStatusQueryParam(url);
+	const pagination = getPaginationQueryParams(url);
 
-	return { pipeline, workflows };
+	const workflows = await Pipeline.Workflows.list(pipeline.id, {
+		fetch,
+		status,
+		...pagination
+	});
+
+	return { pipeline, workflows, pagination };
 };

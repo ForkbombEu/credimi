@@ -37,7 +37,7 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				`"credential_identifier"`,
 				`"credential_identifier is required"`,
 			},
-			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
+			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: setupCredentialApp,
 		},
 		{

@@ -85,357 +85,6 @@ paths:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Run a custom integration
-  /api/my/checks:
-    get:
-      description: List all checks for the authenticated user
-      operationId: checks.list
-      parameters:
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersListMyChecksResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Get a list of all checks for the authenticated user
-  /api/my/checks/{checkId}/runs:
-    get:
-      description: List all runs for a specific check
-      operationId: checkRuns.list
-      parameters:
-      - description: The ID for the checkId.
-        in: path
-        name: checkId
-        required: true
-        schema:
-          description: The ID for the checkId.
-          type: string
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersListMyCheckRunsResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Get a list of all runs for a specific check
-  /api/my/checks/{checkId}/runs/{runId}:
-    get:
-      description: Get details of a specific run for a check
-      operationId: checkRun.get
-      parameters:
-      - description: The ID for the checkId.
-        in: path
-        name: checkId
-        required: true
-        schema:
-          description: The ID for the checkId.
-          type: string
-      - description: The ID for the runId.
-        in: path
-        name: runId
-        required: true
-        schema:
-          description: The ID for the runId.
-          type: string
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersGetMyCheckRunResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Get details of a specific run for a check
-  /api/my/checks/{checkId}/runs/{runId}/cancel:
-    post:
-      description: Cancel a specific check run
-      operationId: checkRun.cancel
-      parameters:
-      - description: The ID for the checkId.
-        in: path
-        name: checkId
-        required: true
-        schema:
-          description: The ID for the checkId.
-          type: string
-      - description: The ID for the runId.
-        in: path
-        name: runId
-        required: true
-        schema:
-          description: The ID for the runId.
-          type: string
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersCancelMyCheckRunResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Cancel a specific check run
-  /api/my/checks/{checkId}/runs/{runId}/export:
-    get:
-      description: Export a specific check run
-      operationId: checkRun.export
-      parameters:
-      - description: The ID for the checkId.
-        in: path
-        name: checkId
-        required: true
-        schema:
-          description: The ID for the checkId.
-          type: string
-      - description: The ID for the runId.
-        in: path
-        name: runId
-        required: true
-        schema:
-          description: The ID for the runId.
-          type: string
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersExportMyCheckRunResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Export a specific check run
-  /api/my/checks/{checkId}/runs/{runId}/history:
-    get:
-      description: Get the history of events for a specific run of a check
-      operationId: checkRun.history
-      parameters:
-      - description: The ID for the checkId.
-        in: path
-        name: checkId
-        required: true
-        schema:
-          description: The ID for the checkId.
-          type: string
-      - description: The ID for the runId.
-        in: path
-        name: runId
-        required: true
-        schema:
-          description: The ID for the runId.
-          type: string
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersGetMyCheckRunHistoryResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Get the history of events for a specific run of a check
-  /api/my/checks/{checkId}/runs/{runId}/logs:
-    get:
-      description: Start or Stop logs for a specific check run and get the log channel
-      operationId: checkRun.logs
-      parameters:
-      - description: Can be 'start' or 'stop' to control logging for the check run
-        in: query
-        name: action
-        schema:
-          description: Can be 'start' or 'stop' to control logging for the check run
-          type: string
-      - description: The ID for the checkId.
-        in: path
-        name: checkId
-        required: true
-        schema:
-          description: The ID for the checkId.
-          type: string
-      - description: The ID for the runId.
-        in: path
-        name: runId
-        required: true
-        schema:
-          description: The ID for the runId.
-          type: string
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersChecksLogsResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Start or Stop logs for a specific check run
-  /api/my/checks/{checkId}/runs/{runId}/rerun:
-    post:
-      description: Re-run a specific check run
-      operationId: checkRun.rerun
-      parameters:
-      - description: The ID for the checkId.
-        in: path
-        name: checkId
-        required: true
-        schema:
-          description: The ID for the checkId.
-          type: string
-      - description: The ID for the runId.
-        in: path
-        name: runId
-        required: true
-        schema:
-          description: The ID for the runId.
-          type: string
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HandlersReRunCheckRequest'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersReRunCheckResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Re-run a specific check run
-  /api/my/checks/{checkId}/runs/{runId}/terminate:
-    post:
-      description: Terminate a specific check run
-      operationId: checkRun.terminate
-      parameters:
-      - description: The ID for the checkId.
-        in: path
-        name: checkId
-        required: true
-        schema:
-          description: The ID for the checkId.
-          type: string
-      - description: The ID for the runId.
-        in: path
-        name: runId
-        required: true
-        schema:
-          description: The ID for the runId.
-          type: string
-      - description: Bearer token for authentication
-        in: header
-        name: Authorization
-        required: true
-        schema:
-          description: Bearer token for authentication
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersTerminateMyCheckRunResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
-          description: An unexpected error occurred.
-      summary: Terminate a specific check run
   /api/my/schedules:
     get:
       description: List all schedules for the authenticated user
@@ -593,6 +242,334 @@ paths:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Start a new schedule from an existing workflow
+  /api/my/workflows/{workflowId}/runs:
+    get:
+      description: List all runs for a specific workflow
+      operationId: workflowRuns.list
+      parameters:
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersListMyWorkflowRunsResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Get a list of all runs for a specific workflow
+  /api/my/workflows/{workflowId}/runs/{runId}:
+    get:
+      description: Get details of a specific run for a workflow
+      operationId: workflowRun.get
+      parameters:
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersGetMyWorkflowRunResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Get details of a specific run for a workflow
+  /api/my/workflows/{workflowId}/runs/{runId}/cancel:
+    post:
+      description: Cancel a specific workflow run
+      operationId: workflowRun.cancel
+      parameters:
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersCancelMyWorkflowRunResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Cancel a specific workflow run
+  /api/my/workflows/{workflowId}/runs/{runId}/export:
+    get:
+      description: Export a specific workflow run
+      operationId: workflowRun.export
+      parameters:
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersExportMyWorkflowRunResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Export a specific workflow run
+  /api/my/workflows/{workflowId}/runs/{runId}/history:
+    get:
+      description: Get the history of events for a specific run of a workflow
+      operationId: workflowRun.history
+      parameters:
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersGetMyWorkflowRunHistoryResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Get the history of events for a specific run of a workflow
+  /api/my/workflows/{workflowId}/runs/{runId}/logs:
+    get:
+      description: Start or Stop logs for a specific workflow run and get the log
+        channel
+      operationId: workflowRun.logs
+      parameters:
+      - description: Can be 'start' or 'stop' to control logging for the workflow
+          run
+        in: query
+        name: action
+        schema:
+          description: Can be 'start' or 'stop' to control logging for the workflow
+            run
+          type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersWorkflowLogsResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Start or Stop logs for a specific workflow run
+  /api/my/workflows/{workflowId}/runs/{runId}/rerun:
+    post:
+      description: Re-run a specific workflow run
+      operationId: workflowRun.rerun
+      parameters:
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersReRunWorkflowRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersReRunWorkflowResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Re-run a specific workflow run
+  /api/my/workflows/{workflowId}/runs/{runId}/terminate:
+    post:
+      description: Terminate a specific workflow run
+      operationId: workflowRun.terminate
+      parameters:
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersTerminateMyWorkflowRunResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Terminate a specific workflow run
 components:
   schemas:
     ApierrorAPIError:
@@ -649,10 +626,8 @@ components:
             $ref: '#/components/schemas/HandlersCallback'
           type: array
       type: object
-    HandlersCancelMyCheckRunResponse:
+    HandlersCancelMyWorkflowRunResponse:
       properties:
-        checkId:
-          type: string
         message:
           type: string
         namespace:
@@ -662,6 +637,8 @@ components:
         status:
           type: string
         time:
+          type: string
+        workflowId:
           type: string
       type: object
     HandlersCancelScheduleResponse:
@@ -677,23 +654,6 @@ components:
         time:
           type: string
       type: object
-    HandlersChecksLogsResponse:
-      properties:
-        channel:
-          type: string
-        message:
-          type: string
-        namespace:
-          type: string
-        run_id:
-          type: string
-        status:
-          type: string
-        time:
-          type: string
-        workflow_id:
-          type: string
-      type: object
     HandlersDuration:
       properties:
         nanos:
@@ -701,25 +661,10 @@ components:
         seconds:
           type: integer
       type: object
-    HandlersExportData:
-      properties:
-        checkId:
-          type: string
-        config:
-          additionalProperties: {}
-          nullable: true
-          type: object
-        input:
-          additionalProperties: {}
-          nullable: true
-          type: object
-        runId:
-          type: string
-      type: object
-    HandlersExportMyCheckRunResponse:
+    HandlersExportMyWorkflowRunResponse:
       properties:
         export:
-          $ref: '#/components/schemas/HandlersExportData'
+          $ref: '#/components/schemas/HandlersWorkflowExportData'
       type: object
     HandlersFailure:
       properties:
@@ -746,10 +691,8 @@ components:
         api_key:
           type: string
       type: object
-    HandlersGetMyCheckRunHistoryResponse:
+    HandlersGetMyWorkflowRunHistoryResponse:
       properties:
-        checkId:
-          type: string
         count:
           type: integer
         history:
@@ -764,8 +707,10 @@ components:
           type: string
         time:
           type: string
+        workflowId:
+          type: string
       type: object
-    HandlersGetMyCheckRunResponse:
+    HandlersGetMyWorkflowRunResponse:
       properties:
         callbacks:
           $ref: '#/components/schemas/HandlersCallbacks'
@@ -788,27 +733,19 @@ components:
         workflowExecutionInfo:
           $ref: '#/components/schemas/HandlersWorkflowExecutionInfo'
       type: object
-    HandlersListMyCheckRunsResponse:
-      properties:
-        executions:
-          items:
-            $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
-          nullable: true
-          type: array
-      type: object
-    HandlersListMyChecksResponse:
-      properties:
-        executions:
-          items:
-            $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
-          nullable: true
-          type: array
-      type: object
     HandlersListMySchedulesResponse:
       properties:
         schedules:
           items:
             $ref: '#/components/schemas/HandlersScheduleInfoSummary'
+          type: array
+      type: object
+    HandlersListMyWorkflowRunsResponse:
+      properties:
+        executions:
+          items:
+            $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
+          nullable: true
           type: array
       type: object
     HandlersMemo:
@@ -935,14 +872,14 @@ components:
         video:
           type: string
       type: object
-    HandlersReRunCheckRequest:
+    HandlersReRunWorkflowRequest:
       properties:
         config:
           additionalProperties: {}
           nullable: true
           type: object
       type: object
-    HandlersReRunCheckResponse:
+    HandlersReRunWorkflowResponse:
       properties:
         run_id:
           type: string
@@ -1015,10 +952,8 @@ components:
         normalName:
           type: string
       type: object
-    HandlersTerminateMyCheckRunResponse:
+    HandlersTerminateMyWorkflowRunResponse:
       properties:
-        checkId:
-          type: string
         message:
           type: string
         namespace:
@@ -1028,6 +963,8 @@ components:
         status:
           type: string
         time:
+          type: string
+        workflowId:
           type: string
       type: object
     HandlersUserMetadata:
@@ -1117,11 +1054,43 @@ components:
         type:
           $ref: '#/components/schemas/HandlersWorkflowType'
       type: object
+    HandlersWorkflowExportData:
+      properties:
+        config:
+          additionalProperties: {}
+          nullable: true
+          type: object
+        input:
+          additionalProperties: {}
+          nullable: true
+          type: object
+        runId:
+          type: string
+        workflowId:
+          type: string
+      type: object
     HandlersWorkflowIdentifier:
       properties:
         runId:
           type: string
         workflowId:
+          type: string
+      type: object
+    HandlersWorkflowLogsResponse:
+      properties:
+        channel:
+          type: string
+        message:
+          type: string
+        namespace:
+          type: string
+        run_id:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+        workflow_id:
           type: string
       type: object
     HandlersWorkflowQueueSummary:

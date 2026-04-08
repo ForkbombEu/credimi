@@ -138,7 +138,18 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	var err error
-	ao, err = w.executeSteps(ctx, input, wfDef.Steps, ao, config, &runData, runMetadata, state, debug, logger)
+	ao, err = w.executeSteps(
+		ctx,
+		input,
+		wfDef.Steps,
+		ao,
+		config,
+		&runData,
+		runMetadata,
+		state,
+		debug,
+		logger,
+	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
