@@ -144,6 +144,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	mobileActivity := activities.NewRunMobileFlowActivity()
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
+		Config: workflowengine.ActivityTelemetryConfig(ctx, input.Config),
 		Payload: mobile.RunMobileFlowPayload{
 			Serial:     payload.Serial,
 			Type:       payload.Type,

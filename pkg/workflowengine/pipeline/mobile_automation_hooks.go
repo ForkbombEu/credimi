@@ -937,6 +937,7 @@ func startManagedDevice(
 			"device_name": input.payload.RunnerID,
 			"type":        input.deviceType.String(),
 		},
+		Config: workflowengine.ActivityTelemetryConfig(input.mobileCtx, nil),
 	}
 	err := workflow.ExecuteActivity(input.mobileCtx, input.activities.Start, startInput).
 		Get(input.ctx, &startResult)
@@ -1206,7 +1207,10 @@ func installAppIfNeeded(
 			"serial":                           input.serial,
 			"type":                             input.deviceType.String(),
 		}
-		installInput := workflowengine.ActivityInput{Payload: installPayload}
+		installInput := workflowengine.ActivityInput{
+			Payload: installPayload,
+			Config:  workflowengine.ActivityTelemetryConfig(input.mobileCtx, nil),
+		}
 		installOutput := workflowengine.ActivityResult{}
 		if err := workflow.ExecuteActivity(input.mobileCtx, input.activities.Install, installInput).
 			Get(input.mobileCtx, &installOutput); err != nil {
@@ -1334,6 +1338,7 @@ func startRecordingForDevice(
 			"serial":      serial,
 			"workflow_id": workflow.GetInfo(mobileCtx).WorkflowExecution.ID,
 		},
+		Config: workflowengine.ActivityTelemetryConfig(mobileCtx, nil),
 	}
 	var recordResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(
@@ -1568,6 +1573,7 @@ func cleanupDevice(
 		activities.NewCleanupDeviceActivity().Name(),
 		workflowengine.ActivityInput{
 			Payload: cleanupPayload,
+			Config:  workflowengine.ActivityTelemetryConfig(mobileCtx, nil),
 		},
 	).Get(input.ctx, nil); err != nil {
 		input.logger.Error(
@@ -1884,6 +1890,7 @@ func stopRecording(
 		stopActivityName,
 		workflowengine.ActivityInput{
 			Payload: stopPayload,
+			Config:  workflowengine.ActivityTelemetryConfig(ctx, nil),
 		},
 	).Get(ctx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)

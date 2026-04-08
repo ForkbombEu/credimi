@@ -64,7 +64,7 @@ func ExecuteStep(
 		act := step.NewFunc().(workflowengine.Activity)
 		input := workflowengine.ActivityInput{
 			Payload: payload,
-			Config:  convertMapAnyToString(s.With.Config),
+			Config:  workflowengine.ActivityTelemetryConfig(ctx, s.With.Config),
 		}
 		var result workflowengine.ActivityResult
 
@@ -134,7 +134,7 @@ func ExecuteStep(
 		}
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,
-			Config:          s.With.Config,
+			Config:          workflowengine.MergeTelemetryConfig(ctx, s.With.Config),
 			ActivityOptions: &ao,
 		}
 
@@ -248,7 +248,7 @@ func runChildPipeline(
 	childInput := PipelineWorkflowInput{
 		WorkflowDefinition: wfDef,
 		WorkflowInput: workflowengine.WorkflowInput{
-			Config:          step.With.Config,
+			Config:          workflowengine.MergeTelemetryConfig(ctx, step.With.Config),
 			Payload:         step.With.Payload,
 			ActivityOptions: &ao,
 		},
