@@ -273,6 +273,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
+	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -281,8 +282,141 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 		startEmuActivity.Execute,
 		activity.RegisterOptions{Name: startEmuActivity.Name()},
 	)
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
+	)
 
 	workflowName := "get-device-map-serial"
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
+				ctx:                       ctx,
+				mobileCtx:                 ctx,
+				payload:                   payload,
+				settedDevices:             map[string]any{},
+				appURL:                    "http://localhost:8090",
+				stepID:                    "step-1",
+				trackInitialInstalledApps: true,
+				httpActivity:              httpActivity,
+			})
+		},
+		workflow.RegisterOptions{Name: workflowName},
+	)
+
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.Anything,
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"runner_url": "http://runner",
+			"type":       "physical",
+			"serial":     "serial-1",
+		},
+	}}, nil)
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
+
+	env.ExecuteWorkflow(workflowName)
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "serial-1", result["serial"])
+	require.Equal(t, "android_phone", result["type"])
+	require.Equal(t, "http://runner", result["runner_url"])
+}
+
+func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	startEmuActivity := activities.NewStartEmulatorActivity()
+	listAppsActivity := activities.NewListInstalledAppsActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		startEmuActivity.Execute,
+		activity.RegisterOptions{Name: startEmuActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
+	)
+
+	workflowName := "get-device-map-emulator"
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
+				ctx:                       ctx,
+				mobileCtx:                 ctx,
+				payload:                   payload,
+				settedDevices:             map[string]any{},
+				appURL:                    "http://localhost:8090",
+				stepID:                    "step-1",
+				trackInitialInstalledApps: true,
+				httpActivity:              httpActivity,
+			})
+		},
+		workflow.RegisterOptions{Name: workflowName},
+	)
+
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.Anything,
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"runner_url": "http://runner",
+			"type":       "android_emulator",
+			"serial":     "serial-from-runner",
+		},
+	}}, nil)
+
+	env.OnActivity(
+		startEmuActivity.Name(),
+		mock.Anything,
+		mock.Anything,
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"serial": "emu-1",
+		"name":   "device-1",
+	}}, nil)
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
+
+	env.ExecuteWorkflow(workflowName)
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "emu-1", result["serial"])
+	require.Equal(t, "device-1", result["name"])
+	require.Equal(t, "android_emulator", result["type"])
+}
+
+func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	workflowName := "get-device-map-no-snapshot"
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (map[string]any, error) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
@@ -322,72 +456,8 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	require.Equal(t, "serial-1", result["serial"])
 	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "http://runner", result["runner_url"])
-}
-
-func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	httpActivity := activities.NewHTTPActivity()
-	startEmuActivity := activities.NewStartEmulatorActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		startEmuActivity.Execute,
-		activity.RegisterOptions{Name: startEmuActivity.Name()},
-	)
-
-	workflowName := "get-device-map-emulator"
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (map[string]any, error) {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			ctx = workflow.WithActivityOptions(ctx, ao)
-			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
-			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-				ctx:           ctx,
-				mobileCtx:     ctx,
-				payload:       payload,
-				settedDevices: map[string]any{},
-				appURL:        "http://localhost:8090",
-				stepID:        "step-1",
-				httpActivity:  httpActivity,
-			})
-		},
-		workflow.RegisterOptions{Name: workflowName},
-	)
-
-	env.OnActivity(
-		httpActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"runner_url": "http://runner",
-			"type":       "android_emulator",
-			"serial":     "serial-from-runner",
-		},
-	}}, nil)
-
-	env.OnActivity(
-		startEmuActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"serial": "emu-1",
-		"name":   "device-1",
-	}}, nil)
-
-	env.ExecuteWorkflow(workflowName)
-	require.True(t, env.IsWorkflowCompleted())
-	require.NoError(t, env.GetWorkflowError())
-
-	var result map[string]any
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, "emu-1", result["serial"])
-	require.Equal(t, "device-1", result["name"])
-	require.Equal(t, "android_emulator", result["type"])
+	_, hasInitialSnapshot := result["initial_installed_apps"]
+	require.False(t, hasInitialSnapshot)
 }
 
 func TestExtractDeviceInfo(t *testing.T) {

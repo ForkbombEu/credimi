@@ -82,7 +82,7 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 		mux, err := e.Router.BuildMux()
 		require.NoError(t, err)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, req)
@@ -105,89 +105,6 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 		require.Equal(t, "ticket-queued", summaries[0].Execution.RunID)
 		require.Equal(t, []string{"runner-1"}, summaries[0].RunnerIDs)
 		require.Equal(t, pipelineIdentifier, summaries[0].PipelineIdentifier)
-
-		return nil
-	})
-	require.NoError(t, serveErr)
-}
-
-func TestGetPipelineSpecificDetailsIncludesQueuedRuns(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-	userRecord, err := getUserRecordFromName("userA")
-	require.NoError(t, err)
-	token, err := userRecord.NewAuthToken()
-	require.NoError(t, err)
-
-	app := setupPipelineStartApp(t)
-	defer app.Cleanup()
-
-	coll, err := app.FindCollectionByNameOrId("pipelines")
-	require.NoError(t, err)
-
-	record := core.NewRecord(coll)
-	record.Set("owner", orgID)
-	record.Set("name", "queued-pipeline-specific")
-	record.Set("description", "queued pipeline specific description")
-	record.Set("yaml", "name: queued-pipeline-specific\n")
-	require.NoError(t, app.Save(record))
-
-	mockClient := &temporalmocks.Client{}
-	mockClient.
-		On(
-			"ListWorkflow",
-			mock.Anything,
-			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
-		).
-		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
-		Maybe()
-
-	origTemporalClient := pipelineTemporalClient
-	t.Cleanup(func() {
-		pipelineTemporalClient = origTemporalClient
-	})
-	pipelineTemporalClient = func(_ string) (client.Client, error) {
-		return mockClient, nil
-	}
-
-	pipelinePath, err := canonify.BuildPath(
-		app,
-		record,
-		canonify.CanonifyPaths["pipelines"],
-		"",
-	)
-	require.NoError(t, err)
-	pipelineIdentifier := strings.Trim(pipelinePath, "/")
-
-	stubQueuedRuns(t, "usera-s-organization/queued-pipeline-specific")
-
-	baseRouter, err := apis.NewRouter(app)
-	require.NoError(t, err)
-
-	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-		mux, err := e.Router.BuildMux()
-		require.NoError(t, err)
-
-		req := httptest.NewRequest(
-			http.MethodGet,
-			"/api/pipeline/list-workflows/"+record.Id,
-			nil,
-		)
-		req.Header.Set("Authorization", "Bearer "+token)
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-		require.Equal(t, http.StatusOK, rec.Code)
-
-		var response []pipelineWorkflowSummary
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-		require.Len(t, response, 1)
-		require.NotNil(t, response[0].Queue)
-		require.Equal(t, "ticket-queued", response[0].Queue.TicketID)
-		require.Equal(t, "Queued", response[0].Status)
-		require.Equal(t, "queued-pipeline-specific", response[0].DisplayName)
-		require.Equal(t, []string{"runner-1"}, response[0].RunnerIDs)
-		require.Equal(t, pipelineIdentifier, response[0].PipelineIdentifier)
 
 		return nil
 	})

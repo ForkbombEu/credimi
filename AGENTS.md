@@ -81,7 +81,12 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 ### Pipeline visibility (Temporal)
 
 - Pipeline workflows set the `PipelineIdentifier` search attribute (canonified owner/pipeline path) on direct, queued, and scheduled starts.
-- List-results/list-workflows handlers prefer Temporal `ListWorkflows` with `PipelineIdentifier` filtering; missing search attributes fall back to `pipeline_results` mapping.
+- Backend workflow listing split:
+  - `GET /api/list-workflows` lists only non-pipeline workflow trees, with status filtering, pagination, and child workflows.
+  - `GET /api/pipeline/list-executions` keeps the grouped latest-executions-by-pipeline view.
+  - `GET /api/pipeline/list-executions/{id}` lists only executions for the requested pipeline, with status filtering, pagination, and child workflows.
+  - `GET /api/pipeline/list-results` no longer exists.
+- Pipeline execution listing handlers prefer Temporal `ListWorkflows` with `PipelineIdentifier` filtering; missing search attributes fall back to `pipeline_results` mapping.
 
 ## Mobile runners (PocketBase + internal lookup)
 

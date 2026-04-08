@@ -60,6 +60,7 @@ func (f fakeTemporalClient) ExecuteWorkflow(
 type capturingTemporalClient struct {
 	run         client.WorkflowRun
 	lastOptions client.StartWorkflowOptions
+	lastArgs    []interface{}
 }
 
 // ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.
@@ -70,6 +71,7 @@ func (c *capturingTemporalClient) ExecuteWorkflow(
 	args ...interface{},
 ) (client.WorkflowRun, error) {
 	c.lastOptions = options
+	c.lastArgs = append([]interface{}(nil), args...)
 	return c.run, nil
 }
 
@@ -246,6 +248,46 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 			require.Equal(t, "tenant-1/pipeline", value)
 		})
 	}
+}
+
+func TestStartQueuedPipelineActivityPropagatesDisableAndroidPlayStore(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
+	captured := &capturingTemporalClient{
+		run: fakeWorkflowRun{
+			id:    "wf-4",
+			runID: "run-4",
+		},
+	}
+	act := NewStartQueuedPipelineActivity()
+	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		return captured, nil
+	}
+	act.httpDoer = failingDoer{err: errors.New("boom")}
+
+	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: StartQueuedPipelineActivityInput{
+			TicketID:           "ticket-4",
+			OwnerNamespace:     "tenant-1",
+			PipelineIdentifier: "tenant-1/pipeline",
+			YAML: `name: test
+runtime:
+  disable_android_play_store: true
+steps: []
+`,
+			PipelineConfig: map[string]any{
+				"app_url": "https://example.com",
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, captured.lastArgs, 1)
+
+	workflowInput, ok := captured.lastArgs[0].(map[string]any)
+	require.True(t, ok)
+
+	rawInput, ok := workflowInput["workflow_input"].(workflowengine.WorkflowInput)
+	require.True(t, ok)
+	require.Equal(t, true, rawInput.Config["disable_android_play_store"])
 }
 
 func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {

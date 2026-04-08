@@ -75,6 +75,41 @@ func (a *ApkInstallActivity) Execute(
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.ApkInstall(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type ApkPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewApkPostInstallChecksActivity() *ApkPostInstallChecksActivity {
+	return &ApkPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run APK post-install checks",
+		},
+	}
+}
+
+func (a *ApkPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ApkPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
 		map[string]mobile.ErrorCode{
 			"TempFileCreationFailed": {
 				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
@@ -84,7 +119,7 @@ func (a *ApkInstallActivity) Execute(
 		true,
 	)
 
-	res, err := mobile.ApkInstall(ctx, runInput)
+	res, err := mobile.ApkPostInstallChecks(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -200,6 +235,46 @@ func (a *InstallIOSAppActivity) Execute(
 	return workflowengine.ActivityResult{Output: res}, nil
 }
 
+type IOSPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewIOSPostInstallChecksActivity() *IOSPostInstallChecksActivity {
+	return &IOSPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run iOS post-install checks",
+		},
+	}
+}
+
+func (a *IOSPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *IOSPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+		true,
+	)
+
+	res, err := mobile.IOSAppPostInstallChecks(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
 type CleanupDeviceActivity struct {
 	workflowengine.BaseActivity
 }
@@ -229,6 +304,76 @@ func (a *CleanupDeviceActivity) Execute(
 	)
 
 	res, err := mobile.CleanupDevice(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type ListInstalledAppsActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewListInstalledAppsActivity() *ListInstalledAppsActivity {
+	return &ListInstalledAppsActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "List installed mobile apps",
+		},
+	}
+}
+
+func (a *ListInstalledAppsActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ListInstalledAppsActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.ListInstalledApps(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type DisableAndroidPlayStoreActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewDisableAndroidPlayStoreActivity() *DisableAndroidPlayStoreActivity {
+	return &DisableAndroidPlayStoreActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Disable Android Play Store",
+		},
+	}
+}
+
+func (a *DisableAndroidPlayStoreActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *DisableAndroidPlayStoreActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.DisableAndroidPlayStore(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}

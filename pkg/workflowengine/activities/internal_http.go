@@ -23,14 +23,14 @@ type InternalHTTPAuthLevel string
 const InternalHTTPAuthLevelAdmin InternalHTTPAuthLevel = "internal_admin"
 
 type InternalHTTPActivityPayload struct {
-	Method         string            `json:"method" yaml:"method" validate:"required"`
-	URL            string            `json:"url" yaml:"url" validate:"required"`
-	QueryParams    map[string]string `json:"query_params,omitempty" yaml:"query_params,omitempty"`
-	Timeout        string            `json:"timeout,omitempty" yaml:"timeout,omitempty"`
-	Headers        map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
-	Body           any               `json:"body,omitempty" yaml:"body,omitempty"`
-	ExpectedStatus int               `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
-	AuthLevel      InternalHTTPAuthLevel `json:"auth_level,omitempty" yaml:"auth_level,omitempty"`
+	Method         string                `json:"method"                    yaml:"method"                    validate:"required"`
+	URL            string                `json:"url"                       yaml:"url"                       validate:"required"`
+	QueryParams    map[string]string     `json:"query_params,omitempty"    yaml:"query_params,omitempty"`
+	Timeout        string                `json:"timeout,omitempty"         yaml:"timeout,omitempty"`
+	Headers        map[string]string     `json:"headers,omitempty"         yaml:"headers,omitempty"`
+	Body           any                   `json:"body,omitempty"            yaml:"body,omitempty"`
+	ExpectedStatus int                   `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
+	AuthLevel      InternalHTTPAuthLevel `json:"auth_level,omitempty"      yaml:"auth_level,omitempty"`
 }
 
 func NewInternalHTTPActivity() *InternalHTTPActivity {
@@ -59,7 +59,10 @@ func (a *InternalHTTPActivity) Execute(
 	}
 	if authLevel != InternalHTTPAuthLevelAdmin {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, fmt.Sprintf("unsupported auth level: %s", authLevel))
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("unsupported auth level: %s", authLevel),
+		)
 	}
 
 	apiKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
@@ -78,5 +81,10 @@ func (a *InternalHTTPActivity) Execute(
 		ExpectedStatus: payload.ExpectedStatus,
 	}
 
-	return executeHTTPRequest(ctx, httpPayload, map[string]string{"Credimi-Api-Key": apiKey}, &a.BaseActivity)
+	return executeHTTPRequest(
+		ctx,
+		httpPayload,
+		map[string]string{"Credimi-Api-Key": apiKey},
+		&a.BaseActivity,
+	)
 }

@@ -77,7 +77,7 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			RequestSchema:  WalletInstallerMD5OrETagRequest{},
 			ResponseSchema: WalletInstallerMD5OrETagResponse{},
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
+				middlewares.RequireInternalAdminOrAuth(),
 			},
 		},
 		{
@@ -85,7 +85,7 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:    "/store-pipeline-result",
 			Handler: HandleWalletStorePipelineResult,
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
+				middlewares.RequireInternalAdminOrAuth(),
 				apis.BodyLimit(500 << 20),
 			},
 		},
@@ -224,6 +224,7 @@ type WalletInstallerMD5OrETagRequest struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	WalletIdentifier        string `json:"wallet_identifier"`
 	Platform                string `json:"platform"`
+	SkipInstaller           bool   `json:"skip_installer,omitempty"`
 }
 
 type WalletInstallerMD5OrETagResponse struct {
@@ -259,6 +260,11 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		if req.SkipInstaller {
+			return e.JSON(http.StatusOK, WalletInstallerMD5OrETagResponse{
+				VersionIdentifier: canonify.NormalizePath(req.WalletVersionIdentifier),
+			})
+		}
 
 		versionRecord, err := getVersionRecord(
 			e.App,
@@ -272,6 +278,9 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 				"wallet version not found",
 				err.Error(),
 			).JSON(e)
+		}
+		if apiErr := authorizeWalletInstallerAccess(e, versionRecord); apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
 		installerField := installerFieldForPlatform(platform)
@@ -441,6 +450,9 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		if apiErr := authorizeOwnerAccess(e, resultRecord.GetString("owner")); apiErr != nil {
+			return apiErr.JSON(e)
+		}
 
 		versionName := strings.ReplaceAll(
 			strings.Trim(runnerIdentifier, "/"),
@@ -485,6 +497,88 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+func authorizeOwnerAccess(e *core.RequestEvent, ownerID string) *apierror.APIError {
+	if isInternalAdminPrincipal(e.Auth) {
+		return nil
+	}
+	if ownerID == "" {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"owner",
+			"owner missing",
+			"record owner is required",
+		)
+	}
+
+	allowed, err := belongsToAuthenticatedOrganization(e, ownerID)
+	if err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"failed to get user organization",
+			err.Error(),
+		)
+	}
+	if !allowed {
+		return apierror.New(
+			http.StatusForbidden,
+			"authorization",
+			"forbidden",
+			"record does not belong to the authenticated user's organization",
+		)
+	}
+
+	return nil
+}
+
+func authorizeWalletInstallerAccess(
+	e *core.RequestEvent,
+	versionRecord *core.Record,
+) *apierror.APIError {
+	if versionRecord == nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"wallet version missing",
+			"wallet version is required",
+		)
+	}
+	if isInternalAdminPrincipal(e.Auth) {
+		return nil
+	}
+	if walletID := versionRecord.GetString("wallet"); walletID != "" {
+		walletRecord, err := e.App.FindRecordById("wallets", walletID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"wallet",
+				"failed to get wallet",
+				err.Error(),
+			)
+		}
+		if walletRecord.GetBool("published") {
+			return nil
+		}
+	}
+
+	return authorizeOwnerAccess(e, versionRecord.GetString("owner"))
+}
+
+func belongsToAuthenticatedOrganization(e *core.RequestEvent, ownerID string) (bool, error) {
+	userOrgID, err := GetUserOrganizationID(e.App, e.Auth.Id)
+	if err != nil {
+		return false, err
+	}
+	return userOrgID == ownerID, nil
+}
+
+func isInternalAdminPrincipal(auth *core.Record) bool {
+	if auth == nil || auth.Collection() == nil {
+		return false
+	}
+	return auth.Collection().Name == "_superusers"
 }
 
 func saveUploadedFileToRecord(
