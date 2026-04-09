@@ -18,7 +18,16 @@ For users who want to browse the ecosystem and manually try flows.
 
 - Explore listed Wallets, Issuers, Verifiers and credentials
 - Open a credential or verification page and try the exposed service
-- Reuse marketplace integrations later in manual tests and pipelines
+- Reuse marketplace integrations later in manual tests and pipelines 
+
+###   
+
+
+![Marketplace issuers](./images/marketplace-issuers1.png)
+***Marketplace listing of issuers and credentials***
+
+
+
 
 ## Conformance & Interop
 

@@ -17,6 +17,18 @@ Typical actions in this section:
 - scan a QR code or open a deeplink on a phone
 - compare what different solutions expose
 
-![Marketplace overview](../images/credimiMarketplace.png)
+<!-- ![Marketplace overview](../images/credimiMarketplace.png) -->
+
+###
+![Marketplace issuers](../images/marketplace-issuers1.png)
+***Marketplace listing of Issuers and Credentials***
+###
+![Marketplace issuer](../images/marketplace-issuer1.png)
+***Marketplace listing of one Issuer***
+
+###
+![Marketplace credential](../images/marketplace-credential1.png)
+***Marketplace listing of one Credential Issuance: scan the QR with your Wallet to try it***
+
 
 Continue with the next pages depending on whether you want to browse or directly try a flow.
