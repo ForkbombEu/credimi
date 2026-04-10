@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -798,7 +799,7 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 			return 0, fmt.Errorf("failed to find pipeline record for ID %s: %w", stats.PipelineID, err)
 		}
 		if len(stats.Runners) > 0 {
-			runnerIDs, err := findRunners(app, stats.Runners)
+			runnerIDs, err := findRecords(app, stats.Runners)
 			if err != nil {
 				return count, fmt.Errorf("failed to process runners: %w", err)
 			}
@@ -815,7 +816,81 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 				record.Set("latest_execution", pipelineResultId)
 			}
 		}
-
+		if len(stats.LastExecution.WalletUsed) > 0 {
+			walletIDs, err := findRecords(app, stats.LastExecution.WalletUsed)
+			if err != nil {
+				return count, fmt.Errorf("failed to process wallets: %w", err)
+			}
+			if len(walletIDs) > 0 {
+				record.Set("wallets", walletIDs)
+			}
+		}
+		if len(stats.LastExecution.Issuers) > 0 {
+			issuerIDs, err := findRecords(app, stats.LastExecution.Issuers)
+			if err != nil {
+				return count, fmt.Errorf("failed to process issuers: %w", err)
+			}
+			if len(issuerIDs) > 0 {
+				record.Set("issuers", issuerIDs)
+			}
+		}
+		if len(stats.LastExecution.Verifiers) > 0 {
+			verifierIDs, err := findRecords(app, stats.LastExecution.Verifiers)
+			if err != nil {
+				return count, fmt.Errorf("failed to process verifiers: %w", err)
+			}
+			if len(verifierIDs) > 0 {
+				record.Set("verifiers", verifierIDs)
+			}
+		}
+		if len(stats.LastExecution.MaestroScripts) > 0 {
+			actionIDs, err := findRecords(app, stats.LastExecution.MaestroScripts)
+			if err != nil {
+				return count, fmt.Errorf("failed to process maestro scripts: %w", err)
+			}
+			if len(actionIDs) > 0 {
+				record.Set("wallet_actions", actionIDs)
+			}
+		}
+		if len(stats.LastExecution.WalletVersionUsed) > 0 {
+			versionIDs, err := findRecords(app, stats.LastExecution.WalletVersionUsed)
+			if err != nil {
+				return count, fmt.Errorf("failed to process wallet versions: %w", err)
+			}
+			if len(versionIDs) > 0 {
+				record.Set("wallet_versions", versionIDs)
+			}
+		}
+		if len(stats.LastExecution.Credentials) > 0 {
+			credentialIDs, err := findRecords(app, stats.LastExecution.Credentials)
+			if err != nil {
+				return count, fmt.Errorf("failed to process credentials: %w", err)
+			}
+			if len(credentialIDs) > 0 {
+				record.Set("credentials", credentialIDs)
+			}
+		}
+		if len(stats.LastExecution.UseCaseVerifications) > 0 {
+			useCaseIDs, err := findRecords(app, stats.LastExecution.UseCaseVerifications)
+			if err != nil {
+				return count, fmt.Errorf("failed to process use cases: %w", err)
+			}
+			if len(useCaseIDs) > 0 {
+				record.Set("use_case_verifications", useCaseIDs)
+			}
+		}
+		if len(stats.LastExecution.CustomChecks) > 0 {
+			testIDs, err := findRecords(app, stats.LastExecution.CustomChecks)
+			if err != nil {
+				return count, fmt.Errorf("failed to process custom checks: %w", err)
+			}
+			if len(testIDs) > 0 {
+				record.Set("custom_integrations", testIDs)
+			}
+		}
+		if len(stats.LastExecution.ConformanceTests) > 0 {
+			record.Set("conformance_checks", stats.LastExecution.ConformanceTests)
+		}
 		if err := app.Save(record); err != nil {
 			return count, err
 		}
@@ -824,44 +899,16 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 	return count, nil
 }
 
-func findRunners(app core.App, runnerNames []string) ([]string, error) {
-	if len(runnerNames) == 0 {
-		return []string{}, nil
-	}
-
-	runnersColl, err := app.FindCollectionByNameOrId("mobile_runners")
-	if err != nil {
-		return nil, fmt.Errorf("mobile_runners collection not found: %w", err)
-	}
-
-	var ids []string
-	for _, runnerFullName := range runnerNames {
-		parts := strings.Split(runnerFullName, "/")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid runner format: %s, expected 'owner/name'", runnerFullName)
-		}
-		ownerName := parts[0]
-		runnerName := parts[1]
-
-		owner, _ := app.FindFirstRecordByFilter(
-			"organizations",
-			"canonified_name={:ownerName}",
-			dbx.Params{"ownerName": ownerName},
-		)
-
-		existing, err := app.FindFirstRecordByFilter(
-			runnersColl.Id,
-			"owner={:owner} && canonified_name={:name}",
-			dbx.Params{"owner": owner.Id, "name": runnerName},
-		)
-
-		if err == nil && existing != nil {
-			ids = append(ids, existing.Id)
-			continue
-		}
-	}
-
-	return ids, nil
+func findRecords(app core.App, Names []string) ([]string, error) {
+    var ids []string
+    for _, fullName := range Names {
+        record, err := canonify.Resolve(app, fullName)
+        if err != nil {
+            return nil, fmt.Errorf("failed to resolve path %s: %w", fullName, err)	
+        }
+        ids = append(ids, record.Id)
+    }
+    return ids, nil
 }
 
 func findPipelineResult(app core.App, WorkflowID string, RunID string) (string, error) {

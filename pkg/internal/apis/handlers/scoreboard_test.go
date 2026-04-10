@@ -19,6 +19,7 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -766,6 +767,95 @@ func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name, runnerTyp
 	require.NoError(t, app.Save(runner))
 }
 
+func createWalletRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
+	walletsColl, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsColl)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", name)
+	require.NoError(t, app.Save(wallet))
+
+	walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+	require.NoError(t, err)
+	versionRecord := core.NewRecord(walletVersionColl)
+	versionRecord.Set("wallet", wallet.Id)
+	versionRecord.Set("tag", "1.0.0")
+	versionRecord.Set("owner", orgID)
+	apkFile := NewTestFile("app.apk", []byte("dummy apk content"))
+	versionRecord.Set("android_installer", []*filesystem.File{apkFile})
+	require.NoError(t, app.Save(versionRecord))
+
+	walletActionColl, err := app.FindCollectionByNameOrId("wallet_actions")
+	require.NoError(t, err)
+	actionRecord := core.NewRecord(walletActionColl)
+	actionRecord.Set("wallet", wallet.Id)
+	actionRecord.Set("name", "my-action")
+	actionRecord.Set("category", "onboarding")
+	actionRecord.Set("owner", orgID)
+	actionRecord.Set("code", "my-code")
+	require.NoError(t, app.Save(actionRecord))
+	require.NoError(t, app.Save(versionRecord))
+}
+
+func createVerifierRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
+	verifiersColl, err := app.FindCollectionByNameOrId("verifiers")
+	require.NoError(t, err)
+
+	verifier := core.NewRecord(verifiersColl)
+	verifier.Set("owner", orgID)
+	verifier.Set("name", name)
+	verifier.Set("url", "https://verifier.example")
+	verifier.Set("standard_and_version", "testsuite/draft-01")
+	verifier.Set("format", []string{"SD-JWT"})
+	verifier.Set("signing_algorithms", []string{"ES256"})
+	verifier.Set("cryptographic_binding_methods", []string{"jwk"})
+	verifier.Set("description", "example description")
+	require.NoError(t, app.Save(verifier))
+
+	coll, err := app.FindCollectionByNameOrId("use_cases_verifications")
+	require.NoError(t, err)
+	record := core.NewRecord(coll)
+	record.Set("name", "usecase123")
+	record.Set("owner", orgID)
+	record.Set("verifier", verifier.Id)
+	record.Set("yaml", "example code")
+	require.NoError(t, app.Save(record))
+}
+
+func createIssuerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
+	issuersColl, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+
+	issuer := core.NewRecord(issuersColl)
+	issuer.Set("url", "https://test-issuer.example.com")
+	issuer.Set("name", name)
+	issuer.Set("owner", orgID)
+	issuer.Set("imported", true)
+	require.NoError(t, app.Save(issuer))
+
+	credColl, err := app.FindCollectionByNameOrId("credentials")
+	require.NoError(t, err)
+	cred := core.NewRecord(credColl)
+	cred.Set("credential_issuer", issuer.Id)
+	cred.Set("name", "cred-3")
+	cred.Set("display_name", "Old Name")
+	cred.Set("logo_url", "https://old.logo")
+	cred.Set("json", `not-json`)
+	cred.Set("owner", orgID)
+	require.NoError(t, app.Save(cred))
+}
+
+func createCustomCheckRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
+	customChecksColl, err := app.FindCollectionByNameOrId("custom_checks")
+	require.NoError(t, err)
+
+	check := core.NewRecord(customChecksColl)
+	check.Set("name", name)
+	check.Set("yaml", "example code")
+	check.Set("owner", orgID)
+	require.NoError(t, app.Save(check))
+}
 func TestSaveScoreboardResults(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
@@ -779,6 +869,11 @@ func TestSaveScoreboardResults(t *testing.T) {
 	
 	createRunnerRecord(t, app, orgID, "test-runner", "")
 	createPipelineResult(t, app, orgID, pipeline.Id, "wf-new", "run-new")
+	createWalletRecord(t, app, orgID, "my-wallet")	
+	createVerifierRecord(t, app, orgID, "my-verifier")
+	createIssuerRecord(t, app, orgID, "my-issuer-1")
+	createIssuerRecord(t, app, orgID, "my-issuer-2")
+	createCustomCheckRecord(t, app, orgID, "my-check")
 
 	t.Run("success - saves results correctly", func(t *testing.T) {
 		aggregatedPipelines := []workflows.AggregatedPipelineStats{
@@ -799,6 +894,15 @@ func TestSaveScoreboardResults(t *testing.T) {
 					PipelineName: "Test Pipeline",
 					WorkflowID: "wf-new",
 					RunID:      "run-new",
+					WalletUsed: []string{"usera-s-organization/my-wallet"},
+					Verifiers:  []string{"usera-s-organization/my-verifier"},
+					Issuers:	[]string{"usera-s-organization/my-issuer-1", "usera-s-organization/my-issuer-2"},
+					WalletVersionUsed: []string{"usera-s-organization/my-wallet/1-0-0"},
+					MaestroScripts: []string{"usera-s-organization/my-wallet/my-action"},
+					Credentials: []string{"usera-s-organization/my-issuer-1/cred-3"},
+					UseCaseVerifications: []string{"usera-s-organization/my-verifier/usecase123"},
+					CustomChecks: []string{"usera-s-organization/my-check"},
+					ConformanceTests: []string{"conformance-test-1"},
 				},
 			},
 		}
@@ -862,6 +966,65 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "wf-new", executionRecord.GetString("workflow_id"))
 		require.Equal(t, "run-new", executionRecord.GetString("run_id"))
+
+		WalletID := record.GetStringSlice("wallets")
+		require.NotEmpty(t, WalletID, "wallets should not be empty")
+
+		walletRecord, err := app.FindRecordById("wallets", WalletID[0])
+		require.NoError(t, err)
+		require.Equal(t, "my-wallet", walletRecord.GetString("canonified_name"))
+
+		VerifierID := record.GetStringSlice("verifiers")
+		require.NotEmpty(t, VerifierID, "verifiers should not be empty")
+
+		verifierRecord, err := app.FindRecordById("verifiers", VerifierID[0])
+		require.NoError(t, err)
+		require.Equal(t, "my-verifier", verifierRecord.GetString("canonified_name"))
+
+		IssuerID := record.GetStringSlice("issuers")
+		require.NotEmpty(t, IssuerID, "issuers should not be empty")
+
+		issuerRecord, err := app.FindRecordById("credential_issuers", IssuerID[1])
+		require.NoError(t, err)
+		require.Equal(t, "my-issuer-2", issuerRecord.GetString("canonified_name"))
+
+		WalletVersionID := record.GetStringSlice("wallet_versions")
+		require.NotEmpty(t, WalletVersionID, "wallet_versions should not be empty")
+
+		walletVersionRecord, err := app.FindRecordById("wallet_versions", WalletVersionID[0])
+		require.NoError(t, err)
+		require.Equal(t, "1.0.0", walletVersionRecord.GetString("tag"))
+
+		WalletActionID := record.GetStringSlice("wallet_actions")
+		require.NotEmpty(t, WalletActionID, "wallet_actions should not be empty")
+
+		walletActionRecord, err := app.FindRecordById("wallet_actions", WalletActionID[0])
+		require.NoError(t, err)
+		require.Equal(t, "onboarding", walletActionRecord.GetString("category"))
+
+		CredentialID := record.GetStringSlice("credentials")
+		require.NotEmpty(t, CredentialID, "credentials should not be empty")
+
+		credentialRecord, err := app.FindRecordById("credentials", CredentialID[0])
+		require.NoError(t, err)
+		require.Equal(t, "cred-3", credentialRecord.GetString("canonified_name"))
+
+		UseCaseVerificationID := record.GetStringSlice("use_case_verifications")
+		require.NotEmpty(t, UseCaseVerificationID, "use_case_verifications should not be empty")
+
+		useCaseVerificationRecord, err := app.FindRecordById("use_cases_verifications", UseCaseVerificationID[0])
+		require.NoError(t, err)
+		require.Equal(t, "usecase123", useCaseVerificationRecord.GetString("canonified_name"))
+
+		CustomCheckID := record.GetStringSlice("custom_integrations")
+		require.NotEmpty(t, CustomCheckID, "custom_integrations should not be empty")
+
+		customCheckRecord, err := app.FindRecordById("custom_checks", CustomCheckID[0])
+		require.NoError(t, err)
+		require.Equal(t, "my-check", customCheckRecord.GetString("canonified_name"))
+
+		ConformanceTest := record.GetStringSlice("conformance_checks")
+		require.NotEmpty(t, ConformanceTest, "conformance_checks should not be empty")
 	})
 	t.Run("fail - invalid JSON body", func(t *testing.T) {
 		req := httptest.NewRequest(
@@ -988,7 +1151,7 @@ func TestFindRunners(t *testing.T) {
 		runnerNames := []string{
 			"usera-s-organization/existing-runner",
 		}
-		ids, err := findRunners(app, runnerNames)
+		ids, err := findRecords(app, runnerNames)
 		require.NoError(t, err)
 		require.Len(t, ids, 1)
 	})
@@ -997,7 +1160,7 @@ func TestFindRunners(t *testing.T) {
 		runnerNames := []string{
 			"invalid-format-no-slash",
 		}
-		ids, err := findRunners(app, runnerNames)
+		ids, err := findRecords(app, runnerNames)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid runner format")
 		require.Empty(t, ids)
@@ -1007,14 +1170,14 @@ func TestFindRunners(t *testing.T) {
 		runnerNames := []string{
 			"owner/name/extra",
 		}
-		ids, err := findRunners(app, runnerNames)
+		ids, err := findRecords(app, runnerNames)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid runner format")
 		require.Empty(t, ids)
 	})
 
 	t.Run("success - empty runner list", func(t *testing.T) {
-		ids, err := findRunners(app, []string{})
+		ids, err := findRecords(app, []string{})
 		require.NoError(t, err)
 		require.Empty(t, ids)
 	})
@@ -1024,7 +1187,7 @@ func TestFindRunners(t *testing.T) {
 			"usera-s-organization/non-existent-runner-1",
 			"usera-s-organization/non-existent-runner-2",
 		}
-		ids, err := findRunners(app, runnerNames)
+		ids, err := findRecords(app, runnerNames)
 		require.NoError(t, err)
 		require.Empty(t, ids)
 	})
