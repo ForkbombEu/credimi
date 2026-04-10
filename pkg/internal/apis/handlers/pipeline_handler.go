@@ -17,8 +17,8 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -85,6 +85,42 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandleSetPipelineExecutionResults,
 			RequestSchema: PipelineResultInput{},
 			Description:   "Create pipeline execution results record",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/scoreboard/{namespace}",
+			Handler: HandleGetPipelineScoreboard,
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/scoreboard/aggregate/start",
+			Handler:        HandleStartAggregateScoreboard,
+			ResponseSchema: StartAggregateScoreboardResponse{},
+			Description:    "Start the aggregate scoreboard workflow",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/execution-details/{namespace}/{workflow_id}/{run_id}",
+			Handler:     HandleGetExecutionDetails,
+			Description: "Get detailed information about a specific execution",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/scoreboard/save-results",
+			Handler:     HandleSaveScoreboardResults,
+			Description: "Refresh the aggregate scoreboard",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
@@ -509,7 +545,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			pipelineID := pipelineRecord.Id
 			pipelineMap[pipelineID] = pipelineRecord
 
-			runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+			runnerInfo, err := pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 			if err != nil {
 				e.App.Logger().Warn(fmt.Sprintf(
 					"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",

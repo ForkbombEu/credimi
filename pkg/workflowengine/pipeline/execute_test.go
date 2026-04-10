@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -131,11 +132,11 @@ func TestExecuteStepActivity(t *testing.T) {
 		ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 		ctx = workflow.WithActivityOptions(ctx, ao)
 
-		step := StepDefinition{
-			StepSpec: StepSpec{
+		step := pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
 				ID:  "step-1",
 				Use: "http-request",
-				With: StepInputs{
+				With: pipeline.StepInputs{
 					Payload: map[string]any{
 						"url": "https://example.com",
 					},
@@ -193,11 +194,11 @@ steps: []
 			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 				StartToCloseTimeout: time.Second,
 			})
-			step := StepDefinition{
-				StepSpec: StepSpec{
+			step := pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "child",
 					Use: "custom",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{"pipeline_id": "tenant/child"},
 						Config:  map[string]any{},
 					},
@@ -261,11 +262,11 @@ func TestFetchChildPipelineYAMLValidationErrors(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 				StartToCloseTimeout: time.Second,
 			})
-			step := StepDefinition{
-				StepSpec: StepSpec{
+			step := pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "child",
 					Use: "custom",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{},
 					},
 				},
@@ -305,11 +306,11 @@ func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 				StartToCloseTimeout: time.Second,
 			})
-			step := StepDefinition{
-				StepSpec: StepSpec{
+			step := pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "child",
 					Use: "custom",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{"pipeline_id": "tenant/child"},
 					},
 				},
@@ -370,11 +371,11 @@ func TestExecuteStepWorkflow(t *testing.T) {
 		ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 		ctx = workflow.WithActivityOptions(ctx, ao)
 
-		step := StepDefinition{
-			StepSpec: StepSpec{
+		step := pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
 				ID:  "step-1",
 				Use: "mobile-automation",
-				With: StepInputs{
+				With: pipeline.StepInputs{
 					Config: map[string]any{
 						"taskqueue": "custom-queue",
 						"app_url":   "",
@@ -430,7 +431,7 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 	workflowName := "fetch-child-yaml"
 	fetchChildPipelineYAMLWorkflow := func(
 		ctx workflow.Context,
-		step StepDefinition,
+		step pipeline.StepDefinition,
 		input PipelineWorkflowInput,
 	) (string, error) {
 		ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
@@ -449,11 +450,11 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{"body": "yaml-body"}}, nil)
 
-	step := StepDefinition{
-		StepSpec: StepSpec{
+	step := pipeline.StepDefinition{
+		StepSpec: pipeline.StepSpec{
 			ID:  "step-1",
 			Use: "child-pipeline",
-			With: StepInputs{
+			With: pipeline.StepInputs{
 				Payload: map[string]any{
 					"pipeline_id": "pipeline-1",
 				},
@@ -521,7 +522,7 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 			workflowName := "fetch-child-yaml-errors"
 			fetchChildPipelineYAMLWorkflow := func(
 				ctx workflow.Context,
-				step StepDefinition,
+				step pipeline.StepDefinition,
 				input PipelineWorkflowInput,
 			) (string, error) {
 				ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
@@ -545,11 +546,11 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 				)
 			}
 
-			step := StepDefinition{
-				StepSpec: StepSpec{
+			step := pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: "child-pipeline",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: tc.stepPayload,
 					},
 				},
@@ -577,11 +578,11 @@ func TestExecuteStepResolveInputsError(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			step := StepDefinition{
-				StepSpec: StepSpec{
+			step := pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: "http-request",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"url": "${{inputs.missing}}",
 						},
@@ -631,11 +632,11 @@ func TestExecuteStepNonExecutableActivity(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			step := StepDefinition{
-				StepSpec: StepSpec{
+			step := pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: "non-exec",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{"foo": "bar"},
 					},
 				},
@@ -684,11 +685,11 @@ func TestExecuteStepEmailConfigureError(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			step := StepDefinition{
-				StepSpec: StepSpec{
+			step := pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: "email",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{"foo": "bar"},
 					},
 				},

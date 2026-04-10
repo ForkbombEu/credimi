@@ -9,6 +9,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -28,7 +29,7 @@ type PipelineWorkflow struct{}
 var pipelineTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type PipelineWorkflowInput struct {
-	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition" json:"workflow_definition"`
+	WorkflowDefinition *pipeline.WorkflowDefinition          `yaml:"workflow_definition" json:"workflow_definition"`
 	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"      json:"workflow_input"`
 
 	Debug         bool           `yaml:"debug,omitempty"           json:"debug,omitempty"`
@@ -216,7 +217,7 @@ func wrapWorkflowCancellationError(
 func (w *PipelineWorkflow) executeSteps(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
-	steps []StepDefinition,
+	steps []pipeline.StepDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
@@ -250,7 +251,7 @@ func (w *PipelineWorkflow) executeSteps(
 func (w *PipelineWorkflow) executeStep(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
@@ -320,7 +321,7 @@ func buildPipelineStepInputs(finalOutput map[string]any, payload map[string]any)
 func (w *PipelineWorkflow) executeChildPipelineStep(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	stepInputs map[string]any,
 	ao workflow.ActivityOptions,
 	config map[string]any,
@@ -356,7 +357,7 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 
 func handleChildPipelineStepError(
 	ctx workflow.Context,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	stepInputs map[string]any,
 	childOut any,
 	err error,
@@ -392,7 +393,7 @@ func handleChildPipelineStepError(
 func (w *PipelineWorkflow) executeRegularStep(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	stepInputs map[string]any,
 	ao workflow.ActivityOptions,
 	config map[string]any,
@@ -405,7 +406,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 
 	ao = PrepareActivityOptions(ao, step.ActivityOptions)
 
-	stepOutput, err := step.Execute(ctx, config, stepInputs, ao)
+	stepOutput, err := Execute(&step, ctx, config, stepInputs, ao)
 	if err != nil {
 		return ao, handleRegularStepError(
 			ctx,
@@ -433,7 +434,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 
 func handleRegularStepError(
 	ctx workflow.Context,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	stepInputs map[string]any,
 	stepOutput any,
 	err error,
@@ -470,7 +471,7 @@ func handleRegularStepError(
 
 func runStepErrorHooks(
 	ctx workflow.Context,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	stepInputs map[string]any,
 	errorsList []string,
 	ao workflow.ActivityOptions,
@@ -495,7 +496,7 @@ func runStepErrorHooks(
 
 func runStepSuccessHooks(
 	ctx workflow.Context,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	stepInputs map[string]any,
 	errorsList []string,
 	ao workflow.ActivityOptions,
@@ -525,8 +526,8 @@ func (w *PipelineWorkflow) Start(
 ) (workflowengine.WorkflowResult, error) {
 	var result workflowengine.WorkflowResult
 
-	var wfDef *WorkflowDefinition
-	wfDef, err := ParseWorkflow(inputYaml)
+	var wfDef *pipeline.WorkflowDefinition
+	wfDef, err := pipeline.ParseWorkflow(inputYaml)
 	if err != nil {
 		return result, err
 	}
@@ -556,13 +557,20 @@ func (w *PipelineWorkflow) Start(
 		}
 	}
 
+	runnerInfo, _ := ParsePipelineRunnerInfo(inputYaml)
 	// Add global_runner_id to config if specified
 	if wfDef.Runtime.GlobalRunnerID != "" {
 		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
 	}
+	globalRunnerID := GlobalRunnerIDFromConfig(config)
+	runnerIDs := RunnerIDsWithGlobal(runnerInfo, globalRunnerID)
 	config["disable_android_play_store"] = wfDef.Runtime.DisableAndroidPlayStore
+	entityIDs, err := pipeline.ParseEntityIDs(inputYaml)
+	if err != nil {
+		return result, fmt.Errorf("failed to parse entity IDs: %w", err)
+	}
 
-	workflowengine.ApplyPipelineSearchAttributes(&options.Options, pipelineIdentifier)
+	workflowengine.ApplyPipelineSearchAttributes(&options.Options, pipelineIdentifier, runnerIDs, entityIDs)
 
 	input := PipelineWorkflowInput{
 		WorkflowDefinition: wfDef,
@@ -574,7 +582,7 @@ func (w *PipelineWorkflow) Start(
 	}
 
 	if wfDef.Runtime.Schedule.Interval != nil {
-		searchAttributes := workflowengine.PipelineTypedSearchAttributes(pipelineIdentifier)
+		searchAttributes := workflowengine.PipelineTypedSearchAttributes(pipelineIdentifier, runnerIDs, entityIDs)
 		ctx := context.Background()
 		scheduleID := fmt.Sprintf("schedule_id_%s", options.Options.ID)
 		scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
@@ -641,7 +649,7 @@ func (w *PipelineWorkflow) Start(
 
 func ExecuteEventStepsOnError(
 	ctx workflow.Context,
-	eventSteps []*OnErrorStepDefinition,
+	eventSteps []*pipeline.OnErrorStepDefinition,
 	stepInputs map[string]any,
 	existingErrors []string,
 	ao workflow.ActivityOptions,
@@ -657,7 +665,7 @@ func ExecuteEventStepsOnError(
 			eventStep.ActivityOptions,
 		)
 
-		_, execErr := eventStep.ExecuteOnError(ctx, config, stepInputs, aO)
+		_, execErr := ExecuteOnError(eventStep, ctx, config, stepInputs, aO)
 		if execErr != nil {
 			errorsList = append(errorsList, execErr.Error())
 		}
@@ -667,7 +675,7 @@ func ExecuteEventStepsOnError(
 
 func ExecuteEventStepsOnSuccess(
 	ctx workflow.Context,
-	eventSteps []*OnSuccessStepDefinition,
+	eventSteps []*pipeline.OnSuccessStepDefinition,
 	stepInputs map[string]any,
 	existingErrors []string,
 	ao workflow.ActivityOptions,
@@ -683,7 +691,7 @@ func ExecuteEventStepsOnSuccess(
 			eventStep.ActivityOptions,
 		)
 
-		_, execErr := eventStep.ExecuteOnSuccess(ctx, config, stepInputs, aO)
+		_, execErr := ExecuteOnSuccess(eventStep, ctx, config, stepInputs, aO)
 		if execErr != nil {
 			errorsList = append(errorsList, execErr.Error())
 		}

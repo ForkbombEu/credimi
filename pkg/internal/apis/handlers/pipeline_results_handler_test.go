@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
-	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -626,7 +625,7 @@ func TestAttachPipelineRunnerInfoPipelineResults(t *testing.T) {
 		},
 	}
 
-	info := runners.PipelineRunnerInfo{NeedsGlobalRunner: true}
+	info := pipeline.PipelineRunnerInfo{NeedsGlobalRunner: true}
 	out := attachPipelineRunnerInfo(app, execs, "runner-1", info, map[string]map[string]any{})
 	require.Len(t, out, 1)
 	require.Equal(t, "runner-1", out[0].GlobalRunnerID)
@@ -684,7 +683,7 @@ func TestAttachRunnerInfoFromTemporalStartInputPipelineResults(t *testing.T) {
 		Ctx:         context.Background(),
 		Client:      mockClient,
 		Executions:  execs,
-		Info:        runners.PipelineRunnerInfo{NeedsGlobalRunner: true},
+		Info:        pipeline.PipelineRunnerInfo{NeedsGlobalRunner: true},
 		RunnerCache: map[string]map[string]any{},
 	})
 	require.NoError(t, err)
