@@ -116,6 +116,15 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
 		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/scoreboard/save-results",
+			Handler:     HandleSaveScoreboardResults,
+			Description: "Refresh the aggregate scoreboard",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
 	},
 }
 

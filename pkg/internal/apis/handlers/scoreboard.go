@@ -5,7 +5,9 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"sort"
@@ -78,6 +80,8 @@ type PipelineStats struct {
 
 type LastExecutionDetails struct {
 	PipelineName         string   `json:"pipeline_name"`
+	WorkflowID		     string   `json:"workflow_id,omitempty"`
+	RunID				 string   `json:"run_id,omitempty"`
 	OrgLogo              string   `json:"org_logo,omitempty"`
 	Video                string   `json:"video_results,omitempty"`
 	Screenshots          string   `json:"screenshots,omitempty"`
@@ -91,6 +95,81 @@ type LastExecutionDetails struct {
 	Verifiers            []string `json:"verifiers,omitempty"`
 	ConformanceTests     []string `json:"conformance_tests,omitempty"`
 	CustomChecks         []string `json:"custom_checks,omitempty"`
+}
+
+type SaveScoreboardResultsRequest struct {
+	AggregatedPipelines []workflows.AggregatedPipelineStats `json:"aggregated_pipelines"`
+}
+
+type SaveScoreboardResultsResponse struct {
+	Success      bool   `json:"success"`
+	Message      string `json:"message"`
+	RecordsCount int    `json:"records_count,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
+
+func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		bodyBytes, err := io.ReadAll(e.Request.Body)
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"Failed to read body",
+				err.Error(),
+			).JSON(e)
+		}
+		
+		var req SaveScoreboardResultsRequest
+		if err := json.Unmarshal(bodyBytes, &req); err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"Invalid JSON body",
+				err.Error(),
+			).JSON(e)
+		}
+		
+		if len(req.AggregatedPipelines) == 0 {
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"AggregatedPipelines cannot be empty",
+				"Please provide aggregated pipeline stats in the request body",
+			).JSON(e)
+		}
+
+		if err := truncateCollection(e.App, "pipeline_results_aggegrates"); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"truncate",
+				"Failed to truncate collection",
+				err.Error(),
+			).JSON(e)
+		}
+
+		result := &workflows.AggregateScoreboardWorkflowOutput{
+			AggregatedPipelines: req.AggregatedPipelines,
+			NamespacesProcessed: 0,
+			NamespacesFailed:    0,
+		}
+
+		recordsCount, err := insertAggregatedResults(e.App, result)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"insert",
+				"Failed to insert results",
+				err.Error(),
+			).JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, SaveScoreboardResultsResponse{
+			Success:      true,
+			Message:      "Results saved successfully",
+			RecordsCount: recordsCount,
+		})
+	}
 }
 
 func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
@@ -306,6 +385,8 @@ func HandleGetExecutionDetails() func(*core.RequestEvent) error {
 
 		response := LastExecutionDetails{
 			PipelineName:         pipelineName,
+			WorkflowID:           workflowID,		
+			RunID:                runID,
 			OrgLogo:              getOrgLogo(e.App, namespace),
 			Video:                video,
 			Screenshots:          screenshot,
@@ -656,4 +737,150 @@ func getOrgLogo(app core.App, namespace string) string {
 		"api", "files", "organizations",
 		org.Id, "logo", logo,
 	)
+}
+
+func truncateCollection(app core.App, collectionName string) error {
+	collection, err := app.FindCollectionByNameOrId(collectionName)
+	if err != nil {
+		return err
+	}
+
+	records, err := app.FindRecordsByFilter(collection.Id, "", "", 1, 0)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows") {
+			return nil
+		}
+		return err
+	}
+	
+	if len(records) == 0 {
+		return nil
+	}
+	
+	records, err = app.FindRecordsByFilter(collection.Id, "", "", -1, 0)
+	if err != nil {
+		return err
+	}
+	
+	for _, record := range records {
+		if err := app.Delete(record); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboardWorkflowOutput) (int, error) {
+	if result == nil {
+		return 0, fmt.Errorf("result is nil")
+	}
+
+	collection, err := app.FindCollectionByNameOrId("pipeline_results_aggegrates")
+	if err != nil {
+		return 0, fmt.Errorf("failed to find collection: %w", err)
+	}
+
+	count := 0
+	for _, stats := range result.AggregatedPipelines {
+		record := core.NewRecord(collection)
+		record.Set("total_runs", stats.TotalRuns)
+		record.Set("total_successes", stats.TotalSuccesses)
+		record.Set("manually_executed_runs", stats.ManualExecutions)
+		record.Set("scheduled_runs", stats.ScheduledExecutions)
+		record.Set("minimum_running_time", stats.MinExecutionTime)
+		record.Set("first_execution", stats.FirstExecutionDate)
+		record.Set("last_execution_date", stats.LastExecutionDate)
+		pipelineRecord, err := app.FindRecordById("pipelines", stats.PipelineID)
+		if err == nil {
+			record.Set("pipeline", pipelineRecord.Id)
+		} else {
+			return 0, fmt.Errorf("failed to find pipeline record for ID %s: %w", stats.PipelineID, err)
+		}
+		if len(stats.Runners) > 0 {
+			runnerIDs, err := findRunners(app, stats.Runners)
+			if err != nil {
+				return count, fmt.Errorf("failed to process runners: %w", err)
+			}
+			if len(runnerIDs) > 0 {
+				record.Set("mobile_runners", runnerIDs)
+			}
+		}
+		if stats.LastExecution != nil {
+			pipelineResultId, err := findPipelineResult(app, stats.LastExecution.WorkflowID, stats.LastExecution.RunID)
+			if err != nil {
+				return count, fmt.Errorf("failed to find pipeline result for workflow %s and run %s: %w", stats.LastExecution.WorkflowID, stats.LastExecution.RunID, err)
+			}
+			if pipelineResultId != "" {
+				record.Set("latest_execution", pipelineResultId)
+			}
+		}
+
+		if err := app.Save(record); err != nil {
+			return count, err
+		}
+		count++
+	}
+	return count, nil
+}
+
+func findRunners(app core.App, runnerNames []string) ([]string, error) {
+	if len(runnerNames) == 0 {
+		return []string{}, nil
+	}
+
+	runnersColl, err := app.FindCollectionByNameOrId("mobile_runners")
+	if err != nil {
+		return nil, fmt.Errorf("mobile_runners collection not found: %w", err)
+	}
+
+	var ids []string
+	for _, runnerFullName := range runnerNames {
+		parts := strings.Split(runnerFullName, "/")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid runner format: %s, expected 'owner/name'", runnerFullName)
+		}
+		ownerName := parts[0]
+		runnerName := parts[1]
+
+		owner, _ := app.FindFirstRecordByFilter(
+			"organizations",
+			"canonified_name={:ownerName}",
+			dbx.Params{"ownerName": ownerName},
+		)
+
+		existing, err := app.FindFirstRecordByFilter(
+			runnersColl.Id,
+			"owner={:owner} && canonified_name={:name}",
+			dbx.Params{"owner": owner.Id, "name": runnerName},
+		)
+
+		if err == nil && existing != nil {
+			ids = append(ids, existing.Id)
+			continue
+		}
+	}
+
+	return ids, nil
+}
+
+func findPipelineResult(app core.App, WorkflowID string, RunID string) (string, error) {
+	pipelineColl, err := app.FindCollectionByNameOrId("pipeline_results")
+	if err != nil {
+		return "", fmt.Errorf("pipeline_results collection not found: %w", err)
+	}
+
+	var id string
+	existing, err := app.FindFirstRecordByFilter(
+		pipelineColl.Id,
+		"workflow_id={:workflowId} && run_id={:runId}",
+		dbx.Params{"workflowId": WorkflowID, "runId": RunID},
+	)
+
+	if err == nil && existing != nil {
+		id = existing.Id
+	}else {
+		return "", fmt.Errorf("no pipeline result found for workflow_id %s and run_id %s", WorkflowID, RunID)
+	}
+	return id, nil
 }

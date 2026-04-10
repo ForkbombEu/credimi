@@ -40,6 +40,8 @@ type AggregatedPipelineStats struct {
 
 type LatestExecutionDetails struct {
 	PipelineName         string   `json:"pipeline_name"`
+	WorkflowID			 string	  `json:"workflow_id,omitempty"`
+	RunID				 string	  `json:"run_id,omitempty"`
 	OrgLogo              string   `json:"org_logo,omitempty"`
 	Video                string   `json:"video,omitempty"`
 	Screenshot           string   `json:"screenshots,omitempty"`
@@ -392,7 +394,29 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		NamespacesFailed:    len(failedNamespaces),
 		FailedNamespaces:    failedNamespaces,
 	}
+	saveURL := utils.JoinURL(appURL, "api", "pipeline", "scoreboard", "save-results")
+	savePayload := map[string]interface{}{
+		"aggregated_pipelines": output.AggregatedPipelines,
+	}
 
+	saveRequest := workflowengine.ActivityInput{
+		Payload: activities.InternalHTTPActivityPayload{
+			Method:         http.MethodPost,
+			URL:            saveURL,
+			ExpectedStatus: http.StatusOK,
+			Body:           savePayload,
+			Headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+		},
+	}
+	
+	var saveResult workflowengine.ActivityResult
+	err = workflow.ExecuteActivity(ctx, httpActivity.Name(), saveRequest).Get(ctx, &saveResult)
+	if err != nil {
+		logger.Error("Failed to save results", "error", err)
+	}
+	
 	return workflowengine.WorkflowResult{
 		Message: "Successfully aggregated scoreboard across namespaces",
 		Output:  output,
@@ -437,6 +461,8 @@ func fetchExecutionDetails(
 
 	return &LatestExecutionDetails{
 		PipelineName:         getString(detailsBody, "pipeline_name"),
+		WorkflowID:           getString(detailsBody, "workflow_id"),
+		RunID:                getString(detailsBody, "run_id"),
 		OrgLogo:              getString(detailsBody, "org_logo"),
 		Video:                getString(detailsBody, "video"),
 		Screenshot:           getString(detailsBody, "screenshots"),

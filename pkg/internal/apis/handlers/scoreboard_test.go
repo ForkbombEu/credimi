@@ -15,6 +15,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -197,8 +198,8 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-	createRunnerRecord(t, app, orgID, "runner-android", "android")
-	createRunnerRecord(t, app, orgID, "runner-ios", "ios")
+	createRunnerRecord(t, app, orgID, "runner-android", "")
+	createRunnerRecord(t, app, orgID, "runner-ios", "")
 	createRunnerRecord(t, app, orgID, "runner-default", "")
 
 	pipeline1 := createPipelineRecord(t, app, orgID, "Android E2E Tests")
@@ -347,8 +348,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	actualLastTime, err := time.Parse(time.RFC3339Nano, stats1.LastExecutionDate)
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedLastTime, actualLastTime, time.Second)
-	require.NotEmpty(t, stats1.RunnerTypes)
-	require.ElementsMatch(t, []string{"android", "ios"}, stats1.RunnerTypes)
 	require.Equal(t, 66.67, stats1.SuccessRate)
 
 	require.NotNil(t, stats1.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
@@ -372,8 +371,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedTime2, actualTime2, time.Second)
 	require.Equal(t, stats2.FirstExecutionDate, stats2.LastExecutionDate)
-	require.NotEmpty(t, stats2.RunnerTypes)
-	require.ElementsMatch(t, []string{"ios"}, stats2.RunnerTypes)
 	require.Equal(t, 100.00, stats2.SuccessRate)
 	require.NotNil(t, stats2.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
 	require.Equal(t, "Pipeline-Sched-wf-4", stats2.LastSuccessfulRun.WorkflowID)
@@ -394,8 +391,8 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-	createRunnerRecord(t, app, orgID, "runner-android", "android")
-	createRunnerRecord(t, app, orgID, "runner-ios", "ios")
+	createRunnerRecord(t, app, orgID, "runner-android", "")
+	createRunnerRecord(t, app, orgID, "runner-ios", "")
 	createRunnerRecord(t, app, orgID, "runner-default", "")
 
 	pipeline1 := createPipelineRecord(t, app, orgID, "Android E2E Tests")
@@ -767,4 +764,268 @@ func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name, runnerTyp
 	runner.Set("owner", orgID)
 	runner.Set("ip", "my_ip")
 	require.NoError(t, app.Save(runner))
+}
+
+func TestSaveScoreboardResults(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+	
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	
+	pipeline := createPipelineRecord(t, app, orgID, "Test Pipeline")
+	pipeline.Set("published", true)
+	require.NoError(t, app.Save(pipeline))
+	
+	createRunnerRecord(t, app, orgID, "test-runner", "")
+	createPipelineResult(t, app, orgID, pipeline.Id, "wf-new", "run-new")
+
+	t.Run("success - saves results correctly", func(t *testing.T) {
+		aggregatedPipelines := []workflows.AggregatedPipelineStats{
+			{
+				PipelineID:          pipeline.Id,
+				PipelineName:        "Test Pipeline",
+				RunnerTypes:         []string{},
+				Runners:             []string{"usera-s-organization/test-runner"},
+				TotalRuns:           10,
+				TotalSuccesses:      8,
+				SuccessRate:         80.0,
+				ManualExecutions:    5,
+				ScheduledExecutions: 5,
+				MinExecutionTime:    "1m30s",
+				FirstExecutionDate:  "2024-01-01T00:00:00Z",
+				LastExecutionDate:   "2024-01-02T00:00:00Z",
+				LastExecution: &workflows.LatestExecutionDetails{
+					PipelineName: "Test Pipeline",
+					WorkflowID: "wf-new",
+					RunID:      "run-new",
+				},
+			},
+		}
+
+		requestBody := SaveScoreboardResultsRequest{
+			AggregatedPipelines: aggregatedPipelines,
+		}
+		bodyBytes, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/scoreboard/save-results",
+			strings.NewReader(string(bodyBytes)),
+		)
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		err = HandleSaveScoreboardResults()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response SaveScoreboardResultsResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+		require.True(t, response.Success)
+		require.Equal(t, 1, response.RecordsCount)
+		
+		collection, err := app.FindCollectionByNameOrId("pipeline_results_aggegrates")
+		require.NoError(t, err)
+
+		records, err := app.FindRecordsByFilter(collection.Id, "", "", -1, 0)
+		require.NoError(t, err)
+		require.Len(t, records, 1)
+
+		record := records[0]
+		require.Equal(t, pipeline.Id, record.GetString("pipeline"))
+		require.Equal(t, 10, record.GetInt("total_runs"))
+		require.Equal(t, 8, record.GetInt("total_successes"))
+		require.Equal(t, 5, record.GetInt("manually_executed_runs"))
+		require.Equal(t, 5, record.GetInt("scheduled_runs"))
+		require.Equal(t, "1m30s", record.GetString("minimum_running_time"))
+
+		runnerIDs := record.GetStringSlice("mobile_runners")
+		require.Len(t, runnerIDs, 1)
+
+		runnerRecord, err := app.FindRecordById("mobile_runners", runnerIDs[0])
+		require.NoError(t, err)
+		require.Equal(t, "test-runner", runnerRecord.GetString("name"))
+
+		latestExecutionID := record.GetString("latest_execution")
+		require.NotEmpty(t, latestExecutionID, "latest_execution should not be empty")
+
+		executionRecord, err := app.FindRecordById("pipeline_results", latestExecutionID)
+		require.NoError(t, err)
+		require.Equal(t, "wf-new", executionRecord.GetString("workflow_id"))
+		require.Equal(t, "run-new", executionRecord.GetString("run_id"))
+	})
+	t.Run("fail - invalid JSON body", func(t *testing.T) {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/scoreboard/save-results",
+			strings.NewReader("invalid json {{{{"),
+		)
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		err := HandleSaveScoreboardResults()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("fail - empty aggregated pipelines", func(t *testing.T) {
+		requestBody := SaveScoreboardResultsRequest{
+			AggregatedPipelines: []workflows.AggregatedPipelineStats{},
+		}
+		bodyBytes, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/scoreboard/save-results",
+			strings.NewReader(string(bodyBytes)),
+		)
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		err = HandleSaveScoreboardResults()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("fail - missing API key", func(t *testing.T) {
+		requestBody := SaveScoreboardResultsRequest{
+			AggregatedPipelines: []workflows.AggregatedPipelineStats{
+				{PipelineID: "test", PipelineName: "Test"},
+			},
+		}
+		bodyBytes, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/scoreboard/save-results",
+			strings.NewReader(string(bodyBytes)),
+		)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		err = HandleSaveScoreboardResults()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+
+	t.Run("fail - pipeline not found", func(t *testing.T) {
+		aggregatedPipelines := []workflows.AggregatedPipelineStats{
+			{
+				PipelineID:   "non-existent-pipeline-id",
+				PipelineName: "Non Existent Pipeline",
+				TotalRuns:    10,
+			},
+		}
+
+		requestBody := SaveScoreboardResultsRequest{
+			AggregatedPipelines: aggregatedPipelines,
+		}
+		bodyBytes, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/scoreboard/save-results",
+			strings.NewReader(string(bodyBytes)),
+		)
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		err = HandleSaveScoreboardResults()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+}
+
+func TestFindRunners(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+	
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	
+	createRunnerRecord(t, app, orgID, "existing-runner", "")
+
+	t.Run("success - existing runners", func(t *testing.T) {
+		runnerNames := []string{
+			"usera-s-organization/existing-runner",
+		}
+		ids, err := findRunners(app, runnerNames)
+		require.NoError(t, err)
+		require.Len(t, ids, 1)
+	})
+
+	t.Run("fail - invalid runner format (no slash)", func(t *testing.T) {
+		runnerNames := []string{
+			"invalid-format-no-slash",
+		}
+		ids, err := findRunners(app, runnerNames)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid runner format")
+		require.Empty(t, ids)
+	})
+
+	t.Run("fail - invalid runner format (multiple slashes)", func(t *testing.T) {
+		runnerNames := []string{
+			"owner/name/extra",
+		}
+		ids, err := findRunners(app, runnerNames)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid runner format")
+		require.Empty(t, ids)
+	})
+
+	t.Run("success - empty runner list", func(t *testing.T) {
+		ids, err := findRunners(app, []string{})
+		require.NoError(t, err)
+		require.Empty(t, ids)
+	})
+
+	t.Run("success - non-existent runners (not created)", func(t *testing.T) {
+		runnerNames := []string{
+			"usera-s-organization/non-existent-runner-1",
+			"usera-s-organization/non-existent-runner-2",
+		}
+		ids, err := findRunners(app, runnerNames)
+		require.NoError(t, err)
+		require.Empty(t, ids)
+	})
 }
