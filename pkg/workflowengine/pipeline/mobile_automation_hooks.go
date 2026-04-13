@@ -7,6 +7,7 @@ package pipeline
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -672,6 +673,9 @@ func processStep(
 			deviceMap,
 		)
 	}
+	if err := validateRunnerURL(runnerURL, input.step.ID, deviceMap); err != nil {
+		return err
+	}
 
 	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
 
@@ -895,6 +899,9 @@ func fetchRunnerInfo(
 			body,
 		)
 	}
+	if err := validateRunnerURL(runnerURL, input.stepID, body); err != nil {
+		return "", "", "", err
+	}
 
 	rawDeviceType, ok := body["type"].(string)
 	if !ok {
@@ -923,6 +930,22 @@ func fetchRunnerInfo(
 	}
 
 	return runnerURL, deviceType, serial, nil
+}
+
+func validateRunnerURL(runnerURL string, stepID string, details any) error {
+	parsedURL, err := url.Parse(runnerURL)
+	if err == nil && parsedURL != nil &&
+		(parsedURL.Scheme == "http" || parsedURL.Scheme == "https") &&
+		parsedURL.Host != "" {
+		return nil
+	}
+
+	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+	return workflowengine.NewAppError(
+		errCode,
+		fmt.Sprintf("missing or invalid runner_url for step %s", stepID),
+		details,
+	)
 }
 
 func startManagedDevice(
