@@ -102,7 +102,16 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:           "/scoreboard/aggregate/start",
 			Handler:        HandleStartAggregateScoreboard,
 			ResponseSchema: StartAggregateScoreboardResponse{},
-			Description:    "Start the aggregate scoreboard workflow",
+			Description:    "Start the aggregate scoreboard workflow (use ?schedule=300 per scheduling every N seconds)",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:      http.MethodDelete,
+			Path:        "/scoreboard/aggregate/schedule/{schedule_id}",
+			Handler:     HandleCancelAggregateScoreboardSchedule,
+			Description: "Cancel a scheduled aggregate scoreboard workflow",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},

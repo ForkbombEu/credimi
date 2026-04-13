@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -175,6 +176,70 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 
 func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
+		scheduleParam := e.Request.URL.Query().Get("schedule")
+		if scheduleParam != "" {
+			scheduleSeconds, err := strconv.ParseInt(scheduleParam, 10, 64)
+			if err != nil || scheduleSeconds <= 0 {
+				return apierror.New(
+					http.StatusBadRequest,
+					"schedule",
+					"Invalid schedule parameter",
+					"schedule must be a positive number of seconds",
+				).JSON(e)
+			}
+
+			namespace := aggregateScoreboardNamespace
+			appURL := e.App.Settings().Meta.AppURL
+		
+			c, err := scheduleTemporalClient(namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"temporal",
+					"failed to create temporal client",
+					err.Error(),
+				).JSON(e)
+			}
+			defer c.Close()
+		
+			ctx := context.Background()
+		
+			scheduleID := fmt.Sprintf("aggregate-scoreboard-schedule-%d-%d", scheduleSeconds, time.Now().Unix())
+		
+			_, err = c.ScheduleClient().Create(ctx, client.ScheduleOptions{
+				ID: scheduleID,
+				Spec: client.ScheduleSpec{
+					Intervals: []client.ScheduleIntervalSpec{{
+						Every: time.Duration(scheduleSeconds) * time.Second,
+					}},
+				},
+				Action: &client.ScheduleWorkflowAction{
+					Workflow:  workflows.NewAggregateScoreboardWorkflow().Workflow,
+					TaskQueue: workflows.AggregateScoreboardTaskQueue,
+					Args: []interface{}{
+						workflowengine.WorkflowInput{
+							Config: map[string]any{
+								"app_url": appURL,
+							},
+						},
+					},
+			    },
+		})
+		
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to create schedule",
+					err.Error(),
+				).JSON(e)
+			}
+		
+			return e.JSON(http.StatusOK, map[string]any{
+				"message":     fmt.Sprintf("Scoreboard aggregation scheduled every %d seconds", scheduleSeconds),
+				"schedule_id": scheduleID,
+			})
+		}
 		workflowResult, err := aggregateScoreboardWorkflowStart(
 			aggregateScoreboardNamespace,
 			workflowengine.WorkflowInput{
@@ -197,6 +262,59 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 			WorkflowRunID:     workflowResult.WorkflowRunID,
 			Message:           workflowResult.Message,
 			WorkflowNamespace: aggregateScoreboardNamespace,
+		})
+	}
+}
+
+func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		scheduleID := e.Request.PathValue("schedule_id")
+		if scheduleID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"params",
+				"schedule_id is required",
+				"missing schedule_id in path",
+			).JSON(e)
+		}
+		
+		namespace := aggregateScoreboardNamespace
+		
+		c, err := scheduleTemporalClient(namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"failed to create temporal client",
+				err.Error(),
+			).JSON(e)
+		}
+		defer c.Close()
+		
+		ctx := context.Background()
+		handle := c.ScheduleClient().GetHandle(ctx, scheduleID)
+		
+		if err := handle.Delete(ctx); err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				return apierror.New(
+					http.StatusNotFound,
+					"schedule",
+					"schedule not found",
+					err.Error(),
+				).JSON(e)
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"schedule",
+				"failed to delete schedule",
+				err.Error(),
+			).JSON(e)
+		}
+		
+		return e.JSON(http.StatusOK, map[string]any{
+			"success":     true,
+			"message":     "Schedule cancelled successfully",
+			"schedule_id": scheduleID,
 		})
 	}
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
@@ -1190,5 +1191,295 @@ func TestFindRunners(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to resolve path usera-s-organization/non-existent-runner-1")
 		require.Empty(t, ids)
+	})
+}
+
+func TestHandleScheduleAggregateScoreboard(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	originalScheduleTemporalClient := scheduleTemporalClient
+	defer func() { scheduleTemporalClient = originalScheduleTemporalClient }()
+
+	t.Run("success - schedule with valid interval", func(t *testing.T) {
+		mockClient := &temporalmocks.Client{}
+		mockScheduleClient := &fakeScheduleClient{}
+		mockClient.On("ScheduleClient").Return(mockScheduleClient)
+		mockClient.On("Close").Return()
+
+		scheduleTemporalClient = func(namespace string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/scoreboard/aggregate/start?schedule=300",
+			nil,
+		)
+		req.SetPathValue("schedule", "300")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleStartAggregateScoreboard()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response map[string]interface{}
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+		require.Contains(t, response["message"].(string), "scheduled every 300 seconds")
+		require.NotEmpty(t, response["schedule_id"])
+
+		require.Len(t, mockScheduleClient.createdOptions, 1)
+		opts := mockScheduleClient.createdOptions[0]
+		require.Len(t, opts.Spec.Intervals, 1)
+		require.Equal(t, 300*time.Second, opts.Spec.Intervals[0].Every)
+	})
+
+	t.Run("fail - invalid schedule parameter (negative)", func(t *testing.T) {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/scoreboard/aggregate/start?schedule=-100",
+			nil,
+		)
+		req.SetPathValue("schedule", "-100")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleStartAggregateScoreboard()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("fail - invalid schedule parameter (zero)", func(t *testing.T) {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/scoreboard/aggregate/start?schedule=0",
+			nil,
+		)
+		req.SetPathValue("schedule", "0")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleStartAggregateScoreboard()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("fail - invalid schedule parameter (not a number)", func(t *testing.T) {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/scoreboard/aggregate/start?schedule=abc",
+			nil,
+		)
+		req.SetPathValue("schedule", "abc")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleStartAggregateScoreboard()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+	t.Run("fail - temporal client error", func(t *testing.T) {
+		scheduleTemporalClient = func(namespace string) (client.Client, error) {
+			return nil, errors.New("temporal connection failed")
+		}
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/scoreboard/aggregate/start?schedule=300",
+			nil,
+		)
+		req.SetPathValue("schedule", "300")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleStartAggregateScoreboard()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+
+	t.Run("fail - schedule creation fails", func(t *testing.T) {
+		mockClient := &temporalmocks.Client{}
+		mockScheduleClient := &fakeScheduleClient{createErr: errors.New("create failed")}
+		mockClient.On("ScheduleClient").Return(mockScheduleClient)
+		mockClient.On("Close").Return()
+
+		scheduleTemporalClient = func(namespace string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/scoreboard/aggregate/start?schedule=300",
+			nil,
+		)
+		req.SetPathValue("schedule", "300")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleStartAggregateScoreboard()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+}
+
+func TestHandleCancelAggregateScoreboardSchedule(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	originalScheduleTemporalClient := scheduleTemporalClient
+	defer func() { scheduleTemporalClient = originalScheduleTemporalClient }()
+
+	t.Run("success - cancel existing schedule", func(t *testing.T) {
+		mockClient := &temporalmocks.Client{}
+		mockScheduleClient := &fakeScheduleClient{}
+		mockClient.On("ScheduleClient").Return(mockScheduleClient)
+		mockClient.On("Close").Return()
+
+		scheduleTemporalClient = func(namespace string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		req := httptest.NewRequest(
+			http.MethodDelete,
+			"/api/scoreboard/aggregate/schedule/test-schedule-123",
+			nil,
+		)
+		req.SetPathValue("schedule_id", "test-schedule-123")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleCancelAggregateScoreboardSchedule()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response map[string]interface{}
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+		require.True(t, response["success"].(bool))
+		require.Equal(t, "Schedule cancelled successfully", response["message"])
+		require.Equal(t, "test-schedule-123", response["schedule_id"])
+	})
+
+	t.Run("fail - missing schedule_id in path", func(t *testing.T) {
+		req := httptest.NewRequest(
+			http.MethodDelete,
+			"/api/scoreboard/aggregate/schedule/",
+			nil,
+		)
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleCancelAggregateScoreboardSchedule()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("fail - schedule not found", func(t *testing.T) {
+		mockHandle := &temporalmocks.ScheduleHandle{}
+		mockHandle.On("Delete", mock.Anything).Return(&serviceerror.NotFound{Message: "schedule not found"})
+		
+		mockScheduleClient := &fakeScheduleClient{
+			handle: mockHandle,
+		}
+		mockClient := &temporalmocks.Client{}
+		mockClient.On("ScheduleClient").Return(mockScheduleClient)
+		mockClient.On("Close").Return()
+
+		scheduleTemporalClient = func(namespace string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		req := httptest.NewRequest(
+			http.MethodDelete,
+			"/api/scoreboard/aggregate/schedule/non-existent",
+			nil,
+		)
+		req.SetPathValue("schedule_id", "non-existent")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleCancelAggregateScoreboardSchedule()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	t.Run("fail - temporal client error", func(t *testing.T) {
+		scheduleTemporalClient = func(namespace string) (client.Client, error) {
+			return nil, errors.New("temporal connection failed")
+		}
+
+		req := httptest.NewRequest(
+			http.MethodDelete,
+			"/api/scoreboard/aggregate/schedule/test-schedule-123",
+			nil,
+		)
+		req.SetPathValue("schedule_id", "test-schedule-123")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleCancelAggregateScoreboardSchedule()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 }
