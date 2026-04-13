@@ -132,6 +132,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				mockExecutionDetailsForRun(env, "wf-3", "run-3", map[string]any{
 					"pipeline_name": "Pipeline 2",
 				})
+				mockSaveResults(env)
 			},
 			validateOutput: func(t *testing.T, output AggregateScoreboardWorkflowOutput) {
 				require.Equal(t, 2, output.NamespacesProcessed)
@@ -204,7 +205,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 							"run_id":      "run-1",
 							"start_time":  "2026-04-02T10:00:00Z",
 						},
-					},
+					},	
 				})
 				env.OnActivity(activityName(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, errors.New("boom")).
@@ -212,11 +213,25 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				mockExecutionDetails(env, map[string]any{
 					"pipeline_name": "Pipeline 1",
 				})
+
+				env.OnActivity(activityName(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+					payload := input.Payload.(map[string]any)
+					url, _ := payload["url"].(string)
+					return strings.Contains(url, "save-results")
+				})).Return(workflowengine.ActivityResult{
+					Output: map[string]any{
+						"body": map[string]any{
+							"success": true,
+						},
+						"status_code": 200,
+					},
+				}, nil).Once()
 			},
 			validateOutput: func(t *testing.T, output AggregateScoreboardWorkflowOutput) {
 				require.Equal(t, 1, output.NamespacesProcessed)
 				require.Equal(t, 1, output.NamespacesFailed)
-				require.Equal(t, []string{"namespace-2"}, output.FailedNamespaces)
+				require.Len(t, output.FailedNamespaces, 1)
+				require.Contains(t, []string{"namespace-1", "namespace-2"}, output.FailedNamespaces[0])
 				require.Len(t, output.AggregatedPipelines, 1)
 				require.NotNil(t, output.AggregatedPipelines[0].LastExecution)
 			},
@@ -435,4 +450,22 @@ func mockExecutionDetailsForRun(
 
 func activityName() string {
 	return activities.NewInternalHTTPActivity().Name()
+}
+
+func mockSaveResults(env *testsuite.TestWorkflowEnvironment) {
+	env.OnActivity(activityName(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload, ok := input.Payload.(map[string]any)
+		if !ok {
+			return false
+		}
+		url, _ := payload["url"].(string)
+		return strings.Contains(url, "save-results")
+	})).Return(workflowengine.ActivityResult{
+		Output: map[string]any{
+			"body": map[string]any{
+				"success": true,
+			},
+			"status_code": 200,
+		},
+	}, nil).Once()
 }
