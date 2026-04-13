@@ -4,6 +4,7 @@
 package workflows
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"sort"
@@ -130,44 +131,13 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	}
 
 	httpActivity := activities.NewInternalHTTPActivity()
-	var httpResult workflowengine.ActivityResult
 
-	namespacesRequest := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodGet,
-			URL:            utils.JoinURL(appURL, "api", "organizations", "namespaces"),
-			ExpectedStatus: http.StatusOK,
-		},
-	}
-
-	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).
-		Get(ctx, &httpResult)
+	// 1. Get namespaces
+	namespaces, err := w.getNamespaces(ctx, httpActivity, appURL)
 	if err != nil {
 		logger.Error("Failed to get namespaces", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			err,
-			input.RunMetadata,
-		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
 	}
-
-	body, ok := httpResult.Output.(map[string]any)["body"].(map[string]any)
-	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-			"response body is not a map",
-			httpResult.Output,
-		)
-	}
-
-	namespaces, ok := getRequiredStringSlice(body, "namespaces")
-	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-			"namespaces field missing or invalid",
-			body,
-		)
-	}
-	namespaces = uniqueStrings(namespaces)
 
 	if len(namespaces) == 0 {
 		return workflowengine.WorkflowResult{
@@ -179,6 +149,113 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		}, nil
 	}
 
+	// 2. Fetch all scoreboards and aggregate
+	aggregatedMap, lastRunMap, failedNamespaces := w.fetchAndAggregateScoreboards(
+		ctx, httpActivity, appURL, namespaces, 
+	)
+
+	// 3. Calculate success rates and sort runners
+	for _, stats := range aggregatedMap {
+		if stats.TotalRuns > 0 {
+			stats.SuccessRate = math.Round(float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000) / 100
+		}
+		sort.Strings(stats.Runners)
+		sort.Strings(stats.RunnerTypes)
+	}
+
+	// 4. Fetch last execution details
+	w.fetchLastExecutionDetails(ctx, httpActivity, appURL, lastRunMap, aggregatedMap)
+
+	// 5. Build output
+	aggregatedPipelines := make([]AggregatedPipelineStats, 0, len(aggregatedMap))
+	for _, stats := range aggregatedMap {
+		aggregatedPipelines = append(aggregatedPipelines, *stats)
+	}
+	sort.Slice(aggregatedPipelines, func(i, j int) bool {
+		return aggregatedPipelines[i].PipelineName < aggregatedPipelines[j].PipelineName
+	})
+
+	output := AggregateScoreboardWorkflowOutput{
+		AggregatedPipelines: aggregatedPipelines,
+		NamespacesProcessed: len(namespaces) - len(failedNamespaces),
+		NamespacesFailed:    len(failedNamespaces),
+		FailedNamespaces:    failedNamespaces,
+	}
+
+	// 6. Save results
+	saveURL := utils.JoinURL(appURL, "api", "pipeline", "scoreboard", "save-results")
+	savePayload := map[string]interface{}{
+		"aggregated_pipelines": output.AggregatedPipelines,
+	}
+	saveRequest := workflowengine.ActivityInput{
+		Payload: activities.InternalHTTPActivityPayload{
+			Method:         http.MethodPost,
+			URL:            saveURL,
+			ExpectedStatus: http.StatusOK,
+			Body:           savePayload,
+			Headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+		},
+	}
+	var saveResult workflowengine.ActivityResult
+	if err = workflow.ExecuteActivity(ctx, httpActivity.Name(), saveRequest).Get(ctx, &saveResult); err != nil {
+		logger.Error("Failed to save results", "error", err)
+	}
+
+	return workflowengine.WorkflowResult{
+		Message: "Successfully aggregated scoreboard across namespaces",
+		Output:  output,
+	}, nil
+}
+
+// getNamespaces retrieves all namespaces from the API
+func (w *AggregateScoreboardWorkflow) getNamespaces(
+	ctx workflow.Context,
+	httpActivity *activities.InternalHTTPActivity,
+	appURL string,
+) ([]string, error) {
+	var httpResult workflowengine.ActivityResult
+
+	namespacesRequest := workflowengine.ActivityInput{
+		Payload: activities.InternalHTTPActivityPayload{
+			Method:         http.MethodGet,
+			URL:            utils.JoinURL(appURL, "api", "organizations", "namespaces"),
+			ExpectedStatus: http.StatusOK,
+		},
+	}
+
+	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).Get(ctx, &httpResult)
+	if err != nil {
+		return nil, err
+	}
+
+	body, ok := httpResult.Output.(map[string]any)["body"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("response body is not a map")
+	}
+
+	namespaces, ok := getRequiredStringSlice(body, "namespaces")
+	if !ok {
+		return nil, fmt.Errorf("namespaces field missing or invalid")
+	}
+
+	return uniqueStrings(namespaces), nil
+}
+
+// fetchAndAggregateScoreboards fetches scoreboards from all namespaces and aggregates them
+func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
+	ctx workflow.Context,
+	httpActivity *activities.InternalHTTPActivity,
+	appURL string,
+	namespaces []string,
+) (map[string]*AggregatedPipelineStats, map[string]*pipelineRunRef, []string) {
+	logger := workflow.GetLogger(ctx)
+	aggregatedMap := make(map[string]*AggregatedPipelineStats)
+	lastRunMap := make(map[string]*pipelineRunRef)
+	var failedNamespaces []string
+
+	// Start all parallel activities
 	var scoreboardFutures []workflow.Future
 	var scoreboardNamespaces []string
 	for _, namespace := range namespaces {
@@ -189,33 +266,16 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 				ExpectedStatus: http.StatusOK,
 			},
 		}
-		scoreboardFutures = append(
-			scoreboardFutures,
-			workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest),
-		)
+		scoreboardFutures = append(scoreboardFutures, workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest))
 		scoreboardNamespaces = append(scoreboardNamespaces, namespace)
 	}
 
-	type rawPipelineData struct {
-		Namespace string
-		Pipeline  map[string]any
-		LastRun   *pipelineRunRef
-	}
-
-	var allRawPipelines []rawPipelineData
-	var failedNamespaces []string
-
+	// Process results
 	for i, future := range scoreboardFutures {
 		var result workflowengine.ActivityResult
 		err := future.Get(ctx, &result)
 		if err != nil {
-			logger.Error(
-				"Failed to fetch scoreboard",
-				"namespace",
-				scoreboardNamespaces[i],
-				"error",
-				err,
-			)
+			logger.Error("Failed to fetch scoreboard", "namespace", scoreboardNamespaces[i], "error", err)
 			failedNamespaces = append(failedNamespaces, scoreboardNamespaces[i])
 			continue
 		}
@@ -234,127 +294,116 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 			continue
 		}
 
-		for _, p := range pipelines {
-			pipeline, ok := p.(map[string]any)
+		for _, item := range pipelines {
+			pipeline, ok := item.(map[string]any)
 			if !ok {
 				continue
 			}
 
-			var lastRun *pipelineRunRef
-			if lastRunRaw, ok := pipeline["last_successful_run"]; ok && lastRunRaw != nil {
-				if lastRunMap, ok := lastRunRaw.(map[string]any); ok {
-					startTime, _ := lastRunMap["start_time"].(string)
-					workflowID, _ := lastRunMap["workflow_id"].(string)
-					runID, _ := lastRunMap["run_id"].(string)
-					if startTime != "" && workflowID != "" && runID != "" {
-						lastRun = &pipelineRunRef{
-							Namespace:  scoreboardNamespaces[i],
-							WorkflowID: workflowID,
-							RunID:      runID,
-							StartTime:  startTime,
-						}
+			pipelineID, ok := pipeline["pipeline_id"].(string)
+			if !ok || pipelineID == "" {
+				continue
+			}
+
+			// Get or create stats for this pipeline
+			stats, exists := aggregatedMap[pipelineID]
+			if !exists {
+				stats = &AggregatedPipelineStats{
+					PipelineID:   pipelineID,
+					PipelineName: getString(pipeline, "pipeline_name"),
+					RunnerTypes:  []string{},
+					Runners:      []string{},
+				}
+				aggregatedMap[pipelineID] = stats
+			}
+
+			// Aggregate numeric stats
+			if totalRuns, ok := pipeline["total_runs"].(float64); ok {
+				stats.TotalRuns += int(totalRuns)
+			}
+			if totalSuccesses, ok := pipeline["total_successes"].(float64); ok {
+				stats.TotalSuccesses += int(totalSuccesses)
+			}
+			if manual, ok := pipeline["manual_executions"].(float64); ok {
+				stats.ManualExecutions += int(manual)
+			}
+			if scheduled, ok := pipeline["scheduled_executions"].(float64); ok {
+				stats.ScheduledExecutions += int(scheduled)
+			}
+
+			// Aggregate runners
+			if runners, ok := pipeline["runners"].([]any); ok {
+				for _, runner := range runners {
+					if runnerID, ok := runner.(string); ok {
+						stats.Runners = appendUnique(stats.Runners, runnerID)
 					}
 				}
 			}
 
-			allRawPipelines = append(allRawPipelines, rawPipelineData{
-				Namespace: scoreboardNamespaces[i],
-				Pipeline:  pipeline,
-				LastRun:   lastRun,
-			})
-		}
-	}
-
-	aggregatedMap := make(map[string]*AggregatedPipelineStats)
-	lastRunMap := make(map[string]*pipelineRunRef)
-
-	for _, raw := range allRawPipelines {
-		p := raw.Pipeline
-
-		pipelineID, ok := p["pipeline_id"].(string)
-		if !ok || pipelineID == "" {
-			continue
-		}
-
-		if _, exists := aggregatedMap[pipelineID]; !exists {
-			aggregatedMap[pipelineID] = &AggregatedPipelineStats{
-				PipelineID:   pipelineID,
-				PipelineName: getString(p, "pipeline_name"),
-				RunnerTypes:  []string{},
-				Runners:      []string{},
+			// Aggregate runner types
+			if runnerTypes, ok := pipeline["runner_types"].([]any); ok {
+				for _, runnerType := range runnerTypes {
+					if runnerTypeValue, ok := runnerType.(string); ok {
+						stats.RunnerTypes = appendUnique(stats.RunnerTypes, runnerTypeValue)
+					}
+				}
 			}
-		}
 
-		stats := aggregatedMap[pipelineID]
+			// Update dates
+			if firstDate, ok := pipeline["first_execution_date"].(string); ok && firstDate != "" {
+				if stats.FirstExecutionDate == "" || firstDate < stats.FirstExecutionDate {
+					stats.FirstExecutionDate = firstDate
+				}
+			}
+			if lastDate, ok := pipeline["last_execution_date"].(string); ok && lastDate != "" {
+				if stats.LastExecutionDate == "" || lastDate > stats.LastExecutionDate {
+					stats.LastExecutionDate = lastDate
+				}
+			}
+			if minTime, ok := pipeline["min_execution_time"].(string); ok && minTime != "" {
+				if shouldReplaceMinExecutionTime(stats.MinExecutionTime, minTime) {
+					stats.MinExecutionTime = minTime
+				}
+			}
 
-		if totalRuns, ok := p["total_runs"].(float64); ok {
-			stats.TotalRuns += int(totalRuns)
-		}
-		if totalSuccesses, ok := p["total_successes"].(float64); ok {
-			stats.TotalSuccesses += int(totalSuccesses)
-		}
-		if manual, ok := p["manual_executions"].(float64); ok {
-			stats.ManualExecutions += int(manual)
-		}
-		if scheduled, ok := p["scheduled_executions"].(float64); ok {
-			stats.ScheduledExecutions += int(scheduled)
-		}
-
-		if runners, ok := p["runners"].([]any); ok {
-			for _, runner := range runners {
-				if runnerID, ok := runner.(string); ok {
-					stats.Runners = appendUnique(stats.Runners, runnerID)
+			// Track last successful run
+			if lastRunRaw, ok := pipeline["last_successful_run"]; ok && lastRunRaw != nil {
+				if lastRunMapRaw, ok := lastRunRaw.(map[string]any); ok {
+					startTime, _ := lastRunMapRaw["start_time"].(string)
+					workflowID, _ := lastRunMapRaw["workflow_id"].(string)
+					runID, _ := lastRunMapRaw["run_id"].(string)
+					if startTime != "" && workflowID != "" && runID != "" {
+						existingRun := lastRunMap[pipelineID]
+						if existingRun == nil || startTime > existingRun.StartTime {
+							lastRunMap[pipelineID] = &pipelineRunRef{
+								Namespace:  scoreboardNamespaces[i],
+								WorkflowID: workflowID,
+								RunID:      runID,
+								StartTime:  startTime,
+							}
+						}
+					}
 				}
 			}
 		}
-
-		if runnerTypes, ok := p["runner_types"].([]any); ok {
-			for _, runnerType := range runnerTypes {
-				if runnerTypeValue, ok := runnerType.(string); ok {
-					stats.RunnerTypes = appendUnique(stats.RunnerTypes, runnerTypeValue)
-				}
-			}
-		}
-
-		if firstDate, ok := p["first_execution_date"].(string); ok && firstDate != "" {
-			if stats.FirstExecutionDate == "" || firstDate < stats.FirstExecutionDate {
-				stats.FirstExecutionDate = firstDate
-			}
-		}
-		if lastDate, ok := p["last_execution_date"].(string); ok && lastDate != "" {
-			if stats.LastExecutionDate == "" || lastDate > stats.LastExecutionDate {
-				stats.LastExecutionDate = lastDate
-			}
-		}
-		if minTime, ok := p["min_execution_time"].(string); ok && minTime != "" {
-			if shouldReplaceMinExecutionTime(stats.MinExecutionTime, minTime) {
-				stats.MinExecutionTime = minTime
-			}
-		}
-
-		if raw.LastRun != nil {
-			existingLastRun := lastRunMap[pipelineID]
-			if existingLastRun == nil || raw.LastRun.StartTime > existingLastRun.StartTime {
-				lastRunMap[pipelineID] = raw.LastRun
-			}
-		}
 	}
 
-	for _, stats := range aggregatedMap {
-		if stats.TotalRuns > 0 {
-			stats.SuccessRate = math.Round(
-				float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000,
-			) / 100
-		}
-		sort.Strings(stats.Runners)
-		sort.Strings(stats.RunnerTypes)
-	}
+	return aggregatedMap, lastRunMap, failedNamespaces
+}
 
+// fetchLastExecutionDetails fetches details for the last successful runs
+func (w *AggregateScoreboardWorkflow) fetchLastExecutionDetails(
+	ctx workflow.Context,
+	httpActivity *activities.InternalHTTPActivity,
+	appURL string,
+	lastRunMap map[string]*pipelineRunRef,
+	aggregatedMap map[string]*AggregatedPipelineStats,
+) {
+	logger := workflow.GetLogger(ctx)
 	for pipelineID, lastRun := range lastRunMap {
 		if lastRun == nil {
 			continue
 		}
-
 		stats := aggregatedMap[pipelineID]
 		if stats == nil {
 			continue
@@ -364,63 +413,15 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		if err != nil {
 			logger.Error(
 				"Failed to fetch execution details",
-				"pipeline_id",
-				pipelineID,
-				"workflow_id",
-				lastRun.WorkflowID,
-				"run_id",
-				lastRun.RunID,
-				"error",
-				err,
+				"pipeline_id", pipelineID,
+				"workflow_id", lastRun.WorkflowID,
+				"run_id", lastRun.RunID,
+				"error", err,
 			)
 			continue
 		}
-
 		stats.LastExecution = details
 	}
-
-	aggregatedPipelines := make([]AggregatedPipelineStats, 0, len(aggregatedMap))
-	for _, stats := range aggregatedMap {
-		aggregatedPipelines = append(aggregatedPipelines, *stats)
-	}
-
-	sort.Slice(aggregatedPipelines, func(i, j int) bool {
-		return aggregatedPipelines[i].PipelineName < aggregatedPipelines[j].PipelineName
-	})
-
-	output := AggregateScoreboardWorkflowOutput{
-		AggregatedPipelines: aggregatedPipelines,
-		NamespacesProcessed: len(namespaces) - len(failedNamespaces),
-		NamespacesFailed:    len(failedNamespaces),
-		FailedNamespaces:    failedNamespaces,
-	}
-	saveURL := utils.JoinURL(appURL, "api", "pipeline", "scoreboard", "save-results")
-	savePayload := map[string]interface{}{
-		"aggregated_pipelines": output.AggregatedPipelines,
-	}
-
-	saveRequest := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodPost,
-			URL:            saveURL,
-			ExpectedStatus: http.StatusOK,
-			Body:           savePayload,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-		},
-	}
-	
-	var saveResult workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, httpActivity.Name(), saveRequest).Get(ctx, &saveResult)
-	if err != nil {
-		logger.Error("Failed to save results", "error", err)
-	}
-	
-	return workflowengine.WorkflowResult{
-		Message: "Successfully aggregated scoreboard across namespaces",
-		Output:  output,
-	}, nil
 }
 
 func fetchExecutionDetails(

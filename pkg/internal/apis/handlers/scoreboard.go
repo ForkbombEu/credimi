@@ -785,27 +785,14 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 	count := 0
 	for _, stats := range result.AggregatedPipelines {
 		record := core.NewRecord(collection)
-		record.Set("total_runs", stats.TotalRuns)
-		record.Set("total_successes", stats.TotalSuccesses)
-		record.Set("manually_executed_runs", stats.ManualExecutions)
-		record.Set("scheduled_runs", stats.ScheduledExecutions)
-		record.Set("minimum_running_time", stats.MinExecutionTime)
-		record.Set("first_execution", stats.FirstExecutionDate)
-		record.Set("last_execution_date", stats.LastExecutionDate)
-		pipelineRecord, err := app.FindRecordById("pipelines", stats.PipelineID)
-		if err == nil {
-			record.Set("pipeline", pipelineRecord.Id)
-		} else {
-			return 0, fmt.Errorf("failed to find pipeline record for ID %s: %w", stats.PipelineID, err)
+		if err := setBasicFields(record, stats); err != nil {
+			return count, err
 		}
-		if len(stats.Runners) > 0 {
-			runnerIDs, err := findRecords(app, stats.Runners)
-			if err != nil {
-				return count, fmt.Errorf("failed to process runners: %w", err)
-			}
-			if len(runnerIDs) > 0 {
-				record.Set("mobile_runners", runnerIDs)
-			}
+		if err := setPipelineRelation(record, app, stats.PipelineID); err != nil {
+			return count, err
+		}
+		if err := setMobileRunnersRelation(record, app, stats.Runners); err != nil {
+			return count, err
 		}
 		if stats.LastExecution != nil {
 			pipelineResultId, err := findPipelineResult(app, stats.LastExecution.WorkflowID, stats.LastExecution.RunID)
@@ -899,9 +886,46 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 	return count, nil
 }
 
-func findRecords(app core.App, Names []string) ([]string, error) {
+func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats) error {
+	record.Set("total_runs", stats.TotalRuns)
+	record.Set("total_successes", stats.TotalSuccesses)
+	record.Set("manually_executed_runs", stats.ManualExecutions)
+	record.Set("scheduled_runs", stats.ScheduledExecutions)
+	record.Set("minimum_running_time", stats.MinExecutionTime)
+	record.Set("first_execution", stats.FirstExecutionDate)
+	record.Set("last_execution_date", stats.LastExecutionDate)
+	return nil
+}
+
+func setPipelineRelation(record *core.Record, app core.App, pipelineID string) error {
+	pipelineRecord, err := app.FindRecordById("pipelines", pipelineID)
+	if err != nil {
+		return fmt.Errorf("failed to find pipeline record for ID %s: %w", pipelineID, err)
+	}
+	record.Set("pipeline", pipelineRecord.Id)
+	return nil
+}
+
+func setMobileRunnersRelation(record *core.Record, app core.App, runners []string) error {
+	if len(runners) == 0 {
+		return nil
+	}
+	
+	runnerIDs, err := findRecords(app, runners)
+	if err != nil {
+		return fmt.Errorf("failed to process runners: %w", err)
+	}
+	
+	if len(runnerIDs) > 0 {
+		record.Set("mobile_runners", runnerIDs)
+	}
+	return nil
+}
+
+
+func findRecords(app core.App, names []string) ([]string, error) {
     var ids []string
-    for _, fullName := range Names {
+    for _, fullName := range names {
         record, err := canonify.Resolve(app, fullName)
         if err != nil {
             return nil, fmt.Errorf("failed to resolve path %s: %w", fullName, err)	
@@ -911,7 +935,7 @@ func findRecords(app core.App, Names []string) ([]string, error) {
     return ids, nil
 }
 
-func findPipelineResult(app core.App, WorkflowID string, RunID string) (string, error) {
+func findPipelineResult(app core.App, workflowID string, runID string) (string, error) {
 	pipelineColl, err := app.FindCollectionByNameOrId("pipeline_results")
 	if err != nil {
 		return "", fmt.Errorf("pipeline_results collection not found: %w", err)
@@ -921,13 +945,13 @@ func findPipelineResult(app core.App, WorkflowID string, RunID string) (string, 
 	existing, err := app.FindFirstRecordByFilter(
 		pipelineColl.Id,
 		"workflow_id={:workflowId} && run_id={:runId}",
-		dbx.Params{"workflowId": WorkflowID, "runId": RunID},
+		dbx.Params{"workflowId": workflowID, "runId": runID},
 	)
 
 	if err == nil && existing != nil {
 		id = existing.Id
 	}else {
-		return "", fmt.Errorf("no pipeline result found for workflow_id %s and run_id %s", WorkflowID, RunID)
+		return "", fmt.Errorf("no pipeline result found for workflow_id %s and run_id %s", workflowID, runID)
 	}
 	return id, nil
 }

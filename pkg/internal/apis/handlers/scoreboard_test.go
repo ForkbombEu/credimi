@@ -199,9 +199,9 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-	createRunnerRecord(t, app, orgID, "runner-android", "")
-	createRunnerRecord(t, app, orgID, "runner-ios", "")
-	createRunnerRecord(t, app, orgID, "runner-default", "")
+	createRunnerRecord(t, app, orgID, "runner-android")
+	createRunnerRecord(t, app, orgID, "runner-ios")
+	createRunnerRecord(t, app, orgID, "runner-default")
 
 	pipeline1 := createPipelineRecord(t, app, orgID, "Android E2E Tests")
 	pipeline2 := createPipelineRecord(t, app, orgID, "iOS E2E Tests")
@@ -392,9 +392,9 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-	createRunnerRecord(t, app, orgID, "runner-android", "")
-	createRunnerRecord(t, app, orgID, "runner-ios", "")
-	createRunnerRecord(t, app, orgID, "runner-default", "")
+	createRunnerRecord(t, app, orgID, "runner-android")
+	createRunnerRecord(t, app, orgID, "runner-ios")
+	createRunnerRecord(t, app, orgID, "runner-default")
 
 	pipeline1 := createPipelineRecord(t, app, orgID, "Android E2E Tests")
 	pipeline2 := createPipelineRecord(t, app, orgID, "iOS E2E Tests")
@@ -755,13 +755,12 @@ func TestExtractCompletionStatus(t *testing.T) {
 	}
 }
 
-func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name, runnerType string) {
+func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	runnersColl, err := app.FindCollectionByNameOrId("mobile_runners")
 	require.NoError(t, err)
 
 	runner := core.NewRecord(runnersColl)
 	runner.Set("name", name)
-	runner.Set("type", runnerType)
 	runner.Set("owner", orgID)
 	runner.Set("ip", "my_ip")
 	require.NoError(t, app.Save(runner))
@@ -867,7 +866,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 	pipeline.Set("published", true)
 	require.NoError(t, app.Save(pipeline))
 	
-	createRunnerRecord(t, app, orgID, "test-runner", "")
+	createRunnerRecord(t, app, orgID, "test-runner")
 	createPipelineResult(t, app, orgID, pipeline.Id, "wf-new", "run-new")
 	createWalletRecord(t, app, orgID, "my-wallet")	
 	createVerifierRecord(t, app, orgID, "my-verifier")
@@ -1145,7 +1144,7 @@ func TestFindRunners(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 	
-	createRunnerRecord(t, app, orgID, "existing-runner", "")
+	createRunnerRecord(t, app, orgID, "existing-runner")
 
 	t.Run("success - existing runners", func(t *testing.T) {
 		runnerNames := []string{
