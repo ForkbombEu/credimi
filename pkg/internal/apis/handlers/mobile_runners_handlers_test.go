@@ -36,7 +36,6 @@ func performMobileRunnerRequest(
 	t testing.TB,
 	app *tests.TestApp,
 	auth *core.Record,
-	method string,
 	url string,
 	validatedInput any,
 ) *core.RequestEvent {
@@ -51,7 +50,7 @@ func performMobileRunnerRequest(
 		requestBody = bytes.NewReader(nil)
 	}
 
-	req := httptest.NewRequest(method, url, requestBody)
+	req := httptest.NewRequest(http.MethodPost, url, requestBody)
 	rec := httptest.NewRecorder()
 	if validatedInput != nil {
 		req = req.WithContext(
@@ -383,7 +382,6 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 			t,
 			app,
 			user,
-			http.MethodPost,
 			"/api/mobile-runner/preview-id",
 			PreviewMobileRunnerIDRequest{Name: "Test Runner"},
 		)
@@ -411,7 +409,6 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 			t,
 			app,
 			superuser,
-			http.MethodPost,
 			"/api/mobile-runner/preview-id",
 			PreviewMobileRunnerIDRequest{Name: "Runner One"},
 		)
@@ -435,7 +432,6 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 			t,
 			app,
 			superuser,
-			http.MethodPost,
 			"/api/mobile-runner/preview-id",
 			PreviewMobileRunnerIDRequest{
 				Organization: "userb-s-organization",
@@ -467,7 +463,6 @@ func TestUpsertMobileRunner(t *testing.T) {
 			t,
 			app,
 			user,
-			http.MethodPost,
 			"/api/mobile-runner",
 			UpsertMobileRunnerRequest{
 				Name:        "My Phone",
@@ -516,7 +511,6 @@ func TestUpsertMobileRunner(t *testing.T) {
 			t,
 			app,
 			user,
-			http.MethodPost,
 			"/api/mobile-runner",
 			UpsertMobileRunnerRequest{
 				RunnerID:     "/usera-s-organization/my-phone",
@@ -550,7 +544,6 @@ func TestUpsertMobileRunner(t *testing.T) {
 			t,
 			app,
 			superuser,
-			http.MethodPost,
 			"/api/mobile-runner",
 			UpsertMobileRunnerRequest{
 				RunnerID:     "/userb-s-organization/conflicting-id",
