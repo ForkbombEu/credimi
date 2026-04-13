@@ -243,21 +243,20 @@ func (w *AggregateScoreboardWorkflow) getNamespaces(
 	return uniqueStrings(namespaces), nil
 }
 
-// fetchAndAggregateScoreboards fetches scoreboards from all namespaces and aggregates them
 func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 	ctx workflow.Context,
 	httpActivity *activities.InternalHTTPActivity,
 	appURL string,
 	namespaces []string,
 ) (map[string]*AggregatedPipelineStats, map[string]*pipelineRunRef, []string) {
-	logger := workflow.GetLogger(ctx)
 	aggregatedMap := make(map[string]*AggregatedPipelineStats)
 	lastRunMap := make(map[string]*pipelineRunRef)
 	var failedNamespaces []string
 
-	// Start all parallel activities
-	var scoreboardFutures []workflow.Future
-	var scoreboardNamespaces []string
+	// Start all parallel activities with preallocated slices
+	scoreboardFutures := make([]workflow.Future, 0, len(namespaces))
+	scoreboardNamespaces := make([]string, 0, len(namespaces))
+	
 	for _, namespace := range namespaces {
 		scoreboardRequest := workflowengine.ActivityInput{
 			Payload: activities.InternalHTTPActivityPayload{
@@ -272,123 +271,188 @@ func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 
 	// Process results
 	for i, future := range scoreboardFutures {
-		var result workflowengine.ActivityResult
-		err := future.Get(ctx, &result)
-		if err != nil {
-			logger.Error("Failed to fetch scoreboard", "namespace", scoreboardNamespaces[i], "error", err)
-			failedNamespaces = append(failedNamespaces, scoreboardNamespaces[i])
-			continue
-		}
-
-		respBody, ok := result.Output.(map[string]any)["body"]
-		if !ok {
-			logger.Error("Invalid response body", "namespace", scoreboardNamespaces[i])
-			failedNamespaces = append(failedNamespaces, scoreboardNamespaces[i])
-			continue
-		}
-
-		pipelines, ok := respBody.([]any)
-		if !ok {
-			logger.Error("Response body is not an array", "namespace", scoreboardNamespaces[i])
-			failedNamespaces = append(failedNamespaces, scoreboardNamespaces[i])
-			continue
-		}
-
-		for _, item := range pipelines {
-			pipeline, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			pipelineID, ok := pipeline["pipeline_id"].(string)
-			if !ok || pipelineID == "" {
-				continue
-			}
-
-			// Get or create stats for this pipeline
-			stats, exists := aggregatedMap[pipelineID]
-			if !exists {
-				stats = &AggregatedPipelineStats{
-					PipelineID:   pipelineID,
-					PipelineName: getString(pipeline, "pipeline_name"),
-					RunnerTypes:  []string{},
-					Runners:      []string{},
-				}
-				aggregatedMap[pipelineID] = stats
-			}
-
-			// Aggregate numeric stats
-			if totalRuns, ok := pipeline["total_runs"].(float64); ok {
-				stats.TotalRuns += int(totalRuns)
-			}
-			if totalSuccesses, ok := pipeline["total_successes"].(float64); ok {
-				stats.TotalSuccesses += int(totalSuccesses)
-			}
-			if manual, ok := pipeline["manual_executions"].(float64); ok {
-				stats.ManualExecutions += int(manual)
-			}
-			if scheduled, ok := pipeline["scheduled_executions"].(float64); ok {
-				stats.ScheduledExecutions += int(scheduled)
-			}
-
-			// Aggregate runners
-			if runners, ok := pipeline["runners"].([]any); ok {
-				for _, runner := range runners {
-					if runnerID, ok := runner.(string); ok {
-						stats.Runners = appendUnique(stats.Runners, runnerID)
-					}
-				}
-			}
-
-			// Aggregate runner types
-			if runnerTypes, ok := pipeline["runner_types"].([]any); ok {
-				for _, runnerType := range runnerTypes {
-					if runnerTypeValue, ok := runnerType.(string); ok {
-						stats.RunnerTypes = appendUnique(stats.RunnerTypes, runnerTypeValue)
-					}
-				}
-			}
-
-			// Update dates
-			if firstDate, ok := pipeline["first_execution_date"].(string); ok && firstDate != "" {
-				if stats.FirstExecutionDate == "" || firstDate < stats.FirstExecutionDate {
-					stats.FirstExecutionDate = firstDate
-				}
-			}
-			if lastDate, ok := pipeline["last_execution_date"].(string); ok && lastDate != "" {
-				if stats.LastExecutionDate == "" || lastDate > stats.LastExecutionDate {
-					stats.LastExecutionDate = lastDate
-				}
-			}
-			if minTime, ok := pipeline["min_execution_time"].(string); ok && minTime != "" {
-				if shouldReplaceMinExecutionTime(stats.MinExecutionTime, minTime) {
-					stats.MinExecutionTime = minTime
-				}
-			}
-
-			// Track last successful run
-			if lastRunRaw, ok := pipeline["last_successful_run"]; ok && lastRunRaw != nil {
-				if lastRunMapRaw, ok := lastRunRaw.(map[string]any); ok {
-					startTime, _ := lastRunMapRaw["start_time"].(string)
-					workflowID, _ := lastRunMapRaw["workflow_id"].(string)
-					runID, _ := lastRunMapRaw["run_id"].(string)
-					if startTime != "" && workflowID != "" && runID != "" {
-						existingRun := lastRunMap[pipelineID]
-						if existingRun == nil || startTime > existingRun.StartTime {
-							lastRunMap[pipelineID] = &pipelineRunRef{
-								Namespace:  scoreboardNamespaces[i],
-								WorkflowID: workflowID,
-								RunID:      runID,
-								StartTime:  startTime,
-							}
-						}
-					}
-				}
-			}
-		}
+		w.processScoreboardResponse(ctx, future, scoreboardNamespaces[i], 
+			aggregatedMap, lastRunMap, &failedNamespaces)
 	}
 
 	return aggregatedMap, lastRunMap, failedNamespaces
+}
+
+func (w *AggregateScoreboardWorkflow) processScoreboardResponse(
+	ctx workflow.Context,
+	future workflow.Future,
+	namespace string,
+	aggregatedMap map[string]*AggregatedPipelineStats,
+	lastRunMap map[string]*pipelineRunRef,
+	failedNamespaces *[]string,
+) {
+	logger := workflow.GetLogger(ctx)
+	var result workflowengine.ActivityResult
+	err := future.Get(ctx, &result)
+	if err != nil {
+		logger.Error("Failed to fetch scoreboard", "namespace", namespace, "error", err)
+		*failedNamespaces = append(*failedNamespaces, namespace)
+		return
+	}
+
+	respBody, ok := result.Output.(map[string]any)["body"]
+	if !ok {
+		logger.Error("Invalid response body", "namespace", namespace)
+		*failedNamespaces = append(*failedNamespaces, namespace)
+		return
+	}
+
+	pipelines, ok := respBody.([]any)
+	if !ok {
+		logger.Error("Response body is not an array", "namespace", namespace)
+		*failedNamespaces = append(*failedNamespaces, namespace)
+		return
+	}
+
+	for _, item := range pipelines {
+		pipeline, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		w.aggregateSinglePipeline(pipeline, namespace, aggregatedMap, lastRunMap)
+	}
+}
+
+func (w *AggregateScoreboardWorkflow) aggregateSinglePipeline(
+	pipeline map[string]any,
+	namespace string,
+	aggregatedMap map[string]*AggregatedPipelineStats,
+	lastRunMap map[string]*pipelineRunRef,
+) {
+	pipelineID, ok := pipeline["pipeline_id"].(string)
+	if !ok || pipelineID == "" {
+		return
+	}
+
+	// Get or create stats
+	stats, exists := aggregatedMap[pipelineID]
+	if !exists {
+		stats = &AggregatedPipelineStats{
+			PipelineID:   pipelineID,
+			PipelineName: getString(pipeline, "pipeline_name"),
+			RunnerTypes:  []string{},
+			Runners:      []string{},
+		}
+		aggregatedMap[pipelineID] = stats
+	}
+
+	// Aggregate numeric stats
+	w.aggregateNumericStats(stats, pipeline)
+	
+	// Aggregate runners and types
+	w.aggregateRunners(stats, pipeline)
+	w.aggregateRunnerTypes(stats, pipeline)
+	
+	// Update dates
+	w.updateDates(stats, pipeline)
+	
+	// Track last successful run
+	w.trackLastRun(pipeline, namespace, pipelineID, lastRunMap)
+}
+
+func (w *AggregateScoreboardWorkflow) aggregateNumericStats(
+	stats *AggregatedPipelineStats,
+	pipeline map[string]any,
+) {
+	if totalRuns, ok := pipeline["total_runs"].(float64); ok {
+		stats.TotalRuns += int(totalRuns)
+	}
+	if totalSuccesses, ok := pipeline["total_successes"].(float64); ok {
+		stats.TotalSuccesses += int(totalSuccesses)
+	}
+	if manual, ok := pipeline["manual_executions"].(float64); ok {
+		stats.ManualExecutions += int(manual)
+	}
+	if scheduled, ok := pipeline["scheduled_executions"].(float64); ok {
+		stats.ScheduledExecutions += int(scheduled)
+	}
+}
+
+func (w *AggregateScoreboardWorkflow) aggregateRunners(
+	stats *AggregatedPipelineStats,
+	pipeline map[string]any,
+) {
+	if runners, ok := pipeline["runners"].([]any); ok {
+		for _, runner := range runners {
+			if runnerID, ok := runner.(string); ok {
+				stats.Runners = appendUnique(stats.Runners, runnerID)
+			}
+		}
+	}
+}
+
+func (w *AggregateScoreboardWorkflow) aggregateRunnerTypes(
+	stats *AggregatedPipelineStats,
+	pipeline map[string]any,
+) {
+	if runnerTypes, ok := pipeline["runner_types"].([]any); ok {
+		for _, runnerType := range runnerTypes {
+			if runnerTypeValue, ok := runnerType.(string); ok {
+				stats.RunnerTypes = appendUnique(stats.RunnerTypes, runnerTypeValue)
+			}
+		}
+	}
+}
+
+func (w *AggregateScoreboardWorkflow) updateDates(
+	stats *AggregatedPipelineStats,
+	pipeline map[string]any,
+) {
+	if firstDate, ok := pipeline["first_execution_date"].(string); ok && firstDate != "" {
+		if stats.FirstExecutionDate == "" || firstDate < stats.FirstExecutionDate {
+			stats.FirstExecutionDate = firstDate
+		}
+	}
+	if lastDate, ok := pipeline["last_execution_date"].(string); ok && lastDate != "" {
+		if stats.LastExecutionDate == "" || lastDate > stats.LastExecutionDate {
+			stats.LastExecutionDate = lastDate
+		}
+	}
+	if minTime, ok := pipeline["min_execution_time"].(string); ok && minTime != "" {
+		if shouldReplaceMinExecutionTime(stats.MinExecutionTime, minTime) {
+			stats.MinExecutionTime = minTime
+		}
+	}
+}
+
+func (w *AggregateScoreboardWorkflow) trackLastRun(
+	pipeline map[string]any,
+	namespace string,
+	pipelineID string,
+	lastRunMap map[string]*pipelineRunRef,
+) {
+	lastRunRaw, ok := pipeline["last_successful_run"]
+	if !ok || lastRunRaw == nil {
+		return
+	}
+	
+	lastRunData, ok := lastRunRaw.(map[string]any)
+	if !ok {
+		return
+	}
+	
+	startTime, _ := lastRunData["start_time"].(string)
+	workflowID, _ := lastRunData["workflow_id"].(string)
+	runID, _ := lastRunData["run_id"].(string)
+	
+	if startTime == "" || workflowID == "" || runID == "" {
+		return
+	}
+	
+	existingRun := lastRunMap[pipelineID]
+	if existingRun == nil || startTime > existingRun.StartTime {
+		lastRunMap[pipelineID] = &pipelineRunRef{
+			Namespace:  namespace,
+			WorkflowID: workflowID,
+			RunID:      runID,
+			StartTime:  startTime,
+		}
+	}
 }
 
 // fetchLastExecutionDetails fetches details for the last successful runs

@@ -785,9 +785,7 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 	count := 0
 	for _, stats := range result.AggregatedPipelines {
 		record := core.NewRecord(collection)
-		if err := setBasicFields(record, stats); err != nil {
-			return count, err
-		}
+		setBasicFields(record, stats)
 		if err := setPipelineRelation(record, app, stats.PipelineID); err != nil {
 			return count, err
 		}
@@ -795,89 +793,11 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 			return count, err
 		}
 		if stats.LastExecution != nil {
-			pipelineResultId, err := findPipelineResult(app, stats.LastExecution.WorkflowID, stats.LastExecution.RunID)
-			if err != nil {
-				return count, fmt.Errorf("failed to find pipeline result for workflow %s and run %s: %w", stats.LastExecution.WorkflowID, stats.LastExecution.RunID, err)
-			}
-			if pipelineResultId != "" {
-				record.Set("latest_execution", pipelineResultId)
-			}
-			if len(stats.LastExecution.WalletUsed) > 0 {
-				walletIDs, err := findRecords(app, stats.LastExecution.WalletUsed)
-				if err != nil {
-					return count, fmt.Errorf("failed to process wallets: %w", err)
-				}
-				if len(walletIDs) > 0 {
-					record.Set("wallets", walletIDs)
-				}
-			}
-			if len(stats.LastExecution.Issuers) > 0 {
-				issuerIDs, err := findRecords(app, stats.LastExecution.Issuers)
-				if err != nil {
-					return count, fmt.Errorf("failed to process issuers: %w", err)
-				}
-				if len(issuerIDs) > 0 {
-					record.Set("issuers", issuerIDs)
-				}
-			}
-			if len(stats.LastExecution.Verifiers) > 0 {
-				verifierIDs, err := findRecords(app, stats.LastExecution.Verifiers)
-				if err != nil {
-					return count, fmt.Errorf("failed to process verifiers: %w", err)
-				}
-				if len(verifierIDs) > 0 {
-					record.Set("verifiers", verifierIDs)
-				}
-			}
-			if len(stats.LastExecution.MaestroScripts) > 0 {
-				actionIDs, err := findRecords(app, stats.LastExecution.MaestroScripts)
-				if err != nil {
-					return count, fmt.Errorf("failed to process maestro scripts: %w", err)
-				}
-				if len(actionIDs) > 0 {
-					record.Set("wallet_actions", actionIDs)
-				}
-			}	
-			if len(stats.LastExecution.WalletVersionUsed) > 0 {
-				versionIDs, err := findRecords(app, stats.LastExecution.WalletVersionUsed)
-				if err != nil {
-					return count, fmt.Errorf("failed to process wallet versions: %w", err)
-				}
-				if len(versionIDs) > 0 {
-					record.Set("wallet_versions", versionIDs)
-				}
-			}
-			if len(stats.LastExecution.Credentials) > 0 {
-				credentialIDs, err := findRecords(app, stats.LastExecution.Credentials)
-				if err != nil {
-					return count, fmt.Errorf("failed to process credentials: %w", err)
-				}
-				if len(credentialIDs) > 0 {
-					record.Set("credentials", credentialIDs)
-				}
-			}
-		    if len(stats.LastExecution.UseCaseVerifications) > 0 {
-				useCaseIDs, err := findRecords(app, stats.LastExecution.UseCaseVerifications)
-				if err != nil {
-					return count, fmt.Errorf("failed to process use cases: %w", err)
-				}
-				if len(useCaseIDs) > 0 {
-					record.Set("use_case_verifications", useCaseIDs)
-				}
-			}
-			if len(stats.LastExecution.CustomChecks) > 0 {
-				testIDs, err := findRecords(app, stats.LastExecution.CustomChecks)
-				if err != nil {
-					return count, fmt.Errorf("failed to process custom checks: %w", err)
-				}
-				if len(testIDs) > 0 {
-					record.Set("custom_integrations", testIDs)
-				}
-			}
-			if len(stats.LastExecution.ConformanceTests) > 0 {
-				record.Set("conformance_checks", stats.LastExecution.ConformanceTests)
+			if err := setLastExecutionFields(record, app, stats.LastExecution); err != nil {
+				return count, err
 			}
 		}
+		
 		if err := app.Save(record); err != nil {
 			return count, err
 		}
@@ -886,7 +806,7 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 	return count, nil
 }
 
-func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats) error {
+func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats) {
 	record.Set("total_runs", stats.TotalRuns)
 	record.Set("total_successes", stats.TotalSuccesses)
 	record.Set("manually_executed_runs", stats.ManualExecutions)
@@ -894,7 +814,6 @@ func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats
 	record.Set("minimum_running_time", stats.MinExecutionTime)
 	record.Set("first_execution", stats.FirstExecutionDate)
 	record.Set("last_execution_date", stats.LastExecutionDate)
-	return nil
 }
 
 func setPipelineRelation(record *core.Record, app core.App, pipelineID string) error {
@@ -954,4 +873,110 @@ func findPipelineResult(app core.App, workflowID string, runID string) (string, 
 		return "", fmt.Errorf("no pipeline result found for workflow_id %s and run_id %s", workflowID, runID)
 	}
 	return id, nil
+}
+
+func setLastExecutionFields(record *core.Record, app core.App, lastExecution *workflows.LatestExecutionDetails) error {
+	// Pipeline result
+	pipelineResultId, err := findPipelineResult(app, lastExecution.WorkflowID, lastExecution.RunID)
+	if err != nil {
+		return fmt.Errorf("failed to find pipeline result for workflow %s and run %s: %w", lastExecution.WorkflowID, lastExecution.RunID, err)
+	}
+	if pipelineResultId != "" {
+		record.Set("latest_execution", pipelineResultId)
+	}
+	
+	// Wallets
+	if len(lastExecution.WalletUsed) > 0 {
+		walletIDs, err := findRecords(app, lastExecution.WalletUsed)
+		if err != nil {
+			return fmt.Errorf("failed to process wallets: %w", err)
+		}
+		if len(walletIDs) > 0 {
+			record.Set("wallets", walletIDs)
+		}
+	}
+	
+	// Issuers
+	if len(lastExecution.Issuers) > 0 {
+		issuerIDs, err := findRecords(app, lastExecution.Issuers)
+		if err != nil {
+			return fmt.Errorf("failed to process issuers: %w", err)
+		}
+		if len(issuerIDs) > 0 {
+			record.Set("issuers", issuerIDs)
+		}
+	}
+	
+	// Verifiers
+	if len(lastExecution.Verifiers) > 0 {
+		verifierIDs, err := findRecords(app, lastExecution.Verifiers)
+		if err != nil {
+			return fmt.Errorf("failed to process verifiers: %w", err)
+		}
+		if len(verifierIDs) > 0 {
+			record.Set("verifiers", verifierIDs)
+		}
+	}
+	
+	// Maestro scripts (wallet_actions)
+	if len(lastExecution.MaestroScripts) > 0 {
+		actionIDs, err := findRecords(app, lastExecution.MaestroScripts)
+		if err != nil {
+			return fmt.Errorf("failed to process maestro scripts: %w", err)
+		}
+		if len(actionIDs) > 0 {
+			record.Set("wallet_actions", actionIDs)
+		}
+	}
+	
+	// Wallet versions
+	if len(lastExecution.WalletVersionUsed) > 0 {
+		versionIDs, err := findRecords(app, lastExecution.WalletVersionUsed)
+		if err != nil {
+			return fmt.Errorf("failed to process wallet versions: %w", err)
+		}
+		if len(versionIDs) > 0 {
+			record.Set("wallet_versions", versionIDs)
+		}
+	}
+	
+	// Credentials
+	if len(lastExecution.Credentials) > 0 {
+		credentialIDs, err := findRecords(app, lastExecution.Credentials)
+		if err != nil {
+			return fmt.Errorf("failed to process credentials: %w", err)
+		}
+		if len(credentialIDs) > 0 {
+			record.Set("credentials", credentialIDs)
+		}
+	}
+	
+	// Use case verifications
+	if len(lastExecution.UseCaseVerifications) > 0 {
+		useCaseIDs, err := findRecords(app, lastExecution.UseCaseVerifications)
+		if err != nil {
+			return fmt.Errorf("failed to process use cases: %w", err)
+		}
+		if len(useCaseIDs) > 0 {
+			record.Set("use_case_verifications", useCaseIDs)
+		}
+	}
+	
+	// Custom checks
+	if len(lastExecution.CustomChecks) > 0 {
+		testIDs, err := findRecords(app, lastExecution.CustomChecks)
+		if err != nil {
+			return fmt.Errorf("failed to process custom checks: %w", err)
+		}
+		if len(testIDs) > 0 {
+			record.Set("custom_integrations", testIDs)
+		}
+	}
+	
+	// Conformance tests 
+	if len(lastExecution.ConformanceTests) > 0 {
+		record.Set("conformance_checks", lastExecution.ConformanceTests)
+	}
+	
+	return nil
 }
