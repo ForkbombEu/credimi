@@ -1162,7 +1162,7 @@ func TestFindRunners(t *testing.T) {
 		}
 		ids, err := findRecords(app, runnerNames)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid runner format")
+		require.Contains(t, err.Error(), "invalid-format-no-slash")
 		require.Empty(t, ids)
 	})
 
@@ -1172,7 +1172,7 @@ func TestFindRunners(t *testing.T) {
 		}
 		ids, err := findRecords(app, runnerNames)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid runner format")
+		require.Contains(t, err.Error(), "failed to resolve path owner/name/extra")
 		require.Empty(t, ids)
 	})
 
@@ -1182,13 +1182,14 @@ func TestFindRunners(t *testing.T) {
 		require.Empty(t, ids)
 	})
 
-	t.Run("success - non-existent runners (not created)", func(t *testing.T) {
+	t.Run("fail - non-existent runners (not created)", func(t *testing.T) {
 		runnerNames := []string{
 			"usera-s-organization/non-existent-runner-1",
 			"usera-s-organization/non-existent-runner-2",
 		}
 		ids, err := findRecords(app, runnerNames)
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to resolve path usera-s-organization/non-existent-runner-1")
 		require.Empty(t, ids)
 	})
 }
