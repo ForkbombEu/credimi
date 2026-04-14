@@ -14,12 +14,9 @@ import type { GenericRecord } from '@/utils/types.js';
 import { pb } from '@/pocketbase';
 import { getExceptionMessage } from '@/utils/errors.js';
 
-import {
-	type ActivityOptions,
-	type Pipeline,
-	type PipelineStep,
-	type PipelineStepType
-} from '../pipeline/types';
+import type { RuntimeOptions } from './runtime-options-form/runtime-options-form.svelte.js';
+
+import { type Pipeline, type PipelineStep, type PipelineStepType } from '../pipeline/types';
 import { configs } from './steps';
 import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 
@@ -27,7 +24,7 @@ import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 
 export interface EnrichedPipeline {
 	record: PipelinesResponse;
-	activity_options?: ActivityOptions;
+	runtime?: RuntimeOptions;
 	steps: EnrichedStep[];
 }
 
@@ -70,7 +67,7 @@ export async function getEnrichedPipeline(
 
 	return {
 		record,
-		activity_options: yaml.runtime?.temporal?.activity_options,
+		runtime: yaml.runtime,
 		steps: enrichedSteps
 	};
 }
@@ -80,18 +77,14 @@ export async function getEnrichedPipeline(
 export function createPipelineYaml(
 	name: string,
 	steps: PipelineStep[],
-	activity_options: ActivityOptions
+	runtime: RuntimeOptions
 ): string {
 	// Cloning because addProgressiveStepIds and linkIds modify the original steps array
 	const processedSteps = pipe(_.cloneDeep(steps), generateIds, linkIds);
 
 	const pipeline: Pipeline = {
 		name,
-		runtime: {
-			temporal: {
-				activity_options
-			}
-		},
+		runtime: runtime,
 		steps: processedSteps
 	};
 
