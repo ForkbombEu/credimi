@@ -2208,6 +2208,51 @@ func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 	require.Contains(t, err.Error(), "device type")
 }
 
+func TestFetchRunnerInfoRejectsMalformedRunnerURL(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			ctx = workflow.WithActivityOptions(
+				ctx,
+				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			)
+			_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
+				ctx: ctx,
+				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
+					RunnerID: "runner-1",
+				},
+				appURL:       "https://app.example",
+				stepID:       "step-1",
+				httpActivity: httpActivity,
+			})
+			return err
+		},
+		workflow.RegisterOptions{Name: "test-fetch-runner-malformed-url"},
+	)
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{
+				"runner_url": "192.168.1.10:8050",
+				"type":       "android_phone",
+				"serial":     "serial-1",
+			},
+		}}, nil)
+
+	env.ExecuteWorkflow("test-fetch-runner-malformed-url")
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing or invalid runner_url")
+}
+
 func TestInstallAppIfNeededRequiresPackageID(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
