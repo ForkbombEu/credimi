@@ -940,7 +940,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.True(t, response.Success)
 		require.Equal(t, 1, response.RecordsCount)
 
-		collection, err := app.FindCollectionByNameOrId("pipeline_results_aggegrates")
+		collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
 		require.NoError(t, err)
 
 		records, err := app.FindRecordsByFilter(collection.Id, "", "", -1, 0)

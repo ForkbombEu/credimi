@@ -142,7 +142,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		if err := truncateCollection(e.App, "pipeline_results_aggegrates"); err != nil {
+		if err := truncateCollection(e.App, "pipeline_scoreboard_cache"); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"truncate",
@@ -905,7 +905,7 @@ func insertAggregatedResults(
 		return 0, fmt.Errorf("result is nil")
 	}
 
-	collection, err := app.FindCollectionByNameOrId("pipeline_results_aggegrates")
+	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
 	if err != nil {
 		return 0, fmt.Errorf("failed to find collection: %w", err)
 	}
