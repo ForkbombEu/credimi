@@ -40,7 +40,7 @@ func generateToken(collectionNameOrID string, email string) (string, error) {
 	return record.NewAuthToken()
 }
 
-func isSuperUser(app core.App, user *core.Record) bool {
+func IsSuperUser(app core.App, user *core.Record) bool {
 	superUserRecord, err := app.FindFirstRecordByFilter(
 		"_superusers",
 		"id ={:id}",
