@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -445,12 +446,12 @@ func conformanceHookWorkflow(
 	ctx workflow.Context,
 	input conformanceHookInput,
 ) (conformanceHookResult, error) {
-	steps := []StepDefinition{
+	steps := []pipeline.StepDefinition{
 		{
-			StepSpec: StepSpec{
+			StepSpec: pipeline.StepSpec{
 				ID:  "step-1",
 				Use: "conformance-check",
-				With: StepInputs{
+				With: pipeline.StepInputs{
 					Payload: map[string]any{
 						"check_id": input.CheckID,
 					},

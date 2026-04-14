@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -338,10 +339,10 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
 
-			step := &StepDefinition{
-				StepSpec: StepSpec{
+			step := &pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID: "step-1",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"action_id": "action-1",
 							"runner_id": "runner-1",
@@ -462,11 +463,11 @@ func TestFetchAndInstallAPKExternalInstallSkipsInstallerAndMutatesStepUse(t *tes
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
 
-			step := &StepDefinition{
-				StepSpec: StepSpec{
+			step := &pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: mobileAutomationStepUse,
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"action_id":  "action-1",
 							"runner_id":  "runner-1",
@@ -568,11 +569,11 @@ func TestFetchAndInstallAPKExternalSourceNonInstallStepSkipsInstallerWithoutMuta
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
 
-			step := &StepDefinition{
-				StepSpec: StepSpec{
+			step := &pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: mobileAutomationStepUse,
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"action_id":  "action-1",
 							"runner_id":  "runner-1",
@@ -662,24 +663,24 @@ func TestPrepareMobileAutomationStepsHoistsExternalInstallSteps(t *testing.T) {
 	)
 
 	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) ([]StepDefinition, error) {
+		func(ctx workflow.Context) ([]pipeline.StepDefinition, error) {
 			ctx = workflow.WithActivityOptions(
 				ctx,
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
 
-			steps := []StepDefinition{
+			steps := []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "normal-http",
 						Use: "http-request",
 					},
 				},
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "special-install",
 						Use: mobileAutomationStepUse,
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id":  "wallet/install",
 								"version_id": mobileExternalSourceVersionID,
@@ -688,10 +689,10 @@ func TestPrepareMobileAutomationStepsHoistsExternalInstallSteps(t *testing.T) {
 					},
 				},
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "external-regular",
 						Use: mobileAutomationStepUse,
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id":  "wallet/open",
 								"version_id": mobileExternalSourceVersionID,
@@ -747,7 +748,7 @@ func TestPrepareMobileAutomationStepsHoistsExternalInstallSteps(t *testing.T) {
 	env.ExecuteWorkflow("test-prepare-mobile-automation-steps")
 	require.NoError(t, env.GetWorkflowError())
 
-	var result []StepDefinition
+	var result []pipeline.StepDefinition
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Len(t, result, 3)
 	require.Equal(t, "special-install", result[0].ID)
@@ -787,11 +788,11 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
-			step := &StepDefinition{
-				StepSpec: StepSpec{
+			step := &pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: mobileAutomationStepUse,
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"action_id": "action-1",
 						},
@@ -1056,10 +1057,10 @@ func TestFetchAndInstallAPKKeepsExistingActionCode(t *testing.T) {
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
 
-			step := &StepDefinition{
-				StepSpec: StepSpec{
+			step := &pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID: "step-1",
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"action_id":   "action-1",
 							"action_code": "preset-code",
@@ -1388,12 +1389,12 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
-			steps := []StepDefinition{
+			steps := []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step-1",
 						Use: mobileAutomationStepUse,
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id": "action-1",
 							},
@@ -1544,12 +1545,12 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
-			steps := []StepDefinition{
+			steps := []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step-1",
 						Use: mobileAutomationStepUse,
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id": "action-1",
 							},
@@ -1684,12 +1685,12 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
-			steps := []StepDefinition{
+			steps := []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step-1",
 						Use: mobileAutomationStepUse,
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id":  "wallet/install",
 								"version_id": mobileExternalSourceVersionID,
@@ -1906,11 +1907,11 @@ func TestProcessStepMissingAppURL(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			step := &StepDefinition{
-				StepSpec: StepSpec{
+			step := &pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: mobileAutomationStepUse,
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"action_id": "action-1",
 							"runner_id": "runner-1",
@@ -2040,12 +2041,12 @@ func TestMobileAutomationSetupHookCollectRunnerIDsError(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			steps := []StepDefinition{
+			steps := []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step-1",
 						Use: mobileAutomationStepUse,
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_code": "code-without-version",
 								"runner_id":   "runner-1",
@@ -2079,12 +2080,12 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			steps := []StepDefinition{
+			steps := []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step-1",
 						Use: mobileAutomationStepUse,
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"runner_id": "runner-1",
 							},
@@ -2121,11 +2122,11 @@ func TestProcessStepMissingRunnerURL(t *testing.T) {
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
-			step := &StepDefinition{
-				StepSpec: StepSpec{
+			step := &pipeline.StepDefinition{
+				StepSpec: pipeline.StepSpec{
 					ID:  "step-1",
 					Use: mobileAutomationStepUse,
-					With: StepInputs{
+					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"action_id": "action-1",
 							"runner_id": "runner-1",
@@ -2434,7 +2435,7 @@ func TestCleanupDeviceReturnsCleanupActivityError(t *testing.T) {
 
 func testSetupHookWorkflow(
 	ctx workflow.Context,
-	steps []StepDefinition,
+	steps []pipeline.StepDefinition,
 	semaphoreManaged bool,
 ) error {
 	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
@@ -2558,13 +2559,13 @@ func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
 	return err
 }
 
-func mobileAutomationSetupSteps() []StepDefinition {
-	return []StepDefinition{
+func mobileAutomationSetupSteps() []pipeline.StepDefinition {
+	return []pipeline.StepDefinition{
 		{
-			StepSpec: StepSpec{
+			StepSpec: pipeline.StepSpec{
 				ID:  "step-1",
 				Use: "mobile-automation",
-				With: StepInputs{
+				With: pipeline.StepInputs{
 					Payload: map[string]any{
 						"runner_id": "runner-1",
 						"action_id": "action-1",

@@ -7,31 +7,32 @@ package pipeline
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/stretchr/testify/require"
 )
 
 func TestValidateRunnerIDConfiguration(t *testing.T) {
 	tests := []struct {
 		name           string
-		steps          []StepDefinition
+		steps          []pipeline.StepDefinition
 		globalRunnerID string
 		expectError    bool
 		errorContains  string
 	}{
 		{
 			name:           "no mobile-automation steps - should pass",
-			steps:          []StepDefinition{},
+			steps:          []pipeline.StepDefinition{},
 			globalRunnerID: "",
 			expectError:    false,
 		},
 		{
 			name: "all steps have runner_id - should pass",
-			steps: []StepDefinition{
+			steps: []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step1",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"runner_id": "runner1",
 								"action_id": "action1",
@@ -40,10 +41,10 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step2",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"runner_id": "runner2",
 								"action_id": "action2",
@@ -57,12 +58,12 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 		},
 		{
 			name: "no step-level runner_id but global_runner_id is set - should pass",
-			steps: []StepDefinition{
+			steps: []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step1",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id": "action1",
 							},
@@ -70,10 +71,10 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step2",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id": "action2",
 							},
@@ -86,12 +87,12 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 		},
 		{
 			name: "some steps missing runner_id and no global_runner_id - should fail",
-			steps: []StepDefinition{
+			steps: []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step1",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"runner_id": "runner1",
 								"action_id": "action1",
@@ -100,10 +101,10 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step2",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id": "action2",
 							},
@@ -117,12 +118,12 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 		},
 		{
 			name: "no runner_id anywhere - should fail",
-			steps: []StepDefinition{
+			steps: []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step1",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id": "action1",
 							},
@@ -136,12 +137,12 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 		},
 		{
 			name: "mixed step types - mobile-automation without runner_id but has global - should pass",
-			steps: []StepDefinition{
+			steps: []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step1",
 						Use: "echo",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"message": "hello",
 							},
@@ -149,10 +150,10 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step2",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id": "action1",
 							},
@@ -165,12 +166,12 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 		},
 		{
 			name: "some steps with runner_id, some without, with global_runner_id - should pass",
-			steps: []StepDefinition{
+			steps: []pipeline.StepDefinition{
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step1",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"runner_id": "specific-runner",
 								"action_id": "action1",
@@ -179,10 +180,10 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 				{
-					StepSpec: StepSpec{
+					StepSpec: pipeline.StepSpec{
 						ID:  "step2",
 						Use: "mobile-automation",
-						With: StepInputs{
+						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_id": "action2",
 							},
@@ -223,7 +224,7 @@ steps:
     with:
       action_id: action1
 `
-		wfDef, err := ParseWorkflow(yamlContent)
+		wfDef, err := pipeline.ParseWorkflow(yamlContent)
 		require.NoError(t, err)
 		require.Equal(t, "my-global-runner", wfDef.Runtime.GlobalRunnerID)
 		require.Equal(t, "Test Pipeline", wfDef.Name)
@@ -239,7 +240,7 @@ steps:
       runner_id: step-runner
       action_id: action1
 `
-		wfDef, err := ParseWorkflow(yamlContent)
+		wfDef, err := pipeline.ParseWorkflow(yamlContent)
 		require.NoError(t, err)
 		require.Equal(t, "", wfDef.Runtime.GlobalRunnerID)
 		require.Equal(t, "Test Pipeline", wfDef.Name)
@@ -257,7 +258,7 @@ steps:
       runner_id: step-runner
       action_id: action1
 `
-		wfDef, err := ParseWorkflow(yamlContent)
+		wfDef, err := pipeline.ParseWorkflow(yamlContent)
 		require.NoError(t, err)
 		require.True(t, wfDef.Runtime.DisableAndroidPlayStore)
 	})
