@@ -1041,7 +1041,10 @@ func TestHandleGetPipelineSpecificDetailsPublishedPipelineShowsOnlyMyRuns(t *tes
 			mock.Anything,
 			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
 				return req.GetNamespace() == "usera-s-organization" &&
-					strings.Contains(req.GetQuery(), fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier))
+					strings.Contains(
+						req.GetQuery(),
+						fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier),
+					)
 			}),
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{

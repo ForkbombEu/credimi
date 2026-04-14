@@ -133,8 +133,6 @@ func seedInternalAdminKey(t testing.TB, app *tests.TestApp) {
 
 	superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
 	require.NoError(t, err)
-	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-	require.NoError(t, err)
 	coll, err := app.FindCollectionByNameOrId("api_keys")
 	require.NoError(t, err)
 	hash, err := bcrypt.GenerateFromPassword([]byte("internal-test-api-key"), bcrypt.DefaultCost)
@@ -143,7 +141,7 @@ func seedInternalAdminKey(t testing.TB, app *tests.TestApp) {
 	record := core.NewRecord(coll)
 	record.Set("name", "internal-test-key")
 	record.Set("key", string(hash))
-	record.Set("user", user.Id)
+	record.Set("user", "")
 	record.Set("superuser", superuser.Id)
 	record.Set("key_type", "internal_admin")
 	record.Set("revoked", false)
