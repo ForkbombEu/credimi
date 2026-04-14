@@ -859,14 +859,14 @@ func createCustomCheckRecord(t testing.TB, app *tests.TestApp, orgID, name strin
 func TestSaveScoreboardResults(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-	
+
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
-	
+
 	pipeline := createPipelineRecord(t, app, orgID, "Test Pipeline")
 	pipeline.Set("published", true)
 	require.NoError(t, app.Save(pipeline))
-	
+
 	createRunnerRecord(t, app, orgID, "test-runner")
 	createPipelineResult(t, app, orgID, pipeline.Id, "wf-new", "run-new")
 	createWalletRecord(t, app, orgID, "my-wallet")	
@@ -936,7 +936,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
 		require.True(t, response.Success)
 		require.Equal(t, 1, response.RecordsCount)
-		
+
 		collection, err := app.FindCollectionByNameOrId("pipeline_results_aggegrates")
 		require.NoError(t, err)
 
@@ -1141,10 +1141,10 @@ func TestSaveScoreboardResults(t *testing.T) {
 func TestFindRunners(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-	
+
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
-	
+
 	createRunnerRecord(t, app, orgID, "existing-runner")
 
 	t.Run("success - existing runners", func(t *testing.T) {
@@ -1240,6 +1240,9 @@ func TestHandleScheduleAggregateScoreboard(t *testing.T) {
 		opts := mockScheduleClient.createdOptions[0]
 		require.Len(t, opts.Spec.Intervals, 1)
 		require.Equal(t, 300*time.Second, opts.Spec.Intervals[0].Every)
+		action, ok := opts.Action.(*client.ScheduleWorkflowAction)
+		require.True(t, ok)
+		require.True(t, strings.HasPrefix(action.ID, "aggregate-scoreboard-"))
 	})
 
 	t.Run("fail - invalid schedule parameter (negative)", func(t *testing.T) {
@@ -1426,7 +1429,7 @@ func TestHandleCancelAggregateScoreboardSchedule(t *testing.T) {
 	t.Run("fail - schedule not found", func(t *testing.T) {
 		mockHandle := &temporalmocks.ScheduleHandle{}
 		mockHandle.On("Delete", mock.Anything).Return(&serviceerror.NotFound{Message: "schedule not found"})
-		
+
 		mockScheduleClient := &fakeScheduleClient{
 			handle: mockHandle,
 		}

@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/google/uuid"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/sdk/client"
@@ -121,7 +122,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		
+
 		var req SaveScoreboardResultsRequest
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
 			return apierror.New(
@@ -131,7 +132,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		
+
 		if len(req.AggregatedPipelines) == 0 {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -190,7 +191,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 
 			namespace := aggregateScoreboardNamespace
 			appURL := e.App.Settings().Meta.AppURL
-		
+
 			c, err := scheduleTemporalClient(namespace)
 			if err != nil {
 				return apierror.New(
@@ -200,12 +201,11 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
-			defer c.Close()
-		
+
 			ctx := context.Background()
-		
+
 			scheduleID := fmt.Sprintf("aggregate-scoreboard-schedule-%d-%d", scheduleSeconds, time.Now().Unix())
-		
+
 			_, err = c.ScheduleClient().Create(ctx, client.ScheduleOptions{
 				ID: scheduleID,
 				Spec: client.ScheduleSpec{
@@ -214,6 +214,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 					}},
 				},
 				Action: &client.ScheduleWorkflowAction{
+					ID:        "aggregate-scoreboard-" + uuid.NewString(),
 					Workflow:  workflows.NewAggregateScoreboardWorkflow().Workflow,
 					TaskQueue: workflows.AggregateScoreboardTaskQueue,
 					Args: []interface{}{
@@ -223,9 +224,9 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 							},
 						},
 					},
-			    },
-		})
-		
+				},
+			})
+
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -234,7 +235,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
-		
+
 			return e.JSON(http.StatusOK, map[string]any{
 				"message":     fmt.Sprintf("Scoreboard aggregation scheduled every %d seconds", scheduleSeconds),
 				"schedule_id": scheduleID,
@@ -277,9 +278,9 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 				"missing schedule_id in path",
 			).JSON(e)
 		}
-		
+
 		namespace := aggregateScoreboardNamespace
-		
+
 		c, err := scheduleTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
@@ -289,11 +290,10 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		defer c.Close()
-		
+
 		ctx := context.Background()
 		handle := c.ScheduleClient().GetHandle(ctx, scheduleID)
-		
+
 		if err := handle.Delete(ctx); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return apierror.New(
@@ -310,7 +310,7 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		
+
 		return e.JSON(http.StatusOK, map[string]any{
 			"success":     true,
 			"message":     "Schedule cancelled successfully",
@@ -871,16 +871,16 @@ func truncateCollection(app core.App, collectionName string) error {
 		}
 		return err
 	}
-	
+
 	if len(records) == 0 {
 		return nil
 	}
-	
+
 	records, err = app.FindRecordsByFilter(collection.Id, "", "", -1, 0)
 	if err != nil {
 		return err
 	}
-	
+
 	for _, record := range records {
 		if err := app.Delete(record); err != nil {
 			return err
@@ -915,7 +915,7 @@ func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboard
 				return count, err
 			}
 		}
-		
+
 		if err := app.Save(record); err != nil {
 			return count, err
 		}
@@ -947,18 +947,17 @@ func setMobileRunnersRelation(record *core.Record, app core.App, runners []strin
 	if len(runners) == 0 {
 		return nil
 	}
-	
+
 	runnerIDs, err := findRecords(app, runners)
 	if err != nil {
 		return fmt.Errorf("failed to process runners: %w", err)
 	}
-	
+
 	if len(runnerIDs) > 0 {
 		record.Set("mobile_runners", runnerIDs)
 	}
 	return nil
 }
-
 
 func findRecords(app core.App, names []string) ([]string, error) {
     var ids []string
@@ -1002,7 +1001,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 	if pipelineResultId != "" {
 		record.Set("latest_execution", pipelineResultId)
 	}
-	
+
 	// Wallets
 	if len(lastExecution.WalletUsed) > 0 {
 		walletIDs, err := findRecords(app, lastExecution.WalletUsed)
@@ -1013,7 +1012,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 			record.Set("wallets", walletIDs)
 		}
 	}
-	
+
 	// Issuers
 	if len(lastExecution.Issuers) > 0 {
 		issuerIDs, err := findRecords(app, lastExecution.Issuers)
@@ -1024,7 +1023,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 			record.Set("issuers", issuerIDs)
 		}
 	}
-	
+
 	// Verifiers
 	if len(lastExecution.Verifiers) > 0 {
 		verifierIDs, err := findRecords(app, lastExecution.Verifiers)
@@ -1035,7 +1034,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 			record.Set("verifiers", verifierIDs)
 		}
 	}
-	
+
 	// Maestro scripts (wallet_actions)
 	if len(lastExecution.MaestroScripts) > 0 {
 		actionIDs, err := findRecords(app, lastExecution.MaestroScripts)
@@ -1046,7 +1045,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 			record.Set("wallet_actions", actionIDs)
 		}
 	}
-	
+
 	// Wallet versions
 	if len(lastExecution.WalletVersionUsed) > 0 {
 		versionIDs, err := findRecords(app, lastExecution.WalletVersionUsed)
@@ -1057,7 +1056,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 			record.Set("wallet_versions", versionIDs)
 		}
 	}
-	
+
 	// Credentials
 	if len(lastExecution.Credentials) > 0 {
 		credentialIDs, err := findRecords(app, lastExecution.Credentials)
@@ -1068,7 +1067,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 			record.Set("credentials", credentialIDs)
 		}
 	}
-	
+
 	// Use case verifications
 	if len(lastExecution.UseCaseVerifications) > 0 {
 		useCaseIDs, err := findRecords(app, lastExecution.UseCaseVerifications)
@@ -1079,7 +1078,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 			record.Set("use_case_verifications", useCaseIDs)
 		}
 	}
-	
+
 	// Custom checks
 	if len(lastExecution.CustomChecks) > 0 {
 		testIDs, err := findRecords(app, lastExecution.CustomChecks)
@@ -1090,11 +1089,11 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 			record.Set("custom_integrations", testIDs)
 		}
 	}
-	
+
 	// Conformance tests 
 	if len(lastExecution.ConformanceTests) > 0 {
 		record.Set("conformance_checks", lastExecution.ConformanceTests)
 	}
-	
+
 	return nil
 }
