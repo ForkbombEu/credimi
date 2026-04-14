@@ -181,11 +181,6 @@ func authenticateAPIKeyByScope(
 			scope = apiKeyScopeUser
 		}
 	}
-	if requiredScope == apiKeyScopeInternalAdmin &&
-		scope == apiKeyScopeUser &&
-		matched.GetString(apiKeyScopeFieldName) == "" {
-		scope = apiKeyScopeInternalAdmin
-	}
 	if scope != requiredScope {
 		return nil, apierror.New(
 			http.StatusForbidden,

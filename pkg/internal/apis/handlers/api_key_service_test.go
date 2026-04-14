@@ -621,6 +621,32 @@ func TestApiKeyService_AuthenticateApiKey_UserRecordNil(t *testing.T) {
 	assert.Equal(t, "user_not_found", apiErr.Reason)
 }
 
+func TestApiKeyService_AuthenticateInternalAdminAPIKey_RejectsBlankScopeUserKey(t *testing.T) {
+	mockApp := new(MockApp)
+	mockRepo := new(MockRecordRepository)
+	service := NewApiKeyServiceWithDependencies(mockApp, nil, nil, mockRepo)
+
+	collection := createTestCollection()
+	apiKeyRecord := createTestRecord(collection)
+	apiKeyRecord.Set("user", "test-user")
+	apiKeyRecord.Set("superuser", "")
+	apiKeyRecord.Set("key_type", "")
+
+	records := []*core.Record{apiKeyRecord}
+
+	mockApp.On("FindRecordsByFilter", "api_keys", "", "", 0, 0).Return(records, nil)
+	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).
+		Return(apiKeyRecord, nil)
+
+	_, err := service.AuthenticateInternalAdminAPIKey("test-api-key")
+
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
+	assert.True(t, ok)
+	assert.Equal(t, http.StatusForbidden, apiErr.Code)
+	assert.Equal(t, "insufficient_api_key_scope", apiErr.Reason)
+}
+
 // Security-focused tests
 
 func TestApiKeyService_SecurityTimingAttack_ResistantHashComparison(t *testing.T) {

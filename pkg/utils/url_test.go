@@ -27,3 +27,10 @@ func TestJoinURL(t *testing.T) {
 		}
 	}
 }
+
+func TestJoinURLReturnsBaseForInvalidURL(t *testing.T) {
+	got := JoinURL("192.168.1.10:8050", "credimi", "installer-action")
+	if got != "192.168.1.10:8050" {
+		t.Fatalf("JoinURL returned %q, want original base", got)
+	}
+}
