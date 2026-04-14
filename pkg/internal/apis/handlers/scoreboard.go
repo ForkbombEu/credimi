@@ -83,8 +83,8 @@ type PipelineStats struct {
 
 type LastExecutionDetails struct {
 	PipelineName         string   `json:"pipeline_name"`
-	WorkflowID		     string   `json:"workflow_id,omitempty"`
-	RunID				 string   `json:"run_id,omitempty"`
+	WorkflowID           string   `json:"workflow_id,omitempty"`
+	RunID                string   `json:"run_id,omitempty"`
 	OrgLogo              string   `json:"org_logo,omitempty"`
 	Video                string   `json:"video_results,omitempty"`
 	Screenshots          string   `json:"screenshots,omitempty"`
@@ -204,7 +204,11 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 
 			ctx := context.Background()
 
-			scheduleID := fmt.Sprintf("aggregate-scoreboard-schedule-%d-%d", scheduleSeconds, time.Now().Unix())
+			scheduleID := fmt.Sprintf(
+				"aggregate-scoreboard-schedule-%d-%d",
+				scheduleSeconds,
+				time.Now().Unix(),
+			)
 
 			_, err = c.ScheduleClient().Create(ctx, client.ScheduleOptions{
 				ID: scheduleID,
@@ -237,7 +241,10 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 			}
 
 			return e.JSON(http.StatusOK, map[string]any{
-				"message":     fmt.Sprintf("Scoreboard aggregation scheduled every %d seconds", scheduleSeconds),
+				"message": fmt.Sprintf(
+					"Scoreboard aggregation scheduled every %d seconds",
+					scheduleSeconds,
+				),
 				"schedule_id": scheduleID,
 			})
 		}
@@ -504,7 +511,7 @@ func HandleGetExecutionDetails() func(*core.RequestEvent) error {
 
 		response := LastExecutionDetails{
 			PipelineName:         pipelineName,
-			WorkflowID:           workflowID,		
+			WorkflowID:           workflowID,
 			RunID:                runID,
 			OrgLogo:              getOrgLogo(e.App, namespace),
 			Video:                video,
@@ -890,7 +897,10 @@ func truncateCollection(app core.App, collectionName string) error {
 	return nil
 }
 
-func insertAggregatedResults(app core.App, result *workflows.AggregateScoreboardWorkflowOutput) (int, error) {
+func insertAggregatedResults(
+	app core.App,
+	result *workflows.AggregateScoreboardWorkflowOutput,
+) (int, error) {
 	if result == nil {
 		return 0, fmt.Errorf("result is nil")
 	}
@@ -960,15 +970,15 @@ func setMobileRunnersRelation(record *core.Record, app core.App, runners []strin
 }
 
 func findRecords(app core.App, names []string) ([]string, error) {
-    var ids []string
-    for _, fullName := range names {
-        record, err := canonify.Resolve(app, fullName)
-        if err != nil {
-            return nil, fmt.Errorf("failed to resolve path %s: %w", fullName, err)	
-        }
-        ids = append(ids, record.Id)
-    }
-    return ids, nil
+	var ids []string
+	for _, fullName := range names {
+		record, err := canonify.Resolve(app, fullName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve path %s: %w", fullName, err)
+		}
+		ids = append(ids, record.Id)
+	}
+	return ids, nil
 }
 
 func findPipelineResult(app core.App, workflowID string, runID string) (string, error) {
@@ -986,17 +996,26 @@ func findPipelineResult(app core.App, workflowID string, runID string) (string, 
 
 	if err == nil && existing != nil {
 		id = existing.Id
-	}else {
+	} else {
 		return "", fmt.Errorf("no pipeline result found for workflow_id %s and run_id %s", workflowID, runID)
 	}
 	return id, nil
 }
 
-func setLastExecutionFields(record *core.Record, app core.App, lastExecution *workflows.LatestExecutionDetails) error {
+func setLastExecutionFields(
+	record *core.Record,
+	app core.App,
+	lastExecution *workflows.LatestExecutionDetails,
+) error {
 	// Pipeline result
 	pipelineResultId, err := findPipelineResult(app, lastExecution.WorkflowID, lastExecution.RunID)
 	if err != nil {
-		return fmt.Errorf("failed to find pipeline result for workflow %s and run %s: %w", lastExecution.WorkflowID, lastExecution.RunID, err)
+		return fmt.Errorf(
+			"failed to find pipeline result for workflow %s and run %s: %w",
+			lastExecution.WorkflowID,
+			lastExecution.RunID,
+			err,
+		)
 	}
 	if pipelineResultId != "" {
 		record.Set("latest_execution", pipelineResultId)
@@ -1090,7 +1109,7 @@ func setLastExecutionFields(record *core.Record, app core.App, lastExecution *wo
 		}
 	}
 
-	// Conformance tests 
+	// Conformance tests
 	if len(lastExecution.ConformanceTests) > 0 {
 		record.Set("conformance_checks", lastExecution.ConformanceTests)
 	}

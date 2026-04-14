@@ -869,7 +869,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 
 	createRunnerRecord(t, app, orgID, "test-runner")
 	createPipelineResult(t, app, orgID, pipeline.Id, "wf-new", "run-new")
-	createWalletRecord(t, app, orgID, "my-wallet")	
+	createWalletRecord(t, app, orgID, "my-wallet")
 	createVerifierRecord(t, app, orgID, "my-verifier")
 	createIssuerRecord(t, app, orgID, "my-issuer-1")
 	createIssuerRecord(t, app, orgID, "my-issuer-2")
@@ -892,17 +892,20 @@ func TestSaveScoreboardResults(t *testing.T) {
 				LastExecutionDate:   "2024-01-02T00:00:00Z",
 				LastExecution: &workflows.LatestExecutionDetails{
 					PipelineName: "Test Pipeline",
-					WorkflowID: "wf-new",
-					RunID:      "run-new",
-					WalletUsed: []string{"usera-s-organization/my-wallet"},
-					Verifiers:  []string{"usera-s-organization/my-verifier"},
-					Issuers:	[]string{"usera-s-organization/my-issuer-1", "usera-s-organization/my-issuer-2"},
-					WalletVersionUsed: []string{"usera-s-organization/my-wallet/1-0-0"},
-					MaestroScripts: []string{"usera-s-organization/my-wallet/my-action"},
-					Credentials: []string{"usera-s-organization/my-issuer-1/cred-3"},
+					WorkflowID:   "wf-new",
+					RunID:        "run-new",
+					WalletUsed:   []string{"usera-s-organization/my-wallet"},
+					Verifiers:    []string{"usera-s-organization/my-verifier"},
+					Issuers: []string{
+						"usera-s-organization/my-issuer-1",
+						"usera-s-organization/my-issuer-2",
+					},
+					WalletVersionUsed:    []string{"usera-s-organization/my-wallet/1-0-0"},
+					MaestroScripts:       []string{"usera-s-organization/my-wallet/my-action"},
+					Credentials:          []string{"usera-s-organization/my-issuer-1/cred-3"},
 					UseCaseVerifications: []string{"usera-s-organization/my-verifier/usecase123"},
-					CustomChecks: []string{"usera-s-organization/my-check"},
-					ConformanceTests: []string{"conformance-test-1"},
+					CustomChecks:         []string{"usera-s-organization/my-check"},
+					ConformanceTests:     []string{"conformance-test-1"},
 				},
 			},
 		}
@@ -1012,7 +1015,10 @@ func TestSaveScoreboardResults(t *testing.T) {
 		UseCaseVerificationID := record.GetStringSlice("use_case_verifications")
 		require.NotEmpty(t, UseCaseVerificationID, "use_case_verifications should not be empty")
 
-		useCaseVerificationRecord, err := app.FindRecordById("use_cases_verifications", UseCaseVerificationID[0])
+		useCaseVerificationRecord, err := app.FindRecordById(
+			"use_cases_verifications",
+			UseCaseVerificationID[0],
+		)
 		require.NoError(t, err)
 		require.Equal(t, "usecase123", useCaseVerificationRecord.GetString("canonified_name"))
 
@@ -1189,7 +1195,11 @@ func TestFindRunners(t *testing.T) {
 		}
 		ids, err := findRecords(app, runnerNames)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to resolve path usera-s-organization/non-existent-runner-1")
+		require.Contains(
+			t,
+			err.Error(),
+			"failed to resolve path usera-s-organization/non-existent-runner-1",
+		)
 		require.Empty(t, ids)
 	})
 }
@@ -1428,7 +1438,8 @@ func TestHandleCancelAggregateScoreboardSchedule(t *testing.T) {
 
 	t.Run("fail - schedule not found", func(t *testing.T) {
 		mockHandle := &temporalmocks.ScheduleHandle{}
-		mockHandle.On("Delete", mock.Anything).Return(&serviceerror.NotFound{Message: "schedule not found"})
+		mockHandle.On("Delete", mock.Anything).
+			Return(&serviceerror.NotFound{Message: "schedule not found"})
 
 		mockScheduleClient := &fakeScheduleClient{
 			handle: mockHandle,
