@@ -9,13 +9,26 @@ Use the Marketplace to discover available solutions and inspect what each of the
 
 From the Marketplace, open the relevant tab and use search, tags and filters to narrow down the list.
 
-![Marketplace issuers list](../images/marketplace-credentials.png)
+![Marketplace issuers list](../images/marketplace-home1.png)
 
 Open an item to inspect its details, versions and published capabilities.
 
 ## Browse Credentials and Verification Use Cases
 
 Credential pages and verification pages are the public surfaces that visitors can use to try a real flow.
+
+### Browse Credentials Use Case Verifications
+
+Browse **Credentials** straight from the **Issuers** list (and **Verifications** from the **Verifiers** list)
+
+![Marketplace issuers list](../images/marketplace-issuers-list1.png)
+
+
+Or click on an specific **Issuer** (or **Verifier**) to see what it offers:
+
+![Marketplace issuers list](../images/marketplace-issuer-credential-cards1.png)
+
+
 
 This is where StepCI-backed integrations become visible to end users.
 
