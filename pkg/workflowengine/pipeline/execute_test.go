@@ -153,6 +153,7 @@ func TestExecuteStepActivity(t *testing.T) {
 			map[string]any{},
 			map[string]any{},
 			ao,
+			step.IncludeResult,
 		)
 		if err != nil {
 			return nil, err
@@ -396,6 +397,7 @@ func TestExecuteStepWorkflow(t *testing.T) {
 			map[string]any{},
 			map[string]any{},
 			ao,
+			step.IncludeResult,	
 		)
 		if err != nil {
 			return nil, err
@@ -598,6 +600,7 @@ func TestExecuteStepResolveInputsError(t *testing.T) {
 				map[string]any{},
 				map[string]any{},
 				ao,
+				step.IncludeResult,
 			)
 			return err
 		},
@@ -650,6 +653,7 @@ func TestExecuteStepNonExecutableActivity(t *testing.T) {
 				map[string]any{},
 				map[string]any{},
 				ao,
+				step.IncludeResult,
 			)
 			return err
 		},
@@ -703,6 +707,7 @@ func TestExecuteStepEmailConfigureError(t *testing.T) {
 				map[string]any{},
 				map[string]any{},
 				ao,
+				step.IncludeResult,
 			)
 			return err
 		},
