@@ -10,7 +10,7 @@ import tagsIndex from '$lib/content/tags-list.generated.json';
 
 //
 
-export const load = async ({ url }) => {
+export const load = async ({ url, fetch }) => {
 	const paramTag = url.searchParams.get(URL_SEARCH_PARAM_NAME);
 	if (!paramTag || !(paramTag in tagsIndex) || !isTag(paramTag)) {
 		error(404);
@@ -22,7 +22,7 @@ export const load = async ({ url }) => {
 	}
 
 	const contentPages = (
-		await Promise.all(slugsByTag.map((slug) => getContentBySlug(slug)))
+		await Promise.all(slugsByTag.map((slug) => getContentBySlug(slug, fetch)))
 	).filter((item) => item !== undefined);
 
 	return { pages: contentPages, tag: paramTag };

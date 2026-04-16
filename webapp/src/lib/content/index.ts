@@ -11,25 +11,25 @@ import { pageFrontMatterSchema, type ContentPage } from './types';
 
 export const URL_SEARCH_PARAM_NAME = 'tag';
 
-export const contentLoaders = import.meta.glob<string>('$lib/content/**/en.md', { as: 'raw' });
+async function loadMarkdownFile(
+	pathname: string,
+	fetcher: typeof fetch
+): Promise<string | undefined> {
+	const response = await fetcher(pathname);
+	if (!response.ok) return undefined;
+	return response.text();
+}
 
-export async function getContentBySlug(slug: string): Promise<ContentPage | undefined> {
+export async function getContentBySlug(
+	slug: string,
+	fetcher: typeof fetch = fetch
+): Promise<ContentPage | undefined> {
 	const locale = getLocale();
 	const fallbackLocale = baseLocale;
-
-	const entries = Object.entries(contentLoaders).filter(([filePath]) => {
-		const splitted = filePath.split('/').slice(0, -1).join('/');
-		return splitted.endsWith(slug);
-	});
-
-	const entry =
-		entries.find(([p]) => p.endsWith(`${locale}.md`)) ??
-		entries.find(([p]) => p.endsWith(`${fallbackLocale}.md`));
-
-	if (!entry) return undefined;
-
-	const [, loader] = entry;
-	const raw = await loader();
+	const raw =
+		(await loadMarkdownFile(`/pages/${slug}/${locale}.md`, fetcher)) ??
+		(await loadMarkdownFile(`/pages/${slug}/${fallbackLocale}.md`, fetcher));
+	if (!raw) return undefined;
 	const { attributes, body } = fm(raw);
 
 	const parsed = pageFrontMatterSchema.safeParse(attributes);

@@ -22,9 +22,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const url = page.url;
 		const segments = url.pathname.split('/').filter(Boolean);
 		const crumbs: Link[] = [{ href: '/', title: 'Home' }];
-		segments.forEach((seg) => {
+		segments.forEach((seg, index) => {
 			const title = String.capitalize(decodeURIComponent(seg.replace(/-/g, ' ')));
-			const href = `/pages/tags?${URL_SEARCH_PARAM_NAME}=${title}`;
+			const href =
+				index === segments.length - 1
+					? url.pathname
+					: `/pages/tags?${URL_SEARCH_PARAM_NAME}=${decodeURIComponent(seg)}`;
 			crumbs.push({ href, title });
 		});
 

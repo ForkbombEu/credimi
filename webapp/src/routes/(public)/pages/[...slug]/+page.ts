@@ -5,8 +5,8 @@
 import { error } from '@sveltejs/kit';
 import { getContentBySlug } from '$lib/content';
 
-export async function load({ params }) {
-	const content = await getContentBySlug(params.slug);
+export async function load({ params, fetch }) {
+	const content = await getContentBySlug(params.slug, fetch);
 	if (!content) {
 		error(404);
 	}
