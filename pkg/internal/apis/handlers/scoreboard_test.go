@@ -425,7 +425,7 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 	addEntitySearchAttributes(exec2.Info, map[string]any{
 		workflowengine.VersionsSearchAttribute: []string{"org/wallet/v1-0-0"},
 		workflowengine.ActionsSearchAttribute: []string{
-			"org/action/maestro-1",
+			"org/wallet/maestro-1",
 			"org/action/maestro-2",
 		},
 		workflowengine.CredentialsSearchAttribute: []string{
@@ -536,11 +536,11 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 		require.Empty(t, details.Screenshots)
 		require.Empty(t, details.Logs)
 
-		require.ElementsMatch(t, []string{"org/wallet"}, details.WalletUsed)
+		require.ElementsMatch(t, []string{"org/wallet", "org/action"}, details.WalletUsed)
 		require.ElementsMatch(t, []string{"org/wallet/v1-0-0"}, details.WalletVersionUsed)
 		require.ElementsMatch(
 			t,
-			[]string{"org/action/maestro-1", "org/action/maestro-2"},
+			[]string{"org/wallet/maestro-1", "org/action/maestro-2"},
 			details.MaestroScripts,
 		)
 		require.ElementsMatch(
@@ -900,7 +900,8 @@ func TestSaveScoreboardResults(t *testing.T) {
 						"usera-s-organization/my-issuer-1",
 						"usera-s-organization/my-issuer-2",
 					},
-					WalletVersionUsed:    []string{"usera-s-organization/my-wallet/1-0-0"},
+					WalletVersionUsed:    []string{"installed_from_external_source", 
+												   "usera-s-organization/my-wallet/1-0-0"},
 					MaestroScripts:       []string{"usera-s-organization/my-wallet/my-action"},
 					Credentials:          []string{"usera-s-organization/my-issuer-1/cred-3"},
 					UseCaseVerifications: []string{"usera-s-organization/my-verifier/usecase123"},
