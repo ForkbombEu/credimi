@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	OpenID4VCIIssuerTaskQueue              = "OpenID4VCIIssuerTaskQueue"
-	OpenID4VCIIssuerStepCITemplatePath     = "pkg/workflowengine/workflows/openid4vci_issuer_config/stepci_issuer_template_v1_0.yaml"
+	OpenID4VCIIssuerTaskQueue          = "OpenID4VCIIssuerTaskQueue"
+	OpenID4VCIIssuerStepCITemplatePath = "pkg/workflowengine/workflows/openid4vci_issuer_config/stepci_issuer_template_v1_0.yaml"
 )
 
 // issuerActivityOptions extends DefaultActivityOptions with longer timeouts to

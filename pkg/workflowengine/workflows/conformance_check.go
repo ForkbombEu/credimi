@@ -22,6 +22,7 @@ const (
 	OpenIDConformanceSuite    = "openid_conformance_suite"
 	EWCSuite                  = "ewc"
 	WebuildSuite              = "webuild"
+	OpenID4VCIIssuerSuite     = "openid4vci_issuer"
 	ConformanceCheckTaskQueue = "ConformanceCheckTaskQueue"
 	PipelineCancelSignal      = "pipeline_cancel_signal"
 )
@@ -141,14 +142,15 @@ type StartCheckWorkflow struct {
 var startCheckWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type StartCheckWorkflowPayload struct {
-	Suite     string `json:"suite"                yaml:"suite"`
-	CheckID   string `json:"check_id"             yaml:"check_id"             validate:"required"`
-	Variant   string `json:"variant,omitempty"    yaml:"variant,omitempty"`
-	Form      *Form  `json:"form,omitempty"       yaml:"form,omitempty"`
-	TestName  string `json:"test,omitempty"       yaml:"test,omitempty"`
-	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
-	UserMail  string `json:"user_mail"            yaml:"user_mail"`
-	SendMail  bool   `json:"send_mail"            yaml:"send_mail"`
+	Suite           string `json:"suite"                    yaml:"suite"`
+	CheckID         string `json:"check_id"                 yaml:"check_id"                 validate:"required"`
+	Variant         string `json:"variant,omitempty"        yaml:"variant,omitempty"`
+	Form            *Form  `json:"form,omitempty"           yaml:"form,omitempty"`
+	TestName        string `json:"test,omitempty"           yaml:"test,omitempty"`
+	SessionID       string `json:"session_id,omitempty"     yaml:"session_id,omitempty"`
+	CredentialOffer string `json:"credential_offer,omitempty" yaml:"credential_offer,omitempty"`
+	UserMail        string `json:"user_mail"                yaml:"user_mail"`
+	SendMail        bool   `json:"send_mail"                yaml:"send_mail"`
 }
 
 type StartCheckWorkflowPipelinePayload struct {
@@ -253,6 +255,26 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			"session_id": payload.SessionID,
 		}
 		ewcSessionID = payload.SessionID
+	case OpenID4VCIIssuerSuite:
+		if payload.CredentialOffer == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("credential_offer is required for suite %s", payload.Suite),
+				input.RunMetadata,
+			)
+		}
+		if payload.TestName == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("test is required for suite %s", payload.Suite),
+				input.RunMetadata,
+			)
+		}
+		stepCIPayload.Data = map[string]any{
+			"credential_offer": payload.CredentialOffer,
+			"test":             payload.TestName,
+		}
+		stepCIPayload.Secrets = map[string]string{
+			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
+		}
 	default:
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
 	}
@@ -405,6 +427,23 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				"deeplink": deeplink,
 				"child_id": childID,
 			},
+		}, nil
+	case OpenID4VCIIssuerSuite:
+		// StepCI handles the full issuer conformance flow including polling;
+		// no child workflow needed — just inspect the captured result.
+		testResult, _ := setupResult.Captures["result"].([]any)
+		if len(testResult) > 0 {
+			if r, ok := testResult[0].(string); ok && r == "FAILED" {
+				errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					workflowengine.NewAppError(errCode, errCode.Description, setupResult.Captures["logs"]),
+					input.RunMetadata,
+				)
+			}
+		}
+		return workflowengine.WorkflowResult{
+			Message: "Check completed successfully",
+			Log:     setupResult.Captures["logs"],
 		}, nil
 	default:
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
