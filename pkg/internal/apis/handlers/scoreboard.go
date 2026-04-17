@@ -1082,25 +1082,12 @@ func setLastExecutionFields(
 	}
 
 	// Wallet versions
-	if len(lastExecution.WalletVersionUsed) > 0 {
-    var versionsToProcess []string
-    for _, v := range lastExecution.WalletVersionUsed {
-        if v != "installed_from_external_source" {
-            versionsToProcess = append(versionsToProcess, v)
-        }
-    }
-    if len(versionsToProcess) == 0 {
-        record.Set("wallet_versions", []string{})
-    } else {
-        versionIDs, err := findRecords(app, versionsToProcess)
-        if err != nil {
-            return fmt.Errorf("failed to process wallet versions: %w", err)
-        }
-        if len(versionIDs) > 0 {
-            record.Set("wallet_versions", versionIDs)
-        }
-    }
-}
+	versionIDs, err := getWalletVersionIDs(app, lastExecution.WalletVersionUsed)
+	if err != nil {
+		return fmt.Errorf("failed to process wallet versions: %w", err)
+	}
+	record.Set("wallet_versions", versionIDs)
+
 
 	// Credentials
 	if len(lastExecution.Credentials) > 0 {
@@ -1141,4 +1128,28 @@ func setLastExecutionFields(
 	}
 
 	return nil
+}
+
+func getWalletVersionIDs(app core.App, walletVersionUsed []string) ([]string, error) {
+	if len(walletVersionUsed) == 0 {
+		return []string{}, nil
+	}
+
+	var versionsToProcess []string
+	for _, v := range walletVersionUsed {
+		if v != "installed_from_external_source" {
+			versionsToProcess = append(versionsToProcess, v)
+		}
+	}
+
+	if len(versionsToProcess) == 0 {
+		return []string{}, nil
+	}
+
+	versionIDs, err := findRecords(app, versionsToProcess)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find records: %w", err)
+	}
+
+	return versionIDs, nil
 }
