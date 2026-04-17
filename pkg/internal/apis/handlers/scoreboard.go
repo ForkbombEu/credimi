@@ -783,13 +783,29 @@ func extractEntityDetailsFromExecution(exec *WorkflowExecution) *LastExecutionDe
 
 	// version_id
 	details.WalletVersionUsed = getStringListFromAttrs(attrs, "VersionsID")
-	for _, v := range details.WalletVersionUsed {
-		walletUsed := extractFirstTwoParts(v)
-		details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
-	}
 
 	// action_id
 	details.MaestroScripts = getStringListFromAttrs(attrs, "ActionsID")
+	
+	var versionsToProcess []string
+	for _, v := range details.WalletVersionUsed {
+    	if v != "installed_from_external_source" {
+        	versionsToProcess = append(versionsToProcess, v)
+    	}
+	}
+
+	if len(versionsToProcess) > 0 {
+    	for _, v := range versionsToProcess {
+        	walletUsed := extractFirstTwoParts(v)
+        	details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
+    	}
+	} 
+	
+    for _, v := range details.MaestroScripts {
+        walletUsed := extractFirstTwoParts(v)
+        details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
+    }
+
 
 	// credential_id
 	details.Credentials = getStringListFromAttrs(attrs, "CredentialsID")
@@ -1067,14 +1083,24 @@ func setLastExecutionFields(
 
 	// Wallet versions
 	if len(lastExecution.WalletVersionUsed) > 0 {
-		versionIDs, err := findRecords(app, lastExecution.WalletVersionUsed)
-		if err != nil {
-			return fmt.Errorf("failed to process wallet versions: %w", err)
-		}
-		if len(versionIDs) > 0 {
-			record.Set("wallet_versions", versionIDs)
-		}
-	}
+    var versionsToProcess []string
+    for _, v := range lastExecution.WalletVersionUsed {
+        if v != "installed_from_external_source" {
+            versionsToProcess = append(versionsToProcess, v)
+        }
+    }
+    if len(versionsToProcess) == 0 {
+        record.Set("wallet_versions", []string{})
+    } else {
+        versionIDs, err := findRecords(app, versionsToProcess)
+        if err != nil {
+            return fmt.Errorf("failed to process wallet versions: %w", err)
+        }
+        if len(versionIDs) > 0 {
+            record.Set("wallet_versions", versionIDs)
+        }
+    }
+}
 
 	// Credentials
 	if len(lastExecution.Credentials) > 0 {
