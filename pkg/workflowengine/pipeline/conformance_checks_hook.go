@@ -128,107 +128,14 @@ func ConformanceCheckSetupHook(
 		SetPayloadValue(&defaultPayload, "user_mail", userMail)
 		SetPayloadValue(&defaultPayload, "suite", suite)
 
-		var suiteTemplatePath string
-		switch suite {
-		case "openid_conformance_suite":
-			variant := map[string]any{}
-			if v, ok := tpl["variant"].(map[string]any); ok {
-				for _, key := range []string{"credential_format", "client_id_prefix", "request_method", "response_mode"} {
-					if val, ok := v[key]; ok {
-						variant[key] = val
-					}
-				}
-			}
-			variantJSON, err := json.Marshal(variant)
-			if err != nil {
-				errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-				return workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf("failed to marshal variant JSON for step %s: %v", step.ID, err),
-				)
-			}
-
-			form := map[string]any{}
-			if f, ok := tpl["form"].(map[string]any); ok {
-				for k, v := range f {
-					form[k] = v
-				}
-			}
-
-			var testVal string
-			if tVal, ok := tpl["test"].(string); ok {
-				testVal = tVal
-			}
-
-			SetPayloadValue(&defaultPayload, "variant", string(variantJSON))
-			SetPayloadValue(&defaultPayload, "form", form)
-			SetPayloadValue(&defaultPayload, "test", testVal)
-
-			suiteTemplatePath = workflows.OpenIDNetStepCITemplatePathv1_0
-
-		case "ewc":
-
-			var sessionID string
-			if sID, ok := tpl["sessionId"].(string); ok {
-				sessionID = sID
-			}
-
-			SetPayloadValue(&defaultPayload, "session_id", sessionID)
-			suiteTemplatePath = workflows.EWCTemplateFolderPath + "/" + checkName + ".yaml"
-		case "webuild":
-
-			var sessionID string
-			if sID, ok := tpl["sessionId"].(string); ok {
-				sessionID = sID
-			}
-
-			SetPayloadValue(&defaultPayload, "session_id", sessionID)
-			suiteTemplatePath = workflows.WebuildTemplateFolderPath + "/" + checkName + ".yaml"
-		case "eudiw":
-
-			var id string
-			if tID, ok := tpl["id"].(string); ok {
-				id = tID
-			}
-			var nonce string
-			if tNonce, ok := tpl["nonce"].(string); ok {
-				nonce = tNonce
-			}
-
-			SetPayloadValue(&defaultPayload, "id", id)
-			SetPayloadValue(&defaultPayload, "nonce", nonce)
-			suiteTemplatePath = workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml"
-		case workflows.OpenID4VCIIssuerSuite:
-			// Locate the nearest preceding credential-offer step and wire its
-			// output into this step's payload via a ${{ }} reference expression.
-			// ResolveInputs will replace it with the actual URL at execution time.
-			credentialOfferRef := ""
-			for j := i - 1; j >= 0; j-- {
-				if (*steps)[j].Use == "credential-offer" {
-					credentialOfferRef = fmt.Sprintf("${{ %s.outputs }}", (*steps)[j].ID)
-					break
-				}
-			}
-			if credentialOfferRef == "" {
-				return workflowengine.NewAppError(
-					errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
-					fmt.Sprintf("conformance-check step %q requires a preceding credential-offer step", step.ID),
-				)
-			}
-			var testVal string
-			if tVal, ok := tpl["test"].(string); ok {
-				testVal = tVal
-			}
-			SetPayloadValue(&defaultPayload, "credential_offer", credentialOfferRef)
-			SetPayloadValue(&defaultPayload, "test", testVal)
-			suiteTemplatePath = workflows.OpenID4VCIIssuerStepCITemplatePath
-		default:
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("missing or invalid suite for step %s", step.ID),
-			)
+		suiteExtra, suiteTemplatePath, err := resolveSuiteSetup(suite, checkName, step.ID, tpl, steps, i)
+		if err != nil {
+			return err
 		}
+		for k, v := range suiteExtra {
+			SetPayloadValue(&defaultPayload, k, v)
+		}
+
 		templatePath := filepath.Join(rootDir, suiteTemplatePath)
 		template, err := os.ReadFile(templatePath)
 		if err != nil {
@@ -245,6 +152,101 @@ func ConformanceCheckSetupHook(
 	}
 
 	return nil
+}
+
+// resolveSuiteSetup returns the extra payload fields and StepCI template path
+// for the given suite. It is extracted from ConformanceCheckSetupHook to keep
+// the parent function's cyclomatic complexity within acceptable bounds.
+func resolveSuiteSetup(
+	suite, checkName, stepID string,
+	tpl map[string]any,
+	steps *[]pipeline.StepDefinition,
+	stepIdx int,
+) (map[string]any, string, error) {
+	extra := map[string]any{}
+	switch suite {
+	case "openid_conformance_suite":
+		variant := map[string]any{}
+		if v, ok := tpl["variant"].(map[string]any); ok {
+			for _, key := range []string{"credential_format", "client_id_prefix", "request_method", "response_mode"} {
+				if val, ok := v[key]; ok {
+					variant[key] = val
+				}
+			}
+		}
+		variantJSON, err := json.Marshal(variant)
+		if err != nil {
+			return nil, "", workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.JSONMarshalFailed],
+				fmt.Sprintf("failed to marshal variant JSON for step %s: %v", stepID, err),
+			)
+		}
+		form := map[string]any{}
+		if f, ok := tpl["form"].(map[string]any); ok {
+			for k, v := range f {
+				form[k] = v
+			}
+		}
+		var testVal string
+		if tVal, ok := tpl["test"].(string); ok {
+			testVal = tVal
+		}
+		extra["variant"] = string(variantJSON)
+		extra["form"] = form
+		extra["test"] = testVal
+		return extra, workflows.OpenIDNetStepCITemplatePathv1_0, nil
+
+	case "ewc":
+		if sID, ok := tpl["sessionId"].(string); ok {
+			extra["session_id"] = sID
+		}
+		return extra, workflows.EWCTemplateFolderPath + "/" + checkName + ".yaml", nil
+
+	case "webuild":
+		if sID, ok := tpl["sessionId"].(string); ok {
+			extra["session_id"] = sID
+		}
+		return extra, workflows.WebuildTemplateFolderPath + "/" + checkName + ".yaml", nil
+
+	case "eudiw":
+		if tID, ok := tpl["id"].(string); ok {
+			extra["id"] = tID
+		}
+		if tNonce, ok := tpl["nonce"].(string); ok {
+			extra["nonce"] = tNonce
+		}
+		return extra, workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml", nil
+
+	case workflows.OpenID4VCIIssuerSuite:
+		// Locate the nearest preceding credential-offer step and wire its
+		// output via a ${{ }} reference expression resolved at execution time.
+		credentialOfferRef := ""
+		for j := stepIdx - 1; j >= 0; j-- {
+			if (*steps)[j].Use == "credential-offer" {
+				credentialOfferRef = fmt.Sprintf("${{ %s.outputs }}", (*steps)[j].ID)
+				break
+			}
+		}
+		if credentialOfferRef == "" {
+			return nil, "", workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+				fmt.Sprintf("conformance-check step %q requires a preceding credential-offer step", stepID),
+			)
+		}
+		var testVal string
+		if tVal, ok := tpl["test"].(string); ok {
+			testVal = tVal
+		}
+		extra["credential_offer"] = credentialOfferRef
+		extra["test"] = testVal
+		return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
+
+	default:
+		return nil, "", workflowengine.NewAppError(
+			errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+			fmt.Sprintf("missing or invalid suite for step %s", stepID),
+		)
+	}
 }
 
 func extractCredimiJSON(yamlContent string) (string, error) {
