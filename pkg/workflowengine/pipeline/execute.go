@@ -28,6 +28,7 @@ func ExecuteStep(
 	globalCfg map[string]any,
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
+	includeResult *bool,
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
 	s := &pipeline.StepDefinition{
@@ -37,6 +38,7 @@ func ExecuteStep(
 			With:            with,
 			ActivityOptions: activityOptions,
 			Metadata:        nil,
+			IncludeResult:   includeResult,
 		},
 		ContinueOnError: false,
 	}
@@ -59,6 +61,18 @@ func ExecuteStep(
 				fmt.Sprintf("error decoding payload for step %s: %s", s.ID, err.Error()),
 			)
 			return nil, appErr
+		}
+		if s.IncludeResult != nil && *s.IncludeResult {
+    		pipelineOutput := ExtractPipelineOutput(dataCtx)
+    		enrichedPayload, err := EnrichActivityPayload(payload, s.Use, pipelineOutput)
+			if err != nil {
+				appErr := workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf("error enriching payload for step %s: %s", s.ID, err.Error()),
+				)
+				return nil, appErr
+			}
+			payload = enrichedPayload
 		}
 		ctx = workflow.WithActivityOptions(ctx, ao)
 		act := step.NewFunc().(workflowengine.Activity)
@@ -174,7 +188,7 @@ func Execute(
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
-	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao, s.IncludeResult)
 }
 
 func ExecuteOnError(
@@ -184,7 +198,7 @@ func ExecuteOnError(
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
-	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao, s.IncludeResult)
 }
 
 func ExecuteOnSuccess(
@@ -194,7 +208,7 @@ func ExecuteOnSuccess(
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
-	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao, s.IncludeResult)
 }
 
 // runChildPipeline executes a nested child pipeline and returns its outputs

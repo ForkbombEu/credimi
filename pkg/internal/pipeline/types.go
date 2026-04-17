@@ -24,6 +24,7 @@ type StepSpec struct {
 	With            StepInputs             `yaml:"with"                       json:"with"`
 	ActivityOptions *ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
 	Metadata        map[string]any         `yaml:"metadata,omitempty"         json:"metadata,omitempty"`
+	IncludeResult   *bool 				   `yaml:"include_result,omitempty"   json:"include_result,omitempty"`
 }
 
 type StepDefinition struct {
