@@ -54,6 +54,7 @@ var allCodes = []string{
 	UnexpectedHTTPStatusCode,
 	DockerCommandExecutionFailed,
 	MobileRunnerBusy,
+	OpenID4VCIIssuerCheckFailed,
 	ReadFromReaderFailed,
 	CopyFromReaderFailed,
 	MkdirFailed,

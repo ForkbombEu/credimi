@@ -104,6 +104,11 @@ func ConformanceCheckSetupHook(
 			standard = parts[0]
 			checkName = parts[len(parts)-1]
 		}
+		// OID4VCI issuer tests live inside openid_conformance_suite folders but
+		// need their own dispatch path — override the suite key before the switch.
+		if standard == "openid4vci_issuer" {
+			suite = workflows.OpenID4VCIIssuerSuite
+		}
 		memo := map[string]any{
 			"author":   suite,
 			"standard": standard,
@@ -193,6 +198,30 @@ func ConformanceCheckSetupHook(
 			SetPayloadValue(&defaultPayload, "id", id)
 			SetPayloadValue(&defaultPayload, "nonce", nonce)
 			suiteTemplatePath = workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml"
+		case workflows.OpenID4VCIIssuerSuite:
+			// Locate the nearest preceding credential-offer step and wire its
+			// output into this step's payload via a ${{ }} reference expression.
+			// ResolveInputs will replace it with the actual URL at execution time.
+			credentialOfferRef := ""
+			for j := i - 1; j >= 0; j-- {
+				if (*steps)[j].Use == "credential-offer" {
+					credentialOfferRef = fmt.Sprintf("${{ %s.outputs }}", (*steps)[j].ID)
+					break
+				}
+			}
+			if credentialOfferRef == "" {
+				return workflowengine.NewAppError(
+					errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+					fmt.Sprintf("conformance-check step %q requires a preceding credential-offer step", step.ID),
+				)
+			}
+			var testVal string
+			if tVal, ok := tpl["test"].(string); ok {
+				testVal = tVal
+			}
+			SetPayloadValue(&defaultPayload, "credential_offer", credentialOfferRef)
+			SetPayloadValue(&defaultPayload, "test", testVal)
+			suiteTemplatePath = workflows.OpenID4VCIIssuerStepCITemplatePath
 		default:
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 			return workflowengine.NewAppError(
