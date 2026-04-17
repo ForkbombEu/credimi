@@ -1,0 +1,136 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: "1.1"
+components:
+  token:
+    bearer:
+      token: ${{secrets.token}}
+
+tests:
+  OPENID4VCI_ISSUER:
+    steps:
+      - name: Set credential offer
+        plugin:
+          id: capture-plugin
+          params:
+            values:
+              credential_offer: [[.credential_offer]]
+      - name: Compute prefixes
+        plugin:
+          id: capture-plugin
+          params:
+            values:
+              credential_offer_uri_prefix: ${{captures.credential_offer|slice:0,48}}
+              credential_offer_prefix: ${{captures.credential_offer|slice:0,44}}
+      - name: Resolve credential_issuer from credential_offer_uri
+        if: captures.credential_offer_uri_prefix == "openid-credential-offer://?credential_offer_uri="
+        http:
+          url: ${{captures.credential_offer|slice:48|url_decode}}
+          method: GET
+          check:
+            status: 200
+          captures:
+            credential_issuer:
+              jsonpath: $.credential_issuer
+            credential_configuration_id:
+              jsonpath: $.credential_configuration_ids[0]
+      - name: Resolve credential_issuer from inline credential_offer
+        if: captures.credential_offer_prefix == "openid-credential-offer://?credential_offer="
+        http:
+          method: POST
+          url: "http://echo.free.beeceptor.com/sample-request?author=beeceptor"
+          headers:
+            Content-Type: application/json
+          body: ${{captures.credential_offer|slice:44|url_decode}}
+          check:
+            status: 200
+          captures:
+            credential_issuer:
+              jsonpath: $.parsedBody.credential_issuer
+            credential_configuration_id:
+              jsonpath: $.parsedBody.credential_configuration_ids[0]
+      - name: Extract credential format from well-known metadata
+        http:
+          method: GET
+          url: ${{captures.credential_issuer}}/.well-known/openid-credential-issuer
+          check:
+            status: 200
+          captures:
+            format:
+              jsonpath: $.credential_configurations_supported.${{captures.credential_configuration_id}}.format
+      - name: Create OpenID certification test plan
+        http:
+          url: https://www.certification.openid.net/api/plan
+          auth:
+            $ref: "#/components/token"
+          method: POST
+          params:
+            planName: oid4vci-1_0-issuer-test-plan
+            variant: >-
+              {
+                "sender_constrain": "dpop",
+                "client_auth_type": "private_key_jwt",
+                "vci_authorization_code_flow_variant": "issuer_initiated",
+                "credential_format": "${{captures.format | replace:"vc+sd-jwt","sd_jwt_vc" | replace:"dc+sd-jwt","sd_jwt_vc"}}",
+                "authorization_request_type": "simple",
+                "vci_profile": "plain_vci",
+                "fapi_request_method": "unsigned",
+                "vci_grant_type": "authorization_code",
+                "vci_credential_encryption": "plain"
+              }
+          json:
+            alias: credimi-oid4vci-issuer-test
+            description: Automated OID4VCI issuer conformance test via Credimi
+            vci:
+              credential_issuer_url: ${{captures.credential_issuer}}
+              credential_configuration_id: ${{captures.credential_configuration_id}}
+          check:
+            status: 201
+          captures:
+            plan_id:
+              jsonpath: $.id
+      - name: Start test runner
+        http:
+          url: https://www.certification.openid.net/api/runner
+          auth:
+            $ref: "#/components/token"
+          method: POST
+          params:
+            test: [[.test]]
+            plan: ${{captures.plan_id}}
+            variant: "{}"
+          body: ""
+          check:
+            status: 201
+          captures:
+            runner_id:
+              jsonpath: $.id
+      - name: Trigger test execution
+        http:
+          url: https://www.certification.openid.net/api/runner/${{captures.runner_id}}
+          auth:
+            $ref: "#/components/token"
+          method: GET
+          check:
+            status: 200
+      - name: Poll test logs until finished
+        retries:
+          count: 30
+          interval: 10s
+        http:
+          url: https://www.certification.openid.net/api/log/${{captures.runner_id}}
+          auth:
+            $ref: "#/components/token"
+          method: GET
+          check:
+            status: 200
+            jsonpath:
+              $.[-1:].result:
+                - in: FINISHED
+          captures:
+            logs:
+              body: true
+            result:
+              jsonpath: $.[-1:].testmodule_result

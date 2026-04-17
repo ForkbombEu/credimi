@@ -51,8 +51,9 @@ var Codes = map[string]Code{
 	EudiwCheckFailed:               {"CRE306", "Eudiw check failed"},
 	UnexpectedDockerOutput:         {"CRE307", "Unexpected output from docker container"},
 	ZenroomExecutionFailed:         {"CRE308", "Execution of Zenroom failed"},
-	OpenIDnetCheckFailed:           {"CRE309", "OpenIDnet check failed"},
-	UnexpectedHTTPStatusCode:       {"CRE310", "Unexpected HTTP status code"},
+	OpenIDnetCheckFailed:              {"CRE309", "OpenIDnet check failed"},
+	UnexpectedHTTPStatusCode:          {"CRE310", "Unexpected HTTP status code"},
+	OpenID4VCIIssuerCheckFailed:       {"CRE313", "OID4VCI issuer check failed"},
 	DockerCommandExecutionFailed:   {"CRE311", "Docker command execution failed"},
 	MobileRunnerBusy:               {"CRE312", "Mobile runner busy"},
 	ReadFromReaderFailed:           {"CRE901", "Failed to read from reader"},
@@ -105,6 +106,7 @@ const (
 	ZenroomExecutionFailed         = "CRE308"
 	OpenIDnetCheckFailed           = "CRE309"
 	UnexpectedHTTPStatusCode       = "CRE310"
+	OpenID4VCIIssuerCheckFailed    = "CRE313"
 	DockerCommandExecutionFailed   = "CRE311"
 	MobileRunnerBusy               = "CRE312"
 	ReadFromReaderFailed           = "CRE901"
