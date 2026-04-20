@@ -719,3 +719,264 @@ func TestExecuteStepEmailConfigureError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error configuring activity")
 }
+
+func TestExecuteStepWithIncludeResultFalse(t *testing.T) {
+    suite := testsuite.WorkflowTestSuite{}
+    env := suite.NewTestWorkflowEnvironment()
+
+    httpActivity := activities.NewHTTPActivity()
+    env.RegisterActivityWithOptions(
+        httpActivity.Execute,
+        activity.RegisterOptions{Name: httpActivity.Name()},
+    )
+
+    workflowName := "execute-step-include-result-false"
+    executeStepWorkflow := func(ctx workflow.Context) (map[string]any, error) {
+        ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+        ctx = workflow.WithActivityOptions(ctx, ao)
+
+        dataCtx := map[string]any{
+            "previous_step": map[string]any{
+                "outputs": map[string]any{"id": 123},
+            },
+        }
+
+        includeResult := false
+        step := pipeline.StepDefinition{
+            StepSpec: pipeline.StepSpec{
+                ID:            "step-2",
+                Use:           "http-request",
+                IncludeResult: &includeResult,
+                With: pipeline.StepInputs{
+                    Payload: map[string]any{
+                        "method": "POST",
+                        "url":    "https://api.example.com",
+                        "body":   map[string]any{"original": "keep this"},
+                    },
+                },
+            },
+        }
+
+        output, err := ExecuteStep(
+            step.ID,
+            step.Use,
+            step.With,
+            step.ActivityOptions,
+            ctx,
+            map[string]any{},
+            dataCtx,
+            ao,
+            step.IncludeResult,
+        )
+        if err != nil {
+            return nil, err
+        }
+
+        return output.(map[string]any), nil
+    }
+    env.RegisterWorkflowWithOptions(
+        executeStepWorkflow,
+        workflow.RegisterOptions{Name: workflowName},
+    )
+
+    env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+        Return(workflowengine.ActivityResult{Output: map[string]any{"status": 200}}, nil)
+
+    env.ExecuteWorkflow(workflowName)
+    require.True(t, env.IsWorkflowCompleted())
+    require.NoError(t, env.GetWorkflowError())
+}
+
+func TestExecuteStepWithIncludeResultNil(t *testing.T) {
+    suite := testsuite.WorkflowTestSuite{}
+    env := suite.NewTestWorkflowEnvironment()
+
+    httpActivity := activities.NewHTTPActivity()
+    env.RegisterActivityWithOptions(
+        httpActivity.Execute,
+        activity.RegisterOptions{Name: httpActivity.Name()},
+    )
+
+    workflowName := "execute-step-include-result-nil"
+    executeStepWorkflow := func(ctx workflow.Context) (map[string]any, error) {
+        ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+        ctx = workflow.WithActivityOptions(ctx, ao)
+
+        dataCtx := map[string]any{
+            "previous_step": map[string]any{
+                "outputs": map[string]any{"id": 123},
+            },
+        }
+
+        step := pipeline.StepDefinition{
+            StepSpec: pipeline.StepSpec{
+                ID:  "step-2",
+                Use: "http-request",
+                With: pipeline.StepInputs{
+                    Payload: map[string]any{
+                        "method": "POST",
+                        "url":    "https://api.example.com",
+                        "body":   map[string]any{"original": "keep this"},
+                    },
+                },
+            },
+        }
+
+        output, err := ExecuteStep(
+            step.ID,
+            step.Use,
+            step.With,
+            step.ActivityOptions,
+            ctx,
+            map[string]any{},
+            dataCtx,
+            ao,
+            step.IncludeResult,
+        )
+        if err != nil {
+            return nil, err
+        }
+
+        return output.(map[string]any), nil
+    }
+    env.RegisterWorkflowWithOptions(
+        executeStepWorkflow,
+        workflow.RegisterOptions{Name: workflowName},
+    )
+    env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+        Return(workflowengine.ActivityResult{Output: map[string]any{"status": 200}}, nil)
+
+    env.ExecuteWorkflow(workflowName)
+    require.True(t, env.IsWorkflowCompleted())
+    require.NoError(t, env.GetWorkflowError())
+}
+
+func TestExecuteStepWithIncludeResultHTTP(t *testing.T) {
+    suite := testsuite.WorkflowTestSuite{}
+    env := suite.NewTestWorkflowEnvironment()
+
+    httpActivity := activities.NewHTTPActivity()
+    env.RegisterActivityWithOptions(
+        httpActivity.Execute,
+        activity.RegisterOptions{Name: httpActivity.Name()},
+    )
+
+    workflowName := "execute-step-include-result-http"
+    executeStepWorkflow := func(ctx workflow.Context) (map[string]any, error) {
+        ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+        ctx = workflow.WithActivityOptions(ctx, ao)
+
+        dataCtx := map[string]any{
+            "inputs": map[string]any{"original": "input"},
+            "previous_step": map[string]any{
+                "outputs": map[string]any{
+                    "id":   123,
+                    "name": "Mario",
+                },
+            },
+        }
+
+        includeResult := true
+        step := pipeline.StepDefinition{
+            StepSpec: pipeline.StepSpec{
+                ID:            "step-2",
+                Use:           "http-request",
+                IncludeResult: &includeResult,
+                With: pipeline.StepInputs{
+                    Payload: map[string]any{
+                        "method": "POST",
+                        "url":    "https://api.example.com",
+                        "body":   map[string]any{"original": "this should be replaced"},
+                    },
+                },
+            },
+        }
+
+        output, err := ExecuteStep(
+            step.ID,
+            step.Use,
+            step.With,
+            step.ActivityOptions,
+            ctx,
+            map[string]any{},
+            dataCtx,
+            ao,
+            step.IncludeResult,
+        )
+        if err != nil {
+            return nil, err
+        }
+
+        return output.(map[string]any), nil
+    }
+    env.RegisterWorkflowWithOptions(
+        executeStepWorkflow,
+        workflow.RegisterOptions{Name: workflowName},
+    )
+
+    env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+        Return(workflowengine.ActivityResult{Output: map[string]any{"status": 200}}, nil)
+
+    env.ExecuteWorkflow(workflowName)
+    require.True(t, env.IsWorkflowCompleted())
+    require.NoError(t, env.GetWorkflowError())
+}
+func TestExecuteStepWithIncludeResultMarshalError(t *testing.T) {
+    suite := testsuite.WorkflowTestSuite{}
+    env := suite.NewTestWorkflowEnvironment()
+
+    workflowName := "execute-step-include-result-marshal-error"
+    executeStepWorkflow := func(ctx workflow.Context) error {
+        ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+        ctx = workflow.WithActivityOptions(ctx, ao)
+        ch := make(chan int)
+        dataCtx := map[string]any{
+            "inputs": map[string]any{},
+            "previous_step": map[string]any{
+                "outputs": map[string]any{
+                    "id":   123,
+                    "ch":   ch, 
+                },
+            },
+        }
+
+        includeResult := true
+        step := pipeline.StepDefinition{
+            StepSpec: pipeline.StepSpec{
+                ID:            "step-2",
+                Use:           "email",
+                IncludeResult: &includeResult,
+                With: pipeline.StepInputs{
+                    Payload: map[string]any{
+                        "recipient": "test@example.com",
+                        "subject":   "Test",
+                        "body":      "original body",
+                    },
+                },
+            },
+        }
+
+        _, err := ExecuteStep(
+            step.ID,
+            step.Use,
+            step.With,
+            step.ActivityOptions,
+            ctx,
+            map[string]any{},
+            dataCtx,
+            ao,
+            step.IncludeResult,
+        )
+        return err
+    }
+    env.RegisterWorkflowWithOptions(
+        executeStepWorkflow,
+        workflow.RegisterOptions{Name: workflowName},
+    )
+
+    env.ExecuteWorkflow(workflowName)
+    require.True(t, env.IsWorkflowCompleted())
+    err := env.GetWorkflowError()
+    require.Error(t, err)
+    require.Contains(t, err.Error(), "error enriching payload")
+}
