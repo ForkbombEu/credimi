@@ -35,6 +35,7 @@ export default defineConfig({
                 { label: 'Create an Account and Organization', link: '/manual/publish-to-marketplace/create-account-and-organization/' },
                 { label: 'List Wallets, Issuers and Verifiers', link: '/manual/publish-to-marketplace/list-wallets-issuers-and-verifiers/' },
                 { label: 'Integrate Issuers and Verifiers with StepCI', link: '/manual/publish-to-marketplace/integrate-with-stepci/' },
+				{ label: 'StepCI and Maestro scripting examples', link: '/manual/publish-to-marketplace/yaml-examples/' },
               ],
             },
             {
