@@ -45,6 +45,7 @@ export default defineConfig({
                 { label: 'Create Maestro Actions', link: '/manual/testing-automation/create-maestro-actions/' },
                 { label: 'Build and Run Pipelines', link: '/manual/testing-automation/build-and-run-pipelines/' },
                 { label: 'Inspect Pipeline Execution', link: '/manual/testing-automation/inspect-pipeline-execution/' },
+				{ label: 'StepCI and Maestro scripting examples', link: '/manual/publish-to-marketplace/yaml-examples/' },
               ],
             },
           ],
