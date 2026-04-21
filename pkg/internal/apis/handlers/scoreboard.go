@@ -157,19 +157,23 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 			NamespacesFailed:    0,
 		}
 
-		recordsCount, err := insertAggregatedResults(e.App, result)
-		if err != nil {
+		recordsCount, saveErrors := insertAggregatedResults(e.App, result)
+		if len(saveErrors) > 0 {
+			e.App.Logger().Warn("Errors during save", "errors", saveErrors)
+		}
+		
+		if recordsCount == 0 && len(saveErrors) > 0 {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"insert",
-				"Failed to insert results",
-				err.Error(),
+				"Failed to insert any results",
+				fmt.Sprintf("Errors: %v", saveErrors),
 			).JSON(e)
 		}
 
 		return e.JSON(http.StatusOK, SaveScoreboardResultsResponse{
 			Success:      true,
-			Message:      "Results saved successfully",
+			Message:      fmt.Sprintf("Results saved successfully (%d records, %d warnings)", recordsCount, len(saveErrors)),
 			RecordsCount: recordsCount,
 		})
 	}
@@ -916,38 +920,42 @@ func truncateCollection(app core.App, collectionName string) error {
 func insertAggregatedResults(
 	app core.App,
 	result *workflows.AggregateScoreboardWorkflowOutput,
-) (int, error) {
+) (int, []error) {
 	if result == nil {
-		return 0, fmt.Errorf("result is nil")
+		return 0, []error{fmt.Errorf("result is nil")}
 	}
 
 	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
 	if err != nil {
-		return 0, fmt.Errorf("failed to find collection: %w", err)
+		return 0, []error{fmt.Errorf("failed to find collection: %w", err)}
 	}
 
 	count := 0
+	var errors []error
 	for _, stats := range result.AggregatedPipelines {
 		record := core.NewRecord(collection)
 		setBasicFields(record, stats)
 		if err := setPipelineRelation(record, app, stats.PipelineID); err != nil {
-			return count, err
+			errors = append(errors, fmt.Errorf("pipeline %s: %w", stats.PipelineID, err))
+			continue
 		}
 		if err := setMobileRunnersRelation(record, app, stats.Runners); err != nil {
-			return count, err
+			errors = append(errors, fmt.Errorf("runners for pipeline %s: %w", stats.PipelineID, err))
+			continue
 		}
 		if stats.LastExecution != nil {
 			if err := setLastExecutionFields(record, app, stats.LastExecution); err != nil {
-				return count, err
+				errors = append(errors, fmt.Errorf("pipeline %s last execution: %w", stats.PipelineID, err))
 			}
 		}
 
 		if err := app.Save(record); err != nil {
-			return count, err
+			errors = append(errors, fmt.Errorf("pipeline %s save: %w", stats.PipelineID, err))
+			continue
 		}
 		count++
 	}
-	return count, nil
+	return count, errors
 }
 
 func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats) {
