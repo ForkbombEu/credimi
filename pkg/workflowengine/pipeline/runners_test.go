@@ -183,6 +183,7 @@ func TestResolveRunnerRecord(t *testing.T) {
 		newRunner.Set("name", "test-runner")
 		newRunner.Set("canonified_name", "test-runner")
 		newRunner.Set("ip", "127.0.0.1")
+		newRunner.Set("type", "android_emulator")
 		require.NoError(t, app.Save(newRunner))
 
 		cache := map[string]map[string]any{}
@@ -218,6 +219,7 @@ func TestResolveRunnerRecords(t *testing.T) {
 		newRunner.Set("name", "queue-runner")
 		newRunner.Set("canonified_name", "queue-runner")
 		newRunner.Set("ip", "127.0.0.1")
+		newRunner.Set("type", "android_emulator")
 		require.NoError(t, app.Save(newRunner))
 
 		cache := map[string]map[string]any{}
