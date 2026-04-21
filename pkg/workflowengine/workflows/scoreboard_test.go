@@ -205,7 +205,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 							"run_id":      "run-1",
 							"start_time":  "2026-04-02T10:00:00Z",
 						},
-					},	
+					},
 				})
 				env.OnActivity(activityName(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, errors.New("boom")).
@@ -370,6 +370,50 @@ func TestAggregateScoreboardWorkflowStart(t *testing.T) {
 	require.Equal(t, AggregateScoreboardTaskQueue, capturedOptions.TaskQueue)
 	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
 	require.True(t, strings.HasPrefix(capturedOptions.ID, "aggregate-scoreboard-"))
+}
+
+func TestAggregateScoreboardWorkflowOrdersMixedTimestampPrecision(t *testing.T) {
+	w := NewAggregateScoreboardWorkflow()
+	stats := &AggregatedPipelineStats{}
+
+	w.updateDates(stats, map[string]any{
+		"first_execution_date": "2026-04-21T10:00:00Z",
+		"last_execution_date":  "2026-04-21T10:00:00Z",
+	})
+	w.updateDates(stats, map[string]any{
+		"first_execution_date": "2026-04-21T09:59:59.999999999Z",
+		"last_execution_date":  "2026-04-21T10:00:00.1Z",
+	})
+
+	lastRunMap := map[string]*pipelineRunRef{}
+	w.trackLastRun(
+		map[string]any{
+			"last_successful_run": map[string]any{
+				"workflow_id": "whole-second",
+				"run_id":      "run-1",
+				"start_time":  "2026-04-21T10:00:00Z",
+			},
+		},
+		"namespace-1",
+		"pipe-1",
+		lastRunMap,
+	)
+	w.trackLastRun(
+		map[string]any{
+			"last_successful_run": map[string]any{
+				"workflow_id": "fractional-second",
+				"run_id":      "run-2",
+				"start_time":  "2026-04-21T10:00:00.1Z",
+			},
+		},
+		"namespace-1",
+		"pipe-1",
+		lastRunMap,
+	)
+
+	require.Equal(t, "2026-04-21T09:59:59.999999999Z", stats.FirstExecutionDate)
+	require.Equal(t, "2026-04-21T10:00:00.1Z", stats.LastExecutionDate)
+	require.Equal(t, "fractional-second", lastRunMap["pipe-1"].WorkflowID)
 }
 
 func registerInternalHTTPActivity(env *testsuite.TestWorkflowEnvironment) {

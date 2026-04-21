@@ -161,7 +161,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 		if len(saveErrors) > 0 {
 			e.App.Logger().Warn("Errors during save", "errors", saveErrors)
 		}
-		
+
 		if recordsCount == 0 && len(saveErrors) > 0 {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -611,7 +611,8 @@ func calculateStatsFromExecutions(
 		if isCompleted {
 			stats.TotalSuccesses++
 
-			if lastSuccessfulExec == nil || exec.StartTime > lastSuccessfulExec.StartTime {
+			if lastSuccessfulExec == nil ||
+				utils.TimeStringAfter(exec.StartTime, lastSuccessfulExec.StartTime) {
 				lastSuccessfulExec = exec
 			}
 		}
@@ -690,10 +691,10 @@ func updateDateRange(startTimeStr string, firstTime, lastTime *string) {
 	if startTimeStr == "" {
 		return
 	}
-	if *firstTime == "" || startTimeStr < *firstTime {
+	if *firstTime == "" || utils.TimeStringBefore(startTimeStr, *firstTime) {
 		*firstTime = startTimeStr
 	}
-	if *lastTime == "" || startTimeStr > *lastTime {
+	if *lastTime == "" || utils.TimeStringAfter(startTimeStr, *lastTime) {
 		*lastTime = startTimeStr
 	}
 }
@@ -702,8 +703,8 @@ func updateMinDuration(exec *WorkflowExecution, minDuration *time.Duration, minD
 	if exec.StartTime == "" || exec.CloseTime == "" {
 		return
 	}
-	startTime, err1 := time.Parse(time.RFC3339, exec.StartTime)
-	closeTime, err2 := time.Parse(time.RFC3339, exec.CloseTime)
+	startTime, err1 := utils.ParseTimeString(exec.StartTime)
+	closeTime, err2 := utils.ParseTimeString(exec.CloseTime)
 	if err1 != nil || err2 != nil {
 		return
 	}
@@ -801,26 +802,25 @@ func extractEntityDetailsFromExecution(exec *WorkflowExecution) *LastExecutionDe
 
 	// action_id
 	details.MaestroScripts = getStringListFromAttrs(attrs, "ActionsID")
-	
+
 	var versionsToProcess []string
 	for _, v := range details.WalletVersionUsed {
-    	if v != "installed_from_external_source" {
-        	versionsToProcess = append(versionsToProcess, v)
-    	}
+		if v != "installed_from_external_source" {
+			versionsToProcess = append(versionsToProcess, v)
+		}
 	}
 
 	if len(versionsToProcess) > 0 {
-    	for _, v := range versionsToProcess {
-        	walletUsed := extractFirstTwoParts(v)
-        	details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
-    	}
-	} 
-	
-    for _, v := range details.MaestroScripts {
-        walletUsed := extractFirstTwoParts(v)
-        details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
-    }
+		for _, v := range versionsToProcess {
+			walletUsed := extractFirstTwoParts(v)
+			details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
+		}
+	}
 
+	for _, v := range details.MaestroScripts {
+		walletUsed := extractFirstTwoParts(v)
+		details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
+	}
 
 	// credential_id
 	details.Credentials = getStringListFromAttrs(attrs, "CredentialsID")
@@ -1106,7 +1106,6 @@ func setLastExecutionFields(
 		return fmt.Errorf("failed to process wallet versions: %w", err)
 	}
 	record.Set("wallet_versions", versionIDs)
-
 
 	// Credentials
 	if len(lastExecution.Credentials) > 0 {
