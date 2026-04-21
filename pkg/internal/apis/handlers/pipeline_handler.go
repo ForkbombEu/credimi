@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -626,11 +627,10 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			if len(pipelineExecutions) == 0 {
 				continue
 			}
-			hierarchy := buildExecutionHierarchy(
+			hierarchy := buildExecutionHierarchyRaw(
 				e.App,
 				pipelineExecutions,
 				namespace,
-				authRecord.GetString("Timezone"),
 				temporalClient,
 			)
 			if len(hierarchy) > 0 {
@@ -663,6 +663,10 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 
 		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
 		runnerCache := map[string]map[string]any{}
+		loc, err := time.LoadLocation(authRecord.GetString("Timezone"))
+		if err != nil {
+			loc = time.Local
+		}
 
 		for pipelineID, executions := range selectedExecutions {
 			info := pipelineRunnerInfoMap[pipelineID]
@@ -688,6 +692,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			for _, summary := range annotated {
 				summary.PipelineIdentifier = pipelineIdentifier
 			}
+			localizePipelineWorkflowSummaries(annotated, loc)
 			response[pipelineID] = annotated
 		}
 
@@ -734,9 +739,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		remainingSlots := limit - len(runningExecs)
 		if remainingSlots > 0 && len(otherExecs) > 0 {
 			sort.Slice(otherExecs, func(i, j int) bool {
-				t1, _ := time.Parse(time.RFC3339, otherExecs[i].StartTime)
-				t2, _ := time.Parse(time.RFC3339, otherExecs[j].StartTime)
-				return t1.After(t2)
+				return utils.TimeStringAfter(otherExecs[i].StartTime, otherExecs[j].StartTime)
 			})
 
 			if remainingSlots > len(otherExecs) {
@@ -747,9 +750,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		}
 
 		sort.Slice(selected, func(i, j int) bool {
-			t1, _ := time.Parse(time.RFC3339, selected[i].StartTime)
-			t2, _ := time.Parse(time.RFC3339, selected[j].StartTime)
-			return t1.After(t2)
+			return utils.TimeStringAfter(selected[i].StartTime, selected[j].StartTime)
 		})
 
 		if len(selected) > 0 {

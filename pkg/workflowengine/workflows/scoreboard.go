@@ -41,8 +41,8 @@ type AggregatedPipelineStats struct {
 
 type LatestExecutionDetails struct {
 	PipelineName         string   `json:"pipeline_name"`
-	WorkflowID			 string	  `json:"workflow_id,omitempty"`
-	RunID				 string	  `json:"run_id,omitempty"`
+	WorkflowID           string   `json:"workflow_id,omitempty"`
+	RunID                string   `json:"run_id,omitempty"`
 	OrgLogo              string   `json:"org_logo,omitempty"`
 	Video                string   `json:"video,omitempty"`
 	Screenshot           string   `json:"screenshots,omitempty"`
@@ -151,7 +151,7 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 
 	// 2. Fetch all scoreboards and aggregate
 	aggregatedMap, lastRunMap, failedNamespaces := w.fetchAndAggregateScoreboards(
-		ctx, httpActivity, appURL, namespaces, 
+		ctx, httpActivity, appURL, namespaces,
 	)
 
 	// 3. Calculate success rates and sort runners
@@ -189,9 +189,9 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	}
 	saveRequest := workflowengine.ActivityInput{
 		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodPost,
-			URL:            saveURL,
-			Body:           savePayload,
+			Method: http.MethodPost,
+			URL:    saveURL,
+			Body:   savePayload,
 			Headers: map[string]string{
 				"Content-Type": "application/json",
 			},
@@ -255,7 +255,7 @@ func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 	// Start all parallel activities with preallocated slices
 	scoreboardFutures := make([]workflow.Future, 0, len(namespaces))
 	scoreboardNamespaces := make([]string, 0, len(namespaces))
-	
+
 	for _, namespace := range namespaces {
 		scoreboardRequest := workflowengine.ActivityInput{
 			Payload: activities.InternalHTTPActivityPayload{
@@ -270,7 +270,7 @@ func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 
 	// Process results
 	for i, future := range scoreboardFutures {
-		w.processScoreboardResponse(ctx, future, scoreboardNamespaces[i], 
+		w.processScoreboardResponse(ctx, future, scoreboardNamespaces[i],
 			aggregatedMap, lastRunMap, &failedNamespaces)
 	}
 
@@ -342,14 +342,14 @@ func (w *AggregateScoreboardWorkflow) aggregateSinglePipeline(
 
 	// Aggregate numeric stats
 	w.aggregateNumericStats(stats, pipeline)
-	
+
 	// Aggregate runners and types
 	w.aggregateRunners(stats, pipeline)
 	w.aggregateRunnerTypes(stats, pipeline)
-	
+
 	// Update dates
 	w.updateDates(stats, pipeline)
-	
+
 	// Track last successful run
 	w.trackLastRun(pipeline, namespace, pipelineID, lastRunMap)
 }
@@ -403,12 +403,14 @@ func (w *AggregateScoreboardWorkflow) updateDates(
 	pipeline map[string]any,
 ) {
 	if firstDate, ok := pipeline["first_execution_date"].(string); ok && firstDate != "" {
-		if stats.FirstExecutionDate == "" || firstDate < stats.FirstExecutionDate {
+		if stats.FirstExecutionDate == "" ||
+			utils.TimeStringBefore(firstDate, stats.FirstExecutionDate) {
 			stats.FirstExecutionDate = firstDate
 		}
 	}
 	if lastDate, ok := pipeline["last_execution_date"].(string); ok && lastDate != "" {
-		if stats.LastExecutionDate == "" || lastDate > stats.LastExecutionDate {
+		if stats.LastExecutionDate == "" ||
+			utils.TimeStringAfter(lastDate, stats.LastExecutionDate) {
 			stats.LastExecutionDate = lastDate
 		}
 	}
@@ -429,22 +431,22 @@ func (w *AggregateScoreboardWorkflow) trackLastRun(
 	if !ok || lastRunRaw == nil {
 		return
 	}
-	
+
 	lastRunData, ok := lastRunRaw.(map[string]any)
 	if !ok {
 		return
 	}
-	
+
 	startTime, _ := lastRunData["start_time"].(string)
 	workflowID, _ := lastRunData["workflow_id"].(string)
 	runID, _ := lastRunData["run_id"].(string)
-	
+
 	if startTime == "" || workflowID == "" || runID == "" {
 		return
 	}
-	
+
 	existingRun := lastRunMap[pipelineID]
-	if existingRun == nil || startTime > existingRun.StartTime {
+	if existingRun == nil || utils.TimeStringAfter(startTime, existingRun.StartTime) {
 		lastRunMap[pipelineID] = &pipelineRunRef{
 			Namespace:  namespace,
 			WorkflowID: workflowID,

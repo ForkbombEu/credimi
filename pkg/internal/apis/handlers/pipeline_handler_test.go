@@ -1200,6 +1200,33 @@ func TestSelectTopExecutionsByPipeline(t *testing.T) {
 	)
 }
 
+func TestSelectTopExecutionsByPipelineOrdersMixedTimestampPrecision(t *testing.T) {
+	executions := []struct {
+		pipelineID string
+		execution  *WorkflowExecutionSummary
+	}{
+		{
+			pipelineID: "pipeline-1",
+			execution: &WorkflowExecutionSummary{
+				Status:    string(WorkflowStatusCompleted),
+				StartTime: "2026-04-21T10:00:00Z",
+			},
+		},
+		{
+			pipelineID: "pipeline-1",
+			execution: &WorkflowExecutionSummary{
+				Status:    string(WorkflowStatusCompleted),
+				StartTime: "2026-04-21T10:00:00.1Z",
+			},
+		},
+	}
+
+	selected := selectTopExecutionsByPipeline(executions, 1)
+
+	require.Len(t, selected["pipeline-1"], 1)
+	require.Equal(t, "2026-04-21T10:00:00.1Z", selected["pipeline-1"][0].StartTime)
+}
+
 func TestBuildChildWorkflowParentQuery(t *testing.T) {
 	require.Equal(t, "", buildChildWorkflowParentQuery(nil))
 
