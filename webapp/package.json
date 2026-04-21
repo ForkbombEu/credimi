@@ -30,7 +30,7 @@
 		"test:e2e:ui": "playwright test --ui",
 		"serve": "bun run build && bun run preview --host --port 5100",
 		"generate:collections-models": "bun run ./src/modules/pocketbase/collections-models/generate.collections-models.ts",
-		"generate:types": "bun x pocketbase-typegen --db ../pb_data/data.db --out src/modules/pocketbase/types/index.generated.ts && bun run generate:types-extra",
+		"generate:types": "bun x pocketbase-typegen@1.4.1 --db ../pb_data/data.db --out src/modules/pocketbase/types/index.generated.ts && bun run generate:types-extra",
 		"generate:types-extra": "bun run src/modules/pocketbase/types/generate.types-extra.ts",
 		"generate:features": "bun run src/modules/features/generate.features-list.ts",
 		"generate:roles": "bun run ./src/modules/organizations/generate.roles-list.ts",
