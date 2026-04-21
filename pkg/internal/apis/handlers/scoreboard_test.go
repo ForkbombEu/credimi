@@ -423,7 +423,7 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 		now.Add(-1*time.Hour),
 	)
 	addEntitySearchAttributes(exec2.Info, map[string]any{
-		workflowengine.VersionsSearchAttribute: []string{"org/wallet/v1-0-0"},
+		workflowengine.VersionsSearchAttribute: "installed_from_external_source",
 		workflowengine.ActionsSearchAttribute: []string{
 			"org/wallet/maestro-1",
 			"org/action/maestro-2",
@@ -537,7 +537,7 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 		require.Empty(t, details.Logs)
 
 		require.ElementsMatch(t, []string{"org/wallet", "org/action"}, details.WalletUsed)
-		require.ElementsMatch(t, []string{"org/wallet/v1-0-0"}, details.WalletVersionUsed)
+		require.ElementsMatch(t, []string{}, details.WalletVersionUsed)
 		require.ElementsMatch(
 			t,
 			[]string{"org/wallet/maestro-1", "org/action/maestro-2"},
