@@ -191,7 +191,6 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		Payload: activities.InternalHTTPActivityPayload{
 			Method:         http.MethodPost,
 			URL:            saveURL,
-			ExpectedStatus: http.StatusOK,
 			Body:           savePayload,
 			Headers: map[string]string{
 				"Content-Type": "application/json",
