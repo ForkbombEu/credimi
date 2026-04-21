@@ -171,9 +171,20 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		message := fmt.Sprintf("Results saved successfully (%d records)", recordsCount)
+		if len(saveErrors) > 0 {
+			errorStrings := make([]string, len(saveErrors))
+			for i, err := range saveErrors {
+				errorStrings[i] = fmt.Sprintf("- %s", err.Error())
+			}
+			message = fmt.Sprintf("Results saved partially (%d records)\nErrors:\n%s", 
+				recordsCount, 
+				strings.Join(errorStrings, "\n"))
+		}
+
 		return e.JSON(http.StatusOK, SaveScoreboardResultsResponse{
 			Success:      true,
-			Message:      fmt.Sprintf("Results saved successfully (%d records, %d warnings)", recordsCount, len(saveErrors)),
+			Message:      message,
 			RecordsCount: recordsCount,
 		})
 	}
