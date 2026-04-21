@@ -220,6 +220,7 @@ func TestListMobileRunnerURLs(t *testing.T) {
 				r1.Set("owner", orgID)
 				r1.Set("serial", "SERIAL1")
 				r1.Set("ip", "http://192.168.1.10")
+				r1.Set("type", "android_emulator")
 				r1.Set("name", "runner-1")
 
 				// Runner 2
@@ -227,6 +228,7 @@ func TestListMobileRunnerURLs(t *testing.T) {
 				r2.Set("owner", orgID)
 				r2.Set("serial", "SERIAL2")
 				r2.Set("ip", "https://192.168.1.11")
+				r2.Set("type", "android_phone")
 				r2.Set("port", "9000")
 				r2.Set("name", "runner-2")
 
@@ -291,6 +293,7 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 				record.Set("owner", orgID)
 				record.Set("serial", "SERIAL123")
 				record.Set("ip", "https://192.168.1.10")
+				record.Set("type", "android_emulator")
 				record.Set("port", "8050")
 				record.Set("name", "runner-without-semaphore")
 				require.NoError(t, app.Save(record))
@@ -328,6 +331,7 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 				record.Set("owner", orgID)
 				record.Set("serial", "SERIAL321")
 				record.Set("ip", "https://192.168.1.99")
+				record.Set("type", "android_emulator")
 				record.Set("port", "9000")
 				record.Set("name", "test-semaphore-runner")
 				require.NoError(t, app.Save(record))
@@ -376,6 +380,7 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 		record.Set("owner", orgID)
 		record.Set("name", "Test Runner")
 		record.Set("ip", "https://existing.example")
+		record.Set("type", "android_emulator")
 		require.NoError(t, app.Save(record))
 
 		event := performMobileRunnerRequest(
@@ -468,6 +473,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 				Name:        "My Phone",
 				IP:          "https://runner.example.trycloudflare.com",
 				Description: "lab device",
+				Type:        "android_emulator",
 				Published:   &published,
 			},
 		)
@@ -504,6 +510,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 		record.Set("owner", orgID)
 		record.Set("name", "My Phone")
 		record.Set("ip", "https://old.example")
+		record.Set("type", "android_emulator")
 		require.NoError(t, app.Save(record))
 		recordID := record.Id
 
@@ -517,6 +524,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 				Name:         "My Phone",
 				IP:           "https://new.example",
 				Description:  "updated",
+				Type:         "android_emulator",
 				Organization: "ignored-for-user",
 			},
 		)
@@ -550,6 +558,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 				Organization: "userb-s-organization",
 				Name:         "Runner B",
 				IP:           "https://runner-b.example",
+				Type:         "android_emulator",
 			},
 		)
 
