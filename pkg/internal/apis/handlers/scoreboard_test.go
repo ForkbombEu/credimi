@@ -756,6 +756,40 @@ func TestExtractCompletionStatus(t *testing.T) {
 	}
 }
 
+func TestCalculateStatsFromExecutionsOrdersMixedTimestampPrecision(t *testing.T) {
+	attrs := DecodedWorkflowSearchAttributes{}
+	executions := []*WorkflowExecution{
+		{
+			Execution:        &WorkflowIdentifier{WorkflowID: "whole-second", RunID: "run-1"},
+			StartTime:        "2026-04-21T10:00:00Z",
+			CloseTime:        "2026-04-21T10:01:00Z",
+			Status:           "Completed",
+			SearchAttributes: &attrs,
+		},
+		{
+			Execution:        &WorkflowIdentifier{WorkflowID: "fractional-second", RunID: "run-2"},
+			StartTime:        "2026-04-21T10:00:00.1Z",
+			CloseTime:        "2026-04-21T10:01:00.1Z",
+			Status:           "Completed",
+			SearchAttributes: &attrs,
+		},
+		{
+			Execution:        &WorkflowIdentifier{WorkflowID: "earliest", RunID: "run-3"},
+			StartTime:        "2026-04-21T09:59:59.999999999Z",
+			CloseTime:        "2026-04-21T10:00:59.999999999Z",
+			Status:           "Completed",
+			SearchAttributes: &attrs,
+		},
+	}
+
+	stats, lastSuccessfulRun := calculateStatsFromExecutions(executions, nil, nil)
+
+	require.Equal(t, "2026-04-21T09:59:59.999999999Z", stats.FirstExecutionDate)
+	require.Equal(t, "2026-04-21T10:00:00.1Z", stats.LastExecutionDate)
+	require.NotNil(t, lastSuccessfulRun)
+	require.Equal(t, "fractional-second", lastSuccessfulRun.WorkflowID)
+}
+
 func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	runnersColl, err := app.FindCollectionByNameOrId("mobile_runners")
 	require.NoError(t, err)
@@ -900,8 +934,8 @@ func TestSaveScoreboardResults(t *testing.T) {
 						"usera-s-organization/my-issuer-1",
 						"usera-s-organization/my-issuer-2",
 					},
-					WalletVersionUsed:    []string{"installed_from_external_source", 
-												   "usera-s-organization/my-wallet/1-0-0"},
+					WalletVersionUsed: []string{"installed_from_external_source",
+						"usera-s-organization/my-wallet/1-0-0"},
 					MaestroScripts:       []string{"usera-s-organization/my-wallet/my-action"},
 					Credentials:          []string{"usera-s-organization/my-issuer-1/cred-3"},
 					UseCaseVerifications: []string{"usera-s-organization/my-verifier/usecase123"},
