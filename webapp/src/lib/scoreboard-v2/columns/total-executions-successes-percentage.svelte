@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fn: (row) => {
 			const total = row.total_runs ?? 0;
 			const successes = row.total_successes ?? 0;
-			const percent = total === 0 ? 0 : Math.round((successes / total) * 100);
+			const percent = row.success_rate;
 			const manual = row.manually_executed_runs;
 			const scheduled = row.scheduled_runs;
 			return { total, successes, percent, manual, scheduled };

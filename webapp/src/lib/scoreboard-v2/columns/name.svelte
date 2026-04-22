@@ -30,6 +30,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const href = $derived(`/marketplace/pipelines/${getPath(value)}`);
 </script>
 
-<div class="w-[300px] wrap-break-word whitespace-normal">
+<div class="w-[300px] leading-none wrap-break-word whitespace-normal">
 	<A {href} class="text-xs font-bold">{value.name}</A>
 </div>
