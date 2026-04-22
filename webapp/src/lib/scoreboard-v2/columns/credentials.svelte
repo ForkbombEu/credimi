@@ -10,14 +10,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Column from '../column';
 
 	export const column = Column.define({
-		fn: (row) => row.expand.credentials,
+		fn: (row) => row.expand.credentials ?? [],
 		id: 'credentials',
 		header: m.Credentials()
 	});
 </script>
 
 <script lang="ts">
+	import SmallList from './partials/small-list.svelte';
+
+	//
+
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-{JSON.stringify(value)}
+<SmallList records={value} />

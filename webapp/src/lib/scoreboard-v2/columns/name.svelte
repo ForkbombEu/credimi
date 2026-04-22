@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { localizeHref, m } from '@/i18n';
+	import { m } from '@/i18n';
 
 	import * as Column from '../column';
 
@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { value }: Column.Props<typeof column> = $props();
 
-	const href = $derived(localizeHref(`/marketplace/pipelines/${getPath(value)}`));
+	const href = $derived(`/marketplace/pipelines/${getPath(value)}`);
 </script>
 
 <A {href}>{value.name}</A>

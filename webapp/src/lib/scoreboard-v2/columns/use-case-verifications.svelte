@@ -17,7 +17,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import SmallList from './partials/small-list.svelte';
+
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-{JSON.stringify(value)}
+<SmallList records={value} />

@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import * as Column from '../column';
+	import Avatar from './partials/avatar.svelte';
 
 	//
 
@@ -20,4 +21,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-{JSON.stringify(value)}
+<div class="flex flex-col items-end gap-1">
+	{#each value as item (item.id)}
+		<Avatar record={item} link />
+	{/each}
+</div>
