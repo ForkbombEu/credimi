@@ -194,10 +194,9 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	}
 	saveRequest := workflowengine.ActivityInput{
 		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodPost,
-			URL:            saveURL,
-			ExpectedStatus: http.StatusOK,
-			Body:           savePayload,
+			Method: http.MethodPost,
+			URL:    saveURL,
+			Body:   savePayload,
 			Headers: map[string]string{
 				"Content-Type": "application/json",
 			},
@@ -413,12 +412,14 @@ func (w *AggregateScoreboardWorkflow) updateDates(
 	pipeline map[string]any,
 ) {
 	if firstDate, ok := pipeline["first_execution_date"].(string); ok && firstDate != "" {
-		if stats.FirstExecutionDate == "" || firstDate < stats.FirstExecutionDate {
+		if stats.FirstExecutionDate == "" ||
+			utils.TimeStringBefore(firstDate, stats.FirstExecutionDate) {
 			stats.FirstExecutionDate = firstDate
 		}
 	}
 	if lastDate, ok := pipeline["last_execution_date"].(string); ok && lastDate != "" {
-		if stats.LastExecutionDate == "" || lastDate > stats.LastExecutionDate {
+		if stats.LastExecutionDate == "" ||
+			utils.TimeStringAfter(lastDate, stats.LastExecutionDate) {
 			stats.LastExecutionDate = lastDate
 		}
 	}
@@ -454,7 +455,7 @@ func (w *AggregateScoreboardWorkflow) trackLastRun(
 	}
 
 	existingRun := lastRunMap[pipelineID]
-	if existingRun == nil || startTime > existingRun.StartTime {
+	if existingRun == nil || utils.TimeStringAfter(startTime, existingRun.StartTime) {
 		lastRunMap[pipelineID] = &pipelineRunRef{
 			Namespace:  namespace,
 			WorkflowID: workflowID,

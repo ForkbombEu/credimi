@@ -24,6 +24,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -1285,6 +1286,18 @@ func buildExecutionHierarchy(
 	if err != nil {
 		loc = time.Local
 	}
+	roots := buildExecutionHierarchyRaw(app, executions, owner, c)
+	localizeWorkflowExecutionSummaries(roots, loc)
+
+	return roots
+}
+
+func buildExecutionHierarchyRaw(
+	app core.App,
+	executions []*WorkflowExecution,
+	owner string,
+	c client.Client,
+) []*WorkflowExecutionSummary {
 	summaryMap := make(map[string]*WorkflowExecutionSummary)
 	for _, exec := range executions {
 		summary := &WorkflowExecutionSummary{
@@ -1347,7 +1360,7 @@ func buildExecutionHierarchy(
 		roots = append(roots, current)
 	}
 
-	sortExecutionSummaries(roots, loc, false)
+	sortWorkflowExecutionSummaries(roots, false)
 
 	return roots
 }
@@ -1359,24 +1372,11 @@ func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location
 
 func sortWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, ascending bool) {
 	slices.SortFunc(list, func(a, b *WorkflowExecutionSummary) int {
-		t1, _ := time.Parse(time.RFC3339, a.StartTime)
-		t2, _ := time.Parse(time.RFC3339, b.StartTime)
+		comparison := utils.CompareTimeStrings(a.StartTime, b.StartTime)
 		if ascending {
-			if t1.Before(t2) {
-				return -1
-			}
-			if t1.After(t2) {
-				return 1
-			}
-			return 0
+			return comparison
 		}
-		if t1.After(t2) {
-			return -1
-		}
-		if t1.Before(t2) {
-			return 1
-		}
-		return 0
+		return -comparison
 	})
 
 	for _, e := range list {
@@ -1388,10 +1388,10 @@ func sortWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, ascending 
 
 func localizeWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location) {
 	for _, e := range list {
-		if t, err := time.Parse(time.RFC3339, e.StartTime); err == nil {
+		if t, err := utils.ParseTimeString(e.StartTime); err == nil {
 			e.StartTime = t.In(loc).Format("02/01/2006, 15:04:05")
 		}
-		if t, err := time.Parse(time.RFC3339, e.EndTime); err == nil {
+		if t, err := utils.ParseTimeString(e.EndTime); err == nil {
 			e.EndTime = t.In(loc).Format("02/01/2006, 15:04:05")
 		}
 

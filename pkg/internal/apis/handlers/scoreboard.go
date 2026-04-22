@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -28,6 +29,8 @@ import (
 )
 
 const aggregateScoreboardNamespace = "default"
+
+var errScoreboardRelationSkipped = errors.New("scoreboard relation skipped")
 
 var aggregateScoreboardWorkflowStart = func(
 	namespace string,
@@ -157,20 +160,38 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 			NamespacesFailed:    0,
 		}
 
-		recordsCount, err := insertAggregatedResults(e.App, result)
-		if err != nil {
+		recordsCount, saveErrors := insertAggregatedResults(e.App, result)
+		if len(saveErrors) > 0 {
+			e.App.Logger().Warn("Errors during save", "errors", saveErrors)
+		}
+
+		if recordsCount == 0 && hasFatalScoreboardSaveErrors(saveErrors) {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"insert",
-				"Failed to insert results",
-				err.Error(),
+				"Failed to insert any results",
+				fmt.Sprintf("Errors: %v", saveErrors),
 			).JSON(e)
+		}
+
+		message := fmt.Sprintf("Results saved successfully (%d records)", recordsCount)
+		errorMessage := ""
+		if len(saveErrors) > 0 {
+			errorStrings := make([]string, len(saveErrors))
+			for i, err := range saveErrors {
+				errorStrings[i] = fmt.Sprintf("- %s", err.Error())
+			}
+			errorMessage = strings.Join(errorStrings, "\n")
+			message = fmt.Sprintf("Results saved partially (%d records)\nErrors:\n%s",
+				recordsCount,
+				errorMessage)
 		}
 
 		return e.JSON(http.StatusOK, SaveScoreboardResultsResponse{
 			Success:      true,
-			Message:      "Results saved successfully",
+			Message:      message,
 			RecordsCount: recordsCount,
+			Error:        errorMessage,
 		})
 	}
 }
@@ -596,7 +617,8 @@ func calculateStatsFromExecutions(
 		if isCompleted {
 			stats.TotalSuccesses++
 
-			if lastSuccessfulExec == nil || exec.StartTime > lastSuccessfulExec.StartTime {
+			if lastSuccessfulExec == nil ||
+				utils.TimeStringAfter(exec.StartTime, lastSuccessfulExec.StartTime) {
 				lastSuccessfulExec = exec
 			}
 		}
@@ -675,10 +697,10 @@ func updateDateRange(startTimeStr string, firstTime, lastTime *string) {
 	if startTimeStr == "" {
 		return
 	}
-	if *firstTime == "" || startTimeStr < *firstTime {
+	if *firstTime == "" || utils.TimeStringBefore(startTimeStr, *firstTime) {
 		*firstTime = startTimeStr
 	}
-	if *lastTime == "" || startTimeStr > *lastTime {
+	if *lastTime == "" || utils.TimeStringAfter(startTimeStr, *lastTime) {
 		*lastTime = startTimeStr
 	}
 }
@@ -687,8 +709,8 @@ func updateMinDuration(exec *WorkflowExecution, minDuration *time.Duration, minD
 	if exec.StartTime == "" || exec.CloseTime == "" {
 		return
 	}
-	startTime, err1 := time.Parse(time.RFC3339, exec.StartTime)
-	closeTime, err2 := time.Parse(time.RFC3339, exec.CloseTime)
+	startTime, err1 := utils.ParseTimeString(exec.StartTime)
+	closeTime, err2 := utils.ParseTimeString(exec.CloseTime)
 	if err1 != nil || err2 != nil {
 		return
 	}
@@ -786,26 +808,25 @@ func extractEntityDetailsFromExecution(exec *WorkflowExecution) *LastExecutionDe
 
 	// action_id
 	details.MaestroScripts = getStringListFromAttrs(attrs, "ActionsID")
-	
+
 	var versionsToProcess []string
 	for _, v := range details.WalletVersionUsed {
-    	if v != "installed_from_external_source" {
-        	versionsToProcess = append(versionsToProcess, v)
-    	}
+		if v != "installed_from_external_source" {
+			versionsToProcess = append(versionsToProcess, v)
+		}
 	}
 
 	if len(versionsToProcess) > 0 {
-    	for _, v := range versionsToProcess {
-        	walletUsed := extractFirstTwoParts(v)
-        	details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
-    	}
-	} 
-	
-    for _, v := range details.MaestroScripts {
-        walletUsed := extractFirstTwoParts(v)
-        details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
-    }
+		for _, v := range versionsToProcess {
+			walletUsed := extractFirstTwoParts(v)
+			details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
+		}
+	}
 
+	for _, v := range details.MaestroScripts {
+		walletUsed := extractFirstTwoParts(v)
+		details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
+	}
 
 	// credential_id
 	details.Credentials = getStringListFromAttrs(attrs, "CredentialsID")
@@ -916,38 +937,66 @@ func truncateCollection(app core.App, collectionName string) error {
 func insertAggregatedResults(
 	app core.App,
 	result *workflows.AggregateScoreboardWorkflowOutput,
-) (int, error) {
+) (int, []error) {
 	if result == nil {
-		return 0, fmt.Errorf("result is nil")
+		return 0, []error{fmt.Errorf("result is nil")}
 	}
 
 	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
 	if err != nil {
-		return 0, fmt.Errorf("failed to find collection: %w", err)
+		return 0, []error{fmt.Errorf("failed to find collection: %w", err)}
 	}
 
 	count := 0
+	var saveErrors []error
 	for _, stats := range result.AggregatedPipelines {
 		record := core.NewRecord(collection)
 		setBasicFields(record, stats)
 		if err := setPipelineRelation(record, app, stats.PipelineID); err != nil {
-			return count, err
+			saveErrors = append(saveErrors, fmt.Errorf("pipeline %s: %w", stats.PipelineID, err))
+			continue
 		}
 		if err := setMobileRunnersRelation(record, app, stats.Runners); err != nil {
-			return count, err
+			saveErrors = append(
+				saveErrors,
+				fmt.Errorf(
+					"%w: runners for pipeline %s: %v",
+					errScoreboardRelationSkipped,
+					stats.PipelineID,
+					err,
+				),
+			)
 		}
 		if stats.LastExecution != nil {
 			if err := setLastExecutionFields(record, app, stats.LastExecution); err != nil {
-				return count, err
+				saveErrors = append(
+					saveErrors,
+					fmt.Errorf(
+						"%w: pipeline %s last execution: %v",
+						errScoreboardRelationSkipped,
+						stats.PipelineID,
+						err,
+					),
+				)
 			}
 		}
 
 		if err := app.Save(record); err != nil {
-			return count, err
+			saveErrors = append(saveErrors, fmt.Errorf("pipeline %s save: %w", stats.PipelineID, err))
+			continue
 		}
 		count++
 	}
-	return count, nil
+	return count, saveErrors
+}
+
+func hasFatalScoreboardSaveErrors(saveErrors []error) bool {
+	for _, err := range saveErrors {
+		if !errors.Is(err, errScoreboardRelationSkipped) {
+			return true
+		}
+	}
+	return false
 }
 
 func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats) {
@@ -974,13 +1023,12 @@ func setMobileRunnersRelation(record *core.Record, app core.App, runners []strin
 		return nil
 	}
 
-	runnerIDs, err := findRecords(app, runners)
-	if err != nil {
-		return fmt.Errorf("failed to process runners: %w", err)
-	}
-
+	runnerIDs, skipped := findExistingRecords(app, runners)
 	if len(runnerIDs) > 0 {
 		record.Set("mobile_runners", runnerIDs)
+	}
+	if len(skipped) > 0 {
+		return fmt.Errorf("skipped missing runners: %s", strings.Join(skipped, ", "))
 	}
 	return nil
 }
@@ -995,6 +1043,20 @@ func findRecords(app core.App, names []string) ([]string, error) {
 		ids = append(ids, record.Id)
 	}
 	return ids, nil
+}
+
+func findExistingRecords(app core.App, names []string) ([]string, []string) {
+	var ids []string
+	var skipped []string
+	for _, fullName := range names {
+		record, err := canonify.Resolve(app, fullName)
+		if err != nil {
+			skipped = append(skipped, fullName)
+			continue
+		}
+		ids = append(ids, record.Id)
+	}
+	return ids, skipped
 }
 
 func findPipelineResult(app core.App, workflowID string, runID string) (string, error) {
@@ -1023,114 +1085,123 @@ func setLastExecutionFields(
 	app core.App,
 	lastExecution *workflows.LatestExecutionDetails,
 ) error {
+	var skipped []string
+
 	// Pipeline result
 	pipelineResultId, err := findPipelineResult(app, lastExecution.WorkflowID, lastExecution.RunID)
 	if err != nil {
-		return fmt.Errorf(
-			"failed to find pipeline result for workflow %s and run %s: %w",
-			lastExecution.WorkflowID,
-			lastExecution.RunID,
-			err,
+		skipped = append(
+			skipped,
+			fmt.Sprintf(
+				"latest_successful_execution for workflow %s and run %s: %v",
+				lastExecution.WorkflowID,
+				lastExecution.RunID,
+				err,
+			),
+		)
+	} else if pipelineResultId != "" {
+		record.Set("latest_successful_execution", pipelineResultId)
+	}
+
+	setOptionalRelationField(
+		record,
+		app,
+		"wallets",
+		"wallets",
+		lastExecution.WalletUsed,
+		&skipped,
+	)
+	setOptionalRelationField(
+		record,
+		app,
+		"issuers",
+		"issuers",
+		lastExecution.Issuers,
+		&skipped,
+	)
+	setOptionalRelationField(
+		record,
+		app,
+		"verifiers",
+		"verifiers",
+		lastExecution.Verifiers,
+		&skipped,
+	)
+	setOptionalRelationField(
+		record,
+		app,
+		"wallet_actions",
+		"maestro scripts",
+		lastExecution.MaestroScripts,
+		&skipped,
+	)
+	setOptionalRelationField(
+		record,
+		app,
+		"credentials",
+		"credentials",
+		lastExecution.Credentials,
+		&skipped,
+	)
+	setOptionalRelationField(
+		record,
+		app,
+		"use_case_verifications",
+		"use cases",
+		lastExecution.UseCaseVerifications,
+		&skipped,
+	)
+	setOptionalRelationField(
+		record,
+		app,
+		"custom_integrations",
+		"custom checks",
+		lastExecution.CustomChecks,
+		&skipped,
+	)
+
+	versionIDs, skippedVersions := getExistingWalletVersionIDs(app, lastExecution.WalletVersionUsed)
+	record.Set("wallet_versions", versionIDs)
+	if len(skippedVersions) > 0 {
+		skipped = append(
+			skipped,
+			fmt.Sprintf("wallet versions: %s", strings.Join(skippedVersions, ", ")),
 		)
 	}
-	if pipelineResultId != "" {
-		record.Set("latest_execution", pipelineResultId)
-	}
 
-	// Wallets
-	if len(lastExecution.WalletUsed) > 0 {
-		walletIDs, err := findRecords(app, lastExecution.WalletUsed)
-		if err != nil {
-			return fmt.Errorf("failed to process wallets: %w", err)
-		}
-		if len(walletIDs) > 0 {
-			record.Set("wallets", walletIDs)
-		}
-	}
-
-	// Issuers
-	if len(lastExecution.Issuers) > 0 {
-		issuerIDs, err := findRecords(app, lastExecution.Issuers)
-		if err != nil {
-			return fmt.Errorf("failed to process issuers: %w", err)
-		}
-		if len(issuerIDs) > 0 {
-			record.Set("issuers", issuerIDs)
-		}
-	}
-
-	// Verifiers
-	if len(lastExecution.Verifiers) > 0 {
-		verifierIDs, err := findRecords(app, lastExecution.Verifiers)
-		if err != nil {
-			return fmt.Errorf("failed to process verifiers: %w", err)
-		}
-		if len(verifierIDs) > 0 {
-			record.Set("verifiers", verifierIDs)
-		}
-	}
-
-	// Maestro scripts (wallet_actions)
-	if len(lastExecution.MaestroScripts) > 0 {
-		actionIDs, err := findRecords(app, lastExecution.MaestroScripts)
-		if err != nil {
-			return fmt.Errorf("failed to process maestro scripts: %w", err)
-		}
-		if len(actionIDs) > 0 {
-			record.Set("wallet_actions", actionIDs)
-		}
-	}
-
-	// Wallet versions
-	versionIDs, err := getWalletVersionIDs(app, lastExecution.WalletVersionUsed)
-	if err != nil {
-		return fmt.Errorf("failed to process wallet versions: %w", err)
-	}
-	record.Set("wallet_versions", versionIDs)
-
-
-	// Credentials
-	if len(lastExecution.Credentials) > 0 {
-		credentialIDs, err := findRecords(app, lastExecution.Credentials)
-		if err != nil {
-			return fmt.Errorf("failed to process credentials: %w", err)
-		}
-		if len(credentialIDs) > 0 {
-			record.Set("credentials", credentialIDs)
-		}
-	}
-
-	// Use case verifications
-	if len(lastExecution.UseCaseVerifications) > 0 {
-		useCaseIDs, err := findRecords(app, lastExecution.UseCaseVerifications)
-		if err != nil {
-			return fmt.Errorf("failed to process use cases: %w", err)
-		}
-		if len(useCaseIDs) > 0 {
-			record.Set("use_case_verifications", useCaseIDs)
-		}
-	}
-
-	// Custom checks
-	if len(lastExecution.CustomChecks) > 0 {
-		testIDs, err := findRecords(app, lastExecution.CustomChecks)
-		if err != nil {
-			return fmt.Errorf("failed to process custom checks: %w", err)
-		}
-		if len(testIDs) > 0 {
-			record.Set("custom_integrations", testIDs)
-		}
-	}
-
-	// Conformance tests
 	if len(lastExecution.ConformanceTests) > 0 {
 		record.Set("conformance_checks", lastExecution.ConformanceTests)
+	}
+
+	if len(skipped) > 0 {
+		return fmt.Errorf("skipped missing relations: %s", strings.Join(skipped, "; "))
 	}
 
 	return nil
 }
 
-func getWalletVersionIDs(app core.App, walletVersionUsed []string) ([]string, error) {
+func setOptionalRelationField(
+	record *core.Record,
+	app core.App,
+	field string,
+	label string,
+	names []string,
+	skipped *[]string,
+) {
+	if len(names) == 0 {
+		return
+	}
+
+	ids, missing := findExistingRecords(app, names)
+	if len(ids) > 0 {
+		record.Set(field, ids)
+	}
+	if len(missing) > 0 {
+		*skipped = append(*skipped, fmt.Sprintf("%s: %s", label, strings.Join(missing, ", ")))
+	}
+}
+
+func getExistingWalletVersionIDs(app core.App, walletVersionUsed []string) ([]string, []string) {
 	if len(walletVersionUsed) == 0 {
 		return []string{}, nil
 	}
@@ -1146,10 +1217,5 @@ func getWalletVersionIDs(app core.App, walletVersionUsed []string) ([]string, er
 		return []string{}, nil
 	}
 
-	versionIDs, err := findRecords(app, versionsToProcess)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find records: %w", err)
-	}
-
-	return versionIDs, nil
+	return findExistingRecords(app, versionsToProcess)
 }
