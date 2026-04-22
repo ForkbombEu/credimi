@@ -146,7 +146,11 @@ func (w *OpenID4VCIIssuerWorkflow) ExecuteWorkflow(
 	if len(testResult) > 0 {
 		if r, ok := testResult[0].(string); ok && r == "FAILED" {
 			errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
-			appErr := workflowengine.NewAppError(errCode, errCode.Description, result.Captures["logs"])
+			appErr := workflowengine.NewAppError(
+				errCode,
+				errCode.Description,
+				result.Captures["logs"],
+			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,

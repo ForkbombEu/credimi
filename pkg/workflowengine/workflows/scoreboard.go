@@ -41,8 +41,8 @@ type AggregatedPipelineStats struct {
 
 type LatestExecutionDetails struct {
 	PipelineName         string   `json:"pipeline_name"`
-	WorkflowID			 string	  `json:"workflow_id,omitempty"`
-	RunID				 string	  `json:"run_id,omitempty"`
+	WorkflowID           string   `json:"workflow_id,omitempty"`
+	RunID                string   `json:"run_id,omitempty"`
 	OrgLogo              string   `json:"org_logo,omitempty"`
 	Video                string   `json:"video,omitempty"`
 	Screenshot           string   `json:"screenshots,omitempty"`
@@ -136,7 +136,10 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	namespaces, err := w.getNamespaces(ctx, httpActivity, appURL)
 	if err != nil {
 		logger.Error("Failed to get namespaces", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 
 	if len(namespaces) == 0 {
@@ -151,13 +154,15 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 
 	// 2. Fetch all scoreboards and aggregate
 	aggregatedMap, lastRunMap, failedNamespaces := w.fetchAndAggregateScoreboards(
-		ctx, httpActivity, appURL, namespaces, 
+		ctx, httpActivity, appURL, namespaces,
 	)
 
 	// 3. Calculate success rates and sort runners
 	for _, stats := range aggregatedMap {
 		if stats.TotalRuns > 0 {
-			stats.SuccessRate = math.Round(float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000) / 100
+			stats.SuccessRate = math.Round(
+				float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000,
+			) / 100
 		}
 		sort.Strings(stats.Runners)
 		sort.Strings(stats.RunnerTypes)
@@ -225,7 +230,8 @@ func (w *AggregateScoreboardWorkflow) getNamespaces(
 		},
 	}
 
-	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).Get(ctx, &httpResult)
+	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).
+		Get(ctx, &httpResult)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +262,7 @@ func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 	// Start all parallel activities with preallocated slices
 	scoreboardFutures := make([]workflow.Future, 0, len(namespaces))
 	scoreboardNamespaces := make([]string, 0, len(namespaces))
-	
+
 	for _, namespace := range namespaces {
 		scoreboardRequest := workflowengine.ActivityInput{
 			Payload: activities.InternalHTTPActivityPayload{
@@ -265,13 +271,16 @@ func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 				ExpectedStatus: http.StatusOK,
 			},
 		}
-		scoreboardFutures = append(scoreboardFutures, workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest))
+		scoreboardFutures = append(
+			scoreboardFutures,
+			workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest),
+		)
 		scoreboardNamespaces = append(scoreboardNamespaces, namespace)
 	}
 
 	// Process results
 	for i, future := range scoreboardFutures {
-		w.processScoreboardResponse(ctx, future, scoreboardNamespaces[i], 
+		w.processScoreboardResponse(ctx, future, scoreboardNamespaces[i],
 			aggregatedMap, lastRunMap, &failedNamespaces)
 	}
 
@@ -343,14 +352,14 @@ func (w *AggregateScoreboardWorkflow) aggregateSinglePipeline(
 
 	// Aggregate numeric stats
 	w.aggregateNumericStats(stats, pipeline)
-	
+
 	// Aggregate runners and types
 	w.aggregateRunners(stats, pipeline)
 	w.aggregateRunnerTypes(stats, pipeline)
-	
+
 	// Update dates
 	w.updateDates(stats, pipeline)
-	
+
 	// Track last successful run
 	w.trackLastRun(pipeline, namespace, pipelineID, lastRunMap)
 }
@@ -430,20 +439,20 @@ func (w *AggregateScoreboardWorkflow) trackLastRun(
 	if !ok || lastRunRaw == nil {
 		return
 	}
-	
+
 	lastRunData, ok := lastRunRaw.(map[string]any)
 	if !ok {
 		return
 	}
-	
+
 	startTime, _ := lastRunData["start_time"].(string)
 	workflowID, _ := lastRunData["workflow_id"].(string)
 	runID, _ := lastRunData["run_id"].(string)
-	
+
 	if startTime == "" || workflowID == "" || runID == "" {
 		return
 	}
-	
+
 	existingRun := lastRunMap[pipelineID]
 	if existingRun == nil || startTime > existingRun.StartTime {
 		lastRunMap[pipelineID] = &pipelineRunRef{

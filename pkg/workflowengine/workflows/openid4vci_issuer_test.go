@@ -53,7 +53,10 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -81,7 +84,10 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -105,7 +111,10 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -130,7 +139,10 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, errors.New("stepci connection timeout"))
 			},
@@ -147,7 +159,10 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{"unexpected": "value"},

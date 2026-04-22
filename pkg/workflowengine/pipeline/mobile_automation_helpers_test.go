@@ -22,30 +22,48 @@ import (
 func TestDecodeAndValidatePayload(t *testing.T) {
 	_, err := decodeAndValidatePayload(
 		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{ID: "step-1", With: pipeline.StepInputs{Payload: map[string]any{}}},
+			StepSpec: pipeline.StepSpec{
+				ID:   "step-1",
+				With: pipeline.StepInputs{Payload: map[string]any{}},
+			},
 		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-2", With: pipeline.StepInputs{Payload: map[string]any{
-			"action_code": "code",
-		}}}},
+		&pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID: "step-2",
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_code": "code",
+				}},
+			},
+		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-3", With: pipeline.StepInputs{Payload: map[string]any{
-			"runner_id": "runner-1",
-		}}}},
+		&pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID: "step-3",
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"runner_id": "runner-1",
+				}},
+			},
+		},
 	)
 	require.Error(t, err)
 
 	payload, err := decodeAndValidatePayload(
-		&pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-4", With: pipeline.StepInputs{Payload: map[string]any{
-			"action_id": "action-1",
-			"runner_id": "runner-2",
-		}}}},
+		&pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID: "step-4",
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_id": "action-1",
+					"runner_id": "runner-2",
+				}},
+			},
+		},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "action-1", payload.ActionID)
@@ -54,14 +72,24 @@ func TestDecodeAndValidatePayload(t *testing.T) {
 
 func TestCollectMobileRunnerIDs(t *testing.T) {
 	steps := []pipeline.StepDefinition{
-		{StepSpec: pipeline.StepSpec{Use: mobileAutomationStepUse, With: pipeline.StepInputs{Payload: map[string]any{
-			"action_id": "action-1",
-			"runner_id": "runner-b",
-		}}}},
-		{StepSpec: pipeline.StepSpec{Use: mobileAutomationStepUse, With: pipeline.StepInputs{Payload: map[string]any{
-			"action_id": "action-2",
-			"runner_id": "runner-a",
-		}}}},
+		{
+			StepSpec: pipeline.StepSpec{
+				Use: mobileAutomationStepUse,
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_id": "action-1",
+					"runner_id": "runner-b",
+				}},
+			},
+		},
+		{
+			StepSpec: pipeline.StepSpec{
+				Use: mobileAutomationStepUse,
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_id": "action-2",
+					"runner_id": "runner-a",
+				}},
+			},
+		},
 	}
 
 	runnerIDs, err := collectMobileRunnerIDs(steps, "runner-global")
@@ -71,10 +99,15 @@ func TestCollectMobileRunnerIDs(t *testing.T) {
 
 func TestCollectMobileRunnerIDsNormalizesLeadingSlash(t *testing.T) {
 	steps := []pipeline.StepDefinition{
-		{StepSpec: pipeline.StepSpec{Use: mobileAutomationStepUse, With: pipeline.StepInputs{Payload: map[string]any{
-			"action_id": "action-1",
-			"runner_id": "/tenant-a/runner-b",
-		}}}},
+		{
+			StepSpec: pipeline.StepSpec{
+				Use: mobileAutomationStepUse,
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_id": "action-1",
+					"runner_id": "/tenant-a/runner-b",
+				}},
+			},
+		},
 	}
 
 	runnerIDs, err := collectMobileRunnerIDs(steps, "/tenant-a/runner-a")
