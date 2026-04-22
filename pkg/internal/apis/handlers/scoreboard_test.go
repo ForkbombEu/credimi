@@ -987,6 +987,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.Equal(t, pipeline.Id, record.GetString("pipeline"))
 		require.Equal(t, 10, record.GetInt("total_runs"))
 		require.Equal(t, 8, record.GetInt("total_successes"))
+		require.Equal(t, 80.0, record.GetFloat("success_rate"))
 		require.Equal(t, 5, record.GetInt("manually_executed_runs"))
 		require.Equal(t, 5, record.GetInt("scheduled_runs"))
 		require.Equal(t, "1m30s", record.GetString("minimum_running_time"))
