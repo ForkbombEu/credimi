@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" module>
 	import * as Column from '../column';
 	import Avatar from './partials/avatar.svelte';
+	import Na from './partials/na.svelte';
 
 	//
 
@@ -24,5 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="flex flex-col items-end gap-1">
 	{#each value as item (item.id)}
 		<Avatar record={item} link />
+	{:else}
+		<Na />
 	{/each}
 </div>

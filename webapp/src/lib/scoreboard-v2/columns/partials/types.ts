@@ -7,6 +7,7 @@ import { getPath } from '$lib/utils';
 import type {
 	CredentialIssuersResponse,
 	CredentialsResponse,
+	CustomChecksResponse,
 	UseCasesVerificationsResponse,
 	VerifiersResponse,
 	WalletsResponse
@@ -19,7 +20,8 @@ export type Entity =
 	| CredentialIssuersResponse
 	| VerifiersResponse
 	| UseCasesVerificationsResponse
-	| CredentialsResponse;
+	| CredentialsResponse
+	| CustomChecksResponse;
 
 export function getEntityHref(entity: Entity): string {
 	return `/marketplace/${entity.collectionName}/${getPath(entity)}`;

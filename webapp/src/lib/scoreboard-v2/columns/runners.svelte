@@ -20,4 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-{JSON.stringify(value)}
+{#each value as item (item)}
+	<p class="max-w-[15ch] truncate text-xs">{item.name}</p>
+{/each}

@@ -32,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 
 	import Avatar from './partials/avatar.svelte';
+	import Na from './partials/na.svelte';
 
 	let { value }: Column.Props<typeof column> = $props();
 </script>
@@ -51,5 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 		</div>
+	{:else}
+		<Na />
 	{/each}
 </div>

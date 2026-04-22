@@ -13,11 +13,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fn: (row) => {
 			const total = row.total_runs ?? 0;
 			const successes = row.total_successes ?? 0;
-			const percent = total === 0 ? 0 : (successes / total) * 100;
-			return { total, successes, percent };
+			const percent = total === 0 ? 0 : Math.round((successes / total) * 100);
+			const manual = row.manually_executed_runs;
+			const scheduled = row.scheduled_runs;
+			return { total, successes, percent, manual, scheduled };
 		},
 		id: 'total_executions_successes_percentage',
-		header: 'Total executions, successes, (% success)'
+		header: 'Success rate'
 	});
 </script>
 
@@ -25,4 +27,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-{JSON.stringify(value)}
+<div class="space-y-0.5">
+	<p class="text-xs font-bold">
+		{value.successes}/{value.total} ({value.percent}%)
+	</p>
+	<p class="text-xs text-muted-foreground">
+		{#if value.manual > 0}
+			<span>
+				{value.manual} manual
+			</span>
+		{/if}
+		{#if value.manual > 0 && value.scheduled > 0}
+			<span> / </span>
+		{/if}
+		{#if value.scheduled > 0}
+			<span>
+				{value.scheduled} scheduled
+			</span>
+		{/if}
+	</p>
+</div>

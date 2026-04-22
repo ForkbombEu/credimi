@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import A from '@/components/ui-custom/a.svelte';
 
+	import Na from './na.svelte';
 	import { getEntityHref, type Entity } from './types';
 
 	//
@@ -23,5 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<A href={getEntityHref(record)} class="block max-w-[15ch] truncate text-xs">
 			{record.name}
 		</A>
+	{:else}
+		<Na />
 	{/each}
 </div>

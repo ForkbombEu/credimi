@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import * as Column from '../column';
+	import Na from './partials/na.svelte';
 
 	//
 
@@ -20,4 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-{JSON.stringify(value)}
+<div>
+	{#each value as item (item)}
+		<p class="max-w-[15ch] truncate text-xs">{item}</p>
+	{:else}
+		<Na />
+	{/each}
+</div>

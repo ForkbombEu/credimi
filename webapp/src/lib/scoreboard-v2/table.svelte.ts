@@ -14,7 +14,6 @@ import * as conformanceChecks from './columns/conformance-checks.svelte';
 import * as credentials from './columns/credentials.svelte';
 import * as customIntegrations from './columns/custom-integrations.svelte';
 import * as issuers from './columns/issuers.svelte';
-import * as manualScheduled from './columns/manual-scheduled.svelte';
 import * as minimumRunningTime from './columns/minimum-running-time.svelte';
 import * as name from './columns/name.svelte';
 import * as runners from './columns/runners.svelte';
@@ -28,6 +27,7 @@ import { loadScoreboardData } from './functions';
 
 const columns = [
 	Column.build(name),
+	Column.build(totalExecutionsSuccessesPercentage),
 	Column.build(wallets),
 	Column.build(issuers),
 	Column.build(credentials),
@@ -35,9 +35,7 @@ const columns = [
 	Column.build(useCaseVerifications),
 	Column.build(conformanceChecks),
 	Column.build(customIntegrations),
-	Column.build(totalExecutionsSuccessesPercentage),
 	Column.build(runners),
-	Column.build(manualScheduled),
 	Column.build(minimumRunningTime)
 ];
 
