@@ -24,6 +24,16 @@ const agent = new PocketbaseQueryAgent({
 	]
 });
 
-export function loadScoreboardData(): Promise<ScoreboardRow[]> {
-	return agent.getFullList() as Promise<ScoreboardRow[]>;
+type Options = {
+	pagination?: {
+		page: number;
+		perPage: number;
+	};
+};
+
+export function loadScoreboardData(options: Options = {}): Promise<ScoreboardRow[]> {
+	return agent.getFullList({
+		perPage: options.pagination?.perPage,
+		page: options.pagination?.page ?? 1
+	}) as Promise<ScoreboardRow[]>;
 }

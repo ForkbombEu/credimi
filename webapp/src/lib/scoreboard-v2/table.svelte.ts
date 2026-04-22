@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getCoreRowModel, type Table } from '@tanstack/table-core';
+import { getCoreRowModel, type PaginationState, type Table } from '@tanstack/table-core';
 import { onMount } from 'svelte';
 
 import { createSvelteTable } from '@/components/ui/data-table';
@@ -41,16 +41,25 @@ const columns = [
 
 export class ScoreboardTable {
 	#data = $state<ScoreboardRow[]>([]);
+	#pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
+
 	public readonly table: Table<ScoreboardRow>;
 
 	constructor() {
 		const getData = () => this.#data;
+		const getPagination = () => this.#pagination;
+
 		this.table = createSvelteTable({
+			columns,
+			getCoreRowModel: getCoreRowModel(),
 			get data() {
 				return getData();
 			},
-			columns,
-			getCoreRowModel: getCoreRowModel()
+			state: {
+				get pagination() {
+					return getPagination();
+				}
+			}
 		});
 
 		onMount(async () => {

@@ -5,6 +5,8 @@
 import type Pocketbase from 'pocketbase';
 import type { Simplify } from 'type-fest';
 
+import { merge } from 'lodash';
+
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type { CollectionExpands, CollectionResponses } from '@/pocketbase/types';
 
@@ -57,10 +59,10 @@ export class PocketbaseQueryAgent<
 			.getOne<PocketbaseQueryResponse<C, E>>(id, this.listOptions);
 	}
 
-	getFullList() {
+	getFullList(options: PocketbaseListOptions = {}) {
 		return this.pocketbase
 			.collection(this.collection)
-			.getFullList<PocketbaseQueryResponse<C, E>>(this.listOptions);
+			.getFullList<PocketbaseQueryResponse<C, E>>(merge(this.listOptions, options));
 	}
 
 	getList(page: number) {

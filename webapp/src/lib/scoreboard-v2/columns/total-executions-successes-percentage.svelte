@@ -24,6 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import { ClockIcon, HandIcon } from '@lucide/svelte';
+
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
@@ -34,7 +36,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<p class="text-xs text-muted-foreground">
 		{#if value.manual > 0}
 			<span>
-				{value.manual} manual
+				{value.manual}
+				<HandIcon class="inline-block size-3 -translate-px" />
 			</span>
 		{/if}
 		{#if value.manual > 0 && value.scheduled > 0}
@@ -42,7 +45,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 		{#if value.scheduled > 0}
 			<span>
-				{value.scheduled} scheduled
+				{value.scheduled}
+				<ClockIcon class="inline-block size-3 -translate-px" />
 			</span>
 		{/if}
 	</p>

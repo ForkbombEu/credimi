@@ -40,8 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="flex flex-col gap-1">
 	{#each value as item (item.wallet.id)}
 		<div class="flex items-center gap-2">
-			<Avatar record={item.wallet} />
-			<div>
+			<Avatar record={item.wallet} link />
+			<div class="flex flex-col">
 				<A href={`/marketplace/wallets/${getPath(item.wallet)}`} class="text-xs font-bold">
 					{item.wallet.name}
 				</A>
