@@ -20,4 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-{value}
+<span class="text-xs">
+	{value}
+</span>

@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<div class="space-y-0.5">
+<div>
 	<p class="text-xs font-bold">
 		{value.successes}/{value.total} ({value.percent}%)
 	</p>
