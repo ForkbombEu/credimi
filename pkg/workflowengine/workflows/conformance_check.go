@@ -142,22 +142,23 @@ type StartCheckWorkflow struct {
 var startCheckWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type StartCheckWorkflowPayload struct {
-	Suite           string `json:"suite"                    yaml:"suite"`
-	CheckID         string `json:"check_id"                 yaml:"check_id"                 validate:"required"`
-	Variant         string `json:"variant,omitempty"        yaml:"variant,omitempty"`
-	Form            *Form  `json:"form,omitempty"           yaml:"form,omitempty"`
-	TestName        string `json:"test,omitempty"           yaml:"test,omitempty"`
-	SessionID       string `json:"session_id,omitempty"     yaml:"session_id,omitempty"`
+	Suite           string `json:"suite"                      yaml:"suite"`
+	CheckID         string `json:"check_id"                   yaml:"check_id"                   validate:"required"`
+	Variant         string `json:"variant,omitempty"          yaml:"variant,omitempty"`
+	Form            *Form  `json:"form,omitempty"             yaml:"form,omitempty"`
+	TestName        string `json:"test,omitempty"             yaml:"test,omitempty"`
+	SessionID       string `json:"session_id,omitempty"       yaml:"session_id,omitempty"`
 	CredentialOffer string `json:"credential_offer,omitempty" yaml:"credential_offer,omitempty"`
-	UserMail        string `json:"user_mail"                yaml:"user_mail"`
-	SendMail        bool   `json:"send_mail"                yaml:"send_mail"`
+	UserMail        string `json:"user_mail"                  yaml:"user_mail"`
+	SendMail        bool   `json:"send_mail"                  yaml:"send_mail"`
 }
 
 type StartCheckWorkflowPipelinePayload struct {
-	CheckID   string `json:"check_id"             yaml:"check_id"             validate:"required"`
-	Form      *Form  `json:"form,omitempty"       yaml:"form,omitempty"`
-	TestName  string `json:"test,omitempty"       yaml:"test,omitempty"`
-	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
+	CheckID         string `json:"check_id"                   yaml:"check_id"                   validate:"required"`
+	Form            *Form  `json:"form,omitempty"             yaml:"form,omitempty"`
+	TestName        string `json:"test,omitempty"             yaml:"test,omitempty"`
+	SessionID       string `json:"session_id,omitempty"       yaml:"session_id,omitempty"`
+	CredentialOffer string `json:"credential_offer,omitempty" yaml:"credential_offer,omitempty"`
 }
 
 func NewStartCheckWorkflow() *StartCheckWorkflow {
@@ -436,7 +437,11 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			if r, ok := testResult[0].(string); ok && r == "FAILED" {
 				errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
 				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-					workflowengine.NewAppError(errCode, errCode.Description, setupResult.Captures["logs"]),
+					workflowengine.NewAppError(
+						errCode,
+						errCode.Description,
+						setupResult.Captures["logs"],
+					),
 					input.RunMetadata,
 				)
 			}

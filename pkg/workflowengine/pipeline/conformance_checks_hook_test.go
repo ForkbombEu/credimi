@@ -245,6 +245,46 @@ nonce: "xyz"
 		require.Equal(t, "eudiw template", result.Config["template"])
 	})
 
+	t.Run("openid4vci issuer suite keeps credential offer from payload", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "openid4vci_issuer/openid_conformance_suite/issuer-check"
+		configTemplate := `test: "issuer-test"`
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+		writeTemplateFile(
+			t,
+			rootDir,
+			workflows.OpenID4VCIIssuerStepCITemplatePath,
+			"openid4vci issuer template",
+		)
+
+		result := runConformanceHookWorkflow(t, conformanceHookInput{
+			CheckID: checkID,
+			Payload: map[string]any{
+				"credential_offer": "openid-credential-offer://static-offer",
+			},
+			Config: map[string]any{"user_mail": "test@example.com"},
+		})
+
+		payload := result.Payload
+		require.Equal(t, workflows.OpenID4VCIIssuerSuite, payload["suite"])
+		require.Equal(t, "issuer-test", payload["test"])
+		require.Equal(t, "openid-credential-offer://static-offer", payload["credential_offer"])
+		require.Equal(t, "openid4vci issuer template", result.Config["template"])
+
+		memo, ok := result.Config["memo"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, workflows.OpenID4VCIIssuerSuite, memo["author"])
+		require.Equal(t, "openid4vci_issuer", memo["standard"])
+		require.Equal(t, "issuer-check", memo["test"])
+	})
+
 	t.Run("missing user_mail returns error", func(t *testing.T) {
 		rootDir := t.TempDir()
 		t.Setenv("ROOT_DIR", rootDir)
@@ -402,6 +442,7 @@ func writeTemplateFile(t *testing.T, rootDir, relativePath, content string) {
 
 type conformanceHookInput struct {
 	CheckID string
+	Payload map[string]any
 	Config  map[string]any
 }
 
@@ -446,15 +487,19 @@ func conformanceHookWorkflow(
 	ctx workflow.Context,
 	input conformanceHookInput,
 ) (conformanceHookResult, error) {
+	payload := map[string]any{
+		"check_id": input.CheckID,
+	}
+	for k, v := range input.Payload {
+		payload[k] = v
+	}
 	steps := []pipeline.StepDefinition{
 		{
 			StepSpec: pipeline.StepSpec{
 				ID:  "step-1",
 				Use: "conformance-check",
 				With: pipeline.StepInputs{
-					Payload: map[string]any{
-						"check_id": input.CheckID,
-					},
+					Payload: payload,
 				},
 			},
 		},

@@ -412,6 +412,73 @@ func TestRunStepCIAndSendMailNoMail(t *testing.T) {
 	require.Equal(t, "link", result.Captures["deeplink"])
 }
 
+func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
+	t.Setenv("OPENIDNET_TOKEN", "test_token")
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		stepCIActivity.Execute,
+		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	env.OnActivity(
+		stepCIActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			data, ok := payload["data"].(map[string]any)
+			if !ok {
+				return false
+			}
+			secrets, ok := payload["secrets"].(map[string]any)
+			if !ok {
+				return false
+			}
+			return data["credential_offer"] == "openid-credential-offer://static-offer" &&
+				data["test"] == "issuer-test" &&
+				secrets["token"] == "test_token"
+		}),
+	).Return(workflowengine.ActivityResult{
+		Output: map[string]any{
+			"captures": map[string]any{
+				"result": []any{"PASSED"},
+				"logs":   "issuer logs",
+			},
+		},
+	}, nil).Once()
+
+	w := NewStartCheckWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: StartCheckWorkflowPayload{
+			Suite:           OpenID4VCIIssuerSuite,
+			CheckID:         "issuer-check",
+			TestName:        "issuer-test",
+			CredentialOffer: "openid-credential-offer://static-offer",
+		},
+		Config: map[string]any{
+			"app_url":   "https://test-app.com",
+			"template":  "test-template",
+			"namespace": "test-namespace",
+		},
+		ActivityOptions: &DefaultActivityOptions,
+	})
+
+	require.NoError(t, env.GetWorkflowError())
+
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "Check completed successfully", result.Message)
+	require.Equal(t, "issuer logs", result.Log)
+	env.AssertExpectations(t)
+}
+
 func TestRunStepCIAndSendMailMissingCaptures(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

@@ -128,7 +128,12 @@ func ConformanceCheckSetupHook(
 		SetPayloadValue(&defaultPayload, "user_mail", userMail)
 		SetPayloadValue(&defaultPayload, "suite", suite)
 
-		suiteExtra, suiteTemplatePath, err := resolveSuiteSetup(suite, checkName, step.ID, tpl, steps, i)
+		suiteExtra, suiteTemplatePath, err := resolveSuiteSetup(
+			suite,
+			checkName,
+			step.ID,
+			tpl,
+		)
 		if err != nil {
 			return err
 		}
@@ -160,8 +165,6 @@ func ConformanceCheckSetupHook(
 func resolveSuiteSetup(
 	suite, checkName, stepID string,
 	tpl map[string]any,
-	steps *[]pipeline.StepDefinition,
-	stepIdx int,
 ) (map[string]any, string, error) {
 	extra := map[string]any{}
 	switch suite {
@@ -218,26 +221,10 @@ func resolveSuiteSetup(
 		return extra, workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml", nil
 
 	case workflows.OpenID4VCIIssuerSuite:
-		// Locate the nearest preceding credential-offer step and wire its
-		// output via a ${{ }} reference expression resolved at execution time.
-		credentialOfferRef := ""
-		for j := stepIdx - 1; j >= 0; j-- {
-			if (*steps)[j].Use == "credential-offer" {
-				credentialOfferRef = fmt.Sprintf("${{ %s.outputs }}", (*steps)[j].ID)
-				break
-			}
-		}
-		if credentialOfferRef == "" {
-			return nil, "", workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
-				fmt.Sprintf("conformance-check step %q requires a preceding credential-offer step", stepID),
-			)
-		}
 		var testVal string
 		if tVal, ok := tpl["test"].(string); ok {
 			testVal = tVal
 		}
-		extra["credential_offer"] = credentialOfferRef
 		extra["test"] = testVal
 		return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
 
