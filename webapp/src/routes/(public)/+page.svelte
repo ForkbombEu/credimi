@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import FakeTable from '$lib/layout/fakeTable.svelte';
+	import { Sparkle } from '@lucide/svelte';
+	import { Scoreboard } from '$lib';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import { Sparkle } from '@lucide/svelte';
 
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
@@ -26,6 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	const { wallets, issuers, verifiers } = $derived(data);
+
+	const scoreboard = new Scoreboard.Instance();
 </script>
 
 {#if $featureFlags.DEMO}
@@ -38,10 +40,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.EUDIW_Conformance_Interoperability_and_Marketplace()}
 		</T>
 		<div class="flex flex-col gap-2 py-2">
-			<T tag="h3" class="text-balance !font-normal">
+			<T tag="h3" class="!font-normal text-balance">
 				{m.Explore_the_marketplace_and_try_credentials_wallets_and_services()}
 			</T>
-			<T tag="h3" class="text-balance !font-normal">
+			<T tag="h3" class="!font-normal text-balance">
 				{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}
 			</T>
 		</div>
@@ -53,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Button variant="secondary" href={$currentUser ? '/my/pipelines' : '/login'}>
 			<Icon src={Sparkle} />
 			{m.automated_conformance_interop()}
-			<Badge variant="outline" class="border-primary text-primary text-xs">
+			<Badge variant="outline" class="border-primary text-xs text-primary">
 				{m.Beta()}
 			</Badge>
 		</Button>
@@ -84,13 +86,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div>
 			<T tag="h3">{m.Compare_by_test_results()}</T>
 		</div>
-		<FakeTable />
+		<!-- <FakeTable /> -->
+		<Scoreboard.Component {scoreboard} />
 	</div>
 </PageContent>
 
 {#snippet row(items: MarketplaceItemsResponse[])}
 	<!-- Try: https://stackoverflow.com/questions/22955465/overflow-y-scroll-is-hiding-overflowing-elements-on-the-horizontal-line -->
-	<div class="scrollbar-none -mx-2 -mt-3 overflow-x-scroll px-2 pt-3">
+	<div class="-mx-2 -mt-3 scrollbar-none overflow-x-scroll px-2 pt-3">
 		<div class="flex gap-4">
 			{#each items as item (item.id)}
 				<MarketplaceItemCard {item} class="min-w-[300px] grow" />
