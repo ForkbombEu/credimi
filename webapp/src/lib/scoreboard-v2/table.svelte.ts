@@ -55,17 +55,22 @@ export class ScoreboardTable {
 		totalItems: 0,
 		pageCount: 0
 	});
+
 	get pageSize() {
 		return this.#pagination.pageSize;
-	}
-	get currentPage() {
-		return this.#pagination.pageIndex;
 	}
 	get pageCount() {
 		return this.#pagination.pageCount;
 	}
 	get totalItems() {
 		return this.#pagination.totalItems;
+	}
+
+	get currentPage() {
+		return fromTableIndex(this.#pagination.pageIndex);
+	}
+	set currentPage(page: number) {
+		this.table.setPageIndex(toTableIndex(page));
 	}
 
 	constructor() {
@@ -102,19 +107,38 @@ export class ScoreboardTable {
 	}
 
 	private async loadData() {
-		// +1 and -1 are needed because the table is 0-indexed but the API is 1-indexed
+		const currentApiPage = toApiPage(this.currentPage);
 		const res = await loadScoreboardData({
 			pagination: {
-				page: this.#pagination.pageIndex + 1,
+				page: currentApiPage,
 				perPage: this.#pagination.pageSize
 			}
 		});
+		const normalizedApiPage = fromApiPage(res.page);
 		this.#data = res.items;
 		this.#pagination = {
 			pageSize: res.perPage,
-			pageIndex: res.page - 1,
+			pageIndex: toTableIndex(normalizedApiPage),
 			pageCount: res.totalPages,
 			totalItems: res.totalItems
 		};
 	}
+}
+
+// helpers to convert between table and API pagination
+
+function fromTableIndex(index0: number) {
+	return Math.max(0, index0) + 1;
+}
+
+function toTableIndex(page1: number) {
+	return Math.max(0, page1 - 1);
+}
+
+function fromApiPage(page1: number) {
+	return Math.max(1, page1);
+}
+
+function toApiPage(page1: number) {
+	return Math.max(1, page1);
 }

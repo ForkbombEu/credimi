@@ -65,12 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Pagination.Root
 			count={scoreboard.totalItems}
 			perPage={scoreboard.pageSize}
-			bind:page={
-				() => scoreboard.currentPage + 1,
-				(v) => {
-					scoreboard.table.setPageIndex(v - 1);
-				}
-			}
+			bind:page={scoreboard.currentPage}
 		>
 			{#snippet children({ pages, currentPage })}
 				<Pagination.Content>
