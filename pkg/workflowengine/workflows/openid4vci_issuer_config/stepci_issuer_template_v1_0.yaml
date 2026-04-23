@@ -71,15 +71,17 @@ tests:
             planName: oid4vci-1_0-issuer-test-plan
             variant: >-
               {
-                "sender_constrain": "dpop",
-                "client_auth_type": "private_key_jwt",
-                "vci_authorization_code_flow_variant": "issuer_initiated",
-                "credential_format": "${{captures.format | replace:"vc+sd-jwt","sd_jwt_vc" | replace:"dc+sd-jwt","sd_jwt_vc" | replace:"mso_mdoc","mdoc"}}",
-                "authorization_request_type": "simple",
-                "vci_profile": "plain_vci",
-                "fapi_request_method": "unsigned",
-                "vci_grant_type": "authorization_code",
-                "vci_credential_encryption": "plain"
+                "fapi_profile":"vci",
+                "sender_constrain":"dpop",
+                "client_auth_type":"private_key_jwt",
+                "vci_authorization_code_flow_variant":"issuer_initiated",
+                "credential_format":"${{captures.format | replace:"vc+sd-jwt","sd_jwt_vc" | replace:"dc+sd-jwt","sd_jwt_vc" | replace:"mso_mdoc","mdoc"}}",
+                "authorization_request_type":"simple",
+                "openid":"plain_oauth",
+                "fapi_request_method":"unsigned",
+                "vci_grant_type":"authorization_code",
+                "vci_credential_encryption":"plain",
+                "fapi_response_mode":"plain_response"
               }
           json:
             alias: credimi-oid4vci-issuer-test
