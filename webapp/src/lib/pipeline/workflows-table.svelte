@@ -5,14 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowRightIcon, FileCogIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { ArrowRightIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
+	import MediaPreview from '$lib/components/media-preview.svelte';
 	import WorkflowsTable from '$lib/workflows/workflows-table.svelte';
 
-	import type { IconComponent } from '@/components/types';
-
 	import A from '@/components/ui-custom/a.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
 	import { m } from '@/i18n';
 
 	import type { ExecutionSummary } from './workflows';
@@ -92,20 +90,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="flex items-center gap-2">
 					{#each workflow.results as result (result.video)}
 						<div class="flex items-center gap-1">
-							{@render mediaPreview({
-								image: result.screenshot,
-								href: result.video,
-								icon: VideoIcon
-							})}
-							{@render mediaPreview({
-								image: result.screenshot,
-								href: result.screenshot,
-								icon: ImageIcon
-							})}
-							{@render mediaPreview({
-								href: result.log,
-								icon: FileCogIcon
-							})}
+							<MediaPreview image={result.video} href={result.video} icon="video" />
+							<MediaPreview
+								image={result.screenshot}
+								href={result.screenshot}
+								icon="image"
+							/>
+							<MediaPreview href={result.log} icon="file" />
 						</div>
 					{/each}
 				</div>
@@ -115,22 +106,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Td>
 	{/snippet}
 </WorkflowsTable>
-
-<!--  -->
-
-{#snippet mediaPreview(props: { image?: string; href: string; icon: IconComponent })}
-	{@const { image, href, icon } = props}
-	<!-- eslint-disable svelte/no-navigation-without-resolve -->
-	<a
-		{href}
-		target="_blank"
-		class="relative size-10 shrink-0 overflow-hidden rounded-md border border-slate-300 hover:cursor-pointer hover:ring-2"
-	>
-		{#if image}
-			<img src={image} alt="Media" class="size-10 shrink-0" />
-		{/if}
-		<div class="absolute inset-0 flex items-center justify-center bg-black/30">
-			<Icon src={icon} class="size-4  text-white" />
-		</div>
-	</a>
-{/snippet}

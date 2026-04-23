@@ -20,6 +20,7 @@ import * as runners from './columns/runners.svelte';
 import * as totalExecutionsSuccessesPercentage from './columns/total-executions-successes-percentage.svelte';
 import * as useCaseVerifications from './columns/use-case-verifications.svelte';
 import * as verifiers from './columns/verifiers.svelte';
+import * as videoScreenshot from './columns/video-screenshot.svelte';
 import * as wallets from './columns/wallets.svelte';
 import { loadScoreboardData } from './functions';
 
@@ -28,6 +29,7 @@ import { loadScoreboardData } from './functions';
 const columns = [
 	Column.build(name),
 	Column.build(totalExecutionsSuccessesPercentage),
+	Column.build(videoScreenshot),
 	Column.build(wallets),
 	Column.build(issuers),
 	Column.build(credentials),
