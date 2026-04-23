@@ -40,6 +40,7 @@ type pipelineExecutionState struct {
 	errorsList     []string
 	finalOutput    map[string]any
 	previousStepID string
+	hasErrors      bool
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -149,6 +150,8 @@ func (w *PipelineWorkflow) Workflow(
 		state,
 		debug,
 		logger,
+		input.WorkflowDefinition.Name,
+   	 	runMetadata.TemporalUI,
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -225,6 +228,8 @@ func (w *PipelineWorkflow) executeSteps(
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
+	pipelineName string,  
+    pipelineURL string,
 ) (workflow.ActivityOptions, error) {
 	for _, step := range steps {
 		nextAO, err := w.executeStep(
@@ -238,6 +243,8 @@ func (w *PipelineWorkflow) executeSteps(
 			state,
 			debug,
 			logger,
+			pipelineName,
+			pipelineURL,
 		)
 		if err != nil {
 			return nextAO, err
@@ -259,6 +266,8 @@ func (w *PipelineWorkflow) executeStep(
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
+	pipelineName string,  
+    pipelineURL string,
 ) (workflow.ActivityOptions, error) {
 	if err := runPendingPlayStoreDisableIfNeeded(ctx, step, &ao, config, runData); err != nil {
 		return ao, wrapWorkflowCancellationError(err, runMetadata)
@@ -290,6 +299,8 @@ func (w *PipelineWorkflow) executeStep(
 			runMetadata,
 			state,
 			logger,
+			pipelineName,
+			pipelineURL,
 		)
 	default:
 		return w.executeRegularStep(
@@ -328,6 +339,8 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 	runMetadata *workflowengine.WorkflowErrorMetadata,
 	state *pipelineExecutionState,
 	logger log.Logger,
+	pipelineName string,  
+    pipelineURL string,
 ) error {
 	logger.Info("Running step", "id", step.ID, "use", step.Use)
 
@@ -344,10 +357,12 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 			runMetadata,
 			state,
 			logger,
+			pipelineName,
+			pipelineURL,
 		)
 	}
 
-	runStepSuccessHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
+	runStepSuccessHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger, pipelineName, pipelineURL)
 	state.finalOutput[step.ID] = map[string]any{
 		"outputs": childOut,
 	}
@@ -366,6 +381,8 @@ func handleChildPipelineStepError(
 	runMetadata *workflowengine.WorkflowErrorMetadata,
 	state *pipelineExecutionState,
 	logger log.Logger,
+	pipelineName string,  
+    pipelineURL string,
 ) error {
 	if temporal.IsTimeoutError(err) {
 		return err
@@ -375,7 +392,7 @@ func handleChildPipelineStepError(
 	}
 
 	logger.Error(step.ID, "step execution error", err)
-	runStepErrorHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
+	runStepErrorHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger, pipelineName, pipelineURL)
 	if step.ContinueOnError {
 		if out := workflowengine.ExtractOutputFromError(err); out != nil {
 			childOut = out
@@ -406,8 +423,12 @@ func (w *PipelineWorkflow) executeRegularStep(
 
 	ao = PrepareActivityOptions(ao, step.ActivityOptions)
 
-	stepOutput, err := Execute(&step, ctx, config, stepInputs, ao)
+	pipelineName := input.WorkflowDefinition.Name
+	pipelineURL := runMetadata.TemporalUI
+
+	stepOutput, err := Execute(&step, ctx, config, stepInputs, ao, pipelineName, pipelineURL, state.hasErrors)
 	if err != nil {
+		state.hasErrors = true
 		return ao, handleRegularStepError(
 			ctx,
 			step,
@@ -419,10 +440,12 @@ func (w *PipelineWorkflow) executeRegularStep(
 			runMetadata,
 			state,
 			logger,
+			pipelineName,
+			pipelineURL,
 		)
 	}
 
-	runStepSuccessHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
+	runStepSuccessHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger, pipelineName, pipelineURL)
 	state.finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
 	if debug {
 		runDebugActivity(ctx, logger, step.ID, state.finalOutput, input.WorkflowInput.Payload)
@@ -443,6 +466,8 @@ func handleRegularStepError(
 	runMetadata *workflowengine.WorkflowErrorMetadata,
 	state *pipelineExecutionState,
 	logger log.Logger,
+	pipelineName string,  
+    pipelineURL string,
 ) error {
 	if temporal.IsCanceledError(err) {
 		return workflowengine.NewWorkflowCancellationError(runMetadata)
@@ -456,7 +481,7 @@ func handleRegularStepError(
 		step.ID,
 		state.finalOutput,
 	)
-	runStepErrorHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
+	runStepErrorHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger, pipelineName, pipelineURL)
 	if step.ContinueOnError {
 		if out := workflowengine.ExtractOutputFromError(err); out != nil {
 			stepOutput = out
@@ -477,6 +502,8 @@ func runStepErrorHooks(
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	logger log.Logger,
+	pipelineName string,
+	pipelineURL string,
 ) {
 	if len(step.OnError) == 0 {
 		return
@@ -491,7 +518,7 @@ func runStepErrorHooks(
 		"continue_on_error",
 		step.ContinueOnError,
 	)
-	ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, ao, config)
+	ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, ao, config, pipelineName, pipelineURL)
 }
 
 func runStepSuccessHooks(
@@ -502,6 +529,8 @@ func runStepSuccessHooks(
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	logger log.Logger,
+	pipelineName string,
+	pipelineURL string,
 ) {
 	if len(step.OnSuccess) == 0 {
 		return
@@ -514,7 +543,7 @@ func runStepSuccessHooks(
 		"count",
 		len(step.OnSuccess),
 	)
-	ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, ao, config)
+	ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, ao, config, pipelineName, pipelineURL)
 }
 
 // Start launches the pipeline workflow via Temporal client
@@ -654,18 +683,21 @@ func ExecuteEventStepsOnError(
 	existingErrors []string,
 	ao workflow.ActivityOptions,
 	config map[string]any,
+	pipelineName string,
+	pipelineURL string,
 ) []string {
 	errorsList := existingErrors
 	if errorsList == nil {
 		errorsList = []string{}
 	}
+	enrichedStepInputs := enrichDataContext(stepInputs, pipelineName, pipelineURL, true, workflow.Now(ctx))
 	for _, eventStep := range eventSteps {
 		aO := PrepareActivityOptions(
 			ao,
 			eventStep.ActivityOptions,
 		)
 
-		_, execErr := ExecuteOnError(eventStep, ctx, config, stepInputs, aO)
+		_, execErr := ExecuteOnError(eventStep, ctx, config, enrichedStepInputs, aO, pipelineName, pipelineURL)
 		if execErr != nil {
 			errorsList = append(errorsList, execErr.Error())
 		}
@@ -680,18 +712,21 @@ func ExecuteEventStepsOnSuccess(
 	existingErrors []string,
 	ao workflow.ActivityOptions,
 	config map[string]any,
+	pipelineName string,  
+    pipelineURL string,
 ) []string {
 	errorsList := existingErrors
 	if errorsList == nil {
 		errorsList = []string{}
 	}
+	enrichedStepInputs := enrichDataContext(stepInputs, pipelineName, pipelineURL, false, workflow.Now(ctx))
 	for _, eventStep := range eventSteps {
 		aO := PrepareActivityOptions(
 			ao,
 			eventStep.ActivityOptions,
 		)
 
-		_, execErr := ExecuteOnSuccess(eventStep, ctx, config, stepInputs, aO)
+		_, execErr := ExecuteOnSuccess(eventStep, ctx, config, enrichedStepInputs, aO, pipelineName, pipelineURL)
 		if execErr != nil {
 			errorsList = append(errorsList, execErr.Error())
 		}

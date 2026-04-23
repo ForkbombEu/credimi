@@ -153,6 +153,9 @@ func TestExecuteStepActivity(t *testing.T) {
 			map[string]any{},
 			map[string]any{},
 			ao,
+			"test-pipeline",   
+    		"http://localhost:8080/test-run",
+			false,
 		)
 		if err != nil {
 			return nil, err
@@ -396,6 +399,9 @@ func TestExecuteStepWorkflow(t *testing.T) {
 			map[string]any{},
 			map[string]any{},
 			ao,
+			"test-pipeline",   
+    		"http://localhost:8080/test-run",
+			false,
 		)
 		if err != nil {
 			return nil, err
@@ -597,7 +603,10 @@ func TestExecuteStepResolveInputsError(t *testing.T) {
 				ctx,
 				map[string]any{},
 				map[string]any{},
-				ao,
+				ao,   
+    		    "test-pipeline",   
+    			"http://localhost:8080/test-run",
+				false, 
 			)
 			return err
 		},
@@ -650,6 +659,9 @@ func TestExecuteStepNonExecutableActivity(t *testing.T) {
 				map[string]any{},
 				map[string]any{},
 				ao,
+				"test-pipeline",   
+    		    "http://localhost:8080/test-run",
+				false,
 			)
 			return err
 		},
@@ -703,6 +715,9 @@ func TestExecuteStepEmailConfigureError(t *testing.T) {
 				map[string]any{},
 				map[string]any{},
 				ao,
+				"test-pipeline",   
+    		    "http://localhost:8080/test-run",
+				false,
 			)
 			return err
 		},
