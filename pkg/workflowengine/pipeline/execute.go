@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -29,12 +28,8 @@ func ExecuteStep(
 	globalCfg map[string]any,
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
-	pipelineName string,  
-    pipelineURL string,
-	hasErrors bool,
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
-	enrichedDataCtx := enrichDataContext(dataCtx, pipelineName, pipelineURL,hasErrors, workflow.Now(ctx))
 	s := &pipeline.StepDefinition{
 		StepSpec: pipeline.StepSpec{
 			ID:              id,
@@ -46,7 +41,7 @@ func ExecuteStep(
 		ContinueOnError: false,
 	}
 
-	err := pipeline.ResolveInputs(s, globalCfg, enrichedDataCtx)
+	err := pipeline.ResolveInputs(s, globalCfg, dataCtx)
 	if err != nil {
 		appErr := workflowengine.NewAppError(
 			errCode,
@@ -178,11 +173,8 @@ func Execute(
 	globalCfg map[string]any,
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
-	pipelineName string,   
-    pipelineURL string,
-	hasErrors bool,
 ) (any, error) {
-	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao, pipelineName, pipelineURL, hasErrors)
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
 }
 
 func ExecuteOnError(
@@ -191,10 +183,8 @@ func ExecuteOnError(
 	globalCfg map[string]any,
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
-	pipelineName string,
-    pipelineURL string,
 ) (any, error) {
-	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao, pipelineName, pipelineURL, true)
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
 }
 
 func ExecuteOnSuccess(
@@ -203,10 +193,8 @@ func ExecuteOnSuccess(
 	globalCfg map[string]any,
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
-	pipelineName string,
-    pipelineURL string,
 ) (any, error) {
-	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao, pipelineName, pipelineURL, false)
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
 }
 
 // runChildPipeline executes a nested child pipeline and returns its outputs
@@ -362,51 +350,51 @@ func isMissingPipelineInternalHTTPActivity(err error) bool {
 
 func ExtractPipelineOutput(dataCtx map[string]any) map[string]any {
 	result := make(map[string]any)
-	
+
 	for key, value := range dataCtx {
 		if key == "inputs" {
 			continue
 		}
-		
+
 		if stepOutput, ok := value.(map[string]any); ok {
 			if outputs, exists := stepOutput["outputs"]; exists {
-				result[key] = outputs
+				result[key] = map[string]any{"outputs": outputs}
 			} else {
-				result[key] = value
+				result[key] = map[string]any{"outputs": value}
 			}
 		} else {
-			result[key] = value
+			result[key] = map[string]any{"outputs": value}
 		}
 	}
-	
+
 	return result
 }
 
 func enrichDataContext(
-	dataCtx map[string]any, 
-	pipelineName string, 
+	dataCtx map[string]any,
+	pipelineName string,
 	pipelineURL string,
 	hasErrors bool,
-	currentTime time.Time,
+	currentTime string,
 ) map[string]any {
-    enriched := make(map[string]any)
-    
-    for k, v := range dataCtx {
-        enriched[k] = v
-    }
-    
-    enriched["pipeline_output"] = ExtractPipelineOutput(dataCtx)
-    
-    enriched["pipeline_name"] = pipelineName
-    enriched["pipeline_url"] = pipelineURL
+	enriched := make(map[string]any)
 
-	 if hasErrors {
-        enriched["result"] = "fail"
-    } else {
-        enriched["result"] = "success"
-    }
+	for k, v := range dataCtx {
+		enriched[k] = v
+	}
+
+	enriched["pipeline_output"] = ExtractPipelineOutput(dataCtx)
+
+	enriched["pipeline_name"] = pipelineName
+	enriched["pipeline_url"] = pipelineURL
+
+	if hasErrors {
+		enriched["result"] = "failed"
+	} else {
+		enriched["result"] = "success"
+	}
 
 	enriched["date"] = currentTime
-    
-    return enriched
+
+	return enriched
 }
