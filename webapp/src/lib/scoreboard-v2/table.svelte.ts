@@ -40,30 +40,54 @@ const columns = [
 ];
 
 export class ScoreboardTable {
-	#data = $state<ScoreboardRow[]>([]);
-	#pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
-
 	public readonly table: Table<ScoreboardRow>;
 
+	#data = $state<ScoreboardRow[]>([]);
+	#pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
+	#pageCount = $state(0);
+
 	constructor() {
-		const getData = () => this.#data;
-		const getPagination = () => this.#pagination;
+		const self = this;
 
 		this.table = createSvelteTable({
 			columns,
 			getCoreRowModel: getCoreRowModel(),
+
 			get data() {
-				return getData();
+				return self.#data;
 			},
+
 			state: {
 				get pagination() {
-					return getPagination();
+					return self.#pagination;
 				}
+			},
+
+			onPaginationChange: (updater) => {
+				self.#pagination =
+					typeof updater === 'function' ? updater(self.#pagination) : updater;
+				self.loadData();
+			},
+			manualPagination: true,
+			get pageCount() {
+				return self.#pageCount;
 			}
 		});
 
-		onMount(async () => {
-			this.#data = await loadScoreboardData();
+		onMount(() => this.loadData());
+	}
+
+	private async loadData() {
+		// +1 and -1 are needed because the table is 0-indexed but the API is 1-indexed
+		const res = await loadScoreboardData({
+			pagination: {
+				page: this.#pagination.pageIndex + 1,
+				perPage: this.#pagination.pageSize
+			}
 		});
+		this.#data = res.items;
+		this.#pagination.pageSize = res.perPage;
+		this.#pagination.pageIndex = res.page - 1;
+		this.#pageCount = res.totalPages;
 	}
 }

@@ -65,12 +65,12 @@ export class PocketbaseQueryAgent<
 			.getFullList<PocketbaseQueryResponse<C, E>>(merge(this.listOptions, options));
 	}
 
-	getList(page: number) {
+	getList(page: number, perPage?: number) {
 		return this.pocketbase
 			.collection(this.collection)
 			.getList<
 				PocketbaseQueryResponse<C, E>
-			>(page, this.listOptions.perPage, this.listOptions);
+			>(page, perPage ?? this.listOptions.perPage, this.listOptions);
 	}
 
 	getFirstListItem(filter: string) {

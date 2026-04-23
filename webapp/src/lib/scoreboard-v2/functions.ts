@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ListResult } from 'pocketbase';
+
 import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 import type { ScoreboardRow } from './types';
@@ -31,9 +33,9 @@ type Options = {
 	};
 };
 
-export function loadScoreboardData(options: Options = {}): Promise<ScoreboardRow[]> {
-	return agent.getFullList({
-		perPage: options.pagination?.perPage,
-		page: options.pagination?.page ?? 1
-	}) as Promise<ScoreboardRow[]>;
+export async function loadScoreboardData(
+	options: Options = {}
+): Promise<ListResult<ScoreboardRow>> {
+	const res = await agent.getList(options.pagination?.page ?? 1, options.pagination?.perPage);
+	return res as ListResult<ScoreboardRow>;
 }
