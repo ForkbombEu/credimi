@@ -28,10 +28,20 @@ var (
 	startWorkerManagerFn        = hooks.StartWorkerManagerWorkflow
 )
 
+const defaultMaxPipelinesInQueue = 1
+
 // HookNamespaceOrgs sets up hooks for the "organizations" collection.
+// - Before create → apply organization defaults
 // - After create → ensure namespace + start workers
 // - After update → stop workers for old namespace, ensure namespace + start workers for new one
 func HookNamespaceOrgs(app *pocketbase.PocketBase) {
+	app.OnRecordCreate("organizations").BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.GetInt("max_pipelines_in_queue") == 0 {
+			e.Record.Set("max_pipelines_in_queue", defaultMaxPipelinesInQueue)
+		}
+		return e.Next()
+	})
+
 	app.OnRecordAfterCreateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
 		orgName := e.Record.GetString("canonified_name")
 		if orgName != "" {
