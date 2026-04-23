@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Button } from '@/components/ui/button';
 	import { FlexRender } from '@/components/ui/data-table/index.js';
 	import * as Pagination from '@/components/ui/pagination/index.js';
 	import * as Table from '@/components/ui/table/index.js';
@@ -62,25 +61,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Root>
 	</div>
 
-	<div class="flex items-center justify-end space-x-2 py-4">
-		<Button
-			variant="outline"
-			size="sm"
-			onclick={() => scoreboard.table.previousPage()}
-			disabled={!scoreboard.table.getCanPreviousPage()}
+	<div class="flex items-center justify-center space-x-2 py-4">
+		<Pagination.Root
+			count={scoreboard.totalItems}
+			perPage={scoreboard.pageSize}
+			bind:page={
+				() => scoreboard.currentPage + 1,
+				(v) => {
+					scoreboard.table.setPageIndex(v - 1);
+				}
+			}
 		>
-			Previous
-		</Button>
-		<Button
-			variant="outline"
-			size="sm"
-			onclick={() => scoreboard.table.nextPage()}
-			disabled={!scoreboard.table.getCanNextPage()}
-		>
-			Next
-		</Button>
-
-		<Pagination.Root count={scoreboard.table.getPageCount()}>
 			{#snippet children({ pages, currentPage })}
 				<Pagination.Content>
 					<Pagination.Item>

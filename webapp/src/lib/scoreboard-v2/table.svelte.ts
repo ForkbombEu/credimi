@@ -39,38 +39,62 @@ const columns = [
 	Column.build(minimumRunningTime)
 ];
 
+interface ExtendedPaginationState extends PaginationState {
+	totalItems: number;
+	pageCount: number;
+}
+
 export class ScoreboardTable {
 	public readonly table: Table<ScoreboardRow>;
 
 	#data = $state<ScoreboardRow[]>([]);
-	#pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
-	#pageCount = $state(0);
+
+	#pagination = $state<ExtendedPaginationState>({
+		pageIndex: 0,
+		pageSize: 5,
+		totalItems: 0,
+		pageCount: 0
+	});
+	get pageSize() {
+		return this.#pagination.pageSize;
+	}
+	get currentPage() {
+		return this.#pagination.pageIndex;
+	}
+	get pageCount() {
+		return this.#pagination.pageCount;
+	}
+	get totalItems() {
+		return this.#pagination.totalItems;
+	}
 
 	constructor() {
-		const self = this;
+		const getData = () => this.#data;
+		const getPagination = () => this.#pagination;
+		const getPageCount = () => this.#pagination.pageCount;
+		const setPagination = (p: PaginationState) => {
+			this.#pagination.pageIndex = p.pageIndex;
+			this.#pagination.pageSize = p.pageSize;
+		};
 
 		this.table = createSvelteTable({
 			columns,
 			getCoreRowModel: getCoreRowModel(),
-
 			get data() {
-				return self.#data;
+				return getData();
 			},
-
 			state: {
 				get pagination() {
-					return self.#pagination;
+					return getPagination();
 				}
 			},
-
 			onPaginationChange: (updater) => {
-				self.#pagination =
-					typeof updater === 'function' ? updater(self.#pagination) : updater;
-				self.loadData();
+				setPagination(typeof updater === 'function' ? updater(getPagination()) : updater);
+				this.loadData();
 			},
 			manualPagination: true,
 			get pageCount() {
-				return self.#pageCount;
+				return getPageCount();
 			}
 		});
 
@@ -86,8 +110,11 @@ export class ScoreboardTable {
 			}
 		});
 		this.#data = res.items;
-		this.#pagination.pageSize = res.perPage;
-		this.#pagination.pageIndex = res.page - 1;
-		this.#pageCount = res.totalPages;
+		this.#pagination = {
+			pageSize: res.perPage,
+			pageIndex: res.page - 1,
+			pageCount: res.totalPages,
+			totalItems: res.totalItems
+		};
 	}
 }
