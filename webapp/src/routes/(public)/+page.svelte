@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Sparkle } from '@lucide/svelte';
+	import { Sparkle, StoreIcon, TableIcon } from '@lucide/svelte';
 	import { Scoreboard } from '$lib';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
@@ -66,7 +66,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="space-y-6">
 		<div class="flex items-center justify-between">
 			<T tag="h3">{m.Find_solutions()}</T>
-			<Button variant="default" href="/marketplace">{m.Explore_Marketplace()}</Button>
+			<Button variant="default" href="/marketplace">
+				<StoreIcon />
+				{m.Explore_Marketplace()}
+			</Button>
 		</div>
 
 		<div class="space-y-4">
@@ -83,8 +86,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/> -->
 
 	<div class="space-y-6">
-		<div>
+		<div class="flex items-center justify-between">
 			<T tag="h3">{m.Compare_by_test_results()}</T>
+			<Button variant="default" href="/scoreboard">
+				<TableIcon />
+				{m.View_Scoreboard()}
+			</Button>
 		</div>
 		<!-- <FakeTable /> -->
 		<Scoreboard.Component {scoreboard} />
