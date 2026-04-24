@@ -31,11 +31,14 @@ type Options = {
 		page: number;
 		perPage: number;
 	};
+	fetch?: typeof fetch;
 };
 
 export async function loadScoreboardData(
 	options: Options = {}
 ): Promise<ListResult<ScoreboardRow>> {
-	const res = await agent.getList(options.pagination?.page ?? 1, options.pagination?.perPage);
+	const res = await agent.getList(options.pagination?.page ?? 1, options.pagination?.perPage, {
+		fetch: options.fetch
+	});
 	return res as ListResult<ScoreboardRow>;
 }

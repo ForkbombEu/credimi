@@ -8,10 +8,10 @@ import { createColumnHelper } from '@tanstack/table-core';
 
 import { renderComponent } from '@/components/ui/data-table';
 
-import type { HeaderAlign } from './columns/_header.svelte';
+import type { HeaderAlign } from './columns/headers/base-header.svelte';
 import type { ScoreboardRow } from './types';
 
-import Header from './columns/_header.svelte';
+import Header from './columns/headers/base-header.svelte';
 
 //
 

@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if link}
 	<a
 		href={resolve(localizeHref(getRelatedEntityHref(record)) as '/')}
-		class="w-fit hover:ring-2 hover:ring-primary"
+		class="w-fit rounded-sm hover:ring-2 hover:ring-primary"
 	>
 		{@render content()}
 	</a>
@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if 'logo' in record}
 		<Avatar
 			src={pb.files.getURL(record, record.logo)}
-			class="size-6 rounded-xs border"
+			class="size-8 rounded-sm border"
 			fallback={record.name.slice(0, 2)}
 		/>
 	{/if}

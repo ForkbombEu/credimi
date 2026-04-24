@@ -17,11 +17,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="space-y-4">
-	<div class="rounded-md border bg-background">
+	<div class="overflow-hidden rounded-md bg-background">
 		<Table.Root>
 			<Table.Header>
 				{#each scoreboard.table.getHeaderGroups() as headerGroup (headerGroup.id)}
-					<Table.Row>
+					<Table.Row class="bg-[#d1c8f3] hover:bg-[#d1c8f3]">
 						{#each headerGroup.headers as header (header.id)}
 							<Table.Head colspan={header.colSpan}>
 								{#if !header.isPlaceholder}

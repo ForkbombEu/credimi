@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div>
 	{#each records as record (record.id)}
-		<A href={getRelatedEntityHref(record)} class="block max-w-[15ch] truncate text-xs">
+		<A href={getRelatedEntityHref(record)} class="block max-w-[30ch] truncate text-xs">
 			{record.name}
 		</A>
 	{:else}

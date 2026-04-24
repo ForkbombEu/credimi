@@ -48,6 +48,7 @@ interface ExtendedPaginationState extends PaginationState {
 
 interface Options {
 	pageSize?: number;
+	initialData?: () => ScoreboardRow[];
 }
 
 export class ScoreboardTable {
@@ -113,6 +114,12 @@ export class ScoreboardTable {
 		});
 
 		onMount(() => this.loadData());
+
+		$effect(() => {
+			if (options.initialData) {
+				this.#data = options.initialData();
+			}
+		});
 	}
 
 	private async loadData() {

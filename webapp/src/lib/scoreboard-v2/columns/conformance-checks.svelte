@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div>
 	{#each value as item (item)}
-		<p class="max-w-[15ch] truncate text-xs">{item}</p>
+		<p class="max-w-[40ch] truncate text-xs">{item}</p>
 	{:else}
 		<Na />
 	{/each}

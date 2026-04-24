@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={[
-		'flex items-center gap-2',
+		'flex items-center gap-2 text-[1rem] text-primary',
 		{
 			'justify-start': align === 'left',
 			'justify-center': align === 'center',
