@@ -135,6 +135,16 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
 		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/retention/delete-files",
+			Handler:       HandleDeletePipelineResultFiles,
+			RequestSchema: DeletePipelineResultFilesRequest{},
+			Description:   "Delete retained pipeline result files older than the requested number of days",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
 	},
 }
 
