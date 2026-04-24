@@ -8,13 +8,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import * as Column from '../column';
+	import BaseHeader from './headers/base-header.svelte';
 
 	//
 
 	export const column = Column.define({
 		fn: (row) => row.expand.pipeline,
 		id: 'name',
-		header: m.Pipeline()
+		header: Column.header(BaseHeader, {
+			header: m.Pipeline()
+		})
 	});
 </script>
 

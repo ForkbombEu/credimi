@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Component } from 'svelte';
+import type { Component, ComponentProps } from 'svelte';
 
 import { createColumnHelper } from '@tanstack/table-core';
 
-import { renderComponent } from '@/components/ui/data-table';
+import {
+	RenderComponentConfig,
+	renderComponent
+} from '@/components/ui/data-table/render-helpers';
 
-import type { HeaderAlign } from './columns/headers/base-header.svelte';
 import type { ScoreboardRow } from './types';
-
-import Header from './columns/headers/base-header.svelte';
 
 //
 
@@ -19,15 +19,25 @@ type Accessor = (row: ScoreboardRow) => unknown;
 
 // Config
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type HeaderConfig = RenderComponentConfig<Component<any>>;
+
 type Config<A extends Accessor> = {
 	fn: A;
 	id: string;
-	header: string;
-	headerAlign?: HeaderAlign;
+	header: HeaderConfig;
 };
 
 export function define<A extends Accessor>(config: Config<A>): Config<A> {
 	return config;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function header<TComponent extends Component<any>>(
+	component: TComponent,
+	props: ComponentProps<TComponent>
+): RenderComponentConfig<TComponent> {
+	return renderComponent(component, props);
 }
 
 // Component props
@@ -48,13 +58,8 @@ const helper = createColumnHelper<ScoreboardRow>();
 export function build<A extends Accessor>(mod: Module<A>) {
 	return helper.accessor(mod.column.fn, {
 		id: mod.column.id,
-		header: () => {
-			return renderComponent(Header, {
-				header: mod.column.header,
-				align: mod.column.headerAlign
-			});
-		},
-		cell: (info) => {
+		header: () => mod.column.header,
+		cell: (info: { getValue: () => unknown }) => {
 			return renderComponent(mod.default, { value: info.getValue() as ReturnType<A> });
 		}
 	});

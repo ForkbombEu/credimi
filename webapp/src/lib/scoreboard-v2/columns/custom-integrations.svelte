@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import * as Column from '../column';
+	import BaseHeader from './headers/base-header.svelte';
 	import SmallList from './partials/small-list.svelte';
 
 	//
@@ -15,7 +16,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export const column = Column.define({
 		fn: (row) => row.expand.custom_integrations ?? [],
 		id: 'custom_integrations',
-		header: m.Custom_integrations()
+		header: Column.header(BaseHeader, {
+			header: m.Custom_integrations()
+		})
 	});
 </script>
 

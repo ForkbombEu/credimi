@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { m } from '@/i18n';
+	import { entities, EntityTag } from '$lib/global';
 
 	import * as Column from '../column';
 	import Avatar from './partials/avatar.svelte';
@@ -16,8 +16,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export const column = Column.define({
 		fn: (row) => row.expand.issuers ?? [],
 		id: 'issuers',
-		header: m.Issuer_abbreviation(),
-		headerAlign: 'right'
+		header: Column.header(EntityTag, {
+			data: entities.credential_issuers,
+			trimLabel: true,
+			hideIcon: true
+		})
 	});
 </script>
 
