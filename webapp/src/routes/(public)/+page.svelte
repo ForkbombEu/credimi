@@ -69,10 +69,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Button variant="default" href="/marketplace">{m.Explore_Marketplace()}</Button>
 		</div>
 
-		<div class="space-y-2">
-			{@render row(issuers)}
-			{@render row(verifiers)}
-			{@render row(wallets)}
+		<div class="space-y-4">
+			{@render row(issuers, 0)}
+			{@render row(verifiers, 1)}
+			{@render row(wallets, 2)}
 		</div>
 	</div>
 
@@ -91,15 +91,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageContent>
 
-{#snippet row(items: MarketplaceItemsResponse[])}
+{#snippet row(items: MarketplaceItemsResponse[], index: number)}
 	<!-- Try: https://stackoverflow.com/questions/22955465/overflow-y-scroll-is-hiding-overflowing-elements-on-the-horizontal-line -->
-	<div class="-mx-2 -mt-3 scrollbar-none overflow-x-scroll px-2 pt-3">
-		<div class="flex gap-4">
+	<div
+		class={[
+			'-mx-2 -mt-3 scrollbar-none overflow-x-scroll px-2 pt-3',
+			{
+				'md:-translate-x-3': index === 0 || index === 2,
+				'md:translate-x-3': index === 1
+				// 'md:-translate-x-4': index === 2
+			}
+		]}
+	>
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 			{#each items as item (item.id)}
-				<MarketplaceItemCard {item} class="min-w-[300px] grow" />
+				<MarketplaceItemCard {item} />
 			{/each}
 		</div>
 	</div>
+	<!-- <div class="-mx-2 -mt-3 scrollbar-none overflow-x-scroll px-2 pt-3">
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+			{#each items as item (item.id)}
+				<MarketplaceItemCard {item} />
+			{/each}
+		</div>
+	</div> -->
 {/snippet}
 
 <!-- 
