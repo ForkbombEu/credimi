@@ -228,14 +228,23 @@ var DefaultWorkers = []workerConfig{
 		},
 	},
 	{
-        TaskQueue: workflows.AggregateScoreboardTaskQueue,
-        Workflows: []workflowengine.Workflow{
-            workflows.NewAggregateScoreboardWorkflow(),
-        },
-        Activities: []workflowengine.ExecutableActivity{
-            activities.NewInternalHTTPActivity(),
-        },
-    },
+		TaskQueue: workflows.AggregateScoreboardTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewAggregateScoreboardWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewInternalHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.PipelineRetentionTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewPipelineRetentionWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewInternalHTTPActivity(),
+		},
+	},
 }
 
 var (
