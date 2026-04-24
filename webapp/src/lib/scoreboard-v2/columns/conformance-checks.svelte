@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { m } from '@/i18n';
+
 	import * as Column from '../column';
 	import Na from './partials/na.svelte';
 
@@ -13,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export const column = Column.define({
 		fn: (row) => row.conformance_checks,
 		id: 'conformance_checks',
-		header: 'Conformance checks'
+		header: m.Conformance_Checks()
 	});
 </script>
 

@@ -946,5 +946,11 @@
 	"Install_app": "🔗 Install app",
 	"Latest": "Latest",
 	"Installed_from_external_source": "Installed from external source",
-	"Install_from_external_source": "Install from external source"
+	"Install_from_external_source": "Install from external source",
+	"Scoreboard": "Scoreboard",
+	"Verifier_abbreviation": "Ver.",
+	"Issuer_abbreviation": "Iss.",
+	"Min_running_time": "Min. running time",
+	"Runners": "Runners",
+	"Verifications": "Verifications"
 }

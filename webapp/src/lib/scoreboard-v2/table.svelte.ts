@@ -46,6 +46,10 @@ interface ExtendedPaginationState extends PaginationState {
 	pageCount: number;
 }
 
+interface Options {
+	pageSize?: number;
+}
+
 export class ScoreboardTable {
 	public readonly table: Table<ScoreboardRow>;
 
@@ -75,7 +79,10 @@ export class ScoreboardTable {
 		this.table.setPageIndex(toTableIndex(page));
 	}
 
-	constructor() {
+	constructor(options: Options = {}) {
+		const { pageSize = 5 } = options;
+		this.#pagination.pageSize = pageSize;
+
 		const getData = () => this.#data;
 		const getPagination = () => this.#pagination;
 		const getPageCount = () => this.#pagination.pageCount;

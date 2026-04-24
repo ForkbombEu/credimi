@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { m } from '@/i18n';
+
 	import * as Column from '../column';
 
 	//
@@ -19,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return { total, successes, percent, manual, scheduled };
 		},
 		id: 'total_executions_successes_percentage',
-		header: 'Success rate'
+		header: m.scoreboard_success_rate()
 	});
 </script>
 

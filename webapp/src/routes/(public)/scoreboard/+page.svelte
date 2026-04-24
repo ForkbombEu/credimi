@@ -4,38 +4,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { OTelDetails, ScoreboardTableTabbed } from '$lib/scoreboard';
+	import { Scoreboard } from '$lib';
 
+	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import type { PageData } from './$types';
-
-	//
-
-	let { data }: { data: PageData } = $props();
+	const scoreboard = new Scoreboard.Instance({
+		pageSize: 20
+	});
 </script>
 
-<div class="page-container">
-	<h1 class="page-title">{m.public_scoreboard()}</h1>
-	<p class="page-description">{m.public_scoreboard_description()}</p>
-
-	<ScoreboardTableTabbed data={data.scoreboardData} showActions={false} />
-
-	<OTelDetails content={data.scoreboardData.otelData} />
+<div class="grow bg-secondary pt-0 pb-20">
+	<div class="mx-auto mb-8 max-w-7xl px-4 pt-10 md:px-8">
+		<T tag="h1">{m.Scoreboard()}</T>
+	</div>
+	<div class="px-4">
+		<Scoreboard.Component {scoreboard} />
+	</div>
 </div>
-
-<style lang="postcss">
-	@reference "tailwindcss";
-
-	.page-container {
-		@apply container mx-auto p-6;
-	}
-
-	.page-title {
-		@apply mb-2 text-3xl font-bold;
-	}
-
-	.page-description {
-		@apply mb-6 text-gray-600;
-	}
-</style>

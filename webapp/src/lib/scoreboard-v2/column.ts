@@ -8,7 +8,10 @@ import { createColumnHelper } from '@tanstack/table-core';
 
 import { renderComponent } from '@/components/ui/data-table';
 
+import type { HeaderAlign } from './columns/_header.svelte';
 import type { ScoreboardRow } from './types';
+
+import Header from './columns/_header.svelte';
 
 //
 
@@ -20,6 +23,7 @@ type Config<A extends Accessor> = {
 	fn: A;
 	id: string;
 	header: string;
+	headerAlign?: HeaderAlign;
 };
 
 export function define<A extends Accessor>(config: Config<A>): Config<A> {
@@ -44,7 +48,14 @@ const helper = createColumnHelper<ScoreboardRow>();
 export function build<A extends Accessor>(mod: Module<A>) {
 	return helper.accessor(mod.column.fn, {
 		id: mod.column.id,
-		header: mod.column.header,
-		cell: (info) => renderComponent(mod.default, { value: info.getValue() as ReturnType<A> })
+		header: () => {
+			return renderComponent(Header, {
+				header: mod.column.header,
+				align: mod.column.headerAlign
+			});
+		},
+		cell: (info) => {
+			return renderComponent(mod.default, { value: info.getValue() as ReturnType<A> });
+		}
 	});
 }

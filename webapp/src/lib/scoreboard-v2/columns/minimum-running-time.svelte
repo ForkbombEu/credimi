@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { m } from '@/i18n';
+
 	import * as Column from '../column';
 
 	//
@@ -12,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export const column = Column.define({
 		fn: (row) => row.minimum_running_time,
 		id: 'minimum_running_time',
-		header: 'Min running time'
+		header: m.Min_running_time()
 	});
 </script>
 

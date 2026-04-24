@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { m } from '@/i18n';
+
 	import * as Column from '../column';
 	import Avatar from './partials/avatar.svelte';
 	import Na from './partials/na.svelte';
@@ -14,7 +16,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export const column = Column.define({
 		fn: (row) => row.expand.verifiers ?? [],
 		id: 'verifiers',
-		header: 'Verifiers'
+		header: m.Verifier_abbreviation(),
+		headerAlign: 'right'
 	});
 </script>
 
