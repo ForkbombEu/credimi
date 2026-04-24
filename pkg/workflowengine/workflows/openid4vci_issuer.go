@@ -27,6 +27,7 @@ const (
 	OpenID4VCIIssuerStepCITemplatePath = "pkg/workflowengine/workflows/openid4vci_issuer_config/stepci_issuer_template_v1_0.yaml"
 	OpenID4VCIIssuerStartCheckSignal   = "start-openid4vci-issuer-log-update"
 	OpenID4VCIIssuerStopCheckSignal    = "stop-openid4vci-issuer-log-update"
+	openID4VCIIssuerTestModuleFailed   = "FAILED"
 )
 
 const openID4VCIIssuerPollInterval = 5 * time.Second
@@ -248,7 +249,8 @@ func pollOpenID4VCIIssuerLogs(
 
 		lastLog := logs[len(logs)-1]
 		lastResult := workflowengine.AsString(lastLog["result"])
-		if lastResult != "FINISHED" && lastResult != "INTERRUPTED" {
+		if lastResult != openIDCertificationResultFinished &&
+			lastResult != openIDCertificationResultInterrupted {
 			if err := workflow.Sleep(ctx, openID4VCIIssuerPollInterval); err != nil {
 				return workflowengine.WorkflowResult{}, err
 			}
@@ -256,7 +258,8 @@ func pollOpenID4VCIIssuerLogs(
 		}
 
 		testModuleResult := workflowengine.AsString(lastLog["testmodule_result"])
-		if lastResult == "INTERRUPTED" || testModuleResult == "FAILED" {
+		if lastResult == openIDCertificationResultInterrupted ||
+			testModuleResult == openID4VCIIssuerTestModuleFailed {
 			errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
 			appErr := workflowengine.NewAppError(errCode, errCode.Description, logs)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
