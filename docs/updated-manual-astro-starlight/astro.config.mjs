@@ -48,6 +48,21 @@ export default defineConfig({
 				{ label: 'StepCI and Maestro scripting examples', link: '/manual/publish-to-marketplace/yaml-examples/' },
               ],
             },
+			{
+              label: 'Credimi Runner',
+              items: [
+                { label: 'Overview', link: '/manual/credimi-runner/' },
+                { label: 'Setup your runner', link: '/manual/credimi-runner/credimi-runner-setup/' },
+                { label: 'Step-by-step CLI setup', link: '/manual/credimi-runner/credimi-runner-setup-explained/' },
+				 { label: 'API Keys', link: '/manual/credimi-runner/api-keys/' },
+              ],
+            },
+			{
+              label: 'CI/CD Integration',
+              items: [
+                { label: 'Overview', link: '/manual/ci-cd/' },
+              ],
+            },
           ],
         },
         {
