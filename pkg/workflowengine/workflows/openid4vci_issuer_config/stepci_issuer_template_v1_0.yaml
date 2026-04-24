@@ -8,6 +8,9 @@ components:
     bearer:
       token: ${{secrets.token}}
 
+env:
+  test_name: [[.test]]
+
 tests:
   OPENID4VCI_ISSUER:
     steps:
@@ -22,9 +25,10 @@ tests:
           id: capture-plugin
           params:
             values:
-              credential_offer_uri_prefix: ${{captures.credential_offer | split:"//?" | slice:-1 | toString | slice:0,21}}
-              credential_offer_prefix: ${{captures.credential_offer | split:"//?" | slice:-1 | toString | slice:0,17}}
-              credential_offer_body: ${{captures.credential_offer | split:"//?" | slice:-1 | toString | remove_first:"credential_offer_uri=" | remove_first:"credential_offer=" | url_decode }}
+              credential_offer_uri_prefix: ${{ captures.credential_offer | split:"//?" | slice:-1 | toString | slice:0,21}}
+              credential_offer_prefix: ${{ captures.credential_offer | split:"//?" | slice:-1 | toString | slice:0,17}}
+              credential_offer_body: ${{ captures.credential_offer | split:"//?" | slice:-1 | toString | remove_first:"credential_offer_uri=" | remove_first:"credential_offer=" | url_decode }}
+              submit_credential_offer: [""]
       - name: Resolve credential_issuer from credential_offer_uri
         if: captures.credential_offer_uri_prefix == "credential_offer_uri="
         http:
@@ -33,10 +37,10 @@ tests:
           check:
             status: 200
           captures:
-            credential_issuer:
-              jsonpath: $.credential_issuer
-            credential_configuration_id:
-              jsonpath: $.credential_configuration_ids[0]
+            json_offer:
+              jsonpath: $.
+            credential_offer_body:
+              body: true
       - name: Resolve credential_issuer from inline credential_offer
         if: captures.credential_offer_prefix == "credential_offer="
         http:
@@ -48,10 +52,16 @@ tests:
           check:
             status: 200
           captures:
-            credential_issuer:
-              jsonpath: $.parsedBody.credential_issuer
-            credential_configuration_id:
-              jsonpath: $.parsedBody.credential_configuration_ids[0]
+            json_offer:
+              jsonpath: $.parsedBody
+      - name: Extract values from credential_offer
+        plugin:
+          id: capture-plugin
+          params:
+            values:
+              credential_configuration_id: ${{ captures.json_offer.credential_configuration_ids.0 }}
+              credential_issuer: ${{ captures.json_offer.credential_issuer }}
+              pre_authorized_code: ${{ captures.credential_offer_body | split:'"pre-authorized_code"' | slice:-1 | toString }}
       - name: Extract credential format from well-known metadata
         http:
           method: GET
@@ -61,7 +71,8 @@ tests:
           captures:
             format:
               jsonpath: $.credential_configurations_supported[${{captures.credential_configuration_id}}].format
-      - name: Create OpenID certification test plan
+      - name: Create OpenID certification test plan - AUTHORIZATION_CODE
+        if: captures.pre_authorized_code == captures.credential_offer_body
         http:
           url: https://www.certification.openid.net/api/plan
           auth:
@@ -77,18 +88,61 @@ tests:
                 "vci_authorization_code_flow_variant":"issuer_initiated",
                 "credential_format":"${{captures.format | replace:"vc+sd-jwt","sd_jwt_vc" | replace:"dc+sd-jwt","sd_jwt_vc" | replace:"mso_mdoc","mdoc"}}",
                 "authorization_request_type":"simple",
-                "openid":"plain_oauth",
                 "fapi_request_method":"unsigned",
                 "vci_grant_type":"authorization_code",
-                "vci_credential_encryption":"plain",
-                "fapi_response_mode":"plain_response"
+                "vci_credential_encryption":"plain"
               }
           json:
-            alias: credimi-oid4vci-issuer-test
+            alias: "credimi-oid4vci-issuer-test-${{ string.uuid | fake: 7 }}"
             description: Automated OID4VCI issuer conformance test via Credimi
             vci:
               credential_issuer_url: ${{captures.credential_issuer}}
               credential_configuration_id: ${{captures.credential_configuration_id}}
+            client:
+              dpop_signing_alg: PS256
+              client_id: credimi-conformance-wallet-1
+            client2:
+              dpop_signing_alg: PS256
+              client_id: credimi-conformance-wallet-2
+          check:
+            status: 201
+          captures:
+            plan_id:
+              jsonpath: $.id
+      - name: Create OpenID certification test plan - PRE_AUTHORIZATION_CODE
+        if: captures.pre_authorized_code != captures.credential_offer_body
+        http:
+          url: https://www.certification.openid.net/api/plan
+          auth:
+            $ref: "#/components/token"
+          method: POST
+          params:
+            planName: oid4vci-1_0-issuer-test-plan
+            variant: >-
+              {
+                "fapi_profile":"vci",
+                "sender_constrain":"dpop",
+                "client_auth_type":"private_key_jwt",
+                "vci_authorization_code_flow_variant":"issuer_initiated",
+                "credential_format":"${{captures.format | replace:"vc+sd-jwt","sd_jwt_vc" | replace:"dc+sd-jwt","sd_jwt_vc" | replace:"mso_mdoc","mdoc"}}",
+                "authorization_request_type":"simple",
+                "fapi_request_method":"unsigned",
+                "vci_grant_type":"pre_authorization_code",
+                "vci_credential_encryption":"plain"
+              }
+          json:
+            alias: "credimi-oid4vci-issuer-test-${{ string.uuid | fake: 7 }}"
+            description: Automated OID4VCI issuer conformance test via Credimi
+            vci:
+              credential_issuer_url: ${{captures.credential_issuer}}
+              credential_configuration_id: ${{captures.credential_configuration_id}}
+              static_tx_code: "tx_code_123456789"
+            client:
+              dpop_signing_alg: PS256
+              client_id: credimi-conformance-wallet-1
+            client2:
+              dpop_signing_alg: PS256
+              client_id: credimi-conformance-wallet-2
           check:
             status: 201
           captures:
@@ -101,8 +155,8 @@ tests:
             $ref: "#/components/token"
           method: POST
           params:
-            test: [[.test]]
-            plan: ${{captures.plan_id}}
+            test: ${{ env.test_name }}
+            plan: ${{ captures.plan_id }}
             variant: "{}"
           body: ""
           check:
@@ -118,3 +172,27 @@ tests:
           method: GET
           check:
             status: 200
+      - name: Happy flow wait for credential offer request
+        if: (env.test_name in ("oid4vci-1_0-issuer-happy-flow", "id4vci-1_0-issuer-happy-flow-additional-requests", "oid4vci-1_0-issuer-happy-flow-multiple-clients", "oid4vci-1_0-issuer-happy-flow-skip-notification"))
+        delays: 20s
+      - name: Happy flow obtain credential offer request
+        if: (env.test_name in ("oid4vci-1_0-issuer-happy-flow", "id4vci-1_0-issuer-happy-flow-additional-requests", "oid4vci-1_0-issuer-happy-flow-multiple-clients", "oid4vci-1_0-issuer-happy-flow-skip-notification"))
+        http:
+          url: https://www.certification.openid.net/api/log/${{captures.runner_id}}
+          auth:
+            $ref: "#/components/token"
+          method: GET
+          check:
+            status: 200
+          captures:
+            submit_credential_offer:
+              jsonpath: $.[-1:].src
+            credential_offer_endpoint:
+              jsonpath: $.[0].baseUrl
+      - name: Happy flow submit credential offer
+        if: captures.submit_credential_offer.0 == "VCIWaitForCredentialOffer"
+        http:
+          url: ${{ captures.credential_offer_endpoint }}/credential_offer?credential_offer=${{ captures.credential_offer_body | url_encode }}
+          auth:
+            $ref: "#/components/token"
+          method: GET
