@@ -25,6 +25,8 @@ import (
 const (
 	OpenID4VCIIssuerTaskQueue          = "OpenID4VCIIssuerTaskQueue"
 	OpenID4VCIIssuerStepCITemplatePath = "pkg/workflowengine/workflows/openid4vci_issuer_config/stepci_issuer_template_v1_0.yaml"
+	OpenID4VCIIssuerStartCheckSignal   = "start-openid4vci-issuer-log-update"
+	OpenID4VCIIssuerStopCheckSignal    = "stop-openid4vci-issuer-log-update"
 )
 
 const openID4VCIIssuerPollInterval = 5 * time.Second
@@ -162,7 +164,9 @@ func (w *OpenID4VCIIssuerWorkflow) ExecuteWorkflow(
 	return pollOpenID4VCIIssuerLogs(
 		ctx,
 		runnerID,
+		appURL,
 		utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+		true,
 		input.RunMetadata,
 	)
 }
@@ -197,11 +201,14 @@ func getOpenID4VCIIssuerRunnerID(
 func pollOpenID4VCIIssuerLogs(
 	ctx workflow.Context,
 	runnerID string,
+	appURL string,
 	token string,
+	notifyLogs bool,
 	metadata *workflowengine.WorkflowErrorMetadata,
 ) (workflowengine.WorkflowResult, error) {
 	httpActivity := activities.NewHTTPActivity()
 	pollCtx := workflow.WithActivityOptions(ctx, openID4VCIIssuerPollingActivityOptions)
+	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	request := workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodGet,
@@ -227,6 +234,11 @@ func pollOpenID4VCIIssuerLogs(
 		}
 
 		logs := workflowengine.AsSliceOfMaps(workflowengine.AsMap(httpResponse.Output)["body"])
+		if notifyLogs {
+			if err := notifyOpenID4VCIIssuerLogs(pollCtx, appURL, workflowID, logs); err != nil {
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, metadata)
+			}
+		}
 		if len(logs) == 0 {
 			if err := workflow.Sleep(ctx, openID4VCIIssuerPollInterval); err != nil {
 				return workflowengine.WorkflowResult{}, err
@@ -258,4 +270,29 @@ func pollOpenID4VCIIssuerLogs(
 			Log:     logs,
 		}, nil
 	}
+}
+
+func notifyOpenID4VCIIssuerLogs(
+	ctx workflow.Context,
+	appURL string,
+	workflowID string,
+	logs []map[string]any,
+) error {
+	httpActivity := activities.NewHTTPActivity()
+	request := workflowengine.ActivityInput{
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodPost,
+			URL:    utils.JoinURL(appURL, "api", "compliance", "send-openidnet-log-update"),
+			Headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+			Body: map[string]any{
+				"workflow_id": workflowID,
+				"logs":        logs,
+			},
+			ExpectedStatus: 200,
+			Timeout:        "30",
+		},
+	}
+	return workflow.ExecuteActivity(ctx, httpActivity.Name(), request).Get(ctx, nil)
 }

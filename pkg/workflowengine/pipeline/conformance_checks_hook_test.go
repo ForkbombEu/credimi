@@ -280,7 +280,7 @@ nonce: "xyz"
 
 		memo, ok := result.Config["memo"].(map[string]any)
 		require.True(t, ok)
-		require.Equal(t, workflows.OpenID4VCIIssuerSuite, memo["author"])
+		require.Equal(t, workflows.OpenIDConformanceSuite, memo["author"])
 		require.Equal(t, "openid4vci_issuer", memo["standard"])
 		require.Equal(t, "issuer-check", memo["test"])
 	})

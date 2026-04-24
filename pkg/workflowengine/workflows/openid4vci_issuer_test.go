@@ -21,6 +21,14 @@ import (
 	"go.temporal.io/sdk/testsuite"
 )
 
+func matchHTTPActivityInput(method string, url string) func(workflowengine.ActivityInput) bool {
+	return func(input workflowengine.ActivityInput) bool {
+		payload := workflowengine.AsMap(input.Payload)
+		return workflowengine.AsString(payload["method"]) == method &&
+			workflowengine.AsString(payload["url"]) == url
+	}
+}
+
 func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 	os.Setenv("OPENIDNET_TOKEN", "test_token")
 
@@ -71,7 +79,14 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 						},
 					}, nil).
 					Once()
-				env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"GET",
+						"https://www.certification.openid.net/api/log/runner-123",
+					)),
+				).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"body": []map[string]any{
@@ -84,6 +99,14 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 						},
 					}, nil).
 					Once()
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"POST",
+						"https://test-app.com/api/compliance/send-openidnet-log-update",
+					)),
+				).Return(workflowengine.ActivityResult{}, nil).Once()
 			},
 			expectErr: false,
 			checkResult: func(t *testing.T, result workflowengine.WorkflowResult) {
@@ -126,7 +149,14 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 						},
 					}, nil).
 					Once()
-				env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"GET",
+						"https://www.certification.openid.net/api/log/runner-123",
+					)),
+				).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"body": []map[string]any{
@@ -139,6 +169,14 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 						},
 					}, nil).
 					Once()
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"POST",
+						"https://test-app.com/api/compliance/send-openidnet-log-update",
+					)),
+				).Return(workflowengine.ActivityResult{}, nil).Once()
 			},
 			expectErr:     true,
 			errorCode:     errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed].Code,
@@ -192,7 +230,14 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 						},
 					}, nil).
 					Once()
-				env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"GET",
+						"https://www.certification.openid.net/api/log/runner-123",
+					)),
+				).
 					Return(workflowengine.ActivityResult{}, errors.New("log polling failed")).
 					Once()
 			},

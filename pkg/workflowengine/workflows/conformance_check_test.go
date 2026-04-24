@@ -456,7 +456,14 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 			},
 		},
 	}, nil).Once()
-	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(matchHTTPActivityInput(
+			"GET",
+			"https://www.certification.openid.net/api/log/runner-123",
+		)),
+	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
 				"body": []map[string]any{
@@ -578,7 +585,14 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 			},
 		}, nil).
 		Once()
-	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(matchHTTPActivityInput(
+			"GET",
+			"https://www.certification.openid.net/api/log/runner-123",
+		)),
+	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
 				"body": []map[string]any{

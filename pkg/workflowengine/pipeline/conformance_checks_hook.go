@@ -104,13 +104,14 @@ func ConformanceCheckSetupHook(
 			standard = parts[0]
 			checkName = parts[len(parts)-1]
 		}
+		memoAuthor := suite
 		// OID4VCI issuer tests live inside openid_conformance_suite folders but
 		// need their own dispatch path — override the suite key before the switch.
 		if standard == "openid4vci_issuer" {
 			suite = workflows.OpenID4VCIIssuerSuite
 		}
 		memo := map[string]any{
-			"author":   suite,
+			"author":   memoAuthor,
 			"standard": standard,
 			"test":     checkName,
 		}

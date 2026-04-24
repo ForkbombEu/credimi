@@ -438,7 +438,9 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		return pollOpenID4VCIIssuerLogs(
 			ctx,
 			runnerID,
+			appURL,
 			utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+			false,
 			input.RunMetadata,
 		)
 	default:
