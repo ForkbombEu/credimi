@@ -420,9 +420,14 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	httpActivity := activities.NewHTTPActivity()
 	env.RegisterActivityWithOptions(
 		stepCIActivity.Execute,
 		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
 	)
 	env.OnActivity(
 		stepCIActivity.Name(),
@@ -447,11 +452,23 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 	).Return(workflowengine.ActivityResult{
 		Output: map[string]any{
 			"captures": map[string]any{
-				"result": []any{"PASSED"},
-				"logs":   "issuer logs",
+				"runner_id": "runner-123",
 			},
 		},
 	}, nil).Once()
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"body": []map[string]any{
+					{
+						"result":            "FINISHED",
+						"testmodule_result": "PASSED",
+						"msg":               "issuer logs",
+					},
+				},
+			},
+		}, nil).
+		Once()
 
 	w := NewStartCheckWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
@@ -476,7 +493,13 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 	var result workflowengine.WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "Check completed successfully", result.Message)
-	require.Equal(t, "issuer logs", result.Log)
+	require.Equal(t, []map[string]any{
+		{
+			"result":            "FINISHED",
+			"testmodule_result": "PASSED",
+			"msg":               "issuer logs",
+		},
+	}, workflowengine.AsSliceOfMaps(result.Log))
 	env.AssertExpectations(t)
 }
 
@@ -537,16 +560,33 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	httpActivity := activities.NewHTTPActivity()
 	env.RegisterActivityWithOptions(
 		stepCIActivity.Execute,
 		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
 	)
 	env.OnActivity(stepCIActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
 				"captures": map[string]any{
-					"result": []any{"FAILED"},
-					"logs":   "issuer failure logs",
+					"runner_id": "runner-123",
+				},
+			},
+		}, nil).
+		Once()
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"body": []map[string]any{
+					{
+						"result":            "FINISHED",
+						"testmodule_result": "FAILED",
+						"msg":               "issuer failure logs",
+					},
 				},
 			},
 		}, nil).

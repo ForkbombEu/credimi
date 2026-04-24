@@ -44,7 +44,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 		checkResult   func(t *testing.T, result workflowengine.WorkflowResult)
 	}{
 		{
-			name: "succeeds when StepCI returns passing result",
+			name: "succeeds when polling reaches FINISHED with PASSED result",
 			payload: OpenID4VCIIssuerWorkflowPayload{
 				CredentialOffer: "openid-credential-offer://...",
 				UserMail:        "tester@example.org",
@@ -53,29 +53,53 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
+				httpActivity := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(
 					stepCI.Execute,
 					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					httpActivity.Execute,
+					activity.RegisterOptions{Name: httpActivity.Name()},
 				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"captures": map[string]any{
-								"result": []any{"PASSED"},
-								"logs":   "all tests passed",
+								"runner_id": "runner-123",
 							},
 						},
-					}, nil)
+					}, nil).
+					Once()
+				env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"body": []map[string]any{
+								{
+									"result":            "FINISHED",
+									"testmodule_result": "PASSED",
+									"msg":               "all tests passed",
+								},
+							},
+						},
+					}, nil).
+					Once()
 			},
 			expectErr: false,
 			checkResult: func(t *testing.T, result workflowengine.WorkflowResult) {
 				t.Helper()
 				require.Equal(t, "Check completed successfully", result.Message)
-				require.Equal(t, "all tests passed", result.Log)
+				require.Equal(t, []map[string]any{
+					{
+						"result":            "FINISHED",
+						"testmodule_result": "PASSED",
+						"msg":               "all tests passed",
+					},
+				}, workflowengine.AsSliceOfMaps(result.Log))
 			},
 		},
 		{
-			name: "succeeds when result capture is absent (StepCI handles failure internally)",
+			name: "returns OpenID4VCIIssuerCheckFailed error when polling reaches FINISHED with FAILED result",
 			payload: OpenID4VCIIssuerWorkflowPayload{
 				CredentialOffer: "openid-credential-offer://...",
 				UserMail:        "tester@example.org",
@@ -84,46 +108,37 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
+				httpActivity := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(
 					stepCI.Execute,
 					activity.RegisterOptions{Name: stepCI.Name()},
 				)
-				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{
-						Output: map[string]any{
-							"captures": map[string]any{},
-						},
-					}, nil)
-			},
-			expectErr: false,
-			checkResult: func(t *testing.T, result workflowengine.WorkflowResult) {
-				t.Helper()
-				require.Equal(t, "Check completed successfully", result.Message)
-			},
-		},
-		{
-			name: "returns OpenID4VCIIssuerCheckFailed error when result is FAILED",
-			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
-			},
-			config: baseConfig,
-			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
-				stepCI := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(
-					stepCI.Execute,
-					activity.RegisterOptions{Name: stepCI.Name()},
+					httpActivity.Execute,
+					activity.RegisterOptions{Name: httpActivity.Name()},
 				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"captures": map[string]any{
-								"result": []any{"FAILED"},
-								"logs":   "assertion failed at step 3",
+								"runner_id": "runner-123",
 							},
 						},
-					}, nil)
+					}, nil).
+					Once()
+				env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"body": []map[string]any{
+								{
+									"result":            "FINISHED",
+									"testmodule_result": "FAILED",
+									"msg":               "assertion failed at step 3",
+								},
+							},
+						},
+					}, nil).
+					Once()
 			},
 			expectErr:     true,
 			errorCode:     errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed].Code,
@@ -150,6 +165,41 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			errorContains: "stepci connection timeout",
 		},
 		{
+			name: "returns error when polling activity fails",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: baseConfig,
+			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				httpActivity := activities.NewHTTPActivity()
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					httpActivity.Execute,
+					activity.RegisterOptions{Name: httpActivity.Name()},
+				)
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"captures": map[string]any{
+								"runner_id": "runner-123",
+							},
+						},
+					}, nil).
+					Once()
+				env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, errors.New("log polling failed")).
+					Once()
+			},
+			expectErr:     true,
+			errorContains: "log polling failed",
+		},
+		{
 			name: "returns error when StepCI output is missing captures",
 			payload: OpenID4VCIIssuerWorkflowPayload{
 				CredentialOffer: "openid-credential-offer://...",
@@ -170,6 +220,31 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			},
 			expectErr:     true,
 			errorContains: "StepCI unexpected output",
+		},
+		{
+			name: "returns error when StepCI output is missing runner_id",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: baseConfig,
+			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"captures": map[string]any{},
+						},
+					}, nil).
+					Once()
+			},
+			expectErr:     true,
+			errorContains: "runner_id",
 		},
 		{
 			name: "returns error when credential_offer is missing",

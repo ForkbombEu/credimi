@@ -118,22 +118,3 @@ tests:
           method: GET
           check:
             status: 200
-      - name: Poll test logs until finished
-        retries:
-          count: 30
-          interval: 10s
-        http:
-          url: https://www.certification.openid.net/api/log/${{captures.runner_id}}
-          auth:
-            $ref: "#/components/token"
-          method: GET
-          check:
-            status: 200
-            jsonpath:
-              $.[-1:].result:
-                - in: FINISHED
-          captures:
-            logs:
-              body: true
-            result:
-              jsonpath: $.[-1:].testmodule_result

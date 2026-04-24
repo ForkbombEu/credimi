@@ -7,6 +7,9 @@
 package workflows
 
 import (
+	"fmt"
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -15,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -23,12 +27,22 @@ const (
 	OpenID4VCIIssuerStepCITemplatePath = "pkg/workflowengine/workflows/openid4vci_issuer_config/stepci_issuer_template_v1_0.yaml"
 )
 
+const openID4VCIIssuerPollInterval = 5 * time.Second
+
 // issuerActivityOptions extends DefaultActivityOptions with longer timeouts to
-// accommodate the StepCI polling loop (up to 30 retries × 10 s = 5 minutes).
+// accommodate the StepCI setup and follow-up log polling.
 var issuerActivityOptions = workflow.ActivityOptions{
 	ScheduleToCloseTimeout: time.Hour,
 	StartToCloseTimeout:    time.Minute * 30,
 	RetryPolicy:            retryPolicy,
+}
+
+var openID4VCIIssuerPollingActivityOptions = workflow.ActivityOptions{
+	ScheduleToCloseTimeout: time.Minute,
+	StartToCloseTimeout:    time.Minute,
+	RetryPolicy: &temporal.RetryPolicy{
+		MaximumAttempts: 1,
+	},
 }
 
 var openID4VCIIssuerStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
@@ -73,10 +87,11 @@ func (w *OpenID4VCIIssuerWorkflow) Workflow(
 
 // ExecuteWorkflow is the main workflow function. It:
 //  1. Decodes the payload (credential_offer + test name).
-//  2. Runs StepCIWorkflowActivity using the issuer StepCI Go template, which
-//     resolves the credential issuer, creates a certification test plan, starts
-//     the runner, and polls logs until the test is FINISHED.
-//  3. Returns a WorkflowResult with the captured logs.
+//  2. Runs StepCIWorkflowActivity using the issuer StepCI Go template to
+//     resolve the credential issuer, create the test plan, and start the runner.
+//  3. Polls the OpenID certification logs directly from Temporal until the
+//     runner reaches a terminal state.
+//  4. Returns a WorkflowResult with the full final logs.
 //
 // The OPENIDNET_TOKEN environment variable must be set with a valid bearer token
 // for the OpenID Foundation Certification Suite API.
@@ -139,29 +154,17 @@ func (w *OpenID4VCIIssuerWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	// The StepCI template polls until the test is FINISHED; any failure causes
-	// StepCI to exit with an error (handled above). If we reach here the test
-	// completed successfully.
-	testResult, _ := result.Captures["result"].([]any)
-	if len(testResult) > 0 {
-		if r, ok := testResult[0].(string); ok && r == "FAILED" {
-			errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
-			appErr := workflowengine.NewAppError(
-				errCode,
-				errCode.Description,
-				result.Captures["logs"],
-			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				input.RunMetadata,
-			)
-		}
+	runnerID, err := getOpenID4VCIIssuerRunnerID(result.Captures, input.RunMetadata)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
 	}
 
-	return workflowengine.WorkflowResult{
-		Message: "Check completed successfully",
-		Log:     result.Captures["logs"],
-	}, nil
+	return pollOpenID4VCIIssuerLogs(
+		ctx,
+		runnerID,
+		utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+		input.RunMetadata,
+	)
 }
 
 // Start enqueues the workflow on the OpenID4VCIIssuerTaskQueue.
@@ -178,4 +181,81 @@ func (w *OpenID4VCIIssuerWorkflow) Start(
 		namespace = input.Config["namespace"].(string)
 	}
 	return openID4VCIIssuerStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+}
+
+func getOpenID4VCIIssuerRunnerID(
+	captures map[string]any,
+	metadata *workflowengine.WorkflowErrorMetadata,
+) (string, error) {
+	runnerID, ok := captures["runner_id"].(string)
+	if !ok || runnerID == "" {
+		return "", workflowengine.NewStepCIOutputError("runner_id", captures, metadata)
+	}
+	return runnerID, nil
+}
+
+func pollOpenID4VCIIssuerLogs(
+	ctx workflow.Context,
+	runnerID string,
+	token string,
+	metadata *workflowengine.WorkflowErrorMetadata,
+) (workflowengine.WorkflowResult, error) {
+	httpActivity := activities.NewHTTPActivity()
+	pollCtx := workflow.WithActivityOptions(ctx, openID4VCIIssuerPollingActivityOptions)
+	request := workflowengine.ActivityInput{
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodGet,
+			URL: utils.JoinURL(
+				"https://www.certification.openid.net/api/log",
+				url.PathEscape(runnerID),
+			),
+			Headers: map[string]string{
+				"Authorization": fmt.Sprintf("Bearer %s", token),
+			},
+			QueryParams: map[string]string{
+				"public": "false",
+			},
+			ExpectedStatus: 200,
+			Timeout:        "30",
+		},
+	}
+
+	for {
+		var httpResponse workflowengine.ActivityResult
+		if err := workflow.ExecuteActivity(pollCtx, httpActivity.Name(), request).Get(pollCtx, &httpResponse); err != nil {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, metadata)
+		}
+
+		logs := workflowengine.AsSliceOfMaps(workflowengine.AsMap(httpResponse.Output)["body"])
+		if len(logs) == 0 {
+			if err := workflow.Sleep(ctx, openID4VCIIssuerPollInterval); err != nil {
+				return workflowengine.WorkflowResult{}, err
+			}
+			continue
+		}
+
+		lastLog := logs[len(logs)-1]
+		lastResult := workflowengine.AsString(lastLog["result"])
+		if lastResult != "FINISHED" && lastResult != "INTERRUPTED" {
+			if err := workflow.Sleep(ctx, openID4VCIIssuerPollInterval); err != nil {
+				return workflowengine.WorkflowResult{}, err
+			}
+			continue
+		}
+
+		testModuleResult := workflowengine.AsString(lastLog["testmodule_result"])
+		if lastResult == "INTERRUPTED" || testModuleResult == "FAILED" {
+			errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
+			appErr := workflowengine.NewAppError(errCode, errCode.Description, logs)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				metadata,
+			)
+		}
+
+		return workflowengine.WorkflowResult{
+			Message: "Check completed successfully",
+			Log:     logs,
+		}, nil
+	}
 }

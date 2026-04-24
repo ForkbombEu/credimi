@@ -430,26 +430,17 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			},
 		}, nil
 	case OpenID4VCIIssuerSuite:
-		// StepCI handles the full issuer conformance flow including polling;
-		// no child workflow needed — just inspect the captured result.
-		testResult, _ := setupResult.Captures["result"].([]any)
-		if len(testResult) > 0 {
-			if r, ok := testResult[0].(string); ok && r == "FAILED" {
-				errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-					workflowengine.NewAppError(
-						errCode,
-						errCode.Description,
-						setupResult.Captures["logs"],
-					),
-					input.RunMetadata,
-				)
-			}
+		runnerID, err := getOpenID4VCIIssuerRunnerID(setupResult.Captures, input.RunMetadata)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
 		}
-		return workflowengine.WorkflowResult{
-			Message: "Check completed successfully",
-			Log:     setupResult.Captures["logs"],
-		}, nil
+
+		return pollOpenID4VCIIssuerLogs(
+			ctx,
+			runnerID,
+			utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+			input.RunMetadata,
+		)
 	default:
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			fmt.Sprintf("unsupported suite %s", payload.Suite),
