@@ -11,12 +11,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { localizeHref } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import { getEntityHref, type Entity } from './types';
+	import { getRelatedEntityHref, type RelatedEntity } from './types';
 
 	//
 
 	type Props = {
-		record: Entity;
+		record: RelatedEntity;
 		link?: boolean;
 	};
 
@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if link}
 	<a
-		href={resolve(localizeHref(getEntityHref(record)) as '/')}
+		href={resolve(localizeHref(getRelatedEntityHref(record)) as '/')}
 		class="w-fit hover:ring-2 hover:ring-primary"
 	>
 		{@render content()}
@@ -35,9 +35,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 {#snippet content()}
-	<Avatar
-		src={pb.files.getURL(record, record.logo)}
-		class="size-6 rounded-xs border"
-		fallback={record.name.slice(0, 2)}
-	/>
+	{#if 'logo' in record}
+		<Avatar
+			src={pb.files.getURL(record, record.logo)}
+			class="size-6 rounded-xs border"
+			fallback={record.name.slice(0, 2)}
+		/>
+	{/if}
 {/snippet}

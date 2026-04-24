@@ -8,12 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 
 	import Na from './na.svelte';
-	import { getEntityHref, type Entity } from './types';
+	import { getRelatedEntityHref, type RelatedEntity } from './types';
 
 	//
 
 	type Props = {
-		records: Entity[];
+		records: RelatedEntity[];
 	};
 
 	let { records }: Props = $props();
@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div>
 	{#each records as record (record.id)}
-		<A href={getEntityHref(record)} class="block max-w-[15ch] truncate text-xs">
+		<A href={getRelatedEntityHref(record)} class="block max-w-[15ch] truncate text-xs">
 			{record.name}
 		</A>
 	{:else}

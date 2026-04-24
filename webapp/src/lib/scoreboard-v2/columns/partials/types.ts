@@ -8,6 +8,7 @@ import type {
 	CredentialIssuersResponse,
 	CredentialsResponse,
 	CustomChecksResponse,
+	PipelinesResponse,
 	UseCasesVerificationsResponse,
 	VerifiersResponse,
 	WalletsResponse
@@ -15,14 +16,15 @@ import type {
 
 //
 
-export type Entity =
+export type RelatedEntity =
 	| WalletsResponse
 	| CredentialIssuersResponse
 	| VerifiersResponse
 	| UseCasesVerificationsResponse
 	| CredentialsResponse
-	| CustomChecksResponse;
+	| CustomChecksResponse
+	| PipelinesResponse;
 
-export function getEntityHref(entity: Entity): string {
+export function getRelatedEntityHref(entity: RelatedEntity): string {
 	return `/marketplace/${entity.collectionName}/${getPath(entity)}`;
 }

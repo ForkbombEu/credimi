@@ -6,7 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Sparkle, StoreIcon, TableIcon } from '@lucide/svelte';
-	import { Scoreboard } from '$lib';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
 
@@ -21,13 +20,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { currentUser } from '@/pocketbase';
 
 	import { MarketplaceItemCard } from '../../lib/marketplace';
+	import ScoreboardSection from './_partials/scoreboard-section.svelte';
 
 	//
 
 	let { data } = $props();
-	const { wallets, issuers, verifiers } = $derived(data);
-
-	const scoreboard = new Scoreboard.Instance();
+	const { wallets, issuers, verifiers, scoreboard } = $derived(data);
 </script>
 
 {#if $featureFlags.DEMO}
@@ -40,10 +38,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.EUDIW_Conformance_Interoperability_and_Marketplace()}
 		</T>
 		<div class="flex flex-col gap-2 py-2">
-			<T tag="h3" class="!font-normal text-balance">
+			<T tag="h3" class="font-normal! text-balance">
 				{m.Explore_the_marketplace_and_try_credentials_wallets_and_services()}
 			</T>
-			<T tag="h3" class="!font-normal text-balance">
+			<T tag="h3" class="font-normal! text-balance">
 				{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}
 			</T>
 		</div>
@@ -79,12 +77,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	<!-- <MarketplaceSection
-		collection={Collections.Credentials}
-		findLabel={m.Find_credentials()}
-		allLabel={m.All_credentials()}
-	/> -->
-
 	<div class="space-y-6">
 		<div class="flex items-center justify-between">
 			<T tag="h3">{m.Compare_by_test_results()}</T>
@@ -93,8 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{m.View_Scoreboard()}
 			</Button>
 		</div>
-		<!-- <FakeTable /> -->
-		<Scoreboard.Component {scoreboard} />
+		<ScoreboardSection {...scoreboard} />
 	</div>
 </PageContent>
 
@@ -106,7 +97,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{
 				'md:-translate-x-3': index === 0 || index === 2,
 				'md:translate-x-3': index === 1
-				// 'md:-translate-x-4': index === 2
 			}
 		]}
 	>
@@ -116,13 +106,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/each}
 		</div>
 	</div>
-	<!-- <div class="-mx-2 -mt-3 scrollbar-none overflow-x-scroll px-2 pt-3">
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-			{#each items as item (item.id)}
-				<MarketplaceItemCard {item} />
-			{/each}
-		</div>
-	</div> -->
 {/snippet}
 
 <!-- 
