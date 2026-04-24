@@ -101,6 +101,81 @@ func (w *orderedWorkflow) ExecuteWorkflow(
 	}, nil
 }
 
+type runtimeCapturePayload struct {
+	Text string `json:"text"`
+	Fail bool   `json:"fail,omitempty"`
+}
+
+type runtimeCaptureActivity struct {
+	name     string
+	captured *[]string
+}
+
+func (a *runtimeCaptureActivity) Name() string {
+	return a.name
+}
+
+func (a *runtimeCaptureActivity) Execute(
+	_ context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	payload, err := workflowengine.DecodePayload[runtimeCapturePayload](input.Payload)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	*a.captured = append(*a.captured, payload.Text)
+	result := workflowengine.ActivityResult{Output: map[string]any{"text": payload.Text}}
+	if payload.Fail {
+		return result, errors.New("capture failed")
+	}
+
+	return result, nil
+}
+
+func (a *runtimeCaptureActivity) NewActivityError(string, string, ...any) error {
+	return errors.New("activity error")
+}
+
+func (a *runtimeCaptureActivity) NewNonRetryableActivityError(string, string, ...any) error {
+	return errors.New("activity error")
+}
+
+func (a *runtimeCaptureActivity) NewMissingOrInvalidPayloadError(err error) error {
+	return err
+}
+
+func registerRuntimeCaptureActivity(
+	t *testing.T,
+	env *testsuite.TestWorkflowEnvironment,
+	name string,
+	captured *[]string,
+) {
+	t.Helper()
+
+	captureAct := &runtimeCaptureActivity{name: name, captured: captured}
+	env.RegisterActivityWithOptions(
+		captureAct.Execute,
+		activity.RegisterOptions{Name: captureAct.Name()},
+	)
+
+	orig, hadOrig := registry.Registry[name]
+	t.Cleanup(func() {
+		if hadOrig {
+			registry.Registry[name] = orig
+			return
+		}
+		delete(registry.Registry, name)
+	})
+
+	registry.Registry[name] = registry.TaskFactory{
+		Kind:        registry.TaskActivity,
+		NewFunc:     func() any { return captureAct },
+		PayloadType: reflect.TypeOf(runtimeCapturePayload{}),
+		OutputKind:  workflowengine.OutputMap,
+	}
+}
+
 // TestPipelineWorkflowFailsWithoutDefinition asserts a clear error when workflow_definition is missing.
 func TestPipelineWorkflowFailsWithoutDefinition(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
@@ -280,6 +355,162 @@ func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 	output, ok := result.Output.(map[string]any)
 	require.True(t, ok)
 	require.Contains(t, output, "step-1")
+}
+
+func TestPipelineWorkflowOnSuccessUsesCurrentStepOutputInRuntimeContext(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "Runtime Pipeline",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "first",
+							Use: "capture-runtime",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"text": "seed",
+								},
+							},
+						},
+						OnSuccess: []*pipeline.OnSuccessStepDefinition{
+							{
+								StepSpec: pipeline.StepSpec{
+									ID:  "notify",
+									Use: "capture-runtime",
+									With: pipeline.StepInputs{
+										Payload: map[string]any{
+											"text": "name=${{ pipeline_name }} result=${{ result }} output=${{ pipeline_output.first.outputs.text }}",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+	require.Len(t, captured, 2)
+	require.Equal(t, "seed", captured[0])
+	require.Contains(t, captured[1], "name=Runtime Pipeline")
+	require.Contains(t, captured[1], "result=success")
+	require.Contains(t, captured[1], "output=seed")
+}
+
+func TestPipelineWorkflowChildPipelineResolvesRuntimeContext(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+
+	internalHTTPAct := activities.NewInternalHTTPActivity()
+	env.RegisterActivityWithOptions(
+		internalHTTPAct.Execute,
+		activity.RegisterOptions{Name: internalHTTPAct.Name()},
+	)
+
+	childYAML := `
+name: Child Pipeline
+steps:
+  - id: child-step
+    use: capture-runtime
+    with:
+      payload:
+        text: "${{ inputs.parent_message }}"
+`
+
+	env.OnActivity(
+		internalHTTPAct.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+			if err != nil {
+				return false
+			}
+			return payload.URL == "https://example.test/api/pipeline/get-yaml" &&
+				payload.QueryParams["pipeline_identifier"] == "child-pipeline"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{"body": childYAML}}, nil).Once()
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "Parent Pipeline",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "first",
+							Use: "capture-runtime",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"text": "seed",
+								},
+							},
+						},
+					},
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "child",
+							Use: "child-pipeline",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"pipeline_id":    "child-pipeline",
+									"parent_message": "name=${{ pipeline_name }} result=${{ result }} output=${{ pipeline_output.first.outputs.text }}",
+								},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+	require.Len(t, captured, 2)
+	require.Equal(t, "seed", captured[0])
+	require.Contains(t, captured[1], "name=Parent Pipeline")
+	require.Contains(t, captured[1], "result=success")
+	require.Contains(t, captured[1], "output=seed")
 }
 
 func TestPipelineWorkflowWrapsSetupHookCancellation(t *testing.T) {

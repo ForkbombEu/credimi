@@ -355,6 +355,26 @@ func buildPipelineStepInputs(finalOutput map[string]any, payload map[string]any)
 	return stepInputs
 }
 
+func buildEnrichedStepInputs(
+	ctx workflow.Context,
+	payload map[string]any,
+	finalOutput map[string]any,
+	pipelineName string,
+	pipelineURL string,
+	hasErrors bool,
+) map[string]any {
+	return enrichDataContext(
+		buildPipelineStepInputs(
+			finalOutput,
+			payload,
+		),
+		pipelineName,
+		pipelineURL,
+		hasErrors,
+		workflow.Now(ctx).Format(time.RFC3339),
+	)
+}
+
 func (w *PipelineWorkflow) executeChildPipelineStep(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
@@ -368,12 +388,23 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 ) error {
 	logger.Info("Running step", "id", step.ID, "use", step.Use)
 
+	pipelineName := input.WorkflowDefinition.Name
+	pipelineURL := runMetadata.TemporalUI
+	payload := workflowengine.AsMap(input.WorkflowInput.Payload)
+	stepInputs = buildEnrichedStepInputs(
+		ctx,
+		payload,
+		state.finalOutput,
+		pipelineName,
+		pipelineURL,
+		len(state.errorsList) > 0,
+	)
 	childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
 	if err != nil {
 		return handleChildPipelineStepError(
 			ctx,
 			step,
-			stepInputs,
+			payload,
 			childOut,
 			err,
 			ao,
@@ -381,15 +412,23 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 			runMetadata,
 			state,
 			logger,
-			input.WorkflowDefinition.Name,
-			runMetadata.TemporalUI,
+			pipelineName,
+			pipelineURL,
 		)
 	}
 
-	runStepSuccessHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
 	state.finalOutput[step.ID] = map[string]any{
 		"outputs": childOut,
 	}
+	successInputs := buildEnrichedStepInputs(
+		ctx,
+		payload,
+		state.finalOutput,
+		pipelineName,
+		pipelineURL,
+		len(state.errorsList) > 0,
+	)
+	runStepSuccessHooks(ctx, step, successInputs, state.errorsList, ao, config, logger)
 
 	return nil
 }
@@ -397,7 +436,7 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 func handleChildPipelineStepError(
 	ctx workflow.Context,
 	step pipeline.StepDefinition,
-	stepInputs map[string]any,
+	payload map[string]any,
 	childOut any,
 	err error,
 	ao workflow.ActivityOptions,
@@ -419,14 +458,15 @@ func handleChildPipelineStepError(
 	if childOut != nil {
 		state.finalOutput[step.ID] = map[string]any{"outputs": childOut}
 	}
-	enrichedStepInputs := enrichDataContext(
-		stepInputs,
+	errorInputs := buildEnrichedStepInputs(
+		ctx,
+		payload,
+		state.finalOutput,
 		pipelineName,
 		pipelineURL,
 		true,
-		workflow.Now(ctx).Format(time.RFC3339),
 	)
-	runStepErrorHooks(ctx, step, enrichedStepInputs, state.errorsList, ao, config, logger)
+	runStepErrorHooks(ctx, step, errorInputs, state.errorsList, ao, config, logger)
 	if step.ContinueOnError {
 		if out := workflowengine.ExtractOutputFromError(err); out != nil {
 			childOut = out
@@ -459,12 +499,14 @@ func (w *PipelineWorkflow) executeRegularStep(
 
 	pipelineName := input.WorkflowDefinition.Name
 	pipelineURL := runMetadata.TemporalUI
-	enrichedStepInputs := enrichDataContext(
-		stepInputs,
+	payload := workflowengine.AsMap(input.WorkflowInput.Payload)
+	enrichedStepInputs := buildEnrichedStepInputs(
+		ctx,
+		payload,
+		state.finalOutput,
 		pipelineName,
 		pipelineURL,
 		len(state.errorsList) > 0,
-		workflow.Now(ctx).Format(time.RFC3339),
 	)
 
 	stepOutput, err := Execute(&step, ctx, config, enrichedStepInputs, ao)
@@ -475,7 +517,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 		return ao, handleRegularStepError(
 			ctx,
 			step,
-			stepInputs,
+			payload,
 			stepOutput,
 			err,
 			ao,
@@ -489,15 +531,16 @@ func (w *PipelineWorkflow) executeRegularStep(
 	}
 
 	state.finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
-	enrichedStepInputs = enrichDataContext(
-		stepInputs,
+	successInputs := buildEnrichedStepInputs(
+		ctx,
+		payload,
+		state.finalOutput,
 		pipelineName,
 		pipelineURL,
 		len(state.errorsList) > 0,
-		workflow.Now(ctx).Format(time.RFC3339),
 	)
 
-	runStepSuccessHooks(ctx, step, enrichedStepInputs, state.errorsList, ao, config, logger)
+	runStepSuccessHooks(ctx, step, successInputs, state.errorsList, ao, config, logger)
 	if debug {
 		runDebugActivity(ctx, logger, step.ID, state.finalOutput, input.WorkflowInput.Payload)
 	}
@@ -509,7 +552,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 func handleRegularStepError(
 	ctx workflow.Context,
 	step pipeline.StepDefinition,
-	stepInputs map[string]any,
+	payload map[string]any,
 	stepOutput any,
 	err error,
 	ao workflow.ActivityOptions,
@@ -528,14 +571,15 @@ func handleRegularStepError(
 	if stepOutput != nil {
 		state.finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
 	}
-	enrichedStepInputs := enrichDataContext(
-		stepInputs,
+	errorInputs := buildEnrichedStepInputs(
+		ctx,
+		payload,
+		state.finalOutput,
 		pipelineName,
 		pipelineURL,
 		true,
-		workflow.Now(ctx).Format(time.RFC3339),
 	)
-	runStepErrorHooks(ctx, step, enrichedStepInputs, state.errorsList, ao, config, logger)
+	runStepErrorHooks(ctx, step, errorInputs, state.errorsList, ao, config, logger)
 
 	if step.ContinueOnError {
 		state.errorsList = append(state.errorsList, err.Error())
