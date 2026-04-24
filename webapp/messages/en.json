@@ -953,5 +953,8 @@
 	"Min_running_time": "Min. running time",
 	"Runners": "Runners",
 	"Verifications": "Verifications",
-	"View_Scoreboard": "View Scoreboard"
+	"View_Scoreboard": "View Scoreboard",
+	"executions_manual": "manual",
+	"executions_scheduled": "scheduled",
+	"Execution_mode": "Execution mode"
 }
