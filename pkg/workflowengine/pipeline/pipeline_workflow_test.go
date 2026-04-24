@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
@@ -464,4 +466,271 @@ func TestPipelineWorkflowDefersPlayStoreDisableUntilAfterExternalInstallSteps(t 
 
 	require.NoError(t, env.GetWorkflowError())
 	require.Equal(t, []string{"external-step", "disable-play-store", "after-step"}, order)
+}
+
+func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	emailActivity := activities.NewSendMailActivity()
+	env.RegisterActivityWithOptions(
+		emailActivity.Execute,
+		activity.RegisterOptions{Name: emailActivity.Name()},
+	)
+
+	var callOrder []string
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"body": "ok"}}, nil).
+		Run(func(args mock.Arguments) {
+			input := args.Get(1).(workflowengine.ActivityInput)
+			if payload, ok := input.Payload.(*activities.HTTPActivityPayload); ok {
+				callOrder = append(callOrder, "http: "+payload.URL)
+			} else if payload, ok := input.Payload.(map[string]any); ok {
+				if url, ok := payload["url"]; ok {
+					callOrder = append(callOrder, "http: "+url.(string))
+				}
+			}
+		})
+
+	env.OnActivity(emailActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"sent": true}}, nil).
+		Run(func(args mock.Arguments) {
+			callOrder = append(callOrder, "email")
+		})
+
+	wfDef := &pipeline.WorkflowDefinition{
+		Name: "test-finally-http",
+		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "main-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/main",
+						},
+					},
+				},
+			},
+		},
+		Finally: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "finally-http",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"method": "POST",
+							"url":    "https://example.com/finally",
+							"body": map[string]any{
+								"phase":  "finally",
+								"result": "${{result}}",
+							},
+						},
+					},
+				},
+			},
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "finally-email",
+					Use: "email",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"recipient": "test@example.com",
+							"subject":   "Pipeline finished",
+							"body":      "Done",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: wfDef,
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+
+	t.Logf("Call order: %v", callOrder)
+	require.Len(t, callOrder, 3, "Should have main step + 2 finally steps")
+	require.Contains(t, callOrder[0], "https://example.com/main")
+	require.Contains(t, callOrder[1], "https://example.com/finally")
+	require.Equal(t, "email", callOrder[2])
+}
+
+func TestValidateFinallySteps(t *testing.T) {
+	validSteps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "valid-http",
+				Use: "http-request",
+			},
+		},
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "valid-email",
+				Use: "email",
+			},
+		},
+	}
+	err := ValidateFinallySteps(validSteps)
+	require.NoError(t, err)
+
+	invalidSteps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "invalid-json",
+				Use: "json-parse",
+			},
+		},
+	}
+	err = ValidateFinallySteps(invalidSteps)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not allowed")
+	require.Contains(t, err.Error(), "json-parse")
+	require.Contains(t, err.Error(), "invalid-json")
+	mixedSteps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "invalid-mobile",
+				Use: "mobile-automation",
+			},
+		},
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "valid-email",
+				Use: "email",
+			},
+		},
+	}
+	err = ValidateFinallySteps(mixedSteps)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mobile-automation")
+}
+
+func TestPipelineWorkflowStartWithInvalidFinally(t *testing.T) {
+	pipelineWf := NewPipelineWorkflow()
+
+	originalClient := pipelineTemporalClient
+	defer func() {
+		pipelineTemporalClient = originalClient
+	}()
+
+	mockClient := temporalmocks.NewClient(t)
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+	yamlContent := `
+name: test-invalid-finally
+steps:
+  - id: main-step
+    use: http-request
+    with:
+      payload:
+        url: "https://example.com/main"
+finally:
+  - id: invalid-finally
+    use: json-parse
+    with:
+      payload:
+        struct_type: "map"
+`
+
+	_, err := pipelineWf.Start(
+		yamlContent,
+		map[string]any{
+			"namespace": "default",
+			"app_url":   "https://example.test",
+		},
+		map[string]any{},
+		"test/invalid-finally",
+	)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not allowed")
+}
+
+func TestPipelineWorkflowStartWithValidFinally(t *testing.T) {
+	pipelineWf := NewPipelineWorkflow()
+
+	originalClient := pipelineTemporalClient
+	defer func() {
+		pipelineTemporalClient = originalClient
+	}()
+
+	mockClient := temporalmocks.NewClient(t)
+	workflowRun := temporalmocks.NewWorkflowRun(t)
+	workflowRun.On("GetID").Return("workflow-123")
+	workflowRun.On("GetRunID").Return("run-456")
+	mockClient.On(
+		"ExecuteWorkflow",
+		mock.Anything,
+		mock.Anything,
+		pipelineWf.Name(),
+		mock.Anything,
+	).Return(workflowRun, nil)
+
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	yamlContent := `
+name: test-valid-finally
+steps:
+  - id: main-step
+    use: http-request
+    with:
+      payload:
+        url: "https://example.com/main"
+finally:
+  - id: valid-http
+    use: http-request
+    with:
+      payload:
+        url: "https://example.com/finally"
+  - id: valid-email
+    use: email
+    with:
+      payload:
+        recipient: "test@example.com"
+        subject: "Test"
+        body: "Body"
+`
+
+	_, err := pipelineWf.Start(
+		yamlContent,
+		map[string]any{
+			"namespace": "default",
+			"app_url":   "https://example.test",
+		},
+		map[string]any{},
+		"test/valid-finally",
+	)
+
+	require.NoError(t, err)
 }

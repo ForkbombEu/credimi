@@ -16,6 +16,7 @@ type WorkflowDefinition struct {
 	Runtime RuntimeConfig    `yaml:"runtime,omitempty" json:"runtime,omitempty"`
 	Config  map[string]any   `yaml:"config,omitempty"  json:"config,omitempty"`
 	Steps   []StepDefinition `yaml:"steps,omitempty"   json:"steps,omitempty"`
+	Finally []StepDefinition `yaml:"finally,omitempty" json:"finally,omitempty"`
 }
 
 type StepSpec struct {

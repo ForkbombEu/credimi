@@ -132,6 +132,19 @@ func (w *PipelineWorkflow) Workflow(
 			logger,
 			&cleanupErrors,
 		)
+		finalCtx, _ := workflow.NewDisconnectedContext(ctx)
+		runFinallySteps(
+			finalCtx,
+			wfDef.Finally,
+			ao,
+			config,
+			wfDef.Name,
+			runMetadata.TemporalUI,
+			len(state.errorsList) > 0,
+			state.finalOutput,
+			logger,
+			&cleanupErrors,
+		)
 	}()
 
 	if err := runSetupHooks(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
@@ -578,6 +591,10 @@ func (w *PipelineWorkflow) Start(
 		return result, err
 	}
 
+	if err := ValidateFinallySteps(wfDef.Finally); err != nil {
+		return result, err
+	}
+
 	memo["test"] = wfDef.Name
 	options := PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
@@ -743,4 +760,58 @@ func ExecuteEventStepsOnSuccess(
 		}
 	}
 	return errorsList
+}
+
+func runFinallySteps(
+	ctx workflow.Context,
+	finallySteps []pipeline.StepDefinition,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	pipelineName string,
+	pipelineURL string,
+	hasErrors bool,
+	finalOutput map[string]any,
+	logger log.Logger,
+	errorList *[]error,
+) {
+	if len(finallySteps) == 0 {
+		return
+	}
+	logger.Info("Executing finally steps", "count", len(finallySteps))
+
+	stepInputs := buildPipelineStepInputs(finalOutput, workflowengine.AsMap(config))
+	for _, step := range finallySteps {
+		logger.Info("Running finally step", "id", step.ID, "use", step.Use)
+
+		enrichedStepInputs := enrichDataContext(
+			stepInputs,
+			pipelineName,
+			pipelineURL,
+			hasErrors,
+			workflow.Now(ctx).Format(time.RFC3339),
+		)
+
+		_, err := Execute(&step, ctx, config, enrichedStepInputs, ao)
+		if err != nil {
+			logger.Error("Finally step filed", "step_id", step.ID, "error", err)
+			if errorList != nil {
+				*errorList = append(*errorList, err)
+			}
+		}
+	}
+}
+
+func ValidateFinallySteps(finallySteps []pipeline.StepDefinition) error {
+	allowedTypes := map[string]bool{
+		"email":        true,
+		"http-request": true,
+	}
+
+	for _, step := range finallySteps {
+		if !allowedTypes[step.Use] {
+			return fmt.Errorf("finally step '%s' uses '%s' which is not allowed. Only email and http-request are allowed",
+				step.ID, step.Use)
+		}
+	}
+	return nil
 }
