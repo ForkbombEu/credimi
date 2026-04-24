@@ -28,8 +28,8 @@ import { loadScoreboardData } from './functions';
 
 const columns = [
 	Column.build(name),
-	Column.build(totalExecutionsSuccessesPercentage),
 	Column.build(videoScreenshot),
+	Column.build(totalExecutionsSuccessesPercentage),
 	Column.build(wallets),
 	Column.build(issuers),
 	Column.build(credentials),

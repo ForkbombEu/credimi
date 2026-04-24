@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ClassValue } from 'svelte/elements';
+
 	import { FileCogIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 
 	import type { IconComponent } from '@/components/types';
@@ -19,9 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		image?: string;
 		href: string;
 		icon: IconComponent | IconType;
+		class?: ClassValue;
 	};
 
-	let { image, href, icon }: Props = $props();
+	let { image, href, icon, class: className }: Props = $props();
 
 	const map: Record<IconType, IconComponent> = {
 		image: ImageIcon,
@@ -36,7 +39,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <a
 	{href}
 	target="_blank"
-	class="relative size-10 shrink-0 overflow-hidden rounded-md border border-slate-300 hover:cursor-pointer hover:ring-2"
+	class={[
+		'relative size-10 shrink-0 overflow-hidden rounded-md border border-slate-300 hover:cursor-pointer hover:ring-2',
+		className
+	]}
 >
 	{#if image}
 		<img src={image} alt="Media" class="size-10 shrink-0" />
