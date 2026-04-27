@@ -105,6 +105,10 @@ func (w *PipelineWorkflow) Workflow(
 		)
 	}
 
+	if err := ValidateFinallySteps(wfDef.Finally); err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+	}
+
 	result := workflowengine.WorkflowResult{}
 
 	state := newPipelineExecutionState(workflowID, runID)
@@ -122,6 +126,13 @@ func (w *PipelineWorkflow) Workflow(
 		runData = input.ParentRunData
 	}
 	defer func() {
+		finalResult := "success"
+
+		if ctx.Err() != nil && temporal.IsCanceledError(ctx.Err()) {
+			finalResult = "canceled"
+		} else if len(state.errorsList) > 0 {
+			finalResult = "failed"
+		}
 		runCleanupHooks(
 			ctx,
 			wfDef.Steps,
@@ -133,6 +144,7 @@ func (w *PipelineWorkflow) Workflow(
 			&cleanupErrors,
 		)
 		finalCtx, _ := workflow.NewDisconnectedContext(ctx)
+		var finallyErrors []error
 		runFinallySteps(
 			finalCtx,
 			wfDef.Finally,
@@ -140,11 +152,22 @@ func (w *PipelineWorkflow) Workflow(
 			config,
 			wfDef.Name,
 			runMetadata.TemporalUI,
-			len(state.errorsList) > 0,
+			finalResult,
 			state.finalOutput,
 			logger,
-			&cleanupErrors,
+			&finallyErrors,
 		)
+		if len(finallyErrors) > 0 {
+			var finallyErrorStrs []string
+			for _, err := range finallyErrors {
+				finallyErrorStrs = append(finallyErrorStrs, err.Error())
+			}
+			if state.finalOutput == nil {
+				state.finalOutput = make(map[string]any)
+			}
+			state.finalOutput["finally_errors"] = finallyErrorStrs
+			logger.Warn("Finally steps failed", "errors", finallyErrorStrs)
+		}
 	}()
 
 	if err := runSetupHooks(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
@@ -591,10 +614,6 @@ func (w *PipelineWorkflow) Start(
 		return result, err
 	}
 
-	if err := ValidateFinallySteps(wfDef.Finally); err != nil {
-		return result, err
-	}
-
 	memo["test"] = wfDef.Name
 	options := PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
@@ -769,7 +788,7 @@ func runFinallySteps(
 	config map[string]any,
 	pipelineName string,
 	pipelineURL string,
-	hasErrors bool,
+	finalResult string,
 	finalOutput map[string]any,
 	logger log.Logger,
 	errorList *[]error,
@@ -787,9 +806,10 @@ func runFinallySteps(
 			stepInputs,
 			pipelineName,
 			pipelineURL,
-			hasErrors,
+			false,
 			workflow.Now(ctx).Format(time.RFC3339),
 		)
+		enrichedStepInputs["result"] = finalResult
 
 		_, err := Execute(&step, ctx, config, enrichedStepInputs, ao)
 		if err != nil {
