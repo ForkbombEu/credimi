@@ -59,9 +59,8 @@ func (PipelineWorkflow) GetOptions() workflow.ActivityOptions {
 func (w *PipelineWorkflow) Workflow(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
-) (workflowengine.WorkflowResult, error) {
+) (result workflowengine.WorkflowResult, finalErr error) {
 	logger := workflow.GetLogger(ctx)
-
 	var ao workflow.ActivityOptions
 
 	if input.WorkflowInput.ActivityOptions != nil {
@@ -109,8 +108,6 @@ func (w *PipelineWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
-	result := workflowengine.WorkflowResult{}
-
 	state := newPipelineExecutionState(workflowID, runID)
 
 	runData := map[string]any{
@@ -122,17 +119,18 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	if input.ParentRunData != nil {
-		// For child pipelines, inherit parent run data
 		runData = input.ParentRunData
 	}
+
 	defer func() {
 		finalResult := "success"
 
 		if ctx.Err() != nil && temporal.IsCanceledError(ctx.Err()) {
 			finalResult = "canceled"
-		} else if len(state.errorsList) > 0 {
+		} else if finalErr != nil {
 			finalResult = "failed"
 		}
+
 		runCleanupHooks(
 			ctx,
 			wfDef.Steps,
@@ -143,6 +141,18 @@ func (w *PipelineWorkflow) Workflow(
 			logger,
 			&cleanupErrors,
 		)
+
+		if finalResult != "success" {
+			if state.finalOutput == nil {
+				state.finalOutput = make(map[string]any)
+			}
+			if finalErr != nil {
+				state.finalOutput["pipeline_output"] = finalErr.Error()
+			} else if len(state.errorsList) > 0 {
+				state.finalOutput["pipeline_output"] = state.errorsList[0]
+			}
+		}
+
 		finalCtx, _ := workflow.NewDisconnectedContext(ctx)
 		var finallyErrors []error
 		runFinallySteps(
@@ -188,11 +198,13 @@ func (w *PipelineWorkflow) Workflow(
 		logger,
 	)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, err
+		finalErr = err
+		return workflowengine.WorkflowResult{}, finalErr
 	}
 
 	if err := runPendingPlayStoreDisableAfterSteps(ctx, &ao, config, &runData); err != nil {
-		return workflowengine.WorkflowResult{}, wrapWorkflowCancellationError(err, runMetadata)
+		finalErr = wrapWorkflowCancellationError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, finalErr
 	}
 
 	if len(state.errorsList) > 0 {
@@ -201,12 +213,14 @@ func (w *PipelineWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("workflow completed with %d step errors", len(state.errorsList)),
 		)
-		return result, workflowengine.NewWorkflowError(
+		finalErr = workflowengine.NewWorkflowError(
 			appErr,
 			runMetadata,
 			state.errorsList,
 			state.finalOutput,
 		)
+		result = workflowengine.WorkflowResult{}
+		return
 	}
 
 	if len(cleanupErrors) > 0 {
@@ -215,17 +229,20 @@ func (w *PipelineWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("workflow completed with %d cleanup errors", len(cleanupErrors)),
 		)
-		return result, workflowengine.NewWorkflowError(
+		finalErr = workflowengine.NewWorkflowError(
 			appErr,
 			runMetadata,
 			cleanupErrors,
 			state.finalOutput,
 		)
+		result = workflowengine.WorkflowResult{}
+		return
 	}
 
-	return workflowengine.WorkflowResult{
+	result = workflowengine.WorkflowResult{
 		Output: state.finalOutput,
-	}, nil
+	}
+	return
 }
 
 func newPipelineExecutionState(workflowID string, runID string) *pipelineExecutionState {
@@ -333,7 +350,6 @@ func (w *PipelineWorkflow) executeStep(
 			ctx,
 			input,
 			step,
-			stepInputs,
 			ao,
 			config,
 			runMetadata,
@@ -485,7 +501,6 @@ func (w *PipelineWorkflow) executeRegularStep(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
 	step pipeline.StepDefinition,
-	stepInputs map[string]any,
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	runMetadata *workflowengine.WorkflowErrorMetadata,

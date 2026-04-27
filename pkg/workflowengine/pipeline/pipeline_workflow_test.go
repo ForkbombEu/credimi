@@ -1077,3 +1077,165 @@ func TestPipelineWorkflowFinallyErrorsDontBlockWorkflow(t *testing.T) {
 
 	require.Contains(t, output, "main-step")
 }
+
+func TestPipelineWorkflowFailure(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	expectedError := "database connection failed"
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, errors.New(expectedError))
+
+	wfDef := &pipeline.WorkflowDefinition{
+		Name: "test-failure",
+		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "failing-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/fail",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: wfDef,
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), expectedError)
+}
+
+func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	var capturedBody map[string]any
+	callCount := 0
+	expectedError := "database connection failed"
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(func(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			callCount++
+
+			var url string
+			switch payload := input.Payload.(type) {
+			case map[string]any:
+				if u, ok := payload["url"]; ok {
+					url = u.(string)
+				}
+				if body, ok := payload["body"].(map[string]any); ok && url == "https://example.com/finally" {
+					capturedBody = body
+				}
+			}
+
+			if url == "https://example.com/fail" {
+				return workflowengine.ActivityResult{}, errors.New(expectedError)
+			}
+			return workflowengine.ActivityResult{Output: map[string]any{"body": "ok"}}, nil
+		})
+
+	wfDef := &pipeline.WorkflowDefinition{
+		Name: "test-failure-with-finally",
+		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "failing-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/fail",
+						},
+					},
+				},
+			},
+		},
+		Finally: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "finally-check",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"method": "POST",
+							"url":    "https://example.com/finally",
+							"body": map[string]any{
+								"pipeline_output": "${{pipeline_output}}",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: wfDef,
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), expectedError)
+
+	require.NotNil(t, capturedBody, "Finally step should be executed")
+
+	pipelineOutput, exists := capturedBody["pipeline_output"]
+	require.True(t, exists, "pipeline_output should be present in finally body")
+
+	outputStr := fmt.Sprintf("%v", pipelineOutput)
+	require.NotEqual(t, "${pipeline_output}", outputStr, "pipeline_output should be resolved, not a placeholder")
+
+	require.Contains(t, outputStr, "database connection failed")
+}
