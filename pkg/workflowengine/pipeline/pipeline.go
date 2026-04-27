@@ -158,7 +158,7 @@ func (w *PipelineWorkflow) Workflow(
 			&finallyErrors,
 		)
 		if len(finallyErrors) > 0 {
-			var finallyErrorStrs []string
+			finallyErrorStrs := make([]string, 0, len(finallyErrors))
 			for _, err := range finallyErrors {
 				finallyErrorStrs = append(finallyErrorStrs, err.Error())
 			}
