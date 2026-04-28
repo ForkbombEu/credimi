@@ -12,6 +12,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -48,6 +49,37 @@ func seedUserAPIKey(t testing.TB, app *tests.TestApp, plaintext string) {
 	record.Set("key_type", "user")
 	record.Set("revoked", false)
 	require.NoError(t, app.Save(record))
+}
+
+func createWalletAPITestPipeline(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	yaml string,
+) *core.Record {
+	t.Helper()
+
+	coll, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("owner", orgID)
+	record.Set("name", "pipeline123")
+	record.Set("description", "test pipeline")
+	record.Set("steps", map[string]any{"rest-chain": map[string]any{"yaml": yaml}})
+	record.Set("yaml", yaml)
+	require.NoError(t, app.Save(record))
+
+	return record
+}
+
+func blankWalletAPITestPipelineYAML(t testing.TB, app *tests.TestApp, pipelineID string) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipelines SET yaml = '' WHERE id = {:id}`,
+	).Bind(dbx.Params{"id": pipelineID}).Execute()
+	require.NoError(t, err)
 }
 
 func walletAPKMultipartBody(
@@ -193,11 +225,95 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			Body:           validJSON(),
 			ExpectedStatus: http.StatusNotImplemented,
 			ExpectedContent: []string{
-				"request contract validated",
+				"pipeline context validated",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
 				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				orgID, err := getOrgIDfromName("userA's organization")
+				require.NoError(t, err)
+				createWalletAPITestPipeline(t, app, orgID, "name: test\nsteps: []\n")
+				return app
+			},
+		},
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+
+func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
+	userKeyHeaders := map[string]string{
+		"Content-Type":    "application/json",
+		"Credimi-Api-Key": walletAPKUserAPIKey,
+	}
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:    "unknown pipeline",
+			Method:  http.MethodPost,
+			URL:     "/api/pipeline/run-wallet-apk",
+			Headers: userKeyHeaders,
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/missing",
+				"commit_sha":          "abc123",
+				"apk_url":             "http://ci.example.test/wallet.apk",
+			}),
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				"pipeline not found",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineWalletAPKApp(t)
+				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				return app
+			},
+		},
+		{
+			Name:    "pipeline yaml is required",
+			Method:  http.MethodPost,
+			URL:     "/api/pipeline/run-wallet-apk",
+			Headers: userKeyHeaders,
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"commit_sha":          "abc123",
+				"apk_url":             "http://ci.example.test/wallet.apk",
+			}),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				"pipeline yaml is required",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineWalletAPKApp(t)
+				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				orgID, err := getOrgIDfromName("userA's organization")
+				require.NoError(t, err)
+				pipeline := createWalletAPITestPipeline(t, app, orgID, "name: test\nsteps: []\n")
+				blankWalletAPITestPipelineYAML(t, app, pipeline.Id)
+				return app
+			},
+		},
+		{
+			Name:    "resolves namespace from user api key",
+			Method:  http.MethodPost,
+			URL:     "/api/pipeline/run-wallet-apk",
+			Headers: userKeyHeaders,
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"commit_sha":          "abc123",
+				"apk_url":             "http://ci.example.test/wallet.apk",
+			}),
+			ExpectedStatus: http.StatusNotImplemented,
+			ExpectedContent: []string{
+				"pipeline context validated",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineWalletAPKApp(t)
+				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				orgID, err := getOrgIDfromName("userA's organization")
+				require.NoError(t, err)
+				createWalletAPITestPipeline(t, app, orgID, "name: test\nsteps: []\n")
 				return app
 			},
 		},

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -28,6 +29,17 @@ type PipelineRunWalletAPKResponse struct {
 	TempWalletVersionID         string `json:"temp_wallet_version_id,omitempty"`
 	TempWalletVersionIdentifier string `json:"temp_wallet_version_identifier,omitempty"`
 	PipelineIdentifier          string `json:"pipeline_identifier,omitempty"`
+}
+
+type pipelineRunWalletAPKContext struct {
+	input              pipelineRunWalletAPKRequest
+	organizationRecord *core.Record
+	namespace          string
+	userID             string
+	userName           string
+	userEmail          string
+	pipelineRecord     *core.Record
+	pipelineYAML       string
 }
 
 func buildPipelineRunWalletAPKResponse(
@@ -54,13 +66,80 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			return apiErr.JSON(e)
 		}
 
+		if _, apiErr := resolvePipelineRunWalletAPKContext(e, input); apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
 		return apierror.New(
 			http.StatusNotImplemented,
 			"wallet_apk_run",
 			"wallet APK pipeline run is not implemented yet",
-			"request contract validated",
+			"pipeline context validated",
 		).JSON(e)
 	}
+}
+
+func resolvePipelineRunWalletAPKContext(
+	e *core.RequestEvent,
+	input pipelineRunWalletAPKRequest,
+) (pipelineRunWalletAPKContext, *apierror.APIError) {
+	if e.Auth == nil {
+		return pipelineRunWalletAPKContext{}, apierror.New(
+			http.StatusUnauthorized,
+			"auth",
+			"authentication required",
+			"user not authenticated",
+		)
+	}
+
+	orgRecord, err := GetUserOrganization(e.App, e.Auth.Id)
+	if err != nil {
+		return pipelineRunWalletAPKContext{}, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization record",
+			err.Error(),
+		)
+	}
+	namespace := strings.TrimSpace(orgRecord.GetString("canonified_name"))
+	if namespace == "" {
+		return pipelineRunWalletAPKContext{}, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization canonified name",
+			"missing organization canonified name",
+		)
+	}
+
+	pipelineRecord, err := canonify.Resolve(e.App, input.PipelineIdentifier)
+	if err != nil {
+		return pipelineRunWalletAPKContext{}, apierror.New(
+			http.StatusNotFound,
+			"pipeline_identifier",
+			"pipeline not found",
+			err.Error(),
+		)
+	}
+	pipelineYAML := strings.TrimSpace(pipelineRecord.GetString("yaml"))
+	if pipelineYAML == "" {
+		return pipelineRunWalletAPKContext{}, apierror.New(
+			http.StatusBadRequest,
+			"pipeline_yaml",
+			"pipeline yaml is required",
+			"pipeline has no yaml",
+		)
+	}
+
+	return pipelineRunWalletAPKContext{
+		input:              input,
+		organizationRecord: orgRecord,
+		namespace:          namespace,
+		userID:             e.Auth.Id,
+		userName:           e.Auth.GetString("name"),
+		userEmail:          e.Auth.GetString("email"),
+		pipelineRecord:     pipelineRecord,
+		pipelineYAML:       pipelineYAML,
+	}, nil
 }
 
 func parsePipelineRunWalletAPKRequest(
