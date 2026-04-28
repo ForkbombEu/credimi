@@ -6,5 +6,5 @@ package pipeline
 
 import "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 
-type WorkflowDefinition pipeline.WorkflowDefinition;
-type StepDefinition pipeline.StepDefinition;
+type WorkflowDefinition pipeline.WorkflowDefinition
+type StepDefinition pipeline.StepDefinition

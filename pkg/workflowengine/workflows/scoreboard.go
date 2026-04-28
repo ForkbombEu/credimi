@@ -136,7 +136,10 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	namespaces, err := w.getNamespaces(ctx, httpActivity, appURL)
 	if err != nil {
 		logger.Error("Failed to get namespaces", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 
 	if len(namespaces) == 0 {
@@ -157,7 +160,9 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	// 3. Calculate success rates and sort runners
 	for _, stats := range aggregatedMap {
 		if stats.TotalRuns > 0 {
-			stats.SuccessRate = math.Round(float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000) / 100
+			stats.SuccessRate = math.Round(
+				float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000,
+			) / 100
 		}
 		sort.Strings(stats.Runners)
 		sort.Strings(stats.RunnerTypes)
@@ -224,7 +229,8 @@ func (w *AggregateScoreboardWorkflow) getNamespaces(
 		},
 	}
 
-	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).Get(ctx, &httpResult)
+	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).
+		Get(ctx, &httpResult)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +270,10 @@ func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 				ExpectedStatus: http.StatusOK,
 			},
 		}
-		scoreboardFutures = append(scoreboardFutures, workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest))
+		scoreboardFutures = append(
+			scoreboardFutures,
+			workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest),
+		)
 		scoreboardNamespaces = append(scoreboardNamespaces, namespace)
 	}
 
