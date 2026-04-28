@@ -84,13 +84,12 @@ func blankWalletAPITestPipelineYAML(t testing.TB, app *tests.TestApp, pipelineID
 	require.NoError(t, err)
 }
 
-func createWalletAPKVersion(
+func createWalletAPKWallet(
 	t testing.TB,
 	app *tests.TestApp,
 	orgID string,
 	walletName string,
-	tag string,
-) string {
+) *core.Record {
 	t.Helper()
 
 	walletColl, err := app.FindCollectionByNameOrId("wallets")
@@ -109,6 +108,20 @@ func createWalletAPKVersion(
 		walletRecord.Set("owner", orgID)
 		require.NoError(t, app.Save(walletRecord))
 	}
+
+	return walletRecord
+}
+
+func createWalletAPKVersion(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	walletName string,
+	tag string,
+) string {
+	t.Helper()
+
+	walletRecord := createWalletAPKWallet(t, app, orgID, walletName)
 
 	versionColl, err := app.FindCollectionByNameOrId("wallet_versions")
 	require.NoError(t, err)
@@ -427,6 +440,99 @@ func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
 		require.Nil(t, apiErr)
 		require.Equal(t, "abc123.apk", file.OriginalName)
 		require.Equal(t, int64(len("downloaded apk")), file.Size)
+	})
+}
+
+func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	newRunContext := func(
+		t testing.TB,
+		app *tests.TestApp,
+		wallet *core.Record,
+		commitSHA string,
+	) pipelineRunWalletAPKContext {
+		t.Helper()
+
+		orgRecord, err := app.FindRecordById("organizations", orgID)
+		require.NoError(t, err)
+
+		return pipelineRunWalletAPKContext{
+			input: pipelineRunWalletAPKRequest{
+				CommitSHA: commitSHA,
+			},
+			organizationRecord: orgRecord,
+			namespace:          orgRecord.GetString("canonified_name"),
+			walletRecord:       wallet,
+			apkFile:            NewTestFile("wallet.apk", []byte("apk")),
+		}
+	}
+
+	t.Run("creates caller-owned temporary wallet version", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		wallet := createWalletAPKWallet(t, app, orgID, "wallet-temp-create")
+		tempVersion, apiErr := createPipelineRunWalletAPKTempVersion(
+			app,
+			newRunContext(t, app, wallet, "ABC-123"),
+		)
+
+		require.Nil(t, apiErr)
+		require.NotEmpty(t, tempVersion.Record.Id)
+		require.Equal(t, "abc-123", tempVersion.Record.GetString("tag"))
+		require.Equal(t, "abc-123", tempVersion.Record.GetString("canonified_tag"))
+		require.Equal(t, orgID, tempVersion.Record.GetString("owner"))
+		require.Equal(t, wallet.Id, tempVersion.Record.GetString("wallet"))
+		require.Equal(t, "usera-s-organization/wallet-temp-create/abc-123", tempVersion.Identifier)
+		require.Len(t, tempVersion.Record.GetStringSlice("android_installer"), 1)
+	})
+
+	t.Run("rejects wallet owned by another organization", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		orgColl, err := app.FindCollectionByNameOrId("organizations")
+		require.NoError(t, err)
+		otherOrg := core.NewRecord(orgColl)
+		otherOrg.Set("name", "Other Org")
+		otherOrg.Set("canonified_name", "other-org")
+		require.NoError(t, app.Save(otherOrg))
+
+		wallet := createWalletAPKWallet(t, app, otherOrg.Id, "wallet-published")
+		wallet.Set("published", true)
+		require.NoError(t, app.Save(wallet))
+
+		_, apiErr := createPipelineRunWalletAPKTempVersion(
+			app,
+			newRunContext(t, app, wallet, "abc123"),
+		)
+
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusForbidden, apiErr.Code)
+		require.Equal(t, "wallet must belong to caller organization", apiErr.Reason)
+	})
+
+	t.Run("rejects duplicate commit sha for wallet owner", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		wallet := createWalletAPKWallet(t, app, orgID, "wallet-temp-duplicate")
+		_, apiErr := createPipelineRunWalletAPKTempVersion(
+			app,
+			newRunContext(t, app, wallet, "ABC-123"),
+		)
+		require.Nil(t, apiErr)
+
+		_, apiErr = createPipelineRunWalletAPKTempVersion(
+			app,
+			newRunContext(t, app, wallet, "abc-123"),
+		)
+
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusConflict, apiErr.Code)
+		require.Equal(t, "temporary wallet version already exists", apiErr.Reason)
 	})
 }
 

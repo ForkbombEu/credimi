@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
@@ -63,6 +65,11 @@ type walletAPKVersionReference struct {
 	VersionID string
 }
 
+type tempWalletVersion struct {
+	Record     *core.Record
+	Identifier string
+}
+
 func buildPipelineRunWalletAPKResponse(
 	queueResponse PipelineQueueResponse,
 	tempWalletVersionID string,
@@ -87,7 +94,11 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			return apiErr.JSON(e)
 		}
 
-		if _, apiErr := resolvePipelineRunWalletAPKContext(e, input); apiErr != nil {
+		runContext, apiErr := resolvePipelineRunWalletAPKContext(e, input)
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+		if _, apiErr := createPipelineRunWalletAPKTempVersion(e.App, runContext); apiErr != nil {
 			return apiErr.JSON(e)
 		}
 
@@ -382,6 +393,89 @@ func resolvePipelineRunWalletAPKWallet(
 		"pipeline must reference exactly one wallet",
 		"wallet could not be resolved",
 	)
+}
+
+func createPipelineRunWalletAPKTempVersion(
+	app core.App,
+	runContext pipelineRunWalletAPKContext,
+) (tempWalletVersion, *apierror.APIError) {
+	if runContext.walletRecord.GetString("owner") != runContext.organizationRecord.Id {
+		return tempWalletVersion{}, apierror.New(
+			http.StatusForbidden,
+			"wallet",
+			"wallet must belong to caller organization",
+			"temporary wallet versions can only be created for caller-owned wallets",
+		)
+	}
+
+	tag := canonify.CanonifyPlain(runContext.input.CommitSHA)
+	if tag == "" {
+		return tempWalletVersion{}, apierror.New(
+			http.StatusBadRequest,
+			"commit_sha",
+			"commit_sha is invalid",
+			"commit_sha cannot be canonified",
+		)
+	}
+
+	existing, err := app.FindFirstRecordByFilter(
+		"wallet_versions",
+		"wallet = {:wallet} && owner = {:owner} && canonified_tag = {:tag}",
+		dbx.Params{
+			"wallet": runContext.walletRecord.Id,
+			"owner":  runContext.organizationRecord.Id,
+			"tag":    tag,
+		},
+	)
+	if err == nil && existing != nil {
+		return tempWalletVersion{}, apierror.New(
+			http.StatusConflict,
+			"wallet_version",
+			"temporary wallet version already exists",
+			"wallet version with this commit_sha already exists",
+		)
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return tempWalletVersion{}, apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to check existing wallet version",
+			err.Error(),
+		)
+	}
+
+	collection, err := app.FindCollectionByNameOrId("wallet_versions")
+	if err != nil {
+		return tempWalletVersion{}, apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to get wallet_versions collection",
+			err.Error(),
+		)
+	}
+
+	record := core.NewRecord(collection)
+	record.Set("wallet", runContext.walletRecord.Id)
+	record.Set("owner", runContext.organizationRecord.Id)
+	record.Set("tag", tag)
+	record.Set("android_installer", []*filesystem.File{runContext.apkFile})
+
+	if err := app.Save(record); err != nil {
+		return tempWalletVersion{}, apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to create temporary wallet version",
+			err.Error(),
+		)
+	}
+
+	identifier := strings.Join([]string{
+		runContext.namespace,
+		runContext.walletRecord.GetString("canonified_name"),
+		record.GetString("canonified_tag"),
+	}, "/")
+
+	return tempWalletVersion{Record: record, Identifier: identifier}, nil
 }
 
 func collectWalletAPKVersionReferences(
