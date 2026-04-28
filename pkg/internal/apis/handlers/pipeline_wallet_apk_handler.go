@@ -23,6 +23,7 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
+	"gopkg.in/yaml.v3"
 )
 
 const walletAPKFormFileField = "apk_file"
@@ -98,7 +99,15 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr.JSON(e)
 		}
-		if _, apiErr := createPipelineRunWalletAPKTempVersion(e.App, runContext); apiErr != nil {
+		tempVersion, apiErr := createPipelineRunWalletAPKTempVersion(e.App, runContext)
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+		if _, apiErr := rewritePipelineRunWalletAPKYAML(
+			runContext.pipelineYAML,
+			runContext.versionReferences,
+			tempVersion.Identifier,
+		); apiErr != nil {
 			return apiErr.JSON(e)
 		}
 
@@ -476,6 +485,95 @@ func createPipelineRunWalletAPKTempVersion(
 	}, "/")
 
 	return tempWalletVersion{Record: record, Identifier: identifier}, nil
+}
+
+func rewritePipelineRunWalletAPKYAML(
+	pipelineYAML string,
+	versionReferences []walletAPKVersionReference,
+	tempVersionIdentifier string,
+) (string, *apierror.APIError) {
+	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse pipeline yaml",
+			err.Error(),
+		)
+	}
+
+	referencedVersions := map[string]struct{}{}
+	for _, ref := range versionReferences {
+		referencedVersions[canonify.NormalizePath(ref.VersionID)] = struct{}{}
+	}
+
+	rewriteCount := 0
+	for i := range workflowDefinition.Steps {
+		rewriteCount += rewriteWalletAPKStepVersion(
+			&workflowDefinition.Steps[i].StepSpec,
+			referencedVersions,
+			tempVersionIdentifier,
+		)
+		for _, onErr := range workflowDefinition.Steps[i].OnError {
+			if onErr != nil {
+				rewriteCount += rewriteWalletAPKStepVersion(
+					&onErr.StepSpec,
+					referencedVersions,
+					tempVersionIdentifier,
+				)
+			}
+		}
+		for _, onSuccess := range workflowDefinition.Steps[i].OnSuccess {
+			if onSuccess != nil {
+				rewriteCount += rewriteWalletAPKStepVersion(
+					&onSuccess.StepSpec,
+					referencedVersions,
+					tempVersionIdentifier,
+				)
+			}
+		}
+	}
+
+	if rewriteCount != len(versionReferences) {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to rewrite all wallet version references",
+			fmt.Sprintf("rewrote %d of %d references", rewriteCount, len(versionReferences)),
+		)
+	}
+
+	rewrittenYAML, err := yaml.Marshal(workflowDefinition)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"yaml",
+			"failed to marshal pipeline yaml",
+			err.Error(),
+		)
+	}
+
+	return string(rewrittenYAML), nil
+}
+
+func rewriteWalletAPKStepVersion(
+	step *pipelineinternal.StepSpec,
+	referencedVersions map[string]struct{},
+	tempVersionIdentifier string,
+) int {
+	if step == nil || step.Use != "mobile-automation" || step.With.Payload == nil {
+		return 0
+	}
+	versionID, ok := step.With.Payload["version_id"].(string)
+	if !ok {
+		return 0
+	}
+	if _, ok := referencedVersions[canonify.NormalizePath(versionID)]; !ok {
+		return 0
+	}
+
+	step.With.Payload["version_id"] = tempVersionIdentifier
+	return 1
 }
 
 func collectWalletAPKVersionReferences(

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -533,6 +534,101 @@ func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 		require.NotNil(t, apiErr)
 		require.Equal(t, http.StatusConflict, apiErr.Code)
 		require.Equal(t, "temporary wallet version already exists", apiErr.Reason)
+	})
+}
+
+func TestRewritePipelineRunWalletAPKYAML(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	t.Run("rewrites all wallet version references", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		versionA := createWalletAPKVersion(t, app, orgID, "wallet-rewrite", "1.0.0")
+		versionB := createWalletAPKVersion(t, app, orgID, "wallet-rewrite", "2.0.0")
+		pipelineYAML := "name: test\nsteps:\n" +
+			"  - id: install-a\n    use: mobile-automation\n    with:\n      version_id: " + versionA + "\n      action_id: action-a\n" +
+			"  - id: parse\n    use: json-parse\n    with:\n      raw_json: '{}'\n" +
+			"  - id: install-b\n    use: mobile-automation\n    with:\n      payload:\n        version_id: " + versionB + "\n        action_id: action-b\n"
+
+		_, refs, apiErr := resolvePipelineRunWalletAPKWallet(app, pipelineYAML)
+		require.Nil(t, apiErr)
+
+		rewritten, apiErr := rewritePipelineRunWalletAPKYAML(
+			pipelineYAML,
+			refs,
+			"usera-s-organization/wallet-rewrite/abc123",
+		)
+
+		require.Nil(t, apiErr)
+		workflow, err := pipelineinternal.ParseWorkflow(rewritten)
+		require.NoError(t, err)
+		require.Equal(
+			t,
+			"usera-s-organization/wallet-rewrite/abc123",
+			workflow.Steps[0].With.Payload["version_id"],
+		)
+		require.Equal(t, "{}", workflow.Steps[1].With.Payload["raw_json"])
+		require.Equal(
+			t,
+			"usera-s-organization/wallet-rewrite/abc123",
+			workflow.Steps[2].With.Payload["version_id"],
+		)
+	})
+
+	t.Run("rewrites nested success and error references", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		versionID := createWalletAPKVersion(t, app, orgID, "wallet-rewrite-nested", "1.0.0")
+		pipelineYAML := "name: test\nsteps:\n" +
+			"  - id: first\n    use: json-parse\n    with:\n      raw_json: '{}'\n    on_success:\n      - id: nested-success\n        use: mobile-automation\n        with:\n          version_id: " + versionID + "\n          action_id: action-a\n    on_error:\n      - id: nested-error\n        use: mobile-automation\n        with:\n          version_id: " + versionID + "\n          action_id: action-b\n"
+
+		_, refs, apiErr := resolvePipelineRunWalletAPKWallet(app, pipelineYAML)
+		require.Nil(t, apiErr)
+
+		rewritten, apiErr := rewritePipelineRunWalletAPKYAML(
+			pipelineYAML,
+			refs,
+			"usera-s-organization/wallet-rewrite-nested/abc123",
+		)
+
+		require.Nil(t, apiErr)
+		workflow, err := pipelineinternal.ParseWorkflow(rewritten)
+		require.NoError(t, err)
+		require.Equal(
+			t,
+			"usera-s-organization/wallet-rewrite-nested/abc123",
+			workflow.Steps[0].OnError[0].With.Payload["version_id"],
+		)
+		require.Equal(
+			t,
+			"usera-s-organization/wallet-rewrite-nested/abc123",
+			workflow.Steps[0].OnSuccess[0].With.Payload["version_id"],
+		)
+	})
+
+	t.Run("does not mutate stored pipeline yaml", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		versionID := createWalletAPKVersion(t, app, orgID, "wallet-rewrite-stored", "1.0.0")
+		pipelineYAML := walletAPKPipelineYAML(versionID)
+		pipelineRecord := createWalletAPITestPipeline(t, app, orgID, pipelineYAML)
+
+		_, refs, apiErr := resolvePipelineRunWalletAPKWallet(app, pipelineYAML)
+		require.Nil(t, apiErr)
+		_, apiErr = rewritePipelineRunWalletAPKYAML(
+			pipelineYAML,
+			refs,
+			"usera-s-organization/wallet-rewrite-stored/abc123",
+		)
+		require.Nil(t, apiErr)
+
+		reloaded, err := app.FindRecordById("pipelines", pipelineRecord.Id)
+		require.NoError(t, err)
+		require.Equal(t, pipelineYAML, reloaded.GetString("yaml"))
 	})
 }
 
