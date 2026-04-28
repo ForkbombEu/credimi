@@ -508,6 +508,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedContent: []string{
 				`"status":"success"`,
 				`"last_frame_file_name"`,
+				`"screenshot_urls"`,
 				`"video_file_name"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -529,6 +530,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedContent: []string{
 				`"status":"success"`,
 				`"last_frame_file_name"`,
+				`"screenshot_urls"`,
 				`"video_file_name"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
