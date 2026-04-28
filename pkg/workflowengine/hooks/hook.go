@@ -246,6 +246,15 @@ var DefaultWorkers = []workerConfig{
 			activities.NewInternalHTTPActivity(),
 		},
 	},
+	{
+		TaskQueue: workflows.PipelineRetentionTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewPipelineRetentionWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewInternalHTTPActivity(),
+		},
+	},
 }
 
 var (

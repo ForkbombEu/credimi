@@ -8,5 +8,5 @@ min_version = '2025.1.8'
 go = "1.25.5"
 bun = "latest"
 "aqua:dyne/slangroom-exec" = "latest"
-goreleaser = "latest"
 pre-commit = "latest"
+"go:github.com/goreleaser/goreleaser/v2" = "2.15"
