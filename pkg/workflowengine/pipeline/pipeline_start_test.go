@@ -78,7 +78,7 @@ steps:
     with:
       payload:
         runner_id: "runner-ios"
-`	
+`
 	result, err := pipelineWf.Start(
 		yaml,
 		map[string]any{"namespace": "default"},
@@ -88,7 +88,6 @@ steps:
 	require.NoError(t, err)
 	require.Equal(t, "schedule-123", result.WorkflowID)
 	require.Contains(t, result.Message, "scheduled successfully")
-
 
 	expectedRunnerIDs := []string{"runner-android", "runner-ios"}
 	expectedSearchAttrs := workflowengine.PipelineTypedSearchAttributes(

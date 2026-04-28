@@ -1,0 +1,7 @@
+uid: openid4vci_issuer
+name: OpenID4VCI Issuer
+description: OpenID for Verifiable Credential Issuance - Issuer conformance testing
+standard_url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+latest_update: 2026-04-17
+disabled: false
+external_links:

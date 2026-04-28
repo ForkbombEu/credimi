@@ -53,6 +53,11 @@ type EudiwInput struct {
 	ID    string `json:"id"    yaml:"id"    validate:"required"`
 }
 
+type OpenID4VCIIssuerTestInputFile struct {
+	CredentialOffer string `json:"credential_offer" yaml:"credential_offer" validate:"required"`
+	TestName        string `json:"test"             yaml:"test"             validate:"required"`
+}
+
 type Author string
 
 type WorkflowStarterParams struct {
@@ -83,6 +88,10 @@ var workflowRegistry = map[Author]WorkflowStarter{
 var (
 	openIDNetWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
 		w := workflows.NewOpenIDNetWorkflow()
+		return w.Start(input)
+	}
+	openID4VCIIssuerWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewOpenID4VCIIssuerWorkflow()
 		return w.Start(input)
 	}
 	ewcWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
@@ -155,12 +164,13 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		dirPath := os.Getenv("ROOT_DIR") + "/config_templates/" + protocol + "/" + version + "/"
+		rootDir := utils.GetEnvironmentVariable("ROOT_DIR", ".")
+		dirPath := rootDir + "/config_templates/" + protocol + "/" + version + "/"
 		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 			return apierror.New(
 				http.StatusBadRequest,
 				"directory",
-				"directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+version,
+				"directory does not exist for test "+rootDir+"/"+protocol+"/"+version,
 				err.Error(),
 			).JSON(e)
 		}
@@ -305,6 +315,12 @@ func reduceData(data interface{}) interface{} {
 }
 
 func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
+	// OID4VCI issuer conformance checks share the openid_conformance_suite author key
+	// but use a dedicated workflow and input format.
+	if i.Protocol == "openid4vci_issuer" {
+		return startOpenID4VCIIssuerWorkflow(i)
+	}
+
 	yamlData := i.YAMLData
 	email := i.Email
 	appURL := i.AppURL
@@ -358,14 +374,14 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	switch version {
 	case "1.0":
 		templateStr, err = readTemplateFile(
-			os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePathv1_0,
+			utils.GetEnvironmentVariable("ROOT_DIR", ".") + "/" + workflows.OpenIDNetStepCITemplatePathv1_0,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
 	case "draft-24":
 		templateStr, err = readTemplateFile(
-			os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePathDr24,
+			utils.GetEnvironmentVariable("ROOT_DIR", ".") + "/" + workflows.OpenIDNetStepCITemplatePathDr24,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
@@ -409,6 +425,63 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	return results, nil
 }
 
+func startOpenID4VCIIssuerWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
+	if i.YAMLData == "" {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"YAML data is required for OID4VCI issuer workflow",
+			"missing YAML data",
+		)
+	}
+
+	templateStr, err := readTemplateFile(
+		utils.GetEnvironmentVariable("ROOT_DIR", ".") + "/" + workflows.OpenID4VCIIssuerStepCITemplatePath,
+	)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
+	var parsedData OpenID4VCIIssuerTestInputFile
+	if err := yaml.Unmarshal([]byte(i.YAMLData), &parsedData); err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse YAML input for OID4VCI issuer workflow",
+			err.Error(),
+		)
+	}
+
+	input := workflowengine.WorkflowInput{
+		Payload: workflows.OpenID4VCIIssuerWorkflowPayload{
+			CredentialOffer: parsedData.CredentialOffer,
+			TestName:        parsedData.TestName,
+			UserMail:        i.Email,
+		},
+		Config: map[string]any{
+			"app_url":   i.AppURL,
+			"template":  templateStr,
+			"namespace": i.Namespace,
+			"memo":      i.Memo,
+			"app_name":  i.AppName,
+			"app_logo":  i.LogoUrl,
+			"user_name": i.UserName,
+		},
+	}
+
+	results, err := openID4VCIIssuerWorkflowStart(input)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start OID4VCI issuer workflow",
+			err.Error(),
+		)
+	}
+	results.Author = string(i.Author)
+	return results, nil
+}
+
 func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
 	return startEWCLikeWorkflow(
 		i,
@@ -439,7 +512,7 @@ func startEWCLikeWorkflow(
 	)
 	filename = strings.TrimPrefix(filename, "/")
 	templateStr, err := readTemplateFile(
-		filepath.Join(os.Getenv("ROOT_DIR"), templateFolderPath, filename),
+		filepath.Join(utils.GetEnvironmentVariable("ROOT_DIR", "."), templateFolderPath, filename),
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -505,7 +578,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 		"eudiw",
 	)
 	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.EudiwTemplateFolderPath + filename,
+		utils.GetEnvironmentVariable("ROOT_DIR", ".") + "/" + workflows.EudiwTemplateFolderPath + filename,
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err

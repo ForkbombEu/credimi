@@ -218,20 +218,26 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 					payload := input.Payload.(map[string]any)
 					url, _ := payload["url"].(string)
 					return strings.Contains(url, "save-results")
-				})).Return(workflowengine.ActivityResult{
-					Output: map[string]any{
-						"body": map[string]any{
-							"success": true,
+				})).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"body": map[string]any{
+								"success": true,
+							},
+							"status_code": 200,
 						},
-						"status_code": 200,
-					},
-				}, nil).Once()
+					}, nil).
+					Once()
 			},
 			validateOutput: func(t *testing.T, output AggregateScoreboardWorkflowOutput) {
 				require.Equal(t, 1, output.NamespacesProcessed)
 				require.Equal(t, 1, output.NamespacesFailed)
 				require.Len(t, output.FailedNamespaces, 1)
-				require.Contains(t, []string{"namespace-1", "namespace-2"}, output.FailedNamespaces[0])
+				require.Contains(
+					t,
+					[]string{"namespace-1", "namespace-2"},
+					output.FailedNamespaces[0],
+				)
 				require.Len(t, output.AggregatedPipelines, 1)
 				require.NotNil(t, output.AggregatedPipelines[0].LastExecution)
 			},
@@ -504,12 +510,14 @@ func mockSaveResults(env *testsuite.TestWorkflowEnvironment) {
 		}
 		url, _ := payload["url"].(string)
 		return strings.Contains(url, "save-results")
-	})).Return(workflowengine.ActivityResult{
-		Output: map[string]any{
-			"body": map[string]any{
-				"success": true,
+	})).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"body": map[string]any{
+					"success": true,
+				},
+				"status_code": 200,
 			},
-			"status_code": 200,
-		},
-	}, nil).Once()
+		}, nil).
+		Once()
 }

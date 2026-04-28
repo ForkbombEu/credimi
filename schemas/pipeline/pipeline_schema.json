@@ -265,6 +265,9 @@
                     "additionalProperties": true,
                     "type": "object"
                   },
+                  "credential_offer": {
+                    "type": "string"
+                  },
                   "form": {
                     "additionalProperties": false,
                     "properties": {
