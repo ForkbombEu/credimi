@@ -723,6 +723,7 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 	)
 
 	var callOrder []string
+	var capturedFinallyBody map[string]any
 
 	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{"body": "ok"}}, nil).
@@ -730,9 +731,15 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 			input := args.Get(1).(workflowengine.ActivityInput)
 			if payload, ok := input.Payload.(*activities.HTTPActivityPayload); ok {
 				callOrder = append(callOrder, "http: "+payload.URL)
+				if body, ok := payload.Body.(map[string]any); ok {
+					capturedFinallyBody = body
+				}
 			} else if payload, ok := input.Payload.(map[string]any); ok {
 				if url, ok := payload["url"]; ok {
 					callOrder = append(callOrder, "http: "+url.(string))
+				}
+				if body, ok := payload["body"].(map[string]any); ok {
+					capturedFinallyBody = body
 				}
 			}
 		})
@@ -768,8 +775,11 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 							"method": "POST",
 							"url":    "https://example.com/finally",
 							"body": map[string]any{
-								"phase":  "finally",
-								"result": "${{result}}",
+								"phase":           "finally",
+								"result":          "${{result}}",
+								"pipeline_url":    "${{pipeline_url}}",
+								"input_value":     "${{inputs.tenant}}",
+								"pipeline_output": "${{pipeline_output}}",
 							},
 						},
 					},
@@ -799,6 +809,9 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 				Config: map[string]any{
 					"app_url": "https://example.test",
 				},
+				Payload: map[string]any{
+					"tenant": "acme",
+				},
 				ActivityOptions: &workflow.ActivityOptions{
 					StartToCloseTimeout: time.Second,
 				},
@@ -813,6 +826,25 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 	require.Contains(t, callOrder[0], "https://example.com/main")
 	require.Contains(t, callOrder[1], "https://example.com/finally")
 	require.Equal(t, "email", callOrder[2])
+
+	require.NotNil(t, capturedFinallyBody)
+	require.Equal(t, "success", capturedFinallyBody["result"])
+	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", capturedFinallyBody["pipeline_url"])
+	require.Equal(t, "acme", capturedFinallyBody["input_value"])
+
+	pipelineOutput, ok := capturedFinallyBody["pipeline_output"].(map[string]any)
+	require.True(t, ok)
+	require.Nil(t, pipelineOutput["error"])
+
+	outputs, ok := pipelineOutput["outputs"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, map[string]any{"outputs": map[string]any{"body": "ok"}}, outputs["main-step"])
+
+	metadata, ok := pipelineOutput["metadata"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", metadata["pipeline_url"])
+	require.Equal(t, "default-test-workflow-id", metadata["workflow_id"])
+	require.Equal(t, "default-test-run-id", metadata["workflow_run_id"])
 }
 
 func TestValidateFinallySteps(t *testing.T) {
@@ -1161,6 +1193,11 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 
 			var url string
 			switch payload := input.Payload.(type) {
+			case *activities.HTTPActivityPayload:
+				url = payload.URL
+				if body, ok := payload.Body.(map[string]any); ok && url == "https://example.com/finally" {
+					capturedBody = body
+				}
 			case map[string]any:
 				if u, ok := payload["url"]; ok {
 					url = u.(string)
@@ -1179,6 +1216,17 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 	wfDef := &pipeline.WorkflowDefinition{
 		Name: "test-failure-with-finally",
 		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "first-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/ok",
+						},
+					},
+				},
+			},
 			{
 				StepSpec: pipeline.StepSpec{
 					ID:  "failing-step",
@@ -1201,6 +1249,8 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 							"method": "POST",
 							"url":    "https://example.com/finally",
 							"body": map[string]any{
+								"result":          "${{result}}",
+								"pipeline_url":    "${{pipeline_url}}",
 								"pipeline_output": "${{pipeline_output}}",
 							},
 						},
@@ -1230,12 +1280,23 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 	require.Contains(t, err.Error(), expectedError)
 
 	require.NotNil(t, capturedBody, "Finally step should be executed")
+	require.Equal(t, "failed", capturedBody["result"])
+	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", capturedBody["pipeline_url"])
 
 	pipelineOutput, exists := capturedBody["pipeline_output"]
 	require.True(t, exists, "pipeline_output should be present in finally body")
 
-	outputStr := fmt.Sprintf("%v", pipelineOutput)
-	require.NotEqual(t, "${pipeline_output}", outputStr, "pipeline_output should be resolved, not a placeholder")
+	outputMap, ok := pipelineOutput.(map[string]any)
+	require.True(t, ok, "pipeline_output should be a structured object")
+	require.Contains(t, outputMap["error"], "database connection failed")
 
-	require.Contains(t, outputStr, "database connection failed")
+	outputs, ok := outputMap["outputs"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, map[string]any{"outputs": map[string]any{"body": "ok"}}, outputs["first-step"])
+
+	metadata, ok := outputMap["metadata"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", metadata["pipeline_url"])
+	require.Equal(t, "default-test-workflow-id", metadata["workflow_id"])
+	require.Equal(t, "default-test-run-id", metadata["workflow_run_id"])
 }

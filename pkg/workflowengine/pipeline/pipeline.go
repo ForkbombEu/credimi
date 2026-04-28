@@ -56,8 +56,9 @@ func (PipelineWorkflow) GetOptions() workflow.ActivityOptions {
 }
 
 const (
-	resultSuccess = "success"
-	resultFailed  = "failed"
+	resultSuccess  = "success"
+	resultFailed   = "failed"
+	resultCanceled = "canceled"
 )
 
 // Workflow executes all steps in the workflow definition sequentially
@@ -131,7 +132,7 @@ func (w *PipelineWorkflow) Workflow(
 		finalResult := resultSuccess
 
 		if ctx.Err() != nil && temporal.IsCanceledError(ctx.Err()) {
-			finalResult = "canceled"
+			finalResult = resultCanceled
 		} else if finalErr != nil {
 			finalResult = resultFailed
 		}
@@ -147,17 +148,6 @@ func (w *PipelineWorkflow) Workflow(
 			&cleanupErrors,
 		)
 
-		if finalResult != resultSuccess {
-			if state.finalOutput == nil {
-				state.finalOutput = make(map[string]any)
-			}
-			if finalErr != nil {
-				state.finalOutput["pipeline_output"] = finalErr.Error()
-			} else if len(state.errorsList) > 0 {
-				state.finalOutput["pipeline_output"] = state.errorsList[0]
-			}
-		}
-
 		finalCtx, _ := workflow.NewDisconnectedContext(ctx)
 		var finallyErrors []error
 		runFinallySteps(
@@ -165,9 +155,11 @@ func (w *PipelineWorkflow) Workflow(
 			wfDef.Finally,
 			ao,
 			config,
+			workflowengine.AsMap(input.WorkflowInput.Payload),
 			wfDef.Name,
 			runMetadata.TemporalUI,
 			finalResult,
+			buildFinallyPipelineOutput(state.finalOutput, runMetadata.TemporalUI, finalErr),
 			state.finalOutput,
 			logger,
 			&finallyErrors,
@@ -388,6 +380,48 @@ func buildEnrichedStepInputs(
 		hasErrors,
 		workflow.Now(ctx).Format(time.RFC3339),
 	)
+}
+
+func buildFinallyPipelineOutput(
+	finalOutput map[string]any,
+	pipelineURL string,
+	finalErr error,
+) map[string]any {
+	pipelineOutput := map[string]any{
+		"outputs": collectFinallyOutputs(finalOutput),
+		"metadata": map[string]any{
+			"pipeline_url":    pipelineURL,
+			"workflow_id":     finalOutput["workflow-id"],
+			"workflow_run_id": finalOutput["workflow-run-id"],
+		},
+	}
+
+	if warning, ok := finalOutput["result_video_warning"]; ok {
+		pipelineOutput["metadata"].(map[string]any)["result_video_warning"] = warning
+	}
+	if warnings, ok := finalOutput["cleanup_warnings"]; ok {
+		pipelineOutput["cleanup_warnings"] = warnings
+	}
+	if finalErr != nil {
+		pipelineOutput["error"] = finalErr.Error()
+	}
+
+	return pipelineOutput
+}
+
+func collectFinallyOutputs(finalOutput map[string]any) map[string]any {
+	outputs := make(map[string]any)
+
+	for key, value := range finalOutput {
+		switch key {
+		case "workflow-id", "workflow-run-id", "result_video_warning", "cleanup_warnings", "finally_errors":
+			continue
+		}
+
+		outputs[key] = value
+	}
+
+	return outputs
 }
 
 func (w *PipelineWorkflow) executeChildPipelineStep(
@@ -843,9 +877,11 @@ func runFinallySteps(
 	finallySteps []pipeline.StepDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
+	payload map[string]any,
 	pipelineName string,
 	pipelineURL string,
 	finalResult string,
+	pipelineOutput map[string]any,
 	finalOutput map[string]any,
 	logger log.Logger,
 	errorList *[]error,
@@ -855,7 +891,7 @@ func runFinallySteps(
 	}
 	logger.Info("Executing finally steps", "count", len(finallySteps))
 
-	stepInputs := buildPipelineStepInputs(finalOutput, workflowengine.AsMap(config))
+	stepInputs := buildPipelineStepInputs(finalOutput, payload)
 	for _, step := range finallySteps {
 		logger.Info("Running finally step", "id", step.ID, "use", step.Use)
 
@@ -867,6 +903,7 @@ func runFinallySteps(
 			workflow.Now(ctx).Format(time.RFC3339),
 		)
 		enrichedStepInputs["result"] = finalResult
+		enrichedStepInputs["pipeline_output"] = pipelineOutput
 
 		_, err := Execute(&step, ctx, config, enrichedStepInputs, ao)
 		if err != nil {
