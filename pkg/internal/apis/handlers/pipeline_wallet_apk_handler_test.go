@@ -15,6 +15,7 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -80,6 +81,48 @@ func blankWalletAPITestPipelineYAML(t testing.TB, app *tests.TestApp, pipelineID
 		`UPDATE pipelines SET yaml = '' WHERE id = {:id}`,
 	).Bind(dbx.Params{"id": pipelineID}).Execute()
 	require.NoError(t, err)
+}
+
+func createWalletAPKVersion(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	walletName string,
+	tag string,
+) string {
+	t.Helper()
+
+	walletColl, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	walletRecord, err := app.FindFirstRecordByFilter(
+		walletColl,
+		"owner = {:owner} && canonified_name = {:name}",
+		dbx.Params{
+			"owner": orgID,
+			"name":  walletName,
+		},
+	)
+	if err != nil {
+		walletRecord = core.NewRecord(walletColl)
+		walletRecord.Set("name", walletName)
+		walletRecord.Set("owner", orgID)
+		require.NoError(t, app.Save(walletRecord))
+	}
+
+	versionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+	require.NoError(t, err)
+	versionRecord := core.NewRecord(versionColl)
+	versionRecord.Set("wallet", walletRecord.Id)
+	versionRecord.Set("tag", tag)
+	versionRecord.Set("owner", orgID)
+	versionRecord.Set(
+		"android_installer",
+		[]*filesystem.File{NewTestFile("app.apk", []byte("dummy apk content"))},
+	)
+	require.NoError(t, app.Save(versionRecord))
+
+	return "usera-s-organization/" + walletRecord.GetString("canonified_name") + "/" +
+		versionRecord.GetString("canonified_tag")
 }
 
 func walletAPKMultipartBody(
@@ -225,14 +268,15 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			Body:           validJSON(),
 			ExpectedStatus: http.StatusNotImplemented,
 			ExpectedContent: []string{
-				"pipeline context validated",
+				"wallet context validated",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
 				seedUserAPIKey(t, app, walletAPKUserAPIKey)
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
-				createWalletAPITestPipeline(t, app, orgID, "name: test\nsteps: []\n")
+				versionID := createWalletAPKVersion(t, app, orgID, "wallet123", "1.0.0")
+				createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
 				return app
 			},
 		},
@@ -306,14 +350,15 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			}),
 			ExpectedStatus: http.StatusNotImplemented,
 			ExpectedContent: []string{
-				"pipeline context validated",
+				"wallet context validated",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
 				seedUserAPIKey(t, app, walletAPKUserAPIKey)
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
-				createWalletAPITestPipeline(t, app, orgID, "name: test\nsteps: []\n")
+				versionID := createWalletAPKVersion(t, app, orgID, "wallet123", "1.0.0")
+				createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
 				return app
 			},
 		},
@@ -322,6 +367,83 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func walletAPKPipelineYAML(versionID string) string {
+	return "name: test\nsteps:\n  - id: install-wallet\n    use: mobile-automation\n    with:\n      action_id: usera-s-organization/wallet123/install\n      version_id: " + versionID + "\n      runner_id: runner-1\n"
+}
+
+func TestResolvePipelineRunWalletAPKWallet(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	t.Run("rejects zero wallet versions", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		_, _, apiErr := resolvePipelineRunWalletAPKWallet(app, "name: test\nsteps: []\n")
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusBadRequest, apiErr.Code)
+		require.Contains(t, apiErr.Reason, "exactly one wallet")
+	})
+
+	t.Run("accepts multiple versions from one wallet", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		versionA := createWalletAPKVersion(t, app, orgID, "wallet-one", "1.0.0")
+		versionB := createWalletAPKVersion(t, app, orgID, "wallet-one", "2.0.0")
+		yaml := "name: test\nsteps:\n" +
+			"  - id: install-a\n    use: mobile-automation\n    with:\n      version_id: " + versionA + "\n      action_id: action-a\n" +
+			"  - id: install-b\n    use: mobile-automation\n    with:\n      version_id: " + versionB + "\n      action_id: action-b\n"
+
+		wallet, refs, apiErr := resolvePipelineRunWalletAPKWallet(app, yaml)
+		require.Nil(t, apiErr)
+		require.Equal(t, "wallet-one", wallet.GetString("canonified_name"))
+		require.Len(t, refs, 2)
+	})
+
+	t.Run("rejects multiple wallets", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		versionA := createWalletAPKVersion(t, app, orgID, "wallet-a", "1.0.0")
+		versionB := createWalletAPKVersion(t, app, orgID, "wallet-b", "1.0.0")
+		yaml := "name: test\nsteps:\n" +
+			"  - id: install-a\n    use: mobile-automation\n    with:\n      version_id: " + versionA + "\n      action_id: action-a\n" +
+			"  - id: install-b\n    use: mobile-automation\n    with:\n      version_id: " + versionB + "\n      action_id: action-b\n"
+
+		_, _, apiErr := resolvePipelineRunWalletAPKWallet(app, yaml)
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusBadRequest, apiErr.Code)
+		require.Contains(t, apiErr.Reason, "exactly one wallet")
+	})
+
+	t.Run("collects nested success and error steps", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		versionID := createWalletAPKVersion(t, app, orgID, "wallet-nested", "1.0.0")
+		yaml := "name: test\nsteps:\n" +
+			"  - id: first\n    use: json-parse\n    with:\n      raw_json: '{}'\n    on_success:\n      - id: nested-success\n        use: mobile-automation\n        with:\n          version_id: " + versionID + "\n          action_id: action-a\n    on_error:\n      - id: nested-error\n        use: mobile-automation\n        with:\n          version_id: " + versionID + "\n          action_id: action-b\n"
+
+		_, refs, apiErr := resolvePipelineRunWalletAPKWallet(app, yaml)
+		require.Nil(t, apiErr)
+		require.Len(t, refs, 2)
+		require.Equal(t, "nested-error", refs[0].StepID)
+		require.Equal(t, "nested-success", refs[1].StepID)
+	})
+
+	t.Run("rejects external source version", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		yaml := walletAPKPipelineYAML(walletAPKExternalSourceVersionID)
+		_, _, apiErr := resolvePipelineRunWalletAPKWallet(app, yaml)
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusBadRequest, apiErr.Code)
+		require.Contains(t, apiErr.Reason, "external source")
+	})
 }
 
 func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {

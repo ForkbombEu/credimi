@@ -12,10 +12,12 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 const walletAPKFormFileField = "apk_file"
+const walletAPKExternalSourceVersionID = "installed_from_external_source"
 
 type pipelineRunWalletAPKRequest struct {
 	PipelineIdentifier string
@@ -40,6 +42,13 @@ type pipelineRunWalletAPKContext struct {
 	userEmail          string
 	pipelineRecord     *core.Record
 	pipelineYAML       string
+	walletRecord       *core.Record
+	versionReferences  []walletAPKVersionReference
+}
+
+type walletAPKVersionReference struct {
+	StepID    string
+	VersionID string
 }
 
 func buildPipelineRunWalletAPKResponse(
@@ -74,7 +83,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			http.StatusNotImplemented,
 			"wallet_apk_run",
 			"wallet APK pipeline run is not implemented yet",
-			"pipeline context validated",
+			"wallet context validated",
 		).JSON(e)
 	}
 }
@@ -130,6 +139,14 @@ func resolvePipelineRunWalletAPKContext(
 		)
 	}
 
+	walletRecord, versionReferences, apiErr := resolvePipelineRunWalletAPKWallet(
+		e.App,
+		pipelineYAML,
+	)
+	if apiErr != nil {
+		return pipelineRunWalletAPKContext{}, apiErr
+	}
+
 	return pipelineRunWalletAPKContext{
 		input:              input,
 		organizationRecord: orgRecord,
@@ -139,7 +156,137 @@ func resolvePipelineRunWalletAPKContext(
 		userEmail:          e.Auth.GetString("email"),
 		pipelineRecord:     pipelineRecord,
 		pipelineYAML:       pipelineYAML,
+		walletRecord:       walletRecord,
+		versionReferences:  versionReferences,
 	}, nil
+}
+
+func resolvePipelineRunWalletAPKWallet(
+	app core.App,
+	pipelineYAML string,
+) (*core.Record, []walletAPKVersionReference, *apierror.APIError) {
+	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
+	if err != nil {
+		return nil, nil, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse pipeline yaml",
+			err.Error(),
+		)
+	}
+
+	references := collectWalletAPKVersionReferences(workflowDefinition)
+	if len(references) == 0 {
+		return nil, nil, apierror.New(
+			http.StatusBadRequest,
+			"wallet_version",
+			"pipeline must reference exactly one wallet",
+			"no mobile-automation wallet version references found",
+		)
+	}
+
+	walletIDs := map[string]*core.Record{}
+	for _, ref := range references {
+		versionID := canonify.NormalizePath(ref.VersionID)
+		if versionID == walletAPKExternalSourceVersionID {
+			return nil, nil, apierror.New(
+				http.StatusBadRequest,
+				"wallet_version",
+				"external source wallet versions are not supported",
+				"installed_from_external_source cannot anchor a temporary wallet version",
+			)
+		}
+
+		versionRecord, err := canonify.Resolve(app, versionID)
+		if err != nil {
+			return nil, nil, apierror.New(
+				http.StatusBadRequest,
+				"wallet_version",
+				"wallet version not found",
+				err.Error(),
+			)
+		}
+		if versionRecord.Collection().Name != "wallet_versions" {
+			return nil, nil, apierror.New(
+				http.StatusBadRequest,
+				"wallet_version",
+				"wallet version identifier is invalid",
+				"version_id must resolve to a wallet_versions record",
+			)
+		}
+
+		walletID := versionRecord.GetString("wallet")
+		walletRecord, err := app.FindRecordById("wallets", walletID)
+		if err != nil {
+			return nil, nil, apierror.New(
+				http.StatusBadRequest,
+				"wallet",
+				"wallet not found",
+				err.Error(),
+			)
+		}
+		walletIDs[walletID] = walletRecord
+	}
+
+	if len(walletIDs) != 1 {
+		return nil, nil, apierror.New(
+			http.StatusBadRequest,
+			"wallet",
+			"pipeline must reference exactly one wallet",
+			"multiple wallets found in mobile-automation version references",
+		)
+	}
+
+	for _, walletRecord := range walletIDs {
+		return walletRecord, references, nil
+	}
+
+	return nil, nil, apierror.New(
+		http.StatusBadRequest,
+		"wallet",
+		"pipeline must reference exactly one wallet",
+		"wallet could not be resolved",
+	)
+}
+
+func collectWalletAPKVersionReferences(
+	workflowDefinition *pipelineinternal.WorkflowDefinition,
+) []walletAPKVersionReference {
+	if workflowDefinition == nil {
+		return nil
+	}
+
+	var refs []walletAPKVersionReference
+	var collect func(pipelineinternal.StepSpec)
+	collect = func(step pipelineinternal.StepSpec) {
+		if step.Use != "mobile-automation" || step.With.Payload == nil {
+			return
+		}
+		versionID, ok := step.With.Payload["version_id"].(string)
+		if !ok || strings.TrimSpace(versionID) == "" {
+			return
+		}
+		refs = append(refs, walletAPKVersionReference{
+			StepID:    step.ID,
+			VersionID: canonify.NormalizePath(versionID),
+		})
+	}
+
+	for _, step := range workflowDefinition.Steps {
+		collect(step.StepSpec)
+		for _, onErr := range step.OnError {
+			if onErr != nil {
+				collect(onErr.StepSpec)
+			}
+		}
+		for _, onSuccess := range step.OnSuccess {
+			if onSuccess != nil {
+				collect(onSuccess.StepSpec)
+			}
+		}
+	}
+
+	return refs
 }
 
 func parsePipelineRunWalletAPKRequest(
