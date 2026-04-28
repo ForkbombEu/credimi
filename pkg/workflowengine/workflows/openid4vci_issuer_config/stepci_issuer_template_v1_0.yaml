@@ -172,13 +172,12 @@ tests:
           method: GET
           check:
             status: 200
-      - name: Happy flow wait for credential offer request
+      - name: Flow obtain credential offer request
         # first two tests does not requires credential_offer, last two are skipped for the test config above
         if: not (env.test_name in ("oid4vci-1_0-issuer-metadata-test", "oid4vci-1_0-issuer-metadata-test-signed", "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature", "oid4vci-1_0-issuer-fail-unsupported-encryption-algorithm"))
-        delays: 20s
-      - name: Happy flow obtain credential offer request
-        # first two tests does not requires credential_offer, last two are skipped for the test config above
-        if: not (env.test_name in ("oid4vci-1_0-issuer-metadata-test", "oid4vci-1_0-issuer-metadata-test-signed", "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature", "oid4vci-1_0-issuer-fail-unsupported-encryption-algorithm"))
+        retries:
+          count: 3
+          interval: 10s
         http:
           url: https://www.certification.openid.net/api/log/${{captures.runner_id}}
           auth:
@@ -186,12 +185,15 @@ tests:
           method: GET
           check:
             status: 200
+            jsonpath:
+              $.[-1:].src:
+                - match: .*(VCIWaitForCredentialOffer).*
           captures:
             submit_credential_offer:
               jsonpath: $.[-1:].src
             credential_offer_endpoint:
               jsonpath: $.[0].baseUrl
-      - name: Happy flow submit credential offer
+      - name: Flow submit credential offer
         if: captures.submit_credential_offer.0 == "VCIWaitForCredentialOffer"
         http:
           url: ${{ captures.credential_offer_endpoint }}/credential_offer?credential_offer=${{ captures.credential_offer_body | url_encode }}
