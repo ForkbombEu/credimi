@@ -11,12 +11,12 @@ import (
 )
 
 type WorkflowDefinition struct {
-	Version string           `yaml:"version,omitempty" json:"version,omitempty"`
-	Name    string           `yaml:"name"              json:"name"`
-	Runtime RuntimeConfig    `yaml:"runtime,omitempty" json:"runtime,omitempty"`
-	Config  map[string]any   `yaml:"config,omitempty"  json:"config,omitempty"`
-	Steps   []StepDefinition `yaml:"steps,omitempty"   json:"steps,omitempty"`
-	Finally []StepDefinition `yaml:"finally,omitempty" json:"finally,omitempty"`
+	Version string                  `yaml:"version,omitempty" json:"version,omitempty"`
+	Name    string                  `yaml:"name"              json:"name"`
+	Runtime RuntimeConfig           `yaml:"runtime,omitempty" json:"runtime,omitempty"`
+	Config  map[string]any          `yaml:"config,omitempty"  json:"config,omitempty"`
+	Steps   []StepDefinition        `yaml:"steps,omitempty"   json:"steps,omitempty"`
+	Finally []FinallyStepDefinition `yaml:"finally,omitempty" json:"finally,omitempty"`
 }
 
 type StepSpec struct {
@@ -39,6 +39,10 @@ type OnErrorStepDefinition struct {
 }
 
 type OnSuccessStepDefinition struct {
+	StepSpec `yaml:",inline" json:",inline"`
+}
+
+type FinallyStepDefinition struct {
 	StepSpec `yaml:",inline" json:",inline"`
 }
 

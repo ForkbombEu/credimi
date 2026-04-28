@@ -874,7 +874,7 @@ func ExecuteEventStepsOnSuccess(
 
 func runFinallySteps(
 	ctx workflow.Context,
-	finallySteps []pipeline.StepDefinition,
+	finallySteps []pipeline.FinallyStepDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	payload map[string]any,
@@ -905,9 +905,18 @@ func runFinallySteps(
 		enrichedStepInputs["result"] = finalResult
 		enrichedStepInputs["pipeline_output"] = pipelineOutput
 
-		_, err := Execute(&step, ctx, config, enrichedStepInputs, ao)
+		_, err := ExecuteStep(
+			step.ID,
+			step.Use,
+			step.With,
+			step.ActivityOptions,
+			ctx,
+			config,
+			enrichedStepInputs,
+			ao,
+		)
 		if err != nil {
-			logger.Error("Finally step filed", "step_id", step.ID, "error", err)
+			logger.Error("Finally step failed", "step_id", step.ID, "error", err)
 			if errorList != nil {
 				*errorList = append(*errorList, err)
 			}
@@ -915,7 +924,7 @@ func runFinallySteps(
 	}
 }
 
-func ValidateFinallySteps(finallySteps []pipeline.StepDefinition) error {
+func ValidateFinallySteps(finallySteps []pipeline.FinallyStepDefinition) error {
 	allowedTypes := map[string]bool{
 		"email":        true,
 		"http-request": true,

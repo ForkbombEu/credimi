@@ -765,7 +765,7 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 				},
 			},
 		},
-		Finally: []pipeline.StepDefinition{
+		Finally: []pipeline.FinallyStepDefinition{
 			{
 				StepSpec: pipeline.StepSpec{
 					ID:  "finally-http",
@@ -848,7 +848,7 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 }
 
 func TestValidateFinallySteps(t *testing.T) {
-	validSteps := []pipeline.StepDefinition{
+	validSteps := []pipeline.FinallyStepDefinition{
 		{
 			StepSpec: pipeline.StepSpec{
 				ID:  "valid-http",
@@ -865,7 +865,7 @@ func TestValidateFinallySteps(t *testing.T) {
 	err := ValidateFinallySteps(validSteps)
 	require.NoError(t, err)
 
-	invalidSteps := []pipeline.StepDefinition{
+	invalidSteps := []pipeline.FinallyStepDefinition{
 		{
 			StepSpec: pipeline.StepSpec{
 				ID:  "invalid-json",
@@ -878,7 +878,7 @@ func TestValidateFinallySteps(t *testing.T) {
 	require.Contains(t, err.Error(), "not allowed")
 	require.Contains(t, err.Error(), "json-parse")
 	require.Contains(t, err.Error(), "invalid-json")
-	mixedSteps := []pipeline.StepDefinition{
+	mixedSteps := []pipeline.FinallyStepDefinition{
 		{
 			StepSpec: pipeline.StepSpec{
 				ID:  "invalid-mobile",
@@ -922,7 +922,7 @@ func TestPipelineWorkflowFinallyValidationFails(t *testing.T) {
 				},
 			},
 		},
-		Finally: []pipeline.StepDefinition{
+		Finally: []pipeline.FinallyStepDefinition{
 			{
 				StepSpec: pipeline.StepSpec{
 					ID:  "invalid-finally",
@@ -1061,7 +1061,7 @@ func TestPipelineWorkflowFinallyErrorsDontBlockWorkflow(t *testing.T) {
 				},
 			},
 		},
-		Finally: []pipeline.StepDefinition{
+		Finally: []pipeline.FinallyStepDefinition{
 			{
 				StepSpec: pipeline.StepSpec{
 					ID:  "finally-email",
@@ -1239,7 +1239,7 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 				},
 			},
 		},
-		Finally: []pipeline.StepDefinition{
+		Finally: []pipeline.FinallyStepDefinition{
 			{
 				StepSpec: pipeline.StepSpec{
 					ID:  "finally-check",
