@@ -112,16 +112,31 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr.JSON(e)
 		}
-		if _, apiErr := injectPipelineRunWalletAPKCleanupConfig(rewrittenYAML, tempVersion); apiErr != nil {
+		manipulatedYAML, apiErr := injectPipelineRunWalletAPKCleanupConfig(rewrittenYAML, tempVersion)
+		if apiErr != nil {
 			return apiErr.JSON(e)
 		}
 
-		return apierror.New(
-			http.StatusNotImplemented,
-			"wallet_apk_run",
-			"wallet APK pipeline run is not implemented yet",
-			"wallet context validated",
-		).JSON(e)
+		queueResponse, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
+			pipelineRecord:     runContext.pipelineRecord,
+			pipelineIdentifier: input.PipelineIdentifier,
+			organizationRecord: runContext.organizationRecord,
+			userID:             runContext.userID,
+			userName:           runContext.userName,
+			userEmail:          runContext.userEmail,
+			yaml:               manipulatedYAML,
+		})
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		response := buildPipelineRunWalletAPKResponse(
+			queueResponse,
+			tempVersion.Record.Id,
+			tempVersion.Identifier,
+			input.PipelineIdentifier,
+		)
+		return e.JSON(http.StatusOK, response)
 	}
 }
 

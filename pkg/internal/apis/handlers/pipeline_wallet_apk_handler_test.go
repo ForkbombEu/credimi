@@ -177,6 +177,8 @@ func installWalletAPKURLDownloaderStub(t testing.TB) {
 
 func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
 
 	validJSON := func() *bytes.Reader {
 		return jsonBody(map[string]any{
@@ -295,9 +297,10 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			URL:            "/api/pipeline/run-wallet-apk",
 			Headers:        userKeyHeaders,
 			Body:           validJSON(),
-			ExpectedStatus: http.StatusNotImplemented,
+			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				"wallet context validated",
+				`"status":"queued"`,
+				`"temp_wallet_version_identifier"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
@@ -318,6 +321,8 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 
 func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
 
 	userKeyHeaders := map[string]string{
 		"Content-Type":    "application/json",
@@ -379,9 +384,10 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 				"commit_sha":          "abc123",
 				"apk_url":             "http://ci.example.test/wallet.apk",
 			}),
-			ExpectedStatus: http.StatusNotImplemented,
+			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				"wallet context validated",
+				`"status":"queued"`,
+				`"runner_ids":["runner-1"]`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
@@ -398,6 +404,59 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	scenario := tests.ApiScenario{
+		Name:   "enqueues rewritten yaml with cleanup config",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/run-wallet-apk",
+		Headers: map[string]string{
+			"Content-Type":    "application/json",
+			"Credimi-Api-Key": walletAPKUserAPIKey,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"commit_sha":          "abc123",
+			"apk_url":             "http://ci.example.test/wallet.apk",
+		}),
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"status":"queued"`,
+			`"temp_wallet_version_id"`,
+			`"temp_wallet_version_identifier":"usera-s-organization/wallet-enqueue/abc123"`,
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineWalletAPKApp(t)
+			seedUserAPIKey(t, app, walletAPKUserAPIKey)
+			versionID := createWalletAPKVersion(t, app, orgID, "wallet-enqueue", "1.0.0")
+			createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
+			return app
+		},
+	}
+	scenario.Test(t)
+
+	require.Len(t, queueStub.enqueueRequests, 1)
+	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		"usera-s-organization/wallet-enqueue/abc123",
+		workflow.Steps[0].With.Payload["version_id"],
+	)
+
+	cleanup, ok := workflow.Config[walletAPKCleanupConfigKey].(map[string]any)
+	require.True(t, ok)
+	require.NotEmpty(t, cleanup["record_id"])
+	require.Equal(t, "usera-s-organization/wallet-enqueue/abc123", cleanup["identifier"])
+	require.Equal(t, true, cleanup["cleanup"])
 }
 
 func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
