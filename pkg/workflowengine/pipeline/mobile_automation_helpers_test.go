@@ -983,12 +983,13 @@ func TestExtractAndStoreURLs(t *testing.T) {
 	require.Equal(t, []string{"frame-1"}, output["screenshot_urls"])
 
 	var nilOutput map[string]any
-	require.Panics(t, func() {
-		_ = extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
-			"body": map[string]any{
-				"result_urls":     []string{"video-2"},
-				"screenshot_urls": []string{"frame-2"},
-			},
-		}}, &nilOutput)
-	})
+	err = extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"result_urls":     []string{"video-2"},
+			"screenshot_urls": []string{"frame-2"},
+		},
+	}}, &nilOutput)
+	require.NoError(t, err)
+	require.Equal(t, []string{"video-2"}, nilOutput["result_video_urls"])
+	require.Equal(t, []string{"frame-2"}, nilOutput["screenshot_urls"])
 }
