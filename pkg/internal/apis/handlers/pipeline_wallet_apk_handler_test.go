@@ -8,8 +8,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -204,4 +206,53 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
+	enqueuedAt := time.Date(2026, 4, 28, 10, 0, 0, 0, time.UTC)
+	position := 2
+	lineLen := 5
+
+	t.Run("queued response keeps queue fields and temp wallet metadata", func(t *testing.T) {
+		response := buildPipelineRunWalletAPKResponse(
+			PipelineQueueResponse{
+				Status:     workflowengine.MobileRunnerSemaphoreRunQueued,
+				TicketID:   "ticket-1",
+				RunnerIDs:  []string{"runner-1"},
+				EnqueuedAt: &enqueuedAt,
+				Position:   &position,
+				LineLen:    &lineLen,
+			},
+			"version-record-1",
+			"usera-s-organization/wallet/abc123",
+			"usera-s-organization/pipeline123",
+		)
+
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunQueued, response.Status)
+		require.Equal(t, "ticket-1", response.TicketID)
+		require.Equal(t, []string{"runner-1"}, response.RunnerIDs)
+		require.Equal(t, &position, response.Position)
+		require.Equal(t, &lineLen, response.LineLen)
+		require.Equal(t, "version-record-1", response.TempWalletVersionID)
+		require.Equal(t, "usera-s-organization/wallet/abc123", response.TempWalletVersionIdentifier)
+		require.Equal(t, "usera-s-organization/pipeline123", response.PipelineIdentifier)
+	})
+
+	t.Run("running response keeps workflow identifiers", func(t *testing.T) {
+		response := buildPipelineRunWalletAPKResponse(
+			PipelineQueueResponse{
+				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				WorkflowID: "workflow-1",
+				RunID:      "run-1",
+			},
+			"version-record-1",
+			"usera-s-organization/wallet/abc123",
+			"usera-s-organization/pipeline123",
+		)
+
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, response.Status)
+		require.Equal(t, "workflow-1", response.WorkflowID)
+		require.Equal(t, "run-1", response.RunID)
+		require.Equal(t, "version-record-1", response.TempWalletVersionID)
+	})
 }

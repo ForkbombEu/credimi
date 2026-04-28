@@ -30,6 +30,20 @@ type PipelineRunWalletAPKResponse struct {
 	PipelineIdentifier          string `json:"pipeline_identifier,omitempty"`
 }
 
+func buildPipelineRunWalletAPKResponse(
+	queueResponse PipelineQueueResponse,
+	tempWalletVersionID string,
+	tempWalletVersionIdentifier string,
+	pipelineIdentifier string,
+) PipelineRunWalletAPKResponse {
+	return PipelineRunWalletAPKResponse{
+		PipelineQueueResponse:       queueResponse,
+		TempWalletVersionID:         tempWalletVersionID,
+		TempWalletVersionIdentifier: tempWalletVersionIdentifier,
+		PipelineIdentifier:          pipelineIdentifier,
+	}
+}
+
 func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, apiErr := parsePipelineRunWalletAPKRequest(e)
