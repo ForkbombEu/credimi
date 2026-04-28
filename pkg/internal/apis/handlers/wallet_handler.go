@@ -6,8 +6,10 @@ package handlers
 
 import (
 	"archive/zip"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -89,6 +91,14 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 				apis.BodyLimit(500 << 20),
 			},
 		},
+		{
+			Method:  http.MethodDelete,
+			Path:    "/temp-version/{record_id}",
+			Handler: HandleWalletDeleteTempVersion,
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
 	},
 }
 
@@ -104,6 +114,44 @@ type WalletApkRequest struct {
 type WalletStoreResult struct {
 	ResultPath       string `json:"result_path"`
 	ActionIdentifier string `json:"action_identifier"`
+}
+
+func HandleWalletDeleteTempVersion() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		recordID := strings.TrimSpace(e.Request.PathValue("record_id"))
+		if recordID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"record_id",
+				"record_id is required",
+				"missing record_id path parameter",
+			).JSON(e)
+		}
+
+		record, err := e.App.FindRecordById("wallet_versions", recordID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return e.JSON(http.StatusOK, map[string]any{"deleted": false})
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"wallet_version",
+				"failed to find wallet version",
+				err.Error(),
+			).JSON(e)
+		}
+
+		if err := e.App.Delete(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"wallet_version",
+				"failed to delete wallet version",
+				err.Error(),
+			).JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{"deleted": true})
+	}
 }
 
 func HandleWalletStartCheck() func(*core.RequestEvent) error {

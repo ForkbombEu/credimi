@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -57,6 +58,86 @@ func NewTestFile(name string, content []byte) *filesystem.File {
 		OriginalName: name,
 		Size:         int64(len(content)),
 	}
+}
+
+func TestWalletDeleteTempVersion(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	t.Run("requires internal admin key", func(t *testing.T) {
+		scenario := tests.ApiScenario{
+			Name:           "missing key",
+			Method:         http.MethodDelete,
+			URL:            "/api/wallet/temp-version/missing",
+			ExpectedStatus: http.StatusUnauthorized,
+			ExpectedContent: []string{
+				"api_key_required",
+			},
+			TestAppFactory: setupWalletApp,
+		}
+		scenario.Test(t)
+	})
+
+	t.Run("deletes existing wallet version", func(t *testing.T) {
+		app := setupWalletApp(t)
+		defer app.Cleanup()
+
+		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-delete", "abc123")
+		versionRecord, err := canonify.Resolve(app, versionID)
+		require.NoError(t, err)
+
+		baseRouter, err := apis.NewRouter(app)
+		require.NoError(t, err)
+		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+			mux, err := e.Router.BuildMux()
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(
+				http.MethodDelete,
+				"/api/wallet/temp-version/"+versionRecord.Id,
+				nil,
+			)
+			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Contains(t, rec.Body.String(), `"deleted":true`)
+			return nil
+		})
+		require.NoError(t, serveErr)
+
+		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
+		require.Error(t, err)
+	})
+
+	t.Run("missing record is idempotent success", func(t *testing.T) {
+		app := setupWalletApp(t)
+		defer app.Cleanup()
+
+		baseRouter, err := apis.NewRouter(app)
+		require.NoError(t, err)
+		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+			mux, err := e.Router.BuildMux()
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(
+				http.MethodDelete,
+				"/api/wallet/temp-version/missingrecord12",
+				nil,
+			)
+			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Contains(t, rec.Body.String(), `"deleted":false`)
+			return nil
+		})
+		require.NoError(t, serveErr)
+	})
 }
 
 type walletWorkflowStub struct {
