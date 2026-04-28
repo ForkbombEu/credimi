@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -38,6 +39,16 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandlePipelineQueueEnqueue,
 			RequestSchema: PipelineQueueInput{},
 			Description:   "Queue a pipeline workflow for the runner semaphore",
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/run-wallet-apk",
+			Handler:        HandlePipelineRunWalletAPK,
+			ResponseSchema: PipelineRunWalletAPKResponse{},
+			Description:    "Create a temporary wallet APK version and queue a one-off pipeline run",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				apis.BodyLimit(1000 << 20),
+			},
 		},
 		{
 			Method:      http.MethodGet,
