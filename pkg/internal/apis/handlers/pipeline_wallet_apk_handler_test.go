@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"mime/multipart"
 	"net/http"
 	"testing"
@@ -148,7 +149,21 @@ func walletAPKMultipartBody(
 	return bytes.NewReader(body.Bytes()), writer.FormDataContentType()
 }
 
+func installWalletAPKURLDownloaderStub(t testing.TB) {
+	t.Helper()
+
+	original := walletAPKURLDownloader
+	t.Cleanup(func() {
+		walletAPKURLDownloader = original
+	})
+	walletAPKURLDownloader = func(ctx context.Context, apkURL string, filename string) (*filesystem.File, error) {
+		return filesystem.NewFileFromBytes([]byte("downloaded apk"), filename)
+	}
+}
+
 func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+
 	validJSON := func() *bytes.Reader {
 		return jsonBody(map[string]any{
 			"pipeline_identifier": "usera-s-organization/pipeline123",
@@ -288,6 +303,8 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 }
 
 func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+
 	userKeyHeaders := map[string]string{
 		"Content-Type":    "application/json",
 		"Credimi-Api-Key": walletAPKUserAPIKey,
@@ -367,6 +384,50 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
+	t.Run("accepts multipart upload", func(t *testing.T) {
+		body, contentType := walletAPKMultipartBody(t, map[string]string{}, true)
+		req, err := http.NewRequest(http.MethodPost, "/", body)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", contentType)
+		require.NoError(t, req.ParseMultipartForm(1000<<20))
+
+		fileHeader := req.MultipartForm.File[walletAPKFormFileField][0]
+		file, apiErr := resolvePipelineRunWalletAPKFile(context.Background(), pipelineRunWalletAPKRequest{
+			CommitSHA: "ABC-123",
+			APKFile:   fileHeader,
+		})
+
+		require.Nil(t, apiErr)
+		require.Equal(t, "abc-123.apk", file.OriginalName)
+		require.Equal(t, int64(3), file.Size)
+	})
+
+	t.Run("rejects unsupported url scheme", func(t *testing.T) {
+		_, apiErr := resolvePipelineRunWalletAPKFile(context.Background(), pipelineRunWalletAPKRequest{
+			CommitSHA: "abc123",
+			APKURL:    "file:///tmp/wallet.apk",
+		})
+
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusBadRequest, apiErr.Code)
+		require.Equal(t, "invalid apk_url", apiErr.Reason)
+	})
+
+	t.Run("downloads http url", func(t *testing.T) {
+		installWalletAPKURLDownloaderStub(t)
+
+		file, apiErr := resolvePipelineRunWalletAPKFile(context.Background(), pipelineRunWalletAPKRequest{
+			CommitSHA: "ABC123",
+			APKURL:    "http://ci.example.test/wallet.apk",
+		})
+
+		require.Nil(t, apiErr)
+		require.Equal(t, "abc123.apk", file.OriginalName)
+		require.Equal(t, int64(len("downloaded apk")), file.Size)
+	})
 }
 
 func walletAPKPipelineYAML(versionID string) string {

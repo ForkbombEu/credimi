@@ -4,20 +4,31 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
+	"path"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
 
 const walletAPKFormFileField = "apk_file"
 const walletAPKExternalSourceVersionID = "installed_from_external_source"
+const walletAPKMaxBytes = int64(1000 << 20)
+const walletAPKDownloadTimeout = 30 * time.Second
+
+var walletAPKURLDownloader = downloadWalletAPKFromURL
 
 type pipelineRunWalletAPKRequest struct {
 	PipelineIdentifier string
@@ -44,6 +55,7 @@ type pipelineRunWalletAPKContext struct {
 	pipelineYAML       string
 	walletRecord       *core.Record
 	versionReferences  []walletAPKVersionReference
+	apkFile            *filesystem.File
 }
 
 type walletAPKVersionReference struct {
@@ -146,6 +158,10 @@ func resolvePipelineRunWalletAPKContext(
 	if apiErr != nil {
 		return pipelineRunWalletAPKContext{}, apiErr
 	}
+	apkFile, apiErr := resolvePipelineRunWalletAPKFile(e.Request.Context(), input)
+	if apiErr != nil {
+		return pipelineRunWalletAPKContext{}, apiErr
+	}
 
 	return pipelineRunWalletAPKContext{
 		input:              input,
@@ -158,7 +174,126 @@ func resolvePipelineRunWalletAPKContext(
 		pipelineYAML:       pipelineYAML,
 		walletRecord:       walletRecord,
 		versionReferences:  versionReferences,
+		apkFile:            apkFile,
 	}, nil
+}
+
+func resolvePipelineRunWalletAPKFile(
+	ctx context.Context,
+	input pipelineRunWalletAPKRequest,
+) (*filesystem.File, *apierror.APIError) {
+	filename := walletAPKFilename(input.CommitSHA, "")
+	if input.APKFile != nil {
+		if input.APKFile.Size > walletAPKMaxBytes {
+			return nil, apierror.New(
+				http.StatusRequestEntityTooLarge,
+				"apk_file",
+				"apk file too large",
+				fmt.Sprintf("apk_file exceeds %d bytes", walletAPKMaxBytes),
+			)
+		}
+		file, err := filesystem.NewFileFromMultipart(input.APKFile)
+		if err != nil {
+			return nil, apierror.New(
+				http.StatusBadRequest,
+				"apk_file",
+				"failed to read apk_file",
+				err.Error(),
+			)
+		}
+		file.Name = filename
+		file.OriginalName = filename
+		return file, nil
+	}
+
+	apkURL := strings.TrimSpace(input.APKURL)
+	parsedURL, err := url.Parse(apkURL)
+	if err != nil || parsedURL == nil || parsedURL.Host == "" {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"apk_url",
+			"invalid apk_url",
+			"apk_url must be an http or https URL",
+		)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"apk_url",
+			"invalid apk_url",
+			"apk_url must use http or https",
+		)
+	}
+
+	file, err := walletAPKURLDownloader(ctx, apkURL, walletAPKFilename(input.CommitSHA, path.Base(parsedURL.Path)))
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"apk_url",
+			"failed to download apk_url",
+			err.Error(),
+		)
+	}
+	if file.Size > walletAPKMaxBytes {
+		return nil, apierror.New(
+			http.StatusRequestEntityTooLarge,
+			"apk_url",
+			"apk file too large",
+			fmt.Sprintf("apk_url exceeds %d bytes", walletAPKMaxBytes),
+		)
+	}
+
+	return file, nil
+}
+
+func downloadWalletAPKFromURL(
+	ctx context.Context,
+	apkURL string,
+	filename string,
+) (*filesystem.File, error) {
+	ctx, cancel := context.WithTimeout(ctx, walletAPKDownloadTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apkURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: walletAPKDownloadTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode > 399 {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+	if resp.ContentLength > walletAPKMaxBytes {
+		return nil, fmt.Errorf("response exceeds %d bytes", walletAPKMaxBytes)
+	}
+
+	limited := io.LimitReader(resp.Body, walletAPKMaxBytes+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > walletAPKMaxBytes {
+		return nil, fmt.Errorf("response exceeds %d bytes", walletAPKMaxBytes)
+	}
+
+	return filesystem.NewFileFromBytes(data, filename)
+}
+
+func walletAPKFilename(commitSHA string, originalName string) string {
+	base := canonify.CanonifyPlain(commitSHA)
+	if base == "" {
+		base = "wallet"
+	}
+	if strings.EqualFold(path.Ext(originalName), ".apk") {
+		return base + ".apk"
+	}
+	return base + ".apk"
 }
 
 func resolvePipelineRunWalletAPKWallet(
