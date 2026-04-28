@@ -4,3 +4,4 @@ repository: https://gitlab.com/openid/conformance-suite
 help: https://openid.net/certification/conformance-testing-for-openid-for-verifiable-credential-issuance/
 description: Conformance/certification suite for OID4VCI Issuer testing via the OpenID Foundation Certification Suite
 show_in_pipeline_gui: true
+logo: https://avatars.githubusercontent.com/u/71971?s=200&v=4
