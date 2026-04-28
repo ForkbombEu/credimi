@@ -34,6 +34,7 @@ var (
 	}
 
 	cleanupHooks = []CleanupFunc{
+		tempWalletVersionCleanupHook,
 		MobileAutomationCleanupHook,
 		ConformanceCheckCleanupHook,
 	}
