@@ -28,6 +28,7 @@ import (
 
 const walletAPKFormFileField = "apk_file"
 const walletAPKExternalSourceVersionID = "installed_from_external_source"
+const walletAPKCleanupConfigKey = "temp_wallet_version"
 const walletAPKMaxBytes = int64(1000 << 20)
 const walletAPKDownloadTimeout = 30 * time.Second
 
@@ -103,11 +104,15 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr.JSON(e)
 		}
-		if _, apiErr := rewritePipelineRunWalletAPKYAML(
+		rewrittenYAML, apiErr := rewritePipelineRunWalletAPKYAML(
 			runContext.pipelineYAML,
 			runContext.versionReferences,
 			tempVersion.Identifier,
-		); apiErr != nil {
+		)
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+		if _, apiErr := injectPipelineRunWalletAPKCleanupConfig(rewrittenYAML, tempVersion); apiErr != nil {
 			return apiErr.JSON(e)
 		}
 
@@ -574,6 +579,55 @@ func rewriteWalletAPKStepVersion(
 
 	step.With.Payload["version_id"] = tempVersionIdentifier
 	return 1
+}
+
+func injectPipelineRunWalletAPKCleanupConfig(
+	pipelineYAML string,
+	tempVersion tempWalletVersion,
+) (string, *apierror.APIError) {
+	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse pipeline yaml",
+			err.Error(),
+		)
+	}
+
+	if workflowDefinition.Config == nil {
+		workflowDefinition.Config = map[string]any{}
+	}
+	if _, ok := workflowDefinition.Config[walletAPKCleanupConfigKey]; ok {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"config",
+			"temp_wallet_version config already exists",
+			"pipeline config already contains temp_wallet_version",
+		)
+	}
+
+	recordID := ""
+	if tempVersion.Record != nil {
+		recordID = tempVersion.Record.Id
+	}
+	workflowDefinition.Config[walletAPKCleanupConfigKey] = map[string]any{
+		"record_id":  recordID,
+		"identifier": tempVersion.Identifier,
+		"cleanup":    true,
+	}
+
+	rewrittenYAML, err := yaml.Marshal(workflowDefinition)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"yaml",
+			"failed to marshal pipeline yaml",
+			err.Error(),
+		)
+	}
+
+	return string(rewrittenYAML), nil
 }
 
 func collectWalletAPKVersionReferences(

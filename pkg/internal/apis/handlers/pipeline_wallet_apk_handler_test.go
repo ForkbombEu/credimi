@@ -632,6 +632,82 @@ func TestRewritePipelineRunWalletAPKYAML(t *testing.T) {
 	})
 }
 
+func TestInjectPipelineRunWalletAPKCleanupConfig(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	newTempVersion := func(t testing.TB, app *tests.TestApp, walletName string) tempWalletVersion {
+		t.Helper()
+
+		wallet := createWalletAPKWallet(t, app, orgID, walletName)
+		orgRecord, err := app.FindRecordById("organizations", orgID)
+		require.NoError(t, err)
+		tempVersion, apiErr := createPipelineRunWalletAPKTempVersion(
+			app,
+			pipelineRunWalletAPKContext{
+				input: pipelineRunWalletAPKRequest{
+					CommitSHA: "abc123",
+				},
+				organizationRecord: orgRecord,
+				namespace:          orgRecord.GetString("canonified_name"),
+				walletRecord:       wallet,
+				apkFile:            NewTestFile("wallet.apk", []byte("apk")),
+			},
+		)
+		require.Nil(t, apiErr)
+		return tempVersion
+	}
+
+	t.Run("adds cleanup config when config is empty", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		rewritten, apiErr := injectPipelineRunWalletAPKCleanupConfig(
+			"name: test\nsteps: []\n",
+			newTempVersion(t, app, "wallet-cleanup-empty"),
+		)
+
+		require.Nil(t, apiErr)
+		workflow, err := pipelineinternal.ParseWorkflow(rewritten)
+		require.NoError(t, err)
+		cleanup, ok := workflow.Config[walletAPKCleanupConfigKey].(map[string]any)
+		require.True(t, ok)
+		require.NotEmpty(t, cleanup["record_id"])
+		require.Equal(t, "usera-s-organization/wallet-cleanup-empty/abc123", cleanup["identifier"])
+		require.Equal(t, true, cleanup["cleanup"])
+	})
+
+	t.Run("preserves unrelated config keys", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		rewritten, apiErr := injectPipelineRunWalletAPKCleanupConfig(
+			"name: test\nconfig:\n  keep: value\nsteps: []\n",
+			newTempVersion(t, app, "wallet-cleanup-existing"),
+		)
+
+		require.Nil(t, apiErr)
+		workflow, err := pipelineinternal.ParseWorkflow(rewritten)
+		require.NoError(t, err)
+		require.Equal(t, "value", workflow.Config["keep"])
+		require.Contains(t, workflow.Config, walletAPKCleanupConfigKey)
+	})
+
+	t.Run("rejects pre-existing temp wallet config", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		_, apiErr := injectPipelineRunWalletAPKCleanupConfig(
+			"name: test\nconfig:\n  temp_wallet_version:\n    record_id: existing\nsteps: []\n",
+			newTempVersion(t, app, "wallet-cleanup-conflict"),
+		)
+
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusBadRequest, apiErr.Code)
+		require.Equal(t, "temp_wallet_version config already exists", apiErr.Reason)
+	})
+}
+
 func walletAPKPipelineYAML(versionID string) string {
 	return "name: test\nsteps:\n  - id: install-wallet\n    use: mobile-automation\n    with:\n      action_id: usera-s-organization/wallet123/install\n      version_id: " + versionID + "\n      runner_id: runner-1\n"
 }
