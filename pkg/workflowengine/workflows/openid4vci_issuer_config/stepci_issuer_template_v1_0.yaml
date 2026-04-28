@@ -173,10 +173,12 @@ tests:
           check:
             status: 200
       - name: Happy flow wait for credential offer request
-        if: (env.test_name in ("oid4vci-1_0-issuer-happy-flow", "id4vci-1_0-issuer-happy-flow-additional-requests", "oid4vci-1_0-issuer-happy-flow-multiple-clients", "oid4vci-1_0-issuer-happy-flow-skip-notification"))
+        # first two tests does not requires credential_offer, last two are skipped for the test config above
+        if: not (env.test_name in ("oid4vci-1_0-issuer-metadata-test", "oid4vci-1_0-issuer-metadata-test-signed", "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature", "oid4vci-1_0-issuer-fail-unsupported-encryption-algorithm"))
         delays: 20s
       - name: Happy flow obtain credential offer request
-        if: (env.test_name in ("oid4vci-1_0-issuer-happy-flow", "id4vci-1_0-issuer-happy-flow-additional-requests", "oid4vci-1_0-issuer-happy-flow-multiple-clients", "oid4vci-1_0-issuer-happy-flow-skip-notification"))
+        # first two tests does not requires credential_offer, last two are skipped for the test config above
+        if: not (env.test_name in ("oid4vci-1_0-issuer-metadata-test", "oid4vci-1_0-issuer-metadata-test-signed", "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature", "oid4vci-1_0-issuer-fail-unsupported-encryption-algorithm"))
         http:
           url: https://www.certification.openid.net/api/log/${{captures.runner_id}}
           auth:
