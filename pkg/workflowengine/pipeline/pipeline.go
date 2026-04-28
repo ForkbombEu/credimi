@@ -55,6 +55,11 @@ func (PipelineWorkflow) GetOptions() workflow.ActivityOptions {
 	return workflow.ActivityOptions{}
 }
 
+const (
+	resultSuccess = "success"
+	resultFailed  = "failed"
+)
+
 // Workflow executes all steps in the workflow definition sequentially
 func (w *PipelineWorkflow) Workflow(
 	ctx workflow.Context,
@@ -123,12 +128,12 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	defer func() {
-		finalResult := "success"
+		finalResult := resultSuccess
 
 		if ctx.Err() != nil && temporal.IsCanceledError(ctx.Err()) {
 			finalResult = "canceled"
 		} else if finalErr != nil {
-			finalResult = "failed"
+			finalResult = resultFailed
 		}
 
 		runCleanupHooks(
@@ -142,7 +147,7 @@ func (w *PipelineWorkflow) Workflow(
 			&cleanupErrors,
 		)
 
-		if finalResult != "success" {
+		if finalResult != resultSuccess {
 			if state.finalOutput == nil {
 				state.finalOutput = make(map[string]any)
 			}
@@ -318,11 +323,6 @@ func (w *PipelineWorkflow) executeStep(
 		return ao, wrapWorkflowCancellationError(err, runMetadata)
 	}
 
-	stepInputs := buildPipelineStepInputs(
-		state.finalOutput,
-		workflowengine.AsMap(input.WorkflowInput.Payload),
-	)
-
 	switch step.Use {
 	case "debug":
 		runDebugActivity(
@@ -338,7 +338,6 @@ func (w *PipelineWorkflow) executeStep(
 			ctx,
 			input,
 			step,
-			stepInputs,
 			ao,
 			config,
 			runMetadata,
@@ -395,7 +394,6 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
 	step pipeline.StepDefinition,
-	stepInputs map[string]any,
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	runMetadata *workflowengine.WorkflowErrorMetadata,
@@ -407,7 +405,7 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 	pipelineName := input.WorkflowDefinition.Name
 	pipelineURL := runMetadata.TemporalUI
 	payload := workflowengine.AsMap(input.WorkflowInput.Payload)
-	stepInputs = buildEnrichedStepInputs(
+	stepInputs := buildEnrichedStepInputs(
 		ctx,
 		payload,
 		state.finalOutput,

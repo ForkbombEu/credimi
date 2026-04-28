@@ -389,9 +389,9 @@ func enrichDataContext(
 	enriched["pipeline_url"] = pipelineURL
 
 	if hasErrors {
-		enriched["result"] = "failed"
+		enriched["result"] = resultFailed
 	} else {
-		enriched["result"] = "success"
+		enriched["result"] = resultSuccess
 	}
 
 	enriched["date"] = currentTime
