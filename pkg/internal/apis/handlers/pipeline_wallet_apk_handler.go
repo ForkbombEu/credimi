@@ -110,10 +110,12 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			tempVersion.Identifier,
 		)
 		if apiErr != nil {
+			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
 		}
 		manipulatedYAML, apiErr := injectPipelineRunWalletAPKCleanupConfig(rewrittenYAML, tempVersion)
 		if apiErr != nil {
+			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
 		}
 
@@ -127,6 +129,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			yaml:               manipulatedYAML,
 		})
 		if apiErr != nil {
+			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
 		}
 
@@ -505,6 +508,22 @@ func createPipelineRunWalletAPKTempVersion(
 	}, "/")
 
 	return tempWalletVersion{Record: record, Identifier: identifier}, nil
+}
+
+func rollbackPipelineRunWalletAPKTempVersion(
+	e *core.RequestEvent,
+	tempVersion tempWalletVersion,
+) {
+	if tempVersion.Record == nil || tempVersion.Record.Id == "" {
+		return
+	}
+	if err := e.App.Delete(tempVersion.Record); err != nil {
+		e.App.Logger().Warn(fmt.Sprintf(
+			"failed to rollback temporary wallet version %s: %v",
+			tempVersion.Record.Id,
+			err,
+		))
+	}
 }
 
 func rewritePipelineRunWalletAPKYAML(

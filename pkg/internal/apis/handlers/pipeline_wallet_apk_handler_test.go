@@ -6,15 +6,19 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"errors"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -457,6 +461,72 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 	require.NotEmpty(t, cleanup["record_id"])
 	require.Equal(t, "usera-s-organization/wallet-enqueue/abc123", cleanup["identifier"])
 	require.Equal(t, true, cleanup["cleanup"])
+}
+
+func TestPipelineRunWalletAPKRollsBackTempVersionOnQueueFailure(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
+	enqueueRunTicket = func(
+		ctx context.Context,
+		runnerID string,
+		req workflows.MobileRunnerSemaphoreEnqueueRunRequest,
+	) (workflows.MobileRunnerSemaphoreEnqueueRunResponse, error) {
+		return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, errors.New("queue unavailable")
+	}
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	app := setupPipelineWalletAPKApp(t)
+	defer app.Cleanup()
+	seedUserAPIKey(t, app, walletAPKUserAPIKey)
+
+	versionID := createWalletAPKVersion(t, app, orgID, "wallet-rollback", "1.0.0")
+	createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
+	walletRecord := createWalletAPKWallet(t, app, orgID, "wallet-rollback")
+
+	baseRouter, err := apis.NewRouter(app)
+	require.NoError(t, err)
+
+	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		mux, err := e.Router.BuildMux()
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/run-wallet-apk",
+			jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"commit_sha":          "abc123",
+				"apk_url":             "http://ci.example.test/wallet.apk",
+			}),
+		)
+		req.Header.Set("Credimi-Api-Key", walletAPKUserAPIKey)
+		req.Header.Set("content-type", "application/json")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		require.Contains(t, rec.Body.String(), "failed to enqueue pipeline run")
+		return nil
+	})
+	require.NoError(t, serveErr)
+
+	records, err := app.FindRecordsByFilter(
+		"wallet_versions",
+		"wallet={:wallet} && owner={:owner} && canonified_tag={:tag}",
+		"",
+		-1,
+		0,
+		dbx.Params{
+			"wallet": walletRecord.Id,
+			"owner":  orgID,
+			"tag":    "abc123",
+		},
+	)
+	require.NoError(t, err)
+	require.Empty(t, records)
 }
 
 func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
