@@ -25,9 +25,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: true
           persist-credentials: false
       - uses: jdx/mise-action@v2
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2.15'
+          install-only: true
       - uses: sigstore/cosign-installer@v3.8.1
       - uses: anchore/sbom-action/download-syft@v0.18.0
       - name: git config for credimi-extra
