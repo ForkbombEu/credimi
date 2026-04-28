@@ -743,7 +743,12 @@ func (w *PipelineWorkflow) Start(
 		return result, fmt.Errorf("failed to parse entity IDs: %w", err)
 	}
 
-	workflowengine.ApplyPipelineSearchAttributes(&options.Options, pipelineIdentifier, runnerIDs, entityIDs)
+	workflowengine.ApplyPipelineSearchAttributes(
+		&options.Options,
+		pipelineIdentifier,
+		runnerIDs,
+		entityIDs,
+	)
 
 	input := PipelineWorkflowInput{
 		WorkflowDefinition: wfDef,
@@ -755,7 +760,11 @@ func (w *PipelineWorkflow) Start(
 	}
 
 	if wfDef.Runtime.Schedule.Interval != nil {
-		searchAttributes := workflowengine.PipelineTypedSearchAttributes(pipelineIdentifier, runnerIDs, entityIDs)
+		searchAttributes := workflowengine.PipelineTypedSearchAttributes(
+			pipelineIdentifier,
+			runnerIDs,
+			entityIDs,
+		)
 		ctx := context.Background()
 		scheduleID := fmt.Sprintf("schedule_id_%s", options.Options.ID)
 		scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
