@@ -79,15 +79,15 @@ export function createPipelineYaml(
 	runtime: RuntimeOptions
 ): string {
 	// Cloning because editing ids and linking steps modify the original steps array
-	const processedSteps = _.cloneDeep(steps).map((step, index) => {
+	const clonedSteps = _.cloneDeep(steps);
+
+	const processedSteps = clonedSteps.map((step, index) => {
 		const config = getConfigByType(step.use);
-		// Id generation
 		if ('id' in step) {
 			step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;
 		}
-		// Link procedure
 		if (config.linkProcedure && 'with' in step) {
-			config.linkProcedure?.(step.with, steps.slice(0, index));
+			config.linkProcedure?.(step.with, clonedSteps.slice(0, index));
 		}
 		return step;
 	});
