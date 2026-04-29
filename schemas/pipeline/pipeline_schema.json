@@ -38,6 +38,71 @@
     "config": {
       "type": "object"
     },
+    "finally": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_options": {
+            "additionalProperties": false,
+            "properties": {
+              "retry_policy": {
+                "additionalProperties": false,
+                "properties": {
+                  "backoff_coefficient": {
+                    "type": "number"
+                  },
+                  "initial_interval": {
+                    "type": "string"
+                  },
+                  "maximum_attempts": {
+                    "type": "integer"
+                  },
+                  "maximum_interval": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "schedule_to_close_timeout": {
+                "type": "string"
+              },
+              "start_to_close_timeout": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "use": {
+            "type": "string"
+          },
+          "with": {
+            "additionalProperties": false,
+            "properties": {
+              "config": {
+                "type": "object"
+              },
+              "payload": {
+                "type": "object"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "use",
+          "with"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
     "name": {
       "type": "string"
     },
