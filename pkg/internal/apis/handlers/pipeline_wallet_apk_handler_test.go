@@ -436,9 +436,11 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 			`"status":"queued"`,
 			`"temp_wallet_version_id"`,
 			`"temp_wallet_version_identifier":"usera-s-organization/wallet-enqueue/abc123"`,
+			`"pipeline_url":"https://credimi.test/my/pipelines/usera-s-organization/pipeline123"`,
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineWalletAPKApp(t)
+			app.Settings().Meta.AppURL = "https://credimi.test"
 			seedUserAPIKey(t, app, walletAPKUserAPIKey)
 			versionID := createWalletAPKVersion(t, app, orgID, "wallet-enqueue", "1.0.0")
 			createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
