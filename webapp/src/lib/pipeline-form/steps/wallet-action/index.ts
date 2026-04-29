@@ -44,8 +44,6 @@ import {
 
 //
 
-const DEEPLINK_PLACEHOLDER = '<deeplink-placeholder>';
-
 export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActionStepData> = {
 	use: 'mobile-automation',
 
@@ -93,14 +91,14 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		}
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
-				deeplink: DEEPLINK_PLACEHOLDER
+				deeplink: '<deeplink-placeholder>'
 			};
 		}
 		return _with;
 	},
 
 	linkProcedure: (serialized, previousSteps) => {
-		if (serialized.parameters?.deeplink !== DEEPLINK_PLACEHOLDER) return;
+		if (!serialized.parameters?.deeplink) return;
 
 		const linkableSteps: PipelineStepType[] = [
 			'conformance-check',
