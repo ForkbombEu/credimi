@@ -35,7 +35,6 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	linkProcedure: (serialized, previousSteps) => {
 		if (!serialized.credential_offer) return;
-		console.log(previousSteps);
 
 		const previousStep = previousSteps
 			.toReversed()
