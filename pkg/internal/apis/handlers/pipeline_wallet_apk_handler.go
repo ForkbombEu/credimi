@@ -122,13 +122,8 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
 		}
-		manipulatedYAML, apiErr := injectPipelineRunWalletAPKCleanupConfig(rewrittenYAML, tempVersion)
-		if apiErr != nil {
-			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
-			return apiErr.JSON(e)
-		}
-		manipulatedYAML, apiErr = injectPipelineRunWalletAPKGlobalRunnerID(
-			manipulatedYAML,
+		manipulatedYAML, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+			rewrittenYAML,
 			input.RunnerID,
 		)
 		if apiErr != nil {
@@ -144,10 +139,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			userName:           runContext.userName,
 			userEmail:          runContext.userEmail,
 			yaml:               manipulatedYAML,
-			cleanup: &workflows.MobileRunnerSemaphoreCleanupMetadata{
-				TempWalletVersionID:         tempVersion.Record.Id,
-				TempWalletVersionIdentifier: tempVersion.Identifier,
-			},
+			cleanup:            buildPipelineRunWalletAPKCleanupMetadata(tempVersion),
 		})
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
@@ -161,6 +153,19 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			input.PipelineIdentifier,
 		)
 		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func buildPipelineRunWalletAPKCleanupMetadata(
+	tempVersion tempWalletVersion,
+) *workflows.MobileRunnerSemaphoreCleanupMetadata {
+	if tempVersion.Record == nil || tempVersion.Record.Id == "" {
+		return nil
+	}
+	return &workflows.MobileRunnerSemaphoreCleanupMetadata{
+		TempWalletVersionID:         tempVersion.Record.Id,
+		TempWalletVersionOwnerID:    tempVersion.Record.GetString("owner"),
+		TempWalletVersionIdentifier: tempVersion.Identifier,
 	}
 }
 
@@ -634,58 +639,6 @@ func rewriteWalletAPKStepVersion(
 
 	step.With.Payload["version_id"] = tempVersionIdentifier
 	return 1
-}
-
-func injectPipelineRunWalletAPKCleanupConfig(
-	pipelineYAML string,
-	tempVersion tempWalletVersion,
-) (string, *apierror.APIError) {
-	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
-	if err != nil {
-		return "", apierror.New(
-			http.StatusBadRequest,
-			"yaml",
-			"failed to parse pipeline yaml",
-			err.Error(),
-		)
-	}
-
-	if workflowDefinition.Config == nil {
-		workflowDefinition.Config = map[string]any{}
-	}
-	if _, ok := workflowDefinition.Config[walletAPKCleanupConfigKey]; ok {
-		return "", apierror.New(
-			http.StatusBadRequest,
-			"config",
-			"temp_wallet_version config already exists",
-			"pipeline config already contains temp_wallet_version",
-		)
-	}
-
-	recordID := ""
-	ownerID := ""
-	if tempVersion.Record != nil {
-		recordID = tempVersion.Record.Id
-		ownerID = tempVersion.Record.GetString("owner")
-	}
-	workflowDefinition.Config[walletAPKCleanupConfigKey] = map[string]any{
-		"record_id":  recordID,
-		"identifier": tempVersion.Identifier,
-		"owner_id":   ownerID,
-		"cleanup":    true,
-	}
-
-	rewrittenYAML, err := yaml.Marshal(workflowDefinition)
-	if err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"yaml",
-			"failed to marshal pipeline yaml",
-			err.Error(),
-		)
-	}
-
-	return string(rewrittenYAML), nil
 }
 
 func injectPipelineRunWalletAPKGlobalRunnerID(

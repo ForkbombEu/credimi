@@ -184,6 +184,7 @@ func enqueuePipelineRun(
 		"userID": runContext.userID,
 	}
 	config := buildPipelineQueueConfig(e, namespace, runContext.userName, runContext.userEmail)
+	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
 
 	runnerInfo, err := pipeline.ParsePipelineRunnerInfo(runContext.yaml)
 	if err != nil {
@@ -504,6 +505,21 @@ func buildPipelineQueueConfig(
 		"app_logo":  logoURL,
 		"user_name": userName,
 		"user_mail": userMail,
+	}
+}
+
+func applyPipelineQueueCleanupConfig(
+	config map[string]any,
+	cleanup *workflows.MobileRunnerSemaphoreCleanupMetadata,
+) {
+	if config == nil || cleanup == nil || cleanup.TempWalletVersionID == "" {
+		return
+	}
+	config[walletAPKCleanupConfigKey] = map[string]any{
+		"record_id":  cleanup.TempWalletVersionID,
+		"owner_id":   cleanup.TempWalletVersionOwnerID,
+		"identifier": cleanup.TempWalletVersionIdentifier,
+		"cleanup":    true,
 	}
 }
 

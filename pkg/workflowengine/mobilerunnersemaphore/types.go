@@ -81,6 +81,7 @@ type MobileRunnerSemaphoreEnqueueRunRequest struct {
 // that must be cleaned if the ticket is canceled before the workflow starts.
 type MobileRunnerSemaphoreCleanupMetadata struct {
 	TempWalletVersionID         string `json:"temp_wallet_version_id,omitempty"`
+	TempWalletVersionOwnerID    string `json:"temp_wallet_version_owner_id,omitempty"`
 	TempWalletVersionIdentifier string `json:"temp_wallet_version_identifier,omitempty"`
 }
 

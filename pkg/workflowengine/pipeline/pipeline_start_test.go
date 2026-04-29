@@ -113,6 +113,7 @@ func TestPipelineStartImmediate(t *testing.T) {
 	mockClient := temporalmocks.NewClient(t)
 	workflowRun := temporalmocks.NewWorkflowRun(t)
 	var capturedOptions client.StartWorkflowOptions
+	var capturedInput PipelineWorkflowInput
 
 	workflowRun.On("GetID").Return("workflow-123")
 	workflowRun.On("GetRunID").Return("run-456")
@@ -124,6 +125,7 @@ func TestPipelineStartImmediate(t *testing.T) {
 		mock.Anything,
 	).Run(func(args mock.Arguments) {
 		capturedOptions = args.Get(1).(client.StartWorkflowOptions)
+		capturedInput = args.Get(3).(PipelineWorkflowInput)
 	}).Return(workflowRun, nil)
 
 	pipelineTemporalClient = func(_ string) (client.Client, error) {
@@ -143,6 +145,52 @@ func TestPipelineStartImmediate(t *testing.T) {
 	value, ok := capturedOptions.TypedSearchAttributes.GetKeyword(key)
 	require.True(t, ok)
 	require.Equal(t, "tenant-1/immediate-pipeline", value)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, tempWalletVersionConfigKey)
+}
+
+func TestPipelineStartIgnoresReservedYAMLConfig(t *testing.T) {
+	pipelineWf := NewPipelineWorkflow()
+
+	originalClient := pipelineTemporalClient
+	defer func() {
+		pipelineTemporalClient = originalClient
+	}()
+
+	mockClient := temporalmocks.NewClient(t)
+	workflowRun := temporalmocks.NewWorkflowRun(t)
+	var capturedInput PipelineWorkflowInput
+
+	workflowRun.On("GetID").Return("workflow-123")
+	workflowRun.On("GetRunID").Return("run-456")
+	mockClient.On(
+		"ExecuteWorkflow",
+		mock.Anything,
+		mock.Anything,
+		pipelineWf.Name(),
+		mock.Anything,
+	).Run(func(args mock.Arguments) {
+		capturedInput = args.Get(3).(PipelineWorkflowInput)
+	}).Return(workflowRun, nil)
+
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	_, err := pipelineWf.Start(
+		`name: reserved-config
+config:
+  keep: value
+  temp_wallet_version:
+    record_id: malicious
+steps: []
+`,
+		map[string]any{"namespace": "default"},
+		map[string]any{},
+		"tenant-1/reserved-config",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "value", capturedInput.WorkflowInput.Config["keep"])
+	require.NotContains(t, capturedInput.WorkflowInput.Config, tempWalletVersionConfigKey)
 }
 
 func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
