@@ -25,7 +25,7 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	CardDetailsComponent?: Component<CardDetailsComponentProps<Deserialized>>;
 	EditComponent?: Component<EditComponentProps<Deserialized>>;
 	makeId: (data: Serialized) => string;
-	linkProcedure?: (serialized: Serialized, previousSteps: PipelineStep[]) => Serialized | void;
+	linkProcedure?: (serialized: Serialized, previousSteps: PipelineStep[]) => void;
 }
 
 export type EditComponentProps<Deserialized = unknown> = {

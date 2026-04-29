@@ -113,7 +113,6 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 		if (!previousStep) return;
 		serialized.parameters.deeplink = formatLinkedId(previousStep);
-		return serialized;
 	},
 
 	deserialize: async (data) => {

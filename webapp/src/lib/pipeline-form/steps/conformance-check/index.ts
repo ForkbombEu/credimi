@@ -42,7 +42,6 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		if (!previousStep) return;
 
 		serialized.credential_offer = formatLinkedId(previousStep);
-		return serialized;
 	},
 
 	makeId: ({ check_id }) => getLastPathSegment(check_id),
