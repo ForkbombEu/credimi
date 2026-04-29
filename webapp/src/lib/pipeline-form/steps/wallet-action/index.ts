@@ -10,7 +10,11 @@ import {
 	getMarketplaceItemUrl,
 	type MarketplaceItem
 } from '$lib/marketplace';
-import { type PipelineStepByType, type PipelineStepData } from '$lib/pipeline/types.js';
+import {
+	type PipelineStepByType,
+	type PipelineStepData,
+	type PipelineStepType
+} from '$lib/pipeline/types.js';
 import { getPath } from '$lib/utils';
 
 import { m } from '@/i18n/index.js';
@@ -24,6 +28,7 @@ import {
 import type { TypedConfig } from '../types';
 
 import { getLastPathSegment } from '../_partials/misc';
+import { formatLinkedId } from '../utils.js';
 import CardDetailsComponent from './card-details.svelte';
 import EditComponent from './edit-component.svelte';
 import {
@@ -38,6 +43,8 @@ import {
 } from './wallet-action-step-form.svelte.js';
 
 //
+
+const DEEPLINK_PLACEHOLDER = '<deeplink-placeholder>';
 
 export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActionStepData> = {
 	use: 'mobile-automation',
@@ -76,7 +83,8 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	initForm: () => new WalletActionStepForm(),
 
 	serialize: ({ action, version, runner }) => {
-		const _with: PipelineStepData<PipelineStepByType<'mobile-automation'>> = {
+		type StepData = PipelineStepData<PipelineStepByType<'mobile-automation'>>;
+		const _with: StepData = {
 			action_id: getPath(action),
 			version_id: version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(version)
 		};
@@ -85,10 +93,29 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		}
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
-				deeplink: '<deeplink-placeholder>' // will be written later
+				deeplink: DEEPLINK_PLACEHOLDER
 			};
 		}
 		return _with;
+	},
+
+	linkProcedure: (serialized, previousSteps) => {
+		if (serialized.parameters?.deeplink !== DEEPLINK_PLACEHOLDER) return;
+
+		const linkableSteps: PipelineStepType[] = [
+			'conformance-check',
+			'credential-offer',
+			'use-case-verification-deeplink',
+			'custom-check'
+		];
+		const previousStep = previousSteps
+			.toReversed()
+			.filter((s) => linkableSteps.includes(s.use))
+			.at(0);
+
+		if (!previousStep) return;
+		serialized.parameters.deeplink = formatLinkedId(previousStep);
+		return serialized;
 	},
 
 	deserialize: async (data) => {

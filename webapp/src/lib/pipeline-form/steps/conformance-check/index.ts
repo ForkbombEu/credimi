@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/index.js';
+
 import { entities } from '$lib/global/entities.js';
 import { getStandardsWithTestSuites } from '$lib/standards';
 
@@ -10,9 +12,12 @@ import { localizeHref } from '@/i18n/index.js';
 import type { TypedConfig } from '../types';
 
 import { getLastPathSegment } from '../_partials/misc';
+import { formatLinkedId } from '../utils.js';
 import { ConformanceCheckStepForm, type FormData } from './conformance-check-step-form.svelte.js';
 
 //
+
+const CREDENTIAL_OFFER_PLACEHOLDER = '<credential-offer-placeholder>';
 
 export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormData> = {
 	use: 'conformance-check',
@@ -21,7 +26,26 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	initForm: () => new ConformanceCheckStepForm(),
 
-	serialize: ({ test }) => ({ check_id: test }),
+	serialize: ({ test }) => {
+		type StepData = PipelineStepData<PipelineStepByType<'conformance-check'>>;
+		const _with: StepData = { check_id: test };
+		if (test.startsWith('openid4vci_issuer')) {
+			_with.credential_offer = CREDENTIAL_OFFER_PLACEHOLDER;
+		}
+		return _with;
+	},
+
+	linkProcedure: (serialized, previousSteps) => {
+		if (serialized.credential_offer !== CREDENTIAL_OFFER_PLACEHOLDER) return;
+
+		const previousStep = previousSteps
+			.toReversed()
+			.find((step) => step.use === 'credential-offer');
+		if (!previousStep) return;
+
+		serialized.credential_offer = formatLinkedId(previousStep);
+		return serialized;
+	},
 
 	makeId: ({ check_id }) => getLastPathSegment(check_id),
 

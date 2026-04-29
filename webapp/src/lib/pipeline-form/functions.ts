@@ -16,8 +16,8 @@ import { getExceptionMessage } from '@/utils/errors.js';
 
 import type { RuntimeOptions } from './runtime-options-form/runtime-options-form.svelte.js';
 
-import { type Pipeline, type PipelineStep, type PipelineStepType } from '../pipeline/types';
-import { configs } from './steps';
+import { type Pipeline, type PipelineStep } from '../pipeline/types';
+import { getConfigByType } from './steps';
 import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 
 /* Fetching pipeline */
@@ -43,8 +43,7 @@ export async function getEnrichedPipeline(
 			enrichedSteps.push([step, {}]);
 		} else {
 			try {
-				const config = configs.find((c) => c.use === step.use);
-				if (!config) throw new Error(`Unknown step type: ${step.use}`);
+				const config = getConfigByType(step.use);
 				const data = await config.deserialize(step.with);
 				enrichedSteps.push([step, data]);
 			} catch (e) {
@@ -79,8 +78,19 @@ export function createPipelineYaml(
 	steps: PipelineStep[],
 	runtime: RuntimeOptions
 ): string {
-	// Cloning because addProgressiveStepIds and linkIds modify the original steps array
-	const processedSteps = pipe(_.cloneDeep(steps), generateIds, linkIds);
+	// Cloning because editing ids and linking steps modify the original steps array
+	const processedSteps = _.cloneDeep(steps).map((step, index) => {
+		const config = getConfigByType(step.use);
+		// Id generation
+		if ('id' in step) {
+			step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;
+		}
+		// Link procedure
+		if (config.linkProcedure && 'with' in step) {
+			config.linkProcedure?.(step.with, steps.slice(0, index));
+		}
+		return step;
+	});
 
 	const pipeline: Pipeline = {
 		name,
@@ -98,53 +108,6 @@ export function createPipelineYaml(
 		// Correcting first step newline
 		replaceWith('steps:\n\n', (t) => t.replace('\n\n', '\n'), false)
 	);
-}
-
-//
-
-function generateIds(steps: PipelineStep[]): PipelineStep[] {
-	for (const [index, step] of steps.entries()) {
-		if (!('id' in step)) continue;
-
-		const config = configs.find((c) => c.use === step.use);
-		if (!config) throw new Error(`Unknown step type: ${step.use}`);
-
-		step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;
-	}
-	return steps;
-}
-
-//
-
-const linkableSteps: PipelineStepType[] = [
-	'conformance-check',
-	'credential-offer',
-	'use-case-verification-deeplink',
-	'custom-check'
-];
-
-function linkIds(steps: PipelineStep[]): PipelineStep[] {
-	for (const [index, step] of steps.entries()) {
-		if (!(step.use === 'mobile-automation')) continue;
-		if (!step.with.parameters) continue;
-		if (!('deeplink' in step.with.parameters)) continue;
-
-		const previousStep = steps
-			.slice(0, index)
-			.toReversed()
-			.filter((s) => linkableSteps.includes(s.use))
-			.at(0);
-
-		if (!previousStep || !('id' in previousStep)) continue;
-
-		let deeplinkPath = '.outputs';
-		if (previousStep.use === 'conformance-check') {
-			deeplinkPath += '.deeplink';
-		}
-
-		step.with.parameters.deeplink = '${{' + previousStep.id + deeplinkPath + '}}';
-	}
-	return steps;
 }
 
 // Utils
