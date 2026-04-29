@@ -63,17 +63,25 @@ const (
 )
 
 type MobileRunnerSemaphoreEnqueueRunRequest struct {
-	TicketID            string         `json:"ticket_id"`
-	OwnerNamespace      string         `json:"owner_namespace"`
-	EnqueuedAt          time.Time      `json:"enqueued_at"`
-	RunnerID            string         `json:"runner_id"`
-	RequiredRunnerIDs   []string       `json:"required_runner_ids"`
-	LeaderRunnerID      string         `json:"leader_runner_id"`
-	MaxPipelinesInQueue int            `json:"max_pipelines_in_queue,omitempty"`
-	PipelineIdentifier  string         `json:"pipeline_identifier,omitempty"`
-	YAML                string         `json:"yaml,omitempty"`
-	PipelineConfig      map[string]any `json:"pipeline_config,omitempty"`
-	Memo                map[string]any `json:"memo,omitempty"`
+	TicketID            string                                `json:"ticket_id"`
+	OwnerNamespace      string                                `json:"owner_namespace"`
+	EnqueuedAt          time.Time                             `json:"enqueued_at"`
+	RunnerID            string                                `json:"runner_id"`
+	RequiredRunnerIDs   []string                              `json:"required_runner_ids"`
+	LeaderRunnerID      string                                `json:"leader_runner_id"`
+	MaxPipelinesInQueue int                                   `json:"max_pipelines_in_queue,omitempty"`
+	PipelineIdentifier  string                                `json:"pipeline_identifier,omitempty"`
+	YAML                string                                `json:"yaml,omitempty"`
+	PipelineConfig      map[string]any                        `json:"pipeline_config,omitempty"`
+	Memo                map[string]any                        `json:"memo,omitempty"`
+	Cleanup             *MobileRunnerSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
+}
+
+// MobileRunnerSemaphoreCleanupMetadata carries resources owned by a queued run
+// that must be cleaned if the ticket is canceled before the workflow starts.
+type MobileRunnerSemaphoreCleanupMetadata struct {
+	TempWalletVersionID         string `json:"temp_wallet_version_id,omitempty"`
+	TempWalletVersionIdentifier string `json:"temp_wallet_version_identifier,omitempty"`
 }
 
 type MobileRunnerSemaphoreEnqueueRunResponse struct {
@@ -84,28 +92,30 @@ type MobileRunnerSemaphoreEnqueueRunResponse struct {
 }
 
 type MobileRunnerSemaphoreRunStatusView struct {
-	TicketID          string                         `json:"ticket_id"`
-	Status            MobileRunnerSemaphoreRunStatus `json:"status"`
-	Position          int                            `json:"position"`
-	LineLen           int                            `json:"line_len"`
-	LeaderRunnerID    string                         `json:"leader_runner_id,omitempty"`
-	RequiredRunnerIDs []string                       `json:"required_runner_ids,omitempty"`
-	WorkflowID        string                         `json:"workflow_id,omitempty"`
-	RunID             string                         `json:"run_id,omitempty"`
-	WorkflowNamespace string                         `json:"workflow_namespace,omitempty"`
-	ErrorMessage      string                         `json:"error_message,omitempty"`
+	TicketID          string                                `json:"ticket_id"`
+	Status            MobileRunnerSemaphoreRunStatus        `json:"status"`
+	Position          int                                   `json:"position"`
+	LineLen           int                                   `json:"line_len"`
+	LeaderRunnerID    string                                `json:"leader_runner_id,omitempty"`
+	RequiredRunnerIDs []string                              `json:"required_runner_ids,omitempty"`
+	WorkflowID        string                                `json:"workflow_id,omitempty"`
+	RunID             string                                `json:"run_id,omitempty"`
+	WorkflowNamespace string                                `json:"workflow_namespace,omitempty"`
+	ErrorMessage      string                                `json:"error_message,omitempty"`
+	Cleanup           *MobileRunnerSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
 }
 
 type MobileRunnerSemaphoreQueuedRunView struct {
-	TicketID           string                         `json:"ticket_id"`
-	OwnerNamespace     string                         `json:"owner_namespace"`
-	PipelineIdentifier string                         `json:"pipeline_identifier,omitempty"`
-	EnqueuedAt         time.Time                      `json:"enqueued_at"`
-	LeaderRunnerID     string                         `json:"leader_runner_id,omitempty"`
-	RequiredRunnerIDs  []string                       `json:"required_runner_ids,omitempty"`
-	Status             MobileRunnerSemaphoreRunStatus `json:"status"`
-	Position           int                            `json:"position"`
-	LineLen            int                            `json:"line_len"`
+	TicketID           string                                `json:"ticket_id"`
+	OwnerNamespace     string                                `json:"owner_namespace"`
+	PipelineIdentifier string                                `json:"pipeline_identifier,omitempty"`
+	EnqueuedAt         time.Time                             `json:"enqueued_at"`
+	LeaderRunnerID     string                                `json:"leader_runner_id,omitempty"`
+	RequiredRunnerIDs  []string                              `json:"required_runner_ids,omitempty"`
+	Status             MobileRunnerSemaphoreRunStatus        `json:"status"`
+	Position           int                                   `json:"position"`
+	LineLen            int                                   `json:"line_len"`
+	Cleanup            *MobileRunnerSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunDoneRequest struct {

@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -136,6 +137,10 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			userName:           runContext.userName,
 			userEmail:          runContext.userEmail,
 			yaml:               manipulatedYAML,
+			cleanup: &workflows.MobileRunnerSemaphoreCleanupMetadata{
+				TempWalletVersionID:         tempVersion.Record.Id,
+				TempWalletVersionIdentifier: tempVersion.Identifier,
+			},
 		})
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)

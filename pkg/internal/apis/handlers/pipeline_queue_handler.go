@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -42,6 +43,7 @@ type pipelineQueueRunnerStatus struct {
 	WorkflowID   string
 	RunID        string
 	ErrorMessage string
+	Cleanup      *workflows.MobileRunnerSemaphoreCleanupMetadata
 }
 
 type PipelineQueueResponse struct {
@@ -62,6 +64,7 @@ type queueRequestContext struct {
 	ticketID  string
 	runnerIDs []string
 	namespace string
+	ownerID   string
 }
 
 type pipelineQueueRunContext struct {
@@ -72,6 +75,7 @@ type pipelineQueueRunContext struct {
 	userName           string
 	userEmail          string
 	yaml               string
+	cleanup            *workflows.MobileRunnerSemaphoreCleanupMetadata
 }
 
 var errRunTicketNotFound = errors.New("run ticket not found")
@@ -296,6 +300,7 @@ func enqueuePipelineRun(
 			YAML:                runContext.yaml,
 			PipelineConfig:      config,
 			Memo:                memo,
+			Cleanup:             runContext.cleanup,
 		}
 		resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
 		if err != nil {
@@ -384,6 +389,13 @@ func HandlePipelineQueueCancel() func(*core.RequestEvent) error {
 			requestContext.ticketID,
 		)
 		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+		if apiErr := cleanupCanceledQueueResources(
+			e.App,
+			requestContext.ownerID,
+			runnerStatuses,
+		); apiErr != nil {
 			return apiErr.JSON(e)
 		}
 
@@ -590,13 +602,22 @@ func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apie
 		)
 	}
 
-	namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
+	orgRecord, err := GetUserOrganization(e.App, e.Auth.Id)
 	if err != nil {
 		return nil, apierror.New(
 			http.StatusInternalServerError,
 			"organization",
-			"unable to get user organization canonified name",
+			"unable to get user organization record",
 			err.Error(),
+		)
+	}
+	namespace := strings.TrimSpace(orgRecord.GetString("canonified_name"))
+	if namespace == "" {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization canonified name",
+			"missing organization canonified name",
 		)
 	}
 
@@ -604,6 +625,7 @@ func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apie
 		ticketID:  ticketID,
 		runnerIDs: runnerIDs,
 		namespace: namespace,
+		ownerID:   orgRecord.Id,
 	}, nil
 }
 
@@ -737,7 +759,76 @@ func runnerStatusFromView(
 		WorkflowID:   status.WorkflowID,
 		RunID:        status.RunID,
 		ErrorMessage: status.ErrorMessage,
+		Cleanup:      status.Cleanup,
 	}
+}
+
+// cleanupCanceledQueueResources removes resources attached to a queue ticket
+// only when every semaphore confirms the run never reached a running workflow.
+func cleanupCanceledQueueResources(
+	app core.App,
+	ownerID string,
+	statuses []pipelineQueueRunnerStatus,
+) *apierror.APIError {
+	cleanup, ok := canceledQueueCleanupMetadata(statuses)
+	if !ok || strings.TrimSpace(cleanup.TempWalletVersionID) == "" {
+		return nil
+	}
+	return deleteTempWalletVersionForOwner(app, cleanup.TempWalletVersionID, ownerID)
+}
+
+func canceledQueueCleanupMetadata(
+	statuses []pipelineQueueRunnerStatus,
+) (*workflows.MobileRunnerSemaphoreCleanupMetadata, bool) {
+	var cleanup *workflows.MobileRunnerSemaphoreCleanupMetadata
+	for _, status := range statuses {
+		if status.WorkflowID != "" || status.RunID != "" {
+			return nil, false
+		}
+		if status.Status == workflowengine.MobileRunnerSemaphoreRunRunning {
+			return nil, false
+		}
+		if status.Cleanup != nil && strings.TrimSpace(status.Cleanup.TempWalletVersionID) != "" {
+			cleanup = status.Cleanup
+		}
+	}
+	return cleanup, cleanup != nil
+}
+
+func deleteTempWalletVersionForOwner(
+	app core.App,
+	recordID string,
+	ownerID string,
+) *apierror.APIError {
+	record, err := app.FindRecordById("wallet_versions", strings.TrimSpace(recordID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to find temporary wallet version",
+			err.Error(),
+		)
+	}
+	if record.GetString("owner") != ownerID {
+		return apierror.New(
+			http.StatusForbidden,
+			"wallet_version",
+			"temporary wallet version owner mismatch",
+			"queued cleanup does not belong to the authenticated organization",
+		)
+	}
+	if err := app.Delete(record); err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to delete temporary wallet version",
+			err.Error(),
+		)
+	}
+	return nil
 }
 
 func aggregateRunQueueStatus(
