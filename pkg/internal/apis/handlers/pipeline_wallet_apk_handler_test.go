@@ -1030,17 +1030,18 @@ func TestResolvePipelineRunWalletAPKWallet(t *testing.T) {
 
 func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 	enqueuedAt := time.Date(2026, 4, 28, 10, 0, 0, 0, time.UTC)
-	position := 2
+	queuePosition := 2
+	apiPosition := 3
 	lineLen := 5
 
-	t.Run("queued response keeps queue fields and temp wallet metadata", func(t *testing.T) {
+	t.Run("queued response keeps queue fields and returns one based position", func(t *testing.T) {
 		response := buildPipelineRunWalletAPKResponse(
 			PipelineQueueResponse{
 				Status:     workflowengine.MobileRunnerSemaphoreRunQueued,
 				TicketID:   "ticket-1",
 				RunnerIDs:  []string{"runner-1"},
 				EnqueuedAt: &enqueuedAt,
-				Position:   &position,
+				Position:   &queuePosition,
 				LineLen:    &lineLen,
 			},
 			"version-record-1",
@@ -1051,7 +1052,7 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunQueued, response.Status)
 		require.Equal(t, "ticket-1", response.TicketID)
 		require.Equal(t, []string{"runner-1"}, response.RunnerIDs)
-		require.Equal(t, &position, response.Position)
+		require.Equal(t, &apiPosition, response.Position)
 		require.Equal(t, &lineLen, response.LineLen)
 		require.Equal(t, "version-record-1", response.TempWalletVersionID)
 		require.Equal(t, "usera-s-organization/wallet/abc123", response.TempWalletVersionIdentifier)

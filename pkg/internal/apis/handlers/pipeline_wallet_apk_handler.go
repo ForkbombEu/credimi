@@ -80,6 +80,13 @@ func buildPipelineRunWalletAPKResponse(
 	tempWalletVersionIdentifier string,
 	pipelineIdentifier string,
 ) PipelineRunWalletAPKResponse {
+	// The generic queue API exposes the semaphore's 0-based position for the
+	// webapp. The CI-facing wallet APK API returns a human-readable 1-based
+	// queue position.
+	if queueResponse.Position != nil {
+		position := *queueResponse.Position + 1
+		queueResponse.Position = &position
+	}
 	return PipelineRunWalletAPKResponse{
 		PipelineQueueResponse:       queueResponse,
 		TempWalletVersionID:         tempWalletVersionID,
