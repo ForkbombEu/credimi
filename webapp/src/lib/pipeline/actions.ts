@@ -31,20 +31,13 @@ export async function run(pipeline: PipelinesResponse) {
 		toast.error('Unexpected error');
 		return;
 	}
-
 	if (result.isErr) {
 		toast.error(result.error);
 		return;
 	}
 
-	const runnerIds = result.value.runner_ids ?? [];
-	if (!result.value.ticket_id || runnerIds.length === 0) {
-		toast.error(m.Failed_to_enqueue_pipeline());
-		return;
-	}
-
-	if (result.value.status === 'failed') {
-		toast.error(result.value.error_message ?? m.Failed_to_enqueue_pipeline());
+	if (result.value.status === 'running' || result.value.status === 'starting') {
+		toast.success(m.Pipeline_started_successfully());
 		return;
 	}
 
@@ -64,7 +57,7 @@ export async function run(pipeline: PipelinesResponse) {
 						}
 						const response = await PipelineQueue.cancel(
 							result.value.ticket_id,
-							runnerIds
+							result.value.runner_ids ?? []
 						);
 						if (response.isOk) toast.success(m.Pipeline_execution_canceled());
 						else toast.error(response.error);
