@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { PipelineStepType } from '$lib/pipeline/types';
+
 import type { AnyConfig } from './types';
 
 import { conformanceCheckStepConfig } from './conformance-check';
@@ -25,6 +27,12 @@ export const coreConfigs: AnyConfig[] = [
 ];
 
 export const configs: AnyConfig[] = [...coreConfigs, ...utilsConfigs];
+
+export function getConfigByType(type: PipelineStepType): AnyConfig {
+	const config = configs.find((c) => c.use === type);
+	if (!config) throw new Error(`Unknown step type: ${type}`);
+	return config;
+}
 
 export * from './types';
 export * from './utils';
