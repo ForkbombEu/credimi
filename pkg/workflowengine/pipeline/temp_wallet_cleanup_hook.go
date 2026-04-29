@@ -33,6 +33,8 @@ func tempWalletVersionCleanupHook(
 	}
 
 	recordID, _ := cleanupConfig["record_id"].(string)
+	ownerID, _ := cleanupConfig["owner_id"].(string)
+	identifier, _ := cleanupConfig["identifier"].(string)
 	appURL, _ := config["app_url"].(string)
 	if recordID == "" || appURL == "" {
 		return nil
@@ -46,6 +48,10 @@ func tempWalletVersionCleanupHook(
 				appURL,
 				"api", "wallet", "temp-version", recordID,
 			),
+			Body: map[string]any{
+				"expected_owner_id":   ownerID,
+				"expected_identifier": identifier,
+			},
 			ExpectedStatus: http.StatusOK,
 		},
 	}

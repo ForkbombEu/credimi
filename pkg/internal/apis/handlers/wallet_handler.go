@@ -128,6 +128,19 @@ func HandleWalletDeleteTempVersion() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		var input walletDeleteTempVersionInput
+		if e.Request.Body != nil {
+			if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil &&
+				!errors.Is(err, io.EOF) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"wallet_version",
+					"invalid delete validation payload",
+					err.Error(),
+				).JSON(e)
+			}
+		}
+
 		record, err := e.App.FindRecordById("wallet_versions", recordID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -141,6 +154,10 @@ func HandleWalletDeleteTempVersion() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		if apiErr := validateTempWalletDeleteRequest(e.App, record, input); apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
 		if err := e.App.Delete(record); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -152,6 +169,54 @@ func HandleWalletDeleteTempVersion() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, map[string]any{"deleted": true})
 	}
+}
+
+type walletDeleteTempVersionInput struct {
+	ExpectedOwnerID    string `json:"expected_owner_id"`
+	ExpectedIdentifier string `json:"expected_identifier"`
+}
+
+func validateTempWalletDeleteRequest(
+	app core.App,
+	record *core.Record,
+	input walletDeleteTempVersionInput,
+) *apierror.APIError {
+	expectedOwnerID := strings.TrimSpace(input.ExpectedOwnerID)
+	expectedIdentifier := strings.TrimSpace(input.ExpectedIdentifier)
+	if expectedOwnerID == "" || expectedIdentifier == "" {
+		return apierror.New(
+			http.StatusBadRequest,
+			"wallet_version",
+			"delete validation payload is required",
+			"expected_owner_id and expected_identifier are required",
+		)
+	}
+	if record.GetString("owner") != expectedOwnerID {
+		return apierror.New(
+			http.StatusForbidden,
+			"wallet_version",
+			"temporary wallet version owner mismatch",
+			"wallet version owner does not match expected_owner_id",
+		)
+	}
+	resolved, err := canonify.Resolve(app, expectedIdentifier)
+	if err != nil {
+		return apierror.New(
+			http.StatusForbidden,
+			"wallet_version",
+			"temporary wallet version identifier mismatch",
+			err.Error(),
+		)
+	}
+	if resolved.Id != record.Id {
+		return apierror.New(
+			http.StatusForbidden,
+			"wallet_version",
+			"temporary wallet version identifier mismatch",
+			"expected_identifier does not resolve to the requested record",
+		)
+	}
+	return nil
 }
 
 func HandleWalletStartCheck() func(*core.RequestEvent) error {

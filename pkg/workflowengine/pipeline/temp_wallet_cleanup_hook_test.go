@@ -63,8 +63,10 @@ func TestTempWalletVersionCleanupHookCallsInternalDelete(t *testing.T) {
 				map[string]any{
 					"app_url": "https://example.test",
 					tempWalletVersionConfigKey: map[string]any{
-						"record_id": "version-1",
-						"cleanup":   true,
+						"record_id":  "version-1",
+						"owner_id":   "owner-1",
+						"identifier": "org/wallet/sha",
+						"cleanup":    true,
 					},
 				},
 				nil,
@@ -89,9 +91,15 @@ func TestTempWalletVersionCleanupHookCallsInternalDelete(t *testing.T) {
 				payload = decoded
 				ok = true
 			}
+			body, ok := payload.Body.(map[string]any)
+			if !ok {
+				return false
+			}
 			return ok &&
 				payload.Method == http.MethodDelete &&
 				payload.URL == "https://example.test/api/wallet/temp-version/version-1" &&
+				body["expected_owner_id"] == "owner-1" &&
+				body["expected_identifier"] == "org/wallet/sha" &&
 				payload.ExpectedStatus == http.StatusOK
 		}),
 	).Return(workflowengine.ActivityResult{}, nil).Once()
@@ -157,9 +165,15 @@ func TestPipelineTempWalletCleanupRunsAfterSetupFailure(t *testing.T) {
 				payload = decoded
 				ok = true
 			}
+			body, ok := payload.Body.(map[string]any)
+			if !ok {
+				return false
+			}
 			return ok &&
 				payload.Method == http.MethodDelete &&
-				payload.URL == "https://example.test/api/wallet/temp-version/version-1"
+				payload.URL == "https://example.test/api/wallet/temp-version/version-1" &&
+				body["expected_owner_id"] == "owner-1" &&
+				body["expected_identifier"] == "org/wallet/sha"
 		}),
 	).Return(workflowengine.ActivityResult{}, nil).Once()
 
@@ -172,8 +186,10 @@ func TestPipelineTempWalletCleanupRunsAfterSetupFailure(t *testing.T) {
 			Config: map[string]any{
 				"app_url": "https://example.test",
 				tempWalletVersionConfigKey: map[string]any{
-					"record_id": "version-1",
-					"cleanup":   true,
+					"record_id":  "version-1",
+					"owner_id":   "owner-1",
+					"identifier": "org/wallet/sha",
+					"cleanup":    true,
 				},
 			},
 			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},

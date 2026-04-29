@@ -462,6 +462,7 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 	require.True(t, ok)
 	require.NotEmpty(t, cleanup["record_id"])
 	require.Equal(t, "usera-s-organization/wallet-enqueue/abc123", cleanup["identifier"])
+	require.Equal(t, orgID, cleanup["owner_id"])
 	require.Equal(t, true, cleanup["cleanup"])
 	require.NotNil(t, queueStub.enqueueRequests[0].Cleanup)
 	require.NotEmpty(t, queueStub.enqueueRequests[0].Cleanup.TempWalletVersionID)
@@ -913,6 +914,7 @@ func TestInjectPipelineRunWalletAPKCleanupConfig(t *testing.T) {
 		require.True(t, ok)
 		require.NotEmpty(t, cleanup["record_id"])
 		require.Equal(t, "usera-s-organization/wallet-cleanup-empty/abc123", cleanup["identifier"])
+		require.Equal(t, orgID, cleanup["owner_id"])
 		require.Equal(t, true, cleanup["cleanup"])
 	})
 

@@ -663,12 +663,15 @@ func injectPipelineRunWalletAPKCleanupConfig(
 	}
 
 	recordID := ""
+	ownerID := ""
 	if tempVersion.Record != nil {
 		recordID = tempVersion.Record.Id
+		ownerID = tempVersion.Record.GetString("owner")
 	}
 	workflowDefinition.Config[walletAPKCleanupConfigKey] = map[string]any{
 		"record_id":  recordID,
 		"identifier": tempVersion.Identifier,
+		"owner_id":   ownerID,
 		"cleanup":    true,
 	}
 

@@ -96,7 +96,10 @@ func TestWalletDeleteTempVersion(t *testing.T) {
 			req := httptest.NewRequest(
 				http.MethodDelete,
 				"/api/wallet/temp-version/"+versionRecord.Id,
-				nil,
+				jsonBody(map[string]any{
+					"expected_owner_id":   orgID,
+					"expected_identifier": versionID,
+				}),
 			)
 			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
 			rec := httptest.NewRecorder()
@@ -110,6 +113,77 @@ func TestWalletDeleteTempVersion(t *testing.T) {
 
 		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
 		require.Error(t, err)
+	})
+
+	t.Run("rejects existing wallet version without validation payload", func(t *testing.T) {
+		app := setupWalletApp(t)
+		defer app.Cleanup()
+
+		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-no-payload", "abc123")
+		versionRecord, err := canonify.Resolve(app, versionID)
+		require.NoError(t, err)
+
+		baseRouter, err := apis.NewRouter(app)
+		require.NoError(t, err)
+		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+			mux, err := e.Router.BuildMux()
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(
+				http.MethodDelete,
+				"/api/wallet/temp-version/"+versionRecord.Id,
+				nil,
+			)
+			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.Contains(t, rec.Body.String(), "delete validation payload is required")
+			return nil
+		})
+		require.NoError(t, serveErr)
+
+		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects owner mismatch", func(t *testing.T) {
+		app := setupWalletApp(t)
+		defer app.Cleanup()
+
+		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-owner-mismatch", "abc123")
+		versionRecord, err := canonify.Resolve(app, versionID)
+		require.NoError(t, err)
+
+		baseRouter, err := apis.NewRouter(app)
+		require.NoError(t, err)
+		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+			mux, err := e.Router.BuildMux()
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(
+				http.MethodDelete,
+				"/api/wallet/temp-version/"+versionRecord.Id,
+				jsonBody(map[string]any{
+					"expected_owner_id":   "other-owner",
+					"expected_identifier": versionID,
+				}),
+			)
+			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusForbidden, rec.Code)
+			require.Contains(t, rec.Body.String(), "owner mismatch")
+			return nil
+		})
+		require.NoError(t, serveErr)
+
+		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
+		require.NoError(t, err)
 	})
 
 	t.Run("missing record is idempotent success", func(t *testing.T) {
