@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -803,6 +804,103 @@ func TestPipelineQueueHelpers(t *testing.T) {
 		require.NotNil(t, response.LineLen)
 		require.Equal(t, "wf-99", response.WorkflowID)
 		require.Equal(t, "run-99", response.RunID)
+	})
+
+	t.Run("buildQueueEnqueueResponse maps failed status", func(t *testing.T) {
+		response := buildQueueEnqueueResponse(
+			"ticket-1",
+			time.Now(),
+			[]string{"runner-1"},
+			workflowengine.MobileRunnerSemaphoreRunFailed,
+			0,
+			1,
+			"",
+			"",
+			"queue limit exceeded",
+		)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunFailed, response.Status)
+		require.Equal(t, "queue limit exceeded", response.ErrorMessage)
+		require.Empty(t, response.TicketID)
+	})
+
+	t.Run("buildQueueEnqueueResponse maps running status", func(t *testing.T) {
+		response := buildQueueEnqueueResponse(
+			"ticket-1",
+			time.Now(),
+			[]string{"runner-1"},
+			workflowengine.MobileRunnerSemaphoreRunRunning,
+			0,
+			1,
+			"wf-1",
+			"run-1",
+			"",
+		)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, response.Status)
+		require.Equal(t, "wf-1", response.WorkflowID)
+		require.Equal(t, "run-1", response.RunID)
+		require.Empty(t, response.TicketID)
+	})
+
+	t.Run("canceledQueueCleanupMetadata rejects started status", func(t *testing.T) {
+		cleanup := &workflows.MobileRunnerSemaphoreCleanupMetadata{
+			TempWalletVersionID: "wallet-version-1",
+		}
+		metadata, ok := canceledQueueCleanupMetadata([]pipelineQueueRunnerStatus{
+			{
+				RunnerID: "runner-1",
+				Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
+				Cleanup:  cleanup,
+			},
+			{
+				RunnerID:   "runner-2",
+				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				Cleanup:    cleanup,
+			},
+		})
+		require.False(t, ok)
+		require.Nil(t, metadata)
+	})
+}
+
+func TestDeleteTempWalletVersionForOwner(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	t.Run("missing record is no-op", func(t *testing.T) {
+		app := setupPipelineQueueApp(t)
+		defer app.Cleanup()
+
+		apiErr := deleteTempWalletVersionForOwner(app, "missingrecord12", orgID)
+		require.Nil(t, apiErr)
+	})
+
+	t.Run("owner mismatch is forbidden", func(t *testing.T) {
+		app := setupPipelineQueueApp(t)
+		defer app.Cleanup()
+
+		orgColl, err := app.FindCollectionByNameOrId("organizations")
+		require.NoError(t, err)
+		otherOrg := core.NewRecord(orgColl)
+		otherOrg.Set("name", "Other Org")
+		otherOrg.Set("canonified_name", "other-org")
+		require.NoError(t, app.Save(otherOrg))
+
+		versionRecord := createQueueTempWalletVersion(
+			t,
+			app,
+			otherOrg.Id,
+			"other-temp-wallet",
+			"abc123",
+		)
+
+		apiErr := deleteTempWalletVersionForOwner(app, versionRecord.Id, orgID)
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusForbidden, apiErr.Code)
+
+		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
+		require.NoError(t, err)
 	})
 }
 

@@ -656,6 +656,33 @@ func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
 	})
 }
 
+func TestDownloadWalletAPKFromURL(t *testing.T) {
+	t.Run("downloads apk bytes", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Length", "9")
+			_, err := w.Write([]byte("apk bytes"))
+			require.NoError(t, err)
+		}))
+		defer server.Close()
+
+		file, err := downloadWalletAPKFromURL(context.Background(), server.URL, "wallet.apk")
+		require.NoError(t, err)
+		require.Equal(t, "wallet.apk", file.OriginalName)
+	})
+
+	t.Run("rejects failed status", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "no apk", http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		file, err := downloadWalletAPKFromURL(context.Background(), server.URL, "wallet.apk")
+		require.Error(t, err)
+		require.Nil(t, file)
+		require.Contains(t, err.Error(), "unexpected status")
+	})
+}
+
 func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)

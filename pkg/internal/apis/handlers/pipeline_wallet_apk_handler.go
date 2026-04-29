@@ -925,7 +925,3 @@ func validatePipelineRunWalletAPKRequest(input pipelineRunWalletAPKRequest) *api
 
 	return nil
 }
-
-func isMissingMultipartFile(err error) bool {
-	return errors.Is(err, http.ErrMissingFile)
-}
