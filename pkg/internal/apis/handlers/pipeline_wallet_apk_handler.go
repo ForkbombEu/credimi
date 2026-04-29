@@ -37,6 +37,7 @@ var walletAPKURLDownloader = downloadWalletAPKFromURL
 type pipelineRunWalletAPKRequest struct {
 	PipelineIdentifier string
 	CommitSHA          string
+	RunnerID           string
 	APKURL             string
 	APKFile            *multipart.FileHeader
 }
@@ -114,6 +115,14 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			return apiErr.JSON(e)
 		}
 		manipulatedYAML, apiErr := injectPipelineRunWalletAPKCleanupConfig(rewrittenYAML, tempVersion)
+		if apiErr != nil {
+			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
+			return apiErr.JSON(e)
+		}
+		manipulatedYAML, apiErr = injectPipelineRunWalletAPKGlobalRunnerID(
+			manipulatedYAML,
+			input.RunnerID,
+		)
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
@@ -664,6 +673,90 @@ func injectPipelineRunWalletAPKCleanupConfig(
 	return string(rewrittenYAML), nil
 }
 
+func injectPipelineRunWalletAPKGlobalRunnerID(
+	pipelineYAML string,
+	runnerID string,
+) (string, *apierror.APIError) {
+	runnerID = canonify.NormalizePath(runnerID)
+	if runnerID == "" {
+		return pipelineYAML, nil
+	}
+
+	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse pipeline yaml",
+			err.Error(),
+		)
+	}
+
+	hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+	if hasStepRunner {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"runner_id",
+			"runner_id cannot be combined with step runner_id",
+			"remove step runner_id values or omit runner_id",
+		)
+	}
+	if !needsGlobalRunner {
+		return pipelineYAML, nil
+	}
+
+	workflowDefinition.Runtime.GlobalRunnerID = runnerID
+	rewrittenYAML, err := yaml.Marshal(workflowDefinition)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"yaml",
+			"failed to marshal pipeline yaml",
+			err.Error(),
+		)
+	}
+
+	return string(rewrittenYAML), nil
+}
+
+func mobileRunnerSelectionState(
+	workflowDefinition *pipelineinternal.WorkflowDefinition,
+) (bool, bool) {
+	if workflowDefinition == nil {
+		return false, false
+	}
+
+	hasStepRunner := false
+	needsGlobalRunner := false
+	check := func(step pipelineinternal.StepSpec) {
+		if step.Use != "mobile-automation" {
+			return
+		}
+		runnerID, _ := step.With.Payload["runner_id"].(string)
+		if strings.TrimSpace(runnerID) == "" {
+			needsGlobalRunner = true
+			return
+		}
+		hasStepRunner = true
+	}
+
+	for _, step := range workflowDefinition.Steps {
+		check(step.StepSpec)
+		for _, onErr := range step.OnError {
+			if onErr != nil {
+				check(onErr.StepSpec)
+			}
+		}
+		for _, onSuccess := range step.OnSuccess {
+			if onSuccess != nil {
+				check(onSuccess.StepSpec)
+			}
+		}
+	}
+
+	return hasStepRunner, needsGlobalRunner
+}
+
 func collectWalletAPKVersionReferences(
 	workflowDefinition *pipelineinternal.WorkflowDefinition,
 ) []walletAPKVersionReference {
@@ -728,6 +821,7 @@ func parsePipelineRunWalletAPKRequest(
 	return pipelineRunWalletAPKRequest{
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
 		CommitSHA:          strings.TrimSpace(e.Request.FormValue("commit_sha")),
+		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 	}, nil
 }
@@ -755,6 +849,7 @@ func parsePipelineRunWalletAPKMultipartRequest(
 	return pipelineRunWalletAPKRequest{
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
 		CommitSHA:          strings.TrimSpace(e.Request.FormValue("commit_sha")),
+		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 		APKFile:            apkFile,
 	}, nil
@@ -766,6 +861,7 @@ func parsePipelineRunWalletAPKJSONRequest(
 	var input struct {
 		PipelineIdentifier string `json:"pipeline_identifier"`
 		CommitSHA          string `json:"commit_sha"`
+		RunnerID           string `json:"runner_id"`
 		APKURL             string `json:"apk_url"`
 	}
 	if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil {
@@ -780,6 +876,7 @@ func parsePipelineRunWalletAPKJSONRequest(
 	return pipelineRunWalletAPKRequest{
 		PipelineIdentifier: strings.TrimSpace(input.PipelineIdentifier),
 		CommitSHA:          strings.TrimSpace(input.CommitSHA),
+		RunnerID:           strings.TrimSpace(input.RunnerID),
 		APKURL:             strings.TrimSpace(input.APKURL),
 	}, nil
 }

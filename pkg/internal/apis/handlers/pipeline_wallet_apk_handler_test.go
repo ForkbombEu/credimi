@@ -465,6 +465,80 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 	require.Equal(t, true, cleanup["cleanup"])
 }
 
+func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	scenario := tests.ApiScenario{
+		Name:   "injects runner_id as global_runner_id",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/run-wallet-apk",
+		Headers: map[string]string{
+			"Content-Type":    "application/json",
+			"Credimi-Api-Key": walletAPKUserAPIKey,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"commit_sha":          "abc123",
+			"runner_id":           "usera-s-organization/runner-global",
+			"apk_url":             "http://ci.example.test/wallet.apk",
+		}),
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"status":"queued"`,
+			`"runner_ids":["usera-s-organization/runner-global"]`,
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineWalletAPKApp(t)
+			seedUserAPIKey(t, app, walletAPKUserAPIKey)
+			versionID := createWalletAPKVersion(t, app, orgID, "wallet-global-runner", "1.0.0")
+			createWalletAPITestPipeline(
+				t,
+				app,
+				orgID,
+				walletAPKPipelineYAMLWithoutRunner(versionID),
+			)
+			return app
+		},
+	}
+	scenario.Test(t)
+
+	require.Len(t, queueStub.enqueueRequests, 1)
+	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
+	require.NoError(t, err)
+	require.Equal(t, "usera-s-organization/runner-global", workflow.Runtime.GlobalRunnerID)
+	require.Equal(
+		t,
+		"usera-s-organization/wallet-global-runner/abc123",
+		workflow.Steps[0].With.Payload["version_id"],
+	)
+}
+
+func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
+	t.Run("rejects step runner ids", func(t *testing.T) {
+		_, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
+			"runner-global",
+		)
+
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusBadRequest, apiErr.Code)
+		require.Equal(t, "runner_id cannot be combined with step runner_id", apiErr.Reason)
+	})
+
+	t.Run("leaves yaml unchanged when runner id is empty", func(t *testing.T) {
+		inputYAML := "name: test\nsteps: []\n"
+		got, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(inputYAML, "")
+
+		require.Nil(t, apiErr)
+		require.Equal(t, inputYAML, got)
+	})
+}
+
 func TestPipelineRunWalletAPKRollsBackTempVersionOnQueueFailure(t *testing.T) {
 	installWalletAPKURLDownloaderStub(t)
 	queueStub := &queueStub{}
@@ -841,6 +915,10 @@ func TestInjectPipelineRunWalletAPKCleanupConfig(t *testing.T) {
 
 func walletAPKPipelineYAML(versionID string) string {
 	return "name: test\nsteps:\n  - id: install-wallet\n    use: mobile-automation\n    with:\n      action_id: usera-s-organization/wallet123/install\n      version_id: " + versionID + "\n      runner_id: runner-1\n"
+}
+
+func walletAPKPipelineYAMLWithoutRunner(versionID string) string {
+	return "name: test\nsteps:\n  - id: install-wallet\n    use: mobile-automation\n    with:\n      action_id: usera-s-organization/wallet123/install\n      version_id: " + versionID + "\n"
 }
 
 func TestResolvePipelineRunWalletAPKWallet(t *testing.T) {
