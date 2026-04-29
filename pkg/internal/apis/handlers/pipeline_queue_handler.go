@@ -53,6 +53,8 @@ type PipelineQueueResponse struct {
 	LineLen      *int                                     `json:"line_len,omitempty"`
 	WorkflowID   string                                   `json:"workflow_id,omitempty"`
 	RunID        string                                   `json:"run_id,omitempty"`
+	PipelineURL  string                                   `json:"pipeline_url,omitempty"`
+	RunURL       string                                   `json:"run_url,omitempty"`
 	ErrorMessage string                                   `json:"error_message,omitempty"`
 }
 
@@ -210,11 +212,17 @@ func enqueuePipelineRun(
 		if apiErr != nil {
 			return PipelineQueueResponse{}, apiErr
 		}
-		return PipelineQueueResponse{
+		response := PipelineQueueResponse{
 			Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
 			WorkflowID: startResult.WorkflowID,
 			RunID:      startResult.WorkflowRunID,
-		}, nil
+		}
+		decoratePipelineQueueResponseURLs(
+			&response,
+			e.App.Settings().Meta.AppURL,
+			runContext.pipelineIdentifier,
+		)
+		return response, nil
 	}
 	if len(runnerIDs) == 0 {
 		return PipelineQueueResponse{}, apierror.New(
@@ -317,7 +325,7 @@ func enqueuePipelineRun(
 
 	status, position, lineLen, workflowID, runID, errorMessage :=
 		aggregateRunQueueStatus(runnerStatuses)
-	return buildQueueEnqueueResponse(
+	response := buildQueueEnqueueResponse(
 		ticketID,
 		now,
 		runnerIDs,
@@ -327,7 +335,13 @@ func enqueuePipelineRun(
 		workflowID,
 		runID,
 		errorMessage,
-	), nil
+	)
+	decoratePipelineQueueResponseURLs(
+		&response,
+		e.App.Settings().Meta.AppURL,
+		runContext.pipelineIdentifier,
+	)
+	return response, nil
 }
 
 func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
@@ -350,6 +364,7 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 			requestContext.ticketID,
 			runnerStatuses,
 		)
+		decoratePipelineQueueResponseURLs(&response, e.App.Settings().Meta.AppURL, "")
 
 		return e.JSON(http.StatusOK, response)
 	}
@@ -426,6 +441,35 @@ func buildQueueEnqueueResponse(
 			LineLen:    &line,
 		}
 	}
+}
+
+func decoratePipelineQueueResponseURLs(
+	response *PipelineQueueResponse,
+	appURL string,
+	pipelineIdentifier string,
+) {
+	if response == nil {
+		return
+	}
+	if strings.TrimSpace(pipelineIdentifier) != "" {
+		response.PipelineURL = buildPipelinePageURL(appURL, pipelineIdentifier)
+	}
+	if strings.TrimSpace(response.WorkflowID) != "" && strings.TrimSpace(response.RunID) != "" {
+		response.RunURL = buildPipelineRunPageURL(appURL, response.WorkflowID, response.RunID)
+	}
+}
+
+func buildPipelinePageURL(appURL string, pipelineIdentifier string) string {
+	return utils.JoinURL(
+		appURL,
+		"my",
+		"pipelines",
+		strings.TrimPrefix(canonify.NormalizePath(pipelineIdentifier), "/"),
+	)
+}
+
+func buildPipelineRunPageURL(appURL string, workflowID string, runID string) string {
+	return utils.JoinURL(appURL, "my", "tests", "runs", workflowID, runID)
 }
 
 func buildPipelineQueueConfig(

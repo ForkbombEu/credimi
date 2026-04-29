@@ -202,12 +202,15 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			ExpectedContent: []string{
 				"\"status\":\"queued\"",
 				"\"runner_ids\":[\"runner-1\"]",
+				"\"pipeline_url\":\"https://credimi.test/my/pipelines/usera-s-organization/pipeline123\"",
 			},
 			NotExpectedContent: []string{
 				"\"mode\"",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+				app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+				app.Settings().Meta.AppURL = "https://credimi.test"
+				return app
 			},
 		},
 		{
@@ -314,6 +317,7 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	nonRunnerYaml := "name: test\nsteps: []\n"
 	app := setupPipelineQueueAppWithPipeline(t, orgID, nonRunnerYaml)
 	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://credimi.test"
 
 	baseRouter, err := apis.NewRouter(app)
 	require.NoError(t, err)
@@ -340,6 +344,16 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 		require.Contains(t, rec.Body.String(), "\"status\":\"running\"")
 		require.Contains(t, rec.Body.String(), "\"workflow_id\":\"wf-123\"")
 		require.Contains(t, rec.Body.String(), "\"run_id\":\"run-456\"")
+		require.Contains(
+			t,
+			rec.Body.String(),
+			"\"pipeline_url\":\"https://credimi.test/my/pipelines/usera-s-organization/pipeline123\"",
+		)
+		require.Contains(
+			t,
+			rec.Body.String(),
+			"\"run_url\":\"https://credimi.test/my/tests/runs/wf-123/run-456\"",
+		)
 		require.NotContains(t, rec.Body.String(), "\"mode\"")
 		return nil
 	})
@@ -363,6 +377,59 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	require.Len(t, results, 1)
 	require.Equal(t, "wf-123", results[0].GetString("workflow_id"))
 	require.Equal(t, "run-456", results[0].GetString("run_id"))
+}
+
+func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	origQuery := queryRunTicketStatus
+	t.Cleanup(func() {
+		queryRunTicketStatus = origQuery
+	})
+
+	queryRunTicketStatus = func(
+		ctx context.Context,
+		runnerID string,
+		ownerNamespace string,
+		ticketID string,
+	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
+		return workflows.MobileRunnerSemaphoreRunStatusView{
+			TicketID:          ticketID,
+			Status:            workflowengine.MobileRunnerSemaphoreRunRunning,
+			WorkflowID:        "wf-123",
+			RunID:             "run-456",
+			Position:          0,
+			LineLen:           1,
+			LeaderRunnerID:    runnerID,
+			RequiredRunnerIDs: []string{runnerID},
+		}, nil
+	}
+
+	scenario := tests.ApiScenario{
+		Name:   "poll returns run url",
+		Method: http.MethodGet,
+		URL:    "/api/pipeline/queue/ticket-1?runner_ids[]=runner-1",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			"\"status\":\"running\"",
+			"\"workflow_id\":\"wf-123\"",
+			"\"run_id\":\"run-456\"",
+			"\"run_url\":\"https://credimi.test/my/tests/runs/wf-123/run-456\"",
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineQueueApp(t)
+			app.Settings().Meta.AppURL = "https://credimi.test"
+			return app
+		},
+	}
+
+	scenario.Test(t)
 }
 
 func TestPipelineQueueCancel(t *testing.T) {
