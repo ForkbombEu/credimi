@@ -5,19 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ComponentProps } from 'svelte';
+
+	import { EntityTag } from '$lib/global';
+
 	import type { HeaderAlign } from './alignment';
 
-	type Props = {
-		header: string;
+	//
+
+	type Props = ComponentProps<typeof EntityTag> & {
 		align?: HeaderAlign;
 	};
 
-	let { header, align = 'left' }: Props = $props();
+	let { align = 'left', ...props }: Props = $props();
 </script>
 
 <div
 	class={[
-		'flex items-center gap-2 text-[1rem] text-primary',
+		'flex items-center',
 		{
 			'justify-start': align === 'left',
 			'justify-center': align === 'center',
@@ -25,5 +30,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	]}
 >
-	<span>{header}</span>
+	<EntityTag {...props} />
 </div>
