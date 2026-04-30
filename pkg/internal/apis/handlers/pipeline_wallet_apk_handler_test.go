@@ -28,8 +28,8 @@ import (
 
 const walletAPKUserAPIKey = "wallet-apk-user-api-key"
 
-func walletAPKMetadata(sha string) map[string]any {
-	return map[string]any{"sha": sha}
+func walletAPKMetadata() map[string]any {
+	return map[string]any{"sha": "abc123"}
 }
 
 func walletAPKMetadataField(sha string) string {
@@ -219,7 +219,7 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 	validJSON := func() *bytes.Reader {
 		return jsonBody(map[string]any{
 			"pipeline_identifier": "usera-s-organization/pipeline123",
-			"metadata":            walletAPKMetadata("abc123"),
+			"metadata":            walletAPKMetadata(),
 			"apk_url":             "http://ci.example.test/wallet.apk",
 		})
 	}
@@ -255,7 +255,7 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			URL:     "/api/pipeline/run-wallet-apk",
 			Headers: userKeyHeaders,
 			Body: jsonBody(map[string]any{
-				"metadata": walletAPKMetadata("abc123"),
+				"metadata": walletAPKMetadata(),
 				"apk_url":  "http://ci.example.test/wallet.apk",
 			}),
 			ExpectedStatus: http.StatusBadRequest,
@@ -296,7 +296,7 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			Headers: userKeyHeaders,
 			Body: jsonBody(map[string]any{
 				"pipeline_identifier": "usera-s-organization/pipeline123",
-				"metadata":            walletAPKMetadata("abc123"),
+				"metadata":            walletAPKMetadata(),
 			}),
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
@@ -373,7 +373,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			Headers: userKeyHeaders,
 			Body: jsonBody(map[string]any{
 				"pipeline_identifier": "usera-s-organization/missing",
-				"metadata":            walletAPKMetadata("abc123"),
+				"metadata":            walletAPKMetadata(),
 				"apk_url":             "http://ci.example.test/wallet.apk",
 			}),
 			ExpectedStatus: http.StatusNotFound,
@@ -393,7 +393,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			Headers: userKeyHeaders,
 			Body: jsonBody(map[string]any{
 				"pipeline_identifier": "usera-s-organization/pipeline123",
-				"metadata":            walletAPKMetadata("abc123"),
+				"metadata":            walletAPKMetadata(),
 				"apk_url":             "http://ci.example.test/wallet.apk",
 			}),
 			ExpectedStatus: http.StatusBadRequest,
@@ -417,7 +417,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			Headers: userKeyHeaders,
 			Body: jsonBody(map[string]any{
 				"pipeline_identifier": "usera-s-organization/pipeline123",
-				"metadata":            walletAPKMetadata("abc123"),
+				"metadata":            walletAPKMetadata(),
 				"apk_url":             "http://ci.example.test/wallet.apk",
 			}),
 			ExpectedStatus: http.StatusOK,
@@ -442,7 +442,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			Headers: userKeyHeaders,
 			Body: jsonBody(map[string]any{
 				"pipeline_identifier": "other-org/private-pipeline",
-				"metadata":            walletAPKMetadata("abc123"),
+				"metadata":            walletAPKMetadata(),
 				"apk_url":             "http://ci.example.test/wallet.apk",
 			}),
 			ExpectedStatus: http.StatusForbidden,
@@ -474,7 +474,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			Headers: userKeyHeaders,
 			Body: jsonBody(map[string]any{
 				"pipeline_identifier": "other-org/published-pipeline",
-				"metadata":            walletAPKMetadata("abc123"),
+				"metadata":            walletAPKMetadata(),
 				"apk_url":             "http://ci.example.test/wallet.apk",
 			}),
 			ExpectedStatus: http.StatusOK,
@@ -597,7 +597,7 @@ func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
 		},
 		Body: jsonBody(map[string]any{
 			"pipeline_identifier": "usera-s-organization/pipeline123",
-			"metadata":            walletAPKMetadata("abc123"),
+			"metadata":            walletAPKMetadata(),
 			"runner_id":           "usera-s-organization/runner-global",
 			"apk_url":             "http://ci.example.test/wallet.apk",
 		}),
@@ -688,7 +688,7 @@ func TestPipelineRunWalletAPKRollsBackTempVersionOnQueueFailure(t *testing.T) {
 			"/api/pipeline/run-wallet-apk",
 			jsonBody(map[string]any{
 				"pipeline_identifier": "usera-s-organization/pipeline123",
-				"metadata":            walletAPKMetadata("abc123"),
+				"metadata":            walletAPKMetadata(),
 				"apk_url":             "http://ci.example.test/wallet.apk",
 			}),
 		)
