@@ -15,6 +15,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  trigger_deploy:
+    name: 🗞️  Trigger new deploy
+    runs-on: ubuntu-latest
+    env:
+      COOLIFY_CREDIMI_WEBHOOK_URL: ${{ secrets.COOLIFY_CREDIMI_WEBHOOK_URL }}
+      COOLIFY_WEBHOOK_TOKEN: ${{ secrets.COOLIFY_WEBHOOK_TOKEN }}
+    steps:
+      - name: Trigger Coolify deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${COOLIFY_CREDIMI_WEBHOOK_URL:-}" || -z "${COOLIFY_WEBHOOK_TOKEN:-}" ]]; then
+            echo "Coolify webhook secrets are not set; skipping deploy trigger."
+            exit 0
+          fi
+          curl -fsS --request GET "${COOLIFY_CREDIMI_WEBHOOK_URL}" \
+            --header "Authorization: Bearer ${COOLIFY_WEBHOOK_TOKEN}"
+
   release:
     name: 🔖 Release
     runs-on: ubuntu-latest
@@ -32,7 +50,7 @@ jobs:
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
-          version: '~> v2.15'
+          version: "~> v2.15"
           install-only: true
       - uses: sigstore/cosign-installer@v3.8.1
       - uses: anchore/sbom-action/download-syft@v0.18.0
