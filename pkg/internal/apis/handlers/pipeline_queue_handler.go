@@ -76,6 +76,7 @@ type pipelineQueueRunContext struct {
 	userEmail          string
 	yaml               string
 	metadata           map[string]any
+	resultType         string
 	cleanup            *workflows.MobileRunnerSemaphoreCleanupMetadata
 }
 
@@ -184,6 +185,11 @@ func enqueuePipelineRun(
 		"test":   "pipeline-run",
 		"userID": runContext.userID,
 	}
+	resultType := runContext.resultType
+	if resultType == "" {
+		resultType = pipelineinternal.ResultTypeManual
+	}
+	memo[pipelineinternal.ResultTypeMemoKey] = resultType
 	if runContext.metadata != nil {
 		memo["metadata"] = runContext.metadata
 	}
@@ -217,6 +223,7 @@ func enqueuePipelineRun(
 			runContext.yaml,
 			config,
 			memo,
+			resultType,
 		)
 		if apiErr != nil {
 			return PipelineQueueResponse{}, apiErr
@@ -536,6 +543,7 @@ func startPipelineFromQueue(
 	yaml string,
 	config map[string]any,
 	memo map[string]any,
+	resultType string,
 ) (workflowengine.WorkflowResult, *apierror.APIError) {
 	var result workflowengine.WorkflowResult
 
@@ -552,6 +560,7 @@ func startPipelineFromQueue(
 	record := core.NewRecord(coll)
 	record.Set("owner", ownerID)
 	record.Set("pipeline", pipelineRecord.Id)
+	setPipelineResultType(record, coll, resultType)
 
 	result, err = startPipelineWorkflow(yaml, config, memo, pipelineIdentifier)
 	if err != nil {

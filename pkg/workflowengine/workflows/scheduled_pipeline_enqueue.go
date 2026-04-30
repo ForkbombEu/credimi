@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -254,7 +255,8 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		info.WorkflowExecution.RunID,
 	)
 	memo := map[string]any{
-		"test": "pipeline-run",
+		"test":                             "pipeline-run",
+		pipelineinternal.ResultTypeMemoKey: pipelineinternal.ResultTypeScheduled,
 	}
 
 	enqueueInput := workflowengine.ActivityInput{

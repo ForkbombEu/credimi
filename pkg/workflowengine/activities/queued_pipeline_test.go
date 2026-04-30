@@ -5,6 +5,7 @@ package activities
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
@@ -188,6 +190,44 @@ func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
 	require.Equal(t, 3, attempts)
 }
 
+func TestStartQueuedPipelineActivityPostsResultType(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
+	var posted map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&posted))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	act := NewStartQueuedPipelineActivity()
+	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		return fakeTemporalClient{
+			run: fakeWorkflowRun{
+				id:    "wf-ci",
+				runID: "run-ci",
+			},
+		}, nil
+	}
+	act.httpDoer = server.Client()
+
+	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: StartQueuedPipelineActivityInput{
+			TicketID:           "ticket-ci",
+			OwnerNamespace:     "tenant-ci",
+			PipelineIdentifier: "tenant-ci/pipeline",
+			YAML:               "name: test\nsteps: []\n",
+			PipelineConfig: map[string]any{
+				"app_url": server.URL,
+			},
+			Memo: map[string]any{
+				pipelineinternal.ResultTypeMemoKey: pipelineinternal.ResultTypeCI,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, pipelineinternal.ResultTypeCI, posted["type"])
+}
+
 // TestStartQueuedPipelineActivityWorkflowIDPrefix verifies scheduled tickets get a distinct ID prefix.
 func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
@@ -302,6 +342,7 @@ func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
+		pipelineinternal.ResultTypeManual,
 	)
 
 	require.Error(t, err)
@@ -320,6 +361,7 @@ func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
+		pipelineinternal.ResultTypeManual,
 	)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, status)
@@ -339,6 +381,7 @@ func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
+		pipelineinternal.ResultTypeManual,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")

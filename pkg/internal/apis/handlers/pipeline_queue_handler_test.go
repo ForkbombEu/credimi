@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
@@ -318,6 +319,7 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	nonRunnerYaml := "name: test\nsteps: []\n"
 	app := setupPipelineQueueAppWithPipeline(t, orgID, nonRunnerYaml)
 	defer app.Cleanup()
+	ensurePipelineResultsTypeField(t, app)
 	app.Settings().Meta.AppURL = "https://credimi.test"
 
 	baseRouter, err := apis.NewRouter(app)
@@ -378,6 +380,7 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	require.Len(t, results, 1)
 	require.Equal(t, "wf-123", results[0].GetString("workflow_id"))
 	require.Equal(t, "run-456", results[0].GetString("run_id"))
+	require.Equal(t, pipelineinternal.ResultTypeManual, results[0].GetString("type"))
 }
 
 func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {

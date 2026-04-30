@@ -553,6 +553,11 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 
 	require.Len(t, queueStub.enqueueRequests, 1)
 	require.Equal(t, metadata, queueStub.enqueueRequests[0].Memo["metadata"])
+	require.Equal(
+		t,
+		pipelineinternal.ResultTypeCI,
+		queueStub.enqueueRequests[0].Memo[pipelineinternal.ResultTypeMemoKey],
+	)
 	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
 	require.NoError(t, err)
 	require.Equal(

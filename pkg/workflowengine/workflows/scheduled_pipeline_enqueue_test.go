@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
@@ -99,6 +100,11 @@ steps:
 	require.Equal(t, "https://example.test", config["app_url"])
 
 	require.Equal(t, "pipeline-run", capturedPayload.Memo["test"])
+	require.Equal(
+		t,
+		pipelineinternal.ResultTypeScheduled,
+		capturedPayload.Memo[pipelineinternal.ResultTypeMemoKey],
+	)
 
 	require.False(t, capturedPayload.EnqueuedAt.IsZero())
 	require.Equal(t, time.UTC, capturedPayload.EnqueuedAt.Location())

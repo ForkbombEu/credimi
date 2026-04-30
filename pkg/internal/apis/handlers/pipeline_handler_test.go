@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -41,6 +42,26 @@ func setupPipelineApp(t testing.TB) *tests.TestApp {
 	seedInternalAdminKey(t, app)
 
 	return app
+}
+
+func ensurePipelineResultsTypeField(t testing.TB, app *tests.TestApp) {
+	collection, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	if collection.Fields.GetByName("type") != nil {
+		return
+	}
+
+	collection.Fields.Add(&core.SelectField{
+		Name:      "type",
+		MaxSelect: 1,
+		Values: []string{
+			pipelineinternal.ResultTypeManual,
+			pipelineinternal.ResultTypeScheduled,
+			pipelineinternal.ResultTypeCI,
+		},
+	})
+	require.NoError(t, app.Save(collection))
 }
 
 // setupPipelineStartApp builds a test app with pipeline start routes.
@@ -143,6 +164,7 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 				"pipeline_id": "usera-s-organization/pipeline123",
 				"workflow_id": "workflow-xyz",
 				"run_id":      "run-001",
+				"type":        pipelineinternal.ResultTypeCI,
 			}),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -150,10 +172,12 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 				`"pipeline"`,
 				`"workflow_id"`,
 				`"run_id"`,
+				`"type":"CI"`,
 			},
 			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineApp(t)
+				ensurePipelineResultsTypeField(t, app)
 
 				coll, err := app.FindCollectionByNameOrId("pipelines")
 				require.NoError(t, err)
