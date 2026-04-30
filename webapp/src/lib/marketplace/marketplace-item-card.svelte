@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <a
 	{href}
 	class={[
-		'border-primary bg-card text-card-foreground ring-primary relative',
+		'relative border-primary bg-card text-card-foreground ring-primary',
 		'flex flex-col justify-between gap-4',
 		'overflow-visible rounded-lg border p-4 shadow-sm transition-all hover:-translate-y-2 hover:ring-2',
 		className
@@ -53,8 +53,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<div class="flex items-start justify-between gap-4">
 		<div>
-			<p class="text-muted-foreground text-xs">{item.organization_name}</p>
-			<T class="overflow-hidden text-ellipsis font-semibold">{item.name}</T>
+			<p class="text-xs text-muted-foreground">{item.organization_name}</p>
+			<T class="overflow-hidden font-semibold text-ellipsis">{item.name}</T>
 		</div>
 
 		<div class="flex flex-row-reverse flex-wrap items-start gap-1">
@@ -68,13 +68,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	{#if String.isNonEmpty(description)}
-		<T class="text-muted-foreground pt-1 text-sm">
+		<T class="pt-1 text-sm text-muted-foreground">
 			{description}
 		</T>
 	{/if}
 
 	<div class="flex items-end justify-between gap-2 pt-1">
-		<T class="text-muted-foreground text-xs">
+		<T class="text-xs text-muted-foreground">
 			{m.Last_update()}: {new Date(item.updated).toLocaleDateString()}
 		</T>
 

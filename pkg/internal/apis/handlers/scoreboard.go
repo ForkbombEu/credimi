@@ -960,7 +960,7 @@ func insertAggregatedResults(
 			saveErrors = append(
 				saveErrors,
 				fmt.Errorf(
-					"%w: runners for pipeline %s: %v",
+					"%w: runners for pipeline %s: %w",
 					errScoreboardRelationSkipped,
 					stats.PipelineID,
 					err,
@@ -972,7 +972,7 @@ func insertAggregatedResults(
 				saveErrors = append(
 					saveErrors,
 					fmt.Errorf(
-						"%w: pipeline %s last execution: %v",
+						"%w: pipeline %s last execution: %w",
 						errScoreboardRelationSkipped,
 						stats.PipelineID,
 						err,
@@ -982,7 +982,10 @@ func insertAggregatedResults(
 		}
 
 		if err := app.Save(record); err != nil {
-			saveErrors = append(saveErrors, fmt.Errorf("pipeline %s save: %w", stats.PipelineID, err))
+			saveErrors = append(
+				saveErrors,
+				fmt.Errorf("pipeline %s save: %w", stats.PipelineID, err),
+			)
 			continue
 		}
 		count++
@@ -1002,6 +1005,7 @@ func hasFatalScoreboardSaveErrors(saveErrors []error) bool {
 func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats) {
 	record.Set("total_runs", stats.TotalRuns)
 	record.Set("total_successes", stats.TotalSuccesses)
+	record.Set("success_rate", stats.SuccessRate)
 	record.Set("manually_executed_runs", stats.ManualExecutions)
 	record.Set("scheduled_runs", stats.ScheduledExecutions)
 	record.Set("minimum_running_time", stats.MinExecutionTime)

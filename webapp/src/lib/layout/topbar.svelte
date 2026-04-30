@@ -36,6 +36,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			title: m.Marketplace()
 		},
 		{
+			href: href('/scoreboard'),
+			title: m.Scoreboard()
+		},
+		{
 			href: href('/organizations'),
 			title: m.organizations()
 		},
@@ -71,7 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const allItems = $derived([...leftItems, ...rightItems]);
 </script>
 
-<BaseTopbar class="bg-card border-none">
+<BaseTopbar class="border-none bg-card">
 	{#snippet left()}
 		<div class="flex min-w-0 items-center space-x-4 overflow-hidden">
 			<Button variant="link" href={href('/')} class="shrink-0">
