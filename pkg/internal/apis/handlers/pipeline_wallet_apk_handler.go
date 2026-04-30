@@ -141,6 +141,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			userName:           runContext.userName,
 			userEmail:          runContext.userEmail,
 			yaml:               manipulatedYAML,
+			metadata:           input.Metadata,
 			cleanup:            buildPipelineRunWalletAPKCleanupMetadata(tempVersion),
 		})
 		if apiErr != nil {

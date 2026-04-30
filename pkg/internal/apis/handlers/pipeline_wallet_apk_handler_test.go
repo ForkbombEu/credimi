@@ -514,6 +514,11 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
+	metadata := map[string]any{
+		"sha":        "abc123",
+		"repository": "octocat/hello-world",
+		"run_id":     "1536140711",
+	}
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueues rewritten yaml with cleanup config",
@@ -525,7 +530,7 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 		},
 		Body: jsonBody(map[string]any{
 			"pipeline_identifier": "usera-s-organization/pipeline123",
-			"metadata":            walletAPKMetadata("abc123"),
+			"metadata":            metadata,
 			"apk_url":             "http://ci.example.test/wallet.apk",
 		}),
 		ExpectedStatus: http.StatusOK,
@@ -547,6 +552,7 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 	scenario.Test(t)
 
 	require.Len(t, queueStub.enqueueRequests, 1)
+	require.Equal(t, metadata, queueStub.enqueueRequests[0].Memo["metadata"])
 	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
 	require.NoError(t, err)
 	require.Equal(

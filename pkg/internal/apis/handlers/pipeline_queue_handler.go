@@ -75,6 +75,7 @@ type pipelineQueueRunContext struct {
 	userName           string
 	userEmail          string
 	yaml               string
+	metadata           map[string]any
 	cleanup            *workflows.MobileRunnerSemaphoreCleanupMetadata
 }
 
@@ -182,6 +183,9 @@ func enqueuePipelineRun(
 	memo := map[string]any{
 		"test":   "pipeline-run",
 		"userID": runContext.userID,
+	}
+	if runContext.metadata != nil {
+		memo["metadata"] = runContext.metadata
 	}
 	config := buildPipelineQueueConfig(e, namespace, runContext.userName, runContext.userEmail)
 	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
