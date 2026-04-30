@@ -254,22 +254,11 @@ func authorizePipelineRunWalletAPKPipeline(
 	pipelineRecord *core.Record,
 	callerOrgID string,
 ) *apierror.APIError {
-	if pipelineRecord.Collection().Name != "pipelines" {
-		return apierror.New(
-			http.StatusBadRequest,
-			"pipeline_identifier",
-			"pipeline identifier is invalid",
-			"pipeline_identifier must resolve to a pipelines record",
-		)
-	}
-	if pipelineRecord.GetString("owner") == callerOrgID || pipelineRecord.GetBool("published") {
-		return nil
-	}
-	return apierror.New(
-		http.StatusForbidden,
+	return authorizeOwnedOrPublishedRecord(
+		pipelineRecord,
+		callerOrgID,
+		"pipelines",
 		"pipeline",
-		"pipeline is not owned by caller or published",
-		"pipeline must belong to caller organization or be published",
 	)
 }
 
