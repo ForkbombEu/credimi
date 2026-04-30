@@ -89,7 +89,6 @@ func TestTempWalletVersionCleanupHookCallsInternalDelete(t *testing.T) {
 					return false
 				}
 				payload = decoded
-				ok = true
 			}
 			body, ok := payload.Body.(map[string]any)
 			if !ok {
@@ -163,7 +162,6 @@ func TestPipelineTempWalletCleanupRunsAfterSetupFailure(t *testing.T) {
 					return false
 				}
 				payload = decoded
-				ok = true
 			}
 			body, ok := payload.Body.(map[string]any)
 			if !ok {

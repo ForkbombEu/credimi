@@ -38,14 +38,14 @@ func setupPipelineWalletAPKApp(t testing.TB) *tests.TestApp {
 	return app
 }
 
-func seedUserAPIKey(t testing.TB, app *tests.TestApp, plaintext string) {
+func seedWalletAPKUserAPIKey(t testing.TB, app *tests.TestApp) {
 	t.Helper()
 
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 	coll, err := app.FindCollectionByNameOrId("api_keys")
 	require.NoError(t, err)
-	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(walletAPKUserAPIKey), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
 	record := core.NewRecord(coll)
@@ -129,19 +129,14 @@ func createWalletAPKWallet(
 	return walletRecord
 }
 
-func createWalletAPKOrganization(
-	t testing.TB,
-	app *tests.TestApp,
-	name string,
-	canonifiedName string,
-) *core.Record {
+func createOtherWalletAPKOrganization(t testing.TB, app *tests.TestApp) *core.Record {
 	t.Helper()
 
 	orgColl, err := app.FindCollectionByNameOrId("organizations")
 	require.NoError(t, err)
 	orgRecord := core.NewRecord(orgColl)
-	orgRecord.Set("name", name)
-	orgRecord.Set("canonified_name", canonifiedName)
+	orgRecord.Set("name", "Other Org")
+	orgRecord.Set("canonified_name", "other-org")
 	require.NoError(t, app.Save(orgRecord))
 	return orgRecord
 }
@@ -262,7 +257,7 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				return app
 			},
 		},
@@ -282,7 +277,7 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				return app
 			},
 		},
@@ -301,7 +296,7 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				return app
 			},
 		},
@@ -320,7 +315,7 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				return app
 			},
 		},
@@ -337,7 +332,7 @@ func TestPipelineRunWalletAPKRequestContract(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
 				versionID := createWalletAPKVersion(t, app, orgID, "wallet123", "1.0.0")
@@ -379,7 +374,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				return app
 			},
 		},
@@ -399,7 +394,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
 				pipeline := createWalletAPITestPipeline(t, app, orgID, "name: test\nsteps: []\n")
@@ -424,7 +419,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
 				versionID := createWalletAPKVersion(t, app, orgID, "wallet123", "1.0.0")
@@ -448,10 +443,10 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
-				otherOrg := createWalletAPKOrganization(t, app, "Other Org", "other-org")
+				otherOrg := createOtherWalletAPKOrganization(t, app)
 				versionID := createWalletAPKVersion(t, app, orgID, "wallet-private-pipeline", "1.0.0")
 				createWalletAPITestPipelineNamed(
 					t,
@@ -481,10 +476,10 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
-				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				seedWalletAPKUserAPIKey(t, app)
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
-				otherOrg := createWalletAPKOrganization(t, app, "Other Org", "other-org")
+				otherOrg := createOtherWalletAPKOrganization(t, app)
 				versionID := createWalletAPKVersion(t, app, orgID, "wallet-published-pipeline", "1.0.0")
 				createWalletAPITestPipelineNamed(
 					t,
@@ -535,7 +530,7 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineWalletAPKApp(t)
 			app.Settings().Meta.AppURL = "https://credimi.test"
-			seedUserAPIKey(t, app, walletAPKUserAPIKey)
+			seedWalletAPKUserAPIKey(t, app)
 			versionID := createWalletAPKVersion(t, app, orgID, "wallet-enqueue", "1.0.0")
 			createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
 			return app
@@ -599,7 +594,7 @@ func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineWalletAPKApp(t)
-			seedUserAPIKey(t, app, walletAPKUserAPIKey)
+			seedWalletAPKUserAPIKey(t, app)
 			versionID := createWalletAPKVersion(t, app, orgID, "wallet-global-runner", "1.0.0")
 			createWalletAPITestPipeline(
 				t,
@@ -660,7 +655,7 @@ func TestPipelineRunWalletAPKRollsBackTempVersionOnQueueFailure(t *testing.T) {
 	require.NoError(t, err)
 	app := setupPipelineWalletAPKApp(t)
 	defer app.Cleanup()
-	seedUserAPIKey(t, app, walletAPKUserAPIKey)
+	seedWalletAPKUserAPIKey(t, app)
 
 	versionID := createWalletAPKVersion(t, app, orgID, "wallet-rollback", "1.0.0")
 	createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
@@ -831,7 +826,7 @@ func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 		app := setupPipelineWalletAPKApp(t)
 		defer app.Cleanup()
 
-		otherOrg := createWalletAPKOrganization(t, app, "Other Org", "other-org")
+		otherOrg := createOtherWalletAPKOrganization(t, app)
 		wallet := createWalletAPKWallet(t, app, otherOrg.Id, "wallet-published")
 		wallet.Set("published", true)
 		require.NoError(t, app.Save(wallet))
@@ -852,7 +847,7 @@ func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 		app := setupPipelineWalletAPKApp(t)
 		defer app.Cleanup()
 
-		otherOrg := createWalletAPKOrganization(t, app, "Other Org", "other-org")
+		otherOrg := createOtherWalletAPKOrganization(t, app)
 		wallet := createWalletAPKWallet(t, app, otherOrg.Id, "wallet-private")
 
 		_, apiErr := createPipelineRunWalletAPKTempVersion(

@@ -30,6 +30,7 @@ import (
 const walletAPKFormFileField = "apk_file"
 const walletAPKExternalSourceVersionID = "installed_from_external_source"
 const walletAPKCleanupConfigKey = "temp_wallet_version"
+const walletAPKMobileAutomationStepUse = "mobile-automation"
 const walletAPKMaxBytes = int64(1000 << 20)
 const walletAPKDownloadTimeout = 30 * time.Second
 
@@ -654,7 +655,7 @@ func rewriteWalletAPKStepVersion(
 	referencedVersions map[string]struct{},
 	tempVersionIdentifier string,
 ) int {
-	if step == nil || step.Use != "mobile-automation" || step.With.Payload == nil {
+	if step == nil || step.Use != walletAPKMobileAutomationStepUse || step.With.Payload == nil {
 		return 0
 	}
 	versionID, ok := step.With.Payload["version_id"].(string)
@@ -725,7 +726,7 @@ func mobileRunnerSelectionState(
 	hasStepRunner := false
 	needsGlobalRunner := false
 	check := func(step pipelineinternal.StepSpec) {
-		if step.Use != "mobile-automation" {
+		if step.Use != walletAPKMobileAutomationStepUse {
 			return
 		}
 		runnerID, _ := step.With.Payload["runner_id"].(string)
@@ -763,7 +764,7 @@ func collectWalletAPKVersionReferences(
 	var refs []walletAPKVersionReference
 	var collect func(pipelineinternal.StepSpec)
 	collect = func(step pipelineinternal.StepSpec) {
-		if step.Use != "mobile-automation" || step.With.Payload == nil {
+		if step.Use != walletAPKMobileAutomationStepUse || step.With.Payload == nil {
 			return
 		}
 		versionID, ok := step.With.Payload["version_id"].(string)
