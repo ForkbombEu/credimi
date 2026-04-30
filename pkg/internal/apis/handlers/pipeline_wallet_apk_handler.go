@@ -472,12 +472,17 @@ func createPipelineRunWalletAPKTempVersion(
 	app core.App,
 	runContext pipelineRunWalletAPKContext,
 ) (tempWalletVersion, *apierror.APIError) {
-	if runContext.walletRecord.GetString("owner") != runContext.organizationRecord.Id {
+	if apiErr := authorizeOwnedOrPublishedRecord(
+		runContext.walletRecord,
+		runContext.organizationRecord.Id,
+		"wallets",
+		"wallet",
+	); apiErr != nil {
 		return tempWalletVersion{}, apierror.New(
-			http.StatusForbidden,
+			apiErr.Code,
 			"wallet",
-			"wallet must belong to caller organization",
-			"temporary wallet versions can only be created for caller-owned wallets",
+			"wallet is not owned by caller or published",
+			"temporary wallet versions can only be created for caller-owned or published wallets",
 		)
 	}
 
@@ -493,10 +498,9 @@ func createPipelineRunWalletAPKTempVersion(
 
 	existing, err := app.FindFirstRecordByFilter(
 		"wallet_versions",
-		"wallet = {:wallet} && owner = {:owner} && canonified_tag = {:tag}",
+		"wallet = {:wallet} && canonified_tag = {:tag}",
 		dbx.Params{
 			"wallet": runContext.walletRecord.Id,
-			"owner":  runContext.organizationRecord.Id,
 			"tag":    tag,
 		},
 	)
@@ -542,11 +546,20 @@ func createPipelineRunWalletAPKTempVersion(
 		)
 	}
 
-	identifier := strings.Join([]string{
-		runContext.namespace,
-		runContext.walletRecord.GetString("canonified_name"),
-		record.GetString("canonified_tag"),
-	}, "/")
+	identifier, err := canonify.BuildPath(
+		app,
+		record,
+		canonify.CanonifyPaths["wallet_versions"],
+		"",
+	)
+	if err != nil {
+		return tempWalletVersion{}, apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to build temporary wallet version identifier",
+			err.Error(),
+		)
+	}
 
 	return tempWalletVersion{Record: record, Identifier: identifier}, nil
 }

@@ -827,20 +827,33 @@ func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 		require.Len(t, tempVersion.Record.GetStringSlice("android_installer"), 1)
 	})
 
-	t.Run("rejects wallet owned by another organization", func(t *testing.T) {
+	t.Run("creates temporary version for published wallet owned by another organization", func(t *testing.T) {
 		app := setupPipelineWalletAPKApp(t)
 		defer app.Cleanup()
 
-		orgColl, err := app.FindCollectionByNameOrId("organizations")
-		require.NoError(t, err)
-		otherOrg := core.NewRecord(orgColl)
-		otherOrg.Set("name", "Other Org")
-		otherOrg.Set("canonified_name", "other-org")
-		require.NoError(t, app.Save(otherOrg))
-
+		otherOrg := createWalletAPKOrganization(t, app, "Other Org", "other-org")
 		wallet := createWalletAPKWallet(t, app, otherOrg.Id, "wallet-published")
 		wallet.Set("published", true)
 		require.NoError(t, app.Save(wallet))
+
+		tempVersion, apiErr := createPipelineRunWalletAPKTempVersion(
+			app,
+			newRunContext(t, app, wallet, "abc123"),
+		)
+
+		require.Nil(t, apiErr)
+		require.NotEmpty(t, tempVersion.Record.Id)
+		require.Equal(t, orgID, tempVersion.Record.GetString("owner"))
+		require.Equal(t, wallet.Id, tempVersion.Record.GetString("wallet"))
+		require.Equal(t, "other-org/wallet-published/abc123", tempVersion.Identifier)
+	})
+
+	t.Run("rejects private wallet owned by another organization", func(t *testing.T) {
+		app := setupPipelineWalletAPKApp(t)
+		defer app.Cleanup()
+
+		otherOrg := createWalletAPKOrganization(t, app, "Other Org", "other-org")
+		wallet := createWalletAPKWallet(t, app, otherOrg.Id, "wallet-private")
 
 		_, apiErr := createPipelineRunWalletAPKTempVersion(
 			app,
@@ -849,7 +862,7 @@ func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 
 		require.NotNil(t, apiErr)
 		require.Equal(t, http.StatusForbidden, apiErr.Code)
-		require.Equal(t, "wallet must belong to caller organization", apiErr.Reason)
+		require.Equal(t, "wallet is not owned by caller or published", apiErr.Reason)
 	})
 
 	t.Run("rejects duplicate commit sha for wallet owner", func(t *testing.T) {
