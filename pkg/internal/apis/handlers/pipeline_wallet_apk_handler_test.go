@@ -64,6 +64,17 @@ func createWalletAPITestPipeline(
 	orgID string,
 	yaml string,
 ) *core.Record {
+	return createWalletAPITestPipelineNamed(t, app, orgID, "pipeline123", yaml, false)
+}
+
+func createWalletAPITestPipelineNamed(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	name string,
+	yaml string,
+	published bool,
+) *core.Record {
 	t.Helper()
 
 	coll, err := app.FindCollectionByNameOrId("pipelines")
@@ -71,10 +82,11 @@ func createWalletAPITestPipeline(
 
 	record := core.NewRecord(coll)
 	record.Set("owner", orgID)
-	record.Set("name", "pipeline123")
+	record.Set("name", name)
 	record.Set("description", "test pipeline")
 	record.Set("steps", map[string]any{"rest-chain": map[string]any{"yaml": yaml}})
 	record.Set("yaml", yaml)
+	record.Set("published", published)
 	require.NoError(t, app.Save(record))
 
 	return record
@@ -115,6 +127,23 @@ func createWalletAPKWallet(
 	}
 
 	return walletRecord
+}
+
+func createWalletAPKOrganization(
+	t testing.TB,
+	app *tests.TestApp,
+	name string,
+	canonifiedName string,
+) *core.Record {
+	t.Helper()
+
+	orgColl, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	orgRecord := core.NewRecord(orgColl)
+	orgRecord.Set("name", name)
+	orgRecord.Set("canonified_name", canonifiedName)
+	require.NoError(t, app.Save(orgRecord))
+	return orgRecord
 }
 
 func createWalletAPKVersion(
@@ -400,6 +429,71 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 				require.NoError(t, err)
 				versionID := createWalletAPKVersion(t, app, orgID, "wallet123", "1.0.0")
 				createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
+				return app
+			},
+		},
+		{
+			Name:    "rejects private pipeline owned by another organization",
+			Method:  http.MethodPost,
+			URL:     "/api/pipeline/run-wallet-apk",
+			Headers: userKeyHeaders,
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "other-org/private-pipeline",
+				"commit_sha":          "abc123",
+				"apk_url":             "http://ci.example.test/wallet.apk",
+			}),
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				"pipeline is not owned by caller or published",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineWalletAPKApp(t)
+				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				orgID, err := getOrgIDfromName("userA's organization")
+				require.NoError(t, err)
+				otherOrg := createWalletAPKOrganization(t, app, "Other Org", "other-org")
+				versionID := createWalletAPKVersion(t, app, orgID, "wallet-private-pipeline", "1.0.0")
+				createWalletAPITestPipelineNamed(
+					t,
+					app,
+					otherOrg.Id,
+					"private-pipeline",
+					walletAPKPipelineYAML(versionID),
+					false,
+				)
+				return app
+			},
+		},
+		{
+			Name:    "allows published pipeline owned by another organization",
+			Method:  http.MethodPost,
+			URL:     "/api/pipeline/run-wallet-apk",
+			Headers: userKeyHeaders,
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "other-org/published-pipeline",
+				"commit_sha":          "abc123",
+				"apk_url":             "http://ci.example.test/wallet.apk",
+			}),
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"status":"queued"`,
+				`"runner_ids":["runner-1"]`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineWalletAPKApp(t)
+				seedUserAPIKey(t, app, walletAPKUserAPIKey)
+				orgID, err := getOrgIDfromName("userA's organization")
+				require.NoError(t, err)
+				otherOrg := createWalletAPKOrganization(t, app, "Other Org", "other-org")
+				versionID := createWalletAPKVersion(t, app, orgID, "wallet-published-pipeline", "1.0.0")
+				createWalletAPITestPipelineNamed(
+					t,
+					app,
+					otherOrg.Id,
+					"published-pipeline",
+					walletAPKPipelineYAML(versionID),
+					true,
+				)
 				return app
 			},
 		},

@@ -210,6 +210,9 @@ func resolvePipelineRunWalletAPKContext(
 			err.Error(),
 		)
 	}
+	if apiErr := authorizePipelineRunWalletAPKPipeline(pipelineRecord, orgRecord.Id); apiErr != nil {
+		return pipelineRunWalletAPKContext{}, apiErr
+	}
 	pipelineYAML := strings.TrimSpace(pipelineRecord.GetString("yaml"))
 	if pipelineYAML == "" {
 		return pipelineRunWalletAPKContext{}, apierror.New(
@@ -245,6 +248,29 @@ func resolvePipelineRunWalletAPKContext(
 		versionReferences:  versionReferences,
 		apkFile:            apkFile,
 	}, nil
+}
+
+func authorizePipelineRunWalletAPKPipeline(
+	pipelineRecord *core.Record,
+	callerOrgID string,
+) *apierror.APIError {
+	if pipelineRecord.Collection().Name != "pipelines" {
+		return apierror.New(
+			http.StatusBadRequest,
+			"pipeline_identifier",
+			"pipeline identifier is invalid",
+			"pipeline_identifier must resolve to a pipelines record",
+		)
+	}
+	if pipelineRecord.GetString("owner") == callerOrgID || pipelineRecord.GetBool("published") {
+		return nil
+	}
+	return apierror.New(
+		http.StatusForbidden,
+		"pipeline",
+		"pipeline is not owned by caller or published",
+		"pipeline must belong to caller organization or be published",
+	)
 }
 
 func resolvePipelineRunWalletAPKFile(
