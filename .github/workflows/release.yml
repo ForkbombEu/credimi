@@ -46,7 +46,7 @@ jobs:
           fetch-depth: 0
           submodules: true
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
