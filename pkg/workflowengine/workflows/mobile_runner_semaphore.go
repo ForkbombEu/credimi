@@ -454,15 +454,14 @@ func (r *mobileRunnerSemaphoreRuntime) handleCancelRun(
 
 	switch state.Status {
 	case mobileRunnerSemaphoreRunQueued, mobileRunnerSemaphoreRunStarting:
+		view := r.buildRunStatusView(req.TicketID, state)
+		view.Status = mobileRunnerSemaphoreRunNotFound
 		r.runQueue = removeFromQueue(r.runQueue, req.TicketID)
 		delete(r.runTickets, req.TicketID)
 		r.updateCount++
 		r.maybeScheduleContinue()
 		r.requestRunStart()
-		return MobileRunnerSemaphoreRunStatusView{
-			TicketID: req.TicketID,
-			Status:   mobileRunnerSemaphoreRunNotFound,
-		}, nil
+		return view, nil
 	case mobileRunnerSemaphoreRunRunning:
 		state.CancelRequested = true
 		r.runTickets[req.TicketID] = state
@@ -567,6 +566,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleListQueuedRunsQuery(
 			Status:             state.Status,
 			Position:           position,
 			LineLen:            lineLen,
+			Cleanup:            state.Request.Cleanup,
 		})
 	}
 
@@ -1286,6 +1286,7 @@ func (r *mobileRunnerSemaphoreRuntime) buildRunStatusView(
 		RunID:             state.RunID,
 		WorkflowNamespace: state.WorkflowNamespace,
 		ErrorMessage:      state.ErrorMessage,
+		Cleanup:           state.Request.Cleanup,
 	}
 }
 

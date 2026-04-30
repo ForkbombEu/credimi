@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -42,6 +43,7 @@ type pipelineQueueRunnerStatus struct {
 	WorkflowID   string
 	RunID        string
 	ErrorMessage string
+	Cleanup      *workflows.MobileRunnerSemaphoreCleanupMetadata
 }
 
 type PipelineQueueResponse struct {
@@ -53,6 +55,8 @@ type PipelineQueueResponse struct {
 	LineLen      *int                                     `json:"line_len,omitempty"`
 	WorkflowID   string                                   `json:"workflow_id,omitempty"`
 	RunID        string                                   `json:"run_id,omitempty"`
+	PipelineURL  string                                   `json:"pipeline_url,omitempty"`
+	RunURL       string                                   `json:"run_url,omitempty"`
 	ErrorMessage string                                   `json:"error_message,omitempty"`
 }
 
@@ -60,6 +64,19 @@ type queueRequestContext struct {
 	ticketID  string
 	runnerIDs []string
 	namespace string
+	ownerID   string
+}
+
+type pipelineQueueRunContext struct {
+	pipelineRecord     *core.Record
+	pipelineIdentifier string
+	organizationRecord *core.Record
+	userID             string
+	userName           string
+	userEmail          string
+	yaml               string
+	metadata           map[string]any
+	cleanup            *workflows.MobileRunnerSemaphoreCleanupMetadata
 }
 
 var errRunTicketNotFound = errors.New("run ticket not found")
@@ -124,10 +141,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		userID := e.Auth.Id
-		userMail := e.Auth.GetString("email")
-		userName := e.Auth.GetString("name")
-		orgRecord, err := GetUserOrganization(e.App, userID)
+		orgRecord, err := GetUserOrganization(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -136,175 +150,208 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		namespace := orgRecord.GetString("canonified_name")
-		if namespace == "" {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"unable to get user organization canonified name",
-				"missing organization canonified name",
-			).JSON(e)
+		response, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
+			pipelineRecord:     pipelineRecord,
+			pipelineIdentifier: pipelineIdentifier,
+			organizationRecord: orgRecord,
+			userID:             e.Auth.Id,
+			userName:           e.Auth.GetString("name"),
+			userEmail:          e.Auth.GetString("email"),
+			yaml:               yaml,
+		})
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
-		maxPipelinesInQueue := orgRecord.GetInt("max_pipelines_in_queue")
-		memo := map[string]any{
-			"test":   "pipeline-run",
-			"userID": userID,
-		}
-		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
-
-		runnerInfo, err := pipeline.ParsePipelineRunnerInfo(yaml)
-		if err != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"yaml",
-				"failed to parse pipeline yaml",
-				err.Error(),
-			).JSON(e)
-		}
-		runnerIDs, err := resolvePipelineRunnerIDs(yaml, runnerInfo)
-		if err != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"yaml",
-				"failed to parse pipeline yaml",
-				err.Error(),
-			).JSON(e)
-		}
-		if len(runnerIDs) == 0 && !runnerInfo.NeedsGlobalRunner {
-			startResult, apiErr := startPipelineFromQueue(
-				e,
-				pipelineRecord,
-				pipelineIdentifier,
-				orgRecord.Id,
-				yaml,
-				config,
-				memo,
-			)
-			if apiErr != nil {
-				return apiErr.JSON(e)
-			}
-			response := PipelineQueueResponse{
-				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
-				WorkflowID: startResult.WorkflowID,
-				RunID:      startResult.WorkflowRunID,
-			}
-			return e.JSON(http.StatusOK, response)
-		}
-		if len(runnerIDs) == 0 {
-			return apierror.New(
-				http.StatusBadRequest,
-				"runner_ids",
-				"runner_ids are required",
-				"no runner ids resolved from yaml",
-			).JSON(e)
-		}
-
-		leaderRunnerID := runnerIDs[0]
-		now := time.Now().UTC()
-		ticketID := uuid.NewString()
-
-		for _, runnerID := range runnerIDs {
-			if err := ensureRunQueueSemaphoreWorkflow(e.Request.Context(), runnerID); err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"semaphore",
-					"failed to ensure runner semaphore",
-					err.Error(),
-				).JSON(e)
-			}
-		}
-
-		rollbackEnqueuedTickets := func(runnerIDs []string) {
-			rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			for _, runnerID := range runnerIDs {
-				status, err := cancelRunTicket(
-					rollbackCtx,
-					runnerID,
-					workflows.MobileRunnerSemaphoreRunCancelRequest{
-						TicketID:       ticketID,
-						OwnerNamespace: namespace,
-					},
-				)
-				if err != nil {
-					if errors.Is(err, errRunTicketNotFound) {
-						continue
-					}
-					e.App.Logger().Warn(fmt.Sprintf(
-						"failed to rollback run ticket %s for runner %s: %v",
-						ticketID,
-						runnerID,
-						err,
-					))
-					continue
-				}
-				if status.Status == workflowengine.MobileRunnerSemaphoreRunNotFound {
-					continue
-				}
-			}
-		}
-
-		rollbackRunnerIDs := make([]string, 0, len(runnerIDs))
-		runnerStatuses := make([]pipelineQueueRunnerStatus, 0, len(runnerIDs))
-		for _, runnerID := range runnerIDs {
-			// Roll back every attempted runner because enqueue failures can be ambiguous (e.g. timeouts).
-			rollbackRunnerIDs = append(rollbackRunnerIDs, runnerID)
-			req := workflows.MobileRunnerSemaphoreEnqueueRunRequest{
-				TicketID:            ticketID,
-				OwnerNamespace:      namespace,
-				EnqueuedAt:          now,
-				RunnerID:            runnerID,
-				RequiredRunnerIDs:   runnerIDs,
-				LeaderRunnerID:      leaderRunnerID,
-				MaxPipelinesInQueue: maxPipelinesInQueue,
-				PipelineIdentifier:  pipelineIdentifier,
-				YAML:                yaml,
-				PipelineConfig:      config,
-				Memo:                memo,
-			}
-			resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
-			if err != nil {
-				rollbackEnqueuedTickets(rollbackRunnerIDs)
-				if isQueueLimitExceeded(err) {
-					return apierror.New(
-						http.StatusConflict,
-						"queue_limit",
-						"queue limit exceeded",
-						err.Error(),
-					).JSON(e)
-				}
-				return apierror.New(
-					http.StatusInternalServerError,
-					"semaphore",
-					"failed to enqueue pipeline run",
-					err.Error(),
-				).JSON(e)
-			}
-			runnerStatuses = append(runnerStatuses, pipelineQueueRunnerStatus{
-				RunnerID: runnerID,
-				Status:   resp.Status,
-				Position: resp.Position,
-				LineLen:  resp.LineLen,
-			})
-		}
-
-		status, position, lineLen, workflowID, runID, errorMessage :=
-			aggregateRunQueueStatus(runnerStatuses)
-		response := buildQueueEnqueueResponse(
-			ticketID,
-			now,
-			runnerIDs,
-			status,
-			position,
-			lineLen,
-			workflowID,
-			runID,
-			errorMessage,
-		)
-
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+func enqueuePipelineRun(
+	e *core.RequestEvent,
+	runContext pipelineQueueRunContext,
+) (PipelineQueueResponse, *apierror.APIError) {
+	namespace := runContext.organizationRecord.GetString("canonified_name")
+	if namespace == "" {
+		return PipelineQueueResponse{}, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization canonified name",
+			"missing organization canonified name",
+		)
+	}
+	maxPipelinesInQueue := runContext.organizationRecord.GetInt("max_pipelines_in_queue")
+	memo := map[string]any{
+		"test":   "pipeline-run",
+		"userID": runContext.userID,
+	}
+	if runContext.metadata != nil {
+		memo["metadata"] = runContext.metadata
+	}
+	config := buildPipelineQueueConfig(e, namespace, runContext.userName, runContext.userEmail)
+	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
+
+	runnerInfo, err := pipeline.ParsePipelineRunnerInfo(runContext.yaml)
+	if err != nil {
+		return PipelineQueueResponse{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse pipeline yaml",
+			err.Error(),
+		)
+	}
+	runnerIDs, err := resolvePipelineRunnerIDs(runContext.yaml, runnerInfo)
+	if err != nil {
+		return PipelineQueueResponse{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse pipeline yaml",
+			err.Error(),
+		)
+	}
+	if len(runnerIDs) == 0 && !runnerInfo.NeedsGlobalRunner {
+		startResult, apiErr := startPipelineFromQueue(
+			e,
+			runContext.pipelineRecord,
+			runContext.pipelineIdentifier,
+			runContext.organizationRecord.Id,
+			runContext.yaml,
+			config,
+			memo,
+		)
+		if apiErr != nil {
+			return PipelineQueueResponse{}, apiErr
+		}
+		response := PipelineQueueResponse{
+			Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+			WorkflowID: startResult.WorkflowID,
+			RunID:      startResult.WorkflowRunID,
+		}
+		decoratePipelineQueueResponseURLs(
+			&response,
+			e.App.Settings().Meta.AppURL,
+			runContext.pipelineIdentifier,
+		)
+		return response, nil
+	}
+	if len(runnerIDs) == 0 {
+		return PipelineQueueResponse{}, apierror.New(
+			http.StatusBadRequest,
+			"runner_ids",
+			"runner_ids are required",
+			"no runner ids resolved from yaml",
+		)
+	}
+
+	leaderRunnerID := runnerIDs[0]
+	now := time.Now().UTC()
+	ticketID := uuid.NewString()
+
+	for _, runnerID := range runnerIDs {
+		if err := ensureRunQueueSemaphoreWorkflow(e.Request.Context(), runnerID); err != nil {
+			return PipelineQueueResponse{}, apierror.New(
+				http.StatusInternalServerError,
+				"semaphore",
+				"failed to ensure runner semaphore",
+				err.Error(),
+			)
+		}
+	}
+
+	rollbackEnqueuedTickets := func(runnerIDs []string) {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		for _, runnerID := range runnerIDs {
+			status, err := cancelRunTicket(
+				rollbackCtx,
+				runnerID,
+				workflows.MobileRunnerSemaphoreRunCancelRequest{
+					TicketID:       ticketID,
+					OwnerNamespace: namespace,
+				},
+			)
+			if err != nil {
+				if errors.Is(err, errRunTicketNotFound) {
+					continue
+				}
+				e.App.Logger().Warn(fmt.Sprintf(
+					"failed to rollback run ticket %s for runner %s: %v",
+					ticketID,
+					runnerID,
+					err,
+				))
+				continue
+			}
+			if status.Status == workflowengine.MobileRunnerSemaphoreRunNotFound {
+				continue
+			}
+		}
+	}
+
+	rollbackRunnerIDs := make([]string, 0, len(runnerIDs))
+	runnerStatuses := make([]pipelineQueueRunnerStatus, 0, len(runnerIDs))
+	for _, runnerID := range runnerIDs {
+		// Roll back every attempted runner because enqueue failures can be ambiguous (e.g. timeouts).
+		rollbackRunnerIDs = append(rollbackRunnerIDs, runnerID)
+		req := workflows.MobileRunnerSemaphoreEnqueueRunRequest{
+			TicketID:            ticketID,
+			OwnerNamespace:      namespace,
+			EnqueuedAt:          now,
+			RunnerID:            runnerID,
+			RequiredRunnerIDs:   runnerIDs,
+			LeaderRunnerID:      leaderRunnerID,
+			MaxPipelinesInQueue: maxPipelinesInQueue,
+			PipelineIdentifier:  runContext.pipelineIdentifier,
+			YAML:                runContext.yaml,
+			PipelineConfig:      config,
+			Memo:                memo,
+			Cleanup:             runContext.cleanup,
+		}
+		resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
+		if err != nil {
+			rollbackEnqueuedTickets(rollbackRunnerIDs)
+			if isQueueLimitExceeded(err) {
+				return PipelineQueueResponse{}, apierror.New(
+					http.StatusConflict,
+					"queue_limit",
+					"queue limit exceeded",
+					err.Error(),
+				)
+			}
+			return PipelineQueueResponse{}, apierror.New(
+				http.StatusInternalServerError,
+				"semaphore",
+				"failed to enqueue pipeline run",
+				err.Error(),
+			)
+		}
+		runnerStatuses = append(runnerStatuses, pipelineQueueRunnerStatus{
+			RunnerID: runnerID,
+			Status:   resp.Status,
+			Position: resp.Position,
+			LineLen:  resp.LineLen,
+		})
+	}
+
+	status, position, lineLen, workflowID, runID, errorMessage :=
+		aggregateRunQueueStatus(runnerStatuses)
+	response := buildQueueEnqueueResponse(
+		ticketID,
+		now,
+		runnerIDs,
+		status,
+		position,
+		lineLen,
+		workflowID,
+		runID,
+		errorMessage,
+	)
+	decoratePipelineQueueResponseURLs(
+		&response,
+		e.App.Settings().Meta.AppURL,
+		runContext.pipelineIdentifier,
+	)
+	return response, nil
 }
 
 func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
@@ -327,6 +374,7 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 			requestContext.ticketID,
 			runnerStatuses,
 		)
+		decoratePipelineQueueResponseURLs(&response, e.App.Settings().Meta.AppURL, "")
 
 		return e.JSON(http.StatusOK, response)
 	}
@@ -346,6 +394,13 @@ func HandlePipelineQueueCancel() func(*core.RequestEvent) error {
 			requestContext.ticketID,
 		)
 		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+		if apiErr := cleanupCanceledQueueResources(
+			e.App,
+			requestContext.ownerID,
+			runnerStatuses,
+		); apiErr != nil {
 			return apiErr.JSON(e)
 		}
 
@@ -405,6 +460,35 @@ func buildQueueEnqueueResponse(
 	}
 }
 
+func decoratePipelineQueueResponseURLs(
+	response *PipelineQueueResponse,
+	appURL string,
+	pipelineIdentifier string,
+) {
+	if response == nil {
+		return
+	}
+	if strings.TrimSpace(pipelineIdentifier) != "" {
+		response.PipelineURL = buildPipelinePageURL(appURL, pipelineIdentifier)
+	}
+	if strings.TrimSpace(response.WorkflowID) != "" && strings.TrimSpace(response.RunID) != "" {
+		response.RunURL = buildPipelineRunPageURL(appURL, response.WorkflowID, response.RunID)
+	}
+}
+
+func buildPipelinePageURL(appURL string, pipelineIdentifier string) string {
+	return utils.JoinURL(
+		appURL,
+		"my",
+		"pipelines",
+		strings.TrimPrefix(canonify.NormalizePath(pipelineIdentifier), "/"),
+	)
+}
+
+func buildPipelineRunPageURL(appURL string, workflowID string, runID string) string {
+	return utils.JoinURL(appURL, "my", "tests", "runs", workflowID, runID)
+}
+
 func buildPipelineQueueConfig(
 	e *core.RequestEvent,
 	namespace string,
@@ -425,6 +509,21 @@ func buildPipelineQueueConfig(
 		"app_logo":  logoURL,
 		"user_name": userName,
 		"user_mail": userMail,
+	}
+}
+
+func applyPipelineQueueCleanupConfig(
+	config map[string]any,
+	cleanup *workflows.MobileRunnerSemaphoreCleanupMetadata,
+) {
+	if config == nil || cleanup == nil || cleanup.TempWalletVersionID == "" {
+		return
+	}
+	config[walletAPKCleanupConfigKey] = map[string]any{
+		"record_id":  cleanup.TempWalletVersionID,
+		"owner_id":   cleanup.TempWalletVersionOwnerID,
+		"identifier": cleanup.TempWalletVersionIdentifier,
+		"cleanup":    true,
 	}
 }
 
@@ -523,13 +622,22 @@ func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apie
 		)
 	}
 
-	namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
+	orgRecord, err := GetUserOrganization(e.App, e.Auth.Id)
 	if err != nil {
 		return nil, apierror.New(
 			http.StatusInternalServerError,
 			"organization",
-			"unable to get user organization canonified name",
+			"unable to get user organization record",
 			err.Error(),
+		)
+	}
+	namespace := strings.TrimSpace(orgRecord.GetString("canonified_name"))
+	if namespace == "" {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization canonified name",
+			"missing organization canonified name",
 		)
 	}
 
@@ -537,6 +645,7 @@ func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apie
 		ticketID:  ticketID,
 		runnerIDs: runnerIDs,
 		namespace: namespace,
+		ownerID:   orgRecord.Id,
 	}, nil
 }
 
@@ -670,7 +779,76 @@ func runnerStatusFromView(
 		WorkflowID:   status.WorkflowID,
 		RunID:        status.RunID,
 		ErrorMessage: status.ErrorMessage,
+		Cleanup:      status.Cleanup,
 	}
+}
+
+// cleanupCanceledQueueResources removes resources attached to a queue ticket
+// only when every semaphore confirms the run never reached a running workflow.
+func cleanupCanceledQueueResources(
+	app core.App,
+	ownerID string,
+	statuses []pipelineQueueRunnerStatus,
+) *apierror.APIError {
+	cleanup, ok := canceledQueueCleanupMetadata(statuses)
+	if !ok || strings.TrimSpace(cleanup.TempWalletVersionID) == "" {
+		return nil
+	}
+	return deleteTempWalletVersionForOwner(app, cleanup.TempWalletVersionID, ownerID)
+}
+
+func canceledQueueCleanupMetadata(
+	statuses []pipelineQueueRunnerStatus,
+) (*workflows.MobileRunnerSemaphoreCleanupMetadata, bool) {
+	var cleanup *workflows.MobileRunnerSemaphoreCleanupMetadata
+	for _, status := range statuses {
+		if status.WorkflowID != "" || status.RunID != "" {
+			return nil, false
+		}
+		if status.Status == workflowengine.MobileRunnerSemaphoreRunRunning {
+			return nil, false
+		}
+		if status.Cleanup != nil && strings.TrimSpace(status.Cleanup.TempWalletVersionID) != "" {
+			cleanup = status.Cleanup
+		}
+	}
+	return cleanup, cleanup != nil
+}
+
+func deleteTempWalletVersionForOwner(
+	app core.App,
+	recordID string,
+	ownerID string,
+) *apierror.APIError {
+	record, err := app.FindRecordById("wallet_versions", strings.TrimSpace(recordID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to find temporary wallet version",
+			err.Error(),
+		)
+	}
+	if record.GetString("owner") != ownerID {
+		return apierror.New(
+			http.StatusForbidden,
+			"wallet_version",
+			"temporary wallet version owner mismatch",
+			"queued cleanup does not belong to the authenticated organization",
+		)
+	}
+	if err := app.Delete(record); err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"failed to delete temporary wallet version",
+			err.Error(),
+		)
+	}
+	return nil
 }
 
 func aggregateRunQueueStatus(

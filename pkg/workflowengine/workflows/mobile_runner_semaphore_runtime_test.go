@@ -193,6 +193,10 @@ func TestHandleCancelRunPaths(t *testing.T) {
 		Request: MobileRunnerSemaphoreEnqueueRunRequest{
 			TicketID:       "ticket-1",
 			OwnerNamespace: "ns-1",
+			Cleanup: &MobileRunnerSemaphoreCleanupMetadata{
+				TempWalletVersionID:         "wallet-version-1",
+				TempWalletVersionIdentifier: "org/wallet/sha",
+			},
 		},
 		Status: mobileRunnerSemaphoreRunQueued,
 	}
@@ -203,6 +207,8 @@ func TestHandleCancelRunPaths(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, mobileRunnerSemaphoreRunNotFound, view.Status)
+	require.NotNil(t, view.Cleanup)
+	require.Equal(t, "wallet-version-1", view.Cleanup.TempWalletVersionID)
 	require.Empty(t, rt.runTickets)
 
 	rt.runTickets["ticket-2"] = MobileRunnerSemaphoreRunTicketState{

@@ -32,6 +32,8 @@ type MobileRunnerSemaphoreRunStatus = mobilerunnersemaphore.MobileRunnerSemaphor
 
 type MobileRunnerSemaphoreEnqueueRunRequest = mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunRequest
 
+type MobileRunnerSemaphoreCleanupMetadata = mobilerunnersemaphore.MobileRunnerSemaphoreCleanupMetadata
+
 type MobileRunnerSemaphoreEnqueueRunResponse = mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse
 
 type MobileRunnerSemaphoreRunStatusView = mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView

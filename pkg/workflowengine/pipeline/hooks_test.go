@@ -6,6 +6,8 @@ package pipeline
 
 import (
 	"errors"
+	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
@@ -20,6 +22,17 @@ func (noopLogger) Debug(string, ...interface{}) {}
 func (noopLogger) Info(string, ...interface{})  {}
 func (noopLogger) Warn(string, ...interface{})  {}
 func (noopLogger) Error(string, ...interface{}) {}
+
+func TestDefaultCleanupHooksDeleteTempWalletLast(t *testing.T) {
+	require.NotEmpty(t, cleanupHooks)
+	lastHook := cleanupHooks[len(cleanupHooks)-1]
+
+	require.Equal(
+		t,
+		functionName(tempWalletVersionCleanupHook),
+		functionName(lastHook),
+	)
+}
 
 func TestRunSetupHooksStopsOnError(t *testing.T) {
 	origHooks := setupHooks
@@ -107,4 +120,8 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 	)
 
 	require.Len(t, cleanupErrors, 1)
+}
+
+func functionName(fn any) string {
+	return runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
 }

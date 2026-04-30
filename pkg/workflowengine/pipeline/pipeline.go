@@ -725,6 +725,9 @@ func (w *PipelineWorkflow) Start(
 		return result, fmt.Errorf("unable to create client: %w", err)
 	}
 	for k, v := range wfDef.Config {
+		if isReservedWorkflowInputConfigKey(k) {
+			continue
+		}
 		if _, exists := config[k]; !exists {
 			config[k] = v
 		}
@@ -827,6 +830,10 @@ func (w *PipelineWorkflow) Start(
 		),
 	}
 	return result, nil
+}
+
+func isReservedWorkflowInputConfigKey(key string) bool {
+	return key == tempWalletVersionConfigKey
 }
 
 func ExecuteEventStepsOnError(

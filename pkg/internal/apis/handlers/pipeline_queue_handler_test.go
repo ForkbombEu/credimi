@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -202,12 +203,15 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			ExpectedContent: []string{
 				"\"status\":\"queued\"",
 				"\"runner_ids\":[\"runner-1\"]",
+				"\"pipeline_url\":\"https://credimi.test/my/pipelines/usera-s-organization/pipeline123\"",
 			},
 			NotExpectedContent: []string{
 				"\"mode\"",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+				app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+				app.Settings().Meta.AppURL = "https://credimi.test"
+				return app
 			},
 		},
 		{
@@ -314,6 +318,7 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	nonRunnerYaml := "name: test\nsteps: []\n"
 	app := setupPipelineQueueAppWithPipeline(t, orgID, nonRunnerYaml)
 	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://credimi.test"
 
 	baseRouter, err := apis.NewRouter(app)
 	require.NoError(t, err)
@@ -340,6 +345,16 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 		require.Contains(t, rec.Body.String(), "\"status\":\"running\"")
 		require.Contains(t, rec.Body.String(), "\"workflow_id\":\"wf-123\"")
 		require.Contains(t, rec.Body.String(), "\"run_id\":\"run-456\"")
+		require.Contains(
+			t,
+			rec.Body.String(),
+			"\"pipeline_url\":\"https://credimi.test/my/pipelines/usera-s-organization/pipeline123\"",
+		)
+		require.Contains(
+			t,
+			rec.Body.String(),
+			"\"run_url\":\"https://credimi.test/my/tests/runs/wf-123/run-456\"",
+		)
 		require.NotContains(t, rec.Body.String(), "\"mode\"")
 		return nil
 	})
@@ -363,6 +378,59 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	require.Len(t, results, 1)
 	require.Equal(t, "wf-123", results[0].GetString("workflow_id"))
 	require.Equal(t, "run-456", results[0].GetString("run_id"))
+}
+
+func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	origQuery := queryRunTicketStatus
+	t.Cleanup(func() {
+		queryRunTicketStatus = origQuery
+	})
+
+	queryRunTicketStatus = func(
+		ctx context.Context,
+		runnerID string,
+		ownerNamespace string,
+		ticketID string,
+	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
+		return workflows.MobileRunnerSemaphoreRunStatusView{
+			TicketID:          ticketID,
+			Status:            workflowengine.MobileRunnerSemaphoreRunRunning,
+			WorkflowID:        "wf-123",
+			RunID:             "run-456",
+			Position:          0,
+			LineLen:           1,
+			LeaderRunnerID:    runnerID,
+			RequiredRunnerIDs: []string{runnerID},
+		}, nil
+	}
+
+	scenario := tests.ApiScenario{
+		Name:   "poll returns run url",
+		Method: http.MethodGet,
+		URL:    "/api/pipeline/queue/ticket-1?runner_ids[]=runner-1",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			"\"status\":\"running\"",
+			"\"workflow_id\":\"wf-123\"",
+			"\"run_id\":\"run-456\"",
+			"\"run_url\":\"https://credimi.test/my/tests/runs/wf-123/run-456\"",
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineQueueApp(t)
+			app.Settings().Meta.AppURL = "https://credimi.test"
+			return app
+		},
+	}
+
+	scenario.Test(t)
 }
 
 func TestPipelineQueueCancel(t *testing.T) {
@@ -421,6 +489,122 @@ func TestPipelineQueueCancel(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func TestPipelineQueueCancelDeletesQueuedTempWalletVersion(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	stub := &queueStub{}
+	installQueueStubs(t, stub)
+
+	app := setupPipelineQueueApp(t)
+	defer app.Cleanup()
+
+	versionRecord := createQueueTempWalletVersion(t, app, orgID, "queued-temp-wallet", "abc123")
+
+	cancelRunTicket = func(
+		ctx context.Context,
+		runnerID string,
+		req workflows.MobileRunnerSemaphoreRunCancelRequest,
+	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
+		return workflows.MobileRunnerSemaphoreRunStatusView{
+			TicketID: req.TicketID,
+			Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
+			Cleanup: &workflows.MobileRunnerSemaphoreCleanupMetadata{
+				TempWalletVersionID:         versionRecord.Id,
+				TempWalletVersionIdentifier: "usera-s-organization/queued-temp-wallet/abc123",
+			},
+		}, nil
+	}
+
+	baseRouter, err := apis.NewRouter(app)
+	require.NoError(t, err)
+	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		mux, err := e.Router.BuildMux()
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodDelete,
+			"/api/pipeline/queue/ticket-temp?runner_ids[]=runner-1",
+			nil,
+		)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Contains(t, rec.Body.String(), `"status":"canceled"`)
+		return nil
+	})
+	require.NoError(t, serveErr)
+
+	_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
+	require.Error(t, err)
+}
+
+func TestPipelineQueueCancelKeepsTempWalletVersionForRunningRun(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	stub := &queueStub{}
+	installQueueStubs(t, stub)
+
+	app := setupPipelineQueueApp(t)
+	defer app.Cleanup()
+
+	versionRecord := createQueueTempWalletVersion(t, app, orgID, "running-temp-wallet", "abc123")
+
+	cancelRunTicket = func(
+		ctx context.Context,
+		runnerID string,
+		req workflows.MobileRunnerSemaphoreRunCancelRequest,
+	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
+		return workflows.MobileRunnerSemaphoreRunStatusView{
+			TicketID:   req.TicketID,
+			Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+			Cleanup: &workflows.MobileRunnerSemaphoreCleanupMetadata{
+				TempWalletVersionID:         versionRecord.Id,
+				TempWalletVersionIdentifier: "usera-s-organization/running-temp-wallet/abc123",
+			},
+		}, nil
+	}
+
+	baseRouter, err := apis.NewRouter(app)
+	require.NoError(t, err)
+	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		mux, err := e.Router.BuildMux()
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodDelete,
+			"/api/pipeline/queue/ticket-temp?runner_ids[]=runner-1",
+			nil,
+		)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Contains(t, rec.Body.String(), `"status":"running"`)
+		return nil
+	})
+	require.NoError(t, serveErr)
+
+	_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
+	require.NoError(t, err)
 }
 
 func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
@@ -520,6 +704,30 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 	}
 }
 
+func createQueueTempWalletVersion(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	walletName string,
+	tag string,
+) *core.Record {
+	t.Helper()
+
+	identifier := createWalletAPKVersion(t, app, orgID, walletName, tag)
+	walletRecord := createWalletAPKWallet(t, app, orgID, walletName)
+	versionRecord, err := app.FindFirstRecordByFilter(
+		"wallet_versions",
+		"wallet = {:wallet} && owner = {:owner} && canonified_tag = {:tag}",
+		dbx.Params{
+			"wallet": walletRecord.Id,
+			"owner":  orgID,
+			"tag":    tag,
+		},
+	)
+	require.NoError(t, err, "created wallet version %s should be queryable", identifier)
+	return versionRecord
+}
+
 func TestPipelineQueueHelpers(t *testing.T) {
 	t.Run("parseRunnerIDs prefers array param", func(t *testing.T) {
 		req := httptest.NewRequest(
@@ -596,6 +804,103 @@ func TestPipelineQueueHelpers(t *testing.T) {
 		require.NotNil(t, response.LineLen)
 		require.Equal(t, "wf-99", response.WorkflowID)
 		require.Equal(t, "run-99", response.RunID)
+	})
+
+	t.Run("buildQueueEnqueueResponse maps failed status", func(t *testing.T) {
+		response := buildQueueEnqueueResponse(
+			"ticket-1",
+			time.Now(),
+			[]string{"runner-1"},
+			workflowengine.MobileRunnerSemaphoreRunFailed,
+			0,
+			1,
+			"",
+			"",
+			"queue limit exceeded",
+		)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunFailed, response.Status)
+		require.Equal(t, "queue limit exceeded", response.ErrorMessage)
+		require.Empty(t, response.TicketID)
+	})
+
+	t.Run("buildQueueEnqueueResponse maps running status", func(t *testing.T) {
+		response := buildQueueEnqueueResponse(
+			"ticket-1",
+			time.Now(),
+			[]string{"runner-1"},
+			workflowengine.MobileRunnerSemaphoreRunRunning,
+			0,
+			1,
+			"wf-1",
+			"run-1",
+			"",
+		)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, response.Status)
+		require.Equal(t, "wf-1", response.WorkflowID)
+		require.Equal(t, "run-1", response.RunID)
+		require.Empty(t, response.TicketID)
+	})
+
+	t.Run("canceledQueueCleanupMetadata rejects started status", func(t *testing.T) {
+		cleanup := &workflows.MobileRunnerSemaphoreCleanupMetadata{
+			TempWalletVersionID: "wallet-version-1",
+		}
+		metadata, ok := canceledQueueCleanupMetadata([]pipelineQueueRunnerStatus{
+			{
+				RunnerID: "runner-1",
+				Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
+				Cleanup:  cleanup,
+			},
+			{
+				RunnerID:   "runner-2",
+				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				Cleanup:    cleanup,
+			},
+		})
+		require.False(t, ok)
+		require.Nil(t, metadata)
+	})
+}
+
+func TestDeleteTempWalletVersionForOwner(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	t.Run("missing record is no-op", func(t *testing.T) {
+		app := setupPipelineQueueApp(t)
+		defer app.Cleanup()
+
+		apiErr := deleteTempWalletVersionForOwner(app, "missingrecord12", orgID)
+		require.Nil(t, apiErr)
+	})
+
+	t.Run("owner mismatch is forbidden", func(t *testing.T) {
+		app := setupPipelineQueueApp(t)
+		defer app.Cleanup()
+
+		orgColl, err := app.FindCollectionByNameOrId("organizations")
+		require.NoError(t, err)
+		otherOrg := core.NewRecord(orgColl)
+		otherOrg.Set("name", "Other Org")
+		otherOrg.Set("canonified_name", "other-org")
+		require.NoError(t, app.Save(otherOrg))
+
+		versionRecord := createQueueTempWalletVersion(
+			t,
+			app,
+			otherOrg.Id,
+			"other-temp-wallet",
+			"abc123",
+		)
+
+		apiErr := deleteTempWalletVersionForOwner(app, versionRecord.Id, orgID)
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusForbidden, apiErr.Code)
+
+		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
+		require.NoError(t, err)
 	})
 }
 
