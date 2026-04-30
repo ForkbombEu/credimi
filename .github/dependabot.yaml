@@ -26,3 +26,7 @@ updates:
     commit-message:
       prefix: "fix"
       include: scope
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
