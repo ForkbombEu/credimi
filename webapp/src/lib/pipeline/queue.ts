@@ -60,6 +60,14 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 				yaml: stringify(parsedYaml)
 			}
 		});
+
+		const assignedRunnerIds = res.runner_ids ?? [];
+		if (PipelineRunner.isRequired(pipeline)) {
+			if (assignedRunnerIds.length === 0 || !res.ticket_id) {
+				return err(m.Failed_to_enqueue_pipeline());
+			}
+		}
+
 		if (res.status === 'queued' || res.status === 'starting' || res.status === 'running') {
 			return ok(res);
 		} else {

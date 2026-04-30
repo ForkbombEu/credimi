@@ -481,7 +481,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			"video_file_name":      videoFilename,
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,
-			"last_frame_urls":      frameURLs,
+			"screenshot_urls":      frameURLs,
 		}
 
 		filename = versionName + "_logfile"

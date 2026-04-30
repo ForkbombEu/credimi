@@ -29,8 +29,8 @@ export type WorkflowLogsProps = {
 	workflowId: string;
 	namespace: string;
 	subscriptionSuffix: 'openidnet-logs' | 'eudiw-logs';
-	startSignal: string;
-	stopSignal: string;
+	startSignal?: string;
+	stopSignal?: string;
 	workflowSignalSuffix?: string;
 	logTransformer: (data: unknown) => WorkflowLog;
 };
@@ -75,6 +75,7 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 							.sort((a, b) => (a.time ?? 0) - (b.time ?? 0))
 					);
 				});
+				if (!startSignal) return;
 				await pb.send('/api/compliance/send-temporal-signal', {
 					method: 'POST',
 					body: {
@@ -93,6 +94,7 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 	async function stopLogs() {
 		try {
 			await pb.realtime.unsubscribe(channel);
+			if (!stopSignal) return;
 			await pb.send('/api/compliance/send-temporal-signal', {
 				method: 'POST',
 				body: {

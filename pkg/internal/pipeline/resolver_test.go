@@ -148,6 +148,16 @@ func TestResolveExpressions(t *testing.T) {
 			expected: "Name: Alice, Age: 30",
 		},
 		{
+			name:     "string with object expression renders json",
+			input:    "User:\n${{ user.address }}",
+			expected: "User:\n{\n  \"city\": \"Wonderland\"\n}",
+		},
+		{
+			name:     "string with array expression renders json",
+			input:    "Emails:\n${{ user.emails }}",
+			expected: "Emails:\n[\n  \"a@example.com\",\n  \"b@example.com\"\n]",
+		},
+		{
 			name:    "invalid expression",
 			input:   "${{ unknown.key }}",
 			wantErr: true,

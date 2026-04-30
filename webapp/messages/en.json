@@ -957,4 +957,10 @@
 	"executions_manual": "manual",
 	"executions_scheduled": "scheduled",
 	"Execution_mode": "Execution mode"
+	"pipeline_placeholder_description": "You can use the following placeholders in your email subject and body, requests URL and body.",
+	"placeholder_pipeline_name": "Name of the pipeline",
+	"placeholder_pipeline_url": "Pipeline run URL",
+	"placeholder_pipeline_result": "Pipeline result (success | fail | canceled)",
+	"placeholder_pipeline_output": "Temporal output from the pipeline",
+	"placeholder_pipeline_date": "End time of the pipeline execution"
 }
