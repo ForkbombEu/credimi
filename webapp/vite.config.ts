@@ -69,7 +69,6 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
-					globalSetup: ['./src/modules/pocketbase/vitest.global-setup.ts'],
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}
