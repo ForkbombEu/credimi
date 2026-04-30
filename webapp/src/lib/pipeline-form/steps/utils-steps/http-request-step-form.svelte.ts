@@ -4,6 +4,7 @@
 
 import { BaseForm } from '../types';
 import Component from './http-request-step-form.svelte';
+import { formatPlaceholder, Placeholder } from './placeholders/utils';
 
 //
 
@@ -11,8 +12,9 @@ export class HttpRequestStepForm extends BaseForm<HttpRequestFormData, HttpReque
 	readonly Component = Component;
 
 	data = $state<HttpRequestFormData>({
-		method: 'GET',
-		url: ''
+		method: 'POST',
+		url: '',
+		body: defaultBody()
 	});
 
 	get isValid(): boolean {
@@ -33,3 +35,16 @@ export type HttpRequestFormData = {
 	url: string;
 	body?: string;
 };
+
+function defaultBody() {
+	return JSON.stringify(
+		Object.fromEntries(
+			Object.values(Placeholder).map((placeholder) => [
+				placeholder,
+				formatPlaceholder(placeholder)
+			])
+		),
+		null,
+		2
+	);
+}

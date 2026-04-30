@@ -6,7 +6,7 @@ import {
 	CheckCircle,
 	PuzzleIcon,
 	QrCode,
-	SheetIcon,
+	ScaleIcon,
 	ShieldCheck,
 	TestTube2,
 	Users,
@@ -128,7 +128,7 @@ export const entities = {
 
 	conformance_checks: {
 		slug: 'conformance-checks',
-		icon: SheetIcon,
+		icon: ScaleIcon,
 		labels: {
 			singular: m.Conformance_check(),
 			plural: m.Conformance_Checks()

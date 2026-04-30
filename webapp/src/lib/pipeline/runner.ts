@@ -11,11 +11,18 @@ import { parseYaml } from './utils';
 
 //
 
-export function getType(pipeline: PipelinesResponse): 'global' | 'specific' {
+export function isRequired(p: PipelinesResponse): boolean {
+	const yaml = parseYaml(p.yaml);
+	return (yaml?.steps ?? []).some((step) => step.use === 'mobile-automation');
+}
+
+//
+
+export function getType(pipeline: PipelinesResponse): 'global' | 'specific' | 'not-needed' {
 	const yaml = parseYaml(pipeline.yaml);
 	const steps = (yaml?.steps ?? []).filter((step) => step.use === 'mobile-automation');
 
-	if (steps.length === 0) return 'global';
+	if (steps.length === 0) return 'not-needed';
 
 	const areAllStepsSpecific = steps.every((step) => step.with.runner_id);
 	if (areAllStepsSpecific) return 'specific';

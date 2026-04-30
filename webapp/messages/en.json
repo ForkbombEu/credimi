@@ -946,5 +946,21 @@
 	"Install_app": "🔗 Install app",
 	"Latest": "Latest",
 	"Installed_from_external_source": "Installed from external source",
-	"Install_from_external_source": "Install from external source"
+	"Install_from_external_source": "Install from external source",
+	"Scoreboard": "Scoreboard",
+	"Verifier_abbreviation": "Ver.",
+	"Issuer_abbreviation": "Iss.",
+	"Min_running_time": "Min. time",
+	"Runners": "Runners",
+	"Verifications": "Verifications",
+	"View_Scoreboard": "View Scoreboard",
+	"executions_manual": "manual",
+	"executions_scheduled": "scheduled",
+	"Execution_mode": "Execution mode",
+	"pipeline_placeholder_description": "You can use the following placeholders in your email subject and body, requests URL and body.",
+	"placeholder_pipeline_name": "Name of the pipeline",
+	"placeholder_pipeline_url": "Pipeline run URL",
+	"placeholder_pipeline_result": "Pipeline result (success | fail | canceled)",
+	"placeholder_pipeline_output": "Temporal output from the pipeline",
+	"placeholder_pipeline_date": "End time of the pipeline execution"
 }
