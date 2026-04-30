@@ -956,7 +956,7 @@
 	"View_Scoreboard": "View Scoreboard",
 	"executions_manual": "manual",
 	"executions_scheduled": "scheduled",
-	"Execution_mode": "Execution mode"
+	"Execution_mode": "Execution mode",
 	"pipeline_placeholder_description": "You can use the following placeholders in your email subject and body, requests URL and body.",
 	"placeholder_pipeline_name": "Name of the pipeline",
 	"placeholder_pipeline_url": "Pipeline run URL",
