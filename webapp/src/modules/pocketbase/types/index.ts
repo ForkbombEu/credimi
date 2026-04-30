@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export type * from './index.generated';
-export type * from './extra.generated';
+export * from './index.generated';
+export * from './extra.generated';
 
 //
 

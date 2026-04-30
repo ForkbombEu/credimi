@@ -89,7 +89,7 @@ async function getCollectionsFromDb(): Promise<CollectionModel[]> {
 
 /* Main */
 
-export async function generateCollectionsModels() {
+async function main() {
 	const models = await getCollectionsFromDb();
 
 	/* Codegen */
@@ -133,9 +133,8 @@ import type { SetFieldType, Simplify } from 'type-fest';
 	logCodegenResult('collections models and helper types', filePath);
 }
 
-if (import.meta.main) {
-	generateCollectionsModels().catch(console.error);
-}
+// Execute the main function
+main().catch(console.error);
 
 /* Helper functions */
 
