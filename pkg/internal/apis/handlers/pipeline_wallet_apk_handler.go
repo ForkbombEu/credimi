@@ -39,6 +39,7 @@ var walletAPKURLDownloader = downloadWalletAPKFromURL
 type pipelineRunWalletAPKRequest struct {
 	PipelineIdentifier string
 	CommitSHA          string
+	Metadata           map[string]any
 	RunnerID           string
 	APKURL             string
 	APKFile            *multipart.FileHeader
@@ -491,9 +492,9 @@ func createPipelineRunWalletAPKTempVersion(
 	if tag == "" {
 		return tempWalletVersion{}, apierror.New(
 			http.StatusBadRequest,
-			"commit_sha",
-			"commit_sha is invalid",
-			"commit_sha cannot be canonified",
+			"metadata",
+			"metadata.sha is invalid",
+			"metadata.sha cannot be canonified",
 		)
 	}
 
@@ -510,7 +511,7 @@ func createPipelineRunWalletAPKTempVersion(
 			http.StatusConflict,
 			"wallet_version",
 			"temporary wallet version already exists",
-			"wallet version with this commit_sha already exists",
+			"wallet version with this metadata.sha already exists",
 		)
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -814,10 +815,15 @@ func parsePipelineRunWalletAPKRequest(
 			err.Error(),
 		)
 	}
+	metadata, apiErr := metadataFromForm(e.Request)
+	if apiErr != nil {
+		return pipelineRunWalletAPKRequest{}, apiErr
+	}
 
 	return pipelineRunWalletAPKRequest{
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
-		CommitSHA:          strings.TrimSpace(e.Request.FormValue("commit_sha")),
+		CommitSHA:          strings.TrimSpace(walletAPKMetadataSHA(metadata)),
+		Metadata:           metadata,
 		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 	}, nil
@@ -842,10 +848,15 @@ func parsePipelineRunWalletAPKMultipartRequest(
 			apkFile = files[0]
 		}
 	}
+	metadata, apiErr := metadataFromForm(e.Request)
+	if apiErr != nil {
+		return pipelineRunWalletAPKRequest{}, apiErr
+	}
 
 	return pipelineRunWalletAPKRequest{
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
-		CommitSHA:          strings.TrimSpace(e.Request.FormValue("commit_sha")),
+		CommitSHA:          strings.TrimSpace(walletAPKMetadataSHA(metadata)),
+		Metadata:           metadata,
 		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 		APKFile:            apkFile,
@@ -856,10 +867,10 @@ func parsePipelineRunWalletAPKJSONRequest(
 	e *core.RequestEvent,
 ) (pipelineRunWalletAPKRequest, *apierror.APIError) {
 	var input struct {
-		PipelineIdentifier string `json:"pipeline_identifier"`
-		CommitSHA          string `json:"commit_sha"`
-		RunnerID           string `json:"runner_id"`
-		APKURL             string `json:"apk_url"`
+		PipelineIdentifier string         `json:"pipeline_identifier"`
+		Metadata           map[string]any `json:"metadata"`
+		RunnerID           string         `json:"runner_id"`
+		APKURL             string         `json:"apk_url"`
 	}
 	if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil {
 		return pipelineRunWalletAPKRequest{}, apierror.New(
@@ -869,13 +880,40 @@ func parsePipelineRunWalletAPKJSONRequest(
 			err.Error(),
 		)
 	}
+	metadata := input.Metadata
 
 	return pipelineRunWalletAPKRequest{
 		PipelineIdentifier: strings.TrimSpace(input.PipelineIdentifier),
-		CommitSHA:          strings.TrimSpace(input.CommitSHA),
+		CommitSHA:          strings.TrimSpace(walletAPKMetadataSHA(metadata)),
+		Metadata:           metadata,
 		RunnerID:           strings.TrimSpace(input.RunnerID),
 		APKURL:             strings.TrimSpace(input.APKURL),
 	}, nil
+}
+
+func metadataFromForm(req *http.Request) (map[string]any, *apierror.APIError) {
+	raw := strings.TrimSpace(req.FormValue("metadata"))
+	if raw == "" {
+		return nil, nil
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"metadata",
+			"metadata must be valid JSON",
+			err.Error(),
+		)
+	}
+	return metadata, nil
+}
+
+func walletAPKMetadataSHA(metadata map[string]any) string {
+	if metadata == nil {
+		return ""
+	}
+	sha, _ := metadata["sha"].(string)
+	return strings.TrimSpace(sha)
 }
 
 func validatePipelineRunWalletAPKRequest(input pipelineRunWalletAPKRequest) *apierror.APIError {
@@ -890,9 +928,9 @@ func validatePipelineRunWalletAPKRequest(input pipelineRunWalletAPKRequest) *api
 	if strings.TrimSpace(input.CommitSHA) == "" {
 		return apierror.New(
 			http.StatusBadRequest,
-			"commit_sha",
-			"commit_sha is required",
-			"missing commit_sha",
+			"metadata",
+			"metadata.sha is required",
+			"missing metadata.sha",
 		)
 	}
 
