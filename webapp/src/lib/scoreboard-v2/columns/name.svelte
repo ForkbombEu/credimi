@@ -26,13 +26,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import A from '@/components/ui-custom/a.svelte';
 
+	import Na from './partials/na.svelte';
+
 	//
 
 	let { value }: Column.Props<typeof column> = $props();
 
-	const href = $derived(`/marketplace/pipelines/${getPath(value)}`);
+	const href = $derived(value ? `/marketplace/pipelines/${getPath(value)}` : null);
 </script>
 
 <div class="leading-none wrap-break-word whitespace-normal">
-	<A {href} class="text-xs font-bold">{value.name}</A>
+	{#if href && value}
+		<A {href} class="text-xs font-bold">{value.name}</A>
+	{:else}
+		<Na />
+	{/if}
 </div>
