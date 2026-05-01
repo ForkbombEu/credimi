@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import * as Column from '../column';
-	import BaseHeader from './headers/base-header.svelte';
 
 	//
 
@@ -22,9 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return { total, successes, percent, manual, scheduled };
 		},
 		id: 'total_executions_successes_percentage',
-		header: Column.header(BaseHeader, {
-			header: m.scoreboard_success_rate()
-		})
+		header: m.scoreboard_success_rate()
 	});
 </script>
 

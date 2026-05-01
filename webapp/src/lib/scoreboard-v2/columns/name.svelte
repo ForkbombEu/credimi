@@ -5,18 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { m } from '@/i18n';
+	import { entities } from '$lib/global';
+
+	import { renderComponent } from '@/components/ui/data-table';
 
 	import * as Column from '../column';
-	import BaseHeader from './headers/base-header.svelte';
+	import EntityHeader from './headers/entity-header.svelte';
 
 	//
 
 	export const column = Column.define({
 		fn: (row) => row.expand.pipeline,
 		id: 'name',
-		header: Column.header(BaseHeader, {
-			header: m.Pipeline()
+		header: renderComponent(EntityHeader, {
+			data: entities.pipelines
 		})
 	});
 </script>

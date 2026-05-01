@@ -14,7 +14,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 
 	import * as Column from '../column';
-import BaseHeader from './headers/base-header.svelte';
 	import Na from './partials/na.svelte';
 
 	//
@@ -26,9 +25,7 @@ import BaseHeader from './headers/base-header.svelte';
 			return groupExecutionArtifacts(latestResults);
 		},
 		id: 'video_screenshot',
-		header: Column.header(BaseHeader, {
-			header: ''
-		})
+		header: ' '
 	});
 
 	type ExecutionArtifact = {
