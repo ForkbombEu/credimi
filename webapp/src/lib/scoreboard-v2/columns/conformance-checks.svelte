@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { ConformanceChecks } from '$lib';
 	import { entities } from '$lib/global';
-	import { Array, pipe, Record } from 'effect';
 
 	import { renderComponent } from '@/components/ui/data-table';
 
@@ -22,23 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			data: entities.conformance_checks,
 			plurality: 'plural'
 		}),
-		fn: (row) =>
-			pipe(
-				row.conformance_checks ?? [],
-				Array.map((string) => {
-					const [standard, version, suite, test] = string.split('/');
-					return {
-						title: `${standard} • ${version} • ${suite}`,
-						test
-					};
-				}),
-				Array.groupBy((x) => x.title),
-				Record.toEntries,
-				Array.map(([k, v]) => ({
-					title: k,
-					items: v.map((x) => x.test)
-				}))
-			)
+		fn: (row) => ConformanceChecks.groupPathsByStandard(row.conformance_checks ?? [])
 	});
 </script>
 

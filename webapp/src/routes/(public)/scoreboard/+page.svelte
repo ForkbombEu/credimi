@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{m.Scoreboard()}
 			</T>
 		</div>
-		<p class="max-w-prose text-center text-balance">{m.scoreboard_page_description()}</p>
+		<p class="max-w-[80ch] text-center text-balance">{m.scoreboard_page_description()}</p>
 	</div>
 	<div class="px-4">
 		<Scoreboard.Component {scoreboard} />

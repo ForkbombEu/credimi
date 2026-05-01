@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<div class="flex items-center gap-2 pr-2">
+<div class="flex items-center gap-2 pr-4">
 	{#each value as item (item.id)}
 		<div class="flex items-center gap-1">
 			{#if item.screenshot}

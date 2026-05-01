@@ -45,17 +45,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const executionTypes: ExecutionModeCount[] = $derived([
 		{ icon: HandIcon, count: value.manual, label: m.Executed_manually() },
-		{ icon: CogIcon, count: value.ci, label: m.Executed_via_ci() },
 		{
 			icon: ClockIcon,
 			count: value.scheduled,
 			label: m.Executed_via_scheduling()
-		}
+		},
+		{ icon: CogIcon, count: value.ci, label: m.Executed_via_ci() }
 	]);
 </script>
 
-<div>
-	<p class="text-xs font-bold">
+<div class="pr-3">
+	<p class={['text-sm font-bold', { 'text-emerald-600': value.percent >= 70 }]}>
 		{value.successes}/{value.total} ({value.percent}%)
 	</p>
 	<p class="text-xs text-muted-foreground opacity-80">
