@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { records }: Props = $props();
 </script>
 
-<div>
+<div class={{ 'flex h-[30px] items-center': records.length == 1 }}>
 	{#each records as record (record.id)}
 		<A href={getRelatedEntityHref(record)} class="block max-w-[30ch] truncate text-xs">
 			{record.name}
