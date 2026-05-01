@@ -5,20 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { m } from '@/i18n';
+	import { ConformanceChecks } from '$lib';
+	import { entities } from '$lib/global';
+
+	import { renderComponent } from '@/components/ui/data-table';
 
 	import * as Column from '../column';
-	import BaseHeader from './headers/base-header.svelte';
+	import EntityHeader from './headers/entity-header.svelte';
 	import Na from './partials/na.svelte';
 
 	//
 
 	export const column = Column.define({
-		fn: (row) => row.conformance_checks,
 		id: 'conformance_checks',
-		header: Column.header(BaseHeader, {
-			header: m.Conformance_Checks()
-		})
+		header: renderComponent(EntityHeader, {
+			data: entities.conformance_checks,
+			plurality: 'plural'
+		}),
+		fn: (row) => ConformanceChecks.groupPathsByStandard(row.conformance_checks ?? [])
 	});
 </script>
 
@@ -28,7 +32,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div>
 	{#each value as item (item)}
-		<p class="max-w-[40ch] truncate text-xs">{item}</p>
+		<p class="text-xs font-bold">{item.title}</p>
+		<ul class="list-inside list-disc">
+			{#each item.items as x (x)}
+				<li class="max-w-[35ch] truncate text-xs">
+					{x}
+				</li>
+			{/each}
+		</ul>
 	{:else}
 		<Na />
 	{/each}

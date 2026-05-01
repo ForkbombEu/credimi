@@ -14,7 +14,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 
 	import * as Column from '../column';
-import BaseHeader from './headers/base-header.svelte';
 	import Na from './partials/na.svelte';
 
 	//
@@ -26,9 +25,7 @@ import BaseHeader from './headers/base-header.svelte';
 			return groupExecutionArtifacts(latestResults);
 		},
 		id: 'video_screenshot',
-		header: Column.header(BaseHeader, {
-			header: ''
-		})
+		header: ' '
 	});
 
 	type ExecutionArtifact = {
@@ -67,7 +64,7 @@ import BaseHeader from './headers/base-header.svelte';
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<div class="flex items-center gap-2 pr-2">
+<div class="flex items-center gap-2 pr-4">
 	{#each value as item (item.id)}
 		<div class="flex items-center gap-1">
 			{#if item.screenshot}

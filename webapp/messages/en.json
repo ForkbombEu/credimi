@@ -962,5 +962,9 @@
 	"placeholder_pipeline_url": "Pipeline run URL",
 	"placeholder_pipeline_result": "Pipeline result (success | fail | canceled)",
 	"placeholder_pipeline_output": "Temporal output from the pipeline",
-	"placeholder_pipeline_date": "End time of the pipeline execution"
+	"placeholder_pipeline_date": "End time of the pipeline execution",
+	"Executed_manually": "Executed manually",
+	"Executed_via_scheduling": "Executed via scheduling",
+	"Executed_via_ci": "Executed via CI",
+	"scoreboard_page_description": "Find here the aggregate results of all the published pipelines. Create a pipeline in the Developer Dashboard, publish it and then run manually, schedule it or execute via CI/CD to see the results here."
 }

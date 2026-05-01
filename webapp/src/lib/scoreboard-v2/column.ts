@@ -2,51 +2,44 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Component, ComponentProps } from 'svelte';
+import type { Component } from 'svelte';
 
-import { createColumnHelper } from '@tanstack/table-core';
+import { createColumnHelper, type DisplayColumnDef } from '@tanstack/table-core';
 
 import {
 	RenderComponentConfig,
+	RenderSnippetConfig,
 	renderComponent
 } from '@/components/ui/data-table/render-helpers';
 
 import type { ScoreboardRow } from './types';
 
-//
+/* Base types */
 
 type Accessor = (row: ScoreboardRow) => unknown;
 
-// Config
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type HeaderConfig = RenderComponentConfig<Component<any>>;
+type HeaderConfig = RenderComponentConfig<Component<any>> | RenderSnippetConfig<Component<any>>;
+
+/* Core cell config */
 
 type Config<A extends Accessor> = {
 	fn: A;
 	id: string;
-	header: HeaderConfig;
+	header?: HeaderConfig | string;
 };
 
 export function define<A extends Accessor>(config: Config<A>): Config<A> {
 	return config;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function header<TComponent extends Component<any>>(
-	component: TComponent,
-	props: ComponentProps<TComponent>
-): RenderComponentConfig<TComponent> {
-	return renderComponent(component, props);
-}
-
-// Component props
+/* Cell component props */
 
 type BaseProps<A extends Accessor> = { value: ReturnType<A> };
 
 export type Props<C extends Config<Accessor>> = BaseProps<C['fn']>;
 
-// Module management
+/* Module management */
 
 type Module<A extends Accessor> = {
 	column: Config<A>;
@@ -56,11 +49,18 @@ type Module<A extends Accessor> = {
 const helper = createColumnHelper<ScoreboardRow>();
 
 export function build<A extends Accessor>(mod: Module<A>) {
-	return helper.accessor(mod.column.fn, {
+	const config: DisplayColumnDef<ScoreboardRow, unknown> = {
 		id: mod.column.id,
-		header: () => mod.column.header,
 		cell: (info: { getValue: () => unknown }) => {
 			return renderComponent(mod.default, { value: info.getValue() as ReturnType<A> });
 		}
-	});
+	};
+	if (mod.column.header) {
+		if (typeof mod.column.header === 'string') {
+			config.header = mod.column.header;
+		} else {
+			config.header = () => mod.column.header;
+		}
+	}
+	return helper.accessor(mod.column.fn, config);
 }
