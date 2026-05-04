@@ -31,20 +31,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										{@const sorted = header.column.getIsSorted()}
 										<button
 											type="button"
-											class="flex items-center gap-1.5 hover:opacity-80"
+											class="group relative hover:cursor-pointer"
 											onclick={header.column.getToggleSortingHandler()}
 										>
 											<FlexRender
 												content={header.column.columnDef.header}
 												context={header.getContext()}
 											/>
-											{#if sorted === 'asc'}
-												<ArrowUpIcon class="size-3" />
-											{:else if sorted === 'desc'}
-												<ArrowDownIcon class="size-3" />
-											{:else}
-												<ArrowUpDownIcon class="size-3 opacity-50" />
-											{/if}
+											<div
+												class={[
+													'absolute -top-1 right-0 translate-x-2 rounded-full bg-primary p-1 text-primary-foreground opacity-0 transition-opacity',
+													'duration-150',
+													'group-hover:bg-blue-700 group-hover:opacity-100',
+													sorted ? 'opacity-100' : 'opacity-0'
+												]}
+											>
+												{#if sorted === 'asc'}
+													<ArrowUpIcon class="size-3" />
+												{:else if sorted === 'desc'}
+													<ArrowDownIcon class="size-3" />
+												{:else}
+													<ArrowUpDownIcon class="size-3 opacity-50" />
+												{/if}
+											</div>
 										</button>
 									{:else}
 										<FlexRender
