@@ -197,8 +197,6 @@ func TestHandleGetPipelineScoreboardMissingNamespace(t *testing.T) {
 func TestHandleGetPipelineScoreboard(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-	ensurePipelineResultsTypeField(t, app)
-
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -713,21 +711,6 @@ func createPipelineResultWithType(
 	require.NoError(t, app.Save(record))
 }
 
-func ensurePipelineScoreboardCIRunsField(t testing.TB, app *tests.TestApp) {
-	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
-	require.NoError(t, err)
-
-	if collection.Fields.GetByName("CI_runs") != nil {
-		return
-	}
-
-	collection.Fields.Add(&core.NumberField{
-		Name:    "CI_runs",
-		OnlyInt: true,
-	})
-	require.NoError(t, app.Save(collection))
-}
-
 func addEntitySearchAttributes(info *workflow.WorkflowExecutionInfo, attrs map[string]any) {
 	if info.GetSearchAttributes() == nil {
 		info.SearchAttributes = &common.SearchAttributes{
@@ -982,8 +965,6 @@ func createCustomCheckRecord(t testing.TB, app *tests.TestApp, orgID, name strin
 func TestSaveScoreboardResults(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-	ensurePipelineScoreboardCIRunsField(t, app)
-
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 

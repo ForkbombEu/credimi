@@ -44,26 +44,6 @@ func setupPipelineApp(t testing.TB) *tests.TestApp {
 	return app
 }
 
-func ensurePipelineResultsTypeField(t testing.TB, app *tests.TestApp) {
-	collection, err := app.FindCollectionByNameOrId("pipeline_results")
-	require.NoError(t, err)
-
-	if collection.Fields.GetByName("type") != nil {
-		return
-	}
-
-	collection.Fields.Add(&core.SelectField{
-		Name:      "type",
-		MaxSelect: 1,
-		Values: []string{
-			pipelineinternal.RunTypeManual,
-			pipelineinternal.RunTypeScheduled,
-			pipelineinternal.RunTypeCI,
-		},
-	})
-	require.NoError(t, app.Save(collection))
-}
-
 // setupPipelineStartApp builds a test app with pipeline start routes.
 func setupPipelineStartApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
@@ -177,7 +157,6 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineApp(t)
-				ensurePipelineResultsTypeField(t, app)
 
 				coll, err := app.FindCollectionByNameOrId("pipelines")
 				require.NoError(t, err)

@@ -319,7 +319,6 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	nonRunnerYaml := "name: test\nsteps: []\n"
 	app := setupPipelineQueueAppWithPipeline(t, orgID, nonRunnerYaml)
 	defer app.Cleanup()
-	ensurePipelineResultsTypeField(t, app)
 	app.Settings().Meta.AppURL = "https://credimi.test"
 
 	baseRouter, err := apis.NewRouter(app)
