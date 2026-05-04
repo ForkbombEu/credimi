@@ -333,3 +333,95 @@ func TestResolveInputs(t *testing.T) {
 		})
 	}
 }
+
+func TestPipelineFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		ctx      map[string]any
+		expected any
+		wantErr  bool
+	}{
+		{
+			name: "simple upper",
+			expr: "${{ result | upper }}",
+			ctx: map[string]any{
+				"result": "  hello world  ",
+			},
+			expected: "  HELLO WORLD  ",
+		},
+		{
+			name: "simple lower",
+			expr: "${{ name | lower }}",
+			ctx: map[string]any{
+				"name": "  JOHN DOE  ",
+			},
+			expected: "  john doe  ",
+		},
+		{
+			name: "number to string then upper (should not error, returns number)",
+			expr: "${{ number | upper }}",
+			ctx: map[string]any{
+				"number": 123,
+			},
+			expected: 123,
+		},
+		{
+			name: "pipeline output upper",
+			expr: "${{ pipeline_output | upper }}",
+			ctx: map[string]any{
+				"pipeline_output": "test output",
+			},
+			expected: "TEST OUTPUT",
+		},
+		{
+			name: "unknown function",
+			expr: "${{ result | unknown }}",
+			ctx: map[string]any{
+				"result": "  hello world  ",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid pipeline - empty function",
+			expr: "${{ result | }}",
+			ctx: map[string]any{
+				"result": "  hello world  ",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid pipeline - empty initial value",
+			expr: "${{ | upper }}",
+			ctx: map[string]any{
+				"result": "  hello world  ",
+			},
+			wantErr: true,
+		},
+		{
+			name: "complex json object with upper",
+			expr: "${{ complexObject | upper }}",
+			ctx: map[string]any{
+				"complexObject": map[string]any{
+					"hello": map[string]any{
+						"world": "heLLo",
+					},
+					"message": " hEllO: { WorlD: {heLLo}} ",
+				},
+			},
+			expected: `{"HELLO":{"WORLD":"HELLO"},"MESSAGE":" HELLO: { WORLD: {HELLO}} "}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ResolveExpressions(tc.expr, tc.ctx)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, got)
+		})
+	}
+}

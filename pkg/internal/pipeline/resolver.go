@@ -35,7 +35,7 @@ func isFullRef(s string) bool {
 }
 
 // Matches expressions like ${{ ... }}
-var exprRegexp = regexp.MustCompile(`\${{\s*([a-zA-Z0-9_\-\.\[\]]+)\s*}}`)
+var exprRegexp = regexp.MustCompile(`\${{\s*([^{}]+?)\s*}}`)
 
 func parsePart(part string) (key string, idxs []int, err error) {
 	bracket := strings.Index(part, "[")
@@ -66,8 +66,103 @@ func parsePart(part string) (key string, idxs []int, err error) {
 	return key, idxs, nil
 }
 
+func ParsePipeline(expr string) (initialValue string, functions []string, err error) {
+	parts := strings.Split(expr, "|")
+	if len(parts) == 0 {
+		return "", nil, fmt.Errorf("empty pipeline expression")
+	}
+
+	initialValue = strings.TrimSpace(parts[0])
+	if initialValue == "" {
+		return "", nil, fmt.Errorf("empty initial value in pipeline")
+	}
+
+	for i := 1; i < len(parts); i++ {
+		funcName := strings.TrimSpace(parts[i])
+		if funcName == "" {
+			return "", nil, fmt.Errorf("empty function name at position %d", i)
+		}
+		functions = append(functions, funcName)
+	}
+
+	return initialValue, functions, nil
+}
+
+func ApplyFunction(value any, funcName string) (any, error) {
+	switch funcName {
+	case "upper":
+		return toUpper(value), nil
+	case "lower":
+		return toLower(value), nil
+	default:
+		return nil, fmt.Errorf("unknown function: %s", funcName)
+	}
+}
+
+func ResolvePipeline(expr string, ctx map[string]any) (any, error) {
+	initialValue, functions, err := ParsePipeline(expr)
+	if err != nil {
+		return nil, err
+	}
+
+	current, err := resolveRef(initialValue, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("resolving initial value %q: %w", initialValue, err)
+	}
+
+	for _, funcName := range functions {
+		current, err = ApplyFunction(current, funcName)
+		if err != nil {
+			return nil, fmt.Errorf("applying function %q: %w", funcName, err)
+		}
+	}
+
+	return current, nil
+}
+
+func toUpper(value any) any {
+	switch v := value.(type) {
+	case string:
+		return strings.ToUpper(v)
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return value
+	case map[string]any, []any:
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return strings.ToUpper(fmt.Sprintf("%v", v))
+		}
+		return strings.ToUpper(string(bytes))
+	default:
+		return strings.ToUpper(fmt.Sprintf("%v", v))
+	}
+}
+
+func toLower(value any) any {
+	switch v := value.(type) {
+	case string:
+		return strings.ToLower(v)
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return value
+	case map[string]any, []any:
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return strings.ToLower(fmt.Sprintf("%v", v))
+		}
+		return strings.ToLower(string(bytes))
+	default:
+		return strings.ToLower(fmt.Sprintf("%v", v))
+	}
+}
+
 // resolveRef resolves a dotted ref like "user.addresses[0].city" in the given context
 func resolveRef(ref string, ctx map[string]any) (any, error) {
+	if strings.Contains(ref, "|") {
+		return ResolvePipeline(ref, ctx)
+	}
 	parts := strings.Split(ref, ".")
 	var cur any = ctx
 
