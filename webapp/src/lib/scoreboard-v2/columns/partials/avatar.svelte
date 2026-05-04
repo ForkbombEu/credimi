@@ -38,8 +38,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if 'logo' in record}
 		<Avatar
 			src={pb.files.getURL(record, record.logo)}
-			class="size-8 rounded-sm border"
 			fallback={record.name.slice(0, 2)}
+			alt={record.name}
+			class="size-8 rounded-sm border bg-muted uppercase"
 		/>
 	{/if}
 {/snippet}

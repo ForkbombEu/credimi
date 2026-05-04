@@ -40,6 +40,7 @@ export async function loadScoreboardData(
 ): Promise<ListResult<ScoreboardRow>> {
 	const res = await agent.getList(options.pagination?.page ?? 1, options.pagination?.perPage, {
 		fetch: options.fetch,
+		requestKey: null,
 		...(options.sort ? { sort: options.sort } : {})
 	});
 	return res as ListResult<ScoreboardRow>;
