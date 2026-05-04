@@ -18,6 +18,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -58,6 +59,7 @@ type PipelineStatsResponse struct {
 	SuccessRate         float64            `json:"success_rate"`
 	ManualExecutions    int                `json:"manual_executions"`
 	ScheduledExecutions int                `json:"scheduled_executions"`
+	CIExecutions        int                `json:"ci_executions"`
 	MinExecutionTime    string             `json:"min_execution_time"`
 	FirstExecutionDate  string             `json:"first_execution_date"`
 	LastExecutionDate   string             `json:"last_execution_date"`
@@ -79,6 +81,7 @@ type PipelineStats struct {
 	SuccessRate         float64
 	ManualExecutions    int
 	ScheduledExecutions int
+	CIExecutions        int
 	MinExecutionTime    string
 	FirstExecutionDate  string
 	LastExecutionDate   string
@@ -470,6 +473,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 				SuccessRate:         stats.SuccessRate,
 				ManualExecutions:    stats.ManualExecutions,
 				ScheduledExecutions: stats.ScheduledExecutions,
+				CIExecutions:        stats.CIExecutions,
 				MinExecutionTime:    stats.MinExecutionTime,
 				FirstExecutionDate:  stats.FirstExecutionDate,
 				LastExecutionDate:   stats.LastExecutionDate,
@@ -623,10 +627,12 @@ func calculateStatsFromExecutions(
 			}
 		}
 
-		isScheduled := strings.HasPrefix(exec.Execution.WorkflowID, "Pipeline-Sched-")
-		if isScheduled {
+		switch pipelineRunTypeForExecution(app, exec) {
+		case pipelineinternal.RunTypeScheduled:
 			stats.ScheduledExecutions++
-		} else {
+		case pipelineinternal.RunTypeCI:
+			stats.CIExecutions++
+		default:
 			stats.ManualExecutions++
 		}
 
@@ -665,6 +671,28 @@ func calculateStatsFromExecutions(
 	}
 
 	return stats, lastSuccessfulRun
+}
+
+func pipelineRunTypeForExecution(app core.App, exec *WorkflowExecution) string {
+	if app == nil || exec == nil || exec.Execution == nil {
+		return pipelineinternal.RunTypeManual
+	}
+	record, err := app.FindFirstRecordByFilter(
+		"pipeline_results",
+		"workflow_id={:workflow_id} && run_id={:run_id}",
+		dbx.Params{
+			"workflow_id": exec.Execution.WorkflowID,
+			"run_id":      exec.Execution.RunID,
+		},
+	)
+	if err != nil || record == nil {
+		return pipelineinternal.RunTypeManual
+	}
+	runType := record.GetString("type")
+	if !pipelineinternal.ValidRunType(runType) {
+		return pipelineinternal.RunTypeManual
+	}
+	return runType
 }
 
 func extractCompletionStatus(exec *WorkflowExecution) bool {
@@ -1008,6 +1036,7 @@ func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats
 	record.Set("success_rate", stats.SuccessRate)
 	record.Set("manually_executed_runs", stats.ManualExecutions)
 	record.Set("scheduled_runs", stats.ScheduledExecutions)
+	record.SetIfFieldExists("CI_runs", stats.CIExecutions)
 	record.Set("minimum_running_time", stats.MinExecutionTime)
 	record.Set("first_execution", stats.FirstExecutionDate)
 	record.Set("last_execution_date", stats.LastExecutionDate)

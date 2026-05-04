@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			const percent = row.success_rate;
 			const manual = row.manually_executed_runs;
 			const scheduled = row.scheduled_runs;
-			const ci = 0; // TODO: add CI executions
+			const ci = (row as typeof row & { CI_runs?: number }).CI_runs ?? 0;
 			return { total, successes, percent, manual, scheduled, ci };
 		},
 		id: 'total_executions_successes_percentage',
