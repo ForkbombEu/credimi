@@ -28,7 +28,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		header: renderComponent(EntityHeader, {
 			data: entities.wallets
 		}),
-		sortField: 'wallets.name'
+		sortField: 'wallets.name',
+		manualPillPositioning: true
 	});
 </script>
 
