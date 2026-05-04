@@ -45,7 +45,7 @@ linters:
     # - godox
     - goheader
     #- gomoddirectives
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     # - gosec
     # - gosmopolitan
@@ -124,6 +124,23 @@ linters:
     gocritic:
       disabled-checks:
         - singleCaseSwitch
+    goconst:
+      min-len: 10
+      min-occurrences: 6
+      match-constant: false
+      ignore-string-values:
+        - properties
+        - additionalProperties
+        - canonified_name
+        - workflow_id
+        - description
+        - organizations
+        - credential_issuers
+        - video_path
+        - recording_process_pid
+        - ffmpeg_process_pid
+        - log_process_pid
+        - session_id
     gosec:
       excludes:
         - G304

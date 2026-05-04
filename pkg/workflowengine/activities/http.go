@@ -143,8 +143,8 @@ func executeHTTPRequest(
 	for k, v := range injectedHeaders {
 		req.Header.Set(k, v)
 	}
-	if body != nil && req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", "application/json")
+	if body != nil && req.Header.Get(workflowengine.HTTPHeaderContentType) == "" {
+		req.Header.Set(workflowengine.HTTPHeaderContentType, workflowengine.MIMEApplicationJSON)
 	}
 
 	reqSnap := RequestSnapshot{

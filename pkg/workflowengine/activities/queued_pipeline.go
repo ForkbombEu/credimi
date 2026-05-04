@@ -466,7 +466,7 @@ func postPipelineExecutionResult(
 	if err != nil {
 		return 0, fmt.Errorf("build pipeline results request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(workflowengine.HTTPHeaderContentType, workflowengine.MIMEApplicationJSON)
 	internalKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
 	if internalKey == "" {
 		return 0, fmt.Errorf("CREDIMI_INTERNAL_ADMIN_KEY is required")

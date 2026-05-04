@@ -117,7 +117,7 @@ func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
 			return
 		}
 
-		if step.Use == "mobile-automation" {
+		if step.Use == mobileAutomationStepUse {
 			missingRunnerID = true
 		}
 	}

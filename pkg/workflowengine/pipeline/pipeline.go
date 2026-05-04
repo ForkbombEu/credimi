@@ -23,6 +23,9 @@ import (
 
 const (
 	PipelineTaskQueue = "PipelineTaskQueue"
+
+	childPipelineStepUse = "child-pipeline"
+	httpRequestStepUse   = "http-request"
 )
 
 type PipelineWorkflow struct{}
@@ -325,7 +328,7 @@ func (w *PipelineWorkflow) executeStep(
 			input.WorkflowInput.Payload,
 		)
 		return ao, nil
-	case "child-pipeline":
+	case childPipelineStepUse:
 		return ao, w.executeChildPipelineStep(
 			ctx,
 			input,
@@ -942,8 +945,8 @@ func runFinallySteps(
 
 func ValidateFinallySteps(finallySteps []pipeline.FinallyStepDefinition) error {
 	allowedTypes := map[string]bool{
-		"email":        true,
-		"http-request": true,
+		"email":            true,
+		httpRequestStepUse: true,
 	}
 
 	for _, step := range finallySteps {

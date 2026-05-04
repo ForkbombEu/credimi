@@ -1058,7 +1058,7 @@ func fetchAndInstallAPK(
 				"installer-action",
 			),
 			Headers: map[string]string{
-				"Content-Type": "application/json",
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
 			Body:           body,
 			Timeout:        "300",
@@ -1962,7 +1962,7 @@ func storeRecordingResults(
 					"pipeline-result",
 				),
 				Headers: map[string]string{
-					"Content-Type": "application/json",
+					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 				},
 				Body:           body,
 				Timeout:        "300",

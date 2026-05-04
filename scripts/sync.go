@@ -91,7 +91,7 @@ func SyncMissingLogos(app core.App) error {
 }
 
 func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

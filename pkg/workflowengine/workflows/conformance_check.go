@@ -23,6 +23,7 @@ const (
 	EWCSuite                  = "ewc"
 	WebuildSuite              = "webuild"
 	OpenID4VCIIssuerSuite     = "openid4vci_issuer"
+	OpenID4VPWalletStandard   = "openid4vp_wallet"
 	ConformanceCheckTaskQueue = "ConformanceCheckTaskQueue"
 	PipelineCancelSignal      = "pipeline_cancel_signal"
 )

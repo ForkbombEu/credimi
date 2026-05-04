@@ -24,7 +24,7 @@ func mockGetDeeplinkServer(
 ) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/get-deeplink", r.URL.Path)
-		require.Equal(t, "POST", r.Method)
+		require.Equal(t, http.MethodPost, r.Method)
 		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		body, err := io.ReadAll(r.Body)

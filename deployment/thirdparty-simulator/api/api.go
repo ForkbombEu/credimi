@@ -180,10 +180,10 @@ func handleStateCriminalSearch(w http.ResponseWriter, r *http.Request) {
 func Router() *mux.Router {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/ssntrace", handleSsnTrace).Methods("POST")
-	r.HandleFunc("/motorvehiclesearch", handleMotorVehicleSearch).Methods("POST")
-	r.HandleFunc("/federalcriminalsearch", handleFederalCriminalSearch).Methods("POST")
-	r.HandleFunc("/statecriminalsearch", handleStateCriminalSearch).Methods("POST")
+	r.HandleFunc("/ssntrace", handleSsnTrace).Methods(http.MethodPost)
+	r.HandleFunc("/motorvehiclesearch", handleMotorVehicleSearch).Methods(http.MethodPost)
+	r.HandleFunc("/federalcriminalsearch", handleFederalCriminalSearch).Methods(http.MethodPost)
+	r.HandleFunc("/statecriminalsearch", handleStateCriminalSearch).Methods(http.MethodPost)
 
 	return r
 }

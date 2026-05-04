@@ -441,7 +441,7 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 					"api", "compliance", "send-openidnet-log-update",
 				),
 				Headers: map[string]string{
-					"Content-Type": "application/json",
+					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 				},
 				Body: map[string]any{
 					"workflow_id": strings.TrimSuffix(

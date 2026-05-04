@@ -136,7 +136,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 				"api", "canonify", "identifier", "validate",
 			),
 			Headers: map[string]string{
-				"Content-Type": "application/json",
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
 			Body: map[string]any{
 				"canonified_name": pipelineIdentifier,

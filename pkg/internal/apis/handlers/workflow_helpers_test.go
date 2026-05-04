@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -61,7 +62,7 @@ func TestParsePaginationParams(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.rawURL, nil)
+			req := httptest.NewRequest(http.MethodGet, tt.rawURL, nil)
 			e := &core.RequestEvent{
 				Event: router.Event{
 					Request: req,

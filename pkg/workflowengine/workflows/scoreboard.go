@@ -199,7 +199,7 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 			URL:    saveURL,
 			Body:   savePayload,
 			Headers: map[string]string{
-				"Content-Type": "application/json",
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
 		},
 	}
