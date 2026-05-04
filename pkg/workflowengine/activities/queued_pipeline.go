@@ -269,7 +269,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 		payload.PipelineIdentifier,
 		workflowID,
 		runID,
-		pipelineResultTypeFromMemo(memo),
+		pipelineRunTypeFromMemo(memo),
 	); err != nil {
 		if activity.IsActivity(ctx) {
 			logger := activity.GetLogger(ctx)
@@ -399,7 +399,7 @@ func createPipelineExecutionResultWithRetry(
 	pipelineID string,
 	workflowID string,
 	runID string,
-	resultType string,
+	runType string,
 ) error {
 	backoffs := []time.Duration{
 		250 * time.Millisecond,
@@ -417,7 +417,7 @@ func createPipelineExecutionResultWithRetry(
 			pipelineID,
 			workflowID,
 			runID,
-			resultType,
+			runType,
 		)
 		if err == nil {
 			return nil
@@ -443,14 +443,14 @@ func postPipelineExecutionResult(
 	pipelineID string,
 	workflowID string,
 	runID string,
-	resultType string,
+	runType string,
 ) (int, error) {
 	payload := map[string]any{
 		"owner":       ownerNamespace,
 		"pipeline_id": pipelineID,
 		"workflow_id": workflowID,
 		"run_id":      runID,
-		"type":        resultType,
+		"type":        runType,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -485,13 +485,13 @@ func postPipelineExecutionResult(
 	return resp.StatusCode, nil
 }
 
-func pipelineResultTypeFromMemo(memo map[string]any) string {
+func pipelineRunTypeFromMemo(memo map[string]any) string {
 	if memo != nil {
-		if value, ok := memo[pipeline.ResultTypeMemoKey].(string); ok && pipeline.ValidResultType(value) {
+		if value, ok := memo[pipeline.RunTypeMemoKey].(string); ok && pipeline.ValidRunType(value) {
 			return value
 		}
 	}
-	return pipeline.ResultTypeManual
+	return pipeline.RunTypeManual
 }
 
 func sleepWithContext(ctx context.Context, duration time.Duration) error {

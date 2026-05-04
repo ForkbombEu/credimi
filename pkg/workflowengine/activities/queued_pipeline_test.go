@@ -190,7 +190,7 @@ func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
 	require.Equal(t, 3, attempts)
 }
 
-func TestStartQueuedPipelineActivityPostsResultType(t *testing.T) {
+func TestStartQueuedPipelineActivityPostsRunType(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	var posted map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -220,12 +220,12 @@ func TestStartQueuedPipelineActivityPostsResultType(t *testing.T) {
 				"app_url": server.URL,
 			},
 			Memo: map[string]any{
-				pipelineinternal.ResultTypeMemoKey: pipelineinternal.ResultTypeCI,
+				pipelineinternal.RunTypeMemoKey: pipelineinternal.RunTypeCI,
 			},
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, pipelineinternal.ResultTypeCI, posted["type"])
+	require.Equal(t, pipelineinternal.RunTypeCI, posted["type"])
 }
 
 // TestStartQueuedPipelineActivityWorkflowIDPrefix verifies scheduled tickets get a distinct ID prefix.
@@ -342,7 +342,7 @@ func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
-		pipelineinternal.ResultTypeManual,
+		pipelineinternal.RunTypeManual,
 	)
 
 	require.Error(t, err)
@@ -361,7 +361,7 @@ func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
-		pipelineinternal.ResultTypeManual,
+		pipelineinternal.RunTypeManual,
 	)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, status)
@@ -381,7 +381,7 @@ func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
-		pipelineinternal.ResultTypeManual,
+		pipelineinternal.RunTypeManual,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")

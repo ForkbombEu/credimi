@@ -380,7 +380,7 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	require.Len(t, results, 1)
 	require.Equal(t, "wf-123", results[0].GetString("workflow_id"))
 	require.Equal(t, "run-456", results[0].GetString("run_id"))
-	require.Equal(t, pipelineinternal.ResultTypeManual, results[0].GetString("type"))
+	require.Equal(t, pipelineinternal.RunTypeManual, results[0].GetString("type"))
 }
 
 func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {

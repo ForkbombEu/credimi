@@ -56,9 +56,9 @@ func ensurePipelineResultsTypeField(t testing.TB, app *tests.TestApp) {
 		Name:      "type",
 		MaxSelect: 1,
 		Values: []string{
-			pipelineinternal.ResultTypeManual,
-			pipelineinternal.ResultTypeScheduled,
-			pipelineinternal.ResultTypeCI,
+			pipelineinternal.RunTypeManual,
+			pipelineinternal.RunTypeScheduled,
+			pipelineinternal.RunTypeCI,
 		},
 	})
 	require.NoError(t, app.Save(collection))
@@ -164,7 +164,7 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 				"pipeline_id": "usera-s-organization/pipeline123",
 				"workflow_id": "workflow-xyz",
 				"run_id":      "run-001",
-				"type":        pipelineinternal.ResultTypeCI,
+				"type":        pipelineinternal.RunTypeCI,
 			}),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{

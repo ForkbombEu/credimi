@@ -102,8 +102,8 @@ steps:
 	require.Equal(t, "pipeline-run", capturedPayload.Memo["test"])
 	require.Equal(
 		t,
-		pipelineinternal.ResultTypeScheduled,
-		capturedPayload.Memo[pipelineinternal.ResultTypeMemoKey],
+		pipelineinternal.RunTypeScheduled,
+		capturedPayload.Memo[pipelineinternal.RunTypeMemoKey],
 	)
 
 	require.False(t, capturedPayload.EnqueuedAt.IsZero())

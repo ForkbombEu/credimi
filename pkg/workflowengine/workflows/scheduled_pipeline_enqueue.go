@@ -255,8 +255,8 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		info.WorkflowExecution.RunID,
 	)
 	memo := map[string]any{
-		"test":                             "pipeline-run",
-		pipelineinternal.ResultTypeMemoKey: pipelineinternal.ResultTypeScheduled,
+		"test":                          "pipeline-run",
+		pipelineinternal.RunTypeMemoKey: pipelineinternal.RunTypeScheduled,
 	}
 
 	enqueueInput := workflowengine.ActivityInput{

@@ -220,19 +220,19 @@ type PipelineResultInput struct {
 	Type       string `json:"type,omitempty"`
 }
 
-func pipelineResultType(input string) string {
+func pipelineRunType(input string) string {
 	input = strings.TrimSpace(input)
 	if input == "" {
-		return pipelineinternal.ResultTypeManual
+		return pipelineinternal.RunTypeManual
 	}
 	return input
 }
 
-func setPipelineResultType(record *core.Record, coll *core.Collection, resultType string) {
+func setPipelineRunType(record *core.Record, coll *core.Collection, runType string) {
 	if coll.Fields.GetByName("type") == nil {
 		return
 	}
-	record.Set("type", pipelineResultType(resultType))
+	record.Set("type", pipelineRunType(runType))
 }
 
 func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
@@ -271,16 +271,16 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		resultType := pipelineResultType(input.Type)
-		if !pipelineinternal.ValidResultType(resultType) {
+		runType := pipelineRunType(input.Type)
+		if !pipelineinternal.ValidRunType(runType) {
 			return apierror.New(
 				http.StatusBadRequest,
 				"type",
 				"invalid pipeline result type",
 				fmt.Sprintf("type must be one of %q, %q, or %q",
-					pipelineinternal.ResultTypeManual,
-					pipelineinternal.ResultTypeScheduled,
-					pipelineinternal.ResultTypeCI,
+					pipelineinternal.RunTypeManual,
+					pipelineinternal.RunTypeScheduled,
+					pipelineinternal.RunTypeCI,
 				),
 			).JSON(e)
 		}
@@ -319,7 +319,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 		record.Set("pipeline", pipeline.Id)
 		record.Set("workflow_id", input.WorkflowID)
 		record.Set("run_id", input.RunID)
-		setPipelineResultType(record, coll, resultType)
+		setPipelineRunType(record, coll, runType)
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
