@@ -5,9 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { entities, EntityTag } from '$lib/global';
+	import { entities } from '$lib/global';
+
+	import { renderComponent } from '@/components/ui/data-table';
 
 	import * as Column from '../column';
+	import EntityHeader from './headers/entity-header.svelte';
 
 	//
 
@@ -22,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}));
 		},
 		id: 'wallets',
-		header: Column.header(EntityTag, {
+		header: renderComponent(EntityHeader, {
 			data: entities.wallets
 		})
 	});

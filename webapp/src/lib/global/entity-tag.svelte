@@ -11,9 +11,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		data: EntityData;
 		trimLabel?: boolean;
 		hideIcon?: boolean;
+		plurality?: 'singular' | 'plural';
 	};
 
-	let { data, trimLabel = false, hideIcon = false }: Props = $props();
+	let { data, trimLabel = false, hideIcon = false, plurality = 'singular' }: Props = $props();
 
 	const IconComponent = $derived(data.icon);
 </script>
@@ -28,6 +29,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if trimLabel}
 		{data.labels.singular.slice(0, 3)}.
 	{:else}
-		{data.labels.singular}
+		{plurality === 'singular' ? data.labels.singular : data.labels.plural}
 	{/if}
 </div>

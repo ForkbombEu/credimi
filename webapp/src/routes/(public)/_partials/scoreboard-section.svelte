@@ -17,21 +17,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			sort: '@random'
 		});
 		return {
-			records: res.items
+			records: res.items as ScoreboardRow[]
 		};
 	}
 </script>
 
 <script lang="ts">
-	import { entities, EntityTag, type EntityData } from '$lib/global';
-	import CardLink from '$lib/layout/card-link.svelte';
-	import Avatar from '$lib/scoreboard-v2/columns/partials/avatar.svelte';
-	import {
-		getRelatedEntityHref,
-		type RelatedEntity
-	} from '$lib/scoreboard-v2/columns/partials/types';
+	import type { ScoreboardRow } from '$lib/scoreboard-v2/types';
 
-	import A from '@/components/ui-custom/a.svelte';
+	import { entities, EntityTag } from '$lib/global';
+	import CardLink from '$lib/layout/card-link.svelte';
+	import { getRelatedEntityHref } from '$lib/scoreboard-v2/columns/partials/types';
+	import PipelineContentSummary from '$lib/scoreboard-v2/extras/pipeline-content-summary.svelte';
 
 	type Props = Awaited<ReturnType<typeof loadScoreboardSummary>>;
 
@@ -40,12 +37,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-2">
 	{#each records as record (record.id)}
-		{@const wallets = record.expand?.wallets ?? []}
-		{@const issuers = record.expand?.issuers ?? []}
-		{@const verifiers = record.expand?.verifiers ?? []}
-		{@const hasRelatedEntities =
-			wallets.length > 0 || issuers.length > 0 || verifiers.length > 0}
-
 		<CardLink
 			href={getRelatedEntityHref(record.expand!.pipeline!)}
 			class="flex flex-col flex-wrap justify-between gap-4 p-3! md:flex-row"
@@ -60,31 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			</div>
 
-			{#if hasRelatedEntities}
-				<div class="flex items-center gap-4">
-					{#each wallets as wallet (wallet.id)}
-						{@render entity(wallet, entities.wallets)}
-					{/each}
-					{#each issuers as issuer (issuer.id)}
-						{@render entity(issuer, entities.credential_issuers)}
-					{/each}
-					{#each verifiers as verifier (verifier.id)}
-						{@render entity(verifier, entities.verifiers)}
-					{/each}
-				</div>
-			{/if}
+			<PipelineContentSummary results={record} />
 		</CardLink>
 	{/each}
 </div>
-
-{#snippet entity(entity: RelatedEntity, displayData: EntityData)}
-	<div class="flex items-center gap-2">
-		<Avatar record={entity} />
-		<div class="flex flex-col text-xs">
-			<A href={getRelatedEntityHref(entity)} class="max-w-[15ch] truncate">
-				{entity.name}
-			</A>
-			<p class="text-muted-foreground">{displayData.labels.singular}</p>
-		</div>
-	</div>
-{/snippet}

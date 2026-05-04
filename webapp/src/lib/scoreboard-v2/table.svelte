@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each scoreboard.table.getRowModel().rows as row (row.id)}
 					<Table.Row data-state={row.getIsSelected() && 'selected'}>
 						{#each row.getVisibleCells() as cell (cell.id)}
-							<Table.Cell>
+							<Table.Cell class="align-top">
 								<FlexRender
 									content={cell.column.columnDef.cell}
 									context={cell.getContext()}

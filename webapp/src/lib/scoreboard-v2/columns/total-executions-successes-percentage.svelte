@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import * as Column from '../column';
-	import BaseHeader from './headers/base-header.svelte';
 
 	//
 
@@ -19,40 +18,64 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			const percent = row.success_rate;
 			const manual = row.manually_executed_runs;
 			const scheduled = row.scheduled_runs;
-			return { total, successes, percent, manual, scheduled };
+			const ci = 0; // TODO: add CI executions
+			return { total, successes, percent, manual, scheduled, ci };
 		},
 		id: 'total_executions_successes_percentage',
-		header: Column.header(BaseHeader, {
-			header: m.scoreboard_success_rate()
-		})
+		header: m.scoreboard_success_rate()
 	});
 </script>
 
 <script lang="ts">
-	import { ClockIcon, HandIcon } from '@lucide/svelte';
+	import { ClockIcon, CogIcon, HandIcon } from '@lucide/svelte';
+
+	import type { IconComponent } from '@/components/types';
+
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
+
+	//
 
 	let { value }: Column.Props<typeof column> = $props();
+
+	type ExecutionModeCount = {
+		icon: IconComponent;
+		count: number;
+		label: string;
+	};
+
+	const executionTypes: ExecutionModeCount[] = $derived([
+		{ icon: HandIcon, count: value.manual, label: m.Executed_manually() },
+		{
+			icon: ClockIcon,
+			count: value.scheduled,
+			label: m.Executed_via_scheduling()
+		},
+		{ icon: CogIcon, count: value.ci, label: m.Executed_via_ci() }
+	]);
 </script>
 
-<div>
-	<p class="text-xs font-bold">
+<div class="pr-3">
+	<p class={['text-sm font-bold', { 'text-emerald-600': value.percent >= 70 }]}>
 		{value.successes}/{value.total} ({value.percent}%)
 	</p>
-	<p class="text-xs text-muted-foreground">
-		{#if value.manual > 0}
-			<span>
-				{value.manual}
-				<HandIcon class="inline-block size-3 -translate-px" />
-			</span>
-		{/if}
-		{#if value.manual > 0 && value.scheduled > 0}
-			<span> / </span>
-		{/if}
-		{#if value.scheduled > 0}
-			<span>
-				{value.scheduled}
-				<ClockIcon class="inline-block size-3 -translate-px" />
-			</span>
-		{/if}
+	<p class="text-xs text-muted-foreground opacity-80">
+		{#each executionTypes as executionType, index (executionType.label)}
+			<Tooltip>
+				<span>
+					{executionType.count}
+					<executionType.icon class="-ml-0.5 inline-block size-3 -translate-y-px" />
+				</span>
+
+				{#snippet content()}
+					<p>
+						<executionType.icon class="inline-block size-3 -translate-y-px" />
+						{executionType.label}
+					</p>
+				{/snippet}
+			</Tooltip>
+			{#if index < executionTypes.length - 1}
+				<span class="pr-1 pl-0.5">/</span>
+			{/if}
+		{/each}
 	</p>
 </div>
