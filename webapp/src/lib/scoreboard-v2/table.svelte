@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from '@lucide/svelte';
+
 	import { FlexRender } from '@/components/ui/data-table/index.js';
 	import * as Pagination from '@/components/ui/pagination/index.js';
 	import * as Table from '@/components/ui/table/index.js';
@@ -25,10 +27,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{#each headerGroup.headers as header (header.id)}
 							<Table.Head colspan={header.colSpan}>
 								{#if !header.isPlaceholder}
-									<FlexRender
-										content={header.column.columnDef.header}
-										context={header.getContext()}
-									/>
+									{#if header.column.getCanSort()}
+										{@const sorted = header.column.getIsSorted()}
+										<button
+											type="button"
+											class="flex items-center gap-1.5 hover:opacity-80"
+											onclick={header.column.getToggleSortingHandler()}
+										>
+											<FlexRender
+												content={header.column.columnDef.header}
+												context={header.getContext()}
+											/>
+											{#if sorted === 'asc'}
+												<ArrowUpIcon class="size-3" />
+											{:else if sorted === 'desc'}
+												<ArrowDownIcon class="size-3" />
+											{:else}
+												<ArrowUpDownIcon class="size-3 opacity-50" />
+											{/if}
+										</button>
+									{:else}
+										<FlexRender
+											content={header.column.columnDef.header}
+											context={header.getContext()}
+										/>
+									{/if}
 								{/if}
 							</Table.Head>
 						{/each}

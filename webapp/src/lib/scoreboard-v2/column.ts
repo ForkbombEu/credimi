@@ -4,7 +4,7 @@
 
 import type { Component } from 'svelte';
 
-import { createColumnHelper, type DisplayColumnDef } from '@tanstack/table-core';
+import { createColumnHelper, type DisplayColumnDef, type RowData } from '@tanstack/table-core';
 
 import {
 	RenderComponentConfig,
@@ -13,6 +13,15 @@ import {
 } from '@/components/ui/data-table/render-helpers';
 
 import type { ScoreboardRow } from './types';
+
+/* Module augmentation: type-safe `meta.sortField` on every column def */
+
+declare module '@tanstack/table-core' {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	interface ColumnMeta<TData extends RowData, TValue> {
+		sortField?: string;
+	}
+}
 
 /* Base types */
 
@@ -27,6 +36,7 @@ type Config<A extends Accessor> = {
 	fn: A;
 	id: string;
 	header?: HeaderConfig | string;
+	sortField?: string;
 };
 
 export function define<A extends Accessor>(config: Config<A>): Config<A> {
@@ -51,6 +61,8 @@ const helper = createColumnHelper<ScoreboardRow>();
 export function build<A extends Accessor>(mod: Module<A>) {
 	const config: DisplayColumnDef<ScoreboardRow, unknown> = {
 		id: mod.column.id,
+		enableSorting: Boolean(mod.column.sortField),
+		meta: { sortField: mod.column.sortField },
 		cell: (info: { getValue: () => unknown }) => {
 			return renderComponent(mod.default, { value: info.getValue() as ReturnType<A> });
 		}
