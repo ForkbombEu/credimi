@@ -870,7 +870,7 @@ func TestCalculateStatsFromExecutionsOrdersMixedTimestampPrecision(t *testing.T)
 		},
 	}
 
-	stats, lastSuccessfulRun := calculateStatsFromExecutions(executions, nil, nil)
+	stats, lastSuccessfulRun := calculateStatsFromExecutions(executions, nil, nil, nil)
 
 	require.Equal(t, "2026-04-21T09:59:59.999999999Z", stats.FirstExecutionDate)
 	require.Equal(t, "2026-04-21T10:00:00.1Z", stats.LastExecutionDate)

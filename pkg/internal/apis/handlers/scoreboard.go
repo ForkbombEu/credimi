@@ -417,6 +417,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
+		runTypes := pipelineRunTypesForExecutions(e.App, executions)
 
 		executionsByPipelineID := make(map[string][]*WorkflowExecution)
 
@@ -455,6 +456,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			stats, lastSuccessfulRun := calculateStatsFromExecutions(
 				pipelineExecutions,
 				e.App,
+				runTypes,
 				runnerCache,
 			)
 
@@ -593,6 +595,7 @@ func getWorkflowExecutionWithDecodedAttrs(
 func calculateStatsFromExecutions(
 	executions []*WorkflowExecution,
 	app core.App,
+	runTypes map[workflowExecutionRef]string,
 	runnerCache map[string]map[string]any,
 ) (*PipelineStats, *LastSuccessfulRun) {
 	stats := &PipelineStats{
@@ -627,7 +630,7 @@ func calculateStatsFromExecutions(
 			}
 		}
 
-		switch pipelineRunTypeForExecution(app, exec) {
+		switch pipelineRunTypeFromMap(runTypes, exec) {
 		case pipelineinternal.RunTypeScheduled:
 			stats.ScheduledExecutions++
 		case pipelineinternal.RunTypeCI:
@@ -673,22 +676,75 @@ func calculateStatsFromExecutions(
 	return stats, lastSuccessfulRun
 }
 
-func pipelineRunTypeForExecution(app core.App, exec *WorkflowExecution) string {
-	if app == nil || exec == nil || exec.Execution == nil {
+func pipelineRunTypesForExecutions(
+	app core.App,
+	executions []*WorkflowExecution,
+) map[workflowExecutionRef]string {
+	runTypes := make(map[workflowExecutionRef]string)
+	if app == nil || len(executions) == 0 {
+		return runTypes
+	}
+
+	refs := make([]workflowExecutionRef, 0, len(executions))
+	for _, exec := range executions {
+		if exec == nil || exec.Execution == nil {
+			continue
+		}
+		refs = append(refs, workflowExecutionRef{
+			WorkflowID: exec.Execution.WorkflowID,
+			RunID:      exec.Execution.RunID,
+		})
+	}
+
+	for i := 0; i < len(refs); i += workflowExecutionFilterChunkSize {
+		chunkEnd := i + workflowExecutionFilterChunkSize
+		if chunkEnd > len(refs) {
+			chunkEnd = len(refs)
+		}
+
+		filter, params := buildWorkflowExecutionFilter(refs[i:chunkEnd])
+		if filter == "" {
+			continue
+		}
+		records, err := app.FindRecordsByFilter(
+			"pipeline_results",
+			filter,
+			"",
+			-1,
+			0,
+			params,
+		)
+		if err != nil {
+			continue
+		}
+
+		for _, record := range records {
+			runType := record.GetString("type")
+			if !pipelineinternal.ValidRunType(runType) {
+				continue
+			}
+			runTypes[workflowExecutionRef{
+				WorkflowID: record.GetString("workflow_id"),
+				RunID:      record.GetString("run_id"),
+			}] = runType
+		}
+	}
+
+	return runTypes
+}
+
+func pipelineRunTypeFromMap(
+	runTypes map[workflowExecutionRef]string,
+	exec *WorkflowExecution,
+) string {
+	if exec == nil || exec.Execution == nil {
 		return pipelineinternal.RunTypeManual
 	}
-	record, err := app.FindFirstRecordByFilter(
-		"pipeline_results",
-		"workflow_id={:workflow_id} && run_id={:run_id}",
-		dbx.Params{
-			"workflow_id": exec.Execution.WorkflowID,
-			"run_id":      exec.Execution.RunID,
-		},
-	)
-	if err != nil || record == nil {
-		return pipelineinternal.RunTypeManual
-	}
-	runType := record.GetString("type")
+
+	runType := runTypes[workflowExecutionRef{
+		WorkflowID: exec.Execution.WorkflowID,
+		RunID:      exec.Execution.RunID,
+	}]
 	if !pipelineinternal.ValidRunType(runType) {
 		return pipelineinternal.RunTypeManual
 	}
