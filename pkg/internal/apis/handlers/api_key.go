@@ -20,7 +20,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 	BaseURL: "/api/apikey",
 	Routes: []routing.RouteDefinition{
 		{
-			Method:         "POST",
+			Method:         http.MethodPost,
 			Path:           "/generate",
 			OperationID:    "apiKey.generate",
 			Handler:        GenerateApiKey,
@@ -34,7 +34,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 			},
 		},
 		{
-			Method:         "GET",
+			Method:         http.MethodGet,
 			Path:           "/authenticate",
 			OperationID:    "apiKey.authenticate",
 			Description:    "Authenticate an API key and return Bearer token",

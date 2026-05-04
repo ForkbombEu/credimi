@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -196,7 +197,6 @@ func TestHandleGetPipelineScoreboardMissingNamespace(t *testing.T) {
 func TestHandleGetPipelineScoreboard(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -275,6 +275,51 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-2*time.Hour).Add(-5*time.Minute).Add(-10*time.Second),
 		now.Add(-1*time.Minute),
 	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline1.Id,
+		"Pipeline-Sched-wf-1",
+		"run-1",
+		pipelineinternal.RunTypeManual,
+	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline1.Id,
+		"wf-2",
+		"run-2",
+		pipelineinternal.RunTypeScheduled,
+	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline1.Id,
+		"wf-3",
+		"run-3",
+		pipelineinternal.RunTypeCI,
+	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline2.Id,
+		"Pipeline-Sched-wf-4",
+		"run-4",
+		pipelineinternal.RunTypeCI,
+	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline3.Id,
+		"wf-5",
+		"run-5",
+		pipelineinternal.RunTypeManual,
+	)
 	mockClient.
 		On("ListWorkflow",
 			mock.Anything,
@@ -335,7 +380,8 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.Equal(t, 3, stats1.TotalRuns)
 	require.Equal(t, 2, stats1.TotalSuccesses)
 	require.Equal(t, 1, stats1.ScheduledExecutions)
-	require.Equal(t, 2, stats1.ManualExecutions)
+	require.Equal(t, 1, stats1.ManualExecutions)
+	require.Equal(t, 1, stats1.CIExecutions)
 	require.ElementsMatch(
 		t,
 		[]string{"usera-s-organization/runner-android", "usera-s-organization/runner-ios"},
@@ -360,8 +406,9 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.NotNil(t, stats2)
 	require.Equal(t, 1, stats2.TotalRuns)
 	require.Equal(t, 1, stats2.TotalSuccesses)
-	require.Equal(t, 1, stats2.ScheduledExecutions)
+	require.Equal(t, 0, stats2.ScheduledExecutions)
 	require.Equal(t, 0, stats2.ManualExecutions)
+	require.Equal(t, 1, stats2.CIExecutions)
 	require.ElementsMatch(
 		t,
 		[]string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"},
@@ -382,6 +429,9 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.NotNil(t, stats3.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
 	require.Equal(t, "wf-5", stats3.LastSuccessfulRun.WorkflowID)
 	require.Equal(t, "run-5", stats3.LastSuccessfulRun.RunID)
+	require.Equal(t, 1, stats3.ManualExecutions)
+	require.Equal(t, 0, stats3.ScheduledExecutions)
+	require.Equal(t, 0, stats3.CIExecutions)
 
 	mockClient.AssertExpectations(t)
 }
@@ -640,6 +690,27 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func createPipelineResultWithType(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	pipelineID string,
+	workflowID string,
+	runID string,
+	runType string,
+) {
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("owner", orgID)
+	record.Set("pipeline", pipelineID)
+	record.Set("workflow_id", workflowID)
+	record.Set("run_id", runID)
+	record.Set("type", runType)
+	require.NoError(t, app.Save(record))
+}
+
 func addEntitySearchAttributes(info *workflow.WorkflowExecutionInfo, attrs map[string]any) {
 	if info.GetSearchAttributes() == nil {
 		info.SearchAttributes = &common.SearchAttributes{
@@ -782,7 +853,7 @@ func TestCalculateStatsFromExecutionsOrdersMixedTimestampPrecision(t *testing.T)
 		},
 	}
 
-	stats, lastSuccessfulRun := calculateStatsFromExecutions(executions, nil, nil)
+	stats, lastSuccessfulRun := calculateStatsFromExecutions(executions, nil, nil, nil)
 
 	require.Equal(t, "2026-04-21T09:59:59.999999999Z", stats.FirstExecutionDate)
 	require.Equal(t, "2026-04-21T10:00:00.1Z", stats.LastExecutionDate)
@@ -894,7 +965,6 @@ func createCustomCheckRecord(t testing.TB, app *tests.TestApp, orgID, name strin
 func TestSaveScoreboardResults(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -922,6 +992,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 				SuccessRate:         80.0,
 				ManualExecutions:    5,
 				ScheduledExecutions: 5,
+				CIExecutions:        2,
 				MinExecutionTime:    "1m30s",
 				FirstExecutionDate:  "2024-01-01T00:00:00Z",
 				LastExecutionDate:   "2024-01-02T00:00:00Z",
@@ -990,6 +1061,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.Equal(t, 80.0, record.GetFloat("success_rate"))
 		require.Equal(t, 5, record.GetInt("manually_executed_runs"))
 		require.Equal(t, 5, record.GetInt("scheduled_runs"))
+		require.Equal(t, 2, record.GetInt("CI_runs"))
 		require.Equal(t, "1m30s", record.GetString("minimum_running_time"))
 
 		runnerIDs := record.GetStringSlice("mobile_runners")

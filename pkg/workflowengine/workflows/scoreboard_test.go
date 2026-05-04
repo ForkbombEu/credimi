@@ -48,6 +48,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"total_successes":      8.0,
 						"manual_executions":    3.0,
 						"scheduled_executions": 7.0,
+						"ci_executions":        2.0,
 						"min_execution_time":   "10m0s",
 						"first_execution_date": "2026-01-01T00:00:00Z",
 						"last_execution_date":  "2026-04-01T00:00:00Z",
@@ -69,6 +70,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"total_successes":      5.0,
 						"manual_executions":    1.0,
 						"scheduled_executions": 4.0,
+						"ci_executions":        3.0,
 						"min_execution_time":   "2m0s",
 						"first_execution_date": "2026-02-01T00:00:00Z",
 						"last_execution_date":  "2026-04-03T00:00:00Z",
@@ -88,6 +90,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"total_successes":      5.0,
 						"manual_executions":    1.0,
 						"scheduled_executions": 4.0,
+						"ci_executions":        5.0,
 						"min_execution_time":   "2m0s",
 						"first_execution_date": "2026-02-02T00:00:00Z",
 						"last_execution_date":  "2026-02-03T00:00:00Z",
@@ -158,6 +161,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.Equal(t, "2026-04-03T00:00:00Z", pipeline1.LastExecutionDate)
 				require.Equal(t, 4, pipeline1.ManualExecutions)
 				require.Equal(t, 11, pipeline1.ScheduledExecutions)
+				require.Equal(t, 5, pipeline1.CIExecutions)
 				require.ElementsMatch(
 					t,
 					[]string{"runner-1", "runner-2", "runner-3"},
@@ -172,6 +176,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.NotNil(t, pipeline2)
 				require.Equal(t, 5, pipeline2.TotalRuns)
 				require.Equal(t, 5, pipeline2.TotalSuccesses)
+				require.Equal(t, 5, pipeline2.CIExecutions)
 				require.ElementsMatch(t, []string{"runner-3"}, pipeline2.Runners)
 				require.NotNil(t, pipeline2.LastExecution)
 				require.Equal(t, "Pipeline 2", pipeline2.LastExecution.PipelineName)

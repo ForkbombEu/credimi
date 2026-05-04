@@ -374,14 +374,20 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	switch version {
 	case "1.0":
 		templateStr, err = readTemplateFile(
-			utils.GetEnvironmentVariable("ROOT_DIR", ".") + "/" + workflows.OpenIDNetStepCITemplatePathv1_0,
+			utils.GetEnvironmentVariable(
+				"ROOT_DIR",
+				".",
+			) + "/" + workflows.OpenIDNetStepCITemplatePathv1_0,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
 	case "draft-24":
 		templateStr, err = readTemplateFile(
-			utils.GetEnvironmentVariable("ROOT_DIR", ".") + "/" + workflows.OpenIDNetStepCITemplatePathDr24,
+			utils.GetEnvironmentVariable(
+				"ROOT_DIR",
+				".",
+			) + "/" + workflows.OpenIDNetStepCITemplatePathDr24,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
@@ -436,7 +442,10 @@ func startOpenID4VCIIssuerWorkflow(i WorkflowStarterParams) (workflowengine.Work
 	}
 
 	templateStr, err := readTemplateFile(
-		utils.GetEnvironmentVariable("ROOT_DIR", ".") + "/" + workflows.OpenID4VCIIssuerStepCITemplatePath,
+		utils.GetEnvironmentVariable(
+			"ROOT_DIR",
+			".",
+		) + "/" + workflows.OpenID4VCIIssuerStepCITemplatePath,
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -578,7 +587,10 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 		"eudiw",
 	)
 	templateStr, err := readTemplateFile(
-		utils.GetEnvironmentVariable("ROOT_DIR", ".") + "/" + workflows.EudiwTemplateFolderPath + filename,
+		utils.GetEnvironmentVariable(
+			"ROOT_DIR",
+			".",
+		) + "/" + workflows.EudiwTemplateFolderPath + filename,
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err

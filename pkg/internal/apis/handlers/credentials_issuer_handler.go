@@ -119,7 +119,10 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			return apis.NewBadRequestError("invalid JSON input", err)
 		}
 
-		if err := credentialIssuerCheckWellKnownEndpoints(e.Request.Context(), req.URL); err != nil {
+		if err := credentialIssuerCheckWellKnownEndpoints(
+			e.Request.Context(),
+			req.URL,
+		); err != nil {
 			return apierror.New(
 				http.StatusNotFound,
 				"credential_issuers",
@@ -626,7 +629,7 @@ func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", parsedURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

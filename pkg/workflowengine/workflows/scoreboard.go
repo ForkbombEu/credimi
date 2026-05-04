@@ -33,6 +33,7 @@ type AggregatedPipelineStats struct {
 	SuccessRate         float64                 `json:"success_rate"`
 	ManualExecutions    int                     `json:"manual_executions"`
 	ScheduledExecutions int                     `json:"scheduled_executions"`
+	CIExecutions        int                     `json:"ci_executions"`
 	MinExecutionTime    string                  `json:"min_execution_time"`
 	FirstExecutionDate  string                  `json:"first_execution_date"`
 	LastExecutionDate   string                  `json:"last_execution_date"`
@@ -198,7 +199,7 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 			URL:    saveURL,
 			Body:   savePayload,
 			Headers: map[string]string{
-				"Content-Type": "application/json",
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
 		},
 	}
@@ -378,6 +379,9 @@ func (w *AggregateScoreboardWorkflow) aggregateNumericStats(
 	}
 	if scheduled, ok := pipeline["scheduled_executions"].(float64); ok {
 		stats.ScheduledExecutions += int(scheduled)
+	}
+	if ci, ok := pipeline["ci_executions"].(float64); ok {
+		stats.CIExecutions += int(ci)
 	}
 }
 

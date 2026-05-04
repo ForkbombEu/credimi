@@ -359,7 +359,7 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 					"api", "compliance", "send-eudiw-log-update",
 				),
 				Headers: map[string]string{
-					"Content-Type": "application/json",
+					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 				},
 				Body: map[string]any{
 					"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,

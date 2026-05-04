@@ -455,7 +455,13 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
 				otherOrg := createOtherWalletAPKOrganization(t, app)
-				versionID := createWalletAPKVersion(t, app, orgID, "wallet-private-pipeline", "1.0.0")
+				versionID := createWalletAPKVersion(
+					t,
+					app,
+					orgID,
+					"wallet-private-pipeline",
+					"1.0.0",
+				)
 				createWalletAPITestPipelineNamed(
 					t,
 					app,
@@ -488,7 +494,13 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 				orgID, err := getOrgIDfromName("userA's organization")
 				require.NoError(t, err)
 				otherOrg := createOtherWalletAPKOrganization(t, app)
-				versionID := createWalletAPKVersion(t, app, orgID, "wallet-published-pipeline", "1.0.0")
+				versionID := createWalletAPKVersion(
+					t,
+					app,
+					orgID,
+					"wallet-published-pipeline",
+					"1.0.0",
+				)
 				createWalletAPITestPipelineNamed(
 					t,
 					app,
@@ -553,6 +565,11 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 
 	require.Len(t, queueStub.enqueueRequests, 1)
 	require.Equal(t, metadata, queueStub.enqueueRequests[0].Memo["metadata"])
+	require.Equal(
+		t,
+		pipelineinternal.RunTypeCI,
+		queueStub.enqueueRequests[0].Memo[pipelineinternal.RunTypeMemoKey],
+	)
 	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
 	require.NoError(t, err)
 	require.Equal(
@@ -728,10 +745,13 @@ func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
 		require.NoError(t, req.ParseMultipartForm(1000<<20))
 
 		fileHeader := req.MultipartForm.File[walletAPKFormFileField][0]
-		file, apiErr := resolvePipelineRunWalletAPKFile(context.Background(), pipelineRunWalletAPKRequest{
-			CommitSHA: "ABC-123",
-			APKFile:   fileHeader,
-		})
+		file, apiErr := resolvePipelineRunWalletAPKFile(
+			context.Background(),
+			pipelineRunWalletAPKRequest{
+				CommitSHA: "ABC-123",
+				APKFile:   fileHeader,
+			},
+		)
 
 		require.Nil(t, apiErr)
 		require.Equal(t, "abc-123.apk", file.OriginalName)
@@ -739,10 +759,13 @@ func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
 	})
 
 	t.Run("rejects unsupported url scheme", func(t *testing.T) {
-		_, apiErr := resolvePipelineRunWalletAPKFile(context.Background(), pipelineRunWalletAPKRequest{
-			CommitSHA: "abc123",
-			APKURL:    "file:///tmp/wallet.apk",
-		})
+		_, apiErr := resolvePipelineRunWalletAPKFile(
+			context.Background(),
+			pipelineRunWalletAPKRequest{
+				CommitSHA: "abc123",
+				APKURL:    "file:///tmp/wallet.apk",
+			},
+		)
 
 		require.NotNil(t, apiErr)
 		require.Equal(t, http.StatusBadRequest, apiErr.Code)
@@ -752,10 +775,13 @@ func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
 	t.Run("downloads http url", func(t *testing.T) {
 		installWalletAPKURLDownloaderStub(t)
 
-		file, apiErr := resolvePipelineRunWalletAPKFile(context.Background(), pipelineRunWalletAPKRequest{
-			CommitSHA: "ABC123",
-			APKURL:    "http://ci.example.test/wallet.apk",
-		})
+		file, apiErr := resolvePipelineRunWalletAPKFile(
+			context.Background(),
+			pipelineRunWalletAPKRequest{
+				CommitSHA: "ABC123",
+				APKURL:    "http://ci.example.test/wallet.apk",
+			},
+		)
 
 		require.Nil(t, apiErr)
 		require.Equal(t, "abc123.apk", file.OriginalName)
@@ -836,26 +862,29 @@ func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 		require.Len(t, tempVersion.Record.GetStringSlice("android_installer"), 1)
 	})
 
-	t.Run("creates temporary version for published wallet owned by another organization", func(t *testing.T) {
-		app := setupPipelineWalletAPKApp(t)
-		defer app.Cleanup()
+	t.Run(
+		"creates temporary version for published wallet owned by another organization",
+		func(t *testing.T) {
+			app := setupPipelineWalletAPKApp(t)
+			defer app.Cleanup()
 
-		otherOrg := createOtherWalletAPKOrganization(t, app)
-		wallet := createWalletAPKWallet(t, app, otherOrg.Id, "wallet-published")
-		wallet.Set("published", true)
-		require.NoError(t, app.Save(wallet))
+			otherOrg := createOtherWalletAPKOrganization(t, app)
+			wallet := createWalletAPKWallet(t, app, otherOrg.Id, "wallet-published")
+			wallet.Set("published", true)
+			require.NoError(t, app.Save(wallet))
 
-		tempVersion, apiErr := createPipelineRunWalletAPKTempVersion(
-			app,
-			newRunContext(t, app, wallet, "abc123"),
-		)
+			tempVersion, apiErr := createPipelineRunWalletAPKTempVersion(
+				app,
+				newRunContext(t, app, wallet, "abc123"),
+			)
 
-		require.Nil(t, apiErr)
-		require.NotEmpty(t, tempVersion.Record.Id)
-		require.Equal(t, orgID, tempVersion.Record.GetString("owner"))
-		require.Equal(t, wallet.Id, tempVersion.Record.GetString("wallet"))
-		require.Equal(t, "other-org/wallet-published/abc123", tempVersion.Identifier)
-	})
+			require.Nil(t, apiErr)
+			require.NotEmpty(t, tempVersion.Record.Id)
+			require.Equal(t, orgID, tempVersion.Record.GetString("owner"))
+			require.Equal(t, wallet.Id, tempVersion.Record.GetString("wallet"))
+			require.Equal(t, "other-org/wallet-published/abc123", tempVersion.Identifier)
+		},
+	)
 
 	t.Run("rejects private wallet owned by another organization", func(t *testing.T) {
 		app := setupPipelineWalletAPKApp(t)
