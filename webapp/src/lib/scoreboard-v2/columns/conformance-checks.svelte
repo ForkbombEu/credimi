@@ -22,7 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			data: entities.conformance_checks,
 			plurality: 'plural'
 		}),
-		fn: (row) => ConformanceChecks.groupPathsByStandard(row.conformance_checks ?? [])
+		fn: (row) => ConformanceChecks.groupPathsByStandard(row.conformance_checks ?? []),
+		manualPillPositioning: true
 	});
 </script>
 

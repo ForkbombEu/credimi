@@ -22,7 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return { total, successes, percent, manual, scheduled, ci };
 		},
 		id: 'total_executions_successes_percentage',
-		header: m.scoreboard_success_rate()
+		header: m.scoreboard_success_rate(),
+		sortField: 'success_rate'
 	});
 </script>
 

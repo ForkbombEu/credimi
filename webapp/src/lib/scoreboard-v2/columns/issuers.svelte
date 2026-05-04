@@ -24,7 +24,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			trimLabel: true,
 			hideIcon: true,
 			align: 'right'
-		})
+		}),
+		sortField: 'issuers.name',
+		manualPillPositioning: true
 	});
 </script>
 

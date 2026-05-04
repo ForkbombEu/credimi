@@ -27,7 +27,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		id: 'wallets',
 		header: renderComponent(EntityHeader, {
 			data: entities.wallets
-		})
+		}),
+		sortField: 'wallets.name',
+		manualPillPositioning: true
 	});
 </script>
 

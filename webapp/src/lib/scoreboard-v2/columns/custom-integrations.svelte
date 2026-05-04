@@ -21,7 +21,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		header: renderComponent(EntityHeader, {
 			data: entities.custom_checks,
 			plurality: 'plural'
-		})
+		}),
+		manualPillPositioning: true
 	});
 </script>
 

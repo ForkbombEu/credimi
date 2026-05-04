@@ -19,7 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		id: 'name',
 		header: renderComponent(EntityHeader, {
 			data: entities.pipelines
-		})
+		}),
+		sortField: 'pipeline.name',
+		manualPillPositioning: true
 	});
 </script>
 

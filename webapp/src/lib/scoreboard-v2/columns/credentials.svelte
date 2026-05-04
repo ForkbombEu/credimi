@@ -18,7 +18,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		header: renderComponent(EntityHeader, {
 			data: entities.credentials,
 			plurality: 'plural'
-		})
+		}),
+		sortField: 'credentials.name',
+		manualPillPositioning: true
 	});
 </script>
 

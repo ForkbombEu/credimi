@@ -5,11 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import type { ComponentProps } from 'svelte';
+	import type { HTMLAttributes } from 'svelte/elements';
 
-	import * as Avatar from '@/components/ui/avatar';
-
-	export type AvatarProps = ComponentProps<typeof Avatar.Root> & {
+	export type AvatarProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
+		ref?: HTMLElement | null;
 		src?: string;
 		alt?: string;
 		fallback?: string;
@@ -23,38 +22,55 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { cn } from '../ui/utils';
 
-	const {
+	let {
 		src,
 		alt,
 		fallback,
 		hideIfLoadingError = false,
 		fallbackLength = 2,
+		class: className,
+		ref = $bindable(null),
 		...rest
 	}: AvatarProps = $props();
 
 	//
 
-	let loadingError = $state(false);
+	let imageFailed = $state(false);
 
 	$effect(() => {
-		if (!src) return;
-		const tester = new Image();
-		tester.src = src;
-		tester.onerror = () => {
-			loadingError = true;
-		};
+		void src;
+		imageFailed = false;
 	});
 </script>
 
-{#if !(loadingError && hideIfLoadingError)}
-	<Avatar.Root {...rest} class={cn(rest.class, 'overflow-hidden')}>
-		{#if src}
-			<Avatar.Image {src} class="object-cover" alt={alt ?? m.Avatar()} />
+{#if !(imageFailed && hideIfLoadingError)}
+	<div
+		bind:this={ref}
+		data-slot="avatar"
+		class={cn(
+			'relative flex size-8 shrink-0 overflow-hidden rounded-full',
+			className
+		)}
+		{...rest}
+	>
+		{#if src && !imageFailed}
+			<img
+				src={src}
+				alt={alt ?? m.Avatar()}
+				class="size-full object-cover"
+				loading="lazy"
+				decoding="async"
+				onerror={() => {
+					imageFailed = true;
+				}}
+			/>
 		{/if}
-		{#if fallback}
-			<Avatar.Fallback class="rounded-none text-[80%] font-semibold uppercase">
+		{#if fallback && (!src || imageFailed)}
+			<span
+				class="flex size-full items-center justify-center rounded-none text-[80%] font-semibold uppercase"
+			>
 				{fallbackLength ? fallback.slice(0, fallbackLength) : fallback}
-			</Avatar.Fallback>
+			</span>
 		{/if}
-	</Avatar.Root>
+	</div>
 {/if}

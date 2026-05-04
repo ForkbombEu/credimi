@@ -31,6 +31,7 @@ type Options = {
 		page: number;
 		perPage: number;
 	};
+	sort?: string;
 	fetch?: typeof fetch;
 };
 
@@ -38,7 +39,9 @@ export async function loadScoreboardData(
 	options: Options = {}
 ): Promise<ListResult<ScoreboardRow>> {
 	const res = await agent.getList(options.pagination?.page ?? 1, options.pagination?.perPage, {
-		fetch: options.fetch
+		fetch: options.fetch,
+		requestKey: null,
+		...(options.sort ? { sort: options.sort } : {})
 	});
 	return res as ListResult<ScoreboardRow>;
 }
