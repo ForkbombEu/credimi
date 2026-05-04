@@ -5,13 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from '@lucide/svelte';
-
 	import { FlexRender } from '@/components/ui/data-table/index.js';
 	import * as Pagination from '@/components/ui/pagination/index.js';
 	import * as Table from '@/components/ui/table/index.js';
 
 	import type { ScoreboardTable } from './table.svelte.ts';
+
+	import SortHeaderPill from './sort-header-pill.svelte';
 
 	//
 
@@ -28,7 +28,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<Table.Head colspan={header.colSpan}>
 								{#if !header.isPlaceholder}
 									{#if header.column.getCanSort()}
-										{@const sorted = header.column.getIsSorted()}
 										<button
 											type="button"
 											class="group relative hover:cursor-pointer"
@@ -38,22 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 												content={header.column.columnDef.header}
 												context={header.getContext()}
 											/>
-											<div
-												class={[
-													'absolute -top-1 right-0 translate-x-2 rounded-full bg-primary p-1 text-primary-foreground opacity-0 transition-opacity',
-													'duration-150',
-													'group-hover:bg-blue-700 group-hover:opacity-100',
-													sorted ? 'opacity-100' : 'opacity-0'
-												]}
-											>
-												{#if sorted === 'asc'}
-													<ArrowUpIcon class="size-3" />
-												{:else if sorted === 'desc'}
-													<ArrowDownIcon class="size-3" />
-												{:else}
-													<ArrowUpDownIcon class="size-3 opacity-50" />
-												{/if}
-											</div>
+											<SortHeaderPill {header} table={scoreboard.table} />
 										</button>
 									{:else}
 										<FlexRender
