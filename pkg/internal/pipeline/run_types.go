@@ -5,8 +5,8 @@
 package pipeline
 
 const (
-	// RunTypeMemoKey carries the pipeline_results type through Temporal memo.
-	RunTypeMemoKey = "pipeline_result_type"
+	// RunTypeMemoKey carries the pipeline run type through Temporal memo.
+	RunTypeMemoKey = "pipeline_run_type"
 
 	// RunTypeManual marks runs started directly by a user.
 	RunTypeManual = "manual"
