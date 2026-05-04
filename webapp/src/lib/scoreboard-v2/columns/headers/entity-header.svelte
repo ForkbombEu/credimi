@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { align = 'left', ...props }: Props = $props();
 
-	const { header, table } = getHeaderContext();
+	const ctx = getHeaderContext();
 </script>
 
 <div
@@ -37,8 +37,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<EntityTag {...props} />
 	<div class="absolute top-0 right-0 translate-x-3 -translate-y-1">
-		{#if header.column.getCanSort() && header.column.columnDef.meta?.manualPillPositioning}
-			<SortHeaderPill {header} {table} />
+		{#if ctx.header.column.getCanSort() && ctx.header.column.columnDef.meta?.manualPillPositioning}
+			<SortHeaderPill header={ctx.header} table={ctx.table} />
 		{/if}
 	</div>
 </div>

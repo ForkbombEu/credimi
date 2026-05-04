@@ -27,8 +27,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { children, header, table }: Props = $props();
 
-	// svelte-ignore state_referenced_locally
-	setHeaderContext({ header, table });
+	const contextValue: HeaderContext = {
+		get header() {
+			return header;
+		},
+		get table() {
+			return table;
+		}
+	};
+
+	setHeaderContext(contextValue);
 </script>
 
 {@render children?.()}
