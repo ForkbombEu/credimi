@@ -74,7 +74,7 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
-	req := httptest.NewRequest("POST", "/api/apikey/generate", bytes.NewReader(bodyBytes))
+	req := httptest.NewRequest(http.MethodPost, "/api/apikey/generate", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 
 	// Authenticate the request
@@ -215,7 +215,7 @@ func TestAuthenticateApiKeyHandler_Integration(t *testing.T) {
 	}
 
 	// Test authenticating with the API key
-	req := httptest.NewRequest("GET", "/api/apikey/authenticate", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/apikey/authenticate", nil)
 	req.Header.Set("Credimi-Api-Key", apiKey)
 
 	// rec := httptest.NewRecorder()
@@ -308,7 +308,7 @@ func TestAuthenticateApiKeyHandler_SecurityValidation(t *testing.T) {
 		t.Run("malicious_key_"+apiKey[:min(10, len(apiKey))], func(t *testing.T) {
 			// This test verifies that malicious API keys don't cause panics
 			assert.NotPanics(t, func() {
-				req := httptest.NewRequest("GET", "/api/apikey/authenticate", nil)
+				req := httptest.NewRequest(http.MethodGet, "/api/apikey/authenticate", nil)
 				req.Header.Set("Credimi-Api-Key", apiKey)
 
 				header := req.Header.Get("Credimi-Api-Key")

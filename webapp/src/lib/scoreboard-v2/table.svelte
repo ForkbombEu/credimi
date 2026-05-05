@@ -11,6 +11,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ScoreboardTable } from './table.svelte.ts';
 
+	import HeaderContextProvider from './columns/headers/header-context-provider.svelte';
+	import SortHeaderPill from './sort-header-pill.svelte';
+
 	//
 
 	let { scoreboard }: { scoreboard: ScoreboardTable } = $props();
@@ -24,12 +27,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Table.Row class="bg-[#d1c8f3] hover:bg-[#d1c8f3]">
 						{#each headerGroup.headers as header (header.id)}
 							<Table.Head colspan={header.colSpan}>
-								{#if !header.isPlaceholder}
-									<FlexRender
-										content={header.column.columnDef.header}
-										context={header.getContext()}
-									/>
-								{/if}
+								<HeaderContextProvider {header} table={scoreboard.table}>
+									{#if !header.isPlaceholder}
+										{#if header.column.getCanSort()}
+											<button
+												type="button"
+												class="group relative flex items-center gap-1 hover:cursor-pointer"
+												onclick={header.column.getToggleSortingHandler()}
+											>
+												<FlexRender
+													content={header.column.columnDef.header}
+													context={header.getContext()}
+												/>
+												{#if !header.column.columnDef.meta?.manualPillPositioning}
+													<SortHeaderPill
+														{header}
+														table={scoreboard.table}
+													/>
+												{/if}
+											</button>
+										{:else}
+											<FlexRender
+												content={header.column.columnDef.header}
+												context={header.getContext()}
+											/>
+										{/if}
+									{/if}
+								</HeaderContextProvider>
 							</Table.Head>
 						{/each}
 					</Table.Row>

@@ -37,7 +37,7 @@ func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 		url = FidesIssuersURL
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

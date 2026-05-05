@@ -142,6 +142,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			userEmail:          runContext.userEmail,
 			yaml:               manipulatedYAML,
 			metadata:           input.Metadata,
+			runType:            pipelineinternal.RunTypeCI,
 			cleanup:            buildPipelineRunWalletAPKCleanupMetadata(tempVersion),
 		})
 		if apiErr != nil {
@@ -312,7 +313,11 @@ func resolvePipelineRunWalletAPKFile(
 		)
 	}
 
-	file, err := walletAPKURLDownloader(ctx, apkURL, walletAPKFilename(input.CommitSHA, path.Base(parsedURL.Path)))
+	file, err := walletAPKURLDownloader(
+		ctx,
+		apkURL,
+		walletAPKFilename(input.CommitSHA, path.Base(parsedURL.Path)),
+	)
 	if err != nil {
 		return nil, apierror.New(
 			http.StatusBadRequest,
@@ -764,8 +769,7 @@ func collectWalletAPKVersionReferences(
 	}
 
 	var refs []walletAPKVersionReference
-	var collect func(pipelineinternal.StepSpec)
-	collect = func(step pipelineinternal.StepSpec) {
+	var collect = func(step pipelineinternal.StepSpec) {
 		if step.Use != walletAPKMobileAutomationStepUse || step.With.Payload == nil {
 			return
 		}

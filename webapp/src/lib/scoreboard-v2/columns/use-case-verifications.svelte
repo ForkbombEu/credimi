@@ -20,7 +20,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		header: renderComponent(EntityHeader, {
 			data: entities.use_cases_verifications,
 			plurality: 'plural'
-		})
+		}),
+		sortField: 'use_case_verifications.name',
+		manualPillPositioning: true
 	});
 </script>
 

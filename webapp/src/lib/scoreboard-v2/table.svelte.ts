@@ -2,7 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getCoreRowModel, type PaginationState, type Table } from '@tanstack/table-core';
+import {
+	getCoreRowModel,
+	type PaginationState,
+	type SortingState,
+	type Table
+} from '@tanstack/table-core';
 import { onMount } from 'svelte';
 
 import { createSvelteTable } from '@/components/ui/data-table';
@@ -63,6 +68,8 @@ export class ScoreboardTable {
 		pageCount: 0
 	});
 
+	#sorting = $state<SortingState>([]);
+
 	get pageSize() {
 		return this.#pagination.pageSize;
 	}
@@ -91,6 +98,7 @@ export class ScoreboardTable {
 			this.#pagination.pageIndex = p.pageIndex;
 			this.#pagination.pageSize = p.pageSize;
 		};
+		const getSorting = () => this.#sorting;
 
 		this.table = createSvelteTable({
 			columns,
@@ -101,13 +109,23 @@ export class ScoreboardTable {
 			state: {
 				get pagination() {
 					return getPagination();
+				},
+				get sorting() {
+					return getSorting();
 				}
 			},
 			onPaginationChange: (updater) => {
 				setPagination(typeof updater === 'function' ? updater(getPagination()) : updater);
 				this.loadData();
 			},
+			onSortingChange: (updater) => {
+				const next = typeof updater === 'function' ? updater(getSorting()) : updater;
+				this.#sorting = next;
+				this.#pagination.pageIndex = 0;
+				this.loadData();
+			},
 			manualPagination: true,
+			manualSorting: true,
 			get pageCount() {
 				return getPageCount();
 			}
@@ -124,11 +142,13 @@ export class ScoreboardTable {
 
 	private async loadData() {
 		const currentApiPage = toApiPage(this.currentPage);
+		const sort = buildSortString(this.table, this.#sorting);
 		const res = await loadScoreboardData({
 			pagination: {
 				page: currentApiPage,
 				perPage: this.#pagination.pageSize
-			}
+			},
+			...(sort ? { sort } : {})
 		});
 		const normalizedApiPage = fromApiPage(res.page);
 		this.#data = res.items;
@@ -139,6 +159,16 @@ export class ScoreboardTable {
 			totalItems: res.totalItems
 		};
 	}
+}
+
+function buildSortString(table: Table<ScoreboardRow>, sorting: SortingState): string {
+	return sorting
+		.map(({ id, desc }) => {
+			const field = table.getColumn(id)?.columnDef.meta?.sortField;
+			return field ? `${desc ? '-' : '+'}${field}` : null;
+		})
+		.filter((s): s is string => Boolean(s))
+		.join(',');
 }
 
 // helpers to convert between table and API pagination
