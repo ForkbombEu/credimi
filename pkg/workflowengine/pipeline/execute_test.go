@@ -418,6 +418,34 @@ func TestExecuteStepWorkflow(t *testing.T) {
 	require.Equal(t, "http://localhost:8090", result["app_url"])
 }
 
+func TestRestoreInheritedConfigValues(t *testing.T) {
+	t.Run("restores empty app url from workflow config", func(t *testing.T) {
+		config := map[string]any{"app_url": ""}
+		globalCfg := map[string]any{"app_url": "https://example.test"}
+
+		restoreInheritedConfigValues(&config, globalCfg)
+
+		require.Equal(t, "https://example.test", config["app_url"])
+	})
+
+	t.Run("restores empty app url to pipeline default when workflow config is missing", func(t *testing.T) {
+		config := map[string]any{"app_url": ""}
+
+		restoreInheritedConfigValues(&config, nil)
+
+		require.Equal(t, defaultExecuteStepAppURL, config["app_url"])
+	})
+
+	t.Run("keeps non-empty step app url", func(t *testing.T) {
+		config := map[string]any{"app_url": "https://step.example"}
+		globalCfg := map[string]any{"app_url": "https://example.test"}
+
+		restoreInheritedConfigValues(&config, globalCfg)
+
+		require.Equal(t, "https://step.example", config["app_url"])
+	})
+}
+
 func TestFetchChildPipelineYAML(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
