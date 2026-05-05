@@ -75,6 +75,7 @@ type MobileRunnerSemaphoreEnqueueRunRequest struct {
 	PipelineConfig      map[string]any                        `json:"pipeline_config,omitempty"`
 	Memo                map[string]any                        `json:"memo,omitempty"`
 	Cleanup             *MobileRunnerSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
+	Notification        *MobileRunnerSemaphoreNotification    `json:"notification,omitempty"`
 }
 
 // MobileRunnerSemaphoreCleanupMetadata carries resources owned by a queued run
@@ -83,6 +84,20 @@ type MobileRunnerSemaphoreCleanupMetadata struct {
 	TempWalletVersionID         string `json:"temp_wallet_version_id,omitempty"`
 	TempWalletVersionOwnerID    string `json:"temp_wallet_version_owner_id,omitempty"`
 	TempWalletVersionIdentifier string `json:"temp_wallet_version_identifier,omitempty"`
+}
+
+type MobileRunnerSemaphoreNotification struct {
+	GitHubPR *MobileRunnerSemaphoreGitHubPRNotification `json:"github_pr,omitempty"`
+}
+
+type MobileRunnerSemaphoreGitHubPRNotification struct {
+	Repository         string `json:"repository,omitempty"`
+	PullRequestNumber  int    `json:"pull_request_number,omitempty"`
+	CommentID          int64  `json:"comment_id,omitempty"`
+	CommitSHA          string `json:"commit_sha,omitempty"`
+	PipelineIdentifier string `json:"pipeline_identifier,omitempty"`
+	PipelineURL        string `json:"pipeline_url,omitempty"`
+	AppURL             string `json:"app_url,omitempty"`
 }
 
 type MobileRunnerSemaphoreEnqueueRunResponse struct {
@@ -124,6 +139,7 @@ type MobileRunnerSemaphoreRunDoneRequest struct {
 	OwnerNamespace string `json:"owner_namespace,omitempty"`
 	WorkflowID     string `json:"workflow_id,omitempty"`
 	RunID          string `json:"run_id,omitempty"`
+	WorkflowResult string `json:"workflow_result,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunCancelRequest struct {
@@ -145,9 +161,10 @@ type MobileRunnerSemaphoreRunStartedSignal struct {
 }
 
 type MobileRunnerSemaphoreRunDoneSignal struct {
-	TicketID   string `json:"ticket_id"`
-	WorkflowID string `json:"workflow_id,omitempty"`
-	RunID      string `json:"run_id,omitempty"`
+	TicketID       string `json:"ticket_id"`
+	WorkflowID     string `json:"workflow_id,omitempty"`
+	RunID          string `json:"run_id,omitempty"`
+	WorkflowResult string `json:"workflow_result,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunTicketState struct {
