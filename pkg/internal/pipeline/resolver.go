@@ -89,14 +89,46 @@ func ParsePipeline(expr string) (initialValue string, functions []string, err er
 }
 
 func ApplyFunction(value any, funcName string) (any, error) {
-	switch funcName {
-	case "upper":
-		return toUpper(value), nil
-	case "lower":
-		return toLower(value), nil
-	default:
-		return nil, fmt.Errorf("unknown function: %s", funcName)
+	re := regexp.MustCompile(`^(\w+)\(([^)]*)\)$`)
+	matches := re.FindStringSubmatch(funcName)
+
+	if len(matches) == 0 {
+		switch funcName {
+		case "upper":
+			return toUpper(value), nil
+		case "lower":
+			return toLower(value), nil
+		default:
+			return nil, fmt.Errorf("unknown function: %s", funcName)
+		}
 	}
+	baseFunc := matches[1]
+	paramsStr := matches[2]
+
+	var params []*int
+	if paramsStr != "" {
+		parts := strings.Split(paramsStr, ":")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				params = append(params, nil)
+				continue
+			}
+			num, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, fmt.Errorf("invalid parameter %q in function %s: %v", part, baseFunc, err)
+			}
+			params = append(params, &num)
+		}
+	}
+
+	switch baseFunc {
+	case "slice":
+		return slice(value, params)
+	default:
+		return nil, fmt.Errorf("unknown function: %s", baseFunc)
+	}
+
 }
 
 func ResolvePipeline(expr string, ctx map[string]any) (any, error) {
@@ -118,44 +150,6 @@ func ResolvePipeline(expr string, ctx map[string]any) (any, error) {
 	}
 
 	return current, nil
-}
-
-func toUpper(value any) any {
-	switch v := value.(type) {
-	case string:
-		return strings.ToUpper(v)
-	case int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64,
-		float32, float64:
-		return value
-	case map[string]any, []any:
-		bytes, err := json.Marshal(v)
-		if err != nil {
-			return strings.ToUpper(fmt.Sprintf("%v", v))
-		}
-		return strings.ToUpper(string(bytes))
-	default:
-		return strings.ToUpper(fmt.Sprintf("%v", v))
-	}
-}
-
-func toLower(value any) any {
-	switch v := value.(type) {
-	case string:
-		return strings.ToLower(v)
-	case int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64,
-		float32, float64:
-		return value
-	case map[string]any, []any:
-		bytes, err := json.Marshal(v)
-		if err != nil {
-			return strings.ToLower(fmt.Sprintf("%v", v))
-		}
-		return strings.ToLower(string(bytes))
-	default:
-		return strings.ToLower(fmt.Sprintf("%v", v))
-	}
 }
 
 // resolveRef resolves a dotted ref like "user.addresses[0].city" in the given context
@@ -310,4 +304,212 @@ func ResolveInputs(
 	}
 
 	return nil
+}
+
+func toUpper(value any) any {
+	switch v := value.(type) {
+	case string:
+		return strings.ToUpper(v)
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return value
+	case []any:
+		if len(v) == 0 {
+			return v
+		}
+		result := make([]any, len(v))
+		for i, elem := range v {
+			result[i] = toUpper(elem)
+		}
+		return result
+	case nil:
+		return nil
+	case map[string]any:
+		if len(v) == 0 {
+			return make(map[string]any)
+		}
+		result := make(map[string]any)
+		for k, val := range v {
+			result[strings.ToUpper(k)] = toUpper(val)
+		}
+		return result
+	default:
+		bytes, err := json.Marshal(v)
+		if err == nil {
+			var asMap map[string]any
+			if err := json.Unmarshal(bytes, &asMap); err == nil {
+				return toUpper(asMap)
+			}
+			return strings.ToUpper(string(bytes))
+		}
+		return strings.ToUpper(fmt.Sprintf("%v", v))
+	}
+}
+
+func toLower(value any) any {
+	switch v := value.(type) {
+	case string:
+		return strings.ToLower(v)
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return value
+	case []any:
+		if len(v) == 0 {
+			return v
+		}
+		result := make([]any, len(v))
+		for i, elem := range v {
+			result[i] = toLower(elem)
+		}
+		return result
+	case nil:
+		return nil
+	case map[string]any:
+		if len(v) == 0 {
+			return make(map[string]any)
+		}
+		result := make(map[string]any)
+		for k, val := range v {
+			result[strings.ToLower(k)] = toLower(val)
+		}
+		return result
+	default:
+		bytes, err := json.Marshal(v)
+		if err == nil {
+			var asMap map[string]any
+			if err := json.Unmarshal(bytes, &asMap); err == nil {
+				return toLower(asMap)
+			}
+			return strings.ToLower(string(bytes))
+		}
+		return strings.ToLower(fmt.Sprintf("%v", v))
+	}
+}
+
+// slice extracts a substring or array subset based on 0-based indices.
+// Syntax: slice() - returns the whole value
+//
+//	slice(start) - returns element at start index (supports negative)
+//	slice(start:end) - returns elements from start to end-1 (end omitted = to end)
+//	slice(:end) - returns first end elements
+//
+// For strings: operates on Unicode characters
+// For arrays: operates on elements
+// For other types (objects, numbers, etc.): converts to JSON string then slices
+func slice(value any, params []*int) (any, error) {
+	switch v := value.(type) {
+	case []any:
+		return sliceArray(v, params)
+	case string:
+		return sliceString(v, params)
+	default:
+		var str string
+		switch val := value.(type) {
+		case map[string]any:
+			bytes, err := json.Marshal(val)
+			if err != nil {
+				str = fmt.Sprintf("%v", val)
+			} else {
+				str = string(bytes)
+			}
+		default:
+			str = fmt.Sprintf("%v", val)
+		}
+		return sliceString(str, params)
+	}
+}
+
+func sliceString(s string, params []*int) (any, error) {
+	runes := []rune(s)
+	length := len(runes)
+
+	if len(params) == 0 {
+		return s, nil
+	}
+
+	if len(params) == 1 && params[0] != nil {
+		idx := *params[0]
+		if idx < 0 {
+			idx = length + idx
+		}
+		if idx < 0 || idx >= length {
+			return "", nil
+		}
+		return string(runes[idx]), nil
+	}
+
+	if len(params) == 2 {
+		start := 0
+		end := length
+
+		if params[0] != nil {
+			start = *params[0]
+			if start < 0 {
+				start = length + start
+			}
+		}
+
+		if params[1] != nil {
+			end = *params[1]
+			if end < 0 {
+				end = length + end
+			}
+		}
+
+		if start > end {
+			return "", nil
+		}
+
+		return string(runes[start:end]), nil
+	}
+
+	return nil, fmt.Errorf("slice accepts 0, 1, or 2 parameters, got %d", len(params))
+}
+
+func sliceArray(arr []any, params []*int) (any, error) {
+	length := len(arr)
+
+	if len(params) == 0 {
+		return arr, nil
+	}
+
+	if len(params) == 1 && params[0] != nil {
+		idx := *params[0]
+		if idx < 0 {
+			idx = length + idx
+		}
+		if idx < 0 || idx >= length {
+			return nil, nil
+		}
+		return arr[idx], nil
+	}
+
+	if len(params) == 2 {
+		start := 0
+		end := length
+
+		if params[0] != nil {
+			start = *params[0]
+			if start < 0 {
+				start = length + start
+			}
+		}
+
+		if params[1] != nil {
+			end = *params[1]
+			if end < 0 {
+				end = length + end
+			}
+		}
+
+		if start > end {
+			return []any{}, nil
+		}
+
+		return arr[start:end], nil
+	}
+
+	return nil, fmt.Errorf("slice accepts 0, 1, or 2 parameters, got %d", len(params))
 }

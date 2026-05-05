@@ -10,6 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type StrangeStruct struct {
+	StringField  string
+	NilField     interface{}
+	MapField     map[string]any
+	SliceField   []string
+	PrivateField string
+}
+
 func TestMergeConfigs(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -334,7 +342,7 @@ func TestResolveInputs(t *testing.T) {
 	}
 }
 
-func TestPipelineFunctions(t *testing.T) {
+func TestPipelineFunctionsUpperLower(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
@@ -359,7 +367,7 @@ func TestPipelineFunctions(t *testing.T) {
 			expected: "  john doe  ",
 		},
 		{
-			name: "number to string then upper (should not error, returns number)",
+			name: "number upper",
 			expr: "${{ number | upper }}",
 			ctx: map[string]any{
 				"number": 123,
@@ -409,7 +417,269 @@ func TestPipelineFunctions(t *testing.T) {
 					"message": " hEllO: { WorlD: {heLLo}} ",
 				},
 			},
-			expected: `{"HELLO":{"WORLD":"HELLO"},"MESSAGE":" HELLO: { WORLD: {HELLO}} "}`,
+			expected: map[string]any{
+				"HELLO": map[string]any{
+					"WORLD": "HELLO",
+				},
+				"MESSAGE": " HELLO: { WORLD: {HELLO}} ",
+			},
+		},
+		{
+			name: "strange struct with upper",
+			expr: "${{ strange | upper }}",
+			ctx: map[string]any{
+				"strange": StrangeStruct{
+					StringField: "hello",
+					NilField:    nil,
+					MapField:    map[string]any{"key": "value"},
+					SliceField:  []string{},
+				},
+			},
+			expected: map[string]any{
+				"STRINGFIELD": "HELLO",
+				"NILFIELD":    nil,
+				"MAPFIELD": map[string]any{
+					"KEY": "VALUE",
+				},
+				"SLICEFIELD":   []any{},
+				"PRIVATEFIELD": "",
+			},
+		},
+		{
+			name: "number lower",
+			expr: "${{ number | lower }}",
+			ctx: map[string]any{
+				"number": 123,
+			},
+			expected: 123,
+		},
+		{
+			name: "invalid pipeline - empty initial value",
+			expr: "${{ | lower }}",
+			ctx: map[string]any{
+				"result": "  hello world  ",
+			},
+			wantErr: true,
+		},
+		{
+			name: "complex json object with lower",
+			expr: "${{ complexObject | lower }}",
+			ctx: map[string]any{
+				"complexObject": map[string]any{
+					"hello": map[string]any{
+						"world": "heLLo",
+					},
+					"message": " hEllO: { WorlD: {heLLo}} ",
+				},
+			},
+			expected: map[string]any{
+				"hello": map[string]any{
+					"world": "hello",
+				},
+				"message": " hello: { world: {hello}} ",
+			},
+		},
+		{
+			name: "array with lower",
+			expr: "${{ items | lower }}",
+			ctx: map[string]any{
+				"items": []any{"APPLE", "BANANA"},
+			},
+			expected: []any{"apple", "banana"},
+		},
+		{
+			name: "complex json object with lower",
+			expr: "${{ complexObject | lower }}",
+			ctx: map[string]any{
+				"complexObject": map[string]any{
+					"hello": map[string]any{
+						"world": "heLLo",
+					},
+					"message": "{}",
+				},
+			},
+			expected: map[string]any{
+				"hello": map[string]any{
+					"world": "hello",
+				},
+				"message": "{}",
+			},
+		},
+		{
+			name: "empty map to upper",
+			expr: "${{ empty | upper }}",
+			ctx: map[string]any{
+				"empty": map[string]any{},
+			},
+			expected: map[string]any{},
+		},
+		{
+			name: "strange struct with lower",
+			expr: "${{ strange | lower }}",
+			ctx: map[string]any{
+				"strange": StrangeStruct{
+					StringField: "HELLO",
+					NilField:    nil,
+					MapField:    map[string]any{"KEY": "VALue"},
+					SliceField:  []string{},
+				},
+			},
+			expected: map[string]any{
+				"stringfield": "hello",
+				"nilfield":    nil,
+				"mapfield": map[string]any{
+					"key": "value",
+				},
+				"slicefield":   []any{},
+				"privatefield": "",
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ResolveExpressions(tc.expr, tc.ctx)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestPipelineFunctionsSlice(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		ctx      map[string]any
+		expected any
+		wantErr  bool
+	}{
+		{
+			name: "simple slice",
+			expr: "${{ result | slice(:3) }}",
+			ctx: map[string]any{
+				"result": "hello world",
+			},
+			expected: "hel",
+		},
+		{
+			name: "simple slice",
+			expr: "${{ result | slice(7:) }}",
+			ctx: map[string]any{
+				"result": "hello world",
+			},
+			expected: "orld",
+		},
+		{
+			name: "simple slice",
+			expr: "${{ result | slice(3:7) }}",
+			ctx: map[string]any{
+				"result": "hello world",
+			},
+			expected: "lo w",
+		},
+		{
+			name: "complex slice",
+			expr: "${{ complexObject | slice(8:12) }}",
+			ctx: map[string]any{
+				"complexObject": map[string]any{
+					"hello": map[string]any{
+						"world": "heLLo",
+					},
+					"message": " hEllO: { WorlD: {heLLo}} ",
+				},
+			},
+			expected: `:{"w`,
+		},
+		{
+			name: "upper and slice",
+			expr: "${{ result | upper | slice(7:) }}",
+			ctx: map[string]any{
+				"result": "hello world",
+			},
+			expected: "ORLD",
+		},
+		{
+			name: "array slice first 2 elements",
+			expr: "${{ items | slice(:2) }}",
+			ctx: map[string]any{
+				"items": []any{"apple", "banana", "cherry", "date"},
+			},
+			expected: []any{"apple", "banana"},
+		},
+		{
+			name: "array slice from index 2 to end",
+			expr: "${{ items | slice(2:) }}",
+			ctx: map[string]any{
+				"items": []any{"apple", "banana", "cherry", "date"},
+			},
+			expected: []any{"cherry", "date"},
+		},
+		{
+			name: "array slice from index 1 to 3",
+			expr: "${{ items | slice(1:3) }}",
+			ctx: map[string]any{
+				"items": []any{"apple", "banana", "cherry", "date"},
+			},
+			expected: []any{"banana", "cherry"},
+		},
+		{
+			name: "slice element at index 2",
+			expr: "${{ result | slice(2) }}",
+			ctx: map[string]any{
+				"result": "hello",
+			},
+			expected: "l",
+		},
+		{
+			name: "slice element at index -3",
+			expr: "${{ result | slice(-3) }}",
+			ctx: map[string]any{
+				"result": "hello",
+			},
+			expected: "l",
+		},
+		{
+			name: "slice element",
+			expr: "${{ result | slice(-3:-1) }}",
+			ctx: map[string]any{
+				"result": "hello",
+			},
+			expected: "ll",
+		},
+		{
+			name: "array slice single element at index 2",
+			expr: "${{ items | slice(2) }}",
+			ctx: map[string]any{
+				"items": []any{"apple", "banana", "cherry", "date"},
+			},
+			expected: "cherry",
+		},
+		{
+			name: "array slice with negative index",
+			expr: "${{ items | slice(-2) }}",
+			ctx: map[string]any{
+				"items": []any{"apple", "banana", "cherry", "date"},
+			},
+			expected: "cherry",
+		},
+		{
+			name: "array slice with negative range",
+			expr: "${{ items | slice(-3:-1) }}",
+			ctx: map[string]any{
+				"items": []any{"apple", "banana", "cherry", "date"},
+			},
+			expected: []any{"banana", "cherry"},
+		},
+		{
+			name: "array slice with upper then slice",
+			expr: "${{ items | upper | slice(:2) }}",
+			ctx: map[string]any{
+				"items": []any{"apple", "banana", "cherry"},
+			},
+			expected: []any{"APPLE", "BANANA"},
 		},
 	}
 
