@@ -19,8 +19,6 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-const defaultExecuteStepAppURL = "http://localhost:8090"
-
 func ExecuteStep(
 	id string,
 	use string,
@@ -51,7 +49,6 @@ func ExecuteStep(
 		)
 		return nil, appErr
 	}
-	restoreInheritedConfigValues(&s.With.Config, globalCfg)
 	step := registry.Registry[s.Use]
 	switch step.Kind {
 	case registry.TaskActivity:
@@ -173,34 +170,6 @@ func ExecuteStep(
 	}
 
 	return nil, nil
-}
-
-func restoreInheritedConfigValues(config *map[string]any, globalCfg map[string]any) {
-	restoreInheritedStringConfigValue(config, globalCfg, "app_url")
-}
-
-func restoreInheritedStringConfigValue(config *map[string]any, globalCfg map[string]any, key string) {
-	if config == nil {
-		return
-	}
-	if globalCfg == nil {
-		globalCfg = map[string]any{}
-	}
-
-	stepValue, ok := (*config)[key].(string)
-	if !ok || strings.TrimSpace(stepValue) != "" {
-		return
-	}
-
-	globalValue, ok := globalCfg[key].(string)
-	if ok && strings.TrimSpace(globalValue) != "" {
-		(*config)[key] = globalValue
-		return
-	}
-
-	if key == "app_url" {
-		(*config)[key] = defaultExecuteStepAppURL
-	}
 }
 
 func Execute(
