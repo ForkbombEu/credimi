@@ -306,21 +306,37 @@ func ResolveInputs(
 	return nil
 }
 
-func toUpper(value any) any {
+type caseTransformer struct {
+	transformString func(string) string
+	transformKey    func(string) string
+}
+
+var (
+	upperTransformer = caseTransformer{
+		transformString: strings.ToUpper,
+		transformKey:    strings.ToUpper,
+	}
+	lowerTransformer = caseTransformer{
+		transformString: strings.ToLower,
+		transformKey:    strings.ToLower,
+	}
+)
+
+func transform(value any, t caseTransformer) any {
 	switch v := value.(type) {
 	case string:
-		return strings.ToUpper(v)
+		return t.transformString(v)
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64:
-		return value
+		return v
 	case []any:
 		if len(v) == 0 {
 			return v
 		}
 		result := make([]any, len(v))
 		for i, elem := range v {
-			result[i] = toUpper(elem)
+			result[i] = transform(elem, t)
 		}
 		return result
 	case nil:
@@ -331,7 +347,7 @@ func toUpper(value any) any {
 		}
 		result := make(map[string]any)
 		for k, val := range v {
-			result[strings.ToUpper(k)] = toUpper(val)
+			result[t.transformKey(k)] = transform(val, t)
 		}
 		return result
 	default:
@@ -339,53 +355,20 @@ func toUpper(value any) any {
 		if err == nil {
 			var asMap map[string]any
 			if err := json.Unmarshal(bytes, &asMap); err == nil {
-				return toUpper(asMap)
+				return transform(asMap, t)
 			}
-			return strings.ToUpper(string(bytes))
+			return t.transformString(string(bytes))
 		}
-		return strings.ToUpper(fmt.Sprintf("%v", v))
+		return t.transformString(fmt.Sprintf("%v", v))
 	}
 }
 
+func toUpper(value any) any {
+	return transform(value, upperTransformer)
+}
+
 func toLower(value any) any {
-	switch v := value.(type) {
-	case string:
-		return strings.ToLower(v)
-	case int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64,
-		float32, float64:
-		return value
-	case []any:
-		if len(v) == 0 {
-			return v
-		}
-		result := make([]any, len(v))
-		for i, elem := range v {
-			result[i] = toLower(elem)
-		}
-		return result
-	case nil:
-		return nil
-	case map[string]any:
-		if len(v) == 0 {
-			return make(map[string]any)
-		}
-		result := make(map[string]any)
-		for k, val := range v {
-			result[strings.ToLower(k)] = toLower(val)
-		}
-		return result
-	default:
-		bytes, err := json.Marshal(v)
-		if err == nil {
-			var asMap map[string]any
-			if err := json.Unmarshal(bytes, &asMap); err == nil {
-				return toLower(asMap)
-			}
-			return strings.ToLower(string(bytes))
-		}
-		return strings.ToLower(fmt.Sprintf("%v", v))
-	}
+	return transform(value, lowerTransformer)
 }
 
 // slice extracts a substring or array subset based on 0-based indices.
