@@ -7,6 +7,7 @@ import { pb } from '@/pocketbase';
 //
 
 type GetRecordByCanonifiedPathResult<T = unknown> = { message: string; record?: T };
+type CanonifiedRecord = { __canonified_path__?: string };
 
 export async function getRecordByCanonifiedPath<T = unknown>(
 	path: string,
@@ -23,11 +24,24 @@ export async function getRecordByCanonifiedPath<T = unknown>(
 			}
 		);
 		if (result.record) {
-			return result.record;
+			return attachCanonifiedPath(result.record, path);
 		} else {
 			return new Error(result.message);
 		}
 	} catch {
 		return new Error('Failed to get record by path');
 	}
+}
+
+function attachCanonifiedPath<T>(record: T, path: string): T {
+	if (!record || typeof record !== 'object' || Array.isArray(record)) {
+		return record;
+	}
+
+	const canonifiedRecord = record as T & CanonifiedRecord;
+	if (!canonifiedRecord.__canonified_path__) {
+		canonifiedRecord.__canonified_path__ = path.replace(/^\/+|\/+$/g, '');
+	}
+
+	return canonifiedRecord;
 }
