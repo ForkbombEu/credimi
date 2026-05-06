@@ -639,7 +639,8 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			ctx: map[string]any{
 				"result": "hello",
 			},
-			expected: "l",
+			expected: "slice: index -3 out of bounds [0:5]",
+			wantErr:  true,
 		},
 		{
 			name: "slice element",
@@ -647,7 +648,8 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			ctx: map[string]any{
 				"result": "hello",
 			},
-			expected: "ll",
+			expected: "slice: invalid range [-3:-1] for length 5",
+			wantErr:  true,
 		},
 		{
 			name: "array slice single element at index 2",
@@ -663,7 +665,8 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			ctx: map[string]any{
 				"items": []any{"apple", "banana", "cherry", "date"},
 			},
-			expected: "cherry",
+			expected: "slice: index -2 out of bounds [0:4]",
+			wantErr:  true,
 		},
 		{
 			name: "array slice with negative range",
@@ -671,7 +674,8 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			ctx: map[string]any{
 				"items": []any{"apple", "banana", "cherry", "date"},
 			},
-			expected: []any{"banana", "cherry"},
+			expected: "slice: invalid range [-3:-1] for length 4",
+			wantErr:  true,
 		},
 		{
 			name: "array slice with upper then slice",
@@ -751,7 +755,7 @@ func TestPipelineFunctionsURL(t *testing.T) {
 				"hello": map[string]any{
 					"world": "heLLo",
 				},
-				"message": "%20hEllO:%20%7B%20WorlD:%20%7BheLLo%7D%7D%20",
+				"message": "%20hEllO%3A%20%7B%20WorlD%3A%20%7BheLLo%7D%7D%20",
 			},
 		},
 		{

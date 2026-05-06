@@ -341,16 +341,13 @@ type urlTransformer struct {
 var (
 	urlEncoder = urlTransformer{
 		transform: func(s string) (string, error) {
-			return url.PathEscape(s), nil
+			encoded := url.QueryEscape(s)
+			return strings.ReplaceAll(encoded, "+", "%20"), nil
 		},
 	}
 	urlDecoder = urlTransformer{
 		transform: func(s string) (string, error) {
-			decoded, err := url.PathUnescape(s)
-			if err != nil {
-				return "", fmt.Errorf("failed to decode URL string %q: %w", s, err)
-			}
-			return decoded, nil
+			return url.QueryUnescape(strings.ReplaceAll(s, "+", "%2B"))
 		},
 	}
 )
@@ -469,7 +466,7 @@ func urlDecode(value any) (any, error) {
 // slice extracts a substring or array subset based on 0-based indices.
 // Syntax: slice() - returns the whole value
 //
-//	slice(start) - returns element at start index (supports negative)
+//	slice(start) - returns element at start index
 //	slice(start:end) - returns elements from start to end-1 (end omitted = to end)
 //	slice(:end) - returns first end elements
 //
@@ -509,11 +506,8 @@ func sliceString(s string, params []*int) (any, error) {
 
 	if len(params) == 1 && params[0] != nil {
 		idx := *params[0]
-		if idx < 0 {
-			idx = length + idx
-		}
 		if idx < 0 || idx >= length {
-			return "", nil
+			return nil, fmt.Errorf("slice: index %d out of bounds [0:%d]", idx, length-1)
 		}
 		return string(runes[idx]), nil
 	}
@@ -524,26 +518,20 @@ func sliceString(s string, params []*int) (any, error) {
 
 		if params[0] != nil {
 			start = *params[0]
-			if start < 0 {
-				start = length + start
-			}
 		}
-
 		if params[1] != nil {
 			end = *params[1]
-			if end < 0 {
-				end = length + end
-			}
 		}
 
-		if start > end {
-			return "", nil
+		if start < 0 || start > length || end < 0 || end > length || start > end {
+			return nil, fmt.Errorf("slice: invalid range [%d:%d] for length %d (valid range: start in [0,%d], end in [0,%d], start <= end)",
+				start, end, length, length, length)
 		}
 
 		return string(runes[start:end]), nil
 	}
 
-	return nil, fmt.Errorf("slice accepts 0, 1, or 2 parameters, got %d", len(params))
+	return nil, fmt.Errorf("slice: expected 0-2 parameters, got %d", len(params))
 }
 
 func sliceArray(arr []any, params []*int) (any, error) {
@@ -555,11 +543,8 @@ func sliceArray(arr []any, params []*int) (any, error) {
 
 	if len(params) == 1 && params[0] != nil {
 		idx := *params[0]
-		if idx < 0 {
-			idx = length + idx
-		}
 		if idx < 0 || idx >= length {
-			return nil, nil
+			return nil, fmt.Errorf("slice: index %d out of bounds [0:%d]", idx, length-1)
 		}
 		return arr[idx], nil
 	}
@@ -570,26 +555,20 @@ func sliceArray(arr []any, params []*int) (any, error) {
 
 		if params[0] != nil {
 			start = *params[0]
-			if start < 0 {
-				start = length + start
-			}
 		}
-
 		if params[1] != nil {
 			end = *params[1]
-			if end < 0 {
-				end = length + end
-			}
 		}
 
-		if start > end {
-			return []any{}, nil
+		if start < 0 || start > length || end < 0 || end > length || start > end {
+			return nil, fmt.Errorf("slice: invalid range [%d:%d] for length %d (valid range: start in [0,%d], end in [0,%d], start <= end)",
+				start, end, length, length, length)
 		}
 
 		return arr[start:end], nil
 	}
 
-	return nil, fmt.Errorf("slice accepts 0, 1, or 2 parameters, got %d", len(params))
+	return nil, fmt.Errorf("slice: expected 0-2 parameters, got %d", len(params))
 }
 
 func replace(value any, oldStr, newStr string) (any, error) {
