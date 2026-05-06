@@ -158,27 +158,88 @@ func buildGitHubPRCommentBody(input UpdateGitHubPRCommentInput) string {
 	if status == "" {
 		status = "queued"
 	}
-	lines := []string{fmt.Sprintf("Credimi wallet APK pipeline is %s.", status)}
+	result := ""
+	if strings.TrimSpace(input.WorkflowStatus) != "" {
+		result = formatWorkflowResult(input.WorkflowStatus)
+	}
+	badgeStatus := status
+	if result != "" {
+		badgeStatus = result
+	}
+	tableRows := make([][2]string, 0, 4)
 	if input.Position != nil && status == "queued" {
-		lines = append(lines, fmt.Sprintf("Queue position: %d.", *input.Position))
+		tableRows = append(tableRows, [2]string{"Queue position", fmt.Sprintf("`%d`", *input.Position)})
 	}
 	if strings.TrimSpace(input.PipelineURL) != "" {
-		lines = append(lines, fmt.Sprintf("Pipeline: %s", input.PipelineURL))
+		tableRows = append(tableRows, [2]string{"Pipeline", markdownLink("Open pipeline", input.PipelineURL)})
 	}
 	if runURL := buildRunURL(input.AppURL, input.WorkflowID, input.RunID); runURL != "" {
-		lines = append(lines, fmt.Sprintf("Run logs: %s", runURL))
-	}
-	if strings.TrimSpace(input.WorkflowStatus) != "" {
-		lines = append(lines, fmt.Sprintf("Result: %s", formatWorkflowResult(input.WorkflowStatus)))
+		tableRows = append(tableRows, [2]string{"Run logs", markdownLink("Open run logs", runURL)})
 	}
 	if strings.TrimSpace(input.ErrorMessage) != "" {
-		lines = append(lines, fmt.Sprintf("Error: %s", input.ErrorMessage))
+		tableRows = append(tableRows, [2]string{"Error", markdownTableCell(input.ErrorMessage)})
+	}
+
+	lines := make([]string, 0, 4+len(tableRows))
+	lines = append(lines, formatPRCommentStatusBadge(badgeStatus))
+	if len(tableRows) > 0 {
+		lines = append(lines, "", "| Field | Value |", "| --- | --- |")
+		for _, row := range tableRows {
+			lines = append(lines, fmt.Sprintf("| %s | %s |", row[0], row[1]))
+		}
 	}
 	return strings.Join(lines, "\n")
 }
 
 func BuildGitHubPRCommentBodyForWorkflow(input UpdateGitHubPRCommentInput) string {
 	return buildGitHubPRCommentBody(input)
+}
+
+func formatPRCommentStatusBadge(status string) string {
+	message := normalizePRCommentBadgeMessage(status)
+	color := prCommentBadgeColor(message)
+	badgeURL := utils.JoinURL("https://img.shields.io", "badge", fmt.Sprintf("status-%s-%s", message, color))
+	return fmt.Sprintf("![status: %s](%s)", message, badgeURL)
+}
+
+func markdownLink(label string, linkURL string) string {
+	return fmt.Sprintf("[%s](%s)", label, strings.TrimSpace(linkURL))
+}
+
+func markdownTableCell(value string) string {
+	cell := strings.TrimSpace(value)
+	cell = strings.ReplaceAll(cell, "\r\n", " ")
+	cell = strings.ReplaceAll(cell, "\n", " ")
+	cell = strings.ReplaceAll(cell, "|", "\\|")
+	return cell
+}
+
+func normalizePRCommentBadgeMessage(status string) string {
+	message := strings.ToLower(strings.TrimSpace(status))
+	message = strings.ReplaceAll(message, " ", "_")
+	if message == "" {
+		return "queued"
+	}
+	return message
+}
+
+func prCommentBadgeColor(status string) string {
+	switch status {
+	case "queued":
+		return "yellow"
+	case "starting", "running":
+		return "blue"
+	case "success", "successful", "completed":
+		return "brightgreen"
+	case "failed", "failure":
+		return "red"
+	case "canceled", "cancelled":
+		return "lightgrey"
+	case "terminated", "timed_out", "timeout":
+		return "orange"
+	default:
+		return "informational"
+	}
 }
 
 func formatWorkflowResult(status string) string {

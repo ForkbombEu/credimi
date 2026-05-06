@@ -132,7 +132,7 @@ func buildGitHubPRCommentDocument(state githubPRCommentWorkflowState) string {
 	lines := make([]string, 0, 3+6*len(keys))
 	lines = append(
 		lines,
-		"Credimi wallet APK pipeline runs",
+		"## Credimi wallet APK pipeline runs",
 		"",
 		githubapp.Marker(),
 	)
