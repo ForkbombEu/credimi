@@ -21,6 +21,7 @@ func reportMobileRunnerSemaphoreDone(
 	config map[string]any,
 	workflowID string,
 	runID string,
+	workflowResult string,
 ) {
 	if config == nil {
 		return
@@ -39,6 +40,7 @@ func reportMobileRunnerSemaphoreDone(
 		TicketID:       ticketID,
 		WorkflowID:     workflowID,
 		RunID:          runID,
+		WorkflowResult: workflowResult,
 	}
 
 	if err := workflow.ExecuteActivity(

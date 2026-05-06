@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -208,6 +209,31 @@ func installWalletAPKURLDownloaderStub(t testing.TB) {
 	})
 	walletAPKURLDownloader = func(ctx context.Context, apkURL string, filename string) (*filesystem.File, error) {
 		return filesystem.NewFileFromBytes([]byte("downloaded apk"), filename)
+	}
+}
+
+type walletAPKCommenterStub struct {
+	updates []activities.UpdateGitHubPRCommentInput
+	err     error
+}
+
+func (s *walletAPKCommenterStub) Signal(
+	ctx context.Context,
+	update activities.UpdateGitHubPRCommentInput,
+) error {
+	s.updates = append(s.updates, update)
+	return s.err
+}
+
+func installWalletAPKCommenterStub(t testing.TB, stub *walletAPKCommenterStub) {
+	t.Helper()
+
+	original := signalGitHubPRCommentUpdate
+	t.Cleanup(func() {
+		signalGitHubPRCommentUpdate = original
+	})
+	signalGitHubPRCommentUpdate = func(ctx context.Context, update activities.UpdateGitHubPRCommentInput) error {
+		return stub.Signal(ctx, update)
 	}
 }
 
@@ -594,6 +620,84 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 		"usera-s-organization/wallet-enqueue/abc123",
 		queueStub.enqueueRequests[0].Cleanup.TempWalletVersionIdentifier,
 	)
+}
+
+func TestPipelineRunWalletAPKCreatesGitHubPRQueuedComment(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
+	commenter := &walletAPKCommenterStub{}
+	installWalletAPKCommenterStub(t, commenter)
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	scenario := tests.ApiScenario{
+		Name:   "creates github pr comment for pr metadata",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/run-wallet-apk",
+		Headers: map[string]string{
+			"Content-Type":    "application/json",
+			"Credimi-Api-Key": walletAPKUserAPIKey,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"metadata": map[string]any{
+				"sha":        "abc123",
+				"repository": "forkbombeu/wallet",
+				"event": map[string]any{
+					"number": 17,
+					"pull_request": map[string]any{
+						"head": map[string]any{
+							"sha": "abcdef1234567890",
+						},
+					},
+				},
+			},
+			"apk_url": "http://ci.example.test/wallet.apk",
+		}),
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"status":"queued"`,
+			`"position":1`,
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineWalletAPKApp(t)
+			app.Settings().Meta.AppURL = "https://credimi.test"
+			seedWalletAPKUserAPIKey(t, app)
+			versionID := createWalletAPKVersion(t, app, orgID, "wallet-github-pr", "1.0.0")
+			createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
+			return app
+		},
+	}
+	scenario.Test(t)
+
+	require.Len(t, commenter.updates, 1)
+	require.Equal(t, "forkbombeu/wallet", commenter.updates[0].Repository)
+	require.Equal(t, 17, commenter.updates[0].PullRequestNumber)
+	require.Equal(t, "abcdef1234567890", commenter.updates[0].CommitSHA)
+	require.Equal(t, "queued", commenter.updates[0].Status)
+	require.NotNil(t, commenter.updates[0].Position)
+	require.Equal(t, 1, *commenter.updates[0].Position)
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/usera-s-organization/pipeline123",
+		commenter.updates[0].PipelineURL,
+	)
+	require.Len(t, queueStub.enqueueRequests, 1)
+	require.NotNil(t, queueStub.enqueueRequests[0].Notification)
+	require.NotNil(t, queueStub.enqueueRequests[0].Notification.GitHubPR)
+	require.Equal(
+		t,
+		"forkbombeu/wallet",
+		queueStub.enqueueRequests[0].Notification.GitHubPR.Repository,
+	)
+	require.Equal(
+		t,
+		17,
+		queueStub.enqueueRequests[0].Notification.GitHubPR.PullRequestNumber,
+	)
+	require.Equal(t, "abcdef1234567890", queueStub.enqueueRequests[0].Notification.GitHubPR.CommitSHA)
 }
 
 func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {

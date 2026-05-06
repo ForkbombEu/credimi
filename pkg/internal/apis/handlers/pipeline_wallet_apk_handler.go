@@ -132,6 +132,11 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
 		}
+		notification := buildWalletAPKGitHubPRNotification(
+			input.Metadata,
+			e.App.Settings().Meta.AppURL,
+			input.PipelineIdentifier,
+		)
 
 		queueResponse, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
 			pipelineRecord:     runContext.pipelineRecord,
@@ -144,6 +149,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			metadata:           input.Metadata,
 			runType:            pipelineinternal.RunTypeCI,
 			cleanup:            buildPipelineRunWalletAPKCleanupMetadata(tempVersion),
+			notification:       notification,
 		})
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
@@ -156,6 +162,17 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			tempVersion.Identifier,
 			input.PipelineIdentifier,
 		)
+		if err := maybeCreateWalletAPKQueuedPRComment(
+			e.Request.Context(),
+			notification,
+			response,
+		); err != nil {
+			e.App.Logger().Warn(fmt.Sprintf(
+				"failed to create github pr comment for wallet apk queue ticket %s: %v",
+				response.TicketID,
+				err,
+			))
+		}
 		return e.JSON(http.StatusOK, response)
 	}
 }
