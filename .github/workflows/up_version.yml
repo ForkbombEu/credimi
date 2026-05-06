@@ -21,7 +21,7 @@ jobs:
     name: 🚦 Update version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
           ssh-key: ${{ secrets.DEPLOY_KEY }}
@@ -34,7 +34,7 @@ jobs:
       - if: steps.semrel.outputs.version != ''
         run: |
             echo ${{ steps.semrel.outputs.version }} > VERSION
-      - uses: stefanzweifel/git-auto-commit-action@v6
+      - uses: stefanzweifel/git-auto-commit-action@v7
         with:
           file_pattern: 'VERSION'
           commit_message: "chore(release): 🚀 update VERSION to ${{ steps.semrel.outputs.version }}"
