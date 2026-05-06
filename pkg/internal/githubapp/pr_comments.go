@@ -107,7 +107,7 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 	var installation struct {
 		ID int64 `json:"id"`
 	}
-	if err := c.doJSON(ctx, http.MethodGet, utils.JoinURL("", "repos", owner, repo, "installation"), jwtToken, nil, &installation); err != nil {
+	if err := c.doJSON(ctx, http.MethodGet, c.githubAPIURL("repos", owner, repo, "installation"), jwtToken, nil, &installation); err != nil {
 		return "", err
 	}
 	if installation.ID <= 0 {
@@ -120,7 +120,7 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 	if err := c.doJSON(
 		ctx,
 		http.MethodPost,
-		utils.JoinURL("", "app", "installations", strconv.FormatInt(installation.ID, 10), "access_tokens"),
+		c.githubAPIURL("app", "installations", strconv.FormatInt(installation.ID, 10), "access_tokens"),
 		jwtToken,
 		map[string]any{},
 		&tokenResp,
@@ -134,12 +134,13 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 }
 
 func (c *Client) findCommentID(ctx context.Context, token, owner, repo string, prNumber int, marker string) (int64, error) {
-	path := utils.JoinURL("", "repos", owner, repo, "issues", strconv.Itoa(prNumber), "comments") + "?per_page=100"
+	requestURL := c.githubAPIURL("repos", owner, repo, "issues", strconv.Itoa(prNumber), "comments")
+	requestURL = withQueryParam(requestURL, "per_page", "100")
 	var comments []struct {
 		ID   int64  `json:"id"`
 		Body string `json:"body"`
 	}
-	if err := c.doJSON(ctx, http.MethodGet, path, token, nil, &comments); err != nil {
+	if err := c.doJSON(ctx, http.MethodGet, requestURL, token, nil, &comments); err != nil {
 		return 0, err
 	}
 	for _, comment := range comments {
@@ -157,7 +158,7 @@ func (c *Client) createComment(ctx context.Context, token, owner, repo string, p
 	err := c.doJSON(
 		ctx,
 		http.MethodPost,
-		utils.JoinURL("", "repos", owner, repo, "issues", strconv.Itoa(prNumber), "comments"),
+		c.githubAPIURL("repos", owner, repo, "issues", strconv.Itoa(prNumber), "comments"),
 		token,
 		map[string]any{"body": body},
 		&out,
@@ -172,7 +173,7 @@ func (c *Client) patchComment(ctx context.Context, token, owner, repo string, co
 	err := c.doJSON(
 		ctx,
 		http.MethodPatch,
-		utils.JoinURL("", "repos", owner, repo, "issues", "comments", strconv.FormatInt(commentID, 10)),
+		c.githubAPIURL("repos", owner, repo, "issues", "comments", strconv.FormatInt(commentID, 10)),
 		token,
 		map[string]any{"body": body},
 		&out,
@@ -183,7 +184,22 @@ func (c *Client) patchComment(ctx context.Context, token, owner, repo string, co
 	return PRCommentResult{CommentID: out.ID}, err
 }
 
-func (c *Client) doJSON(ctx context.Context, method, path, token string, payload any, out any) error {
+func (c *Client) githubAPIURL(parts ...string) string {
+	return utils.JoinURL(c.apiURL, parts...)
+}
+
+func withQueryParam(rawURL string, key string, value string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed == nil {
+		return rawURL
+	}
+	query := parsed.Query()
+	query.Set(key, value)
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func (c *Client) doJSON(ctx context.Context, method, requestURL, token string, payload any, out any) error {
 	var body io.Reader
 	if payload != nil {
 		data, err := json.Marshal(payload)
@@ -192,7 +208,7 @@ func (c *Client) doJSON(ctx context.Context, method, path, token string, payload
 		}
 		body = bytes.NewReader(data)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.apiURL+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, requestURL, body)
 	if err != nil {
 		return err
 	}
@@ -210,7 +226,7 @@ func (c *Client) doJSON(ctx context.Context, method, path, token string, payload
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("github %s %s: %s: %s", method, path, resp.Status, strings.TrimSpace(string(data)))
+		return fmt.Errorf("github %s %s: %s: %s", method, requestURL, resp.Status, strings.TrimSpace(string(data)))
 	}
 	if out == nil {
 		io.Copy(io.Discard, resp.Body)
