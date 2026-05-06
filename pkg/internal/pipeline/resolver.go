@@ -110,26 +110,33 @@ func ApplyFunction(value any, funcName string) (any, error) {
 	baseFunc := matches[1]
 	paramsStr := matches[2]
 
-	var params []*int
-	if paramsStr != "" {
-		parts := strings.Split(paramsStr, ":")
-		for _, part := range parts {
-			part = strings.TrimSpace(part)
-			if part == "" {
-				params = append(params, nil)
-				continue
-			}
-			num, err := strconv.Atoi(part)
-			if err != nil {
-				return nil, fmt.Errorf("invalid parameter %q in function %s: %v", part, baseFunc, err)
-			}
-			params = append(params, &num)
-		}
-	}
-
 	switch baseFunc {
 	case "slice":
+		var params []*int
+		if paramsStr != "" {
+			parts := strings.Split(paramsStr, ":")
+			for _, part := range parts {
+				part = strings.TrimSpace(part)
+				if part == "" {
+					params = append(params, nil)
+					continue
+				}
+				num, err := strconv.Atoi(part)
+				if err != nil {
+					return nil, fmt.Errorf("invalid parameter %q in function %s: %v", part, baseFunc, err)
+				}
+				params = append(params, &num)
+			}
+		}
 		return slice(value, params)
+	case "replace":
+		parts := strings.Split(paramsStr, ",")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("replace requires 2 parameters, got %d", len(parts))
+		}
+		oldStr := strings.TrimSpace(parts[0])
+		newStr := strings.TrimSpace(parts[1])
+		return replace(value, oldStr, newStr)
 	default:
 		return nil, fmt.Errorf("unknown function: %s", baseFunc)
 	}
@@ -426,11 +433,15 @@ func transformURL(value any, t urlTransformer) (any, error) {
 		}
 		result := make(map[string]any)
 		for k, val := range v {
+			newKey, err := t.transform(k)
+			if err != nil {
+				return nil, err
+			}
 			transformed, err := transformURL(val, t)
 			if err != nil {
 				return nil, err
 			}
-			result[k] = transformed
+			result[newKey] = transformed
 		}
 		return result, nil
 	default:
@@ -579,4 +590,76 @@ func sliceArray(arr []any, params []*int) (any, error) {
 	}
 
 	return nil, fmt.Errorf("slice accepts 0, 1, or 2 parameters, got %d", len(params))
+}
+
+func replace(value any, oldStr, newStr string) (any, error) {
+	return transformReplace(value, oldStr, newStr)
+}
+
+func transformReplace(value any, oldStr, newStr string) (any, error) {
+	switch v := value.(type) {
+	case string:
+		return strings.ReplaceAll(v, oldStr, newStr), nil
+
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		str := fmt.Sprintf("%v", v)
+		replaced := strings.ReplaceAll(str, oldStr, newStr)
+		if str != replaced {
+			if strings.Contains(replaced, ".") {
+				if f, err := strconv.ParseFloat(replaced, 64); err == nil {
+					return f, nil
+				}
+			} else {
+				if i, err := strconv.Atoi(replaced); err == nil {
+					return i, nil
+				}
+			}
+		}
+		return replaced, nil
+
+	case []any:
+		if len(v) == 0 {
+			return v, nil
+		}
+		result := make([]any, len(v))
+		for i, elem := range v {
+			transformed, err := transformReplace(elem, oldStr, newStr)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = transformed
+		}
+		return result, nil
+
+	case nil:
+		return nil, nil
+
+	case map[string]any:
+		if len(v) == 0 {
+			return make(map[string]any), nil
+		}
+		result := make(map[string]any)
+		for k, val := range v {
+			newKey := strings.ReplaceAll(k, oldStr, newStr)
+			transformed, err := transformReplace(val, oldStr, newStr)
+			if err != nil {
+				return nil, err
+			}
+			result[newKey] = transformed
+		}
+		return result, nil
+
+	default:
+		bytes, err := json.Marshal(v)
+		if err == nil {
+			var asMap map[string]any
+			if err := json.Unmarshal(bytes, &asMap); err == nil {
+				return transformReplace(asMap, oldStr, newStr)
+			}
+			return strings.ReplaceAll(string(bytes), oldStr, newStr), nil
+		}
+		return strings.ReplaceAll(fmt.Sprintf("%v", v), oldStr, newStr), nil
+	}
 }

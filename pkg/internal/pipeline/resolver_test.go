@@ -843,3 +843,80 @@ func TestPipelineFunctionsURL(t *testing.T) {
 		})
 	}
 }
+
+func TestPipelineFunctionsReplace(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		ctx      map[string]any
+		expected any
+		wantErr  bool
+	}{
+		{
+			name:     "replace number keeps number",
+			expr:     "${{ num | replace(1,9) }}",
+			ctx:      map[string]any{"num": 123},
+			expected: 923,
+		},
+		{
+			name: "replace map keys",
+			expr: "${{ data | replace(old,new) }}",
+			ctx: map[string]any{
+				"data": map[string]any{
+					"old_name": "old_value",
+					"other":    "test",
+				},
+			},
+			expected: map[string]any{
+				"new_name": "new_value",
+				"other":    "test",
+			},
+		},
+		{
+			name: "array replace",
+			expr: "${{ items | replace(apple,orange) }}",
+			ctx: map[string]any{
+				"items": []any{"apple", "banana", "cherry"},
+			},
+			expected: []any{"orange", "banana", "cherry"},
+		},
+		{
+			name: "strange struct with replace",
+			expr: "${{ strange | replace(HELLO,world) | replace(KEY,my_key) }}",
+			ctx: map[string]any{
+				"strange": StrangeStruct{
+					StringField: "HELLO",
+					NilField:    nil,
+					MapField:    map[string]any{"KEY": "Value"},
+					SliceField:  []string{},
+				},
+			},
+			expected: map[string]any{
+				"StringField": "world",
+				"NilField":    nil,
+				"MapField": map[string]any{
+					"my_key": "Value",
+				},
+				"SliceField":   []any{},
+				"PrivateField": "",
+			},
+		},
+		{
+			name:     "replace float keeps float",
+			expr:     "${{ num | replace(1,9) }}",
+			ctx:      map[string]any{"num": 123.14},
+			expected: 923.94,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ResolveExpressions(tc.expr, tc.ctx)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, got)
+		})
+	}
+}
