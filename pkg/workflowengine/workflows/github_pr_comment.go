@@ -62,11 +62,13 @@ func (w *GitHubPRCommentWorkflow) ExecuteWorkflow(
 		var update activities.UpdateGitHubPRCommentInput
 		selector := workflow.NewSelector(ctx)
 		receivedSignal := false
+		timerCtx, cancelTimer := workflow.WithCancel(ctx)
 		selector.AddReceive(signalCh, func(ch workflow.ReceiveChannel, more bool) {
 			ch.Receive(ctx, &update)
 			receivedSignal = true
+			cancelTimer()
 		})
-		selector.AddFuture(workflow.NewTimer(ctx, githubPRCommentWorkflowIdleTimeout), func(workflow.Future) {
+		selector.AddFuture(workflow.NewTimer(timerCtx, githubPRCommentWorkflowIdleTimeout), func(workflow.Future) {
 			receivedSignal = false
 		})
 		selector.Select(ctx)
