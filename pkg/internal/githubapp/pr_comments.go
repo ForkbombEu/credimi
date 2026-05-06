@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -106,7 +107,7 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 	var installation struct {
 		ID int64 `json:"id"`
 	}
-	if err := c.doJSON(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/%s/installation", owner, repo), jwtToken, nil, &installation); err != nil {
+	if err := c.doJSON(ctx, http.MethodGet, utils.JoinURL("", "repos", owner, repo, "installation"), jwtToken, nil, &installation); err != nil {
 		return "", err
 	}
 	if installation.ID <= 0 {
@@ -116,7 +117,14 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 	var tokenResp struct {
 		Token string `json:"token"`
 	}
-	if err := c.doJSON(ctx, http.MethodPost, fmt.Sprintf("/app/installations/%d/access_tokens", installation.ID), jwtToken, map[string]any{}, &tokenResp); err != nil {
+	if err := c.doJSON(
+		ctx,
+		http.MethodPost,
+		utils.JoinURL("", "app", "installations", strconv.FormatInt(installation.ID, 10), "access_tokens"),
+		jwtToken,
+		map[string]any{},
+		&tokenResp,
+	); err != nil {
 		return "", err
 	}
 	if strings.TrimSpace(tokenResp.Token) == "" {
@@ -126,7 +134,7 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 }
 
 func (c *Client) findCommentID(ctx context.Context, token, owner, repo string, prNumber int, marker string) (int64, error) {
-	path := fmt.Sprintf("/repos/%s/%s/issues/%d/comments?per_page=100", owner, repo, prNumber)
+	path := utils.JoinURL("", "repos", owner, repo, "issues", strconv.Itoa(prNumber), "comments") + "?per_page=100"
 	var comments []struct {
 		ID   int64  `json:"id"`
 		Body string `json:"body"`
@@ -149,7 +157,7 @@ func (c *Client) createComment(ctx context.Context, token, owner, repo string, p
 	err := c.doJSON(
 		ctx,
 		http.MethodPost,
-		fmt.Sprintf("/repos/%s/%s/issues/%d/comments", owner, repo, prNumber),
+		utils.JoinURL("", "repos", owner, repo, "issues", strconv.Itoa(prNumber), "comments"),
 		token,
 		map[string]any{"body": body},
 		&out,
@@ -164,7 +172,7 @@ func (c *Client) patchComment(ctx context.Context, token, owner, repo string, co
 	err := c.doJSON(
 		ctx,
 		http.MethodPatch,
-		fmt.Sprintf("/repos/%s/%s/issues/comments/%d", owner, repo, commentID),
+		utils.JoinURL("", "repos", owner, repo, "issues", "comments", strconv.FormatInt(commentID, 10)),
 		token,
 		map[string]any{"body": body},
 		&out,

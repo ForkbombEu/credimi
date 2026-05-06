@@ -6,6 +6,7 @@ package activities
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -149,7 +150,7 @@ func SignalGitHubPRCommentUpdate(ctx context.Context, input UpdateGitHubPRCommen
 
 func GitHubPRCommentWorkflowID(repository string, prNumber int) string {
 	repository = strings.Trim(strings.TrimSpace(repository), "/")
-	return fmt.Sprintf("github-pr-comment/%s/%d", repository, prNumber)
+	return utils.JoinURL("github-pr-comment", repository, strconv.Itoa(prNumber))
 }
 
 func buildGitHubPRCommentBody(input UpdateGitHubPRCommentInput) string {
