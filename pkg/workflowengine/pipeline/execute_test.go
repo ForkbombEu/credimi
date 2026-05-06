@@ -378,7 +378,7 @@ func TestExecuteStepWorkflow(t *testing.T) {
 				With: pipeline.StepInputs{
 					Config: map[string]any{
 						"taskqueue": "custom-queue",
-						"app_url":   "",
+						"app_url":   "https://example.test",
 					},
 					Payload: map[string]any{
 						"runner_id": "runner-1",
@@ -415,7 +415,7 @@ func TestExecuteStepWorkflow(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "custom-queue", result["taskqueue"])
-	require.Equal(t, "http://localhost:8090", result["app_url"])
+	require.Equal(t, "https://example.test", result["app_url"])
 }
 
 func TestFetchChildPipelineYAML(t *testing.T) {
