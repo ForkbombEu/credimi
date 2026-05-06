@@ -35,7 +35,6 @@ type UpdateGitHubPRCommentInput struct {
 	RunID             string `json:"run_id,omitempty"`
 	WorkflowStatus    string `json:"workflow_status,omitempty"`
 	ErrorMessage      string `json:"error_message,omitempty"`
-	CommentID         int64  `json:"comment_id,omitempty"`
 }
 
 type PatchGitHubPRCommentInput struct {

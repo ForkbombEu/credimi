@@ -75,9 +75,6 @@ func applyGitHubPRCommentUpdate(
 	if state.PullRequestNumber == 0 {
 		state.PullRequestNumber = update.PullRequestNumber
 	}
-	if state.CommentID == 0 && update.CommentID > 0 {
-		state.CommentID = update.CommentID
-	}
 	key := githubPRCommentSectionKey(update)
 	state.Sections[key] = update
 }
@@ -109,17 +106,19 @@ func patchGitHubPRComment(ctx workflow.Context, state *githubPRCommentWorkflowSt
 }
 
 func buildGitHubPRCommentDocument(state githubPRCommentWorkflowState) string {
-	lines := []string{
-		"Credimi wallet APK pipeline runs",
-		"",
-		githubapp.Marker(),
-	}
-
 	keys := make([]string, 0, len(state.Sections))
 	for key := range state.Sections {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
+
+	lines := make([]string, 0, 3+6*len(keys))
+	lines = append(
+		lines,
+		"Credimi wallet APK pipeline runs",
+		"",
+		githubapp.Marker(),
+	)
 
 	for _, key := range keys {
 		update := state.Sections[key]

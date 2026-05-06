@@ -137,21 +137,6 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			e.App.Settings().Meta.AppURL,
 			input.PipelineIdentifier,
 		)
-		if _, err := maybeCreateWalletAPKQueuedPRComment(
-			e.Request.Context(),
-			notification,
-			PipelineRunWalletAPKResponse{
-				PipelineQueueResponse: PipelineQueueResponse{
-					Status: workflows.MobileRunnerSemaphoreRunStatus("queued"),
-				},
-				PipelineIdentifier: input.PipelineIdentifier,
-			},
-		); err != nil {
-			e.App.Logger().Warn(fmt.Sprintf(
-				"failed to create initial github pr comment for wallet apk run: %v",
-				err,
-			))
-		}
 
 		queueResponse, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
 			pipelineRecord:     runContext.pipelineRecord,
@@ -177,7 +162,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			tempVersion.Identifier,
 			input.PipelineIdentifier,
 		)
-		if _, err := maybeCreateWalletAPKQueuedPRComment(
+		if err := maybeCreateWalletAPKQueuedPRComment(
 			e.Request.Context(),
 			notification,
 			response,

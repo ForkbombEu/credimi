@@ -1109,7 +1109,6 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 		Payload: activities.UpdateGitHubPRCommentInput{
 			Repository:        notification.GitHubPR.Repository,
 			PullRequestNumber: notification.GitHubPR.PullRequestNumber,
-			CommentID:         notification.GitHubPR.CommentID,
 			CommitSHA:         notification.GitHubPR.CommitSHA,
 			TicketID:          ticketID,
 			Status:            string(status),

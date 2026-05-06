@@ -672,19 +672,17 @@ func TestPipelineRunWalletAPKCreatesGitHubPRQueuedComment(t *testing.T) {
 	}
 	scenario.Test(t)
 
-	require.Len(t, commenter.updates, 2)
+	require.Len(t, commenter.updates, 1)
 	require.Equal(t, "forkbombeu/wallet", commenter.updates[0].Repository)
 	require.Equal(t, 17, commenter.updates[0].PullRequestNumber)
 	require.Equal(t, "abcdef1234567890", commenter.updates[0].CommitSHA)
-	require.Equal(t, "queued", string(commenter.updates[0].Status))
-	require.Nil(t, commenter.updates[0].Position)
-	require.Equal(t, "queued", string(commenter.updates[1].Status))
-	require.NotNil(t, commenter.updates[1].Position)
-	require.Equal(t, 1, *commenter.updates[1].Position)
+	require.Equal(t, "queued", commenter.updates[0].Status)
+	require.NotNil(t, commenter.updates[0].Position)
+	require.Equal(t, 1, *commenter.updates[0].Position)
 	require.Equal(
 		t,
 		"https://credimi.test/my/pipelines/usera-s-organization/pipeline123",
-		commenter.updates[1].PipelineURL,
+		commenter.updates[0].PipelineURL,
 	)
 	require.Len(t, queueStub.enqueueRequests, 1)
 	require.NotNil(t, queueStub.enqueueRequests[0].Notification)

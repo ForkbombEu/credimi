@@ -93,7 +93,6 @@ type MobileRunnerSemaphoreNotification struct {
 type MobileRunnerSemaphoreGitHubPRNotification struct {
 	Repository         string `json:"repository,omitempty"`
 	PullRequestNumber  int    `json:"pull_request_number,omitempty"`
-	CommentID          int64  `json:"comment_id,omitempty"`
 	CommitSHA          string `json:"commit_sha,omitempty"`
 	PipelineIdentifier string `json:"pipeline_identifier,omitempty"`
 	PipelineURL        string `json:"pipeline_url,omitempty"`
