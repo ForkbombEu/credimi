@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/githubapp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/workflow"
 )
+
+const githubPRCommentWorkflowIdleTimeout = 24 * time.Hour
 
 type GitHubPRCommentWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
@@ -57,7 +60,19 @@ func (w *GitHubPRCommentWorkflow) ExecuteWorkflow(
 
 	for {
 		var update activities.UpdateGitHubPRCommentInput
-		signalCh.Receive(ctx, &update)
+		selector := workflow.NewSelector(ctx)
+		receivedSignal := false
+		selector.AddReceive(signalCh, func(ch workflow.ReceiveChannel, more bool) {
+			ch.Receive(ctx, &update)
+			receivedSignal = true
+		})
+		selector.AddFuture(workflow.NewTimer(ctx, githubPRCommentWorkflowIdleTimeout), func(workflow.Future) {
+			receivedSignal = false
+		})
+		selector.Select(ctx)
+		if !receivedSignal {
+			return workflowengine.WorkflowResult{}, nil
+		}
 		applyGitHubPRCommentUpdate(&state, update)
 		if err := patchGitHubPRComment(ctx, &state); err != nil {
 			workflow.GetLogger(ctx).Error("failed to patch github pr comment", "error", err)
