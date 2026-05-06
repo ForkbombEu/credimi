@@ -695,3 +695,151 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestPipelineFunctionsURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		ctx      map[string]any
+		expected any
+		wantErr  bool
+	}{
+		{
+			name: "simple url encode",
+			expr: "${{ result | url_encode }}",
+			ctx: map[string]any{
+				"result": "  hello world  ",
+			},
+			expected: "%20%20hello%20world%20%20",
+		},
+		{
+			name: "simple url decode",
+			expr: "${{ name | url_decode }}",
+			ctx: map[string]any{
+				"name": "%20%20hello%20world%20%20",
+			},
+			expected: "  hello world  ",
+		},
+		{
+			name: "number url encode",
+			expr: "${{ number | url_encode }}",
+			ctx: map[string]any{
+				"number": 123,
+			},
+			expected: 123,
+		},
+		{
+			name: "pipeline output url encode",
+			expr: "${{ pipeline_output | url_encode }}",
+			ctx: map[string]any{
+				"pipeline_output": "test output",
+			},
+			expected: "test%20output",
+		},
+		{
+			name: "complex json object with url encode",
+			expr: "${{ complexObject | url_encode }}",
+			ctx: map[string]any{
+				"complexObject": map[string]any{
+					"hello": map[string]any{
+						"world": "heLLo",
+					},
+					"message": " hEllO: { WorlD: {heLLo}} ",
+				},
+			},
+			expected: map[string]any{
+				"hello": map[string]any{
+					"world": "heLLo",
+				},
+				"message": "%20hEllO:%20%7B%20WorlD:%20%7BheLLo%7D%7D%20",
+			},
+		},
+		{
+			name: "strange struct url encode",
+			expr: "${{ strange | url_encode }}",
+			ctx: map[string]any{
+				"strange": StrangeStruct{
+					StringField: "hello",
+					NilField:    nil,
+					MapField:    map[string]any{"key": "value"},
+					SliceField:  []string{},
+				},
+			},
+			expected: map[string]any{
+				"StringField": "hello",
+				"NilField":    nil,
+				"MapField": map[string]any{
+					"key": "value",
+				},
+				"SliceField":   []any{},
+				"PrivateField": "",
+			},
+		},
+		{
+			name: "number url decode",
+			expr: "${{ number | url_decode}}",
+			ctx: map[string]any{
+				"number": 123,
+			},
+			expected: 123,
+		},
+		{
+			name: "complex json object url decode",
+			expr: "${{ complexObject | url_decode }}",
+			ctx: map[string]any{
+				"complexObject": map[string]any{
+					"hello": map[string]any{
+						"world": "heLLo",
+					},
+					"message": "%20hEllO:%20%7B%20WorlD:%20%7BheLLo%7D%7D%20",
+				},
+			},
+			expected: map[string]any{
+				"hello": map[string]any{
+					"world": "heLLo",
+				},
+				"message": " hEllO: { WorlD: {heLLo}} ",
+			},
+		},
+		{
+			name: "array url encode",
+			expr: "${{ items | url_encode}}",
+			ctx: map[string]any{
+				"items": []any{"APPLE ", "BANANA"},
+			},
+			expected: []any{"APPLE%20", "BANANA"},
+		},
+		{
+			name: "strange struct with url decode",
+			expr: "${{ strange | url_decode }}",
+			ctx: map[string]any{
+				"strange": StrangeStruct{
+					StringField: "HELLO",
+					NilField:    nil,
+					MapField:    map[string]any{"KEY": "V%C3%A0lue"},
+					SliceField:  []string{},
+				},
+			},
+			expected: map[string]any{
+				"StringField": "HELLO",
+				"NilField":    nil,
+				"MapField": map[string]any{
+					"KEY": "Vàlue",
+				},
+				"SliceField":   []any{},
+				"PrivateField": "",
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ResolveExpressions(tc.expr, tc.ctx)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, got)
+		})
+	}
+}

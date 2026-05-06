@@ -6,6 +6,7 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -98,6 +99,10 @@ func ApplyFunction(value any, funcName string) (any, error) {
 			return toUpper(value), nil
 		case "lower":
 			return toLower(value), nil
+		case "url_encode":
+			return urlEncode(value), nil
+		case "url_decode":
+			return urlDecode(value)
 		default:
 			return nil, fmt.Errorf("unknown function: %s", funcName)
 		}
@@ -322,6 +327,27 @@ var (
 	}
 )
 
+type urlTransformer struct {
+	transform func(string) (string, error)
+}
+
+var (
+	urlEncoder = urlTransformer{
+		transform: func(s string) (string, error) {
+			return url.PathEscape(s), nil
+		},
+	}
+	urlDecoder = urlTransformer{
+		transform: func(s string) (string, error) {
+			decoded, err := url.PathUnescape(s)
+			if err != nil {
+				return "", fmt.Errorf("failed to decode URL string %q: %w", s, err)
+			}
+			return decoded, nil
+		},
+	}
+)
+
 func transform(value any, t caseTransformer) any {
 	switch v := value.(type) {
 	case string:
@@ -369,6 +395,64 @@ func toUpper(value any) any {
 
 func toLower(value any) any {
 	return transform(value, lowerTransformer)
+}
+
+func transformURL(value any, t urlTransformer) (any, error) {
+	switch v := value.(type) {
+	case string:
+		return t.transform(v)
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return v, nil
+	case []any:
+		if len(v) == 0 {
+			return v, nil
+		}
+		result := make([]any, len(v))
+		for i, elem := range v {
+			transformed, err := transformURL(elem, t)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = transformed
+		}
+		return result, nil
+	case nil:
+		return nil, nil
+	case map[string]any:
+		if len(v) == 0 {
+			return make(map[string]any), nil
+		}
+		result := make(map[string]any)
+		for k, val := range v {
+			transformed, err := transformURL(val, t)
+			if err != nil {
+				return nil, err
+			}
+			result[k] = transformed
+		}
+		return result, nil
+	default:
+		bytes, err := json.Marshal(v)
+		if err == nil {
+			var asMap map[string]any
+			if err := json.Unmarshal(bytes, &asMap); err == nil {
+				return transformURL(asMap, t)
+			}
+			return t.transform(string(bytes))
+		}
+		return t.transform(fmt.Sprintf("%v", v))
+	}
+}
+
+func urlEncode(value any) any {
+	result, _ := transformURL(value, urlEncoder)
+	return result
+}
+
+func urlDecode(value any) (any, error) {
+	return transformURL(value, urlDecoder)
 }
 
 // slice extracts a substring or array subset based on 0-based indices.
