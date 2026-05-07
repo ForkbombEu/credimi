@@ -1170,25 +1170,26 @@ func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 		require.Equal(t, "wallet is not owned by caller or published", apiErr.Reason)
 	})
 
-	t.Run("rejects duplicate commit sha for wallet owner", func(t *testing.T) {
+	t.Run("allows duplicate commit sha through canonified tag suffix", func(t *testing.T) {
 		app := setupPipelineWalletAPKApp(t)
 		defer app.Cleanup()
 
 		wallet := createWalletAPKWallet(t, app, orgID, "wallet-temp-duplicate")
-		_, apiErr := createPipelineRunWalletAPKTempVersion(
+		first, apiErr := createPipelineRunWalletAPKTempVersion(
 			app,
 			newRunContext(t, app, wallet, "ABC-123"),
 		)
 		require.Nil(t, apiErr)
+		require.Equal(t, "abc-123", first.Record.GetString("canonified_tag"))
 
-		_, apiErr = createPipelineRunWalletAPKTempVersion(
+		second, apiErr := createPipelineRunWalletAPKTempVersion(
 			app,
 			newRunContext(t, app, wallet, "abc-123"),
 		)
 
-		require.NotNil(t, apiErr)
-		require.Equal(t, http.StatusConflict, apiErr.Code)
-		require.Equal(t, "temporary wallet version already exists", apiErr.Reason)
+		require.Nil(t, apiErr)
+		require.Equal(t, "abc-123-1", second.Record.GetString("canonified_tag"))
+		require.Equal(t, "usera-s-organization/wallet-temp-duplicate/abc-123-1", second.Identifier)
 	})
 }
 
