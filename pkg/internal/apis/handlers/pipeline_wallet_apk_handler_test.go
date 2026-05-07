@@ -118,7 +118,7 @@ func createWalletAPKMobileRunner(
 	name string,
 	runnerType string,
 	published bool,
-) *core.Record {
+) {
 	t.Helper()
 
 	coll, err := app.FindCollectionByNameOrId("mobile_runners")
@@ -131,8 +131,6 @@ func createWalletAPKMobileRunner(
 	record.Set("type", runnerType)
 	record.Set("published", published)
 	require.NoError(t, app.Save(record))
-
-	return record
 }
 
 func createWalletAPKWallet(
