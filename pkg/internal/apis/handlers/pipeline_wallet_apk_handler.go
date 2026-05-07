@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -547,31 +546,6 @@ func createPipelineRunWalletAPKTempVersion(
 			"metadata",
 			"metadata.sha is invalid",
 			"metadata.sha cannot be canonified",
-		)
-	}
-
-	existing, err := app.FindFirstRecordByFilter(
-		"wallet_versions",
-		"wallet = {:wallet} && canonified_tag = {:tag}",
-		dbx.Params{
-			"wallet": runContext.walletRecord.Id,
-			"tag":    tag,
-		},
-	)
-	if err == nil && existing != nil {
-		return tempWalletVersion{}, apierror.New(
-			http.StatusConflict,
-			"wallet_version",
-			"temporary wallet version already exists",
-			"wallet version with this metadata.sha already exists",
-		)
-	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return tempWalletVersion{}, apierror.New(
-			http.StatusInternalServerError,
-			"wallet_version",
-			"failed to check existing wallet version",
-			err.Error(),
 		)
 	}
 
