@@ -7,7 +7,7 @@ Maestro is the UI automation layer used by Credimi for Wallet-side behavior.
 
 
 
-## IMPORTAN: read this first! 
+## IMPORTANT: read this first! 
 
 1. We use [Maestro documentation](https://docs.maestro.dev/reference/commands-available) for mobile automation, working on Android and iOS. 
 
