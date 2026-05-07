@@ -5,6 +5,7 @@
 package workflows
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -26,14 +27,70 @@ func TestGitHubPRCommentWorkflowIdleTimeout(t *testing.T) {
 	require.NoError(t, env.GetWorkflowError())
 }
 
-func TestBuildGitHubPRCommentDocumentUsesMarkdownTitle(t *testing.T) {
+func TestBuildGitHubPRCommentDocumentGroupsRunsUnderCommitTitle(t *testing.T) {
 	document := buildGitHubPRCommentDocument(githubPRCommentWorkflowState{
+		LatestCommitSHA: "abc123456789",
 		Sections: map[string]activities.UpdateGitHubPRCommentInput{
-			"abc1234": {Status: "running"},
+			"abc1234::org/pipeline::org/runner-1": {
+				CommitSHA:  "abc123456789",
+				PipelineID: "org/pipeline",
+				RunnerID:   "org/runner-1",
+				RunnerType: "android_phone",
+				Status:     "running",
+			},
+			"abc1234::org/pipeline-2::org/runner-2": {
+				CommitSHA:  "abc123456789",
+				PipelineID: "org/pipeline-2",
+				RunnerID:   "org/runner-2",
+				RunnerType: "android_emulator",
+				Status:     "queued",
+			},
 		},
 	})
 
 	require.Contains(t, document, "## Credimi wallet APK pipeline runs")
 	require.Contains(t, document, "### `abc1234`")
-	require.NotContains(t, document, "### `abc1234` · Credimi wallet APK")
+	require.Equal(t, 1, strings.Count(document, "### `"))
+	require.Contains(t, document, "| Pipeline ID | `org/pipeline` |")
+	require.Contains(t, document, "| Runner | `org/runner-1(android_phone)` |")
+	require.Contains(t, document, "| Pipeline ID | `org/pipeline-2` |")
+	require.Contains(t, document, "| Runner | `org/runner-2(android_emulator)` |")
+	require.NotContains(t, document, "### `abc1234 /")
+}
+
+func TestApplyGitHubPRCommentUpdateKeepsLatestCommitOnly(t *testing.T) {
+	state := githubPRCommentWorkflowState{
+		Sections: map[string]activities.UpdateGitHubPRCommentInput{},
+	}
+
+	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "oldcommit",
+		PipelineID: "pipeline-a",
+		RunnerID:   "runner-1",
+		Status:     "queued",
+	})
+	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "newcommit",
+		PipelineID: "pipeline-a",
+		RunnerID:   "runner-1",
+		Status:     "queued",
+	})
+	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "oldcommit",
+		PipelineID: "pipeline-a",
+		RunnerID:   "runner-1",
+		Status:     "running",
+	})
+	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "newcommit",
+		PipelineID: "pipeline-b",
+		RunnerID:   "runner-2",
+		Status:     "queued",
+	})
+
+	require.Equal(t, "newcommit", state.LatestCommitSHA)
+	require.Len(t, state.Sections, 2)
+	require.Contains(t, state.Sections, "newcomm::pipeline-a::runner-1")
+	require.Contains(t, state.Sections, "newcomm::pipeline-b::runner-2")
+	require.NotContains(t, state.Sections, "oldcomm::pipeline-a::runner-1")
 }

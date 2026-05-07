@@ -30,6 +30,9 @@ type UpdateGitHubPRCommentInput struct {
 	TicketID          string `json:"ticket_id"`
 	Status            string `json:"status"`
 	Position          *int   `json:"position,omitempty"`
+	PipelineID        string `json:"pipeline_id,omitempty"`
+	RunnerID          string `json:"runner_id,omitempty"`
+	RunnerType        string `json:"runner_type,omitempty"`
 	PipelineURL       string `json:"pipeline_url,omitempty"`
 	AppURL            string `json:"app_url,omitempty"`
 	WorkflowID        string `json:"workflow_id,omitempty"`
@@ -170,6 +173,12 @@ func buildGitHubPRCommentBody(input UpdateGitHubPRCommentInput) string {
 	if input.Position != nil && status == "queued" {
 		tableRows = append(tableRows, [2]string{"Queue position", fmt.Sprintf("`%d`", *input.Position)})
 	}
+	if strings.TrimSpace(input.PipelineID) != "" {
+		tableRows = append(tableRows, [2]string{"Pipeline ID", fmt.Sprintf("`%s`", markdownTableCell(input.PipelineID))})
+	}
+	if runner := formatPRCommentRunner(input.RunnerID, input.RunnerType); runner != "" {
+		tableRows = append(tableRows, [2]string{"Runner", fmt.Sprintf("`%s`", markdownTableCell(runner))})
+	}
 	if strings.TrimSpace(input.PipelineURL) != "" {
 		tableRows = append(tableRows, [2]string{"Pipeline", markdownLink("Open pipeline", input.PipelineURL)})
 	}
@@ -240,6 +249,18 @@ func prCommentBadgeColor(status string) string {
 	default:
 		return "informational"
 	}
+}
+
+func formatPRCommentRunner(runnerID string, runnerType string) string {
+	runnerID = strings.TrimSpace(runnerID)
+	runnerType = strings.TrimSpace(runnerType)
+	if runnerID == "" {
+		return ""
+	}
+	if runnerType == "" {
+		return runnerID
+	}
+	return fmt.Sprintf("%s(%s)", runnerID, runnerType)
 }
 
 func formatWorkflowResult(status string) string {

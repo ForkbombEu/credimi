@@ -164,6 +164,8 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			input.Metadata,
 			e.App.Settings().Meta.AppURL,
 			input.PipelineIdentifier,
+			runnerID,
+			resolveWalletAPKGitHubPRRunnerType(e.App, runnerID, input.RunnerType),
 		)
 
 		queueResponse, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
@@ -203,6 +205,20 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+func resolveWalletAPKGitHubPRRunnerType(app core.App, runnerID string, requestedRunnerType string) string {
+	if runnerType := strings.TrimSpace(requestedRunnerType); runnerType != "" {
+		return runnerType
+	}
+	if strings.TrimSpace(runnerID) == "" {
+		return ""
+	}
+	record, err := canonify.Resolve(app, runnerID)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(record.GetString("type"))
 }
 
 func buildPipelineRunWalletAPKCleanupMetadata(

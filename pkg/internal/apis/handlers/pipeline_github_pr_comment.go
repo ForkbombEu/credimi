@@ -18,6 +18,8 @@ func buildWalletAPKGitHubPRNotification(
 	metadata map[string]any,
 	appURL string,
 	pipelineIdentifier string,
+	runnerID string,
+	runnerType string,
 ) *workflows.MobileRunnerSemaphoreNotification {
 	repository := metadataString(metadata, "repository")
 	prNumber := pullRequestNumberFromMetadata(metadata)
@@ -31,6 +33,8 @@ func buildWalletAPKGitHubPRNotification(
 			PullRequestNumber:  prNumber,
 			CommitSHA:          metadataString(metadata, "event.pull_request.head.sha"),
 			PipelineIdentifier: pipelineIdentifier,
+			RunnerID:           runnerID,
+			RunnerType:         runnerType,
 			PipelineURL:        buildPipelinePageURL(appURL, pipelineIdentifier),
 			AppURL:             appURL,
 		},
@@ -51,6 +55,9 @@ func maybeCreateWalletAPKQueuedPRComment(
 		CommitSHA:         notification.GitHubPR.CommitSHA,
 		Status:            string(response.Status),
 		Position:          response.Position,
+		PipelineID:        notification.GitHubPR.PipelineIdentifier,
+		RunnerID:          githubPRCommentRunnerID(notification.GitHubPR.RunnerID, response.RunnerIDs),
+		RunnerType:        notification.GitHubPR.RunnerType,
 		PipelineURL:       notification.GitHubPR.PipelineURL,
 		AppURL:            notification.GitHubPR.AppURL,
 		WorkflowID:        response.WorkflowID,
@@ -58,6 +65,16 @@ func maybeCreateWalletAPKQueuedPRComment(
 		TicketID:          response.TicketID,
 		ErrorMessage:      response.ErrorMessage,
 	})
+}
+
+func githubPRCommentRunnerID(runnerID string, runnerIDs []string) string {
+	if strings.TrimSpace(runnerID) != "" {
+		return runnerID
+	}
+	if len(runnerIDs) == 0 {
+		return ""
+	}
+	return runnerIDs[0]
 }
 
 func pullRequestNumberFromMetadata(metadata map[string]any) int {

@@ -251,6 +251,18 @@ func enqueuePipelineRun(
 	}
 
 	leaderRunnerID := runnerIDs[0]
+	if runContext.notification != nil && runContext.notification.GitHubPR != nil {
+		if strings.TrimSpace(runContext.notification.GitHubPR.RunnerID) == "" {
+			runContext.notification.GitHubPR.RunnerID = leaderRunnerID
+		}
+		if strings.TrimSpace(runContext.notification.GitHubPR.RunnerType) == "" {
+			runContext.notification.GitHubPR.RunnerType = resolveWalletAPKGitHubPRRunnerType(
+				e.App,
+				leaderRunnerID,
+				"",
+			)
+		}
+	}
 	now := time.Now().UTC()
 	ticketID := uuid.NewString()
 

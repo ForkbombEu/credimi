@@ -95,6 +95,8 @@ type MobileRunnerSemaphoreGitHubPRNotification struct {
 	PullRequestNumber  int    `json:"pull_request_number,omitempty"`
 	CommitSHA          string `json:"commit_sha,omitempty"`
 	PipelineIdentifier string `json:"pipeline_identifier,omitempty"`
+	RunnerID           string `json:"runner_id,omitempty"`
+	RunnerType         string `json:"runner_type,omitempty"`
 	PipelineURL        string `json:"pipeline_url,omitempty"`
 	AppURL             string `json:"app_url,omitempty"`
 }

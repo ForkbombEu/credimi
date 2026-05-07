@@ -25,6 +25,7 @@ type githubPRCommentWorkflowState struct {
 	Repository        string
 	PullRequestNumber int
 	CommentID         int64
+	LatestCommitSHA   string
 	Sections          map[string]activities.UpdateGitHubPRCommentInput
 }
 
@@ -92,8 +93,43 @@ func applyGitHubPRCommentUpdate(
 	if state.PullRequestNumber == 0 {
 		state.PullRequestNumber = update.PullRequestNumber
 	}
+	if !applyGitHubPRCommentCommitScope(state, update) {
+		return
+	}
 	key := githubPRCommentSectionKey(update)
 	state.Sections[key] = update
+}
+
+func applyGitHubPRCommentCommitScope(
+	state *githubPRCommentWorkflowState,
+	update activities.UpdateGitHubPRCommentInput,
+) bool {
+	commitSHA := strings.TrimSpace(update.CommitSHA)
+	if commitSHA == "" {
+		return true
+	}
+	if state.LatestCommitSHA == "" {
+		state.LatestCommitSHA = commitSHA
+		return true
+	}
+	if commitSHA == state.LatestCommitSHA {
+		return true
+	}
+	if !isGitHubPRCommentNewCommitUpdate(update) {
+		return false
+	}
+	state.LatestCommitSHA = commitSHA
+	state.Sections = map[string]activities.UpdateGitHubPRCommentInput{}
+	return true
+}
+
+func isGitHubPRCommentNewCommitUpdate(update activities.UpdateGitHubPRCommentInput) bool {
+	switch strings.ToLower(strings.TrimSpace(update.Status)) {
+	case "", "queued", "starting":
+		return true
+	default:
+		return false
+	}
 }
 
 func patchGitHubPRComment(ctx workflow.Context, state *githubPRCommentWorkflowState) error {
@@ -137,15 +173,16 @@ func buildGitHubPRCommentDocument(state githubPRCommentWorkflowState) string {
 		githubapp.Marker(),
 	)
 
+	if title := githubPRCommentDocumentTitle(state, keys); title != "" {
+		lines = append(lines, "", fmt.Sprintf("### `%s`", title))
+	}
+
 	for _, key := range keys {
 		update := state.Sections[key]
-		title := githubPRCommentSectionTitle(update, key)
 		lines = append(
 			lines,
 			"",
 			fmt.Sprintf("<!-- credimi-wallet-apk-run:%s:start -->", key),
-			fmt.Sprintf("### `%s`", title),
-			"",
 			activities.BuildGitHubPRCommentBodyForWorkflow(update),
 			fmt.Sprintf("<!-- credimi-wallet-apk-run:%s:end -->", key),
 		)
@@ -154,12 +191,18 @@ func buildGitHubPRCommentDocument(state githubPRCommentWorkflowState) string {
 }
 
 func githubPRCommentSectionKey(update activities.UpdateGitHubPRCommentInput) string {
-	sha := strings.TrimSpace(update.CommitSHA)
-	if sha != "" {
-		if len(sha) > 7 {
-			return sha[:7]
-		}
-		return sha
+	parts := make([]string, 0, 3)
+	if sha := shortGitHubPRCommentSHA(update.CommitSHA); sha != "" {
+		parts = append(parts, sha)
+	}
+	if pipelineID := strings.TrimSpace(update.PipelineID); pipelineID != "" {
+		parts = append(parts, pipelineID)
+	}
+	if runnerID := strings.TrimSpace(update.RunnerID); runnerID != "" {
+		parts = append(parts, runnerID)
+	}
+	if len(parts) > 0 {
+		return strings.Join(parts, "::")
 	}
 	if update.TicketID != "" {
 		return update.TicketID
@@ -167,10 +210,22 @@ func githubPRCommentSectionKey(update activities.UpdateGitHubPRCommentInput) str
 	return "run"
 }
 
-func githubPRCommentSectionTitle(update activities.UpdateGitHubPRCommentInput, key string) string {
-	sha := strings.TrimSpace(update.CommitSHA)
+func githubPRCommentDocumentTitle(state githubPRCommentWorkflowState, keys []string) string {
+	if sha := shortGitHubPRCommentSHA(state.LatestCommitSHA); sha != "" {
+		return sha
+	}
+	for _, key := range keys {
+		if sha := shortGitHubPRCommentSHA(state.Sections[key].CommitSHA); sha != "" {
+			return sha
+		}
+	}
+	return ""
+}
+
+func shortGitHubPRCommentSHA(sha string) string {
+	sha = strings.TrimSpace(sha)
 	if sha == "" {
-		return key
+		return ""
 	}
 	if len(sha) > 7 {
 		return sha[:7]
