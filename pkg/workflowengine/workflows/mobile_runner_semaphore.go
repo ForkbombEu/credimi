@@ -619,6 +619,8 @@ func (r *mobileRunnerSemaphoreRuntime) awaitContinue() (workflowengine.WorkflowR
 }
 
 func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) error {
+	defer r.notifyQueuedPositionUpdates(ctx)
+
 	if err := r.startReadyRuns(ctx); err != nil {
 		return err
 	}
@@ -1100,11 +1102,12 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 	if notification == nil || notification.GitHubPR == nil {
 		return
 	}
-	if state.Request.LeaderRunnerID != "" && state.Request.LeaderRunnerID != r.runnerID {
-		return
-	}
 	updateActivity := activities.NewUpdateGitHubPRCommentActivity()
 	activityOptions := DefaultActivityOptions
+	runnerType := ""
+	if notification.GitHubPR.RunnerID == r.runnerID {
+		runnerType = notification.GitHubPR.RunnerType
+	}
 	input := workflowengine.ActivityInput{
 		Payload: activities.UpdateGitHubPRCommentInput{
 			Repository:        notification.GitHubPR.Repository,
@@ -1114,8 +1117,8 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 			Status:            string(status),
 			Position:          position,
 			PipelineID:        notification.GitHubPR.PipelineIdentifier,
-			RunnerID:          notification.GitHubPR.RunnerID,
-			RunnerType:        notification.GitHubPR.RunnerType,
+			RunnerID:          r.runnerID,
+			RunnerType:        runnerType,
 			PipelineURL:       notification.GitHubPR.PipelineURL,
 			AppURL:            notification.GitHubPR.AppURL,
 			WorkflowID:        state.WorkflowID,
