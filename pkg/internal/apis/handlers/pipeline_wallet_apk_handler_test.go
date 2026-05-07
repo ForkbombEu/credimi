@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -108,6 +109,30 @@ func blankWalletAPITestPipelineYAML(t testing.TB, app *tests.TestApp, pipelineID
 		`UPDATE pipelines SET yaml = '' WHERE id = {:id}`,
 	).Bind(dbx.Params{"id": pipelineID}).Execute()
 	require.NoError(t, err)
+}
+
+func createWalletAPKMobileRunner(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	name string,
+	runnerType string,
+	published bool,
+) *core.Record {
+	t.Helper()
+
+	coll, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("owner", orgID)
+	record.Set("name", name)
+	record.Set("ip", "https://"+strings.ReplaceAll(strings.ToLower(name), " ", "-")+".example.test")
+	record.Set("type", runnerType)
+	record.Set("published", published)
+	require.NoError(t, app.Save(record))
+
+	return record
 }
 
 func createWalletAPKWallet(
@@ -753,11 +778,128 @@ func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
 	)
 }
 
+func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
+
+	origQueueState := queryMobileRunnerSemaphoreState
+	t.Cleanup(func() { queryMobileRunnerSemaphoreState = origQueueState })
+	origHealthCheck := walletAPKRunnerHealthCheck
+	t.Cleanup(func() { walletAPKRunnerHealthCheck = origHealthCheck })
+	walletAPKRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
+		return !strings.Contains(runnerURL, "offline-runner"), nil
+	}
+	queryMobileRunnerSemaphoreState = func(
+		_ context.Context,
+		runnerID string,
+	) (workflows.MobileRunnerSemaphoreStateView, error) {
+		switch runnerID {
+		case "usera-s-organization/busy-runner":
+			return workflows.MobileRunnerSemaphoreStateView{
+				RunnerID:  runnerID,
+				QueueLen:  2,
+				SlotsUsed: 1,
+			}, nil
+		case "usera-s-organization/free-runner":
+			return workflows.MobileRunnerSemaphoreStateView{
+				RunnerID: runnerID,
+				QueueLen: 1,
+			}, nil
+		default:
+			return workflows.MobileRunnerSemaphoreStateView{}, errSemaphoreNotFound
+		}
+	}
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	scenario := tests.ApiScenario{
+		Name:   "selects published runner with shortest queue for runner_type",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/run-wallet-apk",
+		Headers: map[string]string{
+			"Content-Type":    "application/json",
+			"Credimi-Api-Key": walletAPKUserAPIKey,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"metadata":            walletAPKMetadata(),
+			"runner_type":         "android_phone",
+			"apk_url":             "http://ci.example.test/wallet.apk",
+		}),
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"status":"queued"`,
+			`"runner_ids":["usera-s-organization/free-runner"]`,
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineWalletAPKApp(t)
+			seedWalletAPKUserAPIKey(t, app)
+			versionID := createWalletAPKVersion(t, app, orgID, "wallet-runner-type", "1.0.0")
+			createWalletAPITestPipeline(
+				t,
+				app,
+				orgID,
+				walletAPKPipelineYAMLWithoutRunner(versionID),
+			)
+			createWalletAPKMobileRunner(t, app, orgID, "Busy Runner", "android_phone", true)
+			createWalletAPKMobileRunner(t, app, orgID, "Free Runner", "android_phone", true)
+			createWalletAPKMobileRunner(t, app, orgID, "Offline Runner", "android_phone", true)
+			createWalletAPKMobileRunner(t, app, orgID, "Hidden Runner", "android_phone", false)
+			createWalletAPKMobileRunner(t, app, orgID, "Other Type", "ios_phone", true)
+			return app
+		},
+	}
+	scenario.Test(t)
+
+	require.Len(t, queueStub.enqueueRequests, 1)
+	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
+	require.NoError(t, err)
+	require.Equal(t, "usera-s-organization/free-runner", workflow.Runtime.GlobalRunnerID)
+}
+
+func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T) {
+	origHealthCheck := walletAPKRunnerHealthCheck
+	t.Cleanup(func() { walletAPKRunnerHealthCheck = origHealthCheck })
+	walletAPKRunnerHealthCheck = func(_ context.Context, _ string) (bool, error) {
+		return false, nil
+	}
+
+	app := setupPipelineWalletAPKApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	createWalletAPKMobileRunner(t, app, orgID, "Offline One", "android_phone", true)
+	createWalletAPKMobileRunner(t, app, orgID, "Offline Two", "android_phone", true)
+
+	runnerID, apiErr := selectPipelineRunWalletAPKRunnerByType(
+		context.Background(),
+		app,
+		"android_phone",
+	)
+
+	require.Empty(t, runnerID)
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusServiceUnavailable, apiErr.Code)
+	require.Equal(t, "no online published runner found for runner_type", apiErr.Reason)
+}
+
 func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 	t.Run("rejects step runner ids", func(t *testing.T) {
-		_, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(
 			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
+		)
+		require.Nil(t, apiErr)
+		hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+
+		_, apiErr = injectPipelineRunWalletAPKGlobalRunnerID(
+			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
+			workflowDefinition,
 			"runner-global",
+			hasStepRunner,
+			needsGlobalRunner,
 		)
 
 		require.NotNil(t, apiErr)
@@ -767,11 +909,34 @@ func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 
 	t.Run("leaves yaml unchanged when runner id is empty", func(t *testing.T) {
 		inputYAML := "name: test\nsteps: []\n"
-		got, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(inputYAML, "")
+		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(inputYAML)
+		require.Nil(t, apiErr)
+		hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+
+		got, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+			inputYAML,
+			workflowDefinition,
+			"",
+			hasStepRunner,
+			needsGlobalRunner,
+		)
 
 		require.Nil(t, apiErr)
 		require.Equal(t, inputYAML, got)
 	})
+}
+
+func TestValidatePipelineRunWalletAPKRequestRejectsInvalidRunnerType(t *testing.T) {
+	apiErr := validatePipelineRunWalletAPKRequest(pipelineRunWalletAPKRequest{
+		PipelineIdentifier: "usera-s-organization/pipeline123",
+		CommitSHA:          "abc123",
+		RunnerType:         "desktop",
+		APKURL:             "http://ci.example.test/wallet.apk",
+	})
+
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "runner_type is invalid", apiErr.Reason)
 }
 
 func TestPipelineRunWalletAPKRollsBackTempVersionOnQueueFailure(t *testing.T) {
