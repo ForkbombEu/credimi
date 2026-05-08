@@ -191,7 +191,8 @@ $(BINARY_NAME)-ui: $(UI_SRC)
 	kill $$PID;
 
 docker: $(DATA) submodules ## 🐳 run docker with all the infrastructure services
-	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090"
+	EXTRA_BUILD_ARGS=""; [ -n "$$CREDIMI_EXTRA_PAT" ] && EXTRA_BUILD_ARGS="--build-arg CREDIMI_EXTRA_PAT=$$CREDIMI_EXTRA_PAT"; \
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090" $$EXTRA_BUILD_ARGS
 	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose up
 
 ## Misc
