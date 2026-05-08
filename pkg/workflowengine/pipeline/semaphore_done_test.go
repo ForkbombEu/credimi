@@ -98,7 +98,8 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 				payload.OwnerNamespace == "tenant-1" &&
 				payload.LeaderRunnerID == "runner-1" &&
 				payload.WorkflowID == "default-test-workflow-id" &&
-				payload.RunID == "default-test-run-id"
+				payload.RunID == "default-test-run-id" &&
+				payload.WorkflowResult == resultSuccess
 		}),
 	).
 		Run(func(_ mock.Arguments) {

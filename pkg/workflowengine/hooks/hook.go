@@ -230,11 +230,14 @@ var DefaultWorkers = []workerConfig{
 		TaskQueue: workflows.MobileRunnerSemaphoreTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			workflows.NewMobileRunnerSemaphoreWorkflow(),
+			workflows.NewGitHubPRCommentWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStartQueuedPipelineActivity(),
 			activities.NewCheckWorkflowClosedActivity(),
 			activities.NewQueryMobileRunnerSemaphoreRunStatusActivity(),
+			activities.NewUpdateGitHubPRCommentActivity(),
+			activities.NewPatchGitHubPRCommentActivity(),
 		},
 	},
 	{

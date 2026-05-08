@@ -10,12 +10,14 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -107,6 +109,28 @@ func blankWalletAPITestPipelineYAML(t testing.TB, app *tests.TestApp, pipelineID
 		`UPDATE pipelines SET yaml = '' WHERE id = {:id}`,
 	).Bind(dbx.Params{"id": pipelineID}).Execute()
 	require.NoError(t, err)
+}
+
+func createWalletAPKMobileRunner(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	name string,
+	runnerType string,
+	published bool,
+) {
+	t.Helper()
+
+	coll, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("owner", orgID)
+	record.Set("name", name)
+	record.Set("ip", "https://"+strings.ReplaceAll(strings.ToLower(name), " ", "-")+".example.test")
+	record.Set("type", runnerType)
+	record.Set("published", published)
+	require.NoError(t, app.Save(record))
 }
 
 func createWalletAPKWallet(
@@ -208,6 +232,31 @@ func installWalletAPKURLDownloaderStub(t testing.TB) {
 	})
 	walletAPKURLDownloader = func(ctx context.Context, apkURL string, filename string) (*filesystem.File, error) {
 		return filesystem.NewFileFromBytes([]byte("downloaded apk"), filename)
+	}
+}
+
+type walletAPKCommenterStub struct {
+	updates []activities.UpdateGitHubPRCommentInput
+	err     error
+}
+
+func (s *walletAPKCommenterStub) Signal(
+	ctx context.Context,
+	update activities.UpdateGitHubPRCommentInput,
+) error {
+	s.updates = append(s.updates, update)
+	return s.err
+}
+
+func installWalletAPKCommenterStub(t testing.TB, stub *walletAPKCommenterStub) {
+	t.Helper()
+
+	original := signalGitHubPRCommentUpdate
+	t.Cleanup(func() {
+		signalGitHubPRCommentUpdate = original
+	})
+	signalGitHubPRCommentUpdate = func(ctx context.Context, update activities.UpdateGitHubPRCommentInput) error {
+		return stub.Signal(ctx, update)
 	}
 }
 
@@ -596,6 +645,84 @@ func TestPipelineRunWalletAPKEnqueuesManipulatedYAML(t *testing.T) {
 	)
 }
 
+func TestPipelineRunWalletAPKCreatesGitHubPRQueuedComment(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
+	commenter := &walletAPKCommenterStub{}
+	installWalletAPKCommenterStub(t, commenter)
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	scenario := tests.ApiScenario{
+		Name:   "creates github pr comment for pr metadata",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/run-wallet-apk",
+		Headers: map[string]string{
+			"Content-Type":    "application/json",
+			"Credimi-Api-Key": walletAPKUserAPIKey,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"metadata": map[string]any{
+				"sha":        "abc123",
+				"repository": "forkbombeu/wallet",
+				"event": map[string]any{
+					"number": 17,
+					"pull_request": map[string]any{
+						"head": map[string]any{
+							"sha": "abcdef1234567890",
+						},
+					},
+				},
+			},
+			"apk_url": "http://ci.example.test/wallet.apk",
+		}),
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"status":"queued"`,
+			`"position":1`,
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineWalletAPKApp(t)
+			app.Settings().Meta.AppURL = "https://credimi.test"
+			seedWalletAPKUserAPIKey(t, app)
+			versionID := createWalletAPKVersion(t, app, orgID, "wallet-github-pr", "1.0.0")
+			createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionID))
+			return app
+		},
+	}
+	scenario.Test(t)
+
+	require.Len(t, commenter.updates, 1)
+	require.Equal(t, "forkbombeu/wallet", commenter.updates[0].Repository)
+	require.Equal(t, 17, commenter.updates[0].PullRequestNumber)
+	require.Equal(t, "abcdef1234567890", commenter.updates[0].CommitSHA)
+	require.Equal(t, "queued", commenter.updates[0].Status)
+	require.NotNil(t, commenter.updates[0].Position)
+	require.Equal(t, 1, *commenter.updates[0].Position)
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/usera-s-organization/pipeline123",
+		commenter.updates[0].PipelineURL,
+	)
+	require.Len(t, queueStub.enqueueRequests, 1)
+	require.NotNil(t, queueStub.enqueueRequests[0].Notification)
+	require.NotNil(t, queueStub.enqueueRequests[0].Notification.GitHubPR)
+	require.Equal(
+		t,
+		"forkbombeu/wallet",
+		queueStub.enqueueRequests[0].Notification.GitHubPR.Repository,
+	)
+	require.Equal(
+		t,
+		17,
+		queueStub.enqueueRequests[0].Notification.GitHubPR.PullRequestNumber,
+	)
+	require.Equal(t, "abcdef1234567890", queueStub.enqueueRequests[0].Notification.GitHubPR.CommitSHA)
+}
+
 func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
 	installWalletAPKURLDownloaderStub(t)
 	queueStub := &queueStub{}
@@ -649,11 +776,128 @@ func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
 	)
 }
 
+func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
+
+	origQueueState := queryMobileRunnerSemaphoreState
+	t.Cleanup(func() { queryMobileRunnerSemaphoreState = origQueueState })
+	origHealthCheck := walletAPKRunnerHealthCheck
+	t.Cleanup(func() { walletAPKRunnerHealthCheck = origHealthCheck })
+	walletAPKRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
+		return !strings.Contains(runnerURL, "offline-runner"), nil
+	}
+	queryMobileRunnerSemaphoreState = func(
+		_ context.Context,
+		runnerID string,
+	) (workflows.MobileRunnerSemaphoreStateView, error) {
+		switch runnerID {
+		case "usera-s-organization/busy-runner":
+			return workflows.MobileRunnerSemaphoreStateView{
+				RunnerID:  runnerID,
+				QueueLen:  2,
+				SlotsUsed: 1,
+			}, nil
+		case "usera-s-organization/free-runner":
+			return workflows.MobileRunnerSemaphoreStateView{
+				RunnerID: runnerID,
+				QueueLen: 1,
+			}, nil
+		default:
+			return workflows.MobileRunnerSemaphoreStateView{}, errSemaphoreNotFound
+		}
+	}
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	scenario := tests.ApiScenario{
+		Name:   "selects published runner with shortest queue for runner_type",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/run-wallet-apk",
+		Headers: map[string]string{
+			"Content-Type":    "application/json",
+			"Credimi-Api-Key": walletAPKUserAPIKey,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"metadata":            walletAPKMetadata(),
+			"runner_type":         "android_phone",
+			"apk_url":             "http://ci.example.test/wallet.apk",
+		}),
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"status":"queued"`,
+			`"runner_ids":["usera-s-organization/free-runner"]`,
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineWalletAPKApp(t)
+			seedWalletAPKUserAPIKey(t, app)
+			versionID := createWalletAPKVersion(t, app, orgID, "wallet-runner-type", "1.0.0")
+			createWalletAPITestPipeline(
+				t,
+				app,
+				orgID,
+				walletAPKPipelineYAMLWithoutRunner(versionID),
+			)
+			createWalletAPKMobileRunner(t, app, orgID, "Busy Runner", "android_phone", true)
+			createWalletAPKMobileRunner(t, app, orgID, "Free Runner", "android_phone", true)
+			createWalletAPKMobileRunner(t, app, orgID, "Offline Runner", "android_phone", true)
+			createWalletAPKMobileRunner(t, app, orgID, "Hidden Runner", "android_phone", false)
+			createWalletAPKMobileRunner(t, app, orgID, "Other Type", "ios_phone", true)
+			return app
+		},
+	}
+	scenario.Test(t)
+
+	require.Len(t, queueStub.enqueueRequests, 1)
+	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
+	require.NoError(t, err)
+	require.Equal(t, "usera-s-organization/free-runner", workflow.Runtime.GlobalRunnerID)
+}
+
+func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T) {
+	origHealthCheck := walletAPKRunnerHealthCheck
+	t.Cleanup(func() { walletAPKRunnerHealthCheck = origHealthCheck })
+	walletAPKRunnerHealthCheck = func(_ context.Context, _ string) (bool, error) {
+		return false, nil
+	}
+
+	app := setupPipelineWalletAPKApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	createWalletAPKMobileRunner(t, app, orgID, "Offline One", "android_phone", true)
+	createWalletAPKMobileRunner(t, app, orgID, "Offline Two", "android_phone", true)
+
+	runnerID, apiErr := selectPipelineRunWalletAPKRunnerByType(
+		context.Background(),
+		app,
+		"android_phone",
+	)
+
+	require.Empty(t, runnerID)
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusServiceUnavailable, apiErr.Code)
+	require.Equal(t, "no online published runner found for runner_type", apiErr.Reason)
+}
+
 func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 	t.Run("rejects step runner ids", func(t *testing.T) {
-		_, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(
 			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
+		)
+		require.Nil(t, apiErr)
+		hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+
+		_, apiErr = injectPipelineRunWalletAPKGlobalRunnerID(
+			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
+			workflowDefinition,
 			"runner-global",
+			hasStepRunner,
+			needsGlobalRunner,
 		)
 
 		require.NotNil(t, apiErr)
@@ -663,11 +907,34 @@ func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 
 	t.Run("leaves yaml unchanged when runner id is empty", func(t *testing.T) {
 		inputYAML := "name: test\nsteps: []\n"
-		got, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(inputYAML, "")
+		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(inputYAML)
+		require.Nil(t, apiErr)
+		hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+
+		got, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+			inputYAML,
+			workflowDefinition,
+			"",
+			hasStepRunner,
+			needsGlobalRunner,
+		)
 
 		require.Nil(t, apiErr)
 		require.Equal(t, inputYAML, got)
 	})
+}
+
+func TestValidatePipelineRunWalletAPKRequestRejectsInvalidRunnerType(t *testing.T) {
+	apiErr := validatePipelineRunWalletAPKRequest(pipelineRunWalletAPKRequest{
+		PipelineIdentifier: "usera-s-organization/pipeline123",
+		CommitSHA:          "abc123",
+		RunnerType:         "desktop",
+		APKURL:             "http://ci.example.test/wallet.apk",
+	})
+
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "runner_type is invalid", apiErr.Reason)
 }
 
 func TestPipelineRunWalletAPKRollsBackTempVersionOnQueueFailure(t *testing.T) {
@@ -903,25 +1170,26 @@ func TestCreatePipelineRunWalletAPKTempVersion(t *testing.T) {
 		require.Equal(t, "wallet is not owned by caller or published", apiErr.Reason)
 	})
 
-	t.Run("rejects duplicate commit sha for wallet owner", func(t *testing.T) {
+	t.Run("allows duplicate commit sha through canonified tag suffix", func(t *testing.T) {
 		app := setupPipelineWalletAPKApp(t)
 		defer app.Cleanup()
 
 		wallet := createWalletAPKWallet(t, app, orgID, "wallet-temp-duplicate")
-		_, apiErr := createPipelineRunWalletAPKTempVersion(
+		first, apiErr := createPipelineRunWalletAPKTempVersion(
 			app,
 			newRunContext(t, app, wallet, "ABC-123"),
 		)
 		require.Nil(t, apiErr)
+		require.Equal(t, "abc-123", first.Record.GetString("canonified_tag"))
 
-		_, apiErr = createPipelineRunWalletAPKTempVersion(
+		second, apiErr := createPipelineRunWalletAPKTempVersion(
 			app,
 			newRunContext(t, app, wallet, "abc-123"),
 		)
 
-		require.NotNil(t, apiErr)
-		require.Equal(t, http.StatusConflict, apiErr.Code)
-		require.Equal(t, "temporary wallet version already exists", apiErr.Reason)
+		require.Nil(t, apiErr)
+		require.Equal(t, "abc-123-1", second.Record.GetString("canonified_tag"))
+		require.Equal(t, "usera-s-organization/wallet-temp-duplicate/abc-123-1", second.Identifier)
 	})
 }
 

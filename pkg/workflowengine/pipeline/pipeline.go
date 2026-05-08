@@ -101,10 +101,16 @@ func (w *PipelineWorkflow) Workflow(
 		),
 	}
 
-	reportDone := func() {
-		reportMobileRunnerSemaphoreDone(ctx, logger, config, workflowID, runID)
-	}
-	defer reportDone()
+	defer func() {
+		reportMobileRunnerSemaphoreDone(
+			ctx,
+			logger,
+			config,
+			workflowID,
+			runID,
+			pipelineFinalResult(ctx, finalErr),
+		)
+	}()
 
 	if wfDef == nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
@@ -132,13 +138,7 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	defer func() {
-		finalResult := resultSuccess
-
-		if ctx.Err() != nil && temporal.IsCanceledError(ctx.Err()) {
-			finalResult = resultCanceled
-		} else if finalErr != nil {
-			finalResult = resultFailed
-		}
+		finalResult := pipelineFinalResult(ctx, finalErr)
 
 		runCleanupHooks(
 			ctx,
@@ -243,6 +243,16 @@ func (w *PipelineWorkflow) Workflow(
 		Output: state.finalOutput,
 	}
 	return
+}
+
+func pipelineFinalResult(ctx workflow.Context, finalErr error) string {
+	if ctx.Err() != nil && temporal.IsCanceledError(ctx.Err()) {
+		return resultCanceled
+	}
+	if finalErr != nil {
+		return resultFailed
+	}
+	return resultSuccess
 }
 
 func newPipelineExecutionState(workflowID string, runID string) *pipelineExecutionState {

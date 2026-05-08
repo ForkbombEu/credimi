@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,14 +32,25 @@ const walletAPKCleanupConfigKey = "temp_wallet_version"
 const walletAPKMobileAutomationStepUse = "mobile-automation"
 const walletAPKMaxBytes = int64(1000 << 20)
 const walletAPKDownloadTimeout = 30 * time.Second
+const walletAPKRunnerHealthTimeout = 10 * time.Second
 
 var walletAPKURLDownloader = downloadWalletAPKFromURL
+var walletAPKRunnerHealthCheck = checkWalletAPKRunnerHealth
+
+var walletAPKAllowedRunnerTypes = map[string]struct{}{
+	"android_emulator": {},
+	"redroid":          {},
+	"android_phone":    {},
+	"ios_simulator":    {},
+	"ios_phone":        {},
+}
 
 type pipelineRunWalletAPKRequest struct {
 	PipelineIdentifier string
 	CommitSHA          string
 	Metadata           map[string]any
 	RunnerID           string
+	RunnerType         string
 	APKURL             string
 	APKFile            *multipart.FileHeader
 }
@@ -124,14 +134,37 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
 		}
-		manipulatedYAML, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
-			rewrittenYAML,
-			input.RunnerID,
+		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(rewrittenYAML)
+		if apiErr != nil {
+			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
+			return apiErr.JSON(e)
+		}
+		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKRunnerID(
+			e.Request.Context(),
+			e.App,
+			workflowDefinition,
+			input,
 		)
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
 		}
+		manipulatedYAML, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+			rewrittenYAML,
+			workflowDefinition,
+			runnerID,
+			hasStepRunner,
+			needsGlobalRunner,
+		)
+		if apiErr != nil {
+			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
+			return apiErr.JSON(e)
+		}
+		notification := buildWalletAPKGitHubPRNotification(
+			input.Metadata,
+			e.App.Settings().Meta.AppURL,
+			input.PipelineIdentifier,
+		)
 
 		queueResponse, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
 			pipelineRecord:     runContext.pipelineRecord,
@@ -144,6 +177,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			metadata:           input.Metadata,
 			runType:            pipelineinternal.RunTypeCI,
 			cleanup:            buildPipelineRunWalletAPKCleanupMetadata(tempVersion),
+			notification:       notification,
 		})
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
@@ -156,6 +190,17 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			tempVersion.Identifier,
 			input.PipelineIdentifier,
 		)
+		if err := maybeCreateWalletAPKQueuedPRComment(
+			e.Request.Context(),
+			notification,
+			response,
+		); err != nil {
+			e.App.Logger().Warn(fmt.Sprintf(
+				"failed to create github pr comment for wallet apk queue ticket %s: %v",
+				response.TicketID,
+				err,
+			))
+		}
 		return e.JSON(http.StatusOK, response)
 	}
 }
@@ -504,31 +549,6 @@ func createPipelineRunWalletAPKTempVersion(
 		)
 	}
 
-	existing, err := app.FindFirstRecordByFilter(
-		"wallet_versions",
-		"wallet = {:wallet} && canonified_tag = {:tag}",
-		dbx.Params{
-			"wallet": runContext.walletRecord.Id,
-			"tag":    tag,
-		},
-	)
-	if err == nil && existing != nil {
-		return tempWalletVersion{}, apierror.New(
-			http.StatusConflict,
-			"wallet_version",
-			"temporary wallet version already exists",
-			"wallet version with this metadata.sha already exists",
-		)
-	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return tempWalletVersion{}, apierror.New(
-			http.StatusInternalServerError,
-			"wallet_version",
-			"failed to check existing wallet version",
-			err.Error(),
-		)
-	}
-
 	collection, err := app.FindCollectionByNameOrId("wallet_versions")
 	if err != nil {
 		return tempWalletVersion{}, apierror.New(
@@ -679,24 +699,16 @@ func rewriteWalletAPKStepVersion(
 
 func injectPipelineRunWalletAPKGlobalRunnerID(
 	pipelineYAML string,
+	workflowDefinition *pipelineinternal.WorkflowDefinition,
 	runnerID string,
+	hasStepRunner bool,
+	needsGlobalRunner bool,
 ) (string, *apierror.APIError) {
 	runnerID = canonify.NormalizePath(runnerID)
 	if runnerID == "" {
 		return pipelineYAML, nil
 	}
 
-	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
-	if err != nil {
-		return "", apierror.New(
-			http.StatusBadRequest,
-			"yaml",
-			"failed to parse pipeline yaml",
-			err.Error(),
-		)
-	}
-
-	hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
 	if hasStepRunner {
 		return "", apierror.New(
 			http.StatusBadRequest,
@@ -721,6 +733,22 @@ func injectPipelineRunWalletAPKGlobalRunnerID(
 	}
 
 	return string(rewrittenYAML), nil
+}
+
+func parsePipelineRunWalletAPKWorkflow(
+	pipelineYAML string,
+) (*pipelineinternal.WorkflowDefinition, *apierror.APIError) {
+	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse pipeline yaml",
+			err.Error(),
+		)
+	}
+
+	return workflowDefinition, nil
 }
 
 func mobileRunnerSelectionState(
@@ -759,6 +787,184 @@ func mobileRunnerSelectionState(
 	}
 
 	return hasStepRunner, needsGlobalRunner
+}
+
+func resolvePipelineRunWalletAPKRunnerID(
+	ctx context.Context,
+	app core.App,
+	workflowDefinition *pipelineinternal.WorkflowDefinition,
+	input pipelineRunWalletAPKRequest,
+) (string, bool, bool, *apierror.APIError) {
+	hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+	if strings.TrimSpace(input.RunnerID) != "" {
+		return input.RunnerID, hasStepRunner, needsGlobalRunner, nil
+	}
+
+	if hasStepRunner || !needsGlobalRunner {
+		return "", hasStepRunner, needsGlobalRunner, nil
+	}
+
+	runnerType := strings.TrimSpace(input.RunnerType)
+	if runnerType == "" {
+		return "", hasStepRunner, needsGlobalRunner, apierror.New(
+			http.StatusBadRequest,
+			"runner_type",
+			"runner_type is required when runner_id is missing",
+			"pipeline needs a global runner but no runner_id or runner_type was provided",
+		)
+	}
+
+	runnerID, apiErr := selectPipelineRunWalletAPKRunnerByType(ctx, app, runnerType)
+	return runnerID, hasStepRunner, needsGlobalRunner, apiErr
+}
+
+func selectPipelineRunWalletAPKRunnerByType(
+	ctx context.Context,
+	app core.App,
+	runnerType string,
+) (string, *apierror.APIError) {
+	records, err := app.FindRecordsByFilter(
+		"mobile_runners",
+		"type = {:type} && published = true",
+		"",
+		-1,
+		0,
+		dbx.Params{"type": runnerType},
+	)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"runner_type",
+			"failed to list published runners",
+			err.Error(),
+		)
+	}
+	if len(records) == 0 {
+		return "", apierror.New(
+			http.StatusNotFound,
+			"runner_type",
+			"no published runner found for runner_type",
+			"no published mobile runner matches "+runnerType,
+		)
+	}
+
+	selectedRunnerID := ""
+	selectedBacklog := 0
+	for _, record := range records {
+		online, apiErr := walletAPKRunnerOnline(ctx, record)
+		if apiErr != nil {
+			return "", apiErr
+		}
+		if !online {
+			continue
+		}
+
+		runnerID, apiErr := walletAPKRunnerID(record, app)
+		if apiErr != nil {
+			return "", apiErr
+		}
+		backlog, apiErr := walletAPKRunnerBacklog(ctx, runnerID)
+		if apiErr != nil {
+			return "", apiErr
+		}
+		if selectedRunnerID == "" ||
+			backlog < selectedBacklog ||
+			(backlog == selectedBacklog && runnerID < selectedRunnerID) {
+			selectedRunnerID = runnerID
+			selectedBacklog = backlog
+		}
+	}
+	if selectedRunnerID == "" {
+		return "", apierror.New(
+			http.StatusServiceUnavailable,
+			"runner_type",
+			"no online published runner found for runner_type",
+			"no online published mobile runner matches "+runnerType,
+		)
+	}
+
+	return selectedRunnerID, nil
+}
+
+func walletAPKRunnerID(record *core.Record, app core.App) (string, *apierror.APIError) {
+	runnerID, err := mobileRunnerIdentifier(app, record)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"runner_id",
+			"failed to build runner_id",
+			err.Error(),
+		)
+	}
+	if runnerID == "" {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"runner_id",
+			"failed to build runner_id",
+			"empty runner_id",
+		)
+	}
+
+	return runnerID, nil
+}
+
+func walletAPKRunnerOnline(ctx context.Context, record *core.Record) (bool, *apierror.APIError) {
+	runnerURL := mobileRunnerURL(record)
+	if runnerURL == "" {
+		return false, nil
+	}
+
+	online, err := walletAPKRunnerHealthCheck(ctx, runnerURL)
+	if err != nil {
+		return false, apierror.New(
+			http.StatusInternalServerError,
+			"runner_type",
+			"failed to check runner health",
+			err.Error(),
+		)
+	}
+
+	return online, nil
+}
+
+func checkWalletAPKRunnerHealth(ctx context.Context, runnerURL string) (bool, error) {
+	healthURL, err := url.JoinPath(runnerURL, "health")
+	if err != nil {
+		return false, err
+	}
+
+	healthCtx, cancel := context.WithTimeout(ctx, walletAPKRunnerHealthTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(healthCtx, http.MethodGet, healthURL, nil)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, nil
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK, nil
+}
+
+func walletAPKRunnerBacklog(ctx context.Context, runnerID string) (int, *apierror.APIError) {
+	state, err := queryMobileRunnerSemaphoreState(ctx, runnerID)
+	if err != nil {
+		if errors.Is(err, errSemaphoreNotFound) {
+			return 0, nil
+		}
+		return 0, apierror.New(
+			http.StatusInternalServerError,
+			"runner_type",
+			"failed to query runner queue",
+			err.Error(),
+		)
+	}
+
+	return state.QueueLen + state.SlotsUsed, nil
 }
 
 func collectWalletAPKVersionReferences(
@@ -830,6 +1036,7 @@ func parsePipelineRunWalletAPKRequest(
 		CommitSHA:          strings.TrimSpace(walletAPKMetadataSHA(metadata)),
 		Metadata:           metadata,
 		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
+		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 	}, nil
 }
@@ -863,6 +1070,7 @@ func parsePipelineRunWalletAPKMultipartRequest(
 		CommitSHA:          strings.TrimSpace(walletAPKMetadataSHA(metadata)),
 		Metadata:           metadata,
 		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
+		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 		APKFile:            apkFile,
 	}, nil
@@ -875,6 +1083,7 @@ func parsePipelineRunWalletAPKJSONRequest(
 		PipelineIdentifier string         `json:"pipeline_identifier"`
 		Metadata           map[string]any `json:"metadata"`
 		RunnerID           string         `json:"runner_id"`
+		RunnerType         string         `json:"runner_type"`
 		APKURL             string         `json:"apk_url"`
 	}
 	if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil {
@@ -892,6 +1101,7 @@ func parsePipelineRunWalletAPKJSONRequest(
 		CommitSHA:          strings.TrimSpace(walletAPKMetadataSHA(metadata)),
 		Metadata:           metadata,
 		RunnerID:           strings.TrimSpace(input.RunnerID),
+		RunnerType:         strings.TrimSpace(input.RunnerType),
 		APKURL:             strings.TrimSpace(input.APKURL),
 	}, nil
 }
@@ -937,6 +1147,16 @@ func validatePipelineRunWalletAPKRequest(input pipelineRunWalletAPKRequest) *api
 			"metadata.sha is required",
 			"missing metadata.sha",
 		)
+	}
+	if runnerType := strings.TrimSpace(input.RunnerType); runnerType != "" {
+		if _, ok := walletAPKAllowedRunnerTypes[runnerType]; !ok {
+			return apierror.New(
+				http.StatusBadRequest,
+				"runner_type",
+				"runner_type is invalid",
+				"runner_type must be one of android_emulator, redroid, android_phone, ios_simulator, ios_phone",
+			)
+		}
 	}
 
 	hasFile := input.APKFile != nil

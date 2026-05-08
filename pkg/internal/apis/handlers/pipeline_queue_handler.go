@@ -78,6 +78,7 @@ type pipelineQueueRunContext struct {
 	metadata           map[string]any
 	runType            string
 	cleanup            *workflows.MobileRunnerSemaphoreCleanupMetadata
+	notification       *workflows.MobileRunnerSemaphoreNotification
 }
 
 var errRunTicketNotFound = errors.New("run ticket not found")
@@ -313,6 +314,7 @@ func enqueuePipelineRun(
 			PipelineConfig:      config,
 			Memo:                memo,
 			Cleanup:             runContext.cleanup,
+			Notification:        runContext.notification,
 		}
 		resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
 		if err != nil {
