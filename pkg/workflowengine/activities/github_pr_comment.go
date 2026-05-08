@@ -130,7 +130,7 @@ func (a *PatchGitHubPRCommentActivity) Execute(
 }
 
 func SignalGitHubPRCommentUpdate(ctx context.Context, input UpdateGitHubPRCommentInput) error {
-	if strings.TrimSpace(input.CurrentHeadSHA) == "" {
+	if strings.TrimSpace(input.CommitSHA) != "" && strings.TrimSpace(input.CurrentHeadSHA) == "" {
 		headSHA, err := fetchGitHubPRHeadSHA(ctx, input.Repository, input.PullRequestNumber)
 		if err != nil {
 			return err

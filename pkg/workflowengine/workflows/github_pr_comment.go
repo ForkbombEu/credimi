@@ -89,17 +89,14 @@ func applyGitHubPRCommentUpdate(
 	state *githubPRCommentWorkflowState,
 	update activities.UpdateGitHubPRCommentInput,
 ) bool {
-	changed := false
 	if state.Repository == "" && strings.TrimSpace(update.Repository) != "" {
 		state.Repository = update.Repository
-		changed = true
 	}
 	if state.PullRequestNumber == 0 && update.PullRequestNumber > 0 {
 		state.PullRequestNumber = update.PullRequestNumber
-		changed = true
 	}
 	if !applyGitHubPRCommentCommitScope(state, update) {
-		return changed
+		return false
 	}
 	key := githubPRCommentSectionKey(update)
 	state.Sections[key] = update

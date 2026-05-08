@@ -173,3 +173,24 @@ func TestApplyGitHubPRCommentUpdateUsesCurrentHeadSHA(t *testing.T) {
 	require.Equal(t, "newcommit", state.LatestCommitSHA)
 	require.Contains(t, state.Sections, "newcomm::pipeline-a::runner-1")
 }
+
+func TestApplyGitHubPRCommentUpdateDoesNotPatchRejectedFirstUpdate(t *testing.T) {
+	state := githubPRCommentWorkflowState{
+		Sections: map[string]activities.UpdateGitHubPRCommentInput{},
+	}
+
+	changed := applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		Repository:        "forkbombeu/wallet",
+		PullRequestNumber: 17,
+		CommitSHA:         "oldcommit",
+		CurrentHeadSHA:    "newcommit",
+		PipelineID:        "pipeline-a",
+		RunnerID:          "runner-1",
+		Status:            "queued",
+	})
+
+	require.False(t, changed)
+	require.Equal(t, "forkbombeu/wallet", state.Repository)
+	require.Equal(t, 17, state.PullRequestNumber)
+	require.Empty(t, state.Sections)
+}
