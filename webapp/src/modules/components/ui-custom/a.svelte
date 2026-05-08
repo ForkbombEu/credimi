@@ -8,8 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
 
-	import { resolve } from '$app/paths';
-
 	import { localizeHref } from '@/i18n';
 
 	//
@@ -24,11 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if href}
-	<a
-		href={resolve(localizeHref(href) as '/')}
-		class={['text-primary hover:underline', className]}
-		{...rest}
-	>
+	<a href={localizeHref(href)} class={['text-primary hover:underline', className]} {...rest}>
 		{@render children?.()}
 	</a>
 {:else}
