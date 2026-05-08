@@ -159,6 +159,107 @@ func TestMobileRunnerSemaphoreWorkflowRunQueuePositions(t *testing.T) {
 	require.Empty(t, drainErrors(errCh))
 }
 
+func TestMobileRunnerSemaphoreWorkflowNotifiesQueuedPositionForFollowerRunner(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	updateAct := activities.NewUpdateGitHubPRCommentActivity()
+	env.RegisterActivityWithOptions(
+		updateAct.Execute,
+		activity.RegisterOptions{Name: updateAct.Name()},
+	)
+	env.OnActivity(
+		updateAct.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			update, err := workflowengine.DecodePayload[activities.UpdateGitHubPRCommentInput](input.Payload)
+			return err == nil &&
+				update.Repository == "forkbombeu/wallet" &&
+				update.PullRequestNumber == 17 &&
+				update.CommitSHA == "abcdef1234567890" &&
+				update.PipelineID == "tenant-a/pipeline-a" &&
+				update.RunnerID == "runner-2" &&
+				update.RunnerType == "android_emulator" &&
+				update.Status == string(mobileRunnerSemaphoreRunQueued) &&
+				update.Position != nil &&
+				*update.Position == 1
+		}),
+	).Return(workflowengine.ActivityResult{}, nil).Once()
+
+	errCh := make(chan error, 1)
+	enqueuedAt := time.Date(2026, 2, 3, 10, 0, 0, 0, time.UTC)
+	runningAt := enqueuedAt.Add(-time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-follower-notification",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:           "ticket-1",
+				OwnerNamespace:     "tenant-a",
+				EnqueuedAt:         enqueuedAt,
+				RunnerID:           "runner-2",
+				RequiredRunnerIDs:  []string{"runner-1", "runner-2"},
+				LeaderRunnerID:     "runner-1",
+				PipelineIdentifier: "tenant-a/pipeline-a",
+				Notification: &MobileRunnerSemaphoreNotification{
+					GitHubPR: &MobileRunnerSemaphoreGitHubPRNotification{
+						Repository:         "forkbombeu/wallet",
+						PullRequestNumber:  17,
+						CommitSHA:          "abcdef1234567890",
+						PipelineIdentifier: "tenant-a/pipeline-a",
+						RunnerID:           "runner-1",
+						RunnerType:         "android_phone",
+						RunnerTypes: map[string]string{
+							"runner-1": "android_phone",
+							"runner-2": "android_emulator",
+						},
+					},
+				},
+			},
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*3)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-2",
+				Capacity: 1,
+				State: &MobileRunnerSemaphoreWorkflowState{
+					Capacity: 1,
+					RunTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+						"ticket-running": {
+							Request: MobileRunnerSemaphoreEnqueueRunRequest{
+								TicketID:          "ticket-running",
+								OwnerNamespace:    "tenant-a",
+								EnqueuedAt:        runningAt,
+								RunnerID:          "runner-2",
+								RequiredRunnerIDs: []string{"runner-2"},
+								LeaderRunnerID:    "runner-2",
+							},
+							Status:    mobileRunnerSemaphoreRunRunning,
+							StartedAt: &runningAt,
+						},
+					},
+				},
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	require.Empty(t, drainErrors(errCh))
+	env.AssertExpectations(t)
+}
+
 func TestMobileRunnerSemaphoreWorkflowListQueuedRuns(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

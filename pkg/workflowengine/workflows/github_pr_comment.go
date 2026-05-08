@@ -25,6 +25,7 @@ type githubPRCommentWorkflowState struct {
 	Repository        string
 	PullRequestNumber int
 	CommentID         int64
+	LatestCommitSHA   string
 	Sections          map[string]activities.UpdateGitHubPRCommentInput
 }
 
@@ -75,7 +76,9 @@ func (w *GitHubPRCommentWorkflow) ExecuteWorkflow(
 		if !receivedSignal {
 			return workflowengine.WorkflowResult{}, nil
 		}
-		applyGitHubPRCommentUpdate(&state, update)
+		if !applyGitHubPRCommentUpdate(&state, update) {
+			continue
+		}
 		if err := patchGitHubPRComment(ctx, &state); err != nil {
 			workflow.GetLogger(ctx).Error("failed to patch github pr comment", "error", err)
 		}
@@ -85,15 +88,106 @@ func (w *GitHubPRCommentWorkflow) ExecuteWorkflow(
 func applyGitHubPRCommentUpdate(
 	state *githubPRCommentWorkflowState,
 	update activities.UpdateGitHubPRCommentInput,
-) {
-	if state.Repository == "" {
+) bool {
+	if state.Repository == "" && strings.TrimSpace(update.Repository) != "" {
 		state.Repository = update.Repository
 	}
-	if state.PullRequestNumber == 0 {
+	if state.PullRequestNumber == 0 && update.PullRequestNumber > 0 {
 		state.PullRequestNumber = update.PullRequestNumber
+	}
+	if !applyGitHubPRCommentCommitScope(state, update) {
+		return false
 	}
 	key := githubPRCommentSectionKey(update)
 	state.Sections[key] = update
+	return true
+}
+
+func applyGitHubPRCommentCommitScope(
+	state *githubPRCommentWorkflowState,
+	update activities.UpdateGitHubPRCommentInput,
+) bool {
+	commitSHA := strings.TrimSpace(update.CommitSHA)
+	if commitSHA == "" {
+		return true
+	}
+	currentHeadSHA := strings.TrimSpace(update.CurrentHeadSHA)
+	if currentHeadSHA != "" {
+		if commitSHA != currentHeadSHA {
+			return false
+		}
+		if state.LatestCommitSHA != commitSHA {
+			state.LatestCommitSHA = commitSHA
+			state.Sections = map[string]activities.UpdateGitHubPRCommentInput{}
+		}
+		return true
+	}
+	if state.LatestCommitSHA == "" {
+		state.LatestCommitSHA = commitSHA
+		return true
+	}
+	if commitSHA == state.LatestCommitSHA {
+		return true
+	}
+	if !isGitHubPRCommentNewCommitUpdate(update) &&
+		!isGitHubPRCommentDisplayedCommitTerminal(*state) {
+		return false
+	}
+	state.LatestCommitSHA = commitSHA
+	state.Sections = map[string]activities.UpdateGitHubPRCommentInput{}
+	return true
+}
+
+func isGitHubPRCommentNewCommitUpdate(update activities.UpdateGitHubPRCommentInput) bool {
+	switch strings.ToLower(strings.TrimSpace(update.Status)) {
+	case "", "queued", "starting":
+		return true
+	default:
+		return false
+	}
+}
+
+func isGitHubPRCommentDisplayedCommitTerminal(state githubPRCommentWorkflowState) bool {
+	if len(state.Sections) == 0 {
+		return false
+	}
+	for _, update := range state.Sections {
+		if !isGitHubPRCommentTerminalUpdate(update) {
+			return false
+		}
+	}
+	return true
+}
+
+func isGitHubPRCommentTerminalUpdate(update activities.UpdateGitHubPRCommentInput) bool {
+	if isTerminalGitHubPRCommentStatus(update.WorkflowStatus) {
+		return true
+	}
+	return isTerminalGitHubPRCommentStatus(update.Status)
+}
+
+func isTerminalGitHubPRCommentStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "success",
+		"successful",
+		"completed",
+		"failed",
+		"failure",
+		"canceled",
+		"cancelled",
+		"terminated",
+		"timed out",
+		"timed_out",
+		"timeout",
+		"workflow_execution_status_completed",
+		"workflow_execution_status_failed",
+		"workflow_execution_status_canceled",
+		"workflow_execution_status_terminated",
+		"workflow_execution_status_timed_out":
+		return true
+	default:
+		return false
+	}
 }
 
 func patchGitHubPRComment(ctx workflow.Context, state *githubPRCommentWorkflowState) error {
@@ -137,15 +231,16 @@ func buildGitHubPRCommentDocument(state githubPRCommentWorkflowState) string {
 		githubapp.Marker(),
 	)
 
+	if title := githubPRCommentDocumentTitle(state, keys); title != "" {
+		lines = append(lines, "", fmt.Sprintf("### `%s`", title))
+	}
+
 	for _, key := range keys {
 		update := state.Sections[key]
-		title := githubPRCommentSectionTitle(update, key)
 		lines = append(
 			lines,
 			"",
 			fmt.Sprintf("<!-- credimi-wallet-apk-run:%s:start -->", key),
-			fmt.Sprintf("### `%s`", title),
-			"",
 			activities.BuildGitHubPRCommentBodyForWorkflow(update),
 			fmt.Sprintf("<!-- credimi-wallet-apk-run:%s:end -->", key),
 		)
@@ -154,12 +249,18 @@ func buildGitHubPRCommentDocument(state githubPRCommentWorkflowState) string {
 }
 
 func githubPRCommentSectionKey(update activities.UpdateGitHubPRCommentInput) string {
-	sha := strings.TrimSpace(update.CommitSHA)
-	if sha != "" {
-		if len(sha) > 7 {
-			return sha[:7]
-		}
-		return sha
+	parts := make([]string, 0, 3)
+	if sha := shortGitHubPRCommentSHA(update.CommitSHA); sha != "" {
+		parts = append(parts, sha)
+	}
+	if pipelineID := strings.TrimSpace(update.PipelineID); pipelineID != "" {
+		parts = append(parts, pipelineID)
+	}
+	if runnerID := strings.TrimSpace(update.RunnerID); runnerID != "" {
+		parts = append(parts, runnerID)
+	}
+	if len(parts) > 0 {
+		return strings.Join(parts, "::")
 	}
 	if update.TicketID != "" {
 		return update.TicketID
@@ -167,10 +268,22 @@ func githubPRCommentSectionKey(update activities.UpdateGitHubPRCommentInput) str
 	return "run"
 }
 
-func githubPRCommentSectionTitle(update activities.UpdateGitHubPRCommentInput, key string) string {
-	sha := strings.TrimSpace(update.CommitSHA)
+func githubPRCommentDocumentTitle(state githubPRCommentWorkflowState, keys []string) string {
+	if sha := shortGitHubPRCommentSHA(state.LatestCommitSHA); sha != "" {
+		return sha
+	}
+	for _, key := range keys {
+		if sha := shortGitHubPRCommentSHA(state.Sections[key].CommitSHA); sha != "" {
+			return sha
+		}
+	}
+	return ""
+}
+
+func shortGitHubPRCommentSHA(sha string) string {
+	sha = strings.TrimSpace(sha)
 	if sha == "" {
-		return key
+		return ""
 	}
 	if len(sha) > 7 {
 		return sha[:7]

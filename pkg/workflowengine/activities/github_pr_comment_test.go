@@ -16,14 +16,17 @@ func TestBuildGitHubPRCommentBody(t *testing.T) {
 	position := 2
 
 	body := buildGitHubPRCommentBody(UpdateGitHubPRCommentInput{
-		Status:      "queued",
-		Position:    &position,
-		PipelineURL: "https://credimi.test/my/pipelines/org/pipeline",
+		Status:     "queued",
+		Position:   &position,
+		PipelineID: "org/pipeline",
+		RunnerID:   "org/runner-1",
+		RunnerType: "android_phone",
 	})
 	require.Contains(t, body, "![status: queued](https://img.shields.io/badge/status-queued-yellow)")
 	require.Contains(t, body, "| Field | Value |")
 	require.Contains(t, body, "| Queue position | `2` |")
-	require.Contains(t, body, "| Pipeline | [Open pipeline](https://credimi.test/my/pipelines/org/pipeline) |")
+	require.Contains(t, body, "| Pipeline ID | `org/pipeline` |")
+	require.Contains(t, body, "| Runner | `org/runner-1(android_phone)` |")
 	require.NotContains(t, body, "Credimi wallet APK pipeline is")
 	require.NotContains(t, body, "Credimi wallet APK pipeline finished")
 
