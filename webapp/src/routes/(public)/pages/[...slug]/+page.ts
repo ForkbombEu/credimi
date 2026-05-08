@@ -35,7 +35,7 @@ export async function load({ params, fetch, url }) {
 		...content,
 		seo: {
 			title: `${content.attributes.title} | Credimi`,
-			description: content.attributes.description,
+			description: content.attributes.description ?? '',
 			canonicalUrl,
 			socialImageUrl,
 			keywords: content.attributes.tags.join(', '),
