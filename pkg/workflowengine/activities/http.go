@@ -327,11 +327,12 @@ func extractOutputRules(
 				return nil, fmt.Errorf("invalid regex for %s: %w", name, compileErr)
 			}
 			matches := re.FindStringSubmatch(bodyStr)
-			if len(matches) > 1 {
+			switch {
+			case len(matches) > 1:
 				value = matches[1]
-			} else if len(matches) > 0 {
+			case len(matches) > 0:
 				value = matches[0]
-			} else {
+			default:
 				value = ""
 			}
 		}
