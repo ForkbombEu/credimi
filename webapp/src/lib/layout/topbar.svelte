@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { AppLogo } from '@/brand';
 	import BaseTopbar from '@/components/layout/topbar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { featureFlags } from '@/features';
+	import { featureFlags, Features, type FeatureFlags } from '@/features';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
@@ -25,9 +25,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const featureFlagsState = fromStore(featureFlags);
 	const currentUserState = fromStore(currentUser);
+	const fallbackFeatureFlags = Object.fromEntries(
+		Object.keys(Features).map((key) => [key, false])
+	) as FeatureFlags;
+
+	function getFlags(): FeatureFlags {
+		return featureFlagsState.current ?? fallbackFeatureFlags;
+	}
 
 	function href(href: string) {
-		return featureFlagsState.current.DEMO ? '#waitlist' : href;
+		return getFlags().DEMO ? '#waitlist' : href;
 	}
 
 	const leftItems: LinkWithIcon[] = [
@@ -46,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 
 	const rightItems: LinkWithIcon[] = $derived.by(() => {
-		const { DEMO, AUTH } = featureFlagsState.current;
+		const { DEMO, AUTH } = getFlags();
 		const user = currentUserState.current;
 
 		const items: LinkWithIcon[] = [

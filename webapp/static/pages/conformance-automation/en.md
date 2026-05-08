@@ -1,3 +1,16 @@
+---
+title: 'What is conformance automation'
+description: A short introduction to how automated conformance checks help wallets, issuers, and verifiers stay interoperable and compliant.
+date: 2026-04-16
+updatedOn: 2026-04-16
+tags:
+  - documentation
+  - compliance
+  - automation
+  - conformance
+  - reference
+---
+
 # What is Conformance Automation
 
 **Conformance automation** is the process of using automated tools and systems to verify that digital products and services strictly adhere to defined technical standards, protocols, and regulatory specifications. In complex domains like digital identity, financial services, and self-sovereign identity ecosystems, this ensures that solutions remain secure, interoperable, and future-proof — without the delays and inaccuracies of manual validation.

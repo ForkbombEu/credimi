@@ -10,6 +10,8 @@ import tagsIndex from '$lib/content/tags-list.generated.json';
 
 //
 
+export const prerender = false;
+
 export const load = async ({ url, fetch }) => {
 	const paramTag = url.searchParams.get(URL_SEARCH_PARAM_NAME);
 	if (!paramTag || !(paramTag in tagsIndex) || !isTag(paramTag)) {

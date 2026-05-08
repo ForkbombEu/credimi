@@ -31,6 +31,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
+<svelte:head>
+	<title>{data.seo.title}</title>
+	<meta name="description" content={data.seo.description} />
+	<meta name="keywords" content={data.seo.keywords} />
+	<link rel="canonical" href={data.seo.canonicalUrl} />
+
+	<meta property="og:type" content="article" />
+	<meta property="og:site_name" content="Credimi" />
+	<meta property="og:title" content={data.seo.title} />
+	<meta property="og:description" content={data.seo.description} />
+	<meta property="og:url" content={data.seo.canonicalUrl} />
+	<meta property="og:image" content={data.seo.socialImageUrl} />
+	<meta property="article:published_time" content={data.seo.publishedTime} />
+	<meta property="article:modified_time" content={data.seo.modifiedTime} />
+
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content={data.seo.title} />
+	<meta name="twitter:description" content={data.seo.description} />
+	<meta name="twitter:image" content={data.seo.socialImageUrl} />
+
+	{#each attributes.tags as tag (tag)}
+		<meta property="article:tag" content={tag} />
+	{/each}
+</svelte:head>
+
 <PageTop containerClass="border-t-0" contentClass="pt-8 !space-y-12">
 	<Breadcrumbs />
 

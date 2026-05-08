@@ -4,6 +4,7 @@
 
 import fm from 'front-matter';
 import { marked } from 'marked';
+import { browser } from '$app/environment';
 
 import { baseLocale, getLocale } from '@/i18n/paraglide/runtime';
 
@@ -15,6 +16,22 @@ async function loadMarkdownFile(
 	pathname: string,
 	fetcher: typeof fetch
 ): Promise<string | undefined> {
+	if (!browser) {
+		const relativePath = pathname.replace(/^\/pages\//, '');
+
+		try {
+			const [{ readFile }, path] = await Promise.all([
+				import('node:fs/promises'),
+				import('node:path')
+			]);
+			const fullPath = path.resolve(process.cwd(), 'static/pages', relativePath);
+
+			return await readFile(fullPath, 'utf8');
+		} catch {
+			return undefined;
+		}
+	}
+
 	const response = await fetcher(pathname);
 	if (!response.ok) return undefined;
 	return response.text();
