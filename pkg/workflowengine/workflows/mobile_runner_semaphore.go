@@ -287,9 +287,7 @@ func (r *mobileRunnerSemaphoreRuntime) startRunStarter() {
 				return
 			}
 			r.runStarterRequested = false
-			if err := r.processRunQueue(ctx); err != nil {
-				logger.Error("run starter failed", "error", err)
-			}
+			r.processRunQueue(ctx)
 		}
 	})
 	r.requestRunStart()
@@ -621,29 +619,22 @@ func (r *mobileRunnerSemaphoreRuntime) awaitContinue() (workflowengine.WorkflowR
 	return workflowengine.WorkflowResult{}, nil
 }
 
-func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) error {
+func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) {
 	defer r.flushQueuedPositionUpdates(ctx)
 
-	if err := r.startReadyRuns(ctx); err != nil {
-		return err
-	}
+	r.startReadyRuns(ctx)
 
 	for r.availableSlots() > 0 {
 		ticketID, state, ok := r.nextQueuedRunTicket()
 		if !ok {
-			return nil
+			return
 		}
-		if err := r.grantRunTicket(ctx, ticketID, state); err != nil {
-			return err
-		}
-		if err := r.startReadyRuns(ctx); err != nil {
-			return err
-		}
+		r.grantRunTicket(ctx, ticketID, state)
+		r.startReadyRuns(ctx)
 	}
-	return nil
 }
 
-func (r *mobileRunnerSemaphoreRuntime) startReadyRuns(ctx workflow.Context) error {
+func (r *mobileRunnerSemaphoreRuntime) startReadyRuns(ctx workflow.Context) {
 	logger := workflow.GetLogger(ctx)
 	ticketIDs := r.sortedRunTicketIDs()
 	for _, ticketID := range ticketIDs {
@@ -665,16 +656,15 @@ func (r *mobileRunnerSemaphoreRuntime) startReadyRuns(ctx workflow.Context) erro
 			continue
 		}
 	}
-	return nil
 }
 
 func (r *mobileRunnerSemaphoreRuntime) grantRunTicket(
 	ctx workflow.Context,
 	ticketID string,
 	state MobileRunnerSemaphoreRunTicketState,
-) error {
+) {
 	if state.Status != mobileRunnerSemaphoreRunQueued {
-		return nil
+		return
 	}
 
 	r.runQueue = removeFromQueue(r.runQueue, ticketID)
@@ -695,7 +685,7 @@ func (r *mobileRunnerSemaphoreRuntime) grantRunTicket(
 		if err := r.signalRunGranted(ctx, state.Request.LeaderRunnerID, ticketID); err != nil {
 			r.markRunTicketFailed(ticketID, state, err)
 		}
-		return nil
+		return
 	}
 
 	if r.allGrantsReceived(state) {
@@ -703,10 +693,8 @@ func (r *mobileRunnerSemaphoreRuntime) grantRunTicket(
 			logger := workflow.GetLogger(ctx)
 			logger.Error("start pipeline failed", "ticket_id", ticketID, "error", err)
 		}
-		return nil
+		return
 	}
-
-	return nil
 }
 
 func (r *mobileRunnerSemaphoreRuntime) startPipelineForTicket(
