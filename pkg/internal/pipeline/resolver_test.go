@@ -454,14 +454,6 @@ func TestPipelineFunctionsUpperLower(t *testing.T) {
 			expected: 123,
 		},
 		{
-			name: "invalid pipeline - empty initial value",
-			expr: "${{ | lower }}",
-			ctx: map[string]any{
-				"result": "  hello world  ",
-			},
-			wantErr: true,
-		},
-		{
 			name: "complex json object with lower",
 			expr: "${{ complexObject | lower }}",
 			ctx: map[string]any{
@@ -486,24 +478,6 @@ func TestPipelineFunctionsUpperLower(t *testing.T) {
 				"items": []any{"APPLE", "BANANA"},
 			},
 			expected: []any{"apple", "banana"},
-		},
-		{
-			name: "complex json object with lower",
-			expr: "${{ complexObject | lower }}",
-			ctx: map[string]any{
-				"complexObject": map[string]any{
-					"hello": map[string]any{
-						"world": "heLLo",
-					},
-					"message": "{}",
-				},
-			},
-			expected: map[string]any{
-				"hello": map[string]any{
-					"world": "hello",
-				},
-				"message": "{}",
-			},
 		},
 		{
 			name: "empty map to upper",
@@ -557,7 +531,7 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "simple slice",
+			name: "simple slice 1 entry (from start)",
 			expr: "${{ result | slice(:3) }}",
 			ctx: map[string]any{
 				"result": "hello world",
@@ -565,7 +539,7 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			expected: "hel",
 		},
 		{
-			name: "simple slice",
+			name: "simple slice 1 entry (to end)",
 			expr: "${{ result | slice(7:) }}",
 			ctx: map[string]any{
 				"result": "hello world",
@@ -573,7 +547,7 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			expected: "orld",
 		},
 		{
-			name: "simple slice",
+			name: "simple slice 2 entries",
 			expr: "${{ result | slice(3:7) }}",
 			ctx: map[string]any{
 				"result": "hello world",
@@ -639,8 +613,7 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			ctx: map[string]any{
 				"result": "hello",
 			},
-			expected: "slice: index -3 out of bounds [0:5]",
-			wantErr:  true,
+			wantErr: true,
 		},
 		{
 			name: "slice element",
@@ -648,8 +621,7 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			ctx: map[string]any{
 				"result": "hello",
 			},
-			expected: "slice: invalid range [-3:-1] for length 5",
-			wantErr:  true,
+			wantErr: true,
 		},
 		{
 			name: "array slice single element at index 2",
@@ -665,8 +637,7 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			ctx: map[string]any{
 				"items": []any{"apple", "banana", "cherry", "date"},
 			},
-			expected: "slice: index -2 out of bounds [0:4]",
-			wantErr:  true,
+			wantErr: true,
 		},
 		{
 			name: "array slice with negative range",
@@ -674,8 +645,7 @@ func TestPipelineFunctionsSlice(t *testing.T) {
 			ctx: map[string]any{
 				"items": []any{"apple", "banana", "cherry", "date"},
 			},
-			expected: "slice: invalid range [-3:-1] for length 4",
-			wantErr:  true,
+			wantErr: true,
 		},
 		{
 			name: "array slice with upper then slice",

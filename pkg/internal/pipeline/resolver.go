@@ -36,7 +36,10 @@ func isFullRef(s string) bool {
 }
 
 // Matches expressions like ${{ ... }}
-var exprRegexp = regexp.MustCompile(`\${{\s*([^{}]+?)\s*}}`)
+var exprRegexp = regexp.MustCompile(`\${{\s*([a-zA-Z0-9_\-\.\[\]\|\s\(\):,]+?)\s*}}`)
+
+// Matches expressions like () ... )
+var re = regexp.MustCompile(`^(\w+)\(([^)]*)\)$`)
 
 func parsePart(part string) (key string, idxs []int, err error) {
 	bracket := strings.Index(part, "[")
@@ -67,6 +70,9 @@ func parsePart(part string) (key string, idxs []int, err error) {
 	return key, idxs, nil
 }
 
+// ParsePipeline parses a pipeline expression in the form
+// "value | function1 | function2", returning the initial value and the
+// remaining pipeline segments as function names.
 func ParsePipeline(expr string) (initialValue string, functions []string, err error) {
 	parts := strings.Split(expr, "|")
 	if len(parts) == 0 {
@@ -90,7 +96,6 @@ func ParsePipeline(expr string) (initialValue string, functions []string, err er
 }
 
 func ApplyFunction(value any, funcName string) (any, error) {
-	re := regexp.MustCompile(`^(\w+)\(([^)]*)\)$`)
 	matches := re.FindStringSubmatch(funcName)
 
 	if len(matches) == 0 {
@@ -136,6 +141,9 @@ func ApplyFunction(value any, funcName string) (any, error) {
 		}
 		oldStr := strings.TrimSpace(parts[0])
 		newStr := strings.TrimSpace(parts[1])
+		if oldStr == "" {
+			return nil, fmt.Errorf("replace requires a non-empty old string")
+		}
 		return replace(value, oldStr, newStr)
 	default:
 		return nil, fmt.Errorf("unknown function: %s", baseFunc)
