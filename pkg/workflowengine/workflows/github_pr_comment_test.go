@@ -146,3 +146,30 @@ func TestApplyGitHubPRCommentUpdateIgnoresDifferentRunningCommitWhileCurrentComm
 	require.Contains(t, state.Sections, "current::pipeline-a::runner-1")
 	require.NotContains(t, state.Sections, "differe::pipeline-a::runner-1")
 }
+
+func TestApplyGitHubPRCommentUpdateUsesCurrentHeadSHA(t *testing.T) {
+	state := githubPRCommentWorkflowState{
+		Sections: map[string]activities.UpdateGitHubPRCommentInput{},
+	}
+
+	changed := applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:      "oldcommit",
+		CurrentHeadSHA: "newcommit",
+		PipelineID:     "pipeline-a",
+		RunnerID:       "runner-1",
+		Status:         "queued",
+	})
+	require.False(t, changed)
+	require.Empty(t, state.Sections)
+
+	changed = applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:      "newcommit",
+		CurrentHeadSHA: "newcommit",
+		PipelineID:     "pipeline-a",
+		RunnerID:       "runner-1",
+		Status:         "running",
+	})
+	require.True(t, changed)
+	require.Equal(t, "newcommit", state.LatestCommitSHA)
+	require.Contains(t, state.Sections, "newcomm::pipeline-a::runner-1")
+}

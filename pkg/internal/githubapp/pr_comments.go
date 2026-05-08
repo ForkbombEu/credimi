@@ -98,6 +98,39 @@ func (c *Client) CreateOrUpdatePRComment(ctx context.Context, input PRComment) (
 	return c.createComment(ctx, token, owner, repo, input.PullRequestNumber, body)
 }
 
+func (c *Client) PullRequestHeadSHA(ctx context.Context, repository string, prNumber int) (string, error) {
+	owner, repo, err := splitRepository(repository)
+	if err != nil {
+		return "", err
+	}
+	if prNumber <= 0 {
+		return "", fmt.Errorf("pull request number is required")
+	}
+	token, err := c.installationToken(ctx, owner, repo)
+	if err != nil {
+		return "", err
+	}
+	var out struct {
+		Head struct {
+			SHA string `json:"sha"`
+		} `json:"head"`
+	}
+	if err := c.doJSON(
+		ctx,
+		http.MethodGet,
+		c.githubAPIURL("repos", owner, repo, "pulls", strconv.Itoa(prNumber)),
+		token,
+		nil,
+		&out,
+	); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(out.Head.SHA) == "" {
+		return "", fmt.Errorf("github pull request response missing head sha")
+	}
+	return strings.TrimSpace(out.Head.SHA), nil
+}
+
 func (c *Client) installationToken(ctx context.Context, owner, repo string) (string, error) {
 	jwtToken, err := c.jwt()
 	if err != nil {

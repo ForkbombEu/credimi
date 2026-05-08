@@ -27,6 +27,7 @@ type UpdateGitHubPRCommentInput struct {
 	Repository        string `json:"repository"`
 	PullRequestNumber int    `json:"pull_request_number"`
 	CommitSHA         string `json:"commit_sha,omitempty"`
+	CurrentHeadSHA    string `json:"current_head_sha,omitempty"`
 	TicketID          string `json:"ticket_id"`
 	Status            string `json:"status"`
 	Position          *int   `json:"position,omitempty"`
@@ -129,6 +130,13 @@ func (a *PatchGitHubPRCommentActivity) Execute(
 }
 
 func SignalGitHubPRCommentUpdate(ctx context.Context, input UpdateGitHubPRCommentInput) error {
+	if strings.TrimSpace(input.CurrentHeadSHA) == "" {
+		headSHA, err := fetchGitHubPRHeadSHA(ctx, input.Repository, input.PullRequestNumber)
+		if err != nil {
+			return err
+		}
+		input.CurrentHeadSHA = headSHA
+	}
 	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
@@ -149,6 +157,14 @@ func SignalGitHubPRCommentUpdate(ctx context.Context, input UpdateGitHubPRCommen
 		workflowengine.WorkflowInput{},
 	)
 	return err
+}
+
+func fetchGitHubPRHeadSHA(ctx context.Context, repository string, prNumber int) (string, error) {
+	client, err := githubapp.NewFromEnv()
+	if err != nil {
+		return "", err
+	}
+	return client.PullRequestHeadSHA(ctx, repository, prNumber)
 }
 
 func GitHubPRCommentWorkflowID(repository string, prNumber int) string {

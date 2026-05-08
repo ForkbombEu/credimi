@@ -1108,10 +1108,7 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 	}
 	updateActivity := activities.NewUpdateGitHubPRCommentActivity()
 	activityOptions := DefaultActivityOptions
-	runnerType := ""
-	if notification.GitHubPR.RunnerID == r.runnerID {
-		runnerType = notification.GitHubPR.RunnerType
-	}
+	runnerType := githubPRCommentRunnerTypeForRunner(notification.GitHubPR, r.runnerID)
 	input := workflowengine.ActivityInput{
 		Payload: activities.UpdateGitHubPRCommentInput{
 			Repository:        notification.GitHubPR.Repository,
@@ -1144,6 +1141,22 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 			)
 		}
 	})
+}
+
+func githubPRCommentRunnerTypeForRunner(
+	notification *MobileRunnerSemaphoreGitHubPRNotification,
+	runnerID string,
+) string {
+	if notification == nil {
+		return ""
+	}
+	if runnerType := strings.TrimSpace(notification.RunnerTypes[runnerID]); runnerType != "" {
+		return runnerType
+	}
+	if notification.RunnerID == runnerID {
+		return notification.RunnerType
+	}
+	return ""
 }
 
 func (r *mobileRunnerSemaphoreRuntime) nextQueuedRunTicket() (string, MobileRunnerSemaphoreRunTicketState, bool) {

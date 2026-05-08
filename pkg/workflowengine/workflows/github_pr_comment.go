@@ -114,6 +114,17 @@ func applyGitHubPRCommentCommitScope(
 	if commitSHA == "" {
 		return true
 	}
+	currentHeadSHA := strings.TrimSpace(update.CurrentHeadSHA)
+	if currentHeadSHA != "" {
+		if commitSHA != currentHeadSHA {
+			return false
+		}
+		if state.LatestCommitSHA != commitSHA {
+			state.LatestCommitSHA = commitSHA
+			state.Sections = map[string]activities.UpdateGitHubPRCommentInput{}
+		}
+		return true
+	}
 	if state.LatestCommitSHA == "" {
 		state.LatestCommitSHA = commitSHA
 		return true

@@ -10,6 +10,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/githubapp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 var signalGitHubPRCommentUpdate = activities.SignalGitHubPRCommentUpdate
@@ -35,10 +36,20 @@ func buildWalletAPKGitHubPRNotification(
 			PipelineIdentifier: pipelineIdentifier,
 			RunnerID:           runnerID,
 			RunnerType:         runnerType,
+			RunnerTypes:        buildInitialGitHubPRRunnerTypes(runnerID, runnerType),
 			PipelineURL:        buildPipelinePageURL(appURL, pipelineIdentifier),
 			AppURL:             appURL,
 		},
 	}
+}
+
+func buildInitialGitHubPRRunnerTypes(runnerID string, runnerType string) map[string]string {
+	runnerID = strings.TrimSpace(runnerID)
+	runnerType = strings.TrimSpace(runnerType)
+	if runnerID == "" || runnerType == "" {
+		return nil
+	}
+	return map[string]string{runnerID: runnerType}
 }
 
 func maybeCreateWalletAPKQueuedPRComment(
@@ -57,7 +68,7 @@ func maybeCreateWalletAPKQueuedPRComment(
 		Position:          response.Position,
 		PipelineID:        notification.GitHubPR.PipelineIdentifier,
 		RunnerID:          githubPRCommentRunnerID(notification.GitHubPR.RunnerID, response.RunnerIDs),
-		RunnerType:        notification.GitHubPR.RunnerType,
+		RunnerType:        githubPRCommentRunnerType(notification.GitHubPR, response.RunnerIDs),
 		PipelineURL:       notification.GitHubPR.PipelineURL,
 		AppURL:            notification.GitHubPR.AppURL,
 		WorkflowID:        response.WorkflowID,
@@ -65,6 +76,46 @@ func maybeCreateWalletAPKQueuedPRComment(
 		TicketID:          response.TicketID,
 		ErrorMessage:      response.ErrorMessage,
 	})
+}
+
+func githubPRCommentRunnerType(
+	notification *workflows.MobileRunnerSemaphoreGitHubPRNotification,
+	runnerIDs []string,
+) string {
+	if notification == nil {
+		return ""
+	}
+	runnerID := githubPRCommentRunnerID(notification.RunnerID, runnerIDs)
+	if runnerType := strings.TrimSpace(notification.RunnerTypes[runnerID]); runnerType != "" {
+		return runnerType
+	}
+	return notification.RunnerType
+}
+
+func buildGitHubPRRunnerTypes(
+	app core.App,
+	runnerIDs []string,
+	existing map[string]string,
+) map[string]string {
+	runnerTypes := map[string]string{}
+	for runnerID, runnerType := range existing {
+		if strings.TrimSpace(runnerID) != "" && strings.TrimSpace(runnerType) != "" {
+			runnerTypes[runnerID] = runnerType
+		}
+	}
+	for _, runnerID := range runnerIDs {
+		runnerID = strings.TrimSpace(runnerID)
+		if runnerID == "" || strings.TrimSpace(runnerTypes[runnerID]) != "" {
+			continue
+		}
+		if runnerType := resolveWalletAPKGitHubPRRunnerType(app, runnerID, ""); runnerType != "" {
+			runnerTypes[runnerID] = runnerType
+		}
+	}
+	if len(runnerTypes) == 0 {
+		return nil
+	}
+	return runnerTypes
 }
 
 func githubPRCommentRunnerID(runnerID string, runnerIDs []string) string {

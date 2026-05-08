@@ -91,14 +91,15 @@ type MobileRunnerSemaphoreNotification struct {
 }
 
 type MobileRunnerSemaphoreGitHubPRNotification struct {
-	Repository         string `json:"repository,omitempty"`
-	PullRequestNumber  int    `json:"pull_request_number,omitempty"`
-	CommitSHA          string `json:"commit_sha,omitempty"`
-	PipelineIdentifier string `json:"pipeline_identifier,omitempty"`
-	RunnerID           string `json:"runner_id,omitempty"`
-	RunnerType         string `json:"runner_type,omitempty"`
-	PipelineURL        string `json:"pipeline_url,omitempty"`
-	AppURL             string `json:"app_url,omitempty"`
+	Repository         string            `json:"repository,omitempty"`
+	PullRequestNumber  int               `json:"pull_request_number,omitempty"`
+	CommitSHA          string            `json:"commit_sha,omitempty"`
+	PipelineIdentifier string            `json:"pipeline_identifier,omitempty"`
+	RunnerID           string            `json:"runner_id,omitempty"`   // Deprecated: use RunnerTypes for per-runner display metadata.
+	RunnerType         string            `json:"runner_type,omitempty"` // Deprecated: use RunnerTypes for per-runner display metadata.
+	RunnerTypes        map[string]string `json:"runner_types,omitempty"`
+	PipelineURL        string            `json:"pipeline_url,omitempty"`
+	AppURL             string            `json:"app_url,omitempty"`
 }
 
 type MobileRunnerSemaphoreEnqueueRunResponse struct {

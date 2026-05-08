@@ -182,6 +182,7 @@ func TestMobileRunnerSemaphoreWorkflowNotifiesQueuedPositionForFollowerRunner(t 
 				update.CommitSHA == "abcdef1234567890" &&
 				update.PipelineID == "tenant-a/pipeline-a" &&
 				update.RunnerID == "runner-2" &&
+				update.RunnerType == "android_emulator" &&
 				update.Status == string(mobileRunnerSemaphoreRunQueued) &&
 				update.Position != nil &&
 				*update.Position == 1
@@ -212,6 +213,10 @@ func TestMobileRunnerSemaphoreWorkflowNotifiesQueuedPositionForFollowerRunner(t 
 						PipelineIdentifier: "tenant-a/pipeline-a",
 						RunnerID:           "runner-1",
 						RunnerType:         "android_phone",
+						RunnerTypes: map[string]string{
+							"runner-1": "android_phone",
+							"runner-2": "android_emulator",
+						},
 					},
 				},
 			},
