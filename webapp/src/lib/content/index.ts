@@ -29,12 +29,11 @@ async function loadMarkdownFile(
 			import('node:path')
 		]);
 
-		const normalizedRelativePath = path.posix.normalize(relativePath);
+		const normalizedRelativePath = path.normalize(relativePath);
 		if (
-			relativePath.includes('\\') ||
-			normalizedRelativePath.startsWith('../') ||
+			path.isAbsolute(normalizedRelativePath) ||
 			normalizedRelativePath === '..' ||
-			normalizedRelativePath.startsWith('/')
+			normalizedRelativePath.startsWith(`..${path.sep}`)
 		) {
 			return undefined;
 		}
@@ -43,7 +42,11 @@ async function loadMarkdownFile(
 		const fullPath = path.resolve(pagesRoot, normalizedRelativePath);
 		const relativeToRoot = path.relative(pagesRoot, fullPath);
 
-		if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+		if (
+			relativeToRoot === '..' ||
+			relativeToRoot.startsWith(`..${path.sep}`) ||
+			path.isAbsolute(relativeToRoot)
+		) {
 			return undefined;
 		}
 
