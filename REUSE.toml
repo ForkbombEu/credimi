@@ -50,7 +50,7 @@ SPDX-FileCopyrightText = "Forkbomb BV"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
 [[annotations]]
-path = ["deployment/grafana/**/*", "deployment/thirdparty-simulator/**/*"]
+path = ["deployment/grafana/**/*"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "temporal.io"
 SPDX-License-Identifier = "MIT"
