@@ -125,18 +125,21 @@ func TestApplyGitHubPRCommentUpdateIgnoresDifferentRunningCommitWhileCurrentComm
 		Sections: map[string]activities.UpdateGitHubPRCommentInput{},
 	}
 
-	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+	changed := applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "current",
 		PipelineID: "pipeline-a",
 		RunnerID:   "runner-1",
 		Status:     "running",
 	})
-	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+	require.True(t, changed)
+
+	changed = applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "different",
 		PipelineID: "pipeline-a",
 		RunnerID:   "runner-1",
 		Status:     "running",
 	})
+	require.False(t, changed)
 
 	require.Equal(t, "current", state.LatestCommitSHA)
 	require.Len(t, state.Sections, 1)

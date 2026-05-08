@@ -76,7 +76,9 @@ func (w *GitHubPRCommentWorkflow) ExecuteWorkflow(
 		if !receivedSignal {
 			return workflowengine.WorkflowResult{}, nil
 		}
-		applyGitHubPRCommentUpdate(&state, update)
+		if !applyGitHubPRCommentUpdate(&state, update) {
+			continue
+		}
 		if err := patchGitHubPRComment(ctx, &state); err != nil {
 			workflow.GetLogger(ctx).Error("failed to patch github pr comment", "error", err)
 		}
@@ -86,18 +88,22 @@ func (w *GitHubPRCommentWorkflow) ExecuteWorkflow(
 func applyGitHubPRCommentUpdate(
 	state *githubPRCommentWorkflowState,
 	update activities.UpdateGitHubPRCommentInput,
-) {
-	if state.Repository == "" {
+) bool {
+	changed := false
+	if state.Repository == "" && strings.TrimSpace(update.Repository) != "" {
 		state.Repository = update.Repository
+		changed = true
 	}
-	if state.PullRequestNumber == 0 {
+	if state.PullRequestNumber == 0 && update.PullRequestNumber > 0 {
 		state.PullRequestNumber = update.PullRequestNumber
+		changed = true
 	}
 	if !applyGitHubPRCommentCommitScope(state, update) {
-		return
+		return changed
 	}
 	key := githubPRCommentSectionKey(update)
 	state.Sections[key] = update
+	return true
 }
 
 func applyGitHubPRCommentCommitScope(
