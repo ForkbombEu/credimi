@@ -21,12 +21,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { data } = $props();
 	let { attributes, body } = data;
-	let activeHeading = $state<Element | null>(null);
+	let activeHeading = $state<HTMLHeadingElement | null>(null);
 
 	const headingSelector =
 		'#content-area h1, #content-area h2, #content-area h3, #content-area h4, #content-area h5, #content-area h6';
 
-	function getTocLabel(heading: Element) {
+	function getTocLabel(heading: HTMLHeadingElement) {
 		return heading.textContent?.trim() ?? '';
 	}
 </script>
@@ -107,7 +107,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</T>
 				</div>
 				<Toc bind:activeHeading {headingSelector} minItems={1} title="">
-					{#snippet toc_item(heading)}
+					{#snippet tocItem(heading: HTMLHeadingElement)}
 						<span
 							class:toc-entry-active={heading === activeHeading}
 							class="toc-entry"
@@ -150,7 +150,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="space-y-2">
 				<div class="toc-mobile">
 					<Toc bind:activeHeading {headingSelector} minItems={1} title="" breakpoint={100}>
-						{#snippet toc_item(heading)}
+						{#snippet tocItem(heading: HTMLHeadingElement)}
 							<span
 								class:toc-entry-active={heading === activeHeading}
 								class="toc-entry"

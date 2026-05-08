@@ -16,10 +16,20 @@ async function loadMarkdownFile(
 	pathname: string,
 	fetcher: typeof fetch
 ): Promise<string | undefined> {
+	if (!browser && pathname.startsWith('/pages/')) {
+		return loadStaticMarkdownFile(pathname);
+	}
+
 	const response = await fetcher(pathname).catch(() => undefined);
 	if (response?.ok) return response.text();
 
 	if (browser || !pathname.startsWith('/pages/')) return undefined;
+
+	return loadStaticMarkdownFile(pathname);
+}
+
+async function loadStaticMarkdownFile(pathname: string): Promise<string | undefined> {
+	if (!pathname.startsWith('/pages/')) return undefined;
 
 	const relativePath = pathname.slice('/pages/'.length);
 
