@@ -24,6 +24,7 @@ type ReportMobileRunnerSemaphoreDoneInput struct {
 	TicketID       string `json:"ticket_id"`
 	WorkflowID     string `json:"workflow_id"`
 	RunID          string `json:"run_id"`
+	WorkflowResult string `json:"workflow_result,omitempty"`
 }
 
 type ReportMobileRunnerSemaphoreDoneActivity struct {
@@ -78,6 +79,7 @@ func (a *ReportMobileRunnerSemaphoreDoneActivity) Execute(
 		OwnerNamespace: ownerNamespace,
 		WorkflowID:     strings.TrimSpace(payload.WorkflowID),
 		RunID:          strings.TrimSpace(payload.RunID),
+		WorkflowResult: strings.TrimSpace(payload.WorkflowResult),
 	}
 
 	handle, err := temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{

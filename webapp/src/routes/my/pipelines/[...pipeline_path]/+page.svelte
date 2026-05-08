@@ -15,14 +15,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Separator } from '@/components/ui/separator/index.js';
 	import { m } from '@/i18n';
 
-	import PaginationArrows from '../../tests/runs/_partials/pagination-arrows.svelte';
+	import { setDashboardNavbar } from '../../+layout@.svelte';
 	import {
 		ALL_WORKFLOW_STATUSES,
 		isExtendedWorkflowStatus,
 		parseLimit,
 		parseOffset
 	} from '../../tests/runs/_partials/index.js';
-	import { setDashboardNavbar } from '../../+layout@.svelte';
+	import PaginationArrows from '../../tests/runs/_partials/pagination-arrows.svelte';
 
 	//
 
@@ -63,12 +63,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		() =>
 			Pipeline.Workflows.list(pipeline.id, {
 				status: params.status,
-				limit: params.limit,
-				offset: params.offset
+				limit: params.limit ?? undefined,
+				offset: params.offset ?? undefined
 			}),
 		{
-		initialValue: () => data.workflows,
-		intervalMs: 10000
+			initialValue: () => data.workflows,
+			intervalMs: 10000
 		}
 	);
 
@@ -123,8 +123,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 
 		<PaginationArrows
-			pagination={{ limit: params.limit ?? pagination.limit, offset: params.offset ?? pagination.offset }}
-			currentItemCount={currentItemCount}
+			pagination={{
+				limit: params.limit ?? pagination.limit,
+				offset: params.offset ?? pagination.offset
+			}}
+			{currentItemCount}
 			onPrevious={() => {
 				params.offset = Math.max((params.offset ?? 0) - 1, 0);
 			}}

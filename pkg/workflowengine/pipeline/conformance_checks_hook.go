@@ -104,8 +104,14 @@ func ConformanceCheckSetupHook(
 			standard = parts[0]
 			checkName = parts[len(parts)-1]
 		}
+		memoAuthor := suite
+		// OID4VCI issuer tests live inside openid_conformance_suite folders but
+		// need their own dispatch path — override the suite key before the switch.
+		if standard == "openid4vci_issuer" {
+			suite = workflows.OpenID4VCIIssuerSuite
+		}
 		memo := map[string]any{
-			"author":   suite,
+			"author":   memoAuthor,
 			"standard": standard,
 			"test":     checkName,
 		}
@@ -123,83 +129,19 @@ func ConformanceCheckSetupHook(
 		SetPayloadValue(&defaultPayload, "user_mail", userMail)
 		SetPayloadValue(&defaultPayload, "suite", suite)
 
-		var suiteTemplatePath string
-		switch suite {
-		case "openid_conformance_suite":
-			variant := map[string]any{}
-			if v, ok := tpl["variant"].(map[string]any); ok {
-				for _, key := range []string{"credential_format", "client_id_prefix", "request_method", "response_mode"} {
-					if val, ok := v[key]; ok {
-						variant[key] = val
-					}
-				}
-			}
-			variantJSON, err := json.Marshal(variant)
-			if err != nil {
-				errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-				return workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf("failed to marshal variant JSON for step %s: %v", step.ID, err),
-				)
-			}
-
-			form := map[string]any{}
-			if f, ok := tpl["form"].(map[string]any); ok {
-				for k, v := range f {
-					form[k] = v
-				}
-			}
-
-			var testVal string
-			if tVal, ok := tpl["test"].(string); ok {
-				testVal = tVal
-			}
-
-			SetPayloadValue(&defaultPayload, "variant", string(variantJSON))
-			SetPayloadValue(&defaultPayload, "form", form)
-			SetPayloadValue(&defaultPayload, "test", testVal)
-
-			suiteTemplatePath = workflows.OpenIDNetStepCITemplatePathv1_0
-
-		case "ewc":
-
-			var sessionID string
-			if sID, ok := tpl["sessionId"].(string); ok {
-				sessionID = sID
-			}
-
-			SetPayloadValue(&defaultPayload, "session_id", sessionID)
-			suiteTemplatePath = workflows.EWCTemplateFolderPath + "/" + checkName + ".yaml"
-		case "webuild":
-
-			var sessionID string
-			if sID, ok := tpl["sessionId"].(string); ok {
-				sessionID = sID
-			}
-
-			SetPayloadValue(&defaultPayload, "session_id", sessionID)
-			suiteTemplatePath = workflows.WebuildTemplateFolderPath + "/" + checkName + ".yaml"
-		case "eudiw":
-
-			var id string
-			if tID, ok := tpl["id"].(string); ok {
-				id = tID
-			}
-			var nonce string
-			if tNonce, ok := tpl["nonce"].(string); ok {
-				nonce = tNonce
-			}
-
-			SetPayloadValue(&defaultPayload, "id", id)
-			SetPayloadValue(&defaultPayload, "nonce", nonce)
-			suiteTemplatePath = workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml"
-		default:
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("missing or invalid suite for step %s", step.ID),
-			)
+		suiteExtra, suiteTemplatePath, err := resolveSuiteSetup(
+			suite,
+			checkName,
+			step.ID,
+			tpl,
+		)
+		if err != nil {
+			return err
 		}
+		for k, v := range suiteExtra {
+			SetPayloadValue(&defaultPayload, k, v)
+		}
+
 		templatePath := filepath.Join(rootDir, suiteTemplatePath)
 		template, err := os.ReadFile(templatePath)
 		if err != nil {
@@ -216,6 +158,83 @@ func ConformanceCheckSetupHook(
 	}
 
 	return nil
+}
+
+// resolveSuiteSetup returns the extra payload fields and StepCI template path
+// for the given suite. It is extracted from ConformanceCheckSetupHook to keep
+// the parent function's cyclomatic complexity within acceptable bounds.
+func resolveSuiteSetup(
+	suite, checkName, stepID string,
+	tpl map[string]any,
+) (map[string]any, string, error) {
+	extra := map[string]any{}
+	switch suite {
+	case "openid_conformance_suite":
+		variant := map[string]any{}
+		if v, ok := tpl["variant"].(map[string]any); ok {
+			for _, key := range []string{"credential_format", "client_id_prefix", "request_method", "response_mode"} {
+				if val, ok := v[key]; ok {
+					variant[key] = val
+				}
+			}
+		}
+		variantJSON, err := json.Marshal(variant)
+		if err != nil {
+			return nil, "", workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.JSONMarshalFailed],
+				fmt.Sprintf("failed to marshal variant JSON for step %s: %v", stepID, err),
+			)
+		}
+		form := map[string]any{}
+		if f, ok := tpl["form"].(map[string]any); ok {
+			for k, v := range f {
+				form[k] = v
+			}
+		}
+		var testVal string
+		if tVal, ok := tpl["test"].(string); ok {
+			testVal = tVal
+		}
+		extra["variant"] = string(variantJSON)
+		extra["form"] = form
+		extra["test"] = testVal
+		return extra, workflows.OpenIDNetStepCITemplatePathv1_0, nil
+
+	case "ewc":
+		if sID, ok := tpl["sessionId"].(string); ok {
+			extra["session_id"] = sID
+		}
+		return extra, workflows.EWCTemplateFolderPath + "/" + checkName + ".yaml", nil
+
+	case "webuild":
+		if sID, ok := tpl["sessionId"].(string); ok {
+			extra["session_id"] = sID
+		}
+		return extra, workflows.WebuildTemplateFolderPath + "/" + checkName + ".yaml", nil
+
+	case "eudiw":
+		if tID, ok := tpl["id"].(string); ok {
+			extra["id"] = tID
+		}
+		if tNonce, ok := tpl["nonce"].(string); ok {
+			extra["nonce"] = tNonce
+		}
+		return extra, workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml", nil
+
+	case workflows.OpenID4VCIIssuerSuite:
+		var testVal string
+		if tVal, ok := tpl["test"].(string); ok {
+			testVal = tVal
+		}
+		extra["test"] = testVal
+		return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
+
+	default:
+		return nil, "", workflowengine.NewAppError(
+			errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+			fmt.Sprintf("missing or invalid suite for step %s", stepID),
+		)
+	}
 }
 
 func extractCredimiJSON(yamlContent string) (string, error) {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/enums/v1"
@@ -656,12 +657,12 @@ func calculateDuration(startTime, endTime string) string {
 		return ""
 	}
 
-	start, err := time.Parse(time.RFC3339Nano, startTime)
+	start, err := utils.ParseTimeString(startTime)
 	if err != nil {
 		return ""
 	}
 
-	end, err := time.Parse(time.RFC3339Nano, endTime)
+	end, err := utils.ParseTimeString(endTime)
 	if err != nil {
 		return ""
 	}

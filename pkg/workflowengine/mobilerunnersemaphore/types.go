@@ -63,17 +63,43 @@ const (
 )
 
 type MobileRunnerSemaphoreEnqueueRunRequest struct {
-	TicketID            string         `json:"ticket_id"`
-	OwnerNamespace      string         `json:"owner_namespace"`
-	EnqueuedAt          time.Time      `json:"enqueued_at"`
-	RunnerID            string         `json:"runner_id"`
-	RequiredRunnerIDs   []string       `json:"required_runner_ids"`
-	LeaderRunnerID      string         `json:"leader_runner_id"`
-	MaxPipelinesInQueue int            `json:"max_pipelines_in_queue,omitempty"`
-	PipelineIdentifier  string         `json:"pipeline_identifier,omitempty"`
-	YAML                string         `json:"yaml,omitempty"`
-	PipelineConfig      map[string]any `json:"pipeline_config,omitempty"`
-	Memo                map[string]any `json:"memo,omitempty"`
+	TicketID            string                                `json:"ticket_id"`
+	OwnerNamespace      string                                `json:"owner_namespace"`
+	EnqueuedAt          time.Time                             `json:"enqueued_at"`
+	RunnerID            string                                `json:"runner_id"`
+	RequiredRunnerIDs   []string                              `json:"required_runner_ids"`
+	LeaderRunnerID      string                                `json:"leader_runner_id"`
+	MaxPipelinesInQueue int                                   `json:"max_pipelines_in_queue,omitempty"`
+	PipelineIdentifier  string                                `json:"pipeline_identifier,omitempty"`
+	YAML                string                                `json:"yaml,omitempty"`
+	PipelineConfig      map[string]any                        `json:"pipeline_config,omitempty"`
+	Memo                map[string]any                        `json:"memo,omitempty"`
+	Cleanup             *MobileRunnerSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
+	Notification        *MobileRunnerSemaphoreNotification    `json:"notification,omitempty"`
+}
+
+// MobileRunnerSemaphoreCleanupMetadata carries resources owned by a queued run
+// that must be cleaned if the ticket is canceled before the workflow starts.
+type MobileRunnerSemaphoreCleanupMetadata struct {
+	TempWalletVersionID         string `json:"temp_wallet_version_id,omitempty"`
+	TempWalletVersionOwnerID    string `json:"temp_wallet_version_owner_id,omitempty"`
+	TempWalletVersionIdentifier string `json:"temp_wallet_version_identifier,omitempty"`
+}
+
+type MobileRunnerSemaphoreNotification struct {
+	GitHubPR *MobileRunnerSemaphoreGitHubPRNotification `json:"github_pr,omitempty"`
+}
+
+type MobileRunnerSemaphoreGitHubPRNotification struct {
+	Repository         string            `json:"repository,omitempty"`
+	PullRequestNumber  int               `json:"pull_request_number,omitempty"`
+	CommitSHA          string            `json:"commit_sha,omitempty"`
+	PipelineIdentifier string            `json:"pipeline_identifier,omitempty"`
+	RunnerID           string            `json:"runner_id,omitempty"`   // Deprecated: use RunnerTypes for per-runner display metadata.
+	RunnerType         string            `json:"runner_type,omitempty"` // Deprecated: use RunnerTypes for per-runner display metadata.
+	RunnerTypes        map[string]string `json:"runner_types,omitempty"`
+	PipelineURL        string            `json:"pipeline_url,omitempty"`
+	AppURL             string            `json:"app_url,omitempty"`
 }
 
 type MobileRunnerSemaphoreEnqueueRunResponse struct {
@@ -84,28 +110,30 @@ type MobileRunnerSemaphoreEnqueueRunResponse struct {
 }
 
 type MobileRunnerSemaphoreRunStatusView struct {
-	TicketID          string                         `json:"ticket_id"`
-	Status            MobileRunnerSemaphoreRunStatus `json:"status"`
-	Position          int                            `json:"position"`
-	LineLen           int                            `json:"line_len"`
-	LeaderRunnerID    string                         `json:"leader_runner_id,omitempty"`
-	RequiredRunnerIDs []string                       `json:"required_runner_ids,omitempty"`
-	WorkflowID        string                         `json:"workflow_id,omitempty"`
-	RunID             string                         `json:"run_id,omitempty"`
-	WorkflowNamespace string                         `json:"workflow_namespace,omitempty"`
-	ErrorMessage      string                         `json:"error_message,omitempty"`
+	TicketID          string                                `json:"ticket_id"`
+	Status            MobileRunnerSemaphoreRunStatus        `json:"status"`
+	Position          int                                   `json:"position"`
+	LineLen           int                                   `json:"line_len"`
+	LeaderRunnerID    string                                `json:"leader_runner_id,omitempty"`
+	RequiredRunnerIDs []string                              `json:"required_runner_ids,omitempty"`
+	WorkflowID        string                                `json:"workflow_id,omitempty"`
+	RunID             string                                `json:"run_id,omitempty"`
+	WorkflowNamespace string                                `json:"workflow_namespace,omitempty"`
+	ErrorMessage      string                                `json:"error_message,omitempty"`
+	Cleanup           *MobileRunnerSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
 }
 
 type MobileRunnerSemaphoreQueuedRunView struct {
-	TicketID           string                         `json:"ticket_id"`
-	OwnerNamespace     string                         `json:"owner_namespace"`
-	PipelineIdentifier string                         `json:"pipeline_identifier,omitempty"`
-	EnqueuedAt         time.Time                      `json:"enqueued_at"`
-	LeaderRunnerID     string                         `json:"leader_runner_id,omitempty"`
-	RequiredRunnerIDs  []string                       `json:"required_runner_ids,omitempty"`
-	Status             MobileRunnerSemaphoreRunStatus `json:"status"`
-	Position           int                            `json:"position"`
-	LineLen            int                            `json:"line_len"`
+	TicketID           string                                `json:"ticket_id"`
+	OwnerNamespace     string                                `json:"owner_namespace"`
+	PipelineIdentifier string                                `json:"pipeline_identifier,omitempty"`
+	EnqueuedAt         time.Time                             `json:"enqueued_at"`
+	LeaderRunnerID     string                                `json:"leader_runner_id,omitempty"`
+	RequiredRunnerIDs  []string                              `json:"required_runner_ids,omitempty"`
+	Status             MobileRunnerSemaphoreRunStatus        `json:"status"`
+	Position           int                                   `json:"position"`
+	LineLen            int                                   `json:"line_len"`
+	Cleanup            *MobileRunnerSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunDoneRequest struct {
@@ -113,6 +141,7 @@ type MobileRunnerSemaphoreRunDoneRequest struct {
 	OwnerNamespace string `json:"owner_namespace,omitempty"`
 	WorkflowID     string `json:"workflow_id,omitempty"`
 	RunID          string `json:"run_id,omitempty"`
+	WorkflowResult string `json:"workflow_result,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunCancelRequest struct {
@@ -134,9 +163,10 @@ type MobileRunnerSemaphoreRunStartedSignal struct {
 }
 
 type MobileRunnerSemaphoreRunDoneSignal struct {
-	TicketID   string `json:"ticket_id"`
-	WorkflowID string `json:"workflow_id,omitempty"`
-	RunID      string `json:"run_id,omitempty"`
+	TicketID       string `json:"ticket_id"`
+	WorkflowID     string `json:"workflow_id,omitempty"`
+	RunID          string `json:"run_id,omitempty"`
+	WorkflowResult string `json:"workflow_result,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunTicketState struct {

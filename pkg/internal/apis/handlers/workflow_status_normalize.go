@@ -4,6 +4,8 @@
 
 package handlers
 
+const temporalStatusCompleted = "WORKFLOW_EXECUTION_STATUS_COMPLETED"
+
 // normalizeTemporalStatus maps Temporal enum strings into API-friendly CamelCase labels.
 func normalizeTemporalStatus(raw string) string {
 	switch raw {
@@ -19,7 +21,7 @@ func normalizeTemporalStatus(raw string) string {
 		return raw
 	case "WORKFLOW_EXECUTION_STATUS_RUNNING":
 		return string(WorkflowStatusRunning)
-	case "WORKFLOW_EXECUTION_STATUS_COMPLETED":
+	case temporalStatusCompleted:
 		return string(WorkflowStatusCompleted)
 	case "WORKFLOW_EXECUTION_STATUS_FAILED":
 		return string(WorkflowStatusFailed)

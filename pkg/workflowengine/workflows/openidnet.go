@@ -325,8 +325,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 //     additional activities.
 //   - Uses a timer to periodically fetch logs at intervals specified in
 //     the input configuration.
-//   - Terminates when the logs contain a "result" field with a value of
-//     "INTERRUPTED" or "FINISHED".
+//   - Terminates when the logs reach a terminal result.
 //   - Sends logs to a specified endpoint when triggered by a signal.
 func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
@@ -442,7 +441,7 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 					"api", "compliance", "send-openidnet-log-update",
 				),
 				Headers: map[string]string{
-					"Content-Type": "application/json",
+					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 				},
 				Body: map[string]any{
 					"workflow_id": strings.TrimSuffix(
@@ -483,7 +482,8 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 					}
 				}
 			}
-			if lastResult == "INTERRUPTED" || lastResult == "FINISHED" {
+			if lastResult == openIDCertificationResultInterrupted ||
+				lastResult == openIDCertificationResultFinished {
 				return workflowengine.WorkflowResult{
 					Message: "Passed",
 					Log:     logs,

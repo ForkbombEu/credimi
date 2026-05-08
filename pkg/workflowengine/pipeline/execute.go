@@ -130,7 +130,12 @@ func ExecuteStep(
 		w := step.NewFunc().(workflowengine.Workflow)
 		appURL, ok := s.With.Config["app_url"].(string)
 		if ok && appURL == "" {
-			s.With.Config["app_url"] = "http://localhost:8090"
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("missing or invalid app_url for step %s", s.ID),
+			)
+			return nil, appErr
 		}
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,
@@ -346,4 +351,55 @@ func isMissingPipelineInternalHTTPActivity(err error) bool {
 		return false
 	}
 	return strings.Contains(strings.ToLower(err.Error()), "make an internal http request")
+}
+
+func ExtractPipelineOutput(dataCtx map[string]any) map[string]any {
+	result := make(map[string]any)
+
+	for key, value := range dataCtx {
+		if key == "inputs" {
+			continue
+		}
+
+		if stepOutput, ok := value.(map[string]any); ok {
+			if outputs, exists := stepOutput["outputs"]; exists {
+				result[key] = map[string]any{"outputs": outputs}
+			} else {
+				result[key] = map[string]any{"outputs": value}
+			}
+		} else {
+			result[key] = map[string]any{"outputs": value}
+		}
+	}
+
+	return result
+}
+
+func enrichDataContext(
+	dataCtx map[string]any,
+	pipelineName string,
+	pipelineURL string,
+	hasErrors bool,
+	currentTime string,
+) map[string]any {
+	enriched := make(map[string]any)
+
+	for k, v := range dataCtx {
+		enriched[k] = v
+	}
+
+	enriched["pipeline_output"] = ExtractPipelineOutput(dataCtx)
+
+	enriched["pipeline_name"] = pipelineName
+	enriched["pipeline_url"] = pipelineURL
+
+	if hasErrors {
+		enriched["result"] = resultFailed
+	} else {
+		enriched["result"] = resultSuccess
+	}
+
+	enriched["date"] = currentTime
+
+	return enriched
 }

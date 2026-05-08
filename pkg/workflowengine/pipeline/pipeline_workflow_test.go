@@ -7,6 +7,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
@@ -96,6 +99,81 @@ func (w *orderedWorkflow) ExecuteWorkflow(
 	return workflowengine.WorkflowResult{
 		Output: map[string]any{"ok": true},
 	}, nil
+}
+
+type runtimeCapturePayload struct {
+	Text string `json:"text"`
+	Fail bool   `json:"fail,omitempty"`
+}
+
+type runtimeCaptureActivity struct {
+	name     string
+	captured *[]string
+}
+
+func (a *runtimeCaptureActivity) Name() string {
+	return a.name
+}
+
+func (a *runtimeCaptureActivity) Execute(
+	_ context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	payload, err := workflowengine.DecodePayload[runtimeCapturePayload](input.Payload)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	*a.captured = append(*a.captured, payload.Text)
+	result := workflowengine.ActivityResult{Output: map[string]any{"text": payload.Text}}
+	if payload.Fail {
+		return result, errors.New("capture failed")
+	}
+
+	return result, nil
+}
+
+func (a *runtimeCaptureActivity) NewActivityError(string, string, ...any) error {
+	return errors.New("activity error")
+}
+
+func (a *runtimeCaptureActivity) NewNonRetryableActivityError(string, string, ...any) error {
+	return errors.New("activity error")
+}
+
+func (a *runtimeCaptureActivity) NewMissingOrInvalidPayloadError(err error) error {
+	return err
+}
+
+func registerRuntimeCaptureActivity(
+	t *testing.T,
+	env *testsuite.TestWorkflowEnvironment,
+	name string,
+	captured *[]string,
+) {
+	t.Helper()
+
+	captureAct := &runtimeCaptureActivity{name: name, captured: captured}
+	env.RegisterActivityWithOptions(
+		captureAct.Execute,
+		activity.RegisterOptions{Name: captureAct.Name()},
+	)
+
+	orig, hadOrig := registry.Registry[name]
+	t.Cleanup(func() {
+		if hadOrig {
+			registry.Registry[name] = orig
+			return
+		}
+		delete(registry.Registry, name)
+	})
+
+	registry.Registry[name] = registry.TaskFactory{
+		Kind:        registry.TaskActivity,
+		NewFunc:     func() any { return captureAct },
+		PayloadType: reflect.TypeOf(runtimeCapturePayload{}),
+		OutputKind:  workflowengine.OutputMap,
+	}
 }
 
 // TestPipelineWorkflowFailsWithoutDefinition asserts a clear error when workflow_definition is missing.
@@ -277,6 +355,162 @@ func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 	output, ok := result.Output.(map[string]any)
 	require.True(t, ok)
 	require.Contains(t, output, "step-1")
+}
+
+func TestPipelineWorkflowOnSuccessUsesCurrentStepOutputInRuntimeContext(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "Runtime Pipeline",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "first",
+							Use: "capture-runtime",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"text": "seed",
+								},
+							},
+						},
+						OnSuccess: []*pipeline.OnSuccessStepDefinition{
+							{
+								StepSpec: pipeline.StepSpec{
+									ID:  "notify",
+									Use: "capture-runtime",
+									With: pipeline.StepInputs{
+										Payload: map[string]any{
+											"text": "name=${{ pipeline_name }} result=${{ result }} output=${{ pipeline_output.first.outputs.text }}",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+	require.Len(t, captured, 2)
+	require.Equal(t, "seed", captured[0])
+	require.Contains(t, captured[1], "name=Runtime Pipeline")
+	require.Contains(t, captured[1], "result=success")
+	require.Contains(t, captured[1], "output=seed")
+}
+
+func TestPipelineWorkflowChildPipelineResolvesRuntimeContext(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+
+	internalHTTPAct := activities.NewInternalHTTPActivity()
+	env.RegisterActivityWithOptions(
+		internalHTTPAct.Execute,
+		activity.RegisterOptions{Name: internalHTTPAct.Name()},
+	)
+
+	childYAML := `
+name: Child Pipeline
+steps:
+  - id: child-step
+    use: capture-runtime
+    with:
+      payload:
+        text: "${{ inputs.parent_message }}"
+`
+
+	env.OnActivity(
+		internalHTTPAct.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+			if err != nil {
+				return false
+			}
+			return payload.URL == "https://example.test/api/pipeline/get-yaml" &&
+				payload.QueryParams["pipeline_identifier"] == "child-pipeline"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{"body": childYAML}}, nil).Once()
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "Parent Pipeline",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "first",
+							Use: "capture-runtime",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"text": "seed",
+								},
+							},
+						},
+					},
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "child",
+							Use: "child-pipeline",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"pipeline_id":    "child-pipeline",
+									"parent_message": "name=${{ pipeline_name }} result=${{ result }} output=${{ pipeline_output.first.outputs.text }}",
+								},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+	require.Len(t, captured, 2)
+	require.Equal(t, "seed", captured[0])
+	require.Contains(t, captured[1], "name=Parent Pipeline")
+	require.Contains(t, captured[1], "result=success")
+	require.Contains(t, captured[1], "output=seed")
 }
 
 func TestPipelineWorkflowWrapsSetupHookCancellation(t *testing.T) {
@@ -464,4 +698,605 @@ func TestPipelineWorkflowDefersPlayStoreDisableUntilAfterExternalInstallSteps(t 
 
 	require.NoError(t, env.GetWorkflowError())
 	require.Equal(t, []string{"external-step", "disable-play-store", "after-step"}, order)
+}
+
+func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	emailActivity := activities.NewSendMailActivity()
+	env.RegisterActivityWithOptions(
+		emailActivity.Execute,
+		activity.RegisterOptions{Name: emailActivity.Name()},
+	)
+
+	var callOrder []string
+	var capturedFinallyBody map[string]any
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"body": "ok"}}, nil).
+		Run(func(args mock.Arguments) {
+			input := args.Get(1).(workflowengine.ActivityInput)
+			if payload, ok := input.Payload.(*activities.HTTPActivityPayload); ok {
+				callOrder = append(callOrder, "http: "+payload.URL)
+				if body, ok := payload.Body.(map[string]any); ok {
+					capturedFinallyBody = body
+				}
+			} else if payload, ok := input.Payload.(map[string]any); ok {
+				if url, ok := payload["url"]; ok {
+					callOrder = append(callOrder, "http: "+url.(string))
+				}
+				if body, ok := payload["body"].(map[string]any); ok {
+					capturedFinallyBody = body
+				}
+			}
+		})
+
+	env.OnActivity(emailActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"sent": true}}, nil).
+		Run(func(args mock.Arguments) {
+			callOrder = append(callOrder, "email")
+		})
+
+	wfDef := &pipeline.WorkflowDefinition{
+		Name: "test-finally-http",
+		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "main-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/main",
+						},
+					},
+				},
+			},
+		},
+		Finally: []pipeline.FinallyStepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "finally-http",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"method": "POST",
+							"url":    "https://example.com/finally",
+							"body": map[string]any{
+								"phase":           "finally",
+								"result":          "${{result}}",
+								"pipeline_url":    "${{pipeline_url}}",
+								"input_value":     "${{inputs.tenant}}",
+								"pipeline_output": "${{pipeline_output}}",
+							},
+						},
+					},
+				},
+			},
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "finally-email",
+					Use: "email",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"recipient": "test@example.com",
+							"subject":   "Pipeline finished",
+							"body":      "Done",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: wfDef,
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				Payload: map[string]any{
+					"tenant": "acme",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+
+	t.Logf("Call order: %v", callOrder)
+	require.Len(t, callOrder, 3, "Should have main step + 2 finally steps")
+	require.Contains(t, callOrder[0], "https://example.com/main")
+	require.Contains(t, callOrder[1], "https://example.com/finally")
+	require.Equal(t, "email", callOrder[2])
+
+	require.NotNil(t, capturedFinallyBody)
+	require.Equal(t, "success", capturedFinallyBody["result"])
+	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", capturedFinallyBody["pipeline_url"])
+	require.Equal(t, "acme", capturedFinallyBody["input_value"])
+
+	pipelineOutput, ok := capturedFinallyBody["pipeline_output"].(map[string]any)
+	require.True(t, ok)
+	require.Nil(t, pipelineOutput["error"])
+
+	outputs, ok := pipelineOutput["outputs"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, map[string]any{"outputs": map[string]any{"body": "ok"}}, outputs["main-step"])
+
+	metadata, ok := pipelineOutput["metadata"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", metadata["pipeline_url"])
+	require.Equal(t, "default-test-workflow-id", metadata["workflow_id"])
+	require.Equal(t, "default-test-run-id", metadata["workflow_run_id"])
+}
+
+func TestValidateFinallySteps(t *testing.T) {
+	validSteps := []pipeline.FinallyStepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "valid-http",
+				Use: "http-request",
+			},
+		},
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "valid-email",
+				Use: "email",
+			},
+		},
+	}
+	err := ValidateFinallySteps(validSteps)
+	require.NoError(t, err)
+
+	invalidSteps := []pipeline.FinallyStepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "invalid-json",
+				Use: "json-parse",
+			},
+		},
+	}
+	err = ValidateFinallySteps(invalidSteps)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not allowed")
+	require.Contains(t, err.Error(), "json-parse")
+	require.Contains(t, err.Error(), "invalid-json")
+	mixedSteps := []pipeline.FinallyStepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "invalid-mobile",
+				Use: "mobile-automation",
+			},
+		},
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "valid-email",
+				Use: "email",
+			},
+		},
+	}
+	err = ValidateFinallySteps(mixedSteps)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mobile-automation")
+}
+
+func TestPipelineWorkflowFinallyValidationFails(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	wfDef := &pipeline.WorkflowDefinition{
+		Name: "test-invalid-finally",
+		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "main-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com",
+						},
+					},
+				},
+			},
+		},
+		Finally: []pipeline.FinallyStepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "invalid-finally",
+					Use: "json-parse", // NON CONSENTITO!
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"struct_type": "map",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: wfDef, // ← NON nil, ha finally invalidi
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not allowed")
+	require.Contains(t, err.Error(), "json-parse")
+}
+
+func TestPipelineWorkflowStartWithValidFinally(t *testing.T) {
+	pipelineWf := NewPipelineWorkflow()
+
+	originalClient := pipelineTemporalClient
+	defer func() {
+		pipelineTemporalClient = originalClient
+	}()
+
+	mockClient := temporalmocks.NewClient(t)
+	workflowRun := temporalmocks.NewWorkflowRun(t)
+	workflowRun.On("GetID").Return("workflow-123")
+	workflowRun.On("GetRunID").Return("run-456")
+	mockClient.On(
+		"ExecuteWorkflow",
+		mock.Anything,
+		mock.Anything,
+		pipelineWf.Name(),
+		mock.Anything,
+	).Return(workflowRun, nil)
+
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	yamlContent := `
+name: test-valid-finally
+steps:
+  - id: main-step
+    use: http-request
+    with:
+      payload:
+        url: "https://example.com/main"
+finally:
+  - id: valid-http
+    use: http-request
+    with:
+      payload:
+        url: "https://example.com/finally"
+  - id: valid-email
+    use: email
+    with:
+      payload:
+        recipient: "test@example.com"
+        subject: "Test"
+        body: "Body"
+`
+
+	_, err := pipelineWf.Start(
+		yamlContent,
+		map[string]any{
+			"namespace": "default",
+			"app_url":   "https://example.test",
+		},
+		map[string]any{},
+		"test/valid-finally",
+	)
+
+	require.NoError(t, err)
+}
+
+func TestPipelineWorkflowFinallyErrorsDontBlockWorkflow(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	emailActivity := activities.NewSendMailActivity()
+	env.RegisterActivityWithOptions(
+		emailActivity.Execute,
+		activity.RegisterOptions{Name: emailActivity.Name()},
+	)
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"body": "ok"}}, nil)
+
+	env.OnActivity(emailActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, errors.New("email service unavailable"))
+
+	wfDef := &pipeline.WorkflowDefinition{
+		Name: "test-finally-errors",
+		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "main-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/main",
+						},
+					},
+				},
+			},
+		},
+		Finally: []pipeline.FinallyStepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "finally-email",
+					Use: "email",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"recipient": "test@example.com",
+							"subject":   "Pipeline finished",
+							"body":      "Done",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: wfDef,
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+
+	output, ok := result.Output.(map[string]any)
+	require.True(t, ok)
+
+	finallyErrors, exists := output["finally_errors"]
+	require.True(t, exists, "finally_errors should be present in output")
+
+	errorStr := fmt.Sprintf("%v", finallyErrors)
+	require.Contains(t, errorStr, "email service unavailable")
+
+	require.Contains(t, output, "main-step")
+}
+
+func TestPipelineWorkflowFailure(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	expectedError := "database connection failed"
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, errors.New(expectedError))
+
+	wfDef := &pipeline.WorkflowDefinition{
+		Name: "test-failure",
+		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "failing-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/fail",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: wfDef,
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), expectedError)
+}
+
+func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	var capturedBody map[string]any
+	callCount := 0
+	expectedError := "database connection failed"
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(func(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			callCount++
+
+			var url string
+			switch payload := input.Payload.(type) {
+			case *activities.HTTPActivityPayload:
+				url = payload.URL
+				if body, ok := payload.Body.(map[string]any); ok && url == "https://example.com/finally" {
+					capturedBody = body
+				}
+			case map[string]any:
+				if u, ok := payload["url"]; ok {
+					url = u.(string)
+				}
+				if body, ok := payload["body"].(map[string]any); ok && url == "https://example.com/finally" {
+					capturedBody = body
+				}
+			}
+
+			if url == "https://example.com/fail" {
+				return workflowengine.ActivityResult{}, errors.New(expectedError)
+			}
+			return workflowengine.ActivityResult{Output: map[string]any{"body": "ok"}}, nil
+		})
+
+	wfDef := &pipeline.WorkflowDefinition{
+		Name: "test-failure-with-finally",
+		Steps: []pipeline.StepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "first-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/ok",
+						},
+					},
+				},
+			},
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "failing-step",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"url": "https://example.com/fail",
+						},
+					},
+				},
+			},
+		},
+		Finally: []pipeline.FinallyStepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "finally-check",
+					Use: "http-request",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{
+							"method": "POST",
+							"url":    "https://example.com/finally",
+							"body": map[string]any{
+								"result":          "${{result}}",
+								"pipeline_url":    "${{pipeline_url}}",
+								"pipeline_output": "${{pipeline_output}}",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: wfDef,
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), expectedError)
+
+	require.NotNil(t, capturedBody, "Finally step should be executed")
+	require.Equal(t, "failed", capturedBody["result"])
+	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", capturedBody["pipeline_url"])
+
+	pipelineOutput, exists := capturedBody["pipeline_output"]
+	require.True(t, exists, "pipeline_output should be present in finally body")
+
+	outputMap, ok := pipelineOutput.(map[string]any)
+	require.True(t, ok, "pipeline_output should be a structured object")
+	require.Contains(t, outputMap["error"], "database connection failed")
+
+	outputs, ok := outputMap["outputs"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, map[string]any{"outputs": map[string]any{"body": "ok"}}, outputs["first-step"])
+
+	metadata, ok := outputMap["metadata"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", metadata["pipeline_url"])
+	require.Equal(t, "default-test-workflow-id", metadata["workflow_id"])
+	require.Equal(t, "default-test-run-id", metadata["workflow_run_id"])
 }

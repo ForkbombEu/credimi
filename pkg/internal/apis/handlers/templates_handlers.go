@@ -28,13 +28,13 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL: "/api/template",
 	Routes: []routing.RouteDefinition{
 		{
-			Method:              "GET",
+			Method:              http.MethodGet,
 			Path:                "/blueprints",
 			Handler:             HandleGetConfigsTemplates,
 			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
 		{
-			Method:        "POST",
+			Method:        http.MethodPost,
 			Path:          "/placeholders",
 			Handler:       HandlePlaceholdersByFilenames,
 			RequestSchema: GetPlaceholdersByFilenamesRequestInput{},
@@ -230,7 +230,10 @@ func walkConfigTemplates(dir string, filter bool) (Standards, error) {
 		standardPath := filepath.Join(dir, standardUID)
 
 		standardMeta := StandardMetadata{UID: standardUID}
-		if err := readYaml(filepath.Join(standardPath, "standard.yaml"), &standardMeta); err != nil {
+		if err := readYaml(
+			filepath.Join(standardPath, "standard.yaml"),
+			&standardMeta,
+		); err != nil {
 			return nil, err
 		}
 
@@ -249,7 +252,10 @@ func walkConfigTemplates(dir string, filter bool) (Standards, error) {
 			versionPath := filepath.Join(standardPath, versionUID)
 
 			versionMeta := VersionMetadata{UID: versionUID}
-			if err := readYaml(filepath.Join(versionPath, "version.yaml"), &versionMeta); err != nil {
+			if err := readYaml(
+				filepath.Join(versionPath, "version.yaml"),
+				&versionMeta,
+			); err != nil {
 				return nil, err
 			}
 
@@ -267,7 +273,10 @@ func walkConfigTemplates(dir string, filter bool) (Standards, error) {
 				suitePath := filepath.Join(versionPath, suiteUID)
 
 				suiteMeta := SuiteMetadata{UID: suiteUID}
-				if err := readYaml(filepath.Join(suitePath, "metadata.yaml"), &suiteMeta); err != nil {
+				if err := readYaml(
+					filepath.Join(suitePath, "metadata.yaml"),
+					&suiteMeta,
+				); err != nil {
 					return nil, err
 				}
 

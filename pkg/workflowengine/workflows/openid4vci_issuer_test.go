@@ -1,0 +1,418 @@
+// SPDX-FileCopyrightText: 2025 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package workflows
+
+import (
+	"errors"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/testsuite"
+)
+
+func matchHTTPActivityInput(method string, url string) func(workflowengine.ActivityInput) bool {
+	return func(input workflowengine.ActivityInput) bool {
+		payload := workflowengine.AsMap(input.Payload)
+		return workflowengine.AsString(payload["method"]) == method &&
+			workflowengine.AsString(payload["url"]) == url
+	}
+}
+
+func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
+	os.Setenv("OPENIDNET_TOKEN", "test_token")
+
+	baseConfig := map[string]any{
+		"app_url":   "https://test-app.com",
+		"app_name":  "Credimi",
+		"app_logo":  "https://logo.png",
+		"user_name": "Test User",
+		"namespace": "test-namespace",
+		"template":  "steps: []",
+	}
+
+	testCases := []struct {
+		name          string
+		payload       OpenID4VCIIssuerWorkflowPayload
+		config        map[string]any
+		mockActivity  func(env *testsuite.TestWorkflowEnvironment)
+		expectErr     bool
+		errorContains string
+		errorCode     string
+		checkResult   func(t *testing.T, result workflowengine.WorkflowResult)
+	}{
+		{
+			name: "succeeds when polling reaches FINISHED with PASSED result",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: baseConfig,
+			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				httpActivity := activities.NewHTTPActivity()
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					httpActivity.Execute,
+					activity.RegisterOptions{Name: httpActivity.Name()},
+				)
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"captures": map[string]any{
+								"runner_id": "runner-123",
+							},
+						},
+					}, nil).
+					Once()
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"GET",
+						"https://www.certification.openid.net/api/log/runner-123",
+					)),
+				).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"body": []map[string]any{
+								{
+									"result":            "FINISHED",
+									"testmodule_result": "PASSED",
+									"msg":               "all tests passed",
+								},
+							},
+						},
+					}, nil).
+					Once()
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"POST",
+						"https://test-app.com/api/compliance/send-openidnet-log-update",
+					)),
+				).Return(workflowengine.ActivityResult{}, nil).Once()
+			},
+			expectErr: false,
+			checkResult: func(t *testing.T, result workflowengine.WorkflowResult) {
+				t.Helper()
+				require.Equal(t, "Check completed successfully", result.Message)
+				require.Equal(t, []map[string]any{
+					{
+						"result":            "FINISHED",
+						"testmodule_result": "PASSED",
+						"msg":               "all tests passed",
+					},
+				}, workflowengine.AsSliceOfMaps(result.Log))
+			},
+		},
+		{
+			name: "returns OpenID4VCIIssuerCheckFailed error when polling reaches FINISHED with FAILED result",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: baseConfig,
+			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				httpActivity := activities.NewHTTPActivity()
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					httpActivity.Execute,
+					activity.RegisterOptions{Name: httpActivity.Name()},
+				)
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"captures": map[string]any{
+								"runner_id": "runner-123",
+							},
+						},
+					}, nil).
+					Once()
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"GET",
+						"https://www.certification.openid.net/api/log/runner-123",
+					)),
+				).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"body": []map[string]any{
+								{
+									"result":            "FINISHED",
+									"testmodule_result": "FAILED",
+									"msg":               "assertion failed at step 3",
+								},
+							},
+						},
+					}, nil).
+					Once()
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"POST",
+						"https://test-app.com/api/compliance/send-openidnet-log-update",
+					)),
+				).Return(workflowengine.ActivityResult{}, nil).Once()
+			},
+			expectErr:     true,
+			errorCode:     errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed].Code,
+			errorContains: errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed].Description,
+		},
+		{
+			name: "returns error when StepCI activity fails",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: baseConfig,
+			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, errors.New("stepci connection timeout"))
+			},
+			expectErr:     true,
+			errorContains: "stepci connection timeout",
+		},
+		{
+			name: "returns error when polling activity fails",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: baseConfig,
+			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				httpActivity := activities.NewHTTPActivity()
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					httpActivity.Execute,
+					activity.RegisterOptions{Name: httpActivity.Name()},
+				)
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"captures": map[string]any{
+								"runner_id": "runner-123",
+							},
+						},
+					}, nil).
+					Once()
+				env.OnActivity(
+					httpActivity.Name(),
+					mock.Anything,
+					mock.MatchedBy(matchHTTPActivityInput(
+						"GET",
+						"https://www.certification.openid.net/api/log/runner-123",
+					)),
+				).
+					Return(workflowengine.ActivityResult{}, errors.New("log polling failed")).
+					Once()
+			},
+			expectErr:     true,
+			errorContains: "log polling failed",
+		},
+		{
+			name: "returns error when StepCI output is missing captures",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: baseConfig,
+			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{"unexpected": "value"},
+					}, nil)
+			},
+			expectErr:     true,
+			errorContains: "StepCI unexpected output",
+		},
+		{
+			name: "returns error when StepCI output is missing runner_id",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: baseConfig,
+			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"captures": map[string]any{},
+						},
+					}, nil).
+					Once()
+			},
+			expectErr:     true,
+			errorContains: "runner_id",
+		},
+		{
+			name: "returns error when credential_offer is missing",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config:        baseConfig,
+			mockActivity:  func(_ *testsuite.TestWorkflowEnvironment) {},
+			expectErr:     true,
+			errorContains: "CredentialOffer",
+		},
+		{
+			name: "returns error when template config is missing",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: map[string]any{
+				"app_url":   "https://test-app.com",
+				"app_name":  "Credimi",
+				"app_logo":  "https://logo.png",
+				"user_name": "Test User",
+				"namespace": "test-namespace",
+				// no "template"
+			},
+			mockActivity:  func(_ *testsuite.TestWorkflowEnvironment) {},
+			expectErr:     true,
+			errorContains: "template",
+		},
+		{
+			name: "returns error when app_url config is empty",
+			payload: OpenID4VCIIssuerWorkflowPayload{
+				CredentialOffer: "openid-credential-offer://...",
+				UserMail:        "tester@example.org",
+				TestName:        "happy-flow",
+			},
+			config: map[string]any{
+				"app_url":   "", // empty triggers the guard in ExecuteWorkflow
+				"app_name":  "Credimi",
+				"app_logo":  "https://logo.png",
+				"user_name": "Test User",
+				"namespace": "test-namespace",
+				"template":  "steps: []",
+			},
+			mockActivity:  func(_ *testsuite.TestWorkflowEnvironment) {},
+			expectErr:     true,
+			errorContains: "app_url",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testSuite := &testsuite.WorkflowTestSuite{}
+			env := testSuite.NewTestWorkflowEnvironment()
+
+			w := NewOpenID4VCIIssuerWorkflow()
+			tc.mockActivity(env)
+
+			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
+				Payload:         tc.payload,
+				Config:          tc.config,
+				ActivityOptions: &DefaultActivityOptions,
+			})
+
+			require.True(t, env.IsWorkflowCompleted())
+
+			if tc.expectErr {
+				err := env.GetWorkflowError()
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errorContains)
+				if tc.errorCode != "" {
+					var appErr *temporal.ApplicationError
+					if errors.As(err, &appErr) {
+						require.Equal(t, tc.errorCode, appErr.Type())
+					} else {
+						require.Contains(t, err.Error(), tc.errorCode)
+					}
+				}
+			} else {
+				require.NoError(t, env.GetWorkflowError())
+				var result workflowengine.WorkflowResult
+				require.NoError(t, env.GetWorkflowResult(&result))
+				if tc.checkResult != nil {
+					tc.checkResult(t, result)
+				}
+			}
+		})
+	}
+}
+
+func TestOpenID4VCIIssuerWorkflowStart(t *testing.T) {
+	origStart := openID4VCIIssuerStartWorkflowWithOptions
+	t.Cleanup(func() {
+		openID4VCIIssuerStartWorkflowWithOptions = origStart
+	})
+
+	var capturedNamespace string
+	var capturedOptions client.StartWorkflowOptions
+	var capturedName string
+
+	openID4VCIIssuerStartWorkflowWithOptions = func(
+		namespace string,
+		options client.StartWorkflowOptions,
+		name string,
+		_ workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		capturedNamespace = namespace
+		capturedOptions = options
+		capturedName = name
+		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+	}
+
+	w := NewOpenID4VCIIssuerWorkflow()
+	input := workflowengine.WorkflowInput{Config: map[string]any{"namespace": "ns-issuer"}}
+	result, err := w.Start(input)
+	require.NoError(t, err)
+	require.Equal(t, "wf-1", result.WorkflowID)
+	require.Equal(t, "run-1", result.WorkflowRunID)
+	require.Equal(t, "ns-issuer", capturedNamespace)
+	require.Equal(t, w.Name(), capturedName)
+	require.Equal(t, OpenID4VCIIssuerTaskQueue, capturedOptions.TaskQueue)
+	require.True(t, strings.HasPrefix(capturedOptions.ID, "OpenID4VCIIssuerCheckWorkflow"))
+}

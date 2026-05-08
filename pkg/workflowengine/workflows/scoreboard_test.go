@@ -48,6 +48,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"total_successes":      8.0,
 						"manual_executions":    3.0,
 						"scheduled_executions": 7.0,
+						"ci_executions":        2.0,
 						"min_execution_time":   "10m0s",
 						"first_execution_date": "2026-01-01T00:00:00Z",
 						"last_execution_date":  "2026-04-01T00:00:00Z",
@@ -69,6 +70,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"total_successes":      5.0,
 						"manual_executions":    1.0,
 						"scheduled_executions": 4.0,
+						"ci_executions":        3.0,
 						"min_execution_time":   "2m0s",
 						"first_execution_date": "2026-02-01T00:00:00Z",
 						"last_execution_date":  "2026-04-03T00:00:00Z",
@@ -88,6 +90,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"total_successes":      5.0,
 						"manual_executions":    1.0,
 						"scheduled_executions": 4.0,
+						"ci_executions":        5.0,
 						"min_execution_time":   "2m0s",
 						"first_execution_date": "2026-02-02T00:00:00Z",
 						"last_execution_date":  "2026-02-03T00:00:00Z",
@@ -158,6 +161,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.Equal(t, "2026-04-03T00:00:00Z", pipeline1.LastExecutionDate)
 				require.Equal(t, 4, pipeline1.ManualExecutions)
 				require.Equal(t, 11, pipeline1.ScheduledExecutions)
+				require.Equal(t, 5, pipeline1.CIExecutions)
 				require.ElementsMatch(
 					t,
 					[]string{"runner-1", "runner-2", "runner-3"},
@@ -172,6 +176,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.NotNil(t, pipeline2)
 				require.Equal(t, 5, pipeline2.TotalRuns)
 				require.Equal(t, 5, pipeline2.TotalSuccesses)
+				require.Equal(t, 5, pipeline2.CIExecutions)
 				require.ElementsMatch(t, []string{"runner-3"}, pipeline2.Runners)
 				require.NotNil(t, pipeline2.LastExecution)
 				require.Equal(t, "Pipeline 2", pipeline2.LastExecution.PipelineName)
@@ -205,7 +210,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 							"run_id":      "run-1",
 							"start_time":  "2026-04-02T10:00:00Z",
 						},
-					},	
+					},
 				})
 				env.OnActivity(activityName(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, errors.New("boom")).
@@ -218,20 +223,26 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 					payload := input.Payload.(map[string]any)
 					url, _ := payload["url"].(string)
 					return strings.Contains(url, "save-results")
-				})).Return(workflowengine.ActivityResult{
-					Output: map[string]any{
-						"body": map[string]any{
-							"success": true,
+				})).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"body": map[string]any{
+								"success": true,
+							},
+							"status_code": 200,
 						},
-						"status_code": 200,
-					},
-				}, nil).Once()
+					}, nil).
+					Once()
 			},
 			validateOutput: func(t *testing.T, output AggregateScoreboardWorkflowOutput) {
 				require.Equal(t, 1, output.NamespacesProcessed)
 				require.Equal(t, 1, output.NamespacesFailed)
 				require.Len(t, output.FailedNamespaces, 1)
-				require.Contains(t, []string{"namespace-1", "namespace-2"}, output.FailedNamespaces[0])
+				require.Contains(
+					t,
+					[]string{"namespace-1", "namespace-2"},
+					output.FailedNamespaces[0],
+				)
 				require.Len(t, output.AggregatedPipelines, 1)
 				require.NotNil(t, output.AggregatedPipelines[0].LastExecution)
 			},
@@ -372,6 +383,50 @@ func TestAggregateScoreboardWorkflowStart(t *testing.T) {
 	require.True(t, strings.HasPrefix(capturedOptions.ID, "aggregate-scoreboard-"))
 }
 
+func TestAggregateScoreboardWorkflowOrdersMixedTimestampPrecision(t *testing.T) {
+	w := NewAggregateScoreboardWorkflow()
+	stats := &AggregatedPipelineStats{}
+
+	w.updateDates(stats, map[string]any{
+		"first_execution_date": "2026-04-21T10:00:00Z",
+		"last_execution_date":  "2026-04-21T10:00:00Z",
+	})
+	w.updateDates(stats, map[string]any{
+		"first_execution_date": "2026-04-21T09:59:59.999999999Z",
+		"last_execution_date":  "2026-04-21T10:00:00.1Z",
+	})
+
+	lastRunMap := map[string]*pipelineRunRef{}
+	w.trackLastRun(
+		map[string]any{
+			"last_successful_run": map[string]any{
+				"workflow_id": "whole-second",
+				"run_id":      "run-1",
+				"start_time":  "2026-04-21T10:00:00Z",
+			},
+		},
+		"namespace-1",
+		"pipe-1",
+		lastRunMap,
+	)
+	w.trackLastRun(
+		map[string]any{
+			"last_successful_run": map[string]any{
+				"workflow_id": "fractional-second",
+				"run_id":      "run-2",
+				"start_time":  "2026-04-21T10:00:00.1Z",
+			},
+		},
+		"namespace-1",
+		"pipe-1",
+		lastRunMap,
+	)
+
+	require.Equal(t, "2026-04-21T09:59:59.999999999Z", stats.FirstExecutionDate)
+	require.Equal(t, "2026-04-21T10:00:00.1Z", stats.LastExecutionDate)
+	require.Equal(t, "fractional-second", lastRunMap["pipe-1"].WorkflowID)
+}
+
 func registerInternalHTTPActivity(env *testsuite.TestWorkflowEnvironment) {
 	httpAct := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(
@@ -460,12 +515,14 @@ func mockSaveResults(env *testsuite.TestWorkflowEnvironment) {
 		}
 		url, _ := payload["url"].(string)
 		return strings.Contains(url, "save-results")
-	})).Return(workflowengine.ActivityResult{
-		Output: map[string]any{
-			"body": map[string]any{
-				"success": true,
+	})).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"body": map[string]any{
+					"success": true,
+				},
+				"status_code": 200,
 			},
-			"status_code": 200,
-		},
-	}, nil).Once()
+		}, nil).
+		Once()
 }

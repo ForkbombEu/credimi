@@ -217,9 +217,7 @@ func fetchCompletedWorkflowsWithPagination(
 	}
 
 	sort.Slice(allSummaries, func(i, j int) bool {
-		t1, _ := time.Parse(time.RFC3339, allSummaries[i].StartTime)
-		t2, _ := time.Parse(time.RFC3339, allSummaries[j].StartTime)
-		return t1.After(t2)
+		return utils.TimeStringAfter(allSummaries[i].StartTime, allSummaries[j].StartTime)
 	})
 
 	loc, err := time.LoadLocation(authRecord.GetString("Timezone"))
@@ -708,10 +706,10 @@ func localizePipelineWorkflowSummaries(list []*pipelineWorkflowSummary, loc *tim
 			continue
 		}
 
-		if t, err := time.Parse(time.RFC3339, summary.StartTime); err == nil {
+		if t, err := utils.ParseTimeString(summary.StartTime); err == nil {
 			summary.StartTime = t.In(loc).Format("02/01/2006, 15:04:05")
 		}
-		if t, err := time.Parse(time.RFC3339, summary.EndTime); err == nil {
+		if t, err := utils.ParseTimeString(summary.EndTime); err == nil {
 			summary.EndTime = t.In(loc).Format("02/01/2006, 15:04:05")
 		}
 		if len(summary.Children) > 0 {

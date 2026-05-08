@@ -230,7 +230,7 @@ func findOrCreatePipeline(
 		"records",
 	) + "?filter=" + url.QueryEscape(filter)
 
-	req, _ := http.NewRequestWithContext(ctx, "GET", findURL, nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, findURL, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -263,7 +263,7 @@ func findOrCreatePipeline(
 
 	createReq, _ := http.NewRequestWithContext(
 		ctx,
-		"POST",
+		http.MethodPost,
 		utils.JoinURL(
 			instanceURL,
 			"api",

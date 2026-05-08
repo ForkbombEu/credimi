@@ -8,7 +8,6 @@ import {
 	House,
 	ListIcon,
 	LockIcon,
-	SheetIcon,
 	StoreIcon,
 	UserIcon
 } from '@lucide/svelte';
@@ -90,7 +89,7 @@ const data: SidebarGroup[] = $derived([
 			{
 				title: m.manual_conformance_checks(),
 				url: '/my/tests/new',
-				icon: SheetIcon
+				icon: entities.conformance_checks.icon
 			},
 			{
 				title: m.workflow_runs(),

@@ -158,7 +158,7 @@ BEGIN {
 			test_output[key] = test_output[key] decoded_output
 		}
 		if (!(key in test_file)) {
-			file = extract_file(output, /[A-Za-z0-9_.\/-]+_test\.go:[0-9]+:/)
+			file = extract_file(output, "[A-Za-z0-9_./-]+_test\\.go:[0-9]+:")
 			if (file != "") {
 				test_file[key] = file
 			}
@@ -171,14 +171,14 @@ BEGIN {
 			package_output[pkg] = package_output[pkg] decoded_output
 		}
 		if (!(pkg in package_file)) {
-			file = extract_file(output, /[A-Za-z0-9_.\/-]+\.go:[0-9]+:/)
+			file = extract_file(output, "[A-Za-z0-9_./-]+\\.go:[0-9]+:")
 			if (file != "") {
 				package_file[pkg] = file
 			}
 		}
 	}
 
-	raw_file = extract_file($0, /[A-Za-z0-9_.\/-]+_test\.go:[0-9]+/)
+	raw_file = extract_file($0, "[A-Za-z0-9_./-]+_test\\.go:[0-9]+")
 	if (raw_file != "") {
 		if (test_name != "") {
 			top = top_test_name(test_name)

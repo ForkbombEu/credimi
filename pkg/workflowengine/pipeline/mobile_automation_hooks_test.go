@@ -1207,6 +1207,63 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 	require.Equal(t, []any{"frame-url"}, result["screenshot_urls"])
 }
 
+func TestStoreRecordingResultsInitializesMissingOutputSlices(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ctx = workflow.WithActivityOptions(
+				ctx,
+				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			)
+
+			output := map[string]any{}
+			err := storeRecordingResults(storeRecordingResultsInput{
+				ctx:        ctx,
+				runnerURL:  "https://runner.example",
+				videoPath:  "/tmp/video.mp4",
+				lastFrame:  "/tmp/frame.png",
+				logPath:    "/tmp/log.txt",
+				deviceType: deviceTypeAndroidPhone,
+				runID:      "run-1",
+				runnerID:   "runner-1",
+				appURL:     "https://app.example",
+				output:     &output,
+				logger:     workflow.GetLogger(ctx),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			return output, nil
+		},
+		workflow.RegisterOptions{Name: "test-store-recording-results-initializes-missing-slices"},
+	)
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{
+				"result_urls":     []string{"video-url"},
+				"screenshot_urls": []string{"frame-url"},
+			},
+		}}, nil)
+
+	env.ExecuteWorkflow("test-store-recording-results-initializes-missing-slices")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, []any{"video-url"}, result["result_video_urls"])
+	require.Equal(t, []any{"frame-url"}, result["screenshot_urls"])
+}
+
 func TestStoreRecordingResultsIOSSendsLogPath(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

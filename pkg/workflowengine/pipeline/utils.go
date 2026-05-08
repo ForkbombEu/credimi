@@ -133,7 +133,6 @@ func parseDurationOrDefault(s, def string) time.Duration {
 	return d
 }
 
-
 // SetPayloadValue sets a key/value pair in the given payload map.
 // If the key exists, it overwrites it; otherwise, it adds it.
 func SetPayloadValue(payload *map[string]any, key string, val any) error {
@@ -208,7 +207,7 @@ func getPipelineRunIdentifier(namespace, workflowID, runID string) string {
 	return fmt.Sprintf("%s/%s", namespace, canonify.CanonifyPlain(id))
 }
 
-func  DecodePayload(s *pipeline.StepDefinition) (any, error) {
+func DecodePayload(s *pipeline.StepDefinition) (any, error) {
 	desc, ok := registry.Registry[s.Use]
 	if !ok {
 		return nil, fmt.Errorf("unknown step type: %s", s.Use)
@@ -230,4 +229,3 @@ func  DecodePayload(s *pipeline.StepDefinition) (any, error) {
 
 	return valPtr, nil
 }
-

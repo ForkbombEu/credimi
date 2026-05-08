@@ -23,6 +23,7 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	pipeline_name?: string;
 	global_runner_id?: string;
 	runner_ids?: string[];
+	enqueuedAt?: string;
 	runner_records?: Array<MobileRunnersResponse>;
 	queue?: {
 		ticket_id: string;
@@ -39,7 +40,7 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 
 const groupedExecutionsUrl = '/api/pipeline/list-executions';
 
-export async function listAllGroupedByPipelineId(options = { fetch }) {
+export async function listAllGroupedByPipelineId(options: { fetch?: typeof fetch } = {}) {
 	return pb.send<Record<string, ExecutionSummary[]>>(groupedExecutionsUrl, {
 		method: 'GET',
 		fetch: options.fetch,
@@ -101,9 +102,7 @@ function parseExecutionTime(execution: ExecutionSummary): number {
 	const value = execution.enqueuedAt ?? execution.startTime;
 	if (!value) return 0;
 
-	const localizedMatch = value.match(
-		/^(\d{2})\/(\d{2})\/(\d{4}), (\d{2}):(\d{2}):(\d{2})$/
-	);
+	const localizedMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4}), (\d{2}):(\d{2}):(\d{2})$/);
 	if (localizedMatch) {
 		const [, day, month, year, hour, minute, second] = localizedMatch;
 		return new Date(

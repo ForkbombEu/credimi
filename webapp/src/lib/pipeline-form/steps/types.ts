@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
-import type { PipelineStepByType, PipelineStepData, PipelineStepType } from '$lib/pipeline/types';
+import type {
+	PipelineStep,
+	PipelineStepByType,
+	PipelineStepData,
+	PipelineStepType
+} from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
 import type { Component } from 'svelte';
 import type { Simplify } from 'type-fest';
@@ -20,6 +25,7 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	CardDetailsComponent?: Component<CardDetailsComponentProps<Deserialized>>;
 	EditComponent?: Component<EditComponentProps<Deserialized>>;
 	makeId: (data: Serialized) => string;
+	linkProcedure?: (serialized: Serialized, previousSteps: PipelineStep[]) => void;
 }
 
 export type EditComponentProps<Deserialized = unknown> = {

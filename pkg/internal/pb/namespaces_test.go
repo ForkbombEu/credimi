@@ -202,3 +202,21 @@ func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
 	require.Equal(t, "org-1", started.namespace)
 	require.Equal(t, "", started.oldNamespace)
 }
+
+func TestHookNamespaceOrgsCreateDefaults(t *testing.T) {
+	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: t.TempDir()})
+	HookNamespaceOrgs(app)
+
+	collection := core.NewBaseCollection("organizations")
+	record := core.NewRecord(collection)
+
+	event := &core.RecordEvent{App: app}
+	event.Record = record
+
+	err := app.OnRecordCreate("organizations").Trigger(
+		event,
+		func(_ *core.RecordEvent) error { return nil },
+	)
+	require.NoError(t, err)
+	require.Equal(t, defaultMaxPipelinesInQueue, record.GetInt("max_pipelines_in_queue"))
+}

@@ -157,7 +157,11 @@ func Test_EudiwWorkflow(t *testing.T) {
 					env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*90)
 
 					<-done
-					require.Greater(t, int(callCount.Load()), 3) // Expecting multiple activity calls
+					require.Greater(
+						t,
+						int(callCount.Load()),
+						3,
+					) // Expecting multiple activity calls
 				} else {
 					<-done
 					var result workflowengine.WorkflowResult

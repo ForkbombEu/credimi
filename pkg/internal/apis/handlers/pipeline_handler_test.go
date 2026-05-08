@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -143,6 +144,7 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 				"pipeline_id": "usera-s-organization/pipeline123",
 				"workflow_id": "workflow-xyz",
 				"run_id":      "run-001",
+				"type":        pipelineinternal.RunTypeCI,
 			}),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -150,6 +152,7 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 				`"pipeline"`,
 				`"workflow_id"`,
 				`"run_id"`,
+				`"type":"CI"`,
 			},
 			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -1198,6 +1201,33 @@ func TestSelectTopExecutionsByPipeline(t *testing.T) {
 		[]string{string(WorkflowStatusRunning), string(WorkflowStatusCompleted)},
 		[]string{selected["pipeline-1"][0].Status, selected["pipeline-1"][1].Status},
 	)
+}
+
+func TestSelectTopExecutionsByPipelineOrdersMixedTimestampPrecision(t *testing.T) {
+	executions := []struct {
+		pipelineID string
+		execution  *WorkflowExecutionSummary
+	}{
+		{
+			pipelineID: "pipeline-1",
+			execution: &WorkflowExecutionSummary{
+				Status:    string(WorkflowStatusCompleted),
+				StartTime: "2026-04-21T10:00:00Z",
+			},
+		},
+		{
+			pipelineID: "pipeline-1",
+			execution: &WorkflowExecutionSummary{
+				Status:    string(WorkflowStatusCompleted),
+				StartTime: "2026-04-21T10:00:00.1Z",
+			},
+		},
+	}
+
+	selected := selectTopExecutionsByPipeline(executions, 1)
+
+	require.Len(t, selected["pipeline-1"], 1)
+	require.Equal(t, "2026-04-21T10:00:00.1Z", selected["pipeline-1"][0].StartTime)
 }
 
 func TestBuildChildWorkflowParentQuery(t *testing.T) {

@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { EmailStepForm } from './email-step-form.svelte.js';
 
 	import WithLabel from '../_partials/with-label.svelte';
+	import PlaceholderButtons from './placeholders/placeholder-buttons.svelte';
 
 	//
 
@@ -39,6 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<WithLabel label={m.Body()} optional>
 		<Textarea id="body" rows={5} bind:value={form.data.body} />
 	</WithLabel>
+
+	<PlaceholderButtons />
 
 	<Button class="w-full" disabled={!form.isValid} onclick={() => form.submit()}>
 		<T>{m.Add_step()}</T>

@@ -1058,7 +1058,7 @@ func fetchAndInstallAPK(
 				"installer-action",
 			),
 			Headers: map[string]string{
-				"Content-Type": "application/json",
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
 			Body:           body,
 			Timeout:        "300",
@@ -1962,7 +1962,7 @@ func storeRecordingResults(
 					"pipeline-result",
 				),
 				Headers: map[string]string{
-					"Content-Type": "application/json",
+					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 				},
 				Body:           body,
 				Timeout:        "300",
@@ -2011,10 +2011,13 @@ func extractAndStoreURLs(
 		*output = make(map[string]any)
 	}
 
+	existingResultURLs := workflowengine.AsSliceOfStrings((*output)["result_video_urls"])
+	existingFrameURLs := workflowengine.AsSliceOfStrings((*output)["screenshot_urls"])
+
 	(*output)["result_video_urls"] =
-		append((*output)["result_video_urls"].([]string), resultURLs...)
+		append(existingResultURLs, resultURLs...)
 	(*output)["screenshot_urls"] =
-		append((*output)["screenshot_urls"].([]string), frameURLs...)
+		append(existingFrameURLs, frameURLs...)
 
 	return nil
 }

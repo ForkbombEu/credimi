@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -196,7 +197,6 @@ func TestHandleGetPipelineScoreboardMissingNamespace(t *testing.T) {
 func TestHandleGetPipelineScoreboard(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -275,6 +275,51 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-2*time.Hour).Add(-5*time.Minute).Add(-10*time.Second),
 		now.Add(-1*time.Minute),
 	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline1.Id,
+		"Pipeline-Sched-wf-1",
+		"run-1",
+		pipelineinternal.RunTypeManual,
+	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline1.Id,
+		"wf-2",
+		"run-2",
+		pipelineinternal.RunTypeScheduled,
+	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline1.Id,
+		"wf-3",
+		"run-3",
+		pipelineinternal.RunTypeCI,
+	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline2.Id,
+		"Pipeline-Sched-wf-4",
+		"run-4",
+		pipelineinternal.RunTypeCI,
+	)
+	createPipelineResultWithType(
+		t,
+		app,
+		orgID,
+		pipeline3.Id,
+		"wf-5",
+		"run-5",
+		pipelineinternal.RunTypeManual,
+	)
 	mockClient.
 		On("ListWorkflow",
 			mock.Anything,
@@ -335,7 +380,8 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.Equal(t, 3, stats1.TotalRuns)
 	require.Equal(t, 2, stats1.TotalSuccesses)
 	require.Equal(t, 1, stats1.ScheduledExecutions)
-	require.Equal(t, 2, stats1.ManualExecutions)
+	require.Equal(t, 1, stats1.ManualExecutions)
+	require.Equal(t, 1, stats1.CIExecutions)
 	require.ElementsMatch(
 		t,
 		[]string{"usera-s-organization/runner-android", "usera-s-organization/runner-ios"},
@@ -360,8 +406,9 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.NotNil(t, stats2)
 	require.Equal(t, 1, stats2.TotalRuns)
 	require.Equal(t, 1, stats2.TotalSuccesses)
-	require.Equal(t, 1, stats2.ScheduledExecutions)
+	require.Equal(t, 0, stats2.ScheduledExecutions)
 	require.Equal(t, 0, stats2.ManualExecutions)
+	require.Equal(t, 1, stats2.CIExecutions)
 	require.ElementsMatch(
 		t,
 		[]string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"},
@@ -382,6 +429,9 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.NotNil(t, stats3.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
 	require.Equal(t, "wf-5", stats3.LastSuccessfulRun.WorkflowID)
 	require.Equal(t, "run-5", stats3.LastSuccessfulRun.RunID)
+	require.Equal(t, 1, stats3.ManualExecutions)
+	require.Equal(t, 0, stats3.ScheduledExecutions)
+	require.Equal(t, 0, stats3.CIExecutions)
 
 	mockClient.AssertExpectations(t)
 }
@@ -423,9 +473,9 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 		now.Add(-1*time.Hour),
 	)
 	addEntitySearchAttributes(exec2.Info, map[string]any{
-		workflowengine.VersionsSearchAttribute: []string{"org/wallet/v1-0-0"},
+		workflowengine.VersionsSearchAttribute: "installed_from_external_source",
 		workflowengine.ActionsSearchAttribute: []string{
-			"org/action/maestro-1",
+			"org/wallet/maestro-1",
 			"org/action/maestro-2",
 		},
 		workflowengine.CredentialsSearchAttribute: []string{
@@ -536,11 +586,11 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 		require.Empty(t, details.Screenshots)
 		require.Empty(t, details.Logs)
 
-		require.ElementsMatch(t, []string{"org/wallet"}, details.WalletUsed)
-		require.ElementsMatch(t, []string{"org/wallet/v1-0-0"}, details.WalletVersionUsed)
+		require.ElementsMatch(t, []string{"org/wallet", "org/action"}, details.WalletUsed)
+		require.ElementsMatch(t, []string{}, details.WalletVersionUsed)
 		require.ElementsMatch(
 			t,
-			[]string{"org/action/maestro-1", "org/action/maestro-2"},
+			[]string{"org/wallet/maestro-1", "org/action/maestro-2"},
 			details.MaestroScripts,
 		)
 		require.ElementsMatch(
@@ -638,6 +688,27 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 	})
 
 	mockClient.AssertExpectations(t)
+}
+
+func createPipelineResultWithType(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	pipelineID string,
+	workflowID string,
+	runID string,
+	runType string,
+) {
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("owner", orgID)
+	record.Set("pipeline", pipelineID)
+	record.Set("workflow_id", workflowID)
+	record.Set("run_id", runID)
+	record.Set("type", runType)
+	require.NoError(t, app.Save(record))
 }
 
 func addEntitySearchAttributes(info *workflow.WorkflowExecutionInfo, attrs map[string]any) {
@@ -756,6 +827,40 @@ func TestExtractCompletionStatus(t *testing.T) {
 	}
 }
 
+func TestCalculateStatsFromExecutionsOrdersMixedTimestampPrecision(t *testing.T) {
+	attrs := DecodedWorkflowSearchAttributes{}
+	executions := []*WorkflowExecution{
+		{
+			Execution:        &WorkflowIdentifier{WorkflowID: "whole-second", RunID: "run-1"},
+			StartTime:        "2026-04-21T10:00:00Z",
+			CloseTime:        "2026-04-21T10:01:00Z",
+			Status:           "Completed",
+			SearchAttributes: &attrs,
+		},
+		{
+			Execution:        &WorkflowIdentifier{WorkflowID: "fractional-second", RunID: "run-2"},
+			StartTime:        "2026-04-21T10:00:00.1Z",
+			CloseTime:        "2026-04-21T10:01:00.1Z",
+			Status:           "Completed",
+			SearchAttributes: &attrs,
+		},
+		{
+			Execution:        &WorkflowIdentifier{WorkflowID: "earliest", RunID: "run-3"},
+			StartTime:        "2026-04-21T09:59:59.999999999Z",
+			CloseTime:        "2026-04-21T10:00:59.999999999Z",
+			Status:           "Completed",
+			SearchAttributes: &attrs,
+		},
+	}
+
+	stats, lastSuccessfulRun := calculateStatsFromExecutions(executions, nil, nil, nil)
+
+	require.Equal(t, "2026-04-21T09:59:59.999999999Z", stats.FirstExecutionDate)
+	require.Equal(t, "2026-04-21T10:00:00.1Z", stats.LastExecutionDate)
+	require.NotNil(t, lastSuccessfulRun)
+	require.Equal(t, "fractional-second", lastSuccessfulRun.WorkflowID)
+}
+
 func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	runnersColl, err := app.FindCollectionByNameOrId("mobile_runners")
 	require.NoError(t, err)
@@ -764,6 +869,7 @@ func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	runner.Set("name", name)
 	runner.Set("owner", orgID)
 	runner.Set("ip", "my_ip")
+	runner.Set("type", "android_emulator")
 	require.NoError(t, app.Save(runner))
 }
 
@@ -859,7 +965,6 @@ func createCustomCheckRecord(t testing.TB, app *tests.TestApp, orgID, name strin
 func TestSaveScoreboardResults(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -887,6 +992,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 				SuccessRate:         80.0,
 				ManualExecutions:    5,
 				ScheduledExecutions: 5,
+				CIExecutions:        2,
 				MinExecutionTime:    "1m30s",
 				FirstExecutionDate:  "2024-01-01T00:00:00Z",
 				LastExecutionDate:   "2024-01-02T00:00:00Z",
@@ -900,7 +1006,8 @@ func TestSaveScoreboardResults(t *testing.T) {
 						"usera-s-organization/my-issuer-1",
 						"usera-s-organization/my-issuer-2",
 					},
-					WalletVersionUsed:    []string{"usera-s-organization/my-wallet/1-0-0"},
+					WalletVersionUsed: []string{"installed_from_external_source",
+						"usera-s-organization/my-wallet/1-0-0"},
 					MaestroScripts:       []string{"usera-s-organization/my-wallet/my-action"},
 					Credentials:          []string{"usera-s-organization/my-issuer-1/cred-3"},
 					UseCaseVerifications: []string{"usera-s-organization/my-verifier/usecase123"},
@@ -951,8 +1058,10 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.Equal(t, pipeline.Id, record.GetString("pipeline"))
 		require.Equal(t, 10, record.GetInt("total_runs"))
 		require.Equal(t, 8, record.GetInt("total_successes"))
+		require.Equal(t, 80.0, record.GetFloat("success_rate"))
 		require.Equal(t, 5, record.GetInt("manually_executed_runs"))
 		require.Equal(t, 5, record.GetInt("scheduled_runs"))
+		require.Equal(t, 2, record.GetInt("CI_runs"))
 		require.Equal(t, "1m30s", record.GetString("minimum_running_time"))
 
 		runnerIDs := record.GetStringSlice("mobile_runners")
@@ -962,8 +1071,8 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "test-runner", runnerRecord.GetString("name"))
 
-		latestExecutionID := record.GetString("latest_execution")
-		require.NotEmpty(t, latestExecutionID, "latest_execution should not be empty")
+		latestExecutionID := record.GetString("latest_successful_execution")
+		require.NotEmpty(t, latestExecutionID, "latest_successful_execution should not be empty")
 
 		executionRecord, err := app.FindRecordById("pipeline_results", latestExecutionID)
 		require.NoError(t, err)
@@ -1106,6 +1215,163 @@ func TestSaveScoreboardResults(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+
+	t.Run("partial - missing runners are skipped", func(t *testing.T) {
+		aggregatedPipelines := []workflows.AggregatedPipelineStats{
+			{
+				PipelineID:   pipeline.Id,
+				PipelineName: "Test Pipeline",
+				Runners: []string{
+					"usera-s-organization/test-runner",
+					"usera-s-organization/missing-runner",
+				},
+				TotalRuns:          10,
+				FirstExecutionDate: "2024-01-01T00:00:00Z",
+				LastExecutionDate:  "2024-01-02T00:00:00Z",
+			},
+		}
+
+		requestBody := SaveScoreboardResultsRequest{
+			AggregatedPipelines: aggregatedPipelines,
+		}
+		bodyBytes, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/scoreboard/save-results",
+			strings.NewReader(string(bodyBytes)),
+		)
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		err = HandleSaveScoreboardResults()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response SaveScoreboardResultsResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+		require.True(t, response.Success)
+		require.Equal(t, 1, response.RecordsCount)
+		require.Contains(t, response.Error, "missing-runner")
+
+		collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+		require.NoError(t, err)
+
+		records, err := app.FindRecordsByFilter(collection.Id, "", "", -1, 0)
+		require.NoError(t, err)
+		require.Len(t, records, 1)
+
+		runnerIDs := records[0].GetStringSlice("mobile_runners")
+		require.Len(t, runnerIDs, 1)
+		runnerRecord, err := app.FindRecordById("mobile_runners", runnerIDs[0])
+		require.NoError(t, err)
+		require.Equal(t, "test-runner", runnerRecord.GetString("name"))
+	})
+
+	t.Run("partial - missing last execution relations are skipped", func(t *testing.T) {
+		aggregatedPipelines := []workflows.AggregatedPipelineStats{
+			{
+				PipelineID:          pipeline.Id,
+				PipelineName:        "Test Pipeline",
+				TotalRuns:           10,
+				FirstExecutionDate:  "2024-01-01T00:00:00Z",
+				LastExecutionDate:   "2024-01-02T00:00:00Z",
+				ManualExecutions:    5,
+				ScheduledExecutions: 5,
+				LastExecution: &workflows.LatestExecutionDetails{
+					PipelineName: "Test Pipeline",
+					WorkflowID:   "wf-new",
+					RunID:        "run-new",
+					WalletUsed: []string{
+						"usera-s-organization/my-wallet",
+						"usera-s-organization/missing-wallet",
+					},
+					Verifiers: []string{"usera-s-organization/my-verifier"},
+					Issuers: []string{
+						"usera-s-organization/my-issuer-1",
+						"usera-s-organization/missing-issuer",
+					},
+					WalletVersionUsed: []string{
+						"usera-s-organization/my-wallet/1-0-0",
+						"usera-s-organization/missing-wallet/1-0-0",
+					},
+					MaestroScripts: []string{
+						"usera-s-organization/my-wallet/my-action",
+						"usera-s-organization/my-wallet/missing-action",
+					},
+					Credentials: []string{
+						"usera-s-organization/my-issuer-1/cred-3",
+						"usera-s-organization/my-issuer-1/missing-credential",
+					},
+					UseCaseVerifications: []string{
+						"usera-s-organization/my-verifier/usecase123",
+						"usera-s-organization/my-verifier/missing-use-case",
+					},
+					CustomChecks: []string{
+						"usera-s-organization/my-check",
+						"usera-s-organization/missing-check",
+					},
+				},
+			},
+		}
+
+		requestBody := SaveScoreboardResultsRequest{
+			AggregatedPipelines: aggregatedPipelines,
+		}
+		bodyBytes, err := json.Marshal(requestBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/scoreboard/save-results",
+			strings.NewReader(string(bodyBytes)),
+		)
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		err = HandleSaveScoreboardResults()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response SaveScoreboardResultsResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+		require.True(t, response.Success)
+		require.Equal(t, 1, response.RecordsCount)
+		require.Contains(t, response.Error, "missing-wallet")
+		require.Contains(t, response.Error, "missing-issuer")
+		require.Contains(t, response.Error, "missing-action")
+
+		collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+		require.NoError(t, err)
+
+		records, err := app.FindRecordsByFilter(collection.Id, "", "", -1, 0)
+		require.NoError(t, err)
+		require.Len(t, records, 1)
+
+		require.Len(t, records[0].GetStringSlice("wallets"), 1)
+		require.Len(t, records[0].GetStringSlice("issuers"), 1)
+		require.Len(t, records[0].GetStringSlice("verifiers"), 1)
+		require.Len(t, records[0].GetStringSlice("wallet_actions"), 1)
+		require.Len(t, records[0].GetStringSlice("wallet_versions"), 1)
+		require.Len(t, records[0].GetStringSlice("credentials"), 1)
+		require.Len(t, records[0].GetStringSlice("use_case_verifications"), 1)
+		require.Len(t, records[0].GetStringSlice("custom_integrations"), 1)
 	})
 
 	t.Run("fail - pipeline not found", func(t *testing.T) {

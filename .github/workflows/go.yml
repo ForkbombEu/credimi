@@ -10,6 +10,7 @@ on:
       - "**.go"
       - "go.mod"
       - "go.sum"
+      - ".mise.toml"
 
 jobs:
   lint:
@@ -20,7 +21,7 @@ jobs:
       security-events: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -121,11 +122,11 @@ jobs:
       ROOT_DIR: ${{ github.workspace }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
 
       - name: git config for credimi-extra
         env:

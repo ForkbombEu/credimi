@@ -16,10 +16,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -37,6 +40,16 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandlePipelineQueueEnqueue,
 			RequestSchema: PipelineQueueInput{},
 			Description:   "Queue a pipeline workflow for the runner semaphore",
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/run-wallet-apk",
+			Handler:        HandlePipelineRunWalletAPK,
+			ResponseSchema: PipelineRunWalletAPKResponse{},
+			Description:    "Create a temporary wallet APK version and queue a one-off pipeline run",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				apis.BodyLimit(1000 << 20),
+			},
 		},
 		{
 			Method:      http.MethodGet,
@@ -134,6 +147,37 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
 		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/retention/delete-files",
+			Handler:       HandleDeletePipelineResultFiles,
+			RequestSchema: DeletePipelineResultFilesRequest{},
+			Description:   "Delete retained pipeline result files older than the requested number of days",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/retention/schedule",
+			Handler:        HandleSchedulePipelineRetentionWorkflow,
+			RequestSchema:  SchedulePipelineRetentionRequest{},
+			ResponseSchema: SchedulePipelineRetentionResponse{},
+			Description:    "Schedule the pipeline retention workflow",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:         http.MethodDelete,
+			Path:           "/retention/schedule",
+			Handler:        HandleDeletePipelineRetentionSchedule,
+			ResponseSchema: DeletePipelineRetentionScheduleResponse{},
+			Description:    "Delete the pipeline retention schedule",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
 	},
 }
 
@@ -173,6 +217,22 @@ type PipelineResultInput struct {
 	PipelineID string `json:"pipeline_id"`
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
+	Type       string `json:"type,omitempty"`
+}
+
+func pipelineRunType(input string) string {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return pipelineinternal.RunTypeManual
+	}
+	return input
+}
+
+func setPipelineRunType(record *core.Record, coll *core.Collection, runType string) {
+	if coll.Fields.GetByName("type") == nil {
+		return
+	}
+	record.Set("type", pipelineRunType(runType))
 }
 
 func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
@@ -211,6 +271,19 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		runType := pipelineRunType(input.Type)
+		if !pipelineinternal.ValidRunType(runType) {
+			return apierror.New(
+				http.StatusBadRequest,
+				"type",
+				"invalid pipeline result type",
+				fmt.Sprintf("type must be one of %q, %q, or %q",
+					pipelineinternal.RunTypeManual,
+					pipelineinternal.RunTypeScheduled,
+					pipelineinternal.RunTypeCI,
+				),
+			).JSON(e)
+		}
 
 		existing, err := e.App.FindFirstRecordByFilter(
 			coll,
@@ -246,6 +319,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 		record.Set("pipeline", pipeline.Id)
 		record.Set("workflow_id", input.WorkflowID)
 		record.Set("run_id", input.RunID)
+		setPipelineRunType(record, coll, runType)
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -626,11 +700,10 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			if len(pipelineExecutions) == 0 {
 				continue
 			}
-			hierarchy := buildExecutionHierarchy(
+			hierarchy := buildExecutionHierarchyRaw(
 				e.App,
 				pipelineExecutions,
 				namespace,
-				authRecord.GetString("Timezone"),
 				temporalClient,
 			)
 			if len(hierarchy) > 0 {
@@ -663,6 +736,10 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 
 		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
 		runnerCache := map[string]map[string]any{}
+		loc, err := time.LoadLocation(authRecord.GetString("Timezone"))
+		if err != nil {
+			loc = time.Local
+		}
 
 		for pipelineID, executions := range selectedExecutions {
 			info := pipelineRunnerInfoMap[pipelineID]
@@ -688,6 +765,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			for _, summary := range annotated {
 				summary.PipelineIdentifier = pipelineIdentifier
 			}
+			localizePipelineWorkflowSummaries(annotated, loc)
 			response[pipelineID] = annotated
 		}
 
@@ -734,9 +812,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		remainingSlots := limit - len(runningExecs)
 		if remainingSlots > 0 && len(otherExecs) > 0 {
 			sort.Slice(otherExecs, func(i, j int) bool {
-				t1, _ := time.Parse(time.RFC3339, otherExecs[i].StartTime)
-				t2, _ := time.Parse(time.RFC3339, otherExecs[j].StartTime)
-				return t1.After(t2)
+				return utils.TimeStringAfter(otherExecs[i].StartTime, otherExecs[j].StartTime)
 			})
 
 			if remainingSlots > len(otherExecs) {
@@ -747,9 +823,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		}
 
 		sort.Slice(selected, func(i, j int) bool {
-			t1, _ := time.Parse(time.RFC3339, selected[i].StartTime)
-			t2, _ := time.Parse(time.RFC3339, selected[j].StartTime)
-			return t1.After(t2)
+			return utils.TimeStringAfter(selected[i].StartTime, selected[j].StartTime)
 		})
 
 		if len(selected) > 0 {

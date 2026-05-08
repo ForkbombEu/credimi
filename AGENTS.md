@@ -78,6 +78,14 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
   - `pipeline_results` creation is best-effort after Temporal start and retried; the internal handler is idempotent on `(workflow_id, run_id)`.
   - PB uniqueness constraints: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
 
+### CI wallet APK temporary runs
+
+- Endpoint: `POST /api/pipeline/run-wallet-apk` (user auth/API key) accepts `pipeline_identifier`, `metadata` with required string key `sha`, and exactly one APK source: multipart `apk_file` or HTTP(S) `apk_url`.
+- The pipeline YAML must reference exactly one wallet through `mobile-automation` `version_id` values. The handler creates a caller-owned temporary `wallet_versions` record named by the canonified commit SHA, rewrites only the run YAML to use it, and enqueues through the existing semaphore path without mutating the stored pipeline record.
+- Run cleanup is driven by server workflow input config `temp_wallet_version = { record_id, identifier, owner_id, cleanup: true }`, not by stored/manipulated pipeline YAML. `PipelineWorkflow.Start` ignores YAML-provided `config.temp_wallet_version` as a reserved internal key. The pipeline cleanup hook calls the internal `DELETE /api/wallet/temp-version/{record_id}` route once per run and sends expected owner/identifier metadata; the internal route rejects deletes that do not match the wallet version record.
+- Queued cancel cleanup is carried in the semaphore ticket metadata; canceling a not-yet-running wallet APK ticket deletes the temp `wallet_versions` record directly after the semaphore cancellation succeeds.
+- V1 orphan risk: there is no durable `temporary` or `expires_at` field on `wallet_versions`; failures after enqueue but before workflow cleanup can still leave temp records. A future retention pass should add durable metadata before broad production use.
+
 ### Pipeline visibility (Temporal)
 
 - Pipeline workflows set the `PipelineIdentifier` search attribute (canonified owner/pipeline path) on direct, queued, and scheduled starts.

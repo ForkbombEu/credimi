@@ -48,19 +48,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let runPipelineAfterRunnerSelect = $state(false);
 
 	async function handleRunNow() {
-		const runnerType = Pipeline.Runner.getType(pipeline);
-		if (runnerType === 'specific') {
+		if (!Pipeline.Runner.isRequired(pipeline)) {
 			await Pipeline.run(pipeline);
 			onRun?.();
 		} else {
-			const runner = Pipeline.Runner.get(pipeline.id);
-			if (runner) {
+			const runnerType = Pipeline.Runner.getType(pipeline);
+			if (runnerType === 'specific') {
 				await Pipeline.run(pipeline);
 				onRun?.();
-				runPipelineAfterRunnerSelect = false;
 			} else {
-				runPipelineAfterRunnerSelect = true;
-				runnerSelectionDialogOpen = true;
+				const runner = Pipeline.Runner.get(pipeline.id);
+				if (runner) {
+					await Pipeline.run(pipeline);
+					onRun?.();
+					runPipelineAfterRunnerSelect = false;
+				} else {
+					runPipelineAfterRunnerSelect = true;
+					runnerSelectionDialogOpen = true;
+				}
 			}
 		}
 	}
@@ -115,27 +120,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet actions()}
 		{@const runner = Pipeline.Runner.get(pipeline.id)?.split('/').at(-1)}
 		<ButtonGroup.Root>
-			<Button onclick={handleRunNow}>
+			<Button
+				onclick={handleRunNow}
+				class={{ 'w-[174px] justify-start': !Pipeline.Runner.isRequired(pipeline) }}
+			>
 				<PlayIcon />
-				<div class="flex w-[110px] flex-col -space-y-0.5 text-left">
+				<div class="flex w-[90px] flex-col -space-y-0.5 text-left">
 					<p>{m.Run_now()}</p>
-					{#if runner}
+					{#if runner && Pipeline.Runner.isRequired(pipeline)}
 						<small class="truncate text-[9px] opacity-80">
 							{runner}
 						</small>
 					{/if}
 				</div>
 			</Button>
-			<IconButton
-				icon={Cog}
-				variant="default"
-				class="rounded-none rounded-r-md border-l border-l-slate-500"
-				onclick={() => (runnerSelectionDialogOpen = true)}
-				disabled={isRunnerSpecific}
-				tooltip={isRunnerSpecific
-					? m.Runner_configuration_not_available()
-					: m.Configure_runner()}
-			/>
+			{#if Pipeline.Runner.isRequired(pipeline)}
+				<IconButton
+					icon={Cog}
+					variant="default"
+					class="rounded-none rounded-r-md border-l border-l-slate-500"
+					onclick={() => (runnerSelectionDialogOpen = true)}
+					disabled={isRunnerSpecific}
+					tooltip={isRunnerSpecific
+						? m.Runner_configuration_not_available()
+						: m.Configure_runner()}
+				/>
+			{/if}
 		</ButtonGroup.Root>
 
 		{#if !schedule}

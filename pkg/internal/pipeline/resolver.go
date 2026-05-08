@@ -4,6 +4,7 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -121,7 +122,7 @@ func ResolveExpressions(val any, ctx map[string]any) (any, error) {
 			if err != nil {
 				return fmt.Sprintf("ERR(%s)", err.Error())
 			}
-			return fmt.Sprintf("%v", resolved)
+			return stringifyResolvedValue(resolved)
 		}), nil
 
 	case map[string]any:
@@ -149,6 +150,20 @@ func ResolveExpressions(val any, ctx map[string]any) (any, error) {
 	default:
 		return v, nil
 	}
+}
+
+func stringifyResolvedValue(v any) string {
+	switch value := v.(type) {
+	case string:
+		return value
+	case map[string]any, []any:
+		jsonBytes, err := json.MarshalIndent(value, "", "  ")
+		if err == nil {
+			return string(jsonBytes)
+		}
+	}
+
+	return fmt.Sprintf("%v", v)
 }
 
 func shouldSkipInString(stepRun, key string, val any) bool {

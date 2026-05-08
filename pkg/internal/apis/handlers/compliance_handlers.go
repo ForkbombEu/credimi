@@ -459,6 +459,10 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		switch req.Signal {
 		case workflows.OpenIDNetStartCheckSignal:
 			err = sendOpenIDNetLogUpdateStart(e.App, c, req)
+		case workflows.OpenID4VCIIssuerStartCheckSignal:
+			err = sendOpenID4VCIIssuerLogUpdateStart(e.App, c, req)
+		case workflows.OpenID4VCIIssuerStopCheckSignal:
+			err = nil
 		default:
 			err = sendTemporalSignal(c, req)
 		}
@@ -607,6 +611,113 @@ func sendOpenIDNetLogUpdateStart(
 	}
 	return nil
 }
+
+func sendOpenID4VCIIssuerLogUpdateStart(
+	app core.App,
+	c client.Client,
+	input HandleSendTemporalSignalInput,
+) error {
+	exec, err := c.DescribeWorkflowExecution(context.Background(), input.WorkflowID, "")
+	if err != nil {
+		notFound := &serviceerror.NotFound{}
+		if errors.As(err, &notFound) {
+			return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+		}
+		invalidArgument := &serviceerror.InvalidArgument{}
+		if errors.As(err, &invalidArgument) {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"invalid workflow ID",
+				err.Error(),
+			)
+		}
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to describe issuer workflow",
+			err.Error(),
+		)
+	}
+
+	if exec.GetWorkflowExecutionInfo().GetStatus() == enums.WORKFLOW_EXECUTION_STATUS_RUNNING {
+		return nil
+	}
+
+	wf := c.GetWorkflow(context.Background(), input.WorkflowID, "")
+	var result workflowengine.WorkflowResult
+	err = wf.Get(context.Background(), &result)
+	logs := workflowengine.AsSliceOfMaps(result.Log)
+	if err != nil {
+		logs = extractIssuerLogsFromWorkflowError(err)
+	}
+	if len(logs) == 0 {
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"invalid log format",
+			"issuer workflow logs are not in the expected format",
+		)
+	}
+
+	if err := complianceNotifyLogsUpdate(app, input.WorkflowID+workflows.OpenIDNetSubscription, logs); err != nil {
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to send realtime logs update",
+			err.Error(),
+		)
+	}
+
+	return nil
+}
+
+func extractIssuerLogsFromWorkflowError(err error) []map[string]any {
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		details := workflowengine.ParseWorkflowError(current)
+		if logs := extractIssuerLogsFromPayload(details.Payload); len(logs) > 0 {
+			return logs
+		}
+	}
+	return nil
+}
+
+func extractIssuerLogsFromPayload(payload any) []map[string]any {
+	if logs := workflowengine.AsSliceOfMaps(payload); len(logs) > 0 && looksLikeIssuerLogs(logs) {
+		return logs
+	}
+
+	if payloads, ok := payload.([]any); ok {
+		for _, item := range payloads {
+			if logs := extractIssuerLogsFromPayload(item); len(logs) > 0 {
+				return logs
+			}
+		}
+	}
+
+	return nil
+}
+
+func looksLikeIssuerLogs(logs []map[string]any) bool {
+	if len(logs) == 0 {
+		return false
+	}
+
+	for _, logEntry := range logs {
+		if _, hasMsg := logEntry["msg"]; hasMsg {
+			return true
+		}
+		if _, hasSrc := logEntry["src"]; hasSrc {
+			return true
+		}
+		if _, hasResult := logEntry["result"]; hasResult {
+			return true
+		}
+	}
+
+	return false
+}
+
 func HandleDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		workflowID := e.Request.PathValue("workflowId")
