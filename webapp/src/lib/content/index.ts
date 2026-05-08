@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { browser } from '$app/environment';
 import fm from 'front-matter';
 import { marked } from 'marked';
-import { browser } from '$app/environment';
 
 import { baseLocale, getLocale } from '@/i18n/paraglide/runtime';
 
@@ -16,25 +16,41 @@ async function loadMarkdownFile(
 	pathname: string,
 	fetcher: typeof fetch
 ): Promise<string | undefined> {
-	if (!browser) {
-		const relativePath = pathname.replace(/^\/pages\//, '');
+	const response = await fetcher(pathname).catch(() => undefined);
+	if (response?.ok) return response.text();
 
-		try {
-			const [{ readFile }, path] = await Promise.all([
-				import('node:fs/promises'),
-				import('node:path')
-			]);
-			const fullPath = path.resolve(process.cwd(), 'static/pages', relativePath);
+	if (browser || !pathname.startsWith('/pages/')) return undefined;
 
-			return await readFile(fullPath, 'utf8');
-		} catch {
+	const relativePath = pathname.slice('/pages/'.length);
+
+	try {
+		const [{ readFile }, path] = await Promise.all([
+			import('node:fs/promises'),
+			import('node:path')
+		]);
+
+		const normalizedRelativePath = path.posix.normalize(relativePath);
+		if (
+			relativePath.includes('\\') ||
+			normalizedRelativePath.startsWith('../') ||
+			normalizedRelativePath === '..' ||
+			normalizedRelativePath.startsWith('/')
+		) {
 			return undefined;
 		}
-	}
 
-	const response = await fetcher(pathname);
-	if (!response.ok) return undefined;
-	return response.text();
+		const pagesRoot = path.resolve(process.cwd(), 'static/pages');
+		const fullPath = path.resolve(pagesRoot, normalizedRelativePath);
+		const relativeToRoot = path.relative(pagesRoot, fullPath);
+
+		if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+			return undefined;
+		}
+
+		return await readFile(fullPath, 'utf8');
+	} catch {
+		return undefined;
+	}
 }
 
 export async function getContentBySlug(
