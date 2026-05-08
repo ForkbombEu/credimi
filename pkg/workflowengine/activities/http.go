@@ -12,12 +12,16 @@ import (
 	"io"
 	"net/http"
 	URL "net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
+	"github.com/antchfx/htmlquery"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"golang.org/x/net/html"
 )
 
 var sensitiveHeaders = map[string]struct{}{
@@ -37,11 +41,19 @@ type HTTPActivityPayload struct {
 	Method string `json:"method" yaml:"method" validate:"required"`
 	URL    string `json:"url"    yaml:"url"    validate:"required"`
 
-	QueryParams    map[string]string `json:"query_params,omitempty"    yaml:"query_params,omitempty"`
-	Timeout        string            `json:"timeout,omitempty"         yaml:"timeout,omitempty"`
-	Headers        map[string]string `json:"headers,omitempty"         yaml:"headers,omitempty"`
-	Body           any               `json:"body,omitempty"            yaml:"body,omitempty"`
-	ExpectedStatus int               `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
+	QueryParams    map[string]string     `json:"query_params,omitempty"    yaml:"query_params,omitempty"`
+	Timeout        string                `json:"timeout,omitempty"         yaml:"timeout,omitempty"`
+	Headers        map[string]string     `json:"headers,omitempty"         yaml:"headers,omitempty"`
+	Body           any                   `json:"body,omitempty"            yaml:"body,omitempty"`
+	ExpectedStatus int                   `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
+	Outputs        map[string]OutputRule `json:"outputs,omitempty"         yaml:"outputs,omitempty"`
+}
+
+type OutputRule struct {
+	XPath    string `json:"xpath,omitempty"    yaml:"xpath,omitempty"`
+	Selector string `json:"selector,omitempty" yaml:"selector,omitempty"`
+	Cookie   string `json:"cookie,omitempty"   yaml:"cookie,omitempty"`
+	Regex    string `json:"regex,omitempty"    yaml:"regex,omitempty"`
 }
 
 type RequestSnapshot struct {
@@ -113,16 +125,20 @@ func executeHTTPRequest(
 
 	var body io.Reader
 	if payload.Body != nil {
-		jsonBody, err := json.Marshal(payload.Body)
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-			return result, act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s for request body: %v", errCode.Description, err),
-				payload.Body,
-			)
+		if bodyStr, ok := payload.Body.(string); ok {
+			body = bytes.NewBufferString(bodyStr)
+		} else {
+			jsonBody, err := json.Marshal(payload.Body)
+			if err != nil {
+				errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
+				return result, act.NewActivityError(
+					errCode.Code,
+					fmt.Sprintf("%s for request body: %v", errCode.Description, err),
+					payload.Body,
+				)
+			}
+			body = bytes.NewBuffer(jsonBody)
 		}
-		body = bytes.NewBuffer(jsonBody)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, payload.Method, url, body)
@@ -177,6 +193,16 @@ func executeHTTPRequest(
 		)
 	}
 
+	outputValues, err := extractOutputRules(resp, respBody, payload.Outputs)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		return result, act.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("failed to extract outputs: %v", err),
+			nil,
+		)
+	}
+
 	var output any
 	if err := json.Unmarshal(respBody, &output); err != nil {
 		output = string(respBody)
@@ -201,6 +227,7 @@ func executeHTTPRequest(
 		"status":  resp.StatusCode,
 		"headers": resp.Header,
 		"body":    output,
+		"outputs": outputValues,
 	}
 
 	return result, nil
@@ -222,4 +249,98 @@ func redactHeaderMap(headers http.Header) map[string][]string {
 		out[key] = copied
 	}
 	return out
+}
+
+func extractOutputRules(
+	resp *http.Response,
+	body []byte,
+	rules map[string]OutputRule,
+) (map[string]any, error) {
+	if len(rules) == 0 {
+		return nil, nil
+	}
+
+	results := make(map[string]any)
+	bodyStr := string(body)
+	contentType := resp.Header.Get("Content-Type")
+	isHTML := strings.Contains(contentType, "text/html")
+
+	var doc *html.Node
+	var docErr error
+
+	for name, rule := range rules {
+		var value any
+		var err error
+
+		switch {
+		case rule.XPath != "":
+			if !isHTML {
+				return nil, fmt.Errorf("xpath requires HTML content, got %s", contentType)
+			}
+			if doc == nil && docErr == nil {
+				doc, docErr = html.Parse(strings.NewReader(bodyStr))
+			}
+			if docErr != nil {
+				err = docErr
+				break
+			}
+			node := htmlquery.FindOne(doc, rule.XPath)
+			if node != nil {
+				value = htmlquery.InnerText(node)
+			} else {
+				value = ""
+			}
+
+		case rule.Selector != "":
+			if !isHTML {
+				return nil, fmt.Errorf("selector requires HTML content, got %s", contentType)
+			}
+			if doc == nil && docErr == nil {
+				doc, docErr = html.Parse(strings.NewReader(bodyStr))
+			}
+			if docErr != nil {
+				err = docErr
+				break
+			}
+			query := goquery.NewDocumentFromNode(doc)
+			selection := query.Find(rule.Selector)
+			if selection.Length() > 0 {
+				value = selection.Text()
+			} else {
+				value = ""
+			}
+
+		case rule.Cookie != "":
+			for _, c := range resp.Cookies() {
+				if c.Name == rule.Cookie {
+					value = c.Value
+					break
+				}
+			}
+			if value == nil {
+				value = ""
+			}
+
+		case rule.Regex != "":
+			re, compileErr := regexp.Compile(rule.Regex)
+			if compileErr != nil {
+				return nil, fmt.Errorf("invalid regex for %s: %w", name, compileErr)
+			}
+			matches := re.FindStringSubmatch(bodyStr)
+			if len(matches) > 1 {
+				value = matches[1]
+			} else if len(matches) > 0 {
+				value = matches[0]
+			} else {
+				value = ""
+			}
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract %s: %w", name, err)
+		}
+		results[name] = value
+	}
+
+	return results, nil
 }

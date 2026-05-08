@@ -867,6 +867,27 @@
                   "method": {
                     "type": "string"
                   },
+                  "outputs": {
+                    "additionalProperties": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cookie": {
+                          "type": "string"
+                        },
+                        "regex": {
+                          "type": "string"
+                        },
+                        "selector": {
+                          "type": "string"
+                        },
+                        "xpath": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "object"
+                  },
                   "query_params": {
                     "additionalProperties": {
                       "type": "string"
