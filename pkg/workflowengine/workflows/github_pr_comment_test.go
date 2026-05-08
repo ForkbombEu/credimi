@@ -94,3 +94,52 @@ func TestApplyGitHubPRCommentUpdateKeepsLatestCommitOnly(t *testing.T) {
 	require.Contains(t, state.Sections, "newcomm::pipeline-b::runner-2")
 	require.NotContains(t, state.Sections, "oldcomm::pipeline-a::runner-1")
 }
+
+func TestApplyGitHubPRCommentUpdateAcceptsRunningNewCommitAfterTerminalCommit(t *testing.T) {
+	state := githubPRCommentWorkflowState{
+		Sections: map[string]activities.UpdateGitHubPRCommentInput{},
+	}
+
+	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:      "oldcommit",
+		PipelineID:     "pipeline-a",
+		RunnerID:       "runner-1",
+		Status:         "running",
+		WorkflowStatus: "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+	})
+	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "newcommit",
+		PipelineID: "pipeline-a",
+		RunnerID:   "runner-1",
+		Status:     "running",
+	})
+
+	require.Equal(t, "newcommit", state.LatestCommitSHA)
+	require.Len(t, state.Sections, 1)
+	require.Contains(t, state.Sections, "newcomm::pipeline-a::runner-1")
+	require.NotContains(t, state.Sections, "oldcomm::pipeline-a::runner-1")
+}
+
+func TestApplyGitHubPRCommentUpdateIgnoresDifferentRunningCommitWhileCurrentCommitActive(t *testing.T) {
+	state := githubPRCommentWorkflowState{
+		Sections: map[string]activities.UpdateGitHubPRCommentInput{},
+	}
+
+	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "current",
+		PipelineID: "pipeline-a",
+		RunnerID:   "runner-1",
+		Status:     "running",
+	})
+	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "different",
+		PipelineID: "pipeline-a",
+		RunnerID:   "runner-1",
+		Status:     "running",
+	})
+
+	require.Equal(t, "current", state.LatestCommitSHA)
+	require.Len(t, state.Sections, 1)
+	require.Contains(t, state.Sections, "current::pipeline-a::runner-1")
+	require.NotContains(t, state.Sections, "differe::pipeline-a::runner-1")
+}

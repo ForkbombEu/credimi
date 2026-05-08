@@ -112,6 +112,7 @@ type mobileRunnerSemaphoreRuntime struct {
 	shouldContinue      bool
 	continueInput       workflowengine.WorkflowInput
 	runStarterRequested bool
+	queuePositionsDirty bool
 }
 
 func newMobileRunnerSemaphoreRuntime(
@@ -426,7 +427,8 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 	r.updateCount++
 	r.maybeScheduleContinue()
 	r.requestRunStart()
-	r.notifyQueuedPositionUpdates(r.ctx)
+	r.markQueuePositionsDirty()
+	r.flushQueuedPositionUpdates(r.ctx)
 
 	return MobileRunnerSemaphoreEnqueueRunResponse{
 		TicketID: req.TicketID,
@@ -463,7 +465,8 @@ func (r *mobileRunnerSemaphoreRuntime) handleCancelRun(
 		r.updateCount++
 		r.maybeScheduleContinue()
 		r.requestRunStart()
-		r.notifyQueuedPositionUpdates(r.ctx)
+		r.markQueuePositionsDirty()
+		r.flushQueuedPositionUpdates(r.ctx)
 		return view, nil
 	case mobileRunnerSemaphoreRunRunning:
 		state.CancelRequested = true
@@ -619,7 +622,7 @@ func (r *mobileRunnerSemaphoreRuntime) awaitContinue() (workflowengine.WorkflowR
 }
 
 func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) error {
-	defer r.notifyQueuedPositionUpdates(ctx)
+	defer r.flushQueuedPositionUpdates(ctx)
 
 	if err := r.startReadyRuns(ctx); err != nil {
 		return err
@@ -686,7 +689,7 @@ func (r *mobileRunnerSemaphoreRuntime) grantRunTicket(
 	r.runTickets[ticketID] = state
 	r.updateCount++
 	r.maybeScheduleContinue()
-	r.notifyQueuedPositionUpdates(ctx)
+	r.markQueuePositionsDirty()
 
 	if state.Request.LeaderRunnerID != r.runnerID {
 		if err := r.signalRunGranted(ctx, state.Request.LeaderRunnerID, ticketID); err != nil {
@@ -907,7 +910,8 @@ func (r *mobileRunnerSemaphoreRuntime) finalizeRunTicket(
 	r.updateCount++
 	r.maybeScheduleContinue()
 	r.requestRunStart()
-	r.notifyQueuedPositionUpdates(ctx)
+	r.markQueuePositionsDirty()
+	r.flushQueuedPositionUpdates(ctx)
 }
 
 func (r *mobileRunnerSemaphoreRuntime) signalRunGranted(
@@ -1089,6 +1093,18 @@ func (r *mobileRunnerSemaphoreRuntime) notifyQueuedPositionUpdates(ctx workflow.
 	}
 }
 
+func (r *mobileRunnerSemaphoreRuntime) markQueuePositionsDirty() {
+	r.queuePositionsDirty = true
+}
+
+func (r *mobileRunnerSemaphoreRuntime) flushQueuedPositionUpdates(ctx workflow.Context) {
+	if !r.queuePositionsDirty {
+		return
+	}
+	r.queuePositionsDirty = false
+	r.notifyQueuedPositionUpdates(ctx)
+}
+
 func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 	ctx workflow.Context,
 	ticketID string,
@@ -1150,6 +1166,7 @@ func (r *mobileRunnerSemaphoreRuntime) nextQueuedRunTicket() (string, MobileRunn
 			r.runQueue = r.runQueue[1:]
 			r.updateCount++
 			r.maybeScheduleContinue()
+			r.markQueuePositionsDirty()
 			continue
 		}
 		return ticketID, state, true

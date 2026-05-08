@@ -115,7 +115,8 @@ func applyGitHubPRCommentCommitScope(
 	if commitSHA == state.LatestCommitSHA {
 		return true
 	}
-	if !isGitHubPRCommentNewCommitUpdate(update) {
+	if !isGitHubPRCommentNewCommitUpdate(update) &&
+		!isGitHubPRCommentDisplayedCommitTerminal(*state) {
 		return false
 	}
 	state.LatestCommitSHA = commitSHA
@@ -126,6 +127,49 @@ func applyGitHubPRCommentCommitScope(
 func isGitHubPRCommentNewCommitUpdate(update activities.UpdateGitHubPRCommentInput) bool {
 	switch strings.ToLower(strings.TrimSpace(update.Status)) {
 	case "", "queued", "starting":
+		return true
+	default:
+		return false
+	}
+}
+
+func isGitHubPRCommentDisplayedCommitTerminal(state githubPRCommentWorkflowState) bool {
+	if len(state.Sections) == 0 {
+		return false
+	}
+	for _, update := range state.Sections {
+		if !isGitHubPRCommentTerminalUpdate(update) {
+			return false
+		}
+	}
+	return true
+}
+
+func isGitHubPRCommentTerminalUpdate(update activities.UpdateGitHubPRCommentInput) bool {
+	if isTerminalGitHubPRCommentStatus(update.WorkflowStatus) {
+		return true
+	}
+	return isTerminalGitHubPRCommentStatus(update.Status)
+}
+
+func isTerminalGitHubPRCommentStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "success",
+		"successful",
+		"completed",
+		"failed",
+		"failure",
+		"canceled",
+		"cancelled",
+		"terminated",
+		"timed out",
+		"timed_out",
+		"timeout",
+		"workflow_execution_status_completed",
+		"workflow_execution_status_failed",
+		"workflow_execution_status_canceled",
+		"workflow_execution_status_terminated",
+		"workflow_execution_status_timed_out":
 		return true
 	default:
 		return false
