@@ -51,7 +51,6 @@ jobs:
             docs/src/content/docs
 
   build:
-    if: github.event_name == 'push'
     needs: link-check
     runs-on: ubuntu-latest
     permissions:
