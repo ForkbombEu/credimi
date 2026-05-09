@@ -72,7 +72,7 @@ define write_compose_dev_override
 endef
 
 all: help
-.PHONY: submodules version dev test lint tidy purge build docker doc clean tools help w devtools coverage-check
+.PHONY: submodules version dev test lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check
 
 $(BIN):
 	@mkdir -p $@
@@ -194,6 +194,20 @@ docker: $(DATA) submodules ## 🐳 run docker with all the infrastructure servic
 	EXTRA_BUILD_ARGS=""; [ -n "$$CREDIMI_EXTRA_PAT" ] && EXTRA_BUILD_ARGS="--build-arg CREDIMI_EXTRA_PAT=$$CREDIMI_EXTRA_PAT"; \
 	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090" $$EXTRA_BUILD_ARGS
 	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 docker compose up
+
+docker-tunnel: $(DATA) submodules ## 🌐 run docker (detached, logs hidden) and expose http://localhost:8090 over a public cloudflared tunnel
+	$(call require_tools,cloudflared)
+	EXTRA_BUILD_ARGS=""; [ -n "$$CREDIMI_EXTRA_PAT" ] && EXTRA_BUILD_ARGS="--build-arg CREDIMI_EXTRA_PAT=$$CREDIMI_EXTRA_PAT"; \
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 docker compose build --build-arg PUBLIC_POCKETBASE_URL="" $$EXTRA_BUILD_ARGS
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 bash -euc '\
+		printf "$(CYAN)🐳 Starting docker compose detached (runtime logs hidden — run \`docker compose logs -f\` to view)...$(RESET)\n"; \
+		docker compose up -d --remove-orphans; \
+		trap "printf \"\n$(YELLOW)🛑 Tunnel closed; stopping containers...$(RESET)\n\"; docker compose down" EXIT INT TERM; \
+		printf "$(CYAN)⏳ Waiting for http://localhost:8090 ...$(RESET)\n"; \
+		./scripts/wait-for-it.sh localhost:8090 --timeout=180 --quiet || printf "$(YELLOW)⚠️  Service not reachable yet, starting tunnel anyway$(RESET)\n"; \
+		printf "\n$(GREEN)🌍 Public URL will appear in the cloudflared banner below:$(RESET)\n\n"; \
+		cloudflared tunnel --url http://localhost:8090 \
+	'
 
 ## Misc
 
