@@ -1,17 +1,16 @@
-# SPDX-FileCopyrightText: 2024 The Forkbomb Company
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Deploy Credimi docs
+name: docs.credimi.io
 
 on:
-  push:
-    branches: [main]
-    paths: [docs/docs/**/*]
-
   pull_request:
     branches: [main]
-    paths: [docs/docs/**/*]
+    paths: [docs/**/*]
+  push:
+    branches: [main]
+    paths: [docs/**/*]
 
 permissions:
   contents: read
@@ -26,11 +25,11 @@ jobs:
         uses: lycheeverse/lychee-action@v2
         with:
           fail: true
-          args: --format markdown --exclude-path docs/docs/.lycheeignore docs/docs/src/content/docs
+          args: --config docs/.lychee.toml --format markdown --exclude-path docs/.lycheeignore docs/src/content/docs
 
   build:
-    needs: link-check
     if: github.event_name == 'push'
+    needs: link-check
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,6 +40,11 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Generate OpenAPI spec
+        run: go generate ./pkg/gen.go
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -48,11 +52,11 @@ jobs:
       - run: |
           bun install
           bun run docs:build
-        working-directory: docs/docs
+        working-directory: docs
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: docs/docs/dist
+          path: docs/dist
 
   deploy:
     if: github.event_name == 'push'

@@ -134,6 +134,10 @@ export default defineConfig({
                     label: "Legal",
                     autogenerate: { directory: "legal" },
                 },
+                {
+                    label: "API Reference",
+                    link: "/API/",
+                },
             ],
         }),
     ],
