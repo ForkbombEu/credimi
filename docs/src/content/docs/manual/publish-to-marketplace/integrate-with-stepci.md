@@ -49,9 +49,9 @@ Example:
 ```yaml
 appId: eu.europa.ec.euidi
 ---
-- launchApp
+- launchApp:
     clearState: true
-openLink: ${deeplink}
+- openLink: ${deeplink}
 - tapOn: 1
 - tapOn: 2
 - tapOn: 3
