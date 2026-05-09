@@ -20,7 +20,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Link Checker
+      - name: Check internal credimi.io links (HTTP/1.1)
+        run: |
+          FAILED=0
+          urls=$(grep -roPh 'https?://credimi\.io[^\s)\]]+' docs/src/content/docs | sort -u) || true
+          for url in $urls; do
+            status=$(curl -sI --http1.1 -o /dev/null -w '%{http_code}' --max-time 10 "$url" 2>/dev/null || echo "000")
+            if [ "$status" -ge 200 ] && [ "$status" -lt 400 ]; then
+              echo "  OK  $status $url"
+            else
+              echo "FAIL $status $url"
+              FAILED=1
+            fi
+          done
+          exit $FAILED
+
+      - name: Link Checker (external links)
         id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
