@@ -41,12 +41,13 @@ jobs:
         with:
           fail: true
           args: >
-            --config docs/.lychee.toml --format markdown
+            --config docs/.lychee.toml --format markdown --timeout 30
             --exclude 'credimi\.io'
             --exclude 'localhost'
             --exclude 'your-domain'
             --exclude 'certification\.openid\.net/api'
             --exclude 'tupadr3/plantuml-icon-font-sprites/v3\.0\.0/icons$'
+            --exclude 'gnu\.org'
             docs/src/content/docs
 
   build:
