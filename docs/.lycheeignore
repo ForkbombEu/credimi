@@ -1,5 +1,7 @@
 # Exclude localhost URLs (dev server)
 https?://localhost.*
+# Internal credimi.io links (production site, unreachable from CI)
+credimi\.io
 # PlantUML icon-font-sprites v3 base URL (directory prefix, not a fetchable file)
 raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3\.0\.0/icons$
 # Placeholder domains in example documentation
