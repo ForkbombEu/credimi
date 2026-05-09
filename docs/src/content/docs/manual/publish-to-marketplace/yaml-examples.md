@@ -468,7 +468,7 @@ appId: eu.europa.ec.euidi
 # the "openLink: ${deeplink}" opens a deeplink produced in the previous automation step.
 - openLink: ${deeplink}
 # use a link hardcoded below, for debugging as well as if your credential_offer contains a session ID 
-https://credimi.io/api/credential/deeplink?id=forkbomb-bv-andrea/misc-issuer-integration-demo/eudiw-pid-sd-jwt-vc-haip-vci-issuer-backend&redirect=true
+# - openLink: https://credimi.io/api/credential/deeplink?id=forkbomb-bv-andrea/misc-issuer-integration-demo/eudiw-pid-sd-jwt-vc-haip-vci-issuer-backend&redirect=true
 # - extendedWaitUntil:
 #    timeout: 10000
 #    visible: "Welcome back" 
