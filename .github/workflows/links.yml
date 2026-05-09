@@ -5,7 +5,9 @@
 name: Links
 
 on:
-  repository_dispatch:
+  pull_request:
+    paths:
+      - "docs/docs/src/**"
   workflow_dispatch:
   schedule:
     - cron: "00 18 * * *"
@@ -14,7 +16,8 @@ jobs:
   linkChecker:
     runs-on: ubuntu-latest
     permissions:
-      issues: write # required for peter-evans/create-issue-from-file
+      issues: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -23,6 +26,7 @@ jobs:
         uses: lycheeverse/lychee-action@v2
         with:
           fail: false
+          args: --format markdown --exclude-path docs/docs/.lycheeignore docs/docs/src/content/docs
 
       - name: Create Issue From File
         if: steps.lychee.outputs.exit_code != 0

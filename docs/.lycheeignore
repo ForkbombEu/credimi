@@ -1,0 +1,4 @@
+# Exclude localhost URLs (dev server)
+https?://localhost.*
+# Exclude external sites that are known-good but may be rate-limited
+# Add patterns as needed

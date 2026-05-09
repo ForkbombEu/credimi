@@ -2,25 +2,43 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Deploy DIDimo docs
+name: Deploy Credimi docs
 
 on:
   push:
     branches: [main]
-    paths: [docs/**/*]
+    paths: [docs/docs/**/*]
+
+  pull_request:
+    branches: [main]
+    paths: [docs/docs/**/*]
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
-  build:
+  link-check:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Link Checker
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: --format markdown --exclude-path docs/docs/.lycheeignore docs/docs/src/content/docs
+
+  build:
+    needs: link-check
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
@@ -28,20 +46,24 @@ jobs:
           bun-version: latest
       - uses: actions/configure-pages@v6
       - run: |
-          bun i 
+          bun install
           bun run docs:build
-        working-directory: docs
+        working-directory: docs/docs
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: docs/.vitepress/dist
+          path: docs/docs/dist
 
   deploy:
+    if: github.event_name == 'push'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - uses: actions/deploy-pages@v5
         id: deployment
