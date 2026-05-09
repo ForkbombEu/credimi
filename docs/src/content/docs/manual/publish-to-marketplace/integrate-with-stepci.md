@@ -62,8 +62,8 @@ appId: eu.europa.ec.euidi
 
 ## Add a credential integration
 
-- In the **Developer Dashbord**, go to [Credental Issuers and Credentials](https://credimi.io/my/credential-issuers-and-credentials)
-- Click on **Add new credential issuer** and add the relevant metatdata
+- In the **Developer Dashboard**, go to [Credential Issuers and Credentials](https://credimi.io/my/credential-issuers-and-credentials)
+- Click on **Add new credential issuer** and add the relevant metadata
  
 
 
@@ -72,12 +72,12 @@ appId: eu.europa.ec.euidi
 
 
 :::tip
-If your isuser has a static .well-known (and the credential_offers have no session IDs), you can import the .well-known straight from this page. A list of Credentials will be auto-populated (you can later edit/delete each of them separately)
+If your issuer has a static .well-known (and the credential_offers have no session IDs), you can import the .well-known straight from this page. A list of Credentials will be auto-populated (you can later edit/delete each of them separately)
 :::
 
 --------
 
-After you configured the Issuer, clik on **Add new credential**, here you can:
+After you configured the Issuer, click on **Add new credential**, here you can:
 - Add some metadata for an individual credential issuance use-case
 - Setup the integration, write and test the StepCI needed to retrieve the *deeplink* which will be used both in the **Marketplace** as well as in the **Automation Pipelines**. 
  

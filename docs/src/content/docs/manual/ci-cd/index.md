@@ -1,6 +1,6 @@
 ---
 title: Execute Pipelines via CI/CD 
-description: Connect your CI/CD to credimi.io to 
+description: Connect your CI/CD to credimi.io to run pipelines automatically and collect results.
 ---
 
 # CI/CD

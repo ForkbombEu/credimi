@@ -48,13 +48,13 @@ The output is a deeplink:
 
 ```text
 haip-vci://...
-````
+```
 
 Or:
 
 ```text
 openid-credential-offer://
-````
+```
 
 If you publish the integration, you can you can preview the StepCI output directly in the **Marketplace** https://credimi.io/marketplace?tab=credential-issuers-and-credentials :
 
@@ -215,5 +215,3 @@ Pipelines allow you to:
 * run reproducible end-to-end tests
 
 You can extend pipelines by chaining multiple steps to test full identity scenarios.
-
-```

@@ -1,6 +1,6 @@
 ---
 title: StepCI and Maestro scripting examples
-description: Exampes of StepCI and Maestro recipes so credential, verification and integration with other services.
+description: Examples of StepCI and Maestro recipes for credential issuance, verification, and integrations with other services.
 ---
 
 [StepCI](https://stepci.com) is the integration layer used by Credimi to interact with external Issuers and Verifiers.
