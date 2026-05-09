@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { getPath } from '$lib/utils';
+import { lsSync } from 'rune-sync/localstorage';
 
 import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
 
@@ -10,11 +11,18 @@ import { parseYaml } from './utils';
 
 //
 
-export function getType(pipeline: PipelinesResponse): 'global' | 'specific' {
+export function isRequired(p: PipelinesResponse): boolean {
+	const yaml = parseYaml(p.yaml);
+	return (yaml?.steps ?? []).some((step) => step.use === 'mobile-automation');
+}
+
+//
+
+export function getType(pipeline: PipelinesResponse): 'global' | 'specific' | 'not-needed' {
 	const yaml = parseYaml(pipeline.yaml);
 	const steps = (yaml?.steps ?? []).filter((step) => step.use === 'mobile-automation');
 
-	if (steps.length === 0) return 'global';
+	if (steps.length === 0) return 'not-needed';
 
 	const areAllStepsSpecific = steps.every((step) => step.with.runner_id);
 	if (areAllStepsSpecific) return 'specific';
@@ -27,18 +35,13 @@ export function getType(pipeline: PipelinesResponse): 'global' | 'specific' {
 
 // Configuration storage
 
-const PIPELINES_RUNNERS_STORAGE_KEY = 'pipelines_runners_config';
-
 type PipelinesRunnersConfig = Record<string, string>;
+
+const pipelinesRunnersConfig = lsSync<PipelinesRunnersConfig>('pipelines_runners_config', {});
 
 export function set(pipeline: PipelinesResponse, runner: MobileRunnersResponse): void {
 	try {
-		let config: PipelinesRunnersConfig = {};
-		const stored = localStorage.getItem(PIPELINES_RUNNERS_STORAGE_KEY);
-		if (stored) config = JSON.parse(stored);
-
-		config[pipeline.id] = getPath(runner);
-		localStorage.setItem(PIPELINES_RUNNERS_STORAGE_KEY, JSON.stringify(config));
+		pipelinesRunnersConfig[pipeline.id] = getPath(runner);
 	} catch (error) {
 		console.error('Failed to set pipeline runner:', error);
 	}
@@ -46,11 +49,7 @@ export function set(pipeline: PipelinesResponse, runner: MobileRunnersResponse):
 
 export function get(pipelineId: string): string | undefined {
 	try {
-		const stored = localStorage.getItem(PIPELINES_RUNNERS_STORAGE_KEY);
-		if (!stored) return undefined;
-
-		const config: PipelinesRunnersConfig = JSON.parse(stored);
-		return config[pipelineId];
+		return pipelinesRunnersConfig[pipelineId];
 	} catch (error) {
 		console.error('Failed to get pipeline runner:', error);
 		return undefined;

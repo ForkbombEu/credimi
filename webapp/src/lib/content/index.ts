@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { browser } from '$app/environment';
 import fm from 'front-matter';
 import { marked } from 'marked';
 
@@ -11,25 +12,70 @@ import { pageFrontMatterSchema, type ContentPage } from './types';
 
 export const URL_SEARCH_PARAM_NAME = 'tag';
 
-export const contentLoaders = import.meta.glob<string>('$lib/content/**/en.md', { as: 'raw' });
+async function loadMarkdownFile(
+	pathname: string,
+	fetcher: typeof fetch
+): Promise<string | undefined> {
+	if (!browser && pathname.startsWith('/pages/')) {
+		return loadStaticMarkdownFile(pathname);
+	}
 
-export async function getContentBySlug(slug: string): Promise<ContentPage | undefined> {
+	const response = await fetcher(pathname).catch(() => undefined);
+	if (response?.ok) return response.text();
+
+	if (browser || !pathname.startsWith('/pages/')) return undefined;
+
+	return loadStaticMarkdownFile(pathname);
+}
+
+async function loadStaticMarkdownFile(pathname: string): Promise<string | undefined> {
+	if (!pathname.startsWith('/pages/')) return undefined;
+
+	const relativePath = pathname.slice('/pages/'.length);
+
+	try {
+		const [{ readFile }, path] = await Promise.all([
+			import('node:fs/promises'),
+			import('node:path')
+		]);
+
+		const normalizedRelativePath = path.normalize(relativePath);
+		if (
+			path.isAbsolute(normalizedRelativePath) ||
+			normalizedRelativePath === '..' ||
+			normalizedRelativePath.startsWith(`..${path.sep}`)
+		) {
+			return undefined;
+		}
+
+		const pagesRoot = path.resolve(process.cwd(), 'static/pages');
+		const fullPath = path.resolve(pagesRoot, normalizedRelativePath);
+		const relativeToRoot = path.relative(pagesRoot, fullPath);
+
+		if (
+			relativeToRoot === '..' ||
+			relativeToRoot.startsWith(`..${path.sep}`) ||
+			path.isAbsolute(relativeToRoot)
+		) {
+			return undefined;
+		}
+
+		return await readFile(fullPath, 'utf8');
+	} catch {
+		return undefined;
+	}
+}
+
+export async function getContentBySlug(
+	slug: string,
+	fetcher: typeof fetch = fetch
+): Promise<ContentPage | undefined> {
 	const locale = getLocale();
 	const fallbackLocale = baseLocale;
-
-	const entries = Object.entries(contentLoaders).filter(([filePath]) => {
-		const splitted = filePath.split('/').slice(0, -1).join('/');
-		return splitted.endsWith(slug);
-	});
-
-	const entry =
-		entries.find(([p]) => p.endsWith(`${locale}.md`)) ??
-		entries.find(([p]) => p.endsWith(`${fallbackLocale}.md`));
-
-	if (!entry) return undefined;
-
-	const [, loader] = entry;
-	const raw = await loader();
+	const raw =
+		(await loadMarkdownFile(`/pages/${slug}/${locale}.md`, fetcher)) ??
+		(await loadMarkdownFile(`/pages/${slug}/${fallbackLocale}.md`, fetcher));
+	if (!raw) return undefined;
 	const { attributes, body } = fm(raw);
 
 	const parsed = pageFrontMatterSchema.safeParse(attributes);

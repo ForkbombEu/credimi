@@ -21,14 +21,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let { data } = $props();
-
 	setDashboardNavbar({ title: 'Pipelines', right: navbarRight });
 
-	//
-
 	const allWorkflows = new PolledResource(() => Pipeline.Workflows.listAllGroupedByPipelineId(), {
-		initialValue: () => data.workflows,
 		intervalMs: 10000
 	});
 </script>

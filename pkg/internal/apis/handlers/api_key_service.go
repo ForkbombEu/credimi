@@ -371,11 +371,6 @@ func (s *ApiKeyService) authenticateByScope(
 	userID := matchedRecord.GetString("user")
 	superuserID := matchedRecord.GetString("superuser")
 	scope := resolveAPIKeyScope(matchedRecord, userID, superuserID)
-	if requiredScope == ApiKeyScopeInternalAdmin &&
-		scope == ApiKeyScopeUser &&
-		matchedRecord.GetString(apiKeyDefaultScopeFieldName) == "" {
-		scope = ApiKeyScopeInternalAdmin
-	}
 	if err := validateAPIKeyOwners(userID, superuserID, scope); err != nil {
 		if scope == ApiKeyScopeUser && userID == "" {
 			return nil, apierror.New(

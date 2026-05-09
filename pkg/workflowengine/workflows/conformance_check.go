@@ -22,6 +22,8 @@ const (
 	OpenIDConformanceSuite    = "openid_conformance_suite"
 	EWCSuite                  = "ewc"
 	WebuildSuite              = "webuild"
+	OpenID4VCIIssuerSuite     = "openid4vci_issuer"
+	OpenID4VPWalletStandard   = "openid4vp_wallet"
 	ConformanceCheckTaskQueue = "ConformanceCheckTaskQueue"
 	PipelineCancelSignal      = "pipeline_cancel_signal"
 )
@@ -141,21 +143,23 @@ type StartCheckWorkflow struct {
 var startCheckWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type StartCheckWorkflowPayload struct {
-	Suite     string `json:"suite"                yaml:"suite"`
-	CheckID   string `json:"check_id"             yaml:"check_id"             validate:"required"`
-	Variant   string `json:"variant,omitempty"    yaml:"variant,omitempty"`
-	Form      *Form  `json:"form,omitempty"       yaml:"form,omitempty"`
-	TestName  string `json:"test,omitempty"       yaml:"test,omitempty"`
-	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
-	UserMail  string `json:"user_mail"            yaml:"user_mail"`
-	SendMail  bool   `json:"send_mail"            yaml:"send_mail"`
+	Suite           string `json:"suite"                      yaml:"suite"`
+	CheckID         string `json:"check_id"                   yaml:"check_id"                   validate:"required"`
+	Variant         string `json:"variant,omitempty"          yaml:"variant,omitempty"`
+	Form            *Form  `json:"form,omitempty"             yaml:"form,omitempty"`
+	TestName        string `json:"test,omitempty"             yaml:"test,omitempty"`
+	SessionID       string `json:"session_id,omitempty"       yaml:"session_id,omitempty"`
+	CredentialOffer string `json:"credential_offer,omitempty" yaml:"credential_offer,omitempty"`
+	UserMail        string `json:"user_mail"                  yaml:"user_mail"`
+	SendMail        bool   `json:"send_mail"                  yaml:"send_mail"`
 }
 
 type StartCheckWorkflowPipelinePayload struct {
-	CheckID   string `json:"check_id"             yaml:"check_id"             validate:"required"`
-	Form      *Form  `json:"form,omitempty"       yaml:"form,omitempty"`
-	TestName  string `json:"test,omitempty"       yaml:"test,omitempty"`
-	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
+	CheckID         string `json:"check_id"                   yaml:"check_id"                   validate:"required"`
+	Form            *Form  `json:"form,omitempty"             yaml:"form,omitempty"`
+	TestName        string `json:"test,omitempty"             yaml:"test,omitempty"`
+	SessionID       string `json:"session_id,omitempty"       yaml:"session_id,omitempty"`
+	CredentialOffer string `json:"credential_offer,omitempty" yaml:"credential_offer,omitempty"`
 }
 
 func NewStartCheckWorkflow() *StartCheckWorkflow {
@@ -253,6 +257,26 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			"session_id": payload.SessionID,
 		}
 		ewcSessionID = payload.SessionID
+	case OpenID4VCIIssuerSuite:
+		if payload.CredentialOffer == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("credential_offer is required for suite %s", payload.Suite),
+				input.RunMetadata,
+			)
+		}
+		if payload.TestName == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("test is required for suite %s", payload.Suite),
+				input.RunMetadata,
+			)
+		}
+		stepCIPayload.Data = map[string]any{
+			"credential_offer": payload.CredentialOffer,
+			"test":             payload.TestName,
+		}
+		stepCIPayload.Secrets = map[string]string{
+			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
+		}
 	default:
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
 	}
@@ -314,10 +338,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 					Rid:   rid,
 					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},
-				Config: map[string]any{
+				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
 					"app_url":  appURL,
 					"interval": time.Second,
-				},
+				}),
 			}).GetChildWorkflowExecution().Get(ctx, nil)
 		if err != nil {
 			logger.Error("Failed to execute child workflow", "error", err)
@@ -384,11 +408,11 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				Payload: EWCStatusWorkflowPayload{
 					SessionID: ewcSessionID,
 				},
-				Config: map[string]any{
+				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
 					"app_url":        appURL,
 					"interval":       time.Second * 5,
 					"check_endpoint": checkEndpoint,
-				},
+				}),
 			}).GetChildWorkflowExecution().Get(ctx, nil)
 
 		if err != nil {
@@ -406,6 +430,20 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				"child_id": childID,
 			},
 		}, nil
+	case OpenID4VCIIssuerSuite:
+		runnerID, err := getOpenID4VCIIssuerRunnerID(setupResult.Captures, input.RunMetadata)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+
+		return pollOpenID4VCIIssuerLogs(
+			ctx,
+			runnerID,
+			appURL,
+			utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+			false,
+			input.RunMetadata,
+		)
 	default:
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			fmt.Sprintf("unsupported suite %s", payload.Suite),

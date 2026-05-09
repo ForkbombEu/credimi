@@ -20,7 +20,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 	BaseURL: "/api/apikey",
 	Routes: []routing.RouteDefinition{
 		{
-			Method:         "POST",
+			Method:         http.MethodPost,
 			Path:           "/generate",
 			OperationID:    "apiKey.generate",
 			Handler:        GenerateApiKey,
@@ -34,7 +34,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 			},
 		},
 		{
-			Method:         "GET",
+			Method:         http.MethodGet,
 			Path:           "/authenticate",
 			OperationID:    "apiKey.authenticate",
 			Description:    "Authenticate an API key and return Bearer token",
@@ -120,9 +120,9 @@ func generateAPIKeyForPrincipal(
 	}
 
 	switch collectionName {
-	case "users":
+	case apiKeyUserCollection:
 		return service.GenerateApiKey(auth.Id, name)
-	case "_superusers":
+	case apiKeySuperuserCollection:
 		return service.GenerateInternalAdminAPIKey(auth.Id, name)
 	default:
 		return "", apierror.New(

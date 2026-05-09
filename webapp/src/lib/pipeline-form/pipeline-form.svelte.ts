@@ -13,11 +13,11 @@ import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 
-import { ActivityOptionsForm } from './activity-options-form/activity-options-form.svelte.js';
 import { ExecutionTarget } from './execution-target/index.js';
 import { createPipelineYaml, type EnrichedPipeline } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
+import { RuntimeOptionsForm } from './runtime-options-form/runtime-options-form.svelte.js';
 import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
 
 //
@@ -31,7 +31,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	readonly Component = Component;
 
 	readonly stepsBuilder: StepsBuilder;
-	readonly activityOptionsForm: ActivityOptionsForm;
+	readonly runtimeOptionsForm: RuntimeOptionsForm;
 	readonly metadataForm: MetadataForm;
 
 	constructor(private props: Props) {
@@ -46,8 +46,8 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			yamlPreview: () => this.yamlString
 		});
 
-		this.activityOptionsForm = new ActivityOptionsForm({
-			initialData: props.pipeline?.activity_options
+		this.runtimeOptionsForm = new RuntimeOptionsForm({
+			initialData: props.pipeline?.runtime
 		});
 
 		this.metadataForm = new MetadataForm({
@@ -73,7 +73,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		createPipelineYaml(
 			this.metadataForm.value?.name ?? '',
 			this.stepsBuilder.steps.map(([step]) => step),
-			this.activityOptionsForm.value
+			this.runtimeOptionsForm.value
 		)
 	);
 
@@ -120,15 +120,12 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			pipeline?.steps.map(([step]) => step)
 		);
 
-		const activityOptionsChanged = !_.isEqual(
-			this.activityOptionsForm.value,
-			pipeline?.activity_options
-		);
+		const runtimeOptionsChanged = !_.isEqual(this.runtimeOptionsForm.value, pipeline?.runtime);
 
 		const nameChanged = this.metadataForm.value?.name !== pipeline?.record.name;
 		const descChanged = this.metadataForm.value?.description !== pipeline?.record.description;
 
-		return stepsChanged || activityOptionsChanged || nameChanged || descChanged;
+		return stepsChanged || runtimeOptionsChanged || nameChanged || descChanged;
 	});
 
 	canSave = $derived.by(() => {

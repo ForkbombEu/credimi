@@ -57,6 +57,8 @@ func HandleIdentifierValidate() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		record.WithCustomData(true)
+		record.Set("__canonified_path__", canonify.NormalizePath(req.CanonifiedName))
 		return e.JSON(http.StatusOK, map[string]any{
 			"message": "valid identifier",
 			"record":  record,

@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPrepareWorkflowOptionsDefaultsAndOverrides(t *testing.T) {
-	defaultOpts := PrepareWorkflowOptions(RuntimeConfig{})
+	defaultOpts := PrepareWorkflowOptions(pipeline.RuntimeConfig{})
 	require.Equal(t, PipelineTaskQueue, defaultOpts.Options.TaskQueue)
 	require.Equal(t, 24*time.Hour, defaultOpts.Options.WorkflowExecutionTimeout)
 	require.Equal(t, 10*time.Minute, defaultOpts.ActivityOptions.ScheduleToCloseTimeout)
@@ -24,7 +25,7 @@ func TestPrepareWorkflowOptionsDefaultsAndOverrides(t *testing.T) {
 		defaultOpts.ActivityOptions.RetryPolicy.MaximumAttempts,
 	)
 
-	rc := RuntimeConfig{}
+	rc := pipeline.RuntimeConfig{}
 	rc.Temporal.ExecutionTimeout = "1h"
 	rc.Temporal.ActivityOptions.StartToCloseTimeout = "30s"
 	rc.Temporal.ActivityOptions.ScheduleToCloseTimeout = "2m"
@@ -44,9 +45,9 @@ func TestPrepareWorkflowOptionsDefaultsAndOverrides(t *testing.T) {
 }
 
 func TestPrepareActivityOptionsOverrides(t *testing.T) {
-	global := PrepareWorkflowOptions(RuntimeConfig{}).ActivityOptions
+	global := PrepareWorkflowOptions(pipeline.RuntimeConfig{}).ActivityOptions
 
-	stepAO := &ActivityOptionsConfig{}
+	stepAO := &pipeline.ActivityOptionsConfig{}
 	stepAO.RetryPolicy.MaximumAttempts = 2
 	stepAO.RetryPolicy.InitialInterval = "2s"
 	stepAO.StartToCloseTimeout = "45s"

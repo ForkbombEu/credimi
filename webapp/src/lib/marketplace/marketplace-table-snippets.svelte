@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { userOrganization } from '$lib/app-state';
 	import EntityTag from '$lib/global/entity-tag.svelte';
+	import { getPath } from '$lib/utils';
 
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
@@ -18,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { MarketplaceItem } from './types';
 
+	import ContentWrapper from './_partials/content-wrapper.svelte';
 	import TableNameCell from './_partials/table-name-cell.svelte';
 	import { getMarketplaceItemData } from './utils';
 
@@ -26,7 +28,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const snippets = {
 		name: name as Snippet<[MarketplaceItemsResponse]>,
 		type: type as Snippet<[MarketplaceItemsResponse]>,
-		updated: updated as Snippet<[MarketplaceItemsResponse]>
+		updated: updated as Snippet<[MarketplaceItemsResponse]>,
+		organization_name: organization_name as Snippet<[MarketplaceItemsResponse]>
 	};
 	export { snippets };
 </script>
@@ -36,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{@const { logo, href } = getMarketplaceItemData(typed)}
 	{@const isCurrentUserOwner = userOrganization.current?.id === typed.organization_id}
 
-	<TableNameCell {logo} name={typed.name} textToCopy={typed.path} {href}>
+	<TableNameCell {logo} name={typed.name} textToCopy={getPath(typed)} {href}>
 		{#if isCurrentUserOwner}
 			<Badge class="block rounded-md">{m.Yours()}</Badge>
 		{/if}
@@ -49,7 +52,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet updated(record: MarketplaceItemsResponse)}
-	<T class="text-muted-foreground">
-		{new Date(record.updated as string).toLocaleDateString()}
-	</T>
+	<ContentWrapper>
+		<T class="text-muted-foreground">
+			{new Date(record.updated as string).toLocaleDateString()}
+		</T>
+	</ContentWrapper>
+{/snippet}
+
+{#snippet organization_name(record: MarketplaceItemsResponse)}
+	<ContentWrapper>
+		<T>
+			{record.organization_name}
+		</T>
+	</ContentWrapper>
 {/snippet}

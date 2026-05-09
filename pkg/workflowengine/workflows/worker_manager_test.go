@@ -102,7 +102,9 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 					workflowengine.ActivityResult{
 						Output: map[string]any{
 							"status": "ok",
-							"body":   map[string]any{"runners": []any{"runner1", "runner2", "runner3"}},
+							"body": map[string]any{
+								"runners": []any{"runner1", "runner2", "runner3"},
+							},
 						},
 					},
 					nil,

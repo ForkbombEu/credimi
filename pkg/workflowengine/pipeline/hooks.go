@@ -5,13 +5,14 @@
 package pipeline
 
 import (
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/workflow"
 )
 
 type SetupFunc func(
 	ctx workflow.Context,
-	steps *[]StepDefinition,
+	steps *[]pipeline.StepDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
@@ -19,7 +20,7 @@ type SetupFunc func(
 
 type CleanupFunc func(
 	ctx workflow.Context,
-	steps []StepDefinition,
+	steps []pipeline.StepDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData map[string]any,
@@ -35,12 +36,13 @@ var (
 	cleanupHooks = []CleanupFunc{
 		MobileAutomationCleanupHook,
 		ConformanceCheckCleanupHook,
+		tempWalletVersionCleanupHook,
 	}
 )
 
 func runSetupHooks(
 	ctx workflow.Context,
-	steps *[]StepDefinition,
+	steps *[]pipeline.StepDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
@@ -55,7 +57,7 @@ func runSetupHooks(
 
 func runCleanupHooks(
 	ctx workflow.Context,
-	steps []StepDefinition,
+	steps []pipeline.StepDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData map[string]any,

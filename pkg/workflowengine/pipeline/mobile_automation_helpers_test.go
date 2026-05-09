@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -20,31 +21,49 @@ import (
 
 func TestDecodeAndValidatePayload(t *testing.T) {
 	_, err := decodeAndValidatePayload(
-		&StepDefinition{
-			StepSpec: StepSpec{ID: "step-1", With: StepInputs{Payload: map[string]any{}}},
+		&pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID:   "step-1",
+				With: pipeline.StepInputs{Payload: map[string]any{}},
+			},
 		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&StepDefinition{StepSpec: StepSpec{ID: "step-2", With: StepInputs{Payload: map[string]any{
-			"action_code": "code",
-		}}}},
+		&pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID: "step-2",
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_code": "code",
+				}},
+			},
+		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&StepDefinition{StepSpec: StepSpec{ID: "step-3", With: StepInputs{Payload: map[string]any{
-			"runner_id": "runner-1",
-		}}}},
+		&pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID: "step-3",
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"runner_id": "runner-1",
+				}},
+			},
+		},
 	)
 	require.Error(t, err)
 
 	payload, err := decodeAndValidatePayload(
-		&StepDefinition{StepSpec: StepSpec{ID: "step-4", With: StepInputs{Payload: map[string]any{
-			"action_id": "action-1",
-			"runner_id": "runner-2",
-		}}}},
+		&pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID: "step-4",
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_id": "action-1",
+					"runner_id": "runner-2",
+				}},
+			},
+		},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "action-1", payload.ActionID)
@@ -52,15 +71,25 @@ func TestDecodeAndValidatePayload(t *testing.T) {
 }
 
 func TestCollectMobileRunnerIDs(t *testing.T) {
-	steps := []StepDefinition{
-		{StepSpec: StepSpec{Use: mobileAutomationStepUse, With: StepInputs{Payload: map[string]any{
-			"action_id": "action-1",
-			"runner_id": "runner-b",
-		}}}},
-		{StepSpec: StepSpec{Use: mobileAutomationStepUse, With: StepInputs{Payload: map[string]any{
-			"action_id": "action-2",
-			"runner_id": "runner-a",
-		}}}},
+	steps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				Use: mobileAutomationStepUse,
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_id": "action-1",
+					"runner_id": "runner-b",
+				}},
+			},
+		},
+		{
+			StepSpec: pipeline.StepSpec{
+				Use: mobileAutomationStepUse,
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_id": "action-2",
+					"runner_id": "runner-a",
+				}},
+			},
+		},
 	}
 
 	runnerIDs, err := collectMobileRunnerIDs(steps, "runner-global")
@@ -69,11 +98,16 @@ func TestCollectMobileRunnerIDs(t *testing.T) {
 }
 
 func TestCollectMobileRunnerIDsNormalizesLeadingSlash(t *testing.T) {
-	steps := []StepDefinition{
-		{StepSpec: StepSpec{Use: mobileAutomationStepUse, With: StepInputs{Payload: map[string]any{
-			"action_id": "action-1",
-			"runner_id": "/tenant-a/runner-b",
-		}}}},
+	steps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				Use: mobileAutomationStepUse,
+				With: pipeline.StepInputs{Payload: map[string]any{
+					"action_id": "action-1",
+					"runner_id": "/tenant-a/runner-b",
+				}},
+			},
+		},
 	}
 
 	runnerIDs, err := collectMobileRunnerIDs(steps, "/tenant-a/runner-a")
@@ -84,13 +118,13 @@ func TestCollectMobileRunnerIDsNormalizesLeadingSlash(t *testing.T) {
 func TestParseAPKResponse(t *testing.T) {
 	result := workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
-			"apk_path":   "path.apk",
-			"version_id": "ver-1",
-			"code":       "action-code",
+			"installer_path": "path.apk",
+			"version_id":     "ver-1",
+			"code":           "action-code",
 		},
 	}}
 	payload := &workflows.MobileAutomationWorkflowPipelinePayload{ActionID: "action-1"}
-	step := &StepDefinition{StepSpec: StepSpec{ID: "step-1"}}
+	step := &pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-1"}}
 	apkPath, versionID, actionCode, err := parseAPKResponse(result, payload, step)
 	require.NoError(t, err)
 	require.Equal(t, "path.apk", apkPath)
@@ -139,11 +173,11 @@ func TestParseDeviceMap(t *testing.T) {
 }
 
 func TestValidateRunnerIDConfigurationAdditional(t *testing.T) {
-	steps := []StepDefinition{
+	steps := []pipeline.StepDefinition{
 		{
-			StepSpec: StepSpec{
+			StepSpec: pipeline.StepSpec{
 				Use: mobileAutomationStepUse,
-				With: StepInputs{
+				With: pipeline.StepInputs{
 					Payload: map[string]any{
 						"action_id": "action-1",
 					},
@@ -161,7 +195,7 @@ func TestValidateRunnerIDConfigurationAdditional(t *testing.T) {
 	err = validateRunnerIDConfiguration(&steps, "")
 	require.NoError(t, err)
 
-	nonMobile := []StepDefinition{{StepSpec: StepSpec{Use: "rest"}}}
+	nonMobile := []pipeline.StepDefinition{{StepSpec: pipeline.StepSpec{Use: "rest"}}}
 	err = validateRunnerIDConfiguration(&nonMobile, "")
 	require.NoError(t, err)
 }
@@ -176,11 +210,11 @@ func TestExtractAndStoreRecordingInfoAdditional(t *testing.T) {
 	require.Error(t, err)
 
 	okResult := workflowengine.ActivityResult{Output: map[string]any{
-		"adb_process_pid":    float64(11),
-		"ffmpeg_process_pid": float64(12),
-		"logcat_process_pid": float64(13),
-		"video_path":         "/tmp/video.mp4",
-		"logcat_path":        "/tmp/logcat.txt",
+		"recording_process_pid": float64(11),
+		"ffmpeg_process_pid":    float64(12),
+		"log_process_pid":       float64(13),
+		"video_path":            "/tmp/video.mp4",
+		"log_path":              "/tmp/log.txt",
 	}}
 	err = extractAndStoreRecordingInfo(okResult, deviceMap, "runner-1")
 	require.NoError(t, err)
@@ -224,15 +258,15 @@ func TestExtractRecordingInfoAdditional(t *testing.T) {
 	require.Error(t, err)
 
 	info, err := extractRecordingInfo("runner-1", map[string]any{
-		"video_path":           "/tmp/video.mp4",
-		"logcat_path":          "/tmp/logcat.txt",
-		"recording_adb_pid":    1,
-		"recording_ffmpeg_pid": 2,
-		"recording_logcat_pid": 3,
+		"video_path":            "/tmp/video.mp4",
+		"log_path":              "/tmp/log.txt",
+		"recording_process_pid": 1,
+		"recording_ffmpeg_pid":  2,
+		"recording_log_pid":     3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "/tmp/video.mp4", info.videoPath)
-	require.Equal(t, 1, info.adbPid)
+	require.Equal(t, 1, info.recordingPid)
 }
 
 func TestExtractAndStoreURLsAdditional(t *testing.T) {
@@ -273,6 +307,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
+	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -280,6 +315,10 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	env.RegisterActivityWithOptions(
 		startEmuActivity.Execute,
 		activity.RegisterOptions{Name: startEmuActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
 	)
 
 	workflowName := "get-device-map-serial"
@@ -289,14 +328,14 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
 			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-				ctx:              ctx,
-				mobileCtx:        ctx,
-				payload:          payload,
-				settedDevices:    map[string]any{},
-				appURL:           "http://localhost:8090",
-				stepID:           "step-1",
-				httpActivity:     httpActivity,
-				startEmuActivity: startEmuActivity,
+				ctx:                       ctx,
+				mobileCtx:                 ctx,
+				payload:                   payload,
+				settedDevices:             map[string]any{},
+				appURL:                    "http://localhost:8090",
+				stepID:                    "step-1",
+				trackInitialInstalledApps: true,
+				httpActivity:              httpActivity,
 			})
 		},
 		workflow.RegisterOptions{Name: workflowName},
@@ -313,6 +352,8 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 			"serial":     "serial-1",
 		},
 	}}, nil)
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
 
 	env.ExecuteWorkflow(workflowName)
 	require.True(t, env.IsWorkflowCompleted())
@@ -321,7 +362,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "serial-1", result["serial"])
-	require.Equal(t, "physical", result["type"])
+	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "http://runner", result["runner_url"])
 }
 
@@ -331,6 +372,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
+	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -338,6 +380,10 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	env.RegisterActivityWithOptions(
 		startEmuActivity.Execute,
 		activity.RegisterOptions{Name: startEmuActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
 	)
 
 	workflowName := "get-device-map-emulator"
@@ -347,14 +393,14 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
 			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-				ctx:              ctx,
-				mobileCtx:        ctx,
-				payload:          payload,
-				settedDevices:    map[string]any{},
-				appURL:           "http://localhost:8090",
-				stepID:           "step-1",
-				httpActivity:     httpActivity,
-				startEmuActivity: startEmuActivity,
+				ctx:                       ctx,
+				mobileCtx:                 ctx,
+				payload:                   payload,
+				settedDevices:             map[string]any{},
+				appURL:                    "http://localhost:8090",
+				stepID:                    "step-1",
+				trackInitialInstalledApps: true,
+				httpActivity:              httpActivity,
 			})
 		},
 		workflow.RegisterOptions{Name: workflowName},
@@ -380,6 +426,8 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 		"serial": "emu-1",
 		"name":   "device-1",
 	}}, nil)
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
 
 	env.ExecuteWorkflow(workflowName)
 	require.True(t, env.IsWorkflowCompleted())
@@ -392,6 +440,60 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	require.Equal(t, "android_emulator", result["type"])
 }
 
+func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	workflowName := "get-device-map-no-snapshot"
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
+				ctx:           ctx,
+				mobileCtx:     ctx,
+				payload:       payload,
+				settedDevices: map[string]any{},
+				appURL:        "http://localhost:8090",
+				stepID:        "step-1",
+				httpActivity:  httpActivity,
+			})
+		},
+		workflow.RegisterOptions{Name: workflowName},
+	)
+
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.Anything,
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"runner_url": "http://runner",
+			"type":       "physical",
+			"serial":     "serial-1",
+		},
+	}}, nil)
+
+	env.ExecuteWorkflow(workflowName)
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "serial-1", result["serial"])
+	require.Equal(t, "android_phone", result["type"])
+	require.Equal(t, "http://runner", result["runner_url"])
+	_, hasInitialSnapshot := result["initial_installed_apps"]
+	require.False(t, hasInitialSnapshot)
+}
+
 func TestExtractDeviceInfo(t *testing.T) {
 	deviceType, serial, name, packages, err := extractDeviceInfo("runner-1", map[string]any{})
 	_ = deviceType
@@ -402,6 +504,26 @@ func TestExtractDeviceInfo(t *testing.T) {
 
 	deviceType, serial, name, packages, err = extractDeviceInfo("runner-1", map[string]any{
 		"serial": "serial-1",
+	})
+	_ = deviceType
+	_ = serial
+	_ = name
+	_ = packages
+	require.Error(t, err)
+
+	deviceType, serial, name, packages, err = extractDeviceInfo("runner-1", map[string]any{
+		"type": "redroid",
+	})
+	_ = deviceType
+	_ = serial
+	_ = name
+	_ = packages
+	require.Error(t, err)
+
+	deviceType, serial, name, packages, err = extractDeviceInfo("runner-1", map[string]any{
+		"type":      "redroid",
+		"serial":    "serial-1",
+		"installed": map[string]any{"app": "com.example"},
 	})
 	_ = deviceType
 	_ = serial
@@ -453,7 +575,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 			}
 			return map[string]any{
 				"runner_url": runnerURL,
-				"type":       deviceType,
+				"type":       deviceType.String(),
 				"serial":     serial,
 			}, nil
 		},
@@ -479,7 +601,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "http://runner", result["runner_url"])
-	require.Equal(t, "physical", result["type"])
+	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "serial-1", result["serial"])
 }
 
@@ -567,7 +689,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 	}
 }
 
-func TestStartEmulator(t *testing.T) {
+func TestStartManagedDeviceAndroid(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -583,13 +705,13 @@ func TestStartEmulator(t *testing.T) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
-			name, serial, err := startEmulator(startEmulatorInput{
-				ctx:              ctx,
-				mobileCtx:        ctx,
-				deviceType:       "emulator",
-				payload:          payload,
-				stepID:           "step-1",
-				startEmuActivity: startEmuActivity,
+			name, serial, err := startManagedDevice(startManagedDeviceInput{
+				ctx:        ctx,
+				mobileCtx:  ctx,
+				deviceType: deviceTypeAndroidEmulator,
+				activities: activitiesForDeviceType(deviceTypeAndroidEmulator),
+				payload:    payload,
+				stepID:     "step-1",
 			})
 			if err != nil {
 				return nil, err
@@ -607,7 +729,7 @@ func TestStartEmulator(t *testing.T) {
 			if !ok {
 				return false
 			}
-			return payload["device_name"] == "runner-1" && payload["type"] == "emulator"
+			return payload["device_name"] == "runner-1" && payload["type"] == "android_emulator"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"serial": "emu-1",
@@ -624,7 +746,64 @@ func TestStartEmulator(t *testing.T) {
 	require.Equal(t, "device-1", result["name"])
 }
 
-func TestStartEmulatorMissingSerialDefaultsToEmptyString(t *testing.T) {
+func TestStartManagedDeviceIOS(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	startIOSActivity := activities.NewStartIOSSimulatorActivity()
+	env.RegisterActivityWithOptions(
+		startIOSActivity.Execute,
+		activity.RegisterOptions{Name: startIOSActivity.Name()},
+	)
+
+	workflowName := "start-ios-simulator"
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			name, serial, err := startManagedDevice(startManagedDeviceInput{
+				ctx:        ctx,
+				mobileCtx:  ctx,
+				deviceType: deviceTypeIOSSimulator,
+				activities: activitiesForDeviceType(deviceTypeIOSSimulator),
+				payload:    payload,
+				stepID:     "step-1",
+			})
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"serial": serial, "name": name}, nil
+		},
+		workflow.RegisterOptions{Name: workflowName},
+	)
+
+	env.OnActivity(
+		startIOSActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			return payload["device_name"] == "runner-1" && payload["type"] == "ios_simulator"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"serial": "ios-1",
+		"name":   "ios-device-1",
+	}}, nil)
+
+	env.ExecuteWorkflow(workflowName)
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "ios-1", result["serial"])
+	require.Equal(t, "ios-device-1", result["name"])
+}
+
+func TestStartManagedDeviceMissingSerialDefaultsToEmptyString(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -640,13 +819,13 @@ func TestStartEmulatorMissingSerialDefaultsToEmptyString(t *testing.T) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
-			name, serial, err := startEmulator(startEmulatorInput{
-				ctx:              ctx,
-				mobileCtx:        ctx,
-				deviceType:       "emulator",
-				payload:          payload,
-				stepID:           "step-1",
-				startEmuActivity: startEmuActivity,
+			name, serial, err := startManagedDevice(startManagedDeviceInput{
+				ctx:        ctx,
+				mobileCtx:  ctx,
+				deviceType: deviceTypeAndroidEmulator,
+				activities: activitiesForDeviceType(deviceTypeAndroidEmulator),
+				payload:    payload,
+				stepID:     "step-1",
 			})
 			if err != nil {
 				return nil, err
@@ -674,7 +853,7 @@ func TestStartEmulatorMissingSerialDefaultsToEmptyString(t *testing.T) {
 	require.Equal(t, "device-1", result["name"])
 }
 
-func TestStartEmulatorErrors(t *testing.T) {
+func TestStartManagedDeviceErrors(t *testing.T) {
 	tests := []struct {
 		name      string
 		output    map[string]any
@@ -706,13 +885,13 @@ func TestStartEmulatorErrors(t *testing.T) {
 					payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 						RunnerID: "runner-1",
 					}
-					_, _, err := startEmulator(startEmulatorInput{
-						ctx:              ctx,
-						mobileCtx:        ctx,
-						deviceType:       "emulator",
-						payload:          payload,
-						stepID:           "step-1",
-						startEmuActivity: startEmuActivity,
+					_, _, err := startManagedDevice(startManagedDeviceInput{
+						ctx:        ctx,
+						mobileCtx:  ctx,
+						deviceType: deviceTypeAndroidEmulator,
+						activities: activitiesForDeviceType(deviceTypeAndroidEmulator),
+						payload:    payload,
+						stepID:     "step-1",
 					})
 					return err
 				},
@@ -744,24 +923,38 @@ func TestExtractRecordingInfo(t *testing.T) {
 	require.Error(t, err)
 
 	_, err = extractRecordingInfo("runner-1", map[string]any{
-		"video_path":  "video.mp4",
-		"logcat_path": "logcat.txt",
+		"video_path": "video.mp4",
+		"log_path":   "log.txt",
 	})
 	require.Error(t, err)
 
 	info, err := extractRecordingInfo("runner-1", map[string]any{
-		"video_path":           "video.mp4",
-		"logcat_path":          "logcat.txt",
-		"recording_adb_pid":    1,
-		"recording_ffmpeg_pid": 2,
-		"recording_logcat_pid": 3,
+		"video_path":            "video.mp4",
+		"log_path":              "log.txt",
+		"recording_process_pid": 1,
+		"recording_ffmpeg_pid":  2,
+		"recording_log_pid":     3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "video.mp4", info.videoPath)
-	require.Equal(t, "logcat.txt", info.logcatPath)
-	require.Equal(t, 1, info.adbPid)
+	require.Equal(t, "log.txt", info.logPath)
+	require.Equal(t, 1, info.recordingPid)
 	require.Equal(t, 2, info.ffmpegPid)
-	require.Equal(t, 3, info.logcatPid)
+	require.Equal(t, 3, info.logPid)
+}
+
+func TestExtractRecordingInfoIOS(t *testing.T) {
+	info, err := extractRecordingInfo("runner-1", map[string]any{
+		"type":                  "ios_simulator",
+		"video_path":            "video.mp4",
+		"log_path":              "log.txt",
+		"recording_process_pid": 1,
+		"recording_log_pid":     3,
+	})
+	require.NoError(t, err)
+	require.Equal(t, deviceTypeIOSSimulator, info.deviceType)
+	require.Equal(t, 1, info.recordingPid)
+	require.Equal(t, 0, info.ffmpegPid)
 }
 
 func TestExtractAndStoreURLs(t *testing.T) {
@@ -788,4 +981,15 @@ func TestExtractAndStoreURLs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"video-1"}, output["result_video_urls"])
 	require.Equal(t, []string{"frame-1"}, output["screenshot_urls"])
+
+	var nilOutput map[string]any
+	err = extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"result_urls":     []string{"video-2"},
+			"screenshot_urls": []string{"frame-2"},
+		},
+	}}, &nilOutput)
+	require.NoError(t, err)
+	require.Equal(t, []string{"video-2"}, nilOutput["result_video_urls"])
+	require.Equal(t, []string{"frame-2"}, nilOutput["screenshot_urls"])
 }

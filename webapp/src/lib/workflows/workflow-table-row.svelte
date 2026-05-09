@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{
 				workflow: Workflow;
 				Td: typeof Table.Cell;
+				depth: number;
 			}
 		]
 	>;
@@ -77,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	]}
 >
-	{@render rowStart?.({ workflow, Td: Table.Cell })}
+	{@render rowStart?.({ workflow, Td: Table.Cell, depth })}
 
 	{#if !hideColumns.includes('type')}
 		<Table.Cell class="text-muted-foreground">
@@ -150,7 +151,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Cell>
 	{/if}
 
-	{@render row?.({ workflow, Td: Table.Cell })}
+	{@render row?.({ workflow, Td: Table.Cell, depth })}
 
 	{#if !hideColumns.includes('start_time')}
 		<Table.Cell
@@ -177,17 +178,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#if !hideColumns.includes('actions')}
-		<Table.Cell class="flex justify-end">
-			{#if actions}
-				<DropdownMenu
-					items={actions(workflow)}
-					triggerVariants={{ variant: 'ghost', size: 'icon-sm' }}
-				>
-					{#snippet triggerContent()}
-						<EllipsisVerticalIcon />
-					{/snippet}
-				</DropdownMenu>
-			{/if}
+		<Table.Cell>
+			<div class="flex justify-end">
+				{#if actions}
+					<DropdownMenu
+						items={actions(workflow)}
+						triggerVariants={{ variant: 'ghost', size: 'icon-sm' }}
+					>
+						{#snippet triggerContent()}
+							<EllipsisVerticalIcon />
+						{/snippet}
+					</DropdownMenu>
+				{/if}
+			</div>
 		</Table.Cell>
 	{/if}
 </tr>
@@ -201,6 +204,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{hideColumns}
 			{actions}
 			{disableLink}
+			{rowStart}
 		/>
 	{/each}
 {/if}

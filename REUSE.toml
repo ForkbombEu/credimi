@@ -9,11 +9,11 @@ SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/credimi"
 
 [[annotations]]
 path = [
+    ".cursor/**/*",
     ".env.example",
     ".gestalt/**/*",
     ".idea/**/*",
     ".vscode/launch.json",
-    ".gestalt/**/*",
     ".vscode/settings.json",
     "config_templates/**/*",
     "docs/**/*",
@@ -50,7 +50,7 @@ SPDX-FileCopyrightText = "Forkbomb BV"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
 [[annotations]]
-path = ["deployment/grafana/**/*", "deployment/thirdparty-simulator/**/*"]
+path = ["deployment/grafana/**/*"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "temporal.io"
 SPDX-License-Identifier = "MIT"

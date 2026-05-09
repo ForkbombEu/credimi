@@ -34,6 +34,32 @@ export function getOpenIDNetWorkflowLogsProps(
 	};
 }
 
+export function getOpenID4VCIIssuerWorkflowLogsProps(
+	workflowId?: string,
+	namespace?: string
+): WorkflowLogsProps {
+	if (!workflowId || !namespace) {
+		throw new Error('missing workflowId or namespace');
+	}
+
+	return {
+		subscriptionSuffix: 'openidnet-logs',
+		startSignal: 'start-openid4vci-issuer-log-update',
+		stopSignal: 'stop-openid4vci-issuer-log-update',
+		workflowId,
+		namespace,
+		logTransformer: (rawLog) => {
+			const data = LogsSchema.parse(rawLog);
+			return {
+				time: data.time,
+				message: data.msg,
+				status: data.result,
+				rawLog
+			};
+		}
+	};
+}
+
 const LogsSchema = z
 	.object({
 		_id: z.string(),

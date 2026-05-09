@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
+import type { PipelineStep } from '$lib/pipeline/types';
 
 import BugIcon from '@lucide/svelte/icons/bug';
 
@@ -20,6 +21,15 @@ export function getDisplayData(type: string): EntityData {
 		if (!config) throw new Error(`Unknown step type: ${type}`);
 		return config.display;
 	}
+}
+
+export function formatLinkedId(step: PipelineStep) {
+	if (!('id' in step)) throw new Error('Step has no id');
+	let deeplinkPath = '.outputs';
+	if (step.use === 'conformance-check') {
+		deeplinkPath += '.deeplink';
+	}
+	return '${{' + step.id + deeplinkPath + '}}';
 }
 
 export const debugEntityData: EntityData = {

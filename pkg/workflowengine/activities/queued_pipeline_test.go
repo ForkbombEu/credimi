@@ -5,6 +5,7 @@ package activities
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
@@ -60,6 +62,7 @@ func (f fakeTemporalClient) ExecuteWorkflow(
 type capturingTemporalClient struct {
 	run         client.WorkflowRun
 	lastOptions client.StartWorkflowOptions
+	lastArgs    []interface{}
 }
 
 // ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.
@@ -70,6 +73,7 @@ func (c *capturingTemporalClient) ExecuteWorkflow(
 	args ...interface{},
 ) (client.WorkflowRun, error) {
 	c.lastOptions = options
+	c.lastArgs = append([]interface{}(nil), args...)
 	return c.run, nil
 }
 
@@ -186,6 +190,44 @@ func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
 	require.Equal(t, 3, attempts)
 }
 
+func TestStartQueuedPipelineActivityPostsRunType(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
+	var posted map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&posted))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	act := NewStartQueuedPipelineActivity()
+	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		return fakeTemporalClient{
+			run: fakeWorkflowRun{
+				id:    "wf-ci",
+				runID: "run-ci",
+			},
+		}, nil
+	}
+	act.httpDoer = server.Client()
+
+	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: StartQueuedPipelineActivityInput{
+			TicketID:           "ticket-ci",
+			OwnerNamespace:     "tenant-ci",
+			PipelineIdentifier: "tenant-ci/pipeline",
+			YAML:               "name: test\nsteps: []\n",
+			PipelineConfig: map[string]any{
+				"app_url": server.URL,
+			},
+			Memo: map[string]any{
+				pipelineinternal.RunTypeMemoKey: pipelineinternal.RunTypeCI,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, pipelineinternal.RunTypeCI, posted["type"])
+}
+
 // TestStartQueuedPipelineActivityWorkflowIDPrefix verifies scheduled tickets get a distinct ID prefix.
 func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
@@ -248,6 +290,46 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 	}
 }
 
+func TestStartQueuedPipelineActivityPropagatesDisableAndroidPlayStore(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
+	captured := &capturingTemporalClient{
+		run: fakeWorkflowRun{
+			id:    "wf-4",
+			runID: "run-4",
+		},
+	}
+	act := NewStartQueuedPipelineActivity()
+	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		return captured, nil
+	}
+	act.httpDoer = failingDoer{err: errors.New("boom")}
+
+	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: StartQueuedPipelineActivityInput{
+			TicketID:           "ticket-4",
+			OwnerNamespace:     "tenant-1",
+			PipelineIdentifier: "tenant-1/pipeline",
+			YAML: `name: test
+runtime:
+  disable_android_play_store: true
+steps: []
+`,
+			PipelineConfig: map[string]any{
+				"app_url": "https://example.com",
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, captured.lastArgs, 1)
+
+	workflowInput, ok := captured.lastArgs[0].(map[string]any)
+	require.True(t, ok)
+
+	rawInput, ok := workflowInput["workflow_input"].(workflowengine.WorkflowInput)
+	require.True(t, ok)
+	require.Equal(t, true, rawInput.Config["disable_android_play_store"])
+}
+
 func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	doer := &countingDoer{err: errors.New("boom")}
@@ -260,6 +342,7 @@ func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
+		pipelineinternal.RunTypeManual,
 	)
 
 	require.Error(t, err)
@@ -278,6 +361,7 @@ func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
+		pipelineinternal.RunTypeManual,
 	)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, status)
@@ -297,6 +381,7 @@ func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {
 		"pipeline-1",
 		"wf-1",
 		"run-1",
+		pipelineinternal.RunTypeManual,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")

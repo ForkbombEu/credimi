@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
@@ -39,7 +40,7 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 	cleanupHooks = []CleanupFunc{
 		func(
 			ctx workflow.Context,
-			steps []StepDefinition,
+			steps []pipeline.StepDefinition,
 			ao *workflow.ActivityOptions,
 			config map[string]any,
 			runData map[string]any,
@@ -97,7 +98,8 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 				payload.OwnerNamespace == "tenant-1" &&
 				payload.LeaderRunnerID == "runner-1" &&
 				payload.WorkflowID == "default-test-workflow-id" &&
-				payload.RunID == "default-test-run-id"
+				payload.RunID == "default-test-run-id" &&
+				payload.WorkflowResult == resultSuccess
 		}),
 	).
 		Run(func(_ mock.Arguments) {
@@ -107,9 +109,9 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 		Once()
 
 	input := PipelineWorkflowInput{
-		WorkflowDefinition: &WorkflowDefinition{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
 			Name:  "test-pipeline",
-			Steps: []StepDefinition{},
+			Steps: []pipeline.StepDefinition{},
 		},
 		WorkflowInput: workflowengine.WorkflowInput{
 			Config: map[string]any{

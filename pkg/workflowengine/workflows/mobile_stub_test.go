@@ -33,3 +33,23 @@ func TestMobileAutomationWorkflowDisabled(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code)
 }
+
+func TestMobileExternalInstallWorkflowDisabled(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	w := NewMobileExternalInstallWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{
+		Name: w.Name(),
+	})
+
+	input := workflowengine.WorkflowInput{
+		RunMetadata: &workflowengine.WorkflowErrorMetadata{WorkflowName: w.Name()},
+		Config:      map[string]any{"app_url": ""},
+	}
+	env.ExecuteWorkflow(w.Name(), input)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code)
+}

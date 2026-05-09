@@ -136,6 +136,11 @@ export const sections = {
 		icon: Code,
 		anchor: 'dcql_query',
 		label: m.DCQL_Query()
+	},
+	results: {
+		icon: CheckCheck,
+		anchor: 'results',
+		label: m.Results()
 	}
 } satisfies Record<string, IndexItem>;
 

@@ -19,10 +19,11 @@ import { workflowResponseSchema, type WorkflowResponse } from './types';
 
 export const WORKFLOW_STATUS_QUERY_PARAM = 'status';
 
-const WORKFLOWS_API = '/api/compliance/checks';
+const WORKFLOW_LIST_API = '/api/list-workflows';
+const WORKFLOW_DETAILS_API = '/api/my/workflows';
 
 const workflowApi = (workflowId: string, runId: string) =>
-	`${WORKFLOWS_API}/${workflowId}/${runId}`;
+	`${WORKFLOW_DETAILS_API}/${workflowId}/runs/${runId}`;
 
 //
 
@@ -39,7 +40,7 @@ export async function fetchWorkflows(
 
 	const { fetch: fetchFn = fetch, status } = options;
 
-	let url = WORKFLOWS_API;
+	let url = WORKFLOW_LIST_API;
 	if (status) {
 		const formattedStatus = String.pascalToSnake(status);
 		url += `?${WORKFLOW_STATUS_QUERY_PARAM}=${formattedStatus}`;
@@ -81,8 +82,10 @@ export async function fetchWorkflowHistory(
 			method: 'GET',
 			fetch: options.fetch
 		});
-		const schema = z.array(z.record(z.unknown()));
-		return schema.parse(data) as HistoryEvent[];
+		const schema = z.object({
+			history: z.array(z.record(z.unknown()))
+		});
+		return schema.parse(data).history as HistoryEvent[];
 	}, 'Failed to fetch workflow history');
 }
 

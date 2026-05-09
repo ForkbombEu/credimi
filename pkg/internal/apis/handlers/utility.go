@@ -5,6 +5,9 @@
 package handlers
 
 import (
+	"net/http"
+
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -68,4 +71,29 @@ func GetOrganizationCanonifiedName(app core.App, orgID string) (string, error) {
 		return "", err
 	}
 	return orgRecord.GetString("canonified_name"), nil
+}
+
+func authorizeOwnedOrPublishedRecord(
+	record *core.Record,
+	callerOrgID string,
+	collectionName string,
+	domain string,
+) *apierror.APIError {
+	if record.Collection().Name != collectionName {
+		return apierror.New(
+			http.StatusBadRequest,
+			domain,
+			domain+" identifier is invalid",
+			domain+" identifier must resolve to a "+collectionName+" record",
+		)
+	}
+	if record.GetString("owner") == callerOrgID || record.GetBool("published") {
+		return nil
+	}
+	return apierror.New(
+		http.StatusForbidden,
+		domain,
+		domain+" is not owned by caller or published",
+		domain+" must belong to caller organization or be published",
+	)
 }

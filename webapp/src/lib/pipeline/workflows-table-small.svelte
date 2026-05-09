@@ -5,7 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowRightIcon, EllipsisVerticalIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import {
+		ArrowRightIcon,
+		EllipsisVerticalIcon,
+		FileCogIcon,
+		ImageIcon,
+		VideoIcon
+	} from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
 
@@ -79,6 +85,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											variant="ghost"
 											icon={ImageIcon}
 											href={result.screenshot}
+											target="_blank"
+											class="text-primary hover:bg-secondary"
+										/>
+										<IconButton
+											size="mini"
+											variant="ghost"
+											icon={FileCogIcon}
+											href={result.log}
 											target="_blank"
 											class="text-primary hover:bg-secondary"
 										/>

@@ -25,10 +25,10 @@ func TestIsSuperUser(t *testing.T) {
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	require.False(t, isSuperUser(app, user))
+	require.False(t, IsSuperUser(app, user))
 
 	superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
 	require.NoError(t, err)
 
-	require.True(t, isSuperUser(app, superuser))
+	require.True(t, IsSuperUser(app, superuser))
 }

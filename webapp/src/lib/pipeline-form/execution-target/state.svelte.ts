@@ -4,9 +4,12 @@
 
 import type { MarketplaceItem } from '$lib/marketplace';
 
-import { isError, isString } from 'effect/Predicate';
-
-import type { MobileRunnersResponse, WalletVersionsResponse } from '@/pocketbase/types';
+import {
+	type SelectedRunner,
+	type SelectedVersion,
+	type WalletActionStepData
+} from '$pipeline-form/steps/wallet-action/wallet-action-step-form.svelte.js';
+import { isError } from 'effect/Predicate';
 
 import type { EnrichedPipeline } from '../functions';
 
@@ -14,8 +17,8 @@ import type { EnrichedPipeline } from '../functions';
 
 export interface Config {
 	wallet: MarketplaceItem;
-	version: WalletVersionsResponse;
-	runner: MobileRunnersResponse | 'global';
+	version: SelectedVersion;
+	runner: SelectedRunner;
 }
 
 export const state = $state({
@@ -45,18 +48,13 @@ export function loadFromPipeline(pipeline: EnrichedPipeline) {
 		return;
 	}
 
-	const { wallet, version, runner } = data as unknown as Config;
+	const { wallet, version, runner } = data as unknown as WalletActionStepData;
 
-	const target: Config = {
-		wallet: wallet,
-		version: version,
-		runner: 'global'
+	state.current = {
+		wallet,
+		version,
+		runner
 	};
-	if (runner && !isString(runner)) {
-		target.runner = runner;
-	}
-
-	state.current = target;
 }
 
 export function clear() {

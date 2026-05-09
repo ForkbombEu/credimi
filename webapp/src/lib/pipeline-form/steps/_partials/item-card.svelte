@@ -25,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class?: ClassValue;
 		beforeContent?: Snippet;
 		afterContent?: Snippet;
+		titleRight?: Snippet;
 	};
 
 	let {
@@ -36,7 +37,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		right,
 		class: className,
 		beforeContent,
-		afterContent
+		afterContent,
+		titleRight
 	}: Props = $props();
 	const isInteractive = $derived(onClick !== undefined);
 
@@ -65,7 +67,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Avatar src={avatar} fallback={title} class="shrink-0 rounded-md border" />
 				{/if}
 				<div>
-					<T class="text-sm font-semibold">{title}</T>
+					<T class="text-sm font-semibold">
+						<span>
+							{title}
+						</span>
+						{@render titleRight?.()}
+					</T>
 					{#if subtitle}
 						<T class="text-xs text-muted-foreground">{subtitle}</T>
 					{/if}

@@ -7,6 +7,7 @@ package pipeline
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -62,9 +63,24 @@ func TestPipelineStartScheduled(t *testing.T) {
 	pipelineTemporalClient = func(_ string) (client.Client, error) {
 		return mockClient, nil
 	}
-
+	yaml := `name: scheduled-pipeline
+runtime:
+  schedule:
+    interval: 1m
+steps:
+  - id: step1
+    use: mobile-automation
+    with:
+      payload:
+        runner_id: "runner-android"
+  - id: step2
+    use: mobile-automation
+    with:
+      payload:
+        runner_id: "runner-ios"
+`
 	result, err := pipelineWf.Start(
-		"name: scheduled-pipeline\nruntime:\n  schedule:\n    interval: 1m\nsteps: []\n",
+		yaml,
 		map[string]any{"namespace": "default"},
 		map[string]any{},
 		"tenant-1/scheduled-pipeline",
@@ -72,9 +88,16 @@ func TestPipelineStartScheduled(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "schedule-123", result.WorkflowID)
 	require.Contains(t, result.Message, "scheduled successfully")
+
+	expectedRunnerIDs := []string{"runner-android", "runner-ios"}
+	expectedSearchAttrs := workflowengine.PipelineTypedSearchAttributes(
+		"tenant-1/scheduled-pipeline",
+		expectedRunnerIDs,
+		workflowengine.EntityIDs{},
+	)
 	require.Equal(
 		t,
-		workflowengine.PipelineTypedSearchAttributes("tenant-1/scheduled-pipeline"),
+		expectedSearchAttrs,
 		capturedAction.TypedSearchAttributes,
 	)
 }
@@ -90,6 +113,7 @@ func TestPipelineStartImmediate(t *testing.T) {
 	mockClient := temporalmocks.NewClient(t)
 	workflowRun := temporalmocks.NewWorkflowRun(t)
 	var capturedOptions client.StartWorkflowOptions
+	var capturedInput PipelineWorkflowInput
 
 	workflowRun.On("GetID").Return("workflow-123")
 	workflowRun.On("GetRunID").Return("run-456")
@@ -101,6 +125,7 @@ func TestPipelineStartImmediate(t *testing.T) {
 		mock.Anything,
 	).Run(func(args mock.Arguments) {
 		capturedOptions = args.Get(1).(client.StartWorkflowOptions)
+		capturedInput = args.Get(3).(PipelineWorkflowInput)
 	}).Return(workflowRun, nil)
 
 	pipelineTemporalClient = func(_ string) (client.Client, error) {
@@ -120,6 +145,52 @@ func TestPipelineStartImmediate(t *testing.T) {
 	value, ok := capturedOptions.TypedSearchAttributes.GetKeyword(key)
 	require.True(t, ok)
 	require.Equal(t, "tenant-1/immediate-pipeline", value)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, tempWalletVersionConfigKey)
+}
+
+func TestPipelineStartIgnoresReservedYAMLConfig(t *testing.T) {
+	pipelineWf := NewPipelineWorkflow()
+
+	originalClient := pipelineTemporalClient
+	defer func() {
+		pipelineTemporalClient = originalClient
+	}()
+
+	mockClient := temporalmocks.NewClient(t)
+	workflowRun := temporalmocks.NewWorkflowRun(t)
+	var capturedInput PipelineWorkflowInput
+
+	workflowRun.On("GetID").Return("workflow-123")
+	workflowRun.On("GetRunID").Return("run-456")
+	mockClient.On(
+		"ExecuteWorkflow",
+		mock.Anything,
+		mock.Anything,
+		pipelineWf.Name(),
+		mock.Anything,
+	).Run(func(args mock.Arguments) {
+		capturedInput = args.Get(3).(PipelineWorkflowInput)
+	}).Return(workflowRun, nil)
+
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	_, err := pipelineWf.Start(
+		`name: reserved-config
+config:
+  keep: value
+  temp_wallet_version:
+    record_id: malicious
+steps: []
+`,
+		map[string]any{"namespace": "default"},
+		map[string]any{},
+		"tenant-1/reserved-config",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "value", capturedInput.WorkflowInput.Config["keep"])
+	require.NotContains(t, capturedInput.WorkflowInput.Config, tempWalletVersionConfigKey)
 }
 
 func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
@@ -133,9 +204,9 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 	)
 
 	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
-		WorkflowDefinition: &WorkflowDefinition{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
 			Name:  "empty-steps",
-			Steps: []StepDefinition{},
+			Steps: []pipeline.StepDefinition{},
 		},
 		WorkflowInput: workflowengine.WorkflowInput{
 			Config: map[string]any{

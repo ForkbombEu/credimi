@@ -15,6 +15,7 @@ export type SidebarItem = {
 	icon?: IconComponent;
 	children?: Omit<SidebarItem, 'children'>[];
 	component?: Component<SidebarItemComponentProps>;
+	indent?: number;
 };
 
 export type SidebarGroup = {

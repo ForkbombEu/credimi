@@ -119,6 +119,7 @@ type WorkflowExecutionAPIResponse struct {
 type PipelineResults struct {
 	Video      string `json:"video,omitempty"`
 	Screenshot string `json:"screenshot,omitempty"`
+	Log        string `json:"log,omitempty"`
 }
 
 type WorkflowStatus string
@@ -217,19 +218,19 @@ type Payloads []Payload
 
 // Response types for checks handlers
 
-// ReRunCheckResponse represents the response when re-running a check
-type ReRunCheckResponse struct {
+// ReRunWorkflowResponse represents the response when re-running a workflow.
+type ReRunWorkflowResponse struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
 	RunID      string `json:"run_id"      validate:"required"`
 }
 
-// ListMyChecksResponse represents the response containing list of workflow executions
-type ListMyChecksResponse struct {
+// ListMyWorkflowsResponse represents the response containing workflow executions.
+type ListMyWorkflowsResponse struct {
 	Executions []*WorkflowExecutionSummary `json:"executions" validate:"required"`
 }
 
-// GetMyCheckRunResponse represents the response for getting a specific check run
-type GetMyCheckRunResponse struct {
+// GetMyWorkflowRunResponse represents the response for getting a specific workflow run.
+type GetMyWorkflowRunResponse struct {
 	WorkflowExecutionInfo  *WorkflowExecutionInfo               `json:"workflowExecutionInfo,omitempty"`
 	PendingActivities      []PendingActivityInfo                `json:"pendingActivities,omitempty"`
 	PendingChildren        []PendingChildren                    `json:"pendingChildren,omitempty"`
@@ -239,56 +240,56 @@ type GetMyCheckRunResponse struct {
 	PendingWorkflowTask    *PendingWorkflowTaskInfo             `json:"pendingWorkflowTask,omitempty"`
 }
 
-// ListMyCheckRunsResponse represents the response containing list of runs for a specific check
-type ListMyCheckRunsResponse struct {
+// ListMyWorkflowRunsResponse represents the response containing the runs of a workflow.
+type ListMyWorkflowRunsResponse struct {
 	Executions []*WorkflowExecutionSummary `json:"executions" validate:"required"`
 }
 
-// GetMyCheckRunHistoryResponse represents the response containing workflow execution history
-type GetMyCheckRunHistoryResponse struct {
-	History   []map[string]interface{} `json:"history"   validate:"required"`
-	Count     int                      `json:"count"     validate:"required"`
-	Time      string                   `json:"time"      validate:"required"`
-	CheckID   string                   `json:"checkId"   validate:"required"`
-	RunID     string                   `json:"runId"     validate:"required"`
-	Namespace string                   `json:"namespace" validate:"required"`
+// GetMyWorkflowRunHistoryResponse represents workflow execution history.
+type GetMyWorkflowRunHistoryResponse struct {
+	History    []map[string]interface{} `json:"history"    validate:"required"`
+	Count      int                      `json:"count"      validate:"required"`
+	Time       string                   `json:"time"       validate:"required"`
+	WorkflowID string                   `json:"workflowId" validate:"required"`
+	RunID      string                   `json:"runId"      validate:"required"`
+	Namespace  string                   `json:"namespace"  validate:"required"`
 }
 
-// CancelMyCheckRunResponse represents the response when canceling a workflow execution
-type CancelMyCheckRunResponse struct {
-	Message   string `json:"message"   validate:"required"`
-	CheckID   string `json:"checkId"   validate:"required"`
-	RunID     string `json:"runId"     validate:"required"`
-	Status    string `json:"status"    validate:"required"`
-	Time      string `json:"time"      validate:"required"`
-	Namespace string `json:"namespace" validate:"required"`
+// CancelMyWorkflowRunResponse represents the response when canceling a workflow execution.
+type CancelMyWorkflowRunResponse struct {
+	Message    string `json:"message"    validate:"required"`
+	WorkflowID string `json:"workflowId" validate:"required"`
+	RunID      string `json:"runId"      validate:"required"`
+	Status     string `json:"status"     validate:"required"`
+	Time       string `json:"time"       validate:"required"`
+	Namespace  string `json:"namespace"  validate:"required"`
 }
 
-// TerminateMyCheckRunResponse represents the response when terminating a workflow execution
-type TerminateMyCheckRunResponse struct {
-	Message   string `json:"message"   validate:"required"`
-	CheckID   string `json:"checkId"   validate:"required"`
-	RunID     string `json:"runId"     validate:"required"`
-	Status    string `json:"status"    validate:"required"`
-	Time      string `json:"time"      validate:"required"`
-	Namespace string `json:"namespace" validate:"required"`
+// TerminateMyWorkflowRunResponse represents the response when terminating a workflow execution.
+type TerminateMyWorkflowRunResponse struct {
+	Message    string `json:"message"    validate:"required"`
+	WorkflowID string `json:"workflowId" validate:"required"`
+	RunID      string `json:"runId"      validate:"required"`
+	Status     string `json:"status"     validate:"required"`
+	Time       string `json:"time"       validate:"required"`
+	Namespace  string `json:"namespace"  validate:"required"`
 }
 
-// ExportMyCheckRunResponse represents the response when exporting a check run
-type ExportMyCheckRunResponse struct {
-	Export ExportData `json:"export" validate:"required"`
+// ExportMyWorkflowRunResponse represents the response when exporting a workflow run.
+type ExportMyWorkflowRunResponse struct {
+	Export WorkflowExportData `json:"export" validate:"required"`
 }
 
-// ExportData represents the exported check run data
-type ExportData struct {
-	CheckID string                 `json:"checkId" validate:"required"`
-	RunID   string                 `json:"runId"   validate:"required"`
-	Input   map[string]interface{} `json:"input"   validate:"required"`
-	Config  map[string]interface{} `json:"config"  validate:"required"`
+// WorkflowExportData represents the exported workflow run data.
+type WorkflowExportData struct {
+	WorkflowID string                 `json:"workflowId" validate:"required"`
+	RunID      string                 `json:"runId"      validate:"required"`
+	Input      map[string]interface{} `json:"input"      validate:"required"`
+	Config     map[string]interface{} `json:"config"     validate:"required"`
 }
 
-// ChecksLogsResponse represents the response for workflow logs operations
-type ChecksLogsResponse struct {
+// WorkflowLogsResponse represents the response for workflow log operations.
+type WorkflowLogsResponse struct {
 	Channel    string `json:"channel"     validate:"required"`
 	WorkflowID string `json:"workflow_id" validate:"required"`
 	RunID      string `json:"run_id"      validate:"required"`
@@ -646,43 +647,7 @@ func computePipelineResults(
 		return nil
 	}
 
-	videos := record.GetStringSlice("video_results")
-	screenshots := record.GetStringSlice("screenshots")
-
-	screenshotMap := make(map[string]string, len(screenshots))
-
-	for _, name := range screenshots {
-		if key, ok := baseKey(name, "_screenshot_"); ok {
-			screenshotMap[key] = name
-		}
-	}
-
-	results := make([]PipelineResults, 0, len(videos))
-
-	for _, name := range videos {
-		if key, ok := baseKey(name, "_result_video_"); ok {
-			if screenshot, ok := screenshotMap[key]; ok {
-				results = append(results, PipelineResults{
-					Video: utils.JoinURL(
-						app.Settings().Meta.AppURL,
-						"api", "files", "pipeline_results",
-						record.Id,
-						record.GetString("video_results"),
-						name,
-					),
-					Screenshot: utils.JoinURL(
-						app.Settings().Meta.AppURL,
-						"api", "files", "pipeline_results",
-						record.Id,
-						record.GetString("screenshots"),
-						screenshot,
-					),
-				})
-			}
-		}
-	}
-
-	return results
+	return computePipelineResultsFromRecord(app, record)
 }
 
 // calculateDuration calculates the duration between startTime and endTime
@@ -692,12 +657,12 @@ func calculateDuration(startTime, endTime string) string {
 		return ""
 	}
 
-	start, err := time.Parse(time.RFC3339Nano, startTime)
+	start, err := utils.ParseTimeString(startTime)
 	if err != nil {
 		return ""
 	}
 
-	end, err := time.Parse(time.RFC3339Nano, endTime)
+	end, err := utils.ParseTimeString(endTime)
 	if err != nil {
 		return ""
 	}

@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -61,7 +62,7 @@ func TestParsePaginationParams(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.rawURL, nil)
+			req := httptest.NewRequest(http.MethodGet, tt.rawURL, nil)
 			e := &core.RequestEvent{
 				Event: router.Event{
 					Request: req,
@@ -138,12 +139,14 @@ func TestComputePipelineResultsFromRecord(t *testing.T) {
 	record := core.NewRecord(coll)
 	record.Set("video_results", []string{"abc_result_video_main.mp4"})
 	record.Set("screenshots", []string{"abc_screenshot_main.png"})
+	record.Set("logcats", []string{"abc_logfile_main.zip"})
 
 	got := computePipelineResultsFromRecord(app, record)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0].Video, "https://app.test")
 	require.Contains(t, got[0].Video, "abc_result_video_main.mp4")
 	require.Contains(t, got[0].Screenshot, "abc_screenshot_main.png")
+	require.Contains(t, got[0].Log, "abc_logfile_main.zip")
 
 	require.Nil(t, computePipelineResultsFromRecord(nil, record))
 	require.Nil(t, computePipelineResultsFromRecord(app, nil))

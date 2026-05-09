@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -19,6 +20,15 @@ func setupOrganizationApp(t testing.TB) *tests.TestApp {
 	require.NoError(t, err)
 	canonify.RegisterCanonifyHooks(app)
 	OrganizationRoutes.Add(app)
+	return app
+}
+
+func setupOrganizationPublicApp(t testing.TB) *tests.TestApp {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	canonify.RegisterCanonifyHooks(app)
+	OrganizationTemporalInternalRoutes.Add(app)
+	seedInternalAdminKey(t, app)
 	return app
 }
 
@@ -48,7 +58,7 @@ func TestOrganizationHandlers(t *testing.T) {
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "get my organization info",
-			Method: "GET",
+			Method: http.MethodGet,
 			URL:    "/api/organizations/my",
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
@@ -64,13 +74,56 @@ func TestOrganizationHandlers(t *testing.T) {
 		},
 		{
 			Name:           "get my organization info (unauthenticated)",
-			Method:         "GET",
+			Method:         http.MethodGet,
 			URL:            "/api/organizations/my",
 			ExpectedStatus: 401,
 			ExpectedContent: []string{
 				"authentication_required",
 			},
 			TestAppFactory: setupOrganizationApp,
+		},
+	}
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+func TestGetAllNamespaces(t *testing.T) {
+	scenarios := []tests.ApiScenario{
+		{
+			Name:   "get all namespaces with API key",
+			Method: http.MethodGet,
+			URL:    "/api/organizations/namespaces",
+			Headers: map[string]string{
+				"Credimi-Api-Key": "internal-test-api-key",
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				"namespaces",
+			},
+			TestAppFactory: setupOrganizationPublicApp,
+		},
+		{
+			Name:           "get all namespaces without API key",
+			Method:         http.MethodGet,
+			URL:            "/api/organizations/namespaces",
+			ExpectedStatus: 401,
+			ExpectedContent: []string{
+				"api_key_required",
+			},
+			TestAppFactory: setupOrganizationPublicApp,
+		},
+		{
+			Name:   "get all namespaces with wrong API key",
+			Method: http.MethodGet,
+			URL:    "/api/organizations/namespaces",
+			Headers: map[string]string{
+				"Credimi-Api-Key": "wrong-key",
+			},
+			ExpectedStatus: 401,
+			ExpectedContent: []string{
+				"invalid_api_key",
+			},
+			TestAppFactory: setupOrganizationPublicApp,
 		},
 	}
 	for _, scenario := range scenarios {

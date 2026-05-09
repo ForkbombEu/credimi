@@ -13,7 +13,6 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
-	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -134,15 +133,15 @@ func resolveScheduleRunnerRecords(
 		}
 	}
 
-	info, err := runners.ParsePipelineRunnerInfo(pipelineRec.GetString("yaml"))
+	info, err := pipeline.ParsePipelineRunnerInfo(pipelineRec.GetString("yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pipeline yaml: %w", err)
 	}
 
 	globalRunnerID := readGlobalRunnerIDFromScheduleDescription(desc)
-	runnerIDs := runners.RunnerIDsWithGlobal(info, globalRunnerID)
+	runnerIDs := pipeline.RunnerIDsWithGlobal(info, globalRunnerID)
 
-	return runners.ResolveRunnerRecords(app, runnerIDs, nil), nil
+	return pipeline.ResolveRunnerRecords(app, runnerIDs, nil), nil
 }
 
 func readGlobalRunnerIDFromScheduleDescription(
@@ -173,12 +172,12 @@ func readGlobalRunnerIDFromScheduleDescription(
 		}
 		return globalRunnerIDFromWorkflowInput(*arg)
 	case pipeline.PipelineWorkflowInput:
-		return runners.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
+		return pipeline.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
 	case *pipeline.PipelineWorkflowInput:
 		if arg == nil {
 			return ""
 		}
-		return runners.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
+		return pipeline.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
 	case *commonpb.Payload:
 		return globalRunnerIDFromPayload(arg)
 	case commonpb.Payload:
@@ -213,7 +212,7 @@ func globalRunnerIDFromPayload(payload *commonpb.Payload) string {
 		return ""
 	}
 
-	return runners.GlobalRunnerIDFromConfig(input.WorkflowInput.Config)
+	return pipeline.GlobalRunnerIDFromConfig(input.WorkflowInput.Config)
 }
 
 // globalRunnerIDFromWorkflowInput extracts a global runner ID from a workflow wrapper input.
@@ -231,9 +230,9 @@ func globalRunnerIDFromWorkflowInput(input workflowengine.WorkflowInput) string 
 			return globalRunnerIDFromScheduledInput(scheduledInput, input.Config)
 		}
 	default:
-		return runners.GlobalRunnerIDFromConfig(input.Config)
+		return pipeline.GlobalRunnerIDFromConfig(input.Config)
 	}
-	return runners.GlobalRunnerIDFromConfig(input.Config)
+	return pipeline.GlobalRunnerIDFromConfig(input.Config)
 }
 
 // decodeScheduledEnqueueInput converts a generic payload map into a scheduled enqueue input.
@@ -260,9 +259,9 @@ func globalRunnerIDFromScheduledInput(
 		return input.GlobalRunnerID
 	}
 	if config != nil {
-		if globalRunnerID := runners.GlobalRunnerIDFromConfig(config); globalRunnerID != "" {
+		if globalRunnerID := pipeline.GlobalRunnerIDFromConfig(config); globalRunnerID != "" {
 			return globalRunnerID
 		}
 	}
-	return runners.GlobalRunnerIDFromConfig(input.PipelineConfig)
+	return pipeline.GlobalRunnerIDFromConfig(input.PipelineConfig)
 }

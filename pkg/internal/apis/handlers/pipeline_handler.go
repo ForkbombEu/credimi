@@ -16,10 +16,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -39,6 +42,16 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Description:   "Queue a pipeline workflow for the runner semaphore",
 		},
 		{
+			Method:         http.MethodPost,
+			Path:           "/run-wallet-apk",
+			Handler:        HandlePipelineRunWalletAPK,
+			ResponseSchema: PipelineRunWalletAPKResponse{},
+			Description:    "Create a temporary wallet APK version and queue a one-off pipeline run",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				apis.BodyLimit(1000 << 20),
+			},
+		},
+		{
 			Method:      http.MethodGet,
 			Path:        "/queue/{ticket}",
 			Handler:     HandlePipelineQueueStatus,
@@ -52,18 +65,13 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:  http.MethodGet,
-			Path:    "/list-workflows",
+			Path:    "/list-executions",
 			Handler: HandleGetPipelineDetails,
 		},
 		{
 			Method:  http.MethodGet,
-			Path:    "/list-workflows/{id}",
+			Path:    "/list-executions/{id}",
 			Handler: HandleGetPipelineSpecificDetails,
-		},
-		{
-			Method:  http.MethodGet,
-			Path:    "/list-results",
-			Handler: HandleGetPipelineResults,
 		},
 	},
 }
@@ -90,6 +98,82 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandleSetPipelineExecutionResults,
 			RequestSchema: PipelineResultInput{},
 			Description:   "Create pipeline execution results record",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/scoreboard/{namespace}",
+			Handler: HandleGetPipelineScoreboard,
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/scoreboard/aggregate/start",
+			Handler:        HandleStartAggregateScoreboard,
+			ResponseSchema: StartAggregateScoreboardResponse{},
+			Description:    "Start the aggregate scoreboard workflow (use ?schedule=300 per scheduling every N seconds)",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:      http.MethodDelete,
+			Path:        "/scoreboard/aggregate/schedule/{schedule_id}",
+			Handler:     HandleCancelAggregateScoreboardSchedule,
+			Description: "Cancel a scheduled aggregate scoreboard workflow",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/execution-details/{namespace}/{workflow_id}/{run_id}",
+			Handler:     HandleGetExecutionDetails,
+			Description: "Get detailed information about a specific execution",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/scoreboard/save-results",
+			Handler:     HandleSaveScoreboardResults,
+			Description: "Refresh the aggregate scoreboard",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/retention/delete-files",
+			Handler:       HandleDeletePipelineResultFiles,
+			RequestSchema: DeletePipelineResultFilesRequest{},
+			Description:   "Delete retained pipeline result files older than the requested number of days",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/retention/schedule",
+			Handler:        HandleSchedulePipelineRetentionWorkflow,
+			RequestSchema:  SchedulePipelineRetentionRequest{},
+			ResponseSchema: SchedulePipelineRetentionResponse{},
+			Description:    "Schedule the pipeline retention workflow",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:         http.MethodDelete,
+			Path:           "/retention/schedule",
+			Handler:        HandleDeletePipelineRetentionSchedule,
+			ResponseSchema: DeletePipelineRetentionScheduleResponse{},
+			Description:    "Delete the pipeline retention schedule",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
@@ -133,6 +217,22 @@ type PipelineResultInput struct {
 	PipelineID string `json:"pipeline_id"`
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
+	Type       string `json:"type,omitempty"`
+}
+
+func pipelineRunType(input string) string {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return pipelineinternal.RunTypeManual
+	}
+	return input
+}
+
+func setPipelineRunType(record *core.Record, coll *core.Collection, runType string) {
+	if coll.Fields.GetByName("type") == nil {
+		return
+	}
+	record.Set("type", pipelineRunType(runType))
 }
 
 func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
@@ -171,6 +271,19 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		runType := pipelineRunType(input.Type)
+		if !pipelineinternal.ValidRunType(runType) {
+			return apierror.New(
+				http.StatusBadRequest,
+				"type",
+				"invalid pipeline result type",
+				fmt.Sprintf("type must be one of %q, %q, or %q",
+					pipelineinternal.RunTypeManual,
+					pipelineinternal.RunTypeScheduled,
+					pipelineinternal.RunTypeCI,
+				),
+			).JSON(e)
+		}
 
 		existing, err := e.App.FindFirstRecordByFilter(
 			coll,
@@ -206,6 +319,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 		record.Set("pipeline", pipeline.Id)
 		record.Set("workflow_id", input.WorkflowID)
 		record.Set("run_id", input.RunID)
+		setPipelineRunType(record, coll, runType)
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -249,15 +363,19 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		namespace := organization.GetString("canonified_name")
+		limit, pageNum := parsePaginationParams(e, 20, 0)
+		offset := pageNum * limit
+		statusFilter := e.Request.URL.Query().Get("status")
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
-			"id = {:id} && owner={:owner}",
+			"(id = {:id} && owner={:owner}) || (id = {:id} && published={:published})",
 			"",
 			-1,
 			0,
 			dbx.Params{
-				"id":    pipelineID,
-				"owner": organization.Id,
+				"id":        pipelineID,
+				"owner":     organization.Id,
+				"published": true,
 			},
 		)
 		if err != nil {
@@ -270,13 +388,10 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 
 		if len(pipelineRecords) == 0 {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				Executions: []*WorkflowExecutionSummary{},
-			})
+			return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
 		}
 
 		pipelineRecord := pipelineRecords[0]
-		pipelineID = pipelineRecord.Id
 		pipelinePath, err := canonify.BuildPath(
 			e.App,
 			pipelineRecord,
@@ -293,17 +408,68 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 		pipelineIdentifier := strings.Trim(pipelinePath, "/")
 
-		queuedRuns, err := pipelineListQueuedRuns(e.Request.Context(), namespace)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list queued runs",
-				err.Error(),
-			).JSON(e)
+		includeQueued := shouldIncludeQueuedPipelineExecutions(statusFilter)
+		if includeQueued {
+			queuedRuns, err := pipelineListQueuedRuns(e.Request.Context(), namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to list queued runs",
+					err.Error(),
+				).JSON(e)
+			}
+
+			queuedByPipelineID := mapQueuedRunsToPipelines(
+				e.App,
+				[]*core.Record{pipelineRecord},
+				queuedRuns,
+			)
+			queuedForPipeline := queuedByPipelineID[pipelineRecord.Id]
+
+			if queuedOnlyPipelineExecutions(statusFilter) {
+				return e.JSON(http.StatusOK, paginateQueuedPipelineSummaries(
+					e.App,
+					queuedForPipeline,
+					authRecord.GetString("Timezone"),
+					limit,
+					offset,
+				))
+			}
+
+			queuedCount := len(queuedForPipeline)
+			if offset < queuedCount {
+				queuedSummaries := paginateQueuedPipelineSummaries(
+					e.App,
+					queuedForPipeline,
+					authRecord.GetString("Timezone"),
+					limit,
+					offset,
+				)
+				if len(queuedSummaries) >= limit {
+					return e.JSON(http.StatusOK, queuedSummaries)
+				}
+
+				completedSummaries, apiErr := fetchCompletedWorkflowsWithPagination(
+					e,
+					map[string]*core.Record{pipelineRecord.Id: pipelineRecord},
+					namespace,
+					authRecord,
+					organization.Id,
+					pipelineIdentifier,
+					statusFilter,
+					limit-len(queuedSummaries),
+					0,
+					nil,
+				)
+				if apiErr != nil {
+					return apiErr.JSON(e)
+				}
+				return e.JSON(http.StatusOK, append(queuedSummaries, completedSummaries...))
+			}
+
+			offset -= queuedCount
 		}
-		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
-		queuedForPipeline := queuedByPipelineID[pipelineID]
 
 		temporalClient, err := pipelineTemporalClient(namespace)
 		if err != nil {
@@ -314,102 +480,88 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-
-		runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
-		if err != nil {
-			e.App.Logger().Warn(fmt.Sprintf(
-				"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
-				pipelineID,
-				err,
-			))
-		}
-
-		allExecutions, err := listPipelineWorkflowExecutions(
-			context.Background(),
-			temporalClient,
+		summaries, apiErr := fetchCompletedWorkflowsWithPagination(
+			e,
+			map[string]*core.Record{pipelineRecord.Id: pipelineRecord},
 			namespace,
-			nil,
+			authRecord,
+			organization.Id,
 			pipelineIdentifier,
-			pipelineListWorkflowsDefaultLimit,
-			0,
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list workflows",
-				err.Error(),
-			).JSON(e)
-		}
-
-		if len(allExecutions) == 0 {
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedForPipeline,
-				authRecord.GetString("Timezone"),
-				map[string]map[string]any{},
-			)
-			if len(queuedSummaries) == 0 {
-				return e.JSON(http.StatusOK, ListMyChecksResponse{
-					[]*WorkflowExecutionSummary{},
-				})
-			}
-			return e.JSON(http.StatusOK, queuedSummaries)
-		}
-
-		hierarchy := buildExecutionHierarchy(
-			e.App,
-			allExecutions,
-			namespace,
-			authRecord.GetString("Timezone"),
+			statusFilter,
+			limit,
+			offset,
 			temporalClient,
 		)
-
-		sort.Slice(hierarchy, func(i, j int) bool {
-			t1, _ := time.Parse(time.RFC3339, hierarchy[i].StartTime)
-			t2, _ := time.Parse(time.RFC3339, hierarchy[j].StartTime)
-
-			return t1.After(t2)
-		})
-
-		runnerCache := map[string]map[string]any{}
-		annotated, err := attachRunnerInfoFromTemporalStartInput(
-			attachRunnerInfoFromTemporalInputArgs{
-				App:         e.App,
-				Ctx:         context.Background(),
-				Client:      temporalClient,
-				Executions:  hierarchy,
-				Info:        runnerInfo,
-				RunnerCache: runnerCache,
-			},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to read workflow history",
-				err.Error(),
-			).JSON(e)
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
-		for _, summary := range annotated {
-			summary.PipelineIdentifier = pipelineIdentifier
-		}
-
-		if len(queuedForPipeline) > 0 {
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedForPipeline,
-				authRecord.GetString("Timezone"),
-				runnerCache,
-			)
-			if len(queuedSummaries) > 0 {
-				annotated = append(queuedSummaries, annotated...)
-			}
-		}
-
-		return e.JSON(http.StatusOK, annotated)
+		return e.JSON(http.StatusOK, summaries)
 	}
+}
+
+func shouldIncludeQueuedPipelineExecutions(statusFilter string) bool {
+	if strings.TrimSpace(statusFilter) == "" {
+		return true
+	}
+
+	for _, raw := range strings.Split(statusFilter, ",") {
+		if strings.EqualFold(strings.TrimSpace(raw), statusStringQueued) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func queuedOnlyPipelineExecutions(statusFilter string) bool {
+	if strings.TrimSpace(statusFilter) == "" {
+		return false
+	}
+
+	hasQueued := false
+	hasNonQueued := false
+	for _, raw := range strings.Split(statusFilter, ",") {
+		normalized := strings.ToLower(strings.TrimSpace(raw))
+		if normalized == "" {
+			continue
+		}
+		if normalized == statusStringQueued {
+			hasQueued = true
+			continue
+		}
+		hasNonQueued = true
+	}
+
+	return hasQueued && !hasNonQueued
+}
+
+func paginateQueuedPipelineSummaries(
+	app core.App,
+	queuedRuns []QueuedPipelineRunAggregate,
+	userTimezone string,
+	limit int,
+	offset int,
+) []*pipelineWorkflowSummary {
+	summaries := buildQueuedPipelineSummaries(
+		app,
+		queuedRuns,
+		userTimezone,
+		map[string]map[string]any{},
+	)
+	if len(summaries) == 0 || limit <= 0 || offset >= len(summaries) {
+		return []*pipelineWorkflowSummary{}
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	end := offset + limit
+	if end > len(summaries) {
+		end = len(summaries)
+	}
+
+	return summaries[offset:end]
 }
 
 func HandleGetPipelineDetails() func(*core.RequestEvent) error {
@@ -476,7 +628,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			pipelineID := pipelineRecord.Id
 			pipelineMap[pipelineID] = pipelineRecord
 
-			runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+			runnerInfo, err := pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 			if err != nil {
 				e.App.Logger().Warn(fmt.Sprintf(
 					"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
@@ -548,11 +700,10 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			if len(pipelineExecutions) == 0 {
 				continue
 			}
-			hierarchy := buildExecutionHierarchy(
+			hierarchy := buildExecutionHierarchyRaw(
 				e.App,
 				pipelineExecutions,
 				namespace,
-				authRecord.GetString("Timezone"),
 				temporalClient,
 			)
 			if len(hierarchy) > 0 {
@@ -585,6 +736,10 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 
 		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
 		runnerCache := map[string]map[string]any{}
+		loc, err := time.LoadLocation(authRecord.GetString("Timezone"))
+		if err != nil {
+			loc = time.Local
+		}
 
 		for pipelineID, executions := range selectedExecutions {
 			info := pipelineRunnerInfoMap[pipelineID]
@@ -610,6 +765,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			for _, summary := range annotated {
 				summary.PipelineIdentifier = pipelineIdentifier
 			}
+			localizePipelineWorkflowSummaries(annotated, loc)
 			response[pipelineID] = annotated
 		}
 
@@ -656,9 +812,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		remainingSlots := limit - len(runningExecs)
 		if remainingSlots > 0 && len(otherExecs) > 0 {
 			sort.Slice(otherExecs, func(i, j int) bool {
-				t1, _ := time.Parse(time.RFC3339, otherExecs[i].StartTime)
-				t2, _ := time.Parse(time.RFC3339, otherExecs[j].StartTime)
-				return t1.After(t2)
+				return utils.TimeStringAfter(otherExecs[i].StartTime, otherExecs[j].StartTime)
 			})
 
 			if remainingSlots > len(otherExecs) {
@@ -669,9 +823,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		}
 
 		sort.Slice(selected, func(i, j int) bool {
-			t1, _ := time.Parse(time.RFC3339, selected[i].StartTime)
-			t2, _ := time.Parse(time.RFC3339, selected[j].StartTime)
-			return t1.After(t2)
+			return utils.TimeStringAfter(selected[i].StartTime, selected[j].StartTime)
 		})
 
 		if len(selected) > 0 {

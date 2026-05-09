@@ -7,9 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import { resolve } from '$app/paths';
+
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref } from '@/i18n';
 
 	//
@@ -29,9 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Avatar src={logo ?? ''} class="size-10 rounded-sm! border" fallback={name.slice(0, 2)} />
 
 	<div class="flex items-center gap-1">
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-		<a href={localizeHref(href)} class="hover:underline">
-			<T class="overflow-hidden text-ellipsis font-semibold">{name}</T>
+		<a href={resolve(localizeHref(href) as '/')} class="font-semibold hover:underline">
+			{name}
 		</a>
 
 		{#if textToCopy}

@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { self: form }: SelfProp<PipelineForm> = $props();
 
 	const metadata = form.metadataForm;
-	const activityOptions = form.activityOptionsForm;
+	const activityOptions = form.runtimeOptionsForm;
 	const builder = form.stepsBuilder;
 
 	const saveButtonText = $derived(m.Save());

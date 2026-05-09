@@ -6,8 +6,11 @@ package pipeline
 
 import (
 	"errors"
+	"reflect"
+	"runtime"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/workflow"
@@ -20,6 +23,17 @@ func (noopLogger) Info(string, ...interface{})  {}
 func (noopLogger) Warn(string, ...interface{})  {}
 func (noopLogger) Error(string, ...interface{}) {}
 
+func TestDefaultCleanupHooksDeleteTempWalletLast(t *testing.T) {
+	require.NotEmpty(t, cleanupHooks)
+	lastHook := cleanupHooks[len(cleanupHooks)-1]
+
+	require.Equal(
+		t,
+		functionName(tempWalletVersionCleanupHook),
+		functionName(lastHook),
+	)
+}
+
 func TestRunSetupHooksStopsOnError(t *testing.T) {
 	origHooks := setupHooks
 	t.Cleanup(func() {
@@ -29,7 +43,7 @@ func TestRunSetupHooksStopsOnError(t *testing.T) {
 	setupHooks = []SetupFunc{
 		func(
 			_ workflow.Context,
-			_ *[]StepDefinition,
+			_ *[]pipeline.StepDefinition,
 			_ *workflow.ActivityOptions,
 			_ map[string]any,
 			_ *map[string]any,
@@ -38,7 +52,7 @@ func TestRunSetupHooksStopsOnError(t *testing.T) {
 		},
 		func(
 			_ workflow.Context,
-			_ *[]StepDefinition,
+			_ *[]pipeline.StepDefinition,
 			_ *workflow.ActivityOptions,
 			_ map[string]any,
 			_ *map[string]any,
@@ -48,7 +62,7 @@ func TestRunSetupHooksStopsOnError(t *testing.T) {
 	}
 
 	var ctx workflow.Context
-	var steps []StepDefinition
+	var steps []pipeline.StepDefinition
 	var ao workflow.ActivityOptions
 	config := map[string]any{}
 	runData := map[string]any{}
@@ -66,7 +80,7 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 	cleanupHooks = []CleanupFunc{
 		func(
 			_ workflow.Context,
-			_ []StepDefinition,
+			_ []pipeline.StepDefinition,
 			_ *workflow.ActivityOptions,
 			_ map[string]any,
 			_ map[string]any,
@@ -76,7 +90,7 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 		},
 		func(
 			_ workflow.Context,
-			_ []StepDefinition,
+			_ []pipeline.StepDefinition,
 			_ *workflow.ActivityOptions,
 			_ map[string]any,
 			_ map[string]any,
@@ -87,7 +101,7 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 	}
 
 	var ctx workflow.Context
-	var steps []StepDefinition
+	var steps []pipeline.StepDefinition
 	var ao workflow.ActivityOptions
 	config := map[string]any{}
 	runData := map[string]any{}
@@ -106,4 +120,8 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 	)
 
 	require.Len(t, cleanupErrors, 1)
+}
+
+func functionName(fn any) string {
+	return runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
 }

@@ -35,6 +35,7 @@ func (a *StartEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -70,6 +71,42 @@ func (a *ApkInstallActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.ApkInstall(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type ApkPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewApkPostInstallChecksActivity() *ApkPostInstallChecksActivity {
+	return &ApkPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run APK post-install checks",
+		},
+	}
+}
+
+func (a *ApkPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ApkPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -82,7 +119,7 @@ func (a *ApkInstallActivity) Execute(
 		true,
 	)
 
-	res, err := mobile.ApkInstall(ctx, runInput)
+	res, err := mobile.ApkPostInstallChecks(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -110,6 +147,7 @@ func (a *UnlockEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -118,6 +156,118 @@ func (a *UnlockEmulatorActivity) Execute(
 	)
 
 	res, err := mobile.UnlockEmulator(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type StartIOSSimulatorActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartIOSSimulatorActivity() *StartIOSSimulatorActivity {
+	return &StartIOSSimulatorActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Setup iOS simulator",
+		},
+	}
+}
+
+func (a *StartIOSSimulatorActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartIOSSimulatorActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		false,
+	)
+
+	res, err := mobile.StartIOSSimulator(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type InstallIOSAppActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewInstallIOSAppActivity() *InstallIOSAppActivity {
+	return &InstallIOSAppActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Install iOS app on device",
+		},
+	}
+}
+
+func (a *InstallIOSAppActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *InstallIOSAppActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.InstallIOSApp(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type IOSPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewIOSPostInstallChecksActivity() *IOSPostInstallChecksActivity {
+	return &IOSPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run iOS post-install checks",
+		},
+	}
+}
+
+func (a *IOSPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *IOSPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+		true,
+	)
+
+	res, err := mobile.IOSAppPostInstallChecks(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -145,14 +295,85 @@ func (a *CleanupDeviceActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
 		nil,
-		false,
+		true,
 	)
 
 	res, err := mobile.CleanupDevice(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type ListInstalledAppsActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewListInstalledAppsActivity() *ListInstalledAppsActivity {
+	return &ListInstalledAppsActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "List installed mobile apps",
+		},
+	}
+}
+
+func (a *ListInstalledAppsActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ListInstalledAppsActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.ListInstalledApps(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type DisableAndroidPlayStoreActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewDisableAndroidPlayStoreActivity() *DisableAndroidPlayStoreActivity {
+	return &DisableAndroidPlayStoreActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Disable Android Play Store",
+		},
+	}
+}
+
+func (a *DisableAndroidPlayStoreActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *DisableAndroidPlayStoreActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.DisableAndroidPlayStore(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -180,6 +401,7 @@ func (a *StartRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -193,6 +415,47 @@ func (a *StartRecordingActivity) Execute(
 	)
 
 	res, err := mobile.StartVideoRecording(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type StartIOSRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartIOSRecordingActivity() *StartIOSRecordingActivity {
+	return &StartIOSRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Start recording iOS device screen",
+		},
+	}
+}
+
+func (a *StartIOSRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartIOSRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+		true,
+	)
+
+	res, err := mobile.StartIOSVideoRecording(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -220,6 +483,7 @@ func (a *StopRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -228,6 +492,42 @@ func (a *StopRecordingActivity) Execute(
 	)
 
 	res, err := mobile.StopVideoRecording(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type StopIOSRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStopIOSRecordingActivity() *StopIOSRecordingActivity {
+	return &StopIOSRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Stop recording iOS device screen",
+		},
+	}
+}
+
+func (a *StopIOSRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StopIOSRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.StopIOSVideoRecording(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -255,6 +555,7 @@ func (a *RunMobileFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,

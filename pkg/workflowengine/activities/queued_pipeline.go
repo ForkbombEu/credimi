@@ -15,6 +15,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -75,9 +76,10 @@ type queuedWorkflowDefinition struct {
 }
 
 type queuedRuntime struct {
-	Debug          bool   `yaml:"debug,omitempty"`
-	GlobalRunnerID string `yaml:"global_runner_id,omitempty"`
-	Temporal       struct {
+	Debug                   bool   `yaml:"debug,omitempty"`
+	GlobalRunnerID          string `yaml:"global_runner_id,omitempty"`
+	DisableAndroidPlayStore bool   `yaml:"disable_android_play_store,omitempty"`
+	Temporal                struct {
 		ExecutionTimeout string                `yaml:"execution_timeout,omitempty"`
 		ActivityOptions  queuedActivityOptions `yaml:"activity_options,omitempty"`
 	} `yaml:"temporal,omitempty"`
@@ -187,6 +189,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 	if workflowDef.Runtime.GlobalRunnerID != "" {
 		config["global_runner_id"] = workflowDef.Runtime.GlobalRunnerID
 	}
+	config["disable_android_play_store"] = workflowDef.Runtime.DisableAndroidPlayStore
 	applySemaphoreTicketMetadata(config, payload)
 
 	memo["test"] = workflowDef.Name
@@ -203,7 +206,11 @@ func (a *StartQueuedPipelineActivity) Execute(
 	)
 	options.Options.TaskQueue = pipelineTaskQueue
 	options.Options.Memo = memo
-	workflowengine.ApplyPipelineSearchAttributes(&options.Options, payload.PipelineIdentifier)
+	entityIDs, err := pipeline.ParseEntityIDs(payload.YAML)
+	if err != nil {
+		return result, fmt.Errorf("failed to parse entity IDs: %w", err)
+	}
+	workflowengine.ApplyPipelineSearchAttributes(&options.Options, payload.PipelineIdentifier, payload.RequiredRunnerIDs, entityIDs)
 
 	namespace := config["namespace"].(string)
 	temporalFactory := a.temporalClientFactory
@@ -262,6 +269,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 		payload.PipelineIdentifier,
 		workflowID,
 		runID,
+		pipelineRunTypeFromMemo(memo),
 	); err != nil {
 		if activity.IsActivity(ctx) {
 			logger := activity.GetLogger(ctx)
@@ -391,6 +399,7 @@ func createPipelineExecutionResultWithRetry(
 	pipelineID string,
 	workflowID string,
 	runID string,
+	runType string,
 ) error {
 	backoffs := []time.Duration{
 		250 * time.Millisecond,
@@ -408,6 +417,7 @@ func createPipelineExecutionResultWithRetry(
 			pipelineID,
 			workflowID,
 			runID,
+			runType,
 		)
 		if err == nil {
 			return nil
@@ -433,12 +443,14 @@ func postPipelineExecutionResult(
 	pipelineID string,
 	workflowID string,
 	runID string,
+	runType string,
 ) (int, error) {
 	payload := map[string]any{
 		"owner":       ownerNamespace,
 		"pipeline_id": pipelineID,
 		"workflow_id": workflowID,
 		"run_id":      runID,
+		"type":        runType,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -454,7 +466,7 @@ func postPipelineExecutionResult(
 	if err != nil {
 		return 0, fmt.Errorf("build pipeline results request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(workflowengine.HTTPHeaderContentType, workflowengine.MIMEApplicationJSON)
 	internalKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
 	if internalKey == "" {
 		return 0, fmt.Errorf("CREDIMI_INTERNAL_ADMIN_KEY is required")
@@ -471,6 +483,15 @@ func postPipelineExecutionResult(
 		return resp.StatusCode, fmt.Errorf("pipeline results status: %s", resp.Status)
 	}
 	return resp.StatusCode, nil
+}
+
+func pipelineRunTypeFromMemo(memo map[string]any) string {
+	if memo != nil {
+		if value, ok := memo[pipeline.RunTypeMemoKey].(string); ok && pipeline.ValidRunType(value) {
+			return value
+		}
+	}
+	return pipeline.RunTypeManual
 }
 
 func sleepWithContext(ctx context.Context, duration time.Duration) error {

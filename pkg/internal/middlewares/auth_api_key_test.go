@@ -109,12 +109,12 @@ func TestRequireInternalAdminAPIKey(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
 
-	t.Run("accepts legacy user scoped key when internal scope metadata is absent", func(t *testing.T) {
-		plaintext := "user-only-key"
+	t.Run("rejects key without explicit internal admin scope", func(t *testing.T) {
+		plaintext := "legacy-user-key"
 		createAPIKeyRecord(t, app, apiKeyRecordInput{
 			Plaintext: plaintext,
 			UserID:    user.Id,
-			Scope:     apiKeyScopeUser,
+			Scope:     "",
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -124,7 +124,7 @@ func TestRequireInternalAdminAPIKey(t *testing.T) {
 
 		err := RequireInternalAdminAPIKey().Func(e)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, http.StatusForbidden, rec.Code)
 	})
 
 }

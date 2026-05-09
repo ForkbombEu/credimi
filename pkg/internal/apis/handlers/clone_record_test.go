@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -74,7 +75,7 @@ func TestGetCloneRecord(t *testing.T) {
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "get clone-record success",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
@@ -93,7 +94,7 @@ func TestGetCloneRecord(t *testing.T) {
 		},
 		{
 			Name:   "clone with invalid JSON",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
@@ -110,7 +111,7 @@ func TestGetCloneRecord(t *testing.T) {
 		},
 		{
 			Name:   "clone with empty collection",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
@@ -128,7 +129,7 @@ func TestGetCloneRecord(t *testing.T) {
 		},
 		{
 			Name:   "clone with not supported collection",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
@@ -146,7 +147,7 @@ func TestGetCloneRecord(t *testing.T) {
 		},
 		{
 			Name:   "record not found in collection",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
@@ -165,7 +166,7 @@ func TestGetCloneRecord(t *testing.T) {
 		},
 		{
 			Name:   "clone without authentication",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type": "application/json",
@@ -182,7 +183,7 @@ func TestGetCloneRecord(t *testing.T) {
 		},
 		{
 			Name:   "clone with unauthorized user",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
@@ -469,7 +470,7 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "clone pipeline success with BeforeSave",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
@@ -490,7 +491,7 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 		},
 		{
 			Name:   "clone pipeline with unauthorized user",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
@@ -508,7 +509,7 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 		},
 		{
 			Name:   "clone pipeline with no authentication",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type": "application/json",
@@ -525,7 +526,7 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 		},
 		{
 			Name:   "clone published pipeline with different user",
-			Method: "POST",
+			Method: http.MethodPost,
 			URL:    "/api/clone-record",
 			Headers: map[string]string{
 				"Content-Type":  "application/json",

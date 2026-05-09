@@ -7,6 +7,7 @@ import type { MarketplaceItem } from '$lib/marketplace';
 import { userOrganization } from '$lib/app-state/index.svelte.js';
 import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 
+import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase/index.js';
 import {
 	Collections,
@@ -22,9 +23,28 @@ import Component from './wallet-action-step-form.svelte';
 
 //
 
-export interface WalletActionStepData extends ExecutionTarget.Config {
+export const GLOBAL_RUNNER = 'global';
+export const EXTERNAL_VERSION = 'installed_from_external_source';
+
+export type SelectedRunner = MobileRunnersResponse | typeof GLOBAL_RUNNER;
+export type SelectedVersion = WalletVersionsResponse | typeof EXTERNAL_VERSION;
+
+export interface WalletActionStepData {
+	wallet: MarketplaceItem;
+	version: SelectedVersion;
+	runner: SelectedRunner;
 	action: WalletActionsResponse;
 }
+
+export function getVersionLabel(version: SelectedVersion) {
+	return version === EXTERNAL_VERSION ? m.Installed_from_external_source() : `v. ${version.tag}`;
+}
+
+export function getRunnerLabel(runner: SelectedRunner) {
+	return runner === GLOBAL_RUNNER ? m.Choose_later() : runner.name;
+}
+
+//
 
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
@@ -85,6 +105,13 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	selectVersion(version: WalletVersionsResponse) {
 		this.data.version = version;
+		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+			this.data.runner = 'global';
+		}
+	}
+
+	selectExternalVersion() {
+		this.data.version = EXTERNAL_VERSION;
 		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
 			this.data.runner = 'global';
 		}

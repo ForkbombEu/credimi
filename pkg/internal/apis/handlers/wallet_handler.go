@@ -6,8 +6,10 @@ package handlers
 
 import (
 	"archive/zip"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,6 +45,11 @@ var (
 	walletWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
 )
 
+const (
+	walletPlatformAndroid = "android"
+	walletPlatformIOS     = "ios"
+)
+
 var WalletRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/wallet",
 	AuthenticationRequired: true,
@@ -67,12 +74,12 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:         http.MethodPost,
-			Path:           "/get-apk-md5-or-etag",
-			Handler:        HandleWalletGetMD5,
-			RequestSchema:  WalletMD5OrETagRequest{},
-			ResponseSchema: WalletMD5OrETagResponse{},
+			Path:           "/get-installer-md5-or-etag",
+			Handler:        HandleWalletGetInstallerMD5OrETag,
+			RequestSchema:  WalletInstallerMD5OrETagRequest{},
+			ResponseSchema: WalletInstallerMD5OrETagResponse{},
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
+				middlewares.RequireInternalAdminOrAuth(),
 			},
 		},
 		{
@@ -80,8 +87,16 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:    "/store-pipeline-result",
 			Handler: HandleWalletStorePipelineResult,
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
+				middlewares.RequireInternalAdminOrAuth(),
 				apis.BodyLimit(500 << 20),
+			},
+		},
+		{
+			Method:  http.MethodDelete,
+			Path:    "/temp-version/{record_id}",
+			Handler: HandleWalletDeleteTempVersion,
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
 			},
 		},
 	},
@@ -99,6 +114,109 @@ type WalletApkRequest struct {
 type WalletStoreResult struct {
 	ResultPath       string `json:"result_path"`
 	ActionIdentifier string `json:"action_identifier"`
+}
+
+func HandleWalletDeleteTempVersion() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		recordID := strings.TrimSpace(e.Request.PathValue("record_id"))
+		if recordID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"record_id",
+				"record_id is required",
+				"missing record_id path parameter",
+			).JSON(e)
+		}
+
+		var input walletDeleteTempVersionInput
+		if e.Request.Body != nil {
+			if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil &&
+				!errors.Is(err, io.EOF) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"wallet_version",
+					"invalid delete validation payload",
+					err.Error(),
+				).JSON(e)
+			}
+		}
+
+		record, err := e.App.FindRecordById("wallet_versions", recordID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return e.JSON(http.StatusOK, map[string]any{"deleted": false})
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"wallet_version",
+				"failed to find wallet version",
+				err.Error(),
+			).JSON(e)
+		}
+
+		if apiErr := validateTempWalletDeleteRequest(e.App, record, input); apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		if err := e.App.Delete(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"wallet_version",
+				"failed to delete wallet version",
+				err.Error(),
+			).JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{"deleted": true})
+	}
+}
+
+type walletDeleteTempVersionInput struct {
+	ExpectedOwnerID    string `json:"expected_owner_id"`
+	ExpectedIdentifier string `json:"expected_identifier"`
+}
+
+func validateTempWalletDeleteRequest(
+	app core.App,
+	record *core.Record,
+	input walletDeleteTempVersionInput,
+) *apierror.APIError {
+	expectedOwnerID := strings.TrimSpace(input.ExpectedOwnerID)
+	expectedIdentifier := strings.TrimSpace(input.ExpectedIdentifier)
+	if expectedOwnerID == "" || expectedIdentifier == "" {
+		return apierror.New(
+			http.StatusBadRequest,
+			"wallet_version",
+			"delete validation payload is required",
+			"expected_owner_id and expected_identifier are required",
+		)
+	}
+	if record.GetString("owner") != expectedOwnerID {
+		return apierror.New(
+			http.StatusForbidden,
+			"wallet_version",
+			"temporary wallet version owner mismatch",
+			"wallet version owner does not match expected_owner_id",
+		)
+	}
+	resolved, err := canonify.Resolve(app, expectedIdentifier)
+	if err != nil {
+		return apierror.New(
+			http.StatusForbidden,
+			"wallet_version",
+			"temporary wallet version identifier mismatch",
+			err.Error(),
+		)
+	}
+	if resolved.Id != record.Id {
+		return apierror.New(
+			http.StatusForbidden,
+			"wallet_version",
+			"temporary wallet version identifier mismatch",
+			"expected_identifier does not resolve to the requested record",
+		)
+	}
+	return nil
 }
 
 func HandleWalletStartCheck() func(*core.RequestEvent) error {
@@ -215,21 +333,23 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 	}
 }
 
-type WalletMD5OrETagRequest struct {
+type WalletInstallerMD5OrETagRequest struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	WalletIdentifier        string `json:"wallet_identifier"`
+	Platform                string `json:"platform"`
+	SkipInstaller           bool   `json:"skip_installer,omitempty"`
 }
 
-type WalletMD5OrETagResponse struct {
-	AndroidInstaller  string `json:"apk_name"`
-	ApkIdentifier     string `json:"apk_identifier"`
-	RecordID          string `json:"record_id"`
-	VersionIdentifier string `json:"version_id"`
+type WalletInstallerMD5OrETagResponse struct {
+	InstallerName       string `json:"installer_name"`
+	InstallerIdentifier string `json:"installer_identifier"`
+	RecordID            string `json:"record_id"`
+	VersionIdentifier   string `json:"version_id"`
 }
 
-func HandleWalletGetMD5() func(*core.RequestEvent) error {
+func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		var req WalletMD5OrETagRequest
+		var req WalletInstallerMD5OrETagRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
 			return apis.NewBadRequestError("invalid JSON input", err)
 		}
@@ -242,6 +362,21 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 				"no identifier provided",
 				"at least one identifier must be provided",
 			).JSON(e)
+		}
+
+		platform, err := normalizeWalletPlatform(req.Platform)
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"platform",
+				"invalid platform",
+				err.Error(),
+			).JSON(e)
+		}
+		if req.SkipInstaller {
+			return e.JSON(http.StatusOK, WalletInstallerMD5OrETagResponse{
+				VersionIdentifier: canonify.NormalizePath(req.WalletVersionIdentifier),
+			})
 		}
 
 		versionRecord, err := getVersionRecord(
@@ -257,20 +392,22 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		if apiErr := authorizeWalletInstallerAccess(e, versionRecord); apiErr != nil {
+			return apiErr.JSON(e)
+		}
 
-		// Get android_installer field value
-		androidInstaller := versionRecord.GetString("android_installer")
-		if androidInstaller == "" {
+		installerField := installerFieldForPlatform(platform)
+		installer := versionRecord.GetString(installerField)
+		if installer == "" {
 			return apierror.New(
 				http.StatusNotFound,
-				"android_installer",
-				"no android_installer file found for this wallet version",
-				"android_installer field is empty",
+				installerField,
+				fmt.Sprintf("no %s file found for this wallet version", installerField),
+				fmt.Sprintf("%s field is empty", installerField),
 			).JSON(e)
 		}
 
-		// Get MD5 or ETag from PocketBase's file metadata
-		identifier, err := getFileMD5OrETagFromPocketBase(e.App, versionRecord, androidInstaller)
+		identifier, err := getFileMD5OrETagFromPocketBase(e.App, versionRecord, installer)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -288,11 +425,11 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			)
 		}
 
-		return e.JSON(http.StatusOK, WalletMD5OrETagResponse{
-			AndroidInstaller:  androidInstaller,
-			RecordID:          versionRecord.Id,
-			ApkIdentifier:     identifier,
-			VersionIdentifier: versionIdentifier,
+		return e.JSON(http.StatusOK, WalletInstallerMD5OrETagResponse{
+			InstallerName:       installer,
+			InstallerIdentifier: identifier,
+			RecordID:            versionRecord.Id,
+			VersionIdentifier:   versionIdentifier,
 		})
 	}
 }
@@ -363,6 +500,37 @@ func getFileMD5OrETagFromPocketBase(
 	return "", nil
 }
 
+func normalizeWalletPlatform(platform string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case walletPlatformAndroid:
+		return walletPlatformAndroid, nil
+	case walletPlatformIOS:
+		return walletPlatformIOS, nil
+	default:
+		return "", fmt.Errorf(
+			"supported values are %s or %s",
+			walletPlatformAndroid,
+			walletPlatformIOS,
+		)
+	}
+}
+
+func installerFieldForPlatform(platform string) string {
+	if platform == walletPlatformIOS {
+		return "ios_installer"
+	}
+
+	return "android_installer"
+}
+
+func logRecordFieldForPlatform(platform string) string {
+	if platform == walletPlatformIOS {
+		return "ios_logstreams"
+	}
+
+	return "logcats"
+}
+
 func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if err := e.Request.ParseMultipartForm(500 << 20); err != nil {
@@ -376,6 +544,15 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 
 		runnerIdentifier := e.Request.FormValue("runner_identifier")
 		runIdentifier := e.Request.FormValue("run_identifier")
+		platform, err := normalizeWalletPlatform(e.Request.FormValue("platform"))
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"platform",
+				"invalid platform",
+				err.Error(),
+			).JSON(e)
+		}
 
 		resultRecord, err := canonify.Resolve(e.App, runIdentifier)
 		if err != nil {
@@ -385,6 +562,9 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 				"record not found",
 				err.Error(),
 			).JSON(e)
+		}
+		if apiErr := authorizeOwnerAccess(e, resultRecord.GetString("owner")); apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
 		versionName := strings.ReplaceAll(
@@ -408,26 +588,110 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			return apierr.JSON(e)
 		}
 
-		filename = versionName + "_logcat"
-
-		logcatFilename, logcatURLs, apierr := saveUploadedFileToRecord(
-			e, resultRecord, "logcat", "logcats", filename, true,
-		)
-		if apierr != nil {
-			return apierr.JSON(e)
-		}
-
-		return e.JSON(http.StatusOK, map[string]any{
+		response := map[string]any{
 			"status":               "success",
 			"runner":               runnerIdentifier,
 			"video_file_name":      videoFilename,
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,
-			"last_frame_urls":      frameURLs,
-			"logcat_file_name":     logcatFilename,
-			"logcat_urls":          logcatURLs,
-		})
+			"screenshot_urls":      frameURLs,
+		}
+
+		filename = versionName + "_logfile"
+
+		logFilename, logURLs, apierr := saveUploadedFileToRecord(
+			e, resultRecord, "logfile", logRecordFieldForPlatform(platform), filename, true,
+		)
+		if apierr != nil {
+			return apierr.JSON(e)
+		}
+		response["log_file_name"] = logFilename
+		response["log_urls"] = logURLs
+
+		return e.JSON(http.StatusOK, response)
 	}
+}
+
+func authorizeOwnerAccess(e *core.RequestEvent, ownerID string) *apierror.APIError {
+	if isInternalAdminPrincipal(e.Auth) {
+		return nil
+	}
+	if ownerID == "" {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"owner",
+			"owner missing",
+			"record owner is required",
+		)
+	}
+
+	allowed, err := belongsToAuthenticatedOrganization(e, ownerID)
+	if err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"failed to get user organization",
+			err.Error(),
+		)
+	}
+	if !allowed {
+		return apierror.New(
+			http.StatusForbidden,
+			"authorization",
+			"forbidden",
+			"record does not belong to the authenticated user's organization",
+		)
+	}
+
+	return nil
+}
+
+func authorizeWalletInstallerAccess(
+	e *core.RequestEvent,
+	versionRecord *core.Record,
+) *apierror.APIError {
+	if versionRecord == nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"wallet_version",
+			"wallet version missing",
+			"wallet version is required",
+		)
+	}
+	if isInternalAdminPrincipal(e.Auth) {
+		return nil
+	}
+	if walletID := versionRecord.GetString("wallet"); walletID != "" {
+		walletRecord, err := e.App.FindRecordById("wallets", walletID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"wallet",
+				"failed to get wallet",
+				err.Error(),
+			)
+		}
+		if walletRecord.GetBool("published") {
+			return nil
+		}
+	}
+
+	return authorizeOwnerAccess(e, versionRecord.GetString("owner"))
+}
+
+func belongsToAuthenticatedOrganization(e *core.RequestEvent, ownerID string) (bool, error) {
+	userOrgID, err := GetUserOrganizationID(e.App, e.Auth.Id)
+	if err != nil {
+		return false, err
+	}
+	return userOrgID == ownerID, nil
+}
+
+func isInternalAdminPrincipal(auth *core.Record) bool {
+	if auth == nil || auth.Collection() == nil {
+		return false
+	}
+	return auth.Collection().Name == "_superusers"
 }
 
 func saveUploadedFileToRecord(

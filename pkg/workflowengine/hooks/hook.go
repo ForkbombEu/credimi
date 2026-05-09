@@ -91,6 +91,16 @@ var OrgWorkers = []workerConfig{
 		},
 	},
 	{
+		TaskQueue: workflows.OpenID4VCIIssuerTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewOpenID4VCIIssuerWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
 		TaskQueue: workflows.EWCTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			workflows.NewEWCWorkflow(),
@@ -220,11 +230,32 @@ var DefaultWorkers = []workerConfig{
 		TaskQueue: workflows.MobileRunnerSemaphoreTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			workflows.NewMobileRunnerSemaphoreWorkflow(),
+			workflows.NewGitHubPRCommentWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStartQueuedPipelineActivity(),
 			activities.NewCheckWorkflowClosedActivity(),
 			activities.NewQueryMobileRunnerSemaphoreRunStatusActivity(),
+			activities.NewUpdateGitHubPRCommentActivity(),
+			activities.NewPatchGitHubPRCommentActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.AggregateScoreboardTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewAggregateScoreboardWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewInternalHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.PipelineRetentionTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewPipelineRetentionWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 }

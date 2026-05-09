@@ -51,7 +51,9 @@ func (s *apiKeyGenerationServiceStub) GenerateApiKey(userID, name string) (strin
 	return s.userKey, nil
 }
 
-func (s *apiKeyGenerationServiceStub) GenerateInternalAdminAPIKey(superuserID, name string) (string, error) {
+func (s *apiKeyGenerationServiceStub) GenerateInternalAdminAPIKey(
+	superuserID, name string,
+) (string, error) {
 	s.internalAdminCalls++
 	s.lastSuperuserID = superuserID
 	s.lastGeneratedKeyName = name

@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import { resolve } from '$app/paths';
+
 	import { localizeHref } from '@/i18n';
 
 	//
@@ -21,8 +23,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <a
-	href={localizeHref(href)}
-	class="block rounded-lg border border-primary bg-card p-6 text-card-foreground shadow-sm ring-primary transition-all hover:-translate-y-2 hover:ring-2 {className}"
+	href={resolve(localizeHref(href) as '/')}
+	class={[
+		'block rounded-lg border border-primary bg-card p-6 text-card-foreground shadow-sm ring-primary transition-all hover:-translate-y-2 hover:ring-2',
+		className
+	]}
 >
 	{@render children()}
 </a>

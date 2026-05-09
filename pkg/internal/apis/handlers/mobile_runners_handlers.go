@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -89,12 +90,7 @@ func HandleGetMobileRunner() func(*core.RequestEvent) error {
 		var response GetMobileRunnerResponseSchema
 		response.Type = record.GetString("type")
 		response.Serial = record.GetString("serial")
-		var port string
-		url := record.GetString("ip")
-		if port = record.GetString("port"); port != "" {
-			url = fmt.Sprintf("%s:%s", url, port)
-		}
-		response.RunnerURL = url
+		response.RunnerURL = mobileRunnerURL(record)
 
 		return e.JSON(http.StatusOK, response)
 	}
@@ -233,15 +229,35 @@ func HandleListMobileRunnerURLs() func(*core.RequestEvent) error {
 		}
 
 		for _, record := range records {
-			var port string
-			runnerURL := record.GetString("ip")
-			if port = record.GetString("port"); port != "" {
-				runnerURL = fmt.Sprintf("%s:%s", runnerURL, port)
-			}
-
-			response.Runners = append(response.Runners, runnerURL)
+			response.Runners = append(response.Runners, mobileRunnerURL(record))
 		}
 
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+func mobileRunnerURL(record *core.Record) string {
+	runnerURL := strings.TrimSpace(record.GetString("ip"))
+	if runnerURL == "" {
+		return ""
+	}
+	if port := strings.TrimSpace(record.GetString("port")); port != "" {
+		runnerURL = fmt.Sprintf("%s:%s", strings.TrimRight(runnerURL, "/"), port)
+	}
+
+	return runnerURL
+}
+
+func mobileRunnerIdentifier(app core.App, record *core.Record) (string, error) {
+	runnerID, err := canonify.BuildPath(
+		app,
+		record,
+		canonify.CanonifyPaths["mobile_runners"],
+		"",
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return canonify.NormalizePath(runnerID), nil
 }
