@@ -20,6 +20,7 @@ While we follow the principles of the C4 model, our implementation is somewhat l
 
 Shows the interaction between external actors (developers, service providers, governmental bodies, etc.) and the credimi system.
 
+```puml
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 !$ICONURL = "https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons"
@@ -56,11 +57,13 @@ Rel(sb, credimi, "Evaluates standards alignment")
 Lay_U(enduser, researcher)
 Lay_U(cto, eu)
 @enduml
+```
 
 ## Container diagrams
 
 Illustrates the main containers within the credimi system (API Gateway, Compliance Engine, Dashboard, etc.) and their interactions.
 
+```puml
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
@@ -115,11 +118,13 @@ Rel_U(gov, reporting_service, "Generates compliance reports")
 Rel_U(eu, reporting_service, "Generates compliance reports")
 Rel_U(researcher, reporting_service, "Accesses compliance data")
 @enduml
+```
 
 ## Component Diagram
 
 Focuses on the internal components of the Compliance Engine, showing how the various modules work together.
 
+```puml
 @startuml
 !include <C4/C4_Component>
 
@@ -149,3 +154,4 @@ Rel(grafana, prometheus, "Visualizes metrics and generates alerts")
 Rel_U(temporal, temporal_ui, "try and repeat")
 
 @enduml
+```

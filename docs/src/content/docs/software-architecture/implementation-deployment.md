@@ -122,6 +122,7 @@ The following components are critical to the credimi platform within the TrustCh
 - **Dashboard and Comparison Tools**: Provides a user-friendly interface for managing services and viewing public compliance data.
 - **Plugin Management System**: Allows seamless integration of third-party conformance tools.
 
+```puml
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
@@ -176,6 +177,7 @@ Rel_U(gov, reporting_service, "Generates compliance reports")
 Rel_U(eu, reporting_service, "Generates compliance reports")
 Rel_U(researcher, reporting_service, "Accesses compliance data")
 @enduml
+```
 
 The Compliance Engine is composed in detail of the following services/containers
 
@@ -286,6 +288,7 @@ credimi-thirdparty acts as a placeholder service for external integrations or th
 
 ---
 
+```puml
 @startuml
 !include <C4/C4_Component>
 
@@ -315,6 +318,7 @@ Rel(grafana, prometheus, "Visualizes metrics and generates alerts")
 Rel_U(temporal, temporal_ui, "try and repeat")
 
 @enduml
+```
 
 ---
 

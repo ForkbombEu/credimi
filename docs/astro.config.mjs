@@ -1,9 +1,13 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import credimiLogo from "./src/content/docs/images/logo/credimi_logo-transp_emblem.png";
+import remarkPlantuml from "./remark-plantuml.mjs";
 
 export default defineConfig({
     site: "https://docs.credimi.io",
+    markdown: {
+        remarkPlugins: [remarkPlantuml],
+    },
     integrations: [
         starlight({
             title: "Credimi Docs",
