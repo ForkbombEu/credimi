@@ -53,12 +53,12 @@ Actions can be re-used across pipelines and chained in the same pipeline, they i
 
 
 :::caution
-The **🔗 install app** action has a special semantic, it means the appp will be installed from an external source (PlayStor/AppStore/AppTester/TestFligh). 
+The **🔗 install app** action has a special semantic, it means the app will be installed from an external source (PlayStore/AppStore/AppTester/TestFlight). 
 :::
 
 ### App installation: PlayStore/AppStore
 
-Using an action tagged as **🔗 install app** has impacts on the pipeline orchestration: Temporal (the orchestrator) will count all the apps installed before the execution, in order to be able to unistall the app that was installed here. 
+Using an action tagged as **🔗 install app** has impacts on the pipeline orchestration: Temporal (the orchestrator) will count all the apps installed before the execution, in order to be able to uninstall the app that was installed here. 
 
 See what an **🔗 install app** action looks like: 
 ![Maestro install from playstore](../images/maestro-install-from-playstore1.png)
@@ -92,4 +92,3 @@ At the same time, you can re-use StepCI and Maestro Actions written by others (a
 - All the Maestro and StepCI scripts are in the [Marketplace](https://credimi.io/marketplace), under Wallets / Credentials / Use Case Verifications
 - See [Maestro documentation](https://docs.maestro.dev/reference/commands-available)
 :::
-
