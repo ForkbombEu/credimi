@@ -7,7 +7,7 @@
     "docs:dev:host": "astro dev --host 0.0.0.0",
     "docs:build": "astro build",
     "docs:preview": "astro preview --host 0.0.0.0",
-    "check-links": "lychee --format markdown src/content/docs",
+    "check-links": "lychee --config .lychee.toml --format markdown src/content/docs",
     "astro": "astro"
   },
   "dependencies": {

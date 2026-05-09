@@ -125,12 +125,12 @@ The following components are critical to the credimi platform within the TrustCh
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
-!define I https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/govicons
-!define FA6 https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-4
-!include I/user_politician.puml
-!include I/user_suit.puml
-!include I/ribbon.puml
-!include I/presenter.puml
+!$ICONURL = "https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons"
+!include $ICONURL/common.puml
+!include $ICONURL/govicons/user_politician.puml
+!include $ICONURL/govicons/user_suit.puml
+!include $ICONURL/govicons/ribbon.puml
+!include $ICONURL/govicons/presenter.puml
 
 title Container Diagram for credimi
 
@@ -245,7 +245,7 @@ credimi-temporal-admin-tools provides administrative tools for managing the Temp
 credimi-temporal-ui is a user interface for managing and observing workflows in the Temporal service. It provides a visual representation of workflows, their statuses, and debugging tools, making workflow management more intuitive for administrators and developers.
 
 ::: tip RESOURCES
-[Documentation](https://docs.temporal.io/ui/)
+[Documentation](https://docs.temporal.io/web-ui)
 
 [GitHub](https://github.com/temporalio/ui-server)
 :::
@@ -289,10 +289,10 @@ credimi-thirdparty acts as a placeholder service for external integrations or th
 @startuml
 !include <C4/C4_Component>
 
-!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
-!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5
-!include DEVICONS/go.puml
-!include FONTAWESOME/users.puml
+!$ICONURL = "https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons"
+!include $ICONURL/common.puml
+!include $ICONURL/devicons/go.puml
+!include $ICONURL/font-awesome-5/users.puml
 
 title Component Diagram for Compliance Engine
 

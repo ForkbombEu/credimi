@@ -24,7 +24,7 @@ You will be asked to provide:
 
 The API Key is created in:
 
-[Configure API Keys](./api-keys/)
+[Configure API Keys](./api-keys.md)
 
 The runner uses this key to:
 

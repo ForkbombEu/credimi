@@ -22,12 +22,13 @@ Shows the interaction between external actors (developers, service providers, go
 
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-!define I https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/govicons
-!include I/users.puml
-!include I/user_politician.puml
-!include I/user_suit.puml
-!include I/ribbon.puml
-!include I/presenter.puml
+!$ICONURL = "https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons"
+!include $ICONURL/common.puml
+!include $ICONURL/govicons/users.puml
+!include $ICONURL/govicons/user_politician.puml
+!include $ICONURL/govicons/user_suit.puml
+!include $ICONURL/govicons/ribbon.puml
+!include $ICONURL/govicons/presenter.puml
 
 LAYOUT_WITH_LEGEND()
 
@@ -63,12 +64,12 @@ Illustrates the main containers within the credimi system (API Gateway, Complian
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
-!define I https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/govicons
-!define FA6 https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-4
-!include I/user_politician.puml
-!include I/user_suit.puml
-!include I/ribbon.puml
-!include I/presenter.puml
+!$ICONURL = "https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons"
+!include $ICONURL/common.puml
+!include $ICONURL/govicons/user_politician.puml
+!include $ICONURL/govicons/user_suit.puml
+!include $ICONURL/govicons/ribbon.puml
+!include $ICONURL/govicons/presenter.puml
 
 title Container Diagram for credimi
 
@@ -122,10 +123,10 @@ Focuses on the internal components of the Compliance Engine, showing how the var
 @startuml
 !include <C4/C4_Component>
 
-!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
-!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5
-!include DEVICONS/go.puml
-!include FONTAWESOME/users.puml
+!$ICONURL = "https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons"
+!include $ICONURL/common.puml
+!include $ICONURL/devicons/go.puml
+!include $ICONURL/font-awesome-5/users.puml
 
 title Component Diagram for Compliance Engine
 

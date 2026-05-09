@@ -21,7 +21,7 @@ These QR codes are powered by StepCI recipes and exposed in the Marketplace (Cre
 
 ### What is StepCI?
 
-[StepCI](https://stepci.com/) is an **open-source API testing tool**. Tests are written in **YAML** and describe step‑by‑step HTTP calls, captures, and assertions. Credimi embeds StepCI directly into the **web interface**, so you can run these flows without installing anything. For more details, see the [StepCI docs](https://stepci.com/docs).
+[StepCI](https://stepci.com/) is an **open-source API testing tool**. Tests are written in **YAML** and describe step‑by‑step HTTP calls, captures, and assertions. Credimi embeds StepCI directly into the **web interface**, so you can run these flows without installing anything. For more details, see the [StepCI docs](https://docs.stepci.com).
 
 In Credimi we use StepCI to:
 
