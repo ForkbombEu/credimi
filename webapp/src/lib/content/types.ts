@@ -5,7 +5,8 @@ export const pageFrontMatterSchema = z.object({
 	updatedOn: z.coerce.date(),
 	title: z.string(),
 	description: z.string().optional(),
-	tags: z.array(z.string())
+	tags: z.array(z.string()),
+	socialCard: z.string().optional()
 });
 
 export type PageFrontMatter = z.infer<typeof pageFrontMatterSchema>;

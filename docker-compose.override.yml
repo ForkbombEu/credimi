@@ -33,9 +33,3 @@ services:
       - type: bind
         source: ./deployment/grafana/provisioning/datasources
         target: /etc/grafana/provisioning/datasources
-  thirdparty:
-    build: deployment/thirdparty-simulator
-    command: thirdparty-simulator api
-    restart: unless-stopped
-    environment:
-      - TEMPORAL_GRPC_ENDPOINT=credimi:7233
