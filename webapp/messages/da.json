@@ -398,5 +398,6 @@
 	"reset_json_and_use_fields": "Nulstil JSON og brug felter",
 	"Change_wallet_version": "Skift wallet-version",
 	"Change_wallet_version_modal_title": "Skift wallet-version for alle trin",
-	"Change_wallet_version_modal_description": "Vælg en version. Hvert mobile-automation-trin i denne pipeline bruger den."
+	"Change_wallet_version_modal_description": "Vælg en version. Hvert mobile-automation-trin i denne pipeline bruger den.",
+	"Wallet_version_current": "Aktuel"
 }

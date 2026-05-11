@@ -969,5 +969,6 @@
 	"scoreboard_page_description": "Find here the aggregate results of all the published pipelines. Create a pipeline in the Developer Dashboard, publish it and then run manually, schedule it or execute via CI/CD to see the results here.",
 	"Change_wallet_version": "Change wallet version",
 	"Change_wallet_version_modal_title": "Change wallet version for all steps",
-	"Change_wallet_version_modal_description": "Pick a version. Every mobile-automation step in this pipeline will use it."
+	"Change_wallet_version_modal_description": "Pick a version. Every mobile-automation step in this pipeline will use it.",
+	"Wallet_version_current": "Current"
 }

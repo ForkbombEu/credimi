@@ -399,5 +399,6 @@
 	"reset_json_and_use_fields": "Reimposta JSON e usa i campi",
 	"Change_wallet_version": "Cambia versione del wallet",
 	"Change_wallet_version_modal_title": "Cambia versione del wallet per tutti i passaggi",
-	"Change_wallet_version_modal_description": "Scegli una versione. Ogni passaggio mobile-automation in questa pipeline la userà."
+	"Change_wallet_version_modal_description": "Scegli una versione. Ogni passaggio mobile-automation in questa pipeline la userà.",
+	"Wallet_version_current": "Attuale"
 }

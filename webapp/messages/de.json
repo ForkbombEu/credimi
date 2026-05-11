@@ -401,5 +401,6 @@
 	"reset_json_and_use_fields": "JSON zurücksetzen und Felder verwenden",
 	"Change_wallet_version": "Wallet-Version ändern",
 	"Change_wallet_version_modal_title": "Wallet-Version für alle Schritte ändern",
-	"Change_wallet_version_modal_description": "Wählen Sie eine Version. Jeder Mobile-Automation-Schritt in dieser Pipeline verwendet sie."
+	"Change_wallet_version_modal_description": "Wählen Sie eine Version. Jeder Mobile-Automation-Schritt in dieser Pipeline verwendet sie.",
+	"Wallet_version_current": "Aktuell"
 }

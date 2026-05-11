@@ -327,5 +327,6 @@
 	"reset_json_and_use_fields": "Redefinir JSON e usar campos",
 	"Change_wallet_version": "Alterar versão da carteira",
 	"Change_wallet_version_modal_title": "Alterar versão da carteira para todas as etapas",
-	"Change_wallet_version_modal_description": "Escolha uma versão. Todas as etapas de automação móvel neste pipeline usarão essa versão."
+	"Change_wallet_version_modal_description": "Escolha uma versão. Todas as etapas de automação móvel neste pipeline usarão essa versão.",
+	"Wallet_version_current": "Atual"
 }

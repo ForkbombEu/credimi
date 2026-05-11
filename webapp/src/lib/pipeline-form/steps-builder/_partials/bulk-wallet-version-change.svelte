@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 
 	import Dialog from '@/components/ui-custom/dialog.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
 
@@ -23,7 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WithLabel from '../../steps/_partials/with-label.svelte';
 	import {
 		EXTERNAL_VERSION,
-		type SelectedVersion
+		type SelectedVersion,
+		type WalletActionStepData
 	} from '../../steps/wallet-action/wallet-action-step-form.svelte.js';
 	import { getBulkWalletVersionContext } from './bulk-wallet-version-context.js';
 
@@ -34,6 +36,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { builder }: Props = $props();
 
 	const bulkContext = $derived(getBulkWalletVersionContext(builder.steps));
+
+	/** First mobile step’s version (all mobile steps share the same when bulkContext is set). */
+	const currentVersionProbe = $derived.by(() => {
+		const ctx = bulkContext;
+		if (!ctx) return { isExternal: false, recordId: null as string | null };
+		const tuple = builder.steps[ctx.mobileIndices[0]!];
+		if (!tuple) return { isExternal: false, recordId: null };
+		const data = tuple[1] as unknown as WalletActionStepData;
+		const v = data.version;
+		if (v === EXTERNAL_VERSION) return { isExternal: true, recordId: null };
+		if (v && typeof v === 'object' && 'id' in v) {
+			return { isExternal: false, recordId: v.id };
+		}
+		return { isExternal: false, recordId: null };
+	});
 
 	let walletVersionDialogOpen = $state(false);
 	let foundVersions = $state<WalletVersionsResponse[]>([]);
@@ -85,6 +102,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		builder.applyBulkWalletVersion(version);
 		void closeDialog();
 	}
+
+	function isCurrentWalletVersionRow(item: WalletVersionsResponse) {
+		return (
+			!currentVersionProbe.isExternal &&
+			currentVersionProbe.recordId !== null &&
+			currentVersionProbe.recordId === item.id
+		);
+	}
 </script>
 
 {#if bulkContext}
@@ -129,8 +154,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onClick={() => applyVersionAndClose(EXTERNAL_VERSION, closeDialog)}
 					>
 						{#snippet titleRight()}
-							<span class="ml-0.5 inline-flex translate-0.5 gap-1 text-gray-300">
+							<span
+								class="ml-0.5 inline-flex translate-0.5 items-center gap-1 text-gray-300"
+							>
 								<ExternalLinkIcon size={16} class="stroke-2" />
+								{#if currentVersionProbe.isExternal}
+									<Badge variant="secondary" class="mr-3 text-[10px] font-medium">
+										{m.Wallet_version_current()}
+									</Badge>
+								{/if}
 							</span>
 						{/snippet}
 					</ItemCard>
@@ -147,13 +179,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							>
 								{#snippet titleRight()}
 									<span
-										class="ml-0.5 inline-flex translate-0.5 gap-1 text-gray-300"
+										class="ml-0.5 inline-flex translate-0.5 items-center gap-1 text-gray-300"
 									>
 										{#if item.android_installer}
 											<AndroidLogo size={16} />
 										{/if}
 										{#if item.ios_installer}
 											<AppleLogo size={16} />
+										{/if}
+										{#if isCurrentWalletVersionRow(item)}
+											<Badge
+												variant="secondary"
+												class="mr-3 text-[10px] font-medium"
+											>
+												{m.Wallet_version_current()}
+											</Badge>
 										{/if}
 									</span>
 								{/snippet}
