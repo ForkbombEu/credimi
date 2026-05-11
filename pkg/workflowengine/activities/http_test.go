@@ -421,7 +421,7 @@ func TestHTTPActivity_WithOutputRules(t *testing.T) {
 				Method: http.MethodGet,
 				URL:    "",
 				Outputs: map[string]OutputRule{
-					"key": {}, // Vuoto!
+					"key": {},
 				},
 			},
 			expectError: true,
@@ -469,6 +469,106 @@ func TestHTTPActivity_WithOutputRules(t *testing.T) {
 					require.True(t, exists, "key %s should exist in outputs", key)
 					require.Equal(t, expectedValue, actualValue, "value mismatch for key %s", key)
 				}
+			}
+		})
+	}
+}
+
+func TestValidateExpectedStatus(t *testing.T) {
+	// Crea un'attività base per gli errori
+	act := &workflowengine.BaseActivity{}
+
+	tests := []struct {
+		name           string
+		statusCode     int
+		expectedStatus interface{}
+		expectError    bool
+		errorContains  string
+	}{
+		{
+			name:           "Success - nil expected (no validation)",
+			statusCode:     200,
+			expectedStatus: nil,
+			expectError:    false,
+		},
+		{
+			name:           "Success - exact match with integer",
+			statusCode:     200,
+			expectedStatus: 200,
+			expectError:    false,
+		},
+		{
+			name:           "Success - exact match with float64",
+			statusCode:     201,
+			expectedStatus: 201.0,
+			expectError:    false,
+		},
+		{
+			name:           "Error - exact match fails",
+			statusCode:     404,
+			expectedStatus: 200,
+			expectError:    true,
+			errorContains:  "expected '200', got '404'",
+		},
+		{
+			name:           "Success - regex pattern /^20/ matches 200",
+			statusCode:     200,
+			expectedStatus: "/^20/",
+			expectError:    false,
+		},
+		{
+			name:           "Success - regex pattern /^20/ matches 201",
+			statusCode:     201,
+			expectedStatus: "/^20/",
+			expectError:    false,
+		},
+		{
+			name:           "Success - regex pattern /^20/ matches 204",
+			statusCode:     204,
+			expectedStatus: "/^20/",
+			expectError:    false,
+		},
+		{
+			name:           "Error - regex pattern /^20/ fails with 300",
+			statusCode:     300,
+			expectedStatus: "/^20/",
+			expectError:    true,
+			errorContains:  "expected pattern '/^20/', got '300'",
+		},
+		{
+			name:           "Error - regex pattern /^20/ fails with 404",
+			statusCode:     404,
+			expectedStatus: "/^20/",
+			expectError:    true,
+			errorContains:  "expected pattern '/^20/', got '404'",
+		},
+		{
+			name:           "Error - invalid regex pattern",
+			statusCode:     200,
+			expectedStatus: "/[invalid regex/",
+			expectError:    true,
+			errorContains:  "invalid regex pattern for expected_status",
+		},
+		{
+			name:           "Error - unsupported type (bool)",
+			statusCode:     200,
+			expectedStatus: true,
+			expectError:    true,
+			errorContains:  "expected_status must be integer or regex string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateExpectedStatus(tt.statusCode, tt.expectedStatus, nil, act)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					require.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}

@@ -855,9 +855,7 @@
                     "additionalProperties": true,
                     "type": "object"
                   },
-                  "expected_status": {
-                    "type": "integer"
-                  },
+                  "expected_status": true,
                   "headers": {
                     "additionalProperties": {
                       "type": "string"

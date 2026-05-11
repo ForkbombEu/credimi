@@ -45,7 +45,7 @@ type HTTPActivityPayload struct {
 	Timeout        string                `json:"timeout,omitempty"         yaml:"timeout,omitempty"`
 	Headers        map[string]string     `json:"headers,omitempty"         yaml:"headers,omitempty"`
 	Body           any                   `json:"body,omitempty"            yaml:"body,omitempty"`
-	ExpectedStatus int                   `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
+	ExpectedStatus interface{}           `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
 	Outputs        map[string]OutputRule `json:"outputs,omitempty"         yaml:"outputs,omitempty"`
 }
 
@@ -198,20 +198,8 @@ func executeHTTPRequest(
 		output = string(respBody)
 	}
 
-	if payload.ExpectedStatus != 0 {
-		if resp.StatusCode != payload.ExpectedStatus {
-			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
-			return result, act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf(
-					"%s: expected '%d', got '%d'",
-					errCode.Description,
-					payload.ExpectedStatus,
-					resp.StatusCode,
-				),
-				output,
-			)
-		}
+	if err := validateExpectedStatus(resp.StatusCode, payload.ExpectedStatus, output, act); err != nil {
+		return result, err
 	}
 
 	outputValues, err := extractOutputRules(resp, respBody, payload.Outputs)
@@ -379,4 +367,68 @@ func validateOutputRules(rules map[string]OutputRule) error {
 		}
 	}
 	return nil
+}
+
+func validateExpectedStatus(
+	statusCode int,
+	expectedStatus interface{},
+	output any,
+	act *workflowengine.BaseActivity,
+) error {
+	if expectedStatus == nil {
+		return nil
+	}
+
+	switch v := expectedStatus.(type) {
+	case float64:
+		if statusCode != int(v) {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return act.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: expected '%d', got '%d'", errCode.Description, int(v), statusCode),
+				output,
+			)
+		}
+		return nil
+
+	case int:
+		if statusCode != v {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return act.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: expected '%d', got '%d'", errCode.Description, v, statusCode),
+				output,
+			)
+		}
+		return nil
+
+	case string:
+		trimmedPattern := strings.Trim(v, "/")
+		matched, err := regexp.MatchString(trimmedPattern, strconv.Itoa(statusCode))
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return act.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("invalid regex pattern for expected_status: %v", err),
+				v,
+			)
+		}
+		if !matched {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return act.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: expected pattern '/%s/', got '%d'", errCode.Description, trimmedPattern, statusCode),
+				output,
+			)
+		}
+		return nil
+
+	default:
+		errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+		return act.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("expected_status must be integer or regex string, got %T", expectedStatus),
+			expectedStatus,
+		)
+	}
 }
