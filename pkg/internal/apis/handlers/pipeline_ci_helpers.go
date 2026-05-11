@@ -6,8 +6,10 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -23,6 +25,119 @@ import (
 const pipelineCIMobileAutomationStepUse = "mobile-automation"
 
 var pipelineCIRunnerHealthCheck = checkPipelineCIRunnerHealth
+
+type tempRecordDeleteInput struct {
+	ExpectedOwnerID    string `json:"expected_owner_id"`
+	ExpectedIdentifier string `json:"expected_identifier"`
+}
+
+// handleTempRecordDelete deletes a temporary CI record after route-specific validation.
+func handleTempRecordDelete(collection, resourceName string) func(*core.RequestEvent) error {
+	resourceDomain := strings.ReplaceAll(resourceName, " ", "_")
+	return func(e *core.RequestEvent) error {
+		recordID := strings.TrimSpace(e.Request.PathValue("record"))
+		if recordID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"record",
+				resourceName+" record id is required",
+				"missing record path parameter",
+			).JSON(e)
+		}
+
+		var input tempRecordDeleteInput
+		if e.Request.Body != nil {
+			if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil &&
+				!errors.Is(err, io.EOF) {
+				return apierror.New(
+					http.StatusBadRequest,
+					resourceDomain,
+					"invalid delete validation payload",
+					err.Error(),
+				).JSON(e)
+			}
+		}
+
+		record, err := e.App.FindRecordById(collection, recordID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return e.JSON(http.StatusOK, map[string]any{"deleted": false})
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				resourceDomain,
+				"failed to find "+resourceName,
+				err.Error(),
+			).JSON(e)
+		}
+
+		if apiErr := validateTempRecordDeleteRequest(
+			e.App,
+			record,
+			input,
+			resourceName,
+			resourceDomain,
+		); apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		if err := e.App.Delete(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				resourceDomain,
+				"failed to delete "+resourceName,
+				err.Error(),
+			).JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{"deleted": true})
+	}
+}
+
+func validateTempRecordDeleteRequest(
+	app core.App,
+	record *core.Record,
+	input tempRecordDeleteInput,
+	resourceName string,
+	resourceDomain string,
+) *apierror.APIError {
+	expectedOwnerID := strings.TrimSpace(input.ExpectedOwnerID)
+	expectedIdentifier := strings.TrimSpace(input.ExpectedIdentifier)
+	if expectedOwnerID == "" || expectedIdentifier == "" {
+		return apierror.New(
+			http.StatusBadRequest,
+			resourceDomain,
+			"delete validation payload is required",
+			"expected_owner_id and expected_identifier are required",
+		)
+	}
+	if record.GetString("owner") != expectedOwnerID {
+		return apierror.New(
+			http.StatusForbidden,
+			resourceDomain,
+			"temporary "+resourceName+" owner mismatch",
+			resourceName+" owner does not match expected_owner_id",
+		)
+	}
+	resolved, err := canonify.Resolve(app, expectedIdentifier)
+	if err != nil {
+		return apierror.New(
+			http.StatusForbidden,
+			resourceDomain,
+			"temporary "+resourceName+" identifier mismatch",
+			err.Error(),
+		)
+	}
+	if resolved.Id != record.Id {
+		return apierror.New(
+			http.StatusForbidden,
+			resourceDomain,
+			"temporary "+resourceName+" identifier mismatch",
+			"expected_identifier does not resolve to the requested record",
+		)
+	}
+	return nil
+}
 
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {

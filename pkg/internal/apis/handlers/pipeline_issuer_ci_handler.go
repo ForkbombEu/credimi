@@ -26,6 +26,7 @@ import (
 
 const issuerCICredentialOfferStepUse = "credential-offer"
 const issuerCITempCredentialsConfigKey = "temp_credentials"
+const credentialResourceDomain = "credential"
 
 type pipelineRunIssuerRequest struct {
 	PipelineIdentifier string
@@ -354,7 +355,7 @@ func resolvePipelineRunIssuerCredentialReferences(
 	if len(refs) == 0 {
 		return nil, apierror.New(
 			http.StatusBadRequest,
-			"credential",
+			credentialResourceDomain,
 			"pipeline must reference at least one credential-offer credential",
 			"no credential-offer credential_id references found",
 		)
@@ -462,7 +463,7 @@ func createPipelineRunIssuerTempCredentials(
 			credentialRecord,
 			runContext.organizationRecord.Id,
 			"credentials",
-			"credential",
+			credentialResourceDomain,
 		); apiErr != nil {
 			rollbackPipelineRunIssuerTempCredentials(e, tempCredentials)
 			return nil, nil, apiErr
@@ -538,7 +539,7 @@ func createTempCredential(
 	if err := e.App.Save(record); err != nil {
 		return tempCredential{}, apierror.New(
 			http.StatusInternalServerError,
-			"credential",
+			credentialResourceDomain,
 			"failed to create temporary credential",
 			err.Error(),
 		)
@@ -563,7 +564,7 @@ func createTempCredential(
 		_ = e.App.Delete(record)
 		return tempCredential{}, apierror.New(
 			http.StatusInternalServerError,
-			"credential",
+			credentialResourceDomain,
 			"failed to build temporary credential identifier",
 			err.Error(),
 		)
@@ -575,7 +576,7 @@ func createTempCredential(
 func uniqueTempCredentialName(app core.App, baseName string, tag string, issuerID string) string {
 	base := strings.TrimSpace(baseName)
 	if base == "" {
-		base = "credential"
+		base = credentialResourceDomain
 	}
 	candidateBase := base + "-" + tag
 	candidate := candidateBase
@@ -787,7 +788,7 @@ func deleteTempCredentialForOwner(
 		}
 		return apierror.New(
 			http.StatusInternalServerError,
-			"credential",
+			credentialResourceDomain,
 			"failed to find temporary credential",
 			err.Error(),
 		)
@@ -795,7 +796,7 @@ func deleteTempCredentialForOwner(
 	if record.GetString("owner") != ownerID {
 		return apierror.New(
 			http.StatusForbidden,
-			"credential",
+			credentialResourceDomain,
 			"temporary credential owner mismatch",
 			"queued cleanup does not belong to the authenticated organization",
 		)
@@ -803,7 +804,7 @@ func deleteTempCredentialForOwner(
 	if err := app.Delete(record); err != nil {
 		return apierror.New(
 			http.StatusInternalServerError,
-			"credential",
+			credentialResourceDomain,
 			"failed to delete temporary credential",
 			err.Error(),
 		)
