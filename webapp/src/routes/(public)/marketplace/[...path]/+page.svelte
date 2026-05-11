@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { userOrganization } from '$lib/app-state';
 	import { getMarketplaceItemData } from '$lib/marketplace';
 	import { marketplaceItemToSectionHref } from '$lib/marketplace/utils';
+	import { getPath } from '$lib/utils/index.js';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -37,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!-- Owner edit topbar -->
 
 {#if isCurrentUserOwner}
-	<div class="border-t-primary border-t-2 bg-secondary py-2">
+	<div class="border-t-2 border-t-primary bg-secondary py-2">
 		<div
 			class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 text-sm md:px-8"
 		>
@@ -61,7 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <MarketplacePageTop
 	title={marketplaceItem.name}
-	textToCopy={marketplaceItem.path}
+	textToCopy={getPath(marketplaceItem)}
 	badge={display}
 	hideTopBorder={isCurrentUserOwner}
 	{logo}
