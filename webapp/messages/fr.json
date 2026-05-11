@@ -397,5 +397,8 @@
 	"Yes_remove_access": "Oui, supprimer l'accès",
 	"my_folders": "Dossiers",
 	"json_configuration_is_edited_fields_are_disabled": "La configuration JSON est modifiée manuellement. Les champs sont désactivés.",
-	"reset_json_and_use_fields": "Réinitialiser JSON et utiliser les champs"
+	"reset_json_and_use_fields": "Réinitialiser JSON et utiliser les champs",
+	"Change_wallet_version": "Changer la version du portefeuille",
+	"Change_wallet_version_modal_title": "Changer la version du portefeuille pour toutes les étapes",
+	"Change_wallet_version_modal_description": "Choisissez une version. Chaque étape mobile-automation de ce pipeline l’utilisera."
 }

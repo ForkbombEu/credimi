@@ -22,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
 	import * as steps from '../steps';
+	import BulkWalletVersionChange from './_partials/bulk-wallet-version-change.svelte';
 	import Column from './_partials/column.svelte';
 	import EmptyState from './_partials/empty-state.svelte';
 	import StepCard from './_partials/step-card.svelte';
@@ -56,6 +57,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Resizable.Handle class="hover:bg-primary" />
 
 	<Column title={m.Steps_sequence()}>
+		{#snippet titleRight()}
+			<BulkWalletVersionChange {builder} />
+		{/snippet}
+
 		{#if builder.steps.length > 0}
 			<div class="space-y-3 p-4">
 				{#each builder.steps as step, index (step)}
