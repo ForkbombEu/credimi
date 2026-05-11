@@ -846,7 +846,7 @@ func (w *PipelineWorkflow) Start(
 }
 
 func isReservedWorkflowInputConfigKey(key string) bool {
-	return key == tempWalletVersionConfigKey
+	return key == tempWalletVersionConfigKey || key == tempCredentialsConfigKey
 }
 
 func ExecuteEventStepsOnError(

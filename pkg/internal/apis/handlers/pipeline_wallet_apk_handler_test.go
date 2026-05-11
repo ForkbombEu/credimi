@@ -783,9 +783,9 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 
 	origQueueState := queryMobileRunnerSemaphoreState
 	t.Cleanup(func() { queryMobileRunnerSemaphoreState = origQueueState })
-	origHealthCheck := walletAPKRunnerHealthCheck
-	t.Cleanup(func() { walletAPKRunnerHealthCheck = origHealthCheck })
-	walletAPKRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
+	origHealthCheck := pipelineCIRunnerHealthCheck
+	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
+	pipelineCIRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
 		return !strings.Contains(runnerURL, "offline-runner"), nil
 	}
 	queryMobileRunnerSemaphoreState = func(
@@ -858,9 +858,9 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 }
 
 func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T) {
-	origHealthCheck := walletAPKRunnerHealthCheck
-	t.Cleanup(func() { walletAPKRunnerHealthCheck = origHealthCheck })
-	walletAPKRunnerHealthCheck = func(_ context.Context, _ string) (bool, error) {
+	origHealthCheck := pipelineCIRunnerHealthCheck
+	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
+	pipelineCIRunnerHealthCheck = func(_ context.Context, _ string) (bool, error) {
 		return false, nil
 	}
 
@@ -872,7 +872,7 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 	createWalletAPKMobileRunner(t, app, orgID, "Offline One", "android_phone", true)
 	createWalletAPKMobileRunner(t, app, orgID, "Offline Two", "android_phone", true)
 
-	runnerID, apiErr := selectPipelineRunWalletAPKRunnerByType(
+	runnerID, apiErr := selectPipelineCIRunnerByType(
 		context.Background(),
 		app,
 		"android_phone",
@@ -886,13 +886,13 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 
 func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 	t.Run("rejects step runner ids", func(t *testing.T) {
-		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(
+		workflowDefinition, apiErr := parsePipelineCIWorkflow(
 			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
 		)
 		require.Nil(t, apiErr)
-		hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+		hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
 
-		_, apiErr = injectPipelineRunWalletAPKGlobalRunnerID(
+		_, apiErr = injectPipelineCIGlobalRunnerID(
 			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
 			workflowDefinition,
 			"runner-global",
@@ -907,11 +907,11 @@ func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 
 	t.Run("leaves yaml unchanged when runner id is empty", func(t *testing.T) {
 		inputYAML := "name: test\nsteps: []\n"
-		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(inputYAML)
+		workflowDefinition, apiErr := parsePipelineCIWorkflow(inputYAML)
 		require.Nil(t, apiErr)
-		hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+		hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
 
-		got, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+		got, apiErr := injectPipelineCIGlobalRunnerID(
 			inputYAML,
 			workflowDefinition,
 			"",

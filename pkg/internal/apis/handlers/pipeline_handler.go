@@ -52,6 +52,13 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			},
 		},
 		{
+			Method:         http.MethodPost,
+			Path:           "/run-issuer",
+			Handler:        HandlePipelineRunIssuer,
+			ResponseSchema: PipelineRunIssuerResponse{},
+			Description:    "Create temporary issuer credentials and queue a one-off pipeline run",
+		},
+		{
 			Method:      http.MethodGet,
 			Path:        "/queue/{ticket}",
 			Handler:     HandlePipelineQueueStatus,
