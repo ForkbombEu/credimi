@@ -263,29 +263,8 @@ func extractOutputRules(
 		return nil, nil
 	}
 
-	for name, rule := range rules {
-		ruleCount := 0
-		if rule.XPath != "" {
-			ruleCount++
-		}
-		if rule.Selector != "" {
-			ruleCount++
-		}
-		if rule.Cookie != "" {
-			ruleCount++
-		}
-		if rule.Regex != "" {
-			ruleCount++
-		}
-
-		if ruleCount == 0 {
-			return nil, fmt.Errorf("output rule '%s' must specify one of: xpath, selector, cookie, or regex", name)
-		}
-
-		if ruleCount > 1 {
-			return nil, fmt.Errorf("output rule '%s' cannot specify multiple extraction methods (found: xpath=%t, selector=%t, cookie=%t, regex=%t)",
-				name, rule.XPath != "", rule.Selector != "", rule.Cookie != "", rule.Regex != "")
-		}
+	if err := validateOutputRules(rules); err != nil {
+		return nil, err
 	}
 
 	results := make(map[string]any)
@@ -372,4 +351,32 @@ func extractOutputRules(
 	}
 
 	return results, nil
+}
+
+func validateOutputRules(rules map[string]OutputRule) error {
+	for name, rule := range rules {
+		ruleCount := 0
+		if rule.XPath != "" {
+			ruleCount++
+		}
+		if rule.Selector != "" {
+			ruleCount++
+		}
+		if rule.Cookie != "" {
+			ruleCount++
+		}
+		if rule.Regex != "" {
+			ruleCount++
+		}
+
+		if ruleCount == 0 {
+			return fmt.Errorf("output rule '%s' must specify one of: xpath, selector, cookie, or regex", name)
+		}
+
+		if ruleCount > 1 {
+			return fmt.Errorf("output rule '%s' cannot specify multiple extraction methods (found: xpath=%t, selector=%t, cookie=%t, regex=%t)",
+				name, rule.XPath != "", rule.Selector != "", rule.Cookie != "", rule.Regex != "")
+		}
+	}
+	return nil
 }
