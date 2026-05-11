@@ -415,6 +415,31 @@ func TestHTTPActivity_WithOutputRules(t *testing.T) {
 			expectError:    true,
 			expectedStatus: http.StatusOK,
 		},
+		{
+			name: "Error - output rule with no extraction method",
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"key": {}, // Vuoto!
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "Error - output rule with multiple extraction methods",
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"key": {
+						XPath: "//div",
+						Regex: "pattern",
+					},
+				},
+			},
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -439,12 +464,8 @@ func TestHTTPActivity_WithOutputRules(t *testing.T) {
 				outputMap := result.Output.(map[string]any)
 				require.Equal(t, tt.expectedStatus, int(outputMap["status"].(float64)))
 
-				// Verifica gli output estratti
-				extractedOutputs, ok := outputMap["outputs"].(map[string]any)
-				require.True(t, ok, "outputs should be present in result")
-
 				for key, expectedValue := range tt.expectedOutput {
-					actualValue, exists := extractedOutputs[key]
+					actualValue, exists := outputMap[key]
 					require.True(t, exists, "key %s should exist in outputs", key)
 					require.Equal(t, expectedValue, actualValue, "value mismatch for key %s", key)
 				}

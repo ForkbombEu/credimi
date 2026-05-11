@@ -193,16 +193,6 @@ func executeHTTPRequest(
 		)
 	}
 
-	outputValues, err := extractOutputRules(resp, respBody, payload.Outputs)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		return result, act.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("failed to extract outputs: %v", err),
-			nil,
-		)
-	}
-
 	var output any
 	if err := json.Unmarshal(respBody, &output); err != nil {
 		output = string(respBody)
@@ -223,13 +213,26 @@ func executeHTTPRequest(
 			)
 		}
 	}
-	result.Output = map[string]any{
+
+	outputValues, err := extractOutputRules(resp, respBody, payload.Outputs)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		return result, act.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("failed to extract outputs: %v", err),
+			nil,
+		)
+	}
+	resultMap := map[string]any{
 		"status":  resp.StatusCode,
 		"headers": resp.Header,
 		"body":    output,
-		"outputs": outputValues,
+	}
+	for key, value := range outputValues {
+		resultMap[key] = value
 	}
 
+	result.Output = resultMap
 	return result, nil
 }
 
@@ -258,6 +261,31 @@ func extractOutputRules(
 ) (map[string]any, error) {
 	if len(rules) == 0 {
 		return nil, nil
+	}
+
+	for name, rule := range rules {
+		ruleCount := 0
+		if rule.XPath != "" {
+			ruleCount++
+		}
+		if rule.Selector != "" {
+			ruleCount++
+		}
+		if rule.Cookie != "" {
+			ruleCount++
+		}
+		if rule.Regex != "" {
+			ruleCount++
+		}
+
+		if ruleCount == 0 {
+			return nil, fmt.Errorf("output rule '%s' must specify one of: xpath, selector, cookie, or regex", name)
+		}
+
+		if ruleCount > 1 {
+			return nil, fmt.Errorf("output rule '%s' cannot specify multiple extraction methods (found: xpath=%t, selector=%t, cookie=%t, regex=%t)",
+				name, rule.XPath != "", rule.Selector != "", rule.Cookie != "", rule.Regex != "")
+		}
 	}
 
 	results := make(map[string]any)
