@@ -89,6 +89,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Resources(),
 			links: [
 				{ label: m.Documentation(), url: 'https://docs.credimi.io/' },
+				{
+					label: 'EUDI wallet rulebook',
+					url: '/pages/documentation/eudi-wallet-regulatory-map'
+				},
 				{ label: m.articles_tutorials(), url: 'https://docs.credimi.io/' },
 				{ label: m.videos(), url: 'https://docs.credimi.io/' }
 				//			{ label: m.case_studies(), url: '/resources/case-studies' },
@@ -99,11 +103,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			label: m.Community(),
 			links: [
-				{ label: m.join_our_slack(), url: '/community/slack' },
+				{ label: m.join_our_slack(), url: 'mailto:credimi@forkbomb.eu' },
 				{ label: 'GitHub', url: 'https://github.com/forkbombeu/credimi' },
-				{ label: m.events_webinars(), url: '/community/events' },
-				{ label: m.conformance_community_forum(), url: '/community/forum' },
-				{ label: m.partner_network(), url: '/partners' }
+				{ label: m.events_webinars(), url: '/pages/community/events' },
+				{
+					label: m.conformance_community_forum(),
+					url: 'https://github.com/forkbombeu/credimi/discussions'
+				},
+				{ label: m.partner_network(), url: 'https://forkbomb.solutions/about-us/' }
 			]
 		},
 		{

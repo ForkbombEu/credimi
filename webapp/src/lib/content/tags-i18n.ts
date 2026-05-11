@@ -10,7 +10,7 @@ export type Tag = keyof typeof tagslist;
 
 const DEFAULT_UNKNOWN_LABEL = m.tag_unknown_tag();
 
-export const tagsTranslations: Record<Tag, string> = {
+export const tagsTranslations: Record<string, string> = {
 	capabilities: m.tag_capabilities(),
 	'conformance-and-compliance-tools': m.tag_conformance_and_compliance_tools(),
 	onboarding: m.tag_onboarding(),

@@ -15,7 +15,8 @@ const STRIP_PATH_MARKER = 'pages/';
 
 const tagMap: Record<string, string[]> = {};
 const base = import.meta.dirname;
-const files = await fg(path.join(base, '**/en.md'));
+const pagesBase = path.resolve(base, '../../../static/pages');
+const files = await fg(path.join(pagesBase, '**/en.md'));
 
 function stripPagesAndFile(fullPath: string): string {
 	const idx = fullPath.indexOf(STRIP_PATH_MARKER);
