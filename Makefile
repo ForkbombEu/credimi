@@ -35,7 +35,7 @@ GOMOD_FILES 	:= go.mod go.sum
 COVOUT			:= coverage.out
 COVERAGE_FILE	?= $(COVOUT)
 COVERAGE_MIN	?= 80
-COVERAGE_PKGS	?= ./...
+COVERAGE_PKGS ?= $(shell go list ./... | grep -v '/webapp/node_modules/')
 
 # Submodules
 WEBENV			= $(WEBAPP)/.env
@@ -129,7 +129,7 @@ coverage: devtools # ☂️ run test and open code coverage report
 	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
 
 coverage-check: ## ☂️ run tests and fail if total coverage is below COVERAGE_MIN
-	$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVERAGE_FILE) $(COVERAGE_PKGS)
+	@$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVERAGE_FILE) $(COVERAGE_PKGS)
 	@awk -v min="$(COVERAGE_MIN)" -v file="$(COVERAGE_FILE)" '\
 		BEGIN { covered = 0; total = 0 } \
 		NR == 1 && $$1 == "mode:" { next } \
