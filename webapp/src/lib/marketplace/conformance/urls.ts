@@ -27,6 +27,6 @@ export function getStandardCheckUrl(
 }
 
 /** Joined `standard/version/suite/test` path as returned by suite.paths / pipeline `check_id`. */
-export function getStandardCheckUrlFromJoined(joinedPath: string): string {
-	return `${marketplaceConformanceChecksPath}/${joinedPath}`;
+export function getStandardCheckUrlFromPath(path: string): string {
+	return `${marketplaceConformanceChecksPath}/${path}`;
 }

@@ -8,8 +8,11 @@ import { parsePath } from './paths';
 
 //
 
-/** One suite context (standard • version • suite UIDs) with its check ids. */
-export type GroupedPathsBySuite = { title: string; items: string[] };
+/** One check under a suite row: display id and full path for marketplace links. */
+type GroupedCheckItem = { id: string; path: string };
+
+/** One suite context (standard • version • suite UIDs) with its checks. */
+type GroupedPathsBySuite = { title: string; checks: GroupedCheckItem[] };
 
 /** Group pipeline check paths (`std/ver/suite/test`) by suite row for display. */
 export function groupPathsBySuite(paths: string[]): GroupedPathsBySuite[] {
@@ -18,13 +21,14 @@ export function groupPathsBySuite(paths: string[]): GroupedPathsBySuite[] {
 		Array.map(parsePath),
 		Array.map((p) => ({
 			title: `${p.standard} • ${p.version} • ${p.suite}`,
-			test: p.test
+			checkId: p.test,
+			joinedPath: p.joinedPath
 		})),
-		Array.groupBy((x) => x.title),
+		Array.groupBy((item) => item.title),
 		Record.toEntries,
 		Array.map(([title, rows]) => ({
 			title,
-			items: rows.map((x) => x.test)
+			checks: rows.map((row) => ({ id: row.checkId, path: row.joinedPath }))
 		}))
 	);
 }

@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Standard, Suite, Version } from '$lib/standards';
 	import { Marketplace } from '$lib/marketplace';
+	import type { Standard, Suite, Version } from '$lib/standards';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref } from '@/i18n';
@@ -23,9 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { standard, version, suite, test }: Props = $props();
 
 	const testName = $derived(test.split('/').at(-1)?.replaceAll('+', ' • '));
-	const href = $derived(
-		localizeHref(Marketplace.Conformance.getStandardCheckUrlFromJoined(test))
-	);
+	const href = $derived(localizeHref(Marketplace.Conformance.getStandardCheckUrlFromPath(test)));
 </script>
 
 <a

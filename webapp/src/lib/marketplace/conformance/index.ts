@@ -4,7 +4,7 @@
 
 import {
 	getStandardCheckUrl,
-	getStandardCheckUrlFromJoined,
+	getStandardCheckUrlFromPath,
 	getSuitePageUrl,
 	marketplaceConformanceChecksPath
 } from './urls';
@@ -15,5 +15,5 @@ export const Conformance = {
 	basePath: marketplaceConformanceChecksPath,
 	getSuitePageUrl,
 	getStandardCheckUrl,
-	getStandardCheckUrlFromJoined
+	getStandardCheckUrlFromPath
 };
