@@ -86,7 +86,12 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 			url := utils.JoinURL(baseURL, "api", "get-deeplink")
 
 			ctx := e.Request.Context()
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bodyData))
+			req, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodPost,
+				url,
+				bytes.NewBuffer(bodyData),
+			)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,

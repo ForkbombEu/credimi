@@ -840,7 +840,11 @@ func cleanupCanceledQueueResources(
 		return nil
 	}
 	if strings.TrimSpace(cleanup.TempWalletVersionID) != "" {
-		if apiErr := deleteTempWalletVersionForOwner(app, cleanup.TempWalletVersionID, ownerID); apiErr != nil {
+		if apiErr := deleteTempWalletVersionForOwner(
+			app,
+			cleanup.TempWalletVersionID,
+			ownerID,
+		); apiErr != nil {
 			return apiErr
 		}
 	}
@@ -848,7 +852,11 @@ func cleanupCanceledQueueResources(
 		if strings.TrimSpace(credential.RecordID) == "" {
 			continue
 		}
-		if apiErr := deleteTempCredentialForOwner(app, credential.RecordID, ownerID); apiErr != nil {
+		if apiErr := deleteTempCredentialForOwner(
+			app,
+			credential.RecordID,
+			ownerID,
+		); apiErr != nil {
 			return apiErr
 		}
 	}
