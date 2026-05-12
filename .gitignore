@@ -28,3 +28,4 @@ coverage.svg
 #!/config_templates/**/metadata.yaml
 node_modules/
 /.gestalt/
+.gitnexus
