@@ -216,7 +216,7 @@ docker-tunnel: $(DATA) submodules ## 🌐 run docker (detached, logs hidden) and
 ## Misc
 
 doc: ## 📚 Serve documentation on localhost with --host
-	cd $(DOCS) && bun i
+	cd $(DOCS) && bun install
 	cd $(DOCS) && bun run docs:dev --open --host
 
 clean: ## 🧹 Clean files and caches
@@ -226,7 +226,7 @@ clean: ## 🧹 Clean files and caches
 	@rm -fr $(WEBAPP)/build
 	@rm -fr $(WEBAPP)/node_modules
 	@rm -fr $(WEBAPP)/.svelte-kit
-	@rm -f $(DOCS)/.vitepress/config.ts.timestamp*
+	@rm -f $(DOCS)/.astro/*
 	@rm -f $(COVOUT) coverage.html coverage.svg
 	@echo "🧹 cleaned"
 

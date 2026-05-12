@@ -133,10 +133,10 @@ func buildOpenAPISpec(routes []RouteInfo) (*openapi3.Spec, error) {
 	spec := &openapi3.Spec{
 		Openapi: "3.0.3",
 		Info: openapi3.Info{
-			Title:   "credimi 👀 API Gateway",
+			Title:   "Credimi API",
 			Version: "1.4.0",
 			Description: stringPtr(
-				`credimi API Gateway for managing EUDI-ARF compliance checks...`,
+				`Credimi API — schedule and run conformance checks, manage pipeline automation, orchestrate mobile runners, publish marketplace integrations, and inspect end-to-end test results for decentralized identity services.`,
 			),
 			Contact: &openapi3.Contact{
 				Name:  stringPtr("credimi Support"),
@@ -146,7 +146,6 @@ func buildOpenAPISpec(routes []RouteInfo) (*openapi3.Spec, error) {
 		},
 		Servers: []openapi3.Server{
 			buildServer("https://credimi.io", "Production server"),
-			buildServer("https://demo.credimi.io", "Demo server"),
 			buildServer("http://localhost:8090/", "Localhost server"),
 		},
 		Paths: openapi3.Paths{},
