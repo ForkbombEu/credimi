@@ -72,7 +72,7 @@ define write_compose_dev_override
 endef
 
 all: help
-.PHONY: submodules version dev test lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check
+.PHONY: submodules version dev test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check
 
 $(BIN):
 	@mkdir -p $@
@@ -116,6 +116,10 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))
 	bash ./scripts/test-summary.sh
+
+test.all: ## 🧪 run all tests, including long tests skipped by test
+	$(call require_tools,$(TEST_DEPS))
+	TEST_SHORT=0 bash ./scripts/test-summary.sh
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)

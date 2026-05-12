@@ -12,10 +12,19 @@ if [ "${#TEST_TARGETS[@]}" -eq 0 ]; then
 	TEST_TARGETS=(./...)
 fi
 
-printf '\033[36mRunning unit tests (-race)...\033[0m\n'
+SHORT_FLAGS=(-short)
+TEST_MODE="-race, -short"
+case "${TEST_SHORT:-1}" in
+0 | false | FALSE | no | NO)
+	SHORT_FLAGS=()
+	TEST_MODE="-race"
+	;;
+esac
+
+printf '\033[36mRunning unit tests (%s)...\033[0m\n' "$TEST_MODE"
 
 set +e
-go test -json -tags=unit -race -buildvcs "${TEST_TARGETS[@]}" 2>&1 | while IFS= read -r line; do
+go test -json -tags=unit -race "${SHORT_FLAGS[@]}" -buildvcs "${TEST_TARGETS[@]}" 2>&1 | while IFS= read -r line; do
 	printf '%s\n' "$line" >>"$TMP_JSON"
 
 	if [[ "$line" == *'"Action":"'* ]] && [[ "$line" == *'"Test":"'* ]]; then
