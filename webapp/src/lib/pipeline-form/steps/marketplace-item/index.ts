@@ -85,7 +85,7 @@ export const customCheckStepConfig: TypedConfig<'custom-check', MarketplaceItem>
 function getMarketplaceItemCardData(item: MarketplaceItem) {
 	return {
 		title: item.name,
-		copyText: item.path,
+		copyText: getPath(item),
 		avatar: getMarketplaceItemLogo(item),
 		publicUrl: getMarketplaceItemUrl(item)
 	};
