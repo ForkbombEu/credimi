@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Standard, Suite, Version } from '$lib/standards';
+	import { Marketplace } from '$lib/marketplace';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref } from '@/i18n';
@@ -22,21 +23,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { standard, version, suite, test }: Props = $props();
 
 	const testName = $derived(test.split('/').at(-1)?.replaceAll('+', ' • '));
-	const href = $derived(localizeHref(`/marketplace/conformance-checks/${test}`));
+	const href = $derived(
+		localizeHref(Marketplace.Conformance.getStandardCheckUrlFromJoined(test))
+	);
 </script>
 
 <a
 	{href}
 	class={[
-		'border-primary bg-card text-card-foreground ring-primary relative',
+		'relative border-primary bg-card text-card-foreground ring-primary',
 		'flex flex-col justify-between gap-4',
 		'overflow-visible rounded-lg border p-4 shadow-sm transition-all hover:-translate-y-2 hover:ring-2'
 	]}
 >
 	<div class="space-y-1">
-		<p class="text-muted-foreground text-xs">
+		<p class="text-xs text-muted-foreground">
 			{standard.name} • {version.name} • {suite.name}
 		</p>
-		<T class="overflow-hidden text-ellipsis font-semibold">{testName}</T>
+		<T class="overflow-hidden font-semibold text-ellipsis">{testName}</T>
 	</div>
 </a>

@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { ConformanceChecks } from '$lib';
+	import { Conformance } from '$lib';
 	import { entities } from '$lib/global';
 
 	import { renderComponent } from '@/components/ui/data-table';
@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			data: entities.conformance_checks,
 			plurality: 'plural'
 		}),
-		fn: (row) => ConformanceChecks.groupPathsByStandard(row.conformance_checks ?? []),
+		fn: (row) => Conformance.Check.groupPathsBySuite(row.conformance_checks ?? []),
 		manualPillPositioning: true
 	});
 </script>
