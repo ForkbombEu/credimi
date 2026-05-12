@@ -29,13 +29,13 @@ const issuerCITempCredentialsConfigKey = "temp_credentials"
 const credentialResourceDomain = "credential"
 
 type pipelineRunIssuerRequest struct {
-	PipelineIdentifier string
-	CommitSHA          string
-	Metadata           map[string]any
-	CredentialIDs      []string
-	RunnerID           string
-	RunnerType         string
-	IssuerURL          string
+	PipelineIdentifier string         `json:"pipeline_identifier"`
+	CommitSHA          string         `json:"commit_sha"`
+	Metadata           map[string]any `json:"metadata"`
+	CredentialIDs      []string       `json:"credential_ids"`
+	RunnerID           string         `json:"runner_id"`
+	RunnerType         string         `json:"runner_type"`
+	IssuerURL          string         `json:"issuer_url"`
 }
 
 type PipelineRunIssuerResponse struct {
@@ -184,17 +184,7 @@ func parsePipelineRunIssuerRequest(
 ) (pipelineRunIssuerRequest, *apierror.APIError) {
 	contentType := e.Request.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "application/json") {
-		var input struct {
-			PipelineIdentifier string         `json:"pipeline_identifier"`
-			CommitSHA          string         `json:"commit_sha"`
-			CommitSHAAlt       string         `json:"commitSha"`
-			Metadata           map[string]any `json:"metadata"`
-			CredentialIDs      []string       `json:"credential_ids"`
-			RunnerID           string         `json:"runner_id"`
-			RunnerType         string         `json:"runner_type"`
-			IssuerURL          string         `json:"issuer_url"`
-			TempIssuerURL      string         `json:"temp_issuer_url"`
-		}
+		var input pipelineRunIssuerRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil {
 			return pipelineRunIssuerRequest{}, apierror.New(
 				http.StatusBadRequest,
@@ -203,18 +193,15 @@ func parsePipelineRunIssuerRequest(
 				err.Error(),
 			)
 		}
-		commitSHA := firstNonEmpty(input.CommitSHA, input.CommitSHAAlt, metadataSHA(input.Metadata))
-		return pipelineRunIssuerRequest{
-			PipelineIdentifier: strings.TrimSpace(input.PipelineIdentifier),
-			CommitSHA:          strings.TrimSpace(commitSHA),
-			Metadata:           ensureMetadataSHA(input.Metadata, commitSHA),
-			CredentialIDs:      normalizePipelineRunIssuerCredentialIDs(input.CredentialIDs),
-			RunnerID:           strings.TrimSpace(input.RunnerID),
-			RunnerType:         strings.TrimSpace(input.RunnerType),
-			IssuerURL: strings.TrimSpace(
-				firstNonEmpty(input.IssuerURL, input.TempIssuerURL),
-			),
-		}, nil
+		commitSHA := firstNonEmpty(input.CommitSHA, metadataSHA(input.Metadata))
+		input.PipelineIdentifier = strings.TrimSpace(input.PipelineIdentifier)
+		input.CommitSHA = strings.TrimSpace(commitSHA)
+		input.Metadata = ensureMetadataSHA(input.Metadata, commitSHA)
+		input.CredentialIDs = normalizePipelineRunIssuerCredentialIDs(input.CredentialIDs)
+		input.RunnerID = strings.TrimSpace(input.RunnerID)
+		input.RunnerType = strings.TrimSpace(input.RunnerType)
+		input.IssuerURL = strings.TrimSpace(input.IssuerURL)
+		return input, nil
 	}
 
 	if err := e.Request.ParseForm(); err != nil {
@@ -229,11 +216,7 @@ func parsePipelineRunIssuerRequest(
 	if apiErr != nil {
 		return pipelineRunIssuerRequest{}, apiErr
 	}
-	commitSHA := firstNonEmpty(
-		e.Request.FormValue("commit_sha"),
-		e.Request.FormValue("commitSha"),
-		metadataSHA(metadata),
-	)
+	commitSHA := firstNonEmpty(e.Request.FormValue("commit_sha"), metadataSHA(metadata))
 	return pipelineRunIssuerRequest{
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
 		CommitSHA:          strings.TrimSpace(commitSHA),
@@ -243,10 +226,7 @@ func parsePipelineRunIssuerRequest(
 		),
 		RunnerID:   strings.TrimSpace(e.Request.FormValue("runner_id")),
 		RunnerType: strings.TrimSpace(e.Request.FormValue("runner_type")),
-		IssuerURL: strings.TrimSpace(firstNonEmpty(
-			e.Request.FormValue("issuer_url"),
-			e.Request.FormValue("temp_issuer_url"),
-		)),
+		IssuerURL:  strings.TrimSpace(e.Request.FormValue("issuer_url")),
 	}, nil
 }
 

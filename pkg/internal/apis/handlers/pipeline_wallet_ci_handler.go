@@ -43,13 +43,13 @@ var walletAPKAllowedRunnerTypes = map[string]struct{}{
 }
 
 type pipelineRunWalletAPKRequest struct {
-	PipelineIdentifier string
-	CommitSHA          string
-	Metadata           map[string]any
-	RunnerID           string
-	RunnerType         string
-	APKURL             string
-	APKFile            *multipart.FileHeader
+	PipelineIdentifier string                `json:"pipeline_identifier"`
+	CommitSHA          string                `json:"commit_sha"`
+	Metadata           map[string]any        `json:"metadata"`
+	RunnerID           string                `json:"runner_id"`
+	RunnerType         string                `json:"runner_type"`
+	APKURL             string                `json:"apk_url"`
+	APKFile            *multipart.FileHeader `json:"-"`
 }
 
 type PipelineRunWalletAPKResponse struct {
@@ -860,13 +860,7 @@ func parsePipelineRunWalletAPKMultipartRequest(
 func parsePipelineRunWalletAPKJSONRequest(
 	e *core.RequestEvent,
 ) (pipelineRunWalletAPKRequest, *apierror.APIError) {
-	var input struct {
-		PipelineIdentifier string         `json:"pipeline_identifier"`
-		Metadata           map[string]any `json:"metadata"`
-		RunnerID           string         `json:"runner_id"`
-		RunnerType         string         `json:"runner_type"`
-		APKURL             string         `json:"apk_url"`
-	}
+	var input pipelineRunWalletAPKRequest
 	if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil {
 		return pipelineRunWalletAPKRequest{}, apierror.New(
 			http.StatusBadRequest,
@@ -875,16 +869,12 @@ func parsePipelineRunWalletAPKJSONRequest(
 			err.Error(),
 		)
 	}
-	metadata := input.Metadata
-
-	return pipelineRunWalletAPKRequest{
-		PipelineIdentifier: strings.TrimSpace(input.PipelineIdentifier),
-		CommitSHA:          strings.TrimSpace(metadataSHA(metadata)),
-		Metadata:           metadata,
-		RunnerID:           strings.TrimSpace(input.RunnerID),
-		RunnerType:         strings.TrimSpace(input.RunnerType),
-		APKURL:             strings.TrimSpace(input.APKURL),
-	}, nil
+	input.PipelineIdentifier = strings.TrimSpace(input.PipelineIdentifier)
+	input.CommitSHA = strings.TrimSpace(metadataSHA(input.Metadata))
+	input.RunnerID = strings.TrimSpace(input.RunnerID)
+	input.RunnerType = strings.TrimSpace(input.RunnerType)
+	input.APKURL = strings.TrimSpace(input.APKURL)
+	return input, nil
 }
 
 func validatePipelineRunWalletAPKRequest(input pipelineRunWalletAPKRequest) *apierror.APIError {
