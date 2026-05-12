@@ -131,10 +131,6 @@ export default defineConfig({
                     ],
                 },
                 {
-                    label: "Software Architecture",
-                    autogenerate: { directory: "software-architecture" },
-                },
-                {
                     label: "Legal",
                     autogenerate: { directory: "legal" },
                 },
