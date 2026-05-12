@@ -395,5 +395,9 @@
 	"Yes_remove_access": "Ja, fjern adgangen",
 	"my_folders": "Mapper",
 	"json_configuration_is_edited_fields_are_disabled": "JSON-konfigurationen er manuelt redigeret. Felterne er deaktiveret.",
-	"reset_json_and_use_fields": "Nulstil JSON og brug felter"
+	"reset_json_and_use_fields": "Nulstil JSON og brug felter",
+	"Change_wallet_version": "Skift wallet-version",
+	"Change_wallet_version_modal_title": "Skift wallet-version for alle trin",
+	"Change_wallet_version_modal_description": "Vælg en version. Hvert mobile-automation-trin i denne pipeline bruger den.",
+	"Wallet_version_current": "Aktuel"
 }
