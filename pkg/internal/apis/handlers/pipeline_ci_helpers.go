@@ -237,6 +237,45 @@ func injectPipelineCIGlobalRunnerID(
 	return string(rewrittenYAML), nil
 }
 
+func validatePipelineCIGlobalRunnerRequest(
+	runnerID string,
+	hasStepRunner bool,
+	needsGlobalRunner bool,
+) *apierror.APIError {
+	if !needsGlobalRunner || strings.TrimSpace(runnerID) != "" {
+		return nil
+	}
+	if hasStepRunner {
+		return apierror.New(
+			http.StatusBadRequest,
+			"runner_id",
+			"mobile-automation runner_id configuration is incomplete",
+			"pipeline mixes mobile-automation steps with runner_id and steps without runner_id; set runner_id on every mobile-automation step or remove step runner_id values and pass runner_id or runner_type",
+		)
+	}
+	return apierror.New(
+		http.StatusBadRequest,
+		"runner_id",
+		"runner_id or runner_type is required",
+		"pipeline has mobile-automation steps without runner_id; pass runner_id or runner_type",
+	)
+}
+
+func pipelineCIIgnoredRunnerWarning(
+	runnerID string,
+	runnerType string,
+	hasStepRunner bool,
+	needsGlobalRunner bool,
+) string {
+	if hasStepRunner || needsGlobalRunner {
+		return ""
+	}
+	if strings.TrimSpace(runnerID) == "" && strings.TrimSpace(runnerType) == "" {
+		return ""
+	}
+	return "runner_id and runner_type are ignored because pipeline has no mobile-automation steps"
+}
+
 func pipelineCIMobileRunnerSelectionState(
 	workflowDefinition *pipelineinternal.WorkflowDefinition,
 ) (bool, bool) {

@@ -57,6 +57,7 @@ type PipelineRunWalletAPKResponse struct {
 	TempWalletVersionID         string `json:"temp_wallet_version_id,omitempty"`
 	TempWalletVersionIdentifier string `json:"temp_wallet_version_identifier,omitempty"`
 	PipelineIdentifier          string `json:"pipeline_identifier,omitempty"`
+	Warning                     string `json:"warning,omitempty"`
 }
 
 type pipelineRunWalletAPKContext struct {
@@ -74,7 +75,6 @@ type pipelineRunWalletAPKContext struct {
 }
 
 type walletAPKVersionReference struct {
-	StepID    string
 	VersionID string
 }
 
@@ -88,6 +88,7 @@ func buildPipelineRunWalletAPKResponse(
 	tempWalletVersionID string,
 	tempWalletVersionIdentifier string,
 	pipelineIdentifier string,
+	warning string,
 ) PipelineRunWalletAPKResponse {
 	// The generic queue API exposes the semaphore's 0-based position for the
 	// webapp. The CI-facing wallet APK API returns a human-readable 1-based
@@ -101,6 +102,7 @@ func buildPipelineRunWalletAPKResponse(
 		TempWalletVersionID:         tempWalletVersionID,
 		TempWalletVersionIdentifier: tempWalletVersionIdentifier,
 		PipelineIdentifier:          pipelineIdentifier,
+		Warning:                     warning,
 	}
 }
 
@@ -146,6 +148,12 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr.JSON(e)
 		}
+		warning := pipelineCIIgnoredRunnerWarning(
+			input.RunnerID,
+			input.RunnerType,
+			hasStepRunner,
+			needsGlobalRunner,
+		)
 		manipulatedYAML, apiErr := injectPipelineCIGlobalRunnerID(
 			rewrittenYAML,
 			workflowDefinition,
@@ -188,6 +196,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			tempVersion.Record.Id,
 			tempVersion.Identifier,
 			input.PipelineIdentifier,
+			warning,
 		)
 		if err := maybeCreateWalletAPKQueuedPRComment(
 			e.Request.Context(),
@@ -204,7 +213,11 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 	}
 }
 
-func resolveWalletAPKGitHubPRRunnerType(app core.App, runnerID string, requestedRunnerType string) string {
+func resolveWalletAPKGitHubPRRunnerType(
+	app core.App,
+	runnerID string,
+	requestedRunnerType string,
+) string {
 	if runnerType := strings.TrimSpace(requestedRunnerType); runnerType != "" {
 		return runnerType
 	}
@@ -272,7 +285,10 @@ func resolvePipelineRunWalletAPKContext(
 			err.Error(),
 		)
 	}
-	if apiErr := authorizePipelineRunWalletAPKPipeline(pipelineRecord, orgRecord.Id); apiErr != nil {
+	if apiErr := authorizePipelineRunWalletAPKPipeline(
+		pipelineRecord,
+		orgRecord.Id,
+	); apiErr != nil {
 		return pipelineRunWalletAPKContext{}, apiErr
 	}
 	pipelineYAML := strings.TrimSpace(pipelineRecord.GetString("yaml"))
@@ -482,22 +498,15 @@ func resolvePipelineRunWalletAPKWallet(
 			)
 		}
 
-		versionRecord, err := canonify.Resolve(app, versionID)
-		if err != nil {
-			return nil, nil, apierror.New(
-				http.StatusBadRequest,
-				"wallet_version",
-				"wallet version not found",
-				err.Error(),
-			)
-		}
-		if versionRecord.Collection().Name != "wallet_versions" {
-			return nil, nil, apierror.New(
-				http.StatusBadRequest,
-				"wallet_version",
-				"wallet version identifier is invalid",
-				"version_id must resolve to a wallet_versions record",
-			)
+		versionRecord, apiErr := resolveCanonicalCollectionRecord(
+			app,
+			"wallet_versions",
+			versionID,
+			"wallet_version",
+			"wallet version",
+		)
+		if apiErr != nil {
+			return nil, nil, apiErr
 		}
 
 		walletID := versionRecord.GetString("wallet")
@@ -717,22 +726,23 @@ func resolvePipelineRunWalletAPKRunnerID(
 	input pipelineRunWalletAPKRequest,
 ) (string, bool, bool, *apierror.APIError) {
 	hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
+	if !hasStepRunner && !needsGlobalRunner {
+		return "", hasStepRunner, needsGlobalRunner, nil
+	}
 	if strings.TrimSpace(input.RunnerID) != "" {
 		return input.RunnerID, hasStepRunner, needsGlobalRunner, nil
 	}
 
-	if hasStepRunner || !needsGlobalRunner {
-		return "", hasStepRunner, needsGlobalRunner, nil
-	}
-
 	runnerType := strings.TrimSpace(input.RunnerType)
 	if runnerType == "" {
-		return "", hasStepRunner, needsGlobalRunner, apierror.New(
-			http.StatusBadRequest,
-			"runner_type",
-			"runner_type is required when runner_id is missing",
-			"pipeline needs a global runner but no runner_id or runner_type was provided",
-		)
+		if apiErr := validatePipelineCIGlobalRunnerRequest(
+			"",
+			hasStepRunner,
+			needsGlobalRunner,
+		); apiErr != nil {
+			return "", hasStepRunner, needsGlobalRunner, apiErr
+		}
+		return "", hasStepRunner, needsGlobalRunner, nil
 	}
 
 	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, runnerType)
@@ -756,7 +766,6 @@ func collectWalletAPKVersionReferences(
 			return
 		}
 		refs = append(refs, walletAPKVersionReference{
-			StepID:    step.ID,
 			VersionID: canonify.NormalizePath(versionID),
 		})
 	}

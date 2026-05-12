@@ -45,7 +45,10 @@ tests:
 }
 
 func TestRewriteCredentialStepCIHost_IgnoresMissingEnvHost(t *testing.T) {
-	rewritten, ok := rewriteCredentialStepCIHost("version: '1.1'\nenv:\n  body: x\n", "https://issuer.example/temp")
+	rewritten, ok := rewriteCredentialStepCIHost(
+		"version: '1.1'\nenv:\n  body: x\n",
+		"https://issuer.example/temp",
+	)
 	require.False(t, ok)
 	require.Empty(t, rewritten)
 }
@@ -104,8 +107,6 @@ func TestPipelineRunIssuerAcceptsCredimiAPIKeyForOwnedPipeline(t *testing.T) {
 		orgID,
 		"Issuer CI",
 		"pid",
-		issuerCIStepCIYAML,
-		false,
 	)
 	createWalletAPITestPipelineNamed(
 		t,
@@ -120,11 +121,164 @@ func TestPipelineRunIssuerAcceptsCredimiAPIKeyForOwnedPipeline(t *testing.T) {
 		"pipeline_identifier": "usera-s-organization/issuer-ci-pipeline",
 		"commit_sha":          "abc123",
 		"issuer_url":          "https://issuer.example/temp",
-	}, walletAPKUserAPIKey)
+	})
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), `"status":"running"`)
 	require.Contains(t, rec.Body.String(), `"temp_credentials"`)
+}
+
+func TestPipelineRunIssuerCredentialIDsRewriteOnlyRequestedCredentials(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	origStart := startPipelineWorkflow
+	t.Cleanup(func() {
+		startPipelineWorkflow = origStart
+	})
+
+	app := setupPipelineIssuerCIApp(t)
+	defer app.Cleanup()
+	seedWalletAPKUserAPIKey(t, app)
+	selectedCredentialID := createIssuerCICredential(
+		t,
+		app,
+		orgID,
+		"Issuer CI",
+		"pid",
+	)
+	ignoredCredentialID := createIssuerCICredential(
+		t,
+		app,
+		orgID,
+		"Issuer Other",
+		"other",
+	)
+	createWalletAPITestPipelineNamed(
+		t,
+		app,
+		orgID,
+		"issuer-ci-pipeline",
+		issuerCIPipelineYAMLWithCredentials(selectedCredentialID, ignoredCredentialID),
+		false,
+	)
+
+	startPipelineWorkflow = func(
+		yaml string,
+		config map[string]any,
+		memo map[string]any,
+		pipelineIdentifier string,
+	) (workflowengine.WorkflowResult, error) {
+		require.Contains(t, yaml, "credential_id: usera-s-organization/issuer-ci/pid-abc123")
+		require.NotContains(t, yaml, "credential_id: "+selectedCredentialID+"\n")
+		require.Contains(t, yaml, "credential_id: "+ignoredCredentialID)
+		require.Contains(t, config, issuerCITempCredentialsConfigKey)
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "issuer-wf",
+			WorkflowRunID: "issuer-run",
+		}, nil
+	}
+
+	rec := performPipelineIssuerCIRequest(t, app, map[string]any{
+		"pipeline_identifier": "usera-s-organization/issuer-ci-pipeline",
+		"commit_sha":          "abc123",
+		"issuer_url":          "https://issuer.example/temp",
+		"credential_ids":      []string{selectedCredentialID},
+	})
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), `"temp_credentials"`)
+	require.Contains(
+		t,
+		rec.Body.String(),
+		`"identifier":"usera-s-organization/issuer-ci/pid-abc123"`,
+	)
+	require.NotContains(t, rec.Body.String(), "issuer-other/other-abc123")
+}
+
+func TestPipelineRunIssuerRejectsCredentialIDsNotReferencedByPipeline(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineIssuerCIApp(t)
+	defer app.Cleanup()
+	seedWalletAPKUserAPIKey(t, app)
+	pipelineCredentialID := createIssuerCICredential(
+		t,
+		app,
+		orgID,
+		"Issuer CI",
+		"pid",
+	)
+	unusedCredentialID := createIssuerCICredential(
+		t,
+		app,
+		orgID,
+		"Issuer Other",
+		"other",
+	)
+	createWalletAPITestPipelineNamed(
+		t,
+		app,
+		orgID,
+		"issuer-ci-pipeline",
+		issuerCIPipelineYAML(pipelineCredentialID),
+		false,
+	)
+
+	rec := performPipelineIssuerCIRequest(t, app, map[string]any{
+		"pipeline_identifier": "usera-s-organization/issuer-ci-pipeline",
+		"commit_sha":          "abc123",
+		"issuer_url":          "https://issuer.example/temp",
+		"credential_ids":      []string{unusedCredentialID},
+	})
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(
+		t,
+		rec.Body.String(),
+		"no credential-offer step references a requested credential_id",
+	)
+}
+
+func TestPipelineRunIssuerRejectsRawCredentialRecordIDs(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineIssuerCIApp(t)
+	defer app.Cleanup()
+	seedWalletAPKUserAPIKey(t, app)
+	credentialID := createIssuerCICredential(
+		t,
+		app,
+		orgID,
+		"Issuer CI",
+		"pid",
+	)
+	credentialRecord, err := canonify.Resolve(app, credentialID)
+	require.NoError(t, err)
+	createWalletAPITestPipelineNamed(
+		t,
+		app,
+		orgID,
+		"issuer-ci-pipeline",
+		issuerCIPipelineYAML(credentialID),
+		false,
+	)
+
+	rec := performPipelineIssuerCIRequest(t, app, map[string]any{
+		"pipeline_identifier": "usera-s-organization/issuer-ci-pipeline",
+		"commit_sha":          "abc123",
+		"issuer_url":          "https://issuer.example/temp",
+		"credential_ids":      []string{credentialRecord.Id},
+	})
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(
+		t,
+		rec.Body.String(),
+		"credential_ids must be a canonical credential identifier",
+	)
 }
 
 func TestPipelineRunIssuerRejectsPrivateForeignPipeline(t *testing.T) {
@@ -141,8 +295,6 @@ func TestPipelineRunIssuerRejectsPrivateForeignPipeline(t *testing.T) {
 		orgID,
 		"Issuer CI",
 		"pid",
-		issuerCIStepCIYAML,
-		false,
 	)
 	createWalletAPITestPipelineNamed(
 		t,
@@ -157,10 +309,14 @@ func TestPipelineRunIssuerRejectsPrivateForeignPipeline(t *testing.T) {
 		"pipeline_identifier": "other-org/foreign-private-pipeline",
 		"commit_sha":          "abc123",
 		"issuer_url":          "https://issuer.example/temp",
-	}, walletAPKUserAPIKey)
+	})
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
-	require.Contains(t, rec.Body.String(), "pipeline must belong to caller organization or be published")
+	require.Contains(
+		t,
+		rec.Body.String(),
+		"pipeline must belong to caller organization or be published",
+	)
 }
 
 func setupPipelineIssuerCIApp(t testing.TB) *tests.TestApp {
@@ -177,7 +333,6 @@ func performPipelineIssuerCIRequest(
 	t testing.TB,
 	app *tests.TestApp,
 	body map[string]any,
-	apiKey string,
 ) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -192,7 +347,7 @@ func performPipelineIssuerCIRequest(
 
 		req := httptest.NewRequest(http.MethodPost, "/api/pipeline/run-issuer", jsonBody(body))
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Credimi-Api-Key", apiKey)
+		req.Header.Set("Credimi-Api-Key", walletAPKUserAPIKey)
 		mux.ServeHTTP(rec, req)
 		return nil
 	})
@@ -206,8 +361,6 @@ func createIssuerCICredential(
 	orgID string,
 	issuerName string,
 	credentialName string,
-	stepCIYAML string,
-	published bool,
 ) string {
 	t.Helper()
 
@@ -217,7 +370,7 @@ func createIssuerCICredential(
 	issuer.Set("owner", orgID)
 	issuer.Set("name", issuerName)
 	issuer.Set("url", "https://issuer.example")
-	issuer.Set("published", published)
+	issuer.Set("published", false)
 	require.NoError(t, app.Save(issuer))
 
 	credentialColl, err := app.FindCollectionByNameOrId("credentials")
@@ -226,8 +379,8 @@ func createIssuerCICredential(
 	credential.Set("owner", orgID)
 	credential.Set("credential_issuer", issuer.Id)
 	credential.Set("name", credentialName)
-	credential.Set("yaml", stepCIYAML)
-	credential.Set("published", published)
+	credential.Set("yaml", issuerCIStepCIYAML)
+	credential.Set("published", false)
 	require.NoError(t, app.Save(credential))
 
 	return "usera-s-organization/" + issuer.GetString("canonified_name") + "/" +
@@ -237,4 +390,13 @@ func createIssuerCICredential(
 func issuerCIPipelineYAML(credentialID string) string {
 	return "name: test\nsteps:\n  - id: offer\n    use: credential-offer\n    with:\n      credential_id: " +
 		credentialID + "\n"
+}
+
+func issuerCIPipelineYAMLWithCredentials(credentialIDs ...string) string {
+	pipelineYAML := "name: test\nsteps:\n"
+	for index, credentialID := range credentialIDs {
+		pipelineYAML += "  - id: offer-" + string(rune('a'+index)) +
+			"\n    use: credential-offer\n    with:\n      credential_id: " + credentialID + "\n"
+	}
+	return pipelineYAML
 }

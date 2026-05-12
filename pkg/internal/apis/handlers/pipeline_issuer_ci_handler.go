@@ -32,7 +32,7 @@ type pipelineRunIssuerRequest struct {
 	PipelineIdentifier string
 	CommitSHA          string
 	Metadata           map[string]any
-	IssuerID           string
+	CredentialIDs      []string
 	RunnerID           string
 	RunnerType         string
 	IssuerURL          string
@@ -42,6 +42,7 @@ type PipelineRunIssuerResponse struct {
 	PipelineQueueResponse
 	TempCredentials    []TempCredentialResponse `json:"temp_credentials,omitempty"`
 	PipelineIdentifier string                   `json:"pipeline_identifier,omitempty"`
+	Warning            string                   `json:"warning,omitempty"`
 }
 
 type TempCredentialResponse struct {
@@ -61,7 +62,6 @@ type pipelineRunIssuerContext struct {
 }
 
 type issuerCredentialReference struct {
-	StepID       string
 	CredentialID string
 }
 
@@ -108,6 +108,12 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			rollbackPipelineRunIssuerTempCredentials(e, tempCredentials)
 			return apiErr.JSON(e)
 		}
+		warning := pipelineCIIgnoredRunnerWarning(
+			input.RunnerID,
+			input.RunnerType,
+			hasStepRunner,
+			needsGlobalRunner,
+		)
 		manipulatedYAML, apiErr := injectPipelineCIGlobalRunnerID(
 			rewrittenYAML,
 			workflowDefinition,
@@ -141,6 +147,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			queueResponse,
 			tempCredentials,
 			input.PipelineIdentifier,
+			warning,
 		))
 	}
 }
@@ -149,6 +156,7 @@ func buildPipelineRunIssuerResponse(
 	queueResponse PipelineQueueResponse,
 	tempCredentials []tempCredential,
 	pipelineIdentifier string,
+	warning string,
 ) PipelineRunIssuerResponse {
 	if queueResponse.Position != nil {
 		position := *queueResponse.Position + 1
@@ -157,6 +165,7 @@ func buildPipelineRunIssuerResponse(
 	response := PipelineRunIssuerResponse{
 		PipelineQueueResponse: queueResponse,
 		PipelineIdentifier:    pipelineIdentifier,
+		Warning:               warning,
 	}
 	for _, credential := range tempCredentials {
 		if credential.Record == nil {
@@ -170,7 +179,9 @@ func buildPipelineRunIssuerResponse(
 	return response
 }
 
-func parsePipelineRunIssuerRequest(e *core.RequestEvent) (pipelineRunIssuerRequest, *apierror.APIError) {
+func parsePipelineRunIssuerRequest(
+	e *core.RequestEvent,
+) (pipelineRunIssuerRequest, *apierror.APIError) {
 	contentType := e.Request.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "application/json") {
 		var input struct {
@@ -178,7 +189,7 @@ func parsePipelineRunIssuerRequest(e *core.RequestEvent) (pipelineRunIssuerReque
 			CommitSHA          string         `json:"commit_sha"`
 			CommitSHAAlt       string         `json:"commitSha"`
 			Metadata           map[string]any `json:"metadata"`
-			IssuerID           string         `json:"issuer_id"`
+			CredentialIDs      []string       `json:"credential_ids"`
 			RunnerID           string         `json:"runner_id"`
 			RunnerType         string         `json:"runner_type"`
 			IssuerURL          string         `json:"issuer_url"`
@@ -197,10 +208,12 @@ func parsePipelineRunIssuerRequest(e *core.RequestEvent) (pipelineRunIssuerReque
 			PipelineIdentifier: strings.TrimSpace(input.PipelineIdentifier),
 			CommitSHA:          strings.TrimSpace(commitSHA),
 			Metadata:           ensureMetadataSHA(input.Metadata, commitSHA),
-			IssuerID:           strings.TrimSpace(input.IssuerID),
+			CredentialIDs:      normalizePipelineRunIssuerCredentialIDs(input.CredentialIDs),
 			RunnerID:           strings.TrimSpace(input.RunnerID),
 			RunnerType:         strings.TrimSpace(input.RunnerType),
-			IssuerURL:          strings.TrimSpace(firstNonEmpty(input.IssuerURL, input.TempIssuerURL)),
+			IssuerURL: strings.TrimSpace(
+				firstNonEmpty(input.IssuerURL, input.TempIssuerURL),
+			),
 		}, nil
 	}
 
@@ -225,14 +238,35 @@ func parsePipelineRunIssuerRequest(e *core.RequestEvent) (pipelineRunIssuerReque
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
 		CommitSHA:          strings.TrimSpace(commitSHA),
 		Metadata:           ensureMetadataSHA(metadata, commitSHA),
-		IssuerID:           strings.TrimSpace(e.Request.FormValue("issuer_id")),
-		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
-		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
+		CredentialIDs: normalizePipelineRunIssuerCredentialIDs(
+			e.Request.Form["credential_ids"],
+		),
+		RunnerID:   strings.TrimSpace(e.Request.FormValue("runner_id")),
+		RunnerType: strings.TrimSpace(e.Request.FormValue("runner_type")),
 		IssuerURL: strings.TrimSpace(firstNonEmpty(
 			e.Request.FormValue("issuer_url"),
 			e.Request.FormValue("temp_issuer_url"),
 		)),
 	}, nil
+}
+
+func normalizePipelineRunIssuerCredentialIDs(values []string) []string {
+	seen := map[string]struct{}{}
+	var credentialIDs []string
+	for _, value := range values {
+		for _, part := range strings.Split(value, ",") {
+			credentialID := canonify.NormalizePath(part)
+			if credentialID == "" {
+				continue
+			}
+			if _, ok := seen[credentialID]; ok {
+				continue
+			}
+			seen[credentialID] = struct{}{}
+			credentialIDs = append(credentialIDs, credentialID)
+		}
+	}
+	return credentialIDs
 }
 
 func validatePipelineRunIssuerRequest(input pipelineRunIssuerRequest) *apierror.APIError {
@@ -307,7 +341,10 @@ func resolvePipelineRunIssuerContext(
 			err.Error(),
 		)
 	}
-	if apiErr := authorizePipelineRunWalletAPKPipeline(pipelineRecord, orgRecord.Id); apiErr != nil {
+	if apiErr := authorizePipelineRunWalletAPKPipeline(
+		pipelineRecord,
+		orgRecord.Id,
+	); apiErr != nil {
 		return pipelineRunIssuerContext{}, apiErr
 	}
 	pipelineYAML := strings.TrimSpace(pipelineRecord.GetString("yaml"))
@@ -320,7 +357,11 @@ func resolvePipelineRunIssuerContext(
 		)
 	}
 
-	refs, apiErr := resolvePipelineRunIssuerCredentialReferences(e.App, pipelineYAML, input.IssuerID)
+	refs, apiErr := resolvePipelineRunIssuerCredentialReferences(
+		e.App,
+		pipelineYAML,
+		input.CredentialIDs,
+	)
 	if apiErr != nil {
 		return pipelineRunIssuerContext{}, apiErr
 	}
@@ -340,7 +381,7 @@ func resolvePipelineRunIssuerContext(
 func resolvePipelineRunIssuerCredentialReferences(
 	app core.App,
 	pipelineYAML string,
-	issuerID string,
+	credentialIDs []string,
 ) ([]issuerCredentialReference, *apierror.APIError) {
 	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
 	if err != nil {
@@ -361,49 +402,79 @@ func resolvePipelineRunIssuerCredentialReferences(
 		)
 	}
 
-	filterIssuerID := ""
-	if strings.TrimSpace(issuerID) != "" {
-		issuerRecord, apiErr := resolveCollectionRecord(app, "credential_issuers", issuerID, "issuer_id")
-		if apiErr != nil {
-			return nil, apiErr
-		}
-		filterIssuerID = issuerRecord.Id
+	requested, apiErr := resolvePipelineRunIssuerCredentialIDFilter(app, credentialIDs)
+	if apiErr != nil {
+		return nil, apiErr
 	}
 
 	var filtered []issuerCredentialReference
 	seen := map[string]struct{}{}
+	matched := map[string]struct{}{}
 	for _, ref := range refs {
-		credentialRecord, apiErr := resolveCollectionRecord(
+		if _, apiErr := resolveCanonicalCollectionRecord(
 			app,
 			"credentials",
 			ref.CredentialID,
 			"credential_id",
-		)
-		if apiErr != nil {
+			"credential",
+		); apiErr != nil {
 			return nil, apiErr
 		}
-		if filterIssuerID != "" && credentialRecord.GetString("credential_issuer") != filterIssuerID {
-			continue
-		}
 		normalized := canonify.NormalizePath(ref.CredentialID)
+		if len(requested) > 0 {
+			if _, ok := requested[normalized]; !ok {
+				continue
+			}
+			matched[normalized] = struct{}{}
+		}
 		if _, ok := seen[normalized]; ok {
 			continue
 		}
 		seen[normalized] = struct{}{}
 		filtered = append(filtered, issuerCredentialReference{
-			StepID:       ref.StepID,
 			CredentialID: normalized,
 		})
 	}
 	if len(filtered) == 0 {
 		return nil, apierror.New(
 			http.StatusBadRequest,
-			"issuer_id",
-			"no credential_id is associated with issuer_id",
-			"no credential-offer step references a credential for the requested issuer",
+			"credential_ids",
+			"no credential_id matches credential_ids",
+			"no credential-offer step references a requested credential_id",
+		)
+	}
+	if len(requested) > len(matched) {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"credential_ids",
+			"credential_ids must be referenced by the pipeline",
+			"one or more requested credential_ids are not used by credential-offer steps",
 		)
 	}
 	return filtered, nil
+}
+
+func resolvePipelineRunIssuerCredentialIDFilter(
+	app core.App,
+	credentialIDs []string,
+) (map[string]struct{}, *apierror.APIError) {
+	if len(credentialIDs) == 0 {
+		return nil, nil
+	}
+	filter := map[string]struct{}{}
+	for _, credentialID := range credentialIDs {
+		if _, apiErr := resolveCanonicalCollectionRecord(
+			app,
+			"credentials",
+			credentialID,
+			"credential_ids",
+			"credential",
+		); apiErr != nil {
+			return nil, apiErr
+		}
+		filter[canonify.NormalizePath(credentialID)] = struct{}{}
+	}
+	return filter, nil
 }
 
 func collectIssuerCredentialReferences(
@@ -422,7 +493,6 @@ func collectIssuerCredentialReferences(
 			return
 		}
 		refs = append(refs, issuerCredentialReference{
-			StepID:       step.ID,
 			CredentialID: canonify.NormalizePath(credentialID),
 		})
 	}
@@ -449,11 +519,12 @@ func createPipelineRunIssuerTempCredentials(
 	rewriteMap := map[string]string{}
 	tempCredentials := []tempCredential{}
 	for _, ref := range runContext.credentialRefs {
-		credentialRecord, apiErr := resolveCollectionRecord(
+		credentialRecord, apiErr := resolveCanonicalCollectionRecord(
 			e.App,
 			"credentials",
 			ref.CredentialID,
 			"credential_id",
+			"credential",
 		)
 		if apiErr != nil {
 			rollbackPipelineRunIssuerTempCredentials(e, tempCredentials)
@@ -532,7 +603,15 @@ func createTempCredential(
 		)
 	}
 	record.Set("owner", ownerID)
-	record.Set("name", uniqueTempCredentialName(e.App, original.GetString("name"), tag, original.GetString("credential_issuer")))
+	record.Set(
+		"name",
+		uniqueTempCredentialName(
+			e.App,
+			original.GetString("name"),
+			tag,
+			original.GetString("credential_issuer"),
+		),
+	)
 	record.Set("published", false)
 	record.Set("yaml", rewrittenYAML)
 
@@ -701,7 +780,10 @@ func buildPipelineRunIssuerCleanupMetadata(
 	return cleanup
 }
 
-func rollbackPipelineRunIssuerTempCredentials(e *core.RequestEvent, tempCredentials []tempCredential) {
+func rollbackPipelineRunIssuerTempCredentials(
+	e *core.RequestEvent,
+	tempCredentials []tempCredential,
+) {
 	for _, credential := range tempCredentials {
 		if credential.Record == nil || credential.Record.Id == "" {
 			continue
@@ -723,21 +805,32 @@ func resolvePipelineRunIssuerRunnerID(
 	input pipelineRunIssuerRequest,
 ) (string, bool, bool, *apierror.APIError) {
 	hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
+	if !hasStepRunner && !needsGlobalRunner {
+		return "", hasStepRunner, needsGlobalRunner, nil
+	}
 	if strings.TrimSpace(input.RunnerID) != "" {
 		return input.RunnerID, hasStepRunner, needsGlobalRunner, nil
 	}
 	if strings.TrimSpace(input.RunnerType) == "" {
+		if apiErr := validatePipelineCIGlobalRunnerRequest(
+			"",
+			hasStepRunner,
+			needsGlobalRunner,
+		); apiErr != nil {
+			return "", hasStepRunner, needsGlobalRunner, apiErr
+		}
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
 	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, input.RunnerType)
 	return runnerID, hasStepRunner, needsGlobalRunner, apiErr
 }
 
-func resolveCollectionRecord(
+func resolveCanonicalCollectionRecord(
 	app core.App,
 	collection string,
 	identifier string,
 	field string,
+	resourceName string,
 ) (*core.Record, *apierror.APIError) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" {
@@ -749,28 +842,20 @@ func resolveCollectionRecord(
 		)
 	}
 	record, err := canonify.Resolve(app, identifier)
-	if err == nil {
-		if record.Collection().Name == collection {
-			return record, nil
-		}
-		directRecord, directErr := app.FindRecordById(collection, identifier)
-		if directErr != nil {
-			return nil, apierror.New(
-				http.StatusBadRequest,
-				field,
-				field+" is invalid",
-				field+" must resolve to a "+collection+" record",
-			)
-		}
-		return directRecord, nil
-	}
-	record, err = app.FindRecordById(collection, identifier)
 	if err != nil {
 		return nil, apierror.New(
-			http.StatusNotFound,
+			http.StatusBadRequest,
 			field,
-			field+" not found",
-			err.Error(),
+			field+" is invalid",
+			field+" must be a canonical "+resourceName+" identifier",
+		)
+	}
+	if record.Collection().Name != collection {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			field,
+			field+" is invalid",
+			field+" must resolve to a "+resourceName+" record",
 		)
 	}
 	return record, nil
