@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { ListResult } from 'pocketbase';
+
 import { ClientResponseError } from 'pocketbase';
 
-import { PocketbaseQueryAgent } from '@/pocketbase/query';
 import { pb } from '@/pocketbase';
+import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 import type { ScoreboardRow } from '../types';
 
