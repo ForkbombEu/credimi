@@ -133,7 +133,9 @@ export class ScoreboardTable {
 			}
 		});
 
-		onMount(() => this.loadData());
+		onMount(() => {
+			if (!options.initialData) this.loadData();
+		});
 
 		$effect(() => {
 			if (options.initialData) {
