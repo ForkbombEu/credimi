@@ -4,10 +4,10 @@ info:
     email: support@forkbomb.eu
     name: credimi Support
     url: https://forkbomb.solutions
-  description: Credimi API — schedule and run conformance checks, manage pipeline automation,
-    orchestrate mobile runners, publish marketplace integrations, and inspect end-to-end
-    test results for decentralized identity services.
-  title: "Credimi API"
+  description: Credimi API — schedule and run conformance checks, manage pipeline
+    automation, orchestrate mobile runners, publish marketplace integrations, and
+    inspect end-to-end test results for decentralized identity services.
+  title: Credimi API
   version: 1.4.0
 servers:
 - description: Production server
