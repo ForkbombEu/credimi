@@ -79,7 +79,6 @@ func setupPipelineExecuteApp(t testing.TB) *tests.TestApp {
 func mockTemporalClient(
 	t *testing.T,
 	result workflowengine.WorkflowResult,
-	execErr error,
 	getErr error,
 ) {
 	t.Helper()
@@ -90,33 +89,23 @@ func mockTemporalClient(
 	mockClient := temporalmocks.NewClient(t)
 	workflowRun := temporalmocks.NewWorkflowRun(t)
 
-	if execErr != nil {
-		mockClient.On(
-			"ExecuteWorkflow",
-			mock.Anything,
-			mock.Anything,
-			"Dynamic Pipeline Workflow",
-			mock.Anything,
-		).Return(nil, execErr)
-	} else {
-		workflowRun.On("GetID").Return("wf-test-123").Maybe()
-		workflowRun.On("GetRunID").Return("run-test-456").Maybe()
-		workflowRun.On("Get", mock.Anything, mock.Anything).
-			Run(func(args mock.Arguments) {
-				if out, ok := args.Get(1).(*workflowengine.WorkflowResult); ok {
-					*out = result
-				}
-			}).
-			Return(getErr)
+	workflowRun.On("GetID").Return("wf-test-123").Maybe()
+	workflowRun.On("GetRunID").Return("run-test-456").Maybe()
+	workflowRun.On("Get", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			if out, ok := args.Get(1).(*workflowengine.WorkflowResult); ok {
+				*out = result
+			}
+		}).
+		Return(getErr)
 
-		mockClient.On(
-			"ExecuteWorkflow",
-			mock.Anything,
-			mock.Anything,
-			"Dynamic Pipeline Workflow",
-			mock.Anything,
-		).Return(workflowRun, nil)
-	}
+	mockClient.On(
+		"ExecuteWorkflow",
+		mock.Anything,
+		mock.Anything,
+		"Dynamic Pipeline Workflow",
+		mock.Anything,
+	).Return(workflowRun, nil)
 
 	pipelineTemporalClient = func(_ string) (client.Client, error) {
 		return mockClient, nil
@@ -216,7 +205,7 @@ func TestHandlePipelineExecute_Success(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil)
+	}, nil)
 
 	scenario := tests.ApiScenario{
 		Name:   "valid pipeline returns 200 with result",
@@ -246,7 +235,7 @@ func TestHandlePipelineExecute_SuccessMultiStep(t *testing.T) {
 				"outputs": map[string]any{"body": "second"},
 			},
 		},
-	}, nil, nil)
+	}, nil)
 
 	scenario := tests.ApiScenario{
 		Name:   "multi-step pipeline returns all step outputs",
@@ -297,7 +286,7 @@ func TestHandlePipelineExecute_WorkflowStartFails(t *testing.T) {
 }
 
 func TestHandlePipelineExecute_WorkflowGetFails(t *testing.T) {
-	mockTemporalClient(t, workflowengine.WorkflowResult{}, nil, errWorkflowFailed())
+	mockTemporalClient(t, workflowengine.WorkflowResult{}, errWorkflowFailed())
 
 	scenario := tests.ApiScenario{
 		Name:   "workflow get failure returns 500",
@@ -327,7 +316,7 @@ func TestHandlePipelineExecute_DeeplinkPresent(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil)
+	}, nil)
 
 	scenario := tests.ApiScenario{
 		Name:   "deeplink=true returns deeplink string",
@@ -356,7 +345,7 @@ func TestHandlePipelineExecute_DeeplinkMissing(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil)
+	}, nil)
 
 	scenario := tests.ApiScenario{
 		Name:   "deeplink=true but no deeplink in output returns 404",
@@ -376,7 +365,7 @@ func TestHandlePipelineExecute_DeeplinkMissing(t *testing.T) {
 func TestHandlePipelineExecute_DeeplinkOutputNotMap(t *testing.T) {
 	mockTemporalClient(t, workflowengine.WorkflowResult{
 		Output: "not a map",
-	}, nil, nil)
+	}, nil)
 
 	scenario := tests.ApiScenario{
 		Name:   "deeplink=true but output is not a map returns 404",
@@ -403,7 +392,7 @@ func TestHandlePipelineExecute_RedirectWithDeeplink(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil)
+	}, nil)
 
 	scenario := tests.ApiScenario{
 		Name:           "redirect=true with deeplink=true returns 302",
