@@ -8,4 +8,5 @@ import { ScoreboardTable as Instance } from './table.svelte.js';
 
 //
 
+export * as EntityDisplay from './entity-display';
 export { Component, Instance, loadScoreboardData as loadData };

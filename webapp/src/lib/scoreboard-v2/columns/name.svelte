@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import A from '@/components/ui-custom/a.svelte';
 
-	import Na from './partials/na.svelte';
+	import * as EntityDisplay from '../entity-display';
 
 	//
 
@@ -43,6 +43,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if href && value}
 		<A {href} class="text-xs font-bold">{value.name}</A>
 	{:else}
-		<Na />
+		<EntityDisplay.Na />
 	{/if}
 </div>

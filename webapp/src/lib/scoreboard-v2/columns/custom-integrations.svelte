@@ -10,13 +10,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { renderComponent } from '@/components/ui/data-table';
 
 	import * as Column from '../column';
+	import * as EntityDisplay from '../entity-display';
 	import EntityHeader from './headers/entity-header.svelte';
-	import SmallList from './partials/small-list.svelte';
-
-	//
 
 	export const column = Column.define({
-		fn: (row) => row.expand.custom_integrations ?? [],
+		fn: (row) =>
+			EntityDisplay.fromPocketbaseEntities(row.expand.custom_integrations ?? [], entities.custom_checks),
 		id: 'custom_integrations',
 		header: renderComponent(EntityHeader, {
 			data: entities.custom_checks,
@@ -30,4 +29,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<SmallList records={value} />
+<EntityDisplay.List items={value} layout="links-only" />

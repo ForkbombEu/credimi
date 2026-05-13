@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getPath } from '$lib/utils';
+import type { EntityData } from '$lib/global';
 
 import type {
 	CredentialIssuersResponse,
@@ -16,7 +16,26 @@ import type {
 
 //
 
-export type RelatedEntity =
+export type ChildLink = {
+	label: string;
+	href: string;
+};
+
+export type Item = {
+	key: string;
+	name: string;
+	href: string;
+	avatar?: { src?: string; fallback: string; alt: string };
+	kind?: EntityData;
+	caption?: string;
+	children?: ChildLink[];
+};
+
+export type Layout = 'avatar-only' | 'links-only' | 'compact' | 'full';
+
+export type Align = 'start' | 'end';
+
+export type PocketbaseEntity =
 	| WalletsResponse
 	| CredentialIssuersResponse
 	| VerifiersResponse
@@ -24,7 +43,3 @@ export type RelatedEntity =
 	| CredentialsResponse
 	| CustomChecksResponse
 	| PipelinesResponse;
-
-export function getRelatedEntityHref(entity: RelatedEntity): string {
-	return `/marketplace/${entity.collectionName}/${getPath(entity)}`;
-}

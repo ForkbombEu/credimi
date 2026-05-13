@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 
 	import * as Column from '../column';
-	import Na from './partials/na.svelte';
+	import * as EntityDisplay from '../entity-display';
 
 	//
 
@@ -85,6 +85,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</div>
 	{:else}
-		<Na />
+		<EntityDisplay.Na />
 	{/each}
 </div>

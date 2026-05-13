@@ -10,10 +10,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { renderComponent } from '@/components/ui/data-table';
 
 	import * as Column from '../column';
+	import * as EntityDisplay from '../entity-display';
 	import EntityHeader from './headers/entity-header.svelte';
 
 	export const column = Column.define({
-		fn: (row) => row.expand.credentials ?? [],
+		fn: (row) =>
+			EntityDisplay.fromPocketbaseEntities(row.expand.credentials ?? [], entities.credentials),
 		id: 'credentials',
 		header: renderComponent(EntityHeader, {
 			data: entities.credentials,
@@ -25,11 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import SmallList from './partials/small-list.svelte';
-
-	//
-
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<SmallList records={value} />
+<EntityDisplay.List items={value} layout="links-only" />

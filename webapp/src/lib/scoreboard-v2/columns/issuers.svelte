@@ -10,14 +10,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { renderComponent } from '@/components/ui/data-table';
 
 	import * as Column from '../column';
+	import * as EntityDisplay from '../entity-display';
 	import EntityHeader from './headers/entity-header.svelte';
-	import Avatar from './partials/avatar.svelte';
-	import Na from './partials/na.svelte';
-
-	//
 
 	export const column = Column.define({
-		fn: (row) => row.expand.issuers ?? [],
+		fn: (row) => EntityDisplay.fromPocketbaseEntities(row.expand.issuers ?? [], entities.credential_issuers),
 		id: 'issuers',
 		header: renderComponent(EntityHeader, {
 			data: entities.credential_issuers,
@@ -34,10 +31,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<div class="flex flex-col items-end gap-1">
-	{#each value as item (item.id)}
-		<Avatar record={item} link />
-	{:else}
-		<Na />
-	{/each}
-</div>
+<EntityDisplay.List items={value} layout="avatar-only" align="end" />

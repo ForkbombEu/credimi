@@ -10,12 +10,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { renderComponent } from '@/components/ui/data-table';
 
 	import * as Column from '../column';
+	import * as EntityDisplay from '../entity-display';
 	import EntityHeader from './headers/entity-header.svelte';
 
-	//
-
 	export const column = Column.define({
-		fn: (row) => row.expand.use_case_verifications ?? [],
+		fn: (row) =>
+			EntityDisplay.fromPocketbaseEntities(
+				row.expand.use_case_verifications ?? [],
+				entities.use_cases_verifications
+			),
 		id: 'use_case_verifications',
 		header: renderComponent(EntityHeader, {
 			data: entities.use_cases_verifications,
@@ -27,9 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import SmallList from './partials/small-list.svelte';
-
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<SmallList records={value} />
+<EntityDisplay.List items={value} layout="links-only" />

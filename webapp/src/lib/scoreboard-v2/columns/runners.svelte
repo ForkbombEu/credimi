@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 
-	import Na from './partials/na.svelte';
+	import * as EntityDisplay from '../entity-display';
 
 	let { value }: Column.Props<typeof column> = $props();
 </script>
@@ -36,6 +36,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/snippet}
 		</Tooltip>
 	{:else}
-		<Na />
+		<EntityDisplay.Na />
 	{/each}
 </div>
