@@ -27,7 +27,7 @@ import * as useCaseVerifications from './columns/use-case-verifications.svelte';
 import * as verifiers from './columns/verifiers.svelte';
 import * as videoScreenshot from './columns/video-screenshot.svelte';
 import * as wallets from './columns/wallets.svelte';
-import { loadScoreboardData } from './functions';
+import { loadPage } from './records';
 
 //
 
@@ -143,11 +143,9 @@ export class ScoreboardTable {
 	private async loadData() {
 		const currentApiPage = toApiPage(this.currentPage);
 		const sort = buildSortString(this.table, this.#sorting);
-		const res = await loadScoreboardData({
-			pagination: {
-				page: currentApiPage,
-				perPage: this.#pagination.pageSize
-			},
+		const res = await loadPage({
+			page: currentApiPage,
+			perPage: this.#pagination.pageSize,
 			...(sort ? { sort } : {})
 		});
 		const normalizedApiPage = fromApiPage(res.page);

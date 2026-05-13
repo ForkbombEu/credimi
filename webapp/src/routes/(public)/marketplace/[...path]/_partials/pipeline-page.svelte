@@ -5,9 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
+	import { Scoreboard } from '$lib';
 	import { getEnrichedPipeline } from '$lib/pipeline-form/functions';
-
-	import type { PipelineScoreboardCacheResponse } from '@/pocketbase/types';
 
 	import { pageDetails } from './_utils/types';
 
@@ -16,16 +15,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export async function getPipelineDetails(itemId: string, fetchFn = fetch) {
 		const pipeline = await getEnrichedPipeline(itemId, { fetch: fetchFn });
 
-		let results: PipelineScoreboardCacheResponse | undefined;
-		try {
-			results = await pb
-				.collection('pipeline_scoreboard_cache')
-				.getFirstListItem(
-					pb.filter('pipeline = {:pipeline}', { pipeline: pipeline.record.id })
-				);
-		} catch (e) {
-			console.error(e);
-		}
+		const results = await Scoreboard.Records.loadForPipeline(pipeline.record.id, {
+			fetch: fetchFn
+		});
 
 		return pageDetails('pipelines', { pipeline, results });
 	}
@@ -38,7 +30,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
 
 	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';

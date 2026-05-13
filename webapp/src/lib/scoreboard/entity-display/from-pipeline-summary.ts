@@ -5,11 +5,11 @@
 import { entities } from '$lib/global';
 
 import type { ScoreboardRow } from '../types';
+import type { ChildLink, Item } from './types';
 
 import { fromConformancePaths } from './from-conformance';
 import { fromPocketbaseEntity, getPocketbaseEntityHref } from './from-pocketbase';
 import { fromWalletRows } from './from-wallets';
-import type { ChildLink, Item } from './types';
 
 //
 

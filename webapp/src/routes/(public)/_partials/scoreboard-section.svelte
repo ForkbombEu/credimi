@@ -4,24 +4,6 @@ SPDX-FileCopyrightText: 2026 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script module lang="ts">
-	import { PocketbaseQueryAgent } from '@/pocketbase/query';
-
-	const queryAgent = new PocketbaseQueryAgent({
-		collection: 'pipeline_scoreboard_cache',
-		expand: ['pipeline', 'wallets', 'issuers', 'verifiers', 'latest_successful_execution']
-	});
-
-	export async function loadScoreboardSummary() {
-		const res = await queryAgent.getList(1, 5, {
-			sort: '@random'
-		});
-		return {
-			records: res.items as ScoreboardRow[]
-		};
-	}
-</script>
-
 <script lang="ts">
 	import type { ScoreboardRow } from '$lib/scoreboard/types';
 
@@ -30,7 +12,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CardLink from '$lib/layout/card-link.svelte';
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
 
-	type Props = Awaited<ReturnType<typeof loadScoreboardSummary>>;
+	type Props = {
+		records: ScoreboardRow[];
+	};
 
 	let { records }: Props = $props();
 </script>

@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { loadScoreboardData } from './functions';
 import Component from './table.svelte';
 import { ScoreboardTable as Instance } from './table.svelte.js';
 
 //
 
 export * as EntityDisplay from './entity-display';
-export { Component, Instance, loadScoreboardData as loadData };
+export * as Records from './records';
+export { Component, Instance };
