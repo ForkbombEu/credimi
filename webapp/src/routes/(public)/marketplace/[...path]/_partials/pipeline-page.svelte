@@ -24,8 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import { TableIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
+	import { entities } from '$lib/global';
 	import StepCardDisplay from '$lib/pipeline-form/steps-builder/_partials/step-card-display.svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -41,6 +41,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = Awaited<ReturnType<typeof getPipelineDetails>>;
 	let { pipeline, results }: Props = $props();
+
+	const runners = $derived(results?.expand.mobile_runners ?? []);
 </script>
 
 <LayoutWithToc sections={[s.description, s.pipeline_steps, s.workflow_yaml]}>
@@ -69,12 +71,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<p>{m.Min_running_time()}</p>
 					<p>{results?.minimum_running_time}</p>
 				</div>
+				{#if runners.length > 0}
+					<div class="stat">
+						<p>{m.Runners()}</p>
+						<ul>
+							{#each runners as runner (runner.id)}
+								<li>
+									{runner.description}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 			</div>
 
 			{#snippet right()}
 				<div class="pb-1 pl-6">
 					<Button variant="default" size="sm" href={resolve('/scoreboard')}>
-						<TableIcon />
+						<entities.scoreboard.icon />
 						{m.View_Scoreboard()}
 					</Button>
 				</div>
