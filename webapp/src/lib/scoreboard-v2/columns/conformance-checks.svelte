@@ -30,23 +30,69 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+
 	let { value }: Column.Props<typeof column> = $props();
+
+	function lookupSuiteMeta(standardUid: string, versionUid: string, suiteUid: string) {
+		const std = Conformance.Standards.Store.get().standards.find((s) => s.uid === standardUid);
+		const ver = std?.versions.find((v) => v.uid === versionUid);
+		const suite = ver?.suites.find((su) => su.uid === suiteUid);
+		return {
+			logo: suite?.logo,
+			name: suite?.name ?? suiteUid
+		};
+	}
 </script>
 
-<div>
-	{#each value as suite (suite)}
-		<p class="text-xs font-bold">{suite.title}</p>
-		<ul class="list-inside list-disc">
-			{#each suite.checks as check (check.path)}
-				{@const href = Marketplace.Conformance.getStandardCheckUrlFromPath(check.path)}
-				<li class="max-w-[35ch] truncate text-xs">
+<div class="flex flex-col gap-2">
+	{#each value as suite (suite.standardUid + suite.versionUid + suite.suiteUid)}
+		{@const meta = lookupSuiteMeta(suite.standardUid, suite.versionUid, suite.suiteUid)}
+		{@const suiteHref = localizeHref(
+			Marketplace.Conformance.getSuitePageUrl(
+				suite.standardUid,
+				suite.versionUid,
+				suite.suiteUid
+			)
+		)}
+		<div>
+			<div class="flex items-start gap-2">
+				<a
+					href={resolve(suiteHref as '/')}
+					class="w-fit shrink-0 rounded-sm hover:ring-2 hover:ring-primary"
+				>
+					<Avatar
+						src={meta.logo}
+						fallback={meta.name.slice(0, 2)}
+						alt={meta.name}
+						class="size-8 rounded-sm border bg-muted uppercase"
+					/>
+				</a>
+				<div class="flex flex-col">
 					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-					<a class="text-primary hover:underline" href={localizeHref(href)}>
-						{check.id}
+					<a class="text-xs font-bold text-primary hover:underline" href={suiteHref}>
+						{suite.title}
 					</a>
-				</li>
-			{/each}
-		</ul>
+					<ul class="flex list-disc flex-col">
+						{#each suite.checks as check (check.path)}
+							{@const checkHref = localizeHref(
+								Marketplace.Conformance.getStandardCheckUrlFromPath(check.path)
+							)}
+							<li class="max-w-[35ch] truncate text-xs">
+								<a
+									class="text-primary hover:underline"
+									href={resolve(checkHref as '/')}
+								>
+									{check.id}
+								</a>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			</div>
+		</div>
 	{:else}
 		<Na />
 	{/each}

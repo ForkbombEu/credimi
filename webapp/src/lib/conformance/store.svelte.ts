@@ -8,12 +8,16 @@ import { listAll } from './query';
 
 //
 
-const Store = $state({
-	standards: [] as Standard[]
-});
+const standards = $state<Standard[]>([]);
+
+const readonlyView = {
+	get standards(): readonly Standard[] {
+		return standards as readonly Standard[];
+	}
+};
 
 export function get() {
-	return $state.snapshot(Store);
+	return readonlyView;
 }
 
 export function load() {
@@ -21,8 +25,9 @@ export function load() {
 		Rejected: (reason) => {
 			console.error(reason);
 		},
-		Resolved: (standards) => {
-			Store.standards = standards;
+		Resolved: (next) => {
+			standards.length = 0;
+			standards.push(...next);
 		}
 	});
 }
