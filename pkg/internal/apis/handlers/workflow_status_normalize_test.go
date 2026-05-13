@@ -12,6 +12,8 @@ import (
 )
 
 func TestNormalizeTemporalStatus(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		raw  string
 		want string
@@ -37,6 +39,8 @@ func TestNormalizeTemporalStatus(t *testing.T) {
 }
 
 func TestBuildExecutionHierarchyNormalizesStatus(t *testing.T) {
+	t.Parallel()
+
 	exec := &WorkflowExecution{
 		Execution: &WorkflowIdentifier{
 			WorkflowID: "wf-1",

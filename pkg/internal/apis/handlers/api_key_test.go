@@ -64,6 +64,8 @@ func (s *apiKeyGenerationServiceStub) GenerateInternalAdminAPIKey(
 }
 
 func TestGenerateAuthenticateApiKeyResponse(t *testing.T) {
+	t.Parallel()
+
 	response, err := generateAuthenticateApiKeyResponse(tokenStub{token: "token-1"})
 	require.NoError(t, err)
 	require.Equal(t, "token-1", response.Token)
@@ -73,6 +75,8 @@ func TestGenerateAuthenticateApiKeyResponse(t *testing.T) {
 }
 
 func TestGenerateApiKeyInvalidInput(t *testing.T) {
+	t.Parallel()
+
 	handler := GenerateApiKey()
 	req := httptest.NewRequest(http.MethodPost, "/api/apikey/generate", nil)
 	req = req.WithContext(context.Background())
@@ -96,6 +100,8 @@ func TestGenerateApiKeyInvalidInput(t *testing.T) {
 }
 
 func TestGenerateAPIKeyForPrincipalUser(t *testing.T) {
+	t.Parallel()
+
 	stub := &apiKeyGenerationServiceStub{userKey: "user-key"}
 	auth := core.NewRecord(core.NewAuthCollection("users"))
 	auth.Id = "user-1"
@@ -110,6 +116,8 @@ func TestGenerateAPIKeyForPrincipalUser(t *testing.T) {
 }
 
 func TestGenerateAPIKeyForPrincipalSuperuser(t *testing.T) {
+	t.Parallel()
+
 	stub := &apiKeyGenerationServiceStub{internalAdminKey: "internal-key"}
 	auth := core.NewRecord(core.NewAuthCollection("_superusers"))
 	auth.Id = "superuser-1"
@@ -124,6 +132,8 @@ func TestGenerateAPIKeyForPrincipalSuperuser(t *testing.T) {
 }
 
 func TestGenerateAPIKeyForPrincipalUnsupportedCollection(t *testing.T) {
+	t.Parallel()
+
 	stub := &apiKeyGenerationServiceStub{}
 	auth := core.NewRecord(core.NewAuthCollection("admins"))
 	auth.Id = "admin-1"
