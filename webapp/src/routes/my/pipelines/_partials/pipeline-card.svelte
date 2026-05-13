@@ -94,18 +94,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const hasWorkflows = $derived(workflows && workflows.length > 0);
 
 	let scoreboardResults = $state<ScoreboardRow | undefined>();
+	let scoreboardPipelineId = $state<string | undefined>();
 
 	$effect(() => {
 		const pipelineId = pipeline.id;
-		scoreboardResults = undefined;
+		if (scoreboardPipelineId === pipelineId) return;
 
 		let cancelled = false;
-		Scoreboard.Records.loadForPipeline(pipelineId)
+		void Scoreboard.Records.loadForPipeline(pipelineId)
 			.then((results) => {
-				if (!cancelled) scoreboardResults = results;
+				if (!cancelled) {
+					scoreboardResults = results;
+					scoreboardPipelineId = pipelineId;
+				}
 			})
 			.catch((error) => {
 				console.error(error);
+				if (!cancelled) scoreboardPipelineId = pipelineId;
 			});
 
 		return () => {
