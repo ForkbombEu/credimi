@@ -4,14 +4,14 @@ info:
     email: support@forkbomb.eu
     name: credimi Support
     url: https://forkbomb.solutions
-  description: credimi API Gateway for managing EUDI-ARF compliance checks...
-  title: "credimi \U0001F440 API Gateway"
+  description: Credimi API — schedule and run conformance checks, manage pipeline automation,
+    orchestrate mobile runners, publish marketplace integrations, and inspect end-to-end
+    test results for decentralized identity services.
+  title: "Credimi API"
   version: 1.4.0
 servers:
 - description: Production server
   url: https://credimi.io
-- description: Demo server
-  url: https://demo.credimi.io
 - description: Localhost server
   url: http://localhost:8090/
 paths:

@@ -1,0 +1,13 @@
+max_concurrency = 64
+retry_wait_time = 2
+max_retries = 5
+accept = ["100..=103", "200..=299", "429"]
+
+exclude = [
+  # PlantUML icon-font-sprites v3 base URL (directory prefix, not a fetchable file)
+  "raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons$",
+  # Placeholder domains in example documentation
+  "your-domain",
+  # API endpoints requiring authentication (always return 401 for link checkers)
+  "certification.openid.net/api",
+]

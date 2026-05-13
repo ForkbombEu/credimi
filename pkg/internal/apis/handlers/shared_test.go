@@ -22,6 +22,8 @@ import (
 )
 
 func TestDecodeFromTemporalPayload(t *testing.T) {
+	t.Parallel()
+
 	encoded := base64.StdEncoding.EncodeToString([]byte(`"hello"`))
 	require.Equal(t, "hello", DecodeFromTemporalPayload(encoded))
 	require.Equal(t, "not-base64", DecodeFromTemporalPayload("not-base64"))
@@ -29,6 +31,8 @@ func TestDecodeFromTemporalPayload(t *testing.T) {
 }
 
 func TestCalculateAndFormatDuration(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, "", calculateDuration("", ""))
 	require.Equal(t, "", calculateDuration("invalid", "2025-01-01T00:00:00Z"))
 
@@ -41,6 +45,8 @@ func TestCalculateAndFormatDuration(t *testing.T) {
 }
 
 func TestFetchWorkflowFailure(t *testing.T) {
+	t.Parallel()
+
 	t.Run("no events", func(t *testing.T) {
 		mockClient := &temporalmocks.Client{}
 		mockClient.
@@ -123,6 +129,8 @@ func TestFetchWorkflowFailure(t *testing.T) {
 }
 
 func TestGetStringFromMap(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, "", getStringFromMap(nil, "key"))
 	require.Equal(t, "", getStringFromMap(map[string]any{"key": 123}, "key"))
 	require.Equal(t, "value", getStringFromMap(map[string]any{"key": "value"}, "key"))
@@ -135,7 +143,7 @@ func seedInternalAdminKey(t testing.TB, app *tests.TestApp) {
 	require.NoError(t, err)
 	coll, err := app.FindCollectionByNameOrId("api_keys")
 	require.NoError(t, err)
-	hash, err := bcrypt.GenerateFromPassword([]byte("internal-test-api-key"), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte("internal-test-api-key"), bcrypt.MinCost)
 	require.NoError(t, err)
 
 	record := core.NewRecord(coll)

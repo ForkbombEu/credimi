@@ -16,6 +16,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Mock implementations for testing
@@ -136,9 +137,15 @@ func createTestUserRecord() *core.Record {
 	return record
 }
 
+func newFastBcryptKeyHasher() *BcryptKeyHasher {
+	return &BcryptKeyHasher{Cost: bcrypt.MinCost}
+}
+
 // Tests for CryptoKeyGenerator
 
 func TestCryptoKeyGenerator_GenerateKeyBytes(t *testing.T) {
+	t.Parallel()
+
 	generator := &CryptoKeyGenerator{}
 
 	key, err := generator.GenerateKeyBytes()
@@ -152,6 +159,8 @@ func TestCryptoKeyGenerator_GenerateKeyBytes(t *testing.T) {
 }
 
 func TestCryptoKeyGenerator_EncodeKey(t *testing.T) {
+	t.Parallel()
+
 	generator := &CryptoKeyGenerator{}
 	testData := []byte("test-key-data-12345678901234567890")
 
@@ -164,6 +173,8 @@ func TestCryptoKeyGenerator_EncodeKey(t *testing.T) {
 }
 
 func TestCryptoKeyGenerator_EncodeKey_EmptyInput(t *testing.T) {
+	t.Parallel()
+
 	generator := &CryptoKeyGenerator{}
 
 	encoded := generator.EncodeKey([]byte{})
@@ -173,7 +184,9 @@ func TestCryptoKeyGenerator_EncodeKey_EmptyInput(t *testing.T) {
 // Tests for BcryptKeyHasher
 
 func TestBcryptKeyHasher_HashKey_Success(t *testing.T) {
-	hasher := NewBcryptKeyHasher()
+	t.Parallel()
+
+	hasher := newFastBcryptKeyHasher()
 
 	hashed, err := hasher.HashKey("test-api-key")
 	assert.NoError(t, err)
@@ -182,7 +195,9 @@ func TestBcryptKeyHasher_HashKey_Success(t *testing.T) {
 }
 
 func TestBcryptKeyHasher_HashKey_EmptyKey(t *testing.T) {
-	hasher := NewBcryptKeyHasher()
+	t.Parallel()
+
+	hasher := newFastBcryptKeyHasher()
 
 	_, err := hasher.HashKey("")
 	assert.Error(t, err)
@@ -190,7 +205,9 @@ func TestBcryptKeyHasher_HashKey_EmptyKey(t *testing.T) {
 }
 
 func TestBcryptKeyHasher_CompareHashAndKey_Success(t *testing.T) {
-	hasher := NewBcryptKeyHasher()
+	t.Parallel()
+
+	hasher := newFastBcryptKeyHasher()
 	key := "test-api-key"
 
 	hashed, err := hasher.HashKey(key)
@@ -201,7 +218,9 @@ func TestBcryptKeyHasher_CompareHashAndKey_Success(t *testing.T) {
 }
 
 func TestBcryptKeyHasher_CompareHashAndKey_WrongKey(t *testing.T) {
-	hasher := NewBcryptKeyHasher()
+	t.Parallel()
+
+	hasher := newFastBcryptKeyHasher()
 	key := "test-api-key"
 
 	hashed, err := hasher.HashKey(key)
@@ -212,7 +231,9 @@ func TestBcryptKeyHasher_CompareHashAndKey_WrongKey(t *testing.T) {
 }
 
 func TestBcryptKeyHasher_CompareHashAndKey_EmptyInputs(t *testing.T) {
-	hasher := NewBcryptKeyHasher()
+	t.Parallel()
+
+	hasher := newFastBcryptKeyHasher()
 
 	err := hasher.CompareHashAndKey("", "key")
 	assert.Error(t, err)
@@ -226,8 +247,10 @@ func TestBcryptKeyHasher_CompareHashAndKey_EmptyInputs(t *testing.T) {
 // Tests for DefaultRecordRepository
 
 func TestDefaultRecordRepository_FindMatchingApiKeyRecord_Success(t *testing.T) {
+	t.Parallel()
+
 	repo := &DefaultRecordRepository{}
-	hasher := NewBcryptKeyHasher()
+	hasher := newFastBcryptKeyHasher()
 	apiKey := "test-api-key"
 
 	// Create hashed key
@@ -248,8 +271,10 @@ func TestDefaultRecordRepository_FindMatchingApiKeyRecord_Success(t *testing.T) 
 }
 
 func TestDefaultRecordRepository_FindMatchingApiKeyRecord_NotFound(t *testing.T) {
+	t.Parallel()
+
 	repo := &DefaultRecordRepository{}
-	hasher := NewBcryptKeyHasher()
+	hasher := newFastBcryptKeyHasher()
 
 	records := []*core.Record{}
 
@@ -259,8 +284,10 @@ func TestDefaultRecordRepository_FindMatchingApiKeyRecord_NotFound(t *testing.T)
 }
 
 func TestDefaultRecordRepository_FindMatchingApiKeyRecord_EmptyApiKey(t *testing.T) {
+	t.Parallel()
+
 	repo := &DefaultRecordRepository{}
-	hasher := NewBcryptKeyHasher()
+	hasher := newFastBcryptKeyHasher()
 
 	records := []*core.Record{}
 
@@ -270,8 +297,10 @@ func TestDefaultRecordRepository_FindMatchingApiKeyRecord_EmptyApiKey(t *testing
 }
 
 func TestDefaultRecordRepository_FindMatchingApiKeyRecord_NilRecord(t *testing.T) {
+	t.Parallel()
+
 	repo := &DefaultRecordRepository{}
-	hasher := NewBcryptKeyHasher()
+	hasher := newFastBcryptKeyHasher()
 
 	records := []*core.Record{nil}
 
@@ -281,8 +310,10 @@ func TestDefaultRecordRepository_FindMatchingApiKeyRecord_NilRecord(t *testing.T
 }
 
 func TestDefaultRecordRepository_FindMatchingApiKeyRecord_EmptyHash(t *testing.T) {
+	t.Parallel()
+
 	repo := &DefaultRecordRepository{}
-	hasher := NewBcryptKeyHasher()
+	hasher := newFastBcryptKeyHasher()
 
 	// Create test record with empty hash
 	collection := createTestCollection()
@@ -299,6 +330,8 @@ func TestDefaultRecordRepository_FindMatchingApiKeyRecord_EmptyHash(t *testing.T
 // Tests for ApiKeyService
 
 func TestApiKeyService_GenerateApiKey_Success(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockKeyGen := new(MockKeyGenerator)
 	mockHasher := new(MockKeyHasher)
@@ -329,6 +362,8 @@ func TestApiKeyService_GenerateApiKey_Success(t *testing.T) {
 }
 
 func TestApiKeyService_GenerateApiKey_EmptyUserId(t *testing.T) {
+	t.Parallel()
+
 	service := NewApiKeyService(new(MockApp))
 
 	_, err := service.GenerateApiKey("", "Test API Key")
@@ -341,6 +376,8 @@ func TestApiKeyService_GenerateApiKey_EmptyUserId(t *testing.T) {
 }
 
 func TestApiKeyService_GenerateApiKey_EmptyName(t *testing.T) {
+	t.Parallel()
+
 	service := NewApiKeyService(new(MockApp))
 
 	_, err := service.GenerateApiKey("test-user", "")
@@ -353,6 +390,8 @@ func TestApiKeyService_GenerateApiKey_EmptyName(t *testing.T) {
 }
 
 func TestApiKeyService_GenerateApiKey_KeyGenerationFails(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockKeyGen := new(MockKeyGenerator)
 	mockHasher := new(MockKeyHasher)
@@ -372,6 +411,8 @@ func TestApiKeyService_GenerateApiKey_KeyGenerationFails(t *testing.T) {
 }
 
 func TestApiKeyService_GenerateApiKey_EmptyEncodedKey(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockKeyGen := new(MockKeyGenerator)
 	mockHasher := new(MockKeyHasher)
@@ -393,6 +434,8 @@ func TestApiKeyService_GenerateApiKey_EmptyEncodedKey(t *testing.T) {
 }
 
 func TestApiKeyService_GenerateApiKey_HashingFails(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockKeyGen := new(MockKeyGenerator)
 	mockHasher := new(MockKeyHasher)
@@ -415,6 +458,8 @@ func TestApiKeyService_GenerateApiKey_HashingFails(t *testing.T) {
 }
 
 func TestApiKeyService_GenerateApiKey_CollectionNotFound(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockKeyGen := new(MockKeyGenerator)
 	mockHasher := new(MockKeyHasher)
@@ -439,6 +484,8 @@ func TestApiKeyService_GenerateApiKey_CollectionNotFound(t *testing.T) {
 }
 
 func TestApiKeyService_GenerateApiKey_SaveFails(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockKeyGen := new(MockKeyGenerator)
 	mockHasher := new(MockKeyHasher)
@@ -465,6 +512,8 @@ func TestApiKeyService_GenerateApiKey_SaveFails(t *testing.T) {
 }
 
 func TestApiKeyService_AuthenticateApiKey_Success(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockKeyGen := new(MockKeyGenerator)
 	mockHasher := new(MockKeyHasher)
@@ -498,6 +547,8 @@ func TestApiKeyService_AuthenticateApiKey_Success(t *testing.T) {
 }
 
 func TestApiKeyService_AuthenticateApiKey_EmptyApiKey(t *testing.T) {
+	t.Parallel()
+
 	service := NewApiKeyService(new(MockApp))
 
 	_, err := service.AuthenticateApiKey("")
@@ -510,6 +561,8 @@ func TestApiKeyService_AuthenticateApiKey_EmptyApiKey(t *testing.T) {
 }
 
 func TestApiKeyService_AuthenticateApiKey_FindRecordsFails(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	service := NewApiKeyService(mockApp)
 
@@ -526,6 +579,8 @@ func TestApiKeyService_AuthenticateApiKey_FindRecordsFails(t *testing.T) {
 }
 
 func TestApiKeyService_AuthenticateApiKey_NoMatchingRecord(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockRepo := new(MockRecordRepository)
 	service := NewApiKeyServiceWithDependencies(mockApp, nil, nil, mockRepo)
@@ -545,6 +600,8 @@ func TestApiKeyService_AuthenticateApiKey_NoMatchingRecord(t *testing.T) {
 }
 
 func TestApiKeyService_AuthenticateApiKey_EmptyUserId(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockRepo := new(MockRecordRepository)
 	service := NewApiKeyServiceWithDependencies(mockApp, nil, nil, mockRepo)
@@ -570,6 +627,8 @@ func TestApiKeyService_AuthenticateApiKey_EmptyUserId(t *testing.T) {
 }
 
 func TestApiKeyService_AuthenticateApiKey_UserNotFound(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockRepo := new(MockRecordRepository)
 	service := NewApiKeyServiceWithDependencies(mockApp, nil, nil, mockRepo)
@@ -596,6 +655,8 @@ func TestApiKeyService_AuthenticateApiKey_UserNotFound(t *testing.T) {
 }
 
 func TestApiKeyService_AuthenticateApiKey_UserRecordNil(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockRepo := new(MockRecordRepository)
 	service := NewApiKeyServiceWithDependencies(mockApp, nil, nil, mockRepo)
@@ -622,6 +683,8 @@ func TestApiKeyService_AuthenticateApiKey_UserRecordNil(t *testing.T) {
 }
 
 func TestApiKeyService_AuthenticateInternalAdminAPIKey_RejectsBlankScopeUserKey(t *testing.T) {
+	t.Parallel()
+
 	mockApp := new(MockApp)
 	mockRepo := new(MockRecordRepository)
 	service := NewApiKeyServiceWithDependencies(mockApp, nil, nil, mockRepo)
@@ -650,8 +713,10 @@ func TestApiKeyService_AuthenticateInternalAdminAPIKey_RejectsBlankScopeUserKey(
 // Security-focused tests
 
 func TestApiKeyService_SecurityTimingAttack_ResistantHashComparison(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies that different hash lengths don't significantly affect timing
-	hasher := NewBcryptKeyHasher()
+	hasher := newFastBcryptKeyHasher()
 	apiKey := "test-api-key"
 
 	// Create a valid hash
@@ -677,6 +742,8 @@ func TestApiKeyService_SecurityTimingAttack_ResistantHashComparison(t *testing.T
 }
 
 func TestApiKeyService_SecurityInputValidation_MaliciousInputs(t *testing.T) {
+	t.Parallel()
+
 	service := NewApiKeyService(new(MockApp))
 
 	maliciousInputs := []struct {
@@ -718,6 +785,8 @@ func TestApiKeyService_SecurityInputValidation_MaliciousInputs(t *testing.T) {
 }
 
 func TestApiKeyService_SecurityApiKeyValidation_MaliciousApiKeys(t *testing.T) {
+	t.Parallel()
+
 	service := NewApiKeyService(new(MockApp))
 
 	maliciousApiKeys := []string{
@@ -754,9 +823,11 @@ func TestApiKeyService_SecurityApiKeyValidation_MaliciousApiKeys(t *testing.T) {
 }
 
 func TestBcryptKeyHasher_SecurityConstantTimeBehavior(t *testing.T) {
+	t.Parallel()
+
 	// This test attempts to verify that bcrypt comparison is constant time
 	// by testing various scenarios that might reveal timing differences
-	hasher := NewBcryptKeyHasher()
+	hasher := newFastBcryptKeyHasher()
 
 	correctKey := "correct-api-key-12345"
 	hash, err := hasher.HashKey(correctKey)

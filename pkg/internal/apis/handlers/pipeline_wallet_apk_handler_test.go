@@ -55,7 +55,7 @@ func seedWalletAPKUserAPIKey(t testing.TB, app *tests.TestApp) {
 	require.NoError(t, err)
 	coll, err := app.FindCollectionByNameOrId("api_keys")
 	require.NoError(t, err)
-	hash, err := bcrypt.GenerateFromPassword([]byte(walletAPKUserAPIKey), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(walletAPKUserAPIKey), bcrypt.MinCost)
 	require.NoError(t, err)
 
 	record := core.NewRecord(coll)
