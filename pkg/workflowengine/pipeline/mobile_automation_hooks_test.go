@@ -702,7 +702,12 @@ func TestPrepareMobileAutomationStepsHoistsExternalInstallSteps(t *testing.T) {
 				},
 			}
 
-			if err := prepareMobileAutomationSteps(ctx, &steps, "https://app.example", httpActivity); err != nil {
+			if err := prepareMobileAutomationSteps(
+				ctx,
+				&steps,
+				"https://app.example",
+				httpActivity,
+			); err != nil {
 				return nil, err
 			}
 

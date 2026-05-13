@@ -568,6 +568,25 @@ func applyPipelineQueueCleanupConfig(
 			}
 		}
 	}
+	if len(cleanup.TempUseCaseVerifications) > 0 {
+		useCases := make([]map[string]any, 0, len(cleanup.TempUseCaseVerifications))
+		for _, useCase := range cleanup.TempUseCaseVerifications {
+			if strings.TrimSpace(useCase.RecordID) == "" {
+				continue
+			}
+			useCases = append(useCases, map[string]any{
+				"record_id":  useCase.RecordID,
+				"owner_id":   useCase.OwnerID,
+				"identifier": useCase.Identifier,
+			})
+		}
+		if len(useCases) > 0 {
+			config[verifierCITempUseCasesConfigKey] = map[string]any{
+				"use_cases": useCases,
+				"cleanup":   true,
+			}
+		}
+	}
 }
 
 // startPipelineFromQueue starts a non-runner pipeline and persists the pipeline result record.
@@ -860,6 +879,18 @@ func cleanupCanceledQueueResources(
 			return apiErr
 		}
 	}
+	for _, useCase := range cleanup.TempUseCaseVerifications {
+		if strings.TrimSpace(useCase.RecordID) == "" {
+			continue
+		}
+		if apiErr := deleteTempUseCaseVerificationForOwner(
+			app,
+			useCase.RecordID,
+			ownerID,
+		); apiErr != nil {
+			return apiErr
+		}
+	}
 	return nil
 }
 
@@ -876,7 +907,8 @@ func canceledQueueCleanupMetadata(
 		}
 		if status.Cleanup != nil &&
 			(strings.TrimSpace(status.Cleanup.TempWalletVersionID) != "" ||
-				len(status.Cleanup.TempCredentials) > 0) {
+				len(status.Cleanup.TempCredentials) > 0 ||
+				len(status.Cleanup.TempUseCaseVerifications) > 0) {
 			cleanup = status.Cleanup
 		}
 	}
@@ -913,6 +945,42 @@ func deleteTempWalletVersionForOwner(
 			http.StatusInternalServerError,
 			"wallet_version",
 			"failed to delete temporary wallet version",
+			err.Error(),
+		)
+	}
+	return nil
+}
+
+func deleteTempUseCaseVerificationForOwner(
+	app core.App,
+	recordID string,
+	ownerID string,
+) *apierror.APIError {
+	record, err := app.FindRecordById("use_cases_verifications", strings.TrimSpace(recordID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return apierror.New(
+			http.StatusInternalServerError,
+			"use_case_verification",
+			"failed to find temporary use case verification",
+			err.Error(),
+		)
+	}
+	if record.GetString("owner") != ownerID {
+		return apierror.New(
+			http.StatusForbidden,
+			"use_case_verification",
+			"temporary use case verification owner mismatch",
+			"queued cleanup does not belong to the authenticated organization",
+		)
+	}
+	if err := app.Delete(record); err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"use_case_verification",
+			"failed to delete temporary use case verification",
 			err.Error(),
 		)
 	}

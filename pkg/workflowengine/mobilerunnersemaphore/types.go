@@ -85,6 +85,7 @@ type MobileRunnerSemaphoreCleanupMetadata struct {
 	TempWalletVersionOwnerID    string                                               `json:"temp_wallet_version_owner_id,omitempty"`
 	TempWalletVersionIdentifier string                                               `json:"temp_wallet_version_identifier,omitempty"`
 	TempCredentials             []MobileRunnerSemaphoreTempCredentialCleanupMetadata `json:"temp_credentials,omitempty"`
+	TempUseCaseVerifications    []MobileRunnerSemaphoreTempCredentialCleanupMetadata `json:"temp_use_case_verifications,omitempty"`
 }
 
 type MobileRunnerSemaphoreTempCredentialCleanupMetadata struct {
