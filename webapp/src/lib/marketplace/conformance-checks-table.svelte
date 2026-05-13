@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Marketplace } from '$lib/marketplace';
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
 	import * as Table from '@/components/ui/table';
@@ -44,7 +45,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Table.Cell class="px-4 align-top">
 					<TableNameCell
 						name={standard.name}
-						href={`/marketplace/conformance-checks/${standard.uid}/${version.uid}/${suite.uid}`}
+						href={Marketplace.Conformance.getSuitePageUrl(
+							standard.uid,
+							version.uid,
+							suite.uid
+						)}
 						logo={suite.logo}
 					/>
 				</Table.Cell>
@@ -63,7 +68,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<ChildrenCell
 							items={suite.paths.map((p, i) => ({
 								title: suite.files[i].replace('.yaml', ''),
-								href: `/marketplace/conformance-checks/${p}`
+								href: Marketplace.Conformance.getStandardCheckUrlFromPath(p)
 							}))}
 						/>
 					{/if}

@@ -3,11 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import {
+	ChartNoAxesCombined,
 	CheckCircle,
 	PuzzleIcon,
 	QrCode,
 	ScaleIcon,
 	ShieldCheck,
+	StoreIcon,
 	TestTube2,
 	Users,
 	Wallet,
@@ -15,7 +17,6 @@ import {
 } from '@lucide/svelte';
 
 import type { IconComponent } from '@/components/types';
-import type { CollectionName } from '@/pocketbase/collections-models';
 
 import { m } from '@/i18n';
 
@@ -35,11 +36,7 @@ export type EntityData = {
 	};
 };
 
-type EntitiesConfig = Partial<
-	Record<CollectionName | 'conformance_checks' | 'test_runs', EntityData>
->;
-
-//
+export type EntitySlug = keyof typeof entities;
 
 export const entities = {
 	wallets: {
@@ -166,5 +163,33 @@ export const entities = {
 			text: 'text-black',
 			border: 'border-black'
 		}
+	},
+
+	scoreboard: {
+		slug: 'scoreboard',
+		icon: ChartNoAxesCombined,
+		labels: {
+			singular: m.Scoreboard(),
+			plural: m.Scoreboard()
+		},
+		classes: {
+			bg: 'bg-black/10',
+			text: 'text-black',
+			border: 'border-black'
+		}
+	},
+
+	marketplace: {
+		slug: 'marketplace',
+		icon: StoreIcon,
+		labels: {
+			singular: m.Marketplace(),
+			plural: m.Marketplace()
+		},
+		classes: {
+			bg: 'bg-black/10',
+			text: 'text-black',
+			border: 'border-black'
+		}
 	}
-} as const satisfies EntitiesConfig;
+} as const satisfies Record<string, EntityData>;

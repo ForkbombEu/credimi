@@ -4,6 +4,7 @@
 
 import type { Merge } from 'type-fest';
 
+import { Marketplace } from '$lib/marketplace';
 import { error } from '@sveltejs/kit';
 
 //
@@ -28,7 +29,7 @@ export const load = async ({ params, parent }) => {
 		standard,
 		version,
 		suite,
-		basePath: `/marketplace/conformance-checks/${standardUid}/${versionUid}/${suiteUid}`
+		basePath: Marketplace.Conformance.getSuitePageUrl(standardUid, versionUid, suiteUid)
 	};
 
 	if (!file) {

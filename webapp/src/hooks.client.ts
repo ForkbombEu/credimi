@@ -3,15 +3,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { version } from '$app/environment';
+import { Conformance } from '$lib';
 
 import { appName } from '@/brand';
 import { currentUser, pb, type AuthStoreModel } from '@/pocketbase';
+
+//
 
 pb.authStore.loadFromCookie(document.cookie);
 pb.authStore.onChange(() => {
 	currentUser.set(pb.authStore.model as AuthStoreModel);
 	document.cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
 });
+
+Conformance.Standards.Store.load();
 
 console.info(
 	`%c${appName} version: 🔖 ${version}`,
