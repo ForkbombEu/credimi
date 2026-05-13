@@ -7,9 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ClassValue } from 'svelte/elements';
 
+	import type { Align, Item, Layout } from './types';
+
 	import EntityItem from './item.svelte';
 	import Na from './na.svelte';
-	import type { Align, Item, Layout } from './types';
 
 	//
 
