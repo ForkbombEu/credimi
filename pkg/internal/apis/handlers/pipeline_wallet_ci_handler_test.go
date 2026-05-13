@@ -485,6 +485,32 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			},
 		},
 		{
+			Name:    "rejects raw wallet version record id",
+			Method:  http.MethodPost,
+			URL:     "/api/pipeline/run-wallet-apk",
+			Headers: userKeyHeaders,
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"metadata":            walletAPKMetadata(),
+				"apk_url":             "http://ci.example.test/wallet.apk",
+			}),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				"wallet_version must be a canonical wallet version identifier",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineWalletAPKApp(t)
+				seedWalletAPKUserAPIKey(t, app)
+				orgID, err := getOrgIDfromName("userA's organization")
+				require.NoError(t, err)
+				versionID := createWalletAPKVersion(t, app, orgID, "wallet123", "1.0.0")
+				versionRecord, err := canonify.Resolve(app, versionID)
+				require.NoError(t, err)
+				createWalletAPITestPipeline(t, app, orgID, walletAPKPipelineYAML(versionRecord.Id))
+				return app
+			},
+		},
+		{
 			Name:    "rejects private pipeline owned by another organization",
 			Method:  http.MethodPost,
 			URL:     "/api/pipeline/run-wallet-apk",
@@ -720,7 +746,11 @@ func TestPipelineRunWalletAPKCreatesGitHubPRQueuedComment(t *testing.T) {
 		17,
 		queueStub.enqueueRequests[0].Notification.GitHubPR.PullRequestNumber,
 	)
-	require.Equal(t, "abcdef1234567890", queueStub.enqueueRequests[0].Notification.GitHubPR.CommitSHA)
+	require.Equal(
+		t,
+		"abcdef1234567890",
+		queueStub.enqueueRequests[0].Notification.GitHubPR.CommitSHA,
+	)
 }
 
 func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
@@ -783,9 +813,9 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 
 	origQueueState := queryMobileRunnerSemaphoreState
 	t.Cleanup(func() { queryMobileRunnerSemaphoreState = origQueueState })
-	origHealthCheck := walletAPKRunnerHealthCheck
-	t.Cleanup(func() { walletAPKRunnerHealthCheck = origHealthCheck })
-	walletAPKRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
+	origHealthCheck := pipelineCIRunnerHealthCheck
+	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
+	pipelineCIRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
 		return !strings.Contains(runnerURL, "offline-runner"), nil
 	}
 	queryMobileRunnerSemaphoreState = func(
@@ -858,9 +888,9 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 }
 
 func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T) {
-	origHealthCheck := walletAPKRunnerHealthCheck
-	t.Cleanup(func() { walletAPKRunnerHealthCheck = origHealthCheck })
-	walletAPKRunnerHealthCheck = func(_ context.Context, _ string) (bool, error) {
+	origHealthCheck := pipelineCIRunnerHealthCheck
+	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
+	pipelineCIRunnerHealthCheck = func(_ context.Context, _ string) (bool, error) {
 		return false, nil
 	}
 
@@ -872,7 +902,7 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 	createWalletAPKMobileRunner(t, app, orgID, "Offline One", "android_phone", true)
 	createWalletAPKMobileRunner(t, app, orgID, "Offline Two", "android_phone", true)
 
-	runnerID, apiErr := selectPipelineRunWalletAPKRunnerByType(
+	runnerID, apiErr := selectPipelineCIRunnerByType(
 		context.Background(),
 		app,
 		"android_phone",
@@ -886,13 +916,13 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 
 func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 	t.Run("rejects step runner ids", func(t *testing.T) {
-		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(
+		workflowDefinition, apiErr := parsePipelineCIWorkflow(
 			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
 		)
 		require.Nil(t, apiErr)
-		hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+		hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
 
-		_, apiErr = injectPipelineRunWalletAPKGlobalRunnerID(
+		_, apiErr = injectPipelineCIGlobalRunnerID(
 			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
 			workflowDefinition,
 			"runner-global",
@@ -907,11 +937,11 @@ func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 
 	t.Run("leaves yaml unchanged when runner id is empty", func(t *testing.T) {
 		inputYAML := "name: test\nsteps: []\n"
-		workflowDefinition, apiErr := parsePipelineRunWalletAPKWorkflow(inputYAML)
+		workflowDefinition, apiErr := parsePipelineCIWorkflow(inputYAML)
 		require.Nil(t, apiErr)
-		hasStepRunner, needsGlobalRunner := mobileRunnerSelectionState(workflowDefinition)
+		hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
 
-		got, apiErr := injectPipelineRunWalletAPKGlobalRunnerID(
+		got, apiErr := injectPipelineCIGlobalRunnerID(
 			inputYAML,
 			workflowDefinition,
 			"",
@@ -922,6 +952,65 @@ func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 		require.Nil(t, apiErr)
 		require.Equal(t, inputYAML, got)
 	})
+}
+
+func TestValidatePipelineCIGlobalRunnerRequest(t *testing.T) {
+	apiErr := validatePipelineCIGlobalRunnerRequest("", false, true)
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "runner_id", apiErr.Domain)
+	require.Equal(t, "runner_id or runner_type is required", apiErr.Reason)
+
+	apiErr = validatePipelineCIGlobalRunnerRequest("", true, true)
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "mobile-automation runner_id configuration is incomplete", apiErr.Reason)
+
+	require.Nil(t, validatePipelineCIGlobalRunnerRequest("", false, false))
+	require.Nil(t, validatePipelineCIGlobalRunnerRequest("runner-1", false, true))
+}
+
+func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
+	workflowDefinition, apiErr := parsePipelineCIWorkflow("name: test\nsteps: []\n")
+	require.Nil(t, apiErr)
+
+	runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKRunnerID(
+		context.Background(),
+		nil,
+		workflowDefinition,
+		pipelineRunWalletAPKRequest{
+			RunnerID:   "runner-1",
+			RunnerType: "android_phone",
+		},
+	)
+	require.Nil(t, apiErr)
+	require.Empty(t, runnerID)
+	require.False(t, hasStepRunner)
+	require.False(t, needsGlobalRunner)
+	require.Equal(
+		t,
+		"runner_id and runner_type are ignored because pipeline has no mobile-automation steps",
+		pipelineCIIgnoredRunnerWarning(
+			"runner-1",
+			"android_phone",
+			hasStepRunner,
+			needsGlobalRunner,
+		),
+	)
+
+	runnerID, hasStepRunner, needsGlobalRunner, apiErr = resolvePipelineRunIssuerRunnerID(
+		context.Background(),
+		nil,
+		workflowDefinition,
+		pipelineRunIssuerRequest{
+			RunnerID:   "runner-1",
+			RunnerType: "android_phone",
+		},
+	)
+	require.Nil(t, apiErr)
+	require.Empty(t, runnerID)
+	require.False(t, hasStepRunner)
+	require.False(t, needsGlobalRunner)
 }
 
 func TestValidatePipelineRunWalletAPKRequestRejectsInvalidRunnerType(t *testing.T) {
@@ -1353,8 +1442,8 @@ func TestResolvePipelineRunWalletAPKWallet(t *testing.T) {
 		_, refs, apiErr := resolvePipelineRunWalletAPKWallet(app, yaml)
 		require.Nil(t, apiErr)
 		require.Len(t, refs, 2)
-		require.Equal(t, "nested-error", refs[0].StepID)
-		require.Equal(t, "nested-success", refs[1].StepID)
+		require.Equal(t, versionID, refs[0].VersionID)
+		require.Equal(t, versionID, refs[1].VersionID)
 	})
 
 	t.Run("rejects external source version", func(t *testing.T) {
@@ -1388,6 +1477,7 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 			"version-record-1",
 			"usera-s-organization/wallet/abc123",
 			"usera-s-organization/pipeline123",
+			"runner_id and runner_type are ignored because pipeline has no mobile-automation steps",
 		)
 
 		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunQueued, response.Status)
@@ -1398,6 +1488,11 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 		require.Equal(t, "version-record-1", response.TempWalletVersionID)
 		require.Equal(t, "usera-s-organization/wallet/abc123", response.TempWalletVersionIdentifier)
 		require.Equal(t, "usera-s-organization/pipeline123", response.PipelineIdentifier)
+		require.Equal(
+			t,
+			"runner_id and runner_type are ignored because pipeline has no mobile-automation steps",
+			response.Warning,
+		)
 	})
 
 	t.Run("running response keeps workflow identifiers", func(t *testing.T) {
@@ -1410,6 +1505,7 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 			"version-record-1",
 			"usera-s-organization/wallet/abc123",
 			"usera-s-organization/pipeline123",
+			"",
 		)
 
 		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, response.Status)

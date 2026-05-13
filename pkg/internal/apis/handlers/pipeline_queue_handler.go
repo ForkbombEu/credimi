@@ -538,14 +538,35 @@ func applyPipelineQueueCleanupConfig(
 	config map[string]any,
 	cleanup *workflows.MobileRunnerSemaphoreCleanupMetadata,
 ) {
-	if config == nil || cleanup == nil || cleanup.TempWalletVersionID == "" {
+	if config == nil || cleanup == nil {
 		return
 	}
-	config[walletAPKCleanupConfigKey] = map[string]any{
-		"record_id":  cleanup.TempWalletVersionID,
-		"owner_id":   cleanup.TempWalletVersionOwnerID,
-		"identifier": cleanup.TempWalletVersionIdentifier,
-		"cleanup":    true,
+	if cleanup.TempWalletVersionID != "" {
+		config[walletAPKCleanupConfigKey] = map[string]any{
+			"record_id":  cleanup.TempWalletVersionID,
+			"owner_id":   cleanup.TempWalletVersionOwnerID,
+			"identifier": cleanup.TempWalletVersionIdentifier,
+			"cleanup":    true,
+		}
+	}
+	if len(cleanup.TempCredentials) > 0 {
+		credentials := make([]map[string]any, 0, len(cleanup.TempCredentials))
+		for _, credential := range cleanup.TempCredentials {
+			if strings.TrimSpace(credential.RecordID) == "" {
+				continue
+			}
+			credentials = append(credentials, map[string]any{
+				"record_id":  credential.RecordID,
+				"owner_id":   credential.OwnerID,
+				"identifier": credential.Identifier,
+			})
+		}
+		if len(credentials) > 0 {
+			config[issuerCITempCredentialsConfigKey] = map[string]any{
+				"credentials": credentials,
+				"cleanup":     true,
+			}
+		}
 	}
 }
 
@@ -815,10 +836,31 @@ func cleanupCanceledQueueResources(
 	statuses []pipelineQueueRunnerStatus,
 ) *apierror.APIError {
 	cleanup, ok := canceledQueueCleanupMetadata(statuses)
-	if !ok || strings.TrimSpace(cleanup.TempWalletVersionID) == "" {
+	if !ok {
 		return nil
 	}
-	return deleteTempWalletVersionForOwner(app, cleanup.TempWalletVersionID, ownerID)
+	if strings.TrimSpace(cleanup.TempWalletVersionID) != "" {
+		if apiErr := deleteTempWalletVersionForOwner(
+			app,
+			cleanup.TempWalletVersionID,
+			ownerID,
+		); apiErr != nil {
+			return apiErr
+		}
+	}
+	for _, credential := range cleanup.TempCredentials {
+		if strings.TrimSpace(credential.RecordID) == "" {
+			continue
+		}
+		if apiErr := deleteTempCredentialForOwner(
+			app,
+			credential.RecordID,
+			ownerID,
+		); apiErr != nil {
+			return apiErr
+		}
+	}
+	return nil
 }
 
 func canceledQueueCleanupMetadata(
@@ -832,7 +874,9 @@ func canceledQueueCleanupMetadata(
 		if status.Status == workflowengine.MobileRunnerSemaphoreRunRunning {
 			return nil, false
 		}
-		if status.Cleanup != nil && strings.TrimSpace(status.Cleanup.TempWalletVersionID) != "" {
+		if status.Cleanup != nil &&
+			(strings.TrimSpace(status.Cleanup.TempWalletVersionID) != "" ||
+				len(status.Cleanup.TempCredentials) > 0) {
 			cleanup = status.Cleanup
 		}
 	}

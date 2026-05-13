@@ -1164,7 +1164,11 @@ func findPipelineResult(app core.App, workflowID string, runID string) (string, 
 	if err == nil && existing != nil {
 		id = existing.Id
 	} else {
-		return "", fmt.Errorf("no pipeline result found for workflow_id %s and run_id %s", workflowID, runID)
+		return "", fmt.Errorf(
+			"no pipeline result found for workflow_id %s and run_id %s",
+			workflowID,
+			runID,
+		)
 	}
 	return id, nil
 }

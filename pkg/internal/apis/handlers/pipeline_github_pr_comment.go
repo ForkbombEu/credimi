@@ -67,14 +67,17 @@ func maybeCreateWalletAPKQueuedPRComment(
 		Status:            string(response.Status),
 		Position:          response.Position,
 		PipelineID:        notification.GitHubPR.PipelineIdentifier,
-		RunnerID:          githubPRCommentRunnerID(notification.GitHubPR.RunnerID, response.RunnerIDs),
-		RunnerType:        githubPRCommentRunnerType(notification.GitHubPR, response.RunnerIDs),
-		PipelineURL:       notification.GitHubPR.PipelineURL,
-		AppURL:            notification.GitHubPR.AppURL,
-		WorkflowID:        response.WorkflowID,
-		RunID:             response.RunID,
-		TicketID:          response.TicketID,
-		ErrorMessage:      response.ErrorMessage,
+		RunnerID: githubPRCommentRunnerID(
+			notification.GitHubPR.RunnerID,
+			response.RunnerIDs,
+		),
+		RunnerType:   githubPRCommentRunnerType(notification.GitHubPR, response.RunnerIDs),
+		PipelineURL:  notification.GitHubPR.PipelineURL,
+		AppURL:       notification.GitHubPR.AppURL,
+		WorkflowID:   response.WorkflowID,
+		RunID:        response.RunID,
+		TicketID:     response.TicketID,
+		ErrorMessage: response.ErrorMessage,
 	})
 }
 

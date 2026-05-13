@@ -422,7 +422,10 @@ func deletePipelineResultFilesOlderThan(
 func countPipelineResultRecords(app core.App) (int, error) {
 	var total int
 
-	if err := app.RecordQuery("pipeline_results").Select("count(*)").Limit(1).Row(&total); err != nil {
+	if err := app.RecordQuery("pipeline_results").
+		Select("count(*)").
+		Limit(1).
+		Row(&total); err != nil {
 		return 0, err
 	}
 

@@ -7,10 +7,41 @@
 package activities
 
 import (
+	"context"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGitHubPRCommentActivitiesRejectInvalidPayload(t *testing.T) {
+	updateActivity := NewUpdateGitHubPRCommentActivity()
+	require.Equal(t, "Update GitHub PR comment", updateActivity.Name())
+
+	_, err := updateActivity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: UpdateGitHubPRCommentInput{},
+	})
+	require.Error(t, err)
+
+	patchActivity := NewPatchGitHubPRCommentActivity()
+	require.Equal(t, "Patch GitHub PR comment", patchActivity.Name())
+
+	_, err = patchActivity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: "not a patch payload",
+	})
+	require.Error(t, err)
+}
+
+func TestGitHubPRCommentWorkflowHelpers(t *testing.T) {
+	require.Equal(
+		t,
+		"github-pr-comment/acme/wallet/7",
+		GitHubPRCommentWorkflowID(" /acme/wallet/ ", 7),
+	)
+
+	body := BuildGitHubPRCommentBodyForWorkflow(UpdateGitHubPRCommentInput{})
+	require.Contains(t, body, "status-queued-yellow")
+}
 
 func TestBuildGitHubPRCommentBody(t *testing.T) {
 	position := 2
