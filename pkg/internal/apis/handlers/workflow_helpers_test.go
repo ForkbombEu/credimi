@@ -17,6 +17,8 @@ import (
 )
 
 func TestParsePaginationParams(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		rawURL        string
@@ -77,6 +79,8 @@ func TestParsePaginationParams(t *testing.T) {
 }
 
 func TestComputeChildDisplayName(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, "View logs workflow", computeChildDisplayName("OpenIDNetCheckWorkflow_123"))
 	require.Equal(t, "View logs workflow", computeChildDisplayName("EWCWorkflow_123"))
 
@@ -87,6 +91,8 @@ func TestComputeChildDisplayName(t *testing.T) {
 }
 
 func TestSortExecutionSummaries(t *testing.T) {
+	t.Parallel()
+
 	loc := time.UTC
 	rootA := &WorkflowExecutionSummary{
 		StartTime: "2025-01-02T10:00:00Z",
@@ -117,6 +123,8 @@ func TestSortExecutionSummaries(t *testing.T) {
 }
 
 func TestBaseKey(t *testing.T) {
+	t.Parallel()
+
 	key, ok := baseKey("abc_result_video_main.mp4", "_result_video_")
 	require.True(t, ok)
 	require.Equal(t, "abc", key)
