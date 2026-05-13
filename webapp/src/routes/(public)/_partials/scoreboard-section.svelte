@@ -23,12 +23,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import type { ScoreboardRow } from '$lib/scoreboard-v2/types';
+	import type { ScoreboardRow } from '$lib/scoreboard/types';
 
 	import { Scoreboard } from '$lib';
 	import { entities, EntityTag } from '$lib/global';
 	import CardLink from '$lib/layout/card-link.svelte';
-	import PipelineContentSummary from '$lib/scoreboard-v2/extras/pipeline-content-summary.svelte';
+	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
 
 	type Props = Awaited<ReturnType<typeof loadScoreboardSummary>>;
 

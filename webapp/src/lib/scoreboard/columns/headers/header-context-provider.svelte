@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script module lang="ts">
 	import type { Header, Table } from '@tanstack/table-core';
-	import type { ScoreboardRow } from '$lib/scoreboard-v2/types';
+	import type { ScoreboardRow } from '$lib/scoreboard/types';
 
 	import { createContext } from 'svelte';
 

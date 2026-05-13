@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ComponentProps } from 'svelte';
 
 	import { EntityTag } from '$lib/global';
-	import SortHeaderPill from '$lib/scoreboard-v2/sort-header-pill.svelte';
+	import SortHeaderPill from '$lib/scoreboard/sort-header-pill.svelte';
 
 	import type { HeaderAlign } from './alignment';
 
