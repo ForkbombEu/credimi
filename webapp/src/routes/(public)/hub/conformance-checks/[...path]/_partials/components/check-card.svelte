@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { standard, version, suite, test }: Props = $props();
 
 	const testName = $derived(test.split('/').at(-1)?.replaceAll('+', ' • '));
-	const href = $derived(localizeHref(`/marketplace/conformance-checks/${test}`));
+	const href = $derived(localizeHref(`/hub/conformance-checks/${test}`));
 </script>
 
 <a

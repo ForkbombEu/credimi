@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { ArrowDown, ArrowUp } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
-	import { getCustomCheckPublicUrl } from '$lib/marketplace/utils';
+	import { getCustomCheckPublicUrl } from '$lib/hub/utils';
 	import { getPath, mergePaths } from '$lib/utils';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
@@ -82,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		} else if (record.collectionName === Collections.CustomChecks) {
 			return getCustomCheckPublicUrl(record as CustomChecksResponse);
 		} else {
-			return resolve('/(public)/marketplace/[...path]', {
+			return resolve('/(public)/hub/[...path]', {
 				path: mergePaths(record.collectionName, getPath(record))
 			});
 		}

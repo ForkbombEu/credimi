@@ -15,24 +15,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
 
-	import type { MarketplaceItemsResponse, OrganizationsResponse } from '@/pocketbase/types';
+	import type { HubItemsResponse, OrganizationsResponse } from '@/pocketbase/types';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
 
-	import { MarketplaceItemCard } from '../marketplace';
+	import { HubItemCard } from '../hub';
 
 	//
 
 	type Props = {
 		organization: OrganizationsResponse;
-		marketplaceItems: MarketplaceItemsResponse[];
+		hubItems: HubItemsResponse[];
 		isPreview?: boolean;
 	};
 
-	let { organization, marketplaceItems, isPreview = false }: Props = $props();
+	let { organization, hubItems, isPreview = false }: Props = $props();
 
 	//
 
@@ -105,13 +105,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<PageHeaderIndexed indexItem={sections.services_and_products} />
 
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-				{#each marketplaceItems as item (item.id)}
-					<MarketplaceItemCard {item} />
+				{#each hubItems as item (item.id)}
+					<HubItemCard {item} />
 				{/each}
 			</div>
 		</div>
 
-		<!-- TODO - Replace with MarketplaceItemCards -->
+		<!-- TODO - Replace with HubItemCards -->
 		<!--<div>
 			<PageHeader title={m.Issuers()} id="issuers" />
 

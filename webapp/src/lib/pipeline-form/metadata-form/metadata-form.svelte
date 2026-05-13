@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<SwitchField
 							form={f}
 							name="published"
-							options={{ label: m.Publish_to_marketplace() }}
+							options={{ label: m.Publish_to_hub() }}
 						/>
 					</div>
 				</div>

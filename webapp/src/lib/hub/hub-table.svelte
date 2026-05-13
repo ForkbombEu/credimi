@@ -9,21 +9,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { Link } from '@/components/types';
 	import type { CollectionName } from '@/pocketbase/collections-models';
-	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
+	import type { HubItemsResponse } from '@/pocketbase/types';
 
 	import { CollectionTable } from '@/collections-components/manager';
 	import { m } from '@/i18n';
 
-	import type { MarketplaceItem } from './types';
+	import type { HubItem } from './types';
 
 	import TableChildrenCell from './_partials/table-children-cell.svelte';
-	import { snippets } from './marketplace-table-snippets.svelte';
+	import { snippets } from './hub-table-snippets.svelte';
 	import { isCredentialIssuer, isVerifier } from './utils';
 
 	//
 
 	type Props = {
-		records: MarketplaceItemsResponse[];
+		records: HubItemsResponse[];
 	};
 
 	let { records }: Props = $props();
@@ -48,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	function getChildrenLinks(record: MarketplaceItem): Link[] {
+	function getChildrenLinks(record: HubItem): Link[] {
 		if (!isCredentialIssuer(record) && !isVerifier(record)) return [];
 
 		const type =
@@ -56,13 +56,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		return (record.children ?? []).map((c) => ({
 			title: c.name,
-			href: `/marketplace/${type}/${record.organization_canonified_name}/${record.canonified_name}/${c.canonified_name}`
+			href: `/hub/${type}/${record.organization_canonified_name}/${record.canonified_name}/${c.canonified_name}`
 		}));
 	}
 </script>
 
 <CollectionTable
-	records={records as MarketplaceItem[]}
+	records={records as HubItem[]}
 	hide={['delete', 'share', 'edit', 'select']}
 	fields={['name', 'organization_name', 'updated']}
 	snippets={{

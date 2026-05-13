@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { PencilIcon } from '@lucide/svelte';
 	import { userOrganization } from '$lib/app-state';
-	import { getMarketplaceItemData } from '$lib/marketplace';
-	import { marketplaceItemToSectionHref } from '$lib/marketplace/utils';
+	import { getHubItemData } from '$lib/hub';
+	import { hubItemToSectionHref } from '$lib/hub/utils';
 	import { getPath } from '$lib/utils/index.js';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import CredentialIssuerPage from './_partials/credential-issuer-page.svelte';
 	import CredentialPage from './_partials/credential-page.svelte';
-	import MarketplacePageTop from './_partials/marketplace-page-top.svelte';
+	import HubPageTop from './_partials/hub-page-top.svelte';
 	import PipelinePage from './_partials/pipeline-page.svelte';
 	import UseCaseVerificationPage from './_partials/use-case-verification-page.svelte';
 	import VerifierPage from './_partials/verifier-page.svelte';
@@ -26,12 +26,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { marketplaceItem, pageDetails } = $derived(data);
+	const { hubItem, pageDetails } = $derived(data);
 
-	const { logo, display } = $derived(getMarketplaceItemData(marketplaceItem));
+	const { logo, display } = $derived(getHubItemData(hubItem));
 
 	const isCurrentUserOwner = $derived(
-		userOrganization.current?.id === marketplaceItem.organization_id
+		userOrganization.current?.id === hubItem.organization_id
 	);
 </script>
 
@@ -44,11 +44,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			<T>{m.This_item_is_yours({ item: display.labels.singular })}</T>
 			<div class="flex items-center gap-3">
-				<T>{m.Last_edited()}: {new Date(marketplaceItem.updated).toLocaleDateString()}</T>
+				<T>{m.Last_edited()}: {new Date(hubItem.updated).toLocaleDateString()}</T>
 				<Button
 					size="sm"
 					class="h-8! text-xs"
-					href={marketplaceItemToSectionHref(marketplaceItem)}
+					href={hubItemToSectionHref(hubItem)}
 				>
 					<PencilIcon />
 					{m.Make_changes()}
@@ -60,15 +60,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!-- General page content -->
 
-<MarketplacePageTop
-	title={marketplaceItem.name}
-	textToCopy={getPath(marketplaceItem)}
+<HubPageTop
+	title={hubItem.name}
+	textToCopy={getPath(hubItem)}
 	badge={display}
 	hideTopBorder={isCurrentUserOwner}
 	{logo}
 	linkAboveTitle={{
-		href: `/organizations/${marketplaceItem.organization_canonified_name}`,
-		title: marketplaceItem.organization_name
+		href: `/organizations/${hubItem.organization_canonified_name}`,
+		title: hubItem.organization_name
 	}}
 />
 

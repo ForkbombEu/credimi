@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace';
+import type { HubItem } from '$lib/hub';
 
 import {
 	type SelectedRunner,
@@ -16,7 +16,7 @@ import type { EnrichedPipeline } from '../functions';
 //
 
 export interface Config {
-	wallet: MarketplaceItem;
+	wallet: HubItem;
 	version: SelectedVersion;
 	runner: SelectedRunner;
 }

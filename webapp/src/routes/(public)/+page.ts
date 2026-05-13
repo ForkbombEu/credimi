@@ -8,17 +8,17 @@ import { Collections } from '@/pocketbase/types';
 import { loadScoreboardSummary } from './_partials/scoreboard-section.svelte';
 
 export const load = async ({ fetch }) => {
-	const wallets = await pb.collection('marketplace_items').getList(1, 3, {
+	const wallets = await pb.collection('hub_items').getList(1, 3, {
 		filter: `type = '${Collections.Wallets}'`,
 		fetch,
 		sort: '@random'
 	});
-	const issuers = await pb.collection('marketplace_items').getList(1, 3, {
+	const issuers = await pb.collection('hub_items').getList(1, 3, {
 		filter: `type = '${Collections.CredentialIssuers}'`,
 		fetch,
 		sort: '@random'
 	});
-	const verifiers = await pb.collection('marketplace_items').getList(1, 3, {
+	const verifiers = await pb.collection('hub_items').getList(1, 3, {
 		filter: `type = '${Collections.Verifiers}'`,
 		fetch,
 		sort: '@random'

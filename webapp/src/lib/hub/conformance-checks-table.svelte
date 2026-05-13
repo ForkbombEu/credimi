@@ -44,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Table.Cell class="px-4 align-top">
 					<TableNameCell
 						name={standard.name}
-						href={`/marketplace/conformance-checks/${standard.uid}/${version.uid}/${suite.uid}`}
+						href={`/hub/conformance-checks/${standard.uid}/${version.uid}/${suite.uid}`}
 						logo={suite.logo}
 					/>
 				</Table.Cell>
@@ -63,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<ChildrenCell
 							items={suite.paths.map((p, i) => ({
 								title: suite.files[i].replace('.yaml', ''),
-								href: `/marketplace/conformance-checks/${p}`
+								href: `/hub/conformance-checks/${p}`
 							}))}
 						/>
 					{/if}

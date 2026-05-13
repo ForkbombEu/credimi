@@ -78,7 +78,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 			meta: {
 				standard: standard.name
 			},
-			publicUrl: localizeHref(`/marketplace/conformance-checks/${testPath}`)
+			publicUrl: localizeHref(`/hub/conformance-checks/${testPath}`)
 		};
 	}
 };

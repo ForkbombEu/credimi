@@ -11,28 +11,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { truncate } from 'lodash';
 	import removeMd from 'remove-markdown';
 
-	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
+	import type { HubItemsResponse } from '@/pocketbase/types';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import type { MarketplaceItem } from './types';
+	import type { HubItem } from './types';
 
-	import { getMarketplaceItemData } from './utils';
+	import { getHubItemData } from './utils';
 
 	//
 
 	type Props = {
-		item: MarketplaceItemsResponse;
+		item: HubItemsResponse;
 		class?: string;
 	};
 
 	const { item: record, class: className = '' }: Props = $props();
 
-	const item = $derived(record as MarketplaceItem);
-	const { href, logo, display } = $derived(getMarketplaceItemData(item));
+	const item = $derived(record as HubItem);
+	const { href, logo, display } = $derived(getHubItemData(item));
 
 	const isCurrentUserOwner = $derived(userOrganization.current?.id === item.organization_id);
 

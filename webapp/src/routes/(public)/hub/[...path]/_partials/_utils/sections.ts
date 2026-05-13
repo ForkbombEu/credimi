@@ -20,9 +20,9 @@ import {
 
 import { m } from '@/i18n';
 
-// import type { MarketplaceItemType } from './utils';
+// import type { HubItemType } from './utils';
 
-// export type MarketplacePageType = Exclude<MarketplaceItemType, 'custom_checks'>;
+// export type HubPageType = Exclude<HubItemType, 'custom_checks'>;
 
 // export interface SectionOptions {
 // 	hasDescription?: boolean;
@@ -144,7 +144,7 @@ export const sections = {
 	}
 } satisfies Record<string, IndexItem>;
 
-// const PAGE_CONFIGURATIONS: Record<MarketplacePageType, PageSectionConfig> = {
+// const PAGE_CONFIGURATIONS: Record<HubPageType, PageSectionConfig> = {
 // 	credentials: {
 // 		sections: [
 // 			SECTION_DEFINITIONS.credential_properties,
@@ -185,13 +185,13 @@ export const sections = {
 // 	}
 // };
 
-// export function generateMarketplaceSection(
-// 	pageType: MarketplacePageType,
+// export function generateHubSection(
+// 	pageType: HubPageType,
 // 	options: SectionOptions = {}
 // ): Record<string, IndexItem> {
 // 	const config = PAGE_CONFIGURATIONS[pageType];
 // 	if (!config) {
-// 		throw new Error(`Unknown marketplace page type: ${pageType}`);
+// 		throw new Error(`Unknown hub page type: ${pageType}`);
 // 	}
 
 // 	const sections: Record<string, IndexItem> = {};

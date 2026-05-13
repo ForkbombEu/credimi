@@ -25,9 +25,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		const credentialsFilters = credentialsIds.map((id) => `id = '${id}'`).join(' || ');
 
-		const credentialsMarketplaceItems =
+		const credentialsHubItems =
 			credentialsFilters.length > 0
-				? await pb.collection('marketplace_items').getFullList(1, {
+				? await pb.collection('hub_items').getFullList(1, {
 						filter: credentialsFilters,
 						fetch: fetchFn
 					})
@@ -35,14 +35,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		return pageDetails('credential_issuers', {
 			credentialIssuer,
-			credentialsMarketplaceItems
+			credentialsHubItems
 		});
 	}
 </script>
 
 <script lang="ts">
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import { MarketplaceItemCard } from '$lib/marketplace';
+	import { HubItemCard } from '$lib/hub';
 	import { String } from 'effect';
 
 	import { CollectionForm } from '@/collections-components/index.js';
@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = Awaited<ReturnType<typeof getCredentialIssuersDetails>>;
 
-	let { credentialIssuer, credentialsMarketplaceItems }: Props = $props();
+	let { credentialIssuer, credentialsHubItems }: Props = $props();
 </script>
 
 <LayoutWithToc sections={[s.general_info, s.description, s.credentials]}>
@@ -77,10 +77,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<DescriptionSection description={credentialIssuer.description} />
 
-	<PageSection indexItem={s.credentials} empty={credentialsMarketplaceItems.length === 0}>
+	<PageSection indexItem={s.credentials} empty={credentialsHubItems.length === 0}>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			{#each credentialsMarketplaceItems as credential (credential.id)}
-				<MarketplaceItemCard item={credential} />
+			{#each credentialsHubItems as credential (credential.id)}
+				<HubItemCard item={credential} />
 			{/each}
 		</div>
 	</PageSection>

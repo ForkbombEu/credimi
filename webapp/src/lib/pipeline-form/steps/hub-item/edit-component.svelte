@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { MarketplaceItem } from '$lib/marketplace/types.js';
+	import type { HubItem } from '$lib/hub/types.js';
 
 	import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 	import * as steps from '$lib/pipeline-form/steps';
@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let { data, closeDialog }: steps.EditComponentProps<MarketplaceItem> = $props();
+	let { data, closeDialog }: steps.EditComponentProps<HubItem> = $props();
 
 	//
 

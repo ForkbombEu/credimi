@@ -28,7 +28,7 @@ export const load = async ({ params, parent }) => {
 		standard,
 		version,
 		suite,
-		basePath: `/marketplace/conformance-checks/${standardUid}/${versionUid}/${suiteUid}`
+		basePath: `/hub/conformance-checks/${standardUid}/${versionUid}/${suiteUid}`
 	};
 
 	if (!file) {

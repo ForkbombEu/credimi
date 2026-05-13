@@ -31,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageTop {hideTopBorder} contentClass="space-y-4!">
-	<BackButton href="/marketplace" class="px-0!" />
+	<BackButton href="/hub" class="px-0!" />
 
 	<div class="flex items-center gap-6">
 		{#if logo}

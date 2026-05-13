@@ -5,6 +5,6 @@
 export * from './types';
 export * from './utils';
 
-import MarketplaceItemCard from './marketplace-item-card.svelte';
+import HubItemCard from './hub-item-card.svelte';
 
-export { MarketplaceItemCard };
+export { HubItemCard };

@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if isOrganizationNotEdited}
 	<Alert variant="info" icon={InfoIcon}>
 		<T>
-			{m.Edit_your_organization_information_to_better_represent_your_services_and_products_on_the_marketplace()}
+			{m.Edit_your_organization_information_to_better_represent_your_services_and_products_on_the_hub()}
 		</T>
 	</Alert>
 {/if}
@@ -110,7 +110,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 	<PageCard contentClass="!p-2">
 		<div class="overflow-hidden rounded-lg border">
-			<OrganizationPageDemo organization={organization!} {marketplaceItems} isPreview />
+			<OrganizationPageDemo organization={organization!} {hubItems} isPreview />
 		</div>
 	</PageCard>
 {:else}

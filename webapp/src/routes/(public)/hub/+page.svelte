@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { baseSections, entities } from '$lib/global';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import { MarketplaceItemCard } from '$lib/marketplace';
-	import ConformanceChecksTable from '$lib/marketplace/conformance-checks-table.svelte';
-	import MarketplaceTable from '$lib/marketplace/marketplace-table.svelte';
+	import { HubItemCard } from '$lib/hub';
+	import ConformanceChecksTable from '$lib/hub/conformance-checks-table.svelte';
+	import HubTable from '$lib/hub/hub-table.svelte';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -42,9 +42,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	let manager: CollectionManager<'marketplace_items'> | undefined;
+	let manager: CollectionManager<'hub_items'> | undefined;
 
-	const queryOptions: PocketbaseQueryOptions<'marketplace_items'> = $derived.by(() => {
+	const queryOptions: PocketbaseQueryOptions<'hub_items'> = $derived.by(() => {
 		switch (params.tab) {
 			case 'wallets':
 				return { filter: `type = 'wallets'` };
@@ -69,18 +69,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <CollectionManagerComponent
-	collection="marketplace_items"
+	collection="hub_items"
 	queryOptions={{ perPage: 25, searchFields: ['name'], ...queryOptions }}
 	hide={['pagination']}
 	onMount={(m) => {
-		manager = m as CollectionManager<'marketplace_items'>;
+		manager = m as CollectionManager<'hub_items'>;
 	}}
 >
 	{#snippet top({ Search })}
 		<div class="bg-secondary pt-10 pb-0">
 			<div class="mx-auto max-w-7xl px-4 md:px-8">
 				<T tag="h1" class="mb-8">
-					{m.Marketplace()}
+					{m.Hub()}
 				</T>
 
 				<div
@@ -145,14 +145,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="space-y-4">
 				<PageGrid>
 					{#each records as record (record.id)}
-						<MarketplaceItemCard item={record} />
+						<HubItemCard item={record} />
 					{/each}
 				</PageGrid>
 				<Pagination />
 			</div>
 		{:else}
 			<div in:fly={{ y: 10 }} class="space-y-4 rounded-b-md">
-				<MarketplaceTable {records} />
+				<HubTable {records} />
 				<Pagination />
 			</div>
 		{/if}

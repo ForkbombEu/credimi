@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
-import type { MarketplaceItem, MarketplaceItemType } from '$lib/marketplace';
-import { searchMarketplace } from '../_partials/search-marketplace';
+import type { HubItem, HubItemType } from '$lib/hub';
+import { searchHub } from '../_partials/search-hub';
 import { Search } from '../_partials/search.svelte';
 import { BaseForm } from '../types';
-import Component from './marketplace-item-step-form.svelte';
+import Component from './hub-item-step-form.svelte';
 
 //
 
@@ -15,25 +15,25 @@ const collections = [
 	'credentials',
 	'use_cases_verifications',
 	'custom_checks'
-] as const satisfies MarketplaceItemType[];
+] as const satisfies HubItemType[];
 
-type MarketplaceStepCollection = (typeof collections)[number];
+type HubStepCollection = (typeof collections)[number];
 
 //
 
 type Props = {
-	collection: MarketplaceStepCollection;
+	collection: HubStepCollection;
 	entityData: EntityData;
 };
 
-export class MarketplaceItemStepForm extends BaseForm<MarketplaceItem, MarketplaceItemStepForm> {
+export class HubItemStepForm extends BaseForm<HubItem, HubItemStepForm> {
 	readonly Component = Component;
 
 	constructor(private props: Props) {
 		super();
 	}
 
-	foundItems = $state<MarketplaceItem[]>([]);
+	foundItems = $state<HubItem[]>([]);
 
 	search = new Search({
 		onSearch: (text) => {
@@ -42,10 +42,10 @@ export class MarketplaceItemStepForm extends BaseForm<MarketplaceItem, Marketpla
 	});
 
 	async searchItem(text: string) {
-		this.foundItems = await searchMarketplace(text, this.collection);
+		this.foundItems = await searchHub(text, this.collection);
 	}
 
-	async selectItem(item: MarketplaceItem) {
+	async selectItem(item: HubItem) {
 		this.handleSubmit(item);
 	}
 

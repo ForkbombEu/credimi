@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItemType } from '$lib/marketplace';
+import type { HubItemType } from '$lib/hub';
 import type { Merge } from 'type-fest';
 
 //
 
-export function pageDetails<K extends MarketplaceItemType, Data extends object>(
+export function pageDetails<K extends HubItemType, Data extends object>(
 	type: K,
 	data: Data
 ): Merge<{ type: K }, Data> {

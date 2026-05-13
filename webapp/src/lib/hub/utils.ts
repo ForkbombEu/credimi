@@ -9,26 +9,26 @@ import {
 } from '$lib/global/sections';
 import { getPath } from '$lib/utils';
 
-import type { CustomChecksResponse, MarketplaceItemsResponse } from '@/pocketbase/types';
+import type { CustomChecksResponse, HubItemsResponse } from '@/pocketbase/types';
 
 import { localizeHref } from '@/i18n';
 import { pb } from '@/pocketbase';
 
-import { marketplaceItemTypes, type MarketplaceItem, type MarketplaceItemType } from './types';
+import { hubItemTypes, type HubItem, type HubItemType } from './types';
 
 //
 
-export function getMarketplaceItemTypeEntityData(type: MarketplaceItemType): EntityData {
+export function getHubItemTypeEntityData(type: HubItemType): EntityData {
 	const display = entities[type];
 	if (!display) throw new Error(`Display data not found for item type: ${type}`);
 	return display;
 }
 
-export function getMarketplaceItemTypeFilter(type: MarketplaceItemType): string {
+export function getHubItemTypeFilter(type: HubItemType): string {
 	return `type = '${type}'`;
 }
 
-export function getMarketplaceItemLogo(item: MarketplaceItem): string | undefined {
+export function getHubItemLogo(item: HubItem): string | undefined {
 	return item.avatar_file
 		? pb.files.getURL(
 				item.type === 'pipelines'
@@ -43,47 +43,47 @@ export function getMarketplaceItemLogo(item: MarketplaceItem): string | undefine
 
 //
 
-export function getCustomCheckPublicUrl(item: MarketplaceItem | CustomChecksResponse) {
+export function getCustomCheckPublicUrl(item: HubItem | CustomChecksResponse) {
 	return `/my/custom-integrations/${getPath(item, true)}/run`;
 }
 
-export function getMarketplaceItemUrl(item: MarketplaceItem) {
+export function getHubItemUrl(item: HubItem) {
 	const href =
-		item.type === 'custom_checks' ? getCustomCheckPublicUrl(item) : `/marketplace/${item.path}`;
+		item.type === 'custom_checks' ? getCustomCheckPublicUrl(item) : `/hub/${item.path}`;
 	return localizeHref(href);
 }
 
 //
 
-export function getMarketplaceItemData(item: MarketplaceItem) {
+export function getHubItemData(item: HubItem) {
 	return {
-		href: getMarketplaceItemUrl(item),
-		logo: getMarketplaceItemLogo(item),
-		display: getMarketplaceItemTypeEntityData(item.type)
+		href: getHubItemUrl(item),
+		logo: getHubItemLogo(item),
+		display: getHubItemTypeEntityData(item.type)
 	};
 }
 
 //
 
-export function isCredentialIssuer(item: MarketplaceItemsResponse): boolean {
-	return item.type === marketplaceItemTypes[1];
+export function isCredentialIssuer(item: HubItemsResponse): boolean {
+	return item.type === hubItemTypes[1];
 }
 
-export function isVerifier(item: MarketplaceItemsResponse): boolean {
-	return item.type === marketplaceItemTypes[3];
+export function isVerifier(item: HubItemsResponse): boolean {
+	return item.type === hubItemTypes[3];
 }
 
 //
 
-export function getMarketplaceItemByPath(path: string): Promise<MarketplaceItem> {
+export function getHubItemByPath(path: string): Promise<HubItem> {
 	return pb
-		.collection('marketplace_items')
+		.collection('hub_items')
 		.getFirstListItem(pb.filter('path ~ {:path}', { path }));
 }
 
 //
 
-const marketplaceItemTypeToSectionId: Record<MarketplaceItemType, string> = {
+const hubItemTypeToSectionId: Record<HubItemType, string> = {
 	wallets: entities.wallets.slug,
 	credential_issuers: credentialIssuersAndCredentialsSection.slug,
 	credentials: credentialIssuersAndCredentialsSection.slug,
@@ -93,8 +93,8 @@ const marketplaceItemTypeToSectionId: Record<MarketplaceItemType, string> = {
 	pipelines: entities.pipelines.slug
 };
 
-export function marketplaceItemToSectionHref(item: MarketplaceItem): string {
-	const sectionId = marketplaceItemTypeToSectionId[item.type];
+export function hubItemToSectionHref(item: HubItem): string {
+	const sectionId = hubItemTypeToSectionId[item.type];
 	if (!sectionId) throw new Error(`Section not found for item type: ${item.type}`);
 	return `/my/${sectionId}`;
 }

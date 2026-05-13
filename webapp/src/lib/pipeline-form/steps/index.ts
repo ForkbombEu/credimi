@@ -7,7 +7,7 @@ import type { PipelineStepType } from '$lib/pipeline/types';
 import type { AnyConfig } from './types';
 
 import { conformanceCheckStepConfig } from './conformance-check';
-import * as marketplaceSteps from './marketplace-item';
+import * as hubSteps from './hub-item';
 import * as utilsSteps from './utils-steps';
 import { walletActionStepConfig } from './wallet-action';
 
@@ -20,10 +20,10 @@ export const utilsConfigs: AnyConfig[] = [
 
 export const coreConfigs: AnyConfig[] = [
 	walletActionStepConfig,
-	marketplaceSteps.credentialsStepConfig,
-	marketplaceSteps.useCaseVerificationStepConfig,
+	hubSteps.credentialsStepConfig,
+	hubSteps.useCaseVerificationStepConfig,
 	conformanceCheckStepConfig,
-	marketplaceSteps.customCheckStepConfig
+	hubSteps.customCheckStepConfig
 ];
 
 export const configs: AnyConfig[] = [...coreConfigs, ...utilsConfigs];

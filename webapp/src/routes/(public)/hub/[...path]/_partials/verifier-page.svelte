@@ -22,22 +22,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		const useCasesVerifications = verifier.expand?.use_cases_verifications_via_verifier ?? [];
 
-		const [marketplaceUseCasesVerifications] = await partitionPromises(
+		const [hubUseCasesVerifications] = await partitionPromises(
 			useCasesVerifications.map((v) =>
-				pb.collection('marketplace_items').getOne(v.id, { fetch })
+				pb.collection('hub_items').getOne(v.id, { fetch })
 			)
 		);
 
-		const [marketplaceCredentials] = await partitionPromises(
+		const [hubCredentials] = await partitionPromises(
 			useCasesVerifications
 				.flatMap((v) => v.credentials)
-				.map((c) => pb.collection('marketplace_items').getOne(c, { fetch }))
+				.map((c) => pb.collection('hub_items').getOne(c, { fetch }))
 		);
 
 		return pageDetails('verifiers', {
 			verifier,
-			marketplaceCredentials,
-			marketplaceUseCasesVerifications
+			hubCredentials,
+			hubUseCasesVerifications
 		});
 	}
 </script>
@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import { MarketplaceItemCard } from '$lib/marketplace/index.js';
+	import { HubItemCard } from '$lib/hub/index.js';
 	import { String } from 'effect';
 
 	import T from '@/components/ui-custom/t.svelte';
@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getVerifierDetails>>;
-	let { verifier, marketplaceCredentials, marketplaceUseCasesVerifications }: Props = $props();
+	let { verifier, hubCredentials, hubUseCasesVerifications }: Props = $props();
 
 	//
 
@@ -97,21 +97,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<DescriptionSection description={verifier.description} />
 
-	<PageSection indexItem={s.credentials} empty={marketplaceCredentials.length === 0}>
+	<PageSection indexItem={s.credentials} empty={hubCredentials.length === 0}>
 		<PageGrid>
-			{#each marketplaceCredentials as credential (credential.id)}
-				<MarketplaceItemCard item={credential} />
+			{#each hubCredentials as credential (credential.id)}
+				<HubItemCard item={credential} />
 			{/each}
 		</PageGrid>
 	</PageSection>
 
 	<PageSection
 		indexItem={s.use_case_verifications}
-		empty={marketplaceUseCasesVerifications.length === 0}
+		empty={hubUseCasesVerifications.length === 0}
 	>
 		<PageGrid>
-			{#each marketplaceUseCasesVerifications as useCaseVerification (useCaseVerification.id)}
-				<MarketplaceItemCard item={useCaseVerification} />
+			{#each hubUseCasesVerifications as useCaseVerification (useCaseVerification.id)}
+				<HubItemCard item={useCaseVerification} />
 			{/each}
 		</PageGrid>
 	</PageSection>

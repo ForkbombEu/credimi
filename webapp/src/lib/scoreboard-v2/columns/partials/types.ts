@@ -26,5 +26,5 @@ export type RelatedEntity =
 	| PipelinesResponse;
 
 export function getRelatedEntityHref(entity: RelatedEntity): string {
-	return `/marketplace/${entity.collectionName}/${getPath(entity)}`;
+	return `/hub/${entity.collectionName}/${getPath(entity)}`;
 }

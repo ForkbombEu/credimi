@@ -5,11 +5,11 @@
 import { z } from 'zod/v3';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
-import type { MarketplaceItemsResponse } from '@/pocketbase/types';
+import type { HubItemsResponse } from '@/pocketbase/types';
 
 //
 
-export const marketplaceItemTypes = [
+export const hubItemTypes = [
 	'wallets',
 	'credential_issuers',
 	'credentials',
@@ -19,15 +19,15 @@ export const marketplaceItemTypes = [
 	'pipelines'
 ] as const satisfies CollectionName[];
 
-export const marketplaceItemTypeSchema = z.enum(marketplaceItemTypes);
+export const hubItemTypeSchema = z.enum(hubItemTypes);
 
-export type MarketplaceItemType = z.infer<typeof marketplaceItemTypeSchema>;
+export type HubItemType = z.infer<typeof hubItemTypeSchema>;
 
 //
 
-export interface MarketplaceItem extends MarketplaceItemsResponse {
+export interface HubItem extends HubItemsResponse {
 	id: string;
-	type: MarketplaceItemType;
+	type: HubItemType;
 	name: string;
 	description: string | null;
 	updated: string;
@@ -40,6 +40,6 @@ export interface MarketplaceItem extends MarketplaceItemsResponse {
 	organization_canonified_name: string;
 	path: string;
 }
-// This type is needed as the MarketplaceItem type coming from codegen is not good.
-// Since `marketplace_items` is a view collection, that merges multiple collections,
+// This type is needed as the HubItem type coming from codegen is not good.
+// Since `hub_items` is a view collection, that merges multiple collections,
 // pocketbase says that each field is of type `json` and not the actual type.

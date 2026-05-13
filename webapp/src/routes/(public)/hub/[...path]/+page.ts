@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace';
+import type { HubItem } from '$lib/hub';
 
 import { error } from '@sveltejs/kit';
 
@@ -20,20 +20,20 @@ import { getWalletDetails } from './_partials/wallet-page.svelte';
 export const load = async ({ params, fetch }) => {
 	const fullPath = params.path;
 
-	const marketplaceItem: MarketplaceItem = await pb
-		.collection('marketplace_items')
+	const hubItem: HubItem = await pb
+		.collection('hub_items')
 		.getFirstListItem(pb.filter('path = {:path}', { path: fullPath }), {
 			fetch
 		});
-	const pageDetails = await getPageDetails(marketplaceItem, fetch);
+	const pageDetails = await getPageDetails(hubItem, fetch);
 
 	return {
-		marketplaceItem,
+		hubItem,
 		pageDetails
 	};
 };
 
-function getPageDetails(item: MarketplaceItem, fetchFn = fetch) {
+function getPageDetails(item: HubItem, fetchFn = fetch) {
 	switch (item.type) {
 		case 'credential_issuers':
 			return getCredentialIssuersDetails(item.id, fetchFn);

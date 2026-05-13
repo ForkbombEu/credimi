@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageTop contentClass="!space-y-4">
-	<BackButton href="/marketplace" />
+	<BackButton href="/hub" />
 
 	<div class="flex items-center gap-6">
 		{#if logo}

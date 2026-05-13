@@ -20,26 +20,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{ fetch: fetchFn }
 		).getOne(itemId);
 
-		const verifierMarketplaceItem = await pb
-			.collection('marketplace_items')
+		const verifierHubItem = await pb
+			.collection('hub_items')
 			.getOne(useCaseVerification.verifier, { fetch: fetchFn });
 
-		const [marketplaceCredentials] = await partitionPromises(
+		const [hubCredentials] = await partitionPromises(
 			useCaseVerification.credentials.map((c) =>
-				pb.collection('marketplace_items').getOne(c, { fetch: fetchFn })
+				pb.collection('hub_items').getOne(c, { fetch: fetchFn })
 			)
 		);
 
 		return pageDetails('use_cases_verifications', {
 			useCaseVerification,
-			verifierMarketplaceItem,
-			marketplaceCredentials
+			verifierHubItem,
+			hubCredentials
 		});
 	}
 </script>
 
 <script lang="ts">
-	import MarketplaceItemCard from '$lib/marketplace/marketplace-item-card.svelte';
+	import HubItemCard from '$lib/hub/hub-item-card.svelte';
 
 	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';
@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getUseCaseVerificationDetails>>;
-	let { useCaseVerification, verifierMarketplaceItem, marketplaceCredentials }: Props = $props();
+	let { useCaseVerification, verifierHubItem, hubCredentials }: Props = $props();
 </script>
 
 <LayoutWithToc
@@ -75,17 +75,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<div class="flex w-full flex-col gap-6 sm:flex-row">
 		<PageSection indexItem={s.related_verifier} class="shrink-0 grow basis-1">
-			<MarketplaceItemCard item={verifierMarketplaceItem} />
+			<HubItemCard item={verifierHubItem} />
 		</PageSection>
 
 		<PageSection
 			indexItem={s.related_credentials}
-			empty={marketplaceCredentials.length === 0}
+			empty={hubCredentials.length === 0}
 			class="shrink-0 grow basis-1"
 		>
 			<div class="flex flex-col gap-2">
-				{#each marketplaceCredentials as marketplaceCredential (marketplaceCredential.id)}
-					<MarketplaceItemCard item={marketplaceCredential} />
+				{#each hubCredentials as hubCredential (hubCredential.id)}
+					<HubItemCard item={hubCredential} />
 				{/each}
 			</div>
 		</PageSection>

@@ -11,8 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export async function getCredentialsDetails(itemId: string, fetchFn = fetch) {
 		const credential = await pb.collection('credentials').getOne(itemId, { fetch: fetchFn });
 
-		const credentialIssuerMarketplaceEntry = await pb
-			.collection('marketplace_items')
+		const credentialIssuerHubEntry = await pb
+			.collection('hub_items')
 			.getFirstListItem(
 				`id = '${credential.credential_issuer}' && type = '${Collections.CredentialIssuers}'`,
 				{ fetch: fetchFn }
@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		return pageDetails('credentials', {
 			credential,
-			credentialIssuerMarketplaceEntry
+			credentialIssuerHubEntry
 		});
 	}
 </script>
@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import { MarketplaceItemCard } from '$lib/marketplace';
+	import { HubItemCard } from '$lib/hub';
 	import { String } from 'effect';
 
 	import CodeSection from './_utils/code-section.svelte';
@@ -44,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getCredentialsDetails>>;
-	let { credential, credentialIssuerMarketplaceEntry }: Props = $props();
+	let { credential, credentialIssuerHubEntry }: Props = $props();
 
 	//
 
@@ -123,7 +123,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<PageSection indexItem={sec.compatible_issuer}>
-		<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />
+		<HubItemCard item={credentialIssuerHubEntry} />
 	</PageSection>
 </LayoutWithToc>
 

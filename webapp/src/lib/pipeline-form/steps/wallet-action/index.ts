@@ -6,10 +6,10 @@ import { Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import {
-	getMarketplaceItemLogo,
-	getMarketplaceItemUrl,
-	type MarketplaceItem
-} from '$lib/marketplace';
+	getHubItemLogo,
+	getHubItemUrl,
+	type HubItem
+} from '$lib/hub';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -53,13 +53,13 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	EditComponent,
 
 	cardData: ({ action, wallet, version, runner }) => {
-		let publicUrl = getMarketplaceItemUrl(wallet);
+		let publicUrl = getHubItemUrl(wallet);
 		publicUrl += `#${action.canonified_name}`;
 
 		return {
 			title: action.name,
 			copyText: getPath(action),
-			avatar: getMarketplaceItemLogo(wallet),
+			avatar: getHubItemLogo(wallet),
 			publicUrl,
 			beforeTitle: Wallet.Action.getCategoryLabel(action),
 			meta: {
@@ -147,8 +147,8 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			}
 		}
 
-		const wallet: MarketplaceItem = await pb
-			.collection('marketplace_items')
+		const wallet: HubItem = await pb
+			.collection('hub_items')
 			.getOne(action.wallet);
 
 		return { wallet, version, action, runner };

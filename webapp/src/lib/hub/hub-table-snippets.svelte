@@ -11,32 +11,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EntityTag from '$lib/global/entity-tag.svelte';
 	import { getPath } from '$lib/utils';
 
-	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
+	import type { HubItemsResponse } from '@/pocketbase/types';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import type { MarketplaceItem } from './types';
+	import type { HubItem } from './types';
 
 	import ContentWrapper from './_partials/content-wrapper.svelte';
 	import TableNameCell from './_partials/table-name-cell.svelte';
-	import { getMarketplaceItemData } from './utils';
+	import { getHubItemData } from './utils';
 
 	//
 
 	const snippets = {
-		name: name as Snippet<[MarketplaceItemsResponse]>,
-		type: type as Snippet<[MarketplaceItemsResponse]>,
-		updated: updated as Snippet<[MarketplaceItemsResponse]>,
-		organization_name: organization_name as Snippet<[MarketplaceItemsResponse]>
+		name: name as Snippet<[HubItemsResponse]>,
+		type: type as Snippet<[HubItemsResponse]>,
+		updated: updated as Snippet<[HubItemsResponse]>,
+		organization_name: organization_name as Snippet<[HubItemsResponse]>
 	};
 	export { snippets };
 </script>
 
-{#snippet name(record: MarketplaceItemsResponse)}
-	{@const typed = record as MarketplaceItem}
-	{@const { logo, href } = getMarketplaceItemData(typed)}
+{#snippet name(record: HubItemsResponse)}
+	{@const typed = record as HubItem}
+	{@const { logo, href } = getHubItemData(typed)}
 	{@const isCurrentUserOwner = userOrganization.current?.id === typed.organization_id}
 
 	<TableNameCell {logo} name={typed.name} textToCopy={getPath(typed)} {href}>
@@ -46,12 +46,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</TableNameCell>
 {/snippet}
 
-{#snippet type(record: MarketplaceItemsResponse)}
-	{@const { display } = getMarketplaceItemData(record as MarketplaceItem)}
+{#snippet type(record: HubItemsResponse)}
+	{@const { display } = getHubItemData(record as HubItem)}
 	<EntityTag data={display} />
 {/snippet}
 
-{#snippet updated(record: MarketplaceItemsResponse)}
+{#snippet updated(record: HubItemsResponse)}
 	<ContentWrapper>
 		<T class="text-muted-foreground">
 			{new Date(record.updated as string).toLocaleDateString()}
@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</ContentWrapper>
 {/snippet}
 
-{#snippet organization_name(record: MarketplaceItemsResponse)}
+{#snippet organization_name(record: HubItemsResponse)}
 	<ContentWrapper>
 		<T>
 			{record.organization_name}

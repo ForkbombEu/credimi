@@ -1,18 +1,18 @@
-# 🏪 Marketplace
+# 🏪 Hub
 
-The Marketplace, contains:
- - Searchable list of **Verifiable Credentials** that are offered on the Marketplace (for testing or commercial purposes)
+The Hub, contains:
+ - Searchable list of **Verifiable Credentials** that are offered on the Hub (for testing or commercial purposes)
  - Searchable list of **software products and services**, such as Wallets, Issuers, Verifiers 
  - For each product and service, a list of the performed conformance checks (along with the latest results) are also visible
 
-Anyone can browse the Marketplace, no user account is required
+Anyone can browse the Hub, no user account is required
 
 ## Browse products and services
-Credimi's Marketplace showcases **Mobile Apps** (typically Wallets), **Credentials**, **Issuers** and **Verifiers**. 
+Credimi's Hub showcases **Mobile Apps** (typically Wallets), **Credentials**, **Issuers** and **Verifiers**. 
 
-Browse the Marketplace, use the filters or search for products or services using keywords and tags. 
+Browse the Hub, use the filters or search for products or services using keywords and tags. 
 
-![credimiMarketplace](./images/credimiMarketplace.png)
+![credimiHub](./images/credimiHub.png)
 
 ## Search Credentials
 

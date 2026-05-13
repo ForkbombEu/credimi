@@ -1,6 +1,6 @@
-# 🚀 Publish on the Marketplace
+# 🚀 Publish on the Hub
 
-Any registered user can publish Products and Services (Wallets, Issuers, Verifiers) on the Marketplace. 
+Any registered user can publish Products and Services (Wallets, Issuers, Verifiers) on the Hub. 
 
 In order to publish a Product/Service, first an organization must be configured. After that, there are different paths to create or import a Product/Service.
 
