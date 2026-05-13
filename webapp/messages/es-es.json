@@ -325,5 +325,9 @@
 	"Credential_updated_successfully": "Credencial actualizada exitosamente",
 	"Save": "Guardar",
 	"json_configuration_is_edited_fields_are_disabled": "La configuración de JSON se edita manualmente. Los campos están deshabilitados.",
-	"reset_json_and_use_fields": "Restablecer JSON y usar campos"
+	"reset_json_and_use_fields": "Restablecer JSON y usar campos",
+	"Change_wallet_version": "Cambiar versión del monedero",
+	"Change_wallet_version_modal_title": "Cambiar versión del monedero para todos los pasos",
+	"Change_wallet_version_modal_description": "Elija una versión. Cada paso de automatización móvil de este pipeline la usará.",
+	"Wallet_version_current": "Actual"
 }

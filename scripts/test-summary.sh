@@ -12,10 +12,19 @@ if [ "${#TEST_TARGETS[@]}" -eq 0 ]; then
 	TEST_TARGETS=(./...)
 fi
 
-printf '\033[36mRunning unit tests (-race)...\033[0m\n'
+SHORT_FLAGS=(-short)
+TEST_MODE="-race, -short"
+case "${TEST_SHORT:-1}" in
+0 | false | FALSE | no | NO)
+	SHORT_FLAGS=()
+	TEST_MODE="-race"
+	;;
+esac
+
+printf '\033[36mRunning unit tests (%s)...\033[0m\n' "$TEST_MODE"
 
 set +e
-go test -json -tags=unit -race -buildvcs "${TEST_TARGETS[@]}" 2>&1 | while IFS= read -r line; do
+go test -json -tags=unit -race "${SHORT_FLAGS[@]}" -buildvcs "${TEST_TARGETS[@]}" 2>&1 | while IFS= read -r line; do
 	printf '%s\n' "$line" >>"$TMP_JSON"
 
 	if [[ "$line" == *'"Action":"'* ]] && [[ "$line" == *'"Test":"'* ]]; then
@@ -158,7 +167,7 @@ BEGIN {
 			test_output[key] = test_output[key] decoded_output
 		}
 		if (!(key in test_file)) {
-			file = extract_file(output, /[A-Za-z0-9_.\/-]+_test\.go:[0-9]+:/)
+			file = extract_file(output, "[A-Za-z0-9_./-]+_test\\.go:[0-9]+:")
 			if (file != "") {
 				test_file[key] = file
 			}
@@ -171,14 +180,14 @@ BEGIN {
 			package_output[pkg] = package_output[pkg] decoded_output
 		}
 		if (!(pkg in package_file)) {
-			file = extract_file(output, /[A-Za-z0-9_.\/-]+\.go:[0-9]+:/)
+			file = extract_file(output, "[A-Za-z0-9_./-]+\\.go:[0-9]+:")
 			if (file != "") {
 				package_file[pkg] = file
 			}
 		}
 	}
 
-	raw_file = extract_file($0, /[A-Za-z0-9_.\/-]+_test\.go:[0-9]+/)
+	raw_file = extract_file($0, "[A-Za-z0-9_./-]+_test\\.go:[0-9]+")
 	if (raw_file != "") {
 		if (test_name != "") {
 			top = top_test_name(test_name)

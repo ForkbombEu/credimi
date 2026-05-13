@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -57,7 +58,7 @@ func TestOrganizationHandlers(t *testing.T) {
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "get my organization info",
-			Method: "GET",
+			Method: http.MethodGet,
 			URL:    "/api/organizations/my",
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
@@ -73,7 +74,7 @@ func TestOrganizationHandlers(t *testing.T) {
 		},
 		{
 			Name:           "get my organization info (unauthenticated)",
-			Method:         "GET",
+			Method:         http.MethodGet,
 			URL:            "/api/organizations/my",
 			ExpectedStatus: 401,
 			ExpectedContent: []string{
@@ -90,7 +91,7 @@ func TestGetAllNamespaces(t *testing.T) {
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "get all namespaces with API key",
-			Method: "GET",
+			Method: http.MethodGet,
 			URL:    "/api/organizations/namespaces",
 			Headers: map[string]string{
 				"Credimi-Api-Key": "internal-test-api-key",
@@ -103,7 +104,7 @@ func TestGetAllNamespaces(t *testing.T) {
 		},
 		{
 			Name:           "get all namespaces without API key",
-			Method:         "GET",
+			Method:         http.MethodGet,
 			URL:            "/api/organizations/namespaces",
 			ExpectedStatus: 401,
 			ExpectedContent: []string{
@@ -113,7 +114,7 @@ func TestGetAllNamespaces(t *testing.T) {
 		},
 		{
 			Name:   "get all namespaces with wrong API key",
-			Method: "GET",
+			Method: http.MethodGet,
 			URL:    "/api/organizations/namespaces",
 			Headers: map[string]string{
 				"Credimi-Api-Key": "wrong-key",

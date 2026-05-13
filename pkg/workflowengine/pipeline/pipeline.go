@@ -23,6 +23,9 @@ import (
 
 const (
 	PipelineTaskQueue = "PipelineTaskQueue"
+
+	childPipelineStepUse = "child-pipeline"
+	httpRequestStepUse   = "http-request"
 )
 
 type PipelineWorkflow struct{}
@@ -98,10 +101,16 @@ func (w *PipelineWorkflow) Workflow(
 		),
 	}
 
-	reportDone := func() {
-		reportMobileRunnerSemaphoreDone(ctx, logger, config, workflowID, runID)
-	}
-	defer reportDone()
+	defer func() {
+		reportMobileRunnerSemaphoreDone(
+			ctx,
+			logger,
+			config,
+			workflowID,
+			runID,
+			pipelineFinalResult(ctx, finalErr),
+		)
+	}()
 
 	if wfDef == nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
@@ -129,13 +138,7 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	defer func() {
-		finalResult := resultSuccess
-
-		if ctx.Err() != nil && temporal.IsCanceledError(ctx.Err()) {
-			finalResult = resultCanceled
-		} else if finalErr != nil {
-			finalResult = resultFailed
-		}
+		finalResult := pipelineFinalResult(ctx, finalErr)
 
 		runCleanupHooks(
 			ctx,
@@ -217,7 +220,7 @@ func (w *PipelineWorkflow) Workflow(
 			state.finalOutput,
 		)
 		result = workflowengine.WorkflowResult{}
-		return
+		return result, finalErr
 	}
 
 	if len(cleanupErrors) > 0 {
@@ -233,13 +236,23 @@ func (w *PipelineWorkflow) Workflow(
 			state.finalOutput,
 		)
 		result = workflowengine.WorkflowResult{}
-		return
+		return result, finalErr
 	}
 
 	result = workflowengine.WorkflowResult{
 		Output: state.finalOutput,
 	}
-	return
+	return result, finalErr
+}
+
+func pipelineFinalResult(ctx workflow.Context, finalErr error) string {
+	if ctx.Err() != nil && temporal.IsCanceledError(ctx.Err()) {
+		return resultCanceled
+	}
+	if finalErr != nil {
+		return resultFailed
+	}
+	return resultSuccess
 }
 
 func newPipelineExecutionState(workflowID string, runID string) *pipelineExecutionState {
@@ -325,7 +338,7 @@ func (w *PipelineWorkflow) executeStep(
 			input.WorkflowInput.Payload,
 		)
 		return ao, nil
-	case "child-pipeline":
+	case childPipelineStepUse:
 		return ao, w.executeChildPipelineStep(
 			ctx,
 			input,
@@ -414,7 +427,11 @@ func collectFinallyOutputs(finalOutput map[string]any) map[string]any {
 
 	for key, value := range finalOutput {
 		switch key {
-		case "workflow-id", "workflow-run-id", "result_video_warning", "cleanup_warnings", "finally_errors":
+		case "workflow-id",
+			"workflow-run-id",
+			"result_video_warning",
+			"cleanup_warnings",
+			"finally_errors":
 			continue
 		}
 
@@ -833,7 +850,7 @@ func (w *PipelineWorkflow) Start(
 }
 
 func isReservedWorkflowInputConfigKey(key string) bool {
-	return key == tempWalletVersionConfigKey
+	return key == tempWalletVersionConfigKey || key == tempCredentialsConfigKey
 }
 
 func ExecuteEventStepsOnError(
@@ -942,14 +959,17 @@ func runFinallySteps(
 
 func ValidateFinallySteps(finallySteps []pipeline.FinallyStepDefinition) error {
 	allowedTypes := map[string]bool{
-		"email":        true,
-		"http-request": true,
+		"email":            true,
+		httpRequestStepUse: true,
 	}
 
 	for _, step := range finallySteps {
 		if !allowedTypes[step.Use] {
-			return fmt.Errorf("finally step '%s' uses '%s' which is not allowed. Only email and http-request are allowed",
-				step.ID, step.Use)
+			return fmt.Errorf(
+				"finally step '%s' uses '%s' which is not allowed. Only email and http-request are allowed",
+				step.ID,
+				step.Use,
+			)
 		}
 	}
 	return nil

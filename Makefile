@@ -35,7 +35,7 @@ GOMOD_FILES 	:= go.mod go.sum
 COVOUT			:= coverage.out
 COVERAGE_FILE	?= $(COVOUT)
 COVERAGE_MIN	?= 80
-COVERAGE_PKGS	?= ./...
+COVERAGE_PKGS ?= $(shell go list ./... | grep -v '/webapp/node_modules/')
 
 # Submodules
 WEBENV			= $(WEBAPP)/.env
@@ -72,7 +72,7 @@ define write_compose_dev_override
 endef
 
 all: help
-.PHONY: submodules version dev test lint tidy purge build docker doc clean tools help w devtools coverage-check
+.PHONY: submodules version dev test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check
 
 $(BIN):
 	@mkdir -p $@
@@ -116,6 +116,10 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))
 	bash ./scripts/test-summary.sh
+
+test.all: ## 🧪 run all tests, including long tests skipped by test
+	$(call require_tools,$(TEST_DEPS))
+	TEST_SHORT=0 bash ./scripts/test-summary.sh
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
@@ -129,7 +133,7 @@ coverage: devtools # ☂️ run test and open code coverage report
 	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
 
 coverage-check: ## ☂️ run tests and fail if total coverage is below COVERAGE_MIN
-	$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVERAGE_FILE) $(COVERAGE_PKGS)
+	@$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVERAGE_FILE) $(COVERAGE_PKGS)
 	@awk -v min="$(COVERAGE_MIN)" -v file="$(COVERAGE_FILE)" '\
 		BEGIN { covered = 0; total = 0 } \
 		NR == 1 && $$1 == "mode:" { next } \
@@ -191,13 +195,28 @@ $(BINARY_NAME)-ui: $(UI_SRC)
 	kill $$PID;
 
 docker: $(DATA) submodules ## 🐳 run docker with all the infrastructure services
-	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090"
-	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose up
+	EXTRA_BUILD_ARGS=""; [ -n "$$CREDIMI_EXTRA_PAT" ] && EXTRA_BUILD_ARGS="--build-arg CREDIMI_EXTRA_PAT=$$CREDIMI_EXTRA_PAT"; \
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090" $$EXTRA_BUILD_ARGS
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 docker compose up
+
+docker-tunnel: $(DATA) submodules ## 🌐 run docker (detached, logs hidden) and expose http://localhost:8090 over a public cloudflared tunnel
+	$(call require_tools,cloudflared)
+	EXTRA_BUILD_ARGS=""; [ -n "$$CREDIMI_EXTRA_PAT" ] && EXTRA_BUILD_ARGS="--build-arg CREDIMI_EXTRA_PAT=$$CREDIMI_EXTRA_PAT"; \
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 docker compose build --build-arg PUBLIC_POCKETBASE_URL="" $$EXTRA_BUILD_ARGS
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 bash -euc '\
+		printf "$(CYAN)🐳 Starting docker compose detached (runtime logs hidden — run \`docker compose logs -f\` to view)...$(RESET)\n"; \
+		docker compose up -d --remove-orphans; \
+		trap "printf \"\n$(YELLOW)🛑 Tunnel closed; stopping containers...$(RESET)\n\"; docker compose down" EXIT INT TERM; \
+		printf "$(CYAN)⏳ Waiting for http://localhost:8090 ...$(RESET)\n"; \
+		./scripts/wait-for-it.sh localhost:8090 --timeout=180 --quiet || printf "$(YELLOW)⚠️  Service not reachable yet, starting tunnel anyway$(RESET)\n"; \
+		printf "\n$(GREEN)🌍 Public URL will appear in the cloudflared banner below:$(RESET)\n\n"; \
+		cloudflared tunnel --url http://localhost:8090 \
+	'
 
 ## Misc
 
 doc: ## 📚 Serve documentation on localhost with --host
-	cd $(DOCS) && bun i
+	cd $(DOCS) && bun install
 	cd $(DOCS) && bun run docs:dev --open --host
 
 clean: ## 🧹 Clean files and caches
@@ -207,7 +226,7 @@ clean: ## 🧹 Clean files and caches
 	@rm -fr $(WEBAPP)/build
 	@rm -fr $(WEBAPP)/node_modules
 	@rm -fr $(WEBAPP)/.svelte-kit
-	@rm -f $(DOCS)/.vitepress/config.ts.timestamp*
+	@rm -f $(DOCS)/.astro/*
 	@rm -f $(COVOUT) coverage.html coverage.svg
 	@echo "🧹 cleaned"
 

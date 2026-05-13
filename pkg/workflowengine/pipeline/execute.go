@@ -130,7 +130,12 @@ func ExecuteStep(
 		w := step.NewFunc().(workflowengine.Workflow)
 		appURL, ok := s.With.Config["app_url"].(string)
 		if ok && appURL == "" {
-			s.With.Config["app_url"] = "http://localhost:8090"
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("missing or invalid app_url for step %s", s.ID),
+			)
+			return nil, appErr
 		}
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,

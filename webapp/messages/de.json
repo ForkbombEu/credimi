@@ -398,5 +398,9 @@
 	"Yes_remove_access": "Ja, Zugriff entfernen",
 	"my_folders": "Ordner",
 	"json_configuration_is_edited_fields_are_disabled": "Die JSON-Konfiguration wird manuell bearbeitet. Felder sind deaktiviert.",
-	"reset_json_and_use_fields": "JSON zurücksetzen und Felder verwenden"
+	"reset_json_and_use_fields": "JSON zurücksetzen und Felder verwenden",
+	"Change_wallet_version": "Wallet-Version ändern",
+	"Change_wallet_version_modal_title": "Wallet-Version für alle Schritte ändern",
+	"Change_wallet_version_modal_description": "Wählen Sie eine Version. Jeder Mobile-Automation-Schritt in dieser Pipeline verwendet sie.",
+	"Wallet_version_current": "Aktuell"
 }

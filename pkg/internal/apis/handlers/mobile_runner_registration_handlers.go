@@ -198,12 +198,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		path, err := canonify.BuildPath(
-			e.App,
-			record,
-			canonify.CanonifyPaths["mobile_runners"],
-			"",
-		)
+		runnerID, err := mobileRunnerIdentifier(e.App, record)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -218,7 +213,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			Organization:   owner.GetString("canonified_name"),
 			Name:           record.GetString("name"),
 			CanonifiedName: record.GetString("canonified_name"),
-			RunnerID:       canonicalRunnerIDPath(path),
+			RunnerID:       canonicalRunnerIDPath(runnerID),
 			IP:             record.GetString("ip"),
 			Description:    record.GetString("description"),
 			Type:           record.GetString("type"),
@@ -328,7 +323,7 @@ func previewMobileRunnerIdentifier(
 	}
 
 	record.Set("canonified_name", canonifiedName)
-	path, err := canonify.BuildPath(app, record, canonify.CanonifyPaths["mobile_runners"], "")
+	runnerID, err := mobileRunnerIdentifier(app, record)
 	if err != nil {
 		return PreviewMobileRunnerIDResponse{}, apierror.New(
 			http.StatusInternalServerError,
@@ -341,7 +336,7 @@ func previewMobileRunnerIdentifier(
 	return PreviewMobileRunnerIDResponse{
 		Organization:   owner.GetString("canonified_name"),
 		CanonifiedName: canonifiedName,
-		RunnerID:       canonicalRunnerIDPath(path),
+		RunnerID:       canonicalRunnerIDPath(runnerID),
 	}, nil
 }
 

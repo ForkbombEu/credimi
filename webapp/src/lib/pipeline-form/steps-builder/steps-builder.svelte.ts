@@ -6,10 +6,19 @@ import type { Renderable } from '$lib/renderable';
 
 import { StateManager } from '$lib/state-manager/state-manager';
 
-import type { PipelineStep } from '../../pipeline/types';
+import type { GenericRecord } from '@/utils/types';
+
+import type { PipelineStep, PipelineStepByType } from '../../pipeline/types';
+import type {
+	SelectedVersion,
+	WalletActionStepData
+} from '../steps/wallet-action/wallet-action-step-form.svelte.js';
 import type { EnrichedStep } from './types';
 
+import { ExecutionTarget } from '../execution-target/index.js';
 import * as pipelinestep from '../steps';
+import { walletActionStepConfig } from '../steps/wallet-action/index.js';
+import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
 import Component from './steps-builder.svelte';
 
 //
@@ -136,5 +145,29 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const newIndex = index + change;
 		if (newIndex < 0 || newIndex >= state.steps.length || newIndex === index) return null;
 		return { index, newIndex };
+	}
+
+	// Wallet version update (bulk)
+
+	applyBulkWalletVersion(version: SelectedVersion) {
+		const ctx = getBulkWalletVersionContext(this.state.steps);
+		if (!ctx) return;
+
+		this.stateManager.run((state) => {
+			const live = getBulkWalletVersionContext(state.steps);
+			if (!live) return;
+
+			for (const i of live.mobileIndices) {
+				const tuple = state.steps[i];
+				if (!tuple || tuple[0].use !== 'mobile-automation') continue;
+				const data = tuple[1] as unknown as WalletActionStepData;
+				const updated: WalletActionStepData = { ...data, version };
+				const raw = tuple[0] as PipelineStepByType<'mobile-automation'>;
+				raw.with = walletActionStepConfig.serialize(updated);
+				tuple[1] = updated as unknown as GenericRecord;
+			}
+		});
+
+		ExecutionTarget.syncVersionIfSameWallet(ctx.wallet.id, version);
 	}
 }

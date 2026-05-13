@@ -60,3 +60,9 @@ export function loadFromPipeline(pipeline: EnrichedPipeline) {
 export function clear() {
 	state.current = undefined;
 }
+
+export function syncVersionIfSameWallet(walletId: string, version: SelectedVersion) {
+	if (state.current?.wallet.id === walletId) {
+		state.current = { ...state.current, version };
+	}
+}

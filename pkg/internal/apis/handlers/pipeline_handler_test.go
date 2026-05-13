@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -143,6 +144,7 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 				"pipeline_id": "usera-s-organization/pipeline123",
 				"workflow_id": "workflow-xyz",
 				"run_id":      "run-001",
+				"type":        pipelineinternal.RunTypeCI,
 			}),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -150,6 +152,7 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 				`"pipeline"`,
 				`"workflow_id"`,
 				`"run_id"`,
+				`"type":"CI"`,
 			},
 			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {

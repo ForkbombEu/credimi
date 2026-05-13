@@ -341,7 +341,7 @@ func ResolveEWCLikeCheckEndpoint(suite string, standard string) (string, error) 
 	}
 
 	switch standard {
-	case "openid4vp_wallet":
+	case OpenID4VPWalletStandard:
 		return baseURL + "/verificationStatus", nil
 	case "openid4vci_wallet":
 		return baseURL + "/issueStatus", nil

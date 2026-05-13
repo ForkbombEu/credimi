@@ -89,9 +89,12 @@ func TestReportMobileRunnerSemaphoreDoneActivitySuccess(t *testing.T) {
 		"UpdateWorkflow",
 		mock.Anything,
 		mock.MatchedBy(func(options tclient.UpdateWorkflowOptions) bool {
+			req, ok := options.Args[0].(mobilerunnersemaphore.MobileRunnerSemaphoreRunDoneRequest)
 			return options.WorkflowID == mobilerunnersemaphore.WorkflowID("runner-1") &&
 				options.UpdateName == mobilerunnersemaphore.RunDoneUpdate &&
-				options.UpdateID == "run-done/ticket-1"
+				options.UpdateID == "run-done/ticket-1" &&
+				ok &&
+				req.WorkflowResult == "success"
 		}),
 	).Return(updateHandle, nil).Once()
 
@@ -101,6 +104,7 @@ func TestReportMobileRunnerSemaphoreDoneActivitySuccess(t *testing.T) {
 			OwnerNamespace: "owner-1",
 			LeaderRunnerID: "runner-1",
 			TicketID:       "ticket-1",
+			WorkflowResult: "success",
 		},
 	})
 	require.NoError(t, err)

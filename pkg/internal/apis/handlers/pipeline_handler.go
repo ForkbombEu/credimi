@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -49,6 +50,20 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				apis.BodyLimit(1000 << 20),
 			},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/run-issuer",
+			Handler:        HandlePipelineRunIssuer,
+			ResponseSchema: PipelineRunIssuerResponse{},
+			Description:    "Create temporary issuer credentials and queue a one-off pipeline run",
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/run-verifier",
+			Handler:        HandlePipelineRunVerifier,
+			ResponseSchema: PipelineRunVerifierResponse{},
+			Description:    "Create temporary verifier use cases and queue a one-off pipeline run",
 		},
 		{
 			Method:      http.MethodGet,
@@ -216,6 +231,22 @@ type PipelineResultInput struct {
 	PipelineID string `json:"pipeline_id"`
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
+	Type       string `json:"type,omitempty"`
+}
+
+func pipelineRunType(input string) string {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return pipelineinternal.RunTypeManual
+	}
+	return input
+}
+
+func setPipelineRunType(record *core.Record, coll *core.Collection, runType string) {
+	if coll.Fields.GetByName("type") == nil {
+		return
+	}
+	record.Set("type", pipelineRunType(runType))
 }
 
 func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
@@ -254,6 +285,19 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		runType := pipelineRunType(input.Type)
+		if !pipelineinternal.ValidRunType(runType) {
+			return apierror.New(
+				http.StatusBadRequest,
+				"type",
+				"invalid pipeline result type",
+				fmt.Sprintf("type must be one of %q, %q, or %q",
+					pipelineinternal.RunTypeManual,
+					pipelineinternal.RunTypeScheduled,
+					pipelineinternal.RunTypeCI,
+				),
+			).JSON(e)
+		}
 
 		existing, err := e.App.FindFirstRecordByFilter(
 			coll,
@@ -289,6 +333,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 		record.Set("pipeline", pipeline.Id)
 		record.Set("workflow_id", input.WorkflowID)
 		record.Set("run_id", input.RunID)
+		setPipelineRunType(record, coll, runType)
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

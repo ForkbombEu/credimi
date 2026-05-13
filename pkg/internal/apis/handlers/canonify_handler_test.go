@@ -48,6 +48,7 @@ func TestHandleIdentifierValidateSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "valid identifier")
+	require.Contains(t, rec.Body.String(), `"__canonified_path__":"`+path+`"`)
 }
 
 func TestHandleGetIdentifierMissingParams(t *testing.T) {

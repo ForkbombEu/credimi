@@ -30,7 +30,7 @@ func (m *mockResponseWriter) Write(b []byte) (int, error) { return m.body.Write(
 func (m *mockResponseWriter) WriteHeader(statusCode int)  { m.code = statusCode }
 
 func mockRequestEvent(body io.Reader) *core.RequestEvent {
-	req, _ := http.NewRequest("POST", "/", body)
+	req, _ := http.NewRequest(http.MethodPost, "/", body)
 	return &core.RequestEvent{
 		Event: router.Event{
 			Request:  req,

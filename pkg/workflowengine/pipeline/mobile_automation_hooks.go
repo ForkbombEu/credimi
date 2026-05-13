@@ -475,7 +475,8 @@ func fetchMobileActionCategory(
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), internalReq).Get(ctx, &result); err != nil {
+	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), internalReq).
+		Get(ctx, &result); err != nil {
 		if !isMissingPipelineInternalHTTPActivity(err) {
 			return "", err
 		}
@@ -1058,7 +1059,7 @@ func fetchAndInstallAPK(
 				"installer-action",
 			),
 			Headers: map[string]string{
-				"Content-Type": "application/json",
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
 			Body:           body,
 			Timeout:        "300",
@@ -1962,7 +1963,7 @@ func storeRecordingResults(
 					"pipeline-result",
 				),
 				Headers: map[string]string{
-					"Content-Type": "application/json",
+					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 				},
 				Body:           body,
 				Timeout:        "300",

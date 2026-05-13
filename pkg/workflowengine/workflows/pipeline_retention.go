@@ -100,7 +100,7 @@ func (w *PipelineRetentionWorkflow) ExecuteWorkflow(
 				"api", "pipeline", "retention", "delete-files",
 			),
 			Headers: map[string]string{
-				"Content-Type": "application/json",
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
 			Body: map[string]any{
 				"older_than_days": payload.OlderThanDays,

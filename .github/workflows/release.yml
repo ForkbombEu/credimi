@@ -41,7 +41,7 @@ jobs:
       attestations: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: true
@@ -52,8 +52,8 @@ jobs:
         with:
           version: "~> v2.15"
           install-only: true
-      - uses: sigstore/cosign-installer@v3.8.1
-      - uses: anchore/sbom-action/download-syft@v0.18.0
+      - uses: sigstore/cosign-installer@v4.1.2
+      - uses: anchore/sbom-action/download-syft@v0.24.0
       - name: git config for credimi-extra
         env:
           CREDIMI_EXTRA_PAT: ${{ secrets.CREDIMI_EXTRA_PAT }}
@@ -65,7 +65,7 @@ jobs:
           hooks: goreleaser
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-checksums: ./dist/checksums.txt
 

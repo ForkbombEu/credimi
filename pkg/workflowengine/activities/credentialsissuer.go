@@ -143,13 +143,13 @@ func fetchJSONFromURL(
 	isJWT bool,
 	a *CheckCredentialsIssuerActivity,
 ) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]
 		return "", a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			"GET",
+			http.MethodGet,
 			url,
 		)
 	}

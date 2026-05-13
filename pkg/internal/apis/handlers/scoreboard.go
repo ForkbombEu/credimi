@@ -18,6 +18,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -58,6 +59,7 @@ type PipelineStatsResponse struct {
 	SuccessRate         float64            `json:"success_rate"`
 	ManualExecutions    int                `json:"manual_executions"`
 	ScheduledExecutions int                `json:"scheduled_executions"`
+	CIExecutions        int                `json:"ci_executions"`
 	MinExecutionTime    string             `json:"min_execution_time"`
 	FirstExecutionDate  string             `json:"first_execution_date"`
 	LastExecutionDate   string             `json:"last_execution_date"`
@@ -79,6 +81,7 @@ type PipelineStats struct {
 	SuccessRate         float64
 	ManualExecutions    int
 	ScheduledExecutions int
+	CIExecutions        int
 	MinExecutionTime    string
 	FirstExecutionDate  string
 	LastExecutionDate   string
@@ -414,6 +417,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
+		runTypes := pipelineRunTypesForExecutions(e.App, executions)
 
 		executionsByPipelineID := make(map[string][]*WorkflowExecution)
 
@@ -452,6 +456,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			stats, lastSuccessfulRun := calculateStatsFromExecutions(
 				pipelineExecutions,
 				e.App,
+				runTypes,
 				runnerCache,
 			)
 
@@ -470,6 +475,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 				SuccessRate:         stats.SuccessRate,
 				ManualExecutions:    stats.ManualExecutions,
 				ScheduledExecutions: stats.ScheduledExecutions,
+				CIExecutions:        stats.CIExecutions,
 				MinExecutionTime:    stats.MinExecutionTime,
 				FirstExecutionDate:  stats.FirstExecutionDate,
 				LastExecutionDate:   stats.LastExecutionDate,
@@ -589,6 +595,7 @@ func getWorkflowExecutionWithDecodedAttrs(
 func calculateStatsFromExecutions(
 	executions []*WorkflowExecution,
 	app core.App,
+	runTypes map[workflowExecutionRef]string,
 	runnerCache map[string]map[string]any,
 ) (*PipelineStats, *LastSuccessfulRun) {
 	stats := &PipelineStats{
@@ -623,10 +630,12 @@ func calculateStatsFromExecutions(
 			}
 		}
 
-		isScheduled := strings.HasPrefix(exec.Execution.WorkflowID, "Pipeline-Sched-")
-		if isScheduled {
+		switch pipelineRunTypeFromMap(runTypes, exec) {
+		case pipelineinternal.RunTypeScheduled:
 			stats.ScheduledExecutions++
-		} else {
+		case pipelineinternal.RunTypeCI:
+			stats.CIExecutions++
+		default:
 			stats.ManualExecutions++
 		}
 
@@ -665,6 +674,81 @@ func calculateStatsFromExecutions(
 	}
 
 	return stats, lastSuccessfulRun
+}
+
+func pipelineRunTypesForExecutions(
+	app core.App,
+	executions []*WorkflowExecution,
+) map[workflowExecutionRef]string {
+	runTypes := make(map[workflowExecutionRef]string)
+	if app == nil || len(executions) == 0 {
+		return runTypes
+	}
+
+	refs := make([]workflowExecutionRef, 0, len(executions))
+	for _, exec := range executions {
+		if exec == nil || exec.Execution == nil {
+			continue
+		}
+		refs = append(refs, workflowExecutionRef{
+			WorkflowID: exec.Execution.WorkflowID,
+			RunID:      exec.Execution.RunID,
+		})
+	}
+
+	for i := 0; i < len(refs); i += workflowExecutionFilterChunkSize {
+		chunkEnd := i + workflowExecutionFilterChunkSize
+		if chunkEnd > len(refs) {
+			chunkEnd = len(refs)
+		}
+
+		filter, params := buildWorkflowExecutionFilter(refs[i:chunkEnd])
+		if filter == "" {
+			continue
+		}
+		records, err := app.FindRecordsByFilter(
+			"pipeline_results",
+			filter,
+			"",
+			-1,
+			0,
+			params,
+		)
+		if err != nil {
+			continue
+		}
+
+		for _, record := range records {
+			runType := record.GetString("type")
+			if !pipelineinternal.ValidRunType(runType) {
+				continue
+			}
+			runTypes[workflowExecutionRef{
+				WorkflowID: record.GetString("workflow_id"),
+				RunID:      record.GetString("run_id"),
+			}] = runType
+		}
+	}
+
+	return runTypes
+}
+
+func pipelineRunTypeFromMap(
+	runTypes map[workflowExecutionRef]string,
+	exec *WorkflowExecution,
+) string {
+	if exec == nil || exec.Execution == nil {
+		return pipelineinternal.RunTypeManual
+	}
+
+	runType := runTypes[workflowExecutionRef{
+		WorkflowID: exec.Execution.WorkflowID,
+		RunID:      exec.Execution.RunID,
+	}]
+	if !pipelineinternal.ValidRunType(runType) {
+		return pipelineinternal.RunTypeManual
+	}
+	return runType
 }
 
 func extractCompletionStatus(exec *WorkflowExecution) bool {
@@ -1008,6 +1092,7 @@ func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats
 	record.Set("success_rate", stats.SuccessRate)
 	record.Set("manually_executed_runs", stats.ManualExecutions)
 	record.Set("scheduled_runs", stats.ScheduledExecutions)
+	record.SetIfFieldExists("CI_runs", stats.CIExecutions)
 	record.Set("minimum_running_time", stats.MinExecutionTime)
 	record.Set("first_execution", stats.FirstExecutionDate)
 	record.Set("last_execution_date", stats.LastExecutionDate)
@@ -1079,7 +1164,11 @@ func findPipelineResult(app core.App, workflowID string, runID string) (string, 
 	if err == nil && existing != nil {
 		id = existing.Id
 	} else {
-		return "", fmt.Errorf("no pipeline result found for workflow_id %s and run_id %s", workflowID, runID)
+		return "", fmt.Errorf(
+			"no pipeline result found for workflow_id %s and run_id %s",
+			workflowID,
+			runID,
+		)
 	}
 	return id, nil
 }

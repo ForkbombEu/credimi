@@ -396,5 +396,9 @@
 	"Yes_remove_access": "Sì, rimuovi l'accesso",
 	"my_folders": "Cartelle",
 	"json_configuration_is_edited_fields_are_disabled": "La configurazione JSON è stata modificata manualmente. I campi sono disabilitati.",
-	"reset_json_and_use_fields": "Reimposta JSON e usa i campi"
+	"reset_json_and_use_fields": "Reimposta JSON e usa i campi",
+	"Change_wallet_version": "Cambia versione del wallet",
+	"Change_wallet_version_modal_title": "Cambia versione del wallet per tutti i passaggi",
+	"Change_wallet_version_modal_description": "Scegli una versione. Ogni passaggio mobile-automation in questa pipeline la userà.",
+	"Wallet_version_current": "Attuale"
 }
