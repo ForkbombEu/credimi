@@ -19,6 +19,7 @@ import * as conformanceChecks from './columns/conformance-checks.svelte';
 import * as credentials from './columns/credentials.svelte';
 import * as customIntegrations from './columns/custom-integrations.svelte';
 import * as issuers from './columns/issuers.svelte';
+import * as lastExecution from './columns/last-execution.svelte';
 import * as minimumRunningTime from './columns/minimum-running-time.svelte';
 import * as name from './columns/name.svelte';
 import * as runners from './columns/runners.svelte';
@@ -43,7 +44,8 @@ const columns = [
 	Column.build(conformanceChecks),
 	Column.build(customIntegrations),
 	Column.build(runners),
-	Column.build(minimumRunningTime)
+	Column.build(minimumRunningTime),
+	Column.build(lastExecution)
 ];
 
 interface ExtendedPaginationState extends PaginationState {
@@ -68,7 +70,7 @@ export class ScoreboardTable {
 		pageCount: 0
 	});
 
-	#sorting = $state<SortingState>([]);
+	#sorting = $state<SortingState>([{ id: lastExecution.column.id, desc: true }]);
 
 	get pageSize() {
 		return this.#pagination.pageSize;
