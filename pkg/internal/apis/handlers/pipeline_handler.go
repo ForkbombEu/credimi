@@ -178,6 +178,15 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
 		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/execute",
+			Handler:     HandlePipelineExecute,
+			Description: "Execute a pipeline synchronously and wait for result",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.OptionalAuthOrAPIKey(),
+			},
+		},
 	},
 }
 
