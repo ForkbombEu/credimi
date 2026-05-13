@@ -27,7 +27,7 @@ tests:
     steps: []
 `
 
-func TestRewriteCredentialStepCIHost(t *testing.T) {
+func TestRewriteStepCIHost(t *testing.T) {
 	const original = `version: "1.1"
 name: Captures
 env:
@@ -38,14 +38,14 @@ tests:
     steps: []
 `
 
-	rewritten, ok := rewriteCredentialStepCIHost(original, "https://issuer.example/temp")
+	rewritten, ok := rewriteStepCIHost(original, "https://issuer.example/temp")
 	require.True(t, ok)
 	require.Contains(t, rewritten, "host: https://issuer.example/temp")
 	require.Contains(t, rewritten, "body: credentialIds=pid")
 }
 
-func TestRewriteCredentialStepCIHost_IgnoresMissingEnvHost(t *testing.T) {
-	rewritten, ok := rewriteCredentialStepCIHost(
+func TestRewriteStepCIHost_IgnoresMissingEnvHost(t *testing.T) {
+	rewritten, ok := rewriteStepCIHost(
 		"version: '1.1'\nenv:\n  body: x\n",
 		"https://issuer.example/temp",
 	)

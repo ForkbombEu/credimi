@@ -9,9 +9,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -29,6 +31,44 @@ var pipelineCIRunnerHealthCheck = checkPipelineCIRunnerHealth
 type tempRecordDeleteInput struct {
 	ExpectedOwnerID    string `json:"expected_owner_id"`
 	ExpectedIdentifier string `json:"expected_identifier"`
+}
+
+type pipelineCITempRecordResult struct {
+	Record     *core.Record
+	Identifier string
+}
+
+type pipelineCITempRecordsOptions struct {
+	Refs           []string
+	Collection     string
+	IdentifierKey  string
+	IdentifierName string
+	ResourceDomain string
+	ResourceName   string
+	OwnerID        string
+	CommitSHA      string
+	HostURL        string
+	RelationField  string
+	UniqueName     func(core.App, string, string, string) string
+}
+
+type pipelineCIBaseRequest struct {
+	PipelineIdentifier string
+	CommitSHA          string
+	Metadata           map[string]any
+	IDs                []string
+	RunnerID           string
+	RunnerType         string
+	HostURL            string
+}
+
+type pipelineCIRunContext struct {
+	OrganizationRecord *core.Record
+	UserID             string
+	UserName           string
+	UserEmail          string
+	PipelineRecord     *core.Record
+	PipelineYAML       string
 }
 
 // handleTempRecordDelete deletes a temporary CI record after route-specific validation.
@@ -148,6 +188,25 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+func normalizePipelineCIIdentifiers(values []string) []string {
+	seen := map[string]struct{}{}
+	var identifiers []string
+	for _, value := range values {
+		for _, part := range strings.Split(value, ",") {
+			identifier := canonify.NormalizePath(part)
+			if identifier == "" {
+				continue
+			}
+			if _, ok := seen[identifier]; ok {
+				continue
+			}
+			seen[identifier] = struct{}{}
+			identifiers = append(identifiers, identifier)
+		}
+	}
+	return identifiers
+}
+
 func metadataSHA(metadata map[string]any) string {
 	if metadata == nil {
 		return ""
@@ -183,6 +242,229 @@ func metadataFromForm(req *http.Request) (map[string]any, *apierror.APIError) {
 	return metadata, nil
 }
 
+func parsePipelineCIBaseRequest(
+	e *core.RequestEvent,
+	idsKey string,
+	hostURLKey string,
+) (pipelineCIBaseRequest, *apierror.APIError) {
+	contentType := e.Request.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "application/json") {
+		var raw map[string]json.RawMessage
+		if err := json.NewDecoder(e.Request.Body).Decode(&raw); err != nil {
+			return pipelineCIBaseRequest{}, apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"invalid JSON input",
+				err.Error(),
+			)
+		}
+		metadata, apiErr := metadataFromJSONRaw(raw["metadata"])
+		if apiErr != nil {
+			return pipelineCIBaseRequest{}, apiErr
+		}
+		commitSHA := firstNonEmpty(stringFromJSONRaw(raw["commit_sha"]), metadataSHA(metadata))
+		return pipelineCIBaseRequest{
+			PipelineIdentifier: strings.TrimSpace(stringFromJSONRaw(raw["pipeline_identifier"])),
+			CommitSHA:          strings.TrimSpace(commitSHA),
+			Metadata:           ensureMetadataSHA(metadata, commitSHA),
+			IDs:                normalizePipelineCIIdentifiers(stringsFromJSONRaw(raw[idsKey])),
+			RunnerID:           strings.TrimSpace(stringFromJSONRaw(raw["runner_id"])),
+			RunnerType:         strings.TrimSpace(stringFromJSONRaw(raw["runner_type"])),
+			HostURL:            strings.TrimSpace(stringFromJSONRaw(raw[hostURLKey])),
+		}, nil
+	}
+
+	if err := e.Request.ParseForm(); err != nil {
+		return pipelineCIBaseRequest{}, apierror.New(
+			http.StatusBadRequest,
+			"request",
+			"failed to parse form request",
+			err.Error(),
+		)
+	}
+	metadata, apiErr := metadataFromForm(e.Request)
+	if apiErr != nil {
+		return pipelineCIBaseRequest{}, apiErr
+	}
+	commitSHA := firstNonEmpty(e.Request.FormValue("commit_sha"), metadataSHA(metadata))
+	return pipelineCIBaseRequest{
+		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
+		CommitSHA:          strings.TrimSpace(commitSHA),
+		Metadata:           ensureMetadataSHA(metadata, commitSHA),
+		IDs:                normalizePipelineCIIdentifiers(e.Request.Form[idsKey]),
+		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
+		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
+		HostURL:            strings.TrimSpace(e.Request.FormValue(hostURLKey)),
+	}, nil
+}
+
+func metadataFromJSONRaw(raw json.RawMessage) (map[string]any, *apierror.APIError) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"metadata",
+			"metadata must be valid JSON",
+			err.Error(),
+		)
+	}
+	return metadata, nil
+}
+
+func stringFromJSONRaw(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var value string
+	_ = json.Unmarshal(raw, &value)
+	return value
+}
+
+func stringsFromJSONRaw(raw json.RawMessage) []string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var values []string
+	if err := json.Unmarshal(raw, &values); err == nil {
+		return values
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return []string{value}
+	}
+	return nil
+}
+
+func validatePipelineCIBaseRequest(
+	input pipelineCIBaseRequest,
+	hostURLKey string,
+) *apierror.APIError {
+	if strings.TrimSpace(input.PipelineIdentifier) == "" {
+		return apierror.New(
+			http.StatusBadRequest,
+			"pipeline_identifier",
+			"pipeline_identifier is required",
+			"missing pipeline_identifier",
+		)
+	}
+	if strings.TrimSpace(input.CommitSHA) == "" {
+		return apierror.New(
+			http.StatusBadRequest,
+			"metadata",
+			"commit_sha or metadata.sha is required",
+			"missing commit sha",
+		)
+	}
+	parsedURL, err := url.Parse(strings.TrimSpace(input.HostURL))
+	if err != nil || parsedURL == nil || parsedURL.Host == "" ||
+		(parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		return apierror.New(
+			http.StatusBadRequest,
+			hostURLKey,
+			hostURLKey+" is invalid",
+			hostURLKey+" must be an http or https URL",
+		)
+	}
+	if runnerType := strings.TrimSpace(input.RunnerType); runnerType != "" {
+		if _, ok := walletAPKAllowedRunnerTypes[runnerType]; !ok {
+			return apierror.New(
+				http.StatusBadRequest,
+				"runner_type",
+				"runner_type is invalid",
+				"runner_type must be one of android_emulator, redroid, android_phone, ios_simulator, ios_phone",
+			)
+		}
+	}
+	return nil
+}
+
+func resolvePipelineCIRunContext(
+	e *core.RequestEvent,
+	pipelineIdentifier string,
+) (pipelineCIRunContext, *apierror.APIError) {
+	if e.Auth == nil {
+		return pipelineCIRunContext{}, apierror.New(
+			http.StatusUnauthorized,
+			"auth",
+			"authentication required",
+			"user not authenticated",
+		)
+	}
+
+	orgRecord, err := GetUserOrganization(e.App, e.Auth.Id)
+	if err != nil {
+		return pipelineCIRunContext{}, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization record",
+			err.Error(),
+		)
+	}
+	pipelineRecord, err := canonify.Resolve(e.App, pipelineIdentifier)
+	if err != nil {
+		return pipelineCIRunContext{}, apierror.New(
+			http.StatusNotFound,
+			"pipeline_identifier",
+			"pipeline not found",
+			err.Error(),
+		)
+	}
+	if apiErr := authorizePipelineRunWalletAPKPipeline(
+		pipelineRecord,
+		orgRecord.Id,
+	); apiErr != nil {
+		return pipelineCIRunContext{}, apiErr
+	}
+	pipelineYAML := strings.TrimSpace(pipelineRecord.GetString("yaml"))
+	if pipelineYAML == "" {
+		return pipelineCIRunContext{}, apierror.New(
+			http.StatusBadRequest,
+			"pipeline_yaml",
+			"pipeline yaml is required",
+			"pipeline has no yaml",
+		)
+	}
+
+	return pipelineCIRunContext{
+		OrganizationRecord: orgRecord,
+		UserID:             e.Auth.Id,
+		UserName:           e.Auth.GetString("name"),
+		UserEmail:          e.Auth.GetString("email"),
+		PipelineRecord:     pipelineRecord,
+		PipelineYAML:       pipelineYAML,
+	}, nil
+}
+
+func resolvePipelineCIRunnerID(
+	ctx context.Context,
+	app core.App,
+	workflowDefinition *pipelineinternal.WorkflowDefinition,
+	input pipelineCIBaseRequest,
+) (string, bool, bool, *apierror.APIError) {
+	hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
+	if !hasStepRunner && !needsGlobalRunner {
+		return "", hasStepRunner, needsGlobalRunner, nil
+	}
+	if strings.TrimSpace(input.RunnerID) != "" {
+		return input.RunnerID, hasStepRunner, needsGlobalRunner, nil
+	}
+	if strings.TrimSpace(input.RunnerType) == "" {
+		if apiErr := validatePipelineCIGlobalRunnerRequest(
+			"",
+			hasStepRunner,
+			needsGlobalRunner,
+		); apiErr != nil {
+			return "", hasStepRunner, needsGlobalRunner, apiErr
+		}
+		return "", hasStepRunner, needsGlobalRunner, nil
+	}
+	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, input.RunnerType)
+	return runnerID, hasStepRunner, needsGlobalRunner, apiErr
+}
+
 func parsePipelineCIWorkflow(
 	pipelineYAML string,
 ) (*pipelineinternal.WorkflowDefinition, *apierror.APIError) {
@@ -197,6 +479,320 @@ func parsePipelineCIWorkflow(
 	}
 
 	return workflowDefinition, nil
+}
+
+func createTempPipelineCIRecord(
+	e *core.RequestEvent,
+	opts pipelineCITempRecordsOptions,
+	original *core.Record,
+	rewrittenYAML string,
+) (*core.Record, string, *apierror.APIError) {
+	collection := original.Collection()
+	record := core.NewRecord(collection)
+	fileFieldValues := make(map[string]interface{})
+	for _, field := range collection.Fields {
+		fieldName := field.GetName()
+		if field.Type() == "file" && original.Get(fieldName) != nil {
+			fileFieldValues[fieldName] = original.Get(fieldName)
+		}
+	}
+	for key, value := range original.FieldsData() {
+		if slices.Contains(systemFields, key) ||
+			key == "canonified_name" ||
+			key == "yaml" {
+			continue
+		}
+		if _, ok := fileFieldValues[key]; ok {
+			continue
+		}
+		record.Set(key, value)
+	}
+
+	tag := canonify.CanonifyPlain(opts.CommitSHA)
+	if tag == "" {
+		return nil, "", apierror.New(
+			http.StatusBadRequest,
+			"metadata",
+			"commit sha is invalid",
+			"commit sha cannot be canonified",
+		)
+	}
+	record.Set("owner", opts.OwnerID)
+	baseName := strings.TrimSpace(original.GetString("name"))
+	if baseName == "" {
+		baseName = opts.ResourceName
+	}
+	name := baseName + "-" + tag
+	if opts.UniqueName != nil {
+		name = opts.UniqueName(
+			e.App,
+			original.GetString("name"),
+			tag,
+			original.GetString(opts.RelationField),
+		)
+	}
+	record.Set("name", name)
+	record.Set("published", false)
+	record.Set("yaml", rewrittenYAML)
+
+	if err := e.App.Save(record); err != nil {
+		return nil, "", apierror.New(
+			http.StatusInternalServerError,
+			opts.ResourceDomain,
+			"failed to create temporary "+opts.ResourceName,
+			err.Error(),
+		)
+	}
+	if len(fileFieldValues) > 0 {
+		if err := cloneFiles(e.App, original, record, fileFieldValues); err != nil {
+			e.App.Logger().Warn(fmt.Sprintf(
+				"failed to clone files for temporary %s %s: %v",
+				opts.ResourceName,
+				record.Id,
+				err,
+			))
+		}
+	}
+
+	identifier, err := canonify.BuildPath(
+		e.App,
+		record,
+		canonify.CanonifyPaths[collection.Name],
+		"",
+	)
+	if err != nil {
+		_ = e.App.Delete(record)
+		return nil, "", apierror.New(
+			http.StatusInternalServerError,
+			opts.ResourceDomain,
+			"failed to build temporary "+opts.ResourceName+" identifier",
+			err.Error(),
+		)
+	}
+
+	return record, identifier, nil
+}
+
+func rewriteStepCIHost(stepCIYAML string, hostURL string) (string, bool) {
+	if strings.TrimSpace(stepCIYAML) == "" {
+		return "", false
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(stepCIYAML), &doc); err != nil {
+		return "", false
+	}
+	env, ok := doc["env"].(map[string]any)
+	if !ok {
+		return "", false
+	}
+	if _, ok := env["host"].(string); !ok {
+		return "", false
+	}
+	env["host"] = hostURL
+	rewritten, err := yaml.Marshal(doc)
+	if err != nil {
+		return "", false
+	}
+	return string(rewritten), true
+}
+
+func createPipelineCITempRecords(
+	e *core.RequestEvent,
+	opts pipelineCITempRecordsOptions,
+) ([]pipelineCITempRecordResult, map[string]string, *apierror.APIError) {
+	rewriteMap := map[string]string{}
+	tempRecords := []pipelineCITempRecordResult{}
+	for _, ref := range opts.Refs {
+		record, apiErr := resolveCanonicalCollectionRecord(
+			e.App,
+			opts.Collection,
+			ref,
+			opts.IdentifierKey,
+			opts.IdentifierName,
+		)
+		if apiErr != nil {
+			rollbackPipelineCITempRecords(e, tempRecords, opts.IdentifierName)
+			return nil, nil, apiErr
+		}
+		if apiErr := authorizeOwnedOrPublishedRecord(
+			record,
+			opts.OwnerID,
+			opts.Collection,
+			opts.ResourceDomain,
+		); apiErr != nil {
+			rollbackPipelineCITempRecords(e, tempRecords, opts.IdentifierName)
+			return nil, nil, apiErr
+		}
+
+		rewrittenYAML, ok := rewriteStepCIHost(record.GetString("yaml"), opts.HostURL)
+		if !ok {
+			continue
+		}
+		tempRecord, identifier, apiErr := createTempPipelineCIRecord(
+			e,
+			opts,
+			record,
+			rewrittenYAML,
+		)
+		if apiErr != nil {
+			rollbackPipelineCITempRecords(e, tempRecords, opts.IdentifierName)
+			return nil, nil, apiErr
+		}
+		result := pipelineCITempRecordResult{Record: tempRecord, Identifier: identifier}
+		tempRecords = append(tempRecords, result)
+		rewriteMap[canonify.NormalizePath(ref)] = identifier
+	}
+
+	return tempRecords, rewriteMap, nil
+}
+
+func resolvePipelineCIReferenceFilter(
+	app core.App,
+	collection string,
+	requestedIDs []string,
+	field string,
+	resourceName string,
+) (map[string]struct{}, *apierror.APIError) {
+	if len(requestedIDs) == 0 {
+		return nil, nil
+	}
+	filter := map[string]struct{}{}
+	for _, requestedID := range requestedIDs {
+		if _, apiErr := resolveCanonicalCollectionRecord(
+			app,
+			collection,
+			requestedID,
+			field,
+			resourceName,
+		); apiErr != nil {
+			return nil, apiErr
+		}
+		filter[canonify.NormalizePath(requestedID)] = struct{}{}
+	}
+	return filter, nil
+}
+
+func collectPipelineCIReferences(
+	workflowDefinition *pipelineinternal.WorkflowDefinition,
+	stepUse string,
+	payloadKey string,
+) []string {
+	if workflowDefinition == nil {
+		return nil
+	}
+	var refs []string
+	collect := func(step pipelineinternal.StepSpec) {
+		if step.Use != stepUse || step.With.Payload == nil {
+			return
+		}
+		identifier, ok := step.With.Payload[payloadKey].(string)
+		if !ok || strings.TrimSpace(identifier) == "" {
+			return
+		}
+		refs = append(refs, canonify.NormalizePath(identifier))
+	}
+	for _, step := range workflowDefinition.Steps {
+		collect(step.StepSpec)
+		for _, onErr := range step.OnError {
+			if onErr != nil {
+				collect(onErr.StepSpec)
+			}
+		}
+		for _, onSuccess := range step.OnSuccess {
+			if onSuccess != nil {
+				collect(onSuccess.StepSpec)
+			}
+		}
+	}
+	return refs
+}
+
+func rollbackPipelineCITempRecords(
+	e *core.RequestEvent,
+	tempRecords []pipelineCITempRecordResult,
+	resourceName string,
+) {
+	for _, tempRecord := range tempRecords {
+		if tempRecord.Record == nil || tempRecord.Record.Id == "" {
+			continue
+		}
+		if err := e.App.Delete(tempRecord.Record); err != nil {
+			e.App.Logger().Warn(fmt.Sprintf(
+				"failed to rollback temporary %s %s: %v",
+				resourceName,
+				tempRecord.Record.Id,
+				err,
+			))
+		}
+	}
+}
+
+func rewritePipelineCIStepRefsYAML(
+	pipelineYAML string,
+	rewriteMap map[string]string,
+	stepUse string,
+	payloadKey string,
+) (string, *apierror.APIError) {
+	if len(rewriteMap) == 0 {
+		return pipelineYAML, nil
+	}
+	workflowDefinition, err := pipelineinternal.ParseWorkflow(pipelineYAML)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse pipeline yaml",
+			err.Error(),
+		)
+	}
+	for i := range workflowDefinition.Steps {
+		rewritePipelineCIStepRef(
+			&workflowDefinition.Steps[i].StepSpec,
+			rewriteMap,
+			stepUse,
+			payloadKey,
+		)
+		for _, onErr := range workflowDefinition.Steps[i].OnError {
+			if onErr != nil {
+				rewritePipelineCIStepRef(&onErr.StepSpec, rewriteMap, stepUse, payloadKey)
+			}
+		}
+		for _, onSuccess := range workflowDefinition.Steps[i].OnSuccess {
+			if onSuccess != nil {
+				rewritePipelineCIStepRef(&onSuccess.StepSpec, rewriteMap, stepUse, payloadKey)
+			}
+		}
+	}
+	rewritten, err := yaml.Marshal(workflowDefinition)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"yaml",
+			"failed to marshal pipeline yaml",
+			err.Error(),
+		)
+	}
+	return string(rewritten), nil
+}
+
+func rewritePipelineCIStepRef(
+	step *pipelineinternal.StepSpec,
+	rewriteMap map[string]string,
+	stepUse string,
+	payloadKey string,
+) {
+	if step == nil || step.Use != stepUse || step.With.Payload == nil {
+		return
+	}
+	ref, ok := step.With.Payload[payloadKey].(string)
+	if !ok {
+		return
+	}
+	tempIdentifier, ok := rewriteMap[canonify.NormalizePath(ref)]
+	if !ok {
+		return
+	}
+	step.With.Payload[payloadKey] = tempIdentifier
 }
 
 func injectPipelineCIGlobalRunnerID(
