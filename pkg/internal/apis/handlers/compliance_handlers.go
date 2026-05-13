@@ -486,7 +486,11 @@ func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		if err := complianceNotifyLogsUpdate(e.App, req.WorkflowID+suiteSubscription, req.Logs); err != nil {
+		if err := complianceNotifyLogsUpdate(
+			e.App,
+			req.WorkflowID+suiteSubscription,
+			req.Logs,
+		); err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
 				"workflow",
@@ -576,7 +580,11 @@ func sendOpenIDNetLogUpdateStart(
 			if logsInterface, ok := result.Log.([]any); ok {
 				logs := workflowengine.AsSliceOfMaps(logsInterface)
 				id := strings.TrimSuffix(input.WorkflowID, "-log")
-				if err := complianceNotifyLogsUpdate(app, id+workflows.OpenIDNetSubscription, logs); err != nil {
+				if err := complianceNotifyLogsUpdate(
+					app,
+					id+workflows.OpenIDNetSubscription,
+					logs,
+				); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"workflow",
@@ -585,7 +593,12 @@ func sendOpenIDNetLogUpdateStart(
 					)
 				}
 			} else {
-				return apierror.New(http.StatusBadRequest, "workflow", "invalid log format", "logs are not in the expected format")
+				return apierror.New(
+					http.StatusBadRequest,
+					"workflow",
+					"invalid log format",
+					"logs are not in the expected format",
+				)
 			}
 		}
 
@@ -660,7 +673,11 @@ func sendOpenID4VCIIssuerLogUpdateStart(
 		)
 	}
 
-	if err := complianceNotifyLogsUpdate(app, input.WorkflowID+workflows.OpenIDNetSubscription, logs); err != nil {
+	if err := complianceNotifyLogsUpdate(
+		app,
+		input.WorkflowID+workflows.OpenIDNetSubscription,
+		logs,
+	); err != nil {
 		return apierror.New(
 			http.StatusBadRequest,
 			"workflow",

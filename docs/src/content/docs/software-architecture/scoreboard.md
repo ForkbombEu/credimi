@@ -7,165 +7,109 @@ description: "Scoreboard feature API endpoints, data structures, and integration
 
 ## Overview
 
-The Scoreboard feature provides a comprehensive view of test results for Wallets, Issuers, Verifiers, and Pipelines in the Credimi platform. Results are available in OpenTelemetry-compatible format for standardized telemetry integration.
+The Scoreboard shows aggregated pipeline execution results across the platform. The public UI reads pre-aggregated rows from the PocketBase `pipeline_scoreboard_cache` collection. A Temporal workflow periodically refreshes that cache from per-namespace pipeline statistics.
 
 ## API Endpoints
 
-### 1. `/api/my/results` (Authenticated)
+### `GET /api/pipeline/scoreboard/{namespace}`
 
-Returns scoreboard results for the current authenticated user's Wallet/Issuer/Verifier/Pipelines.
+Returns aggregated pipeline statistics for a single Temporal namespace (organization).
 
-**Method:** GET  
-**Authentication:** Required  
-**Response Format:**
+**Authentication:** Internal / trusted callers (used by the aggregation workflow)
 
-```json
-{
-  "summary": {
-    "wallets": [...],
-    "issuers": [...],
-    "verifiers": [...],
-    "pipelines": [...]
-  },
-  "otelData": {
-    "resourceSpans": [...]
-  }
-}
-```
+### `POST /api/pipeline/scoreboard/save-results`
 
-### 2. `/api/all-results` (Public)
+Accepts merged aggregation output and refreshes `pipeline_scoreboard_cache`.
 
-Returns scoreboard results for all Wallet/Issuer/Verifier/Pipelines across the system.
+**Authentication:** Internal admin API key
 
-**Method:** GET  
-**Authentication:** Not required  
-**Response Format:** Same as `/api/my/results`
+### `POST /api/pipeline/scoreboard/aggregate/start`
 
-## Data Structures
+Starts the `AggregateScoreboardWorkflow`. Optional `?schedule=<seconds>` creates a recurring schedule.
 
-### ScoreboardEntry
+### `DELETE /api/pipeline/scoreboard/aggregate/schedule/{schedule_id}`
 
-Each entity (wallet, issuer, verifier, pipeline) is represented with:
+Cancels a scheduled aggregation workflow.
+
+### Legacy (removed from active routes)
+
+The older `/api/my/results` and `/api/all-results` endpoints described an OpenTelemetry tabbed scoreboard. That implementation is commented out in `scoreboard_handler.go` and is no longer used by the frontend.
+
+## Data Model
+
+### `pipeline_scoreboard_cache`
+
+Primary read model for the scoreboard UI. One row per pipeline, with fields such as:
+
+- `total_runs`, `total_successes`, `success_rate`
+- `pipeline` relation (may be hidden when the pipeline is private)
+- Expanded relations for wallets, issuers, verifiers, credentials, runners, conformance checks, and latest successful execution artifacts
+
+### Frontend type
 
 ```typescript
-{
-  id: string;
-  name: string;
-  type: 'wallet' | 'issuer' | 'verifier' | 'pipeline';
-  totalRuns: number;
-  successCount: number;
-  failureCount: number;
-  successRate: number;  // Percentage (0-100)
-  lastRun: string;       // ISO 8601 timestamp
-}
+// webapp/src/lib/scoreboard/types.ts
+export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
 ```
 
-### OpenTelemetry Format
+## Frontend
 
-Results are also provided in OpenTelemetry format with:
-- Resource spans containing service metadata
-- Scope spans with trace/span information
-- Attributes including test metrics (success rate, counts, etc.)
-- Status information (OK/ERROR)
+### Public Scoreboard (`/scoreboard`)
 
-## Frontend Pages
+- Loads rows via `Scoreboard.loadData()` (`$lib/scoreboard/functions.ts`)
+- Renders `Scoreboard.Component` with a `Scoreboard.Instance` table controller
+- Columns include pipeline name, screenshot, success rate, wallets, issuers, credentials, verifiers, use-case verifications, conformance checks, custom integrations, runners, and minimum running time
+- Supports client-side pagination and sorting
 
-### 1. User Scoreboard (`/my/scoreboard`)
+### Homepage Section
 
-Authenticated users can view their own scoreboard with:
-- Tabbed interface for Wallets, Issuers, Verifiers, and Pipelines
-- Summary table showing success rates and test statistics
-- Links to detailed pages for each entity
-- Expandable OpenTelemetry data section
+`webapp/src/routes/(public)/_partials/scoreboard-section.svelte` shows a small random sample of scoreboard rows on the public landing page.
 
-### 2. Public Scoreboard (`/scoreboard`)
+### Library exports
 
-Public view showing aggregate results for all entities across the system.
+```typescript
+import { Scoreboard } from '$lib';
 
-### 3. Detail Pages (`/my/scoreboard/[type]/[id]`)
+Scoreboard.loadData();
+Scoreboard.Component;
+Scoreboard.Instance;
+Scoreboard.EntityDisplay;
+```
 
-Individual entity pages showing:
-- Summary statistics cards
-- Test run history visualization (placeholder)
-- Recent test runs table with OpenTelemetry span data
-- Raw OpenTelemetry data in expandable section
+## Aggregation Workflow
 
-## Implementation Notes
+`AggregateScoreboardWorkflow` (`pkg/workflowengine/workflows/scoreboard.go`):
 
-### Current Status
+1. Enumerate organization namespaces
+2. Fetch per-namespace stats from `/api/pipeline/scoreboard/{namespace}`
+3. Merge results across tenants
+4. Persist via `/api/pipeline/scoreboard/save-results`
 
-The implementation includes:
-- ✅ Full API structure with OpenTelemetry format
-- ✅ Frontend components with responsive design
-- ✅ Type definitions for TypeScript
-- ⚠️ **Placeholder data aggregation** - Currently returns example data
-
-### TODO: Real Data Integration
-
-The following functions need to be implemented with actual database queries:
-
-1. `aggregateWalletResults()` - Query `wallets` and `wallet_actions` collections
-2. `aggregateIssuerResults()` - Query `credential_issuers` collection
-3. `aggregateVerifierResults()` - Query `verifiers` and `use_cases_verifications` collections
-4. `aggregatePipelineResults()` - Query `pipelines` and `pipeline_results` collections
-
-Each function should:
-- Filter by `ownerID` when `userSpecific` is true
-- Aggregate test run data from related collections
-- Calculate success/failure counts and rates
-- Return properly formatted `ScoreboardEntry` objects
-
-### Database Collections
-
-The following PocketBase collections are relevant:
-- `wallets` - Wallet definitions
-- `wallet_actions` - Wallet action test results
-- `credential_issuers` - Credential issuer definitions
-- `verifiers` - Verifier definitions
-- `use_cases_verifications` - Use case verification results
-- `pipelines` - Pipeline definitions
-- `pipeline_results` - Pipeline execution results (with `owner`, `workflow_id`, `run_id`)
-
-### OpenTelemetry Integration
-
-The current implementation provides OpenTelemetry-compatible data structures:
-- **Traces** - Each entity represents a logical trace
-- **Spans** - Test runs are represented as spans
-- **Attributes** - Test metrics are stored as span attributes
-- **Status** - Success/failure indicated via status codes
-
-This format allows integration with standard OpenTelemetry collectors and visualization tools.
+Handlers live in `pkg/internal/apis/handlers/scoreboard.go`.
 
 ## Usage Examples
 
-### Fetching User Results
+### Load scoreboard data in a SvelteKit route
 
-```javascript
-const response = await fetch('/api/my/results', {
-  headers: {
-    'Authorization': 'Bearer <token>'
-  }
-});
-const data = await response.json();
-console.log(data.summary.wallets);
+```typescript
+import { Scoreboard } from '$lib';
+
+export const load = async ({ fetch }) => {
+	const data = await Scoreboard.loadData({ fetch });
+	return { scoreboardData: data.items };
+};
 ```
 
-### Fetching Public Results
+### Start aggregation manually
 
-```javascript
-const response = await fetch('/api/all-results');
-const data = await response.json();
-console.log(data.summary.pipelines);
+```bash
+curl -X POST "https://your-domain/api/pipeline/scoreboard/aggregate/start" \
+  -H "X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY"
 ```
 
 ## Future Enhancements
 
-Potential improvements:
-- Real-time updates via WebSocket
-- Filtering and sorting options
-- Date range selection for historical data
-- Export functionality (CSV, JSON, OpenTelemetry format)
-- Integration with external OpenTelemetry collectors
-- Custom visualization charts (line graphs, pie charts)
-- Comparison views between entities
-- Detailed error logs and debugging information
+- Filtering and column presets on the public table
+- Historical trending from `pipeline_results`
+- Per-organization public views
+- Scheduled aggregation monitoring in the admin UI

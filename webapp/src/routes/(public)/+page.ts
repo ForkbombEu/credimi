@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { Scoreboard } from '$lib';
+
 import { pb } from '@/pocketbase';
 import { Collections } from '@/pocketbase/types';
-
-import { loadScoreboardSummary } from './_partials/scoreboard-section.svelte';
 
 export const load = async ({ fetch }) => {
 	const wallets = await pb.collection('hub_items').getList(1, 3, {
@@ -23,11 +23,16 @@ export const load = async ({ fetch }) => {
 		fetch,
 		sort: '@random'
 	});
-	const scoreboard = await loadScoreboardSummary();
+	const scoreboard = await Scoreboard.Records.loadPage({
+		fetch,
+		page: 1,
+		perPage: 5,
+		sort: '@random'
+	});
 	return {
 		wallets: wallets.items,
 		issuers: issuers.items,
 		verifiers: verifiers.items,
-		scoreboard
+		scoreboard: { records: scoreboard.items }
 	};
 };

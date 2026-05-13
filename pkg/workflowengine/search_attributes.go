@@ -24,12 +24,12 @@ const (
 )
 
 type EntityIDs struct {
-    Actions           []string `json:"actions,omitempty"`
-    Versions          []string `json:"versions,omitempty"`
-    Credentials       []string `json:"credentials,omitempty"`
-    UseCases          []string `json:"use_cases,omitempty"`
-    ConformanceChecks []string `json:"conformance_checks,omitempty"`
-    CustomChecks      []string `json:"custom_checks,omitempty"`
+	Actions           []string `json:"actions,omitempty"`
+	Versions          []string `json:"versions,omitempty"`
+	Credentials       []string `json:"credentials,omitempty"`
+	UseCases          []string `json:"use_cases,omitempty"`
+	ConformanceChecks []string `json:"conformance_checks,omitempty"`
+	CustomChecks      []string `json:"custom_checks,omitempty"`
 }
 
 // NormalizePipelineIdentifier trims whitespace and leading/trailing slashes from identifiers.
@@ -39,7 +39,7 @@ func NormalizePipelineIdentifier(identifier string) string {
 
 // PipelineTypedSearchAttributes returns typed search attributes for scheduled workflow actions.
 func PipelineTypedSearchAttributes(
-	pipelineIdentifier string, 
+	pipelineIdentifier string,
 	runnerIDs []string,
 	entityIDs EntityIDs,
 ) temporal.SearchAttributes {
@@ -131,7 +131,10 @@ func ApplyPipelineSearchAttributes(
 		return
 	}
 	if options.TypedSearchAttributes.Size() > 0 {
-		updates = append([]temporal.SearchAttributeUpdate{options.TypedSearchAttributes.Copy()}, updates...)
+		updates = append(
+			[]temporal.SearchAttributeUpdate{options.TypedSearchAttributes.Copy()},
+			updates...,
+		)
 	}
 	options.TypedSearchAttributes = temporal.NewSearchAttributes(updates...)
 }

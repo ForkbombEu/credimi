@@ -580,7 +580,9 @@ func resolvePipelineIdentifiersForExecutions(
 			continue
 		}
 
-		if identifier := pipelineIdentifierFromSearchAttributes(exec.SearchAttributes); identifier != "" {
+		if identifier := pipelineIdentifierFromSearchAttributes(
+			exec.SearchAttributes,
+		); identifier != "" {
 			identifiers[ref] = identifier
 		}
 	}

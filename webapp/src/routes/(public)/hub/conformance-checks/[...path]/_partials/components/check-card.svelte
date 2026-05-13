@@ -28,15 +28,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <a
 	{href}
 	class={[
-		'border-primary bg-card text-card-foreground ring-primary relative',
+		'relative border-primary bg-card text-card-foreground ring-primary',
 		'flex flex-col justify-between gap-4',
 		'overflow-visible rounded-lg border p-4 shadow-sm transition-all hover:-translate-y-2 hover:ring-2'
 	]}
 >
 	<div class="space-y-1">
-		<p class="text-muted-foreground text-xs">
+		<p class="text-xs text-muted-foreground">
 			{standard.name} • {version.name} • {suite.name}
 		</p>
-		<T class="overflow-hidden text-ellipsis font-semibold">{testName}</T>
+		<T class="overflow-hidden font-semibold text-ellipsis">{testName}</T>
 	</div>
 </a>

@@ -17,8 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import CollectionManagerComponent from '@/collections-components/manager/collectionManager.svelte';
 	import { CollectionManager } from '@/collections-components/manager/collectionManager.svelte.js';
+	import PublicPageHeader from '@/components/layout/public-page-header.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
 	//
@@ -77,11 +77,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 >
 	{#snippet top({ Search })}
-		<div class="bg-secondary pt-10 pb-0">
+		<div class="bg-secondary pb-0">
 			<div class="mx-auto max-w-7xl px-4 md:px-8">
-				<T tag="h1" class="mb-8">
-					{m.Hub()}
-				</T>
+				<PublicPageHeader
+					entity="marketplace"
+					description={m.Explore_the_hub_and_try_credentials_wallets_and_services()}
+				/>
 
 				<div
 					class="mb-8 flex flex-col gap-2 overflow-auto md:mb-0 md:flex-row md:items-stretch md:gap-0"

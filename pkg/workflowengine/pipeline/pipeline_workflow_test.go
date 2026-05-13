@@ -454,7 +454,9 @@ steps:
 		internalHTTPAct.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+				input.Payload,
+			)
 			if err != nil {
 				return false
 			}
@@ -829,7 +831,11 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 
 	require.NotNil(t, capturedFinallyBody)
 	require.Equal(t, "success", capturedFinallyBody["result"])
-	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", capturedFinallyBody["pipeline_url"])
+	require.Equal(
+		t,
+		"https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id",
+		capturedFinallyBody["pipeline_url"],
+	)
 	require.Equal(t, "acme", capturedFinallyBody["input_value"])
 
 	pipelineOutput, ok := capturedFinallyBody["pipeline_output"].(map[string]any)
@@ -842,7 +848,11 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 
 	metadata, ok := pipelineOutput["metadata"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", metadata["pipeline_url"])
+	require.Equal(
+		t,
+		"https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id",
+		metadata["pipeline_url"],
+	)
 	require.Equal(t, "default-test-workflow-id", metadata["workflow_id"])
 	require.Equal(t, "default-test-run-id", metadata["workflow_run_id"])
 }
@@ -1195,14 +1205,16 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 			switch payload := input.Payload.(type) {
 			case *activities.HTTPActivityPayload:
 				url = payload.URL
-				if body, ok := payload.Body.(map[string]any); ok && url == "https://example.com/finally" {
+				if body, ok := payload.Body.(map[string]any); ok &&
+					url == "https://example.com/finally" {
 					capturedBody = body
 				}
 			case map[string]any:
 				if u, ok := payload["url"]; ok {
 					url = u.(string)
 				}
-				if body, ok := payload["body"].(map[string]any); ok && url == "https://example.com/finally" {
+				if body, ok := payload["body"].(map[string]any); ok &&
+					url == "https://example.com/finally" {
 					capturedBody = body
 				}
 			}
@@ -1281,7 +1293,11 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 
 	require.NotNil(t, capturedBody, "Finally step should be executed")
 	require.Equal(t, "failed", capturedBody["result"])
-	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", capturedBody["pipeline_url"])
+	require.Equal(
+		t,
+		"https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id",
+		capturedBody["pipeline_url"],
+	)
 
 	pipelineOutput, exists := capturedBody["pipeline_output"]
 	require.True(t, exists, "pipeline_output should be present in finally body")
@@ -1296,7 +1312,11 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 
 	metadata, ok := outputMap["metadata"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id", metadata["pipeline_url"])
+	require.Equal(
+		t,
+		"https://example.test/my/tests/runs/default-test-workflow-id/default-test-run-id",
+		metadata["pipeline_url"],
+	)
 	require.Equal(t, "default-test-workflow-id", metadata["workflow_id"])
 	require.Equal(t, "default-test-run-id", metadata["workflow_run_id"])
 }

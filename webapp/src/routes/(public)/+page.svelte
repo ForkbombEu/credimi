@@ -5,7 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Sparkle, StoreIcon, TableIcon } from '@lucide/svelte';
+	import { Sparkle } from '@lucide/svelte';
+	import { entities } from '$lib/global/index.js';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
 
@@ -65,7 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex items-center justify-between">
 			<T tag="h3">{m.Find_solutions()}</T>
 			<Button variant="default" href="/hub">
-				<StoreIcon />
+				<Icon src={entities.marketplace.icon} />
 				{m.Explore_Hub()}
 			</Button>
 		</div>
@@ -81,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex items-center justify-between">
 			<T tag="h3">{m.Compare_by_test_results()}</T>
 			<Button variant="default" href="/scoreboard">
-				<TableIcon />
+				<Icon src={entities.scoreboard.icon} />
 				{m.View_Scoreboard()}
 			</Button>
 		</div>

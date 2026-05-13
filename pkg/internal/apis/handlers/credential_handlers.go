@@ -38,7 +38,16 @@ var CredentialTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:        HandleGetCredentialOffer,
 			ResponseSchema: GetCredentialOfferResponse{},
 		},
+		{
+			Method:  http.MethodDelete,
+			Path:    "/temp/{record}",
+			Handler: HandleDeleteTempCredential,
+		},
 	},
+}
+
+func HandleDeleteTempCredential() func(*core.RequestEvent) error {
+	return handleTempRecordDelete("credentials", credentialResourceDomain)
 }
 
 func HandleGetCredentialOffer() func(*core.RequestEvent) error {
