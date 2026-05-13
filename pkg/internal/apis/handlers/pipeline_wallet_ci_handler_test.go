@@ -998,11 +998,11 @@ func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
 		),
 	)
 
-	runnerID, hasStepRunner, needsGlobalRunner, apiErr = resolvePipelineRunIssuerRunnerID(
+	runnerID, hasStepRunner, needsGlobalRunner, apiErr = resolvePipelineCIRunnerID(
 		context.Background(),
 		nil,
 		workflowDefinition,
-		pipelineRunIssuerRequest{
+		pipelineCIBaseRequest{
 			RunnerID:   "runner-1",
 			RunnerType: "android_phone",
 		},

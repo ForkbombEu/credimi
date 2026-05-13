@@ -15,6 +15,7 @@ import (
 )
 
 const tempCredentialsConfigKey = "temp_credentials"
+const tempUseCaseVerificationsConfigKey = "temp_use_case_verifications"
 
 func tempCredentialsCleanupHook(
 	ctx workflow.Context,
@@ -24,17 +25,46 @@ func tempCredentialsCleanupHook(
 	_ map[string]any,
 	_ *map[string]any,
 ) error {
-	cleanupConfig, ok := config[tempCredentialsConfigKey].(map[string]any)
+	return cleanupTempRecords(ctx, config, tempCredentialsConfigKey, "credentials", []string{
+		"api",
+		"credential",
+		"temp",
+	})
+}
+
+func tempUseCaseVerificationsCleanupHook(
+	ctx workflow.Context,
+	_ []pipelineinternal.StepDefinition,
+	_ *workflow.ActivityOptions,
+	config map[string]any,
+	_ map[string]any,
+	_ *map[string]any,
+) error {
+	return cleanupTempRecords(ctx, config, tempUseCaseVerificationsConfigKey, "use_cases", []string{
+		"api",
+		"verifier",
+		"temp-use-case",
+	})
+}
+
+func cleanupTempRecords(
+	ctx workflow.Context,
+	config map[string]any,
+	configKey string,
+	itemsKey string,
+	urlParts []string,
+) error {
+	cleanupConfig, ok := config[configKey].(map[string]any)
 	if !ok || !workflowengine.AsBool(cleanupConfig["cleanup"]) {
 		return nil
 	}
 
-	rawCredentials, ok := cleanupConfig["credentials"]
+	rawItems, ok := cleanupConfig[itemsKey]
 	if !ok {
 		return nil
 	}
-	credentials := normalizeTempCredentialCleanupItems(rawCredentials)
-	if len(credentials) == 0 {
+	items := normalizeTempCredentialCleanupItems(rawItems)
+	if len(items) == 0 {
 		return nil
 	}
 	appURL, _ := config["app_url"].(string)
@@ -44,20 +74,18 @@ func tempCredentialsCleanupHook(
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
-	for _, credential := range credentials {
-		recordID, _ := credential["record_id"].(string)
-		ownerID, _ := credential["owner_id"].(string)
-		identifier, _ := credential["identifier"].(string)
+	for _, item := range items {
+		recordID, _ := item["record_id"].(string)
+		ownerID, _ := item["owner_id"].(string)
+		identifier, _ := item["identifier"].(string)
 		if recordID == "" {
 			continue
 		}
+		recordURLParts := append(append([]string{}, urlParts...), recordID)
 		request := workflowengine.ActivityInput{
 			Payload: activities.InternalHTTPActivityPayload{
 				Method: http.MethodDelete,
-				URL: utils.JoinURL(
-					appURL,
-					"api", "credential", "temp", recordID,
-				),
+				URL:    utils.JoinURL(appURL, recordURLParts...),
 				Body: map[string]any{
 					"expected_owner_id":   ownerID,
 					"expected_identifier": identifier,

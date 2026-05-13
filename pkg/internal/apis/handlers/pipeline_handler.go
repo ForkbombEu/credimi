@@ -59,6 +59,13 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Description:    "Create temporary issuer credentials and queue a one-off pipeline run",
 		},
 		{
+			Method:         http.MethodPost,
+			Path:           "/run-verifier",
+			Handler:        HandlePipelineRunVerifier,
+			ResponseSchema: PipelineRunVerifierResponse{},
+			Description:    "Create temporary verifier use cases and queue a one-off pipeline run",
+		},
+		{
 			Method:      http.MethodGet,
 			Path:        "/queue/{ticket}",
 			Handler:     HandlePipelineQueueStatus,

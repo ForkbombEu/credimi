@@ -37,6 +37,7 @@ var (
 		MobileAutomationCleanupHook,
 		ConformanceCheckCleanupHook,
 		tempCredentialsCleanupHook,
+		tempUseCaseVerificationsCleanupHook,
 		tempWalletVersionCleanupHook,
 	}
 )

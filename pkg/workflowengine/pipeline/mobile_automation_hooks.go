@@ -475,7 +475,8 @@ func fetchMobileActionCategory(
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), internalReq).Get(ctx, &result); err != nil {
+	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), internalReq).
+		Get(ctx, &result); err != nil {
 		if !isMissingPipelineInternalHTTPActivity(err) {
 			return "", err
 		}
