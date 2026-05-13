@@ -55,11 +55,12 @@ export async function loadForPipeline(
 	try {
 		const res = await agent.getList(1, 1, {
 			fetch: options.fetch,
+			requestKey: null,
 			filter: pb.filter('pipeline = {:pipeline}', { pipeline: pipelineId })
 		});
 		return res.items[0] as ScoreboardRow | undefined;
 	} catch (error) {
-		if (error instanceof ClientResponseError && error.status === 404) {
+		if (error instanceof ClientResponseError && (error.status === 404 || error.status === 0)) {
 			return undefined;
 		}
 		console.error(error);

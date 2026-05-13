@@ -9,8 +9,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
 	import { resolve } from '$app/paths';
-	import { Pipeline } from '$lib';
+	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
+	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
+	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
@@ -91,6 +93,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const hasWorkflows = $derived(workflows && workflows.length > 0);
 
+	let scoreboardResults = $state<ScoreboardRow | undefined>();
+
+	$effect(() => {
+		const pipelineId = pipeline.id;
+		scoreboardResults = undefined;
+
+		let cancelled = false;
+		Scoreboard.Records.loadForPipeline(pipelineId)
+			.then((results) => {
+				if (!cancelled) scoreboardResults = results;
+			})
+			.catch((error) => {
+				console.error(error);
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const hasSummary = $derived(
+		scoreboardResults
+			? Scoreboard.EntityDisplay.buildPipelineSummaryItems(scoreboardResults).length > 0
+			: false
+	);
+
+	const hasContent = $derived(hasWorkflows || hasSummary);
+
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
 
 	const runnerType = $derived(Pipeline.Runner.getType(pipeline));
@@ -101,7 +131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	record={pipeline}
 	{avatar}
 	badge={isPublic ? m.Public() : undefined}
-	content={hasWorkflows ? content : undefined}
+	content={hasContent ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
 	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
 >
@@ -179,22 +209,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet content()}
-	{#if workflows && workflows.length > 0}
-		<div class="space-y-3">
-			<div class="flex items-center justify-between gap-1">
-				<T class="text-sm font-medium">{m.Recent_workflows()}</T>
-				<BlueButton
-					compact
-					href={resolve('/my/pipelines/[...pipeline_path]', {
-						pipeline_path: getPath(pipeline, true)
-					})}
-				>
-					{m.view_all()}
-					<ArrowRightIcon />
-				</BlueButton>
-			</div>
+	<div class="space-y-3">
+		{#if scoreboardResults}
+			<PipelineContentSummary results={scoreboardResults} />
+		{/if}
 
-			<Pipeline.Workflows.SmallTable {workflows} />
-		</div>
-	{/if}
+		{#if workflows && workflows.length > 0}
+			<div class="space-y-3">
+				<div class="flex items-center justify-between gap-1">
+					<T class="text-sm font-medium">{m.Recent_workflows()}</T>
+					<BlueButton
+						compact
+						href={resolve('/my/pipelines/[...pipeline_path]', {
+							pipeline_path: getPath(pipeline, true)
+						})}
+					>
+						{m.view_all()}
+						<ArrowRightIcon />
+					</BlueButton>
+				</div>
+
+				<Pipeline.Workflows.SmallTable {workflows} />
+			</div>
+		{/if}
+	</div>
 {/snippet}
