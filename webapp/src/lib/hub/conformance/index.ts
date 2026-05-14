@@ -6,13 +6,13 @@ import {
 	getStandardCheckUrl,
 	getStandardCheckUrlFromPath,
 	getSuitePageUrl,
-	marketplaceConformanceChecksPath
+	hubConformanceChecksPath
 } from './urls';
 
 //
 
 export const Conformance = {
-	basePath: marketplaceConformanceChecksPath,
+	basePath: hubConformanceChecksPath,
 	getSuitePageUrl,
 	getStandardCheckUrl,
 	getStandardCheckUrlFromPath

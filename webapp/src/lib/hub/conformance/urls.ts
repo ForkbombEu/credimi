@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/** Base path for public conformance marketplace routes. */
-export const marketplaceConformanceChecksPath = '/marketplace/conformance-checks';
+/** Base path for public conformance hub routes. */
+export const hubConformanceChecksPath = '/hub/conformance-checks';
 
 /**
  * URL for a conformance suite collection page (standard + version + suite UIDs).
- * Matches `webapp/src/routes/(public)/marketplace/conformance-checks/[...path]/+page.ts` (minimum path depth).
+ * Matches `webapp/src/routes/(public)/hub/conformance-checks/[...path]/+page.ts` (minimum path depth).
  */
 export function getSuitePageUrl(standardUid: string, versionUid: string, suiteUid: string): string {
-	return `${marketplaceConformanceChecksPath}/${standardUid}/${versionUid}/${suiteUid}`;
+	return `${hubConformanceChecksPath}/${standardUid}/${versionUid}/${suiteUid}`;
 }
 
 /**
@@ -28,5 +28,5 @@ export function getStandardCheckUrl(
 
 /** Joined `standard/version/suite/test` path as returned by suite.paths / pipeline `check_id`. */
 export function getStandardCheckUrlFromPath(path: string): string {
-	return `${marketplaceConformanceChecksPath}/${path}`;
+	return `${hubConformanceChecksPath}/${path}`;
 }
