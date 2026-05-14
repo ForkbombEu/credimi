@@ -142,9 +142,7 @@ export class ConfigureChecksForm {
 			.map(([id]) => ({ text: id, id }));
 
 		return {
-			isValid:
-				missingSharedFieldsCount === 0 &&
-				invalidBaseFormsCount === 0,
+			isValid: missingSharedFieldsCount === 0 && invalidBaseFormsCount === 0,
 			sharedFields: this.sharedFieldsEditor.getCompletionReport().isValid,
 			validFormsCount: validBaseFormsCount,
 			invalidFormsCount: invalidBaseFormsCount,

@@ -122,7 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</ArrayOrItemManager>
 				{:else}
 					<ListItem hideButton class="h-10 !justify-center">
-						<T tag="small" class="text-secondary-foreground/30 font-normal">
+						<T tag="small" class="font-normal text-secondary-foreground/30">
 							{m.No_items_selected()}
 						</T>
 					</ListItem>

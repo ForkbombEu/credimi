@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Marketplace } from '$lib/marketplace';
 	import type { StandardsWithTestSuites } from '$lib/standards';
+
+	import { Marketplace } from '$lib/marketplace';
 
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';

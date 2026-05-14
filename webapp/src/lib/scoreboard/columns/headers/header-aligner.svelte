@@ -16,6 +16,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { align = 'left', children }: AlignProp & { children: Snippet } = $props();
 </script>
 
-<div class="flex items-center gap-2 text-[1rem] text-primary">
+<div
+	class={[
+		'flex items-center gap-2 text-[1rem] text-primary',
+		{
+			'justify-start': align === 'left',
+			'justify-center': align === 'center',
+			'justify-end': align === 'right'
+		}
+	]}
+>
 	{@render children?.()}
 </div>

@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T tag="small" class="mb-4 text-xs font-semibold uppercase">{title}</T>
 	{/if}
 
-	{#each links as { href, title, icon }}
+	{#each links as { href, title, icon } (href)}
 		{@const isActive = page.url.pathname === href}
 
 		<Button

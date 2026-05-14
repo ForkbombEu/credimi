@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Marketplace } from '$lib/marketplace';
 	import type { Standard, Suite, Version } from '$lib/standards';
+
+	import { Marketplace } from '$lib/marketplace';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref } from '@/i18n';

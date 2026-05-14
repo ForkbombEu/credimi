@@ -72,9 +72,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="border-border overflow-hidden rounded-lg border bg-white">
+<div class="overflow-hidden rounded-lg border border-border bg-white">
 	<!-- Header -->
-	<div class="bg-muted border-border flex items-center justify-between border-b px-2">
+	<div class="flex items-center justify-between border-b border-border bg-muted px-2">
 		<!-- Tab Navigation -->
 		<div class="flex items-center gap-1">
 			<button
@@ -85,8 +85,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}}
 				class="flex items-center gap-2 rounded-t-md px-3 py-2 text-sm font-medium transition-colors {activeTab ===
 				'editor'
-					? 'bg-background text-foreground border-primary border-b-2'
-					: 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}"
+					? 'border-b-2 border-primary bg-background text-foreground'
+					: 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}"
 			>
 				<FileText class="h-4 w-4" />
 				<span class="hidden sm:inline">Editor</span>
@@ -99,15 +99,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}}
 				class="relative flex items-center gap-2 rounded-t-md px-3 py-2 text-sm font-medium transition-colors {activeTab ===
 				'output'
-					? 'bg-background text-foreground border-primary border-b-2'
-					: 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}"
+					? 'border-b-2 border-primary bg-background text-foreground'
+					: 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}"
 			>
 				<Monitor class="h-4 w-4" />
 				<span class="hidden sm:inline">Output</span>
 
 				<!-- Output indicator -->
 				{#if (output && output.trim()) || (error && error.trim())}
-					<div class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center">
+					<div class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center">
 						{#if error && error.trim()}
 							<!-- Error indicator -->
 							<div
@@ -122,7 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<!-- Running indicator for output tab -->
 				{#if running && activeTab !== 'output'}
-					<div class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center">
+					<div class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center">
 						<div
 							class="h-3 w-3 animate-pulse rounded-full bg-yellow-500 ring-2 ring-white"
 						></div>
@@ -138,8 +138,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					}}
 					class="flex items-center gap-2 rounded-t-md px-3 py-2 text-sm font-medium transition-colors {activeTab ===
 					'split'
-						? 'bg-background text-foreground border-primary border-b-2'
-						: 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}"
+						? 'border-b-2 border-primary bg-background text-foreground'
+						: 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}"
 				>
 					<SplitSquareHorizontal class="h-4 w-4" />
 					<span class="hidden sm:inline">Split</span>
@@ -160,7 +160,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								? 'bg-green-500'
 								: 'bg-gray-400'}"
 				></div>
-				<span class="text-muted-foreground text-sm">{status}</span>
+				<span class="text-sm text-muted-foreground">{status}</span>
 			</div>
 
 			{#if onRun}
@@ -209,7 +209,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="flex h-[400px] items-center justify-center">
 						<div class="text-center">
 							<svg
-								class="text-primary mx-auto mb-4 h-8 w-8 animate-spin"
+								class="mx-auto mb-4 h-8 w-8 animate-spin text-primary"
 								viewBox="0 0 24 24"
 								fill="none"
 							>
@@ -227,7 +227,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 								></path>
 							</svg>
-							<p class="text-muted-foreground text-sm">Running workflow...</p>
+							<p class="text-sm text-muted-foreground">Running workflow...</p>
 						</div>
 					</div>
 				{:else if error && error.trim()}
@@ -245,29 +245,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<h3 class="font-medium text-red-800">Execution Error</h3>
 						</div>
 						<pre
-							class="overflow-auto whitespace-pre-wrap rounded border-l-4 border-red-500 bg-red-100/50 p-3 font-mono text-sm leading-relaxed text-red-700">{error}</pre>
+							class="overflow-auto rounded border-l-4 border-red-500 bg-red-100/50 p-3 font-mono text-sm leading-relaxed whitespace-pre-wrap text-red-700">{error}</pre>
 					</div>
 				{:else if output && output.trim()}
 					<div class="h-[400px] overflow-auto">
 						<pre
-							class="text-foreground bg-muted/20 whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">{output}</pre>
+							class="bg-muted/20 p-4 font-mono text-sm leading-relaxed whitespace-pre-wrap text-foreground">{output}</pre>
 					</div>
 				{:else}
 					<div class="flex h-[400px] items-center justify-center">
 						<div class="max-w-sm text-center">
 							<div
-								class="bg-muted mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full"
+								class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted"
 							>
 								<svg
-									class="text-muted-foreground h-6 w-6"
+									class="h-6 w-6 text-muted-foreground"
 									viewBox="0 0 24 24"
 									fill="currentColor"
 								>
 									<path d="M8 5v14l11-7z" />
 								</svg>
 							</div>
-							<h3 class="text-foreground mb-2 font-medium">Ready to run</h3>
-							<p class="text-muted-foreground text-sm">
+							<h3 class="mb-2 font-medium text-foreground">Ready to run</h3>
+							<p class="text-sm text-muted-foreground">
 								Click the Run button or press ⌘+Enter to execute your YAML
 								configuration and see the results here.
 							</p>
@@ -282,7 +282,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex h-[400px]">
 				<!-- Editor Side -->
 				<div
-					class="border-border flex-1 overflow-hidden border-r"
+					class="flex-1 overflow-hidden border-r border-border"
 					onkeydown={handleKeydown}
 					role="textbox"
 					tabindex="0"
@@ -303,7 +303,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<div class="flex h-full items-center justify-center">
 							<div class="text-center">
 								<svg
-									class="text-primary mx-auto mb-4 h-8 w-8 animate-spin"
+									class="mx-auto mb-4 h-8 w-8 animate-spin text-primary"
 									viewBox="0 0 24 24"
 									fill="none"
 								>
@@ -321,7 +321,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 									></path>
 								</svg>
-								<p class="text-muted-foreground text-sm">Running workflow...</p>
+								<p class="text-sm text-muted-foreground">Running workflow...</p>
 							</div>
 						</div>
 					{:else if error && error.trim()}
@@ -340,30 +340,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									<h3 class="font-medium text-red-800">Execution Error</h3>
 								</div>
 								<pre
-									class="max-h-80 overflow-auto whitespace-pre-wrap rounded bg-red-100/50 p-3 font-mono text-sm leading-relaxed text-red-700">{error}</pre>
+									class="max-h-80 overflow-auto rounded bg-red-100/50 p-3 font-mono text-sm leading-relaxed whitespace-pre-wrap text-red-700">{error}</pre>
 							</div>
 						</div>
 					{:else if output && output.trim()}
 						<div class="h-full overflow-auto">
 							<pre
-								class="text-foreground bg-muted/20 h-full whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">{output}</pre>
+								class="h-full bg-muted/20 p-4 font-mono text-sm leading-relaxed whitespace-pre-wrap text-foreground">{output}</pre>
 						</div>
 					{:else}
 						<div class="flex h-full items-center justify-center">
 							<div class="max-w-sm px-4 text-center">
 								<div
-									class="bg-muted mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full"
+									class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted"
 								>
 									<svg
-										class="text-muted-foreground h-6 w-6"
+										class="h-6 w-6 text-muted-foreground"
 										viewBox="0 0 24 24"
 										fill="currentColor"
 									>
 										<path d="M8 5v14l11-7z" />
 									</svg>
 								</div>
-								<h3 class="text-foreground mb-2 font-medium">Ready to run</h3>
-								<p class="text-muted-foreground text-sm">
+								<h3 class="mb-2 font-medium text-foreground">Ready to run</h3>
+								<p class="text-sm text-muted-foreground">
 									Execute your YAML configuration to see results here.
 								</p>
 							</div>

@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet records({ records })}
 			<List>
-				{#each records as r}
+				{#each records as r (r.id)}
 					<ListItem>
 						<CodeDisplay content={JSON.stringify(r, null, 2)} language="json" />
 					</ListItem>
@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet records({ records })}
 			<List>
-				{#each records as r}
+				{#each records as r (r.id)}
 					<ListItem>
 						<CodeDisplay
 							content={JSON.stringify(r.expand?.role, null, 2)}

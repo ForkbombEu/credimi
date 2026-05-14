@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
+
 import { getPath } from '$lib/utils';
 
 import { pb } from '@/pocketbase';
@@ -32,9 +33,6 @@ export function fromPocketbaseEntity(entity: PocketbaseEntity, kind?: EntityData
 	};
 }
 
-export function fromPocketbaseEntities(
-	entities: PocketbaseEntity[],
-	kind?: EntityData
-): Item[] {
+export function fromPocketbaseEntities(entities: PocketbaseEntity[], kind?: EntityData): Item[] {
 	return entities.map((entity) => fromPocketbaseEntity(entity, kind));
 }

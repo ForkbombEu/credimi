@@ -5,11 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import TableOfContents from '@lucide/svelte/icons/table-of-contents';
 	import { URL_SEARCH_PARAM_NAME } from '$lib/content';
 	import { getTagTranslation } from '$lib/content/tags-i18n';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import TableOfContents from '@lucide/svelte/icons/table-of-contents';
 	import Toc from 'svelte-toc';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -64,18 +64,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="max-w-prose space-y-6">
 			<div class="space-y-2">
 				{#if date}
-					<div class="text-muted-foreground flex gap-1">
-						<T tag="small" class="text-balance !font-normal">Published on:</T>
-						<T tag="small" class="text-balance !font-semibold">
+					<div class="flex gap-1 text-muted-foreground">
+						<T tag="small" class="!font-normal text-balance">Published on:</T>
+						<T tag="small" class="!font-semibold text-balance">
 							{date.toLocaleDateString()}
 						</T>
 					</div>
 				{/if}
 
-				<T tag="h1" class="text-balance !font-bold">{title}</T>
+				<T tag="h1" class="!font-bold text-balance">{title}</T>
 			</div>
 
-			<T tag="p" class="text-primary text-balance !font-bold">
+			<T tag="p" class="!font-bold text-balance text-primary">
 				{description}
 			</T>
 
@@ -100,18 +100,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <PageContent class="bg-secondary">
 	<div class="flex gap-8 xl:gap-12">
 		<div class="hidden w-72 flex-shrink-0 lg:block">
-			<div class="toc-sidebar sticky top-5 rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm backdrop-blur-sm">
+			<div
+				class="toc-sidebar sticky top-5 rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm backdrop-blur-sm"
+			>
 				<div class="mb-4 border-b border-border/70 pb-3">
-					<T tag="p" class="text-muted-foreground text-sm font-medium">
+					<T tag="p" class="text-sm font-medium text-muted-foreground">
 						{m.toc()}
 					</T>
 				</div>
 				<Toc bind:activeHeading {headingSelector} minItems={1} title="">
 					{#snippet tocItem(heading: HTMLHeadingElement)}
-						<span
-							class:toc-entry-active={heading === activeHeading}
-							class="toc-entry"
-						>
+						<span class:toc-entry-active={heading === activeHeading} class="toc-entry">
 							{getTocLabel(heading)}
 						</span>
 					{/snippet}
@@ -120,9 +119,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<!-- Main Content -->
-		<div class="mx-auto min-w-0 max-w-4xl flex-1">
+		<div class="mx-auto max-w-4xl min-w-0 flex-1">
 			<div
-				class="prose prose-sm prose-headings:scroll-mt-24 prose-headings:font-semibold prose-p:text-foreground/90 prose-li:text-foreground/90 prose-a:text-primary prose-a:font-medium prose-a:no-underline hover:prose-a:underline prose-pre:rounded-xl prose-pre:border prose-pre:border-border/70 prose-blockquote:border-l-primary prose-blockquote:text-foreground/80 prose-table:w-full prose-table:table-fixed prose-th:border-b prose-th:border-border/70 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:text-[0.72rem] prose-th:font-semibold prose-th:tracking-[0.08em] prose-th:text-foreground prose-th:uppercase prose-td:border-b prose-td:border-border/50 prose-td:px-3 prose-td:py-2 prose-td:align-top prose-td:text-[0.92em] sm:prose-base lg:prose-lg prose-h1:text-3xl prose-h2:text-2xl"
+				class="prose prose-sm sm:prose-base lg:prose-lg prose-headings:scroll-mt-24 prose-headings:font-semibold prose-h1:text-3xl prose-h2:text-2xl prose-p:text-foreground/90 prose-a:font-medium prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-blockquote:border-l-primary prose-blockquote:text-foreground/80 prose-pre:rounded-xl prose-pre:border prose-pre:border-border/70 prose-li:text-foreground/90 prose-table:w-full prose-table:table-fixed prose-th:border-b prose-th:border-border/70 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:text-[0.72rem] prose-th:font-semibold prose-th:tracking-[0.08em] prose-th:text-foreground prose-th:uppercase prose-td:border-b prose-td:border-border/50 prose-td:px-3 prose-td:py-2 prose-td:align-top prose-td:text-[0.92em]"
 				id="content-area"
 			>
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -132,7 +131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageContent>
 
-<div class="fixed bottom-6 right-6 z-50 lg:hidden">
+<div class="fixed right-6 bottom-6 z-50 lg:hidden">
 	<Popover.Root>
 		<Popover.Trigger>
 			{#snippet child({ props })}
@@ -149,7 +148,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Popover.Content side="top" align="end" class="w-64">
 			<div class="space-y-2">
 				<div class="toc-mobile">
-					<Toc bind:activeHeading {headingSelector} minItems={1} title="" breakpoint={100}>
+					<Toc
+						bind:activeHeading
+						{headingSelector}
+						minItems={1}
+						title=""
+						breakpoint={100}
+					>
 						{#snippet tocItem(heading: HTMLHeadingElement)}
 							<span
 								class:toc-entry-active={heading === activeHeading}

@@ -3,11 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Renderable } from '$lib/renderable';
-import { createForm } from '@/forms';
-import { tick } from 'svelte';
 import type { SuperForm } from 'sveltekit-superforms';
+
+import { tick } from 'svelte';
 import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod/v3';
+
+import { createForm } from '@/forms';
+
 import Component from './metadata-form.svelte';
 
 //

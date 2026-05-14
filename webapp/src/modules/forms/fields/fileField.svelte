@@ -27,9 +27,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		 
 		form: SuperForm<Data>;
-		 
+
 		name: FormPath<Data>;
 		variant?: ComponentProps<typeof Button>['variant'];
 		class?: string;

@@ -72,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <style lang="postcss">
 	@reference 'tailwindcss';
-	
+
 	:global(div > table > tbody > div.text-right.hidden) {
 		display: block;
 	}

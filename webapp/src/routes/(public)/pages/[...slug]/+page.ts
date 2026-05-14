@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { EntryGenerator } from './$types';
-
 import { error } from '@sveltejs/kit';
 import { getContentBySlug } from '$lib/content';
 import tagsIndex from '$lib/content/tags-list.generated.json';
+
+import type { EntryGenerator } from './$types';
 
 const DEFAULT_SITE_URL = 'https://credimi.io';
 

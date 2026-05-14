@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="p-4">
 	<div
-		class="text-muted-foreground flex items-center justify-center gap-2 rounded-md bg-slate-100 p-4 text-sm"
+		class="flex items-center justify-center gap-2 rounded-md bg-slate-100 p-4 text-sm text-muted-foreground"
 	>
 		{#if children}
 			{@render children()}

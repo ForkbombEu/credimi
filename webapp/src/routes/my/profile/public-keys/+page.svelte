@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { PublicKeys } from '@/keypairoom/utils';
-
 	import Button from '@/components/ui-custom/button.svelte';
 	import CopyButton from '@/components/ui-custom/copyButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -14,11 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { capitalize } from '@/utils/other';
 
-	interface Props {
-		keys?: PublicKeys | undefined;
-	}
-
-	let { keys = undefined }: Props = $props();
+	let { data } = $props();
+	let keys = $derived(data.publicKeys);
 </script>
 
 <T tag="h4">{m.Your_keys()}</T>
@@ -26,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if keys}
 	<div class="flex flex-col gap-4">
-		{#each Object.entries(keys) as [keyName, key]}
+		{#each Object.entries(keys) as [keyName, key] (keyName)}
 			{@const title = capitalize(keyName.replaceAll('_', ' '))}
 			<div class="flex w-full flex-row items-center justify-between gap-4">
 				<div class="w-0 grow overflow-hidden">

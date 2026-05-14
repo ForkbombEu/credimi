@@ -31,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	async function sendJoinRequest(org: OrganizationsResponse) {
 		pb.collection('orgJoinRequests').create({
-			user: $currentUser?.id!,
+			user: $currentUser!.id,
 			organization: org.id!,
 			status: OrgJoinRequestsStatusOptions.pending,
 			reminders: 0
@@ -70,7 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#snippet records({ records })}
 				<div class="space-y-2">
-					{#each records as org}
+					{#each records as org (org.id)}
 						{@const sentMembershipRequest =
 							org.expand?.orgJoinRequests_via_organization?.at(0)}
 
@@ -85,6 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{#if org.description}
 										<Description>
 											<span class="line-clamp-2">
+												<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 												{@html org.description}
 											</span>
 										</Description>

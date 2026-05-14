@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{:else if data.verified}
 		<div class="space-y-4">
 			<T tag="h4">{m.Email_verified_succesfully()}</T>
-			{#if !currentUser}
+			{#if !$currentUser}
 				<Button href="/login" class="w-full">{m.Go_to_login()}</Button>
 			{:else}
 				<Button href="/my" class="w-full">{m.Go_to_Dashboard()}</Button>

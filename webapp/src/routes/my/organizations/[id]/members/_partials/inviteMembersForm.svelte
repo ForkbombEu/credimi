@@ -16,10 +16,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EmailReviewForm from './emailReviewForm.svelte';
 
 	interface Props {
-		//
 		organizationId: string;
 		onSuccess?: (emails: string[]) => void;
-		onCancel?: any;
+		onCancel?: () => void;
 	}
 
 	let { organizationId, onSuccess = () => {}, onCancel = () => {} }: Props = $props();
