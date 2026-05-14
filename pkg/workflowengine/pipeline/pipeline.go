@@ -102,13 +102,22 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	defer func() {
+		finalResult := pipelineFinalResult(ctx, finalErr)
+		reportGitHubPRCommentDone(
+			ctx,
+			logger,
+			config,
+			workflowID,
+			runID,
+			finalResult,
+		)
 		reportMobileRunnerSemaphoreDone(
 			ctx,
 			logger,
 			config,
 			workflowID,
 			runID,
-			pipelineFinalResult(ctx, finalErr),
+			finalResult,
 		)
 	}()
 
@@ -850,7 +859,10 @@ func (w *PipelineWorkflow) Start(
 }
 
 func isReservedWorkflowInputConfigKey(key string) bool {
-	return key == tempWalletVersionConfigKey || key == tempCredentialsConfigKey
+	return key == tempWalletVersionConfigKey ||
+		key == tempCredentialsConfigKey ||
+		key == tempUseCaseVerificationsConfigKey ||
+		key == GitHubPRCommentConfigKey
 }
 
 func ExecuteEventStepsOnError(

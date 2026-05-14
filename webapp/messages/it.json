@@ -400,5 +400,8 @@
 	"Change_wallet_version": "Cambia versione del wallet",
 	"Change_wallet_version_modal_title": "Cambia versione del wallet per tutti i passaggi",
 	"Change_wallet_version_modal_description": "Scegli una versione. Ogni passaggio mobile-automation in questa pipeline la userà.",
-	"Wallet_version_current": "Attuale"
+	"Wallet_version_current": "Attuale",
+	"pipeline_edit_disabled_while_published": "You may not edit the pipeline as long as it's published. Please unpublish it first.",
+	"pipeline_publish_tooltip": "Publish the pipeline to show results on the Scoreboard",
+	"pipeline_unpublish_tooltip": "Unpublish (test mode): unpublish the pipeline to edit it, the results will not appear in the Scoreboard"
 }

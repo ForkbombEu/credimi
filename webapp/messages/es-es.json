@@ -329,5 +329,8 @@
 	"Change_wallet_version": "Cambiar versión del monedero",
 	"Change_wallet_version_modal_title": "Cambiar versión del monedero para todos los pasos",
 	"Change_wallet_version_modal_description": "Elija una versión. Cada paso de automatización móvil de este pipeline la usará.",
-	"Wallet_version_current": "Actual"
+	"Wallet_version_current": "Actual",
+	"pipeline_edit_disabled_while_published": "You may not edit the pipeline as long as it's published. Please unpublish it first.",
+	"pipeline_publish_tooltip": "Publish the pipeline to show results on the Scoreboard",
+	"pipeline_unpublish_tooltip": "Unpublish (test mode): unpublish the pipeline to edit it, the results will not appear in the Scoreboard"
 }

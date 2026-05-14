@@ -1126,6 +1126,7 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 			RunID:             state.RunID,
 			WorkflowStatus:    workflowStatus,
 			ErrorMessage:      errorMessage,
+			SectionTitle:      notification.GitHubPR.SectionTitle,
 		},
 	}
 	workflow.Go(ctx, func(ctx workflow.Context) {

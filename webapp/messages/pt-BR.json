@@ -328,5 +328,8 @@
 	"Change_wallet_version": "Alterar versão da carteira",
 	"Change_wallet_version_modal_title": "Alterar versão da carteira para todas as etapas",
 	"Change_wallet_version_modal_description": "Escolha uma versão. Todas as etapas de automação móvel neste pipeline usarão essa versão.",
-	"Wallet_version_current": "Atual"
+	"Wallet_version_current": "Atual",
+	"pipeline_edit_disabled_while_published": "You may not edit the pipeline as long as it's published. Please unpublish it first.",
+	"pipeline_publish_tooltip": "Publish the pipeline to show results on the Scoreboard",
+	"pipeline_unpublish_tooltip": "Unpublish (test mode): unpublish the pipeline to edit it, the results will not appear in the Scoreboard"
 }
