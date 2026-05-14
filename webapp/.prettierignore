@@ -11,3 +11,9 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# shadcn-svelte (@/components/ui)
+src/modules/components/ui/
+
+# paraglide (generated i18n)
+src/paraglide/
