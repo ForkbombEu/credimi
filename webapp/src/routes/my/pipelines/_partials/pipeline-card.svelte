@@ -15,7 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import PublishedSwitch from '$lib/layout/published-switch.svelte';
-	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
 	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import { getPath } from '$lib/utils';
@@ -196,7 +195,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 </DashboardCard>
 
-<RunnerSelectModal
+<Pipeline.Runner.SelectModal
 	{pipeline}
 	bind:open={runnerSelectionDialogOpen}
 	onSelect={() => {

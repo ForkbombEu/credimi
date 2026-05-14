@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
 
-import { parseYaml } from './utils';
+import { parseYaml } from '../utils';
 
 //
 

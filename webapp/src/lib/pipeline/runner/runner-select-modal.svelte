@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import * as PipelineRunner from './runner';
+	import * as PipelineRunner from '.';
 	import RunnerSelectInput from './runner-select-input.svelte';
 
 	//
