@@ -25,8 +25,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<mj-text>
 					We’re excited to inform you that your organization,
-					<strong>{{.OrganizationName}}</strong>, has been successfully created on
-					{{.AppName}}!
+					<strong>{{.OrganizationName}}</strong
+					>, has been successfully created on {{.AppName}}!
 				</mj-text>
 
 				<mj-button href="{{.DashboardLink}}" mj-class="btn-primary">

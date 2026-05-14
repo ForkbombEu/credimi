@@ -89,7 +89,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<!-- classes copied from webapp/src/modules/components/ui/label/label.svelte -->
 		<!-- svelte-ignore a11y-label-has-associated-control - $label contains the 'for' attribute -->
 		<label
-			class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+			class="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
 			{...$labelBuilder}
 			use:$labelBuilder.action
 		>
@@ -102,14 +102,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<input
 			{...$input}
 			use:$input.action
-			class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+			class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 			{placeholder}
 			{disabled}
 			bind:value={searchText}
 			{...controlAttrs}
 		/>
 		<div
-			class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-secondary-foreground opacity-50"
+			class="absolute top-1/2 right-3 z-10 -translate-y-1/2 text-secondary-foreground opacity-50"
 		>
 			<Icon src={$open ? ChevronUp : ChevronDown} class="size-4"></Icon>
 		</div>
@@ -144,10 +144,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<li
 						{...opt}
 						use:opt.action
-						class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:opacity-50"
+						class="relative flex w-full cursor-default items-center rounded-sm py-1.5 pr-2 pl-8 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
 					>
 						{#if $isSelected(result)}
-							<div class="check absolute left-2 top-1/2 z-10 text-gray-900">
+							<div class="check absolute top-1/2 left-2 z-10 text-gray-900">
 								<Check class="size-4" />
 							</div>
 						{/if}
@@ -178,7 +178,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	@reference 'tailwindcss';
 
 	.check {
-		@apply absolute left-2 top-1/2 text-gray-500;
+		@apply absolute top-1/2 left-2 text-gray-500;
 		translate: 0 calc(-50% + 1px);
 	}
 </style>

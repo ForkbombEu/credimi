@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if badge}
 		<Badge
 			variant="outline"
-			class="border-primary text-primary text-xs group-hover:no-underline"
+			class="border-primary text-xs text-primary group-hover:no-underline"
 		>
 			{badge}
 		</Badge>

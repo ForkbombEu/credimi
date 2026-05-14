@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render children?.()}
 	</p>
 {:else if tag == 'small'}
-	<small class={['text-sm font-medium leading-none', classValue]} {id}>
+	<small class={['text-sm leading-none font-medium', classValue]} {id}>
 		{@render children?.()}
 	</small>
 {:else if tag == 'huge'}

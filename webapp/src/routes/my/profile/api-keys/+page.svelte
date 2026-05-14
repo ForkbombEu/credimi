@@ -162,7 +162,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if records.length === 0}
 						<div class="py-8 text-center">
 							<T class="text-muted-foreground">{m.No_API_keys_found()}</T>
-							<T class="text-muted-foreground text-sm"
+							<T class="text-sm text-muted-foreground"
 								>{m.Create_your_first_API_key_above()}</T
 							>
 						</div>
@@ -181,7 +181,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									<Table.Row>
 										<Table.Cell class="font-medium">{index + 1}</Table.Cell>
 										<Table.Cell>{apiKey.name}</Table.Cell>
-										<Table.Cell class="text-muted-foreground text-sm">
+										<Table.Cell class="text-sm text-muted-foreground">
 											{new Date(apiKey.created).toLocaleDateString()}
 										</Table.Cell>
 										<Table.Cell>
@@ -248,7 +248,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<div>
 								<Label class="text-sm font-medium">{m.API_Key()}</Label>
 								<div class="mt-1 rounded border bg-gray-50 p-3">
-									<code class="break-all font-mono text-sm text-gray-800">
+									<code class="font-mono text-sm break-all text-gray-800">
 										{generatedApiKey.api_key}
 									</code>
 								</div>
@@ -264,7 +264,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer class="flex items-center justify-between">
-			<T class="text-muted-foreground text-sm">
+			<T class="text-sm text-muted-foreground">
 				{#if dialogTimer > 0}
 					{m.You_can_close_this_dialog_in_seconds({ dialogTimer })}
 				{:else}

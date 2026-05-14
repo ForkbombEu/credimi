@@ -102,15 +102,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 </script>
 
-<Card class="bg-secondary border-purple-200 shadow-none! mb-8 py-0">
+<Card class="mb-8 border-purple-200 bg-secondary py-0 shadow-none!">
 	<CardContent class="space-y-4 p-6">
 		<div class="flex items-start gap-3">
-			<Info class="text-secondary-foreground mt-0.5 h-5 w-5 shrink-0" />
+			<Info class="mt-0.5 h-5 w-5 shrink-0 text-secondary-foreground" />
 			<div class="flex-1 space-y-1">
-				<h4 class="text-secondary-foreground text-base font-medium">
+				<h4 class="text-base font-medium text-secondary-foreground">
 					{m.Import_from_marketplace()}
 				</h4>
-				<p class="text-secondary-foreground/80 text-sm">
+				<p class="text-sm text-secondary-foreground/80">
 					{m.Import_wallet_metadata_description()}
 				</p>
 			</div>

@@ -110,7 +110,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#each logs as log, i (logKey(log, i))}
 				{@const status = log.status ?? LogStatus.INFO}
 				<Accordion.Item
-					class={['bg-background rounded-md border-none px-2', props.accordionItemClass]}
+					class={['rounded-md border-none bg-background px-2', props.accordionItemClass]}
 				>
 					<Accordion.Trigger
 						class="flex items-center justify-between gap-2 hover:no-underline"
@@ -142,7 +142,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 						{#if log.time}
 							<p
-								class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
+								class="shrink-0 text-right text-xs text-nowrap text-muted-foreground"
 							>
 								{new Date(log.time).toLocaleString()}
 							</p>
@@ -152,7 +152,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Accordion.Content>
 						<div
 							class={[
-								'bg-secondary -mb-2 flex w-full gap-2 overflow-x-scroll rounded-md p-2',
+								'-mb-2 flex w-full gap-2 overflow-x-scroll rounded-md bg-secondary p-2',
 								props.codeClass
 							]}
 						>

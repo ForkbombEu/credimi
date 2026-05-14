@@ -108,7 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet copyButton()}
 	{#if !hideCopyButton && content}
-		<div class="absolute right-2 top-2 z-10 flex flex-col gap-1">
+		<div class="absolute top-2 right-2 z-10 flex flex-col gap-1">
 			<Button
 				type="button"
 				variant="ghost"

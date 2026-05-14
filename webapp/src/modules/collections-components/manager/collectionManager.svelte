@@ -131,7 +131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onMount,
 		...rest
 	}: Props = $props();
-	
+
 	//
 
 	const manager = new CollectionManager(collection, {

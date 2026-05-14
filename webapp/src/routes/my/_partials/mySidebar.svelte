@@ -229,7 +229,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex w-full overflow-hidden border-t p-2">
 			<T
 				tag="small"
-				class="text-secondary-foreground/50 text-wrap font-mono text-xs leading-normal"
+				class="font-mono text-xs leading-normal text-wrap text-secondary-foreground/50"
 			>
 				{appName} – Version {version}
 			</T>

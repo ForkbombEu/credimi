@@ -85,7 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}}
 				disabled={!canResetLogo}
 				class={[
-					'text-primary cursor-pointer text-sm underline underline-offset-2',
+					'cursor-pointer text-sm text-primary underline underline-offset-2',
 					{ invisible: !canResetLogo }
 				]}
 			>
@@ -104,7 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<IconButton
 				size="sm"
 				variant="destructive"
-				class="absolute -right-2 -top-1 h-6 w-6 rounded-full p-0 hover:bg-red-600"
+				class="absolute -top-1 -right-2 h-6 w-6 rounded-full p-0 hover:bg-red-600"
 				onclick={removeLogo}
 			/>
 		{/if}

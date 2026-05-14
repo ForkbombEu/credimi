@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		'inline-block shrink-0 rounded-full',
 		{
 			'border-emerald-500 bg-emerald-400': published,
-			'bg-inherit/50 border': !published,
+			'border bg-inherit/50': !published,
 			'size-1.5': size === 'sm',
 			'size-2': size === 'md'
 		},

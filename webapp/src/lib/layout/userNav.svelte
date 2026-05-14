@@ -35,8 +35,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if user}
 			<DropdownMenu.Label class="font-normal">
 				<div class="flex flex-col space-y-1">
-					<p class="text-sm font-medium leading-none">{user.name}</p>
-					<p class="text-muted-foreground text-xs leading-none">{user.email}</p>
+					<p class="text-sm leading-none font-medium">{user.name}</p>
+					<p class="text-xs leading-none text-muted-foreground">{user.email}</p>
 				</div>
 			</DropdownMenu.Label>
 		{/if}

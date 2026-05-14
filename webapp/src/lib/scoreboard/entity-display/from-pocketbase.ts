@@ -32,9 +32,6 @@ export function fromPocketbaseEntity(entity: PocketbaseEntity, kind?: EntityData
 	};
 }
 
-export function fromPocketbaseEntities(
-	entities: PocketbaseEntity[],
-	kind?: EntityData
-): Item[] {
+export function fromPocketbaseEntities(entities: PocketbaseEntity[], kind?: EntityData): Item[] {
 	return entities.map((entity) => fromPocketbaseEntity(entity, kind));
 }

@@ -57,9 +57,7 @@ export function setupCollectionForm<C extends CollectionName>({
 	// When "include" is specified it takes precedence: only those fields are in the schema.
 	const includeSet = new Set(include as string[]);
 	const effectiveExclude =
-		include.length > 0
-			? collectionFieldNames.filter((name) => !includeSet.has(name))
-			: exclude;
+		include.length > 0 ? collectionFieldNames.filter((name) => !includeSet.has(name)) : exclude;
 
 	const baseSchema = refineSchema(createCollectionZodSchema(collection)) as z.AnyZodObject;
 	const schema =

@@ -48,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Button
 				variant="ghost"
 				size="sm"
-				class="hover:bg-primary/10 text-primary"
+				class="text-primary hover:bg-primary/10"
 				onclick={() => (isExpanded = !isExpanded)}
 			>
 				{#if isExpanded}
