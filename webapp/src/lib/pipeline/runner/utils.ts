@@ -2,11 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ClientResponseError } from 'pocketbase';
+
 import { getPath } from '$lib/utils';
 import { lsSync } from 'rune-sync/localstorage';
+import * as Task from 'true-myth/task';
 import { z } from 'zod';
 
 import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
+
+import { pb } from '@/pocketbase';
 
 import { parseYaml } from '../utils';
 
@@ -30,6 +35,20 @@ export function getType(pipeline: PipelinesResponse): 'global' | 'specific' | 'n
 	if (areSomeStepsSpecific) throw new Error('Mixed runner types');
 
 	return 'global';
+}
+
+export function fetchAvailableForOrganization(organizationId: string) {
+	const filter = pb.filter('owner.id = {:currentOrganization} || published = true', {
+		currentOrganization: organizationId
+	});
+	return Task.tryOrElse(
+		(err) => err as ClientResponseError,
+		() =>
+			pb.collection('mobile_runners').getFullList({
+				requestKey: null,
+				filter: filter
+			})
+	);
 }
 
 // Health check
