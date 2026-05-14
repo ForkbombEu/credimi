@@ -90,7 +90,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<Table.Cell>
 									{#if status.runners && status.runners.length > 0}
 										<div class="flex flex-wrap gap-1">
-											{#each status.runners as runner}
+											{#each status.runners as runner (runner.id)}
 												<span
 													class="rounded bg-slate-100 px-2 py-1 text-xs"
 												>

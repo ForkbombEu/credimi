@@ -75,7 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<PageCard>
 				<SectionTitle title={m.organization_invites()} />
 
-				{#each records as record}
+				{#each records as record (record.id)}
 					<PlainCard>
 						{record.expand?.organization?.name}
 						{#snippet right()}
@@ -111,7 +111,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<SectionTitle title={m.Your_membership_requests()}></SectionTitle>
 
 				<div class="space-y-4">
-					{#each records as request}
+					{#each records as request (request.id)}
 						{@const organization = request.expand?.organization}
 						{#if organization}
 							{@const avatarUrl = pb.files.getURL(organization, organization.logo)}
@@ -178,7 +178,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#snippet records({ records })}
 				<div class="space-y-2">
-					{#each records as a}
+					{#each records as a (a.id)}
 						{@const org = a.expand?.organization}
 						{@const role = a.expand?.role}
 						{#if org && role}

@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Breadcrumb.Root>
 	<Breadcrumb.List>
-		{#each breadcrumbs as { href, title }, i}
+		{#each breadcrumbs as { href, title }, i (href)}
 			{@const isLast = i === breadcrumbs.length - 1}
 
 			<Breadcrumb.Item>

@@ -61,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#await authMethods then methods}
-	{#each methods as method}
+	{#each methods as method (method.displayName)}
 		<Button class="w-full" variant="outline" onclick={method.initializer}>
 			<figure class="size-6 rounded-sm bg-white p-0.5">
 				<img src={method.image} alt="{method.displayName} logo" />

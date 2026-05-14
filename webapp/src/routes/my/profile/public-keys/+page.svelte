@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if keys}
 	<div class="flex flex-col gap-4">
-		{#each Object.entries(keys) as [keyName, key]}
+		{#each Object.entries(keys) as [keyName, key] (keyName)}
 			{@const title = capitalize(keyName.replaceAll('_', ' '))}
 			<div class="flex w-full flex-row items-center justify-between gap-4">
 				<div class="w-0 grow overflow-hidden">

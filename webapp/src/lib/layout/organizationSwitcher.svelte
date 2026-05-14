@@ -103,7 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Command.Empty>No team found.</Command.Empty>
 
 					<Command.Group heading={m.organizations()}>
-						{#each organizations as organization}
+						{#each organizations as organization (organization.id)}
 							<Command.Item
 								onSelect={() => {
 									goto(`/my/organizations/${organization.id}`);

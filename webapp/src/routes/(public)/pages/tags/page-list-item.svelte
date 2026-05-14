@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<div class="tags flex flex-wrap items-center gap-1.5">
-		{#each tags as tag}
+		{#each tags as tag (tag)}
 			<span class="rounded-lg border border-primary px-1.5 text-xs text-primary">
 				{getTagTranslation(tag)}
 			</span>
