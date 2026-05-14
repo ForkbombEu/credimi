@@ -9,6 +9,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/githubapp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	workflowpipeline "github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -119,13 +120,13 @@ func buildPipelineGitHubPRCommentConfig(
 		return nil
 	}
 	return map[string]any{
-		"repository":          notification.GitHubPR.Repository,
-		"pull_request_number": notification.GitHubPR.PullRequestNumber,
-		"commit_sha":          notification.GitHubPR.CommitSHA,
-		"pipeline_id":         notification.GitHubPR.PipelineIdentifier,
-		"pipeline_url":        notification.GitHubPR.PipelineURL,
-		"app_url":             notification.GitHubPR.AppURL,
-		"section_title":       notification.GitHubPR.SectionTitle,
+		workflowpipeline.GitHubPRCommentConfigRepositoryKey:        notification.GitHubPR.Repository,
+		workflowpipeline.GitHubPRCommentConfigPullRequestNumberKey: notification.GitHubPR.PullRequestNumber,
+		workflowpipeline.GitHubPRCommentConfigCommitSHAKey:         notification.GitHubPR.CommitSHA,
+		workflowpipeline.GitHubPRCommentConfigPipelineIDKey:        notification.GitHubPR.PipelineIdentifier,
+		workflowpipeline.GitHubPRCommentConfigPipelineURLKey:       notification.GitHubPR.PipelineURL,
+		workflowpipeline.GitHubPRCommentConfigAppURLKey:            notification.GitHubPR.AppURL,
+		workflowpipeline.GitHubPRCommentConfigSectionTitleKey:      notification.GitHubPR.SectionTitle,
 	}
 }
 

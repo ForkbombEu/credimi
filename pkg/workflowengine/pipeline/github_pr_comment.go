@@ -13,7 +13,16 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-const GitHubPRCommentConfigKey = "github_pr_comment"
+const (
+	GitHubPRCommentConfigKey                  = "github_pr_comment"
+	GitHubPRCommentConfigRepositoryKey        = "repository"
+	GitHubPRCommentConfigPullRequestNumberKey = "pull_request_number"
+	GitHubPRCommentConfigCommitSHAKey         = "commit_sha"
+	GitHubPRCommentConfigPipelineIDKey        = "pipeline_id"
+	GitHubPRCommentConfigPipelineURLKey       = "pipeline_url"
+	GitHubPRCommentConfigAppURLKey            = "app_url"
+	GitHubPRCommentConfigSectionTitleKey      = "section_title"
+)
 
 func reportGitHubPRCommentDone(
 	ctx workflow.Context,
@@ -28,8 +37,8 @@ func reportGitHubPRCommentDone(
 		return
 	}
 
-	repository := workflowengine.AsString(commentConfig["repository"])
-	prNumber := intFromWorkflowConfig(commentConfig["pull_request_number"])
+	repository := workflowengine.AsString(commentConfig[GitHubPRCommentConfigRepositoryKey])
+	prNumber := intFromWorkflowConfig(commentConfig[GitHubPRCommentConfigPullRequestNumberKey])
 	if strings.TrimSpace(repository) == "" || prNumber <= 0 {
 		return
 	}
@@ -38,15 +47,15 @@ func reportGitHubPRCommentDone(
 	payload := activities.UpdateGitHubPRCommentInput{
 		Repository:        repository,
 		PullRequestNumber: prNumber,
-		CommitSHA:         workflowengine.AsString(commentConfig["commit_sha"]),
+		CommitSHA:         workflowengine.AsString(commentConfig[GitHubPRCommentConfigCommitSHAKey]),
 		Status:            "running",
-		PipelineID:        workflowengine.AsString(commentConfig["pipeline_id"]),
-		PipelineURL:       workflowengine.AsString(commentConfig["pipeline_url"]),
-		AppURL:            workflowengine.AsString(commentConfig["app_url"]),
+		PipelineID:        workflowengine.AsString(commentConfig[GitHubPRCommentConfigPipelineIDKey]),
+		PipelineURL:       workflowengine.AsString(commentConfig[GitHubPRCommentConfigPipelineURLKey]),
+		AppURL:            workflowengine.AsString(commentConfig[GitHubPRCommentConfigAppURLKey]),
 		WorkflowID:        workflowID,
 		RunID:             runID,
 		WorkflowStatus:    workflowResult,
-		SectionTitle:      workflowengine.AsString(commentConfig["section_title"]),
+		SectionTitle:      workflowengine.AsString(commentConfig[GitHubPRCommentConfigSectionTitleKey]),
 	}
 
 	finalCtx, _ := workflow.NewDisconnectedContext(ctx)
