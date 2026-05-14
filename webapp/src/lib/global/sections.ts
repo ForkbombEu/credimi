@@ -24,7 +24,7 @@ export const baseSections = [
 	entities.pipelines
 ] as const satisfies EntityData[];
 
-export const marketplaceSections: EntityData[] = [...baseSections, entities.conformance_checks];
+export const hubSections: EntityData[] = [...baseSections, entities.conformance_checks];
 
 //
 

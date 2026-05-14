@@ -8,7 +8,7 @@ import { parsePath } from './paths';
 
 //
 
-/** One check under a suite row: display id and full path for marketplace links. */
+/** One check under a suite row: display id and full path for hub links. */
 export type GroupedCheckItem = { id: string; path: string };
 
 /** One suite context (standard • version • suite UIDs) with its checks. */

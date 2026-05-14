@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace';
+import type { HubItem } from '$lib/hub';
 import type { PipelineStepByType } from '$lib/pipeline/types';
 
 import type { WalletActionStepData } from '../../steps/wallet-action/wallet-action-step-form.svelte.js';
@@ -12,7 +12,7 @@ import { Enrich404Error, type EnrichedStep } from '../types';
 //
 
 export type BulkWalletVersionContext = {
-	wallet: MarketplaceItem;
+	wallet: HubItem;
 	versionId: string;
 	mobileIndices: number[];
 };
@@ -52,7 +52,7 @@ export function getBulkWalletVersionContext(
 
 	let walletId: string | undefined;
 	let versionId: string | undefined;
-	let wallet: MarketplaceItem | undefined;
+	let wallet: HubItem | undefined;
 
 	for (const i of mobileIndices) {
 		const tuple = steps[i]!;

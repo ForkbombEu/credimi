@@ -11,10 +11,10 @@ export const load = async ({ params, fetch }) => {
 			fetch
 		});
 
-	const marketplaceItems = await pb.collection('marketplace_items').getFullList({
+	const hubItems = await pb.collection('hub_items').getFullList({
 		filter: `organization_id = '${organization.id}'`,
 		fetch
 	});
 
-	return { organization, marketplaceItems };
+	return { organization, hubItems };
 };

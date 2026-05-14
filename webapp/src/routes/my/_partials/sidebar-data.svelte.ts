@@ -39,15 +39,15 @@ const data: SidebarGroup[] = $derived([
 				icon: House
 			},
 			{
-				title: m.Marketplace(),
-				url: '/marketplace',
+				title: m.Hub(),
+				url: '/hub',
 				icon: StoreIcon
 			}
 		]
 	},
 
 	{
-		title: m.marketplace_items(),
+		title: m.hub_items(),
 		items: [
 			...baseSections.map((section) => {
 				let children: SidebarItem[] | undefined;

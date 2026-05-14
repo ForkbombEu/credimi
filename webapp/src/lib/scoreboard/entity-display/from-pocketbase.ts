@@ -13,7 +13,7 @@ import type { Item, PocketbaseEntity } from './types';
 //
 
 export function getPocketbaseEntityHref(entity: PocketbaseEntity): string {
-	return `/marketplace/${entity.collectionName}/${getPath(entity)}`;
+	return `/hub/${entity.collectionName}/${getPath(entity)}`;
 }
 
 export function fromPocketbaseEntity(entity: PocketbaseEntity, kind?: EntityData): Item {
