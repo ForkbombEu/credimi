@@ -4,6 +4,7 @@
 
 import { getPath } from '$lib/utils';
 import { lsSync } from 'rune-sync/localstorage';
+import { z } from 'zod';
 
 import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
 
@@ -15,19 +16,6 @@ export function isRequired(p: PipelinesResponse): boolean {
 	const yaml = parseYaml(p.yaml);
 	return (yaml?.steps ?? []).some((step) => step.use === 'mobile-automation');
 }
-
-function getHealthUrl(runner: MobileRunnersResponse): string {
-	let baseUrl = runner.ip;
-	if (runner.port) baseUrl = `${baseUrl}:${runner.port}`;
-	return `${baseUrl}/health`;
-}
-
-export async function isOnline(runner: MobileRunnersResponse): Promise<boolean> {
-	const response = await fetch(getHealthUrl(runner));
-	return response.status === 200;
-}
-
-//
 
 export function getType(pipeline: PipelinesResponse): 'global' | 'specific' | 'not-needed' {
 	const yaml = parseYaml(pipeline.yaml);
@@ -42,6 +30,24 @@ export function getType(pipeline: PipelinesResponse): 'global' | 'specific' | 'n
 	if (areSomeStepsSpecific) throw new Error('Mixed runner types');
 
 	return 'global';
+}
+
+// Health check
+
+function getHealthUrl(runner: MobileRunnersResponse): string {
+	let baseUrl = runner.ip;
+	if (runner.port) baseUrl = `${baseUrl}:${runner.port}`;
+	return `${baseUrl}/health`;
+}
+
+const isOnlineResponseSchema = z.object({
+	status: z.literal('connected')
+});
+
+export async function checkOnlineStatus(runner: MobileRunnersResponse): Promise<boolean> {
+	const response = await fetch(getHealthUrl(runner), { method: 'GET' });
+	if (!response.ok) return false;
+	return isOnlineResponseSchema.safeParse(await response.json()).success;
 }
 
 // Configuration storage
