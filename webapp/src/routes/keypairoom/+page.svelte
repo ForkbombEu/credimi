@@ -147,7 +147,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Separator />
 		{/if}
 
-		{#each userChallenges as question}
+		{#each userChallenges as question (question.id)}
 			<Field {form} name={`questions.${question.id}`} options={{ label: question.text }} />
 		{/each}
 

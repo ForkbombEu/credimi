@@ -114,7 +114,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										role.name as OrgRole
 									)}
 
-									{#each links as link}
+									{#each links as link (link.href)}
 										<SidebarLink {...link} sub />
 									{/each}
 								{/snippet}

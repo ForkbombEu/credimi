@@ -70,7 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#snippet records({ records })}
 				<div class="space-y-2">
-					{#each records as org}
+					{#each records as org (org.id)}
 						{@const sentMembershipRequest =
 							org.expand?.orgJoinRequests_via_organization?.at(0)}
 

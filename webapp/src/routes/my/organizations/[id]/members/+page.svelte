@@ -93,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#snippet records({ records })}
 				<div class="space-y-2">
-					{#each records as record}
+					{#each records as record (record.id)}
 						{@const user = record.expand?.user}
 						{@const role = record.expand?.role}
 						{#if user && role && userRole}
