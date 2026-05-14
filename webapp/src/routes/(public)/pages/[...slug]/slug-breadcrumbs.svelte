@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Home } from '@lucide/svelte';
 	import { page } from '$app/state';
 	import { URL_SEARCH_PARAM_NAME } from '$lib/content';
-	import { Home } from '@lucide/svelte';
 	import { String } from 'effect';
 
 	import Icon from '@/components/ui-custom/icon.svelte';

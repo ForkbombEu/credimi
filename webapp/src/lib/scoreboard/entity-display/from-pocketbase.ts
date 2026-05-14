@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
+
 import { getPath } from '$lib/utils';
 
 import { pb } from '@/pocketbase';

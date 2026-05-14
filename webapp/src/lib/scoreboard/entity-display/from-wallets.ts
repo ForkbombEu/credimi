@@ -6,8 +6,9 @@ import { entities } from '$lib/global';
 
 import type { WalletsResponse, WalletVersionsResponse } from '@/pocketbase/types';
 
-import { fromPocketbaseEntity } from './from-pocketbase';
 import type { Item } from './types';
+
+import { fromPocketbaseEntity } from './from-pocketbase';
 
 //
 

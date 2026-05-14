@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Info } from '@lucide/svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
-	import { Info } from '@lucide/svelte';
 	import { nanoid } from 'nanoid';
 	import { onDestroy, onMount, type ComponentProps, type Snippet } from 'svelte';
 

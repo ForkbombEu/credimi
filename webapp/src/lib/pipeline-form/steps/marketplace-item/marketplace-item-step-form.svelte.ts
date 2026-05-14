@@ -4,6 +4,7 @@
 
 import type { EntityData } from '$lib/global';
 import type { MarketplaceItem, MarketplaceItemType } from '$lib/marketplace';
+
 import { searchMarketplace } from '../_partials/search-marketplace';
 import { Search } from '../_partials/search.svelte';
 import { BaseForm } from '../types';

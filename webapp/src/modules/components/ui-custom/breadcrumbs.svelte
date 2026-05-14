@@ -10,8 +10,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import { page } from '$app/state';
 	import { Home } from '@lucide/svelte';
+	import { page } from '$app/state';
 
 	import type { Link } from '@/components/types';
 

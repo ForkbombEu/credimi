@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { version } from '$app/environment';
-	import { page } from '$app/state';
 	import {
 		ChevronUp,
 		CircleHelp,
@@ -19,6 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		SquareStack,
 		User
 	} from '@lucide/svelte';
+	import { version } from '$app/environment';
+	import { page } from '$app/state';
 
 	import { AppLogo, appName } from '@/brand';
 	import SidebarGroup from '@/components/layout/sidebar/sidebarGroup.svelte';

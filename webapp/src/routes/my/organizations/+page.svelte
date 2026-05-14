@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
 	import { Check, Cog, Plus, Puzzle, Undo2, UserPlus, X } from '@lucide/svelte';
+	import { invalidateAll } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
 
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
