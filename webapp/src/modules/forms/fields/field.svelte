@@ -53,14 +53,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
 		{#snippet children({ props })}
-			{#if $valueProxy}
-				<Input
-					{...options as GenericRecord}
-					{...props as GenericRecord}
-					{placeholder}
-					bind:value={$valueProxy}
-				/>
-			{/if}
+			<Input
+				{...options as GenericRecord}
+				{...props as GenericRecord}
+				{placeholder}
+				bind:value={$valueProxy}
+			/>
 		{/snippet}
 	</FieldWrapper>
 </Form.Field>
