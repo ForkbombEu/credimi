@@ -9,24 +9,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		columns: ColumnDef<TData, TValue>[];
 		data: TData[];
 		selectedItems: string[];
-		options: Partial<FieldOptions & { selectBy: string }>;
 	};
 </script>
 
 <script lang="ts" generics="TData, TValue">
 	import { type ColumnDef, getCoreRowModel, type RowSelectionState } from '@tanstack/table-core';
 
-	import type { FieldOptions } from '@/forms/fields/types';
-
 	import { createSvelteTable, FlexRender } from '@/components/ui/data-table/index.js';
 	import * as Table from '@/components/ui/table/index.js';
 
-	let {
-		data,
-		columns,
-		selectedItems = $bindable([]),
-		options
-	}: DataTableProps<TData, TValue> = $props();
+	let { data, columns, selectedItems = $bindable([]) }: DataTableProps<TData, TValue> = $props();
 
 	let rowSelection = $state<RowSelectionState>({});
 
@@ -34,7 +26,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		get data() {
 			return data;
 		},
-		columns,
+		get columns() {
+			return columns;
+		},
 		getCoreRowModel: getCoreRowModel(),
 		onRowSelectionChange: (updater) => {
 			if (typeof updater === 'function') {
@@ -92,6 +86,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Table.Root>
 </div>
 <div class="flex justify-end text-sm text-muted-foreground">
-	{table.getFilteredSelectedRowModel().rows.length} of{' '}
+	{table.getFilteredSelectedRowModel().rows.length} of
 	{table.getFilteredRowModel().rows.length} row(s) selected.
 </div>

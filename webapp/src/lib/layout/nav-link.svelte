@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { LinkWithIcon } from '@/components/types';
+	import type { GenericRecord } from '@/utils/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconComponent from '@/components/ui-custom/icon.svelte';
@@ -22,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if variant === 'desktop'}
-	<Button class="group" variant="link" {href} {...rest as any}>
+	<Button class="group" variant="link" {href} {...rest as GenericRecord}>
 		{#if icon}
 			<IconComponent src={icon} />
 		{/if}
@@ -30,7 +31,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render badgeSnippet()}
 	</Button>
 {:else}
-	<Button variant="ghost" {href} class="group w-full justify-start text-left" {...rest as any}>
+	<Button
+		variant="ghost"
+		{href}
+		class="group w-full justify-start text-left"
+		{...rest as GenericRecord}
+	>
 		{#if icon}
 			<IconComponent src={icon} />
 		{/if}

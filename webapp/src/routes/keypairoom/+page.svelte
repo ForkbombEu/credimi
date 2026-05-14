@@ -71,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				} else {
 					try {
 						await matchPublicAndPrivateKeys(storedPublicKeys, privateKeys);
-					} catch (e) {
+					} catch {
 						throw new Error('Wrong answers');
 					}
 				}

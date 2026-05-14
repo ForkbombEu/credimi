@@ -95,8 +95,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 					{#await authorizationsQuery.getFullList() then authorizations}
 						{#each authorizations as authorization (authorization.id)}
-							{@const organization = authorization.expand?.organization!}
-							{@const role = authorization.expand?.role!}
+							{@const organization = authorization.expand!.organization!}
+							{@const role = authorization.expand!.role!}
 							{@const active = page.url.pathname.includes(
 								`/my/organizations/${organization.id}`
 							)}

@@ -6,9 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" generics="Data extends GenericRecord">
 	import type { HTMLInputAttributes } from 'svelte/elements';
-	import type { FormPathLeaves, FormPathType, SuperForm } from 'sveltekit-superforms';
+	import type { FormPathLeaves, SuperForm } from 'sveltekit-superforms';
 
-	import { numberProxy, fieldProxy } from 'sveltekit-superforms';
+	import { fieldProxy, numberProxy } from 'sveltekit-superforms';
 
 	import type { GenericRecord } from '@/utils/types';
 

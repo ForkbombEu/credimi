@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let apiKeyName = $state('');
 	let isLoading = $state(false);
 	let apiKeyDialogOpen = $state(false);
-	let generatedApiKey = $state<any>(null);
+	let generatedApiKey = $state<{ api_key: string; name: string } | null>(null);
 	let generatedApiKeyName = $state<string>('');
 	let error = $state<string | null>(null);
 	let dialogTimer = $state(10);
@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			startTimer();
 		} catch (err) {
 			if (err && typeof err === 'object' && 'data' in err) {
-				error = `${m.Error()}: ${(err as any).data?.message || 'Unknown error'}`;
+				error = `${m.Error()}: ${(err as { data: { message: string } }).data?.message || 'Unknown error'}`;
 			} else {
 				error = m.An_unexpected_error_occurred();
 			}
@@ -186,10 +186,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										</Table.Cell>
 										<Table.Cell>
 											<RecordDelete record={apiKey}>
-												{#snippet button({
-													triggerAttributes,
-													icon: DeleteIcon
-												})}
+												{#snippet button({ triggerAttributes })}
 													<Button
 														variant="outline"
 														size="sm"

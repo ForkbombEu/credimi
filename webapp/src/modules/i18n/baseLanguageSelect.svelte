@@ -25,7 +25,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		languages: Snippet<[{ languages: LanguageData[] }]>;
-		contentClass?: string;
 		trigger: Snippet<[LanguageSelectTriggerSnippetProps]>;
 	};
 

@@ -87,7 +87,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="flex flex-col gap-1">
 	{#if label}
 		<!-- classes copied from webapp/src/modules/components/ui/label/label.svelte -->
-		<!-- svelte-ignore a11y-label-has-associated-control - $label contains the 'for' attribute -->
 		<label
 			class="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
 			{...$labelBuilder}

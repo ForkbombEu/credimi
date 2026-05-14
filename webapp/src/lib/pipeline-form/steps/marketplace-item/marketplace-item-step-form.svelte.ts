@@ -12,6 +12,7 @@ import Component from './marketplace-item-step-form.svelte';
 
 //
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const collections = [
 	'credentials',
 	'use_cases_verifications',

@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		dialogTitle?: any;
+		dialogTitle?: string;
 		onAuthorizationAdd?: () => void;
 		onAuthorizationRemove?: () => void;
 	} & TitleProp &

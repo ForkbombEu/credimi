@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let props: FeedbackFormProps & { class?: string } = $props();
+	let props: FeedbackFormProps = $props();
 	const forms = new FeedbackForms(props);
 </script>
 

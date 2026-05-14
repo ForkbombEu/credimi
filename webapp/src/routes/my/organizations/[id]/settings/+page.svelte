@@ -7,19 +7,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 
+	import type { OrganizationsResponse } from '@/pocketbase/types/index.generated.js';
+
 	import { CollectionForm } from '@/collections-components';
 	import PageCard from '@/components/layout/pageCard.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import OrganizationLayout from '@/organizations/components/organizationLayout.svelte';
 
-	interface Props {
-		//
-		data: any;
-	}
-
-	let { data }: Props = $props();
-	let organization = $derived(data.organization);
+	let { data } = $props();
+	let organization = $derived(data.organization as OrganizationsResponse);
 </script>
 
 <OrganizationLayout org={organization}>

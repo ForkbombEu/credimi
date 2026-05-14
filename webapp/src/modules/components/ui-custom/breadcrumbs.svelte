@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import type { CalcBreadcrumbsOptions } from './breadcrumbs';
-	export { type CalcBreadcrumbsOptions as BreadcrumbsOptions };
+	export type BreadcrumbsOptions = CalcBreadcrumbsOptions;
 </script>
 
 <script lang="ts">
