@@ -973,5 +973,6 @@
 	"Change_wallet_version": "Change wallet version",
 	"Change_wallet_version_modal_title": "Change wallet version for all steps",
 	"Change_wallet_version_modal_description": "Pick a version. Every mobile-automation step in this pipeline will use it.",
-	"Wallet_version_current": "Current"
+	"Wallet_version_current": "Current",
+	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run."
 }

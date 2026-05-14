@@ -135,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{avatar}
 	badge={isPublic ? m.Public() : undefined}
 	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
-	afterDescription={hasSummary ? afterDescription : undefined}
+	{afterDescription}
 	content={showContent ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
 	publishAction={isPublic ? undefined : publishAction}
@@ -228,8 +228,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet afterDescription()}
-	{#if scoreboardResults}
+	{#if scoreboardResults && hasSummary}
 		<PipelineContentSummary results={scoreboardResults} />
+	{:else}
+		<div
+			class="flex h-8 w-fit items-center justify-start rounded-md bg-muted p-2 text-xs text-muted-foreground"
+		>
+			{m.Pipeline_summary_will_be_available_after_the_first_successful_run()}
+		</div>
 	{/if}
 {/snippet}
 
