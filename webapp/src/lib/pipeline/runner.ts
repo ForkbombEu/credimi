@@ -16,6 +16,17 @@ export function isRequired(p: PipelinesResponse): boolean {
 	return (yaml?.steps ?? []).some((step) => step.use === 'mobile-automation');
 }
 
+function getHealthUrl(runner: MobileRunnersResponse): string {
+	let baseUrl = runner.ip;
+	if (runner.port) baseUrl = `${baseUrl}:${runner.port}`;
+	return `${baseUrl}/health`;
+}
+
+export async function isOnline(runner: MobileRunnersResponse): Promise<boolean> {
+	const response = await fetch(getHealthUrl(runner));
+	return response.status === 200;
+}
+
 //
 
 export function getType(pipeline: PipelinesResponse): 'global' | 'specific' | 'not-needed' {
