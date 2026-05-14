@@ -108,6 +108,7 @@ type MobileRunnerSemaphoreGitHubPRNotification struct {
 	RunnerTypes        map[string]string `json:"runner_types,omitempty"`
 	PipelineURL        string            `json:"pipeline_url,omitempty"`
 	AppURL             string            `json:"app_url,omitempty"`
+	SectionTitle       string            `json:"section_title,omitempty"`
 }
 
 type MobileRunnerSemaphoreEnqueueRunResponse struct {

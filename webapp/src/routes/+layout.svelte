@@ -33,7 +33,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div style="display:none">
 	{#each locales as locale (locale)}
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 		<a href={localizeHref(page.url.pathname, { locale })}>
 			{locale}
 		</a>

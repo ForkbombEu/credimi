@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-8 p-4">
 	<h1>Features data</h1>
-	{#each Object.entries($featureFlags) as [name, flag]}
+	{#each Object.entries($featureFlags) as [name, flag] (name)}
 		<div class="space-y-2">
 			<p>Feature: {name} | Active: {flag}</p>
 			<div class="flex items-stretch gap-4">

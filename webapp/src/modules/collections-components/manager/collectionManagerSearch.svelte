@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				manager.query.clearSearch();
 				searchText = '';
 			}}
-			class="absolute right-1 top-1 size-7"
+			class="absolute top-1 right-1 size-7"
 			variant="ghost"
 		>
 			<Icon src={X} size="" />

@@ -88,7 +88,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<div class="flex gap-6">
 				<InfoBox label="Website">
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 					<a href={organization.external_website_url} target="_blank">
 						{organization.external_website_url}
 					</a>

@@ -46,6 +46,8 @@ path = [
     "webapp/static/emails/_emailData.d.ts",
     "webapp/static/hero.png",
     "webapp/static/pages/**/*",
+    "webapp/src/routes/(public)/marketplace/+page.ts",
+    "webapp/src/routes/(public)/marketplace/[...path]/+page.ts",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Forkbomb BV"

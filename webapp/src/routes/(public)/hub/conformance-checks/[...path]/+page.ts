@@ -5,6 +5,7 @@
 import type { Merge } from 'type-fest';
 
 import { error } from '@sveltejs/kit';
+import { Hub } from '$lib';
 
 //
 
@@ -28,7 +29,7 @@ export const load = async ({ params, parent }) => {
 		standard,
 		version,
 		suite,
-		basePath: `/hub/conformance-checks/${standardUid}/${versionUid}/${suiteUid}`
+		basePath: Hub.Conformance.getSuitePageUrl(standardUid, versionUid, suiteUid)
 	};
 
 	if (!file) {

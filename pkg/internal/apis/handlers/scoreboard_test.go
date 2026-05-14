@@ -212,7 +212,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.NoError(t, app.Save(pipeline1))
 	pipeline2.Set("published", true)
 	require.NoError(t, app.Save(pipeline2))
-	pipeline3.Set("published", true)
+	pipeline3.Set("published", false)
 	require.NoError(t, app.Save(pipeline3))
 
 	pipeline1Canonified := pipeline1.GetString("canonified_name")
@@ -234,6 +234,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-2*time.Hour).Add(-2*time.Minute).Add(-33*time.Second),
 		now.Add(-2*time.Hour),
 	)
+	exec1.Info.Memo = nil
 	exec2 := buildPipelineExecutionInfoWithRunner(
 		t,
 		"wf-2",
@@ -274,6 +275,47 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		[]string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"},
 		now.Add(-2*time.Hour).Add(-5*time.Minute).Add(-10*time.Second),
 		now.Add(-1*time.Minute),
+	)
+	exec6 := buildPipelineExecutionInfoWithRunner(
+		t,
+		"wf-6",
+		"run-6",
+		fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
+		"Completed",
+		[]string{"usera-s-organization/runner-default"},
+		now.Add(-10*time.Minute).Add(-5*time.Second),
+		now.Add(-10*time.Minute),
+	)
+	setWorkflowExecutionPublished(t, exec6.Info, false)
+	exec7 := buildPipelineExecutionInfoWithRunner(
+		t,
+		"wf-7",
+		"run-7",
+		fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
+		"Canceled",
+		[]string{"usera-s-organization/runner-default"},
+		now.Add(-9*time.Minute).Add(-5*time.Second),
+		now.Add(-9*time.Minute),
+	)
+	exec8 := buildPipelineExecutionInfoWithRunner(
+		t,
+		"wf-8",
+		"run-8",
+		fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
+		"Terminated",
+		[]string{"usera-s-organization/runner-default"},
+		now.Add(-8*time.Minute).Add(-5*time.Second),
+		now.Add(-8*time.Minute),
+	)
+	exec9 := buildPipelineExecutionInfoWithRunner(
+		t,
+		"wf-9",
+		"run-9",
+		fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
+		"Running",
+		[]string{"usera-s-organization/runner-default"},
+		now.Add(-7*time.Minute),
+		now.Add(-7*time.Minute),
 	)
 	createPipelineResultWithType(
 		t,
@@ -330,6 +372,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
 				exec1.Info, exec2.Info, exec3.Info, exec4.Info, exec5.Info,
+				exec6.Info, exec7.Info, exec8.Info, exec9.Info,
 			},
 		}, nil).
 		Once()
@@ -772,10 +815,25 @@ func buildPipelineExecutionInfoWithRunner(
 			IndexedFields: indexedFields,
 		}
 	}
+	setWorkflowExecutionPublished(t, info, true)
 
 	return ExecutionInfo{
 		Info:     info,
 		Duration: duration,
+	}
+}
+
+func setWorkflowExecutionPublished(
+	t testing.TB,
+	info *workflow.WorkflowExecutionInfo,
+	published bool,
+) {
+	payload, err := converter.GetDefaultDataConverter().ToPayload(published)
+	require.NoError(t, err)
+	info.Memo = &common.Memo{
+		Fields: map[string]*common.Payload{
+			pipelineinternal.PublishedMemoKey: payload,
+		},
 	}
 }
 
@@ -787,6 +845,10 @@ func parseStatus(status string) enums.WorkflowExecutionStatus {
 		return enums.WORKFLOW_EXECUTION_STATUS_FAILED
 	case "Running":
 		return enums.WORKFLOW_EXECUTION_STATUS_RUNNING
+	case "Canceled":
+		return enums.WORKFLOW_EXECUTION_STATUS_CANCELED
+	case "Terminated":
+		return enums.WORKFLOW_EXECUTION_STATUS_TERMINATED
 	default:
 		return enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED
 	}

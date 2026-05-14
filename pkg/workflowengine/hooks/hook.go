@@ -321,6 +321,11 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 			debugAct.Execute,
 			activity.RegisterOptions{Name: debugAct.Name()},
 		)
+		githubPRCommentAct := activities.NewUpdateGitHubPRCommentActivity()
+		w.RegisterActivityWithOptions(
+			githubPRCommentAct.Execute,
+			activity.RegisterOptions{Name: githubPRCommentAct.Name()},
+		)
 
 		for key, step := range registry.Registry {
 			if _, skip := registry.PipelineWorkerDenylist[key]; skip {

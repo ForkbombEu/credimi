@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
-	class="text-primary/20 bg-primary/5 flex flex-col items-center justify-center rounded-lg p-10 text-center"
+	class="flex flex-col items-center justify-center rounded-lg bg-primary/5 p-10 text-center text-primary/20"
 >
 	{@render children()}
 </div>

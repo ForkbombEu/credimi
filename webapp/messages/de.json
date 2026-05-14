@@ -403,5 +403,8 @@
 	"Change_wallet_version_modal_title": "Wallet-Version für alle Schritte ändern",
 	"Change_wallet_version_modal_description": "Wählen Sie eine Version. Jeder Mobile-Automation-Schritt in dieser Pipeline verwendet sie.",
 	"Wallet_version_current": "Aktuell",
-	"Import_from_hub": "Vom Hub importieren"
+	"Import_from_hub": "Vom Hub importieren",
+	"pipeline_edit_disabled_while_published": "Sie können die Pipeline nicht bearbeiten, solange sie veröffentlicht ist. Bitte heben Sie die Veröffentlichung zuerst auf.",
+	"pipeline_publish_tooltip": "Veröffentlichen Sie die Pipeline, um Ergebnisse im Scoreboard anzuzeigen",
+	"pipeline_unpublish_tooltip": "Veröffentlichung aufheben (Testmodus): heben Sie die Veröffentlichung auf, um die Pipeline zu bearbeiten; die Ergebnisse erscheinen nicht im Scoreboard"
 }

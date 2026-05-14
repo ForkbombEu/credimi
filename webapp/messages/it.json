@@ -401,6 +401,9 @@
 	"Change_wallet_version": "Cambia versione del wallet",
 	"Change_wallet_version_modal_title": "Cambia versione del wallet per tutti i passaggi",
 	"Change_wallet_version_modal_description": "Scegli una versione. Ogni passaggio mobile-automation in questa pipeline la userà.",
+	"Wallet_version_current": "Attuale",
 	"Import_from_hub": "Importa dall'hub",
-	"Wallet_version_current": "Attuale"
+	"pipeline_edit_disabled_while_published": "Non puoi modificare la pipeline finché è pubblicata. Rimuovi prima la pubblicazione.",
+	"pipeline_publish_tooltip": "Pubblica la pipeline per mostrare i risultati nella scoreboard",
+	"pipeline_unpublish_tooltip": "Rimuovi pubblicazione (modalità test): rimuovi la pubblicazione per modificare la pipeline; i risultati non appariranno nella scoreboard"
 }

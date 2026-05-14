@@ -103,10 +103,7 @@ export class SelectChecksForm {
 
 	// Submission
 
-	hasSelection = $derived(
-		this.selectedSuites.length > 0 ||
-			this.selectedTests.length > 0
-	);
+	hasSelection = $derived(this.selectedSuites.length > 0 || this.selectedTests.length > 0);
 
 	isValid = $derived(
 		String.isNonEmpty(this.selectedStandardId) &&

@@ -16,7 +16,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<mj-column>
 				<mj-text mj-class="big"> Confirm your email </mj-text>
 
-				<mj-text> Hello <strong>{{.UserName}}</strong>, </mj-text>
+				<mj-text>
+					Hello <strong>{{.UserName}}</strong
+					>,
+				</mj-text>
 
 				<mj-text>
 					Click on the button or paste this link in your browser to confirm your

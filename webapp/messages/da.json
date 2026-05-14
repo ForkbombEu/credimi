@@ -401,5 +401,8 @@
 	"Change_wallet_version_modal_title": "Skift wallet-version for alle trin",
 	"Change_wallet_version_modal_description": "Vælg en version. Hvert mobile-automation-trin i denne pipeline bruger den.",
 	"Wallet_version_current": "Aktuel",
-	"Import_from_hub": "Importer fra hubben"
+	"Import_from_hub": "Importer fra hubben",
+	"pipeline_edit_disabled_while_published": "Du kan ikke redigere pipelinen, så længe den er publiceret. Afpublicer den først.",
+	"pipeline_publish_tooltip": "Publicer pipelinen for at vise resultater på scoreboardet",
+	"pipeline_unpublish_tooltip": "Afpublicer (testtilstand): afpublicer pipelinen for at redigere den; resultaterne vises ikke på scoreboardet"
 }

@@ -54,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="space-y-2">
 		<T tag="small" class="text-gray-500">{m.Choose_your_authentication_method()}</T>
 		<div class="flex items-center overflow-hidden rounded-md border">
-			{#each modes as { href, title }}
+			{#each modes as { href, title } (href)}
 				{@const isActive = page.url.pathname === href}
 				<Button
 					variant={isActive ? 'secondary' : 'outline'}

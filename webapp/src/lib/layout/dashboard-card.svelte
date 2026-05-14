@@ -48,7 +48,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge?: string;
 		actions?: Snippet;
 		editAction?: Snippet;
+		publishAction?: Snippet;
 		nameRight?: Snippet;
+		afterDescription?: Snippet;
 		hideActions?: (RecordAction | 'publish')[] | true;
 	};
 
@@ -61,8 +63,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge,
 		actions,
 		editAction,
+		publishAction,
 		nameRight,
-		hideActions = []
+		hideActions = [],
+		afterDescription
 	}: Props = $props();
 
 	//
@@ -130,7 +134,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if hideActions !== true}
 			<div class="flex items-center gap-2">
 				{#if !hideActionsList.includes('publish')}
-					<PublishedSwitch record={record as DashboardRecord} field="published" />
+					{#if publishAction}
+						{@render publishAction()}
+					{:else}
+						<PublishedSwitch record={record as DashboardRecord} field="published" />
+					{/if}
 				{/if}
 
 				{@render actions?.()}
@@ -158,7 +166,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 
-	{#if String.isNonEmpty(description) || Boolean(links?.length)}
+	{#if String.isNonEmpty(description) || Boolean(links?.length) || afterDescription}
 		<Separator />
 
 		<div class="space-y-3 text-xs">
@@ -194,6 +202,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</div>
 			{/if}
+
+			{@render afterDescription?.()}
 		</div>
 	{/if}
 

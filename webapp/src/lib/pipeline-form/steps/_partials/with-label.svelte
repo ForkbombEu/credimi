@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class={['space-y-1', className]}>
-	<T class="text-muted-foreground text-sm">
+	<T class="text-sm text-muted-foreground">
 		{label}
 		{#if required}
 			<span class="text-red-500">*</span>

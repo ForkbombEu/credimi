@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { ClientResponseError } from 'pocketbase';
-import * as Task from 'true-myth/Task';
+import * as Task from 'true-myth/task';
 import { z, ZodError } from 'zod';
 
 import { pb } from '@/pocketbase';

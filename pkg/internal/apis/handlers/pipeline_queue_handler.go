@@ -194,6 +194,7 @@ func enqueuePipelineRun(
 	if runContext.metadata != nil {
 		memo["metadata"] = runContext.metadata
 	}
+	memo[pipelineinternal.PublishedMemoKey] = runContext.pipelineRecord.GetBool("published")
 	config := buildPipelineQueueConfig(e, namespace, runContext.userName, runContext.userEmail)
 	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
 
@@ -216,6 +217,9 @@ func enqueuePipelineRun(
 		)
 	}
 	if len(runnerIDs) == 0 && !runnerInfo.NeedsGlobalRunner {
+		if githubPRConfig := buildPipelineGitHubPRCommentConfig(runContext.notification); githubPRConfig != nil {
+			config[pipeline.GitHubPRCommentConfigKey] = githubPRConfig
+		}
 		startResult, apiErr := startPipelineFromQueue(
 			e,
 			runContext.pipelineRecord,

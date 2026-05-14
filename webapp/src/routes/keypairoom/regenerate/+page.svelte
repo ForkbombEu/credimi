@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			try {
 				const keypair = await regenerateKeypair(form.data.seed, hmac);
 				keyring = keypair.keyring;
-			} catch (e) {
+			} catch {
 				throw new Error(m.Invalid_seed());
 			}
 
@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				} else {
 					try {
 						await matchPublicAndPrivateKeys(publicKeys, keyring);
-					} catch (e) {
+					} catch {
 						throw new Error(m.Invalid_seed());
 					}
 				}

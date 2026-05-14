@@ -329,6 +329,9 @@
 	"Change_wallet_version": "Alterar versão da carteira",
 	"Change_wallet_version_modal_title": "Alterar versão da carteira para todas as etapas",
 	"Change_wallet_version_modal_description": "Escolha uma versão. Todas as etapas de automação móvel neste pipeline usarão essa versão.",
+	"Wallet_version_current": "Atual",
 	"Import_from_hub": "Importar do hub",
-	"Wallet_version_current": "Atual"
+	"pipeline_edit_disabled_while_published": "Você não pode editar o pipeline enquanto ele estiver publicado. Despublique-o primeiro.",
+	"pipeline_publish_tooltip": "Publique o pipeline para mostrar os resultados no placar",
+	"pipeline_unpublish_tooltip": "Despublicar (modo de teste): despublique o pipeline para editá-lo; os resultados não aparecerão no placar"
 }

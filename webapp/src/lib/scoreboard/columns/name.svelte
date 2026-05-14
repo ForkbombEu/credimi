@@ -41,7 +41,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="leading-none wrap-break-word whitespace-normal">
 	{#if href && value}
-		<A {href} class="text-xs font-bold">{value.name}</A>
+		{#if value.published}
+			<A {href} class="text-xs font-bold">{value.name}</A>
+		{:else}
+			<span class="text-xs">{value.name}</span>
+		{/if}
 	{:else}
 		<EntityDisplay.Na />
 	{/if}

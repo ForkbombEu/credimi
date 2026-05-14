@@ -47,15 +47,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div
 		bind:this={ref}
 		data-slot="avatar"
-		class={cn(
-			'relative flex size-8 shrink-0 overflow-hidden rounded-full',
-			className
-		)}
+		class={cn('relative flex size-8 shrink-0 overflow-hidden rounded-full', className)}
 		{...rest}
 	>
 		{#if src && !imageFailed}
 			<img
-				src={src}
+				{src}
 				alt={alt ?? m.Avatar()}
 				class="size-full object-cover"
 				loading="lazy"

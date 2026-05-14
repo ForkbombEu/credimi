@@ -94,7 +94,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="flex flex-wrap items-center gap-4">
 					<div class="flex items-center gap-2">
 						{#if !disableLink?.(workflow)}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 							<a {href} class="text-primary hover:underline">
 								{workflow.displayName}
 							</a>
@@ -131,7 +130,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			>
 				<div style={`padding-left: ${(depth - 1) * 16}px`}>
 					<div class="border-l border-slate-300 py-2 pl-2">
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 						<a {href} class="text-primary hover:underline">
 							{workflow.displayName}
 						</a>

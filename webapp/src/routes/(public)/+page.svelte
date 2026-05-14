@@ -66,7 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex items-center justify-between">
 			<T tag="h3">{m.Find_solutions()}</T>
 			<Button variant="default" href="/hub">
-				<Icon src={entities.marketplace.icon} />
+				<Icon src={entities.hub.icon} />
 				{m.Explore_Hub()}
 			</Button>
 		</div>

@@ -35,7 +35,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const iconComponent = $derived<IconComponent>(typeof icon === 'string' ? map[icon] : icon);
 </script>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -->
 <a
 	{href}
 	target="_blank"

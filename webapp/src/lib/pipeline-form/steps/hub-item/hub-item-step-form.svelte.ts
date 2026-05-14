@@ -4,6 +4,7 @@
 
 import type { EntityData } from '$lib/global';
 import type { HubItem, HubItemType } from '$lib/hub';
+
 import { searchHub } from '../_partials/search-hub';
 import { Search } from '../_partials/search.svelte';
 import { BaseForm } from '../types';
@@ -11,6 +12,7 @@ import Component from './hub-item-step-form.svelte';
 
 //
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const collections = [
 	'credentials',
 	'use_cases_verifications',

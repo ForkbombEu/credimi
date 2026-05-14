@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<span class="hidden lg:inline">{title}</span>
 	{#if notification}
 		<div
-			class="text-primary-600 absolute right-1 top-1 size-2 rounded-full bg-red-500 text-xs shadow-md ring-1 ring-white"
+			class="text-primary-600 absolute top-1 right-1 size-2 rounded-full bg-red-500 text-xs shadow-md ring-1 ring-white"
 		></div>
 	{/if}
 </a>

@@ -7,7 +7,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { UnsubscribeFunc } from 'pocketbase';
 
-	import { CheckCircle2, ChevronDownIcon, ChevronUpIcon, Download, Loader2 } from '@lucide/svelte';
+	import {
+		CheckCircle2,
+		ChevronDownIcon,
+		ChevronUpIcon,
+		Download,
+		Loader2
+	} from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -103,15 +109,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="bg-secondary border-purple-outline/20 mb-8 rounded-lg border">
+<div class="border-purple-outline/20 mb-8 rounded-lg border bg-secondary">
 	<div class="space-y-4 p-6">
 		<div class="flex items-start gap-3">
-			<Download class="text-secondary-foreground mt-0.5 h-5 w-5 shrink-0" />
+			<Download class="mt-0.5 h-5 w-5 shrink-0 text-secondary-foreground" />
 			<div class="space-y-1">
-				<h4 class="text-secondary-foreground text-base font-medium">
+				<h4 class="text-base font-medium text-secondary-foreground">
 					<strong>{m.Optional()}</strong>: {m.Import_new_credential_issuer()}
 				</h4>
-				<p class="text-secondary-foreground/80 text-sm">
+				<p class="text-sm text-secondary-foreground/80">
 					{m.import_new_credential_issuer_description()}
 				</p>
 			</div>

@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!-- Desktop view: Normal flex layout -->
 <div class="hidden lg:block">
 	<ul class="flex gap-1">
-		{#each tabs as tab}
+		{#each tabs as tab (tab.href)}
 			<li role="presentation">
 				<NavigationTab {...tab} />
 			</li>
@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<ul class="scrollbar-hide flex gap-1 overflow-x-auto">
-		{#each tabs as tab}
+		{#each tabs as tab (tab.href)}
 			<li role="presentation" class="flex-shrink-0">
 				<NavigationTab {...tab} />
 			</li>

@@ -15,7 +15,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	export const column = Column.define({
 		fn: (row) =>
-			EntityDisplay.fromPocketbaseEntities(row.expand.credentials ?? [], entities.credentials),
+			EntityDisplay.fromPocketbaseEntities(
+				row.expand.credentials ?? [],
+				entities.credentials
+			),
 		id: 'credentials',
 		header: renderComponent(EntityHeader, {
 			data: entities.credentials,

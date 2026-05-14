@@ -14,7 +14,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EntityHeader from './headers/entity-header.svelte';
 
 	export const column = Column.define({
-		fn: (row) => EntityDisplay.fromPocketbaseEntities(row.expand.verifiers ?? [], entities.verifiers),
+		fn: (row) =>
+			EntityDisplay.fromPocketbaseEntities(row.expand.verifiers ?? [], entities.verifiers),
 		id: 'verifiers',
 		header: renderComponent(EntityHeader, {
 			data: entities.verifiers,

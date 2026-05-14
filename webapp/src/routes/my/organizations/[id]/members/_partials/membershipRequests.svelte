@@ -66,7 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 
 			<div class="space-y-2">
-				{#each records as request}
+				{#each records as request (request.id)}
 					{@const user = request.expand?.user}
 					{#if user}
 						<PlainCard>

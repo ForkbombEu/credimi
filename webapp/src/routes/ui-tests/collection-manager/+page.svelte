@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet top({ Header, Search, Filters })}
 		<Header />
 
-		<div class="mb-4 mt-4 flex gap-4">
+		<div class="mt-4 mb-4 flex gap-4">
 			<Search containerClass="grow" />
 			<Filters modalType="sheet">Filters in sheet</Filters>
 			<Filters modalType="popover">Filters in popover</Filters>
@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Table {records} fields={['id', 'text_field', 'self_relation', 'select_field']}></Table>
 
 		<div class="mt-4 space-y-2">
-			{#each records as record}
+			{#each records as record (record.id)}
 				<Card {record}>
 					{#snippet children({ Title, Description })}
 						<Title>{record.text_field}</Title>

@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Form form={editor.superform} hide={['submit_button']} class="space-y-6" hideRequiredIndicator>
-	{#each editor.props.fields as field}
+	{#each editor.props.fields as field (field.credimi_id)}
 		<ConfigFormInput {field} form={editor.superform} />
 	{/each}
 </Form>

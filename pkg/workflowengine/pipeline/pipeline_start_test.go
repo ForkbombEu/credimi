@@ -5,12 +5,16 @@
 package pipeline
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
@@ -182,6 +186,13 @@ config:
   keep: value
   temp_wallet_version:
     record_id: malicious
+  temp_credentials:
+    - record_id: malicious
+  temp_use_case_verifications:
+    - record_id: malicious
+  github_pr_comment:
+    repository: attacker/repo
+    pull_request_number: 17
 steps: []
 `,
 		map[string]any{"namespace": "default"},
@@ -191,6 +202,9 @@ steps: []
 	require.NoError(t, err)
 	require.Equal(t, "value", capturedInput.WorkflowInput.Config["keep"])
 	require.NotContains(t, capturedInput.WorkflowInput.Config, tempWalletVersionConfigKey)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, tempCredentialsConfigKey)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, tempUseCaseVerificationsConfigKey)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, GitHubPRCommentConfigKey)
 }
 
 func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
@@ -224,4 +238,220 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 	require.True(t, ok)
 	require.NotEmpty(t, output["workflow-id"])
 	require.NotEmpty(t, output["workflow-run-id"])
+}
+
+func TestPipelineWorkflowReportsGitHubPRCommentDone(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	update := capturePipelineGitHubPRCommentUpdate(env)
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name:  "empty-steps",
+			Steps: []pipeline.StepDefinition{},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url": "https://credimi.test",
+				GitHubPRCommentConfigKey: map[string]any{
+					GitHubPRCommentConfigRepositoryKey:        "forkbombeu/issuer",
+					GitHubPRCommentConfigPullRequestNumberKey: 17,
+					GitHubPRCommentConfigCommitSHAKey:         "abc123",
+					GitHubPRCommentConfigPipelineIDKey:        "tenant-a/issuer",
+					GitHubPRCommentConfigPipelineURLKey:       "https://credimi.test/my/pipelines/tenant-a/issuer",
+					GitHubPRCommentConfigAppURLKey:            "https://credimi.test",
+					GitHubPRCommentConfigSectionTitleKey:      activities.GitHubPRCommentSectionIssuer,
+				},
+			},
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, "forkbombeu/issuer", update.Repository)
+	require.Equal(t, 17, update.PullRequestNumber)
+	require.Equal(t, "abc123", update.CommitSHA)
+	require.Equal(t, "success", update.WorkflowStatus)
+	require.Equal(t, "tenant-a/issuer", update.PipelineID)
+	require.Equal(t, activities.GitHubPRCommentSectionIssuer, update.SectionTitle)
+	require.NotEmpty(t, update.WorkflowID)
+	require.NotEmpty(t, update.RunID)
+	env.AssertExpectations(t)
+}
+
+func TestPipelineWorkflowReportsGitHubPRCommentFailure(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	update := capturePipelineGitHubPRCommentUpdate(env)
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url": "https://credimi.test",
+				GitHubPRCommentConfigKey: map[string]any{
+					GitHubPRCommentConfigRepositoryKey:        "forkbombeu/issuer",
+					GitHubPRCommentConfigPullRequestNumberKey: 17,
+					GitHubPRCommentConfigCommitSHAKey:         "abc123",
+					GitHubPRCommentConfigPipelineIDKey:        "tenant-a/issuer",
+					GitHubPRCommentConfigPipelineURLKey:       "https://credimi.test/my/pipelines/tenant-a/issuer",
+					GitHubPRCommentConfigAppURLKey:            "https://credimi.test",
+					GitHubPRCommentConfigSectionTitleKey:      activities.GitHubPRCommentSectionIssuer,
+				},
+			},
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+	require.Equal(t, "forkbombeu/issuer", update.Repository)
+	require.Equal(t, "failed", update.WorkflowStatus)
+	require.Equal(t, activities.GitHubPRCommentSectionIssuer, update.SectionTitle)
+	require.NotEmpty(t, update.WorkflowID)
+	require.NotEmpty(t, update.RunID)
+	env.AssertExpectations(t)
+}
+
+func TestStringFromWorkflowConfig(t *testing.T) {
+	config := map[string]any{
+		"present": " value ",
+		"nil":     nil,
+		"number":  17,
+	}
+
+	require.Equal(t, "value", stringFromWorkflowConfig(config, "present"))
+	require.Empty(t, stringFromWorkflowConfig(config, "missing"))
+	require.Empty(t, stringFromWorkflowConfig(config, "nil"))
+	require.Empty(t, stringFromWorkflowConfig(config, "number"))
+}
+
+func TestPipelineWorkflowReportsGitHubPRCommentWithOnlyRequiredConfig(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	update := capturePipelineGitHubPRCommentUpdate(env)
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name:  "empty-steps",
+			Steps: []pipeline.StepDefinition{},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url": "https://credimi.test",
+				GitHubPRCommentConfigKey: map[string]any{
+					GitHubPRCommentConfigRepositoryKey:        "forkbombeu/issuer",
+					GitHubPRCommentConfigPullRequestNumberKey: 17,
+				},
+			},
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, "forkbombeu/issuer", update.Repository)
+	require.Equal(t, 17, update.PullRequestNumber)
+	require.Empty(t, update.CommitSHA)
+	require.Empty(t, update.PipelineID)
+	require.Empty(t, update.PipelineURL)
+	require.Empty(t, update.SectionTitle)
+	env.AssertExpectations(t)
+}
+
+func TestPipelineWorkflowSkipsGitHubPRCommentWithoutRepository(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	env.RegisterActivityWithOptions(
+		func(
+			ctx context.Context,
+			input workflowengine.ActivityInput,
+		) (workflowengine.ActivityResult, error) {
+			return workflowengine.ActivityResult{}, nil
+		},
+		activity.RegisterOptions{Name: "Update GitHub PR comment"},
+	)
+	env.OnActivity(
+		"Update GitHub PR comment",
+		mock.Anything,
+		mock.Anything,
+	).Return(workflowengine.ActivityResult{}, nil).Maybe()
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name:  "empty-steps",
+			Steps: []pipeline.StepDefinition{},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url": "https://credimi.test",
+				GitHubPRCommentConfigKey: map[string]any{
+					GitHubPRCommentConfigPullRequestNumberKey: 17,
+				},
+			},
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	env.AssertNotCalled(t, "Update GitHub PR comment", mock.Anything, mock.Anything)
+}
+
+func capturePipelineGitHubPRCommentUpdate(
+	env *testsuite.TestWorkflowEnvironment,
+) *activities.UpdateGitHubPRCommentInput {
+	var update activities.UpdateGitHubPRCommentInput
+	env.RegisterActivityWithOptions(
+		func(
+			ctx context.Context,
+			input workflowengine.ActivityInput,
+		) (workflowengine.ActivityResult, error) {
+			return workflowengine.ActivityResult{}, nil
+		},
+		activity.RegisterOptions{Name: "Update GitHub PR comment"},
+	)
+	env.OnActivity(
+		"Update GitHub PR comment",
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			decoded, err := workflowengine.DecodePayload[activities.UpdateGitHubPRCommentInput](
+				input.Payload,
+			)
+			if err != nil {
+				return false
+			}
+			update = decoded
+			return true
+		}),
+	).Return(workflowengine.ActivityResult{}, nil).Once()
+	return &update
 }

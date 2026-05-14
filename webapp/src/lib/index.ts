@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export * as Conformance from './conformance';
+export * as Hub from './hub';
 export * as Pipeline from './pipeline';
 export * as Scoreboard from './scoreboard';
 export * as Wallet from './wallet';

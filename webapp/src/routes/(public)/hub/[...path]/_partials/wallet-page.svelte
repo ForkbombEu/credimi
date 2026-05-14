@@ -245,7 +245,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </LayoutWithToc>
 
 {#snippet AppStore(url: string)}
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 	<a href={url} target="_blank" class="">
 		<svg
 			id="livetype"
@@ -377,7 +376,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet PlayStore(url: string)}
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 	<a href={url} target="_blank" class="shrink-0">
 		<img
 			class="h-16"

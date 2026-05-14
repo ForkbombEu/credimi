@@ -726,6 +726,7 @@ func TestPipelineRunWalletAPKCreatesGitHubPRQueuedComment(t *testing.T) {
 	require.Equal(t, 17, commenter.updates[0].PullRequestNumber)
 	require.Equal(t, "abcdef1234567890", commenter.updates[0].CommitSHA)
 	require.Equal(t, "queued", commenter.updates[0].Status)
+	require.Equal(t, activities.GitHubPRCommentSectionWalletAPK, commenter.updates[0].SectionTitle)
 	require.NotNil(t, commenter.updates[0].Position)
 	require.Equal(t, 1, *commenter.updates[0].Position)
 	require.Equal(

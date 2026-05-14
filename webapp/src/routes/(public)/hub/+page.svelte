@@ -6,10 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { baseSections, entities } from '$lib/global';
-	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import { HubItemCard } from '$lib/hub';
 	import ConformanceChecksTable from '$lib/hub/conformance-checks-table.svelte';
 	import HubTable from '$lib/hub/hub-table.svelte';
+	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -80,7 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="bg-secondary pb-0">
 			<div class="mx-auto max-w-7xl px-4 md:px-8">
 				<PublicPageHeader
-					entity="marketplace"
+					entity="hub"
 					description={m.Explore_the_hub_and_try_credentials_wallets_and_services()}
 				/>
 
