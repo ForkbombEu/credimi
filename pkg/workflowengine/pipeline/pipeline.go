@@ -859,7 +859,10 @@ func (w *PipelineWorkflow) Start(
 }
 
 func isReservedWorkflowInputConfigKey(key string) bool {
-	return key == tempWalletVersionConfigKey || key == tempCredentialsConfigKey
+	return key == tempWalletVersionConfigKey ||
+		key == tempCredentialsConfigKey ||
+		key == tempUseCaseVerificationsConfigKey ||
+		key == GitHubPRCommentConfigKey
 }
 
 func ExecuteEventStepsOnError(

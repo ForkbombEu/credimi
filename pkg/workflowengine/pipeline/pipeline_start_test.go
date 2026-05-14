@@ -186,6 +186,13 @@ config:
   keep: value
   temp_wallet_version:
     record_id: malicious
+  temp_credentials:
+    - record_id: malicious
+  temp_use_case_verifications:
+    - record_id: malicious
+  github_pr_comment:
+    repository: attacker/repo
+    pull_request_number: 17
 steps: []
 `,
 		map[string]any{"namespace": "default"},
@@ -195,6 +202,9 @@ steps: []
 	require.NoError(t, err)
 	require.Equal(t, "value", capturedInput.WorkflowInput.Config["keep"])
 	require.NotContains(t, capturedInput.WorkflowInput.Config, tempWalletVersionConfigKey)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, tempCredentialsConfigKey)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, tempUseCaseVerificationsConfigKey)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, GitHubPRCommentConfigKey)
 }
 
 func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
