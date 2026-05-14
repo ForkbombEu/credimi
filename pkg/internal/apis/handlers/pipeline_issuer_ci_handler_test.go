@@ -11,6 +11,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -126,6 +127,77 @@ func TestPipelineRunIssuerAcceptsCredimiAPIKeyForOwnedPipeline(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), `"status":"running"`)
 	require.Contains(t, rec.Body.String(), `"temp_credentials"`)
+}
+
+func TestPipelineRunIssuerCreatesGitHubPRCommentForDirectRun(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	origStart := startPipelineWorkflow
+	t.Cleanup(func() {
+		startPipelineWorkflow = origStart
+	})
+	startPipelineWorkflow = func(
+		yaml string,
+		config map[string]any,
+		memo map[string]any,
+		pipelineIdentifier string,
+	) (workflowengine.WorkflowResult, error) {
+		require.Contains(t, config, "github_pr_comment")
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "issuer-wf",
+			WorkflowRunID: "issuer-run",
+		}, nil
+	}
+	commenter := &walletAPKCommenterStub{}
+	installWalletAPKCommenterStub(t, commenter)
+
+	app := setupPipelineIssuerCIApp(t)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://credimi.test"
+	seedWalletAPKUserAPIKey(t, app)
+	credentialID := createIssuerCICredential(
+		t,
+		app,
+		orgID,
+		"Issuer CI",
+		"pid",
+	)
+	createWalletAPITestPipelineNamed(
+		t,
+		app,
+		orgID,
+		"issuer-ci-pipeline",
+		issuerCIPipelineYAML(credentialID),
+		false,
+	)
+
+	rec := performPipelineIssuerCIRequest(t, app, map[string]any{
+		"pipeline_identifier": "usera-s-organization/issuer-ci-pipeline",
+		"commit_sha":          "abc123",
+		"issuer_url":          "https://issuer.example/temp",
+		"metadata": map[string]any{
+			"repository": "forkbombeu/issuer",
+			"event": map[string]any{
+				"number": 17,
+			},
+		},
+	})
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Len(t, commenter.updates, 1)
+	require.Equal(t, "forkbombeu/issuer", commenter.updates[0].Repository)
+	require.Equal(t, 17, commenter.updates[0].PullRequestNumber)
+	require.Equal(t, "abc123", commenter.updates[0].CommitSHA)
+	require.Equal(t, "running", commenter.updates[0].Status)
+	require.Equal(t, "issuer-wf", commenter.updates[0].WorkflowID)
+	require.Equal(t, "issuer-run", commenter.updates[0].RunID)
+	require.Equal(t, activities.GitHubPRCommentSectionIssuer, commenter.updates[0].SectionTitle)
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/usera-s-organization/issuer-ci-pipeline",
+		commenter.updates[0].PipelineURL,
+	)
 }
 
 func TestPipelineRunIssuerCredentialIDsRewriteOnlyRequestedCredentials(t *testing.T) {

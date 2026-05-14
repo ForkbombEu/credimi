@@ -39,18 +39,20 @@ func TestBuildGitHubPRCommentDocumentGroupsRunsUnderCommitTitle(t *testing.T) {
 				Status:     "running",
 			},
 			"abc1234::org/pipeline-2::org/runner-2": {
-				CommitSHA:  "abc123456789",
-				PipelineID: "org/pipeline-2",
-				RunnerID:   "org/runner-2",
-				RunnerType: "android_emulator",
-				Status:     "queued",
+				CommitSHA:    "abc123456789",
+				PipelineID:   "org/pipeline-2",
+				RunnerID:     "org/runner-2",
+				RunnerType:   "android_emulator",
+				Status:       "queued",
+				SectionTitle: activities.GitHubPRCommentSectionIssuer,
 			},
 		},
 	})
 
 	require.Contains(t, document, "## Credimi wallet APK pipeline runs")
+	require.Contains(t, document, "## Credimi issuer pipeline runs")
 	require.Contains(t, document, "### `abc1234`")
-	require.Equal(t, 1, strings.Count(document, "### `"))
+	require.Equal(t, 2, strings.Count(document, "### `"))
 	require.Contains(t, document, "| Pipeline ID | `org/pipeline` |")
 	require.Contains(t, document, "| Runner | `org/runner-1(android_phone)` |")
 	require.Contains(t, document, "| Pipeline ID | `org/pipeline-2` |")
@@ -90,9 +92,9 @@ func TestApplyGitHubPRCommentUpdateKeepsLatestCommitOnly(t *testing.T) {
 
 	require.Equal(t, "newcommit", state.LatestCommitSHA)
 	require.Len(t, state.Sections, 2)
-	require.Contains(t, state.Sections, "newcomm::pipeline-a::runner-1")
-	require.Contains(t, state.Sections, "newcomm::pipeline-b::runner-2")
-	require.NotContains(t, state.Sections, "oldcomm::pipeline-a::runner-1")
+	require.Contains(t, state.Sections, "credimi-wallet-apk-pipeline-runs::newcomm::pipeline-a::runner-1")
+	require.Contains(t, state.Sections, "credimi-wallet-apk-pipeline-runs::newcomm::pipeline-b::runner-2")
+	require.NotContains(t, state.Sections, "credimi-wallet-apk-pipeline-runs::oldcomm::pipeline-a::runner-1")
 }
 
 func TestApplyGitHubPRCommentUpdateAcceptsRunningNewCommitAfterTerminalCommit(t *testing.T) {
@@ -116,8 +118,8 @@ func TestApplyGitHubPRCommentUpdateAcceptsRunningNewCommitAfterTerminalCommit(t 
 
 	require.Equal(t, "newcommit", state.LatestCommitSHA)
 	require.Len(t, state.Sections, 1)
-	require.Contains(t, state.Sections, "newcomm::pipeline-a::runner-1")
-	require.NotContains(t, state.Sections, "oldcomm::pipeline-a::runner-1")
+	require.Contains(t, state.Sections, "credimi-wallet-apk-pipeline-runs::newcomm::pipeline-a::runner-1")
+	require.NotContains(t, state.Sections, "credimi-wallet-apk-pipeline-runs::oldcomm::pipeline-a::runner-1")
 }
 
 func TestApplyGitHubPRCommentUpdateIgnoresDifferentRunningCommitWhileCurrentCommitActive(t *testing.T) {
@@ -143,8 +145,8 @@ func TestApplyGitHubPRCommentUpdateIgnoresDifferentRunningCommitWhileCurrentComm
 
 	require.Equal(t, "current", state.LatestCommitSHA)
 	require.Len(t, state.Sections, 1)
-	require.Contains(t, state.Sections, "current::pipeline-a::runner-1")
-	require.NotContains(t, state.Sections, "differe::pipeline-a::runner-1")
+	require.Contains(t, state.Sections, "credimi-wallet-apk-pipeline-runs::current::pipeline-a::runner-1")
+	require.NotContains(t, state.Sections, "credimi-wallet-apk-pipeline-runs::differe::pipeline-a::runner-1")
 }
 
 func TestApplyGitHubPRCommentUpdateUsesCurrentHeadSHA(t *testing.T) {
@@ -171,7 +173,7 @@ func TestApplyGitHubPRCommentUpdateUsesCurrentHeadSHA(t *testing.T) {
 	})
 	require.True(t, changed)
 	require.Equal(t, "newcommit", state.LatestCommitSHA)
-	require.Contains(t, state.Sections, "newcomm::pipeline-a::runner-1")
+	require.Contains(t, state.Sections, "credimi-wallet-apk-pipeline-runs::newcomm::pipeline-a::runner-1")
 }
 
 func TestApplyGitHubPRCommentUpdateDoesNotPatchRejectedFirstUpdate(t *testing.T) {

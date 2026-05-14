@@ -5,12 +5,16 @@
 package pipeline
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
@@ -224,4 +228,74 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 	require.True(t, ok)
 	require.NotEmpty(t, output["workflow-id"])
 	require.NotEmpty(t, output["workflow-run-id"])
+}
+
+func TestPipelineWorkflowReportsGitHubPRCommentDone(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	var update activities.UpdateGitHubPRCommentInput
+	env.RegisterActivityWithOptions(
+		func(
+			ctx context.Context,
+			input workflowengine.ActivityInput,
+		) (workflowengine.ActivityResult, error) {
+			return workflowengine.ActivityResult{}, nil
+		},
+		activity.RegisterOptions{Name: "Update GitHub PR comment"},
+	)
+	env.OnActivity(
+		"Update GitHub PR comment",
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			decoded, err := workflowengine.DecodePayload[activities.UpdateGitHubPRCommentInput](
+				input.Payload,
+			)
+			if err != nil {
+				return false
+			}
+			update = decoded
+			return true
+		}),
+	).Return(workflowengine.ActivityResult{}, nil).Once()
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name:  "empty-steps",
+			Steps: []pipeline.StepDefinition{},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url": "https://credimi.test",
+				GitHubPRCommentConfigKey: map[string]any{
+					"repository":          "forkbombeu/issuer",
+					"pull_request_number": 17,
+					"commit_sha":          "abc123",
+					"pipeline_id":         "tenant-a/issuer",
+					"pipeline_url":        "https://credimi.test/my/pipelines/tenant-a/issuer",
+					"app_url":             "https://credimi.test",
+					"section_title":       activities.GitHubPRCommentSectionIssuer,
+				},
+			},
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, "forkbombeu/issuer", update.Repository)
+	require.Equal(t, 17, update.PullRequestNumber)
+	require.Equal(t, "abc123", update.CommitSHA)
+	require.Equal(t, "success", update.WorkflowStatus)
+	require.Equal(t, "tenant-a/issuer", update.PipelineID)
+	require.Equal(t, activities.GitHubPRCommentSectionIssuer, update.SectionTitle)
+	require.NotEmpty(t, update.WorkflowID)
+	require.NotEmpty(t, update.RunID)
+	env.AssertExpectations(t)
 }

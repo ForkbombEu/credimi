@@ -226,38 +226,88 @@ func buildGitHubPRCommentDocument(state githubPRCommentWorkflowState) string {
 	lines := make([]string, 0, 3+6*len(keys))
 	lines = append(
 		lines,
-		"## Credimi wallet APK pipeline runs",
-		"",
 		githubapp.Marker(),
 	)
 
-	if title := githubPRCommentDocumentTitle(state, keys); title != "" {
-		lines = append(lines, "", fmt.Sprintf("### `%s`", title))
-	}
-
-	for _, key := range keys {
-		update := state.Sections[key]
-		lines = append(
-			lines,
-			"",
-			fmt.Sprintf("<!-- credimi-wallet-apk-run:%s:start -->", key),
-			activities.BuildGitHubPRCommentBodyForWorkflow(update),
-			fmt.Sprintf("<!-- credimi-wallet-apk-run:%s:end -->", key),
-		)
+	for _, sectionTitle := range githubPRCommentDocumentSectionTitles(state, keys) {
+		sectionKeys := githubPRCommentDocumentSectionKeys(state, keys, sectionTitle)
+		if len(sectionKeys) == 0 {
+			continue
+		}
+		lines = append(lines, "", fmt.Sprintf("## %s", sectionTitle))
+		if title := githubPRCommentDocumentTitle(state, sectionKeys); title != "" {
+			lines = append(lines, "", fmt.Sprintf("### `%s`", title))
+		}
+		for _, key := range sectionKeys {
+			update := state.Sections[key]
+			lines = append(
+				lines,
+				"",
+				fmt.Sprintf("<!-- credimi-pipeline-run:%s:start -->", key),
+				activities.BuildGitHubPRCommentBodyForWorkflow(update),
+				fmt.Sprintf("<!-- credimi-pipeline-run:%s:end -->", key),
+			)
+		}
 	}
 	return strings.Join(lines, "\n")
 }
 
+func githubPRCommentDocumentSectionTitles(
+	state githubPRCommentWorkflowState,
+	keys []string,
+) []string {
+	seen := map[string]struct{}{}
+	titles := make([]string, 0, 3)
+	for _, title := range activities.GitHubPRCommentKnownSectionTitles() {
+		for _, key := range keys {
+			if activities.GitHubPRCommentSectionTitle(state.Sections[key]) != title {
+				continue
+			}
+			seen[title] = struct{}{}
+			titles = append(titles, title)
+			break
+		}
+	}
+	customTitles := make([]string, 0)
+	for _, key := range keys {
+		title := activities.GitHubPRCommentSectionTitle(state.Sections[key])
+		if _, ok := seen[title]; ok {
+			continue
+		}
+		seen[title] = struct{}{}
+		customTitles = append(customTitles, title)
+	}
+	sort.Strings(customTitles)
+	return append(titles, customTitles...)
+}
+
+func githubPRCommentDocumentSectionKeys(
+	state githubPRCommentWorkflowState,
+	keys []string,
+	sectionTitle string,
+) []string {
+	sectionKeys := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if activities.GitHubPRCommentSectionTitle(state.Sections[key]) == sectionTitle {
+			sectionKeys = append(sectionKeys, key)
+		}
+	}
+	return sectionKeys
+}
+
 func githubPRCommentSectionKey(update activities.UpdateGitHubPRCommentInput) string {
 	parts := make([]string, 0, 3)
+	parts = append(parts, githubPRCommentMarkerPart(
+		activities.GitHubPRCommentSectionTitle(update),
+	))
 	if sha := shortGitHubPRCommentSHA(update.CommitSHA); sha != "" {
 		parts = append(parts, sha)
 	}
 	if pipelineID := strings.TrimSpace(update.PipelineID); pipelineID != "" {
-		parts = append(parts, pipelineID)
+		parts = append(parts, githubPRCommentMarkerPart(pipelineID))
 	}
 	if runnerID := strings.TrimSpace(update.RunnerID); runnerID != "" {
-		parts = append(parts, runnerID)
+		parts = append(parts, githubPRCommentMarkerPart(runnerID))
 	}
 	if len(parts) > 0 {
 		return strings.Join(parts, "::")
@@ -266,6 +316,18 @@ func githubPRCommentSectionKey(update activities.UpdateGitHubPRCommentInput) str
 		return update.TicketID
 	}
 	return "run"
+}
+
+func githubPRCommentMarkerPart(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	replacer := strings.NewReplacer(
+		" ", "-",
+		"/", "-",
+		"\\", "-",
+		":", "-",
+		"|", "-",
+	)
+	return strings.Trim(replacer.Replace(value), "-")
 }
 
 func githubPRCommentDocumentTitle(state githubPRCommentWorkflowState, keys []string) string {

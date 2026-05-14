@@ -22,6 +22,24 @@ func buildWalletAPKGitHubPRNotification(
 	runnerID string,
 	runnerType string,
 ) *workflows.MobileRunnerSemaphoreNotification {
+	return buildPipelineGitHubPRNotification(
+		metadata,
+		appURL,
+		pipelineIdentifier,
+		runnerID,
+		runnerType,
+		activities.GitHubPRCommentSectionWalletAPK,
+	)
+}
+
+func buildPipelineGitHubPRNotification(
+	metadata map[string]any,
+	appURL string,
+	pipelineIdentifier string,
+	runnerID string,
+	runnerType string,
+	sectionTitle string,
+) *workflows.MobileRunnerSemaphoreNotification {
 	repository := metadataString(metadata, "repository")
 	prNumber := pullRequestNumberFromMetadata(metadata)
 	if repository == "" || prNumber <= 0 {
@@ -30,15 +48,19 @@ func buildWalletAPKGitHubPRNotification(
 
 	return &workflows.MobileRunnerSemaphoreNotification{
 		GitHubPR: &workflows.MobileRunnerSemaphoreGitHubPRNotification{
-			Repository:         repository,
-			PullRequestNumber:  prNumber,
-			CommitSHA:          metadataString(metadata, "event.pull_request.head.sha"),
+			Repository:        repository,
+			PullRequestNumber: prNumber,
+			CommitSHA: firstNonEmpty(
+				metadataString(metadata, "event.pull_request.head.sha"),
+				metadataSHA(metadata),
+			),
 			PipelineIdentifier: pipelineIdentifier,
 			RunnerID:           runnerID,
 			RunnerType:         runnerType,
 			RunnerTypes:        buildInitialGitHubPRRunnerTypes(runnerID, runnerType),
 			PipelineURL:        buildPipelinePageURL(appURL, pipelineIdentifier),
 			AppURL:             appURL,
+			SectionTitle:       sectionTitle,
 		},
 	}
 }
@@ -56,6 +78,14 @@ func maybeCreateWalletAPKQueuedPRComment(
 	ctx context.Context,
 	notification *workflows.MobileRunnerSemaphoreNotification,
 	response PipelineRunWalletAPKResponse,
+) error {
+	return maybeCreatePipelineGitHubPRComment(ctx, notification, response.PipelineQueueResponse)
+}
+
+func maybeCreatePipelineGitHubPRComment(
+	ctx context.Context,
+	notification *workflows.MobileRunnerSemaphoreNotification,
+	response PipelineQueueResponse,
 ) error {
 	if notification == nil || notification.GitHubPR == nil {
 		return nil
@@ -78,7 +108,25 @@ func maybeCreateWalletAPKQueuedPRComment(
 		RunID:        response.RunID,
 		TicketID:     response.TicketID,
 		ErrorMessage: response.ErrorMessage,
+		SectionTitle: notification.GitHubPR.SectionTitle,
 	})
+}
+
+func buildPipelineGitHubPRCommentConfig(
+	notification *workflows.MobileRunnerSemaphoreNotification,
+) map[string]any {
+	if notification == nil || notification.GitHubPR == nil {
+		return nil
+	}
+	return map[string]any{
+		"repository":          notification.GitHubPR.Repository,
+		"pull_request_number": notification.GitHubPR.PullRequestNumber,
+		"commit_sha":          notification.GitHubPR.CommitSHA,
+		"pipeline_id":         notification.GitHubPR.PipelineIdentifier,
+		"pipeline_url":        notification.GitHubPR.PipelineURL,
+		"app_url":             notification.GitHubPR.AppURL,
+		"section_title":       notification.GitHubPR.SectionTitle,
+	}
 }
 
 func githubPRCommentRunnerType(

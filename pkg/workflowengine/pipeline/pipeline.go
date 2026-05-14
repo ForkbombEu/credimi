@@ -102,13 +102,22 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	defer func() {
+		finalResult := pipelineFinalResult(ctx, finalErr)
+		reportGitHubPRCommentDone(
+			ctx,
+			logger,
+			config,
+			workflowID,
+			runID,
+			finalResult,
+		)
 		reportMobileRunnerSemaphoreDone(
 			ctx,
 			logger,
 			config,
 			workflowID,
 			runID,
-			pipelineFinalResult(ctx, finalErr),
+			finalResult,
 		)
 	}()
 
