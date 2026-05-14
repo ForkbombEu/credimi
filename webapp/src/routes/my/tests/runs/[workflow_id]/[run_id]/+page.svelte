@@ -253,9 +253,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if memo.standard !== 'openid4vci_issuer' || isDedicatedOpenID4VCIIssuerWorkflow}
 					<OpenidnetTop
 						{workflowId}
-						{runId}
 						namespace={organization.canonified_name}
-						standard={memo.standard}
 						isIssuerWorkflow={isDedicatedOpenID4VCIIssuerWorkflow}
 					/>
 				{/if}
