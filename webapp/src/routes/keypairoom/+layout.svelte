@@ -50,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/snippet}
 								{#snippet languages({ languages })}
 									<DropdownMenu.SubContent>
-										{#each languages as { name, flag, href, hreflang }}
+										{#each languages as { name, flag, href, hreflang } (hreflang)}
 											<DropdownMenu.Item>
 												{#snippet child({ props })}
 													<a

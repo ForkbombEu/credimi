@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Title>{m.Error()}</Title>
 			<Description>
 				{#if error.messages.length > 0}
-					{#each error.messages as message}
+					{#each error.messages as message, index (index)}
 						{message}
 					{/each}
 				{/if}

@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import Separator from '@/components/ui/separator/separator.svelte';
 	import { featureFlags } from '@/features';
-// Components
+	// Components
 	import { createForm, Form } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n';
@@ -71,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				} else {
 					try {
 						await matchPublicAndPrivateKeys(storedPublicKeys, privateKeys);
-					} catch (e) {
+					} catch {
 						throw new Error('Wrong answers');
 					}
 				}
@@ -118,7 +118,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<span class="text mb-2 flex items-center font-bold">
 				{m.Important_information()}
 			</span>
-			<ul class="list-disc space-y-1 pl-4 pt-1">
+			<ul class="list-disc space-y-1 pt-1 pl-4">
 				<li>
 					{m.By_answering_these_questions_you_will_generate_keys_that_will_be_used_to_encrypt_your_data()}
 				</li>
@@ -147,7 +147,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Separator />
 		{/if}
 
-		{#each userChallenges as question}
+		{#each userChallenges as question (question.id)}
 			<Field {form} name={`questions.${question.id}`} options={{ label: question.text }} />
 		{/each}
 

@@ -52,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Popover.Content
 				class={cn('w-[--bits-popover-anchor-width] space-y-0.5 p-1', contentClass)}
 			>
-				{#each languages as { name, flag, isCurrent, tag }}
+				{#each languages as { name, flag, isCurrent, tag } (tag)}
 					<Button
 						onclick={() => setLocale(tag)}
 						variant={isCurrent ? 'secondary' : 'ghost'}

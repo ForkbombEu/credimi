@@ -75,10 +75,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet content()}
 	{@render beforeFilters?.()}
 	<ul class="space-y-4">
-		{#each ensureArray(filters) as filterGroup}
+		{#each ensureArray(filters) as filterGroup (filterGroup.id)}
 			<ul class="space-y-2">
 				<li><T class="font-bold">{filterGroup.name ?? m.filters()}</T></li>
-				{#each filterGroup.filters as filter}
+				{#each filterGroup.filters as filter (filter.expression)}
 					<li>
 						{@render FilterInput(filter, filterGroup.id, filterGroup.mode)}
 					</li>

@@ -7,6 +7,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { Pencil, Plus, X } from '@lucide/svelte';
 
+	import type {
+		OrganizationsResponse,
+		OrgRolesResponse
+	} from '@/pocketbase/types/index.generated.js';
+
 	import { CollectionManager, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import PageCard from '@/components/layout/pageCard.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -28,16 +33,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import MembershipRequests from './_partials/membershipRequests.svelte';
 	import PendingInvites from './_partials/pendingInvites.svelte';
 
-	interface Props {
-		//
-		data: any;
-	}
-
-	let { data }: Props = $props();
-	let organization = $derived(data.organization);
-	let userRole = $derived(data.userRole);
-
 	//
+
+	let { data } = $props();
+	let organization = $derived(data.organization as OrganizationsResponse);
+	let userRole = $derived(data.userRole as OrgRolesResponse);
 
 	const showInviteModal = createToggleStore(false);
 </script>
@@ -93,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#snippet records({ records })}
 				<div class="space-y-2">
-					{#each records as record}
+					{#each records as record (record.id)}
 						{@const user = record.expand?.user}
 						{@const role = record.expand?.role}
 						{#if user && role && userRole}

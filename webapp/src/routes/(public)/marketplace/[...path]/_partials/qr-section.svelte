@@ -71,6 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		error={yamlError}
 		loadingText={m.Processing_YAML_configuration()}
 		placeholder={m.No_deeplink_available()}
-		showLink={true}
+		showLink
+		clickable
 	/>
 </PageSection>

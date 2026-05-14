@@ -61,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#await authMethods then methods}
-	{#each methods as method}
+	{#each methods as method (method.displayName)}
 		<Button class="w-full" variant="outline" onclick={method.initializer}>
 			<figure class="size-6 rounded-sm bg-white p-0.5">
 				<img src={method.image} alt="{method.displayName} logo" />
@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if methods.length > 0 && !hideOr}
 		<div class="flex items-center gap-2">
 			<Separator class="grow basis-1" />
-			<p class="text-xs uppercase tracking-wide text-gray-400">{m.or()}</p>
+			<p class="text-xs tracking-wide text-gray-400 uppercase">{m.or()}</p>
 			<Separator class="grow basis-1" />
 		</div>
 	{/if}

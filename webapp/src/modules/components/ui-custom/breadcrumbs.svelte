@@ -6,12 +6,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import type { CalcBreadcrumbsOptions } from './breadcrumbs';
-	export { type CalcBreadcrumbsOptions as BreadcrumbsOptions };
+	export type BreadcrumbsOptions = CalcBreadcrumbsOptions;
 </script>
 
 <script lang="ts">
-	import { page } from '$app/state';
 	import { Home } from '@lucide/svelte';
+	import { page } from '$app/state';
 
 	import type { Link } from '@/components/types';
 
@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Breadcrumb.Root>
 	<Breadcrumb.List>
-		{#each breadcrumbs as { href, title }, i}
+		{#each breadcrumbs as { href, title }, i (href)}
 			{@const isHome = i == 0}
 			{@const isLast = i == breadcrumbs.length - 1}
 

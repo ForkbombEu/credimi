@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Render, type SelfProp } from '$lib/renderable';
 	import { PencilIcon, RedoIcon, SaveIcon, UndoIcon } from '@lucide/svelte';
+	import { Render, type SelfProp } from '$lib/renderable';
 
 	import { Button } from '@/components/ui/button';
 	import { m } from '@/i18n';

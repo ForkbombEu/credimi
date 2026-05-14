@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <PageContent class="grow bg-secondary">
 	{#if pages.length > 0}
 		<PageGrid>
-			{#each pages as page}
+			{#each pages as page (page.slug)}
 				<PageCard {...page} />
 			{/each}
 		</PageGrid>

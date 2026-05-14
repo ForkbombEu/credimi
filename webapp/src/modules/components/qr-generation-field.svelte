@@ -213,7 +213,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 		{#if generatedDeeplink}
 			<div class="max-w-60 pt-4 text-xs break-all">
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a class="hover:underline" href={generatedDeeplink} target="_self">
 					{generatedDeeplink}
 				</a>

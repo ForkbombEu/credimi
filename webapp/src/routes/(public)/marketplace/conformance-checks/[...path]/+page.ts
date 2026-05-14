@@ -4,8 +4,8 @@
 
 import type { Merge } from 'type-fest';
 
-import { Marketplace } from '$lib/marketplace';
 import { error } from '@sveltejs/kit';
+import { Marketplace } from '$lib/marketplace';
 
 //
 

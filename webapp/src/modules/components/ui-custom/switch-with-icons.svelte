@@ -52,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	bind:ref
 	bind:checked
 	class={[
-		'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+		'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
 		'data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-input',
 		'peer inline-flex shrink-0 items-center rounded-md border-2 border-transparent',
 		'cursor-pointer transition-colors',

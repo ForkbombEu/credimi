@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div
 	{id}
 	class={[
-		'border-secondary-foreground mb-6 flex scroll-mt-5 items-center justify-between border-b',
+		'mb-6 flex scroll-mt-5 items-center justify-between border-b border-secondary-foreground',
 		className
 	]}
 >

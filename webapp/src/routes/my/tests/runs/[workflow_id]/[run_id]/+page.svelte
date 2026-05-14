@@ -110,7 +110,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const testNameChunks = $derived(memo?.test.split('+') ?? []);
 	const isDedicatedOpenID4VCIIssuerWorkflow = $derived(
 		memo?.standard === 'openid4vci_issuer' &&
-			execution.name === 'OID4VCI Issuer conformance check on https://www.certification.openid.net'
+			execution.name ===
+				'OID4VCI Issuer conformance check on https://www.certification.openid.net'
 	);
 
 	const failureMessage = $derived.by(() => {
@@ -252,9 +253,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if memo.standard !== 'openid4vci_issuer' || isDedicatedOpenID4VCIIssuerWorkflow}
 					<OpenidnetTop
 						{workflowId}
-						{runId}
 						namespace={organization.canonified_name}
-						standard={memo.standard}
 						isIssuerWorkflow={isDedicatedOpenID4VCIIssuerWorkflow}
 					/>
 				{/if}

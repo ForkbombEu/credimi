@@ -30,7 +30,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Sidebar.MenuItem style={`padding-left: ${(item.indent ?? 0) * 16}px`}>
 	<Sidebar.MenuButton {isActive}>
 		{#snippet child({ props })}
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 			<a href={localizeHref(item.url)} {...props}>
 				{#if item.component}
 					<item.component title={item.title} />

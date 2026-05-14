@@ -22,7 +22,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	description={m.Start_a_new_conformance_check_description()}
 	backButton={{ href: '/my', title: m.Back_to_dashboard() }}
 >
-	<StartChecksFormComponent
-		standardsWithTestSuites={data.standardsAndTestSuites}
-	/>
+	<StartChecksFormComponent standardsWithTestSuites={data.standardsAndTestSuites} />
 </FocusPageLayout>

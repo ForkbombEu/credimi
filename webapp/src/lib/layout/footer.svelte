@@ -162,7 +162,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<div class="flex flex-col gap-2">
 							<T tag="small">{category.label}</T>
 							{#each category.links as item (item.label)}
-								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve, svelte/no-navigation-without-resolve -->
 								<a href={item.url} class="text-xs text-muted-foreground">
 									{item.label}
 								</a>

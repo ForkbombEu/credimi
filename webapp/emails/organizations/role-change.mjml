@@ -26,7 +26,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					organization <strong>{{.OrganizationName}}</strong> on DIDroom.
 				</mj-text>
 
-				<mj-text> Your new role: <strong>{{.Membership}}</strong> </mj-text>
+				<mj-text>
+					Your new role: <strong>{{.Membership}}</strong>
+				</mj-text>
 
 				<mj-text> Login to your Dashboard to see the changes: </mj-text>
 

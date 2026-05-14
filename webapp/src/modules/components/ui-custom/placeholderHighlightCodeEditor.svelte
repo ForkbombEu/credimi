@@ -131,7 +131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									// If it's valid JSON, we'll use it without quotes
 									JSON.parse(fieldInfo.value);
 									displayValue = fieldInfo.value.trim();
-								} catch (e) {
+								} catch {
 									// If not valid JSON, treat it as a regular string with quotes
 									displayValue = `"${fieldInfo.value}"`;
 								}

@@ -51,8 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		options: {
 			dataType: 'form'
 		}
-	})
-	
+	});
 
 	setDashboardNavbar({
 		title: m.Profile()
@@ -73,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</span>
 			</T>
 			<T tag="p">
-				<span class="text-sm italic text-gray-400">
+				<span class="text-sm text-gray-400 italic">
 					{m.Timezone()}: {$currentUser?.Timezone || detectedTimezone}
 				</span>
 			</T>

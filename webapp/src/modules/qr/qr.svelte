@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		loadingText?: string;
 		showLink?: boolean;
 		alt?: string;
+		clickable?: boolean;
 	}
 
 	let {
@@ -37,6 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		showLink = false,
 		class: className = '',
 		alt = m.QR_code(),
+		clickable = false,
 		children,
 		...rest
 	}: Props = $props();
@@ -67,11 +69,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			isLoading && 'animate-pulse',
 			!qrDataUrl && 'p-3',
 			!className?.includes('size-') && 'size-60',
-			className
+			className,
+			clickable && 'hover:ring-2 hover:ring-primary'
 		]}
 	>
 		{#if qrDataUrl}
-			<img src={qrDataUrl} class="aspect-square h-full w-full object-contain" {alt} />
+			{#snippet qrCode()}
+				<img src={qrDataUrl} class="aspect-square h-full w-full object-contain" {alt} />
+			{/snippet}
+
+			{#if !clickable}
+				{@render qrCode()}
+			{:else}
+				<a
+					href={src}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="aspect-square h-full w-full"
+				>
+					{@render qrCode()}
+				</a>
+			{/if}
 		{:else if isLoading}
 			<Spinner size={20} />
 			<T>{loadingText}</T>
@@ -90,7 +108,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="w-full space-y-1">
 			<div class="flex">
 				<div class="w-0 grow">
-					<!-- eslint-disable svelte/no-navigation-without-resolve -->
 					<a
 						class="block text-xs leading-relaxed break-all text-primary hover:underline"
 						href={src}

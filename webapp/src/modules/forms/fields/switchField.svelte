@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	interface Props {
-		form: SuperForm<Data, any>;
+		form: SuperForm<Data>;
 		name: FormPathLeaves<Data, boolean>;
 		options?: Partial<FieldOptions> & ComponentProps<typeof Switch>;
 	}

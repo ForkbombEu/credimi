@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ConfigField } from '$start-checks-form/types';
 
-	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Eye, Pencil, Undo } from '@lucide/svelte';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	import Label from '@/components/ui/label/label.svelte';
 	import * as Popover from '@/components/ui/popover';
@@ -37,11 +37,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Form form={form.superform} hide={['submit_button']} hideRequiredIndicator>
-	{#each form.independentFields as field}
+	{#each form.independentFields as field (field.credimi_id)}
 		<ConfigFormInput {field} form={form.superform} />
 	{/each}
 
-	{#each form.overriddenFields as field}
+	{#each form.overriddenFields as field (field.credimi_id)}
 		<ConfigFormInput {field} form={form.superform}>
 			{#snippet labelRight()}
 				<button
@@ -62,7 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="space-y-2">
 			<Label>{m.Default_fields()}</Label>
 			<ul class="space-y-1">
-				{#each form.dependentFields as { credimi_id, field_label, field_type }}
+				{#each form.dependentFields as { credimi_id, field_label, field_type } (credimi_id)}
 					{@const value = form.props.formDependency.getData()[credimi_id]}
 					{@const valuePreview = previewValue(value, field_type)}
 
