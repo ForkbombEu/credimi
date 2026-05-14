@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -116,6 +117,14 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
 			return apiErr.JSON(e)
 		}
+		notification := buildPipelineGitHubPRNotification(
+			input.Metadata,
+			e.App.Settings().Meta.AppURL,
+			input.PipelineIdentifier,
+			runnerID,
+			resolveWalletAPKGitHubPRRunnerType(e.App, runnerID, input.RunnerType),
+			activities.GitHubPRCommentSectionIssuer,
+		)
 
 		queueResponse, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
 			pipelineRecord:     runContext.PipelineRecord,
@@ -128,18 +137,33 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			metadata:           input.Metadata,
 			runType:            pipelineinternal.RunTypeCI,
 			cleanup:            buildPipelineRunIssuerCleanupMetadata(tempCredentials),
+			notification:       notification,
 		})
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
 			return apiErr.JSON(e)
 		}
 
-		return e.JSON(http.StatusOK, buildPipelineRunIssuerResponse(
+		response := buildPipelineRunIssuerResponse(
 			queueResponse,
 			tempCredentials,
 			input.PipelineIdentifier,
 			warning,
-		))
+		)
+		if err := maybeCreatePipelineGitHubPRComment(
+			e.Request.Context(),
+			notification,
+			response.PipelineQueueResponse,
+		); err != nil {
+			e.App.Logger().Warn(fmt.Sprintf(
+				"failed to create github pr comment for issuer pipeline run %s/%s: %v",
+				response.WorkflowID,
+				response.RunID,
+				err,
+			))
+		}
+
+		return e.JSON(http.StatusOK, response)
 	}
 }
 

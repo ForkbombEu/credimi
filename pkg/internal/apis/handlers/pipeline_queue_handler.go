@@ -216,6 +216,9 @@ func enqueuePipelineRun(
 		)
 	}
 	if len(runnerIDs) == 0 && !runnerInfo.NeedsGlobalRunner {
+		if githubPRConfig := buildPipelineGitHubPRCommentConfig(runContext.notification); githubPRConfig != nil {
+			config[pipeline.GitHubPRCommentConfigKey] = githubPRConfig
+		}
 		startResult, apiErr := startPipelineFromQueue(
 			e,
 			runContext.pipelineRecord,

@@ -67,6 +67,10 @@ const (
 	mobileRunnerSemaphoreRunnerIDsConfigKey      = "mobile_runner_semaphore_runner_ids"
 	mobileRunnerSemaphoreLeaderRunnerIDConfigKey = "mobile_runner_semaphore_leader_runner_id"
 	mobileRunnerSemaphoreOwnerNamespaceConfigKey = "mobile_runner_semaphore_owner_namespace"
+	queuedTempWalletVersionConfigKey             = "temp_wallet_version"
+	queuedTempCredentialsConfigKey               = "temp_credentials"
+	queuedTempUseCaseVerificationsConfigKey      = "temp_use_case_verifications"
+	queuedGitHubPRCommentConfigKey               = "github_pr_comment"
 )
 
 type queuedWorkflowDefinition struct {
@@ -181,6 +185,9 @@ func (a *StartQueuedPipelineActivity) Execute(
 	}
 
 	for key, value := range workflowDef.Config {
+		if isReservedQueuedWorkflowConfigKey(key) {
+			continue
+		}
 		if _, exists := config[key]; !exists {
 			config[key] = value
 		}
@@ -298,6 +305,13 @@ func (a *StartQueuedPipelineActivity) Execute(
 		)
 	}
 	return result, nil
+}
+
+func isReservedQueuedWorkflowConfigKey(key string) bool {
+	return key == queuedTempWalletVersionConfigKey ||
+		key == queuedTempCredentialsConfigKey ||
+		key == queuedTempUseCaseVerificationsConfigKey ||
+		key == queuedGitHubPRCommentConfigKey
 }
 
 func parseQueuedWorkflowDefinition(
