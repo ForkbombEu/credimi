@@ -50,6 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		editAction?: Snippet;
 		publishAction?: Snippet;
 		nameRight?: Snippet;
+		afterDescription?: Snippet;
 		hideActions?: (RecordAction | 'publish')[] | true;
 	};
 
@@ -64,7 +65,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		editAction,
 		publishAction,
 		nameRight,
-		hideActions = []
+		hideActions = [],
+		afterDescription
 	}: Props = $props();
 
 	//
@@ -164,7 +166,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 
-	{#if String.isNonEmpty(description) || Boolean(links?.length)}
+	{#if String.isNonEmpty(description) || Boolean(links?.length) || afterDescription}
 		<Separator />
 
 		<div class="space-y-3 text-xs">
@@ -200,6 +202,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</div>
 			{/if}
+
+			{@render afterDescription?.()}
 		</div>
 	{/if}
 

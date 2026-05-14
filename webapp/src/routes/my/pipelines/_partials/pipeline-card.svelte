@@ -50,6 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let runnerSelectionDialogOpen = $state(false);
 	let runPipelineAfterRunnerSelect = $state(false);
+	const runnerType = $derived(Pipeline.Runner.getType(pipeline));
 
 	async function handleRunNow() {
 		if (!Pipeline.Runner.isRequired(pipeline)) {
@@ -83,18 +84,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
-
-	// Flags for displaying UI elements
-
-	const avatar = $derived.by(() => {
-		const owner = pipeline.expand?.owner;
-		if (!owner) return undefined;
-		return pb.files.getURL(owner, owner.logo);
-	});
-
-	const hasWorkflows = $derived(workflows && workflows.length > 0);
-
 	let scoreboardResults = $state<ScoreboardRow | undefined>();
 	let scoreboardPipelineId = $state<string | undefined>();
 
@@ -120,28 +109,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	});
 
+	// Variables for displaying UI elements
+
+	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
+	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
+	const isRunnerSpecific = $derived(runnerType === 'specific');
+
 	const hasSummary = $derived(
 		scoreboardResults
 			? Scoreboard.EntityDisplay.buildPipelineSummaryItems(scoreboardResults).length > 0
 			: false
 	);
 
-	const hasContent = $derived(hasWorkflows || hasSummary);
+	const showContent = $derived(workflows && workflows.length > 0);
 
-	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
-
-	const runnerType = $derived(Pipeline.Runner.getType(pipeline));
-	const isRunnerSpecific = $derived(runnerType === 'specific');
+	const avatar = $derived.by(() => {
+		const owner = pipeline.expand?.owner;
+		if (!owner) return undefined;
+		return pb.files.getURL(owner, owner.logo);
+	});
 </script>
 
 <DashboardCard
 	record={pipeline}
 	{avatar}
 	badge={isPublic ? m.Public() : undefined}
-	content={hasContent ? content : undefined}
+	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
+	afterDescription={hasSummary ? afterDescription : undefined}
+	content={showContent ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
 	publishAction={isPublic ? undefined : publishAction}
-	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
 >
 	{#snippet nameRight()}
 		{#if isRunning}
@@ -230,12 +227,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/>
 {/snippet}
 
+{#snippet afterDescription()}
+	{#if scoreboardResults}
+		<PipelineContentSummary results={scoreboardResults} />
+	{/if}
+{/snippet}
+
 {#snippet content()}
 	<div class="space-y-3">
-		{#if scoreboardResults}
-			<PipelineContentSummary results={scoreboardResults} />
-		{/if}
-
 		{#if workflows && workflows.length > 0}
 			<div class="space-y-3">
 				<div class="flex items-center justify-between gap-1">
