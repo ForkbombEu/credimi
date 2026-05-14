@@ -68,6 +68,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				console.error(e);
 			});
 	});
+
+	$effect(() => {
+		if (!open) return;
+		PipelineRunner.status.probe(PipelineRunner.store.read(), { reason: 'modal' });
+	});
 </script>
 
 <Dialog bind:open {title} {description} hideTrigger>

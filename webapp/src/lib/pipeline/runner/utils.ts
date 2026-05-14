@@ -64,9 +64,13 @@ const isOnlineResponseSchema = z.object({
 });
 
 export async function checkOnlineStatus(runner: MobileRunnersResponse): Promise<boolean> {
-	const response = await fetch(getHealthUrl(runner), { method: 'GET' });
-	if (!response.ok) return false;
-	return isOnlineResponseSchema.safeParse(await response.json()).success;
+	try {
+		const response = await fetch(getHealthUrl(runner), { method: 'GET' });
+		if (!response.ok) return false;
+		return isOnlineResponseSchema.safeParse(await response.json()).success;
+	} catch {
+		return false;
+	}
 }
 
 // Configuration storage
