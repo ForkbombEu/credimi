@@ -18,6 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<Button href={properHref} class={cn(className, 'cursor-pointer')} {...restProps}>
+<Button
+	href={properHref}
+	class={cn(className, 'cursor-pointer aria-disabled:opacity-30!')}
+	{...restProps}
+>
 	{@render children?.()}
 </Button>

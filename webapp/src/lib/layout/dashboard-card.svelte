@@ -48,6 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge?: string;
 		actions?: Snippet;
 		editAction?: Snippet;
+		publishAction?: Snippet;
 		nameRight?: Snippet;
 		hideActions?: (RecordAction | 'publish')[] | true;
 	};
@@ -61,6 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge,
 		actions,
 		editAction,
+		publishAction,
 		nameRight,
 		hideActions = []
 	}: Props = $props();
@@ -130,7 +132,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if hideActions !== true}
 			<div class="flex items-center gap-2">
 				{#if !hideActionsList.includes('publish')}
-					<PublishedSwitch record={record as DashboardRecord} field="published" />
+					{#if publishAction}
+						{@render publishAction()}
+					{:else}
+						<PublishedSwitch record={record as DashboardRecord} field="published" />
+					{/if}
 				{/if}
 
 				{@render actions?.()}

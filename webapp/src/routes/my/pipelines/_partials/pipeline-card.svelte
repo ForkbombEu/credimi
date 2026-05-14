@@ -11,12 +11,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { resolve } from '$app/paths';
 	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
-	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
-	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
+	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
+	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
+	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import { getPath } from '$lib/utils';
 	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
 
@@ -25,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -138,6 +140,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	badge={isPublic ? m.Public() : undefined}
 	content={hasContent ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
+	publishAction={isPublic ? undefined : publishAction}
 	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
 >
 	{#snippet nameRight()}
@@ -205,11 +208,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 />
 
+{#snippet publishAction()}
+	<Tooltip>
+		<PublishedSwitch record={pipeline} field="published" />
+		{#snippet content()}
+			<p>
+				{pipeline.published ? m.pipeline_unpublish_tooltip() : m.pipeline_publish_tooltip()}
+			</p>
+		{/snippet}
+	</Tooltip>
+{/snippet}
+
 {#snippet editAction()}
 	<IconButton
-		href={resolve('/my/pipelines/(group)/[...path]/edit', { path: getPath(pipeline, true) })}
+		href={resolve('/my/pipelines/(group)/[...path]/edit', {
+			path: getPath(pipeline, true)
+		})}
 		icon={Pencil}
-		tooltip={m.Edit()}
+		tooltip={pipeline.published ? m.pipeline_edit_disabled_while_published() : m.Edit()}
+		disabled={pipeline.published}
 	/>
 {/snippet}
 
