@@ -99,8 +99,28 @@ func applyGitHubPRCommentUpdate(
 		return false
 	}
 	key := githubPRCommentSectionKey(update)
+	if isStaleGitHubPRCommentUpdate(state.Sections[key], update) {
+		return false
+	}
 	state.Sections[key] = update
 	return true
+}
+
+func isStaleGitHubPRCommentUpdate(
+	existing activities.UpdateGitHubPRCommentInput,
+	update activities.UpdateGitHubPRCommentInput,
+) bool {
+	if !isGitHubPRCommentTerminalUpdate(existing) ||
+		isGitHubPRCommentTerminalUpdate(update) {
+		return false
+	}
+	if strings.TrimSpace(existing.WorkflowID) == "" ||
+		strings.TrimSpace(existing.RunID) == "" ||
+		strings.TrimSpace(update.WorkflowID) == "" ||
+		strings.TrimSpace(update.RunID) == "" {
+		return false
+	}
+	return existing.WorkflowID == update.WorkflowID && existing.RunID == update.RunID
 }
 
 func applyGitHubPRCommentCommitScope(
@@ -297,9 +317,11 @@ func githubPRCommentDocumentSectionKeys(
 
 func githubPRCommentSectionKey(update activities.UpdateGitHubPRCommentInput) string {
 	parts := make([]string, 0, 3)
-	parts = append(parts, githubPRCommentMarkerPart(
+	if sectionTitle := githubPRCommentMarkerPart(
 		activities.GitHubPRCommentSectionTitle(update),
-	))
+	); sectionTitle != "" {
+		parts = append(parts, sectionTitle)
+	}
 	if sha := shortGitHubPRCommentSHA(update.CommitSHA); sha != "" {
 		parts = append(parts, sha)
 	}

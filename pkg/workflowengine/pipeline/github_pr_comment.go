@@ -37,7 +37,7 @@ func reportGitHubPRCommentDone(
 		return
 	}
 
-	repository := workflowengine.AsString(commentConfig[GitHubPRCommentConfigRepositoryKey])
+	repository := stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigRepositoryKey)
 	prNumber := intFromWorkflowConfig(commentConfig[GitHubPRCommentConfigPullRequestNumberKey])
 	if strings.TrimSpace(repository) == "" || prNumber <= 0 {
 		return
@@ -47,15 +47,15 @@ func reportGitHubPRCommentDone(
 	payload := activities.UpdateGitHubPRCommentInput{
 		Repository:        repository,
 		PullRequestNumber: prNumber,
-		CommitSHA:         workflowengine.AsString(commentConfig[GitHubPRCommentConfigCommitSHAKey]),
+		CommitSHA:         stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigCommitSHAKey),
 		Status:            "running",
-		PipelineID:        workflowengine.AsString(commentConfig[GitHubPRCommentConfigPipelineIDKey]),
-		PipelineURL:       workflowengine.AsString(commentConfig[GitHubPRCommentConfigPipelineURLKey]),
-		AppURL:            workflowengine.AsString(commentConfig[GitHubPRCommentConfigAppURLKey]),
+		PipelineID:        stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigPipelineIDKey),
+		PipelineURL:       stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigPipelineURLKey),
+		AppURL:            stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigAppURLKey),
 		WorkflowID:        workflowID,
 		RunID:             runID,
 		WorkflowStatus:    workflowResult,
-		SectionTitle:      workflowengine.AsString(commentConfig[GitHubPRCommentConfigSectionTitleKey]),
+		SectionTitle:      stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigSectionTitleKey),
 	}
 
 	finalCtx, _ := workflow.NewDisconnectedContext(ctx)
@@ -74,6 +74,14 @@ func reportGitHubPRCommentDone(
 			err,
 		)
 	}
+}
+
+func stringFromWorkflowConfig(config map[string]any, key string) string {
+	value, ok := config[key].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
 }
 
 func intFromWorkflowConfig(value any) int {

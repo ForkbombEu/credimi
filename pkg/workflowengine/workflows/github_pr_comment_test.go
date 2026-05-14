@@ -196,3 +196,62 @@ func TestApplyGitHubPRCommentUpdateDoesNotPatchRejectedFirstUpdate(t *testing.T)
 	require.Equal(t, 17, state.PullRequestNumber)
 	require.Empty(t, state.Sections)
 }
+
+func TestApplyGitHubPRCommentUpdateIgnoresSameRunNonTerminalAfterTerminal(t *testing.T) {
+	state := githubPRCommentWorkflowState{
+		Sections: map[string]activities.UpdateGitHubPRCommentInput{},
+	}
+
+	terminal := activities.UpdateGitHubPRCommentInput{
+		CommitSHA:      "commit1",
+		PipelineID:     "pipeline-a",
+		Status:         "running",
+		WorkflowID:     "workflow-1",
+		RunID:          "run-1",
+		WorkflowStatus: "failed",
+	}
+	changed := applyGitHubPRCommentUpdate(&state, terminal)
+	require.True(t, changed)
+
+	changed = applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "commit1",
+		PipelineID: "pipeline-a",
+		Status:     "running",
+		WorkflowID: "workflow-1",
+		RunID:      "run-1",
+	})
+	require.False(t, changed)
+
+	key := "credimi-wallet-apk-pipeline-runs::commit1::pipeline-a"
+	require.Equal(t, "failed", state.Sections[key].WorkflowStatus)
+}
+
+func TestApplyGitHubPRCommentUpdateAcceptsNewRunAfterTerminal(t *testing.T) {
+	state := githubPRCommentWorkflowState{
+		Sections: map[string]activities.UpdateGitHubPRCommentInput{},
+	}
+
+	changed := applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:      "commit1",
+		PipelineID:     "pipeline-a",
+		Status:         "running",
+		WorkflowID:     "workflow-1",
+		RunID:          "run-1",
+		WorkflowStatus: "failed",
+	})
+	require.True(t, changed)
+
+	changed = applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
+		CommitSHA:  "commit1",
+		PipelineID: "pipeline-a",
+		Status:     "running",
+		WorkflowID: "workflow-2",
+		RunID:      "run-2",
+	})
+	require.True(t, changed)
+
+	key := "credimi-wallet-apk-pipeline-runs::commit1::pipeline-a"
+	require.Empty(t, state.Sections[key].WorkflowStatus)
+	require.Equal(t, "workflow-2", state.Sections[key].WorkflowID)
+	require.Equal(t, "run-2", state.Sections[key].RunID)
+}
