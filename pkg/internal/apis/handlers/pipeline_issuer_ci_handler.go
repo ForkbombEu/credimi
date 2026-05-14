@@ -93,6 +93,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIRunnerID(
 			e.Request.Context(),
 			e.App,
+			runContext.OrganizationRecord.Id,
 			workflowDefinition,
 			input,
 		)

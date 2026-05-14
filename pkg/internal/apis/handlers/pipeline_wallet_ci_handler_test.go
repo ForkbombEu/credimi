@@ -835,6 +835,11 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 				RunnerID: runnerID,
 				QueueLen: 1,
 			}, nil
+		case "usera-s-organization/hidden-runner":
+			return workflows.MobileRunnerSemaphoreStateView{
+				RunnerID: runnerID,
+				QueueLen: 10,
+			}, nil
 		default:
 			return workflows.MobileRunnerSemaphoreStateView{}, errSemaphoreNotFound
 		}
@@ -844,7 +849,7 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	require.NoError(t, err)
 
 	scenario := tests.ApiScenario{
-		Name:   "selects published runner with shortest queue for runner_type",
+		Name:   "selects owned private runner before published runner for runner_type",
 		Method: http.MethodPost,
 		URL:    "/api/pipeline/run-wallet-apk",
 		Headers: map[string]string{
@@ -860,7 +865,7 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
 			`"status":"queued"`,
-			`"runner_ids":["usera-s-organization/free-runner"]`,
+			`"runner_ids":["usera-s-organization/hidden-runner"]`,
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineWalletAPKApp(t)
@@ -885,7 +890,7 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	require.Len(t, queueStub.enqueueRequests, 1)
 	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
 	require.NoError(t, err)
-	require.Equal(t, "usera-s-organization/free-runner", workflow.Runtime.GlobalRunnerID)
+	require.Equal(t, "usera-s-organization/hidden-runner", workflow.Runtime.GlobalRunnerID)
 }
 
 func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T) {
@@ -906,6 +911,7 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 	runnerID, apiErr := selectPipelineCIRunnerByType(
 		context.Background(),
 		app,
+		orgID,
 		"android_phone",
 	)
 
@@ -978,6 +984,7 @@ func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
 	runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKRunnerID(
 		context.Background(),
 		nil,
+		"",
 		workflowDefinition,
 		pipelineRunWalletAPKRequest{
 			RunnerID:   "runner-1",
@@ -1002,6 +1009,7 @@ func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
 	runnerID, hasStepRunner, needsGlobalRunner, apiErr = resolvePipelineCIRunnerID(
 		context.Background(),
 		nil,
+		"",
 		workflowDefinition,
 		pipelineCIBaseRequest{
 			RunnerID:   "runner-1",
