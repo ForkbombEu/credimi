@@ -330,6 +330,59 @@ steps: []
 	require.Equal(t, true, rawInput.Config["disable_android_play_store"])
 }
 
+func TestStartQueuedPipelineActivitySkipsReservedYAMLConfig(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
+	captured := &capturingTemporalClient{
+		run: fakeWorkflowRun{
+			id:    "wf-5",
+			runID: "run-5",
+		},
+	}
+	act := NewStartQueuedPipelineActivity()
+	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		return captured, nil
+	}
+	act.httpDoer = failingDoer{err: errors.New("boom")}
+
+	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: StartQueuedPipelineActivityInput{
+			TicketID:           "ticket-5",
+			OwnerNamespace:     "tenant-1",
+			PipelineIdentifier: "tenant-1/pipeline",
+			YAML: `name: test
+config:
+  keep: value
+  temp_wallet_version:
+    record_id: malicious
+  temp_credentials:
+    - record_id: malicious
+  temp_use_case_verifications:
+    - record_id: malicious
+  github_pr_comment:
+    repository: attacker/repo
+    pull_request_number: 17
+steps: []
+`,
+			PipelineConfig: map[string]any{
+				"app_url": "https://example.com",
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, captured.lastArgs, 1)
+
+	workflowInput, ok := captured.lastArgs[0].(map[string]any)
+	require.True(t, ok)
+
+	rawInput, ok := workflowInput["workflow_input"].(workflowengine.WorkflowInput)
+	require.True(t, ok)
+	require.Equal(t, "value", rawInput.Config["keep"])
+	require.NotContains(t, rawInput.Config, queuedTempWalletVersionConfigKey)
+	require.NotContains(t, rawInput.Config, queuedTempCredentialsConfigKey)
+	require.NotContains(t, rawInput.Config, queuedTempUseCaseVerificationsConfigKey)
+	require.NotContains(t, rawInput.Config, queuedGitHubPRCommentConfigKey)
+}
+
 func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	doer := &countingDoer{err: errors.New("boom")}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -86,6 +87,77 @@ func TestPipelineRunVerifierAcceptsCredimiAPIKeyForOwnedPipeline(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), `"status":"running"`)
 	require.Contains(t, rec.Body.String(), `"temp_use_cases"`)
+}
+
+func TestPipelineRunVerifierCreatesGitHubPRCommentForDirectRun(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	origStart := startPipelineWorkflow
+	t.Cleanup(func() {
+		startPipelineWorkflow = origStart
+	})
+	startPipelineWorkflow = func(
+		yaml string,
+		config map[string]any,
+		memo map[string]any,
+		pipelineIdentifier string,
+	) (workflowengine.WorkflowResult, error) {
+		require.Contains(t, config, "github_pr_comment")
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "verifier-wf",
+			WorkflowRunID: "verifier-run",
+		}, nil
+	}
+	commenter := &walletAPKCommenterStub{}
+	installWalletAPKCommenterStub(t, commenter)
+
+	app := setupPipelineVerifierCIApp(t)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://credimi.test"
+	seedWalletAPKUserAPIKey(t, app)
+	useCaseID := createVerifierCIUseCase(
+		t,
+		app,
+		orgID,
+		"Verifier CI",
+		"pid",
+	)
+	createWalletAPITestPipelineNamed(
+		t,
+		app,
+		orgID,
+		"verifier-ci-pipeline",
+		verifierCIPipelineYAML(useCaseID),
+		false,
+	)
+
+	rec := performPipelineVerifierCIRequest(t, app, map[string]any{
+		"pipeline_identifier": "usera-s-organization/verifier-ci-pipeline",
+		"commit_sha":          "abc123",
+		"verifier_url":        "https://verifier.example/temp",
+		"metadata": map[string]any{
+			"repository": "forkbombeu/verifier",
+			"event": map[string]any{
+				"number": 17,
+			},
+		},
+	})
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Len(t, commenter.updates, 1)
+	require.Equal(t, "forkbombeu/verifier", commenter.updates[0].Repository)
+	require.Equal(t, 17, commenter.updates[0].PullRequestNumber)
+	require.Equal(t, "abc123", commenter.updates[0].CommitSHA)
+	require.Equal(t, "running", commenter.updates[0].Status)
+	require.Equal(t, "verifier-wf", commenter.updates[0].WorkflowID)
+	require.Equal(t, "verifier-run", commenter.updates[0].RunID)
+	require.Equal(t, activities.GitHubPRCommentSectionVerifier, commenter.updates[0].SectionTitle)
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/usera-s-organization/verifier-ci-pipeline",
+		commenter.updates[0].PipelineURL,
+	)
 }
 
 func TestPipelineRunVerifierUseCaseIDsRewriteOnlyRequestedUseCases(t *testing.T) {
