@@ -16,7 +16,7 @@ You can manage API keys from your profile:
 
 **Settings → API Keys**
 
-![Marketplace issuers](../images/api-keys1.png)
+![Hub API keys settings](../images/api-keys1.png)
 
 
 ---

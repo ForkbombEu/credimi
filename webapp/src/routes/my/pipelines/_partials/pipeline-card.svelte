@@ -11,12 +11,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { resolve } from '$app/paths';
 	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
-	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
-	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
+	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
+	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
+	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import { getPath } from '$lib/utils';
 	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
 
@@ -25,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -48,6 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let runnerSelectionDialogOpen = $state(false);
 	let runPipelineAfterRunnerSelect = $state(false);
+	const runnerType = $derived(Pipeline.Runner.getType(pipeline));
 
 	async function handleRunNow() {
 		if (!Pipeline.Runner.isRequired(pipeline)) {
@@ -81,18 +84,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
-
-	// Flags for displaying UI elements
-
-	const avatar = $derived.by(() => {
-		const owner = pipeline.expand?.owner;
-		if (!owner) return undefined;
-		return pb.files.getURL(owner, owner.logo);
-	});
-
-	const hasWorkflows = $derived(workflows && workflows.length > 0);
-
 	let scoreboardResults = $state<ScoreboardRow | undefined>();
 	let scoreboardPipelineId = $state<string | undefined>();
 
@@ -118,27 +109,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	});
 
+	// Variables for displaying UI elements
+
+	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
+	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
+	const isRunnerSpecific = $derived(runnerType === 'specific');
+
 	const hasSummary = $derived(
 		scoreboardResults
 			? Scoreboard.EntityDisplay.buildPipelineSummaryItems(scoreboardResults).length > 0
 			: false
 	);
 
-	const hasContent = $derived(hasWorkflows || hasSummary);
+	const showContent = $derived(workflows && workflows.length > 0);
 
-	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
-
-	const runnerType = $derived(Pipeline.Runner.getType(pipeline));
-	const isRunnerSpecific = $derived(runnerType === 'specific');
+	const avatar = $derived.by(() => {
+		const owner = pipeline.expand?.owner;
+		if (!owner) return undefined;
+		return pb.files.getURL(owner, owner.logo);
+	});
 </script>
 
 <DashboardCard
 	record={pipeline}
 	{avatar}
 	badge={isPublic ? m.Public() : undefined}
-	content={hasContent ? content : undefined}
-	editAction={isPublic ? undefined : editAction}
 	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
+	{afterDescription}
+	content={showContent ? content : undefined}
+	editAction={isPublic ? undefined : editAction}
+	publishAction={isPublic ? undefined : publishAction}
 >
 	{#snippet nameRight()}
 		{#if isRunning}
@@ -205,20 +205,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 />
 
+{#snippet publishAction()}
+	<Tooltip>
+		<PublishedSwitch record={pipeline} field="published" />
+		{#snippet content()}
+			<p>
+				{pipeline.published ? m.pipeline_unpublish_tooltip() : m.pipeline_publish_tooltip()}
+			</p>
+		{/snippet}
+	</Tooltip>
+{/snippet}
+
 {#snippet editAction()}
 	<IconButton
-		href={resolve('/my/pipelines/(group)/[...path]/edit', { path: getPath(pipeline, true) })}
+		href={resolve('/my/pipelines/(group)/[...path]/edit', {
+			path: getPath(pipeline, true)
+		})}
 		icon={Pencil}
-		tooltip={m.Edit()}
+		tooltip={pipeline.published ? m.pipeline_edit_disabled_while_published() : m.Edit()}
+		disabled={pipeline.published}
 	/>
+{/snippet}
+
+{#snippet afterDescription()}
+	{#if scoreboardResults && hasSummary}
+		<PipelineContentSummary results={scoreboardResults} />
+	{:else}
+		<div
+			class="flex h-8 w-fit items-center justify-start rounded-md bg-muted p-2 text-xs text-muted-foreground"
+		>
+			{m.Pipeline_summary_will_be_available_after_the_first_successful_run()}
+		</div>
+	{/if}
 {/snippet}
 
 {#snippet content()}
 	<div class="space-y-3">
-		{#if scoreboardResults}
-			<PipelineContentSummary results={scoreboardResults} />
-		{/if}
-
 		{#if workflows && workflows.length > 0}
 			<div class="space-y-3">
 				<div class="flex items-center justify-between gap-1">

@@ -87,7 +87,7 @@ Person(sb, "Standardization Body", $sprite="ribbon")
 
 System_Boundary(credimi, "credimi") {
 Container(dashboard, "Dashboard", "TypeScript/Svelte", "User interface for managing services and viewing results.")
-Container(comparison_tool, "Marketplace/Comparison Tool", "TypeScript/Svelte", "Tool for comparing credential services.")
+Container(comparison_tool, "Hub/Comparison Tool", "TypeScript/Svelte", "Tool for comparing credential services.")
 Container_Boundary(api_gateway, "API Gateway (golang)") {
 Component(cli, "CLI", "Command Line Interface", "For direct interaction with the system.")
 Component(ci_cd, "CI/CD", "Continuous Integration/Continuous Deployment", "For automated compliance validation.")

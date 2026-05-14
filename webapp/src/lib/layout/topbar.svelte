@@ -39,8 +39,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const leftItems: LinkWithIcon[] = [
 		{
-			href: href('/marketplace'),
-			title: m.Marketplace()
+			href: href('/hub'),
+			title: m.Hub()
 		},
 		{
 			href: href('/scoreboard'),

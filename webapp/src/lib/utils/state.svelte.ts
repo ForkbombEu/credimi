@@ -20,9 +20,8 @@ export class PolledResource<T, InitialValue extends InitialValueType<T>> {
 	) {
 		const { intervalMs = 1000, initialValue = undefined } = options;
 
-		this.#current = initialValue?.();
 		$effect(() => {
-			this.#current = initialValue?.();
+			if (initialValue) this.#current = initialValue();
 		});
 
 		onMount(() => {

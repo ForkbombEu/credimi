@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				},
 				{
 					label: m.ecosystem_governance(),
-					url: 'https://docs.credimi.io/Manual/browse-marketplace.html'
+					url: 'https://docs.credimi.io/Manual/browse-hub.html'
 				}
 			]
 		},

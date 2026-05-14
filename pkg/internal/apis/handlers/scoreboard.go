@@ -30,6 +30,7 @@ import (
 )
 
 const aggregateScoreboardNamespace = "default"
+const scoreboardPipelineRecordBatchSize = 250
 
 var errScoreboardRelationSkipped = errors.New("scoreboard relation skipped")
 
@@ -361,23 +362,28 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 				"please provide a namespace in the path",
 			).JSON(e)
 		}
-		pipelineRecords, err := e.App.FindRecordsByFilter(
-			"pipelines",
-			"published={:published}",
-			"",
-			-1,
-			0,
-			dbx.Params{
-				"published": true,
-			},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
+		pipelineRecords := make([]*core.Record, 0)
+		for offset := 0; ; offset += scoreboardPipelineRecordBatchSize {
+			batch, err := e.App.FindRecordsByFilter(
 				"pipelines",
-				"failed to fetch pipelines",
-				err.Error(),
-			).JSON(e)
+				"",
+				"",
+				scoreboardPipelineRecordBatchSize,
+				offset,
+				dbx.Params{},
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"pipelines",
+					"failed to fetch pipelines",
+					err.Error(),
+				).JSON(e)
+			}
+			pipelineRecords = append(pipelineRecords, batch...)
+			if len(batch) < scoreboardPipelineRecordBatchSize {
+				break
+			}
 		}
 		if len(pipelineRecords) == 0 {
 			return e.JSON(http.StatusOK, []PipelineStatsResponse{})
@@ -437,6 +443,9 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			if pipelineRecord == nil {
 				continue
 			}
+			if !workflowExecutionVisibleOnScoreboard(exec, pipelineRecord) {
+				continue
+			}
 			executionsByPipelineID[pipelineRecord.Id] = append(
 				executionsByPipelineID[pipelineRecord.Id],
 				exec,
@@ -484,6 +493,32 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+func workflowExecutionVisibleOnScoreboard(
+	exec *WorkflowExecution,
+	pipelineRecord *core.Record,
+) bool {
+	published, ok := workflowExecutionPublishedMemo(exec)
+	if ok {
+		return published
+	}
+	return pipelineRecord != nil && pipelineRecord.GetBool(pipelineinternal.PublishedMemoKey)
+}
+
+func workflowExecutionPublishedMemo(exec *WorkflowExecution) (bool, bool) {
+	if exec == nil || exec.Memo == nil {
+		return false, false
+	}
+	field, ok := exec.Memo.Fields[pipelineinternal.PublishedMemoKey]
+	if !ok || field == nil || field.Data == nil {
+		return false, false
+	}
+	published, err := strconv.ParseBool(DecodeFromTemporalPayload(*field.Data))
+	if err != nil {
+		return false, false
+	}
+	return published, true
 }
 
 func HandleGetExecutionDetails() func(*core.RequestEvent) error {
@@ -601,7 +636,6 @@ func calculateStatsFromExecutions(
 	stats := &PipelineStats{
 		Runners:     []string{},
 		RunnerTypes: []string{},
-		TotalRuns:   len(executions),
 	}
 
 	if len(executions) == 0 {
@@ -619,7 +653,11 @@ func calculateStatsFromExecutions(
 		if exec == nil || exec.SearchAttributes == nil {
 			continue
 		}
+		if workflowExecutionExcludedFromScoreboardStats(exec) {
+			continue
+		}
 
+		stats.TotalRuns++
 		isCompleted := extractCompletionStatus(exec)
 		if isCompleted {
 			stats.TotalSuccesses++
@@ -674,6 +712,15 @@ func calculateStatsFromExecutions(
 	}
 
 	return stats, lastSuccessfulRun
+}
+
+func workflowExecutionExcludedFromScoreboardStats(exec *WorkflowExecution) bool {
+	switch normalizeTemporalStatus(exec.Status) {
+	case string(WorkflowStatusCanceled), string(WorkflowStatusRunning), string(WorkflowStatusTerminated):
+		return true
+	default:
+		return false
+	}
 }
 
 func pipelineRunTypesForExecutions(
