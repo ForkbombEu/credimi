@@ -58,13 +58,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T tag="small" class="text-muted-foreground">Links:</T>
 		<div class="flex flex-row items-center justify-start gap-2">
 			{#if news.diff}
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a href={news.diff} target="_blank">
 					<Button size="sm">{m.differences()}</Button>
 				</a>
 			{/if}
 			{#if news.refer}
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a href={news.refer} target="_blank">
 					<Button size="sm">{m.referrer()}</Button>
 				</a>
