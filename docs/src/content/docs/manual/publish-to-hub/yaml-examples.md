@@ -8,9 +8,9 @@ description: Examples of StepCI and Maestro recipes for credential issuance, ver
 
 # YAML: Dynamic generation QR codes and Wallet Actions
 
-The Credimi Marketplace dynamically generates QR codes for both Credential Offers (OpenID4VCI) and Presentation Requests (OpenID4VP). 
+The Credimi Hub dynamically generates QR codes for both Credential Offers (OpenID4VCI) and Presentation Requests (OpenID4VP). 
 
-These QR codes are powered by StepCI recipes and exposed in the Marketplace (Credentials and Use Case Verifications pages), so end-users (and developers) can try manual interoperability flows. The same StepCI code is used to setup end-to-end automatice Wallet-to-Issuer/Verifier automated checks.
+These QR codes are powered by StepCI recipes and exposed in the Hub under Credentials and Use Case Verifications, so end users and developers can try manual interoperability flows. The same StepCI code is used to set up end-to-end Wallet-to-Issuer/Verifier automated checks.
 
 ### Use cases
 
@@ -28,7 +28,7 @@ In Credimi we use StepCI to:
 * Generate and capture **Credential Offers** and **Presentation Requests**
 * Build **deeplinks** from those responses
 * Pass the deeplinks to **Maestro** for mobile wallet automation
-* Publish the same flows as **QR codes in the Marketplace** for **manual interoperability testing**
+* Publish the same flows as **QR codes in the Hub** for **manual interoperability testing**
 
 
 
@@ -368,12 +368,12 @@ The  snippets can be created with **[Maestro Studio](https://maestro.dev/#maestr
 
 ## 📱 Wallet Actions (Maestro)
 
-All the Maestro actions are visible in the Marketplace under the **Actions** section of each **Wallet**, see: https://credimi.io/marketplace 
+All the Maestro actions are visible in the Hub under the **Actions** section of each **Wallet**, see: https://credimi.io/hub 
 
 
 
 
-### Install from Marketplace 
+### Install from Hub 
 
 Use this if you don't have the app installer
 

@@ -1,6 +1,6 @@
 ---
 title: List Wallets, Issuers and Verifiers
-description: Add solution metadata and images so components appear on the Credimi Marketplace.
+description: Add solution metadata and images so components appear on the Credimi Hub.
 ---
 
 After the organization exists, you can create or import the components you want to list.

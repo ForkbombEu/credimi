@@ -16,9 +16,9 @@ The deeplink is the key output used across the platform.
 
 ---
 
-### Role in the Marketplace
+### Role in the Hub
 
-In the Marketplace, StepCI is executed on demand to:
+In the Hub, StepCI is executed on demand to:
 
 - trigger a specific use case on an Issuer or Verifier
 - construct the corresponding deeplink
@@ -79,7 +79,7 @@ If your issuer has a static .well-known (and the credential_offers have no sessi
 
 After you configured the Issuer, click on **Add new credential**, here you can:
 - Add some metadata for an individual credential issuance use-case
-- Setup the integration, write and test the StepCI needed to retrieve the *deeplink* which will be used both in the **Marketplace** as well as in the **Automation Pipelines**. 
+- Setup the integration, write and test the StepCI needed to retrieve the *deeplink* which will be used both in the **Hub** as well as in the **Automation Pipelines**. 
  
 
 

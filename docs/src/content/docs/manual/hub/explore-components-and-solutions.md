@@ -1,15 +1,15 @@
 ---
 title: Explore Components and Solutions
-description: Browse Wallets, Issuers, Verifiers and credentials in the Credimi Marketplace.
+description: Browse Wallets, Issuers, Verifiers and credentials in the Credimi Hub.
 ---
 
-Use the Marketplace to discover available solutions and inspect what each of them exposes.
+Use the Hub to discover available solutions and inspect what each of them exposes.
 
 ## Browse Wallets, Issuers and Verifiers
 
-From the Marketplace, open the relevant tab and use search, tags and filters to narrow down the list.
+From the Hub, open the relevant tab and use search, tags, and filters to narrow down the list.
 
-![Marketplace issuers list](../images/marketplace-home1.png)
+![Hub home](../images/hub-home1.png)
 
 Open an item to inspect its details, versions and published capabilities.
 
@@ -21,12 +21,12 @@ Credential pages and verification pages are the public surfaces that visitors ca
 
 Browse **Credentials** straight from the **Issuers** list (and **Verifications** from the **Verifiers** list)
 
-![Marketplace issuers list](../images/marketplace-issuers-list1.png)
+![Hub issuers list](../images/hub-issuers-list1.png)
 
 
-Or click on an specific **Issuer** (or **Verifier**) to see what it offers:
+Or click on a specific **Issuer** or **Verifier** to see what it offers:
 
-![Marketplace issuers list](../images/marketplace-issuer-credential-cards1.png)
+![Hub issuer cards](../images/hub-issuer-credential-cards1.png)
 
 
 
@@ -34,7 +34,7 @@ This is where StepCI-backed integrations become visible to end users.
 
 ## Reuse what you find later
 
-The same marketplace entries are also useful later when:
+The same Hub entries are also useful later when:
 
 - manually trying interoperability with a Wallet
 - building internal test flows
