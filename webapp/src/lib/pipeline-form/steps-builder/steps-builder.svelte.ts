@@ -86,7 +86,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 						const step: PipelineStep = {
 							use: config.use as never,
 							id: '', // will be written later
-							continue_on_error: true,
+							continue_on_error: false,
 							with: config.serialize(formData)
 						};
 						state.steps.push([step, formData]);
