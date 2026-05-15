@@ -13,7 +13,7 @@ Typical examples:
 
 ## Start from published components
 
-The easiest way to begin is to use marketplace entries that already expose a live StepCI integration.
+The easiest way to begin is to use Hub entries that already expose a live StepCI integration.
 
 ## Manual flow
 

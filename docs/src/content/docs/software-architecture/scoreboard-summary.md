@@ -1,4 +1,7 @@
-# Scoreboard Feature - Implementation Summary
+---
+title: "Scoreboard Feature - Implementation Summary"
+description: "Summary of the Scoreboard feature implementation"
+---
 
 ## Overview
 

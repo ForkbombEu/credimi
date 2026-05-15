@@ -108,7 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Info class="mt-0.5 h-5 w-5 shrink-0 text-secondary-foreground" />
 			<div class="flex-1 space-y-1">
 				<h4 class="text-base font-medium text-secondary-foreground">
-					{m.Import_from_marketplace()}
+					{m.Import_from_hub()}
 				</h4>
 				<p class="text-sm text-secondary-foreground/80">
 					{m.Import_wallet_metadata_description()}

@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { organization, marketplaceItems } = $derived(data);
+	const { organization, hubItems } = $derived(data);
 </script>
 
-<OrganizationPage {organization} {marketplaceItems} />
+<OrganizationPage {organization} {hubItems} />

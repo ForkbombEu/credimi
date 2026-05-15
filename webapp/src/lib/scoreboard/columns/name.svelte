@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { value }: Column.Props<typeof column> = $props();
 
-	const href = $derived(value ? `/marketplace/pipelines/${getPath(value)}` : null);
+	const href = $derived(value ? `/hub/pipelines/${getPath(value)}` : null);
 </script>
 
 <div class="leading-none wrap-break-word whitespace-normal">

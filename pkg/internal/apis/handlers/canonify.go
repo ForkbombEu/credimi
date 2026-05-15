@@ -98,7 +98,7 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		if collection == "marketplace_items" {
+		if collection == "hub_items" {
 			colType := rec.GetString("type")
 			collection = strings.Trim(colType, `"`)
 			rec, err = e.App.FindRecordById(collection, recID)

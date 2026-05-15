@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ExternalLinkIcon } from '@lucide/svelte';
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
-	import { getMarketplaceItemData } from '$lib/marketplace';
+	import { getHubItemData } from '$lib/hub';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 
@@ -130,7 +130,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	{#snippet content({ closeDialog })}
 		{#if bulkContext}
-			{@const walletData = getMarketplaceItemData(bulkContext.wallet)}
+			{@const walletData = getHubItemData(bulkContext.wallet)}
 			<div class="flex flex-col gap-4 py-2">
 				<div class="flex flex-col gap-2 border-b pb-4">
 					<WithLabel label={m.Wallet()}>

@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { resolve } from '$app/paths';
 	import { entities } from '$lib/global/entities';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { getCustomCheckPublicUrl } from '$lib/marketplace/utils.js';
+	import { getCustomCheckPublicUrl } from '$lib/hub/utils.js';
 	import { getPath } from '$lib/utils';
 
 	import { CollectionManager } from '@/collections-components';

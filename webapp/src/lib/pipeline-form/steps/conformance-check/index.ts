@@ -5,7 +5,6 @@
 import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/index.js';
 
 import { entities } from '$lib/global/entities.js';
-import { Marketplace } from '$lib/marketplace';
 import { getStandardsWithTestSuites } from '$lib/standards';
 
 import { localizeHref } from '@/i18n/index.js';
@@ -82,7 +81,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 			meta: {
 				standard: standard.name
 			},
-			publicUrl: localizeHref(Marketplace.Conformance.getStandardCheckUrlFromPath(testPath))
+			publicUrl: localizeHref(`/hub/conformance-checks/${testPath}`)
 		};
 	}
 };

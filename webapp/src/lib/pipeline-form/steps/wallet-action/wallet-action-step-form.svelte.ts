@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace';
+import type { HubItem } from '$lib/hub';
 
 import { userOrganization } from '$lib/app-state/index.svelte.js';
 import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
@@ -16,7 +16,7 @@ import {
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
 
-import { searchMarketplace } from '../_partials/search-marketplace';
+import { searchHub } from '../_partials/search-hub';
 import { Search } from '../_partials/search.svelte.js';
 import { BaseForm } from '../types.js';
 import Component from './wallet-action-step-form.svelte';
@@ -30,7 +30,7 @@ export type SelectedRunner = MobileRunnersResponse | typeof GLOBAL_RUNNER;
 export type SelectedVersion = WalletVersionsResponse | typeof EXTERNAL_VERSION;
 
 export interface WalletActionStepData {
-	wallet: MarketplaceItem;
+	wallet: HubItem;
 	version: SelectedVersion;
 	runner: SelectedRunner;
 	action: WalletActionsResponse;
@@ -80,7 +80,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	//
 
-	foundWallets = $state<MarketplaceItem[]>([]);
+	foundWallets = $state<HubItem[]>([]);
 	foundVersions = $state<WalletVersionsResponse[]>([]);
 	foundRunners = $state<MobileRunnersResponse[]>([]);
 	foundActions = $state<WalletActionsResponse[]>([]);
@@ -92,10 +92,10 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	});
 
 	async searchWallet(text: string) {
-		this.foundWallets = await searchMarketplace(text, Collections.Wallets);
+		this.foundWallets = await searchHub(text, Collections.Wallets);
 	}
 
-	async selectWallet(wallet: MarketplaceItem) {
+	async selectWallet(wallet: HubItem) {
 		this.data.wallet = wallet;
 		this.foundVersions = await pb.collection('wallet_versions').getFullList({
 			filter: `wallet = "${wallet.id}"`,

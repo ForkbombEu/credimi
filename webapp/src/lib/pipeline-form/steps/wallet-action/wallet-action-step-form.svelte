@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
-	import { getMarketplaceItemData } from '$lib/marketplace';
+	import { getHubItemData } from '$lib/hub';
 	import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 
 	import T from '@/components/ui-custom/t.svelte';
@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if form.data.wallet}
-	{@const data = getMarketplaceItemData(form.data.wallet)}
+	{@const data = getHubItemData(form.data.wallet)}
 	<div class="flex flex-col gap-4 border-b p-4">
 		<WithLabel label={m.Wallet()}>
 			<ItemCard
@@ -74,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<WithEmptyState items={form.foundWallets} emptyText={m.No_results_found()}>
 		{#snippet item({ item })}
 			<ItemCard
-				avatar={getMarketplaceItemData(item).logo}
+				avatar={getHubItemData(item).logo}
 				title={item.name}
 				subtitle={item.organization_name}
 				onClick={() => form.selectWallet(item)}

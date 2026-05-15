@@ -179,12 +179,12 @@ export const entities = {
 		}
 	},
 
-	marketplace: {
-		slug: 'marketplace',
+	hub: {
+		slug: 'hub',
 		icon: StoreIcon,
 		labels: {
-			singular: m.Marketplace(),
-			plural: m.Marketplace()
+			singular: m.Hub(),
+			plural: m.Hub()
 		},
 		classes: {
 			bg: 'bg-black/10',
