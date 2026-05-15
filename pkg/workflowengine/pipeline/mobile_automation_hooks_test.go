@@ -716,8 +716,9 @@ func TestPrepareMobileAutomationStepsHoistsExternalInstallSteps(t *testing.T) {
 		workflow.RegisterOptions{Name: "test-prepare-mobile-automation-steps"},
 	)
 
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(func(
@@ -768,6 +769,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
@@ -839,7 +841,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -1421,6 +1423,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	recordActivity := activities.NewStartRecordingActivity()
@@ -1498,7 +1501,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -1577,6 +1580,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	disablePlayStoreActivity := activities.NewDisableAndroidPlayStoreActivity()
@@ -1648,7 +1652,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -1727,6 +1731,7 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	recordActivity := activities.NewStartRecordingActivity()
 	env.RegisterActivityWithOptions(
@@ -1792,7 +1797,7 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -1844,6 +1849,27 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 			}}, nil
 		}
 	})
+
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			if workflowengine.AsString(payload["url"]) != "https://runner.example/credimi/installer-action" {
+				return false
+			}
+			body, ok := payload["body"].(map[string]any)
+			return ok && workflowengine.AsBool(body["skip_installer"])
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"version_id": mobileExternalSourceVersionID,
+			"code":       "code-1",
+		},
+	}}, nil)
 
 	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil)
@@ -2231,6 +2257,7 @@ func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -2256,7 +2283,7 @@ func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 		workflow.RegisterOptions{Name: "test-fetch-runner-empty-type"},
 	)
 
-	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"body": map[string]any{
 				"runner_url": "https://runner.example",
@@ -2276,6 +2303,7 @@ func TestFetchRunnerInfoRejectsMalformedRunnerURL(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -2301,7 +2329,7 @@ func TestFetchRunnerInfoRejectsMalformedRunnerURL(t *testing.T) {
 		workflow.RegisterOptions{Name: "test-fetch-runner-malformed-url"},
 	)
 
-	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"body": map[string]any{
 				"runner_url": "192.168.1.10:8050",

@@ -26,6 +26,17 @@ type fakeActivity struct {
 	name string
 }
 
+func registerInternalHTTPActivity(
+	env *testsuite.TestWorkflowEnvironment,
+) *activities.InternalHTTPActivity {
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
+	env.RegisterActivityWithOptions(
+		internalHTTPActivity.Execute,
+		activity.RegisterOptions{Name: internalHTTPActivity.Name()},
+	)
+	return internalHTTPActivity
+}
+
 func (f *fakeActivity) Name() string {
 	return f.name
 }
@@ -236,12 +247,8 @@ steps: []
 		workflow.RegisterOptions{Name: "child-workflow"},
 	)
 
-	httpActivity := activities.NewHTTPActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
-	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+	internalHTTPActivity := registerInternalHTTPActivity(env)
+	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{"body": childYAML}}, nil).
 		Once()
 
@@ -334,12 +341,8 @@ func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
 		workflow.RegisterOptions{Name: "fetch-invalid-output"},
 	)
 
-	httpActivity := activities.NewHTTPActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
-	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+	internalHTTPActivity := registerInternalHTTPActivity(env)
+	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{"body": 123}}, nil).
 		Once()
 
@@ -422,11 +425,7 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 
 	workflowName := "fetch-child-yaml"
 	fetchChildPipelineYAMLWorkflow := func(
@@ -445,7 +444,7 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{"body": "yaml-body"}}, nil)
@@ -510,13 +509,9 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
 
-			var httpActivity *activities.HTTPActivity
+			var internalHTTPActivity *activities.InternalHTTPActivity
 			if tc.activityBody != nil {
-				httpActivity = activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(
-					httpActivity.Execute,
-					activity.RegisterOptions{Name: httpActivity.Name()},
-				)
+				internalHTTPActivity = registerInternalHTTPActivity(env)
 			}
 
 			workflowName := "fetch-child-yaml-errors"
@@ -537,7 +532,7 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 
 			if tc.activityBody != nil {
 				env.OnActivity(
-					httpActivity.Name(),
+					internalHTTPActivity.Name(),
 					mock.Anything,
 					mock.Anything,
 				).Return(

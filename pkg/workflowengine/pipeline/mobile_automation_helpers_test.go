@@ -306,6 +306,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
@@ -342,7 +343,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -371,6 +372,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
@@ -407,7 +409,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -445,6 +447,7 @@ func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testin
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -470,7 +473,7 @@ func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testin
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -552,6 +555,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -583,7 +587,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -649,6 +653,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 			env := suite.NewTestWorkflowEnvironment()
 
 			httpActivity := activities.NewHTTPActivity()
+			internalHTTPActivity := registerInternalHTTPActivity(env)
 			env.RegisterActivityWithOptions(
 				httpActivity.Execute,
 				activity.RegisterOptions{Name: httpActivity.Name()},
@@ -675,7 +680,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 			)
 
 			env.OnActivity(
-				httpActivity.Name(),
+				internalHTTPActivity.Name(),
 				mock.Anything,
 				mock.Anything,
 			).Return(workflowengine.ActivityResult{Output: map[string]any{"body": tc.body}}, nil)
