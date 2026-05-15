@@ -3,20 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { version } from '$app/environment';
-import { Conformance } from '$lib';
+import { Conformance, Pipeline } from '$lib';
+
+import type { UsersResponse } from '@/pocketbase/types';
 
 import { appName } from '@/brand';
-import { currentUser, pb, type AuthStoreModel } from '@/pocketbase';
+import { currentUser, pb } from '@/pocketbase';
 
 //
-
-pb.authStore.loadFromCookie(document.cookie);
-pb.authStore.onChange(() => {
-	currentUser.set(pb.authStore.model as AuthStoreModel);
-	document.cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
-});
-
-Conformance.Standards.Store.load();
 
 console.info(
 	`%c${appName} version: 🔖 ${version}`,
@@ -26,3 +20,20 @@ console.info(
 	'%cmade with ❤️‍🔥 by FORKBOMB hackers',
 	'font-size:2em;background:#1C39BB;color:#fff;padding:4px;border-radius:4px;'
 );
+
+//
+
+pb.authStore.loadFromCookie(document.cookie);
+const authStoreUnsubscribe = pb.authStore.onChange(() => {
+	currentUser.set(pb.authStore.record as UsersResponse);
+	document.cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
+});
+
+Conformance.Standards.Store.load();
+
+Pipeline.Runners.store.init();
+
+window.addEventListener('pagehide', () => {
+	authStoreUnsubscribe();
+	Pipeline.Runners.store.dispose();
+});

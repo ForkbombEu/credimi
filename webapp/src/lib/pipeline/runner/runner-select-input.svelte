@@ -16,8 +16,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { Badge } from '@/components/ui/badge';
 	import Label from '@/components/ui/label/label.svelte';
+	import { cn } from '@/components/ui/utils';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
+
+	import * as status from '../runners/status.svelte.js';
 
 	//
 
@@ -59,6 +62,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			sort: 'created'
 		});
 	}
+
+	$effect(() => {
+		const runners = foundRunners;
+		if (runners.length === 0) return;
+		status.probe(runners, { reason: 'visible' });
+	});
 </script>
 
 <div class="space-y-3">
@@ -75,6 +84,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="space-y-1">
 		{#each foundRunners as item (item.id)}
 			{@const isSelected = selectedRunner === getPath(item)}
+			{@const runnerPath = getPath(item)}
+			{@const online = status.isOnline(runnerPath)}
 			<ItemCard
 				title={item.name}
 				onClick={(e) => {
@@ -88,11 +99,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/snippet}
 
 				{#snippet right()}
-					{#if !item.published}
-						<Badge variant="secondary">
-							{m.private()}
-						</Badge>
-					{/if}
+					<div class="flex items-center gap-2">
+						<span
+							class={cn(
+								'size-2 shrink-0 rounded-full',
+								online === true && 'bg-green-500',
+								online === false && 'bg-red-400',
+								online === undefined && 'bg-muted-foreground/40'
+							)}
+							title={online === true
+								? 'Online'
+								: online === false
+									? 'Offline'
+									: 'Checking status'}
+						></span>
+						{#if !item.published}
+							<Badge variant="secondary">
+								{m.private()}
+							</Badge>
+						{/if}
+					</div>
 				{/snippet}
 			</ItemCard>
 		{:else}
