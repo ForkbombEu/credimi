@@ -16,7 +16,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
+	import { fromScoreboardRow } from '$lib/scoreboard/extras/from-scoreboard-row';
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
+	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import { getPath } from '$lib/utils';
 	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
@@ -121,7 +123,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: false
 	);
 
-	const showContent = $derived(workflows && workflows.length > 0);
+	const executionStats = $derived(fromScoreboardRow(scoreboardResults));
+	const showExecutionStats = $derived(executionStats !== undefined);
+	const showContent = $derived((workflows && workflows.length > 0) || showExecutionStats);
 
 	const avatar = $derived.by(() => {
 		const owner = pipeline.expand?.owner;
@@ -241,7 +245,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet content()}
 	<div class="space-y-3">
-		{#if workflows && workflows.length > 0}
+		{#if showExecutionStats && executionStats}
+			{#if workflows && workflows.length > 0}
+				<div class="space-y-3">
+					<div class="flex items-center justify-between gap-2">
+						<T class="shrink-0 text-sm font-medium">{m.Recent_workflows()}</T>
+						<PipelineExecutionStats stats={executionStats} layout="inline" />
+						<BlueButton
+							compact
+							href={resolve('/my/pipelines/[...pipeline_path]', {
+								pipeline_path: getPath(pipeline, true)
+							})}
+						>
+							{m.view_all()}
+							<ArrowRightIcon />
+						</BlueButton>
+					</div>
+
+					<Pipeline.Workflows.SmallTable {workflows} />
+				</div>
+			{:else}
+				<PipelineExecutionStats stats={executionStats} layout="inline" />
+			{/if}
+		{:else if workflows && workflows.length > 0}
 			<div class="space-y-3">
 				<div class="flex items-center justify-between gap-1">
 					<T class="text-sm font-medium">{m.Recent_workflows()}</T>
