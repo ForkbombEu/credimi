@@ -31,9 +31,9 @@ const authStoreUnsubscribe = pb.authStore.onChange(() => {
 
 Conformance.Standards.Store.load();
 
-Pipeline.Runner.store.init();
+Pipeline.Runners.store.init();
 
 window.addEventListener('pagehide', () => {
 	authStoreUnsubscribe();
-	Pipeline.Runner.store.dispose();
+	Pipeline.Runners.store.dispose();
 });
