@@ -117,7 +117,10 @@ func TestListMobileRunners(t *testing.T) {
 		originalQuery := queryMobileRunnerSemaphoreState
 		queryMobileRunnerSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileRunnerSemaphoreStateView, error) {
 			if runnerID == "usera-s-organization/owned-online" {
-				return workflows.MobileRunnerSemaphoreStateView{RunnerID: runnerID, QueueLen: 3}, nil
+				return workflows.MobileRunnerSemaphoreStateView{
+					RunnerID: runnerID,
+					QueueLen: 3,
+				}, nil
 			}
 			return workflows.MobileRunnerSemaphoreStateView{RunnerID: runnerID, QueueLen: 1}, nil
 		}
@@ -229,7 +232,7 @@ func createMobileRunnerRecord(
 	name string,
 	runnerURL string,
 	published bool,
-) *core.Record {
+) {
 	t.Helper()
 
 	coll, err := app.FindCollectionByNameOrId("mobile_runners")
@@ -242,8 +245,6 @@ func createMobileRunnerRecord(
 	record.Set("type", "android_emulator")
 	record.Set("published", published)
 	require.NoError(t, app.Save(record))
-
-	return record
 }
 
 func TestGetMobileRunner(t *testing.T) {

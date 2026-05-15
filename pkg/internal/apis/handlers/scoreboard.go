@@ -716,7 +716,9 @@ func calculateStatsFromExecutions(
 
 func workflowExecutionExcludedFromScoreboardStats(exec *WorkflowExecution) bool {
 	switch normalizeTemporalStatus(exec.Status) {
-	case string(WorkflowStatusCanceled), string(WorkflowStatusRunning), string(WorkflowStatusTerminated):
+	case string(WorkflowStatusCanceled),
+		string(WorkflowStatusRunning),
+		string(WorkflowStatusTerminated):
 		return true
 	default:
 		return false

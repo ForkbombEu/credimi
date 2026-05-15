@@ -29,6 +29,8 @@ const (
 	mobileDisableAndroidPlayStoreConfigKey  = "disable_android_play_store"
 	mobilePendingPlayStoreDisableRunDataKey = "mobile_pending_play_store_disable"
 	mobileSpecialInstallMetadataKey         = "mobile_special_install"
+	mobileAppInstallCleanupKey              = "mobile_app_install_cleanup"
+	mobileExternalInstallCleanupKey         = "mobile_external_install_cleanup"
 	mobileSkipInstallerRequestKey           = "skip_installer"
 	mobilePlatformAndroid                   = "android"
 	mobilePlatformIOS                       = "ios"
@@ -625,7 +627,7 @@ func processStep(
 		settedDevices:             input.settedDevices,
 		appURL:                    appURL,
 		stepID:                    input.step.ID,
-		trackInitialInstalledApps: isSpecialMobileInstallStep(input.step),
+		trackInitialInstalledApps: shouldTrackInitialInstalledApps(input.step, payload),
 		httpActivity:              input.httpActivity,
 	})
 	if err != nil {
@@ -638,6 +640,16 @@ func processStep(
 	serial, ok := deviceMap["serial"].(string)
 	if !ok {
 		serial = ""
+	}
+	if shouldTrackInitialInstalledApps(input.step, payload) {
+		if err := ensureInitialInstalledAppsTracked(
+			mobileCtx,
+			deviceMap,
+			serial,
+			deviceType,
+		); err != nil {
+			return err
+		}
 	}
 	SetPayloadValue(&input.step.With.Payload, "serial", serial)
 	if deviceType != "" {
@@ -689,6 +701,19 @@ func isSpecialMobileInstallStep(step *pipeline.StepDefinition) bool {
 
 	special, ok := step.Metadata[mobileSpecialInstallMetadataKey].(bool)
 	return ok && special
+}
+
+func shouldTrackInitialInstalledApps(
+	step *pipeline.StepDefinition,
+	payload *workflows.MobileAutomationWorkflowPipelinePayload,
+) bool {
+	if isSpecialMobileInstallStep(step) {
+		return true
+	}
+	if payload == nil {
+		return false
+	}
+	return payload.VersionID != "" && payload.VersionID != mobileExternalSourceVersionID
 }
 
 func decodeAndValidatePayload(
@@ -994,6 +1019,29 @@ func listInstalledAppsOnRunner(
 	return workflowengine.AsSliceOfStrings(result.Output), nil
 }
 
+func ensureInitialInstalledAppsTracked(
+	mobileCtx workflow.Context,
+	deviceMap map[string]any,
+	serial string,
+	deviceType mobileDeviceType,
+) error {
+	if _, ok := deviceMap["initial_installed_apps"]; ok {
+		return nil
+	}
+
+	initialInstalledApps, err := listInstalledAppsOnRunner(
+		mobileCtx,
+		serial,
+		deviceType.String(),
+	)
+	if err != nil {
+		return err
+	}
+	deviceMap["initial_installed_apps"] = initialInstalledApps
+
+	return nil
+}
+
 func fetchAndInstallAPK(
 	input fetchAndInstallAPKInput,
 ) error {
@@ -1044,6 +1092,7 @@ func fetchAndInstallAPK(
 		SetPayloadValue(&input.step.With.Payload, "stored_action_code", true)
 	}
 	if input.externalInstall {
+		input.deviceMap[mobileExternalInstallCleanupKey] = true
 		input.step.Use = mobileExternalInstallStepUse
 		return nil
 	}
@@ -1197,6 +1246,7 @@ func installAppIfNeeded(
 			Get(input.mobileCtx, &installOutput); err != nil {
 			return err
 		}
+		input.deviceMap[mobileAppInstallCleanupKey] = true
 
 		finalOutput := installOutput
 		if input.activities.PostInstall != "" {
@@ -1524,6 +1574,10 @@ func cleanupDevice(
 	}
 	initialInstalledApps := extractInitialInstalledApps(deviceMap)
 	reenablePlayStore := wasPlayStoreDisabled(deviceMap)
+	if !shouldRunDeviceCleanup(deviceType, packages, initialInstalledApps, reenablePlayStore, deviceMap) {
+		deviceMap["cleaned"] = true
+		return nil
+	}
 
 	input.mobileAo.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.mobileAo)
@@ -1696,11 +1750,31 @@ func extractDeviceInfo(
 }
 
 func extractInitialInstalledApps(deviceMap map[string]any) []string {
+	if !workflowengine.AsBool(deviceMap[mobileExternalInstallCleanupKey]) &&
+		!workflowengine.AsBool(deviceMap[mobileAppInstallCleanupKey]) {
+		return nil
+	}
 	return workflowengine.AsSliceOfStrings(deviceMap["initial_installed_apps"])
 }
 
 func wasPlayStoreDisabled(deviceMap map[string]any) bool {
 	return workflowengine.AsBool(deviceMap["play_store_disabled"])
+}
+
+func shouldRunDeviceCleanup(
+	deviceType string,
+	packages []string,
+	initialInstalledApps []string,
+	reenablePlayStore bool,
+	deviceMap map[string]any,
+) bool {
+	if normalizeDeviceType(deviceType).IsManagedEmulator() {
+		return true
+	}
+	if reenablePlayStore || len(packages) > 0 || len(initialInstalledApps) > 0 {
+		return true
+	}
+	return workflowengine.AsBool(deviceMap["recording"])
 }
 
 func cleanupRecording(
