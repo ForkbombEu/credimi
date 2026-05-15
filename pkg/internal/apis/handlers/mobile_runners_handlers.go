@@ -37,6 +37,11 @@ type MobileRunnerSemaphoreResponseSchema struct {
 	QueueLen  int    `json:"queue_len"`
 }
 
+type ValidateMobileRunnerAccessRequest struct {
+	OwnerNamespace string   `json:"owner_namespace"`
+	RunnerIDs      []string `json:"runner_ids"`
+}
+
 var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/mobile-runner",
 	AuthenticationRequired: false,
@@ -62,6 +67,13 @@ var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:           "/list-urls",
 			Handler:        HandleListMobileRunnerURLs,
 			ResponseSchema: ListMobileRunnersResponseSchema{},
+		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/validate-access",
+			Handler:       HandleValidateMobileRunnerAccess,
+			RequestSchema: ValidateMobileRunnerAccessRequest{},
+			Description:   "Validate that runner IDs are accessible to an owner namespace",
 		},
 	},
 }
@@ -93,6 +105,47 @@ func HandleGetMobileRunner() func(*core.RequestEvent) error {
 		response.RunnerURL = mobileRunnerURL(record)
 
 		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func HandleValidateMobileRunnerAccess() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[ValidateMobileRunnerAccessRequest](e)
+		if err != nil {
+			return err
+		}
+		ownerNamespace := strings.TrimSpace(input.OwnerNamespace)
+		if ownerNamespace == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"owner_namespace",
+				"owner_namespace is required",
+				"missing owner_namespace",
+			).JSON(e)
+		}
+
+		ownerRecord, err := e.App.FindFirstRecordByFilter(
+			"organizations",
+			"canonified_name = {:namespace}",
+			map[string]any{"namespace": ownerNamespace},
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"owner_namespace",
+				"owner namespace not found",
+				err.Error(),
+			).JSON(e)
+		}
+		if apiErr := validatePipelineRunnerAccess(
+			e.App,
+			ownerRecord.Id,
+			input.RunnerIDs,
+		); apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{"valid": true})
 	}
 }
 

@@ -47,15 +47,27 @@ func reportGitHubPRCommentDone(
 	payload := activities.UpdateGitHubPRCommentInput{
 		Repository:        repository,
 		PullRequestNumber: prNumber,
-		CommitSHA:         stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigCommitSHAKey),
-		Status:            "running",
-		PipelineID:        stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigPipelineIDKey),
-		PipelineURL:       stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigPipelineURLKey),
-		AppURL:            stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigAppURLKey),
-		WorkflowID:        workflowID,
-		RunID:             runID,
-		WorkflowStatus:    workflowResult,
-		SectionTitle:      stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigSectionTitleKey),
+		CommitSHA: stringFromWorkflowConfig(
+			commentConfig,
+			GitHubPRCommentConfigCommitSHAKey,
+		),
+		Status: "running",
+		PipelineID: stringFromWorkflowConfig(
+			commentConfig,
+			GitHubPRCommentConfigPipelineIDKey,
+		),
+		PipelineURL: stringFromWorkflowConfig(
+			commentConfig,
+			GitHubPRCommentConfigPipelineURLKey,
+		),
+		AppURL:         stringFromWorkflowConfig(commentConfig, GitHubPRCommentConfigAppURLKey),
+		WorkflowID:     workflowID,
+		RunID:          runID,
+		WorkflowStatus: workflowResult,
+		SectionTitle: stringFromWorkflowConfig(
+			commentConfig,
+			GitHubPRCommentConfigSectionTitleKey,
+		),
 	}
 
 	finalCtx, _ := workflow.NewDisconnectedContext(ctx)

@@ -253,6 +253,13 @@ func enqueuePipelineRun(
 			"no runner ids resolved from yaml",
 		)
 	}
+	if apiErr := validatePipelineRunnerAccess(
+		e.App,
+		runContext.organizationRecord.Id,
+		runnerIDs,
+	); apiErr != nil {
+		return PipelineQueueResponse{}, apiErr
+	}
 
 	leaderRunnerID := runnerIDs[0]
 	if runContext.notification != nil && runContext.notification.GitHubPR != nil {
@@ -658,6 +665,50 @@ func resolvePipelineRunnerIDs(yaml string, info pipeline.PipelineRunnerInfo) ([]
 	runnerIDs := pipeline.RunnerIDsWithGlobal(info, globalRunnerID)
 	sort.Strings(runnerIDs)
 	return runnerIDs, nil
+}
+
+func validatePipelineRunnerAccess(
+	app core.App,
+	ownerID string,
+	runnerIDs []string,
+) *apierror.APIError {
+	for _, runnerID := range normalizeRunnerIDs(runnerIDs) {
+		record, err := canonify.Resolve(app, runnerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return apierror.New(
+					http.StatusNotFound,
+					"runner_id",
+					"runner not found",
+					"mobile runner "+runnerID+" was not found",
+				)
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"runner_id",
+				"failed to resolve runner_id",
+				err.Error(),
+			)
+		}
+		if record.Collection() == nil || record.Collection().Name != "mobile_runners" {
+			return apierror.New(
+				http.StatusNotFound,
+				"runner_id",
+				"runner not found",
+				"mobile runner "+runnerID+" was not found",
+			)
+		}
+		if record.GetString("owner") == ownerID || record.GetBool("published") {
+			continue
+		}
+		return apierror.New(
+			http.StatusForbidden,
+			"runner_id",
+			"runner_id is not accessible",
+			"mobile runner "+runnerID+" is private and does not belong to the caller organization",
+		)
+	}
+	return nil
 }
 
 func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apierror.APIError) {

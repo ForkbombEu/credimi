@@ -441,6 +441,7 @@ func resolvePipelineCIRunContext(
 func resolvePipelineCIRunnerID(
 	ctx context.Context,
 	app core.App,
+	ownerID string,
 	workflowDefinition *pipelineinternal.WorkflowDefinition,
 	input pipelineCIBaseRequest,
 ) (string, bool, bool, *apierror.APIError) {
@@ -461,7 +462,7 @@ func resolvePipelineCIRunnerID(
 		}
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
-	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, input.RunnerType)
+	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, ownerID, input.RunnerType)
 	return runnerID, hasStepRunner, needsGlobalRunner, apiErr
 }
 
@@ -913,15 +914,23 @@ func pipelineCIMobileRunnerSelectionState(
 func selectPipelineCIRunnerByType(
 	ctx context.Context,
 	app core.App,
+	ownerID string,
 	runnerType string,
 ) (string, *apierror.APIError) {
+	filter := "type = {:type} && published = true"
+	params := dbx.Params{"type": runnerType}
+	if strings.TrimSpace(ownerID) != "" {
+		filter = "type = {:type} && (published = true || owner = {:owner})"
+		params["owner"] = ownerID
+	}
+
 	records, err := app.FindRecordsByFilter(
 		"mobile_runners",
-		"type = {:type} && published = true",
+		filter,
 		"",
 		-1,
 		0,
-		dbx.Params{"type": runnerType},
+		params,
 	)
 	if err != nil {
 		return "", apierror.New(
@@ -931,7 +940,9 @@ func selectPipelineCIRunnerByType(
 			err.Error(),
 		)
 	}
-	if len(records) == 0 {
+
+	ownedPrivateRecords, publishedRecords := partitionPipelineCIRunnerCandidates(records, ownerID)
+	if len(ownedPrivateRecords) == 0 && len(publishedRecords) == 0 {
 		return "", apierror.New(
 			http.StatusNotFound,
 			"runner_type",
@@ -940,6 +951,58 @@ func selectPipelineCIRunnerByType(
 		)
 	}
 
+	if selectedRunnerID, apiErr := selectOnlinePipelineCIRunner(
+		ctx,
+		app,
+		ownedPrivateRecords,
+	); apiErr != nil {
+		return "", apiErr
+	} else if selectedRunnerID != "" {
+		return selectedRunnerID, nil
+	}
+
+	selectedRunnerID, apiErr := selectOnlinePipelineCIRunner(ctx, app, publishedRecords)
+	if apiErr != nil {
+		return "", apiErr
+	}
+	if selectedRunnerID == "" {
+		return "", apierror.New(
+			http.StatusServiceUnavailable,
+			"runner_type",
+			"no online published runner found for runner_type",
+			"no online published mobile runner matches "+runnerType,
+		)
+	}
+
+	return selectedRunnerID, nil
+}
+
+func partitionPipelineCIRunnerCandidates(
+	records []*core.Record,
+	ownerID string,
+) ([]*core.Record, []*core.Record) {
+	ownedPrivateRecords := make([]*core.Record, 0, len(records))
+	publishedRecords := make([]*core.Record, 0, len(records))
+	for _, record := range records {
+		if strings.TrimSpace(ownerID) != "" &&
+			record.GetString("owner") == ownerID &&
+			!record.GetBool("published") {
+			ownedPrivateRecords = append(ownedPrivateRecords, record)
+			continue
+		}
+		if record.GetBool("published") {
+			publishedRecords = append(publishedRecords, record)
+		}
+	}
+
+	return ownedPrivateRecords, publishedRecords
+}
+
+func selectOnlinePipelineCIRunner(
+	ctx context.Context,
+	app core.App,
+	records []*core.Record,
+) (string, *apierror.APIError) {
 	selectedRunnerID := ""
 	selectedBacklog := 0
 	for _, record := range records {
@@ -965,14 +1028,6 @@ func selectPipelineCIRunnerByType(
 			selectedRunnerID = runnerID
 			selectedBacklog = backlog
 		}
-	}
-	if selectedRunnerID == "" {
-		return "", apierror.New(
-			http.StatusServiceUnavailable,
-			"runner_type",
-			"no online published runner found for runner_type",
-			"no online published mobile runner matches "+runnerType,
-		)
 	}
 
 	return selectedRunnerID, nil
