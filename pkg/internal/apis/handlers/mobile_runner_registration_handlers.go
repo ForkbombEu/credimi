@@ -141,14 +141,14 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			if previewErr != nil {
 				return previewErr.JSON(e)
 			}
-			if preview.RunnerID != canonicalRunnerIDPath(normalizedRunnerID) {
+			if preview.RunnerID != normalizedRunnerID {
 				return apierror.New(
 					http.StatusConflict,
 					"runner_id",
 					"runner_id_conflict",
 					fmt.Sprintf(
 						"runner_id %q does not match the next available id %q",
-						canonicalRunnerIDPath(normalizedRunnerID),
+						normalizedRunnerID,
 						preview.RunnerID,
 					),
 				).JSON(e)
@@ -213,7 +213,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			Organization:   owner.GetString("canonified_name"),
 			Name:           record.GetString("name"),
 			CanonifiedName: record.GetString("canonified_name"),
-			RunnerID:       canonicalRunnerIDPath(runnerID),
+			RunnerID:       runnerID,
 			IP:             record.GetString("ip"),
 			Description:    record.GetString("description"),
 			Type:           record.GetString("type"),
@@ -336,7 +336,7 @@ func previewMobileRunnerIdentifier(
 	return PreviewMobileRunnerIDResponse{
 		Organization:   owner.GetString("canonified_name"),
 		CanonifiedName: canonifiedName,
-		RunnerID:       canonicalRunnerIDPath(runnerID),
+		RunnerID:       runnerID,
 	}, nil
 }
 
@@ -382,13 +382,4 @@ func resolveExistingMobileRunner(
 	}
 
 	return record, nil
-}
-
-func canonicalRunnerIDPath(path string) string {
-	normalized := canonify.NormalizePath(path)
-	if normalized == "" {
-		return ""
-	}
-
-	return "/" + normalized
 }

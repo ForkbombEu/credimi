@@ -24,4 +24,4 @@ The organization is the owner context for:
 - Wallets
 - Issuers
 - Verifiers
-- related marketplace assets and integrations
+- related Hub assets and integrations

@@ -5,7 +5,7 @@ description: ""
 
 The Credimi Hub dynamically generates QR codes for both Credential Offers (OpenID4VCI) and Presentation Requests (OpenID4VP). 
 
-These QR codes are powered by StepCI recipes and exposed in the Hub (Credentials and Use Case Verifications pages), so end-users (and developers) can try manual interoperability flows. The same StepCI code is used to setup end-to-end automatice Wallet-to-Issuer/Verifier automated checks.
+These QR codes are powered by StepCI recipes and exposed in the Hub under Credentials and Use Case Verifications, so end users and developers can try manual interoperability flows. The same StepCI code is used to set up end-to-end Wallet-to-Issuer/Verifier automated checks.
 
 ### Use cases
 
