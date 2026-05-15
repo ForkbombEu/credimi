@@ -9,8 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/swaggest/openapi-go/openapi3"
@@ -29,11 +32,22 @@ func TestBuildOpenAPISpec_ParametersAndResponses(t *testing.T) {
 		Method:      http.MethodGet,
 		Path:        "/api/things/{thingId}/logs",
 		OperationID: "thing.logs",
+		AuthHeaders: []authHeaderParam{
+			{
+				Name:        "Authorization",
+				Required:    false,
+				Description: "Bearer token for authentication.",
+			},
+			{
+				Name:        "Credimi-Api-Key",
+				Required:    false,
+				Description: "API key.",
+			},
+		},
 		QuerySearchAttributes: []routing.QuerySearchAttribute{
 			{Name: "action", Required: true, Description: "action"},
 		},
-		AuthenticationRequired: true,
-		OutputSchema:           TestBodyResponse{},
+		OutputSchema: TestBodyResponse{},
 	}
 	route.PathParams = extractPathParams(route.Path)
 	route.HasInputBody = false
@@ -55,6 +69,11 @@ func TestBuildOpenAPISpec_ParametersAndResponses(t *testing.T) {
 
 	authParam := findParam(op.Parameters, "Authorization", openapi3.ParameterIn("header"))
 	require.NotNil(t, authParam)
+	apiKeyParam := findParam(op.Parameters, "Credimi-Api-Key", openapi3.ParameterIn("header"))
+	require.NotNil(t, apiKeyParam)
+	if apiKeyParam.Required != nil {
+		assert.False(t, *apiKeyParam.Required)
+	}
 	require.NotNil(t, op.ID)
 	assert.Equal(t, "thing.logs", *op.ID)
 
@@ -65,13 +84,12 @@ func TestBuildOpenAPISpec_ParametersAndResponses(t *testing.T) {
 
 func TestBuildOpenAPISpec_RequestBodyRequired(t *testing.T) {
 	route := RouteInfo{
-		Method:                 http.MethodPost,
-		Path:                   "/api/things",
-		OperationID:            "things.create",
-		InputSchema:            TestBodyRequest{},
-		OutputSchema:           TestBodyResponse{},
-		HasInputBody:           true,
-		AuthenticationRequired: false,
+		Method:       http.MethodPost,
+		Path:         "/api/things",
+		OperationID:  "things.create",
+		InputSchema:  TestBodyRequest{},
+		OutputSchema: TestBodyResponse{},
+		HasInputBody: true,
 	}
 
 	spec, err := buildOpenAPISpec([]RouteInfo{route})
@@ -126,6 +144,42 @@ func TestNeedsAuth(t *testing.T) {
 	require.False(t, needsAuth(false, nil))
 	require.False(t, needsAuth(true, []string{apis.DefaultRequireAuthMiddlewareId}))
 	require.True(t, needsAuth(true, []string{"other"}))
+}
+
+func TestAuthHeadersForRoute(t *testing.T) {
+	userHeaders := authHeadersForRoute(true, nil, nil, nil)
+	require.Len(t, userHeaders, 2)
+	require.Equal(t, "Authorization", userHeaders[0].Name)
+	require.False(t, userHeaders[0].Required)
+	require.Equal(t, "Credimi-Api-Key", userHeaders[1].Name)
+	require.False(t, userHeaders[1].Required)
+
+	require.Empty(t, authHeadersForRoute(
+		true,
+		nil,
+		nil,
+		[]string{apis.DefaultRequireAuthMiddlewareId},
+	))
+
+	internalHeaders := authHeadersForRoute(
+		false,
+		nil,
+		[]*hook.Handler[*core.RequestEvent]{middlewares.RequireInternalAdminAPIKey()},
+		nil,
+	)
+	require.Len(t, internalHeaders, 1)
+	require.Equal(t, "Credimi-Api-Key", internalHeaders[0].Name)
+	require.True(t, internalHeaders[0].Required)
+
+	eitherHeaders := authHeadersForRoute(
+		false,
+		nil,
+		[]*hook.Handler[*core.RequestEvent]{middlewares.RequireInternalAdminOrAuth()},
+		nil,
+	)
+	require.Len(t, eitherHeaders, 2)
+	require.Equal(t, "Authorization", eitherHeaders[0].Name)
+	require.Equal(t, "Credimi-Api-Key", eitherHeaders[1].Name)
 }
 
 func TestExportNameAndParamFieldName(t *testing.T) {
