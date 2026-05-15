@@ -9,7 +9,7 @@ Use the Marketplace to discover available solutions and inspect what each of the
 
 From the Marketplace, open the relevant tab and use search, tags and filters to narrow down the list.
 
-![Marketplace issuers list](../images/marketplace-home1.png)
+![Marketplace issuers list](../images/hub-home1.png)
 
 Open an item to inspect its details, versions and published capabilities.
 
@@ -21,7 +21,7 @@ Credential pages and verification pages are the public surfaces that visitors ca
 
 Browse **Credentials** straight from the **Issuers** list (and **Verifications** from the **Verifiers** list)
 
-![Marketplace issuers list](../images/marketplace-issuers-list1.png)
+![Marketplace issuers list](../images/hub-issuers-list1.png)
 
 
 Or click on an specific **Issuer** (or **Verifier**) to see what it offers:

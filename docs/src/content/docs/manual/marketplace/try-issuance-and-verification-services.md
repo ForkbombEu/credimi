@@ -16,7 +16,7 @@ Typical user flow:
 
 Open a credential page and look for the generated QR code or deeplink.
 
-![Credential](../images/marketplace-wwwallet-pid-mdoc-credential-1.png)
+![Credential](../images/hub-credential1.png)
 
 #### Try from mobile
 

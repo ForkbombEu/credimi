@@ -23,7 +23,7 @@ For users who want to browse the ecosystem and manually try flows.
 ###   
 
 
-![Marketplace issuers](./images/marketplace-issuers1.png)
+![Marketplace issuers](./images/hub-issuers-list1.png)
 ***Marketplace listing of issuers and credentials***
 
 

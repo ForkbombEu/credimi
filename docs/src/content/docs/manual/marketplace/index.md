@@ -17,17 +17,16 @@ Typical actions in this section:
 - scan a QR code or open a deeplink on a phone
 - compare what different solutions expose
 
-<!-- ![Marketplace overview](../images/credimiMarketplace.png) -->
 
 ###
-![Marketplace issuers](../images/marketplace-issuers1.png)
+![Marketplace issuers](../images/hub-issuers-list1.png)
 ***Marketplace listing of Issuers and Credentials***
 ###
-![Marketplace issuer](../images/marketplace-issuer1.png)
+![Marketplace issuer](../images/hub-issuer1.png)
 ***Marketplace listing of one Issuer***
 
 ###
-![Marketplace credential](../images/marketplace-credential1.png)
+![Marketplace credential](../images/hub-credential1.png)
 ***Marketplace listing of one Credential Issuance: scan the QR with your Wallet to try it***
 
 
