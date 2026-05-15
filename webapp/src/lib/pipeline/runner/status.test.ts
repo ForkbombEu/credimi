@@ -4,7 +4,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { MobileRunnersResponse } from '@/pocketbase/types';
+import {
+	MobileRunnersTypeOptions,
+	type IsoAutoDateString,
+	type MobileRunnersResponse
+} from '@/pocketbase/types';
 
 import { POLL_INTERVAL_MS, StatusCoordinator } from './status-coordinator';
 
@@ -17,15 +21,17 @@ function runner(id: string, path: string): MobileRunnersResponse {
 		canonified_name: path.split('/').at(-1) ?? id,
 		collectionId: 'mobile_runners',
 		collectionName: 'mobile_runners',
-		created: '2025-01-01',
+		created: '2025-01-01' as IsoAutoDateString,
 		description: '',
 		expand: {},
 		ip: '127.0.0.1',
 		name: `Runner ${id}`,
 		owner: 'org1',
-		port: 8080,
+		port: '8080',
 		published: true,
-		updated: '2025-01-01'
+		updated: '2025-01-01' as IsoAutoDateString,
+		serial: '1234567890',
+		type: MobileRunnersTypeOptions.android_phone
 	} as MobileRunnersResponse;
 }
 
