@@ -25,6 +25,7 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	require.NoError(t, err)
 
 	canonify.RegisterCanonifyHooks(app)
+	MobileRunnersPublicRoutes.Add(app)
 	MobileRunnerRegistrationRoutes.Add(app)
 	MobileRunnersTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
@@ -82,6 +83,167 @@ func responseRecorder(t testing.TB, event *core.RequestEvent) *httptest.Response
 	recorder, ok := event.Response.(*httptest.ResponseRecorder)
 	require.True(t, ok)
 	return recorder
+}
+
+func TestListMobileRunners(t *testing.T) {
+	t.Run("user sees owned and public runners with health and queue details", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		userOrgID, err := GetUserOrganizationID(app, user.Id)
+		require.NoError(t, err)
+		otherOrg := createOtherWalletAPKOrganization(t, app)
+
+		createMobileRunnerRecord(t, app, userOrgID, "owned-offline", "offline-runner", false)
+		createMobileRunnerRecord(t, app, userOrgID, "owned-online", "online-owned", false)
+		createMobileRunnerRecord(t, app, otherOrg.Id, "other-private", "online-private", false)
+		createMobileRunnerRecord(t, app, otherOrg.Id, "other-public", "online-public", true)
+
+		originalHealth := checkMobileRunnerHealth
+		checkMobileRunnerHealth = func(_ context.Context, runnerURL string) (bool, []MobileRunnerHealthDevice, error) {
+			if runnerURL == "offline-runner" {
+				return false, nil, nil
+			}
+			return true, []MobileRunnerHealthDevice{
+				{Serial: "ABC123", State: "device", Model: "Pixel_8"},
+			}, nil
+		}
+		t.Cleanup(func() {
+			checkMobileRunnerHealth = originalHealth
+		})
+
+		originalQuery := queryMobileRunnerSemaphoreState
+		queryMobileRunnerSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileRunnerSemaphoreStateView, error) {
+			if runnerID == "usera-s-organization/owned-online" {
+				return workflows.MobileRunnerSemaphoreStateView{RunnerID: runnerID, QueueLen: 3}, nil
+			}
+			return workflows.MobileRunnerSemaphoreStateView{RunnerID: runnerID, QueueLen: 1}, nil
+		}
+		t.Cleanup(func() {
+			queryMobileRunnerSemaphoreState = originalQuery
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
+		rec := httptest.NewRecorder()
+		event := &core.RequestEvent{
+			App:  app,
+			Auth: user,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		}
+
+		err = HandleListMobileRunners()(event)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response ListMobileRunnersPublicResponseSchema
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.Len(t, response.Runners, 3)
+
+		var raw map[string][]map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &raw))
+		require.NotContains(t, raw["runners"][0], "id")
+		require.NotContains(t, raw["runners"][0], "organization")
+		require.NotContains(t, raw["runners"][0], "canonified_name")
+		require.NotContains(t, raw["runners"][0], "serial")
+
+		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].RunnerID)
+		require.Equal(t, "owned-online", response.Runners[0].Name)
+		require.True(t, response.Runners[0].Mine)
+		require.True(t, response.Runners[0].Online)
+		require.NotNil(t, response.Runners[0].QueueLen)
+		require.Equal(t, 3, *response.Runners[0].QueueLen)
+		require.Equal(t, []MobileRunnerHealthDevice{
+			{Serial: "ABC123", State: "device", Model: "Pixel_8"},
+		}, response.Runners[0].Devices)
+
+		require.Equal(t, "usera-s-organization/owned-offline", response.Runners[1].RunnerID)
+		require.True(t, response.Runners[1].Mine)
+		require.False(t, response.Runners[1].Online)
+		require.Nil(t, response.Runners[1].QueueLen)
+
+		require.Equal(t, "other-org/other-public", response.Runners[2].RunnerID)
+		require.False(t, response.Runners[2].Mine)
+		require.True(t, response.Runners[2].Online)
+		require.NotNil(t, response.Runners[2].QueueLen)
+		require.Equal(t, 1, *response.Runners[2].QueueLen)
+	})
+
+	t.Run("admin key sees every runner", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		userOrgID, err := getOrgIDfromName("userA's organization")
+		require.NoError(t, err)
+		otherOrg := createOtherWalletAPKOrganization(t, app)
+
+		createMobileRunnerRecord(t, app, userOrgID, "owned-runner", "http://127.0.0.1:1", false)
+		createMobileRunnerRecord(t, app, otherOrg.Id, "other-private", "http://127.0.0.1:1", false)
+
+		originalHealth := checkMobileRunnerHealth
+		checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+			return false, nil, nil
+		}
+		t.Cleanup(func() {
+			checkMobileRunnerHealth = originalHealth
+		})
+
+		superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+		require.NoError(t, err)
+		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
+		rec := httptest.NewRecorder()
+		event := &core.RequestEvent{
+			App:  app,
+			Auth: superuser,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		}
+
+		err = HandleListMobileRunners()(event)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response ListMobileRunnersPublicResponseSchema
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.Len(t, response.Runners, 2)
+		require.ElementsMatch(t, []string{
+			"usera-s-organization/owned-runner",
+			"other-org/other-private",
+		}, []string{
+			response.Runners[0].RunnerID,
+			response.Runners[1].RunnerID,
+		})
+	})
+}
+
+func createMobileRunnerRecord(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	name string,
+	runnerURL string,
+	published bool,
+) *core.Record {
+	t.Helper()
+
+	coll, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("owner", orgID)
+	record.Set("name", name)
+	record.Set("ip", runnerURL)
+	record.Set("type", "android_emulator")
+	record.Set("published", published)
+	require.NoError(t, app.Save(record))
+
+	return record
 }
 
 func TestGetMobileRunner(t *testing.T) {
@@ -400,7 +562,7 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 		body := decodeJSONBody(t, recorder)
 		require.Equal(t, "usera-s-organization", body["organization"])
 		require.Equal(t, "test-runner-1", body["canonified_name"])
-		require.Equal(t, "/usera-s-organization/test-runner-1", body["runner_id"])
+		require.Equal(t, "usera-s-organization/test-runner-1", body["runner_id"])
 	})
 
 	t.Run("admin preview requires an explicit organization", func(t *testing.T) {
@@ -451,7 +613,7 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 		require.Equal(t, http.StatusOK, recorder.Code)
 
 		body := decodeJSONBody(t, recorder)
-		require.Equal(t, "/userb-s-organization/runner-b", body["runner_id"])
+		require.Equal(t, "userb-s-organization/runner-b", body["runner_id"])
 	})
 }
 
@@ -485,7 +647,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 		require.Equal(t, http.StatusOK, recorder.Code)
 
 		body := decodeJSONBody(t, recorder)
-		require.Equal(t, "/usera-s-organization/my-phone", body["runner_id"])
+		require.Equal(t, "usera-s-organization/my-phone", body["runner_id"])
 
 		record, err := canonify.Resolve(app, "/usera-s-organization/my-phone")
 		require.NoError(t, err)
