@@ -85,6 +85,25 @@ paths:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Run a custom integration
+  /api/mobile-runners:
+    get:
+      description: Lists mobile runners visible to the caller, including health, devices,
+        and queue length for online runners.
+      operationId: listMobileRunners
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersListMobileRunnersPublicResponseSchema'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: List available mobile runners
   /api/my/schedules:
     get:
       description: List all schedules for the authenticated user
@@ -733,6 +752,14 @@ components:
         workflowExecutionInfo:
           $ref: '#/components/schemas/HandlersWorkflowExecutionInfo'
       type: object
+    HandlersListMobileRunnersPublicResponseSchema:
+      properties:
+        runners:
+          items:
+            $ref: '#/components/schemas/HandlersMobileRunnerListItem'
+          nullable: true
+          type: array
+      type: object
     HandlersListMySchedulesResponse:
       properties:
         schedules:
@@ -754,6 +781,47 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/HandlersPayload'
           type: object
+      type: object
+    HandlersMobileRunnerHealthDevice:
+      properties:
+        device:
+          type: string
+        model:
+          type: string
+        product:
+          type: string
+        serial:
+          type: string
+        state:
+          type: string
+        transport_id:
+          type: string
+      type: object
+    HandlersMobileRunnerListItem:
+      properties:
+        description:
+          type: string
+        devices:
+          items:
+            $ref: '#/components/schemas/HandlersMobileRunnerHealthDevice'
+          type: array
+        mine:
+          type: boolean
+        name:
+          type: string
+        online:
+          type: boolean
+        published:
+          type: boolean
+        queue_len:
+          nullable: true
+          type: integer
+        runner_id:
+          type: string
+        runner_url:
+          type: string
+        type:
+          type: string
       type: object
     HandlersPauseScheduleResponse:
       properties:
