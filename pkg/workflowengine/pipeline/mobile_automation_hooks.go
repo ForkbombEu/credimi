@@ -125,11 +125,10 @@ type setupNewDeviceInput struct {
 }
 
 type fetchRunnerInfoInput struct {
-	ctx          workflow.Context
-	payload      *workflows.MobileAutomationWorkflowPipelinePayload
-	appURL       string
-	stepID       string
-	httpActivity *activities.HTTPActivity
+	ctx     workflow.Context
+	payload *workflows.MobileAutomationWorkflowPipelinePayload
+	appURL  string
+	stepID  string
 }
 
 type startManagedDeviceInput struct {
@@ -236,7 +235,7 @@ func MobileAutomationSetupHook(
 			)
 		}
 
-		if err := prepareMobileAutomationSteps(ctx, steps, appURL, httpActivity); err != nil {
+		if err := prepareMobileAutomationSteps(ctx, steps, appURL); err != nil {
 			return err
 		}
 	}
@@ -392,7 +391,6 @@ func prepareMobileAutomationSteps(
 	ctx workflow.Context,
 	steps *[]pipeline.StepDefinition,
 	appURL string,
-	httpActivity *activities.HTTPActivity,
 ) error {
 	specialSteps := make([]pipeline.StepDefinition, 0)
 	remainingSteps := make([]pipeline.StepDefinition, 0, len(*steps))
@@ -419,7 +417,6 @@ func prepareMobileAutomationSteps(
 			appURL,
 			payload.ActionID,
 			step.ID,
-			httpActivity,
 		)
 		if err != nil {
 			return err
@@ -453,7 +450,6 @@ func fetchMobileActionCategory(
 	appURL string,
 	actionID string,
 	stepID string,
-	httpActivity *activities.HTTPActivity,
 ) (string, error) {
 	if strings.TrimSpace(actionID) == "" {
 		return "", nil
@@ -477,25 +473,7 @@ func fetchMobileActionCategory(
 	var result workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), internalReq).
 		Get(ctx, &result); err != nil {
-		if !isMissingPipelineInternalHTTPActivity(err) {
-			return "", err
-		}
-
-		fallbackReq := workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
-				Method:         http.MethodPost,
-				URL:            validateURL,
-				ExpectedStatus: 200,
-				Body:           validatePayload,
-			},
-		}
-		if fbErr := workflow.ExecuteActivity(
-			ctx,
-			httpActivity.Name(),
-			fallbackReq,
-		).Get(ctx, &result); fbErr != nil {
-			return "", fbErr
-		}
+		return "", err
 	}
 
 	body, ok := result.Output.(map[string]any)["body"].(map[string]any)
@@ -793,11 +771,10 @@ func setupNewDevice(
 	input setupNewDeviceInput,
 ) error {
 	runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
-		ctx:          input.ctx,
-		payload:      input.payload,
-		appURL:       input.appURL,
-		stepID:       input.stepID,
-		httpActivity: input.httpActivity,
+		ctx:     input.ctx,
+		payload: input.payload,
+		appURL:  input.appURL,
+		stepID:  input.stepID,
 	})
 	if err != nil {
 		return err
@@ -861,27 +838,7 @@ func fetchRunnerInfo(
 	var runnerRes workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(input.ctx, internalHTTPActivity.Name(), runnerReq).
 		Get(input.ctx, &runnerRes); err != nil {
-		if isMissingPipelineInternalHTTPActivity(err) {
-			fallbackReq := workflowengine.ActivityInput{
-				Payload: activities.HTTPActivityPayload{
-					Method:         http.MethodGet,
-					URL:            utils.JoinURL(input.appURL, "api", "mobile-runner"),
-					ExpectedStatus: 200,
-					QueryParams: map[string]string{
-						"runner_identifier": input.payload.RunnerID,
-					},
-				},
-			}
-			if fbErr := workflow.ExecuteActivity(
-				input.ctx,
-				activities.NewHTTPActivity().Name(),
-				fallbackReq,
-			).Get(input.ctx, &runnerRes); fbErr != nil {
-				return "", "", "", fbErr
-			}
-		} else {
-			return "", "", "", err
-		}
+		return "", "", "", err
 	}
 
 	body, ok := runnerRes.Output.(map[string]any)["body"].(map[string]any)

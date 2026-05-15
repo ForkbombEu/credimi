@@ -24,7 +24,7 @@ The Scoreboard feature provides a public dashboard of pipeline execution results
 
 - Paginated TanStack table backed by `pipeline_scoreboard_cache`
 - Sortable columns and entity display components
-- Links to marketplace pipeline pages
+- Links to Hub pipeline pages
 
 #### Homepage Section
 

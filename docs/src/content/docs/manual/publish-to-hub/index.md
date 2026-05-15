@@ -1,6 +1,6 @@
 ---
-title: Publish to Marketplace Overview
-description: List solutions on the Marketplace and expose live issuance or verification integrations.
+title: Publish to Hub Overview
+description: List solutions on the Hub and expose live issuance or verification integrations.
 ---
 
 This section is for solution developers.
@@ -12,7 +12,7 @@ Publishing on Credimi has two distinct levels:
 
 This distinction matters:
 
-- metadata makes the solution discoverable on the Marketplace
+- metadata makes the solution discoverable on the Hub
 - StepCI turns it into something visitors can actually try
 
 ![Issuer and credential editor](../images/issuer-editor.png)

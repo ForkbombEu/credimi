@@ -141,6 +141,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKRunnerID(
 			e.Request.Context(),
 			e.App,
+			runContext.organizationRecord.Id,
 			workflowDefinition,
 			input,
 		)
@@ -722,6 +723,7 @@ func rewriteWalletAPKStepVersion(
 func resolvePipelineRunWalletAPKRunnerID(
 	ctx context.Context,
 	app core.App,
+	ownerID string,
 	workflowDefinition *pipelineinternal.WorkflowDefinition,
 	input pipelineRunWalletAPKRequest,
 ) (string, bool, bool, *apierror.APIError) {
@@ -745,7 +747,7 @@ func resolvePipelineRunWalletAPKRunnerID(
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
 
-	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, runnerType)
+	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, ownerID, runnerType)
 	return runnerID, hasStepRunner, needsGlobalRunner, apiErr
 }
 
