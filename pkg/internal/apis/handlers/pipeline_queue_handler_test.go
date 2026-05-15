@@ -60,6 +60,28 @@ func setupPipelineQueueAppWithPipeline(t testing.TB, orgID string, yaml string) 
 	return app
 }
 
+func createPipelineQueueMobileRunner(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	name string,
+	published bool,
+) *core.Record {
+	t.Helper()
+
+	coll, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("owner", orgID)
+	record.Set("name", name)
+	record.Set("ip", "https://runner.example.test")
+	record.Set("type", "android_phone")
+	record.Set("published", published)
+	require.NoError(t, app.Save(record))
+	return record
+}
+
 func ensureOrganizationsQueueLimitField(t testing.TB, app *tests.TestApp) {
 	collection, err := app.FindCollectionByNameOrId("organizations")
 	require.NoError(t, err)
@@ -151,6 +173,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 
 	missingRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n"
 	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n"
+	foreignPrivateRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: other-org/private-runner\n"
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -212,6 +235,33 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
 				app.Settings().Meta.AppURL = "https://credimi.test"
+				return app
+			},
+		},
+		{
+			Name:   "enqueue rejects foreign private runner",
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/queue",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"yaml":                foreignPrivateRunnerYaml,
+			}),
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				"runner_id is not accessible",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineQueueAppWithPipeline(t, orgID, foreignPrivateRunnerYaml)
+				orgColl, err := app.FindCollectionByNameOrId("organizations")
+				require.NoError(t, err)
+				otherOrg := core.NewRecord(orgColl)
+				otherOrg.Set("name", "Other Org")
+				otherOrg.Set("canonified_name", "other-org")
+				require.NoError(t, app.Save(otherOrg))
+				createPipelineQueueMobileRunner(t, app, otherOrg.Id, "Private Runner", false)
 				return app
 			},
 		},
