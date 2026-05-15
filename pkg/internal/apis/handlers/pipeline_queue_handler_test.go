@@ -69,7 +69,7 @@ func createPipelineQueueMobileRunner(
 	orgID string,
 	name string,
 	published bool,
-) *core.Record {
+) {
 	t.Helper()
 
 	coll, err := app.FindCollectionByNameOrId("mobile_runners")
@@ -82,7 +82,6 @@ func createPipelineQueueMobileRunner(
 	record.Set("type", "android_phone")
 	record.Set("published", published)
 	require.NoError(t, app.Save(record))
-	return record
 }
 
 func ensureOrganizationsQueueLimitField(t testing.TB, app *tests.TestApp) {
@@ -773,10 +772,14 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 
 	require.NotEmpty(t, ticketID)
 	require.Len(t, cancelCalls, 2)
-	require.ElementsMatch(t, []string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"}, []string{
-		cancelCalls[0].runnerID,
-		cancelCalls[1].runnerID,
-	})
+	require.ElementsMatch(
+		t,
+		[]string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"},
+		[]string{
+			cancelCalls[0].runnerID,
+			cancelCalls[1].runnerID,
+		},
+	)
 	for _, call := range cancelCalls {
 		require.Equal(t, ticketID, call.ticketID)
 	}
@@ -1074,10 +1077,14 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 
 	require.NotEmpty(t, ticketID)
 	require.Len(t, cancelCalls, 2)
-	require.ElementsMatch(t, []string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"}, []string{
-		cancelCalls[0].runnerID,
-		cancelCalls[1].runnerID,
-	})
+	require.ElementsMatch(
+		t,
+		[]string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"},
+		[]string{
+			cancelCalls[0].runnerID,
+			cancelCalls[1].runnerID,
+		},
+	)
 	for _, call := range cancelCalls {
 		require.Equal(t, ticketID, call.ticketID)
 	}
