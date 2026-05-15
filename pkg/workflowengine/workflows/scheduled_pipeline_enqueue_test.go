@@ -53,6 +53,10 @@ steps:
 	env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
 		Name: httpAct.Name(),
 	})
+	internalHTTPAct := activities.NewInternalHTTPActivity()
+	env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
+		Name: internalHTTPAct.Name(),
+	})
 
 	var capturedPayload activities.EnqueuePipelineRunTicketActivityInput
 	env.RegisterActivityWithOptions(
@@ -76,6 +80,12 @@ steps:
 						"yaml":      pipelineYAML,
 					},
 				},
+			},
+		}, nil)
+	env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"body": map[string]any{"valid": true},
 			},
 		}, nil)
 
