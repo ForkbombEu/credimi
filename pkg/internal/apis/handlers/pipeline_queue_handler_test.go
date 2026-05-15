@@ -175,8 +175,8 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 	installQueueStubs(t, stub)
 
 	missingRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n"
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n"
-	unknownRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: missing-runner\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n"
+	unknownRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/missing-runner\n"
 	foreignPrivateRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: other-org/private-runner\n"
 
 	scenarios := []tests.ApiScenario{
@@ -230,7 +230,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				"\"status\":\"queued\"",
-				"\"runner_ids\":[\"runner-1\"]",
+				"\"runner_ids\":[\"usera-s-organization/runner-1\"]",
 				"\"pipeline_url\":\"https://credimi.test/my/pipelines/usera-s-organization/pipeline123\"",
 			},
 			NotExpectedContent: []string{
@@ -326,7 +326,7 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 	stub := &queueStub{}
 	installQueueStubs(t, stub)
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue passes org queue limit",
@@ -716,7 +716,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		if ticketID == "" {
 			ticketID = req.TicketID
 		}
-		if runnerID == "runner-2" {
+		if runnerID == "usera-s-organization/runner-2" {
 			return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, errors.New("enqueue failed")
 		}
 		return workflows.MobileRunnerSemaphoreEnqueueRunResponse{
@@ -747,7 +747,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		}, nil
 	}
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: runner-2\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-2\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue rollback on partial failure",
@@ -773,7 +773,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 
 	require.NotEmpty(t, ticketID)
 	require.Len(t, cancelCalls, 2)
-	require.ElementsMatch(t, []string{"runner-1", "runner-2"}, []string{
+	require.ElementsMatch(t, []string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"}, []string{
 		cancelCalls[0].runnerID,
 		cancelCalls[1].runnerID,
 	})
@@ -1013,7 +1013,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		if ticketID == "" {
 			ticketID = req.TicketID
 		}
-		if runnerID == "runner-2" {
+		if runnerID == "usera-s-organization/runner-2" {
 			return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
 				"queue limit exceeded for runner runner-2: 1 of 1",
 				workflows.MobileRunnerSemaphoreErrQueueLimitExceeded,
@@ -1047,7 +1047,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		}, nil
 	}
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: runner-2\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-2\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue queue limit rollback",
@@ -1074,7 +1074,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 
 	require.NotEmpty(t, ticketID)
 	require.Len(t, cancelCalls, 2)
-	require.ElementsMatch(t, []string{"runner-1", "runner-2"}, []string{
+	require.ElementsMatch(t, []string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"}, []string{
 		cancelCalls[0].runnerID,
 		cancelCalls[1].runnerID,
 	})

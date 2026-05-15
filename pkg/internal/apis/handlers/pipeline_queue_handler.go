@@ -256,7 +256,6 @@ func enqueuePipelineRun(
 	if apiErr := validatePipelineRunnerAccess(
 		e.App,
 		runContext.organizationRecord.Id,
-		namespace,
 		runnerIDs,
 	); apiErr != nil {
 		return PipelineQueueResponse{}, apiErr
@@ -671,11 +670,10 @@ func resolvePipelineRunnerIDs(yaml string, info pipeline.PipelineRunnerInfo) ([]
 func validatePipelineRunnerAccess(
 	app core.App,
 	ownerID string,
-	ownerNamespace string,
 	runnerIDs []string,
 ) *apierror.APIError {
 	for _, runnerID := range normalizeRunnerIDs(runnerIDs) {
-		record, err := resolvePipelineRunnerAccessRecord(app, ownerNamespace, runnerID)
+		record, err := canonify.Resolve(app, runnerID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return apierror.New(
@@ -711,21 +709,6 @@ func validatePipelineRunnerAccess(
 		)
 	}
 	return nil
-}
-
-func resolvePipelineRunnerAccessRecord(
-	app core.App,
-	ownerNamespace string,
-	runnerID string,
-) (*core.Record, error) {
-	record, err := canonify.Resolve(app, runnerID)
-	if err == nil || !errors.Is(err, sql.ErrNoRows) {
-		return record, err
-	}
-	if strings.Contains(runnerID, "/") || strings.TrimSpace(ownerNamespace) == "" {
-		return nil, err
-	}
-	return canonify.Resolve(app, strings.Trim(ownerNamespace, "/")+"/"+runnerID)
 }
 
 func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apierror.APIError) {

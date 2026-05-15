@@ -480,7 +480,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				`"status":"queued"`,
-				`"runner_ids":["runner-1"]`,
+				`"runner_ids":["usera-s-organization/runner-1"]`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
@@ -569,7 +569,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				`"status":"queued"`,
-				`"runner_ids":["runner-1"]`,
+				`"runner_ids":["usera-s-organization/runner-1"]`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
@@ -932,13 +932,13 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 	t.Run("rejects step runner ids", func(t *testing.T) {
 		workflowDefinition, apiErr := parsePipelineCIWorkflow(
-			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
+			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n",
 		)
 		require.Nil(t, apiErr)
 		hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
 
 		_, apiErr = injectPipelineCIGlobalRunnerID(
-			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n",
+			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n",
 			workflowDefinition,
 			"runner-global",
 			hasStepRunner,
@@ -1395,7 +1395,7 @@ func TestRewritePipelineRunWalletAPKYAML(t *testing.T) {
 }
 
 func walletAPKPipelineYAML(versionID string) string {
-	return "name: test\nsteps:\n  - id: install-wallet\n    use: mobile-automation\n    with:\n      action_id: usera-s-organization/wallet123/install\n      version_id: " + versionID + "\n      runner_id: runner-1\n"
+	return "name: test\nsteps:\n  - id: install-wallet\n    use: mobile-automation\n    with:\n      action_id: usera-s-organization/wallet123/install\n      version_id: " + versionID + "\n      runner_id: usera-s-organization/runner-1\n"
 }
 
 func walletAPKPipelineYAMLWithoutRunner(versionID string) string {
