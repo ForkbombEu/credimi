@@ -18,11 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
 	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import { getPath } from '$lib/utils';
-	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
+	import { ArrowRightIcon, Pencil } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
-	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
@@ -30,7 +29,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import * as ButtonGroup from '@/components/ui/button-group';
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
 	import { type EnrichedSchedule } from './types';
@@ -44,35 +42,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { pipeline = $bindable(), workflows, onRun }: Props = $props();
-
-	// Running
-
-	let runnerSelectionDialogOpen = $state(false);
-	let runPipelineAfterRunnerSelect = $state(false);
-	const runnerType = $derived(Pipeline.Runner.getType(pipeline));
-
-	async function handleRunNow() {
-		if (!Pipeline.Runner.isRequired(pipeline)) {
-			await Pipeline.run(pipeline);
-			onRun?.();
-		} else {
-			const runnerType = Pipeline.Runner.getType(pipeline);
-			if (runnerType === 'specific') {
-				await Pipeline.run(pipeline);
-				onRun?.();
-			} else {
-				const runner = Pipeline.Runner.get(pipeline.id);
-				if (runner) {
-					await Pipeline.run(pipeline);
-					onRun?.();
-					runPipelineAfterRunnerSelect = false;
-				} else {
-					runPipelineAfterRunnerSelect = true;
-					runnerSelectionDialogOpen = true;
-				}
-			}
-		}
-	}
 
 	// Scheduling
 
@@ -112,7 +81,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
 	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
-	const isRunnerSpecific = $derived(runnerType === 'specific');
 
 	const hasSummary = $derived(
 		scoreboardResults
@@ -152,35 +120,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet actions()}
-		{@const runner = Pipeline.Runner.get(pipeline.id)?.split('/').at(-1)}
-		<ButtonGroup.Root>
-			<Button
-				onclick={handleRunNow}
-				class={{ 'w-[174px] justify-start': !Pipeline.Runner.isRequired(pipeline) }}
-			>
-				<PlayIcon />
-				<div class="flex w-[90px] flex-col -space-y-0.5 text-left">
-					<p>{m.Run_now()}</p>
-					{#if runner && Pipeline.Runner.isRequired(pipeline)}
-						<small class="truncate text-[9px] opacity-80">
-							{runner}
-						</small>
-					{/if}
-				</div>
-			</Button>
-			{#if Pipeline.Runner.isRequired(pipeline)}
-				<IconButton
-					icon={Cog}
-					variant="default"
-					class="rounded-none rounded-r-md border-l border-l-slate-500"
-					onclick={() => (runnerSelectionDialogOpen = true)}
-					disabled={isRunnerSpecific}
-					tooltip={isRunnerSpecific
-						? m.Runner_configuration_not_available()
-						: m.Configure_runner()}
-				/>
-			{/if}
-		</ButtonGroup.Root>
+		<Pipeline.Runner.RunNowButton {pipeline} {onRun} />
 
 		{#if !schedule}
 			<SchedulePipelineForm {pipeline} />
@@ -194,15 +134,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/snippet}
 </DashboardCard>
-
-<Pipeline.Runner.SelectModal
-	{pipeline}
-	bind:open={runnerSelectionDialogOpen}
-	onSelect={() => {
-		if (!runPipelineAfterRunnerSelect) return;
-		handleRunNow();
-	}}
-/>
 
 {#snippet publishAction()}
 	<Tooltip>

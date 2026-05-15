@@ -21,7 +21,7 @@ function runnerRecord(path: string): MobileRunnersResponse {
 		canonified_name: segments.at(-1) ?? 'runner',
 		collectionId: 'mobile_runners',
 		collectionName: 'mobile_runners'
-	} as MobileRunnersResponse;
+	} as unknown as MobileRunnersResponse;
 }
 
 const NO_MOBILE_YAML = `steps:
