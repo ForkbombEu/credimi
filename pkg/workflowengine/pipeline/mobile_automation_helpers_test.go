@@ -554,12 +554,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 
 	workflowName := "fetch-runner-info"
 	env.RegisterWorkflowWithOptions(
@@ -568,11 +563,10 @@ func TestFetchRunnerInfo(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
 			runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
-				ctx:          ctx,
-				payload:      payload,
-				appURL:       "http://localhost:8090",
-				stepID:       "step-1",
-				httpActivity: httpActivity,
+				ctx:     ctx,
+				payload: payload,
+				appURL:  "http://localhost:8090",
+				stepID:  "step-1",
 			})
 			if err != nil {
 				return nil, err
@@ -652,12 +646,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
 
-			httpActivity := activities.NewHTTPActivity()
 			internalHTTPActivity := registerInternalHTTPActivity(env)
-			env.RegisterActivityWithOptions(
-				httpActivity.Execute,
-				activity.RegisterOptions{Name: httpActivity.Name()},
-			)
 
 			workflowName := "fetch-runner-info-error"
 			env.RegisterWorkflowWithOptions(
@@ -668,11 +657,10 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 						RunnerID: "runner-1",
 					}
 					_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
-						ctx:          ctx,
-						payload:      payload,
-						appURL:       "http://localhost:8090",
-						stepID:       "step-1",
-						httpActivity: httpActivity,
+						ctx:     ctx,
+						payload: payload,
+						appURL:  "http://localhost:8090",
+						stepID:  "step-1",
 					})
 					return err
 				},

@@ -656,12 +656,6 @@ func TestPrepareMobileAutomationStepsHoistsExternalInstallSteps(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
-
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) ([]pipeline.StepDefinition, error) {
 			ctx = workflow.WithActivityOptions(
@@ -706,7 +700,6 @@ func TestPrepareMobileAutomationStepsHoistsExternalInstallSteps(t *testing.T) {
 				ctx,
 				&steps,
 				"https://app.example",
-				httpActivity,
 			); err != nil {
 				return nil, err
 			}
@@ -1858,7 +1851,9 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 			if !ok {
 				return false
 			}
-			if workflowengine.AsString(payload["url"]) != "https://runner.example/credimi/installer-action" {
+			if workflowengine.AsString(
+				payload["url"],
+			) != "https://runner.example/credimi/installer-action" {
 				return false
 			}
 			body, ok := payload["body"].(map[string]any)
@@ -2256,12 +2251,7 @@ func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
@@ -2274,9 +2264,8 @@ func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
 					RunnerID: "runner-1",
 				},
-				appURL:       "https://app.example",
-				stepID:       "step-1",
-				httpActivity: httpActivity,
+				appURL: "https://app.example",
+				stepID: "step-1",
 			})
 			return err
 		},
@@ -2302,12 +2291,7 @@ func TestFetchRunnerInfoRejectsMalformedRunnerURL(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
@@ -2320,9 +2304,8 @@ func TestFetchRunnerInfoRejectsMalformedRunnerURL(t *testing.T) {
 				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
 					RunnerID: "runner-1",
 				},
-				appURL:       "https://app.example",
-				stepID:       "step-1",
-				httpActivity: httpActivity,
+				appURL: "https://app.example",
+				stepID: "step-1",
 			})
 			return err
 		},
