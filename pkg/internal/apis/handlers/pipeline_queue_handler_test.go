@@ -57,6 +57,9 @@ func setupPipelineQueueAppWithPipeline(t testing.TB, orgID string, yaml string) 
 	record.Set("yaml", yaml)
 	require.NoError(t, app.Save(record))
 
+	createPipelineQueueMobileRunner(t, app, orgID, "runner-1", false)
+	createPipelineQueueMobileRunner(t, app, orgID, "runner-2", false)
+
 	return app
 }
 
@@ -173,6 +176,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 
 	missingRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n"
 	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n"
+	unknownRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: missing-runner\n"
 	foreignPrivateRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: other-org/private-runner\n"
 
 	scenarios := []tests.ApiScenario{
@@ -263,6 +267,25 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 				require.NoError(t, app.Save(otherOrg))
 				createPipelineQueueMobileRunner(t, app, otherOrg.Id, "Private Runner", false)
 				return app
+			},
+		},
+		{
+			Name:   "enqueue rejects missing runner",
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/queue",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"yaml":                unknownRunnerYaml,
+			}),
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				"runner not found",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				return setupPipelineQueueAppWithPipeline(t, orgID, unknownRunnerYaml)
 			},
 		},
 		{

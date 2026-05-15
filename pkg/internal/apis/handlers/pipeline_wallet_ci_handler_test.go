@@ -45,6 +45,14 @@ func setupPipelineWalletAPKApp(t testing.TB) *tests.TestApp {
 	canonify.RegisterCanonifyHooks(app)
 	PipelineRoutes.Add(app)
 
+	orgRecord, err := app.FindFirstRecordByFilter(
+		"organizations",
+		`name="userA's organization"`,
+	)
+	require.NoError(t, err)
+	createWalletAPKMobileRunner(t, app, orgRecord.Id, "runner-1", "ios_simulator", false)
+	createWalletAPKMobileRunner(t, app, orgRecord.Id, "runner-global", "ios_simulator", false)
+
 	return app
 }
 

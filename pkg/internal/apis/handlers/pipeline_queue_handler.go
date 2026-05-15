@@ -256,6 +256,7 @@ func enqueuePipelineRun(
 	if apiErr := validatePipelineRunnerAccess(
 		e.App,
 		runContext.organizationRecord.Id,
+		namespace,
 		runnerIDs,
 	); apiErr != nil {
 		return PipelineQueueResponse{}, apiErr
@@ -670,13 +671,19 @@ func resolvePipelineRunnerIDs(yaml string, info pipeline.PipelineRunnerInfo) ([]
 func validatePipelineRunnerAccess(
 	app core.App,
 	ownerID string,
+	ownerNamespace string,
 	runnerIDs []string,
 ) *apierror.APIError {
 	for _, runnerID := range normalizeRunnerIDs(runnerIDs) {
-		record, err := canonify.Resolve(app, runnerID)
+		record, err := resolvePipelineRunnerAccessRecord(app, ownerNamespace, runnerID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				continue
+				return apierror.New(
+					http.StatusNotFound,
+					"runner_id",
+					"runner not found",
+					"mobile runner "+runnerID+" was not found",
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -686,7 +693,12 @@ func validatePipelineRunnerAccess(
 			)
 		}
 		if record.Collection() == nil || record.Collection().Name != "mobile_runners" {
-			continue
+			return apierror.New(
+				http.StatusNotFound,
+				"runner_id",
+				"runner not found",
+				"mobile runner "+runnerID+" was not found",
+			)
 		}
 		if record.GetString("owner") == ownerID || record.GetBool("published") {
 			continue
@@ -699,6 +711,21 @@ func validatePipelineRunnerAccess(
 		)
 	}
 	return nil
+}
+
+func resolvePipelineRunnerAccessRecord(
+	app core.App,
+	ownerNamespace string,
+	runnerID string,
+) (*core.Record, error) {
+	record, err := canonify.Resolve(app, runnerID)
+	if err == nil || !errors.Is(err, sql.ErrNoRows) {
+		return record, err
+	}
+	if strings.Contains(runnerID, "/") || strings.TrimSpace(ownerNamespace) == "" {
+		return nil, err
+	}
+	return canonify.Resolve(app, strings.Trim(ownerNamespace, "/")+"/"+runnerID)
 }
 
 func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apierror.APIError) {

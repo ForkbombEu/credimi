@@ -137,7 +137,12 @@ func HandleValidateMobileRunnerAccess() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		if apiErr := validatePipelineRunnerAccess(e.App, ownerRecord.Id, input.RunnerIDs); apiErr != nil {
+		if apiErr := validatePipelineRunnerAccess(
+			e.App,
+			ownerRecord.Id,
+			ownerNamespace,
+			input.RunnerIDs,
+		); apiErr != nil {
 			return apiErr.JSON(e)
 		}
 
