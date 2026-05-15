@@ -31,6 +31,19 @@ export function getType(pipeline: PipelinesResponse): 'global' | 'specific' | 'n
 	return 'global';
 }
 
+export function getExecutionRunnerPath(pipeline: PipelinesResponse): string | undefined {
+	const type = getType(pipeline);
+	if (type === 'not-needed') return undefined;
+	if (type === 'global') return get(pipeline.id);
+	if (type === 'specific') {
+		const yaml = parseYaml(pipeline.yaml);
+		const step = (yaml?.steps ?? []).find((s) => s.use === 'mobile-automation');
+		const runnerId = step && 'with' in step ? step.with?.runner_id : undefined;
+		return typeof runnerId === 'string' ? runnerId : undefined;
+	}
+	return undefined;
+}
+
 type PipelinesRunnersConfig = Record<string, string>;
 
 const pipelinesRunnersConfig = lsSync<PipelinesRunnersConfig>('pipelines_runners_config', {});
