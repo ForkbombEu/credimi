@@ -22,14 +22,14 @@ export const load = async ({ params, fetch, url }) => {
 	const status = getStatusQueryParam(url);
 	const pagination = getPaginationQueryParams(url);
 
-	const [workflows, scoreboard] = await Promise.all([
+	const [workflows, scoreboardCache] = await Promise.all([
 		Pipeline.Workflows.list(pipeline.id, {
 			fetch,
 			status,
 			...pagination
 		}),
-		Scoreboard.Records.loadForPipeline(pipeline.id, { fetch })
+		Scoreboard.Records.loadExecutionStatsForPipeline(pipeline.id, { fetch })
 	]);
 
-	return { pipeline, workflows, pagination, scoreboard };
+	return { pipeline, workflows, pagination, scoreboardCache };
 };

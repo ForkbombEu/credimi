@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import {
 		emptyExecutionStats,
-		fromScoreboardRow
+		fromScoreboardCache
 	} from '$lib/scoreboard/extras/from-scoreboard-row';
 	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
@@ -32,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	let { pipeline, pagination, scoreboard } = $derived(data);
+	let { pipeline, pagination, scoreboardCache } = $derived(data);
 
 	$effect(() => {
 		setDashboardNavbar({ title: m.Pipelines() });
@@ -77,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	);
 
-	const executionStats = $derived(fromScoreboardRow(scoreboard) ?? emptyExecutionStats);
+	const executionStats = $derived(fromScoreboardCache(scoreboardCache) ?? emptyExecutionStats);
 	const currentItemCount = $derived(workflows.current?.length ?? 0);
 </script>
 

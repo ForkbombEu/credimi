@@ -9,21 +9,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { IconComponent } from '@/components/types';
 
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
 
 	import type { ExecutionStats } from './from-scoreboard-row';
 
-	type Layout = 'inline' | 'stat-box-success' | 'stat-box-modes';
+	type Layout = 'inline' | 'card-inline' | 'stat-box-success' | 'stat-box-modes';
 
 	type Props = {
 		stats: ExecutionStats;
 		layout: Layout;
 		label?: string;
+		/** For `card-inline` only. */
+		align?: 'left' | 'right';
 	};
 
-	let { stats, layout, label }: Props = $props();
+	let { stats, layout, label, align = 'right' }: Props = $props();
 
 	type ExecutionModeCount = {
 		icon: IconComponent;
@@ -46,8 +48,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</p>
 {/snippet}
 
-{#snippet modesLine(className?: string)}
-	<p class={className}>
+{#snippet modesLine(className?: string, tag: 'p' | 'span' = 'p')}
+	<svelte:element this={tag} class={className}>
 		{#each executionTypes as executionType, index (executionType.label)}
 			<Tooltip>
 				<span>
@@ -65,13 +67,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<span class="pr-1 pl-0.5">/</span>
 			{/if}
 		{/each}
-	</p>
+	</svelte:element>
 {/snippet}
 
 {#if layout === 'inline'}
 	<div class="shrink-0 pr-3 text-right">
 		{@render successLine('text-sm')}
 		{@render modesLine('text-xs text-muted-foreground opacity-80')}
+	</div>
+{:else if layout === 'card-inline'}
+	<div class={['text-sm', align === 'left' ? 'text-left' : 'shrink-0 pr-3 text-right']}>
+		<span class={['font-bold', successClass]}>
+			{stats.successes}/{stats.total} ({stats.percent}%)
+		</span>
+		<span class="px-0.5 text-muted-foreground opacity-60">·</span>
+		{@render modesLine('text-muted-foreground opacity-80', 'span')}
 	</div>
 {:else if layout === 'stat-box-success'}
 	<div class="flex h-20 w-[140px] flex-col items-start justify-between rounded-lg border p-3">

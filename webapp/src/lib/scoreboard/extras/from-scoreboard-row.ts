@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { PipelineScoreboardCacheStats } from '../records';
 import type { ScoreboardRow } from '../types';
 
 export type ExecutionStats = {
@@ -22,7 +23,9 @@ export const emptyExecutionStats: ExecutionStats = {
 	ci: 0
 };
 
-export function fromScoreboardRow(row: ScoreboardRow | undefined): ExecutionStats | undefined {
+export function fromScoreboardCache(
+	row: PipelineScoreboardCacheStats | undefined
+): ExecutionStats | undefined {
 	if (!row) return undefined;
 
 	return {
@@ -33,4 +36,8 @@ export function fromScoreboardRow(row: ScoreboardRow | undefined): ExecutionStat
 		scheduled: row.scheduled_runs ?? 0,
 		ci: row.CI_runs ?? 0
 	};
+}
+
+export function fromScoreboardRow(row: ScoreboardRow | undefined): ExecutionStats | undefined {
+	return fromScoreboardCache(row);
 }

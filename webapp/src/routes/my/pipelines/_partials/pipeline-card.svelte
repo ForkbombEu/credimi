@@ -250,7 +250,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="space-y-3">
 					<div class="flex items-center justify-between gap-2">
 						<T class="shrink-0 text-sm font-medium">{m.Recent_workflows()}</T>
-						<PipelineExecutionStats stats={executionStats} layout="inline" />
+						<PipelineExecutionStats
+							stats={executionStats}
+							layout="card-inline"
+							align="left"
+						/>
 						<BlueButton
 							compact
 							href={resolve('/my/pipelines/[...pipeline_path]', {
@@ -265,7 +269,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Pipeline.Workflows.SmallTable {workflows} />
 				</div>
 			{:else}
-				<PipelineExecutionStats stats={executionStats} layout="inline" />
+				<PipelineExecutionStats stats={executionStats} layout="card-inline" align="left" />
 			{/if}
 		{:else if workflows && workflows.length > 0}
 			<div class="space-y-3">
