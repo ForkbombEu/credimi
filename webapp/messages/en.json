@@ -925,6 +925,7 @@
 	"Current_runner": "Current runner",
 	"Runner_configuration_not_available": "Runner configuration not available for pipelines with specific runner steps",
 	"Runner_offline_run_disabled": "The selected runner is currently offline. To run this pipeline, please select a different runner.",
+	"Runner_offline_select_disabled": "This runner appears currently offline, therefore you may not select it for execution",
 	"Failed_to_enqueue_pipeline": "Failed to enqueue pipeline",
 	"Pipeline_queued": "Pipeline queued (position {position})",
 	"Failed_to_cancel_pipeline": "Failed to cancel pipeline",
