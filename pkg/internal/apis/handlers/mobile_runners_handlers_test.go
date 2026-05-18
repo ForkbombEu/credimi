@@ -223,6 +223,71 @@ func TestListMobileRunners(t *testing.T) {
 			response.Runners[1].RunnerID,
 		})
 	})
+
+	t.Run("selector view skips queue details and sensitive runner fields", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		userOrgID, err := GetUserOrganizationID(app, user.Id)
+		require.NoError(t, err)
+
+		createMobileRunnerRecord(t, app, userOrgID, "owned-online", "online-owned", false)
+
+		originalHealth := checkMobileRunnerHealth
+		checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+			return true, []MobileRunnerHealthDevice{
+				{Serial: "ABC123", State: "device", Model: "Pixel_8"},
+			}, nil
+		}
+		t.Cleanup(func() {
+			checkMobileRunnerHealth = originalHealth
+		})
+
+		queryCalled := false
+		originalQuery := queryMobileRunnerSemaphoreState
+		queryMobileRunnerSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileRunnerSemaphoreStateView, error) {
+			queryCalled = true
+			return workflows.MobileRunnerSemaphoreStateView{RunnerID: runnerID, QueueLen: 3}, nil
+		}
+		t.Cleanup(func() {
+			queryMobileRunnerSemaphoreState = originalQuery
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners?view=selector", nil)
+		rec := httptest.NewRecorder()
+		event := &core.RequestEvent{
+			App:  app,
+			Auth: user,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		}
+
+		err = HandleListMobileRunners()(event)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.False(t, queryCalled)
+
+		var response ListMobileRunnersPublicResponseSchema
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.Len(t, response.Runners, 1)
+		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].RunnerID)
+		require.True(t, response.Runners[0].Online)
+		require.Nil(t, response.Runners[0].QueueLen)
+		require.Empty(t, response.Runners[0].Devices)
+		require.Empty(t, response.Runners[0].RunnerURL)
+		require.Empty(t, response.Runners[0].Type)
+
+		var raw map[string][]map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &raw))
+		require.NotContains(t, raw["runners"][0], "queue_len")
+		require.NotContains(t, raw["runners"][0], "devices")
+		require.NotContains(t, raw["runners"][0], "runner_url")
+		require.NotContains(t, raw["runners"][0], "type")
+	})
 }
 
 func createMobileRunnerRecord(

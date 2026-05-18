@@ -48,7 +48,7 @@ type ListMobileRunnersPublicResponseSchema struct {
 type MobileRunnerListItem struct {
 	Name        string                     `json:"name"`
 	RunnerID    string                     `json:"runner_id"`
-	RunnerURL   string                     `json:"runner_url"`
+	RunnerURL   string                     `json:"runner_url,omitempty"`
 	Description string                     `json:"description,omitempty"`
 	Type        string                     `json:"type,omitempty"`
 	Published   bool                       `json:"published"`
@@ -87,6 +87,13 @@ var MobileRunnersPublicRoutes routing.RouteGroup = routing.RouteGroup{
 			ResponseSchema: ListMobileRunnersPublicResponseSchema{},
 			Summary:        "List available mobile runners",
 			Description:    "Lists mobile runners visible to the caller, including health, devices, and queue length for online runners.",
+			QuerySearchAttributes: []routing.QuerySearchAttribute{
+				{
+					Name:        "view",
+					Required:    false,
+					Description: "Optional response view. Use \"selector\" to return the lightweight runner selector shape and skip queue/device details.",
+				},
+			},
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
@@ -174,8 +181,15 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 		response := ListMobileRunnersPublicResponseSchema{
 			Runners: make([]MobileRunnerListItem, 0, len(records)),
 		}
+		includeDetails := e.Request.URL.Query().Get("view") != "selector"
 		for _, record := range records {
-			item, apiErr := mobileRunnerListItem(e.Request.Context(), e.App, record, callerOrgID)
+			item, apiErr := mobileRunnerListItem(
+				e.Request.Context(),
+				e.App,
+				record,
+				callerOrgID,
+				includeDetails,
+			)
 			if apiErr != nil {
 				return apiErr.JSON(e)
 			}
@@ -218,6 +232,7 @@ func mobileRunnerListItem(
 	app core.App,
 	record *core.Record,
 	callerOrgID string,
+	includeDetails bool,
 ) (MobileRunnerListItem, *apierror.APIError) {
 	runnerID, err := mobileRunnerIdentifier(app, record)
 	if err != nil {
@@ -243,16 +258,19 @@ func mobileRunnerListItem(
 	item := MobileRunnerListItem{
 		Name:        record.GetString("name"),
 		RunnerID:    runnerID,
-		RunnerURL:   runnerURL,
 		Description: record.GetString("description"),
-		Type:        record.GetString("type"),
 		Published:   record.GetBool("published"),
 		Mine:        callerOrgID != "" && record.GetString("owner") == callerOrgID,
 		Online:      online,
-		Devices:     devices,
 	}
 
-	if online {
+	if includeDetails {
+		item.RunnerURL = runnerURL
+		item.Type = record.GetString("type")
+		item.Devices = devices
+	}
+
+	if includeDetails && online {
 		queueLen, apiErr := mobileRunnerQueueLen(ctx, runnerID)
 		if apiErr != nil {
 			return MobileRunnerListItem{}, apiErr
