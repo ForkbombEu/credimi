@@ -23,6 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onDiscard?: () => void;
 		right?: Snippet;
 		class?: ClassValue;
+		tooltip?: string;
 		beforeContent?: Snippet;
 		afterContent?: Snippet;
 		titleRight?: Snippet;
@@ -36,6 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		subtitle,
 		right,
 		class: className,
+		tooltip,
 		beforeContent,
 		afterContent,
 		titleRight
@@ -48,11 +50,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if onClick}
-	<button class={['bg-card hover:ring', classes]} onclick={(e) => onClick(e)}>
+	<button title={tooltip} class={['bg-card hover:ring', classes]} onclick={(e) => onClick(e)}>
 		{@render content?.()}
 	</button>
 {:else}
-	<div class={['bg-slate-100', classes]}>
+	<div title={tooltip} class={['bg-slate-100', classes]}>
 		{@render content?.()}
 	</div>
 {/if}

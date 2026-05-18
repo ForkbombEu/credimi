@@ -6,18 +6,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { getRecordByCanonifiedPath } from '$lib/canonify';
-	import { getPath } from '$lib/utils';
-	import { isError } from 'effect/Predicate';
 
-	import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
+	import type { PipelinesResponse } from '@/pocketbase/types';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import * as PipelineRunner from './runner';
+	import type { MobileRunnerListItem } from '../runners/utils';
+
+	import * as Runners from '../runners';
+	import * as Runner from './binding';
 	import RunnerSelectInput from './runner-select-input.svelte';
 
 	//
@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		pipeline: PipelinesResponse;
 		title?: string;
 		description?: string;
-		onSelect?: (runner: MobileRunnersResponse) => void;
+		onSelect?: (runner: MobileRunnerListItem) => void;
 	};
 
 	let {
@@ -40,9 +40,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	function handleSelect(runner: MobileRunnersResponse) {
-		PipelineRunner.set(pipeline, runner);
-		currentRunnerPath = getPath(runner);
+	function handleSelect(runner: MobileRunnerListItem) {
+		Runner.set(pipeline, runner);
+		currentRunnerPath = runner.runner_id;
 		currentRunner = runner;
 		open = false;
 		onSelect?.(runner);
@@ -52,21 +52,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let currentRunnerPath = $derived.by(() => {
 		if (!browser) return undefined;
-		return PipelineRunner.get(pipeline.id);
+		return Runner.get(pipeline.id);
 	});
 
-	let currentRunner = $state<MobileRunnersResponse>();
+	let currentRunner = $state<MobileRunnerListItem>();
 
 	$effect(() => {
 		if (!currentRunnerPath) return;
-		getRecordByCanonifiedPath<MobileRunnersResponse>(currentRunnerPath)
-			.then((res) => {
-				if (isError(res)) throw res;
-				else currentRunner = res;
-			})
-			.catch((e) => {
-				console.error(e);
-			});
+		currentRunner = Runners.store
+			.read()
+			.find((runner) => runner.runner_id === currentRunnerPath);
+	});
+
+	$effect(() => {
+		if (!open) return;
+		Runners.status.probe(Runners.store.read(), { reason: 'modal' });
 	});
 </script>
 
