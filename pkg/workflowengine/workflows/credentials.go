@@ -127,7 +127,19 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	source, ok := issuerResult.Output.(map[string]any)["source"].(string)
+	checkIssuerOutput, ok := issuerResult.Output.(map[string]any)
+	if !ok {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("%s: output", checkIssuer.Name()),
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
+	}
+	source, ok := checkIssuerOutput["source"].(string)
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
@@ -139,7 +151,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	rawJSON, ok := issuerResult.Output.(map[string]any)["rawJSON"].(string)
+	rawJSON, ok := checkIssuerOutput["rawJSON"].(string)
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(

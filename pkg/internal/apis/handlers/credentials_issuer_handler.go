@@ -565,8 +565,8 @@ func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
 	}
 	cleanURL = strings.TrimRight(cleanURL, "/")
 
-	if strings.HasSuffix(cleanURL, "/.well-known/openid-federation") ||
-		strings.HasSuffix(cleanURL, "/.well-known/openid-credential-issuer") {
+	if isFederationWellKnownURL(cleanURL) ||
+		isCredentialIssuerWellKnownURL(cleanURL) {
 		if err := checkEndpointExists(ctx, cleanURL); err == nil {
 			return nil
 		}
@@ -589,6 +589,20 @@ func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
 		 nor .well-known/openid-credential-issuer endpoints are accessible at %s`,
 		cleanURL,
 	)
+}
+
+func isFederationWellKnownURL(rawURL string) bool {
+	const wellKnownPath = "/.well-known/openid-federation"
+
+	return strings.Contains(rawURL, wellKnownPath+"/") ||
+		strings.HasSuffix(rawURL, wellKnownPath)
+}
+
+func isCredentialIssuerWellKnownURL(rawURL string) bool {
+	const wellKnownPath = "/.well-known/openid-credential-issuer"
+
+	return strings.Contains(rawURL, wellKnownPath+"/") ||
+		strings.HasSuffix(rawURL, wellKnownPath)
 }
 
 func isPrivateIP(ip net.IP) bool {
