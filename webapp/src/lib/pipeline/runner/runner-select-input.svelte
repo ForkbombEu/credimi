@@ -93,6 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					isSelected && 'border-blue-500 bg-blue-50!',
 					isOffline && 'cursor-not-allowed bg-slate-100! opacity-50'
 				)}
+				tooltip={isOffline ? m.Runner_offline_select_disabled() : undefined}
 			>
 				{#snippet afterContent()}
 					<div class="text-xs text-balance text-muted-foreground">{item.description}</div>
