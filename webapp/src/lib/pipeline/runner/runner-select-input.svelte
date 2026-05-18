@@ -80,13 +80,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@const isSelected = selectedRunner === item.runner_id}
 			{@const runnerPath = item.runner_id}
 			{@const online = status.isOnline(runnerPath)}
+			{@const isOffline = online === false}
 			<ItemCard
 				title={item.name}
-				onClick={(e) => {
-					e.preventDefault();
-					onSelect?.(item);
-				}}
-				class={isSelected ? 'border-blue-500 bg-blue-50!' : ''}
+				onClick={isOffline
+					? undefined
+					: (e) => {
+							e.preventDefault();
+							onSelect?.(item);
+						}}
+				class={cn(
+					isSelected && 'border-blue-500 bg-blue-50!',
+					isOffline && 'cursor-not-allowed bg-slate-100! opacity-50'
+				)}
 			>
 				{#snippet afterContent()}
 					<div class="text-xs text-balance text-muted-foreground">{item.description}</div>
