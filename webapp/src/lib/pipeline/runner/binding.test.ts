@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getPath } from '$lib/utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
+import type { PipelinesResponse } from '@/pocketbase/types';
+
+import type { MobileRunnerListItem } from '../runners/utils';
 
 import * as Runner from './binding';
 
@@ -13,15 +14,14 @@ function pipeline(id: string, yaml: string): PipelinesResponse {
 	return { id, yaml } as PipelinesResponse;
 }
 
-function runnerRecord(path: string): MobileRunnersResponse {
-	const segments = path.split('/');
+function runnerRecord(path: string): MobileRunnerListItem {
 	return {
-		id: 'runner-1',
-		__canonified_path__: path,
-		canonified_name: segments.at(-1) ?? 'runner',
-		collectionId: 'mobile_runners',
-		collectionName: 'mobile_runners'
-	} as unknown as MobileRunnersResponse;
+		mine: true,
+		name: path.split('/').at(-1) ?? 'runner',
+		online: true,
+		published: true,
+		runner_id: path
+	};
 }
 
 const NO_MOBILE_YAML = `steps:
@@ -66,7 +66,7 @@ describe('getExecutionRunnerPath', () => {
 		const p = pipeline('p3', GLOBAL_MOBILE_YAML);
 		const r = runnerRecord('org-a/selected-runner');
 		Runner.set(p, r);
-		expect(Runner.getExecutionRunnerPath(p)).toBe(getPath(r));
+		expect(Runner.getExecutionRunnerPath(p)).toBe(r.runner_id);
 	});
 
 	it('returns runner_id from first mobile-automation step for specific pipeline', () => {

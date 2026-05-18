@@ -109,6 +109,14 @@ paths:
         and queue length for online runners.
       operationId: listMobileRunners
       parameters:
+      - description: Optional response view. Use 'selector' to return the lightweight
+          runner selector shape and skip queue/device details.
+        in: query
+        name: view
+        schema:
+          description: Optional response view. Use 'selector' to return the lightweight
+            runner selector shape and skip queue/device details.
+          type: string
       - description: Bearer token for authentication.
         in: header
         name: Authorization

@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getPath } from '$lib/utils';
-
-import type { MobileRunnersResponse } from '@/pocketbase/types';
+import { runnerID, type MobileRunnerReference } from './utils';
 
 //
 
@@ -12,7 +10,7 @@ export type ProbeReason = 'periodic' | 'modal' | 'visible';
 
 export const POLL_INTERVAL_MS = 30_000;
 
-type CheckOnlineStatus = (runner: MobileRunnersResponse) => Promise<boolean>;
+type CheckOnlineStatus = (runner: MobileRunnerReference) => Promise<boolean>;
 
 type StatusListener = {
 	onUpdate: (path: string, online: boolean) => void;
@@ -25,7 +23,7 @@ export class StatusCoordinator {
 	#modalGeneration = 0;
 	#pollTimer: ReturnType<typeof setInterval> | undefined;
 	#pollingActive = false;
-	#getRunners: (() => MobileRunnersResponse[]) | undefined;
+	#getRunners: (() => MobileRunnerReference[]) | undefined;
 
 	constructor(
 		private readonly checkOnlineStatus: CheckOnlineStatus,
@@ -40,7 +38,7 @@ export class StatusCoordinator {
 		return this.#onlineByPath[path];
 	}
 
-	probe(runners: MobileRunnersResponse[], options: { reason: ProbeReason }) {
+	probe(runners: MobileRunnerReference[], options: { reason: ProbeReason }) {
 		const uniqueRunners = dedupeRunnersByPath(runners);
 		let modalGen = this.#modalGeneration;
 
@@ -50,7 +48,7 @@ export class StatusCoordinator {
 		}
 
 		for (const runner of uniqueRunners) {
-			const path = getPath(runner);
+			const path = runnerID(runner);
 			const seq = (this.#seqByPath[path] ?? 0) + 1;
 			this.#seqByPath[path] = seq;
 
@@ -63,7 +61,7 @@ export class StatusCoordinator {
 		}
 	}
 
-	startPolling(getRunners: () => MobileRunnersResponse[]) {
+	startPolling(getRunners: () => MobileRunnerReference[]) {
 		if (this.#pollingActive) return;
 
 		this.#pollingActive = true;
@@ -86,11 +84,11 @@ export class StatusCoordinator {
 	}
 }
 
-function dedupeRunnersByPath(runners: MobileRunnersResponse[]): MobileRunnersResponse[] {
+function dedupeRunnersByPath(runners: MobileRunnerReference[]): MobileRunnerReference[] {
 	const seen = new Set<string>();
 
 	return runners.filter((runner) => {
-		const path = getPath(runner);
+		const path = runnerID(runner);
 		if (seen.has(path)) return false;
 		seen.add(path);
 		return true;

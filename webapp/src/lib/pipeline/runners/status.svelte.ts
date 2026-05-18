@@ -2,10 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MobileRunnersResponse } from '@/pocketbase/types';
-
 import { StatusCoordinator, type ProbeReason } from './status-coordinator';
-import { checkOnlineStatus } from './utils';
+import { checkOnlineStatus, type MobileRunnerReference } from './utils';
 
 //
 
@@ -30,11 +28,11 @@ export function isOnline(path: string): boolean | undefined {
 	return onlineByPath[path];
 }
 
-export function probe(runners: MobileRunnersResponse[], options: { reason: ProbeReason }) {
+export function probe(runners: MobileRunnerReference[], options: { reason: ProbeReason }) {
 	coordinator.probe(runners, options);
 }
 
-export function startPolling(getRunners: () => MobileRunnersResponse[]) {
+export function startPolling(getRunners: () => MobileRunnerReference[]) {
 	coordinator.startPolling(getRunners);
 }
 

@@ -5,27 +5,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { userOrganization } from '$lib/app-state';
 	import EmptyState from '$lib/pipeline-form/steps/_partials/empty-state.svelte';
 	import ItemCard from '$lib/pipeline-form/steps/_partials/item-card.svelte';
 	import SearchInput from '$lib/pipeline-form/steps/_partials/search-input.svelte';
 	import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte.js';
-	import { getPath } from '$lib/utils';
-
-	import type { MobileRunnersResponse } from '@/pocketbase/types';
 
 	import { Badge } from '@/components/ui/badge';
 	import Label from '@/components/ui/label/label.svelte';
 	import { cn } from '@/components/ui/utils';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
 
+	import type { MobileRunnerListItem } from '../runners/utils';
+
+	import * as Runners from '../runners';
 	import * as status from '../runners/status.svelte.js';
 
 	//
 
 	type Props = {
-		onSelect?: (runner: MobileRunnersResponse) => void;
+		onSelect?: (runner: MobileRunnerListItem) => void;
 		selectedRunner?: string;
 		name?: string;
 		required?: boolean;
@@ -35,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let foundRunners = $state<MobileRunnersResponse[]>([]);
+	let foundRunners = $state<MobileRunnerListItem[]>([]);
 
 	const runnerSearch = new Search({
 		onSearch: (text) => {
@@ -43,23 +41,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	async function searchRunner(text: string) {
-		const filter = pb.filter(
-			[
-				['name ~ {:text}', 'canonified_name ~ {:text}'].join(' || '),
-				['owner.id = {:currentOrganization}', 'published = true'].join(' || ')
-			]
-				.map((f) => `(${f})`)
-				.join(' && '),
-			{
-				text: text,
-				currentOrganization: userOrganization.current?.id
-			}
-		);
-		foundRunners = await pb.collection('mobile_runners').getFullList({
-			requestKey: null,
-			filter: filter,
-			sort: 'created'
+	function searchRunner(text: string) {
+		const search = text.trim().toLowerCase();
+		foundRunners = Runners.store.read().filter((runner) => {
+			if (!search) return true;
+			return (
+				runner.name.toLowerCase().includes(search) ||
+				runner.runner_id.toLowerCase().includes(search)
+			);
 		});
 	}
 
@@ -67,6 +56,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const runners = foundRunners;
 		if (runners.length === 0) return;
 		status.probe(runners, { reason: 'visible' });
+	});
+
+	$effect(() => {
+		Runners.store.read();
+		searchRunner(runnerSearch.text);
 	});
 </script>
 
@@ -82,9 +76,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-1">
-		{#each foundRunners as item (item.id)}
-			{@const isSelected = selectedRunner === getPath(item)}
-			{@const runnerPath = getPath(item)}
+		{#each foundRunners as item (item.runner_id)}
+			{@const isSelected = selectedRunner === item.runner_id}
+			{@const runnerPath = item.runner_id}
 			{@const online = status.isOnline(runnerPath)}
 			<ItemCard
 				title={item.name}

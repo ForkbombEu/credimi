@@ -4,38 +4,24 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-	MobileRunnersTypeOptions,
-	type IsoAutoDateString,
-	type MobileRunnersResponse
-} from '@/pocketbase/types';
+import type { MobileRunnerListItem, MobileRunnerReference } from './utils';
 
 import { POLL_INTERVAL_MS, StatusCoordinator } from './status-coordinator';
 
 //
 
-function runner(id: string, path: string): MobileRunnersResponse {
+function runner(id: string, path: string): MobileRunnerListItem {
 	return {
-		id,
-		__canonified_path__: path,
-		canonified_name: path.split('/').at(-1) ?? id,
-		collectionId: 'mobile_runners',
-		collectionName: 'mobile_runners',
-		created: '2025-01-01' as IsoAutoDateString,
 		description: '',
-		expand: {},
-		ip: '127.0.0.1',
+		mine: true,
 		name: `Runner ${id}`,
-		owner: 'org1',
-		port: '8080',
+		online: true,
 		published: true,
-		updated: '2025-01-01' as IsoAutoDateString,
-		serial: '1234567890',
-		type: MobileRunnersTypeOptions.android_phone
-	} as MobileRunnersResponse;
+		runner_id: path
+	};
 }
 
-function createCoordinator(checkOnlineStatus: (runner: MobileRunnersResponse) => Promise<boolean>) {
+function createCoordinator(checkOnlineStatus: (runner: MobileRunnerReference) => Promise<boolean>) {
 	const updates: Array<{ online: boolean; path: string }> = [];
 	let cleared = false;
 
