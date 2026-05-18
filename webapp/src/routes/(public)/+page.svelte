@@ -5,11 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Sparkle, StoreIcon, TableIcon } from '@lucide/svelte';
+	import { Sparkle } from '@lucide/svelte';
+	import { entities } from '$lib/global/index.js';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
 
-	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
+	import type { HubItemsResponse } from '@/pocketbase/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
@@ -19,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
-	import { MarketplaceItemCard } from '../../lib/marketplace';
+	import { HubItemCard } from '../../lib/hub';
 	import ScoreboardSection from './_partials/scoreboard-section.svelte';
 
 	//
@@ -35,11 +36,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <PageTop>
 	<div class="space-y-2">
 		<T tag="h1" class="text-balance">
-			{m.EUDIW_Conformance_Interoperability_and_Marketplace()}
+			{m.EUDIW_Conformance_Interoperability_and_Hub()}
 		</T>
 		<div class="flex flex-col gap-2 py-2">
 			<T tag="h3" class="font-normal! text-balance">
-				{m.Explore_the_marketplace_and_try_credentials_wallets_and_services()}
+				{m.Explore_the_hub_and_try_credentials_wallets_and_services()}
 			</T>
 			<T tag="h3" class="font-normal! text-balance">
 				{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}
@@ -47,8 +48,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 	<div class="flex flex-col gap-4 md:flex-row">
-		<Button variant="default" href="/marketplace">
-			{m.Explore_Marketplace()}
+		<Button variant="default" href="/hub">
+			{m.Explore_Hub()}
 		</Button>
 		<Button variant="secondary" href={$currentUser ? '/my/pipelines' : '/login'}>
 			<Icon src={Sparkle} />
@@ -64,9 +65,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="space-y-6">
 		<div class="flex items-center justify-between">
 			<T tag="h3">{m.Find_solutions()}</T>
-			<Button variant="default" href="/marketplace">
-				<StoreIcon />
-				{m.Explore_Marketplace()}
+			<Button variant="default" href="/hub">
+				<Icon src={entities.hub.icon} />
+				{m.Explore_Hub()}
 			</Button>
 		</div>
 
@@ -81,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex items-center justify-between">
 			<T tag="h3">{m.Compare_by_test_results()}</T>
 			<Button variant="default" href="/scoreboard">
-				<TableIcon />
+				<Icon src={entities.scoreboard.icon} />
 				{m.View_Scoreboard()}
 			</Button>
 		</div>
@@ -89,7 +90,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageContent>
 
-{#snippet row(items: MarketplaceItemsResponse[], index: number)}
+{#snippet row(items: HubItemsResponse[], index: number)}
 	<!-- Try: https://stackoverflow.com/questions/22955465/overflow-y-scroll-is-hiding-overflowing-elements-on-the-horizontal-line -->
 	<div
 		class={[
@@ -102,7 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 			{#each items as item (item.id)}
-				<MarketplaceItemCard {item} />
+				<HubItemCard {item} />
 			{/each}
 		</div>
 	</div>

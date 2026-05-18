@@ -15,12 +15,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let props: FeedbackFormProps & { class?: string } = $props();
+	let props: FeedbackFormProps = $props();
 	const forms = new FeedbackForms(props);
 </script>
 
 {#if forms.status == 'fresh'}
-	<div class={['flex flex-col gap-8 @sm:flex-row', props.class, '@container']}>
+	<div class={['flex flex-col gap-8 @sm:flex-row', '@container']}>
 		<Form form={forms.successForm} hide={['submit_button']} class=" grow basis-1">
 			<div class="space-y-2">
 				<Label for="success">If the test succeeded:</Label>

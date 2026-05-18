@@ -15,8 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { page } from '$app/state';
 	import { Languages } from '@lucide/svelte';
+	import { page } from '$app/state';
 
 	import type { IconComponent } from '@/components/types';
 
@@ -25,7 +25,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		languages: Snippet<[{ languages: LanguageData[] }]>;
-		contentClass?: string;
 		trigger: Snippet<[LanguageSelectTriggerSnippetProps]>;
 	};
 

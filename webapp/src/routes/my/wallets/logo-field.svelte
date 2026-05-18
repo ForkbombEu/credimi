@@ -123,8 +123,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					class="size-full object-cover text-center text-xs"
 				/>
 			{:else}
-				<div class="bg-muted flex size-full items-center justify-center p-2">
-					<T class="text-muted-foreground text-sm">Logo preview</T>
+				<div class="flex size-full items-center justify-center bg-muted p-2">
+					<T class="text-sm text-muted-foreground">Logo preview</T>
 				</div>
 			{/if}
 		</div>
@@ -132,7 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<IconButton
 				size="sm"
 				variant="destructive"
-				class="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0"
+				class="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
 				onclick={removeLogo}
 			/>
 		{/if}
@@ -142,10 +142,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet or()}
 	<div class="relative">
 		<div class="absolute inset-0 flex items-center">
-			<span class="border-muted w-full border-t"></span>
+			<span class="w-full border-t border-muted"></span>
 		</div>
 		<div class="relative flex justify-center text-xs uppercase">
-			<span class="bg-background text-muted-foreground px-2">{m.or()}</span>
+			<span class="bg-background px-2 text-muted-foreground">{m.or()}</span>
 		</div>
 	</div>
 {/snippet}

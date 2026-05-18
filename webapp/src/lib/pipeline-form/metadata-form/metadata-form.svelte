@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet content()}
 		{@const f = form.mountForm()}
 		<div>
-			<T class="text-muted-foreground mb-6">{m.save_pipeline_description()}</T>
+			<T class="mb-6 text-muted-foreground">{m.save_pipeline_description()}</T>
 			<Form form={f}>
 				<div class="flex items-start gap-6">
 					<div class="grow">
@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<SwitchField
 							form={f}
 							name="published"
-							options={{ label: m.Publish_to_marketplace() }}
+							options={{ label: m.Publish_to_hub() }}
 						/>
 					</div>
 				</div>

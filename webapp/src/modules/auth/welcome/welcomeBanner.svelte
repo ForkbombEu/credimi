@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Alert variant="info" class="space-y-3 {className}">
-	<T tag="h2" class="-rotate-2 text-ellipsis text-balance text-center">
+	<T tag="h2" class="-rotate-2 text-center text-balance text-ellipsis">
 		{m.welcome_to_app({ appName })}
 	</T>
 

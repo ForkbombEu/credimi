@@ -71,6 +71,9 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	cardData: ({ suite, test, standard }) => {
 		const testPath = suite.paths.find((path) => path.endsWith(test));
+		if (testPath === undefined) {
+			throw new Error('Conformance check path not found for selected test');
+		}
 		return {
 			title: test.split('/').at(-1)?.replaceAll('+', ' ') ?? '',
 			copyText: test,
@@ -78,7 +81,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 			meta: {
 				standard: standard.name
 			},
-			publicUrl: localizeHref(`/marketplace/conformance-checks/${testPath}`)
+			publicUrl: localizeHref(`/hub/conformance-checks/${testPath}`)
 		};
 	}
 };

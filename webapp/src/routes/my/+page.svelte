@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<a
 				href={`/my/${section.slug}`}
 				class={[
-					'bg-secondary block space-y-2 rounded-lg p-4',
+					'block space-y-2 rounded-lg bg-secondary p-4',
 					section.classes.text,
 					'transition-transform hover:-translate-y-2 hover:ring-2'
 				]}

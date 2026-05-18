@@ -6,9 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" generics="Data extends GenericRecord">
 	import type { HTMLInputAttributes } from 'svelte/elements';
-	import type { FormPathLeaves, FormPathType, SuperForm } from 'sveltekit-superforms';
+	import type { FormPathLeaves, SuperForm } from 'sveltekit-superforms';
 
-	import { numberProxy, fieldProxy } from 'sveltekit-superforms';
+	import { fieldProxy, numberProxy } from 'sveltekit-superforms';
 
 	import type { GenericRecord } from '@/utils/types';
 
@@ -53,14 +53,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
 		{#snippet children({ props })}
-			{#if valueProxy}
-				<Input
-					{...options as GenericRecord}
-					{...props as GenericRecord}
-					{placeholder}
-					bind:value={$valueProxy}
-				/>
-			{/if}
+			<Input
+				{...options as GenericRecord}
+				{...props as GenericRecord}
+				{placeholder}
+				bind:value={$valueProxy}
+			/>
 		{/snippet}
 	</FieldWrapper>
 </Form.Field>

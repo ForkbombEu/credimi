@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -668,6 +669,7 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 
 	pipelineWf := pipeline.NewPipelineWorkflow().Name()
 	debugAct := pipeline.NewDebugActivity().Name()
+	githubPRCommentAct := activities.NewUpdateGitHubPRCommentActivity().Name()
 
 	require.Contains(t, fw.registeredWorkflows, pipelineWf)
 	require.Contains(t, fw.registeredWorkflows, "workflow-wf")
@@ -675,6 +677,7 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	require.NotContains(t, fw.registeredWorkflows, "skip-act")
 
 	require.Contains(t, fw.registeredActivities, debugAct)
+	require.Contains(t, fw.registeredActivities, githubPRCommentAct)
 	require.Contains(t, fw.registeredActivities, "activity-act")
 	require.Contains(t, fw.registeredActivities, "internal-act")
 	require.NotContains(t, fw.registeredActivities, "skip-act")

@@ -33,7 +33,16 @@ var VerifierTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:        HandleGetUseCaseVerificationDeeplink,
 			ResponseSchema: GetUseCaseVerificationDeeplinkResponse{},
 		},
+		{
+			Method:  http.MethodDelete,
+			Path:    "/temp-use-case/{record}",
+			Handler: HandleDeleteTempUseCaseVerification,
+		},
 	},
+}
+
+func HandleDeleteTempUseCaseVerification() func(*core.RequestEvent) error {
+	return handleTempRecordDelete("use_cases_verifications", "use case verification")
 }
 
 func HandleGetUseCaseVerificationDeeplink() func(*core.RequestEvent) error {

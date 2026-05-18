@@ -2,21 +2,24 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace';
+import type { HubItem } from '$lib/hub';
 
 import { userOrganization } from '$lib/app-state/index.svelte.js';
 import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
+import {
+	fetchAvailableForOrganization,
+	type MobileRunnerListItem
+} from '$lib/pipeline/runners/utils';
 
 import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase/index.js';
 import {
 	Collections,
-	type MobileRunnersResponse,
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
 
-import { searchMarketplace } from '../_partials/search-marketplace';
+import { searchHub } from '../_partials/search-hub';
 import { Search } from '../_partials/search.svelte.js';
 import { BaseForm } from '../types.js';
 import Component from './wallet-action-step-form.svelte';
@@ -26,11 +29,11 @@ import Component from './wallet-action-step-form.svelte';
 export const GLOBAL_RUNNER = 'global';
 export const EXTERNAL_VERSION = 'installed_from_external_source';
 
-export type SelectedRunner = MobileRunnersResponse | typeof GLOBAL_RUNNER;
+export type SelectedRunner = MobileRunnerListItem | typeof GLOBAL_RUNNER;
 export type SelectedVersion = WalletVersionsResponse | typeof EXTERNAL_VERSION;
 
 export interface WalletActionStepData {
-	wallet: MarketplaceItem;
+	wallet: HubItem;
 	version: SelectedVersion;
 	runner: SelectedRunner;
 	action: WalletActionsResponse;
@@ -80,9 +83,9 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	//
 
-	foundWallets = $state<MarketplaceItem[]>([]);
+	foundWallets = $state<HubItem[]>([]);
 	foundVersions = $state<WalletVersionsResponse[]>([]);
-	foundRunners = $state<MobileRunnersResponse[]>([]);
+	foundRunners = $state<MobileRunnerListItem[]>([]);
 	foundActions = $state<WalletActionsResponse[]>([]);
 
 	walletSearch = new Search({
@@ -92,10 +95,10 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	});
 
 	async searchWallet(text: string) {
-		this.foundWallets = await searchMarketplace(text, Collections.Wallets);
+		this.foundWallets = await searchHub(text, Collections.Wallets);
 	}
 
-	async selectWallet(wallet: MarketplaceItem) {
+	async selectWallet(wallet: HubItem) {
 		this.data.wallet = wallet;
 		this.foundVersions = await pb.collection('wallet_versions').getFullList({
 			filter: `wallet = "${wallet.id}"`,
@@ -126,22 +129,26 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	});
 
 	async searchRunner(text: string) {
-		const filter = pb.filter(
-			[
-				['name ~ {:text}', 'canonified_name ~ {:text}'].join(' || '),
-				['owner.id = {:currentOrganization}', 'published = true'].join(' || ')
-			]
-				.map((f) => `(${f})`)
-				.join(' && '),
-			{
-				text: text,
-				currentOrganization: userOrganization.current?.id
+		const organizationId = userOrganization.current?.id;
+		if (!organizationId) {
+			this.foundRunners = [];
+			return;
+		}
+
+		fetchAvailableForOrganization().match({
+			Rejected: (reason) => {
+				console.error(reason);
+			},
+			Resolved: (runners) => {
+				const search = text.trim().toLowerCase();
+				this.foundRunners = runners.filter((runner) => {
+					if (!search) return true;
+					return (
+						runner.name.toLowerCase().includes(search) ||
+						runner.runner_id.toLowerCase().includes(search)
+					);
+				});
 			}
-		);
-		this.foundRunners = await pb.collection('mobile_runners').getFullList({
-			requestKey: null,
-			filter: filter,
-			sort: 'created'
 		});
 	}
 

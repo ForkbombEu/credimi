@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { children, topbarRight }: Props = $props();
 </script>
 
-<div class="fixed left-2 top-3 !m-0 hidden md:block">
+<div class="fixed top-3 left-2 !m-0 hidden md:block">
 	<AppLogo />
 </div>
 

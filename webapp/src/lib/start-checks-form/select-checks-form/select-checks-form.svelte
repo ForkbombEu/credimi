@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					headerHasFlexWrap
 				>
 					{#snippet headerActions()}
-						<div class="flex gap-2 flex-wrap">
+						<div class="flex flex-wrap gap-2">
 							{#if form.selectedStandard?.standard_url}
 								<LinkExternal
 									href={form.selectedStandard.standard_url}
@@ -109,10 +109,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<Label
 				class={[
-					'w-full border-b-2 p-4 md:w-[400px] flex flex-col justify-start! items-start! text-left!',
+					'flex w-full flex-col items-start! justify-start! border-b-2 p-4 text-left! md:w-[400px]',
 					{
 						'border-b-primary bg-secondary ': selected,
-						'hover:bg-secondary/35 cursor-pointer border-b-transparent':
+						'cursor-pointer border-b-transparent hover:bg-secondary/35':
 							!selected && !disabled,
 						'cursor-not-allowed border-b-transparent opacity-50': disabled
 					}
@@ -122,7 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<RadioGroup.Item value={option.uid} id={option.uid} {disabled} />
 					<span class="text-lg font-bold">{option.name}</span>
 				</div>
-				<p class="text-muted-foreground text-sm">{option.description}</p>
+				<p class="text-sm text-muted-foreground">{option.description}</p>
 			</Label>
 		{/each}
 	</RadioGroup.Root>
@@ -189,12 +189,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Check.Group>
 {/snippet}
 
-
 {#snippet suiteLabel(suite: Suite)}
 	<div class="space-y-3">
 		<div>
 			<T class="text-md font-bold">{suite.name}</T>
-			<T class="text-muted-foreground text-xs">
+			<T class="text-xs text-muted-foreground">
 				{suite.description}
 			</T>
 		</div>
@@ -240,7 +239,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<ul class="flex items-center divide-x">
 					{#snippet CountItem(count: number, label: string)}
 						<li class="px-2">
-							<span class="text-primary font-bold">{count}</span>
+							<span class="font-bold text-primary">{count}</span>
 							{label}
 						</li>
 					{/snippet}

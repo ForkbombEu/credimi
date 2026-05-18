@@ -194,6 +194,7 @@ func enqueuePipelineRun(
 	if runContext.metadata != nil {
 		memo["metadata"] = runContext.metadata
 	}
+	memo[pipelineinternal.PublishedMemoKey] = runContext.pipelineRecord.GetBool("published")
 	config := buildPipelineQueueConfig(e, namespace, runContext.userName, runContext.userEmail)
 	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
 
@@ -216,6 +217,11 @@ func enqueuePipelineRun(
 		)
 	}
 	if len(runnerIDs) == 0 && !runnerInfo.NeedsGlobalRunner {
+		if githubPRConfig := buildPipelineGitHubPRCommentConfig(
+			runContext.notification,
+		); githubPRConfig != nil {
+			config[pipeline.GitHubPRCommentConfigKey] = githubPRConfig
+		}
 		startResult, apiErr := startPipelineFromQueue(
 			e,
 			runContext.pipelineRecord,
@@ -248,6 +254,13 @@ func enqueuePipelineRun(
 			"runner_ids are required",
 			"no runner ids resolved from yaml",
 		)
+	}
+	if apiErr := validatePipelineRunnerAccess(
+		e.App,
+		runContext.organizationRecord.Id,
+		runnerIDs,
+	); apiErr != nil {
+		return PipelineQueueResponse{}, apiErr
 	}
 
 	leaderRunnerID := runnerIDs[0]
@@ -538,14 +551,54 @@ func applyPipelineQueueCleanupConfig(
 	config map[string]any,
 	cleanup *workflows.MobileRunnerSemaphoreCleanupMetadata,
 ) {
-	if config == nil || cleanup == nil || cleanup.TempWalletVersionID == "" {
+	if config == nil || cleanup == nil {
 		return
 	}
-	config[walletAPKCleanupConfigKey] = map[string]any{
-		"record_id":  cleanup.TempWalletVersionID,
-		"owner_id":   cleanup.TempWalletVersionOwnerID,
-		"identifier": cleanup.TempWalletVersionIdentifier,
-		"cleanup":    true,
+	if cleanup.TempWalletVersionID != "" {
+		config[walletAPKCleanupConfigKey] = map[string]any{
+			"record_id":  cleanup.TempWalletVersionID,
+			"owner_id":   cleanup.TempWalletVersionOwnerID,
+			"identifier": cleanup.TempWalletVersionIdentifier,
+			"cleanup":    true,
+		}
+	}
+	if len(cleanup.TempCredentials) > 0 {
+		credentials := make([]map[string]any, 0, len(cleanup.TempCredentials))
+		for _, credential := range cleanup.TempCredentials {
+			if strings.TrimSpace(credential.RecordID) == "" {
+				continue
+			}
+			credentials = append(credentials, map[string]any{
+				"record_id":  credential.RecordID,
+				"owner_id":   credential.OwnerID,
+				"identifier": credential.Identifier,
+			})
+		}
+		if len(credentials) > 0 {
+			config[issuerCITempCredentialsConfigKey] = map[string]any{
+				"credentials": credentials,
+				"cleanup":     true,
+			}
+		}
+	}
+	if len(cleanup.TempUseCaseVerifications) > 0 {
+		useCases := make([]map[string]any, 0, len(cleanup.TempUseCaseVerifications))
+		for _, useCase := range cleanup.TempUseCaseVerifications {
+			if strings.TrimSpace(useCase.RecordID) == "" {
+				continue
+			}
+			useCases = append(useCases, map[string]any{
+				"record_id":  useCase.RecordID,
+				"owner_id":   useCase.OwnerID,
+				"identifier": useCase.Identifier,
+			})
+		}
+		if len(useCases) > 0 {
+			config[verifierCITempUseCasesConfigKey] = map[string]any{
+				"use_cases": useCases,
+				"cleanup":   true,
+			}
+		}
 	}
 }
 
@@ -614,6 +667,50 @@ func resolvePipelineRunnerIDs(yaml string, info pipeline.PipelineRunnerInfo) ([]
 	runnerIDs := pipeline.RunnerIDsWithGlobal(info, globalRunnerID)
 	sort.Strings(runnerIDs)
 	return runnerIDs, nil
+}
+
+func validatePipelineRunnerAccess(
+	app core.App,
+	ownerID string,
+	runnerIDs []string,
+) *apierror.APIError {
+	for _, runnerID := range normalizeRunnerIDs(runnerIDs) {
+		record, err := canonify.Resolve(app, runnerID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return apierror.New(
+					http.StatusNotFound,
+					"runner_id",
+					"runner not found",
+					"mobile runner "+runnerID+" was not found",
+				)
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"runner_id",
+				"failed to resolve runner_id",
+				err.Error(),
+			)
+		}
+		if record.Collection() == nil || record.Collection().Name != "mobile_runners" {
+			return apierror.New(
+				http.StatusNotFound,
+				"runner_id",
+				"runner not found",
+				"mobile runner "+runnerID+" was not found",
+			)
+		}
+		if record.GetString("owner") == ownerID || record.GetBool("published") {
+			continue
+		}
+		return apierror.New(
+			http.StatusForbidden,
+			"runner_id",
+			"runner_id is not accessible",
+			"mobile runner "+runnerID+" is private and does not belong to the caller organization",
+		)
+	}
+	return nil
 }
 
 func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apierror.APIError) {
@@ -815,10 +912,43 @@ func cleanupCanceledQueueResources(
 	statuses []pipelineQueueRunnerStatus,
 ) *apierror.APIError {
 	cleanup, ok := canceledQueueCleanupMetadata(statuses)
-	if !ok || strings.TrimSpace(cleanup.TempWalletVersionID) == "" {
+	if !ok {
 		return nil
 	}
-	return deleteTempWalletVersionForOwner(app, cleanup.TempWalletVersionID, ownerID)
+	if strings.TrimSpace(cleanup.TempWalletVersionID) != "" {
+		if apiErr := deleteTempWalletVersionForOwner(
+			app,
+			cleanup.TempWalletVersionID,
+			ownerID,
+		); apiErr != nil {
+			return apiErr
+		}
+	}
+	for _, credential := range cleanup.TempCredentials {
+		if strings.TrimSpace(credential.RecordID) == "" {
+			continue
+		}
+		if apiErr := deleteTempCredentialForOwner(
+			app,
+			credential.RecordID,
+			ownerID,
+		); apiErr != nil {
+			return apiErr
+		}
+	}
+	for _, useCase := range cleanup.TempUseCaseVerifications {
+		if strings.TrimSpace(useCase.RecordID) == "" {
+			continue
+		}
+		if apiErr := deleteTempUseCaseVerificationForOwner(
+			app,
+			useCase.RecordID,
+			ownerID,
+		); apiErr != nil {
+			return apiErr
+		}
+	}
+	return nil
 }
 
 func canceledQueueCleanupMetadata(
@@ -832,7 +962,10 @@ func canceledQueueCleanupMetadata(
 		if status.Status == workflowengine.MobileRunnerSemaphoreRunRunning {
 			return nil, false
 		}
-		if status.Cleanup != nil && strings.TrimSpace(status.Cleanup.TempWalletVersionID) != "" {
+		if status.Cleanup != nil &&
+			(strings.TrimSpace(status.Cleanup.TempWalletVersionID) != "" ||
+				len(status.Cleanup.TempCredentials) > 0 ||
+				len(status.Cleanup.TempUseCaseVerifications) > 0) {
 			cleanup = status.Cleanup
 		}
 	}
@@ -869,6 +1002,42 @@ func deleteTempWalletVersionForOwner(
 			http.StatusInternalServerError,
 			"wallet_version",
 			"failed to delete temporary wallet version",
+			err.Error(),
+		)
+	}
+	return nil
+}
+
+func deleteTempUseCaseVerificationForOwner(
+	app core.App,
+	recordID string,
+	ownerID string,
+) *apierror.APIError {
+	record, err := app.FindRecordById("use_cases_verifications", strings.TrimSpace(recordID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return apierror.New(
+			http.StatusInternalServerError,
+			"use_case_verification",
+			"failed to find temporary use case verification",
+			err.Error(),
+		)
+	}
+	if record.GetString("owner") != ownerID {
+		return apierror.New(
+			http.StatusForbidden,
+			"use_case_verification",
+			"temporary use case verification owner mismatch",
+			"queued cleanup does not belong to the authenticated organization",
+		)
+	}
+	if err := app.Delete(record); err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"use_case_verification",
+			"failed to delete temporary use case verification",
 			err.Error(),
 		)
 	}

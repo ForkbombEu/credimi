@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { version } from '$app/environment';
-	import { page } from '$app/state';
 	import {
 		ChevronUp,
 		CircleHelp,
@@ -19,6 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		SquareStack,
 		User
 	} from '@lucide/svelte';
+	import { version } from '$app/environment';
+	import { page } from '$app/state';
 
 	import { AppLogo, appName } from '@/brand';
 	import SidebarGroup from '@/components/layout/sidebar/sidebarGroup.svelte';
@@ -95,8 +95,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 					{#await authorizationsQuery.getFullList() then authorizations}
 						{#each authorizations as authorization (authorization.id)}
-							{@const organization = authorization.expand?.organization!}
-							{@const role = authorization.expand?.role!}
+							{@const organization = authorization.expand!.organization!}
+							{@const role = authorization.expand!.role!}
 							{@const active = page.url.pathname.includes(
 								`/my/organizations/${organization.id}`
 							)}
@@ -114,7 +114,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										role.name as OrgRole
 									)}
 
-									{#each links as link}
+									{#each links as link (link.href)}
 										<SidebarLink {...link} sub />
 									{/each}
 								{/snippet}
@@ -229,7 +229,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex w-full overflow-hidden border-t p-2">
 			<T
 				tag="small"
-				class="text-secondary-foreground/50 text-wrap font-mono text-xs leading-normal"
+				class="font-mono text-xs leading-normal text-wrap text-secondary-foreground/50"
 			>
 				{appName} – Version {version}
 			</T>

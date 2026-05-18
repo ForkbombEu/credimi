@@ -24,15 +24,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={cn(
-		'border-primary bg-card text-card-foreground ring-primary relative',
+		'relative border-primary bg-card text-card-foreground ring-primary',
 		'flex flex-col justify-between gap-4',
 		'overflow-visible rounded-lg border p-4 shadow-sm transition-all hover:-translate-y-2 hover:ring-2',
 		className
 	)}
 >
-	<a href={resolve("/(public)/news/[news_id]", { news_id: news.id })}>
-		<div class="text-muted-foreground mb-3 flex items-center gap-4 text-sm">
-			<div class="text-muted-foreground mb-3 flex items-center gap-4 text-sm">
+	<a href={resolve('/(public)/news/[news_id]', { news_id: news.id })}>
+		<div class="mb-3 flex items-center gap-4 text-sm text-muted-foreground">
+			<div class="mb-3 flex items-center gap-4 text-sm text-muted-foreground">
 				<div class="flex items-center gap-1">
 					<CalendarDays class="h-4 w-4" />
 					<time dateTime={news.created}>

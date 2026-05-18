@@ -81,7 +81,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		exclude,
 		order: ['name', 'display_name', 'description', 'deeplink', 'logo'],
 		labels: {
-			published: m.Publish_to_marketplace(),
+			published: m.Publish_to_hub(),
 			deeplink: m.QR_Code_Generation()
 		},
 		snippets: {

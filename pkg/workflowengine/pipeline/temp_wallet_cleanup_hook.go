@@ -57,5 +57,6 @@ func tempWalletVersionCleanupHook(
 	}
 
 	cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
-	return workflow.ExecuteActivity(cleanupCtx, internalHTTPActivity.Name(), request).Get(cleanupCtx, nil)
+	return workflow.ExecuteActivity(cleanupCtx, internalHTTPActivity.Name(), request).
+		Get(cleanupCtx, nil)
 }

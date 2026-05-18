@@ -15,6 +15,7 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ApiKeyRoutes,
 	handlers.SchedulesRoutes,
 	handlers.CustomIntegrationsRoutes,
+	handlers.MobileRunnersPublicRoutes,
 	// handlers.ScoreboardRoutes,
 }
 

@@ -21,6 +21,10 @@ import (
 const (
 	GitHubPRCommentWorkflowName = "GitHub PR comment workflow"
 	GitHubPRCommentUpdateSignal = "github-pr-comment-update"
+
+	GitHubPRCommentSectionWalletAPK = "Credimi wallet APK pipeline runs"
+	GitHubPRCommentSectionIssuer    = "Credimi issuer pipeline runs"
+	GitHubPRCommentSectionVerifier  = "Credimi verifier pipeline runs"
 )
 
 type UpdateGitHubPRCommentInput struct {
@@ -40,6 +44,7 @@ type UpdateGitHubPRCommentInput struct {
 	RunID             string `json:"run_id,omitempty"`
 	WorkflowStatus    string `json:"workflow_status,omitempty"`
 	ErrorMessage      string `json:"error_message,omitempty"`
+	SectionTitle      string `json:"section_title,omitempty"`
 }
 
 type PatchGitHubPRCommentInput struct {
@@ -78,9 +83,13 @@ func (a *UpdateGitHubPRCommentActivity) Execute(
 	}
 	if strings.TrimSpace(payload.Repository) == "" ||
 		payload.PullRequestNumber <= 0 ||
-		strings.TrimSpace(payload.TicketID) == "" {
+		(strings.TrimSpace(payload.TicketID) == "" &&
+			(strings.TrimSpace(payload.WorkflowID) == "" || strings.TrimSpace(payload.RunID) == "")) {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "repository, pull_request_number, and ticket_id are required")
+		return result, a.NewActivityError(
+			errCode.Code,
+			"repository, pull_request_number, and ticket_id or workflow_id/run_id are required",
+		)
 	}
 	if err := SignalGitHubPRCommentUpdate(ctx, payload); err != nil {
 		return result, err
@@ -218,6 +227,22 @@ func buildGitHubPRCommentBody(input UpdateGitHubPRCommentInput) string {
 
 func BuildGitHubPRCommentBodyForWorkflow(input UpdateGitHubPRCommentInput) string {
 	return buildGitHubPRCommentBody(input)
+}
+
+func GitHubPRCommentSectionTitle(input UpdateGitHubPRCommentInput) string {
+	title := strings.TrimSpace(input.SectionTitle)
+	if title == "" {
+		return GitHubPRCommentSectionWalletAPK
+	}
+	return title
+}
+
+func GitHubPRCommentKnownSectionTitles() []string {
+	return []string{
+		GitHubPRCommentSectionWalletAPK,
+		GitHubPRCommentSectionIssuer,
+		GitHubPRCommentSectionVerifier,
+	}
 }
 
 func formatPRCommentStatusBadge(status string) string {

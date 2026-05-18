@@ -14,8 +14,11 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	api "github.com/forkbombeu/credimi/pkg/internal/apis"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/swaggest/openapi-go"
 	"github.com/swaggest/openapi-go/openapi3"
 )
@@ -25,18 +28,24 @@ import (
 // =================================================================
 
 type RouteInfo struct {
-	Method                 string
-	Path                   string
-	OperationID            string
-	InputSchema            any
-	OutputSchema           any
-	QuerySearchAttributes  []routing.QuerySearchAttribute
-	PathParams             []string
-	HasInputBody           bool
-	Summary                string
-	Description            string
-	Tags                   []string
-	AuthenticationRequired bool
+	Method                string
+	Path                  string
+	OperationID           string
+	InputSchema           any
+	OutputSchema          any
+	QuerySearchAttributes []routing.QuerySearchAttribute
+	AuthHeaders           []authHeaderParam
+	PathParams            []string
+	HasInputBody          bool
+	Summary               string
+	Description           string
+	Tags                  []string
+}
+
+type authHeaderParam struct {
+	Name        string
+	Required    bool
+	Description string
 }
 
 // =================================================================
@@ -71,8 +80,10 @@ func main() {
 				Summary:               route.Summary,
 				Description:           route.Description,
 				QuerySearchAttributes: route.QuerySearchAttributes,
-				AuthenticationRequired: needsAuth(
+				AuthHeaders: authHeadersForRoute(
 					group.AuthenticationRequired,
+					group.Middlewares,
+					route.Middlewares,
 					route.ExcludedMiddlewares,
 				),
 				// Tags:          route.Tags,
@@ -133,10 +144,10 @@ func buildOpenAPISpec(routes []RouteInfo) (*openapi3.Spec, error) {
 	spec := &openapi3.Spec{
 		Openapi: "3.0.3",
 		Info: openapi3.Info{
-			Title:   "credimi 👀 API Gateway",
+			Title:   "Credimi API",
 			Version: "1.4.0",
 			Description: stringPtr(
-				`credimi API Gateway for managing EUDI-ARF compliance checks...`,
+				`Credimi API — schedule and run conformance checks, manage pipeline automation, orchestrate mobile runners, publish marketplace integrations, and inspect end-to-end test results for decentralized identity services.`,
 			),
 			Contact: &openapi3.Contact{
 				Name:  stringPtr("credimi Support"),
@@ -146,7 +157,6 @@ func buildOpenAPISpec(routes []RouteInfo) (*openapi3.Spec, error) {
 		},
 		Servers: []openapi3.Server{
 			buildServer("https://credimi.io", "Production server"),
-			buildServer("https://demo.credimi.io", "Demo server"),
 			buildServer("http://localhost:8090/", "Localhost server"),
 		},
 		Paths: openapi3.Paths{},
@@ -249,7 +259,7 @@ func buildRequestStructure(route RouteInfo) any {
 	fields := make(
 		[]reflect.StructField,
 		0,
-		len(route.PathParams)+len(route.QuerySearchAttributes)+2,
+		len(route.PathParams)+len(route.AuthHeaders)+len(route.QuerySearchAttributes),
 	)
 	used := map[string]struct{}{}
 
@@ -262,12 +272,12 @@ func buildRequestStructure(route RouteInfo) any {
 		})
 	}
 
-	if route.AuthenticationRequired {
-		fieldName := uniqueFieldName("HeaderAuthorization", used)
+	for _, header := range route.AuthHeaders {
+		fieldName := uniqueFieldName(paramFieldName("Header", header.Name), used)
 		fields = append(fields, reflect.StructField{
 			Name: fieldName,
 			Type: reflect.TypeOf(""),
-			Tag:  buildTag("header", "Authorization", true, "Bearer token for authentication"),
+			Tag:  buildTag("header", header.Name, header.Required, header.Description),
 		})
 	}
 
@@ -331,6 +341,66 @@ func needsAuth(groupAuth bool, excluded []string) bool {
 		}
 	}
 	return true
+}
+
+func authHeadersForRoute(
+	groupAuth bool,
+	groupMiddlewares []*hook.Handler[*core.RequestEvent],
+	routeMiddlewares []*hook.Handler[*core.RequestEvent],
+	excluded []string,
+) []authHeaderParam {
+	var headers []authHeaderParam
+	if needsAuth(groupAuth, excluded) {
+		headers = addAuthOrAPIKeyHeaders(headers)
+	}
+	for _, middleware := range append(groupMiddlewares, routeMiddlewares...) {
+		if middleware == nil {
+			continue
+		}
+		switch middleware.Id {
+		case middlewares.RequireAuthOrAPIKeyMiddlewareID:
+			headers = addAuthOrAPIKeyHeaders(headers)
+		case middlewares.RequireInternalAdminAPIKeyMiddlewareID:
+			headers = addAuthHeader(headers, authHeaderParam{
+				Name:        "Credimi-Api-Key",
+				Required:    true,
+				Description: "Internal admin API key.",
+			})
+		case middlewares.RequireInternalAdminOrAuthMiddlewareID:
+			headers = addAuthOrAPIKeyHeaders(headers)
+		}
+	}
+	return headers
+}
+
+func addAuthOrAPIKeyHeaders(headers []authHeaderParam) []authHeaderParam {
+	headers = addAuthHeader(headers, authHeaderParam{
+		Name:        "Authorization",
+		Required:    false,
+		Description: "Bearer token for authentication.",
+	})
+	headers = addAuthHeader(headers, authHeaderParam{
+		Name:        "Credimi-Api-Key",
+		Required:    false,
+		Description: "User API key or internal admin API key, depending on the endpoint.",
+	})
+	return headers
+}
+
+func addAuthHeader(headers []authHeaderParam, header authHeaderParam) []authHeaderParam {
+	for i, existing := range headers {
+		if existing.Name != header.Name {
+			continue
+		}
+		if header.Required && !existing.Required {
+			headers[i].Required = true
+		}
+		if headers[i].Description == "" {
+			headers[i].Description = header.Description
+		}
+		return headers
+	}
+	return append(headers, header)
 }
 
 func paramFieldName(prefix, name string) string {

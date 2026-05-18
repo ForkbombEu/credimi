@@ -4,14 +4,14 @@ info:
     email: support@forkbomb.eu
     name: credimi Support
     url: https://forkbomb.solutions
-  description: credimi API Gateway for managing EUDI-ARF compliance checks...
-  title: "credimi \U0001F440 API Gateway"
+  description: Credimi API — schedule and run conformance checks, manage pipeline
+    automation, orchestrate mobile runners, publish marketplace integrations, and
+    inspect end-to-end test results for decentralized identity services.
+  title: Credimi API
   version: 1.4.0
 servers:
 - description: Production server
   url: https://credimi.io
-- description: Demo server
-  url: https://demo.credimi.io
 - description: Localhost server
   url: http://localhost:8090/
 paths:
@@ -37,6 +37,19 @@ paths:
     post:
       description: Generate a new API key for the authenticated user or superuser.
       operationId: apiKey.generate
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       requestBody:
         content:
           application/json:
@@ -62,12 +75,17 @@ paths:
       description: Run a custom integration
       operationId: custom-integration.run
       parameters:
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       requestBody:
         content:
@@ -85,17 +103,62 @@ paths:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Run a custom integration
+  /api/mobile-runners:
+    get:
+      description: Lists mobile runners visible to the caller, including health, devices,
+        and queue length for online runners.
+      operationId: listMobileRunners
+      parameters:
+      - description: Optional response view. Use 'selector' to return the lightweight
+          runner selector shape and skip queue/device details.
+        in: query
+        name: view
+        schema:
+          description: Optional response view. Use 'selector' to return the lightweight
+            runner selector shape and skip queue/device details.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersListMobileRunnersPublicResponseSchema'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: List available mobile runners
   /api/my/schedules:
     get:
       description: List all schedules for the authenticated user
       operationId: schedules.list
       parameters:
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -123,12 +186,17 @@ paths:
         schema:
           description: The ID for the scheduleId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -156,12 +224,17 @@ paths:
         schema:
           description: The ID for the scheduleId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -189,12 +262,17 @@ paths:
         schema:
           description: The ID for the scheduleId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -215,12 +293,17 @@ paths:
       description: Start a new schedule from an existing workflow
       operationId: schedule.start
       parameters:
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       requestBody:
         content:
@@ -254,12 +337,17 @@ paths:
         schema:
           description: The ID for the workflowId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -294,12 +382,17 @@ paths:
         schema:
           description: The ID for the runId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -334,12 +427,17 @@ paths:
         schema:
           description: The ID for the runId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -374,12 +472,17 @@ paths:
         schema:
           description: The ID for the runId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -414,12 +517,17 @@ paths:
         schema:
           description: The ID for the runId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -463,12 +571,17 @@ paths:
         schema:
           description: The ID for the runId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -503,12 +616,17 @@ paths:
         schema:
           description: The ID for the runId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       requestBody:
         content:
@@ -549,12 +667,17 @@ paths:
         schema:
           description: The ID for the runId.
           type: string
-      - description: Bearer token for authentication
+      - description: Bearer token for authentication.
         in: header
         name: Authorization
-        required: true
         schema:
-          description: Bearer token for authentication
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
           type: string
       responses:
         "200":
@@ -733,6 +856,14 @@ components:
         workflowExecutionInfo:
           $ref: '#/components/schemas/HandlersWorkflowExecutionInfo'
       type: object
+    HandlersListMobileRunnersPublicResponseSchema:
+      properties:
+        runners:
+          items:
+            $ref: '#/components/schemas/HandlersMobileRunnerListItem'
+          nullable: true
+          type: array
+      type: object
     HandlersListMySchedulesResponse:
       properties:
         schedules:
@@ -754,6 +885,47 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/HandlersPayload'
           type: object
+      type: object
+    HandlersMobileRunnerHealthDevice:
+      properties:
+        device:
+          type: string
+        model:
+          type: string
+        product:
+          type: string
+        serial:
+          type: string
+        state:
+          type: string
+        transport_id:
+          type: string
+      type: object
+    HandlersMobileRunnerListItem:
+      properties:
+        description:
+          type: string
+        devices:
+          items:
+            $ref: '#/components/schemas/HandlersMobileRunnerHealthDevice'
+          type: array
+        mine:
+          type: boolean
+        name:
+          type: string
+        online:
+          type: boolean
+        published:
+          type: boolean
+        queue_len:
+          nullable: true
+          type: integer
+        runner_id:
+          type: string
+        runner_url:
+          type: string
+        type:
+          type: string
       type: object
     HandlersPauseScheduleResponse:
       properties:

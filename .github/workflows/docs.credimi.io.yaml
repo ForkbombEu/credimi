@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: docs.credimi.io
+
+on:
+  pull_request:
+    branches: [main]
+    paths: [docs/**/*]
+  push:
+    branches: [main]
+    paths: [docs/**/*]
+
+permissions:
+  contents: read
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check internal credimi.io links (HTTP/1.1)
+        run: |
+          FAILED=0
+          urls=$(grep -roPh 'https?://credimi\.io[^\s)\]]+' docs/src/content/docs | sort -u) || true
+          for url in $urls; do
+            status=$(curl -sI --http1.1 -o /dev/null -w '%{http_code}' --max-time 10 "$url" 2>/dev/null || echo "000")
+            if [ "$status" -ge 200 ] && [ "$status" -lt 400 ]; then
+              echo "  OK  $status $url"
+            else
+              echo "FAIL $status $url"
+              FAILED=1
+            fi
+          done
+          exit $FAILED
+
+      - name: Link Checker (external links)
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >
+            --config docs/.lychee.toml --format markdown --timeout 30
+            --exclude 'credimi\.io'
+            --exclude 'localhost'
+            --exclude 'your-domain'
+            --exclude 'certification\.openid\.net/api'
+            --exclude 'tupadr3/plantuml-icon-font-sprites/v3\.0\.0/icons$'
+            --exclude 'gnu\.org'
+            docs/src/content/docs
+
+  build:
+    needs: link-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v2
+      - name: Generate OpenAPI spec
+        run: go generate ./pkg/gen.go
+      - uses: actions/configure-pages@v6
+      - run: |
+          bun install
+          bun run docs:build
+        working-directory: docs
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/dist
+
+  deploy:
+    if: github.event_name == 'push'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/deploy-pages@v5
+        id: deployment

@@ -5,11 +5,8 @@
 import { Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
-import {
-	getMarketplaceItemLogo,
-	getMarketplaceItemUrl,
-	type MarketplaceItem
-} from '$lib/marketplace';
+import { getHubItemLogo, getHubItemUrl, type HubItem } from '$lib/hub';
+import { fetchAvailableRunners, type MobileRunnerListItem } from '$lib/pipeline/runners/utils';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -19,11 +16,7 @@ import { getPath } from '$lib/utils';
 
 import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase';
-import {
-	type MobileRunnersResponse,
-	type WalletActionsResponse,
-	type WalletVersionsResponse
-} from '@/pocketbase/types';
+import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
 import type { TypedConfig } from '../types';
 
@@ -53,13 +46,13 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	EditComponent,
 
 	cardData: ({ action, wallet, version, runner }) => {
-		let publicUrl = getMarketplaceItemUrl(wallet);
+		let publicUrl = getHubItemUrl(wallet);
 		publicUrl += `#${action.canonified_name}`;
 
 		return {
 			title: action.name,
 			copyText: getPath(action),
-			avatar: getMarketplaceItemLogo(wallet),
+			avatar: getHubItemLogo(wallet),
 			publicUrl,
 			beforeTitle: Wallet.Action.getCategoryLabel(action),
 			meta: {
@@ -87,7 +80,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			version_id: version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(version)
 		};
 		if (runner !== GLOBAL_RUNNER) {
-			_with.runner_id = getPath(runner);
+			_with.runner_id = runner.runner_id;
 		}
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
@@ -139,17 +132,25 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 		let runner: SelectedRunner = GLOBAL_RUNNER;
 		if (data.runner_id !== GLOBAL_RUNNER && data.runner_id) {
-			const response = await getRecordByCanonifiedPath<MobileRunnersResponse>(data.runner_id);
-			if (!isError(response)) {
-				runner = response;
-			} else {
-				throw response;
+			const fallbackRunner = {
+				mine: false,
+				name: getLastPathSegment(data.runner_id),
+				online: false,
+				published: false,
+				runner_id: data.runner_id
+			} satisfies MobileRunnerListItem;
+
+			try {
+				runner =
+					(await fetchAvailableRunners()).find(
+						(item) => item.runner_id === data.runner_id
+					) ?? fallbackRunner;
+			} catch {
+				runner = fallbackRunner;
 			}
 		}
 
-		const wallet: MarketplaceItem = await pb
-			.collection('marketplace_items')
-			.getOne(action.wallet);
+		const wallet: HubItem = await pb.collection('hub_items').getOne(action.wallet);
 
 		return { wallet, version, action, runner };
 	}

@@ -102,13 +102,22 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	defer func() {
+		finalResult := pipelineFinalResult(ctx, finalErr)
+		reportGitHubPRCommentDone(
+			ctx,
+			logger,
+			config,
+			workflowID,
+			runID,
+			finalResult,
+		)
 		reportMobileRunnerSemaphoreDone(
 			ctx,
 			logger,
 			config,
 			workflowID,
 			runID,
-			pipelineFinalResult(ctx, finalErr),
+			finalResult,
 		)
 	}()
 
@@ -220,7 +229,7 @@ func (w *PipelineWorkflow) Workflow(
 			state.finalOutput,
 		)
 		result = workflowengine.WorkflowResult{}
-		return
+		return result, finalErr
 	}
 
 	if len(cleanupErrors) > 0 {
@@ -236,13 +245,13 @@ func (w *PipelineWorkflow) Workflow(
 			state.finalOutput,
 		)
 		result = workflowengine.WorkflowResult{}
-		return
+		return result, finalErr
 	}
 
 	result = workflowengine.WorkflowResult{
 		Output: state.finalOutput,
 	}
-	return
+	return result, finalErr
 }
 
 func pipelineFinalResult(ctx workflow.Context, finalErr error) string {
@@ -427,7 +436,11 @@ func collectFinallyOutputs(finalOutput map[string]any) map[string]any {
 
 	for key, value := range finalOutput {
 		switch key {
-		case "workflow-id", "workflow-run-id", "result_video_warning", "cleanup_warnings", "finally_errors":
+		case "workflow-id",
+			"workflow-run-id",
+			"result_video_warning",
+			"cleanup_warnings",
+			"finally_errors":
 			continue
 		}
 
@@ -846,7 +859,10 @@ func (w *PipelineWorkflow) Start(
 }
 
 func isReservedWorkflowInputConfigKey(key string) bool {
-	return key == tempWalletVersionConfigKey
+	return key == tempWalletVersionConfigKey ||
+		key == tempCredentialsConfigKey ||
+		key == tempUseCaseVerificationsConfigKey ||
+		key == GitHubPRCommentConfigKey
 }
 
 func ExecuteEventStepsOnError(
@@ -961,8 +977,11 @@ func ValidateFinallySteps(finallySteps []pipeline.FinallyStepDefinition) error {
 
 	for _, step := range finallySteps {
 		if !allowedTypes[step.Use] {
-			return fmt.Errorf("finally step '%s' uses '%s' which is not allowed. Only email and http-request are allowed",
-				step.ID, step.Use)
+			return fmt.Errorf(
+				"finally step '%s' uses '%s' which is not allowed. Only email and http-request are allowed",
+				step.ID,
+				step.Use,
+			)
 		}
 	}
 	return nil

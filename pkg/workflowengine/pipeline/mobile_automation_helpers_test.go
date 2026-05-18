@@ -306,6 +306,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
@@ -342,7 +343,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -371,6 +372,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
@@ -407,7 +409,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -445,6 +447,7 @@ func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testin
 	env := suite.NewTestWorkflowEnvironment()
 
 	httpActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -470,7 +473,7 @@ func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testin
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -551,11 +554,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
+	internalHTTPActivity := registerInternalHTTPActivity(env)
 
 	workflowName := "fetch-runner-info"
 	env.RegisterWorkflowWithOptions(
@@ -564,11 +563,10 @@ func TestFetchRunnerInfo(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
 			runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
-				ctx:          ctx,
-				payload:      payload,
-				appURL:       "http://localhost:8090",
-				stepID:       "step-1",
-				httpActivity: httpActivity,
+				ctx:     ctx,
+				payload: payload,
+				appURL:  "http://localhost:8090",
+				stepID:  "step-1",
 			})
 			if err != nil {
 				return nil, err
@@ -583,7 +581,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -648,11 +646,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
 
-			httpActivity := activities.NewHTTPActivity()
-			env.RegisterActivityWithOptions(
-				httpActivity.Execute,
-				activity.RegisterOptions{Name: httpActivity.Name()},
-			)
+			internalHTTPActivity := registerInternalHTTPActivity(env)
 
 			workflowName := "fetch-runner-info-error"
 			env.RegisterWorkflowWithOptions(
@@ -663,11 +657,10 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 						RunnerID: "runner-1",
 					}
 					_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
-						ctx:          ctx,
-						payload:      payload,
-						appURL:       "http://localhost:8090",
-						stepID:       "step-1",
-						httpActivity: httpActivity,
+						ctx:     ctx,
+						payload: payload,
+						appURL:  "http://localhost:8090",
+						stepID:  "step-1",
 					})
 					return err
 				},
@@ -675,7 +668,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 			)
 
 			env.OnActivity(
-				httpActivity.Name(),
+				internalHTTPActivity.Name(),
 				mock.Anything,
 				mock.Anything,
 			).Return(workflowengine.ActivityResult{Output: map[string]any{"body": tc.body}}, nil)

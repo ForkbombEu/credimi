@@ -82,6 +82,9 @@ export function createPipelineYaml(
 	const clonedSteps = _.cloneDeep(steps);
 
 	const processedSteps = clonedSteps.map((step, index) => {
+		if (step.use === 'debug') {
+			return step;
+		}
 		const config = getConfigByType(step.use);
 		if ('id' in step) {
 			step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;

@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <a
 	href={localizeHref(`/services/${service.id}`)}
 	class={cn(
-		'border-primary bg-card text-card-foreground ring-primary flex flex-col gap-4 rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2',
+		'flex flex-col gap-4 rounded-lg border border-primary bg-card p-6 text-card-foreground shadow-sm ring-primary transition-all hover:-translate-y-2 hover:ring-2',
 		{ className }
 	)}
 >
@@ -37,13 +37,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if service.logo_url && String.isNonEmpty(service.logo_url)}
 				<Avatar src={service.logo_url} class="!rounded-sm" hideIfLoadingError />
 			{/if}
-			<T class="overflow-hidden text-ellipsis font-semibold">{title}</T>
+			<T class="overflow-hidden font-semibold text-ellipsis">{title}</T>
 		</div>
 		{#if String.isNonEmpty(service.description)}
-			<T tag="p" class="block font-normal leading-snug">{service.description}</T>
+			<T tag="p" class="block leading-snug font-normal">{service.description}</T>
 		{/if}
 	</div>
-	<div class="text-muted-foreground flex flex-col items-start gap-2 overflow-hidden">
+	<div class="flex flex-col items-start gap-2 overflow-hidden text-muted-foreground">
 		{#if String.isNonEmpty(service.url)}
 			<T tag="small">{service.url}</T>
 		{/if}

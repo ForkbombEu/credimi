@@ -53,6 +53,10 @@ steps:
 	env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
 		Name: httpAct.Name(),
 	})
+	internalHTTPAct := activities.NewInternalHTTPActivity()
+	env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
+		Name: internalHTTPAct.Name(),
+	})
 
 	var capturedPayload activities.EnqueuePipelineRunTicketActivityInput
 	env.RegisterActivityWithOptions(
@@ -72,9 +76,16 @@ steps:
 			Output: map[string]any{
 				"body": map[string]any{
 					"record": map[string]any{
-						"yaml": pipelineYAML,
+						"published": true,
+						"yaml":      pipelineYAML,
 					},
 				},
+			},
+		}, nil)
+	env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"body": map[string]any{"valid": true},
 			},
 		}, nil)
 
@@ -105,6 +116,7 @@ steps:
 		pipelineinternal.RunTypeScheduled,
 		capturedPayload.Memo[pipelineinternal.RunTypeMemoKey],
 	)
+	require.Equal(t, true, capturedPayload.Memo[pipelineinternal.PublishedMemoKey])
 
 	require.False(t, capturedPayload.EnqueuedAt.IsZero())
 	require.Equal(t, time.UTC, capturedPayload.EnqueuedAt.Location())

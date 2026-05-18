@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 </script>
 
-<CollectionManager collection="marketplace_organizations">
+<CollectionManager collection="hub_organizations">
 	{#snippet top({ Search })}
 		<PageTop>
 			<T tag="h1">{m.Find_providers_of_identity_solutions()}</T>
@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet contentWrapper(children)}
-		<PageContent class="bg-secondary grow">
+		<PageContent class="grow bg-secondary">
 			{@render children()}
 		</PageContent>
 	{/snippet}

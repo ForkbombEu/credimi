@@ -20,7 +20,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<mj-text> Hello {{.UserName}}, </mj-text>
 
 				<mj-text>
-					Your membership have been removed from <strong>{{.OrganizationName}}</strong>.
+					Your membership have been removed from <strong>{{.OrganizationName}}</strong
+					>.
 				</mj-text>
 
 				<mj-text>

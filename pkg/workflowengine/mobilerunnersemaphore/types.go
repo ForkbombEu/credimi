@@ -81,9 +81,17 @@ type MobileRunnerSemaphoreEnqueueRunRequest struct {
 // MobileRunnerSemaphoreCleanupMetadata carries resources owned by a queued run
 // that must be cleaned if the ticket is canceled before the workflow starts.
 type MobileRunnerSemaphoreCleanupMetadata struct {
-	TempWalletVersionID         string `json:"temp_wallet_version_id,omitempty"`
-	TempWalletVersionOwnerID    string `json:"temp_wallet_version_owner_id,omitempty"`
-	TempWalletVersionIdentifier string `json:"temp_wallet_version_identifier,omitempty"`
+	TempWalletVersionID         string                                               `json:"temp_wallet_version_id,omitempty"`
+	TempWalletVersionOwnerID    string                                               `json:"temp_wallet_version_owner_id,omitempty"`
+	TempWalletVersionIdentifier string                                               `json:"temp_wallet_version_identifier,omitempty"`
+	TempCredentials             []MobileRunnerSemaphoreTempCredentialCleanupMetadata `json:"temp_credentials,omitempty"`
+	TempUseCaseVerifications    []MobileRunnerSemaphoreTempCredentialCleanupMetadata `json:"temp_use_case_verifications,omitempty"`
+}
+
+type MobileRunnerSemaphoreTempCredentialCleanupMetadata struct {
+	RecordID   string `json:"record_id,omitempty"`
+	OwnerID    string `json:"owner_id,omitempty"`
+	Identifier string `json:"identifier,omitempty"`
 }
 
 type MobileRunnerSemaphoreNotification struct {
@@ -100,6 +108,7 @@ type MobileRunnerSemaphoreGitHubPRNotification struct {
 	RunnerTypes        map[string]string `json:"runner_types,omitempty"`
 	PipelineURL        string            `json:"pipeline_url,omitempty"`
 	AppURL             string            `json:"app_url,omitempty"`
+	SectionTitle       string            `json:"section_title,omitempty"`
 }
 
 type MobileRunnerSemaphoreEnqueueRunResponse struct {

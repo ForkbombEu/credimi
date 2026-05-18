@@ -247,6 +247,15 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
+	if err := validateScheduledPipelineRunnerAccess(
+		ctx,
+		appURL,
+		ownerNamespace,
+		runnerIDs,
+		input.RunMetadata,
+	); err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
 
 	enqueuedAt := workflow.Now(ctx).UTC()
 	ticketID := fmt.Sprintf(
@@ -255,8 +264,9 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		info.WorkflowExecution.RunID,
 	)
 	memo := map[string]any{
-		"test":                          "pipeline-run",
-		pipelineinternal.RunTypeMemoKey: pipelineinternal.RunTypeScheduled,
+		"test":                            "pipeline-run",
+		pipelineinternal.RunTypeMemoKey:   pipelineinternal.RunTypeScheduled,
+		pipelineinternal.PublishedMemoKey: scheduledPipelinePublished(record),
 	}
 
 	enqueueInput := workflowengine.ActivityInput{
@@ -306,6 +316,50 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	}, nil
 }
 
+func validateScheduledPipelineRunnerAccess(
+	ctx workflow.Context,
+	appURL string,
+	ownerNamespace string,
+	runnerIDs []string,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+) error {
+	httpActivity := activities.NewInternalHTTPActivity()
+	request := workflowengine.ActivityInput{
+		Payload: activities.InternalHTTPActivityPayload{
+			Method: http.MethodPost,
+			URL: utils.JoinURL(
+				appURL,
+				"api", "mobile-runner", "validate-access",
+			),
+			Body: map[string]any{
+				"owner_namespace": ownerNamespace,
+				"runner_ids":      runnerIDs,
+			},
+			ExpectedStatus: http.StatusOK,
+		},
+	}
+
+	accessCtx := workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{
+			ScheduleToCloseTimeout: time.Minute,
+			StartToCloseTimeout:    30 * time.Second,
+			RetryPolicy: &temporal.RetryPolicy{
+				InitialInterval:    time.Second,
+				BackoffCoefficient: 1.0,
+				MaximumInterval:    time.Minute,
+				MaximumAttempts:    1,
+			},
+		},
+	)
+	var result workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(accessCtx, httpActivity.Name(), request).
+		Get(accessCtx, &result); err != nil {
+		return workflowengine.NewWorkflowError(err, runMetadata)
+	}
+	return nil
+}
+
 // scheduledPipelineDefinition captures the YAML fields needed for runner resolution.
 type scheduledPipelineDefinition struct {
 	Runtime scheduledPipelineRuntime `yaml:"runtime,omitempty"`
@@ -329,6 +383,11 @@ type scheduledPipelineStep struct {
 type scheduledPipelineRunnerInfo struct {
 	RunnerIDs         []string
 	NeedsGlobalRunner bool
+}
+
+func scheduledPipelinePublished(record map[string]any) bool {
+	published, _ := record[pipelineinternal.PublishedMemoKey].(bool)
+	return published
 }
 
 // parseScheduledPipelineDefinition reads YAML and returns runner metadata for schedules.

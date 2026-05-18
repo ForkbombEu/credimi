@@ -56,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@render button(props)}
 				{/snippet}
 			</Tooltip.Trigger>
-			<Tooltip.Content class="text-xs! max-w-[600px] overflow-auto">
+			<Tooltip.Content class="max-w-[600px] overflow-auto text-xs!">
 				<p>{m.Copy()}: <span class="font-mono">{textToCopy}</span></p>
 			</Tooltip.Content>
 		</Tooltip.Root>
@@ -79,7 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				'w-6': square && size == 'xs',
 				'w-5': square && size === 'mini',
 				'rounded-sm! text-xs': size === 'mini',
-				"px-1": size === 'mini' && !square,
+				'px-1': size === 'mini' && !square
 			},
 			className
 		]}

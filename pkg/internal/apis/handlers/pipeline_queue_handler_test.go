@@ -57,7 +57,31 @@ func setupPipelineQueueAppWithPipeline(t testing.TB, orgID string, yaml string) 
 	record.Set("yaml", yaml)
 	require.NoError(t, app.Save(record))
 
+	createPipelineQueueMobileRunner(t, app, orgID, "runner-1", false)
+	createPipelineQueueMobileRunner(t, app, orgID, "runner-2", false)
+
 	return app
+}
+
+func createPipelineQueueMobileRunner(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	name string,
+	published bool,
+) {
+	t.Helper()
+
+	coll, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("owner", orgID)
+	record.Set("name", name)
+	record.Set("ip", "https://runner.example.test")
+	record.Set("type", "android_phone")
+	record.Set("published", published)
+	require.NoError(t, app.Save(record))
 }
 
 func ensureOrganizationsQueueLimitField(t testing.TB, app *tests.TestApp) {
@@ -150,7 +174,9 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 	installQueueStubs(t, stub)
 
 	missingRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n"
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n"
+	unknownRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/missing-runner\n"
+	foreignPrivateRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: other-org/private-runner\n"
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -203,7 +229,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				"\"status\":\"queued\"",
-				"\"runner_ids\":[\"runner-1\"]",
+				"\"runner_ids\":[\"usera-s-organization/runner-1\"]",
 				"\"pipeline_url\":\"https://credimi.test/my/pipelines/usera-s-organization/pipeline123\"",
 			},
 			NotExpectedContent: []string{
@@ -213,6 +239,52 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 				app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
 				app.Settings().Meta.AppURL = "https://credimi.test"
 				return app
+			},
+		},
+		{
+			Name:   "enqueue rejects foreign private runner",
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/queue",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"yaml":                foreignPrivateRunnerYaml,
+			}),
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				"runner_id is not accessible",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineQueueAppWithPipeline(t, orgID, foreignPrivateRunnerYaml)
+				orgColl, err := app.FindCollectionByNameOrId("organizations")
+				require.NoError(t, err)
+				otherOrg := core.NewRecord(orgColl)
+				otherOrg.Set("name", "Other Org")
+				otherOrg.Set("canonified_name", "other-org")
+				require.NoError(t, app.Save(otherOrg))
+				createPipelineQueueMobileRunner(t, app, otherOrg.Id, "Private Runner", false)
+				return app
+			},
+		},
+		{
+			Name:   "enqueue rejects missing runner",
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/queue",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"yaml":                unknownRunnerYaml,
+			}),
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				"runner not found",
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				return setupPipelineQueueAppWithPipeline(t, orgID, unknownRunnerYaml)
 			},
 		},
 		{
@@ -253,7 +325,7 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 	stub := &queueStub{}
 	installQueueStubs(t, stub)
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue passes org queue limit",
@@ -304,12 +376,14 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	t.Cleanup(func() {
 		startPipelineWorkflow = origStart
 	})
+	var capturedMemo map[string]any
 	startPipelineWorkflow = func(
 		yaml string,
 		config map[string]any,
 		memo map[string]any,
 		pipelineIdentifier string,
 	) (workflowengine.WorkflowResult, error) {
+		capturedMemo = memo
 		return workflowengine.WorkflowResult{
 			WorkflowID:    "wf-123",
 			WorkflowRunID: "run-456",
@@ -380,6 +454,7 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	require.Equal(t, "wf-123", results[0].GetString("workflow_id"))
 	require.Equal(t, "run-456", results[0].GetString("run_id"))
 	require.Equal(t, pipelineinternal.RunTypeManual, results[0].GetString("type"))
+	require.Equal(t, false, capturedMemo[pipelineinternal.PublishedMemoKey])
 }
 
 func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {
@@ -640,7 +715,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		if ticketID == "" {
 			ticketID = req.TicketID
 		}
-		if runnerID == "runner-2" {
+		if runnerID == "usera-s-organization/runner-2" {
 			return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, errors.New("enqueue failed")
 		}
 		return workflows.MobileRunnerSemaphoreEnqueueRunResponse{
@@ -671,7 +746,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		}, nil
 	}
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: runner-2\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-2\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue rollback on partial failure",
@@ -697,10 +772,14 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 
 	require.NotEmpty(t, ticketID)
 	require.Len(t, cancelCalls, 2)
-	require.ElementsMatch(t, []string{"runner-1", "runner-2"}, []string{
-		cancelCalls[0].runnerID,
-		cancelCalls[1].runnerID,
-	})
+	require.ElementsMatch(
+		t,
+		[]string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"},
+		[]string{
+			cancelCalls[0].runnerID,
+			cancelCalls[1].runnerID,
+		},
+	)
 	for _, call := range cancelCalls {
 		require.Equal(t, ticketID, call.ticketID)
 	}
@@ -937,7 +1016,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		if ticketID == "" {
 			ticketID = req.TicketID
 		}
-		if runnerID == "runner-2" {
+		if runnerID == "usera-s-organization/runner-2" {
 			return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
 				"queue limit exceeded for runner runner-2: 1 of 1",
 				workflows.MobileRunnerSemaphoreErrQueueLimitExceeded,
@@ -971,7 +1050,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		}, nil
 	}
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: runner-2\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-2\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue queue limit rollback",
@@ -998,10 +1077,14 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 
 	require.NotEmpty(t, ticketID)
 	require.Len(t, cancelCalls, 2)
-	require.ElementsMatch(t, []string{"runner-1", "runner-2"}, []string{
-		cancelCalls[0].runnerID,
-		cancelCalls[1].runnerID,
-	})
+	require.ElementsMatch(
+		t,
+		[]string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"},
+		[]string{
+			cancelCalls[0].runnerID,
+			cancelCalls[1].runnerID,
+		},
+	)
 	for _, call := range cancelCalls {
 		require.Equal(t, ticketID, call.ticketID)
 	}

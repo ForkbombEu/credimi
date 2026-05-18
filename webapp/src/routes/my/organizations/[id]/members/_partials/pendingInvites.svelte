@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 
 			<div class="max-h-[400px] divide-y overflow-auto rounded-lg border">
-				{#each records as invite}
+				{#each records as invite (invite.id)}
 					<div class="flex items-center justify-between px-2 py-1 pl-4">
 						<div class="flex items-center gap-2">
 							<p class="text-sm">

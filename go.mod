@@ -13,6 +13,7 @@ require (
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/forkbombeu/credimi-extra v1.10.4
+	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-sprout/sprout v1.0.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
@@ -136,7 +137,6 @@ require (
 	github.com/go-critic/go-critic v0.14.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-ozzo/ozzo-validation/v4 v4.3.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect

@@ -15,6 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { children }: Props = $props();
 </script>
 
-{#await initI18n() then _}
+{#await initI18n() then}
 	{@render children()}
 {/await}

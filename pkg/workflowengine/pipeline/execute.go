@@ -6,7 +6,6 @@ package pipeline
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -308,27 +307,7 @@ func fetchChildPipelineYAML(
 	}
 
 	if err := workflow.ExecuteActivity(ctx, act.Name(), req).Get(ctx, &response); err != nil {
-		if isMissingPipelineInternalHTTPActivity(err) {
-			fallback := workflowengine.ActivityInput{
-				Payload: activities.HTTPActivityPayload{
-					Method: http.MethodGet,
-					URL:    utils.JoinURL(appURL, "api", "pipeline", "get-yaml"),
-					QueryParams: map[string]string{
-						"pipeline_identifier": pipelineID,
-					},
-					ExpectedStatus: 200,
-				},
-			}
-			if fbErr := workflow.ExecuteActivity(
-				ctx,
-				activities.NewHTTPActivity().Name(),
-				fallback,
-			).Get(ctx, &response); fbErr != nil {
-				return "", workflowengine.NewWorkflowError(fbErr, meta)
-			}
-		} else {
-			return "", workflowengine.NewWorkflowError(err, meta)
-		}
+		return "", workflowengine.NewWorkflowError(err, meta)
 	}
 
 	body, ok := response.Output.(map[string]any)["body"].(string)
@@ -344,13 +323,6 @@ func fetchChildPipelineYAML(
 	}
 
 	return body, nil
-}
-
-func isMissingPipelineInternalHTTPActivity(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(strings.ToLower(err.Error()), "make an internal http request")
 }
 
 func ExtractPipelineOutput(dataCtx map[string]any) map[string]any {

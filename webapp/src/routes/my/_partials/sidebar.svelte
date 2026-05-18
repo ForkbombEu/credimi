@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Sidebar.Root {...restProps} class={[className]} bind:ref>
 	<Sidebar.Header
-		class="border-b-primary/50 flex flex-row items-center justify-between border-b px-4 pb-[7px]"
+		class="flex flex-row items-center justify-between border-b border-b-primary/50 px-4 pb-[7px]"
 	>
 		<div class="flex size-8 items-center justify-center overflow-hidden">
 			<AppLogo />

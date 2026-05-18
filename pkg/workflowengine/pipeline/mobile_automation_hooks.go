@@ -29,6 +29,8 @@ const (
 	mobileDisableAndroidPlayStoreConfigKey  = "disable_android_play_store"
 	mobilePendingPlayStoreDisableRunDataKey = "mobile_pending_play_store_disable"
 	mobileSpecialInstallMetadataKey         = "mobile_special_install"
+	mobileAppInstallCleanupKey              = "mobile_app_install_cleanup"
+	mobileExternalInstallCleanupKey         = "mobile_external_install_cleanup"
 	mobileSkipInstallerRequestKey           = "skip_installer"
 	mobilePlatformAndroid                   = "android"
 	mobilePlatformIOS                       = "ios"
@@ -125,11 +127,10 @@ type setupNewDeviceInput struct {
 }
 
 type fetchRunnerInfoInput struct {
-	ctx          workflow.Context
-	payload      *workflows.MobileAutomationWorkflowPipelinePayload
-	appURL       string
-	stepID       string
-	httpActivity *activities.HTTPActivity
+	ctx     workflow.Context
+	payload *workflows.MobileAutomationWorkflowPipelinePayload
+	appURL  string
+	stepID  string
 }
 
 type startManagedDeviceInput struct {
@@ -236,7 +237,7 @@ func MobileAutomationSetupHook(
 			)
 		}
 
-		if err := prepareMobileAutomationSteps(ctx, steps, appURL, httpActivity); err != nil {
+		if err := prepareMobileAutomationSteps(ctx, steps, appURL); err != nil {
 			return err
 		}
 	}
@@ -392,7 +393,6 @@ func prepareMobileAutomationSteps(
 	ctx workflow.Context,
 	steps *[]pipeline.StepDefinition,
 	appURL string,
-	httpActivity *activities.HTTPActivity,
 ) error {
 	specialSteps := make([]pipeline.StepDefinition, 0)
 	remainingSteps := make([]pipeline.StepDefinition, 0, len(*steps))
@@ -419,7 +419,6 @@ func prepareMobileAutomationSteps(
 			appURL,
 			payload.ActionID,
 			step.ID,
-			httpActivity,
 		)
 		if err != nil {
 			return err
@@ -453,7 +452,6 @@ func fetchMobileActionCategory(
 	appURL string,
 	actionID string,
 	stepID string,
-	httpActivity *activities.HTTPActivity,
 ) (string, error) {
 	if strings.TrimSpace(actionID) == "" {
 		return "", nil
@@ -475,26 +473,9 @@ func fetchMobileActionCategory(
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), internalReq).Get(ctx, &result); err != nil {
-		if !isMissingPipelineInternalHTTPActivity(err) {
-			return "", err
-		}
-
-		fallbackReq := workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
-				Method:         http.MethodPost,
-				URL:            validateURL,
-				ExpectedStatus: 200,
-				Body:           validatePayload,
-			},
-		}
-		if fbErr := workflow.ExecuteActivity(
-			ctx,
-			httpActivity.Name(),
-			fallbackReq,
-		).Get(ctx, &result); fbErr != nil {
-			return "", fbErr
-		}
+	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), internalReq).
+		Get(ctx, &result); err != nil {
+		return "", err
 	}
 
 	body, ok := result.Output.(map[string]any)["body"].(map[string]any)
@@ -646,7 +627,7 @@ func processStep(
 		settedDevices:             input.settedDevices,
 		appURL:                    appURL,
 		stepID:                    input.step.ID,
-		trackInitialInstalledApps: isSpecialMobileInstallStep(input.step),
+		trackInitialInstalledApps: shouldTrackInitialInstalledApps(input.step, payload),
 		httpActivity:              input.httpActivity,
 	})
 	if err != nil {
@@ -659,6 +640,16 @@ func processStep(
 	serial, ok := deviceMap["serial"].(string)
 	if !ok {
 		serial = ""
+	}
+	if shouldTrackInitialInstalledApps(input.step, payload) {
+		if err := ensureInitialInstalledAppsTracked(
+			mobileCtx,
+			deviceMap,
+			serial,
+			deviceType,
+		); err != nil {
+			return err
+		}
 	}
 	SetPayloadValue(&input.step.With.Payload, "serial", serial)
 	if deviceType != "" {
@@ -710,6 +701,19 @@ func isSpecialMobileInstallStep(step *pipeline.StepDefinition) bool {
 
 	special, ok := step.Metadata[mobileSpecialInstallMetadataKey].(bool)
 	return ok && special
+}
+
+func shouldTrackInitialInstalledApps(
+	step *pipeline.StepDefinition,
+	payload *workflows.MobileAutomationWorkflowPipelinePayload,
+) bool {
+	if isSpecialMobileInstallStep(step) {
+		return true
+	}
+	if payload == nil {
+		return false
+	}
+	return payload.VersionID != "" && payload.VersionID != mobileExternalSourceVersionID
 }
 
 func decodeAndValidatePayload(
@@ -792,11 +796,10 @@ func setupNewDevice(
 	input setupNewDeviceInput,
 ) error {
 	runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
-		ctx:          input.ctx,
-		payload:      input.payload,
-		appURL:       input.appURL,
-		stepID:       input.stepID,
-		httpActivity: input.httpActivity,
+		ctx:     input.ctx,
+		payload: input.payload,
+		appURL:  input.appURL,
+		stepID:  input.stepID,
 	})
 	if err != nil {
 		return err
@@ -860,27 +863,7 @@ func fetchRunnerInfo(
 	var runnerRes workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(input.ctx, internalHTTPActivity.Name(), runnerReq).
 		Get(input.ctx, &runnerRes); err != nil {
-		if isMissingPipelineInternalHTTPActivity(err) {
-			fallbackReq := workflowengine.ActivityInput{
-				Payload: activities.HTTPActivityPayload{
-					Method:         http.MethodGet,
-					URL:            utils.JoinURL(input.appURL, "api", "mobile-runner"),
-					ExpectedStatus: 200,
-					QueryParams: map[string]string{
-						"runner_identifier": input.payload.RunnerID,
-					},
-				},
-			}
-			if fbErr := workflow.ExecuteActivity(
-				input.ctx,
-				activities.NewHTTPActivity().Name(),
-				fallbackReq,
-			).Get(input.ctx, &runnerRes); fbErr != nil {
-				return "", "", "", fbErr
-			}
-		} else {
-			return "", "", "", err
-		}
+		return "", "", "", err
 	}
 
 	body, ok := runnerRes.Output.(map[string]any)["body"].(map[string]any)
@@ -1036,6 +1019,29 @@ func listInstalledAppsOnRunner(
 	return workflowengine.AsSliceOfStrings(result.Output), nil
 }
 
+func ensureInitialInstalledAppsTracked(
+	mobileCtx workflow.Context,
+	deviceMap map[string]any,
+	serial string,
+	deviceType mobileDeviceType,
+) error {
+	if _, ok := deviceMap["initial_installed_apps"]; ok {
+		return nil
+	}
+
+	initialInstalledApps, err := listInstalledAppsOnRunner(
+		mobileCtx,
+		serial,
+		deviceType.String(),
+	)
+	if err != nil {
+		return err
+	}
+	deviceMap["initial_installed_apps"] = initialInstalledApps
+
+	return nil
+}
+
 func fetchAndInstallAPK(
 	input fetchAndInstallAPKInput,
 ) error {
@@ -1086,6 +1092,7 @@ func fetchAndInstallAPK(
 		SetPayloadValue(&input.step.With.Payload, "stored_action_code", true)
 	}
 	if input.externalInstall {
+		input.deviceMap[mobileExternalInstallCleanupKey] = true
 		input.step.Use = mobileExternalInstallStepUse
 		return nil
 	}
@@ -1239,6 +1246,7 @@ func installAppIfNeeded(
 			Get(input.mobileCtx, &installOutput); err != nil {
 			return err
 		}
+		input.deviceMap[mobileAppInstallCleanupKey] = true
 
 		finalOutput := installOutput
 		if input.activities.PostInstall != "" {
@@ -1566,6 +1574,10 @@ func cleanupDevice(
 	}
 	initialInstalledApps := extractInitialInstalledApps(deviceMap)
 	reenablePlayStore := wasPlayStoreDisabled(deviceMap)
+	if !shouldRunDeviceCleanup(deviceType, packages, initialInstalledApps, reenablePlayStore, deviceMap) {
+		deviceMap["cleaned"] = true
+		return nil
+	}
 
 	input.mobileAo.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.mobileAo)
@@ -1738,11 +1750,31 @@ func extractDeviceInfo(
 }
 
 func extractInitialInstalledApps(deviceMap map[string]any) []string {
+	if !workflowengine.AsBool(deviceMap[mobileExternalInstallCleanupKey]) &&
+		!workflowengine.AsBool(deviceMap[mobileAppInstallCleanupKey]) {
+		return nil
+	}
 	return workflowengine.AsSliceOfStrings(deviceMap["initial_installed_apps"])
 }
 
 func wasPlayStoreDisabled(deviceMap map[string]any) bool {
 	return workflowengine.AsBool(deviceMap["play_store_disabled"])
+}
+
+func shouldRunDeviceCleanup(
+	deviceType string,
+	packages []string,
+	initialInstalledApps []string,
+	reenablePlayStore bool,
+	deviceMap map[string]any,
+) bool {
+	if normalizeDeviceType(deviceType).IsManagedEmulator() {
+		return true
+	}
+	if reenablePlayStore || len(packages) > 0 || len(initialInstalledApps) > 0 {
+		return true
+	}
+	return workflowengine.AsBool(deviceMap["recording"])
 }
 
 func cleanupRecording(

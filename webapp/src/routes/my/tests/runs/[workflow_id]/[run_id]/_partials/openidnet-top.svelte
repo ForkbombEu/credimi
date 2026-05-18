@@ -18,13 +18,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		workflowId: string;
-		runId: string;
 		namespace: string;
-		standard?: string;
 		isIssuerWorkflow?: boolean;
 	};
 
-	let { workflowId, namespace, standard, isIssuerWorkflow = false }: Props = $props();
+	let { workflowId, namespace, isIssuerWorkflow = false }: Props = $props();
+
 	const workflowLogsProps = $derived(
 		isIssuerWorkflow
 			? getOpenID4VCIIssuerWorkflowLogsProps(workflowId, namespace)
@@ -38,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<WorkflowLogs
 				{...workflowLogsProps}
 				uiSize="sm"
-				class="!max-h-[500px]"
+				class="max-h-[500px]!"
 				accordionItemClass="rounded-none !border-b !border-gray-500"
 				codeClass="!bg-slate-100 rounded-none"
 			/>

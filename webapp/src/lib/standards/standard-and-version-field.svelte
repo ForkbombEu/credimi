@@ -22,7 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const { form, name }: Props = $props();
-	const formData = $derived(form.form);
 
 	//
 
@@ -36,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!-- `any` is needed to avoid `type instantiation is excessively deep and possibly infinite` -->
 <SelectField
 	{form}
-	name={name as any}
+	name={name as FormPath<T>}
 	options={{
 		items: options,
 		label: m.Compliance_standard(),
