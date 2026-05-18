@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getPath } from '$lib/utils';
 import { lsSync } from 'rune-sync/localstorage';
 
-import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
+import type { PipelinesResponse } from '@/pocketbase/types';
+
+import type { MobileRunnerReference } from '../runners/utils';
 
 import { parseYaml } from '../utils';
 
@@ -48,9 +49,9 @@ type PipelinesRunnersConfig = Record<string, string>;
 
 const pipelinesRunnersConfig = lsSync<PipelinesRunnersConfig>('pipelines_runners_config', {});
 
-export function set(pipeline: PipelinesResponse, runner: MobileRunnersResponse): void {
+export function set(pipeline: PipelinesResponse, runner: MobileRunnerReference): void {
 	try {
-		pipelinesRunnersConfig[pipeline.id] = getPath(runner);
+		pipelinesRunnersConfig[pipeline.id] = runner.runner_id;
 	} catch (error) {
 		console.error('Failed to set pipeline runner:', error);
 	}

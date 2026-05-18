@@ -4,18 +4,18 @@
 
 import { userOrganization } from '$lib/app-state';
 
-import type { MobileRunnersResponse, OrganizationsResponse } from '@/pocketbase/types';
+import type { OrganizationsResponse } from '@/pocketbase/types';
 
 import { pb } from '@/pocketbase';
 
-import { fetchAvailableForOrganization } from './utils';
+import { fetchAvailableForOrganization, type MobileRunnerListItem } from './utils';
 
 //
 
 class Store {
 	constructor(private currentOrganization: () => OrganizationsResponse | undefined) {}
 
-	#runners = $state<MobileRunnersResponse[]>([]);
+	#runners = $state<MobileRunnerListItem[]>([]);
 	#generation = 0;
 	#dispose: (() => void) | undefined;
 
@@ -36,7 +36,7 @@ class Store {
 					return;
 				}
 
-				this.refresh(organizationId, generation);
+				this.refresh(generation);
 
 				let unsubscribe: (() => Promise<void>) | undefined;
 				let cancelled = false;
@@ -44,7 +44,7 @@ class Store {
 				void pb
 					.collection('mobile_runners')
 					.subscribe('*', () => {
-						this.refresh(organizationId, generation);
+						this.refresh(generation);
 					})
 					.then((unsub) => {
 						if (cancelled) {
@@ -69,8 +69,8 @@ class Store {
 		this.#runners = [];
 	}
 
-	private refresh(organizationId: string, generation: number) {
-		fetchAvailableForOrganization(organizationId).match({
+	private refresh(generation: number) {
+		fetchAvailableForOrganization().match({
 			Rejected: (reason) => {
 				console.error(reason);
 			},

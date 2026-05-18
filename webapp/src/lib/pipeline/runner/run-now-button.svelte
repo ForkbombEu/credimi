@@ -5,13 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Pipeline } from '$lib';
-	import { getRecordByCanonifiedPath } from '$lib/canonify';
-	import { getPath } from '$lib/utils';
 	import { Cog, PlayIcon } from '@lucide/svelte';
-	import { isError } from 'effect/Predicate';
+	import { Pipeline } from '$lib';
 
-	import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
+	import type { PipelinesResponse } from '@/pocketbase/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
@@ -51,23 +48,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const path = executionPath;
 		if (!path || Runners.status.isOnline(path) !== undefined) return;
 
-		const fromStore = Runners.store.read().find((r) => getPath(r) === path);
+		const fromStore = Runners.store.read().find((r) => r.runner_id === path);
 		if (fromStore) {
 			Runners.status.probe([fromStore], { reason: 'visible' });
 			return;
 		}
 
-		let cancelled = false;
-		void getRecordByCanonifiedPath<MobileRunnersResponse>(path)
-			.then((res) => {
-				if (cancelled || isError(res)) return;
-				Runners.status.probe([res], { reason: 'visible' });
-			})
-			.catch(console.error);
-
-		return () => {
-			cancelled = true;
-		};
+		Runners.status.probe([{ runner_id: path }], { reason: 'visible' });
 	});
 
 	async function handleRunNow() {

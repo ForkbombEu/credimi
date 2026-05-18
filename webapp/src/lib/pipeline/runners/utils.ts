@@ -7,41 +7,65 @@ import type { ClientResponseError } from 'pocketbase';
 import * as Task from 'true-myth/task';
 import { z } from 'zod';
 
-import type { MobileRunnersResponse } from '@/pocketbase/types';
-
 import { pb } from '@/pocketbase';
 
 //
 
-export function fetchAvailableForOrganization(organizationId: string) {
-	const filter = pb.filter('owner.id = {:currentOrganization} || published = true', {
-		currentOrganization: organizationId
+const mobileRunnerListItemSchema = z.object({
+	description: z.string().optional(),
+	mine: z.boolean(),
+	name: z.string(),
+	online: z.boolean(),
+	published: z.boolean(),
+	runner_id: z.string()
+});
+
+const mobileRunnersListResponseSchema = z.object({
+	runners: z.array(mobileRunnerListItemSchema)
+});
+
+export type MobileRunnerListItem = z.infer<typeof mobileRunnerListItemSchema>;
+export type MobileRunnerReference = Pick<MobileRunnerListItem, 'runner_id'>;
+
+export function runnerID(runner: MobileRunnerReference): string {
+	return runner.runner_id;
+}
+
+export async function fetchAvailableRunners(): Promise<MobileRunnerListItem[]> {
+	const response = await pb.send<unknown>('/api/mobile-runners?view=selector', {
+		method: 'GET',
+		requestKey: null
 	});
+	return mobileRunnersListResponseSchema.parse(response).runners;
+}
+
+export function fetchAvailableForOrganization() {
 	return Task.tryOrElse(
 		(err) => err as ClientResponseError,
-		() =>
-			pb.collection('mobile_runners').getFullList({
-				requestKey: null,
-				filter: filter
-			})
+		() => fetchAvailableRunners()
 	);
 }
 
-function getHealthUrl(runner: MobileRunnersResponse): string {
-	let baseUrl = runner.ip;
-	if (runner.port) baseUrl = `${baseUrl}:${runner.port}`;
-	return `${baseUrl}/health`;
+let snapshot: Promise<MobileRunnerListItem[]> | undefined;
+let snapshotExpiresAt = 0;
+
+function fetchStatusSnapshot(): Promise<MobileRunnerListItem[]> {
+	const now = Date.now();
+	if (snapshot && now < snapshotExpiresAt) return snapshot;
+
+	snapshotExpiresAt = now + 1_000;
+	snapshot = fetchAvailableRunners().catch((error) => {
+		snapshot = undefined;
+		snapshotExpiresAt = 0;
+		throw error;
+	});
+	return snapshot;
 }
 
-const isOnlineResponseSchema = z.object({
-	status: z.literal('connected')
-});
-
-export async function checkOnlineStatus(runner: MobileRunnersResponse): Promise<boolean> {
+export async function checkOnlineStatus(runner: MobileRunnerReference): Promise<boolean> {
 	try {
-		const response = await fetch(getHealthUrl(runner), { method: 'GET' });
-		if (!response.ok) return false;
-		return isOnlineResponseSchema.safeParse(await response.json()).success;
+		const runners = await fetchStatusSnapshot();
+		return runners.find((item) => item.runner_id === runner.runner_id)?.online ?? false;
 	} catch {
 		return false;
 	}
