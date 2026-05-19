@@ -11,12 +11,12 @@ import (
 )
 
 type WorkflowDefinition struct {
-	Version string                  `yaml:"version,omitempty" json:"version,omitempty"`
-	Name    string                  `yaml:"name"              json:"name"`
-	Runtime RuntimeConfig           `yaml:"runtime,omitempty" json:"runtime,omitempty"`
-	Config  map[string]any          `yaml:"config,omitempty"  json:"config,omitempty"`
-	Steps   []StepDefinition        `yaml:"steps,omitempty"   json:"steps,omitempty"`
-	Finally []FinallyStepDefinition `yaml:"finally,omitempty" json:"finally,omitempty"`
+	Version string            `yaml:"version,omitempty" json:"version,omitempty"`
+	Name    string            `yaml:"name"              json:"name"`
+	Runtime RuntimeConfig     `yaml:"runtime,omitempty" json:"runtime,omitempty"`
+	Config  map[string]any    `yaml:"config,omitempty"  json:"config,omitempty"`
+	Steps   []StepDefinition  `yaml:"steps,omitempty"   json:"steps,omitempty"`
+	Finally FinallyDefinition `yaml:"finally,omitempty" json:"finally,omitempty"`
 }
 
 type StepSpec struct {
@@ -44,6 +44,28 @@ type OnSuccessStepDefinition struct {
 
 type FinallyStepDefinition struct {
 	StepSpec `yaml:",inline" json:",inline"`
+}
+
+type FinallyDefinition struct {
+	Always    []FinallyStepDefinition `yaml:"always,omitempty"     json:"always,omitempty"`
+	OnSuccess []FinallyStepDefinition `yaml:"on_success,omitempty" json:"on_success,omitempty"`
+	OnFailure []FinallyStepDefinition `yaml:"on_failure,omitempty" json:"on_failure,omitempty"`
+}
+
+func (f FinallyDefinition) IsZero() bool {
+	return len(f.Always) == 0 && len(f.OnSuccess) == 0 && len(f.OnFailure) == 0
+}
+
+func (f FinallyDefinition) AllSteps() []FinallyStepDefinition {
+	steps := make(
+		[]FinallyStepDefinition,
+		0,
+		len(f.Always)+len(f.OnSuccess)+len(f.OnFailure),
+	)
+	steps = append(steps, f.Always...)
+	steps = append(steps, f.OnSuccess...)
+	steps = append(steps, f.OnFailure...)
+	return steps
 }
 
 type StepInputs struct {
