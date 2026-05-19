@@ -11,7 +11,8 @@ services:
       - cluster.routing.allocation.disk.watermark.flood_stage=128mb
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms256m -Xmx256m
-      - xpack.security.enabled=false
+      - xpack.security.enabled=true
+      - CREDIMI_ELASTIC_PASSWORD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
     image: elasticsearch:${ELASTICSEARCH_VERSION}
     expose:
       - 9200
@@ -41,6 +42,8 @@ services:
       - ENABLE_ES=true
       - ES_SEEDS=elasticsearch
       - ES_VERSION=v7
+      - ES_USER=elastic
+      - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
       - LOG_LEVEL=debug
