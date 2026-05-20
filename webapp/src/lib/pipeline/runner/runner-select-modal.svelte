@@ -7,6 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { browser } from '$app/environment';
 
+	import { Pipeline } from '$lib';
+	import type { Record } from '$lib/pipeline/runner';
+
 	import type { PipelinesResponse } from '@/pocketbase/types';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
@@ -14,10 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import type { MobileRunnerListItem } from '../runners/utils';
-
-	import * as Runners from '../runners';
-	import * as Runner from './binding';
 	import RunnerSelectInput from './runner-select-input.svelte';
 
 	//
@@ -27,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		pipeline: PipelinesResponse;
 		title?: string;
 		description?: string;
-		onSelect?: (runner: MobileRunnerListItem) => void;
+		onSelect?: (runner: Record) => void;
 	};
 
 	let {
@@ -40,10 +39,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	function handleSelect(runner: MobileRunnerListItem) {
-		Runner.set(pipeline, runner);
-		currentRunnerPath = runner.runner_id;
-		currentRunner = runner;
+	function handleSelect(runner: Record) {
+		Pipeline.Runner.Binding.set(pipeline, runner);
 		open = false;
 		onSelect?.(runner);
 	}
@@ -52,21 +49,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let currentRunnerPath = $derived.by(() => {
 		if (!browser) return undefined;
-		return Runner.get(pipeline.id);
+		return Pipeline.Runner.Binding.get(pipeline.id);
 	});
 
-	let currentRunner = $state<MobileRunnerListItem>();
-
-	$effect(() => {
-		if (!currentRunnerPath) return;
-		currentRunner = Runners.store
-			.read()
-			.find((runner) => runner.runner_id === currentRunnerPath);
+	let currentRunner = $derived.by(() => {
+		if (!currentRunnerPath) return undefined;
+		Pipeline.Runner.Catalog.read();
+		return Pipeline.Runner.Catalog.findByPath(currentRunnerPath);
 	});
 
 	$effect(() => {
 		if (!open) return;
-		Runners.status.probe(Runners.store.read(), { reason: 'modal' });
+		void Pipeline.Runner.Catalog.refresh();
 	});
 </script>
 
@@ -80,6 +74,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</T>
 			</Alert>
 		{/if}
-		<RunnerSelectInput onSelect={handleSelect} />
+		<RunnerSelectInput onSelect={handleSelect} selectedRunner={currentRunnerPath} />
 	{/snippet}
 </Dialog>
