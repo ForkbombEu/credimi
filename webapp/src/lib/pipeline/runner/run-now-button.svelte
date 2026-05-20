@@ -46,14 +46,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const runDisabled = $derived(isChecking || isRunnerOffline);
 
-	const runnerLabel = $derived.by(() => {
+	const runnerSubline = $derived.by(() => {
 		const path = executionPath ?? Pipeline.Runner.Binding.get(pipeline.id);
 		if (!path || !runnerRequired) return undefined;
-		const name = path.split('/').at(-1);
+
+		const name = path.split('/').at(-1) ?? path;
+
+		if (isChecking) {
+			return { name, status: 'checking' as const };
+		}
+
 		const offline =
 			Pipeline.Runner.Catalog.isReady() &&
 			Pipeline.Runner.Catalog.findByPath(path)?.isOnline === false;
-		return offline ? `[Offline] ${name}` : name;
+
+		if (offline) {
+			return { name, status: 'offline' as const };
+		}
+
+		return { name, status: undefined };
 	});
 
 	async function handleRunNow() {
@@ -93,8 +104,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<PlayIcon />
 			<div class="flex w-[90px] flex-col -space-y-0.5 text-left">
 				<p>{m.Run_now()}</p>
-				{#if runnerLabel}
-					<small class="truncate text-[9px] opacity-80">{runnerLabel}</small>
+				{#if runnerSubline}
+					<small class="truncate text-[9px] opacity-80">
+						{#if runnerSubline.status === 'checking'}
+							<span class="inline-flex max-w-full items-baseline gap-0">
+								<span class="shrink-0">[Checking</span>
+								<span class="checking-ellipsis shrink-0" aria-hidden="true">
+									<span>.</span><span>.</span><span>.</span>
+								</span>
+								<span class="truncate">] {runnerSubline.name}</span>
+							</span>
+						{:else if runnerSubline.status === 'offline'}
+							[Offline] {runnerSubline.name}
+						{:else}
+							{runnerSubline.name}
+						{/if}
+					</small>
 				{/if}
 			</div>
 		</Button>
@@ -138,3 +163,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		void handleRunNow();
 	}}
 />
+
+<style>
+	.checking-ellipsis span {
+		animation: checking-dot 1.2s ease-in-out infinite;
+	}
+
+	.checking-ellipsis span:nth-child(2) {
+		animation-delay: 0.2s;
+	}
+
+	.checking-ellipsis span:nth-child(3) {
+		animation-delay: 0.4s;
+	}
+
+	@keyframes checking-dot {
+		0%,
+		20% {
+			opacity: 0.2;
+		}
+
+		40%,
+		100% {
+			opacity: 1;
+		}
+	}
+</style>
