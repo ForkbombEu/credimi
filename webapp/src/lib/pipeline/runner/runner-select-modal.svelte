@@ -5,16 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { browser } from '$app/environment';
-
-	import { Pipeline } from '$lib';
 	import type { Record } from '$lib/pipeline/runner';
+
+	import { browser } from '$app/environment';
+	import { Pipeline } from '$lib';
 
 	import type { PipelinesResponse } from '@/pocketbase/types';
 
-	import Alert from '@/components/ui-custom/alert.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
 	import RunnerSelectInput from './runner-select-input.svelte';
@@ -52,11 +50,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return Pipeline.Runner.Binding.get(pipeline.id);
 	});
 
-	let currentRunner = $derived.by(() => {
-		if (!currentRunnerPath) return undefined;
-		Pipeline.Runner.Catalog.read();
-		return Pipeline.Runner.Catalog.findByPath(currentRunnerPath);
-	});
+	// let currentRunner = $derived.by(() => {
+	// 	if (!currentRunnerPath) return undefined;
+	// 	Pipeline.Runner.Catalog.read();
+	// 	return Pipeline.Runner.Catalog.findByPath(currentRunnerPath);
+	// });
 
 	$effect(() => {
 		if (!open) return;
@@ -66,14 +64,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Dialog bind:open {title} {description} hideTrigger>
 	{#snippet content()}
-		{#if currentRunner}
+		<!-- {#if currentRunner}
 			<Alert variant="info" class="bg-blue-50">
 				<T>
 					<span>{m.Current_runner()}:</span>
 					<span class="font-semibold">{currentRunner.name} </span>
 				</T>
 			</Alert>
-		{/if}
+		{/if} -->
 		<RunnerSelectInput onSelect={handleSelect} selectedRunner={currentRunnerPath} />
 	{/snippet}
 </Dialog>
