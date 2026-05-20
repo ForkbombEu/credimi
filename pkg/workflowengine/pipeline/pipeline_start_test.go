@@ -234,6 +234,9 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 
 	var result workflowengine.WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
+	require.NotEmpty(t, result.WorkflowID)
+	require.NotEmpty(t, result.WorkflowRunID)
+
 	output, ok := result.Output.(map[string]any)
 	require.True(t, ok)
 	require.NotEmpty(t, output["workflow-id"])

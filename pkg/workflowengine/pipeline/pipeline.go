@@ -249,7 +249,9 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	result = workflowengine.WorkflowResult{
-		Output: state.finalOutput,
+		WorkflowID:    workflowID,
+		WorkflowRunID: runID,
+		Output:        state.finalOutput,
 	}
 	return result, finalErr
 }
