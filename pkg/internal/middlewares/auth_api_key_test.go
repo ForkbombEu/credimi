@@ -129,6 +129,77 @@ func TestRequireInternalAdminAPIKey(t *testing.T) {
 
 }
 
+func TestOptionalAuthOrAPIKey(t *testing.T) {
+	app, err := tests.NewTestApp(middlewareTestDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	t.Run("missing api key continues anonymously", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
+
+		nextCalled := false
+		setNext(e, func() error {
+			nextCalled = true
+			return nil
+		})
+
+		err := OptionalAuthOrAPIKey().Func(e)
+		require.NoError(t, err)
+		require.True(t, nextCalled)
+		require.Nil(t, e.Auth)
+	})
+
+	t.Run("valid user api key sets auth", func(t *testing.T) {
+		plaintext := "optional-user-api-key"
+		createAPIKeyRecord(t, app, apiKeyRecordInput{
+			Plaintext: plaintext,
+			UserID:    user.Id,
+			Scope:     apiKeyScopeUser,
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set(apiKeyHeaderName, plaintext)
+		rec := httptest.NewRecorder()
+		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
+
+		nextCalled := false
+		setNext(e, func() error {
+			nextCalled = true
+			return nil
+		})
+
+		err := OptionalAuthOrAPIKey().Func(e)
+		require.NoError(t, err)
+		require.True(t, nextCalled)
+		require.NotNil(t, e.Auth)
+		require.Equal(t, user.Id, e.Auth.Id)
+	})
+
+	t.Run("invalid api key is rejected", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set(apiKeyHeaderName, "not-a-real-key")
+		rec := httptest.NewRecorder()
+		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
+
+		nextCalled := false
+		setNext(e, func() error {
+			nextCalled = true
+			return nil
+		})
+
+		err := OptionalAuthOrAPIKey().Func(e)
+		require.NoError(t, err)
+		require.False(t, nextCalled)
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		require.Contains(t, rec.Body.String(), "invalid_api_key")
+	})
+}
+
 type apiKeyRecordInput struct {
 	Plaintext   string
 	UserID      string

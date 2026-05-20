@@ -250,8 +250,8 @@ func findMatchingAPIKeyRecord(records []*core.Record, apiKey string) *core.Recor
 	return nil
 }
 
-// OptionalAuthOrAPIKey tries to authenticate via Credimi-Api-Key if present,
-// but does NOT block the request if no credentials are provided.
+// OptionalAuthOrAPIKey authenticates a Credimi-Api-Key when present,
+// but does not block requests that provide no credentials.
 func OptionalAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 	return &hook.Handler[*core.RequestEvent]{
 		Func: func(e *core.RequestEvent) error {
@@ -265,9 +265,10 @@ func OptionalAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 			}
 
 			principal, apiErr := authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeUser)
-			if apiErr == nil {
-				e.Auth = principal
+			if apiErr != nil {
+				return apiErr.JSON(e)
 			}
+			e.Auth = principal
 
 			return e.Next()
 		},

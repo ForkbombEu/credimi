@@ -87,6 +87,18 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:    "/list-executions/{id}",
 			Handler: HandleGetPipelineSpecificDetails,
 		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/execute",
+			Handler:     HandlePipelineExecute,
+			Description: "Execute a pipeline synchronously and wait for result",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.OptionalAuthOrAPIKey(),
+			},
+			ExcludedMiddlewares: []string{
+				middlewares.RequireAuthOrAPIKeyMiddlewareID,
+			},
+		},
 	},
 }
 
@@ -190,15 +202,6 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Description:    "Delete the pipeline retention schedule",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:      http.MethodPost,
-			Path:        "/execute",
-			Handler:     HandlePipelineExecute,
-			Description: "Execute a pipeline synchronously and wait for result",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.OptionalAuthOrAPIKey(),
 			},
 		},
 	},
