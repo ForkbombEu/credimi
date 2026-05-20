@@ -12,7 +12,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { Badge } from '@/components/ui/badge';
 	import Label from '@/components/ui/label/label.svelte';
-	import { cn } from '@/components/ui/utils';
 	import { m } from '@/i18n';
 
 	import type { MobileRunnerListItem } from '../runners/utils';
@@ -89,11 +88,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							e.preventDefault();
 							onSelect?.(item);
 						}}
-				class={cn(
+				class={[
+					'hover:cursor-pointer',
 					isSelected && 'border-blue-500 bg-blue-50!',
-					isOffline && 'cursor-not-allowed bg-slate-100! opacity-50'
-				)}
+					isOffline && 'bg-slate-100! opacity-50 hover:cursor-not-allowed'
+				]}
 				tooltip={isOffline ? m.Runner_offline_select_disabled() : undefined}
+				hideArrow
 			>
 				{#snippet afterContent()}
 					<div class="text-xs text-balance text-muted-foreground">{item.description}</div>
@@ -101,24 +102,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				{#snippet right()}
 					<div class="flex items-center gap-2">
+						{#if !item.published}
+							<Badge variant="secondary">
+								{m.private()}
+							</Badge>
+						{/if}
+
 						<span
-							class={cn(
-								'size-2 shrink-0 rounded-full',
-								online === true && 'bg-green-500',
-								online === false && 'bg-red-400',
-								online === undefined && 'bg-muted-foreground/40'
-							)}
+							class={[
+								'size-2 shrink-0 rounded-full border',
+								online === true && 'border-emerald-500 bg-emerald-100',
+								online === false && 'border-red-500 bg-red-100',
+								online === undefined &&
+									'border-muted-foreground/40 bg-muted-foreground/40'
+							]}
 							title={online === true
 								? 'Online'
 								: online === false
 									? 'Offline'
 									: 'Checking status'}
 						></span>
-						{#if !item.published}
-							<Badge variant="secondary">
-								{m.private()}
-							</Badge>
-						{/if}
 					</div>
 				{/snippet}
 			</ItemCard>

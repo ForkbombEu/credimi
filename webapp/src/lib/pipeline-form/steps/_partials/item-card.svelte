@@ -28,6 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		beforeContent?: Snippet;
 		afterContent?: Snippet;
 		titleRight?: Snippet;
+		hideArrow?: boolean;
 	};
 
 	let {
@@ -41,7 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		tooltip,
 		beforeContent,
 		afterContent,
-		titleRight
+		titleRight,
+		hideArrow = false
 	}: Props = $props();
 	const isInteractive = $derived(onClick !== undefined);
 
@@ -104,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					onclick={() => onDiscard()}
 				/>
 			{/if}
-			{#if isInteractive}
+			{#if isInteractive && !hideArrow}
 				<ArrowRightIcon class="size-4 shrink-0 text-muted-foreground" />
 			{/if}
 		</div>
