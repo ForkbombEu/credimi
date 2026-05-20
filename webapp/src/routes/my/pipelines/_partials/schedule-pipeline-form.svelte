@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let isOpen = $state(false);
 
-	const type = Pipeline.Runner.getType(pipeline);
+	const type = Pipeline.Runner.Binding.getType(pipeline);
 	const isGlobalRunner = type === 'global';
 
 	let schema = z.object({

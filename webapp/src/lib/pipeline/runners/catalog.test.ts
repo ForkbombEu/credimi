@@ -6,11 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RunnerRecord } from './types';
 
-import {
-	applyRefreshFailure,
-	applyRefreshSuccess,
-	createCatalogState
-} from './catalog.svelte';
+import { applyRefreshFailure, applyRefreshSuccess, createCatalogState } from './catalog.svelte';
 
 const SAMPLE: RunnerRecord[] = [
 	{

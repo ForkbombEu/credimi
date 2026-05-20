@@ -10,7 +10,6 @@ export function filterRunners(runners: readonly RunnerRecord[], text: string): R
 
 	return runners.filter(
 		(runner) =>
-			runner.name.toLowerCase().includes(search) ||
-			runner.path.toLowerCase().includes(search)
+			runner.name.toLowerCase().includes(search) || runner.path.toLowerCase().includes(search)
 	);
 }
