@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { SelfProp } from '$lib/renderable';
 
 	import { ExternalLinkIcon } from '@lucide/svelte';
-	import { Wallet } from '$lib';
+	import { Pipeline, Wallet } from '$lib';
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
@@ -34,6 +34,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 
 	const isRunnerGlobal = $derived(ExecutionTarget.hasGlobalRunner());
+
+	const foundRunners = $derived.by(() => {
+		Pipeline.Runner.Catalog.read();
+		return Pipeline.Runner.Catalog.search(form.runnerSearch.text);
+	});
 </script>
 
 {#if form.data.wallet}
@@ -123,11 +128,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
 		</div>
 	{/if}
-	<WithEmptyState items={form.foundRunners} emptyText={m.No_runners_found()}>
+	<WithEmptyState items={foundRunners} emptyText={m.No_runners_found()}>
 		{#snippet item({ item })}
 			<ItemCard title={item.name} onClick={() => form.selectRunner(item)}>
 				{#snippet right()}
-					{#if !item.published}
+					{#if !item.isPublished}
 						<Badge variant="secondary">
 							{m.private()}
 						</Badge>
