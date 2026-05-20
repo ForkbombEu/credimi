@@ -6,6 +6,7 @@ package activities
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -67,6 +68,23 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			},
 			expectStatus:   http.StatusCreated,
 			expectResponse: map[string]any{"received": "value"},
+		},
+		{
+			name: "Success - string body is sent as plain text",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				require.Equal(t, "raw-value", string(body))
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"message":"ok"}`))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodPost,
+				URL:    "",
+				Body:   "raw-value",
+			},
+			expectStatus:   http.StatusOK,
+			expectResponse: map[string]any{"message": "ok"},
 		},
 		{
 			name: "Failure - timeout",
@@ -150,6 +168,437 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				future.Get(&result)
 				require.Equal(t, tt.expectStatus, int(result.Output.(map[string]any)["status"].(float64)))
 				require.Equal(t, tt.expectResponse, result.Output.(map[string]any)["body"])
+			}
+		})
+	}
+}
+
+func TestHTTPActivity_WithOutputRules(t *testing.T) {
+	activity := NewHTTPActivity()
+	var ts testsuite.WorkflowTestSuite
+	env := ts.NewTestActivityEnvironment()
+	env.RegisterActivity(activity.Execute)
+
+	tests := []struct {
+		name           string
+		handlerFunc    http.HandlerFunc
+		payload        HTTPActivityPayload
+		expectError    bool
+		expectedStatus int
+		expectedOutput map[string]any
+	}{
+		{
+			name: "Success - Extract value with XPath",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				htmlResponse := `
+				<html>
+					<body>
+						<div id="user-id">12345</div>
+						<span class="token">abc123</span>
+					</body>
+				</html>`
+				w.Header().Set("Content-Type", "text/html")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(htmlResponse))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"user_id": {
+						XPath: "//div[@id='user-id']/text()",
+					},
+					"token": {
+						XPath: "//span[@class='token']/text()",
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedOutput: map[string]any{
+				"user_id": "12345",
+				"token":   "abc123",
+			},
+		},
+		{
+			name: "Success - Extract value with CSS Selector",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				htmlResponse := `
+				<html>
+					<body>
+						<h1 class="title">Welcome Home</h1>
+						<p id="description">This is a test page</p>
+					</body>
+				</html>`
+				w.Header().Set("Content-Type", "text/html")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(htmlResponse))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"title": {
+						Selector: "h1.title",
+					},
+					"description": {
+						Selector: "p#description",
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedOutput: map[string]any{
+				"title":       "Welcome Home",
+				"description": "This is a test page",
+			},
+		},
+		{
+			name: "Success - Extract value with Regex",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				response := `
+				authenticationRequest: 'openid://auth?code=xyz789'
+				some other text
+				token: abc-123-def
+				`
+				w.Header().Set("Content-Type", "text/plain")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(response))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"auth_code": {
+						Regex: `authenticationRequest:\s*'([^']+)'`,
+					},
+					"token": {
+						Regex: `token:\s*([a-z0-9-]+)`,
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedOutput: map[string]any{
+				"auth_code": "openid://auth?code=xyz789",
+				"token":     "abc-123-def",
+			},
+		},
+		{
+			name: "Success - Extract value from Cookie",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				http.SetCookie(w, &http.Cookie{
+					Name:  "session_id",
+					Value: "sess_67890",
+				})
+				http.SetCookie(w, &http.Cookie{
+					Name:  "csrf_token",
+					Value: "csrf_abc123",
+				})
+				w.Header().Set("Content-Type", "text/html")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("<html><body>OK</body></html>"))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"session": {
+						Cookie: "session_id",
+					},
+					"csrf": {
+						Cookie: "csrf_token",
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedOutput: map[string]any{
+				"session": "sess_67890",
+				"csrf":    "csrf_abc123",
+			},
+		},
+		{
+			name: "Success - Mixed output rules (XPath + Regex + Cookie)",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				htmlResponse := `
+				<html>
+					<body>
+						<div class="user-info">John Doe</div>
+						<script>var deeplink = 'openid://app?code=test123';</script>
+					</body>
+				</html>`
+				http.SetCookie(w, &http.Cookie{
+					Name:  "session",
+					Value: "mixed_test_session",
+				})
+				w.Header().Set("Content-Type", "text/html")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(htmlResponse))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"username": {
+						XPath: "//div[@class='user-info']/text()",
+					},
+					"deeplink": {
+						Regex: `deeplink\s*=\s*'([^']+)'`,
+					},
+					"session": {
+						Cookie: "session",
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedOutput: map[string]any{
+				"username": "John Doe",
+				"deeplink": "openid://app?code=test123",
+				"session":  "mixed_test_session",
+			},
+		},
+		{
+			name: "Success - XPath not found returns empty string",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				htmlResponse := `<html><body><div>Hello</div></body></html>`
+				w.Header().Set("Content-Type", "text/html")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(htmlResponse))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"missing": {
+						XPath: "//div[@id='not-exists']/text()",
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedOutput: map[string]any{
+				"missing": "",
+			},
+		},
+		{
+			name: "Success - Regex not found returns empty string",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("some random text without pattern"))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"missing": {
+						Regex: `pattern_not_found: '([^']+)'`,
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			expectedOutput: map[string]any{
+				"missing": "",
+			},
+		},
+		{
+			name: "Error - XPath on non-HTML content",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"message": "json response"}`))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"value": {
+						XPath: "//some/path",
+					},
+				},
+			},
+			expectError:    true,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Error - Invalid regex pattern",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("some response"))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"value": {
+						Regex: `[invalid regex`,
+					},
+				},
+			},
+			expectError:    true,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Error - output rule with no extraction method",
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"key": {},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "Error - output rule with multiple extraction methods",
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				Outputs: map[string]OutputRule{
+					"key": {
+						XPath: "//div",
+						Regex: "pattern",
+					},
+				},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(tt.handlerFunc)
+			defer server.Close()
+			tt.payload.URL = server.URL
+
+			var result workflowengine.ActivityResult
+			input := workflowengine.ActivityInput{
+				Payload: tt.payload,
+			}
+			future, err := env.ExecuteActivity(activity.Execute, input)
+
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				err = future.Get(&result)
+				require.NoError(t, err)
+
+				outputMap := result.Output.(map[string]any)
+				require.Equal(t, tt.expectedStatus, int(outputMap["status"].(float64)))
+
+				for key, expectedValue := range tt.expectedOutput {
+					actualValue, exists := outputMap[key]
+					require.True(t, exists, "key %s should exist in outputs", key)
+					require.Equal(t, expectedValue, actualValue, "value mismatch for key %s", key)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateExpectedStatus(t *testing.T) {
+	// Crea un'attività base per gli errori
+	act := &workflowengine.BaseActivity{}
+
+	tests := []struct {
+		name           string
+		statusCode     int
+		expectedStatus interface{}
+		expectError    bool
+		errorContains  string
+	}{
+		{
+			name:           "Success - nil expected (no validation)",
+			statusCode:     200,
+			expectedStatus: nil,
+			expectError:    false,
+		},
+		{
+			name:           "Success - zero integer expected preserves omitted legacy behavior",
+			statusCode:     200,
+			expectedStatus: 0,
+			expectError:    false,
+		},
+		{
+			name:           "Success - zero float expected preserves omitted legacy behavior",
+			statusCode:     200,
+			expectedStatus: 0.0,
+			expectError:    false,
+		},
+		{
+			name:           "Success - exact match with integer",
+			statusCode:     200,
+			expectedStatus: 200,
+			expectError:    false,
+		},
+		{
+			name:           "Success - exact match with float64",
+			statusCode:     201,
+			expectedStatus: 201.0,
+			expectError:    false,
+		},
+		{
+			name:           "Error - exact match fails",
+			statusCode:     404,
+			expectedStatus: 200,
+			expectError:    true,
+			errorContains:  "expected '200', got '404'",
+		},
+		{
+			name:           "Success - regex pattern /^20/ matches 200",
+			statusCode:     200,
+			expectedStatus: "/^20/",
+			expectError:    false,
+		},
+		{
+			name:           "Success - regex pattern /^20/ matches 201",
+			statusCode:     201,
+			expectedStatus: "/^20/",
+			expectError:    false,
+		},
+		{
+			name:           "Success - regex pattern /^20/ matches 204",
+			statusCode:     204,
+			expectedStatus: "/^20/",
+			expectError:    false,
+		},
+		{
+			name:           "Error - regex pattern /^20/ fails with 300",
+			statusCode:     300,
+			expectedStatus: "/^20/",
+			expectError:    true,
+			errorContains:  "expected pattern '/^20/', got '300'",
+		},
+		{
+			name:           "Error - regex pattern /^20/ fails with 404",
+			statusCode:     404,
+			expectedStatus: "/^20/",
+			expectError:    true,
+			errorContains:  "expected pattern '/^20/', got '404'",
+		},
+		{
+			name:           "Error - invalid regex pattern",
+			statusCode:     200,
+			expectedStatus: "/[invalid regex/",
+			expectError:    true,
+			errorContains:  "invalid regex pattern for expected_status",
+		},
+		{
+			name:           "Error - unsupported type (bool)",
+			statusCode:     200,
+			expectedStatus: true,
+			expectError:    true,
+			errorContains:  "expected_status must be integer or regex string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateExpectedStatus(tt.statusCode, tt.expectedStatus, nil, act)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					require.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
