@@ -767,35 +767,37 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 				},
 			},
 		},
-		Finally: []pipeline.FinallyStepDefinition{
-			{
-				StepSpec: pipeline.StepSpec{
-					ID:  "finally-http",
-					Use: "http-request",
-					With: pipeline.StepInputs{
-						Payload: map[string]any{
-							"method": "POST",
-							"url":    "https://example.com/finally",
-							"body": map[string]any{
-								"phase":           "finally",
-								"result":          "${{result}}",
-								"pipeline_url":    "${{pipeline_url}}",
-								"input_value":     "${{inputs.tenant}}",
-								"pipeline_output": "${{pipeline_output}}",
+		Finally: pipeline.FinallyDefinition{
+			Always: []pipeline.FinallyStepDefinition{
+				{
+					StepSpec: pipeline.StepSpec{
+						ID:  "finally-http",
+						Use: "http-request",
+						With: pipeline.StepInputs{
+							Payload: map[string]any{
+								"method": "POST",
+								"url":    "https://example.com/finally",
+								"body": map[string]any{
+									"phase":           "finally",
+									"result":          "${{result}}",
+									"pipeline_url":    "${{pipeline_url}}",
+									"input_value":     "${{inputs.tenant}}",
+									"pipeline_output": "${{pipeline_output}}",
+								},
 							},
 						},
 					},
 				},
-			},
-			{
-				StepSpec: pipeline.StepSpec{
-					ID:  "finally-email",
-					Use: "email",
-					With: pipeline.StepInputs{
-						Payload: map[string]any{
-							"recipient": "test@example.com",
-							"subject":   "Pipeline finished",
-							"body":      "Done",
+				{
+					StepSpec: pipeline.StepSpec{
+						ID:  "finally-email",
+						Use: "email",
+						With: pipeline.StepInputs{
+							Payload: map[string]any{
+								"recipient": "test@example.com",
+								"subject":   "Pipeline finished",
+								"body":      "Done",
+							},
 						},
 					},
 				},
@@ -858,28 +860,32 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 }
 
 func TestValidateFinallySteps(t *testing.T) {
-	validSteps := []pipeline.FinallyStepDefinition{
-		{
-			StepSpec: pipeline.StepSpec{
-				ID:  "valid-http",
-				Use: "http-request",
+	validSteps := pipeline.FinallyDefinition{
+		Always: []pipeline.FinallyStepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "valid-http",
+					Use: "http-request",
+				},
 			},
-		},
-		{
-			StepSpec: pipeline.StepSpec{
-				ID:  "valid-email",
-				Use: "email",
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "valid-email",
+					Use: "email",
+				},
 			},
 		},
 	}
 	err := ValidateFinallySteps(validSteps)
 	require.NoError(t, err)
 
-	invalidSteps := []pipeline.FinallyStepDefinition{
-		{
-			StepSpec: pipeline.StepSpec{
-				ID:  "invalid-json",
-				Use: "json-parse",
+	invalidSteps := pipeline.FinallyDefinition{
+		OnFailure: []pipeline.FinallyStepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "invalid-json",
+					Use: "json-parse",
+				},
 			},
 		},
 	}
@@ -888,23 +894,58 @@ func TestValidateFinallySteps(t *testing.T) {
 	require.Contains(t, err.Error(), "not allowed")
 	require.Contains(t, err.Error(), "json-parse")
 	require.Contains(t, err.Error(), "invalid-json")
-	mixedSteps := []pipeline.FinallyStepDefinition{
-		{
-			StepSpec: pipeline.StepSpec{
-				ID:  "invalid-mobile",
-				Use: "mobile-automation",
+	mixedSteps := pipeline.FinallyDefinition{
+		OnSuccess: []pipeline.FinallyStepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "invalid-mobile",
+					Use: "mobile-automation",
+				},
 			},
 		},
-		{
-			StepSpec: pipeline.StepSpec{
-				ID:  "valid-email",
-				Use: "email",
+		Always: []pipeline.FinallyStepDefinition{
+			{
+				StepSpec: pipeline.StepSpec{
+					ID:  "valid-email",
+					Use: "email",
+				},
 			},
 		},
 	}
 	err = ValidateFinallySteps(mixedSteps)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mobile-automation")
+}
+
+func TestFinallyStepsForResult(t *testing.T) {
+	finallyDef := pipeline.FinallyDefinition{
+		Always: []pipeline.FinallyStepDefinition{
+			{StepSpec: pipeline.StepSpec{ID: "always"}},
+		},
+		OnSuccess: []pipeline.FinallyStepDefinition{
+			{StepSpec: pipeline.StepSpec{ID: "success"}},
+		},
+		OnFailure: []pipeline.FinallyStepDefinition{
+			{StepSpec: pipeline.StepSpec{ID: "failure"}},
+		},
+	}
+
+	successSteps := finallyStepsForResult(finallyDef, resultSuccess)
+	require.Equal(t, []string{"always", "success"}, finallyStepIDs(successSteps))
+
+	failureSteps := finallyStepsForResult(finallyDef, resultFailed)
+	require.Equal(t, []string{"always", "failure"}, finallyStepIDs(failureSteps))
+
+	canceledSteps := finallyStepsForResult(finallyDef, resultCanceled)
+	require.Equal(t, []string{"always"}, finallyStepIDs(canceledSteps))
+}
+
+func finallyStepIDs(steps []pipeline.FinallyStepDefinition) []string {
+	ids := make([]string, 0, len(steps))
+	for _, step := range steps {
+		ids = append(ids, step.ID)
+	}
+	return ids
 }
 
 func TestPipelineWorkflowFinallyValidationFails(t *testing.T) {
@@ -932,14 +973,16 @@ func TestPipelineWorkflowFinallyValidationFails(t *testing.T) {
 				},
 			},
 		},
-		Finally: []pipeline.FinallyStepDefinition{
-			{
-				StepSpec: pipeline.StepSpec{
-					ID:  "invalid-finally",
-					Use: "json-parse", // NON CONSENTITO!
-					With: pipeline.StepInputs{
-						Payload: map[string]any{
-							"struct_type": "map",
+		Finally: pipeline.FinallyDefinition{
+			Always: []pipeline.FinallyStepDefinition{
+				{
+					StepSpec: pipeline.StepSpec{
+						ID:  "invalid-finally",
+						Use: "json-parse",
+						With: pipeline.StepInputs{
+							Payload: map[string]any{
+								"struct_type": "map",
+							},
 						},
 					},
 				},
@@ -1071,16 +1114,18 @@ func TestPipelineWorkflowFinallyErrorsDontBlockWorkflow(t *testing.T) {
 				},
 			},
 		},
-		Finally: []pipeline.FinallyStepDefinition{
-			{
-				StepSpec: pipeline.StepSpec{
-					ID:  "finally-email",
-					Use: "email",
-					With: pipeline.StepInputs{
-						Payload: map[string]any{
-							"recipient": "test@example.com",
-							"subject":   "Pipeline finished",
-							"body":      "Done",
+		Finally: pipeline.FinallyDefinition{
+			Always: []pipeline.FinallyStepDefinition{
+				{
+					StepSpec: pipeline.StepSpec{
+						ID:  "finally-email",
+						Use: "email",
+						With: pipeline.StepInputs{
+							Payload: map[string]any{
+								"recipient": "test@example.com",
+								"subject":   "Pipeline finished",
+								"body":      "Done",
+							},
 						},
 					},
 				},
@@ -1251,19 +1296,21 @@ func TestPipelineWorkflowFailureWithFinally(t *testing.T) {
 				},
 			},
 		},
-		Finally: []pipeline.FinallyStepDefinition{
-			{
-				StepSpec: pipeline.StepSpec{
-					ID:  "finally-check",
-					Use: "http-request",
-					With: pipeline.StepInputs{
-						Payload: map[string]any{
-							"method": "POST",
-							"url":    "https://example.com/finally",
-							"body": map[string]any{
-								"result":          "${{result}}",
-								"pipeline_url":    "${{pipeline_url}}",
-								"pipeline_output": "${{pipeline_output}}",
+		Finally: pipeline.FinallyDefinition{
+			Always: []pipeline.FinallyStepDefinition{
+				{
+					StepSpec: pipeline.StepSpec{
+						ID:  "finally-check",
+						Use: "http-request",
+						With: pipeline.StepInputs{
+							Payload: map[string]any{
+								"method": "POST",
+								"url":    "https://example.com/finally",
+								"body": map[string]any{
+									"result":          "${{result}}",
+									"pipeline_url":    "${{pipeline_url}}",
+									"pipeline_output": "${{pipeline_output}}",
+								},
 							},
 						},
 					},

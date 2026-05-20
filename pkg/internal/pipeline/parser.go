@@ -20,6 +20,52 @@ func ParseWorkflow(yamlStr string) (*WorkflowDefinition, error) {
 	return &wf, nil
 }
 
+func (f *FinallyDefinition) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.SequenceNode:
+		var steps []FinallyStepDefinition
+		if err := value.Decode(&steps); err != nil {
+			return fmt.Errorf("invalid finally steps: %w", err)
+		}
+		f.Always = steps
+		f.OnSuccess = nil
+		f.OnFailure = nil
+		return nil
+	case yaml.MappingNode:
+		type finallyDefinition FinallyDefinition
+		var tmp finallyDefinition
+		if err := value.Decode(&tmp); err != nil {
+			return fmt.Errorf("invalid finally definition: %w", err)
+		}
+		*f = FinallyDefinition(tmp)
+		return nil
+	case yaml.ScalarNode:
+		if value.Tag == "!!null" {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("invalid finally definition: expected list or map, got YAML node kind %d", value.Kind)
+}
+
+func (f *FinallyDefinition) UnmarshalJSON(data []byte) error {
+	var steps []FinallyStepDefinition
+	if err := json.Unmarshal(data, &steps); err == nil {
+		f.Always = steps
+		f.OnSuccess = nil
+		f.OnFailure = nil
+		return nil
+	}
+
+	type finallyDefinition FinallyDefinition
+	var tmp finallyDefinition
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return fmt.Errorf("invalid finally definition: %w", err)
+	}
+	*f = FinallyDefinition(tmp)
+	return nil
+}
+
 func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {
 	var tmp map[string]any
 	if err := value.Decode(&tmp); err != nil {
@@ -98,4 +144,3 @@ func (s *StepInputs) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
-
