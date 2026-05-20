@@ -133,6 +133,10 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	state := newPipelineExecutionState(workflowID, runID)
+	if hasMobileAutomationStep(wfDef.Steps) {
+		state.finalOutput["result_video_warning"] = "Video recordings are limited to 30 minutes. " +
+			"Tests exceeding this duration may result in an incomplete video."
+	}
 
 	runData := map[string]any{
 		"run_identifier": getPipelineRunIdentifier(
@@ -272,10 +276,17 @@ func newPipelineExecutionState(workflowID string, runID string) *pipelineExecuti
 		finalOutput: map[string]any{
 			"workflow-id":     workflowID,
 			"workflow-run-id": runID,
-			"result_video_warning": "Video recordings are limited to 30 minutes. " +
-				"Tests exceeding this duration may result in an incomplete video.",
 		},
 	}
+}
+
+func hasMobileAutomationStep(steps []pipeline.StepDefinition) bool {
+	for _, step := range steps {
+		if step.Use == mobileAutomationStepUse {
+			return true
+		}
+	}
+	return false
 }
 
 func wrapWorkflowCancellationError(
