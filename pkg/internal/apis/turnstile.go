@@ -5,11 +5,14 @@
 package apis
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -55,12 +58,23 @@ func HookTurnstileVerification(app *pocketbase.PocketBase) {
 }
 
 func verifyTurnstileToken(token, secret string) (*turnstileVerifyResponse, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	resp, err := client.PostForm("https://challenges.cloudflare.com/turnstile/v0/siteverify", url.Values{
+	data := url.Values{
 		"secret":   {secret},
 		"response": {token},
-	})
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://challenges.cloudflare.com/turnstile/v0/siteverify", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Body = io.NopCloser(strings.NewReader(data.Encode()))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("siteverify request failed: %w", err)
 	}
