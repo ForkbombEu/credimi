@@ -44,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSubmit: async ({ form }) => {
 			const { data } = form;
 			if (!captchaToken) {
-				captchaError = m.Please_complete_the_captcha_();
+				captchaError = m.Please_complete_the_captcha();
 				return;
 			}
 			captchaError = '';
@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		onError: () => {
 			captchaToken = '';
-			captchaError = '';
+			captchaError = m.Please_complete_the_captcha();
 			if (turnstileWidgetId && (window as any).turnstile) {
 				(window as any).turnstile.reset(turnstileWidgetId);
 			}
@@ -170,8 +170,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 	/>
 
-	<div bind:this={turnstileContainer} class="mb-4 flex justify-center">
-	</div>
+	<div bind:this={turnstileContainer} class="mb-4 flex justify-center"></div>
 
 	{#if captchaError}
 		<p class="mb-4 text-sm text-red-600 dark:text-red-400">{captchaError}</p>
