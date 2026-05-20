@@ -5,20 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Pipeline } from '$lib';
 	import EmptyState from '$lib/pipeline-form/steps/_partials/empty-state.svelte';
 	import ItemCard from '$lib/pipeline-form/steps/_partials/item-card.svelte';
 	import SearchInput from '$lib/pipeline-form/steps/_partials/search-input.svelte';
 	import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte.js';
 
-	import { Pipeline } from '$lib';
-	import type { Record } from '$lib/pipeline/runner';
-
 	import { Badge } from '@/components/ui/badge';
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n';
 
+	//
+
 	type Props = {
-		onSelect?: (runner: Record) => void;
+		onSelect?: (runner: Pipeline.Runner.Record) => void;
 		selectedRunner?: string;
 		name?: string;
 		required?: boolean;
@@ -26,17 +26,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { onSelect, selectedRunner, name, required = false }: Props = $props();
 
+	//
+
+	let foundRunners = $state<Pipeline.Runner.Record[]>([]);
+
 	const runnerSearch = new Search({
-		onSearch: (text) => {
-			searchRunner(text);
+		onSearch: () => {
+			foundRunners = Pipeline.Runner.Catalog.search(runnerSearch.text);
 		}
-	});
-
-	function searchRunner(_text: string) {}
-
-	const foundRunners = $derived.by(() => {
-		Pipeline.Runner.Catalog.read();
-		return Pipeline.Runner.Catalog.search(runnerSearch.text);
 	});
 </script>
 

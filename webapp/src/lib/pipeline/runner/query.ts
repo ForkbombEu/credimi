@@ -45,7 +45,7 @@ export function parseSelectorResponse(body: unknown): RunnerRecord[] {
 	return parsed.runners.map(mapWireToRecord);
 }
 
-export function listSelector(
+export function fetchRecords(
 	options: { fetch?: typeof fetch } = {}
 ): Task.Task<RunnerRecord[], ClientResponseError | ZodError> {
 	const { fetch: fetchFn = fetch } = options;

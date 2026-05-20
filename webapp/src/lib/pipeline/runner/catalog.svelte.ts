@@ -6,10 +6,11 @@ import { userOrganization } from '$lib/app-state';
 
 import { pb } from '@/pocketbase';
 
-import { onRefreshFailure, onRefreshSuccess } from './catalog-state';
-import { listSelector } from './query';
-import { filterRunners } from './search';
 import type { RunnerRecord } from './types';
+
+import { onRefreshFailure, onRefreshSuccess } from './catalog-state';
+import { fetchRecords } from './query';
+import { filterRunners } from './search';
 
 //
 
@@ -22,7 +23,7 @@ let inFlight: Promise<void> | undefined;
 let rootDispose: (() => void) | undefined;
 
 function snapshot() {
-	return { ready: ready, runners: runners };
+	return { ready, runners };
 }
 
 function applySuccess(next: RunnerRecord[]) {
@@ -107,7 +108,7 @@ export function refresh(gen?: number): Promise<void> {
 	if (inFlight) return inFlight;
 
 	const activeGeneration = gen ?? generation;
-	inFlight = listSelector()
+	inFlight = fetchRecords()
 		.match({
 			Rejected: (reason) => {
 				console.error(reason);

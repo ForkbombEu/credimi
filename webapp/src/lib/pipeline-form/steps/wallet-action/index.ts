@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Wallet } from '$lib';
+import { Pipeline, Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import { getHubItemLogo, getHubItemUrl, type HubItem } from '$lib/hub';
 import type { Record } from '$lib/pipeline/runner';
-import { listSelector } from '$lib/pipeline/runner';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -142,7 +141,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 				isOnline: false
 			} satisfies Record;
 
-			await listSelector().match({
+			await Pipeline.Runner.fetchRecords().match({
 				Rejected: () => {
 					runner = fallbackRunner;
 				},
