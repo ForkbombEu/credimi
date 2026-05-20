@@ -347,13 +347,13 @@ func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 
 			w.Header().Set("Content-Type", "application/json")
 			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-				"status":       "queued",
-				"ticket_id":    "ticket-1",
-				"enqueued_at":  "2026-05-20T12:00:00Z",
-				"runner_ids":   []string{"runner-1"},
-				"position":     0,
-				"line_len":     2,
-				"pipeline_url": "https://credimi.test/my/pipelines/org/pipeline123",
+				"status":               "queued",
+				"ticket_id":            "ticket-1",
+				"enqueued_at":          "2026-05-20T12:00:00Z",
+				"runner_ids":           []string{"runner-1"},
+				"position":             0,
+				"line_len":             2,
+				pipelineURLResponseKey: "https://credimi.test/my/pipelines/org/pipeline123",
 			}))
 		default:
 			require.Fail(t, "unexpected path")
@@ -378,7 +378,11 @@ func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 	require.NotContains(t, got, "queue_position")
 	require.NotContains(t, got, "position_human")
 	require.Equal(t, float64(2), got["line_len"])
-	require.Equal(t, "https://credimi.test/my/pipelines/org/pipeline123", got["pipeline_url"])
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/org/pipeline123",
+		got[pipelineURLResponseKey],
+	)
 }
 
 // TestStartPipelineHandlesStartedPipelines verifies started output for non-runner pipelines.
@@ -392,11 +396,11 @@ func TestStartPipelineHandlesStartedPipelines(t *testing.T) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-			"status":       "running",
-			"workflow_id":  "wf-123",
-			"run_id":       "run-456",
-			"pipeline_url": "https://credimi.test/my/pipelines/org/pipeline123",
-			"run_url":      "https://credimi.test/my/tests/runs/wf-123/run-456",
+			"status":               "running",
+			"workflow_id":          "wf-123",
+			"run_id":               "run-456",
+			pipelineURLResponseKey: "https://credimi.test/my/pipelines/org/pipeline123",
+			"run_url":              "https://credimi.test/my/tests/runs/wf-123/run-456",
 		}))
 	}))
 	defer server.Close()
@@ -414,7 +418,11 @@ func TestStartPipelineHandlesStartedPipelines(t *testing.T) {
 	require.NotContains(t, got, "mode")
 	require.Equal(t, "wf-123", got["workflow_id"])
 	require.Equal(t, "run-456", got["run_id"])
-	require.Equal(t, "https://credimi.test/my/pipelines/org/pipeline123", got["pipeline_url"])
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/org/pipeline123",
+		got[pipelineURLResponseKey],
+	)
 	require.Equal(t, "https://credimi.test/my/tests/runs/wf-123/run-456", got["run_url"])
 }
 
@@ -456,9 +464,9 @@ func TestStartPipelineFailedMode(t *testing.T) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-			"status":        "failed",
-			"error_message": "boom",
-			"pipeline_url":  "https://credimi.test/my/pipelines/org/pipeline123",
+			"status":               "failed",
+			"error_message":        "boom",
+			pipelineURLResponseKey: "https://credimi.test/my/pipelines/org/pipeline123",
 		}))
 	}))
 	defer server.Close()
@@ -475,7 +483,11 @@ func TestStartPipelineFailedMode(t *testing.T) {
 	require.Equal(t, "failed", got["status"])
 	require.NotContains(t, got, "mode")
 	require.Equal(t, "boom", got["error_message"])
-	require.Equal(t, "https://credimi.test/my/pipelines/org/pipeline123", got["pipeline_url"])
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/org/pipeline123",
+		got[pipelineURLResponseKey],
+	)
 }
 
 func TestStartPipelineUnknownStatus(t *testing.T) {

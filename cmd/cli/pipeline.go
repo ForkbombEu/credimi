@@ -26,6 +26,10 @@ var (
 	instanceURL string
 )
 
+const (
+	pipelineURLResponseKey = "pipeline_url"
+)
+
 // NewPipelineCmd creates the "pipeline" command, using the PocketBase URL.
 func NewPipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -458,28 +462,28 @@ func startPipeline(ctx context.Context, token string, canonName string, rec map[
 	case "queued", "starting":
 		position := queueResp.Position + 1
 		return printJSON(map[string]any{
-			"status":       queueResp.Status,
-			"ticket_id":    queueResp.TicketID,
-			"enqueued_at":  queueResp.EnqueuedAt,
-			"runner_ids":   queueResp.RunnerIDs,
-			"position":     position,
-			"line_len":     queueResp.LineLen,
-			"pipeline_url": queueResp.PipelineURL,
+			"status":               queueResp.Status,
+			"ticket_id":            queueResp.TicketID,
+			"enqueued_at":          queueResp.EnqueuedAt,
+			"runner_ids":           queueResp.RunnerIDs,
+			"position":             position,
+			"line_len":             queueResp.LineLen,
+			pipelineURLResponseKey: queueResp.PipelineURL,
 		})
 	case "running":
 		return printJSON(map[string]any{
-			"status":             queueResp.Status,
-			"workflow_id":        queueResp.WorkflowID,
-			"run_id":             queueResp.RunID,
-			"workflow_namespace": queueResp.WorkflowNamespace,
-			"pipeline_url":       queueResp.PipelineURL,
-			"run_url":            queueResp.RunURL,
+			"status":               queueResp.Status,
+			"workflow_id":          queueResp.WorkflowID,
+			"run_id":               queueResp.RunID,
+			"workflow_namespace":   queueResp.WorkflowNamespace,
+			pipelineURLResponseKey: queueResp.PipelineURL,
+			"run_url":              queueResp.RunURL,
 		})
 	case "failed", "canceled":
 		return printJSON(map[string]any{
-			"status":        queueResp.Status,
-			"error_message": queueResp.ErrorMessage,
-			"pipeline_url":  queueResp.PipelineURL,
+			"status":               queueResp.Status,
+			"error_message":        queueResp.ErrorMessage,
+			pipelineURLResponseKey: queueResp.PipelineURL,
 		})
 	default:
 		return printJSON(map[string]any{
