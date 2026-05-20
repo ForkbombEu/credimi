@@ -4,8 +4,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { onRefreshFailure, onRefreshSuccess, type CatalogSnapshot } from './catalog-state';
 import type { RunnerRecord } from './types';
+
+import { onRefreshFailure, onRefreshSuccess, type CatalogSnapshot } from './catalog-state';
+
+//
 
 const SAMPLE: RunnerRecord[] = [
 	{
