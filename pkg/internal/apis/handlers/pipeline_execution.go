@@ -16,12 +16,14 @@ import (
 	InternalPipeline "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	pip "github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/google/uuid"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
 
 const httpRequestStepUse = "http-request"
+const pipelineExecuteWorkflowIDPrefix = "Pipeline-Execute-"
 
 var PipelineExecuteTimeout = 2 * time.Minute
 
@@ -112,8 +114,10 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 		}
 
 		// 7. start workflow execution
+		// This endpoint executes ephemeral YAML directly, not a stored pipeline record.
+		// Do not attach PipelineIdentifier search attributes or create pipeline_results.
 		workflowOptions := client.StartWorkflowOptions{
-			ID:        fmt.Sprintf("execute-api-%s-%d", canonify.CanonifyPlain(wfDef.Name), time.Now().UnixNano()),
+			ID:        fmt.Sprintf("%s%s-%s", pipelineExecuteWorkflowIDPrefix, canonify.CanonifyPlain(wfDef.Name), uuid.NewString()),
 			TaskQueue: pip.PipelineTaskQueue,
 		}
 
@@ -165,7 +169,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 			})
 		}
 
-		deeplink, err := extractDeeplink(result.Output)
+		deeplink, err := extractDeeplink(result.Output, wfDef.Steps)
 		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
@@ -183,14 +187,14 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 	}
 }
 
-func extractDeeplink(output any) (string, error) {
+func extractDeeplink(output any, steps []InternalPipeline.StepDefinition) (string, error) {
 	outputMap, ok := output.(map[string]any)
 	if !ok {
 		return "", fmt.Errorf("output is not a map")
 	}
 
-	for _, stepValue := range outputMap {
-		stepData, ok := stepValue.(map[string]any)
+	for i := len(steps) - 1; i >= 0; i-- {
+		stepData, ok := outputMap[steps[i].ID].(map[string]any)
 		if !ok {
 			continue
 		}
