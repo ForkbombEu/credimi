@@ -4,10 +4,9 @@
 
 import { userOrganization } from '$lib/app-state';
 
-import type { OrganizationsResponse } from '@/pocketbase/types';
-
 import { pb } from '@/pocketbase';
 
+import { onRefreshFailure, onRefreshSuccess } from './catalog-state';
 import { listSelector } from './query';
 import { filterRunners } from './search';
 import type { RunnerRecord } from './types';
@@ -16,169 +15,124 @@ import type { RunnerRecord } from './types';
 
 export const LIVE_REFRESH_MS = 30_000;
 
-class Catalog {
-	constructor(private currentOrganization: () => OrganizationsResponse | undefined) {}
+let runners = $state<RunnerRecord[]>([]);
+let ready = $state(false);
+let generation = 0;
+let inFlight: Promise<void> | undefined;
+let rootDispose: (() => void) | undefined;
 
-	#runners = $state<RunnerRecord[]>([]);
-	#ready = $state(false);
-	#generation = 0;
-	#inFlight: Promise<void> | undefined;
-	#dispose: (() => void) | undefined;
-
-	read() {
-		return this.#runners;
-	}
-
-	isReady() {
-		return this.#ready;
-	}
-
-	search(text: string) {
-		return filterRunners(this.read(), text);
-	}
-
-	findByPath(path: string) {
-		return this.read().find((runner) => runner.path === path);
-	}
-
-	init() {
-		if (this.#dispose) return;
-
-		this.#dispose = $effect.root(() => {
-			$effect(() => {
-				const generation = ++this.#generation;
-				const organizationId = this.currentOrganization()?.id;
-
-				this.#ready = false;
-				this.#runners = [];
-
-				if (!organizationId) {
-					return;
-				}
-
-				void this.refresh(generation);
-
-				let unsubscribe: (() => Promise<void>) | undefined;
-				let cancelled = false;
-
-				void pb
-					.collection('mobile_runners')
-					.subscribe('*', () => {
-						void this.refresh(generation);
-					})
-					.then((unsub) => {
-						if (cancelled) {
-							void unsub();
-							return;
-						}
-						unsubscribe = unsub;
-					});
-
-				return () => {
-					cancelled = true;
-					void unsubscribe?.();
-				};
-			});
-		});
-	}
-
-	dispose() {
-		this.#dispose?.();
-		this.#dispose = undefined;
-		this.#generation += 1;
-		this.#runners = [];
-		this.#ready = false;
-		this.#inFlight = undefined;
-	}
-
-	refresh(generation?: number): Promise<void> {
-		if (this.#inFlight) return this.#inFlight;
-
-		const gen = generation ?? this.#generation;
-		this.#inFlight = listSelector()
-			.match({
-				Rejected: (reason) => {
-					console.error(reason);
-					if (gen === this.#generation) {
-						this._applyRefreshFailure();
-					}
-				},
-				Resolved: (runners) => {
-					if (gen === this.#generation) {
-						this._applyRefreshSuccess(runners);
-					}
-				}
-			})
-			.finally(() => {
-				this.#inFlight = undefined;
-			});
-
-		return this.#inFlight;
-	}
-
-	startLiveRefresh(ms = LIVE_REFRESH_MS) {
-		void this.refresh();
-		const intervalId = setInterval(() => {
-			void this.refresh();
-		}, ms);
-
-		return () => clearInterval(intervalId);
-	}
-
-	_applyRefreshSuccess(runners: RunnerRecord[]) {
-		this.#runners = runners;
-		this.#ready = true;
-	}
-
-	_applyRefreshFailure() {
-		if (!this.#ready) {
-			this.#runners = [];
-		}
-	}
+function snapshot() {
+	return { ready: ready, runners: runners };
 }
 
-const catalog = new Catalog(() => userOrganization.current);
-
-export function init() {
-	catalog.init();
+function applySuccess(next: RunnerRecord[]) {
+	const nextSnapshot = onRefreshSuccess(snapshot(), next);
+	ready = nextSnapshot.ready;
+	runners = nextSnapshot.runners;
 }
 
-export function dispose() {
-	catalog.dispose();
-}
-
-export function refresh() {
-	return catalog.refresh();
+function applyFailure() {
+	const nextSnapshot = onRefreshFailure(snapshot());
+	ready = nextSnapshot.ready;
+	runners = nextSnapshot.runners;
 }
 
 export function read() {
-	return catalog.read();
-}
-
-export function search(text: string) {
-	return catalog.search(text);
-}
-
-export function findByPath(path: string) {
-	return catalog.findByPath(path);
+	return runners;
 }
 
 export function isReady() {
-	return catalog.isReady();
+	return ready;
+}
+
+export function search(text: string) {
+	return filterRunners(read(), text);
+}
+
+export function findByPath(path: string) {
+	return read().find((runner) => runner.path === path);
+}
+
+export function init() {
+	if (rootDispose) return;
+
+	rootDispose = $effect.root(() => {
+		$effect(() => {
+			const gen = ++generation;
+			const organizationId = userOrganization.current?.id;
+
+			ready = false;
+			runners = [];
+
+			if (!organizationId) {
+				return;
+			}
+
+			void refresh(gen);
+
+			let unsubscribe: (() => Promise<void>) | undefined;
+			let cancelled = false;
+
+			void pb
+				.collection('mobile_runners')
+				.subscribe('*', () => {
+					void refresh(gen);
+				})
+				.then((unsub) => {
+					if (cancelled) {
+						void unsub();
+						return;
+					}
+					unsubscribe = unsub;
+				});
+
+			return () => {
+				cancelled = true;
+				void unsubscribe?.();
+			};
+		});
+	});
+}
+
+export function dispose() {
+	rootDispose?.();
+	rootDispose = undefined;
+	generation += 1;
+	runners = [];
+	ready = false;
+	inFlight = undefined;
+}
+
+export function refresh(gen?: number): Promise<void> {
+	if (inFlight) return inFlight;
+
+	const activeGeneration = gen ?? generation;
+	inFlight = listSelector()
+		.match({
+			Rejected: (reason) => {
+				console.error(reason);
+				if (activeGeneration === generation) {
+					applyFailure();
+				}
+			},
+			Resolved: (next) => {
+				if (activeGeneration === generation) {
+					applySuccess(next);
+				}
+			}
+		})
+		.finally(() => {
+			inFlight = undefined;
+		});
+
+	return inFlight;
 }
 
 export function startLiveRefresh(ms = LIVE_REFRESH_MS) {
-	return catalog.startLiveRefresh(ms);
-}
+	void refresh();
+	const intervalId = setInterval(() => {
+		void refresh();
+	}, ms);
 
-export function createCatalogState() {
-	return new Catalog(() => undefined);
-}
-
-export function applyRefreshSuccess(state: Catalog, runners: RunnerRecord[]) {
-	state._applyRefreshSuccess(runners);
-}
-
-export function applyRefreshFailure(state: Catalog) {
-	state._applyRefreshFailure();
+	return () => clearInterval(intervalId);
 }

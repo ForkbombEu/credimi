@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
+import { onRefreshFailure, onRefreshSuccess, type CatalogSnapshot } from './catalog-state';
 import type { RunnerRecord } from './types';
-
-import { applyRefreshFailure, applyRefreshSuccess, createCatalogState } from './catalog.svelte';
 
 const SAMPLE: RunnerRecord[] = [
 	{
@@ -18,23 +17,25 @@ const SAMPLE: RunnerRecord[] = [
 	}
 ];
 
-describe('catalog readiness', () => {
-	beforeEach(() => {
-		vi.restoreAllMocks();
-	});
+function emptySnapshot(): CatalogSnapshot {
+	return { ready: false, runners: [] };
+}
 
+describe('catalog readiness', () => {
 	it('isReady is false until first success', () => {
-		const state = createCatalogState();
-		expect(state.isReady()).toBe(false);
-		applyRefreshSuccess(state, SAMPLE);
-		expect(state.isReady()).toBe(true);
+		expect(emptySnapshot().ready).toBe(false);
+		expect(onRefreshSuccess(emptySnapshot(), SAMPLE).ready).toBe(true);
 	});
 
 	it('keeps snapshot and stays ready after later failure', () => {
-		const state = createCatalogState();
-		applyRefreshSuccess(state, SAMPLE);
-		applyRefreshFailure(state);
-		expect(state.isReady()).toBe(true);
-		expect(state.read()).toEqual(SAMPLE);
+		const afterSuccess = onRefreshSuccess(emptySnapshot(), SAMPLE);
+		const afterFailure = onRefreshFailure(afterSuccess);
+
+		expect(afterFailure.ready).toBe(true);
+		expect(afterFailure.runners).toEqual(SAMPLE);
+	});
+
+	it('clears runners when refresh fails before first success', () => {
+		expect(onRefreshFailure(emptySnapshot())).toEqual({ ready: false, runners: [] });
 	});
 });
