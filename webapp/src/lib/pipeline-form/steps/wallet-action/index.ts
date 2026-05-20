@@ -7,7 +7,7 @@ import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import { getHubItemLogo, getHubItemUrl, type HubItem } from '$lib/hub';
 import type { Record } from '$lib/pipeline/runner';
-import { listSelector } from '$lib/pipeline/runners/query';
+import { listSelector } from '$lib/pipeline/runner';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,

@@ -6,7 +6,7 @@ import { lsSync } from 'rune-sync/localstorage';
 
 import type { PipelinesResponse } from '@/pocketbase/types';
 
-import type { RunnerRecord } from '../runners/types';
+import type { RunnerRecord } from './types';
 
 import { parseYaml } from '../utils';
 

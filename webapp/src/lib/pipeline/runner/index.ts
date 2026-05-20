@@ -7,9 +7,10 @@ import SelectInput from './runner-select-input.svelte';
 import SelectModal from './runner-select-modal.svelte';
 
 import * as binding from './binding';
-import * as catalog from '../runners/catalog.svelte.js';
+import * as catalog from './catalog.svelte.js';
 
-export type { RunnerRecord as Record } from '../runners/types.js';
+export type { RunnerRecord as Record } from './types.js';
+export { listSelector } from './query.js';
 
 export const Binding = {
 	get: binding.get,

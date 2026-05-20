@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./run-now-button.svelte', () => ({ default: {} }));
 vi.mock('./runner-select-input.svelte', () => ({ default: {} }));
 vi.mock('./runner-select-modal.svelte', () => ({ default: {} }));
-vi.mock('../runners/catalog.svelte.js', () => ({
+vi.mock('./catalog.svelte.js', () => ({
 	dispose: () => {},
 	findByPath: () => undefined,
 	init: () => {},
@@ -20,7 +20,7 @@ vi.mock('../runners/catalog.svelte.js', () => ({
 
 import type { PipelinesResponse } from '@/pocketbase/types';
 
-import type { RunnerRecord as Record } from '../runners/types';
+import type { RunnerRecord as Record } from './types';
 
 import { Binding } from './index';
 
