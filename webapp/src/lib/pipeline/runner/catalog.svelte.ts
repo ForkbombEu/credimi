@@ -21,6 +21,7 @@ let ready = $state(false);
 let generation = 0;
 let inFlight: Promise<void> | undefined;
 let rootDispose: (() => void) | undefined;
+let subscribedOrganizationId: string | undefined;
 
 function snapshot() {
 	return { ready, runners };
@@ -59,15 +60,23 @@ export function init() {
 
 	rootDispose = $effect.root(() => {
 		$effect(() => {
-			const gen = ++generation;
 			const organizationId = userOrganization.current?.id;
+
+			if (organizationId === subscribedOrganizationId) {
+				return;
+			}
+
+			subscribedOrganizationId = organizationId;
+			const gen = ++generation;
+
+			if (!organizationId) {
+				ready = false;
+				runners = [];
+				return;
+			}
 
 			ready = false;
 			runners = [];
-
-			if (!organizationId) {
-				return;
-			}
 
 			void refresh(gen);
 
@@ -98,6 +107,7 @@ export function init() {
 export function dispose() {
 	rootDispose?.();
 	rootDispose = undefined;
+	subscribedOrganizationId = undefined;
 	generation += 1;
 	runners = [];
 	ready = false;
