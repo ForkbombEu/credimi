@@ -10,20 +10,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import SearchInput from '$lib/pipeline-form/steps/_partials/search-input.svelte';
 	import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte.js';
 
+	import { Pipeline } from '$lib';
+	import type { Record } from '$lib/pipeline/runner';
+
 	import { Badge } from '@/components/ui/badge';
 	import Label from '@/components/ui/label/label.svelte';
 	import { cn } from '@/components/ui/utils';
 	import { m } from '@/i18n';
 
-	import type { MobileRunnerListItem } from '../runners/utils';
-
-	import * as Runners from '../runners';
-	import * as status from '../runners/status.svelte.js';
-
-	//
-
 	type Props = {
-		onSelect?: (runner: MobileRunnerListItem) => void;
+		onSelect?: (runner: Record) => void;
 		selectedRunner?: string;
 		name?: string;
 		required?: boolean;
@@ -31,36 +27,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { onSelect, selectedRunner, name, required = false }: Props = $props();
 
-	//
-
-	let foundRunners = $state<MobileRunnerListItem[]>([]);
-
 	const runnerSearch = new Search({
 		onSearch: (text) => {
 			searchRunner(text);
 		}
 	});
 
-	function searchRunner(text: string) {
-		const search = text.trim().toLowerCase();
-		foundRunners = Runners.store.read().filter((runner) => {
-			if (!search) return true;
-			return (
-				runner.name.toLowerCase().includes(search) ||
-				runner.runner_id.toLowerCase().includes(search)
-			);
-		});
-	}
+	function searchRunner(_text: string) {}
 
-	$effect(() => {
-		const runners = foundRunners;
-		if (runners.length === 0) return;
-		status.probe(runners, { reason: 'visible' });
-	});
-
-	$effect(() => {
-		Runners.store.read();
-		searchRunner(runnerSearch.text);
+	const foundRunners = $derived.by(() => {
+		Pipeline.Runner.Catalog.read();
+		return Pipeline.Runner.Catalog.search(runnerSearch.text);
 	});
 </script>
 
@@ -76,10 +53,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-1">
-		{#each foundRunners as item (item.runner_id)}
-			{@const isSelected = selectedRunner === item.runner_id}
-			{@const runnerPath = item.runner_id}
-			{@const online = status.isOnline(runnerPath)}
+		{#each foundRunners as item (item.path)}
+			{@const isSelected = selectedRunner === item.path}
+			{@const online = !Pipeline.Runner.Catalog.isReady() ? undefined : item.isOnline}
 			{@const isOffline = online === false}
 			<ItemCard
 				title={item.name}
@@ -108,13 +84,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								online === false && 'bg-red-400',
 								online === undefined && 'bg-muted-foreground/40'
 							)}
-							title={online === true
-								? 'Online'
-								: online === false
-									? 'Offline'
-									: 'Checking status'}
+							title={online === undefined
+								? m.Runner_status_checking()
+								: online === true
+									? 'Online'
+									: 'Offline'}
 						></span>
-						{#if !item.published}
+						{#if !item.isPublished}
 							<Badge variant="secondary">
 								{m.private()}
 							</Badge>
