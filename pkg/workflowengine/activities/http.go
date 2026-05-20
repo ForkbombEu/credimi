@@ -381,6 +381,9 @@ func validateExpectedStatus(
 
 	switch v := expectedStatus.(type) {
 	case float64:
+		if v == 0 {
+			return nil
+		}
 		if statusCode != int(v) {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 			return act.NewActivityError(
@@ -392,6 +395,9 @@ func validateExpectedStatus(
 		return nil
 
 	case int:
+		if v == 0 {
+			return nil
+		}
 		if statusCode != v {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 			return act.NewActivityError(

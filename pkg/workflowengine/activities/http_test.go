@@ -6,6 +6,7 @@ package activities
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -67,6 +68,23 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			},
 			expectStatus:   http.StatusCreated,
 			expectResponse: map[string]any{"received": "value"},
+		},
+		{
+			name: "Success - string body is sent as plain text",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				require.Equal(t, "raw-value", string(body))
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"message":"ok"}`))
+			},
+			payload: HTTPActivityPayload{
+				Method: http.MethodPost,
+				URL:    "",
+				Body:   "raw-value",
+			},
+			expectStatus:   http.StatusOK,
+			expectResponse: map[string]any{"message": "ok"},
 		},
 		{
 			name: "Failure - timeout",
@@ -489,6 +507,18 @@ func TestValidateExpectedStatus(t *testing.T) {
 			name:           "Success - nil expected (no validation)",
 			statusCode:     200,
 			expectedStatus: nil,
+			expectError:    false,
+		},
+		{
+			name:           "Success - zero integer expected preserves omitted legacy behavior",
+			statusCode:     200,
+			expectedStatus: 0,
+			expectError:    false,
+		},
+		{
+			name:           "Success - zero float expected preserves omitted legacy behavior",
+			statusCode:     200,
+			expectedStatus: 0.0,
 			expectError:    false,
 		},
 		{
