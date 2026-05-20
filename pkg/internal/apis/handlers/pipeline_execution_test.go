@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	InternalPipeline "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
@@ -72,7 +73,7 @@ steps:
 func setupPipelineExecuteApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
-	PipelineTemporalInternalRoutes.Add(app)
+	PipelineRoutes.Add(app)
 	return app
 }
 
@@ -515,21 +516,32 @@ func TestHandlePipelineExecute_WithoutAuthUsesDefaultNamespace(t *testing.T) {
 }
 
 func TestExtractDeeplink(t *testing.T) {
+	steps := []InternalPipeline.StepDefinition{
+		{StepSpec: InternalPipeline.StepSpec{ID: "step-1"}},
+		{StepSpec: InternalPipeline.StepSpec{ID: "step-2"}},
+		{StepSpec: InternalPipeline.StepSpec{ID: "step-3"}},
+	}
+
 	t.Run("returns deeplink from last step", func(t *testing.T) {
 		output := map[string]any{
 			"step-1": map[string]any{
 				"outputs": map[string]any{
-					"deeplink": "openid://abc",
+					"deeplink": "openid://first",
+				},
+			},
+			"step-2": map[string]any{
+				"outputs": map[string]any{
+					"deeplink": "openid://second",
 				},
 			},
 		}
-		deeplink, err := extractDeeplink(output)
+		deeplink, err := extractDeeplink(output, steps)
 		require.NoError(t, err)
-		require.Equal(t, "openid://abc", deeplink)
+		require.Equal(t, "openid://second", deeplink)
 	})
 
 	t.Run("returns error when output is not a map", func(t *testing.T) {
-		_, err := extractDeeplink("not a map")
+		_, err := extractDeeplink("not a map", steps)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "output is not a map")
 	})
@@ -542,7 +554,7 @@ func TestExtractDeeplink(t *testing.T) {
 				},
 			},
 		}
-		_, err := extractDeeplink(output)
+		_, err := extractDeeplink(output, steps)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "deeplink not found")
 	})
@@ -553,7 +565,7 @@ func TestExtractDeeplink(t *testing.T) {
 				"body": "no outputs key",
 			},
 		}
-		_, err := extractDeeplink(output)
+		_, err := extractDeeplink(output, steps)
 		require.Error(t, err)
 	})
 
@@ -565,12 +577,12 @@ func TestExtractDeeplink(t *testing.T) {
 				},
 			},
 		}
-		_, err := extractDeeplink(output)
+		_, err := extractDeeplink(output, steps)
 		require.Error(t, err)
 	})
 
 	t.Run("returns error on empty output map", func(t *testing.T) {
-		_, err := extractDeeplink(map[string]any{})
+		_, err := extractDeeplink(map[string]any{}, steps)
 		require.Error(t, err)
 	})
 }
