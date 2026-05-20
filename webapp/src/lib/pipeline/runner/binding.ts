@@ -6,7 +6,7 @@ import { lsSync } from 'rune-sync/localstorage';
 
 import type { PipelinesResponse } from '@/pocketbase/types';
 
-import type { MobileRunnerReference } from '../runners/utils';
+import type { RunnerRecord as Record } from '../runners/types';
 
 import { parseYaml } from '../utils';
 
@@ -49,9 +49,9 @@ type PipelinesRunnersConfig = Record<string, string>;
 
 const pipelinesRunnersConfig = lsSync<PipelinesRunnersConfig>('pipelines_runners_config', {});
 
-export function set(pipeline: PipelinesResponse, runner: MobileRunnerReference): void {
+export function set(pipeline: PipelinesResponse, runner: Pick<Record, 'path'>): void {
 	try {
-		pipelinesRunnersConfig[pipeline.id] = runner.runner_id;
+		pipelinesRunnersConfig[pipeline.id] = runner.path;
 	} catch (error) {
 		console.error('Failed to set pipeline runner:', error);
 	}
