@@ -105,12 +105,12 @@ Advanced assurance / QTSP
 
 The original eIDAS Regulation created the EU framework for electronic identification and trust services. The 2024 EUDI amendment introduced the European Digital Identity Wallet framework and expanded the role of Wallets, Issuers, Relying Parties and trust services.
 
-| Document | Link | Why it matters |
-|---|---|---|
-| Regulation (EU) No 910/2014 — eIDAS | https://data.europa.eu/eli/reg/2014/910/oj | Original legal foundation for eID and trust services. |
-| Consolidated eIDAS after EUDI amendments | https://data.europa.eu/eli/reg/2014/910/2024-10-18 | Current working legal baseline after amendments. |
-| Regulation (EU) 2024/1183 — European Digital Identity Framework | https://data.europa.eu/eli/reg/2024/1183/oj | Establishes the EUDI Wallet framework. |
-| Commission Recommendation (EU) 2021/946 — Common Union Toolbox | https://data.europa.eu/eli/reco/2021/946/oj | Procedural origin of the ARF / toolbox work. |
+| Document | Why it matters |
+|---|---|
+| [Regulation (EU) No 910/2014 — eIDAS](https://data.europa.eu/eli/reg/2014/910/oj) | Original legal foundation for eID and trust services. |
+| [Consolidated eIDAS after EUDI amendments](https://data.europa.eu/eli/reg/2014/910/2024-10-18) | Current working legal baseline after amendments. |
+| [Regulation (EU) 2024/1183 — European Digital Identity Framework](https://data.europa.eu/eli/reg/2024/1183/oj) | Establishes the EUDI Wallet framework. |
+| [Commission Recommendation (EU) 2021/946 — Common Union Toolbox](https://data.europa.eu/eli/reco/2021/946/oj) | Procedural origin of the ARF / toolbox work. |
 
 **Credimi angle:** these documents are the legal source of the ecosystem. They do not directly define a StepCI or Maestro test, but they explain why Wallet certification, interoperability, Relying Party registration and trust-service supervision exist.
 
@@ -122,18 +122,18 @@ The original eIDAS Regulation created the EU framework for electronic identifica
 
 The ARF is the main technical bridge between the legal framework and implementation. It describes roles, flows, technical architecture, high-level requirements, Wallet behaviour, Issuer/Verifier expectations, security and privacy considerations.
 
-| Document | Link | Why it matters |
-|---|---|---|
-| EUDI ARF latest documentation | https://eudi.dev/latest/ | Primary technical and architectural reference. |
-| EUDI ARF GitHub repository | https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework | Source repository for ARF documentation and high-level requirements. |
+| Document | Why it matters |
+|---|---|
+| [EUDI ARF latest documentation](https://eudi.dev/latest/) | Primary technical and architectural reference. |
+| [EUDI ARF GitHub repository](https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework) | Source repository for ARF documentation and high-level requirements. |
 
 ### 🟧🟪 WE BUILD WP4
 
 WE BUILD WP4 is more concrete around trust evaluation, trusted lists, participant certificates, onboarding and conformance/interoperability tests.
 
-| Document | Link | Why it matters |
-|---|---|---|
-| WE BUILD WP4 Trust Group repository | https://github.com/webuild-consortium/wp4-trust-group | Practical trust-registry, trust-list and conformance work. |
+| Document | Why it matters |
+|---|---|
+| [WE BUILD WP4 Trust Group repository](https://github.com/webuild-consortium/wp4-trust-group) | Practical trust-registry, trust-list and conformance work. |
 
 
 ### 🟨 ETSI ESI standards
@@ -158,13 +158,13 @@ The ETSI ESI standards are not laws. They are the technical and policy standards
 
 These are the core Wallet-era implementing acts from 2024. They are the first documents to read for Wallet / Issuer / Verifier conformance evidence.
 
-| Document | Link | Main topic | Credimi evidence angle |
-|---|---|---|---|
-| CIR 2024/2977 | https://data.europa.eu/eli/reg_impl/2024/2977/oj | PID and electronic attestations of attributes issued to Wallets | Credential-offer, issuance, issuer metadata, validity status and revocation evidence. |
-| CIR 2024/2979 | https://data.europa.eu/eli/reg_impl/2024/2979/oj | Wallet integrity and core functionalities | Wallet transaction logs, portability, pseudonyms and user-control evidence. |
-| CIR 2024/2980 | https://data.europa.eu/eli/reg_impl/2024/2980/oj | Notifications to the Commission | Machine-readable ecosystem information and future Wallet/provider list checks. |
-| CIR 2024/2981 | https://data.europa.eu/eli/reg_impl/2024/2981/oj | Wallet certification | Assurance documentation, certification support and dependency-analysis evidence. |
-| CIR 2024/2982 | https://data.europa.eu/eli/reg_impl/2024/2982/oj | Protocols and interfaces | Remote issuance, remote presentation, RP information display, user approval and selective disclosure. |
+| Document | Why it matters |
+|---|---|
+| [CIR 2024/2977](https://data.europa.eu/eli/reg_impl/2024/2977/oj) | **PID and electronic attestations of attributes issued to Wallets.** Credential-offer, issuance, issuer metadata, validity status and revocation evidence. |
+| [CIR 2024/2979](https://data.europa.eu/eli/reg_impl/2024/2979/oj) | **Wallet integrity and core functionalities.** Wallet transaction logs, portability, pseudonyms and user-control evidence. |
+| [CIR 2024/2980](https://data.europa.eu/eli/reg_impl/2024/2980/oj) | **Notifications to the Commission.** Machine-readable ecosystem information and future Wallet/provider list checks. |
+| [CIR 2024/2981](https://data.europa.eu/eli/reg_impl/2024/2981/oj) | **Wallet certification.** Assurance documentation, certification support and dependency-analysis evidence. |
+| [CIR 2024/2982](https://data.europa.eu/eli/reg_impl/2024/2982/oj) | **Protocols and interfaces.** Remote issuance, remote presentation, RP information display, user approval and selective disclosure. |
 
 ### Practical flow
 
@@ -201,12 +201,12 @@ Verifier receives and validates presentation
 
 These acts govern the ecosystem around Wallets: identity matching, incident response, Relying Party registration and certified Wallet lists.
 
-| Document | Link | Main topic | Credimi relevance |
-|---|---|---|---|
-| CIR 2025/846 | https://data.europa.eu/eli/reg_impl/2025/846/oj | Cross-border identity matching | Public-sector and PID matching scenarios. |
-| CIR 2025/847 | https://data.europa.eu/eli/reg_impl/2025/847/oj | Wallet security breach reactions | Monitoring and operational assurance evidence. |
-| CIR 2025/848 | https://data.europa.eu/eli/reg_impl/2025/848/oj | Registration of Wallet-relying parties | RP register lookup, entitlements, access certificates and registration certificates. |
-| CIR 2025/849 | https://data.europa.eu/eli/reg_impl/2025/849/oj | List of certified Wallets | Checking Wallet certification metadata once lists are available. |
+| Document | Why it matters |
+|---|---|
+| [CIR 2025/846](https://data.europa.eu/eli/reg_impl/2025/846/oj) | **Cross-border identity matching.** Public-sector and PID matching scenarios. |
+| [CIR 2025/847](https://data.europa.eu/eli/reg_impl/2025/847/oj) | **Wallet security breach reactions.** Monitoring and operational assurance evidence. |
+| [CIR 2025/848](https://data.europa.eu/eli/reg_impl/2025/848/oj) | **Registration of Wallet-relying parties.** RP register lookup, entitlements, access certificates and registration certificates. |
+| [CIR 2025/849](https://data.europa.eu/eli/reg_impl/2025/849/oj) | **List of certified Wallets.** Checking Wallet certification metadata once lists are available. |
 
 ### Practical flow for RP registration and entitlement
 
@@ -237,14 +237,14 @@ Wallet behaviour and/or helper result becomes evidence
 
 Issuers are not only endpoints that issue credentials. Depending on the credential type, they may need to be recognised, registered, qualified or entitled to issue a certain attestation.
 
-| Document | Link | Main topic | Credimi relevance |
-|---|---|---|---|
-| CIR 2024/2977 | https://data.europa.eu/eli/reg_impl/2024/2977/oj | PID/EAA issuance to Wallets | Core issuance evidence. |
-| CIR 2025/1566 | https://data.europa.eu/eli/reg_impl/2025/1566/oj | Identity and attribute verification standards | QTSP/QEAA issuer assurance. |
-| CIR 2025/1569 | https://data.europa.eu/eli/reg_impl/2025/1569/oj | Qualified EAAs and public-sector authentic-source EAAs | QEAA/QEEA issuer qualification, authentic-source attestations and revocation. |
-| CIR 2025/2530 | https://data.europa.eu/eli/reg_impl/2025/2530/oj | Requirements for QTSPs | Relevant where issuers are QTSPs or QTSP-like actors. |
-| CIR 2025/1572 | https://data.europa.eu/eli/reg_impl/2025/1572/oj | Notification of intention to provide qualified trust services | Relevant for QTSP onboarding/conformity evidence. |
-| CIR 2025/2162 | https://data.europa.eu/eli/reg_impl/2025/2162/oj | CAB accreditation and conformity assessment | Relevant to auditor/CAB-facing evidence. |
+| Document | Why it matters |
+|---|---|
+| [CIR 2024/2977](https://data.europa.eu/eli/reg_impl/2024/2977/oj) | **PID/EAA issuance to Wallets.** Core issuance evidence. |
+| [CIR 2025/1566](https://data.europa.eu/eli/reg_impl/2025/1566/oj) | **Identity and attribute verification standards.** QTSP/QEAA issuer assurance. |
+| [CIR 2025/1569](https://data.europa.eu/eli/reg_impl/2025/1569/oj) | **Qualified EAAs and public-sector authentic-source EAAs.** QEAA/QEEA issuer qualification, authentic-source attestations and revocation. |
+| [CIR 2025/2530](https://data.europa.eu/eli/reg_impl/2025/2530/oj) | **Requirements for QTSPs.** Relevant where issuers are QTSPs or QTSP-like actors. |
+| [CIR 2025/1572](https://data.europa.eu/eli/reg_impl/2025/1572/oj) | **Notification of intention to provide qualified trust services.** Relevant for QTSP onboarding/conformity evidence. |
+| [CIR 2025/2162](https://data.europa.eu/eli/reg_impl/2025/2162/oj) | **CAB accreditation and conformity assessment.** Relevant to auditor/CAB-facing evidence. |
 
 ### Practical sub-steps
 
@@ -294,13 +294,13 @@ The most directly relevant ETSI family here is the EAA/PID and authentic-source 
 
 Relying Parties are central to the EUDI trust model because users must know who is asking for attributes and whether that actor is entitled to request them.
 
-| Document | Link | Main topic | Credimi relevance |
-|---|---|---|---|
-| CIR 2025/848 | https://data.europa.eu/eli/reg_impl/2025/848/oj | RP registration and entitlements | Core RP trust-helper work. |
-| CIR 2024/2982 | https://data.europa.eu/eli/reg_impl/2024/2982/oj | Protocols/interfaces and RP info display | Wallet display of RP identity, requested attributes and approval. |
-| CIR 2025/1943 | https://data.europa.eu/eli/reg_impl/2025/1943/oj | Qualified certificate standards | Useful where RP certificates rely on qualified certificate profiles. |
-| CIR 2025/1945 | https://data.europa.eu/eli/reg_impl/2025/1945/oj | Signature/seal validation | Useful for verifier-side validation evidence. |
-| WE BUILD WP4 | https://github.com/webuild-consortium/wp4-trust-group | RP trust evaluation use cases | Concrete pilot-style trust evaluation scenarios. |
+| Document | Why it matters |
+|---|---|
+| [CIR 2025/848](https://data.europa.eu/eli/reg_impl/2025/848/oj) | **RP registration and entitlements.** Core RP trust-helper work. |
+| [CIR 2024/2982](https://data.europa.eu/eli/reg_impl/2024/2982/oj) | **Protocols/interfaces and RP info display.** Wallet display of RP identity, requested attributes and approval. |
+| [CIR 2025/1943](https://data.europa.eu/eli/reg_impl/2025/1943/oj) | **Qualified certificate standards.** Useful where RP certificates rely on qualified certificate profiles. |
+| [CIR 2025/1945](https://data.europa.eu/eli/reg_impl/2025/1945/oj) | **Signature/seal validation.** Useful for verifier-side validation evidence. |
+| [WE BUILD WP4](https://github.com/webuild-consortium/wp4-trust-group) | **RP trust evaluation use cases.** Concrete pilot-style trust evaluation scenarios. |
 
 ### 🟨 Related ETSI standards for Relying Parties and Verifiers
 
@@ -350,14 +350,14 @@ Verifier validates credential response
 
 Trusted Lists and Lists of Trusted Lists are the machine-readable trust fabric. They are needed to resolve actors, trust anchors, statuses, certificates and revocation information.
 
-| Document | Link | Main topic | Credimi relevance |
-|---|---|---|---|
-| CID 2015/1505 | https://data.europa.eu/eli/dec_impl/2015/1505/oj | Trusted List formats | Base for TL parsing and validation. |
-| CID 2025/2164 | https://data.europa.eu/eli/dec_impl/2025/2164/oj | Common Trusted List template standard | Newer TL template/versioning reference. |
-| CIR 2024/2980 | https://data.europa.eu/eli/reg_impl/2024/2980/oj | Notifications and machine-readable information | Ecosystem list publication context. |
-| CIR 2025/848 | https://data.europa.eu/eli/reg_impl/2025/848/oj | RP registers and entitlement data | RP trust and entitlement resolution. |
-| CIR 2025/1569 | https://data.europa.eu/eli/reg_impl/2025/1569/oj | QEAA / public-sector EAAs | Issuer status and entitlement context. |
-| WE BUILD WP4 | https://github.com/webuild-consortium/wp4-trust-group | LoTL/TL integration and trust evaluation | Pilot-facing trust infrastructure. |
+| Document | Why it matters |
+|---|---|
+| [CID 2015/1505](https://data.europa.eu/eli/dec_impl/2015/1505/oj) | **Trusted List formats.** Base for TL parsing and validation. |
+| [CID 2025/2164](https://data.europa.eu/eli/dec_impl/2025/2164/oj) | **Common Trusted List template standard.** Newer TL template/versioning reference. |
+| [CIR 2024/2980](https://data.europa.eu/eli/reg_impl/2024/2980/oj) | **Notifications and machine-readable information.** Ecosystem list publication context. |
+| [CIR 2025/848](https://data.europa.eu/eli/reg_impl/2025/848/oj) | **RP registers and entitlement data.** RP trust and entitlement resolution. |
+| [CIR 2025/1569](https://data.europa.eu/eli/reg_impl/2025/1569/oj) | **QEAA / public-sector EAAs.** Issuer status and entitlement context. |
+| [WE BUILD WP4](https://github.com/webuild-consortium/wp4-trust-group) | **LoTL/TL integration and trust evaluation.** Pilot-facing trust infrastructure. |
 
 ### 🟨 Related ETSI standards for trust infrastructure
 
@@ -410,12 +410,12 @@ These standards are the most relevant ETSI anchors for the trust-helper side: TS
 
 The assurance-level framework predates the EUDI Wallet, but it remains important because Wallet/eID schemes and identity proofing refer back to low/substantial/high assurance levels.
 
-| Document | Link | Main topic | Credimi relevance |
-|---|---|---|---|
-| CIR 2015/1502 | https://data.europa.eu/eli/reg_impl/2015/1502/oj | Assurance levels for electronic identification means | Low/substantial/high assurance model. |
-| eIDAS Regulation | https://data.europa.eu/eli/reg/2014/910/oj | Legal basis for assurance levels | Source framework. |
-| CIR 2025/1568 | https://data.europa.eu/eli/reg_impl/2025/1568/oj | Peer reviews of eID schemes | Scheme-level assurance and Member State review context. |
-| CIR 2024/2981 | https://data.europa.eu/eli/reg_impl/2024/2981/oj | Wallet certification | Certification and dependency-analysis context. |
+| Document | Why it matters |
+|---|---|
+| [CIR 2015/1502](https://data.europa.eu/eli/reg_impl/2015/1502/oj) | **Assurance levels for electronic identification means.** Low/substantial/high assurance model. |
+| [eIDAS Regulation](https://data.europa.eu/eli/reg/2014/910/oj) | **Legal basis for assurance levels.** Source framework. |
+| [CIR 2025/1568](https://data.europa.eu/eli/reg_impl/2025/1568/oj) | **Peer reviews of eID schemes.** Scheme-level assurance and Member State review context. |
+| [CIR 2024/2981](https://data.europa.eu/eli/reg_impl/2024/2981/oj) | **Wallet certification.** Certification and dependency-analysis context. |
 
 ### Practical sub-steps
 
@@ -435,15 +435,15 @@ Treat as assurance documentation, not a normal Maestro UI test
 
 Certification is where legal and technical requirements are assessed. Credimi should not claim to certify Wallets unless explicitly mandated/accredited. The right claim is that Credimi can generate reproducible assurance evidence.
 
-| Document | Link | Main topic | Credimi relevance |
-|---|---|---|---|
-| CIR 2024/2981 | https://data.europa.eu/eli/reg_impl/2024/2981/oj | Wallet certification | Central for certification-support evidence. |
-| CIR 2025/849 | https://data.europa.eu/eli/reg_impl/2025/849/oj | Certified Wallet list | Certified Wallet metadata lookup. |
-| CIR 2025/2162 | https://data.europa.eu/eli/reg_impl/2025/2162/oj | CAB accreditation and conformity assessment | CAB-facing evidence and assessment process. |
-| Regulation (EC) No 765/2008 | https://data.europa.eu/eli/reg/2008/765/oj | Accreditation and market surveillance | CAB/legal accreditation context. |
-| Cybersecurity Act | https://data.europa.eu/eli/reg/2019/881/oj | EU cybersecurity certification framework | Cybersecurity certification context. |
-| EUCC Regulation 2024/482 | https://data.europa.eu/eli/reg_impl/2024/482/oj | EUCC scheme | Security/certification standards context. |
-| EUCC amendment 2024/3144 | https://data.europa.eu/eli/reg_impl/2024/3144/oj | EUCC amendments/corrections | Updated EUCC context. |
+| Document | Why it matters |
+|---|---|
+| [CIR 2024/2981](https://data.europa.eu/eli/reg_impl/2024/2981/oj) | **Wallet certification.** Central for certification-support evidence. |
+| [CIR 2025/849](https://data.europa.eu/eli/reg_impl/2025/849/oj) | **Certified Wallet list.** Certified Wallet metadata lookup. |
+| [CIR 2025/2162](https://data.europa.eu/eli/reg_impl/2025/2162/oj) | **CAB accreditation and conformity assessment.** CAB-facing evidence and assessment process. |
+| [Regulation (EC) No 765/2008](https://data.europa.eu/eli/reg/2008/765/oj) | **Accreditation and market surveillance.** CAB/legal accreditation context. |
+| [Cybersecurity Act](https://data.europa.eu/eli/reg/2019/881/oj) | **EU cybersecurity certification framework.** Cybersecurity certification context. |
+| [EUCC Regulation 2024/482](https://data.europa.eu/eli/reg_impl/2024/482/oj) | **EUCC scheme.** Security/certification standards context. |
+| [EUCC amendment 2024/3144](https://data.europa.eu/eli/reg_impl/2024/3144/oj) | **EUCC amendments/corrections.** Updated EUCC context. |
 
 ### Credimi evidence bundle
 
@@ -475,11 +475,11 @@ Avoid:
 
 Third-party conformance suites are evidence sources, not replacements for real Wallet/RP/Issuer ecosystem testing.
 
-| Source | Link | Role |
-|---|---|---|
-| OpenID Foundation conformance tools | https://openid.net/certification/ | Protocol conformance evidence. |
-| WE BUILD WP4 tests | https://github.com/webuild-consortium/wp4-trust-group | Trust and interoperability evidence. |
-| ARF | https://eudi.dev/latest/ | Requirement and architecture mapping. |
+| Source | Why it matters |
+|---|---|
+| [OpenID Foundation conformance tools](https://openid.net/certification/) | Protocol conformance evidence. |
+| [WE BUILD WP4 tests](https://github.com/webuild-consortium/wp4-trust-group) | Trust and interoperability evidence. |
+| [ARF](https://eudi.dev/latest/) | Requirement and architecture mapping. |
 
 ### Practical sub-steps
 
@@ -501,21 +501,21 @@ Show limitations clearly
 
 These documents matter, but they should not block Credimi's first conformance-evidence MVP. They are mainly for advanced assurance, QTSP integrations, qualified timestamps, qualified certificates, signature/seal validation, preservation, archiving, ledgers and QERDS.
 
-| Document | Link | Main topic | Credimi relevance |
-|---|---|---|---|
-| CIR 2025/1567 | https://data.europa.eu/eli/reg_impl/2025/1567/oj | Remote QSCD/QSealCD management | Advanced signature/seal trust-service evidence. |
-| CIR 2025/1570 | https://data.europa.eu/eli/reg_impl/2025/1570/oj | Certified QSCD/QSealCD notification | Device notification evidence. |
-| CIR 2025/1572 | https://data.europa.eu/eli/reg_impl/2025/1572/oj | QTSP notification of intention | QTSP onboarding evidence. |
-| CIR 2025/1929 | https://data.europa.eu/eli/reg_impl/2025/1929/oj | Qualified timestamps | Optional qualified timestamping of evidence bundles. |
-| CIR 2025/1942 | https://data.europa.eu/eli/reg_impl/2025/1942/oj | Qualified validation services | Optional qualified validation service integration. |
-| CIR 2025/1943 | https://data.europa.eu/eli/reg_impl/2025/1943/oj | Qualified certificate standards | Advanced certificate profile validation. |
-| CIR 2025/1944 | https://data.europa.eu/eli/reg_impl/2025/1944/oj | QERDS | Future qualified delivery of evidence, not MVP. |
-| CIR 2025/1945 | https://data.europa.eu/eli/reg_impl/2025/1945/oj | Signature/seal validation | Advanced verifier/signature validation evidence. |
-| CIR 2025/1946 | https://data.europa.eu/eli/reg_impl/2025/1946/oj | Qualified preservation services | Long-term qualified preservation evidence. |
-| CIR 2025/2527 | https://data.europa.eu/eli/reg_impl/2025/2527/oj | Qualified website authentication certificates | Advanced endpoint trust evidence. |
-| CIR 2025/2530 | https://data.europa.eu/eli/reg_impl/2025/2530/oj | QTSP requirements | QTSP assurance and qualified services. |
-| CIR 2025/2531 | https://data.europa.eu/eli/reg_impl/2025/2531/oj | Qualified electronic ledgers | Future adjacent trust infrastructure. |
-| CIR 2025/2532 | https://data.europa.eu/eli/reg_impl/2025/2532/oj | Qualified electronic archiving | Future long-term evidence archiving. |
+| Document | Why it matters |
+|---|---|
+| [CIR 2025/1567](https://data.europa.eu/eli/reg_impl/2025/1567/oj) | **Remote QSCD/QSealCD management.** Advanced signature/seal trust-service evidence. |
+| [CIR 2025/1570](https://data.europa.eu/eli/reg_impl/2025/1570/oj) | **Certified QSCD/QSealCD notification.** Device notification evidence. |
+| [CIR 2025/1572](https://data.europa.eu/eli/reg_impl/2025/1572/oj) | **QTSP notification of intention.** QTSP onboarding evidence. |
+| [CIR 2025/1929](https://data.europa.eu/eli/reg_impl/2025/1929/oj) | **Qualified timestamps.** Optional qualified timestamping of evidence bundles. |
+| [CIR 2025/1942](https://data.europa.eu/eli/reg_impl/2025/1942/oj) | **Qualified validation services.** Optional qualified validation service integration. |
+| [CIR 2025/1943](https://data.europa.eu/eli/reg_impl/2025/1943/oj) | **Qualified certificate standards.** Advanced certificate profile validation. |
+| [CIR 2025/1944](https://data.europa.eu/eli/reg_impl/2025/1944/oj) | **QERDS.** Future qualified delivery of evidence, not MVP. |
+| [CIR 2025/1945](https://data.europa.eu/eli/reg_impl/2025/1945/oj) | **Signature/seal validation.** Advanced verifier/signature validation evidence. |
+| [CIR 2025/1946](https://data.europa.eu/eli/reg_impl/2025/1946/oj) | **Qualified preservation services.** Long-term qualified preservation evidence. |
+| [CIR 2025/2527](https://data.europa.eu/eli/reg_impl/2025/2527/oj) | **Qualified website authentication certificates.** Advanced endpoint trust evidence. |
+| [CIR 2025/2530](https://data.europa.eu/eli/reg_impl/2025/2530/oj) | **QTSP requirements.** QTSP assurance and qualified services. |
+| [CIR 2025/2531](https://data.europa.eu/eli/reg_impl/2025/2531/oj) | **Qualified electronic ledgers.** Future adjacent trust infrastructure. |
+| [CIR 2025/2532](https://data.europa.eu/eli/reg_impl/2025/2532/oj) | **Qualified electronic archiving.** Future long-term evidence archiving. |
 
 ### Recommended Credimi treatment
 
@@ -701,15 +701,15 @@ UX impact
 
 These horizontal documents shape obligations around data protection, cybersecurity, operational security and accessibility.
 
-| Document | Link | Main topic | Credimi relevance |
-|---|---|---|---|
-| GDPR | https://data.europa.eu/eli/reg/2016/679/oj | Personal data protection | User data, RP requests, erasure, minimisation. |
-| ePrivacy Directive | https://data.europa.eu/eli/dir/2002/58/oj | Privacy in electronic communications | Communications privacy context. |
-| Regulation (EU) 2018/1725 | https://data.europa.eu/eli/reg/2018/1725/oj | EU-institution data protection | Commission/list processing context. |
-| NIS2 Directive | https://data.europa.eu/eli/dir/2022/2555/oj | Cybersecurity | Operational/security evidence and supervisory context. |
-| Cyber Resilience Act | https://data.europa.eu/eli/reg/2024/2847/oj | Product cybersecurity | Wallet/software cybersecurity context. |
-| Web Accessibility Directive | https://data.europa.eu/eli/dir/2016/2102/oj | Public-sector web/mobile accessibility | Public-sector Wallet/RP interfaces. |
-| European Accessibility Act | https://data.europa.eu/eli/dir/2019/882/oj | Accessibility requirements | Consumer-facing digital service accessibility. |
+| Document | Why it matters |
+|---|---|
+| [GDPR](https://data.europa.eu/eli/reg/2016/679/oj) | **Personal data protection.** User data, RP requests, erasure, minimisation. |
+| [ePrivacy Directive](https://data.europa.eu/eli/dir/2002/58/oj) | **Privacy in electronic communications.** Communications privacy context. |
+| [Regulation (EU) 2018/1725](https://data.europa.eu/eli/reg/2018/1725/oj) | **EU-institution data protection.** Commission/list processing context. |
+| [NIS2 Directive](https://data.europa.eu/eli/dir/2022/2555/oj) | **Cybersecurity.** Operational/security evidence and supervisory context. |
+| [Cyber Resilience Act](https://data.europa.eu/eli/reg/2024/2847/oj) | **Product cybersecurity.** Wallet/software cybersecurity context. |
+| [Web Accessibility Directive](https://data.europa.eu/eli/dir/2016/2102/oj) | **Public-sector web/mobile accessibility.** Public-sector Wallet/RP interfaces. |
+| [European Accessibility Act](https://data.europa.eu/eli/dir/2019/882/oj) | **Accessibility requirements.** Consumer-facing digital service accessibility. |
 
 ---
 
