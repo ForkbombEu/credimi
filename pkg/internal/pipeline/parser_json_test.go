@@ -90,3 +90,75 @@ func TestStepInputs_UnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestFinallyDefinition_UnmarshalJSON(t *testing.T) {
+	t.Run("legacy list becomes always", func(t *testing.T) {
+		var wf WorkflowDefinition
+		err := json.Unmarshal([]byte(`{
+			"finally": [
+				{
+					"id": "notify",
+					"use": "email",
+					"with": {
+						"payload": {
+							"subject": "done"
+						}
+					}
+				}
+			]
+		}`), &wf)
+		require.NoError(t, err)
+		require.Len(t, wf.Finally.Always, 1)
+		require.Equal(t, "notify", wf.Finally.Always[0].ID)
+		require.Empty(t, wf.Finally.OnSuccess)
+		require.Empty(t, wf.Finally.OnFailure)
+	})
+
+	t.Run("grouped handlers", func(t *testing.T) {
+		var wf WorkflowDefinition
+		err := json.Unmarshal([]byte(`{
+			"finally": {
+				"always": [
+					{
+						"id": "notify-any",
+						"use": "http-request",
+						"with": {
+							"payload": {
+								"url": "https://example.com/any"
+							}
+						}
+					}
+				],
+				"on_success": [
+					{
+						"id": "notify-success",
+						"use": "email",
+						"with": {
+							"payload": {
+								"subject": "success"
+							}
+						}
+					}
+				],
+				"on_failure": [
+					{
+						"id": "notify-failure",
+						"use": "email",
+						"with": {
+							"payload": {
+								"subject": "failure"
+							}
+						}
+					}
+				]
+			}
+		}`), &wf)
+		require.NoError(t, err)
+		require.Len(t, wf.Finally.Always, 1)
+		require.Len(t, wf.Finally.OnSuccess, 1)
+		require.Len(t, wf.Finally.OnFailure, 1)
+		require.Equal(t, "notify-any", wf.Finally.Always[0].ID)
+		require.Equal(t, "notify-success", wf.Finally.OnSuccess[0].ID)
+		require.Equal(t, "notify-failure", wf.Finally.OnFailure[0].ID)
+	})
+}
