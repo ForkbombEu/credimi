@@ -29,7 +29,8 @@ const config = {
 			$zencode: './client_zencode',
 			'$start-checks-form': './src/lib/start-checks-form',
 			'$pipeline-form': './src/lib/pipeline-form',
-			$root: '..'
+			$root: '..',
+			$config: './config'
 		},
 		version: { name: version }
 	}
