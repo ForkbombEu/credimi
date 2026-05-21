@@ -154,26 +154,26 @@ func TestListMobileRunners(t *testing.T) {
 		require.NotContains(t, raw["runners"][0], "canonified_name")
 		require.NotContains(t, raw["runners"][0], "serial")
 
-		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].RunnerID)
+		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].Path)
 		require.Equal(t, "owned-online", response.Runners[0].Name)
-		require.True(t, response.Runners[0].Mine)
-		require.True(t, response.Runners[0].Online)
-		require.NotNil(t, response.Runners[0].QueueLen)
-		require.Equal(t, 3, *response.Runners[0].QueueLen)
+		require.True(t, response.Runners[0].IsOwned)
+		require.True(t, response.Runners[0].IsOnline)
+		require.NotNil(t, response.Runners[0].QueueLength)
+		require.Equal(t, 3, *response.Runners[0].QueueLength)
 		require.Equal(t, []MobileRunnerHealthDevice{
 			{Serial: "ABC123", State: "device", Model: "Pixel_8"},
 		}, response.Runners[0].Devices)
 
-		require.Equal(t, "usera-s-organization/owned-offline", response.Runners[1].RunnerID)
-		require.True(t, response.Runners[1].Mine)
-		require.False(t, response.Runners[1].Online)
-		require.Nil(t, response.Runners[1].QueueLen)
+		require.Equal(t, "usera-s-organization/owned-offline", response.Runners[1].Path)
+		require.True(t, response.Runners[1].IsOwned)
+		require.False(t, response.Runners[1].IsOnline)
+		require.Nil(t, response.Runners[1].QueueLength)
 
-		require.Equal(t, "other-org/other-public", response.Runners[2].RunnerID)
-		require.False(t, response.Runners[2].Mine)
-		require.True(t, response.Runners[2].Online)
-		require.NotNil(t, response.Runners[2].QueueLen)
-		require.Equal(t, 1, *response.Runners[2].QueueLen)
+		require.Equal(t, "other-org/other-public", response.Runners[2].Path)
+		require.False(t, response.Runners[2].IsOwned)
+		require.True(t, response.Runners[2].IsOnline)
+		require.NotNil(t, response.Runners[2].QueueLength)
+		require.Equal(t, 1, *response.Runners[2].QueueLength)
 	})
 
 	t.Run("admin key sees every runner", func(t *testing.T) {
@@ -219,8 +219,8 @@ func TestListMobileRunners(t *testing.T) {
 			"usera-s-organization/owned-runner",
 			"other-org/other-private",
 		}, []string{
-			response.Runners[0].RunnerID,
-			response.Runners[1].RunnerID,
+			response.Runners[0].Path,
+			response.Runners[1].Path,
 		})
 	})
 
@@ -274,18 +274,21 @@ func TestListMobileRunners(t *testing.T) {
 		var response ListMobileRunnersPublicResponseSchema
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 		require.Len(t, response.Runners, 1)
-		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].RunnerID)
-		require.True(t, response.Runners[0].Online)
-		require.Nil(t, response.Runners[0].QueueLen)
+		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].Path)
+		require.True(t, response.Runners[0].IsOnline)
+		require.Nil(t, response.Runners[0].QueueLength)
 		require.Empty(t, response.Runners[0].Devices)
-		require.Empty(t, response.Runners[0].RunnerURL)
+		require.Empty(t, response.Runners[0].URL)
 		require.Empty(t, response.Runners[0].Type)
 
 		var raw map[string][]map[string]any
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &raw))
 		require.NotContains(t, raw["runners"][0], "queue_len")
-		require.NotContains(t, raw["runners"][0], "devices")
 		require.NotContains(t, raw["runners"][0], "runner_url")
+		require.NotContains(t, raw["runners"][0], "runner_id")
+		require.Contains(t, raw["runners"][0], "path")
+		require.Contains(t, raw["runners"][0], "is_online")
+		require.NotContains(t, raw["runners"][0], "devices")
 		require.NotContains(t, raw["runners"][0], "type")
 	})
 }

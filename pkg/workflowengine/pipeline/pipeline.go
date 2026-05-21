@@ -919,7 +919,7 @@ func ExecuteEventStepsOnSuccess(
 
 func runFinallySteps(
 	ctx workflow.Context,
-	finallySteps []pipeline.FinallyStepDefinition,
+	finallyDef pipeline.FinallyDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	payload map[string]any,
@@ -931,6 +931,7 @@ func runFinallySteps(
 	logger log.Logger,
 	errorList *[]error,
 ) {
+	finallySteps := finallyStepsForResult(finallyDef, finalResult)
 	if len(finallySteps) == 0 {
 		return
 	}
@@ -969,13 +970,28 @@ func runFinallySteps(
 	}
 }
 
-func ValidateFinallySteps(finallySteps []pipeline.FinallyStepDefinition) error {
+func finallyStepsForResult(
+	finallyDef pipeline.FinallyDefinition,
+	finalResult string,
+) []pipeline.FinallyStepDefinition {
+	steps := make([]pipeline.FinallyStepDefinition, 0, len(finallyDef.Always))
+	steps = append(steps, finallyDef.Always...)
+	if finalResult == resultSuccess {
+		steps = append(steps, finallyDef.OnSuccess...)
+	}
+	if finalResult == resultFailed {
+		steps = append(steps, finallyDef.OnFailure...)
+	}
+	return steps
+}
+
+func ValidateFinallySteps(finallyDef pipeline.FinallyDefinition) error {
 	allowedTypes := map[string]bool{
 		"email":            true,
 		httpRequestStepUse: true,
 	}
 
-	for _, step := range finallySteps {
+	for _, step := range finallyDef.AllSteps() {
 		if !allowedTypes[step.Use] {
 			return fmt.Errorf(
 				"finally step '%s' uses '%s' which is not allowed. Only email and http-request are allowed",

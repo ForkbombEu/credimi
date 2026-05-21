@@ -61,10 +61,16 @@ func TestGeneratePipelineSchemaIncludesDefs(t *testing.T) {
 	defs, ok := schema["$defs"].(map[string]any)
 	require.True(t, ok)
 	require.Contains(t, defs, "ActivityOptions")
+	require.Contains(t, defs, "FinallyStep")
 
 	properties, ok := schema["properties"].(map[string]any)
 	require.True(t, ok)
 	require.Contains(t, properties, "steps")
+	require.Contains(t, properties, "finally")
+
+	finallySchema, ok := properties["finally"].(map[string]any)
+	require.True(t, ok)
+	require.Contains(t, finallySchema, "oneOf")
 }
 
 func TestGenerateSingleStepSchemaMobileAutomation(t *testing.T) {

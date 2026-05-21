@@ -26,5 +26,10 @@
     "eslint.validate": ["javascript", "typescript", "svelte"],
     "files.associations": {
         "*.css": "tailwindcss"
-    }
+    },
+    "i18n-ally.editor.preferEditor": true,
+    "i18n-ally.localesPaths": ["webapp/messages"],
+    "i18n-ally.enabledFrameworks": ["svelte"],
+    "i18n-ally.indent": 4,
+    "i18n-ally.tabStyle": "tab"
 }

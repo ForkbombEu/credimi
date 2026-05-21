@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -23,6 +24,10 @@ var (
 	yamlPath    string
 	apiKey      string
 	instanceURL string
+)
+
+const (
+	pipelineURLResponseKey = "pipeline_url"
 )
 
 // NewPipelineCmd creates the "pipeline" command, using the PocketBase URL.
@@ -192,14 +197,17 @@ type PipelineCLIInput struct {
 }
 
 type pipelineQueueResponse struct {
-	Mode              string   `json:"mode"`
+	Status            string   `json:"status"`
 	TicketID          string   `json:"ticket_id"`
+	EnqueuedAt        string   `json:"enqueued_at"`
 	RunnerIDs         []string `json:"runner_ids"`
 	Position          int      `json:"position"`
 	LineLen           int      `json:"line_len"`
 	WorkflowID        string   `json:"workflow_id"`
 	RunID             string   `json:"run_id"`
 	WorkflowNamespace string   `json:"workflow_namespace"`
+	PipelineURL       string   `json:"pipeline_url"`
+	RunURL            string   `json:"run_url"`
 	ErrorMessage      string   `json:"error_message"`
 }
 
@@ -214,13 +222,15 @@ func findOrCreatePipeline(
 		return nil, err
 	}
 
-	// 1. Try to find existing
 	filter := fmt.Sprintf(
-		`owner="%s" && name="%s" && yaml="%s"`,
-		orgID,
-		input.Name,
-		input.YAML,
+		`owner="%s" && name="%s"`,
+		pocketBaseFilterString(orgID),
+		pocketBaseFilterString(input.Name),
 	)
+
+	query := url.Values{}
+	query.Set("filter", filter)
+	query.Set("perPage", "500")
 
 	findURL := utils.JoinURL(
 		instanceURL,
@@ -228,7 +238,7 @@ func findOrCreatePipeline(
 		"collections",
 		"pipelines",
 		"records",
-	) + "?filter=" + url.QueryEscape(filter)
+	) + "?" + query.Encode()
 
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, findURL, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -239,6 +249,11 @@ func findOrCreatePipeline(
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("find pipeline failed: %s", b)
+	}
+
 	var list struct {
 		Items []map[string]any `json:"items"`
 	}
@@ -246,8 +261,10 @@ func findOrCreatePipeline(
 		return nil, err
 	}
 
-	if len(list.Items) > 0 {
-		return list.Items[0], nil
+	for _, item := range list.Items {
+		if item["yaml"] == input.YAML {
+			return item, nil
+		}
 	}
 
 	// 2. Create new
@@ -289,6 +306,10 @@ func findOrCreatePipeline(
 
 	var created map[string]any
 	return created, json.NewDecoder(createResp.Body).Decode(&created)
+}
+
+func pocketBaseFilterString(value string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
 }
 
 // Always creates new record
@@ -437,31 +458,36 @@ func startPipeline(ctx context.Context, token string, canonName string, rec map[
 		return fmt.Errorf("failed to decode queue response: %w", err)
 	}
 
-	switch queueResp.Mode {
-	case "queued":
+	switch queueResp.Status {
+	case "queued", "starting":
+		position := queueResp.Position + 1
 		return printJSON(map[string]any{
-			"mode":           queueResp.Mode,
-			"ticket_id":      queueResp.TicketID,
-			"runner_ids":     queueResp.RunnerIDs,
-			"position":       queueResp.Position,
-			"line_len":       queueResp.LineLen,
-			"position_human": queueResp.Position + 1,
+			"status":               queueResp.Status,
+			"ticket_id":            queueResp.TicketID,
+			"enqueued_at":          queueResp.EnqueuedAt,
+			"runner_ids":           queueResp.RunnerIDs,
+			"position":             position,
+			"line_len":             queueResp.LineLen,
+			pipelineURLResponseKey: queueResp.PipelineURL,
 		})
-	case "started":
+	case "running":
 		return printJSON(map[string]any{
-			"mode":               queueResp.Mode,
-			"workflow_id":        queueResp.WorkflowID,
-			"run_id":             queueResp.RunID,
-			"workflow_namespace": queueResp.WorkflowNamespace,
+			"status":               queueResp.Status,
+			"workflow_id":          queueResp.WorkflowID,
+			"run_id":               queueResp.RunID,
+			"workflow_namespace":   queueResp.WorkflowNamespace,
+			pipelineURLResponseKey: queueResp.PipelineURL,
+			"run_url":              queueResp.RunURL,
 		})
-	case "failed":
+	case "failed", "canceled":
 		return printJSON(map[string]any{
-			"mode":          queueResp.Mode,
-			"error_message": queueResp.ErrorMessage,
+			"status":               queueResp.Status,
+			"error_message":        queueResp.ErrorMessage,
+			pipelineURLResponseKey: queueResp.PipelineURL,
 		})
 	default:
 		return printJSON(map[string]any{
-			"mode":    queueResp.Mode,
+			"status":  queueResp.Status,
 			"payload": decodeJSONPayload(queueBody),
 		})
 	}

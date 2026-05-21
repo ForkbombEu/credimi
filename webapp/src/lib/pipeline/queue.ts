@@ -44,10 +44,10 @@ export type APIResponse =
 export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIResponse, string>> {
 	try {
 		const parsedYaml = parseYaml(pipeline.yaml);
-		const runnerType = Runner.getType(pipeline);
+		const runnerType = Runner.Binding.getType(pipeline);
 
 		if (runnerType === 'global') {
-			const runner = Runner.get(pipeline.id);
+			const runner = Runner.Binding.get(pipeline.id);
 			if (!runner) throw new Error('No runner found');
 			if (parsedYaml.runtime) parsedYaml.runtime.global_runner_id = runner;
 			else parsedYaml.runtime = { global_runner_id: runner };
@@ -62,7 +62,7 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 		});
 
 		const assignedRunnerIds = res.runner_ids ?? [];
-		if (Runner.isRequired(pipeline)) {
+		if (Runner.Binding.isRequired(pipeline)) {
 			if (assignedRunnerIds.length === 0 || !res.ticket_id) {
 				return err(m.Failed_to_enqueue_pipeline());
 			}
