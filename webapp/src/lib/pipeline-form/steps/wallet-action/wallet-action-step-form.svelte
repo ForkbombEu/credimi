@@ -17,6 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
 	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
 
+	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
@@ -80,6 +81,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if form.data.action}
 			<WithLabel label={m.Wallet_action()}>
 				<ItemCard title={form.data.action.name} onDiscard={() => form.removeAction()} />
+				{#snippet labelRight()}
+					<Button variant="link" size="sm" class="p-0!">{m.Edit_action()}</Button>
+				{/snippet}
 			</WithLabel>
 		{/if}
 	</div>
