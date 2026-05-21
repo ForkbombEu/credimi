@@ -7,6 +7,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { Pipeline } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
+	import {
+		emptyExecutionStats,
+		fromScoreboardCache
+	} from '$lib/scoreboard/extras/from-scoreboard-row';
+	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -27,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	let { pipeline, pagination } = $derived(data);
+	let { pipeline, pagination, scoreboardCache } = $derived(data);
 
 	$effect(() => {
 		setDashboardNavbar({ title: m.Pipelines() });
@@ -72,20 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	);
 
-	//
-
-	// Filter out canceled runs for success rate calculation
-	const nonCanceledWorkflows = $derived(
-		(workflows.current ?? []).filter((w) => w.status !== 'Canceled')
-	);
-
-	const totalRuns = $derived(nonCanceledWorkflows.length);
-
-	const totalSuccesses = $derived(
-		nonCanceledWorkflows.filter((w) => w.status === 'Completed').length
-	);
-
-	const successRate = $derived(((totalSuccesses / totalRuns) * 100).toFixed(1) + '%');
+	const executionStats = $derived(fromScoreboardCache(scoreboardCache) ?? emptyExecutionStats);
 	const currentItemCount = $derived(workflows.current?.length ?? 0);
 </script>
 
@@ -100,9 +92,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="flex flex-wrap gap-2 md:flex-nowrap">
-		{@render numberBox(totalRuns, m.Total_runs())}
-		{@render numberBox(totalSuccesses, m.Successful_runs())}
-		{@render numberBox(successRate, m.Success_rate())}
+		<PipelineExecutionStats
+			stats={executionStats}
+			layout="stat-box-success"
+			label={m.scoreboard_success_rate()}
+		/>
+		<PipelineExecutionStats
+			stats={executionStats}
+			layout="stat-box-modes"
+			label={m.Execution_mode()}
+		/>
 	</div>
 </div>
 
@@ -142,12 +141,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </div>
 <Pipeline.Workflows.Table workflows={workflows.current ?? []} hidePipelineColumn />
-
-<!--  -->
-
-{#snippet numberBox(highlight: string | number, description: string)}
-	<div class="flex h-20 w-[140px] flex-col items-start justify-between rounded-lg border p-3">
-		<T tag="h2" class="mb-0! pb-0!">{highlight}</T>
-		<T class="text-sm">{description}</T>
-	</div>
-{/snippet}
