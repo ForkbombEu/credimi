@@ -300,7 +300,8 @@ func filterNonPipelineExecutions(
 		if exec == nil || exec.Execution == nil {
 			continue
 		}
-		if exec.Type.Name == pipelineWorkflowName {
+		if exec.Type.Name == pipelineWorkflowName &&
+			!isPipelineExecuteWorkflowID(exec.Execution.WorkflowID) {
 			continue
 		}
 		if exec.ParentExecution == nil {
@@ -310,7 +311,9 @@ func filterNonPipelineExecutions(
 
 		parent, ok := executionByRunID[exec.ParentExecution.RunID]
 		if ok {
-			if parent != nil && parent.Type.Name == pipelineWorkflowName {
+			if parent != nil &&
+				parent.Type.Name == pipelineWorkflowName &&
+				!isPipelineExecuteWorkflowID(parent.Execution.WorkflowID) {
 				continue
 			}
 			filtered = append(filtered, exec)
@@ -326,7 +329,8 @@ func filterNonPipelineExecutions(
 		if err != nil {
 			return nil, err
 		}
-		if parentType == pipelineWorkflowName {
+		if parentType == pipelineWorkflowName &&
+			!isPipelineExecuteWorkflowID(exec.ParentExecution.WorkflowID) {
 			continue
 		}
 
@@ -334,6 +338,10 @@ func filterNonPipelineExecutions(
 	}
 
 	return filtered, nil
+}
+
+func isPipelineExecuteWorkflowID(workflowID string) bool {
+	return strings.HasPrefix(workflowID, pipelineExecuteWorkflowIDPrefix)
 }
 
 func getWorkflowTypeName(

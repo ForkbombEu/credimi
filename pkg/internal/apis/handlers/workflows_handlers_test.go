@@ -1598,6 +1598,30 @@ func TestHandleListMyWorkflowsFiltersDynamicPipeline(t *testing.T) {
 				},
 				{
 					Execution: &common.WorkflowExecution{
+						WorkflowId: "Pipeline-Execute-test-pipeline-123",
+						RunId:      "run-execute",
+					},
+					Type:      &common.WorkflowType{Name: "Dynamic Pipeline Workflow"},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(time.Now().Add(-4 * time.Minute)),
+					CloseTime: timestamppb.New(time.Now().Add(-3 * time.Minute)),
+				},
+				{
+					Execution: &common.WorkflowExecution{
+						WorkflowId: "wf-execute-child",
+						RunId:      "run-execute-child",
+					},
+					Type: &common.WorkflowType{Name: "CheckWorkflow"},
+					ParentExecution: &common.WorkflowExecution{
+						WorkflowId: "Pipeline-Execute-test-pipeline-123",
+						RunId:      "run-execute",
+					},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(time.Now().Add(-230 * time.Second)),
+					CloseTime: timestamppb.New(time.Now().Add(-190 * time.Second)),
+				},
+				{
+					Execution: &common.WorkflowExecution{
 						WorkflowId: "wf-dyn-child",
 						RunId:      "run-dyn-child",
 					},
@@ -1676,10 +1700,13 @@ func TestHandleListMyWorkflowsFiltersDynamicPipeline(t *testing.T) {
 
 	var resp ListMyWorkflowsResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-	require.Len(t, resp.Executions, 1)
+	require.Len(t, resp.Executions, 2)
 	require.Equal(t, "wf-check", resp.Executions[0].Execution.WorkflowID)
 	require.Len(t, resp.Executions[0].Children, 1)
 	require.Equal(t, "wf-check-child", resp.Executions[0].Children[0].Execution.WorkflowID)
+	require.Equal(t, "Pipeline-Execute-test-pipeline-123", resp.Executions[1].Execution.WorkflowID)
+	require.Len(t, resp.Executions[1].Children, 1)
+	require.Equal(t, "wf-execute-child", resp.Executions[1].Children[0].Execution.WorkflowID)
 }
 
 func TestBuildExecutionHierarchy(t *testing.T) {
