@@ -46,10 +46,9 @@ export class HubItemStepForm extends BaseForm<HubItem, HubItemStepForm> {
 		opts?: InitFormOptions<HubItem>
 	) {
 		super(opts);
-	}
-
-	protected applyInitial(initial: HubItem) {
-		this.selectedItem = initial;
+		if (opts?.initial) {
+			this.selectedItem = opts.initial;
+		}
 	}
 
 	canSave() {

@@ -21,10 +21,9 @@ export class EmailStepForm extends BaseForm<EmailFormData, EmailStepForm> {
 
 	constructor(opts?: InitFormOptions<EmailFormData>) {
 		super(opts);
-	}
-
-	protected applyInitial(initial: EmailFormData) {
-		this.data = { ...initial };
+		if (opts?.initial) {
+			this.data = { ...opts.initial };
+		}
 	}
 
 	get isValid(): boolean {

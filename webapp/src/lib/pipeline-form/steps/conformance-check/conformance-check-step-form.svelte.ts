@@ -14,22 +14,6 @@ import Component from './conformance-check-step-form.svelte';
 export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceCheckStepForm> {
 	readonly Component = Component;
 
-	constructor(opts?: InitFormOptions<FormData>) {
-		super(opts);
-	}
-
-	protected applyInitial(initial: FormData) {
-		this.data = { ...initial };
-	}
-
-	canSave() {
-		return this.state === 'ready';
-	}
-
-	getSubmitData() {
-		return this.state === 'ready' ? (this.data as FormData) : undefined;
-	}
-
 	standardsWithTestSuites = resource(
 		() => {},
 		async () => {
@@ -41,6 +25,21 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	);
 
 	data = $state<Partial<FormData>>({});
+
+	constructor(opts?: InitFormOptions<FormData>) {
+		super(opts);
+		if (opts?.initial) {
+			this.data = { ...opts.initial };
+		}
+	}
+
+	canSave() {
+		return this.state === 'ready';
+	}
+
+	getSubmitData() {
+		return this.state === 'ready' ? (this.data as FormData) : undefined;
+	}
 
 	state: FormState = $derived.by(() => {
 		const { standard, version, suite, test } = this.data;

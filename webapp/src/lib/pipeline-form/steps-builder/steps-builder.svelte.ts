@@ -139,8 +139,9 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 							tuple[1] = formData as GenericRecord;
 						}
 
-						this.exitFormState();
+						inner.mode = { id: 'idle' };
 					});
+					this.disposeFormEffect();
 				});
 				state.mode = {
 					id: 'form',
@@ -174,12 +175,16 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	}
 
 	exitFormState() {
-		this.formEffectCleanup?.();
-		this.formEffectCleanup = null;
 		this.stateManager.run((state) => {
 			if (state.mode.id !== 'form') return;
 			state.mode = { id: 'idle' };
 		});
+		this.disposeFormEffect();
+	}
+
+	private disposeFormEffect() {
+		this.formEffectCleanup?.();
+		this.formEffectCleanup = null;
 	}
 
 	// Ordering

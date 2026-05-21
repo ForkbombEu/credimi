@@ -48,29 +48,6 @@ export function getRunnerLabel(runner: SelectedRunner) {
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
-	constructor(opts?: InitFormOptions<WalletActionStepData>) {
-		super(opts);
-		if (!opts?.initial && ExecutionTarget.state.current) {
-			this.data = {
-				...ExecutionTarget.state.current,
-				action: undefined
-			};
-		}
-	}
-
-	protected applyInitial(initial: WalletActionStepData) {
-		this.data = { ...initial };
-	}
-
-	canSave() {
-		return this.state === 'ready';
-	}
-
-	getSubmitData() {
-		if (this.state !== 'ready') return undefined;
-		return this.data as WalletActionStepData;
-	}
-
 	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
@@ -89,6 +66,27 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 			throw new Error('Invalid state');
 		}
 	});
+
+	constructor(opts?: InitFormOptions<WalletActionStepData>) {
+		super(opts);
+		if (opts?.initial) {
+			this.data = { ...opts.initial };
+		} else if (ExecutionTarget.state.current) {
+			this.data = {
+				...ExecutionTarget.state.current,
+				action: undefined
+			};
+		}
+	}
+
+	canSave() {
+		return this.state === 'ready';
+	}
+
+	getSubmitData() {
+		if (this.state !== 'ready') return undefined;
+		return this.data as WalletActionStepData;
+	}
 
 	//
 

@@ -19,10 +19,9 @@ export class HttpRequestStepForm extends BaseForm<HttpRequestFormData, HttpReque
 
 	constructor(opts?: InitFormOptions<HttpRequestFormData>) {
 		super(opts);
-	}
-
-	protected applyInitial(initial: HttpRequestFormData) {
-		this.data = { ...initial };
+		if (opts?.initial) {
+			this.data = { ...opts.initial };
+		}
 	}
 
 	get isValid(): boolean {

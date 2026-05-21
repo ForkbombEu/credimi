@@ -73,14 +73,6 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 
 	constructor(opts?: InitFormOptions<Deserialized>) {
 		this.intent = opts?.intent ?? 'add';
-		if (opts?.initial !== undefined) {
-			this.applyInitial(opts.initial);
-		}
-	}
-
-	protected applyInitial(_initial: Deserialized): void {
-		void _initial;
-		// overridden per form
 	}
 
 	onSubmit(handler: (data: Deserialized) => void) {
