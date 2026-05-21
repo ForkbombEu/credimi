@@ -20,9 +20,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		runId: string;
 		containerClass?: string;
 		showQrLink?: boolean;
+		clickable?: boolean;
 	};
 
-	let { workflowId, runId, containerClass, showQrLink }: Props = $props();
+	let { workflowId, runId, containerClass, showQrLink, clickable }: Props = $props();
 
 	let deeplink = $state<string>();
 	let isLoading = $state(true);
@@ -68,4 +69,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	placeholder={m.The_QR_code_may_be_not_available_for_this_test()}
 	class={containerClass}
 	showLink={showQrLink}
+	{clickable}
 />
