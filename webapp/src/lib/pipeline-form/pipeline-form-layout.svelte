@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class={['flex flex-col gap-4 bg-secondary px-4 pt-2 pb-4', className]}>
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
-			<Button class="h-6 px-0" href="/my/pipelines" variant="link">
+			<Button class="h-fit! gap-0.5! p-0!" href="/my/pipelines" variant="link">
 				<ArrowLeftIcon />
 				{m.Back()}
 			</Button>
