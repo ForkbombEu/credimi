@@ -26,7 +26,11 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/client"
 )
+
+const fidesCredentialIssuersScheduleID = "fides-credential-issuers-import-schedule"
 
 var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/credentials_issuers",
@@ -42,9 +46,10 @@ var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
 			RequestSchema: IssuerURL{},
 		},
 		{
-			Method:  http.MethodPost,
-			Path:    "/import-fides",
-			Handler: HandleCredentialIssuerImportFides,
+			Method:        http.MethodPost,
+			Path:          "/import-fides",
+			Handler:       HandleCredentialIssuerImportFides,
+			RequestSchema: ImportFidesCredentialIssuersRequest{},
 		},
 	},
 }
@@ -60,9 +65,14 @@ var (
 		w := workflows.NewFidesCredentialIssuersWorkflow()
 		return w.Start(namespace, input)
 	}
+	fidesCredentialIssuersTemporalClient = temporalclient.GetTemporalClientWithNamespace
 	credentialIssuerTemporalClient       = temporalclient.GetTemporalClientWithNamespace
 	credentialIssuerWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
 )
+
+var fidesCredentialIssuersScheduleTriggerOptions = client.ScheduleTriggerOptions{
+	Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
+}
 
 var IssuerTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/credentials_issuers",
@@ -110,6 +120,10 @@ type StoreOrUpdateCredentialIssuerRequest struct {
 	OrgID string `json:"orgID"`
 	Name  string `json:"name,omitempty"`
 	Logo  string `json:"logo,omitempty"`
+}
+
+type ImportFidesCredentialIssuersRequest struct {
+	IntervalDays int `json:"interval_days" validate:"omitempty,min=1"`
 }
 
 // HandleCredentialIssuerStartCheck handles the /start-check endpoint for credential issuers.
@@ -373,6 +387,16 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		req, err := decodeImportFidesCredentialIssuersRequest(e.Request)
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"request.validation",
+				"invalid_request",
+				err.Error(),
+			).JSON(e)
+		}
+
 		organization, err := GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
@@ -407,6 +431,24 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 			},
 		}
 
+		if req.IntervalDays > 0 {
+			result, err := scheduleFidesCredentialIssuersImport(
+				e.Request.Context(),
+				orgName,
+				workflowInput,
+				req.IntervalDays,
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to schedule Fides credential issuers import",
+					err.Error(),
+				).JSON(e)
+			}
+			return e.JSON(http.StatusOK, result)
+		}
+
 		result, err := fidesCredentialIssuersStartWorkflow(orgName, workflowInput)
 		if err != nil {
 			return apierror.New(
@@ -429,6 +471,123 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 				result.WorkflowRunID,
 			),
 		})
+	}
+}
+
+func decodeImportFidesCredentialIssuersRequest(
+	req *http.Request,
+) (ImportFidesCredentialIssuersRequest, error) {
+	var input ImportFidesCredentialIssuersRequest
+	if req == nil || req.Body == nil || req.ContentLength == 0 {
+		return input, nil
+	}
+	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+		return ImportFidesCredentialIssuersRequest{}, err
+	}
+	if input.IntervalDays < 0 {
+		return ImportFidesCredentialIssuersRequest{}, fmt.Errorf("interval_days must be greater than or equal to 1")
+	}
+	return input, nil
+}
+
+func scheduleFidesCredentialIssuersImport(
+	ctx context.Context,
+	namespace string,
+	input workflowengine.WorkflowInput,
+	intervalDays int,
+) (map[string]any, error) {
+	c, err := fidesCredentialIssuersTemporalClient(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temporal client: %w", err)
+	}
+
+	options := buildFidesCredentialIssuersScheduleOptions(
+		fidesCredentialIssuersScheduleID,
+		input,
+		intervalDays,
+	)
+	_, err = c.ScheduleClient().Create(ctx, options)
+	if err != nil {
+		if isScheduleAlreadyExistsError(err) {
+			handle := c.ScheduleClient().GetHandle(ctx, fidesCredentialIssuersScheduleID)
+			err = handle.Update(ctx, client.ScheduleUpdateOptions{
+				DoUpdate: func(client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+					return &client.ScheduleUpdate{
+						Schedule: buildFidesCredentialIssuersSchedule(input, intervalDays),
+					}, nil
+				},
+			})
+			if err == nil {
+				err = handle.Trigger(ctx, fidesCredentialIssuersScheduleTriggerOptions)
+			}
+		}
+	} else {
+		handle := c.ScheduleClient().GetHandle(ctx, fidesCredentialIssuersScheduleID)
+		err = handle.Trigger(ctx, fidesCredentialIssuersScheduleTriggerOptions)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to upsert Fides import schedule: %w", err)
+	}
+
+	return map[string]any{
+		"message": fmt.Sprintf(
+			"Fides credential issuers import triggered now and scheduled every %d day(s)",
+			intervalDays,
+		),
+		"schedule_id":       fidesCredentialIssuersScheduleID,
+		"workflowNamespace": namespace,
+	}, nil
+}
+
+func buildFidesCredentialIssuersScheduleOptions(
+	scheduleID string,
+	input workflowengine.WorkflowInput,
+	intervalDays int,
+) client.ScheduleOptions {
+	return client.ScheduleOptions{
+		ID:      scheduleID,
+		Spec:    buildFidesCredentialIssuersScheduleSpec(intervalDays),
+		Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
+		Action:  buildFidesCredentialIssuersScheduleAction(input),
+	}
+}
+
+func buildFidesCredentialIssuersSchedule(
+	input workflowengine.WorkflowInput,
+	intervalDays int,
+) *client.Schedule {
+	return &client.Schedule{
+		Spec: &client.ScheduleSpec{
+			Intervals: []client.ScheduleIntervalSpec{{
+				Every: time.Duration(intervalDays) * 24 * time.Hour,
+			}},
+		},
+		Policy: &client.SchedulePolicies{
+			Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
+		},
+		State:  &client.ScheduleState{},
+		Action: buildFidesCredentialIssuersScheduleAction(input),
+	}
+}
+
+func buildFidesCredentialIssuersScheduleSpec(intervalDays int) client.ScheduleSpec {
+	return client.ScheduleSpec{
+		Intervals: []client.ScheduleIntervalSpec{{
+			Every: time.Duration(intervalDays) * 24 * time.Hour,
+		}},
+	}
+}
+
+func buildFidesCredentialIssuersScheduleAction(
+	input workflowengine.WorkflowInput,
+) *client.ScheduleWorkflowAction {
+	return &client.ScheduleWorkflowAction{
+		ID:        "Fides-Credential-Issuers-Scheduled",
+		Workflow:  workflows.FidesCredentialIssuersWorkflowName,
+		TaskQueue: workflows.FidesCredentialIssuersTaskQueue,
+		Args: []interface{}{
+			input,
+		},
 	}
 }
 

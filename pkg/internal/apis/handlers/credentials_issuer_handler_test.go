@@ -19,9 +19,11 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
@@ -736,6 +738,92 @@ func TestHandleCredentialIssuerImportFidesSuccess(t *testing.T) {
 	require.Equal(t, orgID, capturedInput.Config["orgID"])
 	require.Equal(t, `{"type":"object"}`, capturedInput.Config["issuer_schema"])
 	require.NotEmpty(t, capturedInput.Config["app_url"])
+}
+
+func TestHandleCredentialIssuerImportFidesSchedule(t *testing.T) {
+	t.Setenv("ROOT_DIR", "../../../..")
+
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://credimi.test"
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	require.NoError(t, err)
+	orgName, err := GetOrganizationCanonifiedName(app, orgID)
+	require.NoError(t, err)
+
+	origRead := credentialIssuerReadSchemaFile
+	origStart := fidesCredentialIssuersStartWorkflow
+	origTemporalClient := fidesCredentialIssuersTemporalClient
+	t.Cleanup(func() {
+		credentialIssuerReadSchemaFile = origRead
+		fidesCredentialIssuersStartWorkflow = origStart
+		fidesCredentialIssuersTemporalClient = origTemporalClient
+	})
+
+	credentialIssuerReadSchemaFile = func(string) (string, *apierror.APIError) {
+		return `{"type":"object"}`, nil
+	}
+	fidesCredentialIssuersStartWorkflow = func(string, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{}, errors.New("immediate start should not be called")
+	}
+
+	mockHandle := &temporalmocks.ScheduleHandle{}
+	mockHandle.On("Trigger", mock.Anything, fidesCredentialIssuersScheduleTriggerOptions).
+		Return(nil).
+		Once()
+	mockClient := &temporalmocks.Client{}
+	mockScheduleClient := &fakeScheduleClient{handle: mockHandle}
+	mockClient.On("ScheduleClient").Return(mockScheduleClient)
+	fidesCredentialIssuersTemporalClient = func(namespace string) (client.Client, error) {
+		require.Equal(t, orgName, namespace)
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/credentials_issuers/import-fides",
+		bytes.NewBufferString(`{"interval_days":3}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerImportFides()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var payload map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
+	require.Equal(t, fidesCredentialIssuersScheduleID, payload["schedule_id"])
+	require.Equal(t, orgName, payload["workflowNamespace"])
+
+	require.Len(t, mockScheduleClient.createdOptions, 1)
+	opts := mockScheduleClient.createdOptions[0]
+	require.Equal(t, fidesCredentialIssuersScheduleID, opts.ID)
+	require.Len(t, opts.Spec.Intervals, 1)
+	require.Equal(t, 72*time.Hour, opts.Spec.Intervals[0].Every)
+
+	action, ok := opts.Action.(*client.ScheduleWorkflowAction)
+	require.True(t, ok)
+	require.Equal(t, workflows.FidesCredentialIssuersWorkflowName, action.Workflow)
+	require.Equal(t, workflows.FidesCredentialIssuersTaskQueue, action.TaskQueue)
+	require.Len(t, action.Args, 1)
+	workflowInput, ok := action.Args[0].(workflowengine.WorkflowInput)
+	require.True(t, ok)
+	require.Equal(t, orgID, workflowInput.Config["orgID"])
+	require.Equal(t, `{"type":"object"}`, workflowInput.Config["issuer_schema"])
+	require.Equal(t, "https://credimi.test", workflowInput.Config["app_url"])
+	mockHandle.AssertExpectations(t)
 }
 
 func TestHandleCredentialIssuerStoreOrUpdateInvalidJSONAdditional(t *testing.T) {
