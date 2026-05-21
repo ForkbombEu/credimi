@@ -83,7 +83,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet nruQrCode()}
 	{#if !$currentUser}
-		<Qr>
+		<Qr clickable>
 			<RenderMD
 				content={m.conformance_check_qr_code_login_cta({ link: localizeHref('/login') })}
 				class="text-balance prose-a:text-primary"
@@ -103,6 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				workflowId={qrWorkflow.workflowId}
 				runId={qrWorkflow.runId}
 				showQrLink
+				clickable
 			/>
 			<Button
 				variant="secondary"
