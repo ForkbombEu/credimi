@@ -31,6 +31,10 @@ type turnstileVerifyResponse struct {
 // It reads the token from the X-Turnstile-Token HTTP header and verifies it with Cloudflare.
 func HookTurnstileVerification(app *pocketbase.PocketBase) {
 	app.OnRecordCreateRequest("users").BindFunc(func(e *core.RecordRequestEvent) error {
+		if isOAuth2RecordCreateRequest(e) {
+			return e.Next()
+		}
+
 		token := e.Request.Header.Get("X-Turnstile-Token")
 		if token == "" {
 			return apis.NewBadRequestError("captcha verification failed", nil)
@@ -55,6 +59,19 @@ func HookTurnstileVerification(app *pocketbase.PocketBase) {
 
 		return e.Next()
 	})
+}
+
+func isOAuth2RecordCreateRequest(e *core.RecordRequestEvent) bool {
+	if e == nil || e.RequestEvent == nil {
+		return false
+	}
+
+	requestInfo, err := e.RequestInfo()
+	if err != nil {
+		return false
+	}
+
+	return requestInfo.Context == core.RequestInfoContextOAuth2
 }
 
 func verifyTurnstileToken(token, secret string) (*turnstileVerifyResponse, error) {
