@@ -72,6 +72,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</T>
 			</Alert>
 		{/if} -->
-		<RunnerSelectInput onSelect={handleSelect} selectedRunner={currentRunnerPath} />
+		<RunnerSelectInput
+			presentation="run"
+			onSelect={handleSelect}
+			selectedRunner={currentRunnerPath}
+		/>
 	{/snippet}
 </Dialog>

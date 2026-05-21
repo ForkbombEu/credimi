@@ -62,7 +62,7 @@ export function init() {
 		$effect(() => {
 			const organizationId = userOrganization.current?.id;
 
-			if (organizationId === subscribedOrganizationId) {
+			if (organizationId !== undefined && organizationId === subscribedOrganizationId) {
 				return;
 			}
 
