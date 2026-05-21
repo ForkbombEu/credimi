@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<CollectionForm
 			collection="wallet_actions"
 			recordId={walletAction.id}
-			initialData={{ code: walletAction.code }}
+			initialData={walletAction}
 			fieldsOptions={{
 				include: ['code'],
 				snippets: { code }
