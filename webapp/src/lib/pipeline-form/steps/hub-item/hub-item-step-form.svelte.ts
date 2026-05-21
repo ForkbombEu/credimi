@@ -7,7 +7,7 @@ import type { HubItem, HubItemType } from '$lib/hub';
 
 import { searchHub } from '../_partials/search-hub';
 import { Search } from '../_partials/search.svelte';
-import { BaseForm } from '../types';
+import { BaseForm, type InitFormOptions } from '../types';
 import Component from './hub-item-step-form.svelte';
 
 //
@@ -31,9 +31,7 @@ type Props = {
 export class HubItemStepForm extends BaseForm<HubItem, HubItemStepForm> {
 	readonly Component = Component;
 
-	constructor(private props: Props) {
-		super();
-	}
+	selectedItem = $state<HubItem | undefined>(undefined);
 
 	foundItems = $state<HubItem[]>([]);
 
@@ -43,12 +41,37 @@ export class HubItemStepForm extends BaseForm<HubItem, HubItemStepForm> {
 		}
 	});
 
+	constructor(
+		private props: Props,
+		opts?: InitFormOptions<HubItem>
+	) {
+		super(opts);
+		if (opts?.initial) {
+			this.selectedItem = opts.initial;
+		}
+	}
+
+	canSave() {
+		return this.selectedItem !== undefined;
+	}
+
+	getSubmitData() {
+		return this.selectedItem;
+	}
+
 	async searchItem(text: string) {
 		this.foundItems = await searchHub(text, this.collection);
 	}
 
 	async selectItem(item: HubItem) {
-		this.handleSubmit(item);
+		this.selectedItem = item;
+		if (this.intent === 'add') {
+			this.commit(item);
+		}
+	}
+
+	discardSelection() {
+		this.selectedItem = undefined;
 	}
 
 	get collection() {

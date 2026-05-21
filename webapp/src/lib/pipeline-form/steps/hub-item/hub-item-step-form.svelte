@@ -25,6 +25,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { labels } = $derived(form.entityData);
 </script>
 
+{#if form.selectedItem}
+	<div class="border-b p-4">
+		<WithLabel label={labels.singular}>
+			<ItemCard
+				avatar={getHubItemLogo(form.selectedItem)}
+				title={form.selectedItem.name}
+				subtitle={form.selectedItem.organization_name}
+				onDiscard={() => form.discardSelection()}
+			/>
+		</WithLabel>
+	</div>
+{/if}
+
 <WithLabel label={labels.singular} class="p-4">
 	<SearchInput search={form.search} />
 </WithLabel>

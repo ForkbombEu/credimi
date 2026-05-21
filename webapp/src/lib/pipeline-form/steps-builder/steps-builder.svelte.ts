@@ -4,6 +4,7 @@
 
 import type { Renderable } from '$lib/renderable';
 
+import { cloneDeep } from 'lodash';
 import { StateManager } from '$lib/state-manager/state-manager';
 
 import type { GenericRecord } from '@/utils/types';
@@ -19,6 +20,7 @@ import { ExecutionTarget } from '../execution-target/index.js';
 import * as pipelinestep from '../steps';
 import { walletActionStepConfig } from '../steps/wallet-action/index.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
+import { getStepConfig, getStepData, isStepEditable } from './_partials/utils.js';
 import Component from './steps-builder.svelte';
 
 //
@@ -28,9 +30,19 @@ type Props = {
 	yamlPreview: () => string;
 };
 
+type BuilderMode =
+	| { id: 'idle' }
+	| {
+			id: 'form';
+			intent: pipelinestep.FormIntent;
+			stepIndex?: number;
+			config: pipelinestep.AnyConfig;
+			form: pipelinestep.Form;
+	  };
+
 type State = {
 	steps: EnrichedStep[];
-	mode: { id: 'idle' } | { id: 'form'; form: pipelinestep.Form };
+	mode: BuilderMode;
 };
 
 export class StepsBuilder implements Renderable<StepsBuilder> {
@@ -45,6 +57,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		() => this.state,
 		(state) => (this.state = state)
 	);
+
+	private formEffectCleanup: (() => void) | null = null;
 
 	constructor(private props: Props) {
 		this.state.steps = props.steps;
@@ -75,27 +89,71 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// Core functionality
 
 	initAddStep(type: string) {
-		this.stateManager.run((state) => {
-			const config = pipelinestep.configs.find((c) => c.use === type);
-			if (!config) return;
+		if (this.state.mode.id === 'form') {
+			this.exitFormState();
+		}
+		const config = pipelinestep.configs.find((c) => c.use === type);
+		if (!config) return;
+		this.openForm('add', config, {});
+	}
 
+	initEditStep(index: number) {
+		if (this.state.mode.id === 'form') {
+			this.exitFormState();
+		}
+		const step = this.state.steps[index];
+		if (!step || !isStepEditable(step)) return;
+		const config = getStepConfig(step);
+		const data = getStepData(step);
+		if (!config || !data) return;
+		this.openForm('edit', config, { initial: data, stepIndex: index });
+	}
+
+	private openForm(
+		intent: pipelinestep.FormIntent,
+		config: pipelinestep.AnyConfig,
+		opts: { initial?: GenericRecord; stepIndex?: number }
+	) {
+		this.stateManager.run((state) => {
 			const effectCleanup = $effect.root(() => {
-				const form = config.initForm();
-				form.onSubmit((formData) => {
-					this.stateManager.run((state) => {
-						const step: PipelineStep = {
-							use: config.use as never,
-							id: '', // will be written later
-							continue_on_error: false,
-							with: config.serialize(formData)
-						};
-						state.steps.push([step, formData]);
-						state.mode = { id: 'idle' };
-						effectCleanup();
-					});
+				const form = config.initForm({
+					intent,
+					initial: opts.initial as never
 				});
-				state.mode = { id: 'form', form };
+				form.onSubmit((formData) => {
+					this.stateManager.run((inner) => {
+						if (inner.mode.id !== 'form') return;
+
+						if (inner.mode.intent === 'add') {
+							const step: PipelineStep = {
+								use: config.use as never,
+								id: '',
+								continue_on_error: false,
+								with: config.serialize(formData)
+							};
+							inner.steps.push([step, formData as GenericRecord]);
+						} else {
+							const editIndex = inner.mode.stepIndex;
+							if (editIndex === undefined) return;
+							const tuple = inner.steps[editIndex];
+							if (!tuple || tuple[0].use === 'debug') return;
+							tuple[0].with = config.serialize(formData);
+							tuple[1] = formData as GenericRecord;
+						}
+
+						inner.mode = { id: 'idle' };
+					});
+					this.disposeFormEffect();
+				});
+				state.mode = {
+					id: 'form',
+					intent,
+					stepIndex: opts.stepIndex,
+					config,
+					form
+				};
 			});
+			this.formEffectCleanup = effectCleanup;
 		});
 	}
 
@@ -111,6 +169,18 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		});
 	}
 
+	cloneStep(index: number) {
+		this.stateManager.run((state) => {
+			const source = state.steps[index];
+			if (!source) return;
+			const [pipelineStep, formData] = cloneDeep(source);
+			if (pipelineStep.use !== 'debug' && 'id' in pipelineStep) {
+				pipelineStep.id = '';
+			}
+			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
+		});
+	}
+
 	setContinueOnError(index: number, continueOnError: boolean) {
 		this.stateManager.run((state) => {
 			const step = state.steps[index];
@@ -121,9 +191,15 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	exitFormState() {
 		this.stateManager.run((state) => {
-			if (!(state.mode.id == 'form')) return;
+			if (state.mode.id !== 'form') return;
 			state.mode = { id: 'idle' };
 		});
+		this.disposeFormEffect();
+	}
+
+	private disposeFormEffect() {
+		this.formEffectCleanup?.();
+		this.formEffectCleanup = null;
 	}
 
 	// Ordering

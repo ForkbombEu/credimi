@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ExternalLinkIcon } from '@lucide/svelte';
+	import { EllipsisIcon, ExternalLinkIcon, RefreshCcwIcon } from '@lucide/svelte';
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import { getHubItemData } from '$lib/hub';
@@ -13,6 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 
 	import Dialog from '@/components/ui-custom/dialog.svelte';
+	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
@@ -113,12 +115,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if bulkContext}
-	<button
-		class="shrink-0 text-xs text-primary hover:cursor-pointer hover:underline"
-		onclick={() => (walletVersionDialogOpen = true)}
+	<DropdownMenu
+		items={[
+			{
+				label: m.Change_wallet_version(),
+				onclick: () => (walletVersionDialogOpen = true),
+				icon: RefreshCcwIcon
+			}
+		]}
 	>
-		{m.Change_wallet_version()}
-	</button>
+		{#snippet trigger({ props })}
+			<IconButton {...props} icon={EllipsisIcon} size="xs" variant="ghost" />
+		{/snippet}
+	</DropdownMenu>
 {/if}
 
 <Dialog

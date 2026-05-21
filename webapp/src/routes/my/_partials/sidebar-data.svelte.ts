@@ -2,15 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import {
-	GlobeIcon,
-	HourglassIcon,
-	House,
-	ListIcon,
-	LockIcon,
-	StoreIcon,
-	UserIcon
-} from '@lucide/svelte';
+import { GlobeIcon, HourglassIcon, House, ListIcon, LockIcon, UserIcon } from '@lucide/svelte';
 import { page } from '$app/state';
 import { Pipeline } from '$lib';
 import { baseSections, entities } from '$lib/global';
@@ -39,9 +31,14 @@ const data: SidebarGroup[] = $derived([
 				icon: House
 			},
 			{
-				title: m.Hub(),
+				title: entities.hub.labels.singular,
 				url: '/hub',
-				icon: StoreIcon
+				icon: entities.hub.icon
+			},
+			{
+				title: entities.scoreboard.labels.singular,
+				url: '/scoreboard',
+				icon: entities.scoreboard.icon
 			}
 		]
 	},

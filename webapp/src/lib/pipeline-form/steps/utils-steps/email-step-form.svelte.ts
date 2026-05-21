@@ -4,7 +4,7 @@
 
 import { appName } from '@/brand';
 
-import { BaseForm } from '../types';
+import { BaseForm, type InitFormOptions } from '../types';
 import Component from './email-step-form.svelte';
 import { formatPlaceholder as fmt, Placeholder } from './placeholders/utils';
 
@@ -19,14 +19,27 @@ export class EmailStepForm extends BaseForm<EmailFormData, EmailStepForm> {
 		body: defaultBody()
 	});
 
+	constructor(opts?: InitFormOptions<EmailFormData>) {
+		super(opts);
+		if (opts?.initial) {
+			this.data = { ...opts.initial };
+		}
+	}
+
 	get isValid(): boolean {
 		return this.data.recipient.trim() !== '';
 	}
 
+	canSave() {
+		return this.isValid;
+	}
+
+	getSubmitData() {
+		return this.isValid ? this.data : undefined;
+	}
+
 	submit() {
-		if (this.isValid) {
-			this.handleSubmit(this.data);
-		}
+		this.commit();
 	}
 }
 

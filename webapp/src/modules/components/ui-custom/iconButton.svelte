@@ -79,16 +79,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if tooltip}
 	<Tooltip delayDuration={tooltipDelayDuration}>
-		{@render button()}
+		{#snippet child({ props })}
+			{@render button(props)}
+		{/snippet}
+
 		{#snippet content()}
 			<p>{tooltip}</p>
 		{/snippet}
 	</Tooltip>
 {:else}
-	{@render button()}
+	{@render button({})}
 {/if}
 
-{#snippet button()}
+{#snippet button(props: Record<string, unknown>)}
 	<Button
 		{...rest}
 		{variant}
@@ -99,6 +102,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			currentConfig.sizeClass,
 			className
 		]}
+		{...props}
 	>
 		<Icon src={icon ?? X} size={currentConfig.iconSize} />
 		{@render children?.()}

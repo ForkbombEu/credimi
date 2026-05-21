@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Record } from '$lib/pipeline/runner';
+
 import { Pipeline, Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import { getHubItemLogo, getHubItemUrl, type HubItem } from '$lib/hub';
-import type { Record } from '$lib/pipeline/runner';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -23,7 +24,6 @@ import type { TypedConfig } from '../types';
 import { getLastPathSegment } from '../_partials/misc';
 import { formatLinkedId } from '../utils.js';
 import CardDetailsComponent from './card-details.svelte';
-import EditComponent from './edit-component.svelte';
 import {
 	EXTERNAL_VERSION,
 	getRunnerLabel,
@@ -43,7 +43,6 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	display: entities.wallets,
 
 	CardDetailsComponent,
-	EditComponent,
 
 	cardData: ({ action, wallet, version, runner }) => {
 		let publicUrl = getHubItemUrl(wallet);
@@ -71,7 +70,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		return getLastPathSegment(data.action_id);
 	},
 
-	initForm: () => new WalletActionStepForm(),
+	initForm: (opts) => new WalletActionStepForm(opts),
 
 	serialize: ({ action, version, runner }) => {
 		type StepData = PipelineStepData<PipelineStepByType<'mobile-automation'>>;
