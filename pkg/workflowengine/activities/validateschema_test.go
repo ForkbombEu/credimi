@@ -4,6 +4,8 @@
 package activities
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -157,4 +159,114 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCredentialIssuerSchemaOID4VCI10(t *testing.T) {
+	schema, err := os.ReadFile(filepath.Join(
+		"..",
+		"..",
+		"..",
+		"schemas",
+		"credentialissuer",
+		"openid-credential-issuer.schema.json",
+	))
+	require.NoError(t, err)
+
+	act := NewSchemaValidationActivity()
+	validIssuer := map[string]any{
+		"credential_issuer":   "https://issuer.example.com",
+		"credential_endpoint": "https://issuer.example.com/credential",
+		"batch_credential_issuance": map[string]any{
+			"batch_size": 2,
+		},
+		"credential_request_encryption": map[string]any{
+			"jwks": map[string]any{
+				"keys": []any{
+					map[string]any{
+						"kty": "RSA",
+						"use": "enc",
+						"kid": "key-1",
+						"n":   "abc",
+						"e":   "AQAB",
+					},
+				},
+			},
+			"enc_values_supported": []any{"A256GCM"},
+			"encryption_required":  true,
+			"zip_values_supported": []any{"DEF"},
+		},
+		"credential_configurations_supported": map[string]any{
+			"pid": map[string]any{
+				"format": "dc+sd-jwt",
+				"vct":    "https://issuer.example.com/pid",
+				"credential_metadata": map[string]any{
+					"display": []any{
+						map[string]any{
+							"name":        "PID",
+							"description": "Person identification data",
+							"logo": map[string]any{
+								"uri": "https://issuer.example.com/logo.png",
+							},
+						},
+					},
+					"claims": []any{
+						map[string]any{
+							"path":      []any{"given_name"},
+							"mandatory": true,
+						},
+						map[string]any{
+							"path": []any{"addresses", 0, "street_address"},
+						},
+						map[string]any{
+							"path": []any{"nationalities", nil},
+						},
+					},
+				},
+			},
+			"jwt_vc": map[string]any{
+				"format": "jwt_vc_json",
+				"credential_definition": map[string]any{
+					"type": []any{"VerifiableCredential", "UniversityDegreeCredential"},
+				},
+			},
+			"ldp_vc": map[string]any{
+				"format": "ldp_vc",
+				"credential_definition": map[string]any{
+					"@context": []any{"https://www.w3.org/2018/credentials/v1"},
+					"type":     []any{"VerifiableCredential", "UniversityDegreeCredential"},
+				},
+			},
+			"mdl": map[string]any{
+				"format":  "mso_mdoc",
+				"doctype": "org.iso.18013.5.1.mDL",
+				"credential_signing_alg_values_supported": []any{-7, -9},
+			},
+		},
+	}
+
+	_, err = act.Execute(t.Context(), workflowengine.ActivityInput{
+		Payload: SchemaValidationActivityPayload{
+			Schema: string(schema),
+			Data:   validIssuer,
+		},
+	})
+	require.NoError(t, err)
+
+	invalidIssuer := map[string]any{
+		"credential_issuer":   "https://issuer.example.com",
+		"credential_endpoint": "https://issuer.example.com/credential",
+		"credential_configurations_supported": map[string]any{
+			"pid": map[string]any{
+				"format": "dc+sd-jwt",
+			},
+		},
+	}
+	_, err = act.Execute(t.Context(), workflowengine.ActivityInput{
+		Payload: SchemaValidationActivityPayload{
+			Schema: string(schema),
+			Data:   invalidIssuer,
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.SchemaValidationFailed].Code)
 }

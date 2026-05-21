@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -24,12 +23,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/types"
-	"go.temporal.io/sdk/client"
 )
 
 var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
@@ -45,6 +41,11 @@ var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandleCredentialIssuerStartCheck,
 			RequestSchema: IssuerURL{},
 		},
+		{
+			Method:  http.MethodPost,
+			Path:    "/import-fides",
+			Handler: HandleCredentialIssuerImportFides,
+		},
 	},
 }
 
@@ -53,6 +54,10 @@ var (
 	credentialIssuerReadSchemaFile          = readSchemaFile
 	credentialIssuerStartWorkflow           = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
 		w := workflows.NewCredentialsIssuersWorkflow()
+		return w.Start(namespace, input)
+	}
+	fidesCredentialIssuersStartWorkflow = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewFidesCredentialIssuersWorkflow()
 		return w.Start(namespace, input)
 	}
 	credentialIssuerTemporalClient       = temporalclient.GetTemporalClientWithNamespace
@@ -68,18 +73,18 @@ var IssuerTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:        http.MethodPost,
-			Path:          "/store-or-update-extracted-credentials",
-			Handler:       HandleCredentialIssuerStoreOrUpdateExtractedCredentials,
-			RequestSchema: StoreOrUpdateCredentialsRequest{},
+			Path:          "/store-or-update",
+			Handler:       HandleCredentialIssuerStoreOrUpdate,
+			RequestSchema: StoreOrUpdateCredentialIssuerRequest{},
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
 		},
 		{
 			Method:        http.MethodPost,
-			Path:          "/cleanup-credentials",
-			Handler:       HandleCredentialIssuerCleanupCredentials,
-			RequestSchema: IssuerCleanupCredentialsRequest{},
+			Path:          "/store-or-update-extracted-credentials",
+			Handler:       HandleCredentialIssuerStoreOrUpdateExtractedCredentials,
+			RequestSchema: StoreOrUpdateCredentialsRequest{},
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
@@ -100,9 +105,11 @@ type StoreOrUpdateCredentialsRequest struct {
 	OrgID      string         `json:"orgID"`
 }
 
-type IssuerCleanupCredentialsRequest struct {
-	IssuerID  string   `json:"issuerID"`
-	ValidKeys []string `json:"validKeys"`
+type StoreOrUpdateCredentialIssuerRequest struct {
+	URL   string `json:"url"`
+	OrgID string `json:"orgID"`
+	Name  string `json:"name,omitempty"`
+	Logo  string `json:"logo,omitempty"`
 }
 
 // HandleCredentialIssuerStartCheck handles the /start-check endpoint for credential issuers.
@@ -355,6 +362,76 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 	}
 }
 
+func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		if e.Auth == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"credential_issuers",
+				"authentication required",
+				"authenticated user or user API key is required",
+			).JSON(e)
+		}
+
+		organization, err := GetUserOrganizationID(e.App, e.Auth.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get user organization",
+				err.Error(),
+			).JSON(e)
+		}
+		orgName, err := GetOrganizationCanonifiedName(e.App, organization)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get organization canonified name",
+				err.Error(),
+			).JSON(e)
+		}
+
+		issuerSchema, apiErr := credentialIssuerReadSchemaFile(
+			utils.GetEnvironmentVariable("ROOT_DIR") + "/" + workflows.CredentialIssuerSchemaPath,
+		)
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		workflowInput := workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url":       e.App.Settings().Meta.AppURL,
+				"issuer_schema": issuerSchema,
+				"orgID":         organization,
+			},
+		}
+
+		result, err := fidesCredentialIssuersStartWorkflow(orgName, workflowInput)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to start Fides credential issuers import",
+				err.Error(),
+			).JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{
+			"workflow_id":     result.WorkflowID,
+			"workflow_run_id": result.WorkflowRunID,
+			"workflow_url": utils.JoinURL(
+				e.App.Settings().Meta.AppURL,
+				"my",
+				"tests",
+				"runs",
+				result.WorkflowID,
+				result.WorkflowRunID,
+			),
+		})
+	}
+}
+
 // HandleCredentialIssuerStoreOrUpdateExtractedCredentials is an endpoint that handles
 //
 //	storing or updating an extracted credential from a credential issuer.
@@ -469,75 +546,9 @@ func HandleCredentialIssuerStoreOrUpdateExtractedCredentials() func(*core.Reques
 	}
 }
 
-// HandleCredentialIssuerCleanupCredentials handles requests to cleanup credentials associated with a credential issuer.
-// It expects a JSON body with the following fields:
-// - issuerID: the ID of the credential issuer
-// - validKeys: a list of valid credential keys
-//
-// It will delete all credentials associated with the credential issuer that are not in the validKeys list.
-// It returns a JSON response with a single field "deleted" containing a list of deleted credential keys.
-func HandleCredentialIssuerCleanupCredentials() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		var body struct {
-			IssuerID  string   `json:"issuerID"`
-			ValidKeys []string `json:"validKeys"`
-		}
-
-		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-			return apis.NewBadRequestError("invalid JSON body", err)
-		}
-
-		validSet := map[string]bool{}
-		for _, key := range body.ValidKeys {
-			validSet[key] = true
-		}
-
-		collection, err := e.App.FindCollectionByNameOrId("credentials")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"credentials",
-				"failed to find credentials collection",
-				err.Error(),
-			).JSON(e)
-		}
-		all, err := e.App.FindRecordsByFilter(collection,
-			"credential_issuer = {:issuerID}",
-			"", // sort
-			0,  // page
-			0,  // perPage
-			dbx.Params{"issuerID": body.IssuerID},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"credentials",
-				"failed to find credentials",
-				err.Error(),
-			).JSON(e)
-		}
-
-		var deleted []string
-		for _, rec := range all {
-			key := rec.GetString("name")
-			if !validSet[key] {
-				if err := e.App.Delete(rec); err != nil {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"credentials",
-						"failed to delete credentials",
-						err.Error(),
-					).JSON(e)
-				}
-				deleted = append(deleted, key)
-			}
-		}
-		return e.JSON(http.StatusOK, map[string]any{"deleted": deleted})
-	}
-}
-
 func parseCredentialDisplay(cred map[string]any) (name, locale, logo, description string) {
-	if displayList, ok := cred["display"].([]any); ok && len(displayList) > 0 {
+	displayList := credentialDisplayList(cred)
+	if len(displayList) > 0 {
 		if first, ok := displayList[0].(map[string]any); ok {
 			if n, ok := first["name"].(string); ok {
 				name = n
@@ -551,11 +562,94 @@ func parseCredentialDisplay(cred map[string]any) (name, locale, logo, descriptio
 			if logoMap, ok := first["logo"].(map[string]any); ok {
 				if uri, ok := logoMap["uri"].(string); ok {
 					logo = uri
+				} else if urlValue, ok := logoMap["url"].(string); ok {
+					logo = urlValue
 				}
 			}
 		}
 	}
 	return
+}
+
+func credentialDisplayList(cred map[string]any) []any {
+	if metadata, ok := cred["credential_metadata"].(map[string]any); ok {
+		if displayList, ok := metadata["display"].([]any); ok {
+			return displayList
+		}
+	}
+	if displayList, ok := cred["display"].([]any); ok {
+		return displayList
+	}
+	return nil
+}
+
+func HandleCredentialIssuerStoreOrUpdate() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		var body StoreOrUpdateCredentialIssuerRequest
+		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+			return apis.NewBadRequestError("invalid JSON body", err)
+		}
+		if strings.TrimSpace(body.URL) == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"credential_issuers",
+				"missing credential issuer URL",
+				"url is required",
+			).JSON(e)
+		}
+		if strings.TrimSpace(body.OrgID) == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"credential_issuers",
+				"missing organization",
+				"orgID is required",
+			).JSON(e)
+		}
+
+		collection, err := e.App.FindCollectionByNameOrId("credential_issuers")
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"credential_issuers",
+				"failed to find credential issuers collection",
+				err.Error(),
+			).JSON(e)
+		}
+
+		record, err := e.App.FindFirstRecordByFilter(
+			collection,
+			"url = {:url} && owner = {:owner}",
+			map[string]any{
+				"url":   body.URL,
+				"owner": body.OrgID,
+			},
+		)
+		if err != nil {
+			record = core.NewRecord(collection)
+			record.Set("url", body.URL)
+			record.Set("owner", body.OrgID)
+			record.Set("imported", true)
+		}
+		if body.Name != "" {
+			record.Set("name", body.Name)
+		}
+		if body.Logo != "" {
+			record.Set("logo_url", body.Logo)
+		}
+
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"credential_issuers",
+				"failed to save credential issuer",
+				err.Error(),
+			).JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{
+			"record": record.FieldsData(),
+		})
+	}
 }
 
 func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
@@ -674,99 +768,4 @@ func readSchemaFile(path string) (string, *apierror.APIError) {
 		)
 	}
 	return string(data), nil
-}
-
-var credentialsIssuerTemporalDial = client.Dial
-
-// HookUpdateCredentialsIssuers sets up a hook in the PocketBase application to listen for
-// successful updates to records in the "features" collection with the name "updateIssuers".
-// When triggered, it checks if the "active" field is true and processes the "envVariables"
-// field to determine a scheduling interval. Based on the interval, it creates a Temporal
-// schedule to periodically execute the FetchIssuersWorkflow.
-//
-// Parameters:
-//   - app: A pointer to the PocketBase application instance.
-//
-// Behavior:
-//   - Listens for updates to the "features" collection.
-//   - Verifies the record name is "updateIssuers" and the "active" field is true.
-//   - Parses the "envVariables" field to extract the scheduling interval.
-//   - Maps the interval to a predefined duration (e.g., every minute, hourly, daily, etc.).
-//   - Creates a Temporal schedule with the specified interval to run the FetchIssuersWorkflow.
-//
-// Notes:
-//   - If the "envVariables" field is missing or the interval is invalid, the hook exits without action.
-//   - Logs fatal errors if JSON unmarshalling or Temporal client/schedule creation fails.
-func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
-	app.OnRecordAfterUpdateSuccess("features").BindFunc(handleUpdateCredentialsIssuers)
-}
-
-func handleUpdateCredentialsIssuers(e *core.RecordEvent) error {
-	if e.Record.Get("name") != "updateIssuers" {
-		return e.Next()
-	}
-	if e.Record.Get("active") == false {
-		return e.Next()
-	}
-	envVariables := e.Record.Get("envVariables")
-	if envVariables == nil {
-		return e.Next()
-	}
-	result := struct {
-		Interval string `json:"interval"`
-	}{}
-	errJSON := json.Unmarshal(e.Record.Get("envVariables").(types.JSONRaw), &result)
-	if errJSON != nil {
-		return fmt.Errorf("failed to parse envVariables: %w", errJSON)
-	}
-	if result.Interval == "" {
-		return e.Next()
-	}
-	var interval time.Duration
-	switch result.Interval {
-	case "every_minute":
-		interval = time.Minute
-	case "hourly":
-		interval = time.Hour
-	case "daily":
-		interval = time.Hour * 24
-	case "weekly":
-		interval = time.Hour * 24 * 7
-	case "monthly":
-		interval = time.Hour * 24 * 30
-	default:
-		interval = time.Hour
-	}
-	workflowID := "schedule_workflow_id" + fmt.Sprintf("%d", time.Now().Unix())
-	scheduleID := "schedule_id" + fmt.Sprintf("%d", time.Now().Unix())
-	ctx := context.Background()
-
-	temporalClient, err := credentialsIssuerTemporalDial(client.Options{
-		HostPort: client.DefaultHostPort,
-	})
-	if err != nil {
-		return fmt.Errorf("unable to create Temporal Client: %w", err)
-	}
-	defer temporalClient.Close()
-	scheduleHandle, err := temporalClient.ScheduleClient().Create(ctx, client.ScheduleOptions{
-		ID: scheduleID,
-		Spec: client.ScheduleSpec{
-			Intervals: []client.ScheduleIntervalSpec{
-				{
-					Every: interval,
-				},
-			},
-		},
-		Action: &client.ScheduleWorkflowAction{
-			ID:        workflowID,
-			Workflow:  credential_workflow.FetchIssuersWorkflow,
-			TaskQueue: credential_workflow.FetchIssuersTaskQueue,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("unable to create schedule: %w", err)
-	}
-	_, _ = scheduleHandle.Describe(ctx)
-
-	return e.Next()
 }

@@ -16,15 +16,12 @@ import (
 	"testing"
 	"time"
 
-	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
-	"github.com/pocketbase/pocketbase/tools/types"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
@@ -257,93 +254,6 @@ func TestCredentialIssuersAPI(t *testing.T) {
 			}),
 		},
 		{
-			Name:   "cleanup credentials - delete stale ones",
-			Method: http.MethodPost,
-			URL:    "/api/credentials_issuers/cleanup-credentials",
-			Body: jsonBody(map[string]any{
-				"issuerID":  "issuerid1234567",
-				"validKeys": []string{"university-degree"},
-			}),
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"deleted"`,
-				`"simple-credential"`,
-			},
-			TestAppFactory: setupTestAppWithData(orgID, TestSetupData{
-				IssuerID:     "issuerid1234567",
-				CreateIssuer: true,
-				CreateCredentials: []TestCredential{
-					{
-						CredKey:     "university-degree",
-						Format:      "jwt_vc_json",
-						DisplayName: "University Degree",
-						Locale:      "en-US",
-						Conformant:  true,
-					},
-					{
-						CredKey:     "simple-credential",
-						Format:      "vc+sd-jwt",
-						DisplayName: "Simple Credential",
-						Locale:      "en-US",
-						Conformant:  false,
-					},
-				},
-			}),
-		},
-		{
-			Name:   "cleanup credentials - no deletions when all valid",
-			Method: http.MethodPost,
-			URL:    "/api/credentials_issuers/cleanup-credentials",
-			Body: jsonBody(map[string]any{
-				"issuerID":  "issuerid1234567",
-				"validKeys": []string{"university-degree"},
-			}),
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"deleted":null`,
-			},
-			TestAppFactory: setupTestAppWithData(orgID, TestSetupData{
-				CreateIssuer: true,
-				CreateCredentials: []TestCredential{
-					{IssuerID: "issuerid1234567",
-						CredKey:     "university-degree",
-						Format:      "jwt_vc_json",
-						DisplayName: "University Degree",
-						Locale:      "en-US",
-						Conformant:  true,
-					},
-				},
-			}),
-		},
-		{
-			Name:   "cleanup credentials - delete all",
-			Method: http.MethodPost,
-			URL:    "/api/credentials_issuers/cleanup-credentials",
-			Body: jsonBody(map[string]any{
-				"issuerID":  "issuerid1234567",
-				"validKeys": []string{},
-			}),
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"deleted"`,
-				`"university-degree"`,
-			},
-			TestAppFactory: setupTestAppWithData(orgID, TestSetupData{
-				IssuerID:     "issuerid1234567",
-				CreateIssuer: true,
-				CreateCredentials: []TestCredential{
-					{
-						IssuerID:    "issuerid1234567",
-						CredKey:     "university-degree",
-						Format:      "jwt_vc_json",
-						DisplayName: "University Degree",
-						Locale:      "en-US",
-						Conformant:  true,
-					},
-				},
-			}),
-		},
-		{
 			Name:   "store credential with wrong orgID",
 			Method: http.MethodPost,
 			URL:    "/api/credentials_issuers/store-or-update-extracted-credentials",
@@ -377,19 +287,6 @@ func TestCredentialIssuersAPI(t *testing.T) {
 			Name:           "store credential with invalid JSON body",
 			Method:         http.MethodPost,
 			URL:            "/api/credentials_issuers/store-or-update-extracted-credentials",
-			Body:           bytes.NewReader([]byte(`{invalid json}`)),
-			ExpectedStatus: 400,
-			ExpectedContent: []string{
-				`"reason":"Invalid JSON format for the expected type"`,
-			},
-			TestAppFactory: setupTestAppWithData(orgID, TestSetupData{
-				CreateIssuer: true,
-			}),
-		},
-		{
-			Name:           "cleanup credentials with invalid JSON body",
-			Method:         http.MethodPost,
-			URL:            "/api/credentials_issuers/cleanup-credentials",
 			Body:           bytes.NewReader([]byte(`{invalid json}`)),
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
@@ -781,6 +678,66 @@ func TestHandleCredentialIssuerStartCheckExistingRecordStartErrorAdditional(t *t
 	require.NoError(t, err)
 }
 
+func TestHandleCredentialIssuerImportFidesSuccess(t *testing.T) {
+	t.Setenv("ROOT_DIR", "../../../..")
+
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	require.NoError(t, err)
+	orgName, err := GetOrganizationCanonifiedName(app, orgID)
+	require.NoError(t, err)
+
+	origRead := credentialIssuerReadSchemaFile
+	origStart := fidesCredentialIssuersStartWorkflow
+	t.Cleanup(func() {
+		credentialIssuerReadSchemaFile = origRead
+		fidesCredentialIssuersStartWorkflow = origStart
+	})
+
+	var capturedNamespace string
+	var capturedInput workflowengine.WorkflowInput
+	credentialIssuerReadSchemaFile = func(string) (string, *apierror.APIError) {
+		return `{"type":"object"}`, nil
+	}
+	fidesCredentialIssuersStartWorkflow = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		capturedNamespace = namespace
+		capturedInput = input
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "fides-wf",
+			WorkflowRunID: "fides-run",
+		}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/credentials_issuers/import-fides", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerImportFides()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var payload map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
+	require.Equal(t, "fides-wf", payload["workflow_id"])
+	require.Equal(t, "fides-run", payload["workflow_run_id"])
+	require.Equal(t, orgName, capturedNamespace)
+	require.Equal(t, orgID, capturedInput.Config["orgID"])
+	require.Equal(t, `{"type":"object"}`, capturedInput.Config["issuer_schema"])
+	require.NotEmpty(t, capturedInput.Config["app_url"])
+}
+
 func TestHandleCredentialIssuerStoreOrUpdateInvalidJSONAdditional(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -863,28 +820,6 @@ func TestHandleCredentialIssuerStoreOrUpdateInvalidSavedJSONAdditional(t *testin
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
-}
-
-func TestHandleCredentialIssuerCleanupCredentialsInvalidJSONAdditional(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/api/credentials_issuers/cleanup-credentials",
-		bytes.NewBufferString("{bad-json"),
-	)
-	rec := httptest.NewRecorder()
-
-	err = HandleCredentialIssuerCleanupCredentials()(&core.RequestEvent{
-		App: app,
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
-		},
-	})
-	require.Error(t, err)
 }
 
 func TestHandleCredentialIssuerStartCheckWorkflowErrorDeletesNewRecord(t *testing.T) {
@@ -1212,54 +1147,6 @@ func TestHandleCredentialIssuerStoreOrUpdateUpdatesExistingRecord(t *testing.T) 
 	require.Equal(t, "https://new.logo", updated.GetString("logo_url"))
 }
 
-func TestHandleCredentialIssuerCleanupCredentials(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	issuerColl, err := app.FindCollectionByNameOrId("credential_issuers")
-	require.NoError(t, err)
-	issuer := core.NewRecord(issuerColl)
-	issuer.Set("name", "Issuer")
-	issuer.Set("owner", orgID)
-	issuer.Set("url", "https://issuer.example.com")
-	issuer.Set("imported", true)
-	require.NoError(t, app.Save(issuer))
-
-	credColl, err := app.FindCollectionByNameOrId("credentials")
-	require.NoError(t, err)
-
-	credRecord := core.NewRecord(credColl)
-	credRecord.Set("name", "delete")
-	credRecord.Set("credential_issuer", issuer.Id)
-	credRecord.Set("owner", orgID)
-	require.NoError(t, app.Save(credRecord))
-
-	body := fmt.Sprintf(`{"issuerID":"%s","validKeys":[]}`, issuer.Id)
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/api/credentials_issuers/cleanup-credentials",
-		bytes.NewBufferString(body),
-	)
-	rec := httptest.NewRecorder()
-
-	err = HandleCredentialIssuerCleanupCredentials()(&core.RequestEvent{
-		App: app,
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	_, err = app.FindRecordById("credentials", credRecord.Id)
-	require.Error(t, err)
-}
-
 func TestIsPrivateIP(t *testing.T) {
 	require.True(t, isPrivateIP(net.IPv4(10, 0, 0, 1)))
 	require.True(t, isPrivateIP(net.IPv4(192, 168, 1, 1)))
@@ -1306,6 +1193,46 @@ func TestParseCredentialDisplay(t *testing.T) {
 			wantLocale: "en-US",
 			wantLogo:   "https://example.com/logo.png",
 			wantDesc:   "A degree credential",
+		},
+		{
+			name: "credential metadata display",
+			input: map[string]any{
+				"credential_metadata": map[string]any{
+					"display": []any{
+						map[string]any{
+							"name":        "Mobile Driving Licence",
+							"locale":      "en-US",
+							"description": "ISO mDL credential",
+							"logo": map[string]any{
+								"uri": "https://example.com/mdl-logo.png",
+							},
+						},
+					},
+				},
+			},
+			wantName:   "Mobile Driving Licence",
+			wantLocale: "en-US",
+			wantLogo:   "https://example.com/mdl-logo.png",
+			wantDesc:   "ISO mDL credential",
+		},
+		{
+			name: "credential metadata display with url logo fallback",
+			input: map[string]any{
+				"credential_metadata": map[string]any{
+					"display": []any{
+						map[string]any{
+							"name": "SD-JWT Credential",
+							"logo": map[string]any{
+								"url": "https://example.com/sd-jwt-logo.png",
+							},
+						},
+					},
+				},
+			},
+			wantName:   "SD-JWT Credential",
+			wantLocale: "",
+			wantLogo:   "https://example.com/sd-jwt-logo.png",
+			wantDesc:   "",
 		},
 		{
 			name: "display without logo",
@@ -1370,56 +1297,4 @@ func TestParseCredentialDisplay(t *testing.T) {
 			require.Equal(t, tt.wantDesc, gotDesc, "description mismatch")
 		})
 	}
-}
-
-func TestHookUpdateCredentialsIssuersCreatesSchedule(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	origDial := credentialsIssuerTemporalDial
-	t.Cleanup(func() {
-		credentialsIssuerTemporalDial = origDial
-	})
-
-	mockClient := &temporalmocks.Client{}
-	mockScheduleClient := &temporalmocks.ScheduleClient{}
-	mockHandle := &temporalmocks.ScheduleHandle{}
-
-	var capturedOptions client.ScheduleOptions
-	mockScheduleClient.
-		On("Create", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			capturedOptions = args.Get(1).(client.ScheduleOptions)
-		}).
-		Return(mockHandle, nil).
-		Once()
-	mockClient.On("ScheduleClient").Return(mockScheduleClient).Once()
-	mockClient.On("Close").Return(nil).Once()
-	mockHandle.On("Describe", mock.Anything).Return(&client.ScheduleDescription{}, nil).Once()
-
-	credentialsIssuerTemporalDial = func(_ client.Options) (client.Client, error) {
-		return mockClient, nil
-	}
-
-	collection, err := app.FindCollectionByNameOrId("features")
-	require.NoError(t, err)
-
-	record := core.NewRecord(collection)
-	record.Set("name", "updateIssuers")
-	record.Set("active", true)
-	record.Set("envVariables", types.JSONRaw(`{"interval":"daily"}`))
-
-	event := &core.RecordEvent{}
-	event.Record = record
-	err = handleUpdateCredentialsIssuers(event)
-	require.NoError(t, err)
-
-	require.NotEmpty(t, capturedOptions.ID)
-	require.Len(t, capturedOptions.Spec.Intervals, 1)
-	require.Equal(t, 24*time.Hour, capturedOptions.Spec.Intervals[0].Every)
-	action, ok := capturedOptions.Action.(*client.ScheduleWorkflowAction)
-	require.True(t, ok)
-	require.NotNil(t, action.Workflow)
-	require.Equal(t, credential_workflow.FetchIssuersTaskQueue, action.TaskQueue)
 }

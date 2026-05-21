@@ -147,17 +147,6 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 				},
 			}, nil
 		}
-		var decodeErr *FederationDecodingError
-		if errors.As(err, &decodeErr) {
-			return result, a.NewActivityError(
-				errorcodes.Codes[errorcodes.DecodeFailed].Code,
-				fmt.Sprintf(
-					"Openid-federation well.known exists but JWT decoding failed: %v",
-					decodeErr.Err,
-				),
-				decodeErr.Payload,
-			)
-		}
 	}
 	// 2. Fallback to credential issuer
 	baseForIssuer := strings.TrimSuffix(cleanURL, "/.well-known/openid-credential-issuer")

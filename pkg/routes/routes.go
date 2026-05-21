@@ -15,7 +15,6 @@ import (
 	"net/url"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
-	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/logo"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
@@ -68,7 +67,6 @@ func Setup(app *pocketbase.PocketBase) {
 	logo.LogoHooks(app)
 	walletversions.WalletVersionHooks(app)
 	// apis.IssuersRoutes.Add(app)
-	handlers.HookUpdateCredentialsIssuers(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
 		HooksWatch: true,
