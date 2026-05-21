@@ -55,6 +55,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				onclick={() => builder.cloneStep(index)}
 			/>
 			<IconButton
+				icon={TrashIcon}
+				variant="ghost"
+				size="xs"
+				onclick={() => builder.deleteStep(index)}
+			/>
+			<IconButton
 				icon={ArrowUpIcon}
 				variant="ghost"
 				size="xs"
@@ -67,12 +73,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				size="xs"
 				onclick={() => builder.shiftStep(index, 1)}
 				disabled={!builder.canShiftStep(index, 1)}
-			/>
-			<IconButton
-				icon={TrashIcon}
-				variant="ghost"
-				size="xs"
-				onclick={() => builder.deleteStep(index)}
 			/>
 		</div>
 	{/snippet}
