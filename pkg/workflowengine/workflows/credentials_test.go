@@ -414,7 +414,7 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 
 				var result workflowengine.WorkflowResult
 				require.NoError(t, env.GetWorkflowResult(&result))
-				require.Contains(t, result.Message, "Successfully retrieved and stored")
+				require.Contains(t, result.Message, "Successfully retrieved, stored, and updated")
 				require.NotEmpty(t, result.Log.(map[string]any)["StoredCredentials"])
 			}
 		})
@@ -461,84 +461,52 @@ func TestCredentialsIssuersWorkflowStart(t *testing.T) {
 	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
 }
 
-func TestExtractInvalidCredentialsFromErrorDetails(t *testing.T) {
-	details := []any{
-		map[string]any{
-			"Causes": []any{
-				map[string]any{
-					"InstanceLocation": []string{
-						"credential_configurations_supported",
-						"cred-1",
-					},
-				},
-				map[string]any{
-					"InstanceLocation": []string{"other", "skip"},
-				},
-			},
+func TestInvalidCredentialsFromSchemaValidationIssues(t *testing.T) {
+	issues := []activities.SchemaValidationIssue{
+		{
+			Scope:        "credential",
+			CredentialID: "cred-1",
+			Field:        "claims",
+			Message:      "claims got object, expected array",
+		},
+		{
+			Scope:   "issuer",
+			Field:   "credential_endpoint",
+			Message: "credential_endpoint is missing",
 		},
 	}
 
-	invalid, err := extractInvalidCredentialsFromErrorDetails(
-		details,
-		&workflowengine.WorkflowErrorMetadata{},
+	require.Equal(
+		t,
+		map[string]bool{"cred-1": true},
+		invalidCredentialsFromSchemaValidationIssues(issues),
 	)
-	require.NoError(t, err)
-	require.Equal(t, map[string]bool{"cred-1": true}, invalid)
 }
 
-func TestExtractInvalidCredentialsFromErrorDetailsInvalidShape(t *testing.T) {
-	_, err := extractInvalidCredentialsFromErrorDetails(
-		[]any{"not-a-map"},
-		&workflowengine.WorkflowErrorMetadata{},
-	)
-	require.Error(t, err)
-}
-
-func TestHasIssuerLevelValidationErrors(t *testing.T) {
+func TestHasIssuerLevelValidationIssues(t *testing.T) {
 	tests := []struct {
-		name    string
-		details []any
-		want    bool
+		name   string
+		issues []activities.SchemaValidationIssue
+		want   bool
 	}{
 		{
 			name: "credential configuration errors are non-fatal",
-			details: []any{
-				map[string]any{
-					"Causes": []any{
-						map[string]any{
-							"InstanceLocation": []string{
-								"credential_configurations_supported",
-								"cred-1",
-							},
-						},
-					},
-				},
+			issues: []activities.SchemaValidationIssue{
+				{Scope: "credential", CredentialID: "cred-1"},
 			},
 			want: false,
 		},
 		{
 			name: "top-level error is fatal",
-			details: []any{
-				map[string]any{
-					"Causes": []any{
-						map[string]any{
-							"InstanceLocation": []string{"credential_endpoint"},
-						},
-					},
-				},
+			issues: []activities.SchemaValidationIssue{
+				{Scope: "issuer", Field: "credential_endpoint"},
 			},
 			want: true,
 		},
 		{
 			name: "root required error is fatal",
-			details: []any{
-				map[string]any{
-					"Causes": []any{
-						map[string]any{
-							"InstanceLocation": []string{},
-						},
-					},
-				},
+			issues: []activities.SchemaValidationIssue{
+				{Scope: "issuer"},
 			},
 			want: true,
 		},
@@ -546,14 +514,14 @@ func TestHasIssuerLevelValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, hasIssuerLevelValidationErrors(tt.details))
+			require.Equal(t, tt.want, hasIssuerLevelValidationIssues(tt.issues))
 		})
 	}
 }
 
 func TestCredentialConfigurationsFromIssuerData(t *testing.T) {
 	t.Run("uses credential_configurations_supported when present", func(t *testing.T) {
-		errs := map[string][]any{}
+		errs := map[string]any{}
 		configs, invalid := credentialConfigurationsFromIssuerData(
 			map[string]any{
 				"credential_configurations_supported": map[string]any{
@@ -572,7 +540,7 @@ func TestCredentialConfigurationsFromIssuerData(t *testing.T) {
 	})
 
 	t.Run("falls back to legacy credentials_supported as non-conformant", func(t *testing.T) {
-		errs := map[string][]any{}
+		errs := map[string]any{}
 		configs, invalid := credentialConfigurationsFromIssuerData(
 			map[string]any{
 				"credential_configurations_supported": nil,
@@ -602,7 +570,7 @@ func TestCredentialConfigurationsFromIssuerData(t *testing.T) {
 	})
 
 	t.Run("empty configurations without fallback returns warning", func(t *testing.T) {
-		errs := map[string][]any{}
+		errs := map[string]any{}
 		configs, invalid := credentialConfigurationsFromIssuerData(
 			map[string]any{
 				"credential_configurations_supported": map[string]any{},

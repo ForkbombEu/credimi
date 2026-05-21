@@ -4,6 +4,7 @@
 package activities
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 )
 
@@ -124,7 +126,7 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 			},
 			expectErr:       true,
 			expectedErrCode: errorcodes.Codes[errorcodes.SchemaValidationFailed],
-			expectedErrMsg:  "jsonschema validation failed with 'file:///schema.json#'\n- at '/age' [S#/properties/age/type]: got string, want integer",
+			expectedErrMsg:  "schema validation failed",
 		},
 		{
 			name: "Failure - invalid subschema type",
@@ -159,6 +161,163 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSchemaValidationIssues(t *testing.T) {
+	act := NewSchemaValidationActivity()
+	_, err := act.Execute(t.Context(), workflowengine.ActivityInput{
+		Payload: SchemaValidationActivityPayload{
+			Schema: `{
+				"type": "object",
+				"properties": {
+					"credential_endpoint": { "type": "string" },
+					"display": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"logo": {
+									"anyOf": [
+										{ "type": "object", "required": ["uri"] },
+										{ "type": "object", "required": ["url"] }
+									]
+								}
+							}
+						}
+					},
+					"credential_configurations_supported": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "object",
+							"properties": {
+								"claims": { "type": "array" },
+								"cryptographic_binding_methods_supported": {
+									"type": "array",
+									"items": {
+										"anyOf": [
+											{ "type": "string", "pattern": "^did:.*$" },
+											{ "type": "string", "enum": ["jwk", "cose_key"] }
+										]
+									}
+								}
+							}
+						}
+					}
+				},
+				"required": ["credential_endpoint"]
+			}`,
+			Data: map[string]any{
+				"display": []any{
+					map[string]any{"logo": map[string]any{}},
+				},
+				"credential_configurations_supported": map[string]any{
+					"cred-1": map[string]any{
+						"claims": []any{},
+						"cryptographic_binding_methods_supported": []any{
+							"did",
+						},
+					},
+					"cred-2": map[string]any{
+						"claims": map[string]any{},
+					},
+				},
+			},
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "schema validation failed")
+
+	issues := schemaValidationIssuesFromError(t, err)
+	require.ElementsMatch(t, []SchemaValidationIssue{
+		{
+			Field:   "credential_endpoint",
+			Path:    []string{"credential_endpoint"},
+			Message: "credential_endpoint is missing",
+		},
+		{
+			Field:   "display.0.logo.uri",
+			Path:    []string{"display", "0", "logo", "uri"},
+			Message: "display.0.logo.uri is missing",
+		},
+		{
+			Field:   "display.0.logo.url",
+			Path:    []string{"display", "0", "logo", "url"},
+			Message: "display.0.logo.url is missing",
+		},
+		{
+			Field: "credential_configurations_supported.cred-1.cryptographic_binding_methods_supported.0",
+			Path: []string{
+				"credential_configurations_supported",
+				"cred-1",
+				"cryptographic_binding_methods_supported",
+				"0",
+			},
+			Message: "credential_configurations_supported.cred-1.cryptographic_binding_methods_supported.0 got did, expected ^did:.*$",
+		},
+		{
+			Field: "credential_configurations_supported.cred-1.cryptographic_binding_methods_supported.0",
+			Path: []string{
+				"credential_configurations_supported",
+				"cred-1",
+				"cryptographic_binding_methods_supported",
+				"0",
+			},
+			Message: "credential_configurations_supported.cred-1.cryptographic_binding_methods_supported.0 got did, expected jwk, cose_key",
+		},
+		{
+			Field: "credential_configurations_supported.cred-2.claims",
+			Path: []string{
+				"credential_configurations_supported",
+				"cred-2",
+				"claims",
+			},
+			Message: "credential_configurations_supported.cred-2.claims got object, expected array",
+		},
+	}, issues)
+}
+
+func schemaValidationIssuesFromError(t *testing.T, err error) []SchemaValidationIssue {
+	t.Helper()
+
+	var details SchemaValidationErrorDetails
+	var appErr *temporal.ApplicationError
+	if !errors.As(err, &appErr) {
+		var activityErr *temporal.ActivityError
+		require.ErrorAs(t, err, &activityErr)
+		require.ErrorAs(t, activityErr.Unwrap(), &appErr)
+	}
+	var rawDetails []any
+	require.NoError(t, appErr.Details(&rawDetails))
+	require.NotEmpty(t, rawDetails)
+	firstDetail := rawDetails[0]
+	if nestedDetails, ok := firstDetail.([]any); ok && len(nestedDetails) > 0 {
+		firstDetail = nestedDetails[0]
+	}
+	if typed, ok := firstDetail.(SchemaValidationErrorDetails); ok {
+		return typed.Issues
+	}
+	rawMap, ok := firstDetail.(map[string]any)
+	require.True(t, ok)
+	rawIssues, ok := rawMap["issues"].([]any)
+	require.True(t, ok)
+	details.Issues = make([]SchemaValidationIssue, 0, len(rawIssues))
+	for _, rawIssue := range rawIssues {
+		issueMap, ok := rawIssue.(map[string]any)
+		require.True(t, ok)
+		details.Issues = append(details.Issues, SchemaValidationIssue{
+			Scope:        issueMap["scope"].(string),
+			CredentialID: stringFromMap(issueMap, "credential_id"),
+			Field:        stringFromMap(issueMap, "field"),
+			Path:         workflowengine.AsSliceOfStrings(issueMap["path"]),
+			Message:      issueMap["message"].(string),
+		})
+	}
+	return details.Issues
+}
+
+func stringFromMap(values map[string]any, key string) string {
+	value, _ := values[key].(string)
+	return value
 }
 
 func TestCredentialIssuerSchemaOID4VCI10(t *testing.T) {

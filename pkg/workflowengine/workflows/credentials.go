@@ -5,7 +5,7 @@
 // Package workflows provides implementations of workflows for Credentials Issuers.
 // It includes the CredentialsIssuersWorkflow, which validates and imports credential issuer metadata.
 // The workflow performs various steps including checking the issuer, parsing JSON responses,
-// storing credentials, and cleaning up invalid credentials.
+// validating metadata, and storing credentials.
 package workflows
 
 import (
@@ -32,7 +32,6 @@ const (
 	CredentialsTaskQueue       = "CredentialsTaskQueue"
 	CredentialsIssuerDataQuery = "getCredentialsIssuerData"
 	CredentialIssuerSchemaPath = "schemas/credentialissuer/openid-credential-issuer.schema.json"
-	CredentialSchemaPath       = "schemas/credentialissuer/credential_config.schema.json"
 )
 
 // CredentialsIssuersWorkflow is a workflow that validates and imports credential issuer metadata.
@@ -154,7 +153,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 
 	return workflowengine.WorkflowResult{
 		Message: fmt.Sprintf(
-			"Successfully retrieved and stored and update credentials from '%s'",
+			"Successfully retrieved, stored, and updated credentials from '%s'",
 			metadata.Source,
 		),
 		Output: map[string]any{
@@ -172,7 +171,7 @@ type credentialIssuerMetadata struct {
 	Logo                     string
 	CredentialConfigurations map[string]any
 	InvalidCredentials       map[string]bool
-	Errors                   map[string][]any
+	Errors                   map[string]any
 }
 
 type credentialIssuerCredentialStoreParams struct {
@@ -252,7 +251,7 @@ func fetchCredentialIssuerMetadata(
 		},
 	)
 
-	errs := make(map[string][]any)
+	errs := make(map[string]any)
 	var result workflowengine.ActivityResult
 	invalidCred := make(map[string]bool)
 	var issuerName, logo string
@@ -291,20 +290,14 @@ func fetchCredentialIssuerMetadata(
 	}).Get(ctx, nil)
 	issuerLevelValidationErrors := false
 	if validateErr != nil {
-		details, err := extractAppErrorDetails(validateErr)
-		if err != nil {
-			return credentialIssuerMetadata{}, workflowengine.NewWorkflowError(
-				err,
-				input.RunMetadata,
-			)
-		}
-
-		errs["JSONSchemaValidation"] = details
-		issuerLevelValidationErrors = hasIssuerLevelValidationErrors(details)
-		invalidCred, err = extractInvalidCredentialsFromErrorDetails(details, input.RunMetadata)
+		issues, err := extractSchemaValidationIssues(validateErr, input.RunMetadata)
 		if err != nil {
 			return credentialIssuerMetadata{}, err
 		}
+
+		errs["SchemaValidation"] = issues
+		issuerLevelValidationErrors = hasIssuerLevelValidationIssues(issues)
+		invalidCred = invalidCredentialsFromSchemaValidationIssues(issues)
 	}
 
 	if displayList, ok := issuerData["display"].([]any); ok && len(displayList) > 0 {
@@ -333,7 +326,7 @@ func fetchCredentialIssuerMetadata(
 	}
 	if source == ".well-known/openid-credential-issuer" {
 		if err := validateCredentialIssuerIdentifier(issuerData, baseURL); err != nil {
-			errs["CredentialIssuerIdentifier"] = []any{err.Error()}
+			errs["CredentialIssuerIdentifier"] = err.Error()
 			for credKey := range credConfigs {
 				invalidCred[credKey] = true
 			}
@@ -469,14 +462,8 @@ func (w *GetCredentialOfferWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-// Workflow is the main workflow function for the GetCredentialOfferWorkflow.
-// It executes the following steps:
-//  1. Executes the CheckCredentialsIssuerActivity to validate the credentials issuer.
-//  2. Parses the raw JSON response from the issuer using the JSONActivity.
-//  3. Iterates through the credential configurations supported by the issuer and:
-//     - Sends each credential to the "store-or-update-extracted-credentials" endpoint.
-//     - Logs the stored credentials.
-//  4. Returns a WorkflowResult containing a success message and logs.
+// ExecuteWorkflow retrieves a credential offer for a stored credential. Static offers are
+// returned directly; dynamic offers execute the stored StepCI workflow and return its deeplink.
 //
 // Parameters:
 // - ctx: The workflow context.
@@ -638,51 +625,119 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	}, nil
 }
 
-func extractInvalidCredentialsFromErrorDetails(
-	details []any,
+func extractSchemaValidationIssues(
+	err error,
 	runMetadata *workflowengine.WorkflowErrorMetadata,
-) (map[string]bool, error) {
+) ([]activities.SchemaValidationIssue, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityErrorDetails]
-	invalidCred := map[string]bool{}
-
-	rawMap, ok := details[0].(map[string]any)
-	if !ok {
-		wErr := workflowengine.NewAppError(errCode, "details[0] is not a map")
+	details, err := extractAppErrorDetails(err)
+	if err != nil {
+		return nil, workflowengine.NewWorkflowError(err, runMetadata)
+	}
+	if len(details) == 0 {
+		wErr := workflowengine.NewAppError(errCode, "schema validation details are empty")
 		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
 
-	causes, ok := rawMap["Causes"].([]any)
+	firstDetail := details[0]
+	if nestedDetails, ok := firstDetail.([]any); ok && len(nestedDetails) > 0 {
+		firstDetail = nestedDetails[0]
+	}
+	if typed, ok := firstDetail.(activities.SchemaValidationErrorDetails); ok {
+		return credentialSchemaValidationIssues(typed.Issues), nil
+	}
+
+	rawMap, ok := firstDetail.(map[string]any)
+	if !ok {
+		wErr := workflowengine.NewAppError(errCode, "schema validation details[0] is not a map")
+		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
+
+	rawIssues, ok := rawMap["issues"].([]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
 			errCode,
-			"details should contain causes from validation error",
+			"schema validation details should contain normalized issues",
 		)
 		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
 
-	for _, cause := range causes {
-		causeMap, ok := cause.(map[string]any)
+	issues := make([]activities.SchemaValidationIssue, 0, len(rawIssues))
+	for _, rawIssue := range rawIssues {
+		issue, ok := schemaValidationIssueFromMap(rawIssue)
 		if !ok {
 			wErr := workflowengine.NewAppError(
 				errCode,
-				"each cause should be a map",
+				"each schema validation issue should be a map",
 			)
 			return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 		}
-
-		instanceLocationStr := workflowengine.AsSliceOfStrings(causeMap["InstanceLocation"])
-		if len(instanceLocationStr) > 1 &&
-			instanceLocationStr[0] == "credential_configurations_supported" {
-			invalidCred[instanceLocationStr[1]] = true
-		}
+		issues = append(issues, issue)
 	}
 
-	return invalidCred, nil
+	return credentialSchemaValidationIssues(issues), nil
+}
+
+func schemaValidationIssueFromMap(raw any) (activities.SchemaValidationIssue, bool) {
+	issueMap, ok := raw.(map[string]any)
+	if !ok {
+		return activities.SchemaValidationIssue{}, false
+	}
+
+	return activities.SchemaValidationIssue{
+		Scope:        stringFromIssueMap(issueMap, "scope"),
+		CredentialID: stringFromIssueMap(issueMap, "credential_id"),
+		Field:        stringFromIssueMap(issueMap, "field"),
+		Path:         workflowengine.AsSliceOfStrings(issueMap["path"]),
+		Message:      stringFromIssueMap(issueMap, "message"),
+	}, true
+}
+
+func credentialSchemaValidationIssues(
+	issues []activities.SchemaValidationIssue,
+) []activities.SchemaValidationIssue {
+	enriched := make([]activities.SchemaValidationIssue, 0, len(issues))
+	for _, issue := range issues {
+		if len(issue.Path) > 1 && issue.Path[0] == "credential_configurations_supported" {
+			issue.Scope = "credential"
+			issue.CredentialID = issue.Path[1]
+		} else {
+			issue.Scope = "issuer"
+		}
+		enriched = append(enriched, issue)
+	}
+	return enriched
+}
+
+func invalidCredentialsFromSchemaValidationIssues(
+	issues []activities.SchemaValidationIssue,
+) map[string]bool {
+	invalidCred := map[string]bool{}
+	for _, issue := range issues {
+		if issue.Scope == "credential" && issue.CredentialID != "" {
+			invalidCred[issue.CredentialID] = true
+		}
+	}
+	return invalidCred
+}
+
+func hasIssuerLevelValidationIssues(issues []activities.SchemaValidationIssue) bool {
+	for _, issue := range issues {
+		if issue.Scope != "credential" {
+			return true
+		}
+	}
+	return false
+}
+
+func stringFromIssueMap(issue map[string]any, key string) string {
+	value, _ := issue[key].(string)
+	return value
 }
 
 func credentialConfigurationsFromIssuerData(
 	issuerData map[string]any,
-	errs map[string][]any,
+	errs map[string]any,
 ) (map[string]any, map[string]bool) {
 	credConfigs := map[string]any{}
 	invalidCreds := map[string]bool{}
@@ -697,23 +752,17 @@ func credentialConfigurationsFromIssuerData(
 		for key := range legacyConfigs {
 			invalidCreds[key] = true
 		}
-		errs["LegacyCredentialsSupportedFallback"] = []any{
-			"credential_configurations_supported is missing, null, empty, or invalid; imported legacy credentials_supported entries as non-conformant credentials",
-		}
+		errs["LegacyCredentialsSupportedFallback"] = "credential_configurations_supported is missing, null, empty, or invalid; imported legacy credentials_supported entries as non-conformant credentials"
 		return legacyConfigs, invalidCreds
 	}
 
 	if exists && rawCredConfigs != nil {
-		errs["InvalidCredentialConfigurations"] = []any{
-			fmt.Sprintf(
-				"credential_configurations_supported must be an object, got %T",
-				rawCredConfigs,
-			),
-		}
+		errs["InvalidCredentialConfigurations"] = fmt.Sprintf(
+			"credential_configurations_supported must be an object, got %T",
+			rawCredConfigs,
+		)
 	}
-	errs["NoCredentialConfigurations"] = []any{
-		"credential_configurations_supported is missing, null, empty, or invalid",
-	}
+	errs["NoCredentialConfigurations"] = "credential_configurations_supported is missing, null, empty, or invalid"
 
 	return credConfigs, invalidCreds
 }
@@ -752,32 +801,6 @@ func legacyCredentialConfigurationKey(credential map[string]any, index int) stri
 	}
 
 	return fmt.Sprintf("legacy-credential-%d", index+1)
-}
-
-func hasIssuerLevelValidationErrors(details []any) bool {
-	rawMap, ok := details[0].(map[string]any)
-	if !ok {
-		return true
-	}
-
-	causes, ok := rawMap["Causes"].([]any)
-	if !ok {
-		return true
-	}
-
-	for _, cause := range causes {
-		causeMap, ok := cause.(map[string]any)
-		if !ok {
-			return true
-		}
-		instanceLocationStr := workflowengine.AsSliceOfStrings(causeMap["InstanceLocation"])
-		if len(instanceLocationStr) == 0 ||
-			instanceLocationStr[0] != "credential_configurations_supported" {
-			return true
-		}
-	}
-
-	return false
 }
 
 func validateCredentialIssuerIdentifier(

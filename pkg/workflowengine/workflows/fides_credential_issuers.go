@@ -107,11 +107,11 @@ func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
 
 	var imported []string
 	logs := map[string][]any{}
-	errs := map[string][]any{}
+	errs := map[string]any{}
 	for _, issuerURL := range issuers {
 		metadata, err := fetchCredentialIssuerMetadata(ctx, input, issuerURL, issuerSchema)
 		if err != nil {
-			errs[issuerURL] = append(errs[issuerURL], err.Error())
+			errs[issuerURL] = err.Error()
 			continue
 		}
 
@@ -125,7 +125,7 @@ func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
 			metadata.Logo,
 		)
 		if err != nil {
-			errs[issuerURL] = append(errs[issuerURL], err.Error())
+			errs[issuerURL] = err.Error()
 			continue
 		}
 
@@ -146,7 +146,7 @@ func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
 				metadata,
 			)
 			if err != nil {
-				errs[issuerURL] = append(errs[issuerURL], err.Error())
+				errs[issuerURL] = err.Error()
 				continue
 			}
 			storeLogs = storeResult.Logs
@@ -155,7 +155,7 @@ func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
 		imported = append(imported, issuerURL)
 		logs[issuerURL] = []any{storeLogs}
 		if len(metadata.Errors) > 0 {
-			errs[issuerURL] = []any{metadata.Errors}
+			errs[issuerURL] = metadata.Errors
 		}
 	}
 
