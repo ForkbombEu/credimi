@@ -9,6 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { ExternalLinkIcon } from '@lucide/svelte';
 	import { Wallet } from '$lib';
+	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
+	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
@@ -34,7 +36,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 
 	const isRunnerGlobal = $derived(ExecutionTarget.hasGlobalRunner());
+
+	const runnerCatalog = bindRunnerCatalogSearch({
+		search: form.runnerSearch
+	});
 </script>
+
+{#snippet chooseRunnerLater()}
+	{#if ExecutionTarget.hasUndefinedRunner()}
+		<div class="px-4">
+			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
+		</div>
+	{/if}
+{/snippet}
 
 {#if form.data.wallet}
 	{@const data = getHubItemData(form.data.wallet)}
@@ -118,24 +132,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<SearchInput search={form.runnerSearch} />
 	</WithLabel>
 
-	{#if ExecutionTarget.hasUndefinedRunner()}
-		<div class="px-4">
-			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
-		</div>
-	{/if}
-	<WithEmptyState items={form.foundRunners} emptyText={m.No_runners_found()}>
-		{#snippet item({ item })}
-			<ItemCard title={item.name} onClick={() => form.selectRunner(item)}>
-				{#snippet right()}
-					{#if !item.published}
-						<Badge variant="secondary">
-							{m.private()}
-						</Badge>
-					{/if}
-				{/snippet}
-			</ItemCard>
-		{/snippet}
-	</WithEmptyState>
+	<RunnerSelectList
+		presentation="minimal"
+		foundRunners={runnerCatalog.foundRunners}
+		catalogLoading={runnerCatalog.catalogLoading}
+		scrollable
+		prepend={chooseRunnerLater}
+		onSelect={(item) => form.selectRunner(item)}
+	/>
 {:else if form.state === 'select-action'}
 	<WithLabel label={m.Wallet_action()} class="p-4">
 		<SearchInput search={form.actionSearch} placeholder={m.Search()} />

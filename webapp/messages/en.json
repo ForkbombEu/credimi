@@ -925,6 +925,7 @@
 	"Current_runner": "Current runner",
 	"Runner_configuration_not_available": "Runner configuration not available for pipelines with specific runner steps",
 	"Runner_offline_run_disabled": "The selected runner is currently offline. To run this pipeline, please select a different runner.",
+	"Runner_status_checking": "Checking runner status…",
 	"Runner_offline_select_disabled": "This runner appears currently offline, therefore you may not select it for execution",
 	"Failed_to_enqueue_pipeline": "Failed to enqueue pipeline",
 	"Pipeline_queued": "Pipeline queued (position {position})",
@@ -976,5 +977,6 @@
 	"Change_wallet_version_modal_title": "Change wallet version for all steps",
 	"Change_wallet_version_modal_description": "Pick a version. Every mobile-automation step in this pipeline will use it.",
 	"Wallet_version_current": "Current",
-	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run."
+	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run.",
+	"selected": "Selected"
 }
