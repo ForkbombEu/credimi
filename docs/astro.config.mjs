@@ -18,19 +18,19 @@ export default defineConfig({
                     items: [
                         { label: "Overview", link: "/manual/" },
                         {
-                            label: "Marketplace",
+                            label: "Hub",
                             items: [
                                 {
                                     label: "Overview",
-                                    link: "/manual/marketplace/",
+                                    link: "/manual/hub/",
                                 },
                                 {
                                     label: "Explore Components and Solutions",
-                                    link: "/manual/marketplace/explore-components-and-solutions/",
+                                    link: "/manual/hub/explore-components-and-solutions/",
                                 },
                                 {
                                     label: "Try Issuance and Verification Services",
-                                    link: "/manual/marketplace/try-issuance-and-verification-services/",
+                                    link: "/manual/hub/try-issuance-and-verification-services/",
                                 },
                             ],
                         },
@@ -52,27 +52,27 @@ export default defineConfig({
                             ],
                         },
                         {
-                            label: "Publish to Marketplace",
+                            label: "Publish to Hub",
                             items: [
                                 {
                                     label: "Overview",
-                                    link: "/manual/publish-to-marketplace/",
+                                    link: "/manual/publish-to-hub/",
                                 },
                                 {
                                     label: "Create an Account and Organization",
-                                    link: "/manual/publish-to-marketplace/create-account-and-organization/",
+                                    link: "/manual/publish-to-hub/create-account-and-organization/",
                                 },
                                 {
                                     label: "List Wallets, Issuers and Verifiers",
-                                    link: "/manual/publish-to-marketplace/list-wallets-issuers-and-verifiers/",
+                                    link: "/manual/publish-to-hub/list-wallets-issuers-and-verifiers/",
                                 },
                                 {
                                     label: "Integrate Issuers and Verifiers with StepCI",
-                                    link: "/manual/publish-to-marketplace/integrate-with-stepci/",
+                                    link: "/manual/publish-to-hub/integrate-with-stepci/",
                                 },
                                 {
                                     label: "StepCI and Maestro scripting examples",
-                                    link: "/manual/publish-to-marketplace/yaml-examples/",
+                                    link: "/manual/yaml-examples/",
                                 },
                             ],
                         },
@@ -97,7 +97,11 @@ export default defineConfig({
                                 },
                                 {
                                     label: "StepCI and Maestro scripting examples",
-                                    link: "/manual/publish-to-marketplace/yaml-examples/",
+                                    link: "/manual/yaml-examples/",
+                                },
+								                                {
+                                    label: "Pipeline utils",
+                                    link: "/manual/testing-automation/pipeline-utils/",
                                 },
                             ],
                         },

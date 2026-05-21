@@ -41,6 +41,8 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 const groupedExecutionsUrl = '/api/pipeline/list-executions';
 
 export async function listAllGroupedByPipelineId(options: { fetch?: typeof fetch } = {}) {
+	// const test = await import('./workflows.mock.json');
+	// return test.default;
 	return pb.send<Record<string, ExecutionSummary[]>>(groupedExecutionsUrl, {
 		method: 'GET',
 		fetch: options.fetch,

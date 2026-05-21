@@ -5,7 +5,7 @@ description: Logged-in testing features for conformance checks and interoperabil
 
 The conformance and interoperability area is for users who are actively testing a solution.
 
-Unlike the public Marketplace, this section requires login and is clearly presented as part of the authenticated Credimi workflow.
+Unlike the public Hub, this section requires login and is clearly presented as part of the authenticated Credimi workflow.
 
 Main use cases:
 
@@ -17,7 +17,7 @@ Main use cases:
 
 Credimi supports two complementary ways of testing solutions:
 
-- **manual testing**, directly from the Marketplace or from the Conformance UI  
+- **manual testing**, directly from the Hub or from the Conformance UI  
 - **automated testing**, using pipelines  
 
 Both approaches use the same underlying integrations (Issuers, Verifiers, Wallets), but differ in how execution is triggered and controlled.
@@ -46,7 +46,7 @@ Manual testing is designed for **exploration and quick validation**.
 
 Users can:
 
-- open a credential or verification page from the Marketplace
+- open a credential or verification page from the Hub
 - trigger issuance or verification flows directly
 - scan a QR code or click a deeplink using a Wallet
 - run individual conformance tests from selected suites
@@ -68,9 +68,9 @@ Manual testing is especially useful when:
 
 ---
 
-### Automated testing via [Pipelines](https://credimi.io/marketplace?tab=pipelines) 
+### Automated testing via [Pipelines](https://credimi.io/hub?tab=pipelines) 
 
-Automated testing uses  [Pipelines](https://credimi.io/marketplace?tab=pipelines) to execute the same flows without manual intervention.
+Automated testing uses [Pipelines](https://credimi.io/hub?tab=pipelines) to execute the same flows without manual intervention.
 
 A pipeline combines:
 
@@ -124,9 +124,9 @@ They are executed as part of automated pipelines and produce:
 - machine-readable outputs
 
 
-## Relation with the Marketplace
+## Relation with the Hub
 
 These two areas are logically connected:
 
-- the Marketplace lets users discover and manually try solutions
+- the Hub lets users discover and manually try solutions
 - the Conformance & Interop area lets logged-in users execute structured test flows against those solutions

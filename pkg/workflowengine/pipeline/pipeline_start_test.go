@@ -234,10 +234,25 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 
 	var result workflowengine.WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
+	require.NotEmpty(t, result.WorkflowID)
+	require.NotEmpty(t, result.WorkflowRunID)
+
 	output, ok := result.Output.(map[string]any)
 	require.True(t, ok)
 	require.NotEmpty(t, output["workflow-id"])
 	require.NotEmpty(t, output["workflow-run-id"])
+	require.NotContains(t, output, "result_video_warning")
+}
+
+func TestHasMobileAutomationStep(t *testing.T) {
+	require.False(t, hasMobileAutomationStep([]pipeline.StepDefinition{
+		{StepSpec: pipeline.StepSpec{ID: "http", Use: "http-request"}},
+	}))
+
+	require.True(t, hasMobileAutomationStep([]pipeline.StepDefinition{
+		{StepSpec: pipeline.StepSpec{ID: "http", Use: "http-request"}},
+		{StepSpec: pipeline.StepSpec{ID: "mobile", Use: "mobile-automation"}},
+	}))
 }
 
 func TestPipelineWorkflowReportsGitHubPRCommentDone(t *testing.T) {

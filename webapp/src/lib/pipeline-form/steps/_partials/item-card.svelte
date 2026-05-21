@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { cn } from '@/components/ui/utils';
 
 	type Props = {
@@ -23,9 +24,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onDiscard?: () => void;
 		right?: Snippet;
 		class?: ClassValue;
+		tooltip?: string;
 		beforeContent?: Snippet;
 		afterContent?: Snippet;
 		titleRight?: Snippet;
+		hideArrow?: boolean;
 	};
 
 	let {
@@ -36,9 +39,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		subtitle,
 		right,
 		class: className,
+		tooltip,
 		beforeContent,
 		afterContent,
-		titleRight
+		titleRight,
+		hideArrow = false
 	}: Props = $props();
 	const isInteractive = $derived(onClick !== undefined);
 
@@ -47,17 +52,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 </script>
 
-{#if onClick}
-	<button class={['bg-card hover:ring', classes]} onclick={(e) => onClick(e)}>
-		{@render content?.()}
-	</button>
-{:else}
-	<div class={['bg-slate-100', classes]}>
-		{@render content?.()}
-	</div>
-{/if}
+<Tooltip disabled={!tooltip}>
+	{#snippet child({ props })}
+		{#if onClick}
+			<button class={['bg-card hover:ring', classes]} onclick={(e) => onClick(e)} {...props}>
+				{@render itemContent()}
+			</button>
+		{:else}
+			<div class={['bg-slate-100', classes]} {...props}>
+				{@render itemContent()}
+			</div>
+		{/if}
+	{/snippet}
 
-{#snippet content()}
+	{#snippet content()}
+		{tooltip}
+	{/snippet}
+</Tooltip>
+
+{#snippet itemContent()}
 	<div class="flex items-center gap-3">
 		<div class="grow">
 			{@render beforeContent?.()}
@@ -93,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					onclick={() => onDiscard()}
 				/>
 			{/if}
-			{#if isInteractive}
+			{#if isInteractive && !hideArrow}
 				<ArrowRightIcon class="size-4 shrink-0 text-muted-foreground" />
 			{/if}
 		</div>

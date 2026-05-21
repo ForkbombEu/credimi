@@ -18,8 +18,8 @@ Maestro is the UI automation layer used by Credimi for Wallet-side behavior.
 1. Credimi pipelines can be executed in a [Credimi-runner](https://github.com/ForkbombEu/credimi-runner) instance: we offer some machine/emulators hosted by us, you can host your own or use 3rd party services such as Maestro Cloud (ask as if you want to know more).
 
 :::tip
-- Browse Maestro and StepCI [scripting recipes](../publish-to-marketplace/yaml-examples.md)
-- All the Maestro and StepCI scripts are in the [Marketplace](https://credimi.io/marketplace), under Wallets / Credentials / Use Case Verifications
+- Browse Maestro and StepCI [scripting recipes](../yaml-examples.md)
+- All the Maestro and StepCI scripts are in the [Hub](https://credimi.io/hub), under Wallets / Credentials / Use Case Verifications
 - See [Maestro documentation](https://docs.maestro.dev/reference/commands-available)
 :::
 
@@ -88,7 +88,7 @@ In Credimi, pipelines are composed from assets that already exist, you usually c
 At the same time, you can re-use StepCI and Maestro Actions written by others (and they can use yours).
 
 :::tip
-- Browse Maestro and StepCI [scripting recipes](../publish-to-marketplace/yaml-examples.md)
-- All the Maestro and StepCI scripts are in the [Marketplace](https://credimi.io/marketplace), under Wallets / Credentials / Use Case Verifications
+- Browse Maestro and StepCI [scripting recipes](../yaml-examples.md)
+- All the Maestro and StepCI scripts are in the [Hub](https://credimi.io/hub), under Wallets / Credentials / Use Case Verifications
 - See [Maestro documentation](https://docs.maestro.dev/reference/commands-available)
 :::

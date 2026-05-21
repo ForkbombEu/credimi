@@ -5,15 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Record } from '$lib/pipeline/runner';
+
 	import { CalendarIcon } from '@lucide/svelte';
 	import { Pipeline } from '$lib';
-	import RunnerSelectInput from '$lib/pipeline/runner-select-input.svelte';
 	import { getPath } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod/v3';
 
-	import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
+	import type { PipelinesResponse } from '@/pocketbase/types';
 
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
@@ -38,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let isOpen = $state(false);
 
-	const type = Pipeline.Runner.getType(pipeline);
+	const type = Pipeline.Runner.Binding.getType(pipeline);
 	const isGlobalRunner = type === 'global';
 
 	let schema = z.object({
@@ -73,10 +74,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const formData = form.form;
 
-	function onRunnerSelect(runner: MobileRunnersResponse) {
+	function onRunnerSelect(runner: Record) {
 		formData.update((v) => ({
 			...v,
-			global_runner_id: getPath(runner)
+			global_runner_id: runner.path
 		}));
 	}
 </script>
@@ -123,7 +124,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			{#if isGlobalRunner}
-				<RunnerSelectInput
+				<Pipeline.Runner.SelectInput
 					onSelect={onRunnerSelect}
 					selectedRunner={($formData as { global_runner_id?: string }).global_runner_id}
 					required

@@ -4,14 +4,13 @@
 
 import type { HubItem } from '$lib/hub';
 
-import { userOrganization } from '$lib/app-state/index.svelte.js';
 import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
+import type { Record } from '$lib/pipeline/runner';
 
 import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase/index.js';
 import {
 	Collections,
-	type MobileRunnersResponse,
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
@@ -26,7 +25,7 @@ import Component from './wallet-action-step-form.svelte';
 export const GLOBAL_RUNNER = 'global';
 export const EXTERNAL_VERSION = 'installed_from_external_source';
 
-export type SelectedRunner = MobileRunnersResponse | typeof GLOBAL_RUNNER;
+export type SelectedRunner = Record | typeof GLOBAL_RUNNER;
 export type SelectedVersion = WalletVersionsResponse | typeof EXTERNAL_VERSION;
 
 export interface WalletActionStepData {
@@ -82,7 +81,6 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	foundWallets = $state<HubItem[]>([]);
 	foundVersions = $state<WalletVersionsResponse[]>([]);
-	foundRunners = $state<MobileRunnersResponse[]>([]);
 	foundActions = $state<WalletActionsResponse[]>([]);
 
 	walletSearch = new Search({
@@ -120,30 +118,8 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	//
 
 	runnerSearch = new Search({
-		onSearch: (text) => {
-			this.searchRunner(text);
-		}
+		onSearch: () => {}
 	});
-
-	async searchRunner(text: string) {
-		const filter = pb.filter(
-			[
-				['name ~ {:text}', 'canonified_name ~ {:text}'].join(' || '),
-				['owner.id = {:currentOrganization}', 'published = true'].join(' || ')
-			]
-				.map((f) => `(${f})`)
-				.join(' && '),
-			{
-				text: text,
-				currentOrganization: userOrganization.current?.id
-			}
-		);
-		this.foundRunners = await pb.collection('mobile_runners').getFullList({
-			requestKey: null,
-			filter: filter,
-			sort: 'created'
-		});
-	}
 
 	selectRunner(runner: ExecutionTarget.Config['runner']) {
 		this.data.runner = runner;

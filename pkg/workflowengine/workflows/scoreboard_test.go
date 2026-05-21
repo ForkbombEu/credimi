@@ -6,6 +6,7 @@ package workflows
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -222,7 +223,8 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				env.OnActivity(activityName(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 					payload := input.Payload.(map[string]any)
 					url, _ := payload["url"].(string)
-					return strings.Contains(url, "save-results")
+					expectedStatus, _ := payload["expected_status"].(int)
+					return strings.Contains(url, "save-results") && expectedStatus == http.StatusOK
 				})).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -514,7 +516,8 @@ func mockSaveResults(env *testsuite.TestWorkflowEnvironment) {
 			return false
 		}
 		url, _ := payload["url"].(string)
-		return strings.Contains(url, "save-results")
+		expectedStatus, _ := payload["expected_status"].(int)
+		return strings.Contains(url, "save-results") && expectedStatus == http.StatusOK
 	})).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{

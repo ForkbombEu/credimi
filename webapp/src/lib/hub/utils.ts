@@ -76,9 +76,7 @@ export function isVerifier(item: HubItemsResponse): boolean {
 //
 
 export function getHubItemByPath(path: string): Promise<HubItem> {
-	return pb
-		.collection('hub_items')
-		.getFirstListItem(pb.filter('path ~ {:path}', { path }));
+	return pb.collection('hub_items').getFirstListItem(pb.filter('path ~ {:path}', { path }));
 }
 
 //

@@ -28,55 +28,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import { ClockIcon, CogIcon, HandIcon } from '@lucide/svelte';
-
-	import type { IconComponent } from '@/components/types';
-
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
-
-	//
+	import PipelineExecutionStats from '../extras/pipeline-execution-stats.svelte';
 
 	let { value }: Column.Props<typeof column> = $props();
-
-	type ExecutionModeCount = {
-		icon: IconComponent;
-		count: number;
-		label: string;
-	};
-
-	const executionTypes: ExecutionModeCount[] = $derived([
-		{ icon: HandIcon, count: value.manual, label: m.Executed_manually() },
-		{
-			icon: ClockIcon,
-			count: value.scheduled,
-			label: m.Executed_via_scheduling()
-		},
-		{ icon: CogIcon, count: value.ci, label: m.Executed_via_ci() }
-	]);
 </script>
 
-<div class="pr-3">
-	<p class={['text-sm font-bold', { 'text-emerald-600': value.percent >= 70 }]}>
-		{value.successes}/{value.total} ({value.percent}%)
-	</p>
-	<p class="text-xs text-muted-foreground opacity-80">
-		{#each executionTypes as executionType, index (executionType.label)}
-			<Tooltip>
-				<span>
-					{executionType.count}
-					<executionType.icon class="-ml-0.5 inline-block size-3 -translate-y-px" />
-				</span>
-
-				{#snippet content()}
-					<p>
-						<executionType.icon class="inline-block size-3 -translate-y-px" />
-						{executionType.label}
-					</p>
-				{/snippet}
-			</Tooltip>
-			{#if index < executionTypes.length - 1}
-				<span class="pr-1 pl-0.5">/</span>
-			{/if}
-		{/each}
-	</p>
-</div>
+<PipelineExecutionStats stats={value} layout="inline" />

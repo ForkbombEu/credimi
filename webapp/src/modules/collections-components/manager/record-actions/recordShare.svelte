@@ -177,7 +177,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onclick={() => removeAuthorization(authorization.id)}
 					>
 						<Icon src={Trash} mr />
-						{m.Yes_remove_access()}
+						{m.Remove_access()}
 					</Button>
 				</div>
 			{/if}

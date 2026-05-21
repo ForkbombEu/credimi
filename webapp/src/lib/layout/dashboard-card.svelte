@@ -52,6 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		nameRight?: Snippet;
 		afterDescription?: Snippet;
 		hideActions?: (RecordAction | 'publish')[] | true;
+		hideSeparator?: boolean;
 	};
 
 	let {
@@ -66,7 +67,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		publishAction,
 		nameRight,
 		hideActions = [],
-		afterDescription
+		afterDescription,
+		hideSeparator = false
 	}: Props = $props();
 
 	//
@@ -105,7 +107,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Card
 	id={record.canonified_name}
 	class="scroll-mt-5 rounded-sm bg-card"
-	contentClass="space-y-4 p-4"
+	contentClass="space-y-3 p-4"
 >
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-4">
@@ -167,8 +169,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	{#if String.isNonEmpty(description) || Boolean(links?.length) || afterDescription}
-		<Separator />
-
 		<div class="space-y-3 text-xs">
 			{#if String.isNonEmpty(description)}
 				<T class="mt-0.5 leading-normal text-gray-400">
@@ -208,7 +208,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#if content}
-		<Separator />
+		{#if !hideSeparator}
+			<Separator />
+		{/if}
 		{@render content()}
 	{/if}
 </Card>

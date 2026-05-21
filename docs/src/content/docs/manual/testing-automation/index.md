@@ -3,7 +3,7 @@ title: Testing Automation Overview
 description: Automate issuance, verification and conformance flows with Maestro and pipelines.
 ---
 
-After marketplace listings and StepCI integrations exist, Credimi can automate the same flows.
+After Hub listings and StepCI integrations exist, Credimi can automate the same flows.
 
 The automation model has two building blocks:
 

@@ -1,36 +1,36 @@
 ---
 title: "🚀 Publish on the Hub"
-description: ""
+description: "Publish Wallets, Issuers, Verifiers, and related integrations on the Credimi Hub."
 ---
 
 Any registered user can publish Products and Services (Wallets, Issuers, Verifiers) on the Hub. 
 
-In order to publish a Product/Service, first an organization must be configured. After that, there are different paths to create or import a Product/Service.
+To publish a product or service, an organization must be configured first. After that, you can create or import products and services through different paths.
 
 ## Create an organization
-When you sign-up as new User, an empty organization is also created. This organization can be edited in the Developer Dashboard. 
+When you sign up as a new user, an empty organization is also created. This organization can be edited in the Developer Dashboard. 
 
 
 ![credimiOrganizationEdit](./images/credimiOrganizationEdit.png)
 
 ## Add a Product/Service
-There are different paths to create Producs (typically Mobile Wallets) and Services (typically Credential Issuance and Verification): 
+There are different paths to create products (typically mobile Wallets) and services (typically credential issuance and verification): 
 
 ![credimiDevDashboardProducts](./images/credimiDevDashboardProducts.png)
 
 #### Add a Wallet
 
-- Products (Wallets): click on **Add Wallet** and fill all the fields. A Product is created from scratch and later edited. The Product contains primarily metadata (name, description, logo, links). 
+- Products (Wallets): click on **Add Wallet** and fill in all fields. A product is created from scratch and can be edited later. It mainly contains metadata such as name, description, logo, and links. 
 
 ![credimiDevDashboardAddWallet](./images/credimiDevDashboardAddWallet.png)
 
 #### Add a Credential (...add a Credential Issuer first!)
 
-- Credential Issuance: in order to add a Crdential Issuance service, you first need to setup an Issuer. You can start the process by clicking on **Add a Credential Issuer**. Upon entering an Issuer's URL in the windows, all the Credentials offered by the Issuer are (should be!) automatically created and populated. 
+- Credential issuance: to add a credential issuance service, first set up an Issuer. Start by clicking **Add a Credential Issuer**. After entering an Issuer URL, the credentials offered by that Issuer should be automatically created and populated. 
 
 ![credimiAddIssuer](./images/credimiAddIssuer.png)
 
-Following that, for each Credential, a deeplink (with a corresponding auto-generated QR Code) will be auto-generated and can be modified manually. This allows **visitors to test the Credential Issuance Flow with their Wallets**.
+After that, each credential gets a deeplink with a corresponding auto-generated QR code. You can still modify it manually. This allows **visitors to test the credential issuance flow with their Wallets**.
 
 
 #### Add a Verifier 

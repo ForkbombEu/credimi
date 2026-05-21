@@ -30,9 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { logo, display } = $derived(getHubItemData(hubItem));
 
-	const isCurrentUserOwner = $derived(
-		userOrganization.current?.id === hubItem.organization_id
-	);
+	const isCurrentUserOwner = $derived(userOrganization.current?.id === hubItem.organization_id);
 </script>
 
 <!-- Owner edit topbar -->
@@ -45,11 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T>{m.This_item_is_yours({ item: display.labels.singular })}</T>
 			<div class="flex items-center gap-3">
 				<T>{m.Last_edited()}: {new Date(hubItem.updated).toLocaleDateString()}</T>
-				<Button
-					size="sm"
-					class="h-8! text-xs"
-					href={hubItemToSectionHref(hubItem)}
-				>
+				<Button size="sm" class="h-8! text-xs" href={hubItemToSectionHref(hubItem)}>
 					<PencilIcon />
 					{m.Make_changes()}
 				</Button>

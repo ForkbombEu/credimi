@@ -140,15 +140,24 @@ func TestGetMyOrganizationFailure(t *testing.T) {
 }
 
 func TestFindOrCreatePipelineReturnsExisting(t *testing.T) {
-	input := &PipelineCLIInput{Name: "demo", YAML: "name: demo"}
+	input := &PipelineCLIInput{
+		Name: "demo",
+		YAML: "name: demo\nfinally:\n  - id: notify\n    use: email\n",
+	}
 	existing := map[string]any{"id": "rec_123", "yaml": input.YAML}
 
 	hasPost := false
 	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/collections/pipelines/records", r.URL.Path)
 		require.Equal(t, http.MethodGet, r.Method)
+		require.Contains(t, r.URL.Query().Get("filter"), `owner="org"`)
+		require.Contains(t, r.URL.Query().Get("filter"), `name="demo"`)
+		require.NotContains(t, r.URL.Query().Get("filter"), "yaml")
 
-		payload := map[string]any{"items": []map[string]any{existing}}
+		payload := map[string]any{"items": []map[string]any{
+			{"id": "rec_other", "yaml": "name: demo\nsteps: []\n"},
+			existing,
+		}}
 		require.NoError(t, json.NewEncoder(w).Encode(payload))
 		if r.Method == http.MethodPost {
 			hasPost = true
@@ -176,7 +185,9 @@ func TestFindOrCreatePipelineCreatesWhenMissing(t *testing.T) {
 		switch call {
 		case 0:
 			require.Equal(t, http.MethodGet, r.Method)
-			payload := map[string]any{"items": []map[string]any{}}
+			payload := map[string]any{"items": []map[string]any{
+				{"id": "rec_other", "yaml": "name: demo\nsteps: []"},
+			}}
 			require.NoError(t, json.NewEncoder(w).Encode(payload))
 		case 1:
 			require.Equal(t, http.MethodPost, r.Method)
@@ -201,6 +212,25 @@ func TestFindOrCreatePipelineCreatesWhenMissing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, created["id"], result["id"])
 	require.Equal(t, 2, call)
+}
+
+func TestFindOrCreatePipelineReturnsFindError(t *testing.T) {
+	input := &PipelineCLIInput{Name: "demo", YAML: "name: demo"}
+
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/collections/pipelines/records", r.URL.Path)
+		require.Equal(t, http.MethodGet, r.Method)
+		http.Error(w, "bad filter", http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	_, err := findOrCreatePipeline(context.Background(), "token", "org", input)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "find pipeline failed")
+	require.Contains(t, err.Error(), "bad filter")
 }
 
 func TestCreatePipelineSuccess(t *testing.T) {
@@ -317,11 +347,13 @@ func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 
 			w.Header().Set("Content-Type", "application/json")
 			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-				"mode":       "queued",
-				"ticket_id":  "ticket-1",
-				"runner_ids": []string{"runner-1"},
-				"position":   0,
-				"line_len":   2,
+				"status":               "queued",
+				"ticket_id":            "ticket-1",
+				"enqueued_at":          "2026-05-20T12:00:00Z",
+				"runner_ids":           []string{"runner-1"},
+				"position":             0,
+				"line_len":             2,
+				pipelineURLResponseKey: "https://credimi.test/my/pipelines/org/pipeline123",
 			}))
 		default:
 			require.Fail(t, "unexpected path")
@@ -338,11 +370,19 @@ func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 
 	var got map[string]any
 	require.NoError(t, json.Unmarshal([]byte(output), &got))
-	require.Equal(t, "queued", got["mode"])
+	require.Equal(t, "queued", got["status"])
+	require.NotContains(t, got, "mode")
 	require.Equal(t, "ticket-1", got["ticket_id"])
-	require.Equal(t, float64(1), got["position_human"])
-	require.Equal(t, float64(0), got["position"])
+	require.Equal(t, "2026-05-20T12:00:00Z", got["enqueued_at"])
+	require.Equal(t, float64(1), got["position"])
+	require.NotContains(t, got, "queue_position")
+	require.NotContains(t, got, "position_human")
 	require.Equal(t, float64(2), got["line_len"])
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/org/pipeline123",
+		got[pipelineURLResponseKey],
+	)
 }
 
 // TestStartPipelineHandlesStartedPipelines verifies started output for non-runner pipelines.
@@ -356,10 +396,11 @@ func TestStartPipelineHandlesStartedPipelines(t *testing.T) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-			"mode":               "started",
-			"workflow_id":        "wf-123",
-			"run_id":             "run-456",
-			"workflow_namespace": "org",
+			"status":               "running",
+			"workflow_id":          "wf-123",
+			"run_id":               "run-456",
+			pipelineURLResponseKey: "https://credimi.test/my/pipelines/org/pipeline123",
+			"run_url":              "https://credimi.test/my/tests/runs/wf-123/run-456",
 		}))
 	}))
 	defer server.Close()
@@ -373,10 +414,16 @@ func TestStartPipelineHandlesStartedPipelines(t *testing.T) {
 
 	var got map[string]any
 	require.NoError(t, json.Unmarshal([]byte(output), &got))
-	require.Equal(t, "started", got["mode"])
+	require.Equal(t, "running", got["status"])
+	require.NotContains(t, got, "mode")
 	require.Equal(t, "wf-123", got["workflow_id"])
 	require.Equal(t, "run-456", got["run_id"])
-	require.Equal(t, "org", got["workflow_namespace"])
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/org/pipeline123",
+		got[pipelineURLResponseKey],
+	)
+	require.Equal(t, "https://credimi.test/my/tests/runs/wf-123/run-456", got["run_url"])
 }
 
 func TestStartPipelineQueueStatusError(t *testing.T) {
@@ -417,8 +464,9 @@ func TestStartPipelineFailedMode(t *testing.T) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-			"mode":          "failed",
-			"error_message": "boom",
+			"status":               "failed",
+			"error_message":        "boom",
+			pipelineURLResponseKey: "https://credimi.test/my/pipelines/org/pipeline123",
 		}))
 	}))
 	defer server.Close()
@@ -432,11 +480,17 @@ func TestStartPipelineFailedMode(t *testing.T) {
 
 	var got map[string]any
 	require.NoError(t, json.Unmarshal([]byte(output), &got))
-	require.Equal(t, "failed", got["mode"])
+	require.Equal(t, "failed", got["status"])
+	require.NotContains(t, got, "mode")
 	require.Equal(t, "boom", got["error_message"])
+	require.Equal(
+		t,
+		"https://credimi.test/my/pipelines/org/pipeline123",
+		got[pipelineURLResponseKey],
+	)
 }
 
-func TestStartPipelineUnknownMode(t *testing.T) {
+func TestStartPipelineUnknownStatus(t *testing.T) {
 	rec := map[string]any{
 		"yaml":            "name: demo",
 		"canonified_name": "pipeline123",
@@ -446,8 +500,8 @@ func TestStartPipelineUnknownMode(t *testing.T) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-			"mode": "mystery",
-			"foo":  "bar",
+			"status": "mystery",
+			"foo":    "bar",
 		}))
 	}))
 	defer server.Close()
@@ -461,10 +515,11 @@ func TestStartPipelineUnknownMode(t *testing.T) {
 
 	var got map[string]any
 	require.NoError(t, json.Unmarshal([]byte(output), &got))
-	require.Equal(t, "mystery", got["mode"])
+	require.Equal(t, "mystery", got["status"])
+	require.NotContains(t, got, "mode")
 	payload, ok := got["payload"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "mystery", payload["mode"])
+	require.Equal(t, "mystery", payload["status"])
 	require.Equal(t, "bar", payload["foo"])
 }
 

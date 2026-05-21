@@ -56,7 +56,7 @@ Or:
 openid-credential-offer://
 ```
 
-If you publish the integration, you can you can preview the StepCI output directly in the **Marketplace** https://credimi.io/marketplace?tab=credential-issuers-and-credentials :
+If you publish the integration, you can preview the StepCI output directly in the **Hub** at https://credimi.io/hub?tab=credential-issuers-and-credentials :
 
 * QR code
 * clickable deeplink
@@ -72,12 +72,12 @@ If you publish the integration, you can you can preview the StepCI output direct
 
 ![Wallet list](./images/wallet-list.png)
 
-- Click on **+ Add new wallet** and add the metadata, this could be visible on the Marketplace if you publish the Wallet.
+- Click on **+ Add new wallet** and add the metadata. This can be visible on the Hub if you publish the Wallet.
 - If the Wallet is already on the Android/iOS stores, you can import the metadata from there
 
 ![Wallet editor](./images/wallet-editor.png)
 
-- **Important**: add a Wallet version and upload the .apk and iOS packges. This will enable the pipeline engine to automatically install the Wallet on the device/emulator/simulator for automated testing. The *Version* can optionally be made *downloadable* from the Marketplace (but this is not a requirement for the automated testing to work.
+- **Important**: add a Wallet version and upload the .apk and iOS packages. This enables the pipeline engine to automatically install the Wallet on the device, emulator, or simulator for automated testing. The *Version* can optionally be made *downloadable* from the Hub, but this is not required for automated testing to work.
 
 ![Version editor](./images/wallet-version-editor.png)
 

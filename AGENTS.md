@@ -99,6 +99,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 ## Mobile runners (PocketBase + internal lookup)
 
 - PB collection: `mobile_runners` (migration `pb_migrations/1769505309_created_mobile_runners.js`).
+- `GET /api/mobile-runners` list items use `path`, `is_owned`, `is_published`, `is_online` (selector view omits `url`, `type`, `devices`, `queue_length`). Pipeline YAML still uses `runner_id` / `global_runner_id`.
 - Internal API (no auth):
   - `GET /api/mobile-runner?runner_identifier=<canonified>` → `{ runner_url, serial }` (`pkg/internal/apis/handlers/mobile_runners_handlers.go`).
   - `GET /api/mobile-runner/semaphore?runner_identifier=...` → summarized semaphore state (`pkg/internal/apis/handlers/mobile_runners_handlers.go`).

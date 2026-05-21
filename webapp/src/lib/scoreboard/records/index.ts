@@ -6,6 +6,8 @@ import type { ListResult } from 'pocketbase';
 
 import { ClientResponseError } from 'pocketbase';
 
+import type { PipelineScoreboardCacheResponse } from '@/pocketbase/types';
+
 import { pb } from '@/pocketbase';
 import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
@@ -40,6 +42,13 @@ type LoadForPipelineOptions = {
 	fetch?: typeof fetch;
 };
 
+type LoadExecutionStatsForPipelineOptions = {
+	fetch?: typeof fetch;
+};
+
+/** Unexpanded cache row — execution stats fields only (no relation expands). */
+export type PipelineScoreboardCacheStats = PipelineScoreboardCacheResponse;
+
 export async function loadPage(options: LoadPageOptions = {}): Promise<ListResult<ScoreboardRow>> {
 	const res = await agent.getList(options.page ?? 1, options.perPage, {
 		fetch: options.fetch,
@@ -60,6 +69,26 @@ export async function loadForPipeline(
 			filter: pb.filter('pipeline = {:pipeline}', { pipeline: pipelineId })
 		});
 		return res.items[0] as ScoreboardRow | undefined;
+	} catch (error) {
+		if (error instanceof ClientResponseError && (error.status === 404 || error.status === 0)) {
+			return undefined;
+		}
+		console.error(error);
+		return undefined;
+	}
+}
+
+export async function loadExecutionStatsForPipeline(
+	pipelineId: string,
+	options: LoadExecutionStatsForPipelineOptions = {}
+): Promise<PipelineScoreboardCacheStats | undefined> {
+	try {
+		return await pb
+			.collection('pipeline_scoreboard_cache')
+			.getFirstListItem(pb.filter('pipeline = {:pipeline}', { pipeline: pipelineId }), {
+				fetch: options.fetch,
+				requestKey: null
+			});
 	} catch (error) {
 		if (error instanceof ClientResponseError && (error.status === 404 || error.status === 0)) {
 			return undefined;

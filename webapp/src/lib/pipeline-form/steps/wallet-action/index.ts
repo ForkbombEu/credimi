@@ -2,14 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Wallet } from '$lib';
+import { Pipeline, Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
-import {
-	getHubItemLogo,
-	getHubItemUrl,
-	type HubItem
-} from '$lib/hub';
+import { getHubItemLogo, getHubItemUrl, type HubItem } from '$lib/hub';
+import type { Record } from '$lib/pipeline/runner';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -19,11 +16,7 @@ import { getPath } from '$lib/utils';
 
 import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase';
-import {
-	type MobileRunnersResponse,
-	type WalletActionsResponse,
-	type WalletVersionsResponse
-} from '@/pocketbase/types';
+import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
 import type { TypedConfig } from '../types';
 
@@ -87,7 +80,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			version_id: version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(version)
 		};
 		if (runner !== GLOBAL_RUNNER) {
-			_with.runner_id = getPath(runner);
+			_with.runner_id = runner.path;
 		}
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
@@ -139,17 +132,26 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 		let runner: SelectedRunner = GLOBAL_RUNNER;
 		if (data.runner_id !== GLOBAL_RUNNER && data.runner_id) {
-			const response = await getRecordByCanonifiedPath<MobileRunnersResponse>(data.runner_id);
-			if (!isError(response)) {
-				runner = response;
-			} else {
-				throw response;
-			}
+			const path = data.runner_id;
+			const fallbackRunner = {
+				name: getLastPathSegment(path),
+				path,
+				isOwned: false,
+				isPublished: false,
+				isOnline: false
+			} satisfies Record;
+
+			await Pipeline.Runner.fetchRecords().match({
+				Rejected: () => {
+					runner = fallbackRunner;
+				},
+				Resolved: (runners) => {
+					runner = runners.find((item) => item.path === path) ?? fallbackRunner;
+				}
+			});
 		}
 
-		const wallet: HubItem = await pb
-			.collection('hub_items')
-			.getOne(action.wallet);
+		const wallet: HubItem = await pb.collection('hub_items').getOne(action.wallet);
 
 		return { wallet, version, action, runner };
 	}

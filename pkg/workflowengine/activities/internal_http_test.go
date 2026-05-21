@@ -47,6 +47,27 @@ func TestInternalHTTPActivityInjectsAPIKey(t *testing.T) {
 	require.Equal(t, http.StatusOK, output["status"])
 }
 
+func TestInternalHTTPActivityOmittedExpectedStatusDoesNotExpectZero(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "secret-key")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	activity := NewInternalHTTPActivity()
+	res, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: InternalHTTPActivityPayload{
+			Method: http.MethodGet,
+			URL:    server.URL,
+		},
+	})
+	require.NoError(t, err)
+	output, ok := res.Output.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, http.StatusOK, output["status"])
+}
+
 func TestRedactHeaderMap(t *testing.T) {
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer token")

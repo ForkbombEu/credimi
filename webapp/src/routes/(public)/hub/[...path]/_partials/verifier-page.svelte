@@ -23,9 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const useCasesVerifications = verifier.expand?.use_cases_verifications_via_verifier ?? [];
 
 		const [hubUseCasesVerifications] = await partitionPromises(
-			useCasesVerifications.map((v) =>
-				pb.collection('hub_items').getOne(v.id, { fetch })
-			)
+			useCasesVerifications.map((v) => pb.collection('hub_items').getOne(v.id, { fetch }))
 		);
 
 		const [hubCredentials] = await partitionPromises(
@@ -105,10 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</PageGrid>
 	</PageSection>
 
-	<PageSection
-		indexItem={s.use_case_verifications}
-		empty={hubUseCasesVerifications.length === 0}
-	>
+	<PageSection indexItem={s.use_case_verifications} empty={hubUseCasesVerifications.length === 0}>
 		<PageGrid>
 			{#each hubUseCasesVerifications as useCaseVerification (useCaseVerification.id)}
 				<HubItemCard item={useCaseVerification} />

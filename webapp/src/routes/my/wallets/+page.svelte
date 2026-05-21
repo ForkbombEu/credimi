@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { ConformanceCheck } from '$lib/types/checks';
-
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
@@ -61,30 +59,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
 				>
 					{#snippet content()}
-						{@const conformanceChecks = record.conformance_checks as
-							| ConformanceCheck[]
-							| null
-							| undefined}
-						<div class="flex flex-wrap gap-2">
-							{#if conformanceChecks && conformanceChecks.length > 0}
-								{#each conformanceChecks as check (check)}
-									<Badge
-										variant={check.status === 'success'
-											? 'secondary'
-											: 'destructive'}
-									>
-										{check.test}
-									</Badge>
-								{/each}
-							{:else}
-								<T class="text-sm text-gray-300">
-									{m.No_conformance_checks_available()}
-								</T>
-							{/if}
-						</div>
-
-						<Separator />
-
 						{@render walletVersionsManager({
 							wallet: record,
 							organizationId: organization.id

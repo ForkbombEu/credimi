@@ -11,7 +11,8 @@ services:
       - cluster.routing.allocation.disk.watermark.flood_stage=128mb
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms256m -Xmx256m
-      - xpack.security.enabled=false
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
     image: elasticsearch:${ELASTICSEARCH_VERSION}
     expose:
       - 9200
@@ -41,6 +42,8 @@ services:
       - ENABLE_ES=true
       - ES_SEEDS=elasticsearch
       - ES_VERSION=v7
+      - ES_USER=elastic
+      - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
       - LOG_LEVEL=debug
@@ -83,6 +86,7 @@ services:
       dockerfile: Dockerfile
       args:
         - PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://demo.credimi.io}
+        - PUBLIC_TURNSTILE_SITE_KEY=${PUBLIC_TURNSTILE_SITE_KEY:-}
     environment:
       - SERVICE_FQDN_CREDIMI
       - SERVICE_FQDN_CREDIMI_8090
@@ -95,6 +99,7 @@ services:
       - SCHEMAS_PATH=schemas
       - TEMPORAL_ADDRESS=temporal:7233
       - PORT=5100
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
     ports:
       - 8090:8090
     volumes:

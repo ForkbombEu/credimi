@@ -195,9 +195,10 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	}
 	saveRequest := workflowengine.ActivityInput{
 		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL:    saveURL,
-			Body:   savePayload,
+			Method:         http.MethodPost,
+			URL:            saveURL,
+			Body:           savePayload,
+			ExpectedStatus: http.StatusOK,
 			Headers: map[string]string{
 				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},

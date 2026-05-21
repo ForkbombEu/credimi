@@ -17,7 +17,9 @@ import (
 )
 
 const (
-	RequireAuthOrAPIKeyMiddlewareID = "requireAuthOrAPIKey"
+	RequireAuthOrAPIKeyMiddlewareID        = "requireAuthOrAPIKey"
+	RequireInternalAdminAPIKeyMiddlewareID = "requireInternalAdminAPIKey"
+	RequireInternalAdminOrAuthMiddlewareID = "requireInternalAdminOrAuth"
 
 	apiKeyHeaderName         = "Credimi-Api-Key"
 	apiKeyScopeFieldName     = "key_type"
@@ -72,6 +74,7 @@ func RequireAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 // RequireInternalAdminAPIKey requires an internal-admin API key.
 func RequireInternalAdminAPIKey() *hook.Handler[*core.RequestEvent] {
 	return &hook.Handler[*core.RequestEvent]{
+		Id: RequireInternalAdminAPIKeyMiddlewareID,
 		Func: func(e *core.RequestEvent) error {
 			apiKey := strings.TrimSpace(e.Request.Header.Get(apiKeyHeaderName))
 			if apiKey == "" {
@@ -97,6 +100,7 @@ func RequireInternalAdminAPIKey() *hook.Handler[*core.RequestEvent] {
 // RequireInternalAdminOrAuth accepts either an internal-admin API key or a user auth context.
 func RequireInternalAdminOrAuth() *hook.Handler[*core.RequestEvent] {
 	return &hook.Handler[*core.RequestEvent]{
+		Id: RequireInternalAdminOrAuthMiddlewareID,
 		Func: func(e *core.RequestEvent) error {
 			apiKey := strings.TrimSpace(e.Request.Header.Get(apiKeyHeaderName))
 			if apiKey != "" {
@@ -244,4 +248,29 @@ func findMatchingAPIKeyRecord(records []*core.Record, apiKey string) *core.Recor
 		}
 	}
 	return nil
+}
+
+// OptionalAuthOrAPIKey authenticates a Credimi-Api-Key when present,
+// but does not block requests that provide no credentials.
+func OptionalAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
+	return &hook.Handler[*core.RequestEvent]{
+		Func: func(e *core.RequestEvent) error {
+			if e.Auth != nil {
+				return e.Next()
+			}
+
+			apiKey := strings.TrimSpace(e.Request.Header.Get(apiKeyHeaderName))
+			if apiKey == "" {
+				return e.Next()
+			}
+
+			principal, apiErr := authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeUser)
+			if apiErr != nil {
+				return apiErr.JSON(e)
+			}
+			e.Auth = principal
+
+			return e.Next()
+		},
+	}
 }

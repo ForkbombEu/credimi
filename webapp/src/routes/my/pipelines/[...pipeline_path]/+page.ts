@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Pipeline } from '$lib';
+import { Pipeline, Scoreboard } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify';
 
 import type { PipelinesResponse } from '@/pocketbase/types/index.generated.js';
@@ -22,11 +22,14 @@ export const load = async ({ params, fetch, url }) => {
 	const status = getStatusQueryParam(url);
 	const pagination = getPaginationQueryParams(url);
 
-	const workflows = await Pipeline.Workflows.list(pipeline.id, {
-		fetch,
-		status,
-		...pagination
-	});
+	const [workflows, scoreboardCache] = await Promise.all([
+		Pipeline.Workflows.list(pipeline.id, {
+			fetch,
+			status,
+			...pagination
+		}),
+		Scoreboard.Records.loadExecutionStatsForPipeline(pipeline.id, { fetch })
+	]);
 
-	return { pipeline, workflows, pagination };
+	return { pipeline, workflows, pagination, scoreboardCache };
 };

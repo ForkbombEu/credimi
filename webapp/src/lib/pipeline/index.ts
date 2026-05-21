@@ -4,7 +4,7 @@
 
 export { cancel, run } from './actions';
 export * as Queue from './queue';
-export * as Runner from './runner';
+export * as Runner from './runner/index.js';
 export * from './types';
 export * from './utils';
 export * as Workflows from './workflows';
