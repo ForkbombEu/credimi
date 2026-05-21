@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Globe, Mail } from '@lucide/svelte';
+import config from '$config';
 
 import { m } from '@/i18n';
 
@@ -31,7 +32,7 @@ const utilsEntity = {
 
 export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 	use: 'email',
-	docsUrl: 'https://docs.credimi.io/manual/testing-automation/pipeline-utils/',
+	docsUrl: config.externalLinks.docs.pipeline.utils,
 
 	display: {
 		...utilsEntity,
@@ -75,7 +76,7 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 
 export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormData> = {
 	use: 'http-request',
-	docsUrl: 'https://docs.credimi.io/manual/testing-automation/pipeline-utils/',
+	docsUrl: config.externalLinks.docs.pipeline.utils,
 
 	display: {
 		...utilsEntity,
