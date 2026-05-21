@@ -8,13 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ArrowDownIcon, ArrowUpIcon, PencilIcon, TrashIcon } from '@lucide/svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
 
 	import type { StepsBuilder } from '../steps-builder.svelte.js';
 	import type { EnrichedStep } from '../types';
 
 	import StepCardDisplay from './step-card-display.svelte';
-	import { getStepConfig, getStepData } from './utils.js';
+	import { isStepEditable } from './utils.js';
 
 	//
 
@@ -22,31 +21,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		index: number;
 		step: EnrichedStep;
 		builder: StepsBuilder;
+		editing?: boolean;
 	};
 
-	let { builder, step, index }: Props = $props();
+	let { builder, step, index, editing = false }: Props = $props();
 
-	const config = $derived(getStepConfig(step));
-	const stepData = $derived(getStepData(step));
-	const EditComponent = $derived(config?.EditComponent);
-
-	let isEditSheetOpen = $state(false);
+	const editable = $derived(isStepEditable(step));
 </script>
 
 <StepCardDisplay
 	{step}
+	{editing}
 	onContinueOnErrorChange={(checked) => builder.setContinueOnError(index, checked)}
 >
 	{#snippet topRight()}
 		<div
 			class="flex items-center gap-1 pr-1 opacity-30 transition-opacity group-hover:opacity-100"
 		>
-			{#if EditComponent && stepData}
+			{#if editable}
 				<IconButton
 					icon={PencilIcon}
 					variant="ghost"
 					size="xs"
-					onclick={() => (isEditSheetOpen = true)}
+					onclick={() => builder.initEditStep(index)}
 				/>
 			{/if}
 			<IconButton
@@ -72,11 +69,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/snippet}
 </StepCardDisplay>
-
-<Sheet bind:open={isEditSheetOpen} hideTrigger>
-	{#snippet content({ closeSheet })}
-		{#if EditComponent && stepData}
-			<EditComponent data={stepData} closeDialog={closeSheet} />
-		{/if}
-	{/snippet}
-</Sheet>

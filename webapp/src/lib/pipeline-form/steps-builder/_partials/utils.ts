@@ -19,3 +19,8 @@ export function getStepData(step: EnrichedStep): GenericRecord | undefined {
 export function getStepConfig(step: EnrichedStep): steps.AnyConfig | undefined {
 	return steps.configs.find((c) => c.use === step[0].use);
 }
+
+export function isStepEditable(step: EnrichedStep): boolean {
+	if (step[0].use === 'debug') return false;
+	return getStepData(step) !== undefined && getStepConfig(step) !== undefined;
+}

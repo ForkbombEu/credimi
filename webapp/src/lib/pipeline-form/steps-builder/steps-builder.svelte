@@ -32,15 +32,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { self: builder }: SelfProp<StepsBuilder> = $props();
 
 	const { debugEntityData } = steps;
+
+	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
+	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
+	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
 </script>
 
 <Resizable.PaneGroup direction="horizontal" class="gap-2">
-	<Column title="Add step">
+	<Column title={columnTitle}>
 		{#if builder.mode.id == 'idle'}
 			{@render stepButtons()}
 		{:else if builder.mode.id == 'form'}
 			<div class="flex grow flex-col" in:fly>
 				<Render item={builder.mode.form} />
+				{#if formMode?.intent === 'edit'}
+					<div class="mt-auto border-t p-4">
+						<Button
+							class="w-full"
+							disabled={!formMode.form.canSave()}
+							onclick={() => formMode.form.commit()}
+						>
+							{m.Save()}
+						</Button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -65,7 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="space-y-3 p-4">
 				{#each builder.steps as step, index (step)}
 					<div animate:flip={{ duration: 300 }}>
-						<StepCard {builder} {step} {index} />
+						<StepCard {builder} {step} {index} editing={editingIndex === index} />
 					</div>
 				{/each}
 			</div>

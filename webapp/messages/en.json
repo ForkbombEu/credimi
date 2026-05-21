@@ -780,6 +780,7 @@
 	"Edit_pipeline": "Edit pipeline",
 	"No_wallet_versions_found": "No wallet versions found",
 	"Add_step": "Add step",
+	"Edit_step": "Edit step",
 	"Steps_sequence": "Steps sequence",
 	"YAML_preview": "YAML preview",
 	"Wallet_action": "Wallet action",

@@ -15,23 +15,24 @@ import type { Simplify } from 'type-fest';
 
 // Pipeline Step Config
 
+export type FormIntent = 'add' | 'edit';
+
+export type InitFormOptions<Deserialized = unknown> = {
+	intent?: FormIntent;
+	initial?: Deserialized;
+};
+
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
 	use: ID;
 	serialize: (step: Deserialized) => Serialized;
 	deserialize: (step: Serialized) => Promise<Deserialized>;
 	display: EntityData;
-	initForm: () => Form<Deserialized>;
+	initForm: (opts?: InitFormOptions<Deserialized>) => Form<Deserialized>;
 	cardData: (data: Deserialized) => CardData;
 	CardDetailsComponent?: Component<CardDetailsComponentProps<Deserialized>>;
-	EditComponent?: Component<EditComponentProps<Deserialized>>;
 	makeId: (data: Serialized) => string;
 	linkProcedure?: (serialized: Serialized, previousSteps: PipelineStep[]) => void;
 }
-
-export type EditComponentProps<Deserialized = unknown> = {
-	data: Deserialized;
-	closeDialog: () => void;
-};
 
 export type CardDetailsComponentProps<Deserialized = unknown> = {
 	data: Deserialized;
@@ -39,7 +40,11 @@ export type CardDetailsComponentProps<Deserialized = unknown> = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {
+	readonly intent: FormIntent;
 	onSubmit: (handler: (step: Deserialized) => void) => void;
+	canSave(): boolean;
+	getSubmitData(): Deserialized | undefined;
+	commit(data?: Deserialized): void;
 }
 
 export interface CardData {
@@ -63,9 +68,32 @@ export type TypedConfig<T extends PipelineStepType, Deserialized> = Simplify<
 export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T> {
 	abstract Component: Renderable<T>['Component'];
 
+	readonly intent: FormIntent;
 	protected handleSubmit: (step: Deserialized) => void = () => {};
+
+	constructor(opts?: InitFormOptions<Deserialized>) {
+		this.intent = opts?.intent ?? 'add';
+		if (opts?.initial !== undefined) {
+			this.applyInitial(opts.initial);
+		}
+	}
+
+	protected applyInitial(_initial: Deserialized): void {
+		void _initial;
+		// overridden per form
+	}
 
 	onSubmit(handler: (data: Deserialized) => void) {
 		this.handleSubmit = handler;
 	}
+
+	commit(data?: Deserialized) {
+		const payload = data ?? this.getSubmitData();
+		if (payload !== undefined) {
+			this.handleSubmit(payload);
+		}
+	}
+
+	abstract canSave(): boolean;
+	abstract getSubmitData(): Deserialized | undefined;
 }

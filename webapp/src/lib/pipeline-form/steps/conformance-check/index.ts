@@ -22,7 +22,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	display: entities.conformance_checks,
 
-	initForm: () => new ConformanceCheckStepForm(),
+	initForm: (opts) => new ConformanceCheckStepForm(opts),
 
 	serialize: ({ test }) => {
 		type StepData = PipelineStepData<PipelineStepByType<'conformance-check'>>;

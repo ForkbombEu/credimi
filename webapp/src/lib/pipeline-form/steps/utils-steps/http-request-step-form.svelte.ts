@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { BaseForm } from '../types';
+import { BaseForm, type InitFormOptions } from '../types';
 import Component from './http-request-step-form.svelte';
 import { formatPlaceholder, Placeholder } from './placeholders/utils';
 
@@ -17,14 +17,28 @@ export class HttpRequestStepForm extends BaseForm<HttpRequestFormData, HttpReque
 		body: defaultBody()
 	});
 
+	constructor(opts?: InitFormOptions<HttpRequestFormData>) {
+		super(opts);
+	}
+
+	protected applyInitial(initial: HttpRequestFormData) {
+		this.data = { ...initial };
+	}
+
 	get isValid(): boolean {
 		return this.data.url.trim() !== '' && this.data.method.trim() !== '';
 	}
 
+	canSave() {
+		return this.isValid;
+	}
+
+	getSubmitData() {
+		return this.isValid ? this.data : undefined;
+	}
+
 	submit() {
-		if (this.isValid) {
-			this.handleSubmit(this.data);
-		}
+		this.commit();
 	}
 }
 

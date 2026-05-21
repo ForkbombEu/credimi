@@ -9,13 +9,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { ExternalLinkIcon } from '@lucide/svelte';
 	import { Wallet } from '$lib';
-	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
-	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import { getHubItemData } from '$lib/hub';
 	import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
+	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
+	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
@@ -75,6 +75,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					title={getRunnerLabel(form.data.runner)}
 					onDiscard={isRunnerGlobal ? undefined : () => form.removeRunner()}
 				/>
+			</WithLabel>
+		{/if}
+		{#if form.data.action}
+			<WithLabel label={m.Wallet_action()}>
+				<ItemCard title={form.data.action.name} onDiscard={() => form.removeAction()} />
 			</WithLabel>
 		{/if}
 	</div>

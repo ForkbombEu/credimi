@@ -41,7 +41,7 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 		}
 	},
 
-	initForm: () => new EmailStepForm(),
+	initForm: (opts) => new EmailStepForm(opts),
 
 	serialize: (data) => ({
 		recipient: data.recipient,
@@ -84,7 +84,7 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 		}
 	},
 
-	initForm: () => new HttpRequestStepForm(),
+	initForm: (opts) => new HttpRequestStepForm(opts),
 
 	serialize: (data) => {
 		let bodyValue: unknown = undefined;

@@ -6,13 +6,29 @@ import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/s
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
-import { BaseForm } from '../types';
+import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
 
 //
 
 export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceCheckStepForm> {
 	readonly Component = Component;
+
+	constructor(opts?: InitFormOptions<FormData>) {
+		super(opts);
+	}
+
+	protected applyInitial(initial: FormData) {
+		this.data = { ...initial };
+	}
+
+	canSave() {
+		return this.state === 'ready';
+	}
+
+	getSubmitData() {
+		return this.state === 'ready' ? (this.data as FormData) : undefined;
+	}
 
 	standardsWithTestSuites = resource(
 		() => {},
@@ -78,7 +94,14 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	}
 
 	selectTest(test: Test) {
-		this.handleSubmit({ ...this.data, test } as FormData);
+		this.data.test = test;
+		if (this.intent === 'add') {
+			this.commit({ ...this.data, test } as FormData);
+		}
+	}
+
+	discardTest() {
+		this.data.test = undefined;
 	}
 
 	//
