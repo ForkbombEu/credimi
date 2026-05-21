@@ -17,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 	import { fromScoreboardRow } from '$lib/scoreboard/extras/from-scoreboard-row';
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
-	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import { getPath } from '$lib/utils';
 	import { ArrowRightIcon, Pencil } from '@lucide/svelte';
@@ -31,6 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
+	import Separator from '@/components/ui/separator/separator.svelte';
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
 	import { type EnrichedSchedule } from './types';
@@ -91,8 +92,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	const executionStats = $derived(fromScoreboardRow(scoreboardResults));
-	const showExecutionStats = $derived(executionStats !== undefined);
-	const showContent = $derived((workflows && workflows.length > 0) || showExecutionStats);
+	const showContent = $derived(workflows && workflows.length > 0);
 
 	const avatar = $derived.by(() => {
 		const owner = pipeline.expand?.owner;
@@ -163,7 +163,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet afterDescription()}
 	{#if scoreboardResults && hasSummary}
-		<PipelineContentSummary results={scoreboardResults} />
+		<Separator class="opacity-40" />
+		<div class="flex items-center justify-between gap-4">
+			<PipelineContentSummary results={scoreboardResults} />
+			{#if executionStats}
+				<PipelineExecutionStats stats={executionStats} layout="card-inline" />
+			{/if}
+		</div>
 	{:else}
 		<div
 			class="flex h-8 w-fit items-center justify-start rounded-md bg-muted p-2 text-xs text-muted-foreground"
@@ -175,36 +181,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet content()}
 	<div class="space-y-3">
-		{#if showExecutionStats && executionStats}
-			{#if workflows && workflows.length > 0}
-				<div class="space-y-3">
-					<div class="flex items-center justify-between gap-2">
-						<T class="shrink-0 text-sm font-medium">{m.Recent_workflows()}</T>
-						<PipelineExecutionStats
-							stats={executionStats}
-							layout="card-inline"
-							align="left"
-						/>
-						<BlueButton
-							compact
-							href={resolve('/my/pipelines/[...pipeline_path]', {
-								pipeline_path: getPath(pipeline, true)
-							})}
-						>
-							{m.view_all()}
-							<ArrowRightIcon />
-						</BlueButton>
-					</div>
-
-					<Pipeline.Workflows.SmallTable {workflows} />
-				</div>
-			{:else}
-				<PipelineExecutionStats stats={executionStats} layout="card-inline" align="left" />
-			{/if}
-		{:else if workflows && workflows.length > 0}
+		{#if workflows && workflows.length > 0}
 			<div class="space-y-3">
-				<div class="flex items-center justify-between gap-1">
-					<T class="text-sm font-medium">{m.Recent_workflows()}</T>
+				<div class="flex items-center justify-between gap-2">
+					<T class="shrink-0 text-sm font-medium">{m.Recent_workflows()}</T>
+
 					<BlueButton
 						compact
 						href={resolve('/my/pipelines/[...pipeline_path]', {

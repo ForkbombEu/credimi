@@ -21,11 +21,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		stats: ExecutionStats;
 		layout: Layout;
 		label?: string;
-		/** For `card-inline` only. */
-		align?: 'left' | 'right';
 	};
 
-	let { stats, layout, label, align = 'right' }: Props = $props();
+	let { stats, layout, label }: Props = $props();
 
 	type ExecutionModeCount = {
 		icon: IconComponent;
@@ -76,12 +74,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render modesLine('text-xs text-muted-foreground opacity-80')}
 	</div>
 {:else if layout === 'card-inline'}
-	<div class={['text-sm', align === 'left' ? 'text-left' : 'shrink-0 pr-3 text-right']}>
-		<span class={['font-bold', successClass]}>
-			{stats.successes}/{stats.total} ({stats.percent}%)
-		</span>
-		<span class="px-0.5 text-muted-foreground opacity-60">·</span>
-		{@render modesLine('text-muted-foreground opacity-80', 'span')}
+	<div class="flex gap-4">
+		<div>
+			<p class="pr-0.5 text-xs! capitalize">{m.Success_rate()}</p>
+			<p class={['font-bold', successClass]}>
+				{stats.successes}/{stats.total} ({stats.percent}%)
+			</p>
+		</div>
+		<div>
+			<p class="pr-0.5 text-xs!">{m.Execution_mode()}</p>
+			{@render modesLine('text-muted-foreground opacity-80', 'p')}
+		</div>
 	</div>
 {:else if layout === 'stat-box-success'}
 	<div class="flex h-20 w-[140px] flex-col items-start justify-between rounded-lg border p-3">
