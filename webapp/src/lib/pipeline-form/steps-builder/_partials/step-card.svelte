@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowDownIcon, ArrowUpIcon, PencilIcon, TrashIcon } from '@lucide/svelte';
+	import { ArrowDownIcon, ArrowUpIcon, CopyPlus, PencilIcon, TrashIcon } from '@lucide/svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import { m } from '@/i18n';
 
 	import type { StepsBuilder } from '../steps-builder.svelte.js';
 	import type { EnrichedStep } from '../types';
@@ -46,6 +47,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					onclick={() => builder.initEditStep(index)}
 				/>
 			{/if}
+			<IconButton
+				icon={CopyPlus}
+				variant="ghost"
+				size="xs"
+				tooltip={m.Clone()}
+				onclick={() => builder.cloneStep(index)}
+			/>
 			<IconButton
 				icon={ArrowUpIcon}
 				variant="ghost"

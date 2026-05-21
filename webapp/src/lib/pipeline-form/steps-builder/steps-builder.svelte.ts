@@ -4,6 +4,7 @@
 
 import type { Renderable } from '$lib/renderable';
 
+import { cloneDeep } from 'lodash';
 import { StateManager } from '$lib/state-manager/state-manager';
 
 import type { GenericRecord } from '@/utils/types';
@@ -163,6 +164,18 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	deleteStep(index: number) {
 		this.stateManager.run((state) => {
 			state.steps.splice(index, 1);
+		});
+	}
+
+	cloneStep(index: number) {
+		this.stateManager.run((state) => {
+			const source = state.steps[index];
+			if (!source) return;
+			const [pipelineStep, formData] = cloneDeep(source);
+			if (pipelineStep.use !== 'debug' && 'id' in pipelineStep) {
+				pipelineStep.id = '';
+			}
+			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
 		});
 	}
 
