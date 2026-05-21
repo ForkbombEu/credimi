@@ -71,23 +71,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </Tooltip>
 
 {#snippet itemContent()}
-	<div class="flex items-center gap-3">
-		<div class="grow">
+	<div class="flex min-w-0 items-center gap-3">
+		<div class="min-w-0 w-0 grow overflow-hidden">
 			{@render beforeContent?.()}
 
-			<div class="flex items-center gap-2">
+			<div class="flex min-w-0 items-center gap-2">
 				{#if avatar}
 					<Avatar src={avatar} fallback={title} class="shrink-0 rounded-md border" />
 				{/if}
-				<div>
-					<T class="text-sm font-semibold">
-						<span>
+				<div class="min-w-0 flex-1 overflow-hidden">
+					<T class="flex min-w-0 items-center gap-1 text-sm font-semibold">
+						<span class="min-w-0 truncate" title={title}>
 							{title}
 						</span>
-						{@render titleRight?.()}
+						{#if titleRight}
+							<span class="shrink-0">
+								{@render titleRight()}
+							</span>
+						{/if}
 					</T>
 					{#if subtitle}
-						<T class="text-xs text-muted-foreground">{subtitle}</T>
+						<T class="truncate text-xs text-muted-foreground">
+							<span title={subtitle}>{subtitle}</span>
+						</T>
 					{/if}
 				</div>
 			</div>
