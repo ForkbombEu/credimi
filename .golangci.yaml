@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 version: "2"
+
 linters:
   enable:
     - asasalint
@@ -107,6 +108,7 @@ linters:
     # - wrapcheck
     # - wsl
     - zerologlint
+
   disable:
     - errcheck
     - funlen
@@ -118,13 +120,17 @@ linters:
   settings:
     revive:
       confidence: 0.8
+
     funlen:
       lines: 90
       statements: 50
+
     gocritic:
       disabled-checks:
         - singleCaseSwitch
+
     goconst:
+      ignore-tests: true
       min-len: 10
       min-occurrences: 6
       match-constant: false
@@ -136,19 +142,23 @@ linters:
         - description
         - organizations
         - credential_issuers
+        - credentials
         - video_path
         - recording_process_pid
         - ffmpeg_process_pid
         - log_process_pid
         - session_id
+
     gosec:
       excludes:
         - G304
+
   exclusions:
     rules:
       - path: migrations/
         linters:
           - gochecknoinits
+
       - path: _test\.go
         linters:
           - gosec
@@ -166,11 +176,7 @@ linters:
           - dupl
           - staticcheck
           - revive
-          - gosec
           - copyloopvar
-      - path: pkg/workflowengine/activities/credentialsissuer.go
-        linters:
-          - lll
 
 formatters:
   enable:
@@ -178,9 +184,11 @@ formatters:
     - gofmt
     - goimports
     - golines
+
   settings:
     gofumpt:
       module-path: github.com/forkbombeu/credimi
+
 issues:
   max-issues-per-linter: 0
   fix: true
