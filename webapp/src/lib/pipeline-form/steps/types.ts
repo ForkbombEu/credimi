@@ -24,6 +24,7 @@ export type InitFormOptions<Deserialized = unknown> = {
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
 	use: ID;
+	docsUrl?: string;
 	serialize: (step: Deserialized) => Serialized;
 	deserialize: (step: Serialized) => Promise<Deserialized>;
 	display: EntityData;

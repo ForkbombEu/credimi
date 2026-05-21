@@ -36,6 +36,7 @@ type BuilderMode =
 			id: 'form';
 			intent: pipelinestep.FormIntent;
 			stepIndex?: number;
+			config: pipelinestep.AnyConfig;
 			form: pipelinestep.Form;
 	  };
 
@@ -148,6 +149,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 					id: 'form',
 					intent,
 					stepIndex: opts.stepIndex,
+					config,
 					form
 				};
 			});

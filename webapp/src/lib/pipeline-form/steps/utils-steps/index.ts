@@ -31,6 +31,7 @@ const utilsEntity = {
 
 export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 	use: 'email',
+	docsUrl: 'https://docs.credimi.io/manual/testing-automation/pipeline-utils/',
 
 	display: {
 		...utilsEntity,
@@ -74,6 +75,7 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 
 export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormData> = {
 	use: 'http-request',
+	docsUrl: 'https://docs.credimi.io/manual/testing-automation/pipeline-utils/',
 
 	display: {
 		...utilsEntity,
