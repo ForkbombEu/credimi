@@ -4,23 +4,37 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('./run-now-button.svelte', () => ({ default: {} }));
+vi.mock('./runner-select-input.svelte', () => ({ default: {} }));
+vi.mock('./runner-select-modal.svelte', () => ({ default: {} }));
+vi.mock('./catalog.svelte.js', () => ({
+	dispose: () => {},
+	findByPath: () => undefined,
+	init: () => {},
+	isReady: () => false,
+	read: () => [],
+	refresh: async () => {},
+	search: () => [],
+	startLiveRefresh: () => () => {}
+}));
+
 import type { PipelinesResponse } from '@/pocketbase/types';
 
-import type { MobileRunnerListItem } from '../runners/utils';
+import type { RunnerRecord as Record } from './types';
 
-import * as Runner from './binding';
+import { Binding } from './index';
 
 function pipeline(id: string, yaml: string): PipelinesResponse {
 	return { id, yaml } as PipelinesResponse;
 }
 
-function runnerRecord(path: string): MobileRunnerListItem {
+function runnerRecord(path: string): Record {
 	return {
-		mine: true,
+		isOnline: true,
+		isOwned: true,
+		isPublished: true,
 		name: path.split('/').at(-1) ?? 'runner',
-		online: true,
-		published: true,
-		runner_id: path
+		path
 	};
 }
 
@@ -55,22 +69,22 @@ describe('getExecutionRunnerPath', () => {
 	});
 
 	it('returns undefined when mobile-automation is not required', () => {
-		expect(Runner.getExecutionRunnerPath(pipeline('p1', NO_MOBILE_YAML))).toBeUndefined();
+		expect(Binding.getExecutionRunnerPath(pipeline('p1', NO_MOBILE_YAML))).toBeUndefined();
 	});
 
 	it('returns undefined for global pipeline with no stored runner', () => {
-		expect(Runner.getExecutionRunnerPath(pipeline('p2', GLOBAL_MOBILE_YAML))).toBeUndefined();
+		expect(Binding.getExecutionRunnerPath(pipeline('p2', GLOBAL_MOBILE_YAML))).toBeUndefined();
 	});
 
 	it('returns stored path for global pipeline with selected runner', () => {
 		const p = pipeline('p3', GLOBAL_MOBILE_YAML);
 		const r = runnerRecord('org-a/selected-runner');
-		Runner.set(p, r);
-		expect(Runner.getExecutionRunnerPath(p)).toBe(r.runner_id);
+		Binding.set(p, r);
+		expect(Binding.getExecutionRunnerPath(p)).toBe(r.path);
 	});
 
 	it('returns runner_id from first mobile-automation step for specific pipeline', () => {
-		expect(Runner.getExecutionRunnerPath(pipeline('p4', SPECIFIC_MOBILE_YAML))).toBe(
+		expect(Binding.getExecutionRunnerPath(pipeline('p4', SPECIFIC_MOBILE_YAML))).toBe(
 			'org-a/my-runner'
 		);
 	});

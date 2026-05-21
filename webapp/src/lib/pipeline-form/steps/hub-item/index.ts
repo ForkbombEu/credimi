@@ -5,11 +5,7 @@
 import type { HubItem } from '$lib/hub/types.js';
 
 import { entities } from '$lib/global/entities.js';
-import {
-	getHubItemByPath,
-	getHubItemLogo,
-	getHubItemUrl
-} from '$lib/hub/utils.js';
+import { getHubItemByPath, getHubItemLogo, getHubItemUrl } from '$lib/hub/utils.js';
 import { getPath } from '$lib/utils';
 
 import { m } from '@/i18n/index.js';
@@ -42,23 +38,21 @@ export const credentialsStepConfig: TypedConfig<'credential-offer', HubItem> = {
 
 //
 
-export const useCaseVerificationStepConfig: TypedConfig<
-	'use-case-verification-deeplink',
-	HubItem
-> = {
-	use: 'use-case-verification-deeplink',
-	display: entities.use_cases_verifications,
-	initForm: () =>
-		new HubItemStepForm({
-			collection: 'use_cases_verifications',
-			entityData: entities.use_cases_verifications
-		}),
-	serialize: (item) => ({ use_case_id: getPath(item) }),
-	deserialize: ({ use_case_id }) => getHubItemByPath(use_case_id),
-	cardData: getHubItemCardData,
-	makeId: ({ use_case_id }) => getLastPathSegment(use_case_id),
-	EditComponent
-};
+export const useCaseVerificationStepConfig: TypedConfig<'use-case-verification-deeplink', HubItem> =
+	{
+		use: 'use-case-verification-deeplink',
+		display: entities.use_cases_verifications,
+		initForm: () =>
+			new HubItemStepForm({
+				collection: 'use_cases_verifications',
+				entityData: entities.use_cases_verifications
+			}),
+		serialize: (item) => ({ use_case_id: getPath(item) }),
+		deserialize: ({ use_case_id }) => getHubItemByPath(use_case_id),
+		cardData: getHubItemCardData,
+		makeId: ({ use_case_id }) => getLastPathSegment(use_case_id),
+		EditComponent
+	};
 
 //
 

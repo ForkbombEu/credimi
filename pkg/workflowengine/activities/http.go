@@ -12,12 +12,16 @@ import (
 	"io"
 	"net/http"
 	URL "net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
+	"github.com/antchfx/htmlquery"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"golang.org/x/net/html"
 )
 
 var sensitiveHeaders = map[string]struct{}{
@@ -37,11 +41,19 @@ type HTTPActivityPayload struct {
 	Method string `json:"method" yaml:"method" validate:"required"`
 	URL    string `json:"url"    yaml:"url"    validate:"required"`
 
-	QueryParams    map[string]string `json:"query_params,omitempty"    yaml:"query_params,omitempty"`
-	Timeout        string            `json:"timeout,omitempty"         yaml:"timeout,omitempty"`
-	Headers        map[string]string `json:"headers,omitempty"         yaml:"headers,omitempty"`
-	Body           any               `json:"body,omitempty"            yaml:"body,omitempty"`
-	ExpectedStatus int               `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
+	QueryParams    map[string]string     `json:"query_params,omitempty"    yaml:"query_params,omitempty"`
+	Timeout        string                `json:"timeout,omitempty"         yaml:"timeout,omitempty"`
+	Headers        map[string]string     `json:"headers,omitempty"         yaml:"headers,omitempty"`
+	Body           any                   `json:"body,omitempty"            yaml:"body,omitempty"`
+	ExpectedStatus interface{}           `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
+	Outputs        map[string]OutputRule `json:"outputs,omitempty"         yaml:"outputs,omitempty"`
+}
+
+type OutputRule struct {
+	XPath    string `json:"xpath,omitempty"    yaml:"xpath,omitempty"`
+	Selector string `json:"selector,omitempty" yaml:"selector,omitempty"`
+	Cookie   string `json:"cookie,omitempty"   yaml:"cookie,omitempty"`
+	Regex    string `json:"regex,omitempty"    yaml:"regex,omitempty"`
 }
 
 type RequestSnapshot struct {
@@ -113,16 +125,20 @@ func executeHTTPRequest(
 
 	var body io.Reader
 	if payload.Body != nil {
-		jsonBody, err := json.Marshal(payload.Body)
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-			return result, act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s for request body: %v", errCode.Description, err),
-				payload.Body,
-			)
+		if bodyStr, ok := payload.Body.(string); ok {
+			body = bytes.NewBufferString(bodyStr)
+		} else {
+			jsonBody, err := json.Marshal(payload.Body)
+			if err != nil {
+				errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
+				return result, act.NewActivityError(
+					errCode.Code,
+					fmt.Sprintf("%s for request body: %v", errCode.Description, err),
+					payload.Body,
+				)
+			}
+			body = bytes.NewBuffer(jsonBody)
 		}
-		body = bytes.NewBuffer(jsonBody)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, payload.Method, url, body)
@@ -182,27 +198,29 @@ func executeHTTPRequest(
 		output = string(respBody)
 	}
 
-	if payload.ExpectedStatus != 0 {
-		if resp.StatusCode != payload.ExpectedStatus {
-			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
-			return result, act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf(
-					"%s: expected '%d', got '%d'",
-					errCode.Description,
-					payload.ExpectedStatus,
-					resp.StatusCode,
-				),
-				output,
-			)
-		}
+	if err := validateExpectedStatus(resp.StatusCode, payload.ExpectedStatus, output, act); err != nil {
+		return result, err
 	}
-	result.Output = map[string]any{
+
+	outputValues, err := extractOutputRules(resp, respBody, payload.Outputs)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		return result, act.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("failed to extract outputs: %v", err),
+			nil,
+		)
+	}
+	resultMap := map[string]any{
 		"status":  resp.StatusCode,
 		"headers": resp.Header,
 		"body":    output,
 	}
+	for key, value := range outputValues {
+		resultMap[key] = value
+	}
 
+	result.Output = resultMap
 	return result, nil
 }
 
@@ -222,4 +240,201 @@ func redactHeaderMap(headers http.Header) map[string][]string {
 		out[key] = copied
 	}
 	return out
+}
+
+func extractOutputRules(
+	resp *http.Response,
+	body []byte,
+	rules map[string]OutputRule,
+) (map[string]any, error) {
+	if len(rules) == 0 {
+		return nil, nil
+	}
+
+	if err := validateOutputRules(rules); err != nil {
+		return nil, err
+	}
+
+	results := make(map[string]any)
+	bodyStr := string(body)
+	contentType := resp.Header.Get("Content-Type")
+	isHTML := strings.Contains(contentType, "text/html")
+
+	var doc *html.Node
+	var docErr error
+
+	for name, rule := range rules {
+		var value any
+		var err error
+
+		switch {
+		case rule.XPath != "":
+			if !isHTML {
+				return nil, fmt.Errorf("xpath requires HTML content, got %s", contentType)
+			}
+			if doc == nil && docErr == nil {
+				doc, docErr = html.Parse(strings.NewReader(bodyStr))
+			}
+			if docErr != nil {
+				err = docErr
+				break
+			}
+			node := htmlquery.FindOne(doc, rule.XPath)
+			if node != nil {
+				value = htmlquery.InnerText(node)
+			} else {
+				value = ""
+			}
+
+		case rule.Selector != "":
+			if !isHTML {
+				return nil, fmt.Errorf("selector requires HTML content, got %s", contentType)
+			}
+			if doc == nil && docErr == nil {
+				doc, docErr = html.Parse(strings.NewReader(bodyStr))
+			}
+			if docErr != nil {
+				err = docErr
+				break
+			}
+			query := goquery.NewDocumentFromNode(doc)
+			selection := query.Find(rule.Selector)
+			if selection.Length() > 0 {
+				value = selection.Text()
+			} else {
+				value = ""
+			}
+
+		case rule.Cookie != "":
+			for _, c := range resp.Cookies() {
+				if c.Name == rule.Cookie {
+					value = c.Value
+					break
+				}
+			}
+			if value == nil {
+				value = ""
+			}
+
+		case rule.Regex != "":
+			re, compileErr := regexp.Compile(rule.Regex)
+			if compileErr != nil {
+				return nil, fmt.Errorf("invalid regex for %s: %w", name, compileErr)
+			}
+			matches := re.FindStringSubmatch(bodyStr)
+			switch {
+			case len(matches) > 1:
+				value = matches[1]
+			case len(matches) > 0:
+				value = matches[0]
+			default:
+				value = ""
+			}
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract %s: %w", name, err)
+		}
+		results[name] = value
+	}
+
+	return results, nil
+}
+
+func validateOutputRules(rules map[string]OutputRule) error {
+	for name, rule := range rules {
+		ruleCount := 0
+		if rule.XPath != "" {
+			ruleCount++
+		}
+		if rule.Selector != "" {
+			ruleCount++
+		}
+		if rule.Cookie != "" {
+			ruleCount++
+		}
+		if rule.Regex != "" {
+			ruleCount++
+		}
+
+		if ruleCount == 0 {
+			return fmt.Errorf("output rule '%s' must specify one of: xpath, selector, cookie, or regex", name)
+		}
+
+		if ruleCount > 1 {
+			return fmt.Errorf("output rule '%s' cannot specify multiple extraction methods (found: xpath=%t, selector=%t, cookie=%t, regex=%t)",
+				name, rule.XPath != "", rule.Selector != "", rule.Cookie != "", rule.Regex != "")
+		}
+	}
+	return nil
+}
+
+func validateExpectedStatus(
+	statusCode int,
+	expectedStatus interface{},
+	output any,
+	act *workflowengine.BaseActivity,
+) error {
+	if expectedStatus == nil {
+		return nil
+	}
+
+	switch v := expectedStatus.(type) {
+	case float64:
+		if v == 0 {
+			return nil
+		}
+		if statusCode != int(v) {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return act.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: expected '%d', got '%d'", errCode.Description, int(v), statusCode),
+				output,
+			)
+		}
+		return nil
+
+	case int:
+		if v == 0 {
+			return nil
+		}
+		if statusCode != v {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return act.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: expected '%d', got '%d'", errCode.Description, v, statusCode),
+				output,
+			)
+		}
+		return nil
+
+	case string:
+		trimmedPattern := strings.Trim(v, "/")
+		matched, err := regexp.MatchString(trimmedPattern, strconv.Itoa(statusCode))
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return act.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("invalid regex pattern for expected_status: %v", err),
+				v,
+			)
+		}
+		if !matched {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return act.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: expected pattern '/%s/', got '%d'", errCode.Description, trimmedPattern, statusCode),
+				output,
+			)
+		}
+		return nil
+
+	default:
+		errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+		return act.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("expected_status must be integer or regex string, got %T", expectedStatus),
+			expectedStatus,
+		)
+	}
 }

@@ -99,6 +99,10 @@ export default defineConfig({
                                     label: "StepCI and Maestro scripting examples",
                                     link: "/manual/yaml-examples/",
                                 },
+								                                {
+                                    label: "Pipeline utils",
+                                    link: "/manual/testing-automation/pipeline-utils/",
+                                },
                             ],
                         },
                         {

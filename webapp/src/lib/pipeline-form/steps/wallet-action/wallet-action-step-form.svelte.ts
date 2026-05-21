@@ -4,12 +4,8 @@
 
 import type { HubItem } from '$lib/hub';
 
-import { userOrganization } from '$lib/app-state/index.svelte.js';
 import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
-import {
-	fetchAvailableForOrganization,
-	type MobileRunnerListItem
-} from '$lib/pipeline/runners/utils';
+import type { Record } from '$lib/pipeline/runner';
 
 import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase/index.js';
@@ -29,7 +25,7 @@ import Component from './wallet-action-step-form.svelte';
 export const GLOBAL_RUNNER = 'global';
 export const EXTERNAL_VERSION = 'installed_from_external_source';
 
-export type SelectedRunner = MobileRunnerListItem | typeof GLOBAL_RUNNER;
+export type SelectedRunner = Record | typeof GLOBAL_RUNNER;
 export type SelectedVersion = WalletVersionsResponse | typeof EXTERNAL_VERSION;
 
 export interface WalletActionStepData {
@@ -85,7 +81,6 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	foundWallets = $state<HubItem[]>([]);
 	foundVersions = $state<WalletVersionsResponse[]>([]);
-	foundRunners = $state<MobileRunnerListItem[]>([]);
 	foundActions = $state<WalletActionsResponse[]>([]);
 
 	walletSearch = new Search({
@@ -123,34 +118,8 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	//
 
 	runnerSearch = new Search({
-		onSearch: (text) => {
-			this.searchRunner(text);
-		}
+		onSearch: () => {}
 	});
-
-	async searchRunner(text: string) {
-		const organizationId = userOrganization.current?.id;
-		if (!organizationId) {
-			this.foundRunners = [];
-			return;
-		}
-
-		fetchAvailableForOrganization().match({
-			Rejected: (reason) => {
-				console.error(reason);
-			},
-			Resolved: (runners) => {
-				const search = text.trim().toLowerCase();
-				this.foundRunners = runners.filter((runner) => {
-					if (!search) return true;
-					return (
-						runner.name.toLowerCase().includes(search) ||
-						runner.runner_id.toLowerCase().includes(search)
-					);
-				});
-			}
-		});
-	}
 
 	selectRunner(runner: ExecutionTarget.Config['runner']) {
 		this.data.runner = runner;

@@ -863,9 +863,7 @@
                     "additionalProperties": true,
                     "type": "object"
                   },
-                  "expected_status": {
-                    "type": "integer"
-                  },
+                  "expected_status": true,
                   "headers": {
                     "additionalProperties": {
                       "type": "string"
@@ -874,6 +872,27 @@
                   },
                   "method": {
                     "type": "string"
+                  },
+                  "outputs": {
+                    "additionalProperties": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cookie": {
+                          "type": "string"
+                        },
+                        "regex": {
+                          "type": "string"
+                        },
+                        "selector": {
+                          "type": "string"
+                        },
+                        "xpath": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "object"
                   },
                   "query_params": {
                     "additionalProperties": {

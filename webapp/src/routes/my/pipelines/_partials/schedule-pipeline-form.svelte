@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { MobileRunnerListItem } from '$lib/pipeline/runners/utils';
+	import type { Record } from '$lib/pipeline/runner';
 
 	import { CalendarIcon } from '@lucide/svelte';
 	import { Pipeline } from '$lib';
@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let isOpen = $state(false);
 
-	const type = Pipeline.Runner.getType(pipeline);
+	const type = Pipeline.Runner.Binding.getType(pipeline);
 	const isGlobalRunner = type === 'global';
 
 	let schema = z.object({
@@ -74,10 +74,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const formData = form.form;
 
-	function onRunnerSelect(runner: MobileRunnerListItem) {
+	function onRunnerSelect(runner: Record) {
 		formData.update((v) => ({
 			...v,
-			global_runner_id: runner.runner_id
+			global_runner_id: runner.path
 		}));
 	}
 </script>

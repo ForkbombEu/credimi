@@ -925,6 +925,7 @@
 	"Configure_the_runner_for_this_pipeline": "Configure the runner for this pipeline",
 	"Current_runner": "Corrente runner",
 	"Runner_configuration_not_available": "Eseguiner configuration not available for pipelines with specific runner steps",
+	"Runner_status_checking": "Checking runner status…",
 	"Failed_to_enqueue_pipeline": "Non riuscito to enqueue pipeline",
 	"Pipeline_queued": "Pipeline queued (position {position})",
 	"Failed_to_cancel_pipeline": "Non riuscito to cancel pipeline",
