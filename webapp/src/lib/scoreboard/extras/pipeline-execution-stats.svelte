@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{ icon: CogIcon, count: stats.ci, label: m.Executed_via_ci() }
 	]);
 
-	const successClass = $derived(stats.percent >= 70 ? 'text-emerald-600' : undefined);
+	const successClass = $derived(stats.percent >= 70 ? 'text-emerald-600' : 'text-slate-600');
 </script>
 
 {#snippet successLine(className?: string)}
@@ -74,17 +74,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render modesLine('text-xs text-muted-foreground opacity-80')}
 	</div>
 {:else if layout === 'card-inline'}
-	<div class="flex gap-4">
-		<div>
-			<p class="pr-0.5 text-xs! capitalize">{m.Success_rate()}</p>
-			<p class={['font-bold', successClass]}>
-				{stats.successes}/{stats.total} ({stats.percent}%)
-			</p>
-		</div>
-		<div>
-			<p class="pr-0.5 text-xs!">{m.Execution_mode()}</p>
-			{@render modesLine('text-muted-foreground opacity-80', 'p')}
-		</div>
+	<div class="text-xs! text-muted-foreground">
+		<span class="pr-0.5 capitalize">{m.Success_rate()}</span>
+		<span class={['font-semibold', successClass]}>
+			{stats.successes}/{stats.total} ({stats.percent}%)
+		</span>
+		<span class="px-0.5">•</span>
+		<span class="pr-0.5">{m.Execution_mode()}</span>
+		{@render modesLine('text-slate-600 font-semibold', 'span')}
 	</div>
 {:else if layout === 'stat-box-success'}
 	<div class="flex h-20 w-[140px] flex-col items-start justify-between rounded-lg border p-3">

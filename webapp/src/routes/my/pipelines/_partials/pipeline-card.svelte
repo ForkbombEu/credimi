@@ -24,14 +24,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
 	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
-	import Separator from '@/components/ui/separator/separator.svelte';
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
 	import { type EnrichedSchedule } from './types';
@@ -110,6 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	content={showContent ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
 	publishAction={isPublic ? undefined : publishAction}
+	hideSeparator
 >
 	{#snippet nameRight()}
 		{#if isRunning}
@@ -163,12 +162,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet afterDescription()}
 	{#if scoreboardResults && hasSummary}
-		<Separator class="opacity-40" />
-		<div class="flex items-center justify-between gap-4">
+		<div class="flex items-start justify-between gap-4 pt-1">
 			<PipelineContentSummary results={scoreboardResults} />
-			{#if executionStats}
-				<PipelineExecutionStats stats={executionStats} layout="card-inline" />
-			{/if}
 		</div>
 	{:else}
 		<div
@@ -182,9 +177,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet content()}
 	<div class="space-y-3">
 		{#if workflows && workflows.length > 0}
-			<div class="space-y-3">
+			<div class="space-y-3 pt-5">
+				<Pipeline.Workflows.SmallTable {workflows} />
+
 				<div class="flex items-center justify-between gap-2">
-					<T class="shrink-0 text-sm font-medium">{m.Recent_workflows()}</T>
+					{#if executionStats}
+						<PipelineExecutionStats stats={executionStats} layout="card-inline" />
+					{/if}
 
 					<BlueButton
 						compact
@@ -196,8 +195,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<ArrowRightIcon />
 					</BlueButton>
 				</div>
-
-				<Pipeline.Workflows.SmallTable {workflows} />
 			</div>
 		{/if}
 	</div>

@@ -16,11 +16,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'mini';
+	type IconButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'mini';
 
 	interface Props extends Omit<ButtonProps, 'size'> {
 		icon?: IconComponent;
-		size?: ButtonSize;
+		size?: IconButtonSize;
 		tooltip?: string;
 		tooltipDelayDuration?: number;
 	}
@@ -28,9 +28,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let {
 		icon = X,
 		size = 'md',
+		variant = 'outline',
 		tooltip,
 		children,
 		tooltipDelayDuration,
+		class: className,
 		...rest
 	}: Props = $props();
 
@@ -41,28 +43,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		sizeClass: string;
 	};
 
-	const configs: Record<ButtonSize, ButtonConfig> = {
+	const configs: Record<IconButtonSize, ButtonConfig> = {
 		xs: {
 			iconSize: 14,
-			sizeClass: 'size-6'
+			sizeClass: '!size-6'
 		},
 		sm: {
 			iconSize: 16,
-			sizeClass: 'size-8'
+			sizeClass: '!size-8'
 		},
 		md: {
 			iconSize: 16,
-			sizeClass: 'size-9'
+			sizeClass: '!size-9'
 		},
 		lg: {
 			iconSize: 18,
-			sizeClass: 'size-12'
+			sizeClass: '!size-12'
 		},
 		mini: {
 			iconSize: 14,
-			sizeClass: 'size-5'
+			sizeClass: '!size-5'
 		}
 	};
+
+	const primitiveSizeByIconSize = {
+		mini: 'icon-sm',
+		xs: 'icon-sm',
+		sm: 'icon-sm',
+		md: 'icon',
+		lg: 'icon-lg'
+	} as const satisfies Record<IconButtonSize, NonNullable<ButtonProps['size']>>;
 
 	const currentConfig = $derived(configs[size]);
 </script>
@@ -80,14 +90,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet button()}
 	<Button
-		variant="outline"
 		{...rest}
-		size="icon"
+		{variant}
+		size={primitiveSizeByIconSize[size]}
 		class={[
 			'relative shrink-0',
 			{ 'rounded-xs': size === 'mini' },
 			currentConfig.sizeClass,
-			rest.class
+			className
 		]}
 	>
 		<Icon src={icon ?? X} size={currentConfig.iconSize} />
