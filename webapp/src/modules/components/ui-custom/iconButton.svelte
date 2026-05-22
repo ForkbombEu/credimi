@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { X } from '@lucide/svelte';
+	import { mergeProps } from 'bits-ui';
 
 	import type { IconComponent } from '../types';
 	import type { ButtonProps } from '../ui/button';
@@ -92,8 +93,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 {#snippet button(props: Record<string, unknown>)}
+	{@const mergedProps = mergeProps(rest, props)}
 	<Button
-		{...rest}
+		{...mergedProps}
 		{variant}
 		size={primitiveSizeByIconSize[size]}
 		class={[
@@ -102,7 +104,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			currentConfig.sizeClass,
 			className
 		]}
-		{...props}
 	>
 		<Icon src={icon ?? X} size={currentConfig.iconSize} />
 		{@render children?.()}

@@ -1,9 +1,10 @@
 ---
-title: Try Interop Flows
+title: Try Interop flows manually
 description: Test Wallet interoperability with third-party Issuers and Verifiers using Credimi.
 ---
 
-Conformance checks are structured suite-driven tests. Interop flows are closer to real operational testing between components.
+
+Interop flows are closer to real operational testing between components. Basically navigate the [Hub](https://credimi.io/hub), find an Issuer/Verifier, browse their content, open a Credential/verification Use Case and **use the QR Code with your phone**.
 
 Typical examples:
 
