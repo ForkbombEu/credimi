@@ -38,7 +38,10 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 		const previousStep = previousSteps
 			.toReversed()
-			.find((step) => step.use === 'credential-offer');
+			.find(
+				(step) =>
+					step.use === 'credential-offer' || step.use === 'use-case-verification-deeplink'
+			);
 		if (!previousStep) return;
 
 		serialized.credential_offer = formatLinkedId(previousStep);
