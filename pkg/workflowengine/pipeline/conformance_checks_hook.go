@@ -195,21 +195,19 @@ func resolveSuiteSetup(
 		if tVal, ok := tpl["test"].(string); ok {
 			testVal = tVal
 		}
-		extra["variant"] = string(variantJSON)
-		extra["form"] = form
 		extra["test"] = testVal
+		extra["parameters"] = map[string]any{
+			"variant": string(variantJSON),
+			"form":    form,
+		}
 		return extra, workflows.OpenIDNetStepCITemplatePathv1_0, nil
 
 	case "ewc":
-		if sID, ok := tpl["sessionId"].(string); ok {
-			extra["session_id"] = sID
-		}
+		extra["parameters"] = conformanceParametersFromTemplate(tpl, nil)
 		return extra, workflows.EWCTemplateFolderPath + "/" + checkName + ".yaml", nil
 
 	case "webuild":
-		if sID, ok := tpl["sessionId"].(string); ok {
-			extra["session_id"] = sID
-		}
+		extra["parameters"] = conformanceParametersFromTemplate(tpl, nil)
 		return extra, workflows.WebuildTemplateFolderPath + "/" + checkName + ".yaml", nil
 
 	case "eudiw":
@@ -227,6 +225,7 @@ func resolveSuiteSetup(
 			testVal = tVal
 		}
 		extra["test"] = testVal
+		extra["parameters"] = conformanceParametersFromTemplate(tpl, map[string]struct{}{"test": {}})
 		return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
 
 	default:
@@ -235,6 +234,20 @@ func resolveSuiteSetup(
 			fmt.Sprintf("missing or invalid suite for step %s", stepID),
 		)
 	}
+}
+
+func conformanceParametersFromTemplate(
+	tpl map[string]any,
+	excluded map[string]struct{},
+) map[string]any {
+	parameters := map[string]any{}
+	for key, value := range tpl {
+		if _, skip := excluded[key]; skip {
+			continue
+		}
+		parameters[key] = value
+	}
+	return parameters
 }
 
 func extractCredimiJSON(yamlContent string) (string, error) {

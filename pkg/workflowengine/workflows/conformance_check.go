@@ -143,23 +143,26 @@ type StartCheckWorkflow struct {
 var startCheckWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type StartCheckWorkflowPayload struct {
-	Suite           string `json:"suite"                      yaml:"suite"`
-	CheckID         string `json:"check_id"                   yaml:"check_id"                   validate:"required"`
-	Variant         string `json:"variant,omitempty"          yaml:"variant,omitempty"`
-	Form            *Form  `json:"form,omitempty"             yaml:"form,omitempty"`
-	TestName        string `json:"test,omitempty"             yaml:"test,omitempty"`
-	SessionID       string `json:"session_id,omitempty"       yaml:"session_id,omitempty"`
-	CredentialOffer string `json:"credential_offer,omitempty" yaml:"credential_offer,omitempty"`
-	UserMail        string `json:"user_mail"                  yaml:"user_mail"`
-	SendMail        bool   `json:"send_mail"                  yaml:"send_mail"`
+	Suite      string         `json:"suite"                      yaml:"suite"`
+	CheckID    string         `json:"check_id"                   yaml:"check_id"                   validate:"required"`
+	TestName   string         `json:"test,omitempty"             yaml:"test,omitempty"`
+	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
+	UserMail   string         `json:"user_mail"                  yaml:"user_mail"`
+	SendMail   bool           `json:"send_mail"                  yaml:"send_mail"`
 }
 
 type StartCheckWorkflowPipelinePayload struct {
-	CheckID         string `json:"check_id"                   yaml:"check_id"                   validate:"required"`
-	Form            *Form  `json:"form,omitempty"             yaml:"form,omitempty"`
-	TestName        string `json:"test,omitempty"             yaml:"test,omitempty"`
-	SessionID       string `json:"session_id,omitempty"       yaml:"session_id,omitempty"`
-	CredentialOffer string `json:"credential_offer,omitempty" yaml:"credential_offer,omitempty"`
+	CheckID    string         `json:"check_id"                   yaml:"check_id"                   validate:"required"`
+	TestName   string         `json:"test,omitempty"             yaml:"test,omitempty"`
+	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
+}
+
+func conformanceCheckParameters(payload StartCheckWorkflowPayload) map[string]any {
+	parameters := make(map[string]any, len(payload.Parameters))
+	for k, v := range payload.Parameters {
+		parameters[k] = v
+	}
+	return parameters
 }
 
 func NewStartCheckWorkflow() *StartCheckWorkflow {
@@ -187,7 +190,7 @@ func (w *StartCheckWorkflow) Workflow(
 // executeWorkflow starts the conformance check workflow.
 //
 // It takes the workflow input and starts the conformance check workflow.
-// The workflow input should contain the suite, check_id, variant, form, test and session_id.
+// The workflow input should contain the suite, check_id, variant, form, test and parameters.
 // The function first decodes the workflow input and checks if the required fields are present.
 // If not, it returns an error.
 // Then it runs the StepCIAndEmail function with the decoded input and returns the result.
@@ -217,63 +220,31 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	}
 	var stepCIPayload activities.StepCIWorkflowActivityPayload
 	var ewcSessionID string
+	parameters := conformanceCheckParameters(payload)
 	switch payload.Suite {
 	case OpenIDConformanceSuite:
-		if payload.Variant == "" {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
-				fmt.Errorf("variant is required for suite %s", payload.Suite),
-				input.RunMetadata,
-			)
-		}
-		if payload.Form == nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
-				fmt.Errorf("form is required for suite %s", payload.Suite),
-				input.RunMetadata,
-			)
-		}
 		if payload.TestName == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("test is required for suite %s", payload.Suite),
 				input.RunMetadata,
 			)
 		}
-		stepCIPayload.Data = map[string]any{
-			"variant": payload.Variant,
-			"form":    *payload.Form,
-			"test":    payload.TestName,
-		}
+		stepCIPayload.Data = parameters
+		stepCIPayload.Data["test"] = payload.TestName
 		stepCIPayload.Secrets = map[string]string{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		}
 	case EWCSuite, WebuildSuite:
-		if payload.SessionID == "" {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
-				fmt.Errorf("session_id is required for suite %s", payload.Suite),
-				input.RunMetadata,
-			)
-		}
-
-		stepCIPayload.Data = map[string]any{
-			"session_id": payload.SessionID,
-		}
-		ewcSessionID = payload.SessionID
+		stepCIPayload.Data = parameters
 	case OpenID4VCIIssuerSuite:
-		if payload.CredentialOffer == "" {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
-				fmt.Errorf("credential_offer is required for suite %s", payload.Suite),
-				input.RunMetadata,
-			)
-		}
 		if payload.TestName == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("test is required for suite %s", payload.Suite),
 				input.RunMetadata,
 			)
 		}
-		stepCIPayload.Data = map[string]any{
-			"credential_offer": payload.CredentialOffer,
-			"test":             payload.TestName,
-		}
+		stepCIPayload.Data = parameters
+		stepCIPayload.Data["test"] = payload.TestName
 		stepCIPayload.Secrets = map[string]string{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		}
@@ -378,6 +349,14 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"deeplink",
+				setupResult.Captures,
+				input.RunMetadata,
+			)
+		}
+		ewcSessionID, ok = setupResult.Captures["session_id"].(string)
+		if !ok || ewcSessionID == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+				"session_id",
 				setupResult.Captures,
 				input.RunMetadata,
 			)

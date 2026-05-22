@@ -54,9 +54,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 		{
 			name: "succeeds when polling reaches FINISHED with PASSED result",
 			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
+				UserMail:   "tester@example.org",
+				TestName:   "happy-flow",
 			},
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
@@ -124,9 +124,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 		{
 			name: "returns OpenID4VCIIssuerCheckFailed error when polling reaches FINISHED with FAILED result",
 			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
+				UserMail:   "tester@example.org",
+				TestName:   "happy-flow",
 			},
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
@@ -185,9 +185,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 		{
 			name: "returns error when StepCI activity fails",
 			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
+				UserMail:   "tester@example.org",
+				TestName:   "happy-flow",
 			},
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
@@ -205,9 +205,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 		{
 			name: "returns error when polling activity fails",
 			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
+				UserMail:   "tester@example.org",
+				TestName:   "happy-flow",
 			},
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
@@ -247,9 +247,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 		{
 			name: "returns error when StepCI output is missing captures",
 			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
+				UserMail:   "tester@example.org",
+				TestName:   "happy-flow",
 			},
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
@@ -269,9 +269,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 		{
 			name: "returns error when StepCI output is missing runner_id",
 			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
+				UserMail:   "tester@example.org",
+				TestName:   "happy-flow",
 			},
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
@@ -292,23 +292,11 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			errorContains: "runner_id",
 		},
 		{
-			name: "returns error when credential_offer is missing",
-			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
-			},
-			config:        baseConfig,
-			mockActivity:  func(_ *testsuite.TestWorkflowEnvironment) {},
-			expectErr:     true,
-			errorContains: "CredentialOffer",
-		},
-		{
 			name: "returns error when template config is missing",
 			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
+				UserMail:   "tester@example.org",
+				TestName:   "happy-flow",
 			},
 			config: map[string]any{
 				"app_url":   "https://test-app.com",
@@ -325,9 +313,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 		{
 			name: "returns error when app_url config is empty",
 			payload: OpenID4VCIIssuerWorkflowPayload{
-				CredentialOffer: "openid-credential-offer://...",
-				UserMail:        "tester@example.org",
-				TestName:        "happy-flow",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
+				UserMail:   "tester@example.org",
+				TestName:   "happy-flow",
 			},
 			config: map[string]any{
 				"app_url":   "", // empty triggers the guard in ExecuteWorkflow

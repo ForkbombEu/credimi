@@ -1,4 +1,4 @@
-credential_offer: >-
+deeplink: >-
     {{
 
        credimi `
@@ -6,7 +6,7 @@ credential_offer: >-
             "credimi_id": "oid4vci_issuer_fail_unsupported_encryption_algorithm_credential_offer",
             "field_default_value": "",
             "field_description": "i18n_credential_offer_description",
-            "field_id": "credential_offer",
+            "field_id": "deeplink",
             "field_label": "i18n_credential_offer",
             "field_options": [],
             "field_type": "string"
