@@ -20,7 +20,7 @@ Open a credential page and look for the generated QR code or deeplink.
 
 #### Try from mobile
 
-You can browse the Hub and open a Credential or Use Case Verification straight from your mobile phone. You can **click on the deeplink** to open your EUDI Wallet:
+You can browse the Hub and open a Credential or Use Case Verification straight from your mobile phone. You can **click on the deeplink** or **click on QR code** to open your EUDI Wallet:
 
 
 ![Credential_mobile](../images/marketplace-credential-mobile1.png)
