@@ -3,7 +3,15 @@ title: Run Conformance Checks
 description: Start conformance checks from the web GUI and inspect the resulting test runs.
 ---
 
-Credimi lets logged-in users run conformance checks against supported profiles and suites.
+Credimi lets logged-in users to also **run conformance checks manually** against supported profiles and suites.
+
+You can access the Manual Conformance Checks from:
+
+ - Developer dashboard > (Tools) Manual Conformance Checks  (all the checks)
+ - The checks that do not require a setup (e.g. WE BUILD), can be accessed directly in the [Hub](https://credimi.io/hub?tab=conformance-checks)
+
+
+
 
 ![Select test suites](../images/credimiChecksSelectTests2.png)
 
