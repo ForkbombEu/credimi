@@ -25,12 +25,22 @@ In Credimi we use StepCI to:
 * Pass the deeplinks to **Maestro** for mobile wallet automation
 * Publish the same flows as **QR codes in the Hub** for **manual interoperability testing**
 
+:::note
+Always use:
+
+	env:  
+		host:  (url | mandatory )
+		body:  (request body | optional )
+ 
+as the examples below in the StepCI configuration, to setup the base url (and the body, if needed) of the service you're calling. This will help further automation at a later point.
+:::
+
 
 ---
 ## OpenID4VCI examples
 
 
-### 1) OpenID4VCI — Get Credential Offer (POST)
+### OpenID4VCI — Get Credential Offer (POST)
 
 Use this when the Issuer does **not** expose a static `.well-known` and generates a new session for each credential offer.
 
@@ -41,7 +51,7 @@ version: "1.0"
 name: "VID Identity – issuance-pre-auth"
 
 env:
-  base_url: "https://labs-openid-interop.vididentity.net"
+  host: https://labs-openid-interop.vididentity.net/api/issuance-pre-auth
 
 tests:
   VID-Identity: 
@@ -49,7 +59,7 @@ tests:
       - name: "Create pre-auth issuance"
         http:
           method: POST
-          url: ${{ env.base_url }}/api/issuance-pre-auth
+          url: ${{ env.host }}
           headers:
             accept: "application/json, text/plain, */*"
           json:
@@ -64,15 +74,12 @@ tests:
           captures:
             deeplink:
               jsonpath: $.rawCredentialOffer
-            qr:
-              jsonpath: $.qrBase64
-            sessionId:
-              jsonpath: $.sessionId
+     
 ```
 
 ---
 
-### 2) OpenID4VCI — Get Credential Offer (GET)
+### OpenID4VCI — Get Credential Offer (GET)
 
 Use this when the Issuer provides a direct `request_uri` to fetch the offer. 
 
@@ -83,22 +90,22 @@ This example integrates with the [https://issuer.procivis.pensiondemo.findy.fi/]
 version: "1.0"
 name: "Findynet/Procivis"
 env:
-  base_url: https://issuer.procivis.pensiondemo.findy.fi
+  host: https://issuer.procivis.pensiondemo.findy.fi
 tests:
   procivis-get-credential:
     steps:
       - name: "Get rehabilitation pension credential"
         http:
           method: GET
-          url: ${{ env.base_url }}/pensioncredential-rehabilitation.json
+          url: ${{ env.host }}/pensioncredential-rehabilitation.json
           captures:
            deeplink:
-             jsonpath: $
+             body: true
 ```
 
 ---
 
-### 3) OpenID4VCI — Decode QR (PNG)
+### OpenID4VCI — Decode QR (PNG)
 
 Some issuers show a **QR** with the offer. Use StepCI with a QR decoder service to extract the deeplink. This is the most tricky case as (currently) we **need to use a 3rd party REST API to read the content of the QR**.
 
@@ -106,13 +113,17 @@ This example read the QR from: [https://ewc.pre.vc-dts.sicpa.com/demo/fakephotoi
 
 ```yaml
 version: "1.1"
-name: "Sicpa Test Issuer"
+name: Sicpa Test Issuer
+
+env:
+  host: https://ewc.pre.vc-dts.sicpa.com/api/fetchIssuanceQrCode?attributes[surname]=Matkalainen&attributes[given_name]=Hannah
+
 tests:
   get-deeplink:
     steps:
       - name: get deeplink code
         http:
-          url: https://ewc.pre.vc-dts.sicpa.com/api/fetchIssuanceQrCode?attributes[surname]=Matkalainen&attributes[given_name]=Hannah
+          url: ${{ env.host }}
           method: GET
           captures:
             deeplink:
@@ -130,11 +141,38 @@ tests:
               jsonpath: $.qrcode_content
 ```
 
+### OpenID4VCI — read deeplink from html body
+
+Some issuers show the in the body of an HTML page. You can navigate the DOM using *deeplink.xpath* to find the element you're looking for.
+
+
+```yaml
+version: "1.1"
+name: Captures
+env:
+  host: https://issuer-backend.eudiw.dev/issuer/credentialsOffer/generate
+  body: "credentialIds=eu.europa.ec.eudi.pid_vc_sd_jwt&credentialsOfferUri=openid-credential-offer%3A%2F%2F"
+tests:
+  example:
+    steps:
+      - name: Post the post
+        http:
+          url: ${{env.host}}
+          method: POST
+          headers:
+            Content-Type: application/x-www-form-urlencoded
+          body: ${{env.body}}
+          check:
+            status: /^20/
+          captures:
+            deeplink:
+              xpath: /html/body/main/div/div[5]/div[2]/div/code
+```
 ---
 
 ## OpenID4VP examples
 
-### 4) OpenID4VP — Get Presentation Request (POST)
+### OpenID4VP — Get Presentation Request (POST)
 
 Use this to create a **presentation request** (often session‑based) and capture the `openid4vp://...` deeplink.
 
@@ -167,7 +205,7 @@ tests:
               jsonpath: $.sessionId
 ```
 
-### 5) OpenID4VP — Get Presentation Request (POST)
+### OpenID4VP — Get Presentation Request (POST)
 
 Use this to create a **presentation request** (often session‑based) and capture the `openid4vp://...` deeplink.
 
@@ -175,32 +213,29 @@ The example below integrates with the "Rent a car" verification on [https://funk
 
 ```yaml
 version: "1.0"
-
-name: "Funke Animo - Government ID verification"
+name: "VID Identity – issuance-pre-auth"
 
 env:
-  base_url: "https://funke.animo.id"
+  host: "https://labs-openid-interop.vididentity.net"
 
 tests:
-  Animo-rent-a-car:
+  VID-Identity–issuance-pre-auth:
     steps:
       - name: "Create pre-auth issuance"
         http:
           method: POST
-          url: ${{ env.base_url }}/api/requests/create
+          url: ${{ env.host }}/api/presentations
           headers:
             accept: "application/json, text/plain, */*"
           json:
-            presentationDefinitionId: 019368ed-3787-7669-b7f4-8c012238e90d__3
-            requestScheme: 'openid4vp://'
-            responseMode: direct_post.jwt
-            requestSignerType: x5c
-            transactionAuthorizationType: none
-            version: v1.draft24
-            queryLanguage: dcql          
+            scope: "SDJWTCredential"
           captures:
             deeplink:
-              jsonpath: $.authorizationRequestUri
+              jsonpath: $.rawOpenid4vp
+            qr:
+              jsonpath: $.qrBase64
+            sessionId:
+              jsonpath: $.sessionId
 ```
 
 
