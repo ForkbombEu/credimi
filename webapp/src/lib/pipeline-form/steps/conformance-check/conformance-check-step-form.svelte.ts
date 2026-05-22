@@ -6,7 +6,7 @@ import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/s
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
-import { BaseForm } from '../types';
+import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
 
 //
@@ -25,6 +25,21 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	);
 
 	data = $state<Partial<FormData>>({});
+
+	constructor(opts?: InitFormOptions<FormData>) {
+		super(opts);
+		if (opts?.initial) {
+			this.data = { ...opts.initial };
+		}
+	}
+
+	canSave() {
+		return this.state === 'ready';
+	}
+
+	getSubmitData() {
+		return this.state === 'ready' ? (this.data as FormData) : undefined;
+	}
 
 	state: FormState = $derived.by(() => {
 		const { standard, version, suite, test } = this.data;
@@ -78,7 +93,14 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	}
 
 	selectTest(test: Test) {
-		this.handleSubmit({ ...this.data, test } as FormData);
+		this.data.test = test;
+		if (this.intent === 'add') {
+			this.commit({ ...this.data, test } as FormData);
+		}
+	}
+
+	discardTest() {
+		this.data.test = undefined;
 	}
 
 	//

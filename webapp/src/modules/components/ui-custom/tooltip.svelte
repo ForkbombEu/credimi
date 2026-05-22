@@ -11,18 +11,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		children?: Snippet;
+		child?: Snippet<[{ props: Record<string, unknown> }]>;
 		content?: Snippet;
 		delayDuration?: number;
+		disabled?: boolean;
 	};
 
-	let { children, content, delayDuration = 500 }: Props = $props();
+	let { children, child, content, delayDuration = 500, disabled = false }: Props = $props();
 </script>
 
-<Tooltip.Provider {delayDuration}>
-	<Tooltip.Root>
-		<Tooltip.Trigger>{@render children?.()}</Tooltip.Trigger>
-		<Tooltip.Content>
-			{@render content?.()}
-		</Tooltip.Content>
-	</Tooltip.Root>
-</Tooltip.Provider>
+{#if disabled}
+	{@render children?.()}
+	{@render child?.({ props: {} })}
+{:else}
+	<Tooltip.Provider {delayDuration}>
+		<Tooltip.Root>
+			{#if child}
+				<Tooltip.Trigger {child} />
+			{:else if children}
+				<Tooltip.Trigger>{@render children()}</Tooltip.Trigger>
+			{/if}
+
+			<Tooltip.Content>
+				{@render content?.()}
+			</Tooltip.Content>
+		</Tooltip.Root>
+	</Tooltip.Provider>
+{/if}

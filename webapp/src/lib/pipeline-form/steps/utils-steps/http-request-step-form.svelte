@@ -51,7 +51,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<PlaceholderButtons />
 
-	<Button class="w-full" disabled={!form.isValid} onclick={() => form.submit()}>
-		<T>{m.Add_step()}</T>
-	</Button>
+	{#if form.intent === 'add'}
+		<Button class="w-full" disabled={!form.isValid} onclick={() => form.submit()}>
+			<T>{m.Add_step()}</T>
+		</Button>
+	{/if}
 </div>

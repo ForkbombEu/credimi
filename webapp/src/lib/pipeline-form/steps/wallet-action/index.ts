@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Wallet } from '$lib';
+import type { Record } from '$lib/pipeline/runner';
+
+import { Pipeline, Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import { getHubItemLogo, getHubItemUrl, type HubItem } from '$lib/hub';
-import { fetchAvailableRunners, type MobileRunnerListItem } from '$lib/pipeline/runners/utils';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -23,7 +24,6 @@ import type { TypedConfig } from '../types';
 import { getLastPathSegment } from '../_partials/misc';
 import { formatLinkedId } from '../utils.js';
 import CardDetailsComponent from './card-details.svelte';
-import EditComponent from './edit-component.svelte';
 import {
 	EXTERNAL_VERSION,
 	getRunnerLabel,
@@ -43,7 +43,6 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	display: entities.wallets,
 
 	CardDetailsComponent,
-	EditComponent,
 
 	cardData: ({ action, wallet, version, runner }) => {
 		let publicUrl = getHubItemUrl(wallet);
@@ -71,7 +70,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		return getLastPathSegment(data.action_id);
 	},
 
-	initForm: () => new WalletActionStepForm(),
+	initForm: (opts) => new WalletActionStepForm(opts),
 
 	serialize: ({ action, version, runner }) => {
 		type StepData = PipelineStepData<PipelineStepByType<'mobile-automation'>>;
@@ -80,7 +79,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			version_id: version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(version)
 		};
 		if (runner !== GLOBAL_RUNNER) {
-			_with.runner_id = runner.runner_id;
+			_with.runner_id = runner.path;
 		}
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
@@ -132,22 +131,23 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 		let runner: SelectedRunner = GLOBAL_RUNNER;
 		if (data.runner_id !== GLOBAL_RUNNER && data.runner_id) {
+			const path = data.runner_id;
 			const fallbackRunner = {
-				mine: false,
-				name: getLastPathSegment(data.runner_id),
-				online: false,
-				published: false,
-				runner_id: data.runner_id
-			} satisfies MobileRunnerListItem;
+				name: getLastPathSegment(path),
+				path,
+				isOwned: false,
+				isPublished: false,
+				isOnline: false
+			} satisfies Record;
 
-			try {
-				runner =
-					(await fetchAvailableRunners()).find(
-						(item) => item.runner_id === data.runner_id
-					) ?? fallbackRunner;
-			} catch {
-				runner = fallbackRunner;
-			}
+			await Pipeline.Runner.fetchRecords().match({
+				Rejected: () => {
+					runner = fallbackRunner;
+				},
+				Resolved: (runners) => {
+					runner = runners.find((item) => item.path === path) ?? fallbackRunner;
+				}
+			});
 		}
 
 		const wallet: HubItem = await pb.collection('hub_items').getOne(action.wallet);

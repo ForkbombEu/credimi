@@ -64,6 +64,7 @@ func Setup(app *pocketbase.PocketBase) {
 	canonify.RegisterCanonifyHooks(app)
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)
+	apis.HookTurnstileVerification(app)
 	logo.LogoHooks(app)
 	walletversions.WalletVersionHooks(app)
 	// apis.IssuersRoutes.Add(app)

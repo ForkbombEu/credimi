@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Globe, Mail } from '@lucide/svelte';
+import config from '$config';
 
 import { m } from '@/i18n';
 
@@ -31,6 +32,7 @@ const utilsEntity = {
 
 export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 	use: 'email',
+	docsUrl: config.externalLinks.docs.pipeline.utils,
 
 	display: {
 		...utilsEntity,
@@ -41,7 +43,7 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 		}
 	},
 
-	initForm: () => new EmailStepForm(),
+	initForm: (opts) => new EmailStepForm(opts),
 
 	serialize: (data) => ({
 		recipient: data.recipient,
@@ -74,6 +76,7 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 
 export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormData> = {
 	use: 'http-request',
+	docsUrl: config.externalLinks.docs.pipeline.utils,
 
 	display: {
 		...utilsEntity,
@@ -84,7 +87,7 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 		}
 	},
 
-	initForm: () => new HttpRequestStepForm(),
+	initForm: (opts) => new HttpRequestStepForm(opts),
 
 	serialize: (data) => {
 		let bodyValue: unknown = undefined;

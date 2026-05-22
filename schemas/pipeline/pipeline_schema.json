@@ -29,6 +29,45 @@
         }
       },
       "type": "object"
+    },
+    "FinallyStep": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_options": {
+          "$ref": "#/$defs/ActivityOptions"
+        },
+        "id": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "use": {
+          "enum": [
+            "email",
+            "http-request"
+          ],
+          "type": "string"
+        },
+        "with": {
+          "additionalProperties": true,
+          "properties": {
+            "config": {
+              "type": "object"
+            },
+            "payload": {
+              "type": "object"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "use",
+        "with"
+      ],
+      "type": "object"
     }
   },
   "$id": "https://github.com/forkbombeu/credimi/pkg/workflowengine/pipeline/workflow-definition",
@@ -39,69 +78,38 @@
       "type": "object"
     },
     "finally": {
-      "items": {
-        "additionalProperties": false,
-        "properties": {
-          "activity_options": {
-            "additionalProperties": false,
-            "properties": {
-              "retry_policy": {
-                "additionalProperties": false,
-                "properties": {
-                  "backoff_coefficient": {
-                    "type": "number"
-                  },
-                  "initial_interval": {
-                    "type": "string"
-                  },
-                  "maximum_attempts": {
-                    "type": "integer"
-                  },
-                  "maximum_interval": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              },
-              "schedule_to_close_timeout": {
-                "type": "string"
-              },
-              "start_to_close_timeout": {
-                "type": "string"
-              }
-            },
-            "type": "object"
+      "oneOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/FinallyStep"
           },
-          "id": {
-            "type": "string"
-          },
-          "metadata": {
-            "type": "object"
-          },
-          "use": {
-            "type": "string"
-          },
-          "with": {
-            "additionalProperties": false,
-            "properties": {
-              "config": {
-                "type": "object"
-              },
-              "payload": {
-                "type": "object"
-              }
-            },
-            "type": "object"
-          }
+          "type": "array"
         },
-        "required": [
-          "id",
-          "use",
-          "with"
-        ],
-        "type": "object"
-      },
-      "type": "array"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "always": {
+              "items": {
+                "$ref": "#/$defs/FinallyStep"
+              },
+              "type": "array"
+            },
+            "on_failure": {
+              "items": {
+                "$ref": "#/$defs/FinallyStep"
+              },
+              "type": "array"
+            },
+            "on_success": {
+              "items": {
+                "$ref": "#/$defs/FinallyStep"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      ]
     },
     "name": {
       "type": "string"
@@ -855,9 +863,7 @@
                     "additionalProperties": true,
                     "type": "object"
                   },
-                  "expected_status": {
-                    "type": "integer"
-                  },
+                  "expected_status": true,
                   "headers": {
                     "additionalProperties": {
                       "type": "string"
@@ -866,6 +872,27 @@
                   },
                   "method": {
                     "type": "string"
+                  },
+                  "outputs": {
+                    "additionalProperties": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cookie": {
+                          "type": "string"
+                        },
+                        "regex": {
+                          "type": "string"
+                        },
+                        "selector": {
+                          "type": "string"
+                        },
+                        "xpath": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "object"
                   },
                   "query_params": {
                     "additionalProperties": {

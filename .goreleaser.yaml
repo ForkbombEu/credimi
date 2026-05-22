@@ -65,11 +65,10 @@ sboms:
 # https://goreleaser.com/customization/sign
 signs:
   - cmd: cosign
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
-      - "--output-certificate=${certificate}"
-      - "--output-signature=${signature}"
+      - "--bundle=${signature}"
       - "${artifact}"
       - "--yes" # needed on cosign 2.0.0+
     artifacts: checksum

@@ -47,15 +47,15 @@ type ListMobileRunnersPublicResponseSchema struct {
 
 type MobileRunnerListItem struct {
 	Name        string                     `json:"name"`
-	RunnerID    string                     `json:"runner_id"`
-	RunnerURL   string                     `json:"runner_url,omitempty"`
+	Path        string                     `json:"path"`
+	URL         string                     `json:"url,omitempty"`
 	Description string                     `json:"description,omitempty"`
 	Type        string                     `json:"type,omitempty"`
-	Published   bool                       `json:"published"`
-	Mine        bool                       `json:"mine"`
-	Online      bool                       `json:"online"`
+	IsPublished bool                       `json:"is_published"`
+	IsOwned     bool                       `json:"is_owned"`
+	IsOnline    bool                       `json:"is_online"`
 	Devices     []MobileRunnerHealthDevice `json:"devices,omitempty"`
-	QueueLen    *int                       `json:"queue_len,omitempty"`
+	QueueLength *int                       `json:"queue_length,omitempty"`
 }
 
 type MobileRunnerHealthDevice struct {
@@ -199,13 +199,13 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 		sort.SliceStable(response.Runners, func(i, j int) bool {
 			left := response.Runners[i]
 			right := response.Runners[j]
-			if left.Mine != right.Mine {
-				return left.Mine
+			if left.IsOwned != right.IsOwned {
+				return left.IsOwned
 			}
-			if left.Online != right.Online {
-				return left.Online
+			if left.IsOnline != right.IsOnline {
+				return left.IsOnline
 			}
-			return left.RunnerID < right.RunnerID
+			return left.Path < right.Path
 		})
 
 		return e.JSON(http.StatusOK, response)
@@ -257,15 +257,15 @@ func mobileRunnerListItem(
 
 	item := MobileRunnerListItem{
 		Name:        record.GetString("name"),
-		RunnerID:    runnerID,
+		Path:        runnerID,
 		Description: record.GetString("description"),
-		Published:   record.GetBool("published"),
-		Mine:        callerOrgID != "" && record.GetString("owner") == callerOrgID,
-		Online:      online,
+		IsPublished: record.GetBool("published"),
+		IsOwned:     callerOrgID != "" && record.GetString("owner") == callerOrgID,
+		IsOnline:    online,
 	}
 
 	if includeDetails {
-		item.RunnerURL = runnerURL
+		item.URL = runnerURL
 		item.Type = record.GetString("type")
 		item.Devices = devices
 	}
@@ -275,7 +275,7 @@ func mobileRunnerListItem(
 		if apiErr != nil {
 			return MobileRunnerListItem{}, apiErr
 		}
-		item.QueueLen = &queueLen
+		item.QueueLength = &queueLen
 	}
 
 	return item, nil

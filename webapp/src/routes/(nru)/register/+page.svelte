@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod/v3';
 
@@ -19,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { goto, m } from '@/i18n';
 	import { OrganizationInviteSession } from '@/organizations/invites';
 	import { pb } from '@/pocketbase';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	//
 
@@ -32,16 +34,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})
 		.refine((data) => data.password === data.passwordConfirm, m.PASSWORDS_DO_NOT_MATCH());
 
+	let captchaToken = $state('');
+	let captchaError = $state('');
+	let turnstileContainer = $state<HTMLDivElement>();
+	let turnstileWidgetId = $state('');
+
 	const form = createForm({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
 			const { data } = form;
+			if (!captchaToken) {
+				captchaError = m.Please_complete_the_captcha();
+				return;
+			}
+			captchaError = '';
 			const u = pb.collection('users');
-			await u.create(data);
+			await u.create(data, {
+				headers: { 'X-Turnstile-Token': captchaToken }
+			});
 			await u.authWithPassword(data.email, data.password);
 			await u.requestVerification(data.email);
 			WelcomeSession.start();
 			await goto('/my');
+		},
+		onError: () => {
+			captchaToken = '';
+			captchaError = m.Please_complete_the_captcha();
+			if (turnstileWidgetId && (window as any).turnstile) {
+				(window as any).turnstile.reset(turnstileWidgetId);
+			}
 		}
 	});
 
@@ -59,6 +80,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let disableEmail = $derived(
 		$featureFlags.ORGANIZATIONS && OrganizationInviteSession.isActive()
 	);
+
+	onMount(() => {
+		const script = document.createElement('script');
+		script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+		script.async = true;
+		script.defer = true;
+		script.onload = () => {
+			if (turnstileContainer && (window as any).turnstile) {
+				turnstileWidgetId = (window as any).turnstile.render(turnstileContainer, {
+					sitekey: PUBLIC_TURNSTILE_SITE_KEY,
+					callback: (token: string) => {
+						captchaToken = token;
+						captchaError = '';
+					},
+					theme: 'auto'
+				});
+			}
+		};
+		document.head.appendChild(script);
+	});
 </script>
 
 {#if $featureFlags.ORGANIZATIONS}
@@ -128,6 +169,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder: '•••••'
 		}}
 	/>
+
+	<div bind:this={turnstileContainer} class="mb-4 flex justify-center"></div>
+
+	{#if captchaError}
+		<p class="mb-4 text-sm text-red-600 dark:text-red-400">{captchaError}</p>
+	{/if}
 
 	<CheckboxField {form} name="acceptTerms">
 		<span class="leading-snug">

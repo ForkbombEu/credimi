@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
 
-	import { ArrowLeftIcon } from '@lucide/svelte';
+	import { HelpCircle, XIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import { String } from 'effect';
@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import * as Resizable from '@/components/ui/resizable/index.js';
 	import { m } from '@/i18n';
 
@@ -32,24 +33,55 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { self: builder }: SelfProp<StepsBuilder> = $props();
 
 	const { debugEntityData } = steps;
+
+	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
+	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
+	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
+	const stepDocsUrl = $derived(formMode?.config.docsUrl);
 </script>
 
 <Resizable.PaneGroup direction="horizontal" class="gap-2">
-	<Column title="Add step">
+	<Column title={columnTitle}>
 		{#if builder.mode.id == 'idle'}
 			{@render stepButtons()}
 		{:else if builder.mode.id == 'form'}
 			<div class="flex grow flex-col" in:fly>
 				<Render item={builder.mode.form} />
+				{#if formMode?.intent === 'edit'}
+					<div class="mt-auto border-t p-4">
+						<Button
+							class="w-full"
+							disabled={!formMode.form.canSave()}
+							onclick={() => formMode.form.commit()}
+						>
+							{m.Save()}
+						</Button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
 		{#snippet titleRight()}
 			{#if builder.mode.id == 'form'}
-				<Button variant="link" class="h-6 !p-0" onclick={() => builder.exitFormState()}>
-					<ArrowLeftIcon />
-					{m.Back()}
-				</Button>
+				<div class="flex items-center gap-1">
+					{#if stepDocsUrl}
+						<IconButton
+							variant="outline"
+							href={stepDocsUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							icon={HelpCircle}
+							size="xs"
+							tooltip={m.Documentation()}
+						/>
+					{/if}
+					<IconButton
+						variant="outline"
+						onclick={() => builder.exitFormState()}
+						icon={XIcon}
+						size="xs"
+					/>
+				</div>
 			{/if}
 		{/snippet}
 	</Column>
@@ -65,7 +97,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="space-y-3 p-4">
 				{#each builder.steps as step, index (step)}
 					<div animate:flip={{ duration: 300 }}>
-						<StepCard {builder} {step} {index} />
+						<StepCard {builder} {step} {index} editing={editingIndex === index} />
 					</div>
 				{/each}
 			</div>

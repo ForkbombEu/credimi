@@ -125,9 +125,73 @@ func generatePipelineSchema() (map[string]any, error) {
 	}
 	schemaMap["$defs"] = map[string]any{
 		"ActivityOptions": activityOptionsMap,
+		"FinallyStep":     generateFinallyStepSchema(),
+	}
+
+	if properties, ok := schemaMap["properties"].(map[string]any); ok {
+		properties["finally"] = generateFinallyDefinitionSchema()
 	}
 
 	return schemaMap, nil
+}
+
+func generateFinallyStepSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"id", "use", "with"},
+		"properties": map[string]any{
+			"id": map[string]any{
+				"type": "string",
+			},
+			"use": map[string]any{
+				"type": "string",
+				"enum": []string{"email", "http-request"},
+			},
+			"with": map[string]any{
+				"type":                 "object",
+				"additionalProperties": true,
+				"properties": map[string]any{
+					"config": map[string]any{
+						"type": "object",
+					},
+					"payload": map[string]any{
+						"type": "object",
+					},
+				},
+			},
+			"activity_options": map[string]any{
+				"$ref": "#/$defs/ActivityOptions",
+			},
+			"metadata": map[string]any{
+				"type": "object",
+			},
+		},
+	}
+}
+
+func generateFinallyDefinitionSchema() map[string]any {
+	steps := map[string]any{
+		"type": "array",
+		"items": map[string]any{
+			"$ref": "#/$defs/FinallyStep",
+		},
+	}
+
+	return map[string]any{
+		"oneOf": []map[string]any{
+			steps,
+			{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"always":     steps,
+					"on_success": steps,
+					"on_failure": steps,
+				},
+			},
+		},
+	}
 }
 
 func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) map[string]any {

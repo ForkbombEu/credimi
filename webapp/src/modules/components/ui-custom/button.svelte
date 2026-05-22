@@ -12,9 +12,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { class: className, href, children, ...restProps }: ButtonProps = $props();
 
 	const properHref = $derived.by(() => {
-		if (href?.startsWith('#')) return href;
-		else if (typeof href === 'string') return localizeHref(href);
-		return undefined;
+		if (!href || href.startsWith('#')) return href;
+		if (/^https?:\/\//i.test(href)) return href;
+		return localizeHref(href);
 	});
 </script>
 

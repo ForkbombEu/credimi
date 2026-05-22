@@ -133,6 +133,10 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	state := newPipelineExecutionState(workflowID, runID)
+	if hasMobileAutomationStep(wfDef.Steps) {
+		state.finalOutput["result_video_warning"] = "Video recordings are limited to 30 minutes. " +
+			"Tests exceeding this duration may result in an incomplete video."
+	}
 
 	runData := map[string]any{
 		"run_identifier": getPipelineRunIdentifier(
@@ -249,7 +253,9 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	result = workflowengine.WorkflowResult{
-		Output: state.finalOutput,
+		WorkflowID:    workflowID,
+		WorkflowRunID: runID,
+		Output:        state.finalOutput,
 	}
 	return result, finalErr
 }
@@ -270,10 +276,17 @@ func newPipelineExecutionState(workflowID string, runID string) *pipelineExecuti
 		finalOutput: map[string]any{
 			"workflow-id":     workflowID,
 			"workflow-run-id": runID,
-			"result_video_warning": "Video recordings are limited to 30 minutes. " +
-				"Tests exceeding this duration may result in an incomplete video.",
 		},
 	}
+}
+
+func hasMobileAutomationStep(steps []pipeline.StepDefinition) bool {
+	for _, step := range steps {
+		if step.Use == mobileAutomationStepUse {
+			return true
+		}
+	}
+	return false
 }
 
 func wrapWorkflowCancellationError(
@@ -919,7 +932,7 @@ func ExecuteEventStepsOnSuccess(
 
 func runFinallySteps(
 	ctx workflow.Context,
-	finallySteps []pipeline.FinallyStepDefinition,
+	finallyDef pipeline.FinallyDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	payload map[string]any,
@@ -931,6 +944,7 @@ func runFinallySteps(
 	logger log.Logger,
 	errorList *[]error,
 ) {
+	finallySteps := finallyStepsForResult(finallyDef, finalResult)
 	if len(finallySteps) == 0 {
 		return
 	}
@@ -969,13 +983,28 @@ func runFinallySteps(
 	}
 }
 
-func ValidateFinallySteps(finallySteps []pipeline.FinallyStepDefinition) error {
+func finallyStepsForResult(
+	finallyDef pipeline.FinallyDefinition,
+	finalResult string,
+) []pipeline.FinallyStepDefinition {
+	steps := make([]pipeline.FinallyStepDefinition, 0, len(finallyDef.Always))
+	steps = append(steps, finallyDef.Always...)
+	if finalResult == resultSuccess {
+		steps = append(steps, finallyDef.OnSuccess...)
+	}
+	if finalResult == resultFailed {
+		steps = append(steps, finallyDef.OnFailure...)
+	}
+	return steps
+}
+
+func ValidateFinallySteps(finallyDef pipeline.FinallyDefinition) error {
 	allowedTypes := map[string]bool{
 		"email":            true,
 		httpRequestStepUse: true,
 	}
 
-	for _, step := range finallySteps {
+	for _, step := range finallyDef.AllSteps() {
 		if !allowedTypes[step.Use] {
 			return fmt.Errorf(
 				"finally step '%s' uses '%s' which is not allowed. Only email and http-request are allowed",

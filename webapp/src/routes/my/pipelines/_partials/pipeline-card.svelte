@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import PublishedSwitch from '$lib/layout/published-switch.svelte';
+	import { fromScoreboardRow } from '$lib/scoreboard/extras/from-scoreboard-row';
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
 	import type { ScoreboardRow } from '$lib/scoreboard/types';
 	import { getPath } from '$lib/utils';
@@ -23,12 +24,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
 	import { type EnrichedSchedule } from './types';
@@ -88,6 +89,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: false
 	);
 
+	const executionStats = $derived(fromScoreboardRow(scoreboardResults));
 	const showContent = $derived(workflows && workflows.length > 0);
 
 	const avatar = $derived.by(() => {
@@ -106,6 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	content={showContent ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
 	publishAction={isPublic ? undefined : publishAction}
+	hideSeparator
 >
 	{#snippet nameRight()}
 		{#if isRunning}
@@ -159,7 +162,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet afterDescription()}
 	{#if scoreboardResults && hasSummary}
-		<PipelineContentSummary results={scoreboardResults} />
+		<div class="flex items-start justify-between gap-4 pt-1">
+			<PipelineContentSummary results={scoreboardResults} />
+		</div>
 	{:else}
 		<div
 			class="flex h-8 w-fit items-center justify-start rounded-md bg-muted p-2 text-xs text-muted-foreground"
@@ -172,9 +177,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet content()}
 	<div class="space-y-3">
 		{#if workflows && workflows.length > 0}
-			<div class="space-y-3">
-				<div class="flex items-center justify-between gap-1">
-					<T class="text-sm font-medium">{m.Recent_workflows()}</T>
+			<div class="space-y-3 pt-5">
+				<Pipeline.Workflows.SmallTable {workflows} />
+
+				<div class="flex items-center justify-between gap-2">
+					{#if executionStats}
+						<PipelineExecutionStats stats={executionStats} layout="card-inline" />
+					{/if}
+
 					<BlueButton
 						compact
 						href={resolve('/my/pipelines/[...pipeline_path]', {
@@ -185,8 +195,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<ArrowRightIcon />
 					</BlueButton>
 				</div>
-
-				<Pipeline.Workflows.SmallTable {workflows} />
 			</div>
 		{/if}
 	</div>

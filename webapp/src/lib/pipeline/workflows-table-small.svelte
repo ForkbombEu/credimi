@@ -34,19 +34,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <TemporalI18nProvider>
-	<div class="overflow-hidden rounded-md border">
+	<div class="-mx-2 overflow-hidden">
 		<div class="overflow-x-auto">
 			<table class="w-full text-xs">
-				<thead class="bg-slate-100">
+				<thead class=" bg-slate-100">
 					<tr>
-						<th>{m.Status()}</th>
+						<th class="rounded-l-sm">{m.Status()}</th>
 						<th>{m.Runner()}</th>
 						<th>{m.Results()}</th>
 						<th>{m.Start_time()}</th>
 						<th>{m.End_time()}</th>
 						<th>{m.Duration()}</th>
 						<th>{m.details()}</th>
-						<th>{m.Actions()}</th>
+						<th class="rounded-r-sm text-right!">{m.Actions()}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -139,13 +139,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									</A>
 								{/if}
 							</td>
-							<td>
+							<td class="text-right">
 								<DropdownMenu
-									triggerVariants={{ size: 'icon-sm', variant: 'ghost' }}
 									items={makeDropdownActions(workflow)}
+									triggerVariants={{ variant: 'ghost', size: 'icon-sm' }}
 								>
-									{#snippet triggerContent()}
-										<EllipsisVerticalIcon />
+									{#snippet trigger({ props })}
+										<IconButton
+											{...props}
+											icon={EllipsisVerticalIcon}
+											variant="ghost"
+											size="xs"
+										/>
 									{/snippet}
 								</DropdownMenu>
 							</td>
@@ -170,6 +175,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	th {
-		@apply text-left;
+		@apply text-left font-normal text-slate-500;
 	}
 </style>

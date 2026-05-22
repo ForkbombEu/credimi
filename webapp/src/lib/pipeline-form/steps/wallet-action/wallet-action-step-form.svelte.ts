@@ -3,13 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { HubItem } from '$lib/hub';
+import type { Record } from '$lib/pipeline/runner';
 
-import { userOrganization } from '$lib/app-state/index.svelte.js';
 import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
-import {
-	fetchAvailableForOrganization,
-	type MobileRunnerListItem
-} from '$lib/pipeline/runners/utils';
 
 import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase/index.js';
@@ -21,7 +17,7 @@ import {
 
 import { searchHub } from '../_partials/search-hub';
 import { Search } from '../_partials/search.svelte.js';
-import { BaseForm } from '../types.js';
+import { BaseForm, type InitFormOptions } from '../types.js';
 import Component from './wallet-action-step-form.svelte';
 
 //
@@ -29,7 +25,7 @@ import Component from './wallet-action-step-form.svelte';
 export const GLOBAL_RUNNER = 'global';
 export const EXTERNAL_VERSION = 'installed_from_external_source';
 
-export type SelectedRunner = MobileRunnerListItem | typeof GLOBAL_RUNNER;
+export type SelectedRunner = Record | typeof GLOBAL_RUNNER;
 export type SelectedVersion = WalletVersionsResponse | typeof EXTERNAL_VERSION;
 
 export interface WalletActionStepData {
@@ -52,16 +48,6 @@ export function getRunnerLabel(runner: SelectedRunner) {
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
-	constructor() {
-		super();
-		if (ExecutionTarget.state.current) {
-			this.data = {
-				...ExecutionTarget.state.current,
-				action: undefined
-			};
-		}
-	}
-
 	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
@@ -81,11 +67,31 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		}
 	});
 
+	constructor(opts?: InitFormOptions<WalletActionStepData>) {
+		super(opts);
+		if (opts?.initial) {
+			this.data = { ...opts.initial };
+		} else if (ExecutionTarget.state.current) {
+			this.data = {
+				...ExecutionTarget.state.current,
+				action: undefined
+			};
+		}
+	}
+
+	canSave() {
+		return this.state === 'ready';
+	}
+
+	getSubmitData() {
+		if (this.state !== 'ready') return undefined;
+		return this.data as WalletActionStepData;
+	}
+
 	//
 
 	foundWallets = $state<HubItem[]>([]);
 	foundVersions = $state<WalletVersionsResponse[]>([]);
-	foundRunners = $state<MobileRunnerListItem[]>([]);
 	foundActions = $state<WalletActionsResponse[]>([]);
 
 	walletSearch = new Search({
@@ -123,34 +129,8 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	//
 
 	runnerSearch = new Search({
-		onSearch: (text) => {
-			this.searchRunner(text);
-		}
+		onSearch: () => {}
 	});
-
-	async searchRunner(text: string) {
-		const organizationId = userOrganization.current?.id;
-		if (!organizationId) {
-			this.foundRunners = [];
-			return;
-		}
-
-		fetchAvailableForOrganization().match({
-			Rejected: (reason) => {
-				console.error(reason);
-			},
-			Resolved: (runners) => {
-				const search = text.trim().toLowerCase();
-				this.foundRunners = runners.filter((runner) => {
-					if (!search) return true;
-					return (
-						runner.name.toLowerCase().includes(search) ||
-						runner.runner_id.toLowerCase().includes(search)
-					);
-				});
-			}
-		});
-	}
 
 	selectRunner(runner: ExecutionTarget.Config['runner']) {
 		this.data.runner = runner;
@@ -180,7 +160,14 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 			version: this.data.version!,
 			runner: this.data.runner!
 		};
-		this.handleSubmit({ ...this.data, action } as WalletActionStepData);
+		this.data.action = action;
+		if (this.intent === 'add') {
+			this.commit({ ...this.data, action } as WalletActionStepData);
+		}
+	}
+
+	removeAction() {
+		this.data.action = undefined;
 	}
 
 	//
