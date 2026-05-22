@@ -325,13 +325,15 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			}
 
 			if tc.suite == "openid_conformance_suite" {
-				payload.Variant = "test-variant"
-				payload.Form = &Form{Alias: "test-alias"}
 				payload.TestName = "test-name"
+				payload.Parameters = map[string]any{
+					"variant": "test-variant",
+					"form":    Form{Alias: "test-alias"},
+				}
 			}
 
 			if tc.suite == "ewc" || tc.suite == "webuild" {
-				payload.SessionID = "test-session-id"
+				payload.Parameters = map[string]any{"session_id": "test-session-id"}
 				config["check_endpoint"] = "https://test-ewc.com"
 			}
 
@@ -445,7 +447,7 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 			if !ok {
 				return false
 			}
-			return data["credential_offer"] == "openid-credential-offer://static-offer" &&
+			return data["deeplink"] == "openid-credential-offer://static-offer" &&
 				data["test"] == "issuer-test" &&
 				secrets["token"] == "test_token"
 		}),
@@ -482,10 +484,10 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 
 	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
 		Payload: StartCheckWorkflowPayload{
-			Suite:           OpenID4VCIIssuerSuite,
-			CheckID:         "issuer-check",
-			TestName:        "issuer-test",
-			CredentialOffer: "openid-credential-offer://static-offer",
+			Suite:      OpenID4VCIIssuerSuite,
+			CheckID:    "issuer-check",
+			TestName:   "issuer-test",
+			Parameters: map[string]any{"deeplink": "openid-credential-offer://static-offer"},
 		},
 		Config: map[string]any{
 			"app_url":   "https://test-app.com",
@@ -517,20 +519,11 @@ func TestStartCheckWorkflowOpenID4VCIIssuerMissingRequiredPayload(t *testing.T) 
 		errorContains string
 	}{
 		{
-			name: "missing credential offer",
-			payload: StartCheckWorkflowPayload{
-				Suite:    OpenID4VCIIssuerSuite,
-				CheckID:  "issuer-check",
-				TestName: "issuer-test",
-			},
-			errorContains: "credential_offer is required",
-		},
-		{
 			name: "missing test",
 			payload: StartCheckWorkflowPayload{
-				Suite:           OpenID4VCIIssuerSuite,
-				CheckID:         "issuer-check",
-				CredentialOffer: "openid-credential-offer://static-offer",
+				Suite:      OpenID4VCIIssuerSuite,
+				CheckID:    "issuer-check",
+				Parameters: map[string]any{"deeplink": "openid-credential-offer://static-offer"},
 			},
 			errorContains: "test is required",
 		},
@@ -611,10 +604,10 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 
 	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
 		Payload: StartCheckWorkflowPayload{
-			Suite:           OpenID4VCIIssuerSuite,
-			CheckID:         "issuer-check",
-			TestName:        "issuer-test",
-			CredentialOffer: "openid-credential-offer://static-offer",
+			Suite:      OpenID4VCIIssuerSuite,
+			CheckID:    "issuer-check",
+			TestName:   "issuer-test",
+			Parameters: map[string]any{"deeplink": "openid-credential-offer://static-offer"},
 		},
 		Config: map[string]any{
 			"app_url":   "https://test-app.com",

@@ -130,9 +130,9 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 
 		input := workflowengine.WorkflowInput{
 			Payload: workflows.StartCheckWorkflowPayload{
-				Suite:     suite,
-				CheckID:   id,
-				SessionID: uuid.NewString(),
+				Suite:      suite,
+				CheckID:    id,
+				Parameters: map[string]any{"session_id": uuid.NewString()},
 			},
 			Config: map[string]any{
 				"memo":      memo,

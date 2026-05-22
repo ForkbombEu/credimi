@@ -13,7 +13,7 @@ import (
 
 func TestParseEwcInput(t *testing.T) {
 	defaultData := map[string]any{
-		"sessionId": `        {{
+		"session_id": `        {{
 
            credimi` + " ` " + `
               {
@@ -41,7 +41,7 @@ func TestParseEwcInput(t *testing.T) {
 			name:  "Valid input",
 			input: "test1-test2-test3",
 			want: map[string]any{
-				"sessionId": `{{
+				"session_id": `{{
         
            credimi ` + " ` " + `
               {
@@ -64,7 +64,7 @@ func TestParseEwcInput(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:      "Missing sessionId",
+			name:      "Missing session_id",
 			input:     "test",
 			want:      nil,
 			wantError: true,
@@ -82,7 +82,7 @@ func TestParseEwcInput(t *testing.T) {
 			switch tt.name {
 			case "Empty YAML file":
 				fileToUse = emptyFile
-			case "Missing sessionId":
+			case "Missing session_id":
 				fileToUse = missingSessionFile
 			default:
 				fileToUse = defaultFile

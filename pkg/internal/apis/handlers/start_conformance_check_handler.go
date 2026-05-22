@@ -44,18 +44,9 @@ type vLEICheckInput struct {
 	ServerURL    string `json:"serverURL"`
 }
 
-type EWCInput struct {
-	SessionID string `yaml:"sessionId" json:"sessionId" validate:"required"`
-}
-
 type EudiwInput struct {
 	Nonce string `json:"nonce" yaml:"nonce" validate:"required"`
 	ID    string `json:"id"    yaml:"id"    validate:"required"`
-}
-
-type OpenID4VCIIssuerTestInputFile struct {
-	CredentialOffer string `json:"credential_offer" yaml:"credential_offer" validate:"required"`
-	TestName        string `json:"test"             yaml:"test"             validate:"required"`
 }
 
 type Author string
@@ -76,6 +67,27 @@ type WorkflowStarterParams struct {
 }
 
 type WorkflowStarter func(params WorkflowStarterParams) (workflowengine.WorkflowResult, error)
+
+func conformanceInputParameters(
+	raw map[string]any,
+	excluded map[string]struct{},
+) map[string]any {
+	parameters := map[string]any{}
+	for key, value := range raw {
+		if _, skip := excluded[key]; skip {
+			continue
+		}
+		parameters[key] = value
+	}
+	return parameters
+}
+
+func conformanceInputString(raw map[string]any, key string) string {
+	if v, ok := raw[key].(string); ok {
+		return v
+	}
+	return ""
+}
 
 var workflowRegistry = map[Author]WorkflowStarter{
 	"ewc":                      startEWCWorkflow,
@@ -451,8 +463,8 @@ func startOpenID4VCIIssuerWorkflow(i WorkflowStarterParams) (workflowengine.Work
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	var parsedData OpenID4VCIIssuerTestInputFile
-	if err := yaml.Unmarshal([]byte(i.YAMLData), &parsedData); err != nil {
+	var rawData map[string]any
+	if err := yaml.Unmarshal([]byte(i.YAMLData), &rawData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"yaml",
@@ -463,9 +475,9 @@ func startOpenID4VCIIssuerWorkflow(i WorkflowStarterParams) (workflowengine.Work
 
 	input := workflowengine.WorkflowInput{
 		Payload: workflows.OpenID4VCIIssuerWorkflowPayload{
-			CredentialOffer: parsedData.CredentialOffer,
-			TestName:        parsedData.TestName,
-			UserMail:        i.Email,
+			Parameters: conformanceInputParameters(rawData, map[string]struct{}{"test": {}}),
+			TestName:   conformanceInputString(rawData, "test"),
+			UserMail:   i.Email,
 		},
 		Config: map[string]any{
 			"app_url":   i.AppURL,
@@ -526,8 +538,8 @@ func startEWCLikeWorkflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
-	var parsedData EWCInput
-	if err := yaml.Unmarshal([]byte(i.YAMLData), &parsedData); err != nil {
+	var rawData map[string]any
+	if err := yaml.Unmarshal([]byte(i.YAMLData), &rawData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"yaml",
@@ -548,8 +560,8 @@ func startEWCLikeWorkflow(
 
 	input := workflowengine.WorkflowInput{
 		Payload: workflows.EWCWorkflowPayload{
-			SessionID: parsedData.SessionID,
-			UserMail:  i.Email,
+			Parameters: conformanceInputParameters(rawData, nil),
+			UserMail:   i.Email,
 		},
 		Config: map[string]any{
 			"app_url":        i.AppURL,

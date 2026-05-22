@@ -52,15 +52,15 @@ var openID4VCIIssuerStartWorkflowWithOptions = workflowengine.StartWorkflowWithO
 
 // OpenID4VCIIssuerWorkflowPayload is the input payload for OpenID4VCIIssuerWorkflow.
 type OpenID4VCIIssuerWorkflowPayload struct {
-	CredentialOffer string `json:"credential_offer" yaml:"credential_offer" validate:"required"`
-	UserMail        string `json:"user_mail"        yaml:"user_mail"        validate:"required"`
-	TestName        string `json:"test"             yaml:"test"             validate:"required"`
+	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
+	UserMail   string         `json:"user_mail"                  yaml:"user_mail"                  validate:"required"`
+	TestName   string         `json:"test"                       yaml:"test"                       validate:"required"`
 }
 
 // OpenID4VCIIssuerWorkflow runs a fully automated OID4VCI issuer conformance check
 // against the OpenID Foundation Certification Suite. Unlike the wallet workflow it
 // requires no user interaction: StepCI handles plan creation, runner start, and log
-// polling end-to-end. The user only supplies the credential-offer deeplink.
+// polling end-to-end. The user supplies StepCI parameters, including the credential-offer deeplink.
 type OpenID4VCIIssuerWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
@@ -89,7 +89,7 @@ func (w *OpenID4VCIIssuerWorkflow) Workflow(
 }
 
 // ExecuteWorkflow is the main workflow function. It:
-//  1. Decodes the payload (credential_offer + test name).
+//  1. Decodes the payload (parameters + test name).
 //  2. Runs StepCIWorkflowActivity using the issuer StepCI Go template to
 //     resolve the credential issuer, create the test plan, and start the runner.
 //  3. Polls the OpenID certification logs directly from Temporal until the
@@ -128,15 +128,18 @@ func (w *OpenID4VCIIssuerWorkflow) ExecuteWorkflow(
 		)
 	}
 
+	parameters := make(map[string]any, len(payload.Parameters))
+	for k, v := range payload.Parameters {
+		parameters[k] = v
+	}
+
 	stepCIPayload := activities.StepCIWorkflowActivityPayload{
-		Data: map[string]any{
-			"credential_offer": payload.CredentialOffer,
-			"test":             payload.TestName,
-		},
+		Data: parameters,
 		Secrets: map[string]string{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		},
 	}
+	stepCIPayload.Data["test"] = payload.TestName
 
 	cfg := StepCIAndEmailConfig{
 		AppURL:        appURL,

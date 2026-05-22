@@ -43,8 +43,8 @@ var (
 )
 
 type EWCWorkflowPayload struct {
-	SessionID string `json:"session_id" yaml:"session_id" validate:"required"`
-	UserMail  string `json:"user_mail"  yaml:"user_mail"  validate:"required"`
+	Parameters map[string]any `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
+	UserMail   string         `json:"user_mail"             yaml:"user_mail"             validate:"required"`
 }
 
 func NewEWCWorkflow() *EWCWorkflow {
@@ -232,8 +232,12 @@ func executeEWCLikeWorkflow(
 			input.RunMetadata,
 		)
 	}
+	parameters := make(map[string]any, len(payload.Parameters))
+	for k, v := range payload.Parameters {
+		parameters[k] = v
+	}
 	stepCIPayload := activities.StepCIWorkflowActivityPayload{
-		Data: map[string]any{"session_id": payload.SessionID},
+		Data: parameters,
 	}
 	suite, ok := input.Config["memo"].(map[string]any)["author"].(string)
 	if !ok {

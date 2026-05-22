@@ -19,7 +19,7 @@ tests:
           id: capture-plugin
           params:
             values:
-              credential_offer: [[.credential_offer]]
+              credential_offer: [[.deeplink]]
       - name: Compute prefixes
         plugin:
           id: capture-plugin
