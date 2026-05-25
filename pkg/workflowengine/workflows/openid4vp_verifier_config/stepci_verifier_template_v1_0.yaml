@@ -16,7 +16,7 @@ tests:
     steps:
       - name: Get discoverability use case verification
         http:
-          url: https://credimi.io/api/credential/deeplink
+          url: https://credimi.io/api/verification/deeplink
           method: GET
           params:
             id: [[.use_case_id]]
@@ -109,14 +109,14 @@ tests:
           check:
             status: 201
           captures:
-            runner_id:
+            rid:
               jsonpath: $.id
       - name: Obtain authorization endpoint
         retries:
           count: 3
           interval: 10s
         http:
-          url: https://www.certification.openid.net/api/log/${{captures.runner_id}}
+          url: https://www.certification.openid.net/api/log/${{captures.rid}}
           auth:
             $ref: "#/components/token"
           method: GET

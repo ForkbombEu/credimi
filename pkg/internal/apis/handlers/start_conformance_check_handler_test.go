@@ -366,6 +366,51 @@ func TestStartOpenIDNetWorkflowSuccess(t *testing.T) {
 	require.Equal(t, string(params.Author), result.Author)
 }
 
+func TestStartOpenIDNetWorkflowRoutesVerifierToDedicatedWorkflow(t *testing.T) {
+	rootDir := t.TempDir()
+	templatePath := filepath.Join(rootDir, workflows.OpenID4VPVerifierStepCITemplatePath)
+	require.NoError(t, os.MkdirAll(filepath.Dir(templatePath), 0o755))
+	require.NoError(t, os.WriteFile(templatePath, []byte("verifier template"), 0o644))
+	t.Setenv("ROOT_DIR", rootDir)
+
+	origStart := openID4VPVerifierWorkflowStart
+	t.Cleanup(func() {
+		openID4VPVerifierWorkflowStart = origStart
+	})
+
+	openID4VPVerifierWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		payload, ok := input.Payload.(workflows.OpenIDConformanceWorkflowPayload)
+		require.True(t, ok)
+		require.Equal(t, "verifier-test", payload.TestName)
+		require.Equal(t, "org/verifier/use-case", payload.Parameters["use_case_id"])
+		require.Equal(t, "verifier template", input.Config["template"])
+
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-verifier",
+			WorkflowRunID: "run-verifier",
+		}, nil
+	}
+
+	params := WorkflowStarterParams{
+		YAMLData:  "use_case_id: org/verifier/use-case\ntest: verifier-test\n",
+		Email:     "user@example.com",
+		AppURL:    "https://app.example.com",
+		Namespace: "ns",
+		Memo:      map[string]interface{}{"test": "verifier-test"},
+		Author:    "openid_conformance_suite",
+		Protocol:  workflows.OpenID4VPVerifierStandard,
+		Version:   "1.0",
+		AppName:   "Credimi",
+		LogoUrl:   "https://app.example.com/logo.png",
+		UserName:  "User",
+	}
+
+	result, err := startOpenIDNetWorkflow(params)
+	require.NoError(t, err)
+	require.Equal(t, "wf-verifier", result.WorkflowID)
+	require.Equal(t, string(params.Author), result.Author)
+}
+
 func TestStartEWCWorkflowUnsupportedProtocol(t *testing.T) {
 	rootDir := t.TempDir()
 	filename := filepath.Join(rootDir, workflows.EWCTemplateFolderPath, "test.yaml")

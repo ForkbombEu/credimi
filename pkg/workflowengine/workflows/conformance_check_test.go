@@ -699,6 +699,101 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
+func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
+	t.Setenv("OPENIDNET_TOKEN", "test_token")
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		stepCIActivity.Execute,
+		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	env.OnActivity(
+		stepCIActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			data, ok := payload["data"].(map[string]any)
+			if !ok {
+				return false
+			}
+			return data["use_case_id"] == "org/verifier/use-case" &&
+				data["test"] == "verifier-test"
+		}),
+	).Return(workflowengine.ActivityResult{
+		Output: map[string]any{
+			"captures": map[string]any{
+				"runner_id": "runner-456",
+			},
+		},
+	}, nil).Once()
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(matchHTTPActivityInput(
+			"GET",
+			"https://www.certification.openid.net/api/log/runner-456",
+		)),
+	).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"body": []map[string]any{
+					{
+						"result":            "FINISHED",
+						"testmodule_result": "PASSED",
+						"msg":               "verifier logs",
+					},
+				},
+			},
+		}, nil).
+		Once()
+
+	w := NewStartCheckWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: StartCheckWorkflowPayload{
+			Suite:    OpenIDConformanceSuite,
+			Standard: OpenID4VPVerifierStandard,
+			CheckID:  "verifier-check",
+			TestName: "verifier-test",
+			Parameters: map[string]any{
+				"use_case_id": "org/verifier/use-case",
+			},
+		},
+		Config: map[string]any{
+			"app_url":   "https://test-app.com",
+			"template":  "test-template",
+			"namespace": "test-namespace",
+		},
+		ActivityOptions: &DefaultActivityOptions,
+	})
+
+	require.NoError(t, env.GetWorkflowError())
+
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "Check completed successfully", result.Message)
+	require.Equal(t, []map[string]any{
+		{
+			"result":            "FINISHED",
+			"testmodule_result": "PASSED",
+			"msg":               "verifier logs",
+		},
+	}, workflowengine.AsSliceOfMaps(result.Log))
+	env.AssertExpectations(t)
+}
+
 func TestRunStepCIAndSendMailMissingCaptures(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

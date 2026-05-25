@@ -101,6 +101,16 @@ var OrgWorkers = []workerConfig{
 		},
 	},
 	{
+		TaskQueue: workflows.OpenID4VPVerifierTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewOpenID4VPVerifierWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
 		TaskQueue: workflows.EWCTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			workflows.NewEWCWorkflow(),

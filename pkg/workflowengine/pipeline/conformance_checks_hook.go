@@ -167,13 +167,17 @@ func resolveSuiteSetup(
 
 	switch suite {
 	case workflows.OpenIDConformanceSuite:
-		if standard == workflows.OpenID4VCIIssuerStandard {
+		if standard == workflows.OpenID4VCIIssuerStandard ||
+			standard == workflows.OpenID4VPVerifierStandard {
 			var testVal string
 			if tVal, ok := tpl["test"].(string); ok {
 				testVal = tVal
 			}
 			extra["test"] = testVal
 			extra["parameters"] = conformanceParametersFromTemplate(tpl, map[string]struct{}{"test": {}})
+			if standard == workflows.OpenID4VPVerifierStandard {
+				return extra, workflows.OpenID4VPVerifierStepCITemplatePath, nil
+			}
 			return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
 		}
 

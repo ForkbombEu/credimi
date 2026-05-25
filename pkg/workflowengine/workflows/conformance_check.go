@@ -185,6 +185,10 @@ func conformanceCheckNeedsDeeplinkOutput(standard string) bool {
 	return standard != OpenID4VPVerifierStandard && standard != OpenID4VCIIssuerStandard
 }
 
+func isOpenIDAutomatedConformanceStandard(standard string) bool {
+	return standard == OpenID4VPVerifierStandard || standard == OpenID4VCIIssuerStandard
+}
+
 func conformanceCheckSessionID(payload StartCheckWorkflowPayload, captures map[string]any) string {
 	if sessionID, ok := captures["session_id"].(string); ok && sessionID != "" {
 		return sessionID
@@ -292,8 +296,8 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	var childID string
 	switch payload.Suite {
 	case OpenIDConformanceSuite:
-		rid, ok := setupResult.Captures["rid"].(string)
-		if !ok {
+		rid := openIDConformanceRunnerID(setupResult.Captures)
+		if rid == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"rid",
 				setupResult.Captures,
@@ -301,8 +305,8 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			)
 		}
 
-		if standard == OpenID4VCIIssuerStandard {
-			return pollOpenID4VCIIssuerLogs(
+		if isOpenIDAutomatedConformanceStandard(standard) {
+			return pollOpenIDConformanceLogs(
 				ctx,
 				rid,
 				appURL,

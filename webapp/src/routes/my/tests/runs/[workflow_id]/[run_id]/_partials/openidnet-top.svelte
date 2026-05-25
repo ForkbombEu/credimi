@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import {
 		getOpenID4VCIIssuerWorkflowLogsProps,
+		getOpenID4VPVerifierWorkflowLogsProps,
 		getOpenIDNetWorkflowLogsProps
 	} from '$lib/wallet-test-pages/openidnet';
 	import WorkflowLogs from '$lib/workflows/workflow-logs.svelte';
@@ -20,15 +21,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflowId: string;
 		namespace: string;
 		isIssuerWorkflow?: boolean;
+		isVerifierWorkflow?: boolean;
 	};
 
-	let { workflowId, namespace, isIssuerWorkflow = false }: Props = $props();
+	let {
+		workflowId,
+		namespace,
+		isIssuerWorkflow = false,
+		isVerifierWorkflow = false
+	}: Props = $props();
 
-	const workflowLogsProps = $derived(
-		isIssuerWorkflow
-			? getOpenID4VCIIssuerWorkflowLogsProps(workflowId, namespace)
-			: getOpenIDNetWorkflowLogsProps(workflowId, namespace)
-	);
+	const workflowLogsProps = $derived.by(() => {
+		if (isIssuerWorkflow) {
+			return getOpenID4VCIIssuerWorkflowLogsProps(workflowId, namespace);
+		}
+		if (isVerifierWorkflow) {
+			return getOpenID4VPVerifierWorkflowLogsProps(workflowId, namespace);
+		}
+		return getOpenIDNetWorkflowLogsProps(workflowId, namespace);
+	});
 </script>
 
 <Container>

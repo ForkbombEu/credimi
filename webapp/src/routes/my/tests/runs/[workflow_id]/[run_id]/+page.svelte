@@ -113,6 +113,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			execution.name ===
 				'OID4VCI Issuer conformance check on https://www.certification.openid.net'
 	);
+	const isDedicatedOpenID4VPVerifierWorkflow = $derived(
+		memo?.standard === 'openid4vp_verifier' &&
+			execution.name ===
+				'OID4VP Verifier conformance check on https://www.certification.openid.net'
+	);
+	const shouldShowOpenIDNetTop = $derived(
+		memo?.standard !== 'openid4vci_issuer' && memo?.standard !== 'openid4vp_verifier'
+			? true
+			: isDedicatedOpenID4VCIIssuerWorkflow || isDedicatedOpenID4VPVerifierWorkflow
+	);
 
 	const failureMessage = $derived.by(() => {
 		let failedEvent: FailedEvent | undefined;
@@ -250,11 +260,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{:else}
 		<div class="bg-temporal padding-x space-y-8 pt-4">
 			{#if memo.author == 'openid_conformance_suite'}
-				{#if memo.standard !== 'openid4vci_issuer' || isDedicatedOpenID4VCIIssuerWorkflow}
+				{#if shouldShowOpenIDNetTop}
 					<OpenidnetTop
 						{workflowId}
 						namespace={organization.canonified_name}
 						isIssuerWorkflow={isDedicatedOpenID4VCIIssuerWorkflow}
+						isVerifierWorkflow={isDedicatedOpenID4VPVerifierWorkflow}
 					/>
 				{/if}
 			{:else if memo.author == 'eudiw'}
