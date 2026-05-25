@@ -40,7 +40,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					method: 'GET',
 					fetch
 				});
-				const data = z.object({ deeplink: z.string() }).parse(res);
+				const parseResult = z.object({ deeplink: z.string().min(1) }).safeParse(res);
+				if (!parseResult.success) {
+					if (attempt >= maxAttempts) {
+						isLoading = false;
+					}
+					return;
+				}
+				const data = parseResult.data;
 				deeplink = data.deeplink;
 				isLoading = false;
 

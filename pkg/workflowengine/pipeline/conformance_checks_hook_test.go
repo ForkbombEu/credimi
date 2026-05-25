@@ -220,6 +220,44 @@ test: "alpha"
 		require.Equal(t, "webuild template", result.Config["template"])
 	})
 
+	t.Run("webuild openid4vci issuer keeps webuild suite and template", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "openid4vci_issuer/1.0/webuild/WEBUILD-OPENID4VCI-ISSUER-1.0"
+		configTemplate := `session_id: "issuer-session"`
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join(workflows.WebuildTemplateFolderPath, "WEBUILD-OPENID4VCI-ISSUER-1.0.yaml"),
+			"webuild issuer template",
+		)
+
+		result := runConformanceHookWorkflow(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+
+		payload := result.Payload
+		require.Equal(t, workflows.WebuildSuite, payload["suite"])
+		parameters, ok := payload["parameters"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "issuer-session", parameters["session_id"])
+		require.Equal(t, "webuild issuer template", result.Config["template"])
+
+		memo, ok := result.Config["memo"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, workflows.WebuildSuite, memo["author"])
+		require.Equal(t, workflows.OpenID4VCIIssuerStandard, memo["standard"])
+		require.Equal(t, "WEBUILD-OPENID4VCI-ISSUER-1.0", memo["test"])
+	})
+
 	t.Run("eudiw suite populates id and nonce", func(t *testing.T) {
 		rootDir := t.TempDir()
 		t.Setenv("ROOT_DIR", rootDir)
@@ -278,7 +316,8 @@ test: "issuer-test"`
 		})
 
 		payload := result.Payload
-		require.Equal(t, workflows.OpenID4VCIIssuerSuite, payload["suite"])
+		require.Equal(t, workflows.OpenIDConformanceSuite, payload["suite"])
+		require.Equal(t, workflows.OpenID4VCIIssuerStandard, payload["standard"])
 		require.Equal(t, "issuer-test", payload["test"])
 		parameters, ok := payload["parameters"].(map[string]any)
 		require.True(t, ok)

@@ -104,14 +104,8 @@ func ConformanceCheckSetupHook(
 			standard = parts[0]
 			checkName = parts[len(parts)-1]
 		}
-		memoAuthor := suite
-		// OID4VCI issuer tests live inside openid_conformance_suite folders but
-		// need their own dispatch path — override the suite key before the switch.
-		if standard == "openid4vci_issuer" {
-			suite = workflows.OpenID4VCIIssuerSuite
-		}
 		memo := map[string]any{
-			"author":   memoAuthor,
+			"author":   suite,
 			"standard": standard,
 			"test":     checkName,
 		}
@@ -128,8 +122,10 @@ func ConformanceCheckSetupHook(
 		defaultPayload := make(map[string]any)
 		SetPayloadValue(&defaultPayload, "user_mail", userMail)
 		SetPayloadValue(&defaultPayload, "suite", suite)
+		SetPayloadValue(&defaultPayload, "standard", standard)
 
 		suiteExtra, suiteTemplatePath, err := resolveSuiteSetup(
+			standard,
 			suite,
 			checkName,
 			step.ID,
@@ -164,12 +160,23 @@ func ConformanceCheckSetupHook(
 // for the given suite. It is extracted from ConformanceCheckSetupHook to keep
 // the parent function's cyclomatic complexity within acceptable bounds.
 func resolveSuiteSetup(
-	suite, checkName, stepID string,
+	standard, suite, checkName, stepID string,
 	tpl map[string]any,
 ) (map[string]any, string, error) {
 	extra := map[string]any{}
+
 	switch suite {
-	case "openid_conformance_suite":
+	case workflows.OpenIDConformanceSuite:
+		if standard == workflows.OpenID4VCIIssuerStandard {
+			var testVal string
+			if tVal, ok := tpl["test"].(string); ok {
+				testVal = tVal
+			}
+			extra["test"] = testVal
+			extra["parameters"] = conformanceParametersFromTemplate(tpl, map[string]struct{}{"test": {}})
+			return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
+		}
+
 		variant := map[string]any{}
 		if v, ok := tpl["variant"].(map[string]any); ok {
 			for _, key := range []string{"credential_format", "client_id_prefix", "request_method", "response_mode"} {
@@ -218,15 +225,6 @@ func resolveSuiteSetup(
 			extra["nonce"] = tNonce
 		}
 		return extra, workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml", nil
-
-	case workflows.OpenID4VCIIssuerSuite:
-		var testVal string
-		if tVal, ok := tpl["test"].(string); ok {
-			testVal = tVal
-		}
-		extra["test"] = testVal
-		extra["parameters"] = conformanceParametersFromTemplate(tpl, map[string]struct{}{"test": {}})
-		return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
 
 	default:
 		return nil, "", workflowengine.NewAppError(

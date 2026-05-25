@@ -22,8 +22,10 @@ const (
 	OpenIDConformanceSuite    = "openid_conformance_suite"
 	EWCSuite                  = "ewc"
 	WebuildSuite              = "webuild"
-	OpenID4VCIIssuerSuite     = "openid4vci_issuer"
 	OpenID4VPWalletStandard   = "openid4vp_wallet"
+	OpenID4VCIWalletStandard  = "openid4vci_wallet"
+	OpenID4VPVerifierStandard = "openid4vp_verifier"
+	OpenID4VCIIssuerStandard  = "openid4vci_issuer"
 	ConformanceCheckTaskQueue = "ConformanceCheckTaskQueue"
 	PipelineCancelSignal      = "pipeline_cancel_signal"
 )
@@ -144,6 +146,7 @@ var startCheckWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type StartCheckWorkflowPayload struct {
 	Suite      string         `json:"suite"                      yaml:"suite"`
+	Standard   string         `json:"standard,omitempty"         yaml:"standard,omitempty"`
 	CheckID    string         `json:"check_id"                   yaml:"check_id"                   validate:"required"`
 	TestName   string         `json:"test,omitempty"             yaml:"test,omitempty"`
 	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
@@ -163,6 +166,31 @@ func conformanceCheckParameters(payload StartCheckWorkflowPayload) map[string]an
 		parameters[k] = v
 	}
 	return parameters
+}
+
+func conformanceCheckStandard(payload StartCheckWorkflowPayload, config map[string]any) string {
+	if payload.Standard != "" {
+		return payload.Standard
+	}
+
+	memo, ok := config["memo"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	standard, _ := memo["standard"].(string)
+	return standard
+}
+
+func conformanceCheckNeedsDeeplinkOutput(standard string) bool {
+	return standard != OpenID4VPVerifierStandard && standard != OpenID4VCIIssuerStandard
+}
+
+func conformanceCheckSessionID(payload StartCheckWorkflowPayload, captures map[string]any) string {
+	if sessionID, ok := captures["session_id"].(string); ok && sessionID != "" {
+		return sessionID
+	}
+	sessionID, _ := payload.Parameters["session_id"].(string)
+	return sessionID
 }
 
 func NewStartCheckWorkflow() *StartCheckWorkflow {
@@ -190,12 +218,12 @@ func (w *StartCheckWorkflow) Workflow(
 // executeWorkflow starts the conformance check workflow.
 //
 // It takes the workflow input and starts the conformance check workflow.
-// The workflow input should contain the suite, check_id, variant, form, test and parameters.
+// The workflow input should contain the suite, standard, check_id, test and parameters.
 // The function first decodes the workflow input and checks if the required fields are present.
 // If not, it returns an error.
 // Then it runs the StepCIAndEmail function with the decoded input and returns the result.
 // If the StepCIAndEmail function returns an error, it logs the error and returns the error.
-// If the StepCIAndEmail function returns a successful result, it runs the child workflow depending on the suite.
+// If the StepCIAndEmail function returns a successful result, it runs the child workflow depending on the suite and standard.
 // If the child workflow returns an error, it logs the error and returns the error.
 // If the child workflow returns a successful result, it returns the successful result.
 func (w *StartCheckWorkflow) ExecuteWorkflow(
@@ -221,6 +249,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	var stepCIPayload activities.StepCIWorkflowActivityPayload
 	var ewcSessionID string
 	parameters := conformanceCheckParameters(payload)
+	standard := conformanceCheckStandard(payload, input.Config)
 	switch payload.Suite {
 	case OpenIDConformanceSuite:
 		if payload.TestName == "" {
@@ -236,18 +265,6 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		}
 	case EWCSuite, WebuildSuite:
 		stepCIPayload.Data = parameters
-	case OpenID4VCIIssuerSuite:
-		if payload.TestName == "" {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
-				fmt.Errorf("test is required for suite %s", payload.Suite),
-				input.RunMetadata,
-			)
-		}
-		stepCIPayload.Data = parameters
-		stepCIPayload.Data["test"] = payload.TestName
-		stepCIPayload.Secrets = map[string]string{
-			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
-		}
 	default:
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
 	}
@@ -280,6 +297,17 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"rid",
 				setupResult.Captures,
+				input.RunMetadata,
+			)
+		}
+
+		if standard == OpenID4VCIIssuerStandard {
+			return pollOpenID4VCIIssuerLogs(
+				ctx,
+				rid,
+				appURL,
+				utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+				false,
 				input.RunMetadata,
 			)
 		}
@@ -330,8 +358,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			},
 		}, nil
 	case EWCSuite, WebuildSuite:
-		standard, ok := input.Config["memo"].(map[string]any)["standard"].(string)
-		if !ok {
+		if standard == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 				"standard",
 				input.RunMetadata,
@@ -344,17 +371,24 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				input.RunMetadata,
 			)
 		}
+		logsEndpoint, err := ResolveEWCLikeLogsEndpoint(payload.Suite, standard)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+				err.Error(),
+				input.RunMetadata,
+			)
+		}
 
-		deeplink, ok := setupResult.Captures["deeplink"].(string)
-		if !ok {
+		deeplink, hasDeeplink := setupResult.Captures["deeplink"].(string)
+		if conformanceCheckNeedsDeeplinkOutput(standard) && !hasDeeplink {
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"deeplink",
 				setupResult.Captures,
 				input.RunMetadata,
 			)
 		}
-		ewcSessionID, ok = setupResult.Captures["session_id"].(string)
-		if !ok || ewcSessionID == "" {
+		ewcSessionID = conformanceCheckSessionID(payload, setupResult.Captures)
+		if ewcSessionID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"session_id",
 				setupResult.Captures,
@@ -379,20 +413,39 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			WorkflowID:        childID,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
 		})
+
+		childInput := workflowengine.WorkflowInput{
+			Payload: EWCStatusWorkflowPayload{
+				SessionID: ewcSessionID,
+			},
+			Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
+				"app_url":        appURL,
+				"interval":       time.Second * 5,
+				"check_endpoint": checkEndpoint,
+				"logs_endpoint":  logsEndpoint,
+			}),
+		}
+
+		if !conformanceCheckNeedsDeeplinkOutput(standard) {
+			var statusResult workflowengine.WorkflowResult
+			err = workflow.ExecuteChildWorkflow(ctx, child.Name(), childInput).Get(ctx, &statusResult)
+			if err != nil {
+				logger.Error("Failed to execute child workflow", "error", err)
+				errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					workflowengine.NewAppError(errCode, err.Error(), nil),
+					cfg.RunMetadata,
+				)
+			}
+			return statusResult, nil
+		}
+
 		childCtx, _ := workflow.NewDisconnectedContext(ctx)
 		err = workflow.ExecuteChildWorkflow(
 			childCtx,
 			child.Name(),
-			workflowengine.WorkflowInput{
-				Payload: EWCStatusWorkflowPayload{
-					SessionID: ewcSessionID,
-				},
-				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
-					"app_url":        appURL,
-					"interval":       time.Second * 5,
-					"check_endpoint": checkEndpoint,
-				}),
-			}).GetChildWorkflowExecution().Get(ctx, nil)
+			childInput,
+		).GetChildWorkflowExecution().Get(ctx, nil)
 
 		if err != nil {
 			logger.Error("Failed to execute child workflow", "error", err)
@@ -409,20 +462,6 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				"child_id": childID,
 			},
 		}, nil
-	case OpenID4VCIIssuerSuite:
-		runnerID, err := getOpenID4VCIIssuerRunnerID(setupResult.Captures, input.RunMetadata)
-		if err != nil {
-			return workflowengine.WorkflowResult{}, err
-		}
-
-		return pollOpenID4VCIIssuerLogs(
-			ctx,
-			runnerID,
-			appURL,
-			utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
-			false,
-			input.RunMetadata,
-		)
 	default:
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			fmt.Sprintf("unsupported suite %s", payload.Suite),

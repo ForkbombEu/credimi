@@ -557,6 +557,15 @@ func startEWCLikeWorkflow(
 			"unsupported protocol",
 		)
 	}
+	logsEndpoint, err := workflows.ResolveEWCLikeLogsEndpoint(suite, i.Protocol)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"protocol",
+			err.Error(),
+			"unsupported protocol",
+		)
+	}
 
 	input := workflowengine.WorkflowInput{
 		Payload: workflows.EWCWorkflowPayload{
@@ -569,6 +578,7 @@ func startEWCLikeWorkflow(
 			"namespace":      i.Namespace,
 			"memo":           i.Memo,
 			"check_endpoint": checkEndpoint,
+			"logs_endpoint":  logsEndpoint,
 			"app_name":       i.AppName,
 			"app_logo":       i.LogoUrl,
 			"user_name":      i.UserName,
