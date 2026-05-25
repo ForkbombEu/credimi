@@ -28,12 +28,19 @@ export type WorkflowLog = {
 export type WorkflowLogsProps = {
 	workflowId: string;
 	namespace: string;
-	subscriptionSuffix: 'openidnet-logs' | 'eudiw-logs';
+	subscriptionSuffix: 'openidnet-logs' | 'eudiw-logs' | 'ewc-logs';
 	startSignal?: string;
 	stopSignal?: string;
 	workflowSignalSuffix?: string;
 	logTransformer: (data: unknown) => WorkflowLog;
 };
+
+function isCompletedWorkflowSignalError(error: unknown) {
+	if (typeof error !== 'object' || error === null) return false;
+	const status = 'status' in error ? error.status : undefined;
+	if (status !== 404) return false;
+	return JSON.stringify(error).includes('workflow execution already completed');
+}
 
 type HandlerOptions = WorkflowLogsProps & {
 	onUpdate: (data: WorkflowLog[]) => void;
@@ -105,6 +112,7 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 				requestKey: null
 			});
 		} catch (e) {
+			if (isCompletedWorkflowSignalError(e)) return;
 			console.error('Stop signal error:', e);
 		}
 	}

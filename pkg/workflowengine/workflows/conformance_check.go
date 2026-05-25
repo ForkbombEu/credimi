@@ -24,6 +24,9 @@ const (
 	WebuildSuite              = "webuild"
 	OpenID4VCIIssuerSuite     = "openid4vci_issuer"
 	OpenID4VPWalletStandard   = "openid4vp_wallet"
+	OpenID4VCIWalletStandard  = "openid4vci_wallet"
+	OpenID4VPVerifierStandard = "openid4vp_verifier"
+	OpenID4VCIIssuerStandard  = "openid4vci_issuer"
 	ConformanceCheckTaskQueue = "ConformanceCheckTaskQueue"
 	PipelineCancelSignal      = "pipeline_cancel_signal"
 )
@@ -344,6 +347,13 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				input.RunMetadata,
 			)
 		}
+		logsEndpoint, err := ResolveEWCLikeLogsEndpoint(payload.Suite, standard)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+				err.Error(),
+				input.RunMetadata,
+			)
+		}
 
 		deeplink, ok := setupResult.Captures["deeplink"].(string)
 		if !ok {
@@ -391,6 +401,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 					"app_url":        appURL,
 					"interval":       time.Second * 5,
 					"check_endpoint": checkEndpoint,
+					"logs_endpoint":  logsEndpoint,
 				}),
 			}).GetChildWorkflowExecution().Get(ctx, nil)
 

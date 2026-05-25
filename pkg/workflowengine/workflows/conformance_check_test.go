@@ -335,6 +335,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			if tc.suite == "ewc" || tc.suite == "webuild" {
 				payload.Parameters = map[string]any{"session_id": "test-session-id"}
 				config["check_endpoint"] = "https://test-ewc.com"
+				config["logs_endpoint"] = "https://test-ewc.com/logs/{{ sessionId }}"
 			}
 
 			env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
