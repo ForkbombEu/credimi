@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -39,6 +40,16 @@ var DeepLinkRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandleGetDeeplink,
 			RequestSchema: CredentialDeeplinkRequest{},
 		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/credential/deeplink",
+			Handler: HandleGetCredentialDeeplink,
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/verification/deeplink",
+			Handler: HandleVerificationDeeplink,
+		},
 	},
 }
 
@@ -53,6 +64,130 @@ var deeplinkStartWorkflow = func(input workflowengine.WorkflowInput) (workflowen
 	return workflows.NewCustomCheckWorkflow().Start("default", input)
 }
 
+type deeplinkWorkflowResponse struct {
+	Deeplink string
+	Steps    []any
+	Output   []any
+}
+
+func getDeeplinkFromYAML(app core.App, yaml string) (deeplinkWorkflowResponse, error) {
+	appURL := app.Settings().Meta.AppURL
+
+	memo := map[string]any{
+		"test": "get-deeplink",
+	}
+	ao := &workflow.ActivityOptions{
+		ScheduleToCloseTimeout: time.Minute,
+		StartToCloseTimeout:    time.Second * 30,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 1.0,
+			MaximumInterval:    time.Minute,
+			MaximumAttempts:    1,
+		},
+	}
+	input := workflowengine.WorkflowInput{
+		Payload: workflows.CustomCheckWorkflowPayload{
+			Yaml: yaml,
+		},
+		Config: map[string]any{
+			"memo":    memo,
+			"app_url": appURL,
+		},
+		ActivityOptions: ao,
+	}
+
+	resStart, errStart := deeplinkStartWorkflow(input)
+	if errStart != nil {
+		return deeplinkWorkflowResponse{}, apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start get deeplink check",
+			errStart.Error(),
+		)
+	}
+	client, err := deeplinkTemporalClient("default")
+	if err != nil {
+		return deeplinkWorkflowResponse{}, apierror.New(
+			http.StatusInternalServerError,
+			"temporal",
+			"failed to get temporal client",
+			err.Error(),
+		)
+	}
+	result, err := deeplinkWaitForWorkflowResult(
+		client,
+		resStart.WorkflowID,
+		resStart.WorkflowRunID,
+	)
+	if err != nil {
+		details := workflowengine.ParseWorkflowError(err)
+		message := details.Message
+		if message == "" {
+			message = err.Error()
+		}
+		return deeplinkWorkflowResponse{}, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to get workflow result",
+			message,
+		)
+	}
+
+	output, ok := result.Output.([]any)
+	if !ok {
+		return deeplinkWorkflowResponse{}, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to get workflow output",
+			"output is not an array",
+		)
+	}
+	if len(output) == 0 {
+		return deeplinkWorkflowResponse{}, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to get workflow output",
+			"output is empty",
+		)
+	}
+	steps, ok := output[0].(map[string]any)["steps"].([]any)
+	if !ok || len(steps) == 0 {
+		return deeplinkWorkflowResponse{}, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to get workflow output",
+			"steps are not present or empty",
+		)
+	}
+
+	captures, ok := steps[0].(map[string]any)["captures"].(map[string]any)
+	if !ok {
+		return deeplinkWorkflowResponse{}, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to get workflow output",
+			"captures are not present in step",
+		)
+	}
+
+	deeplink, ok := captures["deeplink"].(string)
+	if !ok || deeplink == "" {
+		return deeplinkWorkflowResponse{}, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to get workflow output",
+			"deeplink is not present in captures",
+		)
+	}
+
+	return deeplinkWorkflowResponse{
+		Deeplink: deeplink,
+		Steps:    steps,
+		Output:   output,
+	}, nil
+}
+
 func HandleGetDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var body CredentialDeeplinkRequest
@@ -60,108 +195,126 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			return apis.NewBadRequestError("invalid JSON body", err)
 		}
 
-		appURL := e.App.Settings().Meta.AppURL
-
-		memo := map[string]any{
-			"test": "get-deeplink",
-		}
-		ao := &workflow.ActivityOptions{
-			ScheduleToCloseTimeout: time.Minute,
-			StartToCloseTimeout:    time.Second * 30,
-			RetryPolicy: &temporal.RetryPolicy{
-				InitialInterval:    time.Second,
-				BackoffCoefficient: 1.0,
-				MaximumInterval:    time.Minute,
-				MaximumAttempts:    1},
-		}
-		input := workflowengine.WorkflowInput{
-			Payload: workflows.CustomCheckWorkflowPayload{
-				Yaml: body.Yaml,
-			},
-			Config: map[string]any{
-				"memo":    memo,
-				"app_url": appURL,
-			},
-			ActivityOptions: ao,
-		}
-
-		resStart, errStart := deeplinkStartWorkflow(input)
-		if errStart != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"workflow",
-				"failed to start get deeplink check",
-				errStart.Error(),
-			).JSON(e)
-		}
-		client, err := deeplinkTemporalClient("default")
+		response, err := getDeeplinkFromYAML(e.App, body.Yaml)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to get temporal client",
-				err.Error(),
-			).JSON(e)
-		}
-		result, err := deeplinkWaitForWorkflowResult(
-			client,
-			resStart.WorkflowID,
-			resStart.WorkflowRunID,
-		)
-		if err != nil {
-			details := workflowengine.ParseWorkflowError(err)
-			return e.JSON(http.StatusInternalServerError, map[string]any{
-				"status":  http.StatusInternalServerError,
-				"error":   "workflow",
-				"reason":  "failed to get workflow result",
-				"details": details,
-			})
+			if apiErr, ok := err.(*apierror.APIError); ok {
+				return apiErr.JSON(e)
+			}
+
+			return err
 		}
 
-		output, ok := result.Output.([]any)
-		if !ok {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to get workflow output",
-				"output is not an array",
-			).JSON(e)
-		}
-		steps, ok := output[0].(map[string]any)["steps"].([]any)
-		if !ok || len(steps) == 0 {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to get workflow output",
-				"steps are not present or empty",
-			).JSON(e)
-		}
-
-		captures, ok := steps[0].(map[string]any)["captures"].(map[string]any)
-		if !ok {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to get workflow output",
-				"captures are not present in step",
-			).JSON(e)
-		}
-
-		deeplink, ok := captures["deeplink"].(string)
-		if !ok {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to get workflow output",
-				"deeplink is not present in captures",
-			).JSON(e)
-		}
-
-		// Return both the credential offer and the full workflow output
 		return e.JSON(http.StatusOK, map[string]any{
-			"deeplink": deeplink,
-			"steps":    steps,
-			"output":   output,
+			"deeplink": response.Deeplink,
+			"steps":    response.Steps,
+			"output":   response.Output,
 		})
 	}
+}
+
+func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		return handleRecordDeeplink(e, recordDeeplinkOptions{
+			MissingIDReason:    "missing credential id",
+			ResolveReason:      "failed to resolve credential path",
+			MissingDomain:      "credential",
+			ExpectedCollection: "credentials",
+		})
+	}
+}
+
+func HandleVerificationDeeplink() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		return handleRecordDeeplink(e, recordDeeplinkOptions{
+			MissingIDReason:    "missing record id",
+			ResolveReason:      "failed to resolve verification path",
+			MissingDomain:      "use-case-verification",
+			ExpectedCollection: "use_cases_verifications",
+		})
+	}
+}
+
+type recordDeeplinkOptions struct {
+	MissingIDReason    string
+	ResolveReason      string
+	MissingDomain      string
+	ExpectedCollection string
+}
+
+func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) error {
+	id := e.Request.URL.Query().Get("id")
+	if id == "" {
+		return apierror.New(
+			http.StatusBadRequest,
+			"request",
+			opts.MissingIDReason,
+			"id parameter is required",
+		).JSON(e)
+	}
+
+	redirect := e.Request.URL.Query().Get("redirect") == RedirectFlagTrue
+
+	rec, err := canonify.Resolve(e.App, id)
+	if err != nil {
+		return apierror.New(
+			http.StatusNotFound,
+			"resolve",
+			opts.ResolveReason,
+			err.Error(),
+		).JSON(e)
+	}
+	if rec.Collection() == nil || rec.Collection().Name != opts.ExpectedCollection {
+		return apierror.New(
+			http.StatusBadRequest,
+			"record",
+			"invalid record type",
+			"id must resolve to a "+opts.ExpectedCollection+" record",
+		).JSON(e)
+	}
+
+	deeplink, apiErr := deeplinkFromRecord(e.App, rec, opts.MissingDomain)
+	if apiErr != nil {
+		return apiErr.JSON(e)
+	}
+
+	if redirect {
+		e.Response.Header().Set("Location", deeplink)
+		e.Response.WriteHeader(http.StatusMovedPermanently)
+		return e.Next()
+	}
+
+	return e.String(http.StatusOK, deeplink)
+}
+
+func deeplinkFromRecord(app core.App, rec *core.Record, missingDomain string) (string, *apierror.APIError) {
+	yamlStr := rec.GetString("yaml")
+	if yamlStr == "" {
+		deeplink := rec.GetString("deeplink")
+		if deeplink != "" {
+			return deeplink, nil
+		}
+
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			missingDomain,
+			"deeplink not found",
+			"field 'deeplink' is missing or empty",
+		)
+	}
+
+	response, err := getDeeplinkFromYAML(app, yamlStr)
+	if err != nil {
+		if apiErr, ok := err.(*apierror.APIError); ok {
+			return "", apiErr
+		}
+
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"deeplink",
+			"failed to resolve deeplink",
+			err.Error(),
+		)
+	}
+
+	return response.Deeplink, nil
 }
