@@ -374,7 +374,7 @@ func TestStartEWCWorkflowUnsupportedProtocol(t *testing.T) {
 	t.Setenv("ROOT_DIR", rootDir)
 
 	params := WorkflowStarterParams{
-		YAMLData: "sessionId: session-1\n",
+		YAMLData: "session_id: session-1\n",
 		Protocol: "unknown",
 		TestName: "ewctest.yaml",
 	}
@@ -402,7 +402,7 @@ func TestStartEWCWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
-		YAMLData:  "sessionId: session-1\n",
+		YAMLData:  "session_id: session-1\n",
 		Email:     "user@example.com",
 		AppURL:    "https://app.example.com",
 		Namespace: "ns",
@@ -429,7 +429,7 @@ func TestStartWebuildWorkflowUnsupportedProtocol(t *testing.T) {
 	t.Setenv("ROOT_DIR", rootDir)
 
 	params := WorkflowStarterParams{
-		YAMLData: "sessionId: session-1\n",
+		YAMLData: "session_id: session-1\n",
 		Protocol: "unknown",
 		TestName: "webuildtest.yaml",
 	}
@@ -459,7 +459,7 @@ func TestStartWebuildWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
-		YAMLData:  "sessionId: session-1\n",
+		YAMLData:  "session_id: session-1\n",
 		Email:     "user@example.com",
 		AppURL:    "https://app.example.com",
 		Namespace: "ns",

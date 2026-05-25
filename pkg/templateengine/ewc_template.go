@@ -19,9 +19,9 @@ func ParseEwcInput(input, defaultFile string) ([]byte, error) {
 		return nil, fmt.Errorf("empty YAML document")
 	}
 
-	sessionIDNode := findMapKey(rootNode.Content[0], "sessionId")
+	sessionIDNode := findMapKey(rootNode.Content[0], "session_id")
 	if sessionIDNode == nil {
-		return nil, fmt.Errorf("missing 'sessionId' key in default YAML")
+		return nil, fmt.Errorf("missing 'session_id' key in default YAML")
 	}
 
 	sessionIDJSON, afterContent, err := extractCredimiJSON(sessionIDNode.Value)
@@ -43,7 +43,7 @@ func ParseEwcInput(input, defaultFile string) ([]byte, error) {
 		Value: updatedTemplate,
 		Style: yaml.FoldedStyle,
 	}
-	setMapKey(rootNode.Content[0], "sessionId", sessionIDUpdatedNode)
+	setMapKey(rootNode.Content[0], "session_id", sessionIDUpdatedNode)
 
 	yamlBytes, err := yaml.Marshal(&rootNode)
 	if err != nil {

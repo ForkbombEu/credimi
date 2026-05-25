@@ -28,20 +28,23 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		type StepData = PipelineStepData<PipelineStepByType<'conformance-check'>>;
 		const _with: StepData = { check_id: test };
 		if (test.startsWith('openid4vci_issuer')) {
-			_with.credential_offer = '<credential-offer-placeholder>';
+			_with.parameters = { deeplink: '<placeholder>' };
 		}
 		return _with;
 	},
 
 	linkProcedure: (serialized, previousSteps) => {
-		if (!serialized.credential_offer) return;
+		if (!serialized.parameters?.deeplink) return;
 
 		const previousStep = previousSteps
 			.toReversed()
-			.find((step) => step.use === 'credential-offer');
+			.find(
+				(step) =>
+					step.use === 'credential-offer' || step.use === 'use-case-verification-deeplink'
+			);
 		if (!previousStep) return;
 
-		serialized.credential_offer = formatLinkedId(previousStep);
+		serialized.parameters.deeplink = formatLinkedId(previousStep);
 	},
 
 	makeId: ({ check_id }) => getLastPathSegment(check_id),

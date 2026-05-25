@@ -134,7 +134,10 @@ test: "alpha"
 		require.Equal(t, checkID, payload["check_id"])
 		require.Equal(t, "alpha", payload["test"])
 
-		variantStr, ok := payload["variant"].(string)
+		parameters, ok := payload["parameters"].(map[string]any)
+		require.True(t, ok)
+
+		variantStr, ok := parameters["variant"].(string)
 		require.True(t, ok)
 		var variant map[string]any
 		require.NoError(t, json.Unmarshal([]byte(variantStr), &variant))
@@ -143,7 +146,7 @@ test: "alpha"
 		require.Equal(t, "by_reference", variant["request_method"])
 		require.Equal(t, "direct_post", variant["response_mode"])
 
-		form, ok := payload["form"].(map[string]any)
+		form, ok := parameters["form"].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "bar", form["foo"])
 
@@ -160,7 +163,7 @@ test: "alpha"
 		t.Setenv("ROOT_DIR", rootDir)
 
 		checkID := "oid4vci/ewc/check2"
-		configTemplate := `sessionId: "session-123"`
+		configTemplate := `session_id: "session-123"`
 		writeTemplateFile(
 			t,
 			rootDir,
@@ -180,7 +183,9 @@ test: "alpha"
 		})
 
 		payload := result.Payload
-		require.Equal(t, "session-123", payload["session_id"])
+		parameters, ok := payload["parameters"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "session-123", parameters["session_id"])
 		require.Equal(t, "ewc template", result.Config["template"])
 	})
 
@@ -189,7 +194,7 @@ test: "alpha"
 		t.Setenv("ROOT_DIR", rootDir)
 
 		checkID := "oid4vci/webuild/check-webuild"
-		configTemplate := `sessionId: "session-webuild"`
+		configTemplate := `session_id: "session-webuild"`
 		writeTemplateFile(
 			t,
 			rootDir,
@@ -209,7 +214,9 @@ test: "alpha"
 		})
 
 		payload := result.Payload
-		require.Equal(t, "session-webuild", payload["session_id"])
+		parameters, ok := payload["parameters"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "session-webuild", parameters["session_id"])
 		require.Equal(t, "webuild template", result.Config["template"])
 	})
 
@@ -250,7 +257,8 @@ nonce: "xyz"
 		t.Setenv("ROOT_DIR", rootDir)
 
 		checkID := "openid4vci_issuer/openid_conformance_suite/issuer-check"
-		configTemplate := `test: "issuer-test"`
+		configTemplate := `deeplink: "openid-credential-offer://static-offer"
+test: "issuer-test"`
 		writeTemplateFile(
 			t,
 			rootDir,
@@ -266,16 +274,15 @@ nonce: "xyz"
 
 		result := runConformanceHookWorkflow(t, conformanceHookInput{
 			CheckID: checkID,
-			Payload: map[string]any{
-				"credential_offer": "openid-credential-offer://static-offer",
-			},
-			Config: map[string]any{"user_mail": "test@example.com"},
+			Config:  map[string]any{"user_mail": "test@example.com"},
 		})
 
 		payload := result.Payload
 		require.Equal(t, workflows.OpenID4VCIIssuerSuite, payload["suite"])
 		require.Equal(t, "issuer-test", payload["test"])
-		require.Equal(t, "openid-credential-offer://static-offer", payload["credential_offer"])
+		parameters, ok := payload["parameters"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "openid-credential-offer://static-offer", parameters["deeplink"])
 		require.Equal(t, "openid4vci issuer template", result.Config["template"])
 
 		memo, ok := result.Config["memo"].(map[string]any)
