@@ -13,7 +13,7 @@ session_id: >-
           }
        `
     uuidv4}}
-deepLink: >
+deeplink: >
     {{
 
         credimi `

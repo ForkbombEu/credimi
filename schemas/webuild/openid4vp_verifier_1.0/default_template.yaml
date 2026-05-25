@@ -11,7 +11,7 @@ session_id: >
           "field_options": []
         }
   ` uuidv4 }}
-deepLink: >
+deeplink: >
   {{
       credimi `
         {
