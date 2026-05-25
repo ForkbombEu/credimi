@@ -1,0 +1,145 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: "1.1"
+components:
+  token:
+    bearer:
+      token: ${{secrets.token}}
+
+env:
+  test_name: [[.test]]
+
+tests:
+  OPENID4VP_VERIFIER:
+    steps:
+      - name: Set authorization request
+        plugin:
+          id: capture-plugin
+          params:
+            values:
+              authorization_request: [[.deeplink]]
+      - name: Compute prefixes
+        plugin:
+          id: capture-plugin
+          params:
+            values:
+              client_id_prefix: ${{ captures.authorization_request | split:"//?" | slice:-1 | toString | split:"client_id=" | slice:-1 | toString | split:"&" | slice:0,1 | toString | split:"%3A" | slice:0,1 | url_decode }}
+              request_uri: ${{ captures.authorization_request | split:"//?" | slice:-1 | toString | split:"request_uri=" | slice:-1 | toString | split:"&" | slice:0,1 | toString | url_decode }}
+              request_uri_method: ${{ captures.authorization_request | split:"//?" | slice:-1 | toString | split:"request_uri_method=" | slice:-1 | toString | split:"&" | slice:0,1 | toString | url_decode }}
+      - name: Resolve request_uri
+        if: captures.request_uri_method == "get"
+        http:
+          url: ${{ captures.request_uri }}
+          method: GET
+          check:
+            status: 200
+          captures:
+            request_object:
+              body: true
+      - name: Resolve request_uri with POST
+        if: captures.request_uri_method == "post"
+        http:
+          url: ${{ captures.request_uri }}
+          method: POST
+          headers:
+            Content-Type: application/x-www-form-urlencoded
+          params:
+            wallet_nonce: ${{ string.alphanumeric | fake:16 }}
+          check:
+            status: 200
+          captures:
+            request_object:
+              body: true
+      - name: Parse request object
+        http:
+          url: http://echo.free.beeceptor.com/sample-request?author=beeceptor
+          method: POST
+          headers:
+            Content-Type: application/json
+          body: ${{ captures.request_object | split:"." | slice:1,2 | toString | replace:"-","+" | replace:"_","/" | append:"==" | base64_decode }}
+          check:
+            status: 200
+          captures:
+            response_mode:
+              jsonpath: $.parsedBody.response_mode
+            credential_format:
+              jsonpath: $.parsedBody.dcql_query.credentials.0.format
+      - name: Create OpenID certification test plan
+        http:
+          url: https://www.certification.openid.net/api/plan
+          auth:
+            $ref: "#/components/token"
+          method: POST
+          params:
+            planName: oid4vp-1final-verifier-test-plan
+            variant: >-
+              {
+                "credential_format":"${{captures.credential_format | replace:"dc+sd-jwt","sd_jwt_vc" | replace:"mso_mdoc","iso_mdl"}}",
+                "client_id_prefix":"${{captures.client_id_prefix}}",
+                "request_method":"request_uri_signed",
+                "vp_profile":"plain_vp",
+                "response_mode":"${{captures.response_mode}}"
+              }
+          json:
+            alias: "credimi-oid4vp-verifier-test-${{ string.uuid | fake: 7 }}"
+            description: Automated OID4VP verifier conformance test via Credimi
+          check:
+            status: 201
+          captures:
+            plan_id:
+              jsonpath: $.id
+      - name: Start test runner
+        http:
+          url: https://www.certification.openid.net/api/runner
+          auth:
+            $ref: "#/components/token"
+          method: POST
+          params:
+            test: ${{ env.test_name }}
+            plan: ${{ captures.plan_id }}
+            variant: "{}"
+          body: ""
+          check:
+            status: 201
+          captures:
+            runner_id:
+              jsonpath: $.id
+      - name: Obtain authorization endpoint
+        retries:
+          count: 3
+          interval: 10s
+        http:
+          url: https://www.certification.openid.net/api/log/${{captures.runner_id}}
+          auth:
+            $ref: "#/components/token"
+          method: GET
+          check:
+            status: 200
+            jsonpath:
+              $.[-1:].msg:
+                - match: .*(Setup Done).*
+          captures:
+            submit_credential_offer:
+              jsonpath: $.[-1:].msg
+            credential_offer_endpoint:
+              jsonpath: $.[0].baseUrl
+      - name: TO BE REMOVED - get use case verification
+        http:
+          url: https://credimi.io/api/credential/deeplink
+          method: GET
+          params:
+            id: [[.use_case_verification_id]]
+          check:
+            status: 200
+          captures:
+            deeplink_not_used:
+              body: true
+      - name: Submit authroization request
+        if: captures.submit_credential_offer.0 == "Setup Done"
+        http:
+          url: ${{ captures.credential_offer_endpoint }}/authorize?${{ captures.deeplink_not_used | split:"//?" | slice:-1 | toString }}
+          auth:
+            $ref: "#/components/token"
+          method: GET
