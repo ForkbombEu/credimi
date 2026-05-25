@@ -1,0 +1,15 @@
+use_case_id: >-
+  {{
+     credimi `
+        {
+          "credimi_id": "oid4vp_verifier_use_case_id",
+          "field_default_value": "",
+          "field_description": "i18n_use_case_id_description",
+          "field_id": "use_case_id",
+          "field_label": "i18n_use_case_id",
+          "field_options": [],
+          "field_type": "string"
+        }
+     `
+  }}
+test: oid4vp-1final-verifier-kb-jwt-iat-in-past
