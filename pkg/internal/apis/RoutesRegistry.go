@@ -33,8 +33,6 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.PipelineRoutes,
 	handlers.PipelineTemporalInternalRoutes,
 	handlers.CanonifyRoutes,
-	handlers.DeepLinkCredential,
-	handlers.DeepLinkVerifiers,
 	handlers.ConformanceCheckRoutes,
 	handlers.OrganizationRoutes,
 	handlers.OrganizationTemporalInternalRoutes,
