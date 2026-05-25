@@ -14,12 +14,17 @@ env:
 tests:
   OPENID4VP_VERIFIER:
     steps:
-      - name: Set authorization request
-        plugin:
-          id: capture-plugin
+      - name: Get discoverability use case verification
+        http:
+          url: https://credimi.io/api/credential/deeplink
+          method: GET
           params:
-            values:
-              authorization_request: [[.deeplink]]
+            id: [[.use_case_id]]
+          check:
+            status: 200
+          captures:
+            authorization_request:
+              body: true
       - name: Compute prefixes
         plugin:
           id: capture-plugin
@@ -125,12 +130,12 @@ tests:
               jsonpath: $.[-1:].msg
             credential_offer_endpoint:
               jsonpath: $.[0].baseUrl
-      - name: TO BE REMOVED - get use case verification
+      - name: Get fresh use case verification
         http:
           url: https://credimi.io/api/credential/deeplink
           method: GET
           params:
-            id: [[.use_case_verification_id]]
+            id: [[.use_case_id]]
           check:
             status: 200
           captures:
