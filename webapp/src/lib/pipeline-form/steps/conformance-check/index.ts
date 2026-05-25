@@ -45,6 +45,8 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		if (!previousStep) return;
 
 		serialized.parameters.deeplink = formatLinkedId(previousStep);
+		serialized.parameters.use_case_id = previousStep.with?.use_case_id;
+		serialized.parameters.credential_id = previousStep.with?.credential_id;
 	},
 
 	makeId: ({ check_id }) => getLastPathSegment(check_id),
