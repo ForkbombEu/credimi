@@ -119,7 +119,7 @@ test: "alpha"
 		writeTemplateFile(
 			t,
 			rootDir,
-			workflows.OpenIDNetStepCITemplatePathv1_0,
+			workflows.OpenID4VPWalletStepCITemplatePathv1_0,
 			"openid template",
 		)
 
@@ -235,7 +235,10 @@ test: "alpha"
 		writeTemplateFile(
 			t,
 			rootDir,
-			filepath.Join(workflows.WebuildTemplateFolderPath, "WEBUILD-OPENID4VCI-ISSUER-1.0.yaml"),
+			filepath.Join(
+				workflows.WebuildTemplateFolderPath,
+				"WEBUILD-OPENID4VCI-ISSUER-1.0.yaml",
+			),
 			"webuild issuer template",
 		)
 
@@ -387,7 +390,7 @@ test: "verifier-test"`
 		writeTemplateFile(
 			t,
 			rootDir,
-			workflows.OpenIDNetStepCITemplatePathv1_0,
+			workflows.OpenID4VPWalletStepCITemplatePathv1_0,
 			"openid template",
 		)
 

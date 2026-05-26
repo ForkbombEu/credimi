@@ -47,7 +47,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					sendMail.Execute,
 					activity.RegisterOptions{Name: sendMail.Name()},
 				)
-				childOpenID := NewOpenIDNetLogsWorkflow()
+				childOpenID := NewOpenID4VPWalletLogsWorkflow()
 				env.RegisterWorkflowWithOptions(
 					childOpenID.Workflow,
 					workflow.RegisterOptions{Name: childOpenID.Name()},
@@ -359,7 +359,11 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				require.NoError(t, env.GetWorkflowError(), "Expected workflow to succeed")
 
 				var result workflowengine.WorkflowResult
-				require.NoError(t, env.GetWorkflowResult(&result), "Should be able to get workflow result")
+				require.NoError(
+					t,
+					env.GetWorkflowResult(&result),
+					"Should be able to get workflow result",
+				)
 
 				require.NotNil(t, result.Output, "Result output should not be nil")
 				require.Contains(t, result.Output, "deeplink", "Result should contain deeplink")

@@ -133,7 +133,7 @@ var Registry = map[string]TaskFactory{
 var PipelineInternalRegistry = map[string]TaskFactory{
 	"openidnet-logs": {
 		Kind:    TaskWorkflow,
-		NewFunc: func() any { return workflows.NewOpenIDNetLogsWorkflow() },
+		NewFunc: func() any { return workflows.NewOpenID4VPWalletLogsWorkflow() },
 	},
 	"ewc-status": {
 		Kind:    TaskWorkflow,

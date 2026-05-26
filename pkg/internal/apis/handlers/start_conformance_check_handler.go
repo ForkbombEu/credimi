@@ -92,14 +92,14 @@ func conformanceInputString(raw map[string]any, key string) string {
 var workflowRegistry = map[Author]WorkflowStarter{
 	Author(workflows.EWCSuite):               startEWCWorkflow,
 	Author(workflows.WebuildSuite):           startWebuildWorkflow,
-	Author(workflows.OpenIDConformanceSuite): startOpenIDNetWorkflow,
+	Author(workflows.OpenIDConformanceSuite): startOpenID4VPWalletWorkflow,
 	Author(workflows.EudiwSuite):             startEudiwWorkflow,
 	Author(workflows.VLEISuite):              startvLEIWorkflow,
 }
 
 var (
-	openIDNetWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		w := workflows.NewOpenIDNetWorkflow()
+	openID4VPWalletWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewOpenID4VPWalletWorkflow()
 		return w.Start(input)
 	}
 	openID4VCIIssuerWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
@@ -330,7 +330,7 @@ func reduceData(data interface{}) interface{} {
 	}
 }
 
-func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
+func startOpenID4VPWalletWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
 	// Automated OpenID conformance checks share the openid_conformance_suite author key
 	// but use a dedicated workflow and input format.
 	if i.Protocol == "openid4vci_issuer" {
@@ -361,7 +361,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"yaml",
-			"YAML data is required for OpenIDNet workflow",
+			"YAML data is required for vLEI workflow",
 			"missing YAML data",
 		)
 	}
@@ -406,7 +406,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			utils.GetEnvironmentVariable(
 				"ROOT_DIR",
 				".",
-			) + "/" + workflows.OpenIDNetStepCITemplatePathv1_0,
+			) + "/" + workflows.OpenID4VPWalletStepCITemplatePathv1_0,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
@@ -416,7 +416,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			utils.GetEnvironmentVariable(
 				"ROOT_DIR",
 				".",
-			) + "/" + workflows.OpenIDNetStepCITemplatePathDr24,
+			) + "/" + workflows.OpenID4VPWalletStepCITemplatePathDr24,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
@@ -431,7 +431,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	}
 
 	input := workflowengine.WorkflowInput{
-		Payload: workflows.OpenIDNetWorkflowPayload{
+		Payload: workflows.OpenID4VPWalletWorkflowPayload{
 			Variant:  string(parsedData.Variant),
 			Form:     parsedData.Form,
 			TestName: parsedData.TestName,
@@ -447,7 +447,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			"user_name": i.UserName,
 		},
 	}
-	results, err := openIDNetWorkflowStart(input)
+	results, err := openID4VPWalletWorkflowStart(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -686,7 +686,7 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"yaml",
-			"YAML data is required for OpenIDNet workflow",
+			"YAML data is required for OID4VP wallet workflow",
 			"missing YAML data",
 		)
 	}

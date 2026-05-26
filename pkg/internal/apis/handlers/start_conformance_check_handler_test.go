@@ -318,29 +318,29 @@ func TestHandleSaveVariablesAndStartVariablesMissingTemplate(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "failed to open template")
 }
 
-func TestStartOpenIDNetWorkflowInvalidVersion(t *testing.T) {
+func TestStartOpenID4VPWalletWorkflowInvalidVersion(t *testing.T) {
 	params := WorkflowStarterParams{
 		YAMLData: "variant: json\ntest: test-1\n",
 		Version:  "invalid",
 	}
 
-	_, err := startOpenIDNetWorkflow(params)
+	_, err := startOpenID4VPWalletWorkflow(params)
 	require.Error(t, err)
 }
 
-func TestStartOpenIDNetWorkflowSuccess(t *testing.T) {
+func TestStartOpenID4VPWalletWorkflowSuccess(t *testing.T) {
 	rootDir := t.TempDir()
-	templatePath := filepath.Join(rootDir, workflows.OpenIDNetStepCITemplatePathv1_0)
+	templatePath := filepath.Join(rootDir, workflows.OpenID4VPWalletStepCITemplatePathv1_0)
 	require.NoError(t, os.MkdirAll(filepath.Dir(templatePath), 0o755))
 	require.NoError(t, os.WriteFile(templatePath, []byte("template"), 0o644))
 	t.Setenv("ROOT_DIR", rootDir)
 
-	origStart := openIDNetWorkflowStart
+	origStart := openID4VPWalletWorkflowStart
 	t.Cleanup(func() {
-		openIDNetWorkflowStart = origStart
+		openID4VPWalletWorkflowStart = origStart
 	})
 
-	openIDNetWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+	openID4VPWalletWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
 		return workflowengine.WorkflowResult{
 			WorkflowID:    "wf-openid",
 			WorkflowRunID: "run-openid",
@@ -360,13 +360,13 @@ func TestStartOpenIDNetWorkflowSuccess(t *testing.T) {
 		UserName:  "User",
 	}
 
-	result, err := startOpenIDNetWorkflow(params)
+	result, err := startOpenID4VPWalletWorkflow(params)
 	require.NoError(t, err)
 	require.Equal(t, "wf-openid", result.WorkflowID)
 	require.Equal(t, string(params.Author), result.Author)
 }
 
-func TestStartOpenIDNetWorkflowRoutesVerifierToDedicatedWorkflow(t *testing.T) {
+func TestStartOpenID4VPWalletWorkflowRoutesVerifierToDedicatedWorkflow(t *testing.T) {
 	rootDir := t.TempDir()
 	templatePath := filepath.Join(rootDir, workflows.OpenID4VPVerifierStepCITemplatePath)
 	require.NoError(t, os.MkdirAll(filepath.Dir(templatePath), 0o755))
@@ -405,7 +405,7 @@ func TestStartOpenIDNetWorkflowRoutesVerifierToDedicatedWorkflow(t *testing.T) {
 		UserName:  "User",
 	}
 
-	result, err := startOpenIDNetWorkflow(params)
+	result, err := startOpenID4VPWalletWorkflow(params)
 	require.NoError(t, err)
 	require.Equal(t, "wf-verifier", result.WorkflowID)
 	require.Equal(t, string(params.Author), result.Author)
@@ -642,7 +642,7 @@ func TestProcessJSONChecksUsesRegistry(t *testing.T) {
 	require.Equal(t, "run-1", result.WorkflowRunID)
 }
 
-func TestStartOpenIDNetWorkflowMissingTemplate(t *testing.T) {
+func TestStartOpenID4VPWalletWorkflowMissingTemplate(t *testing.T) {
 	rootDir := t.TempDir()
 	t.Setenv("ROOT_DIR", rootDir)
 
@@ -654,7 +654,7 @@ func TestStartOpenIDNetWorkflowMissingTemplate(t *testing.T) {
 		Version:   "1.0",
 	}
 
-	_, err := startOpenIDNetWorkflow(params)
+	_, err := startOpenID4VPWalletWorkflow(params)
 	require.Error(t, err)
 	var apiErr *apierror.APIError
 	require.ErrorAs(t, err, &apiErr)

@@ -329,7 +329,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			)
 		}
 
-		child := NewOpenIDNetLogsWorkflow()
+		child := NewOpenID4VPWalletLogsWorkflow()
 		childID = workflow.GetInfo(ctx).WorkflowExecution.ID + "-log"
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        childID,
@@ -341,7 +341,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			childCtx,
 			child.Name(),
 			workflowengine.WorkflowInput{
-				Payload: OpenIDNetLogsWorkflowPayload{
+				Payload: OpenID4VPWalletLogsWorkflowPayload{
 					Rid:   rid,
 					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},

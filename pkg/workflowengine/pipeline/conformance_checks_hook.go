@@ -174,7 +174,10 @@ func resolveSuiteSetup(
 				testVal = tVal
 			}
 			extra["test"] = testVal
-			extra["parameters"] = conformanceParametersFromTemplate(tpl, map[string]struct{}{"test": {}})
+			extra["parameters"] = conformanceParametersFromTemplate(
+				tpl,
+				map[string]struct{}{"test": {}},
+			)
 			if standard == workflows.OpenID4VPVerifierStandard {
 				return extra, workflows.OpenID4VPVerifierStepCITemplatePath, nil
 			}
@@ -211,7 +214,7 @@ func resolveSuiteSetup(
 			"variant": string(variantJSON),
 			"form":    form,
 		}
-		return extra, workflows.OpenIDNetStepCITemplatePathv1_0, nil
+		return extra, workflows.OpenID4VPWalletStepCITemplatePathv1_0, nil
 
 	case "ewc":
 		extra["parameters"] = conformanceParametersFromTemplate(tpl, nil)

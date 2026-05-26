@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package workflows provides implementations of workflows for the OpenID certification site.
-// It includes the OpenIDNetWorkflow for conformance checks and the OpenIDNetLogsWorkflow
+// It includes the EudiwWorkflow for conformance checks.
 // for draining logs from the OpenID certification site.
 package workflows
 
