@@ -39,9 +39,9 @@ var openIDConformancePollingActivityOptions = workflow.ActivityOptions{
 // OpenIDConformanceWorkflowPayload is the input payload for automated OpenID
 // certification suite workflows.
 type OpenIDConformanceWorkflowPayload struct {
-	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
-	UserMail   string         `json:"user_mail"                  yaml:"user_mail"                  validate:"required"`
-	TestName   string         `json:"test"                       yaml:"test"                       validate:"required"`
+	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	UserMail   string         `json:"user_mail"            yaml:"user_mail"            validate:"required"`
+	TestName   string         `json:"test"                 yaml:"test"                 validate:"required"`
 }
 
 func runOpenIDConformanceWorkflow(
@@ -76,13 +76,8 @@ func runOpenIDConformanceWorkflow(
 		)
 	}
 
-	parameters := make(map[string]any, len(payload.Parameters)+1)
-	for k, v := range payload.Parameters {
-		parameters[k] = v
-	}
-
 	stepCIPayload := activities.StepCIWorkflowActivityPayload{
-		Data: parameters,
+		Data: payload.Parameters,
 		Secrets: map[string]string{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		},
@@ -161,14 +156,18 @@ func pollOpenIDConformanceLogs(
 
 	for {
 		var httpResponse workflowengine.ActivityResult
-		if err := workflow.ExecuteActivity(pollCtx, httpActivity.Name(), request).Get(pollCtx, &httpResponse); err != nil {
+		if err := workflow.ExecuteActivity(pollCtx, httpActivity.Name(), request).
+			Get(pollCtx, &httpResponse); err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, metadata)
 		}
 
 		logs := workflowengine.AsSliceOfMaps(workflowengine.AsMap(httpResponse.Output)["body"])
 		if notifyLogs {
 			if err := notifyOpenIDConformanceLogs(pollCtx, appURL, workflowID, logs); err != nil {
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, metadata)
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					err,
+					metadata,
+				)
 			}
 		}
 		if len(logs) == 0 {

@@ -90,11 +90,11 @@ func conformanceInputString(raw map[string]any, key string) string {
 }
 
 var workflowRegistry = map[Author]WorkflowStarter{
-	"ewc":                      startEWCWorkflow,
-	"webuild":                  startWebuildWorkflow,
-	"openid_conformance_suite": startOpenIDNetWorkflow,
-	"eudiw":                    startEudiwWorkflow,
-	"vlei":                     startvLEIWorkflow,
+	Author(workflows.EWCSuite):               startEWCWorkflow,
+	Author(workflows.WebuildSuite):           startWebuildWorkflow,
+	Author(workflows.OpenIDConformanceSuite): startOpenIDNetWorkflow,
+	Author(workflows.EudiwSuite):             startEudiwWorkflow,
+	Author(workflows.VLEISuite):              startvLEIWorkflow,
 }
 
 var (
@@ -628,7 +628,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 	testName := i.TestName
 	filename := strings.TrimPrefix(
 		strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml",
-		"eudiw",
+		workflows.EudiwSuite,
 	)
 	templateStr, err := readTemplateFile(
 		utils.GetEnvironmentVariable(

@@ -794,11 +794,17 @@ func extractEWCLikeLogsFromPayload(payload any) []map[string]any {
 	}
 
 	if payloadMap := workflowengine.AsMap(payload); payloadMap != nil {
-		if logs := workflowengine.AsSliceOfMaps(payloadMap["logs"]); len(logs) > 0 && looksLikeEWCLikeLogs(logs) {
+		if logs := workflowengine.AsSliceOfMaps(
+			payloadMap["logs"],
+		); len(logs) > 0 &&
+			looksLikeEWCLikeLogs(logs) {
 			return logs
 		}
 		if logsResponse := workflowengine.AsMap(payloadMap["logs_response"]); logsResponse != nil {
-			if logs := workflowengine.AsSliceOfMaps(logsResponse["logs"]); len(logs) > 0 && looksLikeEWCLikeLogs(logs) {
+			if logs := workflowengine.AsSliceOfMaps(
+				logsResponse["logs"],
+			); len(logs) > 0 &&
+				looksLikeEWCLikeLogs(logs) {
 				return logs
 			}
 		}
@@ -1052,13 +1058,13 @@ func handleDeeplinkFromHistory(
 				if pls, ok := resultMap["payloads"].([]any); ok && len(pls) > 0 {
 					first := pls[0].(map[string]any)
 					switch author {
-					case "openid_conformance_suite":
+					case workflows.OpenIDConformanceSuite:
 						return getDeeplinkOpenIDConformanceSuite(e, first)
-					case "ewc":
+					case workflows.EWCSuite:
 						return getDeeplinkEWC(e, first)
-					case "webuild":
+					case workflows.WebuildSuite:
 						return getDeeplinkEWC(e, first)
-					case "eudiw":
+					case workflows.EudiwSuite:
 						return getDeeplinkEudiw(e, first)
 					default:
 						return apierror.New(
@@ -1066,8 +1072,12 @@ func handleDeeplinkFromHistory(
 							"protocol",
 							"unsupported suite",
 							fmt.Sprintf(
-								"author is %q, expected openid_conformance_suite, ewc, webuild or eudiw",
+								"author is %q, expected %s, %s, %s or %s",
 								author,
+								workflows.OpenIDConformanceSuite,
+								workflows.EWCSuite,
+								workflows.WebuildSuite,
+								workflows.EudiwSuite,
 							),
 						).JSON(e)
 					}
