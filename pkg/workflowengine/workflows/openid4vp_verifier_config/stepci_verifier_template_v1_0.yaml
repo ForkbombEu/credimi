@@ -92,14 +92,14 @@ tests:
             description: Automated OID4VP verifier conformance test via Credimi
             credential:
               signing_jwk:
-                kty: EC,
-                crv: P-256,
-                alg: ES256,
-                use: sig,
-                kid: XVIckZiUv5WtFOgTEdoHJ808b_trpusvnnMRCHA1BV0,
-                x: IYcIGgUsM07bHRkZ1IZkaARQYwNu45QtlCgF80LRhEw,
-                "y": 9WO-IKvzmx5wxiQY5QTvROq3q9ukKTpiTALlyOeGgiU,
-                d: PtM7fTq7dz8VUx3OiJnzJ1DYokXsTE_L5uU9jSqDX-Q,
+                kty: EC
+                crv: P-256
+                alg: ES256
+                use: sig
+                kid: XVIckZiUv5WtFOgTEdoHJ808b_trpusvnnMRCHA1BV0
+                x: IYcIGgUsM07bHRkZ1IZkaARQYwNu45QtlCgF80LRhEw
+                "y": 9WO-IKvzmx5wxiQY5QTvROq3q9ukKTpiTALlyOeGgiU
+                d: PtM7fTq7dz8VUx3OiJnzJ1DYokXsTE_L5uU9jSqDX-Q
                 x5c:
                   - MIIBhzCCAS2gAwIBAgIUZfsUSLsqPf3N0J3rawm/7GXV5iEwCgYIKoZIzj0EAwIwGTEXMBUGA1UEAwwOZXhhbXBsZS13YWxsZXQwHhcNMjYwNDE2MDcyNTI4WhcNMjcwNDE2MDcyNTI4WjAZMRcwFQYDVQQDDA5leGFtcGxlLXdhbGxldDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABCGHCBoFLDNO2x0ZGdSGZGgEUGMDbuOULZQoBfNC0YRM9WO+IKvzmx5wxiQY5QTvROq3q9ukKTpiTALlyOeGgiWjUzBRMB0GA1UdDgQWBBQv+OLuUvpRDRgbs3l4CTbSkhM2CDAfBgNVHSMEGDAWgBQv+OLuUvpRDRgbs3l4CTbSkhM2CDAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0gAMEUCIQD3Qd2rAH86RD6QH9y21+66y0jYP+fM24NOL+asBPz9DwIgbyfKgqz88RZwESjo8Xlkb4910V9ojgocwyjJjfWasRw=
           check:
