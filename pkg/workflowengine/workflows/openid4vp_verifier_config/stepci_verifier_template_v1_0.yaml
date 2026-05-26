@@ -132,7 +132,7 @@ tests:
               jsonpath: $.[0].baseUrl
       - name: Get fresh use case verification
         http:
-          url: https://credimi.io/api/credential/deeplink
+          url: https://credimi.io/api/verification/deeplink
           method: GET
           params:
             id: [[.use_case_id]]
