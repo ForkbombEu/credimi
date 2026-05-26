@@ -8,9 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -65,10 +68,25 @@ func (EWCWorkflow) GetOptions() workflow.ActivityOptions {
 
 type EWCResponseBody struct {
 	Status    string         `json:"status"`
-	Reason    string         `json:"reason"`
+	Error     string         `json:"error,omitempty"`
+	Result    map[string]any `json:"result,omitempty"`
+	UpdatedAt time.Time      `json:"updatedAt,omitempty"`
+	Reason    string         `json:"reason,omitempty"`
 	SessionID string         `json:"sessionId"`
 	Claims    map[string]any `json:"claims,omitempty"`
 }
+
+const (
+	ewcAPIBaseURL             = "https://ewc.api.forkbomb.eu"
+	webuildAPIBaseURL         = "https://webuild.api.forkbomb.eu"
+	webuildWalletClientAPIURL = "https://webuild.wallet-client.forkbomb.eu"
+	ewcLikeSessionIDTemplate  = "{{ sessionId }}"
+	ewcVerificationStatusPath = "/verificationStatus"
+	ewcIssueStatusPath        = "/issueStatus"
+	ewcSessionStatusPath      = "/session-status/"
+	ewcLogsPath               = "/logs/"
+	EWCSubscription           = "ewc-logs"
+)
 
 func (w *EWCWorkflow) Workflow(
 	ctx workflow.Context,
@@ -232,6 +250,13 @@ func executeEWCLikeWorkflow(
 			input.RunMetadata,
 		)
 	}
+	logsEndpoint, ok := input.Config["logs_endpoint"].(string)
+	if !ok || logsEndpoint == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"logs_endpoint",
+			input.RunMetadata,
+		)
+	}
 	parameters := make(map[string]any, len(payload.Parameters))
 	for k, v := range payload.Parameters {
 		parameters[k] = v
@@ -278,7 +303,9 @@ func executeEWCLikeWorkflow(
 	workflowResult, err := pollEWCCheck(
 		ctx,
 		interval,
+		appURL,
 		checkEndpoint,
+		logsEndpoint,
 		sessionID,
 		input.RunMetadata,
 		false,
@@ -321,11 +348,20 @@ func executeEWCLikeStatusWorkflow(
 			input.RunMetadata,
 		)
 	}
+	logsEndpoint, ok := input.Config["logs_endpoint"].(string)
+	if !ok || logsEndpoint == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"logs_endpoint",
+			input.RunMetadata,
+		)
+	}
 
 	result, err := pollEWCCheck(
 		ctx,
 		interval,
+		appURL,
 		checkEndpoint,
+		logsEndpoint,
 		payload.SessionID,
 		input.RunMetadata,
 		true,
@@ -334,30 +370,62 @@ func executeEWCLikeStatusWorkflow(
 }
 
 func ResolveEWCLikeCheckEndpoint(suite string, standard string) (string, error) {
-	var baseURL string
-	switch suite {
-	case EWCSuite:
-		baseURL = "https://ewc.api.forkbomb.eu"
-	case WebuildSuite:
-		baseURL = "https://webuild.api.forkbomb.eu"
-	default:
-		return "", fmt.Errorf("unsupported suite %s", suite)
-	}
-
 	switch standard {
 	case OpenID4VPWalletStandard:
-		return baseURL + "/verificationStatus", nil
-	case "openid4vci_wallet":
-		return baseURL + "/issueStatus", nil
+		baseURL, err := resolveEWCLikeBaseURL(suite, standard)
+		if err != nil {
+			return "", err
+		}
+		return baseURL + ewcVerificationStatusPath, nil
+	case OpenID4VCIWalletStandard:
+		baseURL, err := resolveEWCLikeBaseURL(suite, standard)
+		if err != nil {
+			return "", err
+		}
+		return baseURL + ewcIssueStatusPath, nil
+	case OpenID4VPVerifierStandard, OpenID4VCIIssuerStandard:
+		if suite != WebuildSuite {
+			return "", fmt.Errorf("unsupported standard %s for suite %s", standard, suite)
+		}
+		baseURL, err := resolveEWCLikeBaseURL(suite, standard)
+		if err != nil {
+			return "", err
+		}
+		return baseURL + ewcSessionStatusPath + ewcLikeSessionIDTemplate, nil
 	default:
 		return "", fmt.Errorf("unsupported standard %s for suite %s", standard, suite)
+	}
+}
+
+func ResolveEWCLikeLogsEndpoint(suite string, standard string) (string, error) {
+	baseURL, err := resolveEWCLikeBaseURL(suite, standard)
+	if err != nil {
+		return "", err
+	}
+
+	return baseURL + ewcLogsPath + ewcLikeSessionIDTemplate, nil
+}
+
+func resolveEWCLikeBaseURL(suite string, standard string) (string, error) {
+	switch suite {
+	case EWCSuite:
+		return ewcAPIBaseURL, nil
+	case WebuildSuite:
+		if standard == OpenID4VPVerifierStandard || standard == OpenID4VCIIssuerStandard {
+			return webuildWalletClientAPIURL, nil
+		}
+		return webuildAPIBaseURL, nil
+	default:
+		return "", fmt.Errorf("unsupported suite %s", suite)
 	}
 }
 
 func pollEWCCheck(
 	ctx workflow.Context,
 	interval time.Duration,
+	appURL string,
 	checkEndpoint string,
+	logsEndpoint string,
 	sessionID string,
 	runMetadata *workflowengine.WorkflowErrorMetadata,
 	startImmediately bool,
@@ -392,16 +460,17 @@ func pollEWCCheck(
 		logger.Info("EWC polling started (startImmediately=true)")
 	}
 
-	httpInput := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
-			Method: http.MethodGet,
-			URL:    checkEndpoint,
-			QueryParams: map[string]string{
-				"sessionId": sessionID,
-			},
-			ExpectedStatus: 200,
-		},
+	httpPayload := activities.HTTPActivityPayload{
+		Method:         http.MethodGet,
+		URL:            resolveEWCLikeEndpoint(checkEndpoint, sessionID),
+		ExpectedStatus: 200,
 	}
+	if !strings.Contains(checkEndpoint, ewcLikeSessionIDTemplate) {
+		httpPayload.QueryParams = map[string]string{
+			"sessionId": sessionID,
+		}
+	}
+	httpInput := workflowengine.ActivityInput{Payload: httpPayload}
 	var signalData struct{}
 	selector.AddReceive(pipelineCancelChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(ctx, &signalData)
@@ -448,7 +517,8 @@ func pollEWCCheck(
 			)
 		}
 
-		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
+		statusResponse := response.Output.(map[string]any)["body"]
+		bodyJSON, err := json.Marshal(statusResponse)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 			appErr := workflowengine.NewAppError(errCode, err.Error(), response.Output)
@@ -469,13 +539,33 @@ func pollEWCCheck(
 		}
 
 		errCode := errorcodes.Codes[errorcodes.EWCCheckFailed]
-		failedErr := workflowengine.NewAppError(errCode, parsed.Reason, parsed)
+		logs, logsResponse, err := fetchEWCLikeLogs(ctx, logsEndpoint, sessionID, runMetadata)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+		if len(logs) > 0 {
+			if err := notifyEWCLikeLogs(ctx, appURL, workflow.GetInfo(ctx).WorkflowExecution.ID, logs, runMetadata); err != nil {
+				logger.Error("Failed to send EWC logs", "error", err)
+				return workflowengine.WorkflowResult{}, err
+			}
+		}
+		resultPayload := map[string]any{
+			"status_response": statusResponse,
+			"logs_response":   logsResponse,
+			"logs":            logs,
+		}
+		failedErr := workflowengine.NewAppError(errCode, parsed.Reason, resultPayload)
 
 		switch parsed.Status {
 		case "success":
+			var resultLog any = logs
+			if len(logs) == 0 {
+				resultLog = parsed.Claims
+			}
 			return workflowengine.WorkflowResult{
 				Message: "EWC check completed successfully",
-				Log:     parsed.Claims,
+				Log:     resultLog,
+				Output:  resultPayload,
 			}, nil
 
 		case "pending":
@@ -505,4 +595,84 @@ func pollEWCCheck(
 			)
 		}
 	}
+}
+
+func resolveEWCLikeEndpoint(endpoint string, sessionID string) string {
+	return strings.ReplaceAll(endpoint, ewcLikeSessionIDTemplate, url.PathEscape(sessionID))
+}
+
+func fetchEWCLikeLogs(
+	ctx workflow.Context,
+	logsEndpoint string,
+	sessionID string,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+) ([]map[string]any, any, error) {
+	if logsEndpoint == "" {
+		return nil, nil, nil
+	}
+
+	httpActivity := activities.NewHTTPActivity()
+	httpInput := workflowengine.ActivityInput{
+		Payload: activities.HTTPActivityPayload{
+			Method:         http.MethodGet,
+			URL:            resolveEWCLikeEndpoint(logsEndpoint, sessionID),
+			ExpectedStatus: 200,
+		},
+	}
+	var response workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), httpInput).Get(ctx, &response); err != nil {
+		return nil, nil, workflowengine.NewWorkflowError(err, runMetadata)
+	}
+
+	logsResponse := workflowengine.AsMap(response.Output)["body"]
+	return extractEWCLikeLogs(logsResponse), logsResponse, nil
+}
+
+func extractEWCLikeLogs(logsResponse any) []map[string]any {
+	if body := workflowengine.AsMap(logsResponse); body != nil {
+		if logs := workflowengine.AsSliceOfMaps(body["logs"]); len(logs) > 0 {
+			return logs
+		}
+	}
+
+	return workflowengine.AsSliceOfMaps(logsResponse)
+}
+
+func notifyEWCLikeLogs(
+	ctx workflow.Context,
+	appURL string,
+	workflowID string,
+	logs []map[string]any,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+) error {
+	if appURL == "" {
+		return nil
+	}
+
+	httpActivity := activities.NewHTTPActivity()
+	triggerLogsInput := workflowengine.ActivityInput{
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodPost,
+			URL: utils.JoinURL(
+				appURL,
+				"api",
+				"compliance",
+				"send-ewc-log-update",
+			),
+			Headers: map[string]string{
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
+			},
+			Body: map[string]any{
+				"workflow_id": strings.TrimSuffix(workflowID, "-status"),
+				"logs":        logs,
+			},
+			ExpectedStatus: 200,
+		},
+	}
+
+	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), triggerLogsInput).Get(ctx, nil); err != nil {
+		return workflowengine.NewWorkflowError(err, runMetadata)
+	}
+
+	return nil
 }

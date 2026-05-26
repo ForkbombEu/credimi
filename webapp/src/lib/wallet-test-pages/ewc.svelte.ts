@@ -4,8 +4,10 @@
 
 import type { Getter } from '@/utils/types';
 
+import { LogStatus, type WorkflowLogsProps } from '$lib/workflows/workflow-logs';
 import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
+import { z } from 'zod/v3';
 
 //
 
@@ -57,3 +59,51 @@ function closeEWCConnections(workflowId: string, namespace: string) {
 		warn(err);
 	});
 }
+
+export function getEWCWorkflowLogsProps(
+	workflowId?: string,
+	namespace?: string
+): WorkflowLogsProps {
+	if (!workflowId || !namespace) {
+		throw new Error('missing workflowId or namespace');
+	}
+
+	return {
+		subscriptionSuffix: 'ewc-logs',
+		startSignal: 'start-ewc-check-signal',
+		stopSignal: 'stop-ewc-check-signal',
+		workflowSignalSuffix: '-status',
+		workflowId,
+		namespace,
+		logTransformer: (rawLog) => {
+			const data = LogsSchema.parse(rawLog);
+			return {
+				time: data.timestamp ? Date.parse(data.timestamp) : undefined,
+				message: data.message,
+				status: levelToStatus(data.level),
+				rawLog
+			};
+		}
+	};
+}
+
+function levelToStatus(level: string | undefined): LogStatus {
+	switch (level?.toLowerCase()) {
+		case 'error':
+			return LogStatus.ERROR;
+		case 'warn':
+		case 'warning':
+			return LogStatus.WARNING;
+		default:
+			return LogStatus.INFO;
+	}
+}
+
+const LogsSchema = z
+	.object({
+		level: z.string().optional(),
+		message: z.string().optional(),
+		step: z.number().optional(),
+		timestamp: z.string().optional()
+	})
+	.passthrough();

@@ -160,14 +160,15 @@ func (w *OpenID4VCIIssuerWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	runnerID, err := getOpenID4VCIIssuerRunnerID(result.Captures, input.RunMetadata)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, err
+	rid, ok := result.Captures["rid"].(string)
+	if !ok || rid == "" {
+		return workflowengine.WorkflowResult{},
+			workflowengine.NewStepCIOutputError("rid", result.Captures, input.RunMetadata)
 	}
 
 	return pollOpenID4VCIIssuerLogs(
 		ctx,
-		runnerID,
+		rid,
 		appURL,
 		utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 		true,
@@ -189,17 +190,6 @@ func (w *OpenID4VCIIssuerWorkflow) Start(
 		namespace = input.Config["namespace"].(string)
 	}
 	return openID4VCIIssuerStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
-}
-
-func getOpenID4VCIIssuerRunnerID(
-	captures map[string]any,
-	metadata *workflowengine.WorkflowErrorMetadata,
-) (string, error) {
-	runnerID, ok := captures["runner_id"].(string)
-	if !ok || runnerID == "" {
-		return "", workflowengine.NewStepCIOutputError("runner_id", captures, metadata)
-	}
-	return runnerID, nil
 }
 
 func pollOpenID4VCIIssuerLogs(

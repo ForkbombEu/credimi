@@ -143,6 +143,7 @@ linters:
         - organizations
         - credential_issuers
         - credentials
+        - credential
         - video_path
         - recording_process_pid
         - ffmpeg_process_pid

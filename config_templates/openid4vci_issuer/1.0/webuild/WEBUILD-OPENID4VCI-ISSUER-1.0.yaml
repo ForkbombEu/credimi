@@ -1,0 +1,30 @@
+session_id: >-
+    {{
+
+       credimi `
+          {
+            "credimi_id": "WEBUILD_OPENID4VCI_ISSUER_1.0_session_id",
+            "field_default_value": "",
+            "field_description": "i18n_session_id_description",
+            "field_id": "session_id",
+            "field_label": "i18n_session_id",
+            "field_options": [],
+            "field_type": "string"
+          }
+       `
+    uuidv4}}
+deeplink: >
+    {{
+
+        credimi `
+          {
+            "credimi_id": "deeplink",
+            "field_id": "deeplink",
+            "field_label": "i18n_deeplink",
+            "field_description": "i18n_deeplink_description",
+            "field_default_value": "",
+            "field_type": "string",
+            "field_options": []
+          }
+    ` "" }}
+
