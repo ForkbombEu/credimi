@@ -33,15 +33,15 @@ This page is a readable map of the documents around EUDI Wallet conformance. It 
 
 ## Fast reading: the minimum mental model
 
-| Layer | Main sources | What it means for Credimi |
+| Layer | Main sources | What it means |
 |---|---|---|
 | Legal foundation | [EUDI Regulation 2024/1183](https://data.europa.eu/eli/reg/2024/1183/oj), consolidated eIDAS | Defines the legal Wallet ecosystem and actors. |
 | Wallet / Issuer / RP rules | CIRs 2024/2977, 2979, 2981, 2982; CIR 2025/848 | Turns legal obligations into implementable Wallet, Issuer and RP expectations. |
 | Architecture | [EUDI ARF latest](https://eudi.dev/latest/) | Gives the technical structure, actors, protocols and high-level requirements. |
 | OpenID4VC protocol layer | [OID4VCI](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#section-), [OID4VP](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#section-), [HAIP](https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html#section-) | Defines issuance/presentation/high-assurance interoperability. |
 | Credential format layer | [SD-JWT](https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-14.html#section-), [SD-JWT VC](https://www.ietf.org/archive/id/draft-ietf-oauth-sd-jwt-vc-13.html#section-), ISO 18013-5/7 | Defines SD-JWT and mdoc/mDL credential/presentation formats. |
-| Trust infrastructure | Trusted Lists, RP registers, certificates, OpenID Federation where used | Lets Credimi check “who is trusted to do what”. |
-| Evidence layer | Temporal + StepCI + Maestro + trust-helper | Produces machine-readable evidence and later PDF/HTML reports. |
+| Trust services / certificates | ETSI ESI standards | Defines certificate, validation, timestamping and trust-service profiles. |
+| Trust infrastructure | Trusted Lists, RP registers, certificates, OpenID Federation where used | Provides the mechanisms for checking who is trusted to do what. |
 
 ---
 
@@ -56,14 +56,12 @@ Commission Implementing Regulations
   ↓
 EUDI Architecture and Reference Framework
   ↓
-Protocol profiles and credential formats
+OpenID / ISO / SD-JWT protocol and credential-format profiles
   ↓
-Trust infrastructure, certification and assurance standards
+ETSI trust-service, certificate, validation and timestamping standards
 ```
 
-The legal acts define the obligations and actors. The ARF explains the target architecture and high-level requirements. OpenID4VC, HAIP, SD-JWT, ISO 18013 and ETSI standards then describe the concrete technical and trust-service mechanisms used to implement and assess the ecosystem.
-
-The same document can matter to several audiences. For example, a Wallet developer reads CIR 2024/2982 for interfaces, an Issuer developer reads it for issuance flows, and an assurance reviewer reads it to understand what evidence should exist.
+The legal acts define obligations and actors. The ARF explains the target architecture and high-level requirements. OpenID4VC, HAIP, SD-JWT, ISO 18013 and ETSI standards then describe the concrete technical and trust-service mechanisms used to implement and assess the ecosystem.
 
 ---
 
@@ -89,7 +87,7 @@ Read first:
 - [CIR 2024/2982 — Protocols and interfaces](https://data.europa.eu/eli/reg_impl/2024/2982/oj)
 - [OID4VCI](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#section-)
 - [HAIP](https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html#section-)
-- ETSI EAA/PID profile and trust-service material where applicable
+- [ETSI TS 119 471 V1.1.1 (2025-05)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119471/01.01.01_60/ts_119471v010101p.pdf) / [ETSI TS 119 472-3 V1.1.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf) / [ETSI TS 119 478 V1.1.1 (2026-01)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119478/01.01.01_60/ts_119478v010101p.pdf) where EAA/PID and authentic-source profiles are involved
 
 Implementation questions: issuer metadata; valid credential offers; credential configuration matching; grant types; WUA validation; status/revocation; issuance to a real Wallet.
 
@@ -101,7 +99,8 @@ Read first:
 - [CIR 2025/848 — Registration of Wallet-relying parties](https://data.europa.eu/eli/reg_impl/2025/848/oj)
 - [OID4VP](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#section-)
 - [HAIP](https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html#section-)
-- RP registration / access-certificate material
+- [ETSI TS 119 475 V1.2.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119475/01.02.01_60/ts_119475v010201p.pdf) for relying-party attributes
+- [ETSI TS 119 472-2 V1.2.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf) for EAA/PID presentation profiles
 - OpenID Federation if your trust model uses it
 
 Implementation questions: valid presentation requests; requested attributes within entitlement; RP identity/authentication; verifier callback/result; credential signature/status/trust validation.
@@ -114,8 +113,9 @@ Read first:
 - [CIR 2025/849 — List of certified Wallets](https://data.europa.eu/eli/reg_impl/2025/849/oj)
 - [CIR 2015/1502 — Assurance levels](https://data.europa.eu/eli/reg_impl/2015/1502/oj)
 - [CIR 2025/2162 — CAB accreditation and conformity assessment](https://data.europa.eu/eli/reg_impl/2025/2162/oj)
+- [ETSI EN 319 401 V3.2.1 (2026-01)](https://www.etsi.org/deliver/etsi_en/319400_319499/319401/03.02.01_60/en_319401v030201p.pdf) / [ETSI EN 319 403-1 V2.3.1 (2020-06)](https://www.etsi.org/deliver/etsi_en/319400_319499/31940301/02.03.01_60/en_31940301v020301p.pdf) for trust-service policy and assessment context
 
-Assurance evidence to look for: reproducible inputs/outputs; artifact hashes; reproducible execution evidence; test artifacts; implementation logs; conformance-suite results; optional external/CAB/QTSP evidence.
+Assurance evidence to look for: reproducible execution evidence; test artifacts; implementation logs; conformance-suite results; optional external/CAB/QTSP evidence.
 
 ### I care about trust infrastructure
 
@@ -151,6 +151,10 @@ Implementation questions: fetch LoTL/TLs; validate signatures/seals and freshnes
 | [CIR 2025/1569](https://data.europa.eu/eli/reg_impl/2025/1569/oj) | QEAA and public-sector authentic-source EAA rules. |
 | [OID4VCI](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#section-) | Credential issuance protocol. |
 | [HAIP](https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html#section-) | High-assurance OpenID4VC profile. |
+| [ETSI TS 119 471 V1.1.1 (2025-05)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119471/01.01.01_60/ts_119471v010101p.pdf) | EAA service-provider policy and security requirements. |
+| [ETSI TS 119 472-1 V1.2.1 (2026-02)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11947201/01.02.01_60/ts_11947201v010201p.pdf) | General EAA/PID profile requirements. |
+| [ETSI TS 119 472-3 V1.1.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf) | EAA/PID issuance profiles. |
+| [ETSI TS 119 478 V1.1.1 (2026-01)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119478/01.01.01_60/ts_119478v010101p.pdf) | Authentic-source interfaces. |
 
 ### 🟦🟧 Verifier / RP
 
@@ -160,6 +164,8 @@ Implementation questions: fetch LoTL/TLs; validate signatures/seals and freshnes
 | [CIR 2024/2982](https://data.europa.eu/eli/reg_impl/2024/2982/oj) | Protocols/interfaces for presentation and RP interaction. |
 | [OID4VP](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#section-) | Presentation protocol. |
 | [HAIP](https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html#section-) | High-assurance presentation/interoperability profile. |
+| [ETSI TS 119 475 V1.2.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119475/01.02.01_60/ts_119475v010201p.pdf) | Relying-party attributes for Wallet user authorization decisions. |
+| [ETSI TS 119 472-2 V1.2.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf) | EAA/PID presentation profiles. |
 
 ### 🟨 Credential formats
 
@@ -169,6 +175,8 @@ Implementation questions: fetch LoTL/TLs; validate signatures/seals and freshnes
 | [SD-JWT VC](https://www.ietf.org/archive/id/draft-ietf-oauth-sd-jwt-vc-13.html#section-) | SD-JWT-based Verifiable Credentials. |
 | ISO/IEC 18013-5 | mDL/mdoc device engagement, data retrieval and security mechanisms. |
 | [ISO/IEC 18013-7](https://www.iso.org/standard/82772.html#) | Reference-only here; relevant to mdoc/mDL online presentation but not fully integrated until the document is available. |
+| [ETSI TR 119 476 V1.2.1 (2024-07)](https://www.etsi.org/deliver/etsi_tr/119400_119499/119476/01.02.01_60/tr_119476v010201p.pdf) | Selective disclosure and ZKP analysis for EAAs. |
+| [ETSI TR 119 476-1 V1.3.1 (2025-08)](https://www.etsi.org/deliver/etsi_tr/119400_119499/11947601/01.03.01_60/tr_11947601v010301p.pdf) | Selective disclosure and ZKP feasibility study for EAAs. |
 
 ### 🟪 Trust infrastructure
 
@@ -180,6 +188,11 @@ Implementation questions: fetch LoTL/TLs; validate signatures/seals and freshnes
 | [Decision 2025/2164](https://data.europa.eu/eli/dec_impl/2025/2164/oj) | Common Trusted List template standard. |
 | [OpenID Federation](https://openid.net/specs/openid-federation-1_0-45.html#section-) | Optional/partner-driven federation trust-chain layer. |
 | [OAuth Status List](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-status-list-15#section-) | Credential status/revocation where used. |
+| [ETSI EN 319 401 V3.2.1 (2026-01)](https://www.etsi.org/deliver/etsi_en/319400_319499/319401/03.02.01_60/en_319401v030201p.pdf) | General policy requirements for Trust Service Providers. |
+| [ETSI EN 319 411-1 V1.5.1 (2025-04)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941101/01.05.01_60/en_31941101v010501p.pdf) | Policy/security requirements for certificate-issuing TSPs. |
+| [ETSI EN 319 411-2 V2.6.1 (2025-06)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941102/02.06.01_60/en_31941102v020601p.pdf) | Requirements for TSPs issuing EU qualified certificates. |
+| [ETSI EN 319 412-1 V1.7.1 (2026-05)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941201/01.07.01_60/en_31941201v010701p.pdf) | Certificate profile overview and common data structures. |
+| [ETSI EN 319 412-5 V2.6.1 (2026-05)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941205/02.06.01_60/en_31941205v020601p.pdf) | Qualified certificate statements. |
 
 ### 🟩 Assurance / certification / audit
 
@@ -189,6 +202,28 @@ Implementation questions: fetch LoTL/TLs; validate signatures/seals and freshnes
 | [CIR 2025/849](https://data.europa.eu/eli/reg_impl/2025/849/oj) | Certified Wallet list. |
 | [CIR 2015/1502](https://data.europa.eu/eli/reg_impl/2015/1502/oj) | eID assurance levels. |
 | [CIR 2025/2162](https://data.europa.eu/eli/reg_impl/2025/2162/oj) | CAB accreditation and conformity assessment. |
+| [ETSI EN 319 403-1 V2.3.1 (2020-06)](https://www.etsi.org/deliver/etsi_en/319400_319499/31940301/02.03.01_60/en_31940301v020301p.pdf) | Conformity assessment requirements for TSPs. |
+
+---
+
+## ETSI standards layer
+
+The ETSI layer is not gone: it is the main standards layer for trust services, certificate profiles, validation services, timestamping, EAA/PID profiles and relying-party attributes.
+
+### Most relevant ETSI documents by topic
+
+| Topic | ETSI documents |
+|---|---|
+| EAA/PID provider and issuance profiles | [ETSI TS 119 471 V1.1.1 (2025-05)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119471/01.01.01_60/ts_119471v010101p.pdf); [ETSI TS 119 472-1 V1.2.1 (2026-02)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11947201/01.02.01_60/ts_11947201v010201p.pdf); [ETSI TS 119 472-3 V1.1.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf); [ETSI TS 119 478 V1.1.1 (2026-01)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119478/01.01.01_60/ts_119478v010101p.pdf) |
+| EAA/PID presentation and RP attributes | [ETSI TS 119 472-2 V1.2.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf); [ETSI TS 119 475 V1.2.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119475/01.02.01_60/ts_119475v010201p.pdf) |
+| Selective disclosure / ZKP analysis | [ETSI TR 119 476 V1.2.1 (2024-07)](https://www.etsi.org/deliver/etsi_tr/119400_119499/119476/01.02.01_60/tr_119476v010201p.pdf); [ETSI TR 119 476-1 V1.3.1 (2025-08)](https://www.etsi.org/deliver/etsi_tr/119400_119499/11947601/01.03.01_60/tr_11947601v010301p.pdf) |
+| TSP policy and conformity assessment | [ETSI EN 319 401 V3.2.1 (2026-01)](https://www.etsi.org/deliver/etsi_en/319400_319499/319401/03.02.01_60/en_319401v030201p.pdf); [ETSI EN 319 403-1 V2.3.1 (2020-06)](https://www.etsi.org/deliver/etsi_en/319400_319499/31940301/02.03.01_60/en_31940301v020301p.pdf) |
+| Certificate-issuing TSPs | [ETSI EN 319 411-1 V1.5.1 (2025-04)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941101/01.05.01_60/en_31941101v010501p.pdf); [ETSI EN 319 411-2 V2.6.1 (2025-06)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941102/02.06.01_60/en_31941102v020601p.pdf) |
+| Certificate profiles | [ETSI EN 319 412-1 V1.7.1 (2026-05)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941201/01.07.01_60/en_31941201v010701p.pdf); [ETSI EN 319 412-2 V2.5.0 (2026-05)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941202/02.05.00_20/en_31941202v020500a.pdf); [ETSI EN 319 412-3 V1.4.0 (2026-04)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941203/01.04.00_20/en_31941203v010400a.pdf); [ETSI EN 319 412-4 V1.4.1 (2025-06)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941204/01.04.01_60/en_31941204v010401p.pdf); [ETSI EN 319 412-5 V2.6.1 (2026-05)](https://www.etsi.org/deliver/etsi_en/319400_319499/31941205/02.06.01_60/en_31941205v020601p.pdf); [ETSI TS 119 412-6 V1.2.1 (2026-04)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11941206/01.02.01_60/ts_11941206v010201p.pdf) |
+| Timestamping | [ETSI EN 319 421 V1.3.1 (2025-07)](https://www.etsi.org/deliver/etsi_en/319400_319499/319421/01.03.01_60/en_319421v010301p.pdf); [ETSI EN 319 422 V1.1.1 (2016-03)](https://www.etsi.org/deliver/etsi_en/319400_319499/319422/01.01.01_60/en_319422v010101p.pdf) |
+| Remote signing/sealing | [ETSI TS 119 431-1 V1.3.1 (2024-12)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11943101/01.03.01_60/ts_11943101v010301p.pdf); [ETSI TS 119 431-2 V1.2.1 (2023-06)](https://www.etsi.org/deliver/etsi_ts/119400_119499/11943102/01.02.01_60/ts_11943102v010201p.pdf); [ETSI TS 119 432 V1.3.1 (2026-03)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119432/01.03.01_60/ts_119432v010301p.pdf) |
+| Validation services | [ETSI TS 119 441 V1.3.1 (2025-10)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119441/01.03.01_60/ts_119441v010301p.pdf); [ETSI TS 119 442 V1.1.1 (2019-02)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119442/01.01.01_60/ts_119442v010101p.pdf) |
+| Open banking / sector-specific certificates | [ETSI TS 119 495 V1.8.1 (2026-04)](https://www.etsi.org/deliver/etsi_ts/119400_119499/119495/01.08.01_60/ts_119495v010801p.pdf) |
 
 ---
 
@@ -198,7 +233,6 @@ This catalogue is intentionally dense. It is here so the page remains complete w
 
 | ID | Document | Why it matters |
 |---|---|---|
-
 | `EU-2014-910` | [Regulation (EU) No 910/2014 — eIDAS Regulation](https://data.europa.eu/eli/reg/2014/910/oj) | Original eIDAS framework for electronic identification and trust services. |
 | `EU-2014-910-CONSOLIDATED-2024-10-18` | [Consolidated eIDAS Regulation after EUDI amendments](https://data.europa.eu/eli/reg/2014/910/2024-10-18) | Operational legal baseline after EUDI amendments. |
 | `EU-2024-1183` | [Regulation (EU) 2024/1183 — European Digital Identity Framework](https://data.europa.eu/eli/reg/2024/1183/oj) | Creates the European Digital Identity Wallet framework. |
