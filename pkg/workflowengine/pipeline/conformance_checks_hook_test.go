@@ -119,7 +119,7 @@ test: "alpha"
 		writeTemplateFile(
 			t,
 			rootDir,
-			workflows.OpenIDNetStepCITemplatePathv1_0,
+			workflows.OpenID4VPWalletStepCITemplatePathv1_0,
 			"openid template",
 		)
 
@@ -235,7 +235,10 @@ test: "alpha"
 		writeTemplateFile(
 			t,
 			rootDir,
-			filepath.Join(workflows.WebuildTemplateFolderPath, "WEBUILD-OPENID4VCI-ISSUER-1.0.yaml"),
+			filepath.Join(
+				workflows.WebuildTemplateFolderPath,
+				"WEBUILD-OPENID4VCI-ISSUER-1.0.yaml",
+			),
 			"webuild issuer template",
 		)
 
@@ -331,6 +334,47 @@ test: "issuer-test"`
 		require.Equal(t, "issuer-check", memo["test"])
 	})
 
+	t.Run("openid4vp verifier suite uses verifier StepCI template", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "openid4vp_verifier/1.0/openid_conformance_suite/verifier-check"
+		configTemplate := `use_case_id: "org/verifier/use-case"
+test: "verifier-test"`
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+		writeTemplateFile(
+			t,
+			rootDir,
+			workflows.OpenID4VPVerifierStepCITemplatePath,
+			"openid4vp verifier template",
+		)
+
+		result := runConformanceHookWorkflow(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+
+		payload := result.Payload
+		require.Equal(t, workflows.OpenIDConformanceSuite, payload["suite"])
+		require.Equal(t, workflows.OpenID4VPVerifierStandard, payload["standard"])
+		require.Equal(t, "verifier-test", payload["test"])
+		parameters, ok := payload["parameters"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "org/verifier/use-case", parameters["use_case_id"])
+		require.Equal(t, "openid4vp verifier template", result.Config["template"])
+
+		memo, ok := result.Config["memo"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, workflows.OpenIDConformanceSuite, memo["author"])
+		require.Equal(t, workflows.OpenID4VPVerifierStandard, memo["standard"])
+		require.Equal(t, "verifier-check", memo["test"])
+	})
+
 	t.Run("missing user_mail returns error", func(t *testing.T) {
 		rootDir := t.TempDir()
 		t.Setenv("ROOT_DIR", rootDir)
@@ -346,7 +390,7 @@ test: "issuer-test"`
 		writeTemplateFile(
 			t,
 			rootDir,
-			workflows.OpenIDNetStepCITemplatePathv1_0,
+			workflows.OpenID4VPWalletStepCITemplatePathv1_0,
 			"openid template",
 		)
 

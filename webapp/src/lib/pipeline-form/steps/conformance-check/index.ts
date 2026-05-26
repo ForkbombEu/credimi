@@ -80,7 +80,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 			throw new Error('Conformance check path not found for selected test');
 		}
 		return {
-			title: test.split('/').at(-1)?.replaceAll('+', ' ') ?? '',
+			title: test.split('/').at(-1) ?? '',
 			copyText: test,
 			avatar: suite.logo,
 			meta: {

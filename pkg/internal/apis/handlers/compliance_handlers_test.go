@@ -270,7 +270,7 @@ func TestSendTemporalSignalErrorMapping(t *testing.T) {
 	})
 }
 
-func TestSendOpenIDNetLogUpdateStartAlreadyCompleted(t *testing.T) {
+func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompleted(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -296,7 +296,7 @@ func TestSendOpenIDNetLogUpdateStartAlreadyCompleted(t *testing.T) {
 			mock.Anything,
 			"wf-1-log",
 			"",
-			workflows.OpenIDNetStartCheckSignal,
+			workflows.OpenID4VPWalletStartCheckSignal,
 			mock.Anything,
 		).
 		Return(&serviceerror.NotFound{Message: "workflow execution already completed"}).
@@ -311,7 +311,7 @@ func TestSendOpenIDNetLogUpdateStartAlreadyCompleted(t *testing.T) {
 		Once()
 	mockClient.On("GetWorkflow", mock.Anything, "wf-1-log", "").Return(mockRun).Once()
 
-	err = sendOpenIDNetLogUpdateStart(
+	err = sendOpenID4VPWalletLogUpdateStart(
 		app,
 		mockClient,
 		HandleSendTemporalSignalInput{WorkflowID: "wf-1-log"},
@@ -320,7 +320,7 @@ func TestSendOpenIDNetLogUpdateStartAlreadyCompleted(t *testing.T) {
 	var apiErr *apierror.APIError
 	require.True(t, errors.As(err, &apiErr))
 	require.Equal(t, http.StatusNotFound, apiErr.Code)
-	require.Equal(t, "wf-1"+workflows.OpenIDNetSubscription, capturedSubscription)
+	require.Equal(t, "wf-1"+workflows.OpenID4VPWalletSubscription, capturedSubscription)
 	require.Len(t, capturedLogs, 1)
 	require.Equal(t, "done", capturedLogs[0]["step"])
 
@@ -752,7 +752,7 @@ func TestHandleGetWorkflowResultSuccess(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "\"ok\"")
 }
 
-func TestHandleSendOpenIDNetLogUpdateSuccess(t *testing.T) {
+func TestHandleSendOpenID4VPWalletLogUpdateSuccess(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -777,7 +777,7 @@ func TestHandleSendOpenIDNetLogUpdateSuccess(t *testing.T) {
 	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
 	rec := httptest.NewRecorder()
 
-	err = HandleSendOpenIDNetLogUpdate()(&core.RequestEvent{
+	err = HandleSendOpenID4VPWalletLogUpdate()(&core.RequestEvent{
 		App: app,
 		Event: router.Event{
 			Request:  req,
@@ -786,7 +786,7 @@ func TestHandleSendOpenIDNetLogUpdateSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, "wf-3"+workflows.OpenIDNetSubscription, capturedSubscription)
+	require.Equal(t, "wf-3"+workflows.OpenID4VPWalletSubscription, capturedSubscription)
 }
 
 func TestHandleSendEudiwLogUpdateError(t *testing.T) {
