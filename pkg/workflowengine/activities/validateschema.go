@@ -27,6 +27,18 @@ type SchemaValidationActivityPayload struct {
 	SubSchema any            `json:"subschema,omitempty" yaml:"subschema,omitempty"`
 }
 
+type SchemaValidationErrorDetails struct {
+	Issues []SchemaValidationIssue `json:"issues"`
+}
+
+type SchemaValidationIssue struct {
+	Scope        string   `json:"scope"`
+	CredentialID string   `json:"credential_id,omitempty"`
+	Field        string   `json:"field,omitempty"`
+	Path         []string `json:"path,omitempty"`
+	Message      string   `json:"message"`
+}
+
 func NewSchemaValidationActivity() *SchemaValidationActivity {
 	return &SchemaValidationActivity{
 		BaseActivity: &workflowengine.BaseActivity{
@@ -144,10 +156,13 @@ func (a *SchemaValidationActivity) Execute(
 		errCode := errorcodes.Codes[errorcodes.SchemaValidationFailed]
 		ve := &jsonschema.ValidationError{}
 		if errors.As(err, &ve) {
+			details := SchemaValidationErrorDetails{
+				Issues: schemaValidationIssues(ve),
+			}
 			return result, a.NewNonRetryableActivityError(
 				errCode.Code,
-				ve.GoString(),
-				ve,
+				"schema validation failed",
+				details,
 			)
 		}
 		return result, a.NewActivityError(
@@ -163,4 +178,126 @@ func (a *SchemaValidationActivity) Execute(
 		"message": "JSON is valid against the schema",
 	}
 	return result, nil
+}
+
+type schemaValidationLeafIssue struct {
+	SchemaValidationIssue
+	got     any
+	want    any
+	missing []string
+}
+
+func schemaValidationIssues(ve *jsonschema.ValidationError) []SchemaValidationIssue {
+	leaves := schemaValidationLeafIssues(ve)
+	issues := make([]SchemaValidationIssue, 0, len(leaves))
+	seen := map[string]bool{}
+	for _, leaf := range leaves {
+		key := strings.Join(
+			[]string{leaf.Field, leaf.Message},
+			"\x00",
+		)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		issues = append(issues, leaf.SchemaValidationIssue)
+	}
+
+	return issues
+}
+
+func schemaValidationLeafIssues(ve *jsonschema.ValidationError) []schemaValidationLeafIssue {
+	if ve == nil {
+		return nil
+	}
+	if len(ve.Causes) == 0 {
+		return []schemaValidationLeafIssue{schemaValidationLeafIssueFromError(ve)}
+	}
+
+	var issues []schemaValidationLeafIssue
+	for _, cause := range ve.Causes {
+		issues = append(issues, schemaValidationLeafIssues(cause)...)
+	}
+	return issues
+}
+
+func schemaValidationLeafIssueFromError(ve *jsonschema.ValidationError) schemaValidationLeafIssue {
+	kind := schemaValidationErrorKindMap(ve.ErrorKind)
+	missing := workflowengine.AsSliceOfStrings(kind["Missing"])
+	path := append([]string(nil), ve.InstanceLocation...)
+	if len(missing) > 0 {
+		path = append(path, missing[0])
+	}
+	field := schemaValidationField(path)
+
+	issue := schemaValidationLeafIssue{
+		SchemaValidationIssue: SchemaValidationIssue{
+			Field: field,
+			Path:  path,
+		},
+		got:     kind["Got"],
+		want:    kind["Want"],
+		missing: missing,
+	}
+	issue.Message = schemaValidationMessage(issue)
+
+	return issue
+}
+
+func schemaValidationErrorKindMap(kind jsonschema.ErrorKind) map[string]any {
+	if kind == nil {
+		return nil
+	}
+
+	raw, err := json.Marshal(kind)
+	if err != nil {
+		return nil
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil
+	}
+	return result
+}
+
+func schemaValidationField(location []string) string {
+	if len(location) == 0 {
+		return ""
+	}
+	return strings.Join(location, ".")
+}
+
+func schemaValidationMessage(issue schemaValidationLeafIssue) string {
+	field := issue.Field
+	if field == "" {
+		field = "metadata"
+	}
+
+	switch {
+	case len(issue.missing) > 0:
+		return fmt.Sprintf("%s is missing", field)
+	case issue.got != nil && issue.want != nil:
+		return fmt.Sprintf(
+			"%s got %v, expected %s",
+			field,
+			issue.got,
+			schemaValidationExpectedValue(issue.want),
+		)
+	case issue.want != nil:
+		return fmt.Sprintf("%s must match %s", field, schemaValidationExpectedValue(issue.want))
+	default:
+		return fmt.Sprintf("%s is not valid", field)
+	}
+}
+
+func schemaValidationExpectedValue(value any) string {
+	values := workflowengine.AsSliceOfStrings(value)
+	if len(values) == 1 {
+		return values[0]
+	}
+	if len(values) > 1 {
+		return strings.Join(values, ", ")
+	}
+	return fmt.Sprint(value)
 }

@@ -201,6 +201,26 @@ var OrgWorkers = []workerConfig{
 			activities.NewCESRValidateActivity(),
 		},
 	},
+	{
+		TaskQueue: workflows.FidesCredentialIssuersTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewFidesCredentialIssuersWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewHTTPActivity(),
+			activities.NewParseFidesCredentialIssuersActivity(),
+			activities.NewCheckCredentialsIssuerActivity(),
+			activities.NewJSONActivity(
+				map[string]reflect.Type{
+					"map": reflect.TypeOf(
+						map[string]any{},
+					),
+				},
+			),
+			activities.NewSchemaValidationActivity(),
+			activities.NewInternalHTTPActivity(),
+		},
+	},
 }
 
 var DefaultWorkers = []workerConfig{

@@ -50,6 +50,26 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			},
 		},
 		{
+			name: "Success - path based well-known issuer response",
+			payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: "",
+			},
+			serverHandler: func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(
+					t,
+					"/.well-known/openid-credential-issuer/organisation/f8a7e3b9-09dc-4e45-88cc-3ce28e42e0ef/service",
+					r.URL.Path,
+				)
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, `{"issuer":"example.com"}`)
+			},
+			expectErr: false,
+			expectedOutput: map[string]any{
+				"rawJSON": `{"issuer":"example.com"}`,
+				"source":  ".well-known/openid-credential-issuer",
+			},
+		},
+		{
 			name:            "Failure - missing base_url",
 			payload:         CheckCredentialsIssuerActivityPayload{},
 			expectErr:       true,
@@ -102,7 +122,11 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			if tt.serverHandler != nil {
 				server := httptest.NewServer(tt.serverHandler)
 				defer server.Close()
-				baseURL = server.URL + "/.well-known/openid-credential-issuer"
+				if tt.name == "Success - path based well-known issuer response" {
+					baseURL = server.URL + "/.well-known/openid-credential-issuer/organisation/f8a7e3b9-09dc-4e45-88cc-3ce28e42e0ef/service"
+				} else {
+					baseURL = server.URL + "/.well-known/openid-credential-issuer"
+				}
 				tt.payload.BaseURL = baseURL
 			}
 
@@ -151,7 +175,42 @@ func TestCheckCredentialsIssuerActivity_Federation(t *testing.T) {
 		defer server.Close()
 
 		input := workflowengine.ActivityInput{
-			Payload: CheckCredentialsIssuerActivityPayload{BaseURL: server.URL},
+			Payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: server.URL + "/.well-known/openid-federation",
+			},
+		}
+
+		future, err := env.ExecuteActivity(act.Execute, input)
+		require.NoError(t, err)
+
+		var result workflowengine.ActivityResult
+		require.NoError(t, future.Get(&result))
+		output, ok := result.Output.(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, `{"issuer":"example.com"}`, output["rawJSON"])
+		require.Equal(t, ".well-known/openid-federation", output["source"])
+	})
+
+	t.Run("success path based federation URL", func(t *testing.T) {
+		payloadJSON := `{"metadata":{"openid_credential_issuer":{"issuer":"example.com"}}}`
+		jwtPayload := base64.RawURLEncoding.EncodeToString([]byte(payloadJSON))
+		jwt := "header." + jwtPayload + ".sig"
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(
+				t,
+				"/.well-known/openid-federation/organisation/f8a7e3b9-09dc-4e45-88cc-3ce28e42e0ef/service",
+				r.URL.Path,
+			)
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, jwt)
+		}))
+		defer server.Close()
+
+		input := workflowengine.ActivityInput{
+			Payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: server.URL + "/.well-known/openid-federation/organisation/f8a7e3b9-09dc-4e45-88cc-3ce28e42e0ef/service",
+			},
 		}
 
 		future, err := env.ExecuteActivity(act.Execute, input)
@@ -174,12 +233,82 @@ func TestCheckCredentialsIssuerActivity_Federation(t *testing.T) {
 		defer server.Close()
 
 		input := workflowengine.ActivityInput{
-			Payload: CheckCredentialsIssuerActivityPayload{BaseURL: server.URL},
+			Payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: server.URL + "/.well-known/openid-federation",
+			},
 		}
 
 		_, err := env.ExecuteActivity(act.Execute, input)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.DecodeFailed].Code)
+	})
+
+	t.Run("generic URL falls back when federation is not JWT", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/.well-known/openid-federation":
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, "not-a-jwt")
+			case "/.well-known/openid-credential-issuer":
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, `{"credential_issuer":"https://issuer.example.com"}`)
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		input := workflowengine.ActivityInput{
+			Payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: server.URL,
+			},
+		}
+
+		future, err := env.ExecuteActivity(act.Execute, input)
+		require.NoError(t, err)
+
+		var result workflowengine.ActivityResult
+		require.NoError(t, future.Get(&result))
+		output, ok := result.Output.(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, `{"credential_issuer":"https://issuer.example.com"}`, output["rawJSON"])
+		require.Equal(t, ".well-known/openid-credential-issuer", output["source"])
+	})
+
+	t.Run("generic URL falls back when federation misses credential issuer metadata", func(t *testing.T) {
+		payloadJSON := `{"metadata":{}}`
+		jwtPayload := base64.RawURLEncoding.EncodeToString([]byte(payloadJSON))
+		jwt := "header." + jwtPayload + ".sig"
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/.well-known/openid-federation":
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, jwt)
+			case "/.well-known/openid-credential-issuer":
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, `{"credential_issuer":"https://issuer.example.com"}`)
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		input := workflowengine.ActivityInput{
+			Payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: server.URL,
+			},
+		}
+
+		future, err := env.ExecuteActivity(act.Execute, input)
+		require.NoError(t, err)
+
+		var result workflowengine.ActivityResult
+		require.NoError(t, future.Get(&result))
+		output, ok := result.Output.(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, `{"credential_issuer":"https://issuer.example.com"}`, output["rawJSON"])
+		require.Equal(t, ".well-known/openid-credential-issuer", output["source"])
 	})
 
 	t.Run("invalid base64 payload", func(t *testing.T) {
@@ -192,7 +321,9 @@ func TestCheckCredentialsIssuerActivity_Federation(t *testing.T) {
 		defer server.Close()
 
 		input := workflowengine.ActivityInput{
-			Payload: CheckCredentialsIssuerActivityPayload{BaseURL: server.URL},
+			Payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: server.URL + "/.well-known/openid-federation",
+			},
 		}
 
 		_, err := env.ExecuteActivity(act.Execute, input)
@@ -213,7 +344,9 @@ func TestCheckCredentialsIssuerActivity_Federation(t *testing.T) {
 		defer server.Close()
 
 		input := workflowengine.ActivityInput{
-			Payload: CheckCredentialsIssuerActivityPayload{BaseURL: server.URL},
+			Payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: server.URL + "/.well-known/openid-federation",
+			},
 		}
 
 		_, err := env.ExecuteActivity(act.Execute, input)

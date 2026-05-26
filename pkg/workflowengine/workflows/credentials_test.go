@@ -292,6 +292,51 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 			errorCode:   errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
 		},
 		{
+			name: "Failure: no credential configurations",
+			input: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":       "https://example.com",
+					"issuer_schema": "{}",
+					"orgID":         "org123",
+				},
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
+				},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				checkAct := activities.NewCheckCredentialsIssuerActivity()
+				jsonAct := activities.NewJSONActivity(nil)
+				validateAct := activities.NewSchemaValidationActivity()
+				env.RegisterActivityWithOptions(
+					checkAct.Execute,
+					activity.RegisterOptions{Name: checkAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					jsonAct.Execute,
+					activity.RegisterOptions{Name: jsonAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					validateAct.Execute,
+					activity.RegisterOptions{Name: validateAct.Name()},
+				)
+				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"rawJSON": rawJSON,
+						"source":  "testsource",
+					}}, nil)
+				env.OnActivity(jsonAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"credential_issuer":                   "testissuer",
+						"credential_configurations_supported": map[string]any{},
+					}}, nil)
+				env.OnActivity(validateAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, nil)
+			},
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+		},
+		{
 			name: "Failure: store response missing key",
 			input: workflowengine.WorkflowInput{
 				Config: map[string]any{
@@ -369,7 +414,7 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 
 				var result workflowengine.WorkflowResult
 				require.NoError(t, env.GetWorkflowResult(&result))
-				require.Contains(t, result.Message, "Successfully retrieved and stored")
+				require.Contains(t, result.Message, "Successfully retrieved, stored, and updated")
 				require.NotEmpty(t, result.Log.(map[string]any)["StoredCredentials"])
 			}
 		})
@@ -416,37 +461,172 @@ func TestCredentialsIssuersWorkflowStart(t *testing.T) {
 	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
 }
 
-func TestExtractInvalidCredentialsFromErrorDetails(t *testing.T) {
-	details := []any{
-		map[string]any{
-			"Causes": []any{
-				map[string]any{
-					"InstanceLocation": []string{
-						"credential_configurations_supported",
-						"cred-1",
-					},
-				},
-				map[string]any{
-					"InstanceLocation": []string{"other", "skip"},
-				},
-			},
+func TestInvalidCredentialsFromSchemaValidationIssues(t *testing.T) {
+	issues := []activities.SchemaValidationIssue{
+		{
+			Scope:        "credential",
+			CredentialID: "cred-1",
+			Field:        "claims",
+			Message:      "claims got object, expected array",
+		},
+		{
+			Scope:   "issuer",
+			Field:   "credential_endpoint",
+			Message: "credential_endpoint is missing",
 		},
 	}
 
-	invalid, err := extractInvalidCredentialsFromErrorDetails(
-		details,
-		&workflowengine.WorkflowErrorMetadata{},
+	require.Equal(
+		t,
+		map[string]bool{"cred-1": true},
+		invalidCredentialsFromSchemaValidationIssues(issues),
 	)
-	require.NoError(t, err)
-	require.Equal(t, map[string]bool{"cred-1": true}, invalid)
 }
 
-func TestExtractInvalidCredentialsFromErrorDetailsInvalidShape(t *testing.T) {
-	_, err := extractInvalidCredentialsFromErrorDetails(
-		[]any{"not-a-map"},
-		&workflowengine.WorkflowErrorMetadata{},
+func TestHasIssuerLevelValidationIssues(t *testing.T) {
+	tests := []struct {
+		name   string
+		issues []activities.SchemaValidationIssue
+		want   bool
+	}{
+		{
+			name: "credential configuration errors are non-fatal",
+			issues: []activities.SchemaValidationIssue{
+				{Scope: "credential", CredentialID: "cred-1"},
+			},
+			want: false,
+		},
+		{
+			name: "top-level error is fatal",
+			issues: []activities.SchemaValidationIssue{
+				{Scope: "issuer", Field: "credential_endpoint"},
+			},
+			want: true,
+		},
+		{
+			name: "root required error is fatal",
+			issues: []activities.SchemaValidationIssue{
+				{Scope: "issuer"},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, hasIssuerLevelValidationIssues(tt.issues))
+		})
+	}
+}
+
+func TestCredentialConfigurationsFromIssuerData(t *testing.T) {
+	t.Run("uses credential_configurations_supported when present", func(t *testing.T) {
+		errs := map[string]any{}
+		configs, invalid := credentialConfigurationsFromIssuerData(
+			map[string]any{
+				"credential_configurations_supported": map[string]any{
+					"cred-1": map[string]any{"format": "dc+sd-jwt"},
+				},
+				"credentials_supported": []any{
+					map[string]any{"id": "legacy-1", "format": "ldp_vc"},
+				},
+			},
+			errs,
+		)
+
+		require.Equal(t, map[string]any{"cred-1": map[string]any{"format": "dc+sd-jwt"}}, configs)
+		require.Empty(t, invalid)
+		require.Empty(t, errs)
+	})
+
+	t.Run("falls back to legacy credentials_supported as non-conformant", func(t *testing.T) {
+		errs := map[string]any{}
+		configs, invalid := credentialConfigurationsFromIssuerData(
+			map[string]any{
+				"credential_configurations_supported": nil,
+				"credentials_supported": []any{
+					map[string]any{
+						"id":     "legacy-id",
+						"format": "ldp_vc",
+						"types":  []any{"VerifiableCredential", "LegacyCredential"},
+					},
+					map[string]any{
+						"format": "jwt_vc_json",
+						"types":  []any{"VerifiableCredential", "TypeBasedCredential"},
+					},
+				},
+			},
+			errs,
+		)
+
+		require.Len(t, configs, 2)
+		require.Contains(t, configs, "legacy-id")
+		require.Contains(t, configs, "TypeBasedCredential")
+		require.Equal(t, map[string]bool{
+			"legacy-id":           true,
+			"TypeBasedCredential": true,
+		}, invalid)
+		require.Contains(t, errs, "LegacyCredentialsSupportedFallback")
+	})
+
+	t.Run("empty configurations without fallback returns warning", func(t *testing.T) {
+		errs := map[string]any{}
+		configs, invalid := credentialConfigurationsFromIssuerData(
+			map[string]any{
+				"credential_configurations_supported": map[string]any{},
+			},
+			errs,
+		)
+
+		require.Empty(t, configs)
+		require.Empty(t, invalid)
+		require.Contains(t, errs, "NoCredentialConfigurations")
+	})
+}
+
+func TestCredentialIssuerIdentifierFromInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "generic issuer URL",
+			input: "issuer.example.com/tenant",
+			want:  "https://issuer.example.com/tenant",
+		},
+		{
+			name:  "path-based well-known URL",
+			input: "https://issuer.example.com/.well-known/openid-credential-issuer/tenant",
+			want:  "https://issuer.example.com/tenant",
+		},
+		{
+			name:  "well-known URL without path",
+			input: "https://issuer.example.com/.well-known/openid-credential-issuer",
+			want:  "https://issuer.example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, credentialIssuerIdentifierFromInput(tt.input))
+		})
+	}
+}
+
+func TestValidateCredentialIssuerIdentifier(t *testing.T) {
+	err := validateCredentialIssuerIdentifier(
+		map[string]any{"credential_issuer": "https://issuer.example.com/tenant"},
+		"https://issuer.example.com/.well-known/openid-credential-issuer/tenant",
+	)
+	require.NoError(t, err)
+
+	err = validateCredentialIssuerIdentifier(
+		map[string]any{"credential_issuer": "https://other.example.com/tenant"},
+		"https://issuer.example.com/.well-known/openid-credential-issuer/tenant",
 	)
 	require.Error(t, err)
+	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.SchemaValidationFailed].Code)
 }
 
 func TestExtractAppErrorDetailsFromApplicationError(t *testing.T) {
