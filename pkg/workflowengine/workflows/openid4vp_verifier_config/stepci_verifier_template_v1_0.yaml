@@ -63,7 +63,7 @@ tests:
           method: POST
           headers:
             Content-Type: application/json
-          body: ${{ captures.request_object | split:"." | slice:1,2 | toString | replace:"-","+" | replace:"_","/" | append:"==" | base64_decode }}
+          body: ${{ captures.request_object | split:"." | slice:1,2 | toString | replace:"-","+" | replace:"_","/" | base64_decode }}
           check:
             status: 200
           captures:
