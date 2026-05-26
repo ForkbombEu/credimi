@@ -85,8 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if form.data.test}
 					<WithLabel label={m.Test()}>
 						<ItemCard
-							title={form.data.test.split('/').at(-1)?.replaceAll('+', ' ') ??
-								form.data.test}
+							title={form.data.test.split('/').at(-1) ?? form.data.test}
 							onDiscard={() => form.discardTest()}
 						/>
 					</WithLabel>
@@ -117,7 +116,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/each}
 					{:else if form.state === 'select-test'}
 						{#each form.availableTests as test (test)}
-							{@const testName = test.split('/').at(-1)?.replaceAll('+', ' ')}
+							{@const testName = test.split('/').at(-1)}
 							<ItemCard
 								title={testName ?? test}
 								onClick={() => form.selectTest(test)}

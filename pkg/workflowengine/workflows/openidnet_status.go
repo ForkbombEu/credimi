@@ -7,4 +7,5 @@ package workflows
 const (
 	openIDCertificationResultFinished    = "FINISHED"
 	openIDCertificationResultInterrupted = "INTERRUPTED"
+	openIDCertificationTestModuleFailed  = "FAILED"
 )

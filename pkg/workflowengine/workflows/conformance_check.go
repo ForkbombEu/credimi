@@ -22,6 +22,8 @@ const (
 	OpenIDConformanceSuite    = "openid_conformance_suite"
 	EWCSuite                  = "ewc"
 	WebuildSuite              = "webuild"
+	EudiwSuite                = "eudiw"
+	VLEISuite                 = "vlei"
 	OpenID4VPWalletStandard   = "openid4vp_wallet"
 	OpenID4VCIWalletStandard  = "openid4vci_wallet"
 	OpenID4VPVerifierStandard = "openid4vp_verifier"
@@ -68,7 +70,8 @@ func RunStepCIAndSendMail(
 	}
 
 	var stepCIResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, stepCIActivity.Name(), stepCIInput).Get(ctx, &stepCIResult); err != nil {
+	if err := workflow.ExecuteActivity(ctx, stepCIActivity.Name(), stepCIInput).
+		Get(ctx, &stepCIResult); err != nil {
 		logger.Error("StepCIExecution failed", "error", err)
 		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 	}
@@ -128,7 +131,8 @@ func RunStepCIAndSendMail(
 			logger.Error("Email configure failed", "error", err)
 			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 		}
-		if err := workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil); err != nil {
+		if err := workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).
+			Get(ctx, nil); err != nil {
 			logger.Error("Failed to send mail", "error", err)
 			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 		}
@@ -145,19 +149,19 @@ type StartCheckWorkflow struct {
 var startCheckWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type StartCheckWorkflowPayload struct {
-	Suite      string         `json:"suite"                      yaml:"suite"`
-	Standard   string         `json:"standard,omitempty"         yaml:"standard,omitempty"`
-	CheckID    string         `json:"check_id"                   yaml:"check_id"                   validate:"required"`
-	TestName   string         `json:"test,omitempty"             yaml:"test,omitempty"`
-	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
-	UserMail   string         `json:"user_mail"                  yaml:"user_mail"`
-	SendMail   bool           `json:"send_mail"                  yaml:"send_mail"`
+	Suite      string         `json:"suite"                yaml:"suite"`
+	Standard   string         `json:"standard,omitempty"   yaml:"standard,omitempty"`
+	CheckID    string         `json:"check_id"             yaml:"check_id"             validate:"required"`
+	TestName   string         `json:"test,omitempty"       yaml:"test,omitempty"`
+	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	UserMail   string         `json:"user_mail"            yaml:"user_mail"`
+	SendMail   bool           `json:"send_mail"            yaml:"send_mail"`
 }
 
 type StartCheckWorkflowPipelinePayload struct {
-	CheckID    string         `json:"check_id"                   yaml:"check_id"                   validate:"required"`
-	TestName   string         `json:"test,omitempty"             yaml:"test,omitempty"`
-	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
+	CheckID    string         `json:"check_id"             yaml:"check_id"             validate:"required"`
+	TestName   string         `json:"test,omitempty"       yaml:"test,omitempty"`
+	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
 func conformanceCheckParameters(payload StartCheckWorkflowPayload) map[string]any {
@@ -183,6 +187,10 @@ func conformanceCheckStandard(payload StartCheckWorkflowPayload, config map[stri
 
 func conformanceCheckNeedsDeeplinkOutput(standard string) bool {
 	return standard != OpenID4VPVerifierStandard && standard != OpenID4VCIIssuerStandard
+}
+
+func isOpenIDAutomatedConformanceStandard(standard string) bool {
+	return standard == OpenID4VPVerifierStandard || standard == OpenID4VCIIssuerStandard
 }
 
 func conformanceCheckSessionID(payload StartCheckWorkflowPayload, captures map[string]any) string {
@@ -292,8 +300,8 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	var childID string
 	switch payload.Suite {
 	case OpenIDConformanceSuite:
-		rid, ok := setupResult.Captures["rid"].(string)
-		if !ok {
+		rid := openIDConformanceRunnerID(setupResult.Captures)
+		if rid == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"rid",
 				setupResult.Captures,
@@ -301,8 +309,8 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			)
 		}
 
-		if standard == OpenID4VCIIssuerStandard {
-			return pollOpenID4VCIIssuerLogs(
+		if isOpenIDAutomatedConformanceStandard(standard) {
+			return pollOpenIDConformanceLogs(
 				ctx,
 				rid,
 				appURL,
@@ -321,7 +329,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			)
 		}
 
-		child := NewOpenIDNetLogsWorkflow()
+		child := NewOpenID4VPWalletLogsWorkflow()
 		childID = workflow.GetInfo(ctx).WorkflowExecution.ID + "-log"
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        childID,
@@ -333,7 +341,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			childCtx,
 			child.Name(),
 			workflowengine.WorkflowInput{
-				Payload: OpenIDNetLogsWorkflowPayload{
+				Payload: OpenID4VPWalletLogsWorkflowPayload{
 					Rid:   rid,
 					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},
@@ -428,7 +436,8 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 
 		if !conformanceCheckNeedsDeeplinkOutput(standard) {
 			var statusResult workflowengine.WorkflowResult
-			err = workflow.ExecuteChildWorkflow(ctx, child.Name(), childInput).Get(ctx, &statusResult)
+			err = workflow.ExecuteChildWorkflow(ctx, child.Name(), childInput).
+				Get(ctx, &statusResult)
 			if err != nil {
 				logger.Error("Failed to execute child workflow", "error", err)
 				errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]

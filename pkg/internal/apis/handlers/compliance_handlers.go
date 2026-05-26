@@ -63,7 +63,7 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:              http.MethodPost,
 			Path:                "/send-openidnet-log-update",
-			Handler:             HandleSendOpenIDNetLogUpdate,
+			Handler:             HandleSendOpenID4VPWalletLogUpdate,
 			RequestSchema:       HandleSendLogUpdateRequestInput{},
 			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
@@ -434,8 +434,8 @@ type HandleSendLogUpdateRequestInput struct {
 	Logs       []map[string]any `json:"logs"`
 }
 
-func HandleSendOpenIDNetLogUpdate() func(*core.RequestEvent) error {
-	return sendRealtimeLogs(workflows.OpenIDNetSubscription)
+func HandleSendOpenID4VPWalletLogUpdate() func(*core.RequestEvent) error {
+	return sendRealtimeLogs(workflows.OpenID4VPWalletSubscription)
 }
 
 func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
@@ -468,8 +468,8 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		switch req.Signal {
-		case workflows.OpenIDNetStartCheckSignal:
-			err = sendOpenIDNetLogUpdateStart(e.App, c, req)
+		case workflows.OpenID4VPWalletStartCheckSignal:
+			err = sendOpenID4VPWalletLogUpdateStart(e.App, c, req)
 		case workflows.OpenID4VCIIssuerStartCheckSignal:
 			err = sendOpenID4VCIIssuerLogUpdateStart(e.App, c, req)
 		case workflows.OpenID4VCIIssuerStopCheckSignal:
@@ -560,7 +560,7 @@ func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) er
 	return nil
 }
 
-func sendOpenIDNetLogUpdateStart(
+func sendOpenID4VPWalletLogUpdateStart(
 	app core.App,
 	c client.Client,
 	input HandleSendTemporalSignalInput,
@@ -569,7 +569,7 @@ func sendOpenIDNetLogUpdateStart(
 		context.Background(),
 		input.WorkflowID,
 		"",
-		workflows.OpenIDNetStartCheckSignal,
+		workflows.OpenID4VPWalletStartCheckSignal,
 		struct{}{},
 	)
 	if err != nil {
@@ -595,7 +595,7 @@ func sendOpenIDNetLogUpdateStart(
 				id := strings.TrimSuffix(input.WorkflowID, "-log")
 				if err := complianceNotifyLogsUpdate(
 					app,
-					id+workflows.OpenIDNetSubscription,
+					id+workflows.OpenID4VPWalletSubscription,
 					logs,
 				); err != nil {
 					return apierror.New(
@@ -688,7 +688,7 @@ func sendOpenID4VCIIssuerLogUpdateStart(
 
 	if err := complianceNotifyLogsUpdate(
 		app,
-		input.WorkflowID+workflows.OpenIDNetSubscription,
+		input.WorkflowID+workflows.OpenID4VPWalletSubscription,
 		logs,
 	); err != nil {
 		return apierror.New(
@@ -794,11 +794,17 @@ func extractEWCLikeLogsFromPayload(payload any) []map[string]any {
 	}
 
 	if payloadMap := workflowengine.AsMap(payload); payloadMap != nil {
-		if logs := workflowengine.AsSliceOfMaps(payloadMap["logs"]); len(logs) > 0 && looksLikeEWCLikeLogs(logs) {
+		if logs := workflowengine.AsSliceOfMaps(
+			payloadMap["logs"],
+		); len(logs) > 0 &&
+			looksLikeEWCLikeLogs(logs) {
 			return logs
 		}
 		if logsResponse := workflowengine.AsMap(payloadMap["logs_response"]); logsResponse != nil {
-			if logs := workflowengine.AsSliceOfMaps(logsResponse["logs"]); len(logs) > 0 && looksLikeEWCLikeLogs(logs) {
+			if logs := workflowengine.AsSliceOfMaps(
+				logsResponse["logs"],
+			); len(logs) > 0 &&
+				looksLikeEWCLikeLogs(logs) {
 				return logs
 			}
 		}
@@ -1052,13 +1058,13 @@ func handleDeeplinkFromHistory(
 				if pls, ok := resultMap["payloads"].([]any); ok && len(pls) > 0 {
 					first := pls[0].(map[string]any)
 					switch author {
-					case "openid_conformance_suite":
+					case workflows.OpenIDConformanceSuite:
 						return getDeeplinkOpenIDConformanceSuite(e, first)
-					case "ewc":
+					case workflows.EWCSuite:
 						return getDeeplinkEWC(e, first)
-					case "webuild":
+					case workflows.WebuildSuite:
 						return getDeeplinkEWC(e, first)
-					case "eudiw":
+					case workflows.EudiwSuite:
 						return getDeeplinkEudiw(e, first)
 					default:
 						return apierror.New(
@@ -1066,8 +1072,12 @@ func handleDeeplinkFromHistory(
 							"protocol",
 							"unsupported suite",
 							fmt.Sprintf(
-								"author is %q, expected openid_conformance_suite, ewc, webuild or eudiw",
+								"author is %q, expected %s, %s, %s or %s",
 								author,
+								workflows.OpenIDConformanceSuite,
+								workflows.EWCSuite,
+								workflows.WebuildSuite,
+								workflows.EudiwSuite,
 							),
 						).JSON(e)
 					}

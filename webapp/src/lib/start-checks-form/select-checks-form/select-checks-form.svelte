@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Suite } from '$lib/standards';
 
-	import { ArrowRight, GitBranch, HelpCircle, Home } from '@lucide/svelte';
 	import SectionCard from '$lib/layout/section-card.svelte';
 	import Footer from '$start-checks-form/_utils/footer.svelte';
+	import { ArrowRight, GitBranch, HelpCircle, Home } from '@lucide/svelte';
 	import { Checkbox as Check } from 'bits-ui';
 
 	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
@@ -30,6 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const OPENID_SUITE_UID = 'openid_conformance_suite';
+	const OPENID_WALLETVP_STANDARD_ID = 'openid4vp_wallet';
 
 	type Props = {
 		form: SelectChecksForm;
@@ -171,7 +172,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Check.GroupLabel>
 
 				<div class="w-full space-y-3 overflow-auto">
-					{#if suite.uid === OPENID_SUITE_UID}
+					{#if suite.uid === OPENID_SUITE_UID && form.selectedStandardId === OPENID_WALLETVP_STANDARD_ID}
 						<OpenidSuiteTable suiteFiles={suite.files} suiteUid={suite.uid} />
 					{:else}
 						{#each suite.files as fileId (fileId)}
