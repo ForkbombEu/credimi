@@ -72,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet itemContent()}
 	<div class="flex min-w-0 items-center gap-3">
-		<div class="min-w-0 w-0 grow overflow-hidden">
+		<div class="w-0 min-w-0 grow overflow-hidden">
 			{@render beforeContent?.()}
 
 			<div class="flex min-w-0 items-center gap-2">
@@ -81,7 +81,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 				<div class="min-w-0 flex-1 overflow-hidden">
 					<T class="flex min-w-0 items-center gap-1 text-sm font-semibold">
-						<span class="min-w-0 truncate" title={title}>
+						<span class="min-w-0 truncate" {title}>
 							{title}
 						</span>
 						{#if titleRight}

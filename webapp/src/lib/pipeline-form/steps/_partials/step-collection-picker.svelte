@@ -90,7 +90,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@render itemSnippet({ record, onSelect: handleSelect })}
 					{:else}
 						<ItemCard
-							title={'name' in record && record.name ? String(record.name) : record.id}
+							title={'name' in record && record.name
+								? String(record.name)
+								: record.id}
 							onClick={() => handleSelect(record)}
 						/>
 					{/if}

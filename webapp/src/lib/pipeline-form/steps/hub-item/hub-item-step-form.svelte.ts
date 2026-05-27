@@ -8,13 +8,10 @@ import type { HubItem, HubItemType } from '$lib/hub';
 import { BaseForm, type InitFormOptions } from '../types';
 import Component from './hub-item-step-form.svelte';
 
-const collections = [
-	'credentials',
-	'use_cases_verifications',
-	'custom_checks'
-] as const satisfies HubItemType[];
-
-type HubStepCollection = (typeof collections)[number];
+type HubStepCollection = Extract<
+	HubItemType,
+	'credentials' | 'use_cases_verifications' | 'custom_checks'
+>;
 
 type Props = {
 	collection: HubStepCollection;

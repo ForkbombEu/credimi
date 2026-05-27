@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { HubItem } from '$lib/hub';
 	import type { SelfProp } from '$lib/renderable';
 
-	import type { HubItem } from '$lib/hub';
 	import { getHubItemLogo, getHubItemTypeFilter } from '$lib/hub/utils.js';
 
 	import type { HubItemStepForm } from './hub-item-step-form.svelte.js';

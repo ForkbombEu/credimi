@@ -8,10 +8,7 @@ import type { Record } from '$lib/pipeline/runner';
 import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 
 import { m } from '@/i18n/index.js';
-import {
-	type WalletActionsResponse,
-	type WalletVersionsResponse
-} from '@/pocketbase/types';
+import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
 import { Search } from '../_partials/search.svelte.js';
 import { BaseForm, type InitFormOptions } from '../types.js';

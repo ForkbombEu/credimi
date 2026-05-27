@@ -21,7 +21,10 @@ describe('HubItemStepForm', () => {
 	it('selectItem commits on add intent', () => {
 		const onSubmit = vi.fn();
 		const form = new HubItemStepForm(
-			{ collection: 'credentials', entityData: { labels: { singular: 'Credential' } } as never },
+			{
+				collection: 'credentials',
+				entityData: { labels: { singular: 'Credential' } } as never
+			},
 			{ intent: 'add' }
 		);
 		form.onSubmit(onSubmit);
@@ -33,7 +36,10 @@ describe('HubItemStepForm', () => {
 	it('selectItem does not commit on edit intent', () => {
 		const onSubmit = vi.fn();
 		const form = new HubItemStepForm(
-			{ collection: 'credentials', entityData: { labels: { singular: 'Credential' } } as never },
+			{
+				collection: 'credentials',
+				entityData: { labels: { singular: 'Credential' } } as never
+			},
 			{ intent: 'edit', initial: hubItem }
 		);
 		form.onSubmit(onSubmit);
@@ -44,7 +50,10 @@ describe('HubItemStepForm', () => {
 
 	it('discardSelection clears selectedItem', () => {
 		const form = new HubItemStepForm(
-			{ collection: 'credentials', entityData: { labels: { singular: 'Credential' } } as never },
+			{
+				collection: 'credentials',
+				entityData: { labels: { singular: 'Credential' } } as never
+			},
 			{ intent: 'edit', initial: hubItem }
 		);
 		form.discardSelection();
