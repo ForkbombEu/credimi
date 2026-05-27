@@ -27,6 +27,7 @@ path = [
     "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "schemas/**/*",
     "test_pb_data/*",
+    ".planning/**/*",
     "VERSION",
     "webapp/.cursor/mcp.json",
     "webapp/.env.example",
