@@ -5,14 +5,9 @@
 import type { EntityData } from '$lib/global';
 import type { HubItem, HubItemType } from '$lib/hub';
 
-import { searchHub } from '../_partials/search-hub';
-import { Search } from '../_partials/search.svelte';
 import { BaseForm, type InitFormOptions } from '../types';
 import Component from './hub-item-step-form.svelte';
 
-//
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const collections = [
 	'credentials',
 	'use_cases_verifications',
@@ -20,8 +15,6 @@ const collections = [
 ] as const satisfies HubItemType[];
 
 type HubStepCollection = (typeof collections)[number];
-
-//
 
 type Props = {
 	collection: HubStepCollection;
@@ -32,14 +25,6 @@ export class HubItemStepForm extends BaseForm<HubItem, HubItemStepForm> {
 	readonly Component = Component;
 
 	selectedItem = $state<HubItem | undefined>(undefined);
-
-	foundItems = $state<HubItem[]>([]);
-
-	search = new Search({
-		onSearch: (text) => {
-			this.searchItem(text);
-		}
-	});
 
 	constructor(
 		private props: Props,
@@ -59,11 +44,7 @@ export class HubItemStepForm extends BaseForm<HubItem, HubItemStepForm> {
 		return this.selectedItem;
 	}
 
-	async searchItem(text: string) {
-		this.foundItems = await searchHub(text, this.collection);
-	}
-
-	async selectItem(item: HubItem) {
+	selectItem(item: HubItem) {
 		this.selectedItem = item;
 		if (this.intent === 'add') {
 			this.commit(item);

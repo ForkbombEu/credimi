@@ -7,18 +7,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SelfProp } from '$lib/renderable';
 
-	import { getHubItemLogo } from '$lib/hub/utils.js';
-
-	import { m } from '@/i18n/index.js';
+	import type { HubItem } from '$lib/hub';
+	import { getHubItemLogo, getHubItemTypeFilter } from '$lib/hub/utils.js';
 
 	import type { HubItemStepForm } from './hub-item-step-form.svelte.js';
 
 	import ItemCard from '../_partials/item-card.svelte';
-	import SearchInput from '../_partials/search-input.svelte';
-	import WithEmptyState from '../_partials/with-empty-state.svelte';
+	import StepCollectionPicker from '../_partials/step-collection-picker.svelte';
 	import WithLabel from '../_partials/with-label.svelte';
-
-	//
 
 	let { self: form }: SelfProp<HubItemStepForm> = $props();
 
@@ -38,17 +34,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 {/if}
 
-<WithLabel label={labels.singular} class="p-4">
-	<SearchInput search={form.search} />
-</WithLabel>
-
-<WithEmptyState items={form.foundItems} emptyText={m.No_results_found()}>
-	{#snippet item({ item })}
+<StepCollectionPicker
+	collection="hub_items"
+	label={labels.singular}
+	queryOptions={{
+		filter: getHubItemTypeFilter(form.collection),
+		searchFields: ['name']
+	}}
+	onSelect={(record) => form.selectItem(record as HubItem)}
+>
+	{#snippet item({ record, onSelect })}
+		{@const item = record as HubItem}
 		<ItemCard
 			avatar={getHubItemLogo(item)}
 			title={item.name}
 			subtitle={item.organization_name}
-			onClick={() => form.selectItem(item)}
+			onClick={() => onSelect(record)}
 		/>
 	{/snippet}
-</WithEmptyState>
+</StepCollectionPicker>
