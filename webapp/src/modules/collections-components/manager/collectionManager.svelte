@@ -68,6 +68,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					totalRecords: number;
 					reloadRecords: () => void;
 					pageRange: string;
+					manager: CollectionManager<C, E>;
 				}
 			]
 		>;
@@ -212,7 +213,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			pageRange: manager.currentRange,
 			reloadRecords: () => {
 				manager.loadRecords();
-			}
+			},
+			manager
 		})}
 
 		{#if !hide.includes('pagination')}

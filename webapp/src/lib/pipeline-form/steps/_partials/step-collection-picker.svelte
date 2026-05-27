@@ -25,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import ItemCard from './item-card.svelte';
+	import StepCollectionPickerPagination from './step-collection-picker-pagination.svelte';
 	import WithLabel from './with-label.svelte';
 
 	type Props = {
@@ -68,10 +69,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{collection}
 		queryOptions={{ perPage: 10, ...queryOptions }}
 		{queryAgentOptions}
-		hide={['empty_state']}
+		hide={['empty_state', 'pagination']}
 	>
 		{#snippet top({ Search })}
-			{@render prepend?.()}
 			{#if label}
 				<WithLabel {label} class="p-4">
 					<Search />
@@ -81,10 +81,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Search />
 				</div>
 			{/if}
+			{@render prepend?.()}
 		{/snippet}
 
-		{#snippet records({ records })}
-			<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
+		{#snippet records({ records, manager })}
+			<StepCollectionPickerPagination />
+			<ScrollArea
+				class={[
+					'grow [&>div>div]:space-y-2 [&>div>div]:p-4',
+					manager.showPagination && '[&>div>div]:pt-0.5!'
+				]}
+			>
 				{#each records as record (record.id)}
 					{#if itemSnippet}
 						{@render itemSnippet({ record, onSelect: handleSelect })}
@@ -101,7 +108,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet emptyState({ EmptyState })}
-			<EmptyState title={emptyText ?? m.No_items_here()} />
+			<div class="p-4">
+				<EmptyState title={emptyText ?? m.No_items_here()} />
+			</div>
 		{/snippet}
 	</CollectionManager>
 </div>

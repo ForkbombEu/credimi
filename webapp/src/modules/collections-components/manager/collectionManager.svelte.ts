@@ -146,4 +146,10 @@ export class CollectionManager<
 		this.isEditFormOpen = false;
 		this.editFormProps = undefined;
 	}
+
+	/* UI Flags */
+
+	perPage = $derived(this.query.getPageSize() ?? 0);
+	totalPages = $derived(this.perPage > 0 ? Math.ceil(this.totalItems / this.perPage) : 1);
+	showPagination = $derived(this.totalPages > 1);
 }
