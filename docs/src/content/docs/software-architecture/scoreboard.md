@@ -11,6 +11,12 @@ The Scoreboard shows aggregated pipeline execution results across the platform. 
 
 ## API Endpoints
 
+### `GET /api/scoreboard/interop`
+
+Public interoperability matrix (v1: `?mode=wallets_issuers`).
+
+**Authentication:** None
+
 ### `GET /api/pipeline/scoreboard/{namespace}`
 
 Returns aggregated pipeline statistics for a single Temporal namespace (organization).
@@ -60,6 +66,13 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
 - Renders `Scoreboard.Component` with a `Scoreboard.Instance` table controller
 - Columns include pipeline name, screenshot, success rate, wallets, issuers, credentials, verifiers, use-case verifications, conformance checks, custom integrations, runners, and minimum running time
 - Supports client-side pagination and sorting
+- Links to **Interop matrix** at `/scoreboard/interop`
+
+### Interop matrix (`/scoreboard/interop`)
+
+- `GET /api/scoreboard/interop?mode=wallets_issuers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×issuer grid
+- Per cell: `success_rate = Σ total_successes / Σ total_runs`, `pipeline_count` distinct pipelines (Cartesian attribution on last-success relations)
+- Status bands: stable ≥90%, flaky 70–89%, failing 50–69%, broken &lt;50%
 
 ### Homepage Section
 

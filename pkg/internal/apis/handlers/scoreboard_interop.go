@@ -4,6 +4,20 @@
 
 package handlers
 
+import (
+	"fmt"
+	"net/http"
+	"sort"
+	"strings"
+
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
+)
+
 type interopStatus string
 
 const (
@@ -68,4 +82,276 @@ func interopStatusFromRate(rate float64) interopStatus {
 	default:
 		return interopStatusBroken
 	}
+}
+
+type interopMatrixCellKey struct {
+	row string
+	col string
+}
+
+func sortedInteropEntities(all map[string]InteropMatrixEntity, seen map[string]struct{}) []InteropMatrixEntity {
+	out := make([]InteropMatrixEntity, 0, len(seen))
+	for id := range seen {
+		e, ok := all[id]
+		if !ok {
+			continue
+		}
+		out = append(out, e)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		ni := strings.ToLower(strings.TrimSpace(out[i].Name))
+		nj := strings.ToLower(strings.TrimSpace(out[j].Name))
+		if ni != nj {
+			return ni < nj
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
+}
+
+func buildInteropMatrix(
+	inputs []interopCacheInput,
+	rowEntities map[string]InteropMatrixEntity,
+	columnEntities map[string]InteropMatrixEntity,
+) InteropMatrixResponse {
+	cellsMap := map[interopMatrixCellKey]*interopCellAccumulator{}
+	rowSeen := map[string]struct{}{}
+	colSeen := map[string]struct{}{}
+
+	for _, in := range inputs {
+		if len(in.RowIDs) == 0 || len(in.ColumnIDs) == 0 || in.TotalRuns <= 0 {
+			continue
+		}
+		for _, rowID := range in.RowIDs {
+			for _, colID := range in.ColumnIDs {
+				key := interopMatrixCellKey{row: rowID, col: colID}
+				acc := cellsMap[key]
+				if acc == nil {
+					acc = &interopCellAccumulator{
+						pipelineIDs: make(map[string]struct{}),
+					}
+					cellsMap[key] = acc
+				}
+				if in.PipelineID != "" {
+					acc.pipelineIDs[in.PipelineID] = struct{}{}
+				}
+				acc.totalRuns += in.TotalRuns
+				acc.totalSuccesses += in.TotalSuccesses
+				rowSeen[rowID] = struct{}{}
+				colSeen[colID] = struct{}{}
+			}
+		}
+	}
+
+	cells := make([]InteropMatrixCell, 0, len(cellsMap))
+	for k, acc := range cellsMap {
+		if acc.totalRuns <= 0 {
+			continue
+		}
+		rate := float64(acc.totalSuccesses) / float64(acc.totalRuns) * 100
+		cells = append(cells, InteropMatrixCell{
+			RowID:          k.row,
+			ColumnID:       k.col,
+			PipelineCount:  len(acc.pipelineIDs),
+			TotalRuns:      acc.totalRuns,
+			TotalSuccesses: acc.totalSuccesses,
+			SuccessRate:    rate,
+			Status:         interopStatusFromRate(rate),
+		})
+	}
+
+	return InteropMatrixResponse{
+		Mode:       interopModeWalletsIssuers,
+		RowAxis:    "wallet",
+		ColumnAxis: "issuer",
+		Rows:       sortedInteropEntities(rowEntities, rowSeen),
+		Columns:    sortedInteropEntities(columnEntities, colSeen),
+		Cells:      cells,
+	}
+}
+
+var ScoreboardInteropPublicRoutes = routing.RouteGroup{
+	BaseURL:                "/api",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:         http.MethodGet,
+			Path:           "/scoreboard/interop",
+			OperationID:    "scoreboard.interop",
+			Handler:        HandleInteropMatrix,
+			ResponseSchema: InteropMatrixResponse{},
+			Summary:        "Wallet×issuer interoperability matrix",
+			Description:    "Interoperability matrix from pipeline_scoreboard_cache",
+			QuerySearchAttributes: []routing.QuerySearchAttribute{
+				{
+					Name:        "mode",
+					Required:    true,
+					Description: "Matrix pair mode. v1 supports wallets_issuers.",
+				},
+			},
+		},
+	},
+}
+
+func HandleInteropMatrix() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		mode := interopMode(e.Request.URL.Query().Get("mode"))
+		if mode != interopModeWalletsIssuers {
+			return apierror.New(
+				http.StatusBadRequest,
+				"mode",
+				"unsupported or missing mode",
+				"use mode=wallets_issuers",
+			).JSON(e)
+		}
+
+		resp, err := loadInteropMatrixFromCache(e.App, mode)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"scoreboard",
+				"failed to build interop matrix",
+				err.Error(),
+			).JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, resp)
+	}
+}
+
+func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixResponse, error) {
+	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	if err != nil {
+		return InteropMatrixResponse{}, fmt.Errorf("find collection: %w", err)
+	}
+
+	records, err := app.FindRecordsByFilter(collection.Id, "", "", -1, 0)
+	if err != nil {
+		return InteropMatrixResponse{}, fmt.Errorf("list cache: %w", err)
+	}
+
+	var inputs []interopCacheInput
+	rowEntities := map[string]InteropMatrixEntity{}
+	columnEntities := map[string]InteropMatrixEntity{}
+
+	for _, record := range records {
+		var rowIDs, colIDs []string
+		switch mode {
+		case interopModeWalletsIssuers:
+			rowIDs = record.GetStringSlice("wallets")
+			colIDs = record.GetStringSlice("issuers")
+		default:
+			return InteropMatrixResponse{}, fmt.Errorf("unsupported mode %q", mode)
+		}
+
+		inputs = append(inputs, interopCacheInput{
+			PipelineID:     record.GetString("pipeline"),
+			TotalRuns:      record.GetInt("total_runs"),
+			TotalSuccesses: record.GetInt("total_successes"),
+			RowIDs:         rowIDs,
+			ColumnIDs:      colIDs,
+		})
+
+		if err := mergeInteropWalletEntities(app, record, rowIDs, rowEntities); err != nil {
+			return InteropMatrixResponse{}, err
+		}
+		if err := mergeInteropIssuerEntities(app, colIDs, columnEntities); err != nil {
+			return InteropMatrixResponse{}, err
+		}
+	}
+
+	return buildInteropMatrix(inputs, rowEntities, columnEntities), nil
+}
+
+func mergeInteropWalletEntities(
+	app core.App,
+	cacheRecord *core.Record,
+	walletIDs []string,
+	entities map[string]InteropMatrixEntity,
+) error {
+	for _, walletID := range walletIDs {
+		if _, ok := entities[walletID]; ok {
+			continue
+		}
+		wallet, err := app.FindRecordById("wallets", walletID)
+		if err != nil {
+			continue
+		}
+		entity, err := interopEntityFromRecord(app, wallet, "wallets")
+		if err != nil {
+			return err
+		}
+		if label := walletVersionLabelFor(app, cacheRecord, walletID); label != nil {
+			entity.VersionLabel = label
+		}
+		entities[walletID] = entity
+	}
+	return nil
+}
+
+func mergeInteropIssuerEntities(
+	app core.App,
+	issuerIDs []string,
+	entities map[string]InteropMatrixEntity,
+) error {
+	for _, issuerID := range issuerIDs {
+		if _, ok := entities[issuerID]; ok {
+			continue
+		}
+		issuer, err := app.FindRecordById("credential_issuers", issuerID)
+		if err != nil {
+			continue
+		}
+		entity, err := interopEntityFromRecord(app, issuer, "credential_issuers")
+		if err != nil {
+			return err
+		}
+		entities[issuerID] = entity
+	}
+	return nil
+}
+
+func interopEntityFromRecord(
+	app core.App,
+	record *core.Record,
+	collection string,
+) (InteropMatrixEntity, error) {
+	tpl, ok := canonify.CanonifyPaths[collection]
+	if !ok {
+		return InteropMatrixEntity{}, fmt.Errorf("no canonify path for collection %s", collection)
+	}
+	path, err := canonify.BuildPath(app, record, tpl, "")
+	if err != nil {
+		return InteropMatrixEntity{}, err
+	}
+	return InteropMatrixEntity{
+		ID:   record.Id,
+		Name: record.GetString("name"),
+		Path: path,
+	}, nil
+}
+
+func walletVersionLabelFor(app core.App, cacheRecord *core.Record, walletID string) *string {
+	for _, versionID := range cacheRecord.GetStringSlice("wallet_versions") {
+		version, err := app.FindRecordById("wallet_versions", versionID)
+		if err != nil {
+			continue
+		}
+		if version.GetString("wallet") != walletID {
+			continue
+		}
+		tag := strings.TrimSpace(version.GetString("tag"))
+		if tag == "" {
+			continue
+		}
+		label := tag
+		if !strings.HasPrefix(label, "v") {
+			label = "v" + label
+		}
+		return &label
+	}
+	return nil
 }

@@ -693,6 +693,32 @@ paths:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Terminate a specific workflow run
+  /api/scoreboard/interop:
+    get:
+      description: Interoperability matrix from pipeline_scoreboard_cache
+      operationId: scoreboard.interop
+      parameters:
+      - description: Matrix pair mode. v1 supports wallets_issuers.
+        in: query
+        name: mode
+        required: true
+        schema:
+          description: Matrix pair mode. v1 supports wallets_issuers.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersInteropMatrixResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Wallet×issuer interoperability matrix
 components:
   schemas:
     ApierrorAPIError:
@@ -855,6 +881,59 @@ components:
           $ref: '#/components/schemas/HandlersPendingWorkflowTaskInfo'
         workflowExecutionInfo:
           $ref: '#/components/schemas/HandlersWorkflowExecutionInfo'
+      type: object
+    HandlersInteropMatrixCell:
+      properties:
+        column_id:
+          type: string
+        pipeline_count:
+          type: integer
+        row_id:
+          type: string
+        status:
+          type: string
+        success_rate:
+          type: number
+        total_runs:
+          type: integer
+        total_successes:
+          type: integer
+      type: object
+    HandlersInteropMatrixEntity:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        path:
+          type: string
+        version_label:
+          nullable: true
+          type: string
+      type: object
+    HandlersInteropMatrixResponse:
+      properties:
+        cells:
+          items:
+            $ref: '#/components/schemas/HandlersInteropMatrixCell'
+          nullable: true
+          type: array
+        column_axis:
+          type: string
+        columns:
+          items:
+            $ref: '#/components/schemas/HandlersInteropMatrixEntity'
+          nullable: true
+          type: array
+        mode:
+          type: string
+        row_axis:
+          type: string
+        rows:
+          items:
+            $ref: '#/components/schemas/HandlersInteropMatrixEntity'
+          nullable: true
+          type: array
       type: object
     HandlersListMobileRunnersPublicResponseSchema:
       properties:
