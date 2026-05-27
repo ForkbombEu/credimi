@@ -8,14 +8,11 @@ import type { Record } from '$lib/pipeline/runner';
 import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 
 import { m } from '@/i18n/index.js';
-import { pb } from '@/pocketbase/index.js';
 import {
-	Collections,
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
 
-import { searchHub } from '../_partials/search-hub';
 import { Search } from '../_partials/search.svelte.js';
 import { BaseForm, type InitFormOptions } from '../types.js';
 import Component from './wallet-action-step-form.svelte';
@@ -90,26 +87,11 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	//
 
-	foundWallets = $state<HubItem[]>([]);
-	foundVersions = $state<WalletVersionsResponse[]>([]);
-	foundActions = $state<WalletActionsResponse[]>([]);
-
-	walletSearch = new Search({
-		onSearch: (text) => {
-			this.searchWallet(text);
-		}
-	});
-
-	async searchWallet(text: string) {
-		this.foundWallets = await searchHub(text, Collections.Wallets);
-	}
-
-	async selectWallet(wallet: HubItem) {
+	selectWallet(wallet: HubItem) {
 		this.data.wallet = wallet;
-		this.foundVersions = await pb.collection('wallet_versions').getFullList({
-			filter: `wallet = "${wallet.id}"`,
-			requestKey: null
-		});
+		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+			this.data.runner = 'global';
+		}
 	}
 
 	selectVersion(version: WalletVersionsResponse) {
@@ -138,22 +120,6 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	//
 
-	actionSearch = new Search({
-		onSearch: (text) => {
-			this.searchAction(text);
-		}
-	});
-
-	async searchAction(text: string) {
-		const walletId = this.data.wallet?.id;
-		if (!walletId) return;
-		this.foundActions = await pb.collection('wallet_actions').getFullList({
-			filter: `wallet = "${walletId}" && (name ~ "${text}" || canonified_name ~ "${text}")`,
-			requestKey: null,
-			sort: 'category'
-		});
-	}
-
 	selectAction(action: WalletActionsResponse) {
 		ExecutionTarget.state.current = {
 			wallet: this.data.wallet!,
@@ -176,8 +142,6 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		this.data.wallet = undefined;
 		this.data.version = undefined;
 		this.data.runner = undefined;
-		this.foundVersions = [];
-		this.foundActions = [];
 	}
 
 	removeVersion() {
