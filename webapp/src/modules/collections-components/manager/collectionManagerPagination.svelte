@@ -21,8 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const { manager } = $derived(getCollectionManagerContext());
-	const perPage = $derived(manager.query.getPageSize());
-	const show = $derived(perPage && manager.totalItems > perPage);
 
 	$effect(() => {
 		if (manager.currentPage && scrollToTop) {
@@ -31,10 +29,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-{#if show && perPage}
+{#if manager.showPagination && manager.perPage}
 	<Pagination.Root
 		count={manager.totalItems}
-		{perPage}
+		perPage={manager.perPage}
 		bind:page={manager.currentPage}
 		class={className}
 	>

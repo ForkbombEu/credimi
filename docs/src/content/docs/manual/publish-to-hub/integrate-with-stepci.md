@@ -18,7 +18,7 @@ The deeplink is the key output used across the platform.
 
 :::note
 This page introduces you to how we integrate various REST services into credimi.io.
-See the page [StepCI and Maestro scripting](../../yaml-examples) to find StepCI examples
+See the page [StepCI and Maestro scripting](../yaml-examples.md) to find StepCI examples
 :::
 
 ---
