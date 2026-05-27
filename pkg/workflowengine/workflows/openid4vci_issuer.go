@@ -52,9 +52,9 @@ var openID4VCIIssuerStartWorkflowWithOptions = workflowengine.StartWorkflowWithO
 
 // OpenID4VCIIssuerWorkflowPayload is the input payload for OpenID4VCIIssuerWorkflow.
 type OpenID4VCIIssuerWorkflowPayload struct {
-	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
-	UserMail   string         `json:"user_mail"                  yaml:"user_mail"                  validate:"required"`
-	TestName   string         `json:"test"                       yaml:"test"                       validate:"required"`
+	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	UserMail   string         `json:"user_mail"            yaml:"user_mail"            validate:"required"`
+	TestName   string         `json:"test"                 yaml:"test"                 validate:"required"`
 }
 
 // OpenID4VCIIssuerWorkflow runs a fully automated OID4VCI issuer conformance check
@@ -193,7 +193,7 @@ func (w *OpenID4VCIIssuerWorkflow) Start(
 
 func getOpenID4VCIIssuerRunnerID(
 	captures map[string]any,
-	metadata *workflowengine.WorkflowErrorMetadata,
+	metadata *workflowengine.WorkflowRunMetadata,
 ) (string, error) {
 	runnerID, ok := captures["runner_id"].(string)
 	if !ok || runnerID == "" {
@@ -208,7 +208,7 @@ func pollOpenID4VCIIssuerLogs(
 	appURL string,
 	token string,
 	notifyLogs bool,
-	metadata *workflowengine.WorkflowErrorMetadata,
+	metadata *workflowengine.WorkflowRunMetadata,
 ) (workflowengine.WorkflowResult, error) {
 	httpActivity := activities.NewHTTPActivity()
 	pollCtx := workflow.WithActivityOptions(ctx, openID4VCIIssuerPollingActivityOptions)
@@ -233,14 +233,18 @@ func pollOpenID4VCIIssuerLogs(
 
 	for {
 		var httpResponse workflowengine.ActivityResult
-		if err := workflow.ExecuteActivity(pollCtx, httpActivity.Name(), request).Get(pollCtx, &httpResponse); err != nil {
+		if err := workflow.ExecuteActivity(pollCtx, httpActivity.Name(), request).
+			Get(pollCtx, &httpResponse); err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, metadata)
 		}
 
 		logs := workflowengine.AsSliceOfMaps(workflowengine.AsMap(httpResponse.Output)["body"])
 		if notifyLogs {
 			if err := notifyOpenID4VCIIssuerLogs(pollCtx, appURL, workflowID, logs); err != nil {
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, metadata)
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					err,
+					metadata,
+				)
 			}
 		}
 		if len(logs) == 0 {
@@ -264,7 +268,14 @@ func pollOpenID4VCIIssuerLogs(
 		if lastResult == openIDCertificationResultInterrupted ||
 			testModuleResult == openID4VCIIssuerTestModuleFailed {
 			errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
-			appErr := workflowengine.NewAppError(errCode, errCode.Description, logs)
+			appErr := workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: errCode.Description,
+					Details: map[string]any{"payload": logs},
+				},
+			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				metadata,

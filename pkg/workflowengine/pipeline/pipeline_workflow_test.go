@@ -45,11 +45,11 @@ func (a *orderedActivity) Execute(
 	return workflowengine.ActivityResult{Output: map[string]any{"ok": true}}, nil
 }
 
-func (a *orderedActivity) NewActivityError(string, string, ...any) error {
+func (a *orderedActivity) NewActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
-func (a *orderedActivity) NewNonRetryableActivityError(string, string, ...any) error {
+func (a *orderedActivity) NewNonRetryableActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
@@ -133,11 +133,11 @@ func (a *runtimeCaptureActivity) Execute(
 	return result, nil
 }
 
-func (a *runtimeCaptureActivity) NewActivityError(string, string, ...any) error {
+func (a *runtimeCaptureActivity) NewActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
-func (a *runtimeCaptureActivity) NewNonRetryableActivityError(string, string, ...any) error {
+func (a *runtimeCaptureActivity) NewNonRetryableActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
@@ -275,7 +275,7 @@ func TestPipelineWorkflowContinueOnError(t *testing.T) {
 
 	err := env.GetWorkflowError()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "workflow completed with 1 step errors")
+	require.Contains(t, err.Error(), "Pipeline failed: 1 step failed")
 }
 
 func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {

@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -27,7 +26,7 @@ type WorkflowInput struct {
 	Payload         any                       `json:"payload,omitempty"`
 	Config          map[string]any            `json:"config,omitempty"`
 	ActivityOptions *workflow.ActivityOptions `json:"activityOptions,omitempty"`
-	RunMetadata     *WorkflowErrorMetadata    `json:"runMetadata,omitempty"`
+	RunMetadata     *WorkflowRunMetadata      `json:"runMetadata,omitempty"`
 }
 
 // WorkflowResult represents the result of a workflow execution, including a message, errors, and a log.
@@ -41,22 +40,25 @@ type WorkflowResult struct {
 	Log           any    `json:"log,omitempty"`
 }
 
-type WorkflowErrorMetadata struct {
+type WorkflowRunMetadata struct {
 	WorkflowName string `json:"workflowName,omitempty"`
 	WorkflowID   string `json:"workflowId,omitempty"`
+	RunID        string `json:"runId,omitempty"`
 	Namespace    string `json:"namespace,omitempty"`
 	TemporalUI   string `json:"temporalUI,omitempty"`
 }
 
-type WorkflowErrorDetails struct {
-	WorkflowID string `json:"workflowID,omitempty"`
-	RunID      string `json:"runID,omitempty"`
-	Code       string `json:"code,omitempty"`
-	Retryable  bool   `json:"retryable,omitempty"`
-	Message    string `json:"message,omitempty"`
-	Summary    string `json:"summary,omitempty"`
-	Link       string `json:"link,omitempty"`
-	Payload    any    `json:"payload,omitempty"`
+type WorkflowError struct {
+	Code         string         `json:"code"`
+	Summary      string         `json:"summary"`
+	Message      string         `json:"message,omitempty"`
+	ActivityName string         `json:"activityName,omitempty"`
+	WorkflowName string         `json:"workflowName,omitempty"`
+	WorkflowID   string         `json:"workflowId,omitempty"`
+	RunID        string         `json:"runId,omitempty"`
+	Namespace    string         `json:"namespace,omitempty"`
+	TemporalUI   string         `json:"temporalUI,omitempty"`
+	Details      map[string]any `json:"details,omitempty"`
 }
 
 type WorkflowRunInfo struct {
@@ -84,9 +86,10 @@ func BuildWorkflow(
 		// ---- runtime metadata ----
 		info := workflow.GetInfo(ctx)
 		logger := workflow.GetLogger(ctx)
-		input.RunMetadata = &WorkflowErrorMetadata{
+		input.RunMetadata = &WorkflowRunMetadata{
 			WorkflowName: w.Name(),
 			WorkflowID:   info.WorkflowExecution.ID,
+			RunID:        info.WorkflowExecution.RunID,
 			Namespace:    info.Namespace,
 			TemporalUI: utils.JoinURL(
 				input.Config["app_url"].(string),
@@ -124,87 +127,155 @@ func BuildWorkflow(
 	}
 }
 
-func NewWorkflowError(err error, metadata *WorkflowErrorMetadata, extraPayload ...any) error {
+func NewWorkflowError(err error, metadata *WorkflowRunMetadata) error {
 	var appErr *temporal.ApplicationError
 	if !temporal.IsApplicationError(err) || !errors.As(err, &appErr) {
 		return err
 	}
 
-	var detailsRaw any
-	if derr := appErr.Details(&detailsRaw); derr != nil {
-		detailsRaw = nil
+	failure := workflowErrorFromApplicationError(appErr)
+	if failure.Code == "" {
+		failure.Code = appErr.Type()
 	}
-
-	var details []any
-	switch v := detailsRaw.(type) {
-	case nil:
-
-	case []any:
-		details = v
-	default:
-		details = []any{v}
+	if failure.Summary == "" {
+		failure.Summary = appErr.Message()
 	}
+	applyWorkflowRunMetadata(&failure, metadata)
 
-	for _, p := range extraPayload {
-		switch v := p.(type) {
-		case []any:
-			details = append(details, v...)
-		default:
-			details = append(details, v)
-		}
-	}
-	details = append(details, metadata)
-
-	credimiErr := utils.CredimiError{
-		Code:      appErr.Type(),
-		Component: "workflow engine",
-		Location:  metadata.WorkflowName,
-		Message:   appErr.Message(),
-		Context:   []string{fmt.Sprintf("Further information at: %s", metadata.TemporalUI)},
-	}
-
-	return temporal.NewApplicationErrorWithCause(
-		credimiErr.Error(),
-		appErr.Type(),
-		appErr,
-		details,
+	return temporal.NewApplicationError(
+		workflowFailureMessage(failure),
+		failure.Code,
+		failure,
 	)
 }
 
-func NewWorkflowCancellationError(metadata *WorkflowErrorMetadata) error {
+func workflowErrorFromApplicationError(appErr *temporal.ApplicationError) WorkflowError {
+	var failure WorkflowError
+	if decodeApplicationErrorDetails(appErr, &failure) && failure.Code != "" {
+		return failure
+	}
+
+	var activityErr ActivityError
+	if decodeApplicationErrorDetails(appErr, &activityErr) && activityErr.Code != "" {
+		return WorkflowError{
+			Code:         activityErr.Code,
+			Summary:      activityErr.Summary,
+			Message:      activityErr.Message,
+			ActivityName: activityErr.ActivityName,
+			Details:      activityErr.Details,
+		}
+	}
+
+	return WorkflowError{
+		Code:    appErr.Type(),
+		Summary: appErr.Message(),
+	}
+}
+
+func applyWorkflowRunMetadata(failure *WorkflowError, metadata *WorkflowRunMetadata) {
+	if metadata == nil {
+		return
+	}
+	if failure.WorkflowName == "" {
+		failure.WorkflowName = metadata.WorkflowName
+	}
+	if failure.WorkflowID == "" {
+		failure.WorkflowID = metadata.WorkflowID
+	}
+	if failure.RunID == "" {
+		failure.RunID = metadata.RunID
+	}
+	if failure.Namespace == "" {
+		failure.Namespace = metadata.Namespace
+	}
+	if failure.TemporalUI == "" {
+		failure.TemporalUI = metadata.TemporalUI
+	}
+}
+
+func decodeApplicationErrorDetails(appErr *temporal.ApplicationError, target any) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	return appErr.Details(target) == nil
+}
+
+func NewWorkflowCancellationError(metadata *WorkflowRunMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.WorkflowCancellationError]
 
 	return temporal.NewCanceledError(errCode.Code, errCode.Description, metadata)
 }
 
-func NewAppError(code errorcodes.Code, field string, payload ...any) error {
-	return temporal.NewApplicationError(
-		fmt.Sprintf("%s: '%s'", code.Description, field),
-		code.Code,
-		payload...)
+func NewAppError(failure WorkflowError) error {
+	return temporal.NewApplicationError(workflowFailureMessage(failure), failure.Code, failure)
 }
 
-// NewMissingOrInvalidPayloadError returns a WorkflowError for a missing or invalid payload.
-// It creates an ApplicationError with the given error and code, and then wraps it in a WorkflowError.
-// The error is returned with code errorcodes.MissingOrInvalidPayload.
-// The error message is set to err.Error().
-func NewMissingOrInvalidPayloadError(err error, runMetadata *WorkflowErrorMetadata) error {
+func workflowFailureMessage(failure WorkflowError) string {
+	return errorMessage(failure.Summary, failure.Message)
+}
+
+func FormatWorkflowFailureReason(failure WorkflowError) string {
+	message := workflowFailureMessage(failure)
+	name := failure.ActivityName
+	if name == "" {
+		name = failure.WorkflowName
+	}
+
+	switch {
+	case failure.Code != "" && name != "" && message != "":
+		return fmt.Sprintf("%s: [%s] %s", failure.Code, name, message)
+	case failure.Code != "" && message != "":
+		return fmt.Sprintf("%s: %s", failure.Code, message)
+	case name != "" && message != "":
+		return fmt.Sprintf("[%s] %s", name, message)
+	default:
+		return message
+	}
+}
+
+func errorMessage(summary string, message string) string {
+	if message == "" || message == summary {
+		return summary
+	}
+	return fmt.Sprintf("%s: %s", summary, message)
+}
+
+func NewMissingOrInvalidPayloadError(err error, runMetadata *WorkflowRunMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-	appErr := NewAppError(errCode, err.Error())
+	appErr := NewAppError(WorkflowError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: err.Error(),
+	})
 	return NewWorkflowError(appErr, runMetadata)
 }
 
-// newMissingConfigError returns a WorkflowError for a missing or invalid config key.
-func NewMissingConfigError(key string, metadata *WorkflowErrorMetadata) error {
+func NewMissingConfigError(key string, metadata *WorkflowRunMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-	appErr := NewAppError(errCode, key)
+	appErr := NewAppError(WorkflowError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: fmt.Sprintf("missing or invalid config key %q", key),
+		Details: map[string]any{
+			"key": key,
+		},
+	})
 	return NewWorkflowError(appErr, metadata)
 }
 
-// newStepCIOutputError returns a WorkflowError for unexpected or invalid StepCI output.
-func NewStepCIOutputError(field string, output any, metadata *WorkflowErrorMetadata) error {
+func NewStepCIOutputError(field string, output any, metadata *WorkflowRunMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedStepCIOutput]
-	appErr := NewAppError(errCode, field, output)
+	appErr := NewAppError(WorkflowError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: fmt.Sprintf("unexpected StepCI output field %q", field),
+		Details: map[string]any{
+			"field":  field,
+			"output": output,
+		},
+	})
 	return NewWorkflowError(appErr, metadata)
 }
 
@@ -307,75 +378,34 @@ func WaitForPartialResult[T any](
 	}
 }
 
-func ParseWorkflowError(err error) WorkflowErrorDetails {
-	msg := err.Error()
-	details := WorkflowErrorDetails{}
-	reIDs := regexp.MustCompile(`workflowID: ([^,]+), runID: ([^)]+)`)
-	if matches := reIDs.FindStringSubmatch(msg); len(matches) == 3 {
-		details.WorkflowID = matches[1]
-		details.RunID = matches[2]
+func ParseWorkflowError(err error) WorkflowError {
+	var appErr *temporal.ApplicationError
+	if !errors.As(err, &appErr) {
+		return WorkflowError{}
 	}
-	reCode := regexp.MustCompile(`\(type: ([^,]+), retryable: (true|false)\)`)
-	if matches := reCode.FindStringSubmatch(msg); len(matches) == 3 {
-		details.Code = matches[1]
-		details.Retryable = matches[2] == "true"
-	}
-	reLink := regexp.MustCompile(`Further information at: (http[^\)]+)`)
-	if matches := reLink.FindStringSubmatch(msg); len(matches) == 2 {
-		details.Link = matches[1]
-	}
-
-	if details.Code != "" {
-		// Full message = everything after "<code>:"
-		parts := strings.SplitN(msg, details.Code+":", 2)
-		if len(parts) == 2 {
-			summaryPart := parts[1]
-
-			if idx := strings.Index(summaryPart, "(Further information"); idx != -1 {
-				summaryPart = summaryPart[:idx]
-			}
-			details.Message = strings.TrimSpace(summaryPart)
-
-			reCompact := regexp.MustCompile(`\]:\s*(.*)$`)
-			if matches := reCompact.FindStringSubmatch(details.Message); len(matches) == 2 {
-				details.Summary = strings.TrimSpace(matches[1])
-			} else {
-				details.Summary = details.Message
-			}
-		}
-	}
-	details.Payload = extractAppErrorPayload(err)
-
-	return details
+	return workflowErrorFromApplicationError(appErr)
 }
 
-func extractAppErrorPayload(err error) []any {
+func extractWorkflowError(err error) (WorkflowError, bool) {
 	var appErr *temporal.ApplicationError
-	if errors.As(err, &appErr) {
-		var details []any
-		derr := appErr.Details(&details)
-		if derr == nil {
-			return details
-		}
-		return nil
+	if !errors.As(err, &appErr) {
+		return WorkflowError{}, false
 	}
-	return nil
+	return workflowErrorFromApplicationError(appErr), true
 }
 
 func ExtractOutputFromError(err error) map[string]any {
-	payload := extractAppErrorPayload(err)
-	if payload == nil {
+	failure, ok := extractWorkflowError(err)
+	if !ok || failure.Details == nil {
 		return nil
 	}
 
-	for _, item := range payload {
-		if itemMap, ok := item.(map[string]any); ok {
-			if out, ok := itemMap["output"]; ok {
-				if outMap, ok := out.(map[string]any); ok {
-					return outMap
-				}
-			}
-		}
+	out, ok := failure.Details["output"]
+	if !ok {
+		return nil
+	}
+	if outMap, ok := out.(map[string]any); ok {
+		return outMap
 	}
 
 	return nil

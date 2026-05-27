@@ -45,9 +45,17 @@ func ConformanceCheckSetupHook(
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"error decoding payload for step %s: %s",
+						step.ID,
+						err.Error(),
+					),
+				},
 			)
+
 		}
 		payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPipelinePayload](
 			rawPayload,
@@ -56,16 +64,28 @@ func ConformanceCheckSetupHook(
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 
 			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"error decoding payload for step %s: %s",
+						step.ID,
+						err.Error(),
+					),
+				},
 			)
+
 		}
 
 		if payload.CheckID == "" {
 			return workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				fmt.Sprintf("missing check_id for step %s", step.ID),
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+					Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+					Message: fmt.Sprintf("missing check_id for step %s", step.ID),
+				},
 			)
+
 		}
 
 		rootDir := utils.GetEnvironmentVariable("ROOT_DIR", true)
@@ -74,25 +94,49 @@ func ConformanceCheckSetupHook(
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ReadFileFailed]
 			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("failed to read template file %s: %v", configTemplatePath, err),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"failed to read template file %s: %v",
+						configTemplatePath,
+						err,
+					),
+				},
 			)
+
 		}
 
 		extractedContent, err := extractCredimiJSON(string(content))
 		if err != nil {
 			return workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.TemplateRenderFailed],
-				fmt.Sprintf("failed to extract credimi JSON from %s: %v", configTemplatePath, err),
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.TemplateRenderFailed].Code,
+					Summary: errorcodes.Codes[errorcodes.TemplateRenderFailed].Description,
+					Message: fmt.Sprintf(
+						"failed to extract credimi JSON from %s: %v",
+						configTemplatePath,
+						err,
+					),
+				},
 			)
+
 		}
 		var tpl map[string]any
 		if err := yaml.Unmarshal([]byte(extractedContent), &tpl); err != nil {
 			errCode := errorcodes.Codes[errorcodes.TemplateRenderFailed]
 			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("failed to parse template YAML %s: %v", configTemplatePath, err),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"failed to parse template YAML %s: %v",
+						configTemplatePath,
+						err,
+					),
+				},
 			)
+
 		}
 
 		tpl = extractValues(tpl).(map[string]any)
@@ -120,9 +164,13 @@ func ConformanceCheckSetupHook(
 		userMail, ok := config["user_mail"].(string)
 		if !ok {
 			return workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
-				"missing or invalid user_mail in workflow config",
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+					Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
+					Message: "missing or invalid user_mail in workflow config",
+				},
 			)
+
 		}
 
 		defaultPayload := make(map[string]any)
@@ -147,9 +195,13 @@ func ConformanceCheckSetupHook(
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ReadFileFailed]
 			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("failed to read template file %s: %v", templatePath, err),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("failed to read template file %s: %v", templatePath, err),
+				},
 			)
+
 		}
 
 		MergePayload(&defaultPayload, &step.With.Payload)
@@ -181,9 +233,17 @@ func resolveSuiteSetup(
 		variantJSON, err := json.Marshal(variant)
 		if err != nil {
 			return nil, "", workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.JSONMarshalFailed],
-				fmt.Sprintf("failed to marshal variant JSON for step %s: %v", stepID, err),
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.JSONMarshalFailed].Code,
+					Summary: errorcodes.Codes[errorcodes.JSONMarshalFailed].Description,
+					Message: fmt.Sprintf(
+						"failed to marshal variant JSON for step %s: %v",
+						stepID,
+						err,
+					),
+				},
 			)
+
 		}
 		form := map[string]any{}
 		if f, ok := tpl["form"].(map[string]any); ok {
@@ -225,14 +285,21 @@ func resolveSuiteSetup(
 			testVal = tVal
 		}
 		extra["test"] = testVal
-		extra["parameters"] = conformanceParametersFromTemplate(tpl, map[string]struct{}{"test": {}})
+		extra["parameters"] = conformanceParametersFromTemplate(
+			tpl,
+			map[string]struct{}{"test": {}},
+		)
 		return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
 
 	default:
 		return nil, "", workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
-			fmt.Sprintf("missing or invalid suite for step %s", stepID),
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
+				Message: fmt.Sprintf("missing or invalid suite for step %s", stepID),
+			},
 		)
+
 	}
 }
 
@@ -414,9 +481,17 @@ func ConformanceCheckCleanupHook(
 		)
 		if err := future.Get(cleanupCtx, nil); err != nil {
 			return workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.ChildWorkflowExecutionError],
-				fmt.Sprintf("failed to signal cancellation to child workflow %s: %v", id, err),
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.ChildWorkflowExecutionError].Code,
+					Summary: errorcodes.Codes[errorcodes.ChildWorkflowExecutionError].Description,
+					Message: fmt.Sprintf(
+						"failed to signal cancellation to child workflow %s: %v",
+						id,
+						err,
+					),
+				},
 			)
+
 		}
 	}
 	return nil

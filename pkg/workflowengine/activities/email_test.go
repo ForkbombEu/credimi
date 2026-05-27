@@ -206,7 +206,7 @@ func TestSendMailActivity_ExecuteValidationErrors(t *testing.T) {
 					Body:      "body",
 				},
 			},
-			errContains: "SMTP_PORT environment variable not an integer",
+			errContains: "SMTP_PORT environment variable is not an integer",
 		},
 	}
 

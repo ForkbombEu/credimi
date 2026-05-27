@@ -131,9 +131,13 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: source", checkIssuer.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: source", checkIssuer.Name()),
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -143,9 +147,13 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: rawJSON", checkIssuer.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: rawJSON", checkIssuer.Name()),
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -182,9 +190,13 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: output", parseJSON.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: output", parseJSON.Name()),
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -231,9 +243,13 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
 		appErr := workflowengine.NewAppError(
-			errCode,
-			"rawJSON should contains credential_configurations_supported",
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "rawJSON should contains credential_configurations_supported",
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -285,9 +301,13 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: body.key", internalHTTPActivity.Name()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: body.key", internalHTTPActivity.Name()),
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -326,7 +346,6 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
 			input.RunMetadata,
-			logs,
 		)
 	}
 
@@ -467,10 +486,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	responseBody, ok := result.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"output is not a map",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "output is not a map",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -479,10 +502,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	dynamic, ok := responseBody["dynamic"].(bool)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"dynamic is not a bool",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "dynamic is not a bool",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -492,10 +519,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 		credentialOffer, ok := responseBody["credential_offer"].(string)
 		if !ok {
 			wErr := workflowengine.NewAppError(
-				errCode,
-				"credential_offer is not a string",
-				result.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "credential_offer is not a string",
+					Details: map[string]any{"payload": result.Output},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				wErr,
 				input.RunMetadata,
@@ -510,10 +541,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	code, ok := responseBody["code"].(string)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"yaml code is not a string",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "yaml code is not a string",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -538,10 +573,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	captures, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"captures is not a map",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "captures is not a map",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -550,10 +589,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	credentialOffer, ok := captures["deeplink"].(string)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"deeplink missing or invalid from captures",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "deeplink missing or invalid from captures",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -567,23 +610,33 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 
 func extractInvalidCredentialsFromErrorDetails(
 	details []any,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 ) (map[string]bool, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityErrorDetails]
 	invalidCred := map[string]bool{}
 
 	rawMap, ok := details[0].(map[string]any)
 	if !ok {
-		wErr := workflowengine.NewAppError(errCode, "details[0] is not a map")
+		wErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "details[0] is not a map",
+			},
+		)
 		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
 
 	causes, ok := rawMap["Causes"].([]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"details should contain causes from validation error",
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "details should contain causes from validation error",
+			},
 		)
+
 		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
 
@@ -591,9 +644,13 @@ func extractInvalidCredentialsFromErrorDetails(
 		causeMap, ok := cause.(map[string]any)
 		if !ok {
 			wErr := workflowengine.NewAppError(
-				errCode,
-				"each cause should be a map",
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "each cause should be a map",
+				},
 			)
+
 			return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 		}
 
@@ -618,11 +675,29 @@ func extractAppErrorDetails(err error) ([]any, error) {
 			if derr == nil {
 				return details, nil
 			}
-			return nil, workflowengine.NewAppError(errCode, derr.Error())
+			return nil, workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: derr.Error(),
+				},
+			)
 		}
-		return nil, workflowengine.NewAppError(errCode, actErr.Unwrap().Error())
+		return nil, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: actErr.Unwrap().Error(),
+			},
+		)
 	}
-	return nil, workflowengine.NewAppError(errCode, err.Error())
+	return nil, workflowengine.NewAppError(
+		workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: err.Error(),
+		},
+	)
 }
 
 func validateInput(

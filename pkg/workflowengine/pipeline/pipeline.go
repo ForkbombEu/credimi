@@ -89,9 +89,10 @@ func (w *PipelineWorkflow) Workflow(
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 	appURL, _ := config["app_url"].(string)
-	runMetadata := &workflowengine.WorkflowErrorMetadata{
+	runMetadata := &workflowengine.WorkflowRunMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflowID,
+		RunID:        runID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 		TemporalUI: utils.JoinURL(
 			appURL,
@@ -222,15 +223,18 @@ func (w *PipelineWorkflow) Workflow(
 
 	if len(state.errorsList) > 0 {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("workflow completed with %d step errors", len(state.errorsList)),
-		)
+		appErr := workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: buildPipelineFailureSummary(state.errorsList),
+			Details: map[string]any{
+				"errors": buildPipelineFailureErrors(state.errorsList),
+				"output": state.finalOutput,
+			},
+		})
+
 		finalErr = workflowengine.NewWorkflowError(
 			appErr,
 			runMetadata,
-			state.errorsList,
-			state.finalOutput,
 		)
 		result = workflowengine.WorkflowResult{}
 		return result, finalErr
@@ -238,15 +242,18 @@ func (w *PipelineWorkflow) Workflow(
 
 	if len(cleanupErrors) > 0 {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("workflow completed with %d cleanup errors", len(cleanupErrors)),
-		)
+		appErr := workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: fmt.Sprintf("workflow completed with %d cleanup errors", len(cleanupErrors)),
+			Details: map[string]any{
+				"errors": buildPipelineCleanupFailureErrors(cleanupErrors),
+				"output": state.finalOutput,
+			},
+		})
+
 		finalErr = workflowengine.NewWorkflowError(
 			appErr,
 			runMetadata,
-			cleanupErrors,
-			state.finalOutput,
 		)
 		result = workflowengine.WorkflowResult{}
 		return result, finalErr
@@ -270,6 +277,33 @@ func pipelineFinalResult(ctx workflow.Context, finalErr error) string {
 	return resultSuccess
 }
 
+func buildPipelineFailureSummary(errorsList []string) string {
+	if len(errorsList) == 1 {
+		return "Pipeline failed: 1 step failed"
+	}
+	return fmt.Sprintf("Pipeline failed: %d steps failed", len(errorsList))
+}
+
+func buildPipelineFailureErrors(errorsList []string) []workflowengine.WorkflowError {
+	failures := make([]workflowengine.WorkflowError, 0, len(errorsList))
+	for _, message := range errorsList {
+		failures = append(failures, workflowengine.WorkflowError{
+			Message: message,
+		})
+	}
+	return failures
+}
+
+func buildPipelineCleanupFailureErrors(errorsList []error) []workflowengine.WorkflowError {
+	failures := make([]workflowengine.WorkflowError, 0, len(errorsList))
+	for _, err := range errorsList {
+		failures = append(failures, workflowengine.WorkflowError{
+			Message: err.Error(),
+		})
+	}
+	return failures
+}
+
 func newPipelineExecutionState(workflowID string, runID string) *pipelineExecutionState {
 	return &pipelineExecutionState{
 		errorsList: []string{},
@@ -291,7 +325,7 @@ func hasMobileAutomationStep(steps []pipeline.StepDefinition) bool {
 
 func wrapWorkflowCancellationError(
 	err error,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 ) error {
 	if temporal.IsCanceledError(err) {
 		return workflowengine.NewWorkflowCancellationError(runMetadata)
@@ -307,7 +341,7 @@ func (w *PipelineWorkflow) executeSteps(
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
@@ -341,7 +375,7 @@ func (w *PipelineWorkflow) executeStep(
 	ao workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
@@ -469,7 +503,7 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 	step pipeline.StepDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 	state *pipelineExecutionState,
 	logger log.Logger,
 ) error {
@@ -528,7 +562,7 @@ func handleChildPipelineStepError(
 	err error,
 	ao workflow.ActivityOptions,
 	config map[string]any,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 	state *pipelineExecutionState,
 	logger log.Logger,
 	pipelineName string,
@@ -574,7 +608,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 	step pipeline.StepDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
@@ -643,7 +677,7 @@ func handleRegularStepError(
 	err error,
 	ao workflow.ActivityOptions,
 	config map[string]any,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 	state *pipelineExecutionState,
 	logger log.Logger,
 	pipelineName string,
@@ -673,10 +707,15 @@ func handleRegularStepError(
 	}
 	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 	appErr := workflowengine.NewAppError(
-		errCode,
-		fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
-		step.ID,
-		state.finalOutput,
+		workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
+			Details: map[string]any{
+				"step_id": step.ID,
+				"output":  state.finalOutput,
+			},
+		},
 	)
 	return workflowengine.NewWorkflowError(appErr, runMetadata)
 }

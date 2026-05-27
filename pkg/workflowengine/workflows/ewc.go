@@ -43,8 +43,8 @@ var (
 )
 
 type EWCWorkflowPayload struct {
-	Parameters map[string]any `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
-	UserMail   string         `json:"user_mail"             yaml:"user_mail"             validate:"required"`
+	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	UserMail   string         `json:"user_mail"            yaml:"user_mail"            validate:"required"`
 }
 
 func NewEWCWorkflow() *EWCWorkflow {
@@ -359,7 +359,7 @@ func pollEWCCheck(
 	interval time.Duration,
 	checkEndpoint string,
 	sessionID string,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 	startImmediately bool,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
@@ -451,7 +451,14 @@ func pollEWCCheck(
 		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-			appErr := workflowengine.NewAppError(errCode, err.Error(), response.Output)
+			appErr := workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+					Details: map[string]any{"payload": response.Output},
+				},
+			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				runMetadata,
@@ -461,7 +468,14 @@ func pollEWCCheck(
 		var parsed EWCResponseBody
 		if err := json.Unmarshal(bodyJSON, &parsed); err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
-			appErr := workflowengine.NewAppError(errCode, err.Error(), bodyJSON)
+			appErr := workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+					Details: map[string]any{"payload": bodyJSON},
+				},
+			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				runMetadata,
@@ -469,7 +483,14 @@ func pollEWCCheck(
 		}
 
 		errCode := errorcodes.Codes[errorcodes.EWCCheckFailed]
-		failedErr := workflowengine.NewAppError(errCode, parsed.Reason, parsed)
+		failedErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: parsed.Reason,
+				Details: map[string]any{"payload": parsed},
+			},
+		)
 
 		switch parsed.Status {
 		case "success":
@@ -495,10 +516,18 @@ func pollEWCCheck(
 
 		default:
 			failedErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("unexpected status from '%s': %s", checkEndpoint, parsed.Status),
-				parsed,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"unexpected status from '%s': %s",
+						checkEndpoint,
+						parsed.Status,
+					),
+					Details: map[string]any{"payload": parsed},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				failedErr,
 				runMetadata,

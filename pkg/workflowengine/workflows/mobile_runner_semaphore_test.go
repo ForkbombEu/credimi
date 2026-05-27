@@ -175,7 +175,9 @@ func TestMobileRunnerSemaphoreWorkflowNotifiesQueuedPositionForFollowerRunner(t 
 		updateAct.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			update, err := workflowengine.DecodePayload[activities.UpdateGitHubPRCommentInput](input.Payload)
+			update, err := workflowengine.DecodePayload[activities.UpdateGitHubPRCommentInput](
+				input.Payload,
+			)
 			return err == nil &&
 				update.Repository == "forkbombeu/wallet" &&
 				update.PullRequestNumber == 17 &&

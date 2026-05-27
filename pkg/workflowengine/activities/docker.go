@@ -80,8 +80,11 @@ func (a *DockerActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 	defer cli.Close()
@@ -90,9 +93,14 @@ func (a *DockerActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerPullImageFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			payload.Image,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"image": payload.Image,
+				},
+			},
 		)
 	}
 	defer out.Close()
@@ -106,8 +114,11 @@ func (a *DockerActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 
@@ -137,24 +148,34 @@ func (a *DockerActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerCreateContainerFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			payload.ContainerName,
-			config,
-			hostConfig,
-			payload.NetworkConfig,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"container_name": payload.ContainerName,
+					"config":         config,
+					"host_config":    hostConfig,
+					"network_config": payload.NetworkConfig,
+				},
+			},
 		)
 	}
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerStartContainerFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			resp.ID,
-			config,
-			hostConfig,
-			payload.NetworkConfig,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"container_id":   resp.ID,
+					"config":         config,
+					"host_config":    hostConfig,
+					"network_config": payload.NetworkConfig,
+				},
+			},
 		)
 	}
 	ticker := time.NewTicker(2 * time.Second)
@@ -178,9 +199,14 @@ func (a *DockerActivity) Execute(
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.DockerWaitContainerFailed]
 				return result, a.NewActivityError(
-					errCode.Code,
-					fmt.Sprintf("%s: %v", errCode.Description, err),
-					resp.ID,
+					workflowengine.ActivityError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+						Details: map[string]any{
+							"container_id": resp.ID,
+						},
+					},
 				)
 			}
 
@@ -189,9 +215,14 @@ func (a *DockerActivity) Execute(
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.DockerInspectContainerFailed]
 				return result, a.NewActivityError(
-					errCode.Code,
-					fmt.Sprintf("%s: %v", errCode.Description, err),
-					resp.ID,
+					workflowengine.ActivityError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+						Details: map[string]any{
+							"container_id": resp.ID,
+						},
+					},
 				)
 			}
 
@@ -203,9 +234,14 @@ func (a *DockerActivity) Execute(
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.DockerFetchLogsFailed]
 				return result, a.NewActivityError(
-					errCode.Code,
-					fmt.Sprintf("%s: %v", errCode.Description, err),
-					resp.ID,
+					workflowengine.ActivityError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+						Details: map[string]any{
+							"container_id": resp.ID,
+						},
+					},
 				)
 			}
 			defer logs.Close()
@@ -216,19 +252,32 @@ func (a *DockerActivity) Execute(
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.CopyFromReaderFailed]
 				return result, a.NewActivityError(
-					errCode.Code,
-					fmt.Sprintf("%s: %v", errCode.Description, err),
+					workflowengine.ActivityError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+					},
 				)
 			}
 
 			if inspect.State.ExitCode != 0 {
 				errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
 				return result, a.NewActivityError(
-					errCode.Code,
-					fmt.Sprintf("Docker command failed with exit code %d", inspect.State.ExitCode),
-					resp.ID,
-					stdoutBuf.String(),
-					stderrBuf.String(),
+					workflowengine.ActivityError{
+						Code:    errCode.Code,
+						Summary: "Docker command failed",
+						Message: fmt.Sprintf(
+							"container exited with code %d",
+							inspect.State.ExitCode,
+						),
+						Category: "external_command",
+						Details: map[string]any{
+							"container_id": resp.ID,
+							"exit_code":    inspect.State.ExitCode,
+							"stdout":       stdoutBuf.String(),
+							"stderr":       stderrBuf.String(),
+						},
+					},
 				)
 			}
 

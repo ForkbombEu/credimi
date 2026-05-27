@@ -129,7 +129,10 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 				containerID, ok := result.Output.(map[string]any)["containerID"].(string)
 				require.True(t, ok)
 				require.NotEmpty(t, containerID)
-				cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+				cli, err := client.NewClientWithOpts(
+					client.FromEnv,
+					client.WithAPIVersionNegotiation(),
+				)
 				if tt.checkPort {
 					ctx := context.Background()
 					inspect, err := cli.ContainerInspect(ctx, containerID)
@@ -148,7 +151,11 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 					_, ok := inspect.NetworkSettings.Networks["bridge"]
 					require.True(t, ok, "Expected container to be connected to 'bridge' network")
 				}
-				cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
+				cli.ContainerRemove(
+					context.Background(),
+					containerID,
+					container.RemoveOptions{Force: true},
+				)
 			}
 		})
 	}

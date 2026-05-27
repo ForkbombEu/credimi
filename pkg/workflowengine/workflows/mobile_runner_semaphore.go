@@ -510,7 +510,15 @@ func (r *mobileRunnerSemaphoreRuntime) handleRunDone(
 	if workflowResult == "" {
 		workflowResult = "completed"
 	}
-	r.finalizeRunTicket(ctx, req.TicketID, state, workflowID, runID, workflowResult, signalFollowers)
+	r.finalizeRunTicket(
+		ctx,
+		req.TicketID,
+		state,
+		workflowID,
+		runID,
+		workflowResult,
+		signalFollowers,
+	)
 
 	return MobileRunnerSemaphoreRunStatusView{
 		TicketID: req.TicketID,
@@ -763,7 +771,15 @@ func (r *mobileRunnerSemaphoreRuntime) markRunTicketFailed(
 	r.updateCount++
 	r.maybeScheduleContinue()
 	r.requestRunStart()
-	r.notifyGitHubPRComment(r.ctx, ticketID, state, mobileRunnerSemaphoreRunFailed, nil, "", state.ErrorMessage)
+	r.notifyGitHubPRComment(
+		r.ctx,
+		ticketID,
+		state,
+		mobileRunnerSemaphoreRunFailed,
+		nil,
+		"",
+		state.ErrorMessage,
+	)
 }
 
 func (r *mobileRunnerSemaphoreRuntime) checkRunCompletion(ctx workflow.Context) {
@@ -811,7 +827,15 @@ func (r *mobileRunnerSemaphoreRuntime) checkRunCompletion(ctx workflow.Context) 
 		}
 
 		signalFollowers := state.Request.LeaderRunnerID == r.runnerID
-		r.finalizeRunTicket(ctx, ticketID, state, state.WorkflowID, state.RunID, output.Status, signalFollowers)
+		r.finalizeRunTicket(
+			ctx,
+			ticketID,
+			state,
+			state.WorkflowID,
+			state.RunID,
+			output.Status,
+			signalFollowers,
+		)
 	}
 }
 
@@ -869,7 +893,15 @@ func (r *mobileRunnerSemaphoreRuntime) reconcileStartingTickets(ctx workflow.Con
 			if runID == "" {
 				runID = state.RunID
 			}
-			r.finalizeRunTicket(ctx, ticketID, state, workflowID, runID, string(status.Status), false)
+			r.finalizeRunTicket(
+				ctx,
+				ticketID,
+				state,
+				workflowID,
+				runID,
+				string(status.Status),
+				false,
+			)
 		}
 	}
 }
@@ -884,7 +916,14 @@ func (r *mobileRunnerSemaphoreRuntime) finalizeRunTicket(
 	signalFollowers bool,
 ) {
 	if signalFollowers {
-		r.signalRunDone(ctx, ticketID, state.Request.RequiredRunnerIDs, workflowID, runID, workflowStatus)
+		r.signalRunDone(
+			ctx,
+			ticketID,
+			state.Request.RequiredRunnerIDs,
+			workflowID,
+			runID,
+			workflowStatus,
+		)
 	}
 	if workflowID != "" {
 		state.WorkflowID = workflowID
@@ -892,7 +931,15 @@ func (r *mobileRunnerSemaphoreRuntime) finalizeRunTicket(
 	if runID != "" {
 		state.RunID = runID
 	}
-	r.notifyGitHubPRComment(ctx, ticketID, state, MobileRunnerSemaphoreRunStatus("terminated"), nil, workflowStatus, state.ErrorMessage)
+	r.notifyGitHubPRComment(
+		ctx,
+		ticketID,
+		state,
+		MobileRunnerSemaphoreRunStatus("terminated"),
+		nil,
+		workflowStatus,
+		state.ErrorMessage,
+	)
 	r.runQueue = removeFromQueue(r.runQueue, ticketID)
 	delete(r.runTickets, ticketID)
 	r.updateCount++
@@ -1040,7 +1087,15 @@ func (r *mobileRunnerSemaphoreRuntime) handleRunStartedSignal(
 	r.runTickets[signal.TicketID] = state
 	r.updateCount++
 	r.maybeScheduleContinue()
-	r.notifyGitHubPRComment(ctx, signal.TicketID, state, mobileRunnerSemaphoreRunRunning, nil, "", "")
+	r.notifyGitHubPRComment(
+		ctx,
+		signal.TicketID,
+		state,
+		mobileRunnerSemaphoreRunRunning,
+		nil,
+		"",
+		"",
+	)
 }
 
 func (r *mobileRunnerSemaphoreRuntime) handleRunDoneSignal(
@@ -1058,7 +1113,15 @@ func (r *mobileRunnerSemaphoreRuntime) handleRunDoneSignal(
 	if workflowResult == "" {
 		workflowResult = "completed"
 	}
-	r.finalizeRunTicket(ctx, signal.TicketID, state, signal.WorkflowID, signal.RunID, workflowResult, false)
+	r.finalizeRunTicket(
+		ctx,
+		signal.TicketID,
+		state,
+		signal.WorkflowID,
+		signal.RunID,
+		workflowResult,
+		false,
+	)
 }
 
 func (r *mobileRunnerSemaphoreRuntime) notifyQueuedPositionUpdates(ctx workflow.Context) {
@@ -1132,7 +1195,8 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 	workflow.Go(ctx, func(ctx workflow.Context) {
 		logger := workflow.GetLogger(ctx)
 		activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
-		if err := workflow.ExecuteActivity(activityCtx, updateActivity.Name(), input).Get(activityCtx, nil); err != nil {
+		if err := workflow.ExecuteActivity(activityCtx, updateActivity.Name(), input).
+			Get(activityCtx, nil); err != nil {
 			logger.Error(
 				"failed to update github pr comment",
 				"ticket_id",

@@ -192,7 +192,13 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-		appErr := workflowengine.NewAppError(errCode, baseURL)
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: baseURL,
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -305,10 +311,14 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 		outputMap, ok := checkResponse.Output.(map[string]any)
 		if !ok {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("unexpected output type: %T", checkResponse.Output),
-				checkResponse.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("unexpected output type: %T", checkResponse.Output),
+					Details: map[string]any{"payload": checkResponse.Output},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -318,10 +328,14 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 		statusCode, ok := outputMap["status"].(float64)
 		if !ok {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				"missing or invalid status code",
-				checkResponse.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "missing or invalid status code",
+					Details: map[string]any{"payload": checkResponse.Output},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -390,12 +404,16 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 
 		case 500:
 			failedErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"eudiw check failed with status code: %d",
-					int(statusCode),
-				),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"eudiw check failed with status code: %d",
+						int(statusCode),
+					),
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				failedErr,
 				input.RunMetadata,
@@ -403,12 +421,16 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 
 		default:
 			failedErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"unexpected status code: %d",
-					int(statusCode),
-				),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"unexpected status code: %d",
+						int(statusCode),
+					),
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				failedErr,
 				input.RunMetadata,
@@ -456,8 +478,14 @@ func BuildQRDeepLink(
 	)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-		appErr := workflowengine.NewAppError(errCode, baseURL)
-		return "", workflowengine.NewWorkflowError(appErr, &workflowengine.WorkflowErrorMetadata{
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: baseURL,
+			},
+		)
+		return "", workflowengine.NewWorkflowError(appErr, &workflowengine.WorkflowRunMetadata{
 			WorkflowName: "EudiwWorkflow",
 		})
 	}

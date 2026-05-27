@@ -60,15 +60,24 @@ func (a *InternalHTTPActivity) Execute(
 	if authLevel != InternalHTTPAuthLevelAdmin {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("unsupported auth level: %s", authLevel),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("unsupported auth level: %s", authLevel),
+			},
 		)
 	}
 
 	apiKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
 	if apiKey == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return result, a.NewActivityError(errCode.Code, "CREDIMI_INTERNAL_ADMIN_KEY is required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "CREDIMI_INTERNAL_ADMIN_KEY is required",
+			},
+		)
 	}
 
 	httpPayload := HTTPActivityPayload{

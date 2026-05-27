@@ -7,6 +7,7 @@ package handlers
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/enums/v1"
+	failurepb "go.temporal.io/api/failure/v1"
 	"go.temporal.io/sdk/client"
 )
 
@@ -238,6 +240,7 @@ type GetMyWorkflowRunResponse struct {
 	ExecutionConfig        *WorkflowExecutionConfigWithMetadata `json:"executionConfig,omitempty"`
 	Callbacks              *Callbacks                           `json:"callbacks,omitempty"`
 	PendingWorkflowTask    *PendingWorkflowTaskInfo             `json:"pendingWorkflowTask,omitempty"`
+	FailureReason          *string                              `json:"failure_reason,omitempty"`
 }
 
 // ListMyWorkflowRunsResponse represents the response containing the runs of a workflow.
@@ -622,13 +625,34 @@ func fetchWorkflowFailure(
 		return nil
 	}
 
-	cause := failure.GetCause()
-	if cause == nil {
-		return nil
+	if reason := workflowFailureReason(failure); reason != "" {
+		return &reason
 	}
 
-	msg := cause.GetMessage()
+	msg := failure.GetMessage()
+	if msg == "Failure exceeds size limit." && failure.GetCause() != nil {
+		msg = failure.GetCause().GetMessage()
+	}
+	if msg == "" {
+		return nil
+	}
 	return &msg
+}
+
+func workflowFailureReason(failure *failurepb.Failure) string {
+	info := failure.GetApplicationFailureInfo()
+	if info == nil || info.GetDetails() == nil {
+		return ""
+	}
+
+	for _, payload := range info.GetDetails().GetPayloads() {
+		var workflowErr workflowengine.WorkflowError
+		if err := json.Unmarshal(payload.GetData(), &workflowErr); err == nil && workflowErr.Code != "" {
+			return workflowengine.FormatWorkflowFailureReason(workflowErr)
+		}
+	}
+
+	return ""
 }
 
 func computePipelineResults(

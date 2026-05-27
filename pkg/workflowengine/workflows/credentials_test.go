@@ -435,7 +435,7 @@ func TestExtractInvalidCredentialsFromErrorDetails(t *testing.T) {
 
 	invalid, err := extractInvalidCredentialsFromErrorDetails(
 		details,
-		&workflowengine.WorkflowErrorMetadata{},
+		&workflowengine.WorkflowRunMetadata{},
 	)
 	require.NoError(t, err)
 	require.Equal(t, map[string]bool{"cred-1": true}, invalid)
@@ -444,7 +444,7 @@ func TestExtractInvalidCredentialsFromErrorDetails(t *testing.T) {
 func TestExtractInvalidCredentialsFromErrorDetailsInvalidShape(t *testing.T) {
 	_, err := extractInvalidCredentialsFromErrorDetails(
 		[]any{"not-a-map"},
-		&workflowengine.WorkflowErrorMetadata{},
+		&workflowengine.WorkflowRunMetadata{},
 	)
 	require.Error(t, err)
 }

@@ -105,10 +105,14 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 		output, ok := HTTPResponse.Output.(map[string]any)
 		if !ok {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: invalid output format", errCode.Description),
-				HTTPResponse.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: invalid output format", errCode.Description),
+					Details: map[string]any{"payload": HTTPResponse.Output},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -118,10 +122,14 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 		body, ok := output["body"].(map[string]any)
 		if !ok {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: missing body in output", errCode.Description),
-				output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: missing body in output", errCode.Description),
+					Details: map[string]any{"payload": output},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -131,10 +139,14 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 		record, ok := body["record"].(map[string]any)
 		if !ok {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: missing record in body", errCode.Description),
-				body,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: missing record in body", errCode.Description),
+					Details: map[string]any{"payload": body},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -144,10 +156,14 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 		storedYaml, ok = record["yaml"].(string)
 		if !ok || storedYaml == "" {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				"missing yaml in custom check record",
-				record,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "missing yaml in custom check record",
+					Details: map[string]any{"payload": record},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,

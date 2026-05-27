@@ -38,7 +38,7 @@ type StepCIAndEmailConfig struct {
 	Template      string
 	StepCIPayload activities.StepCIWorkflowActivityPayload
 	Secrets       map[string]any
-	RunMetadata   *workflowengine.WorkflowErrorMetadata
+	RunMetadata   *workflowengine.WorkflowRunMetadata
 	Suite         string
 	SendMail      bool
 }
@@ -66,7 +66,8 @@ func RunStepCIAndSendMail(
 	}
 
 	var stepCIResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, stepCIActivity.Name(), stepCIInput).Get(ctx, &stepCIResult); err != nil {
+	if err := workflow.ExecuteActivity(ctx, stepCIActivity.Name(), stepCIInput).
+		Get(ctx, &stepCIResult); err != nil {
 		logger.Error("StepCIExecution failed", "error", err)
 		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 	}
@@ -99,7 +100,13 @@ func RunStepCIAndSendMail(
 		u, err := url.Parse(baseURL)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-			appErr := workflowengine.NewAppError(errCode, baseURL)
+			appErr := workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: baseURL,
+				},
+			)
 			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(appErr, cfg.RunMetadata)
 		}
 		q := u.Query()
@@ -126,7 +133,8 @@ func RunStepCIAndSendMail(
 			logger.Error("Email configure failed", "error", err)
 			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 		}
-		if err := workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil); err != nil {
+		if err := workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).
+			Get(ctx, nil); err != nil {
 			logger.Error("Failed to send mail", "error", err)
 			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 		}
@@ -143,18 +151,18 @@ type StartCheckWorkflow struct {
 var startCheckWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type StartCheckWorkflowPayload struct {
-	Suite      string         `json:"suite"                      yaml:"suite"`
-	CheckID    string         `json:"check_id"                   yaml:"check_id"                   validate:"required"`
-	TestName   string         `json:"test,omitempty"             yaml:"test,omitempty"`
-	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
-	UserMail   string         `json:"user_mail"                  yaml:"user_mail"`
-	SendMail   bool           `json:"send_mail"                  yaml:"send_mail"`
+	Suite      string         `json:"suite"                yaml:"suite"`
+	CheckID    string         `json:"check_id"             yaml:"check_id"             validate:"required"`
+	TestName   string         `json:"test,omitempty"       yaml:"test,omitempty"`
+	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	UserMail   string         `json:"user_mail"            yaml:"user_mail"`
+	SendMail   bool           `json:"send_mail"            yaml:"send_mail"`
 }
 
 type StartCheckWorkflowPipelinePayload struct {
-	CheckID    string         `json:"check_id"                   yaml:"check_id"                   validate:"required"`
-	TestName   string         `json:"test,omitempty"             yaml:"test,omitempty"`
-	Parameters map[string]any `json:"parameters,omitempty"       yaml:"parameters,omitempty"`
+	CheckID    string         `json:"check_id"             yaml:"check_id"             validate:"required"`
+	TestName   string         `json:"test,omitempty"       yaml:"test,omitempty"`
+	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
 func conformanceCheckParameters(payload StartCheckWorkflowPayload) map[string]any {
@@ -318,7 +326,13 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			logger.Error("Failed to execute child workflow", "error", err)
 			errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				workflowengine.NewAppError(errCode, err.Error(), nil),
+				workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+					},
+				),
 				cfg.RunMetadata,
 			)
 		}
@@ -398,7 +412,13 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			logger.Error("Failed to execute child workflow", "error", err)
 			errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				workflowengine.NewAppError(errCode, err.Error(), nil),
+				workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+					},
+				),
 				cfg.RunMetadata,
 			)
 		}

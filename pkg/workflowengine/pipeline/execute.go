@@ -43,9 +43,13 @@ func ExecuteStep(
 	err := pipeline.ResolveInputs(s, globalCfg, dataCtx)
 	if err != nil {
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("error resolving inputs for step %s: %s", s.ID, err.Error()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("error resolving inputs for step %s: %s", s.ID, err.Error()),
+			},
 		)
+
 		return nil, appErr
 	}
 	step := registry.Registry[s.Use]
@@ -54,9 +58,17 @@ func ExecuteStep(
 		payload, err := DecodePayload(s)
 		if err != nil {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("error decoding payload for step %s: %s", s.ID, err.Error()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"error decoding payload for step %s: %s",
+						s.ID,
+						err.Error(),
+					),
+				},
 			)
+
 			return nil, appErr
 		}
 		ctx = workflow.WithActivityOptions(ctx, ao)
@@ -72,18 +84,30 @@ func ExecuteStep(
 
 			if err := cfgAct.Configure(&input); err != nil {
 				appErr := workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf("error configuring activity %s: %s", s.ID, err.Error()),
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: fmt.Sprintf(
+							"error configuring activity %s: %s",
+							s.ID,
+							err.Error(),
+						),
+					},
 				)
+
 				return result, appErr
 			}
 		}
 		execAct, ok := act.(workflowengine.ExecutableActivity)
 		if !ok {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("activity %s is not executable", s.ID),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("activity %s is not executable", s.ID),
+				},
 			)
+
 			return result, appErr
 		}
 
@@ -117,9 +141,17 @@ func ExecuteStep(
 		payload, err := DecodePayload(s)
 		if err != nil {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("error decoding payload for step %s: %s", s.ID, err.Error()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"error decoding payload for step %s: %s",
+						s.ID,
+						err.Error(),
+					),
+				},
 			)
+
 			return nil, appErr
 		}
 		taskqueue := PipelineTaskQueue
@@ -131,9 +163,13 @@ func ExecuteStep(
 		if ok && appURL == "" {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("missing or invalid app_url for step %s", s.ID),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("missing or invalid app_url for step %s", s.ID),
+				},
 			)
+
 			return nil, appErr
 		}
 		input := workflowengine.WorkflowInput{
@@ -208,7 +244,7 @@ func runChildPipeline(
 	input PipelineWorkflowInput,
 	workflowName string,
 	dataCtx map[string]any,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 ) (any, error) {
 	// Fetch child pipeline YAML
 	yaml, err := fetchChildPipelineYAML(ctx, step, input, runMetadata)
@@ -221,8 +257,11 @@ func runChildPipeline(
 	if err != nil {
 		return nil, workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.PipelineParsingError],
-				err.Error(),
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.PipelineParsingError].Code,
+					Summary: errorcodes.Codes[errorcodes.PipelineParsingError].Description,
+					Message: err.Error(),
+				},
 			),
 			runMetadata,
 		)
@@ -278,7 +317,7 @@ func fetchChildPipelineYAML(
 	ctx workflow.Context,
 	step pipeline.StepDefinition,
 	input PipelineWorkflowInput,
-	meta *workflowengine.WorkflowErrorMetadata,
+	meta *workflowengine.WorkflowRunMetadata,
 ) (string, error) {
 	pipelineID, ok := step.With.Payload["pipeline_id"].(string)
 	if !ok || pipelineID == "" {
@@ -314,9 +353,12 @@ func fetchChildPipelineYAML(
 	if !ok {
 		return "", workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-				"invalid HTTP output",
-				response.Output,
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Code,
+					Summary: errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Description,
+					Message: "invalid HTTP output",
+					Details: map[string]any{"payload": response.Output},
+				},
 			),
 			meta,
 		)

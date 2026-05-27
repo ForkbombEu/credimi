@@ -595,7 +595,11 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 
 func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string) {
 	go func() {
-		if err := executeWorkerManagerWorkflowFn(namespace, oldNamespace, app.Settings().Meta.AppURL); err != nil {
+		if err := executeWorkerManagerWorkflowFn(
+			namespace,
+			oldNamespace,
+			app.Settings().Meta.AppURL,
+		); err != nil {
 			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
 		} else {
 			log.Printf("[WorkerManagerWorkflow] Successfully started for namespace %s", namespace)

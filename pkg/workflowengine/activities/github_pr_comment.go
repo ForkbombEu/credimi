@@ -87,8 +87,11 @@ func (a *UpdateGitHubPRCommentActivity) Execute(
 			(strings.TrimSpace(payload.WorkflowID) == "" || strings.TrimSpace(payload.RunID) == "")) {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
-			errCode.Code,
-			"repository, pull_request_number, and ticket_id or workflow_id/run_id are required",
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "repository, pull_request_number, and ticket_id or workflow_id/run_id are required",
+			},
 		)
 	}
 	if err := SignalGitHubPRCommentUpdate(ctx, payload); err != nil {
@@ -196,16 +199,28 @@ func buildGitHubPRCommentBody(input UpdateGitHubPRCommentInput) string {
 	}
 	tableRows := make([][2]string, 0, 4)
 	if input.Position != nil && status == "queued" {
-		tableRows = append(tableRows, [2]string{"Queue position", fmt.Sprintf("`%d`", *input.Position)})
+		tableRows = append(
+			tableRows,
+			[2]string{"Queue position", fmt.Sprintf("`%d`", *input.Position)},
+		)
 	}
 	if strings.TrimSpace(input.PipelineID) != "" {
-		tableRows = append(tableRows, [2]string{"Pipeline ID", fmt.Sprintf("`%s`", markdownTableCell(input.PipelineID))})
+		tableRows = append(
+			tableRows,
+			[2]string{"Pipeline ID", fmt.Sprintf("`%s`", markdownTableCell(input.PipelineID))},
+		)
 	}
 	if runner := formatPRCommentRunner(input.RunnerID, input.RunnerType); runner != "" {
-		tableRows = append(tableRows, [2]string{"Runner", fmt.Sprintf("`%s`", markdownTableCell(runner))})
+		tableRows = append(
+			tableRows,
+			[2]string{"Runner", fmt.Sprintf("`%s`", markdownTableCell(runner))},
+		)
 	}
 	if strings.TrimSpace(input.PipelineURL) != "" {
-		tableRows = append(tableRows, [2]string{"Pipeline", markdownLink("Open pipeline", input.PipelineURL)})
+		tableRows = append(
+			tableRows,
+			[2]string{"Pipeline", markdownLink("Open pipeline", input.PipelineURL)},
+		)
 	}
 	if runURL := buildRunURL(input.AppURL, input.WorkflowID, input.RunID); runURL != "" {
 		tableRows = append(tableRows, [2]string{"Run logs", markdownLink("Open run logs", runURL)})
@@ -248,7 +263,11 @@ func GitHubPRCommentKnownSectionTitles() []string {
 func formatPRCommentStatusBadge(status string) string {
 	message := normalizePRCommentBadgeMessage(status)
 	color := prCommentBadgeColor(message)
-	badgeURL := utils.JoinURL("https://img.shields.io", "badge", fmt.Sprintf("status-%s-%s", message, color))
+	badgeURL := utils.JoinURL(
+		"https://img.shields.io",
+		"badge",
+		fmt.Sprintf("status-%s-%s", message, color),
+	)
 	return fmt.Sprintf("![status: %s](%s)", message, badgeURL)
 }
 

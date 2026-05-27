@@ -102,6 +102,10 @@ function workflowResponseToExecution(data: WorkflowResponse): WorkflowExecution 
 		Object.defineProperty(workflowExecution, 'canBeTerminated', {
 			value: true
 		});
+		Object.defineProperty(workflowExecution, 'failure_reason', {
+			value: data.failure_reason,
+			enumerable: true
+		});
 
 		return workflowExecution;
 	}, 'Failed to convert workflow response to execution');

@@ -41,11 +41,11 @@ func (f *fakeActivity) Name() string {
 	return f.name
 }
 
-func (f *fakeActivity) NewActivityError(string, string, ...any) error {
+func (f *fakeActivity) NewActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
-func (f *fakeActivity) NewNonRetryableActivityError(string, string, ...any) error {
+func (f *fakeActivity) NewNonRetryableActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
@@ -227,7 +227,7 @@ steps: []
 				input,
 				"child-workflow",
 				map[string]any{},
-				&workflowengine.WorkflowErrorMetadata{},
+				&workflowengine.WorkflowRunMetadata{},
 			)
 			if err != nil {
 				return nil, err
@@ -287,7 +287,7 @@ func TestFetchChildPipelineYAMLValidationErrors(t *testing.T) {
 				ctx,
 				step,
 				input,
-				&workflowengine.WorkflowErrorMetadata{},
+				&workflowengine.WorkflowRunMetadata{},
 			)
 			if err == nil {
 				return "", errors.New("expected error")
@@ -331,7 +331,7 @@ func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
 				ctx,
 				step,
 				input,
-				&workflowengine.WorkflowErrorMetadata{},
+				&workflowengine.WorkflowRunMetadata{},
 			)
 			if err == nil {
 				return "", errors.New("expected error")
@@ -435,7 +435,7 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 	) (string, error) {
 		ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 		ctx = workflow.WithActivityOptions(ctx, ao)
-		meta := &workflowengine.WorkflowErrorMetadata{}
+		meta := &workflowengine.WorkflowRunMetadata{}
 		return fetchChildPipelineYAML(ctx, step, input, meta)
 	}
 	env.RegisterWorkflowWithOptions(
@@ -522,7 +522,7 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 			) (string, error) {
 				ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 				ctx = workflow.WithActivityOptions(ctx, ao)
-				meta := &workflowengine.WorkflowErrorMetadata{}
+				meta := &workflowengine.WorkflowRunMetadata{}
 				return fetchChildPipelineYAML(ctx, step, input, meta)
 			}
 			env.RegisterWorkflowWithOptions(

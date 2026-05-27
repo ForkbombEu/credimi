@@ -24,7 +24,7 @@ func TestMobileAutomationWorkflowDisabled(t *testing.T) {
 	})
 
 	input := workflowengine.WorkflowInput{
-		RunMetadata: &workflowengine.WorkflowErrorMetadata{WorkflowName: w.Name()},
+		RunMetadata: &workflowengine.WorkflowRunMetadata{WorkflowName: w.Name()},
 		Config:      map[string]any{"app_url": ""},
 	}
 	env.ExecuteWorkflow(w.Name(), input)
@@ -44,7 +44,7 @@ func TestMobileExternalInstallWorkflowDisabled(t *testing.T) {
 	})
 
 	input := workflowengine.WorkflowInput{
-		RunMetadata: &workflowengine.WorkflowErrorMetadata{WorkflowName: w.Name()},
+		RunMetadata: &workflowengine.WorkflowRunMetadata{WorkflowName: w.Name()},
 		Config:      map[string]any{"app_url": ""},
 	}
 	env.ExecuteWorkflow(w.Name(), input)

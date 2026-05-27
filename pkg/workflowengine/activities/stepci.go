@@ -22,6 +22,8 @@ import (
 	"github.com/go-sprout/sprout/group/all"
 )
 
+const maxStepCIResultErrorBytes = 256 * 1024
+
 type TestResult struct {
 	ID            string       `json:"id"`
 	Name          *string      `json:"name,omitempty"`
@@ -61,6 +63,21 @@ type StepResult struct {
 	BytesReceived int             `json:"bytesReceived"`
 }
 
+type StepCIFailureStep struct {
+	TestID       string `json:"testId"`
+	Name         string `json:"name,omitempty"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
+	Errored      bool   `json:"errored"`
+	Skipped      bool   `json:"skipped"`
+}
+
+type StepCIFailureSummary struct {
+	Passed      bool                `json:"passed"`
+	Messages    []string            `json:"messages,omitempty"`
+	Errors      []CliError          `json:"errors,omitempty"`
+	FailedSteps []StepCIFailureStep `json:"failedSteps,omitempty"`
+}
+
 type CliError struct {
 	Message string  `json:"message"`
 	Stack   *string `json:"stack,omitempty"`
@@ -94,8 +111,11 @@ func (a *StepCIWorkflowActivity) Configure(input *workflowengine.ActivityInput) 
 	if yamlString == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 		return a.NewActivityError(
-			errCode.Code,
-			errCode.Description+": 'template'",
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "template is required",
+			},
 		)
 	}
 	payload, err := workflowengine.DecodePayload[StepCIWorkflowActivityPayload](input.Payload)
@@ -106,8 +126,11 @@ func (a *StepCIWorkflowActivity) Configure(input *workflowengine.ActivityInput) 
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.TemplateRenderFailed]
 		return a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(errCode.Description+": %v", err),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 
@@ -135,8 +158,11 @@ func (a *StepCIWorkflowActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 
@@ -162,10 +188,20 @@ func (a *StepCIWorkflowActivity) Execute(
 			return result, ctx.Err()
 		}
 
+		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
 		return result, a.NewActivityError(
-			errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
-			err.Error(),
-			stderrBuf.String(),
+			workflowengine.ActivityError{
+				Code:     errCode.Code,
+				Summary:  "StepCI command failed",
+				Message:  fmt.Sprintf("stepci-captured-runner exited with error: %v", err),
+				Category: "external_command",
+				Details: map[string]any{
+					"command": binPath,
+					"args":    args,
+					"stderr":  stderrBuf.String(),
+					"stdout":  stdoutBuf.String(),
+				},
+			},
 		)
 	}
 	stdoutStr := stdoutBuf.String()
@@ -179,14 +215,72 @@ func (a *StepCIWorkflowActivity) Execute(
 	result.Output = output
 
 	if !output.Passed {
+		errCode := errorcodes.Codes[errorcodes.StepCIRunFailed]
 		return result, a.NewActivityError(
-			errorcodes.Codes[errorcodes.StepCIRunFailed].Code,
-			"stepci run failed",
-			output,
+			workflowengine.ActivityError{
+				Code:     errCode.Code,
+				Summary:  "StepCI checks failed",
+				Message:  "One or more StepCI assertions failed.",
+				Category: "test_failure",
+				Details:  stepCIFailureDetails(output),
+			},
 		)
 	}
 
 	return result, nil
+}
+
+func stepCIFailureDetails(output StepCICliReturns) map[string]any {
+	details := map[string]any{
+		"summary": summarizeStepCIFailure(output),
+	}
+
+	raw, err := json.Marshal(output)
+	if err != nil {
+		details["result_error"] = err.Error()
+		return details
+	}
+
+	details["result_size_bytes"] = len(raw)
+	if len(raw) <= maxStepCIResultErrorBytes {
+		details["result"] = output
+		return details
+	}
+
+	details["result_omitted"] = true
+	details["result_omitted_reason"] = "StepCI result is too large to store safely in a Temporal failure payload."
+	return details
+}
+
+func summarizeStepCIFailure(output StepCICliReturns) StepCIFailureSummary {
+	summary := StepCIFailureSummary{
+		Passed:   output.Passed,
+		Messages: output.Messages,
+		Errors:   output.Errors,
+	}
+
+	for _, test := range output.Tests {
+		for _, step := range test.Steps {
+			if step.Passed || (step.Skipped && !step.Errored) {
+				continue
+			}
+
+			failed := StepCIFailureStep{
+				TestID:  step.TestID,
+				Errored: step.Errored,
+				Skipped: step.Skipped,
+			}
+			if step.Name != nil {
+				failed.Name = *step.Name
+			}
+			if step.ErrorMessage != nil {
+				failed.ErrorMessage = *step.ErrorMessage
+			}
+			summary.FailedSteps = append(summary.FailedSteps, failed)
+		}
+	}
+
+	return summary
 }
 
 func RenderYAML(yamlString string, data map[string]any) (string, error) {

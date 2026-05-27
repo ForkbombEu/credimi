@@ -104,10 +104,14 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 	responseBody, ok := result.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"output is not a map",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "output is not a map",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -117,10 +121,14 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 	code, ok := responseBody["code"].(string)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"yaml code is not a string",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "yaml code is not a string",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -146,10 +154,14 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 	captures, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"captures is not a map",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "captures is not a map",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -158,10 +170,14 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 	deeplink, ok := captures["deeplink"].(string)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"deeplink missing or invalid from captures",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "deeplink missing or invalid from captures",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,

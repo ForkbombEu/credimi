@@ -500,6 +500,17 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		if info := workflowExecution.GetWorkflowExecutionInfo(); info != nil &&
+			info.GetStatus() == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
+			if failure := fetchWorkflowFailure(
+				context.Background(),
+				c,
+				workflowID,
+				runID,
+			); failure != nil {
+				finalJSON["failure_reason"] = *failure
+			}
+		}
 		return e.JSON(http.StatusOK, finalJSON)
 	}
 }

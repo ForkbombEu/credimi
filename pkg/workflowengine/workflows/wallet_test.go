@@ -123,7 +123,7 @@ func Test_WalletWorkflow(t *testing.T) {
 					Name: jsonActivity.Name(),
 				})
 				env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(errorcodes.Codes[errorcodes.ParseURLFailed], ""))
+					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(workflowengine.WorkflowError{Code: errorcodes.Codes[errorcodes.ParseURLFailed].Code, Summary: errorcodes.Codes[errorcodes.ParseURLFailed].Description, Message: ""}))
 			},
 		},
 	}

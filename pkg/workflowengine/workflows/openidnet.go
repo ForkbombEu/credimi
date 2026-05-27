@@ -227,7 +227,14 @@ func (w *OpenIDNetWorkflow) ExecuteWorkflow(
 
 	if subWorkflowResponse.Message == "Failed" {
 		errCode := errorcodes.Codes[errorcodes.OpenIDnetCheckFailed]
-		appErr := workflowengine.NewAppError(errCode, errCode.Description, subWorkflowResponse.Log)
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: errCode.Description,
+				Details: map[string]any{"payload": subWorkflowResponse.Log},
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,

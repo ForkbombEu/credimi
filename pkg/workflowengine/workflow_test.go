@@ -45,7 +45,7 @@ type testWorkflow struct {
 	name     string
 	options  workflow.ActivityOptions
 	execute  func(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error)
-	metadata *WorkflowErrorMetadata
+	metadata *WorkflowRunMetadata
 }
 
 func (t *testWorkflow) Workflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error) {
@@ -70,7 +70,7 @@ func (t *testWorkflow) GetOptions() workflow.ActivityOptions {
 
 func TestNewWorkflowError_NonApplicationError(t *testing.T) {
 	baseErr := errors.New("plain error")
-	metadata := &WorkflowErrorMetadata{WorkflowName: "wf", TemporalUI: "https://temporal.test"}
+	metadata := &WorkflowRunMetadata{WorkflowName: "wf", TemporalUI: "https://temporal.test"}
 
 	got := NewWorkflowError(baseErr, metadata)
 
@@ -78,33 +78,64 @@ func TestNewWorkflowError_NonApplicationError(t *testing.T) {
 }
 
 func TestNewWorkflowError_WrapsTemporalApplicationError(t *testing.T) {
-	metadata := &WorkflowErrorMetadata{
+	metadata := &WorkflowRunMetadata{
 		WorkflowName: "wf",
 		WorkflowID:   "wf-1",
+		RunID:        "run-1",
 		Namespace:    "default",
 		TemporalUI:   "https://temporal.test/runs/wf-1",
 	}
-	original := temporal.NewApplicationError(
-		"boom",
-		"CRE999",
-		map[string]any{"output": map[string]any{"key": "value"}},
-	)
+	original := NewAppError(WorkflowError{
+		Code:    "CRE999",
+		Summary: "boom",
+		Details: map[string]any{"output": map[string]any{"key": "value"}},
+	})
 
-	got := NewWorkflowError(original, metadata, "extra-payload")
+	got := NewWorkflowError(original, metadata)
 
 	var appErr *temporal.ApplicationError
 	require.ErrorAs(t, got, &appErr)
 	require.Equal(t, "CRE999", appErr.Type())
-	require.Contains(t, appErr.Message(), "CRE999: workflow engine wf: boom")
-	require.Contains(t, appErr.Message(), "Further information at: https://temporal.test/runs/wf-1")
+	require.Equal(t, "boom", appErr.Message())
 
-	var details []any
+	var details WorkflowError
 	require.NoError(t, appErr.Details(&details))
-	require.Len(t, details, 3)
+	require.Equal(t, "CRE999", details.Code)
+	require.Equal(t, "boom", details.Summary)
+	require.Equal(t, "wf-1", details.WorkflowID)
+	require.Equal(t, "run-1", details.RunID)
+	require.Equal(t, "https://temporal.test/runs/wf-1", details.TemporalUI)
+}
+
+func TestNewWorkflowError_CopiesActivityName(t *testing.T) {
+	metadata := &WorkflowRunMetadata{
+		WorkflowName: "wf",
+		WorkflowID:   "wf-1",
+		RunID:        "run-1",
+		Namespace:    "default",
+		TemporalUI:   "https://temporal.test/runs/wf-1",
+	}
+	activity := BaseActivity{Name: "Run an automation workflow of API calls"}
+	original := activity.NewActivityError(ActivityError{
+		Code:    "CRE302",
+		Summary: "StepCI checks failed",
+		Message: "One or more StepCI assertions failed.",
+	})
+
+	got := NewWorkflowError(original, metadata)
+
+	var appErr *temporal.ApplicationError
+	require.ErrorAs(t, got, &appErr)
+
+	var details WorkflowError
+	require.NoError(t, appErr.Details(&details))
+	require.Equal(t, "CRE302", details.Code)
+	require.Equal(t, "Run an automation workflow of API calls", details.ActivityName)
+	require.Equal(t, "wf", details.WorkflowName)
 }
 
 func TestWorkflowSpecificErrorHelpers(t *testing.T) {
-	metadata := &WorkflowErrorMetadata{
+	metadata := &WorkflowRunMetadata{
 		WorkflowName: "wf",
 		TemporalUI:   "https://temporal.test/runs/wf-1",
 	}
@@ -113,13 +144,32 @@ func TestWorkflowSpecificErrorHelpers(t *testing.T) {
 	require.ErrorContains(t, cancelErr, "canceled")
 
 	appErr := NewAppError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-		"field-a",
-		"payload",
+		WorkflowError{
+			Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+			Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+			Message: "field-a",
+			Details: map[string]any{
+				"payload": "payload",
+			},
+		},
 	)
 	var temporalErr *temporal.ApplicationError
 	require.ErrorAs(t, appErr, &temporalErr)
 	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code, temporalErr.Type())
+
+	structuredErr := NewAppError(
+		WorkflowError{
+			Code:    errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+			Summary: "Maestro flow failed",
+			Details: map[string]any{"exit_code": 1},
+		},
+	)
+	require.ErrorAs(t, structuredErr, &temporalErr)
+	require.Equal(t, errorcodes.Codes[errorcodes.CommandExecutionFailed].Code, temporalErr.Type())
+	var failure WorkflowError
+	require.NoError(t, temporalErr.Details(&failure))
+	require.Equal(t, errorcodes.Codes[errorcodes.CommandExecutionFailed].Code, failure.Code)
+	require.Equal(t, "Maestro flow failed", failure.Summary)
 
 	missingPayloadErr := NewMissingOrInvalidPayloadError(errors.New("bad payload"), metadata)
 	require.Equal(
@@ -269,20 +319,48 @@ func TestWaitForPartialResult(t *testing.T) {
 }
 
 func TestParseWorkflowError(t *testing.T) {
-	raw := errors.New(
-		"workflow failed (workflowID: wf-123, runID: run-456) " +
-			"(type: CRE999, retryable: false) CRE999: [ctx]: human readable message " +
-			"(Further information at: https://temporal.test/runs/wf-123)",
+	err := NewWorkflowError(
+		NewAppError(WorkflowError{Code: "CRE999", Summary: "human readable message"}),
+		&WorkflowRunMetadata{
+			WorkflowName: "wf",
+			WorkflowID:   "wf-123",
+			RunID:        "run-456",
+			TemporalUI:   "https://temporal.test/runs/wf-123",
+		},
 	)
 
-	got := ParseWorkflowError(raw)
+	got := ParseWorkflowError(err)
 
 	require.Equal(t, "wf-123", got.WorkflowID)
 	require.Equal(t, "run-456", got.RunID)
 	require.Equal(t, "CRE999", got.Code)
-	require.False(t, got.Retryable)
-	require.Equal(t, "https://temporal.test/runs/wf-123", got.Link)
+	require.Equal(t, "https://temporal.test/runs/wf-123", got.TemporalUI)
 	require.Equal(t, "human readable message", got.Summary)
+}
+
+func TestParseWorkflowError_PrefersStructuredFailure(t *testing.T) {
+	metadata := &WorkflowRunMetadata{
+		WorkflowName: "wf",
+		WorkflowID:   "wf-123",
+		TemporalUI:   "https://temporal.test/runs/wf-123",
+	}
+	appErr := NewAppError(WorkflowError{
+		Code:    "CRE999",
+		Summary: "Mobile automation failed",
+		Message: "tap on login button failed",
+		Details: map[string]any{
+			"output": map[string]any{"step": "login"},
+		},
+	})
+
+	got := ParseWorkflowError(NewWorkflowError(appErr, metadata))
+
+	require.Equal(t, "CRE999", got.Code)
+	require.Equal(t, "wf-123", got.WorkflowID)
+	require.Equal(t, "https://temporal.test/runs/wf-123", got.TemporalUI)
+	require.Equal(t, "Mobile automation failed", got.Summary)
+	require.Equal(t, "tap on login button failed", got.Message)
+	require.Equal(t, map[string]any{"step": "login"}, got.Details["output"])
 }
 
 func TestBuildWorkflowMetadataAndErrors(t *testing.T) {
@@ -383,7 +461,7 @@ func TestBuildWorkflowMetadataAndErrors(t *testing.T) {
 		var appErr *temporal.ApplicationError
 		require.ErrorAs(t, err, &appErr)
 		require.Equal(t, "CRE-1", appErr.Type())
-		require.Contains(t, appErr.Message(), "workflow engine")
+		require.Equal(t, "boom", appErr.Message())
 	})
 }
 
@@ -467,28 +545,24 @@ func TestStartWorkflowWithOptions(t *testing.T) {
 }
 
 func TestExtractAppErrorPayloadAndOutput(t *testing.T) {
-	metadata := &WorkflowErrorMetadata{
+	metadata := &WorkflowRunMetadata{
 		WorkflowName: "wf",
 		TemporalUI:   "https://temporal.test/runs/wf-1",
 	}
 
-	baseWithOutput := temporal.NewApplicationError(
-		"boom",
-		"CRE777",
-		map[string]any{"output": map[string]any{"a": "b"}},
-	)
+	baseWithOutput := NewAppError(WorkflowError{
+		Code:    "CRE777",
+		Summary: "boom",
+		Details: map[string]any{"output": map[string]any{"a": "b"}},
+	})
 	withOutput := NewWorkflowError(baseWithOutput, metadata)
 
-	baseWithoutOutput := temporal.NewApplicationError(
-		"boom",
-		"CRE778",
-		map[string]any{"other": true},
-	)
+	baseWithoutOutput := NewAppError(WorkflowError{
+		Code:    "CRE778",
+		Summary: "boom",
+		Details: map[string]any{"other": true},
+	})
 	withoutOutput := NewWorkflowError(baseWithoutOutput, metadata)
-
-	payload := extractAppErrorPayload(withOutput)
-	require.NotNil(t, payload)
-	require.NotEmpty(t, payload)
 
 	output := ExtractOutputFromError(withOutput)
 	require.Equal(t, map[string]any{"a": "b"}, output)
@@ -502,20 +576,20 @@ func TestNotReadyError_Error(t *testing.T) {
 	require.Equal(t, "result not ready", err.Error())
 }
 
-func TestParseWorkflowError_IncludesPayloadForApplicationErrors(t *testing.T) {
-	metadata := &WorkflowErrorMetadata{
+func TestParseWorkflowError_IncludesDetailsForApplicationErrors(t *testing.T) {
+	metadata := &WorkflowRunMetadata{
 		WorkflowName: "wf",
 		TemporalUI:   "https://temporal.test/runs/wf-1",
 	}
-	appErr := temporal.NewApplicationError(
-		"boom",
-		"CRE777",
-		map[string]any{"output": map[string]any{"x": "y"}},
-	)
+	appErr := NewAppError(WorkflowError{
+		Code:    "CRE777",
+		Summary: "boom",
+		Details: map[string]any{"output": map[string]any{"x": "y"}},
+	})
 	wrapped := NewWorkflowError(appErr, metadata)
 
 	got := ParseWorkflowError(wrapped)
-	require.NotNil(t, got.Payload)
+	require.Equal(t, map[string]any{"x": "y"}, got.Details["output"])
 }
 
 func TestWaitForPartialResult_TimeoutWithoutQueryCalls(t *testing.T) {

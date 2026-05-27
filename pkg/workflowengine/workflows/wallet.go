@@ -117,9 +117,13 @@ func (w *WalletWorkflow) ExecuteWorkflow(
 	apiInput, ok := parsedResult.Output.(map[string]any)["api_input"].(string)
 	if !ok {
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: api_input", urlParser.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: api_input", urlParser.Name()),
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -128,9 +132,13 @@ func (w *WalletWorkflow) ExecuteWorkflow(
 	storeType, ok = parsedResult.Output.(map[string]any)["store_type"].(string)
 	if !ok {
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: store", urlParser.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: store", urlParser.Name()),
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -161,9 +169,13 @@ func (w *WalletWorkflow) ExecuteWorkflow(
 		result, ok := response.Output.(map[string]any)["body"]
 		if !ok {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: results", urlParser.Name()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: results", urlParser.Name()),
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -190,9 +202,13 @@ func (w *WalletWorkflow) ExecuteWorkflow(
 		stdout, ok := result.Output.(map[string]any)["stdout"].(string)
 		if !ok {
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: results", urlParser.Name()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: results", urlParser.Name()),
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -221,10 +237,14 @@ func (w *WalletWorkflow) ExecuteWorkflow(
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: output", json.Name()),
-				jsonResult.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: output", json.Name()),
+					Details: map[string]any{"payload": jsonResult.Output},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,

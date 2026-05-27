@@ -147,7 +147,11 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 
 				var result workflowengine.WorkflowResult
 				require.NoError(t, env.GetWorkflowResult(&result))
-				require.Equal(t, "Successfully retrieved  use case verification deeplink", result.Message)
+				require.Equal(
+					t,
+					"Successfully retrieved  use case verification deeplink",
+					result.Message,
+				)
 				require.Equal(t, tc.expectedOutput, result.Output)
 			}
 		})

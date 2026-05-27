@@ -69,9 +69,12 @@ func (w *GitHubPRCommentWorkflow) ExecuteWorkflow(
 			receivedSignal = true
 			cancelTimer()
 		})
-		selector.AddFuture(workflow.NewTimer(timerCtx, githubPRCommentWorkflowIdleTimeout), func(workflow.Future) {
-			receivedSignal = false
-		})
+		selector.AddFuture(
+			workflow.NewTimer(timerCtx, githubPRCommentWorkflowIdleTimeout),
+			func(workflow.Future) {
+				receivedSignal = false
+			},
+		)
 		selector.Select(ctx)
 		if !receivedSignal {
 			return workflowengine.WorkflowResult{}, nil
@@ -229,7 +232,9 @@ func patchGitHubPRComment(ctx workflow.Context, state *githubPRCommentWorkflowSt
 	if err != nil {
 		return err
 	}
-	output, err := workflowengine.DecodePayload[activities.PatchGitHubPRCommentOutput](result.Output)
+	output, err := workflowengine.DecodePayload[activities.PatchGitHubPRCommentOutput](
+		result.Output,
+	)
 	if err == nil && output.CommentID > 0 {
 		state.CommentID = output.CommentID
 	}

@@ -14,6 +14,15 @@ import (
 
 const mobileAutomationDisabledMessage = "mobile automation is disabled; build with -tags=credimi_extra"
 
+func mobileAutomationDisabledError() workflowengine.ActivityError {
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+	return workflowengine.ActivityError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: mobileAutomationDisabledMessage,
+	}
+}
+
 type StartEmulatorActivity struct {
 	workflowengine.BaseActivity
 }
@@ -34,10 +43,7 @@ func (a *StartEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type ApkInstallActivity struct {
@@ -60,10 +66,7 @@ func (a *ApkInstallActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type ApkPostInstallChecksActivity struct {
@@ -86,10 +89,7 @@ func (a *ApkPostInstallChecksActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type UnlockEmulatorActivity struct {
@@ -112,10 +112,7 @@ func (a *UnlockEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type StartIOSSimulatorActivity struct {
@@ -138,10 +135,7 @@ func (a *StartIOSSimulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type InstallIOSAppActivity struct {
@@ -164,10 +158,7 @@ func (a *InstallIOSAppActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type IOSPostInstallChecksActivity struct {
@@ -190,10 +181,7 @@ func (a *IOSPostInstallChecksActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type CleanupDeviceActivity struct {
@@ -216,10 +204,7 @@ func (a *CleanupDeviceActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type ListInstalledAppsActivity struct {
@@ -242,10 +227,7 @@ func (a *ListInstalledAppsActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type DisableAndroidPlayStoreActivity struct {
@@ -268,10 +250,7 @@ func (a *DisableAndroidPlayStoreActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type StartRecordingActivity struct {
@@ -294,10 +273,7 @@ func (a *StartRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type StartIOSRecordingActivity struct {
@@ -320,10 +296,7 @@ func (a *StartIOSRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type StopRecordingActivity struct {
@@ -346,10 +319,7 @@ func (a *StopRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type StopIOSRecordingActivity struct {
@@ -372,10 +342,7 @@ func (a *StopIOSRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
 type RunMobileFlowActivity struct {
@@ -398,8 +365,5 @@ func (a *RunMobileFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	return workflowengine.ActivityResult{}, a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		mobileAutomationDisabledMessage,
-	)
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }

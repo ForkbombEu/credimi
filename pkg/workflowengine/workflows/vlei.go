@@ -102,9 +102,12 @@ func (w *VLEIValidationWorkflow) ExecuteWorkflow(
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.UnexpectedHTTPResponse],
-				"invalid output type",
-				serverResponse.Output,
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.UnexpectedHTTPResponse].Code,
+					Summary: errorcodes.Codes[errorcodes.UnexpectedHTTPResponse].Description,
+					Message: "invalid output type",
+					Details: map[string]any{"payload": serverResponse.Output},
+				},
 			),
 			input.RunMetadata,
 		)
@@ -114,9 +117,12 @@ func (w *VLEIValidationWorkflow) ExecuteWorkflow(
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.UnexpectedHTTPResponse],
-				"missing 'body'",
-				serverResponse.Output,
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.UnexpectedHTTPResponse].Code,
+					Summary: errorcodes.Codes[errorcodes.UnexpectedHTTPResponse].Description,
+					Message: "missing 'body'",
+					Details: map[string]any{"payload": serverResponse.Output},
+				},
 			),
 			input.RunMetadata,
 		)
@@ -206,7 +212,7 @@ func (w *VLEIValidationLocalWorkflow) Start(
 func validateCESRFromString(
 	ctx workflow.Context,
 	rawCESR string,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 
@@ -223,7 +229,14 @@ func validateCESRFromString(
 	eventsBytes, err := json.Marshal(parsedResult.Output)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-		appErr := workflowengine.NewAppError(errCode, err.Error(), parsedResult.Output)
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{"payload": parsedResult.Output},
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 
@@ -241,10 +254,14 @@ func validateCESRFromString(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("unexpected output type: %T", validateResult.Output),
-			validateResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("unexpected output type: %T", validateResult.Output),
+				Details: map[string]any{"payload": validateResult.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 

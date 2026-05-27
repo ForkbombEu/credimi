@@ -64,15 +64,21 @@ func (a *SchemaValidationActivity) Execute(
 					subSchemaStrs = append(subSchemaStrs, s)
 				} else {
 					return result, a.NewActivityError(
-						errCode.Code,
-						fmt.Sprintf("%s:  'subschema' must be a string or list of strings", errCode.Description),
+						workflowengine.ActivityError{
+							Code:    errCode.Code,
+							Summary: errCode.Description,
+							Message: "'subschema' must be a string or list of strings",
+						},
 					)
 				}
 			}
 		default:
 			return result, a.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s:  'subschema' must be a string or list of strings", errCode.Description),
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "'subschema' must be a string or list of strings",
+				},
 			)
 		}
 	}
@@ -82,9 +88,12 @@ func (a *SchemaValidationActivity) Execute(
 	mainSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(payload.Schema))
 	if err != nil {
 		return result, a.NewActivityError(
-			errCodeUnMarshal.Code,
-			fmt.Sprintf("%s: %v", errCodeUnMarshal.Description, err),
-			payload.Schema,
+			workflowengine.ActivityError{
+				Code:    errCodeUnMarshal.Code,
+				Summary: errCodeUnMarshal.Description,
+				Message: err.Error(),
+				Details: map[string]any{"schema": payload.Schema},
+			},
 		)
 	}
 	for i, sub := range subSchemaStrs {
@@ -92,33 +101,45 @@ func (a *SchemaValidationActivity) Execute(
 		subSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(sub))
 		if err != nil {
 			return result, a.NewActivityError(
-				errCodeUnMarshal.Code,
-				fmt.Sprintf("%s: %v", errCodeUnMarshal.Description, err),
-				sub,
+				workflowengine.ActivityError{
+					Code:    errCodeUnMarshal.Code,
+					Summary: errCodeUnMarshal.Description,
+					Message: err.Error(),
+					Details: map[string]any{"subschema": sub},
+				},
 			)
 		}
 		if err := compiler.AddResource(id, subSchema); err != nil {
 			return result, a.NewActivityError(
-				errCodeInvalidSchema.Code,
-				fmt.Sprintf("%s: %v", errCodeInvalidSchema.Description, err),
-				sub,
+				workflowengine.ActivityError{
+					Code:    errCodeInvalidSchema.Code,
+					Summary: errCodeInvalidSchema.Description,
+					Message: err.Error(),
+					Details: map[string]any{"subschema": sub},
+				},
 			)
 		}
 	}
 
 	if err := compiler.AddResource(schemaID, mainSchema); err != nil {
 		return result, a.NewActivityError(
-			errCodeInvalidSchema.Code,
-			fmt.Sprintf("%s: %v", errCodeInvalidSchema.Description, err),
-			schemaID,
+			workflowengine.ActivityError{
+				Code:    errCodeInvalidSchema.Code,
+				Summary: errCodeInvalidSchema.Description,
+				Message: err.Error(),
+				Details: map[string]any{"schema_id": schemaID},
+			},
 		)
 	}
 	schema, err := compiler.Compile(schemaID)
 	if err != nil {
 		return result, a.NewActivityError(
-			errCodeInvalidSchema.Code,
-			fmt.Sprintf("%s: %v", errCodeInvalidSchema.Description, err),
-			schemaID,
+			workflowengine.ActivityError{
+				Code:    errCodeInvalidSchema.Code,
+				Summary: errCodeInvalidSchema.Description,
+				Message: err.Error(),
+				Details: map[string]any{"schema_id": schemaID},
+			},
 		)
 	}
 
@@ -126,16 +147,22 @@ func (a *SchemaValidationActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 	var decoded any
 	if err := json.Unmarshal(rawBytes, &decoded); err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 
@@ -145,15 +172,23 @@ func (a *SchemaValidationActivity) Execute(
 		ve := &jsonschema.ValidationError{}
 		if errors.As(err, &ve) {
 			return result, a.NewNonRetryableActivityError(
-				errCode.Code,
-				ve.GoString(),
-				ve,
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: ve.GoString(),
+					Details: map[string]any{
+						"validation_error": ve,
+					},
+				},
 			)
 		}
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			payload.Data,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{"data": payload.Data},
+			},
 		)
 	}
 

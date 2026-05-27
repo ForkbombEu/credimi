@@ -7,13 +7,16 @@ package handlers
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/failure/v1"
 	historypb "go.temporal.io/api/history/v1"
@@ -66,7 +69,7 @@ func TestFetchWorkflowFailure(t *testing.T) {
 		mockClient.AssertExpectations(t)
 	})
 
-	t.Run("close event without failure cause", func(t *testing.T) {
+	t.Run("close event without failure message", func(t *testing.T) {
 		mockClient := &temporalmocks.Client{}
 		mockClient.
 			On(
@@ -95,7 +98,7 @@ func TestFetchWorkflowFailure(t *testing.T) {
 		mockClient.AssertExpectations(t)
 	})
 
-	t.Run("close event with failure cause", func(t *testing.T) {
+	t.Run("close event with failure message", func(t *testing.T) {
 		mockClient := &temporalmocks.Client{}
 		mockClient.
 			On(
@@ -112,7 +115,7 @@ func TestFetchWorkflowFailure(t *testing.T) {
 						Attributes: &historypb.HistoryEvent_WorkflowExecutionFailedEventAttributes{
 							WorkflowExecutionFailedEventAttributes: &historypb.WorkflowExecutionFailedEventAttributes{
 								Failure: &failure.Failure{
-									Cause: &failure.Failure{Message: "boom"},
+									Message: "boom",
 								},
 							},
 						},
@@ -124,6 +127,91 @@ func TestFetchWorkflowFailure(t *testing.T) {
 		result := fetchWorkflowFailure(context.Background(), mockClient, "wf-3", "run-3")
 		require.NotNil(t, result)
 		require.Equal(t, "boom", *result)
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("close event with structured workflow error", func(t *testing.T) {
+		payload, err := json.Marshal(workflowengine.WorkflowError{
+			Code:         "CRE302",
+			Summary:      "StepCI checks failed",
+			Message:      "One or more StepCI assertions failed.",
+			ActivityName: "Run an automation workflow of API calls",
+		})
+		require.NoError(t, err)
+
+		mockClient := &temporalmocks.Client{}
+		mockClient.
+			On(
+				"GetWorkflowHistory",
+				mock.Anything,
+				"wf-structured",
+				"run-structured",
+				false,
+				enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
+			).
+			Return(&fakeHistoryIterator{
+				events: []*historypb.HistoryEvent{
+					{
+						Attributes: &historypb.HistoryEvent_WorkflowExecutionFailedEventAttributes{
+							WorkflowExecutionFailedEventAttributes: &historypb.WorkflowExecutionFailedEventAttributes{
+								Failure: &failure.Failure{
+									Message: "StepCI checks failed: One or more StepCI assertions failed.",
+									FailureInfo: &failure.Failure_ApplicationFailureInfo{
+										ApplicationFailureInfo: &failure.ApplicationFailureInfo{
+											Type: "CRE302",
+											Details: &common.Payloads{
+												Payloads: []*common.Payload{{Data: payload}},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}, nil).
+			Once()
+
+		result := fetchWorkflowFailure(context.Background(), mockClient, "wf-structured", "run-structured")
+		require.NotNil(t, result)
+		require.Equal(
+			t,
+			"CRE302: [Run an automation workflow of API calls] StepCI checks failed: One or more StepCI assertions failed.",
+			*result,
+		)
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("size limit failure uses cause message", func(t *testing.T) {
+		mockClient := &temporalmocks.Client{}
+		mockClient.
+			On(
+				"GetWorkflowHistory",
+				mock.Anything,
+				"wf-4",
+				"run-4",
+				false,
+				enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
+			).
+			Return(&fakeHistoryIterator{
+				events: []*historypb.HistoryEvent{
+					{
+						Attributes: &historypb.HistoryEvent_WorkflowExecutionFailedEventAttributes{
+							WorkflowExecutionFailedEventAttributes: &historypb.WorkflowExecutionFailedEventAttributes{
+								Failure: &failure.Failure{
+									Message: "Failure exceeds size limit.",
+									Cause:   &failure.Failure{Message: "StepCI checks failed: One or more StepCI assertions failed."},
+								},
+							},
+						},
+					},
+				},
+			}, nil).
+			Once()
+
+		result := fetchWorkflowFailure(context.Background(), mockClient, "wf-4", "run-4")
+		require.NotNil(t, result)
+		require.Equal(t, "StepCI checks failed: One or more StepCI assertions failed.", *result)
 		mockClient.AssertExpectations(t)
 	})
 }

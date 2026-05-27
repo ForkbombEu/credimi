@@ -53,7 +53,11 @@ func TestBuildGitHubPRCommentBody(t *testing.T) {
 		RunnerID:   "org/runner-1",
 		RunnerType: "android_phone",
 	})
-	require.Contains(t, body, "![status: queued](https://img.shields.io/badge/status-queued-yellow)")
+	require.Contains(
+		t,
+		body,
+		"![status: queued](https://img.shields.io/badge/status-queued-yellow)",
+	)
 	require.Contains(t, body, "| Field | Value |")
 	require.Contains(t, body, "| Queue position | `2` |")
 	require.Contains(t, body, "| Pipeline ID | `org/pipeline` |")
@@ -68,8 +72,16 @@ func TestBuildGitHubPRCommentBody(t *testing.T) {
 		RunID:          "run-1",
 		WorkflowStatus: "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	})
-	require.Contains(t, body, "![status: success](https://img.shields.io/badge/status-success-brightgreen)")
-	require.Contains(t, body, "| Run logs | [Open run logs](https://credimi.test/my/tests/runs/Pipeline-test/run-1) |")
+	require.Contains(
+		t,
+		body,
+		"![status: success](https://img.shields.io/badge/status-success-brightgreen)",
+	)
+	require.Contains(
+		t,
+		body,
+		"| Run logs | [Open run logs](https://credimi.test/my/tests/runs/Pipeline-test/run-1) |",
+	)
 	require.NotContains(t, body, "Credimi wallet APK pipeline is")
 	require.NotContains(t, body, "Credimi wallet APK pipeline finished")
 	require.NotContains(t, body, "Result:")
