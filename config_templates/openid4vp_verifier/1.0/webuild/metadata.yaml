@@ -1,0 +1,9 @@
+name: WEBUILD Interoperability Test Bed
+homepage: https://nxd.foundation/
+repository: https://github.com/NXD-Foundation
+description: >
+  This test aims to test the conformance of an OPENID4VP Verifier towards the WE BUILD v1.0 specification, 
+  and is part of the WEBUILD Interoperability Test Bed (ITB) build towards the Large Scale Pilot (LSP) usecases.
+  The project is co-funded by the European Union.
+show_in_pipeline_gui: true
+logo: https://avatars.githubusercontent.com/u/248715096?s=200&v=4

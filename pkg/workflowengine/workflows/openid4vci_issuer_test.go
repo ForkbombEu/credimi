@@ -74,7 +74,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"captures": map[string]any{
-								"runner_id": "runner-123",
+								"rid": "runner-123",
 							},
 						},
 					}, nil).
@@ -144,7 +144,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"captures": map[string]any{
-								"runner_id": "runner-123",
+								"rid": "runner-123",
 							},
 						},
 					}, nil).
@@ -225,7 +225,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"captures": map[string]any{
-								"runner_id": "runner-123",
+								"rid": "runner-123",
 							},
 						},
 					}, nil).
@@ -267,7 +267,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			errorContains: "StepCI unexpected output",
 		},
 		{
-			name: "returns error when StepCI output is missing runner_id",
+			name: "returns error when StepCI output is missing rid",
 			payload: OpenID4VCIIssuerWorkflowPayload{
 				Parameters: map[string]any{"deeplink": "openid-credential-offer://..."},
 				UserMail:   "tester@example.org",
@@ -289,7 +289,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					Once()
 			},
 			expectErr:     true,
-			errorContains: "runner_id",
+			errorContains: "rid",
 		},
 		{
 			name: "returns error when template config is missing",

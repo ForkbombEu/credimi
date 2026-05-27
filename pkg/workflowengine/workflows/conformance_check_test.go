@@ -47,7 +47,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					sendMail.Execute,
 					activity.RegisterOptions{Name: sendMail.Name()},
 				)
-				childOpenID := NewOpenIDNetLogsWorkflow()
+				childOpenID := NewOpenID4VPWalletLogsWorkflow()
 				env.RegisterWorkflowWithOptions(
 					childOpenID.Workflow,
 					workflow.RegisterOptions{Name: childOpenID.Name()},
@@ -335,6 +335,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			if tc.suite == "ewc" || tc.suite == "webuild" {
 				payload.Parameters = map[string]any{"session_id": "test-session-id"}
 				config["check_endpoint"] = "https://test-ewc.com"
+				config["logs_endpoint"] = "https://test-ewc.com/logs/{{ sessionId }}"
 			}
 
 			env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
@@ -419,6 +420,73 @@ func TestRunStepCIAndSendMailNoMail(t *testing.T) {
 	require.Equal(t, "link", result.Captures["deeplink"])
 }
 
+func TestStartCheckWorkflowWebuildIssuerDoesNotRequireDeeplinkCapture(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCI := activities.NewStepCIWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		stepCI.Execute,
+		activity.RegisterOptions{Name: stepCI.Name()},
+	)
+
+	childWebuild := NewWebuildStatusWorkflow()
+	env.RegisterWorkflowWithOptions(
+		childWebuild.Workflow,
+		workflow.RegisterOptions{Name: childWebuild.Name()},
+	)
+	w := NewStartCheckWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"captures": map[string]any{
+					"result": "session started",
+				},
+			},
+		}, nil).
+		Once()
+	env.OnWorkflow(childWebuild.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.WorkflowResult{
+			Message: "EWC check completed successfully",
+			Output: map[string]any{
+				"status_response": map[string]any{"status": "success"},
+			},
+		}, nil).
+		Once()
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: StartCheckWorkflowPayload{
+			Suite:    WebuildSuite,
+			Standard: OpenID4VCIIssuerStandard,
+			CheckID:  "WEBUILD-OPENID4VCI-ISSUER-1.0",
+			Parameters: map[string]any{
+				"session_id": "issuer-session",
+				"deeplink":   "openid-credential-offer://static-offer",
+			},
+		},
+		Config: map[string]any{
+			"app_url":   "https://test-app.com",
+			"template":  "test-template",
+			"namespace": "test-namespace",
+			"memo": map[string]any{
+				"standard": OpenID4VCIIssuerStandard,
+			},
+		},
+		ActivityOptions: &DefaultActivityOptions,
+	})
+
+	require.NoError(t, env.GetWorkflowError())
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+
+	require.Equal(t, "EWC check completed successfully", result.Message)
+	require.Equal(t, map[string]any{
+		"status_response": map[string]any{"status": "success"},
+	}, result.Output)
+}
+
 func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 	t.Setenv("OPENIDNET_TOKEN", "test_token")
 
@@ -458,7 +526,7 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 	).Return(workflowengine.ActivityResult{
 		Output: map[string]any{
 			"captures": map[string]any{
-				"runner_id": "runner-123",
+				"rid": "runner-123",
 			},
 		},
 	}, nil).Once()
@@ -488,7 +556,8 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 
 	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
 		Payload: StartCheckWorkflowPayload{
-			Suite:      OpenID4VCIIssuerSuite,
+			Suite:      OpenIDConformanceSuite,
+			Standard:   OpenID4VCIIssuerStandard,
 			CheckID:    "issuer-check",
 			TestName:   "issuer-test",
 			Parameters: map[string]any{"deeplink": "openid-credential-offer://static-offer"},
@@ -525,7 +594,8 @@ func TestStartCheckWorkflowOpenID4VCIIssuerMissingRequiredPayload(t *testing.T) 
 		{
 			name: "missing test",
 			payload: StartCheckWorkflowPayload{
-				Suite:      OpenID4VCIIssuerSuite,
+				Suite:      OpenIDConformanceSuite,
+				Standard:   OpenID4VCIIssuerStandard,
 				CheckID:    "issuer-check",
 				Parameters: map[string]any{"deeplink": "openid-credential-offer://static-offer"},
 			},
@@ -577,7 +647,7 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
 				"captures": map[string]any{
-					"runner_id": "runner-123",
+					"rid": "runner-123",
 				},
 			},
 		}, nil).
@@ -608,7 +678,8 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 
 	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
 		Payload: StartCheckWorkflowPayload{
-			Suite:      OpenID4VCIIssuerSuite,
+			Suite:      OpenIDConformanceSuite,
+			Standard:   OpenID4VCIIssuerStandard,
 			CheckID:    "issuer-check",
 			TestName:   "issuer-test",
 			Parameters: map[string]any{"deeplink": "openid-credential-offer://static-offer"},
@@ -629,6 +700,101 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 		errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed].Description,
 	)
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed].Code)
+	env.AssertExpectations(t)
+}
+
+func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
+	t.Setenv("OPENIDNET_TOKEN", "test_token")
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		stepCIActivity.Execute,
+		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	env.OnActivity(
+		stepCIActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			data, ok := payload["data"].(map[string]any)
+			if !ok {
+				return false
+			}
+			return data["use_case_id"] == "org/verifier/use-case" &&
+				data["test"] == "verifier-test"
+		}),
+	).Return(workflowengine.ActivityResult{
+		Output: map[string]any{
+			"captures": map[string]any{
+				"runner_id": "runner-456",
+			},
+		},
+	}, nil).Once()
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(matchHTTPActivityInput(
+			"GET",
+			"https://www.certification.openid.net/api/log/runner-456",
+		)),
+	).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"body": []map[string]any{
+					{
+						"result":            "FINISHED",
+						"testmodule_result": "PASSED",
+						"msg":               "verifier logs",
+					},
+				},
+			},
+		}, nil).
+		Once()
+
+	w := NewStartCheckWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: StartCheckWorkflowPayload{
+			Suite:    OpenIDConformanceSuite,
+			Standard: OpenID4VPVerifierStandard,
+			CheckID:  "verifier-check",
+			TestName: "verifier-test",
+			Parameters: map[string]any{
+				"use_case_id": "org/verifier/use-case",
+			},
+		},
+		Config: map[string]any{
+			"app_url":   "https://test-app.com",
+			"template":  "test-template",
+			"namespace": "test-namespace",
+		},
+		ActivityOptions: &DefaultActivityOptions,
+	})
+
+	require.NoError(t, env.GetWorkflowError())
+
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "Check completed successfully", result.Message)
+	require.Equal(t, []map[string]any{
+		{
+			"result":            "FINISHED",
+			"testmodule_result": "PASSED",
+			"msg":               "verifier logs",
+		},
+	}, workflowengine.AsSliceOfMaps(result.Log))
 	env.AssertExpectations(t)
 }
 

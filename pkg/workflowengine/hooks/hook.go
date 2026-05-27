@@ -79,10 +79,10 @@ type workerConfig struct {
 
 var OrgWorkers = []workerConfig{
 	{
-		TaskQueue: workflows.OpenIDNetTaskQueue,
+		TaskQueue: workflows.OpenID4VPWalletTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			workflows.NewOpenIDNetWorkflow(),
-			workflows.NewOpenIDNetLogsWorkflow(),
+			workflows.NewOpenID4VPWalletWorkflow(),
+			workflows.NewOpenID4VPWalletLogsWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -94,6 +94,16 @@ var OrgWorkers = []workerConfig{
 		TaskQueue: workflows.OpenID4VCIIssuerTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			workflows.NewOpenID4VCIIssuerWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.OpenID4VPVerifierTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewOpenID4VPVerifierWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -189,6 +199,26 @@ var OrgWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewCESRParsingActivity(),
 			activities.NewCESRValidateActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.FidesCredentialIssuersTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewFidesCredentialIssuersWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewHTTPActivity(),
+			activities.NewParseFidesCredentialIssuersActivity(),
+			activities.NewCheckCredentialsIssuerActivity(),
+			activities.NewJSONActivity(
+				map[string]reflect.Type{
+					"map": reflect.TypeOf(
+						map[string]any{},
+					),
+				},
+			),
+			activities.NewSchemaValidationActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 }

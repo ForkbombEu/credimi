@@ -1281,7 +1281,7 @@ var uuidRegex = regexp.MustCompile(
 
 func computeChildDisplayName(workflowID string) string {
 	switch {
-	case strings.HasPrefix(workflowID, "OpenIDNetCheckWorkflow"):
+	case strings.HasPrefix(workflowID, "OpenID4VPWalletCheckWorkflow"):
 		return "View logs workflow"
 	case strings.HasPrefix(workflowID, "EWCWorkflow"):
 		return "View logs workflow"

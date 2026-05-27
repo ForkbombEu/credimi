@@ -143,6 +143,7 @@ func Test_EWCWorkflow(t *testing.T) {
 						"app_url":        "https://test-app.com",
 						"template":       "test-template",
 						"check_endpoint": "test/endpoint",
+						"logs_endpoint":  "test/logs/{{ sessionId }}",
 						"namespace":      "test-namespace",
 						"app_name":       "Credimi",
 						"app_logo":       "https://logo.png",
@@ -170,11 +171,7 @@ func Test_EWCWorkflow(t *testing.T) {
 					<-done
 					var result workflowengine.WorkflowResult
 					require.NoError(t, env.GetWorkflowResult(&result))
-					require.Equal(
-						t,
-						int32(1),
-						callCount.Load(),
-					) // Only two activity call (no looping)
+					require.Equal(t, int32(2), callCount.Load()) // Status and logs, no looping
 				}
 			} else {
 				<-done
@@ -290,6 +287,7 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 					Config: map[string]any{
 						"app_url":        "https://test-app.com",
 						"check_endpoint": "https://api.test/ewc",
+						"logs_endpoint":  "https://api.test/ewc/logs/{{ sessionId }}",
 						"interval":       float64(time.Second * 10),
 					},
 				})
@@ -400,6 +398,18 @@ func TestResolveEWCLikeCheckEndpoint(t *testing.T) {
 			want:     "https://webuild.api.forkbomb.eu/issueStatus",
 		},
 		{
+			name:     "webuild openid4vp verifier endpoint",
+			suite:    WebuildSuite,
+			standard: "openid4vp_verifier",
+			want:     "https://webuild.wallet-client.forkbomb.eu/session-status/{{ sessionId }}",
+		},
+		{
+			name:     "webuild openid4vci issuer endpoint",
+			suite:    WebuildSuite,
+			standard: "openid4vci_issuer",
+			want:     "https://webuild.wallet-client.forkbomb.eu/session-status/{{ sessionId }}",
+		},
+		{
 			name:      "unsupported suite fails",
 			suite:     "invalid",
 			standard:  "openid4vp_wallet",
@@ -423,5 +433,108 @@ func TestResolveEWCLikeCheckEndpoint(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.want, got)
 		})
+	}
+}
+
+func TestResolveEWCLikeLogsEndpoint(t *testing.T) {
+	testCases := []struct {
+		name     string
+		suite    string
+		standard string
+		want     string
+	}{
+		{
+			name:     "webuild openid4vp verifier logs endpoint",
+			suite:    WebuildSuite,
+			standard: "openid4vp_verifier",
+			want:     "https://webuild.wallet-client.forkbomb.eu/logs/{{ sessionId }}",
+		},
+		{
+			name:     "webuild openid4vci issuer logs endpoint",
+			suite:    WebuildSuite,
+			standard: "openid4vci_issuer",
+			want:     "https://webuild.wallet-client.forkbomb.eu/logs/{{ sessionId }}",
+		},
+		{
+			name:     "webuild wallet logs endpoint",
+			suite:    WebuildSuite,
+			standard: "openid4vp_wallet",
+			want:     "https://webuild.api.forkbomb.eu/logs/{{ sessionId }}",
+		},
+		{
+			name:     "ewc wallet logs endpoint",
+			suite:    EWCSuite,
+			standard: "openid4vp_wallet",
+			want:     "https://ewc.api.forkbomb.eu/logs/{{ sessionId }}",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ResolveEWCLikeLogsEndpoint(tc.suite, tc.standard)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestEWCStatusWorkflowUsesTemplatedStatusAndLogsEndpoints(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(httpActivity.Execute, activity.RegisterOptions{
+		Name: httpActivity.Name(),
+	})
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return matchesHTTPPayload(input, "https://webuild.wallet-client.forkbomb.eu/session-status/session-123")
+	})).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{"status": "success"},
+	}}, nil).Once()
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return matchesHTTPPayload(input, "https://webuild.wallet-client.forkbomb.eu/logs/session-123")
+	})).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"sessionId": "session-123",
+			"logs":      []any{map[string]any{"message": "ok"}},
+		},
+	}}, nil).Once()
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return matchesHTTPPayload(input, "https://test-app.com/api/compliance/send-ewc-log-update")
+	})).Return(workflowengine.ActivityResult{}, nil).Once()
+
+	w := NewWebuildStatusWorkflow()
+	env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
+		Payload: EWCStatusWorkflowPayload{
+			SessionID: "session-123",
+		},
+		Config: map[string]any{
+			"app_url":        "https://test-app.com",
+			"check_endpoint": "https://webuild.wallet-client.forkbomb.eu/session-status/{{ sessionId }}",
+			"logs_endpoint":  "https://webuild.wallet-client.forkbomb.eu/logs/{{ sessionId }}",
+		},
+	})
+
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, []map[string]any{{"message": "ok"}}, workflowengine.AsSliceOfMaps(result.Log))
+	require.Equal(
+		t,
+		map[string]any{"status": "success"},
+		result.Output.(map[string]any)["status_response"],
+	)
+	env.AssertExpectations(t)
+}
+
+func matchesHTTPPayload(input workflowengine.ActivityInput, wantURL string) bool {
+	switch payload := input.Payload.(type) {
+	case activities.HTTPActivityPayload:
+		return payload.URL == wantURL && payload.QueryParams == nil
+	case map[string]any:
+		_, hasQueryParams := payload["query_params"]
+		return payload["url"] == wantURL && !hasQueryParams
+	default:
+		return false
 	}
 }

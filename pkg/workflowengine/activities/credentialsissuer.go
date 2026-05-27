@@ -94,6 +94,49 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 		cleanURL = "https://" + cleanURL
 	}
 	cleanURL = strings.TrimRight(cleanURL, "/")
+	if isFederationWellKnownURL(cleanURL) {
+		federationJSON, err := fetchJSONFromURL(ctx, cleanURL, true, a)
+		if err != nil {
+			var decodeErr *FederationDecodingError
+			if errors.As(err, &decodeErr) {
+				errCode := errorcodes.Codes[errorcodes.DecodeFailed]
+				return result, a.NewActivityError(
+					workflowengine.ActivityError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: fmt.Sprintf(
+							"Openid-federation well.known exists but JWT decoding failed: %v",
+							decodeErr.Err,
+						),
+						Details: map[string]any{"payload": decodeErr.Payload},
+					},
+				)
+			}
+			return result, err
+		}
+
+		return workflowengine.ActivityResult{
+			Output: map[string]any{
+				"rawJSON":  federationJSON,
+				"base_url": payload.BaseURL,
+				"source":   ".well-known/openid-federation",
+			},
+		}, nil
+	}
+	if isCredentialIssuerWellKnownURL(cleanURL) {
+		issuerJSON, err := fetchJSONFromURL(ctx, cleanURL, false, a)
+		if err != nil {
+			return result, err
+		}
+
+		return workflowengine.ActivityResult{
+			Output: map[string]any{
+				"rawJSON":  issuerJSON,
+				"base_url": payload.BaseURL,
+				"source":   ".well-known/openid-credential-issuer",
+			},
+		}, nil
+	}
 	if !strings.HasSuffix(cleanURL, "/.well-known/openid-credential-issuer") {
 		// 1. Try federation
 		baseForFederation := strings.TrimSuffix(cleanURL, "/.well-known/openid-federation")
@@ -107,20 +150,6 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 					"source":   ".well-known/openid-federation",
 				},
 			}, nil
-		}
-		var decodeErr *FederationDecodingError
-		if errors.As(err, &decodeErr) {
-			errCode := errorcodes.Codes[errorcodes.DecodeFailed]
-			return result, a.NewActivityError(
-				workflowengine.ActivityError{
-					Code:    errCode.Code,
-					Summary: "OpenID federation metadata could not be decoded",
-					Message: decodeErr.Err.Error(),
-					Details: map[string]any{
-						"payload": decodeErr.Payload,
-					},
-				},
-			)
 		}
 	}
 	// 2. Fallback to credential issuer
@@ -259,4 +288,18 @@ func fetchJSONFromURL(
 	}
 
 	return string(body), nil
+}
+
+func isCredentialIssuerWellKnownURL(rawURL string) bool {
+	const wellKnownPath = "/.well-known/openid-credential-issuer"
+
+	return strings.Contains(rawURL, wellKnownPath+"/") ||
+		strings.HasSuffix(rawURL, wellKnownPath)
+}
+
+func isFederationWellKnownURL(rawURL string) bool {
+	const wellKnownPath = "/.well-known/openid-federation"
+
+	return strings.Contains(rawURL, wellKnownPath+"/") ||
+		strings.HasSuffix(rawURL, wellKnownPath)
 }

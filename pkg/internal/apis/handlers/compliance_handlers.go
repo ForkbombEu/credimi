@@ -63,7 +63,7 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:              http.MethodPost,
 			Path:                "/send-openidnet-log-update",
-			Handler:             HandleSendOpenIDNetLogUpdate,
+			Handler:             HandleSendOpenID4VPWalletLogUpdate,
 			RequestSchema:       HandleSendLogUpdateRequestInput{},
 			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
@@ -71,6 +71,13 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 			Method:              http.MethodPost,
 			Path:                "/send-eudiw-log-update",
 			Handler:             HandleSendEudiwLogUpdate,
+			RequestSchema:       HandleSendLogUpdateRequestInput{},
+			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
+		},
+		{
+			Method:              http.MethodPost,
+			Path:                "/send-ewc-log-update",
+			Handler:             HandleSendEWCLogUpdate,
 			RequestSchema:       HandleSendLogUpdateRequestInput{},
 			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
@@ -427,12 +434,16 @@ type HandleSendLogUpdateRequestInput struct {
 	Logs       []map[string]any `json:"logs"`
 }
 
-func HandleSendOpenIDNetLogUpdate() func(*core.RequestEvent) error {
-	return sendRealtimeLogs(workflows.OpenIDNetSubscription)
+func HandleSendOpenID4VPWalletLogUpdate() func(*core.RequestEvent) error {
+	return sendRealtimeLogs(workflows.OpenID4VPWalletSubscription)
 }
 
 func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
 	return sendRealtimeLogs(workflows.EudiwSubscription)
+}
+
+func HandleSendEWCLogUpdate() func(*core.RequestEvent) error {
+	return sendRealtimeLogs(workflows.EWCSubscription)
 }
 
 type HandleSendTemporalSignalInput struct {
@@ -457,12 +468,14 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		switch req.Signal {
-		case workflows.OpenIDNetStartCheckSignal:
-			err = sendOpenIDNetLogUpdateStart(e.App, c, req)
+		case workflows.OpenID4VPWalletStartCheckSignal:
+			err = sendOpenID4VPWalletLogUpdateStart(e.App, c, req)
 		case workflows.OpenID4VCIIssuerStartCheckSignal:
 			err = sendOpenID4VCIIssuerLogUpdateStart(e.App, c, req)
 		case workflows.OpenID4VCIIssuerStopCheckSignal:
 			err = nil
+		case workflows.EwcStartCheckSignal:
+			err = sendEWCLikeLogUpdateStart(e.App, c, req)
 		default:
 			err = sendTemporalSignal(c, req)
 		}
@@ -547,7 +560,7 @@ func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) er
 	return nil
 }
 
-func sendOpenIDNetLogUpdateStart(
+func sendOpenID4VPWalletLogUpdateStart(
 	app core.App,
 	c client.Client,
 	input HandleSendTemporalSignalInput,
@@ -556,7 +569,7 @@ func sendOpenIDNetLogUpdateStart(
 		context.Background(),
 		input.WorkflowID,
 		"",
-		workflows.OpenIDNetStartCheckSignal,
+		workflows.OpenID4VPWalletStartCheckSignal,
 		struct{}{},
 	)
 	if err != nil {
@@ -582,7 +595,7 @@ func sendOpenIDNetLogUpdateStart(
 				id := strings.TrimSuffix(input.WorkflowID, "-log")
 				if err := complianceNotifyLogsUpdate(
 					app,
-					id+workflows.OpenIDNetSubscription,
+					id+workflows.OpenID4VPWalletSubscription,
 					logs,
 				); err != nil {
 					return apierror.New(
@@ -675,7 +688,7 @@ func sendOpenID4VCIIssuerLogUpdateStart(
 
 	if err := complianceNotifyLogsUpdate(
 		app,
-		input.WorkflowID+workflows.OpenIDNetSubscription,
+		input.WorkflowID+workflows.OpenID4VPWalletSubscription,
 		logs,
 	); err != nil {
 		return apierror.New(
@@ -687,6 +700,143 @@ func sendOpenID4VCIIssuerLogUpdateStart(
 	}
 
 	return nil
+}
+
+func sendEWCLikeLogUpdateStart(
+	app core.App,
+	c client.Client,
+	input HandleSendTemporalSignalInput,
+) error {
+	err := c.SignalWorkflow(
+		context.Background(),
+		input.WorkflowID,
+		"",
+		workflows.EwcStartCheckSignal,
+		struct{}{},
+	)
+	if err == nil {
+		return nil
+	}
+
+	canceledErr := &serviceerror.Canceled{}
+	notFound := &serviceerror.NotFound{}
+	if errors.As(err, &canceledErr) ||
+		(errors.As(err, &notFound) && err.Error() == "workflow execution already completed") {
+		wf := c.GetWorkflow(context.Background(), input.WorkflowID, "")
+		var result workflowengine.WorkflowResult
+		getErr := wf.Get(context.Background(), &result)
+		logs := workflowengine.AsSliceOfMaps(result.Log)
+		if getErr != nil {
+			logs = extractEWCLikeLogsFromWorkflowError(getErr)
+		}
+		if len(logs) == 0 {
+			return nil
+		}
+
+		if err := complianceNotifyLogsUpdate(
+			app,
+			strings.TrimSuffix(input.WorkflowID, "-status")+workflows.EWCSubscription,
+			logs,
+		); err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"failed to send realtime logs update",
+				err.Error(),
+			)
+		}
+
+		return nil
+	}
+
+	if errors.As(err, &notFound) {
+		return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+	}
+	invalidArgument := &serviceerror.InvalidArgument{}
+	if errors.As(err, &invalidArgument) {
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"invalid workflow ID",
+			err.Error(),
+		)
+	}
+
+	return apierror.New(
+		http.StatusBadRequest,
+		"signal",
+		"failed to send start logs update signal",
+		err.Error(),
+	)
+}
+
+func extractEWCLikeLogsFromWorkflowError(err error) []map[string]any {
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		details := workflowengine.ParseWorkflowError(current)
+		if logs := extractEWCLikeLogsFromPayload(details.Payload); len(logs) > 0 {
+			return logs
+		}
+	}
+	return nil
+}
+
+func extractEWCLikeLogsFromPayload(payload any) []map[string]any {
+	if logs := workflowengine.AsSliceOfMaps(payload); len(logs) > 0 && looksLikeEWCLikeLogs(logs) {
+		return logs
+	}
+
+	if payloads, ok := payload.([]any); ok {
+		for _, item := range payloads {
+			if logs := extractEWCLikeLogsFromPayload(item); len(logs) > 0 {
+				return logs
+			}
+		}
+	}
+
+	if payloadMap := workflowengine.AsMap(payload); payloadMap != nil {
+		if logs := workflowengine.AsSliceOfMaps(
+			payloadMap["logs"],
+		); len(logs) > 0 &&
+			looksLikeEWCLikeLogs(logs) {
+			return logs
+		}
+		if logsResponse := workflowengine.AsMap(payloadMap["logs_response"]); logsResponse != nil {
+			if logs := workflowengine.AsSliceOfMaps(
+				logsResponse["logs"],
+			); len(logs) > 0 &&
+				looksLikeEWCLikeLogs(logs) {
+				return logs
+			}
+		}
+	}
+
+	return nil
+}
+
+func looksLikeEWCLikeLogs(logs []map[string]any) bool {
+	if len(logs) == 0 {
+		return false
+	}
+
+	for _, logEntry := range logs {
+		if _, hasMessage := logEntry["message"].(string); !hasMessage {
+			continue
+		}
+		if _, hasTimestamp := logEntry["timestamp"].(string); hasTimestamp {
+			return true
+		}
+		if _, hasLevel := logEntry["level"].(string); hasLevel {
+			return true
+		}
+		if _, hasMetadata := logEntry["metadata"]; hasMetadata {
+			return true
+		}
+		if _, hasData := logEntry["data"]; hasData {
+			return true
+		}
+	}
+
+	return false
 }
 
 func extractIssuerLogsFromWorkflowError(err error) []map[string]any {
@@ -908,13 +1058,13 @@ func handleDeeplinkFromHistory(
 				if pls, ok := resultMap["payloads"].([]any); ok && len(pls) > 0 {
 					first := pls[0].(map[string]any)
 					switch author {
-					case "openid_conformance_suite":
+					case workflows.OpenIDConformanceSuite:
 						return getDeeplinkOpenIDConformanceSuite(e, first)
-					case "ewc":
+					case workflows.EWCSuite:
 						return getDeeplinkEWC(e, first)
-					case "webuild":
+					case workflows.WebuildSuite:
 						return getDeeplinkEWC(e, first)
-					case "eudiw":
+					case workflows.EudiwSuite:
 						return getDeeplinkEudiw(e, first)
 					default:
 						return apierror.New(
@@ -922,8 +1072,12 @@ func handleDeeplinkFromHistory(
 							"protocol",
 							"unsupported suite",
 							fmt.Sprintf(
-								"author is %q, expected openid_conformance_suite, ewc, webuild or eudiw",
+								"author is %q, expected %s, %s, %s or %s",
 								author,
+								workflows.OpenIDConformanceSuite,
+								workflows.EWCSuite,
+								workflows.WebuildSuite,
+								workflows.EudiwSuite,
 							),
 						).JSON(e)
 					}

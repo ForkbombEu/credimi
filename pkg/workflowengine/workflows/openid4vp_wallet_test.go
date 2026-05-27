@@ -21,7 +21,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func Test_OpenIDNETWorkflows(t *testing.T) {
+func Test_OpenID4VPWalletWorkflows(t *testing.T) {
 	var callCount int
 	testCases := []struct {
 		name           string
@@ -127,12 +127,12 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 			testSuite := &testsuite.WorkflowTestSuite{}
 			env := testSuite.NewTestWorkflowEnvironment()
 			callCount = 0
-			w := NewOpenIDNetWorkflow()
+			w := NewOpenID4VPWalletWorkflow()
 			env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{
 				Name: w.Name(),
 			})
 
-			child := NewOpenIDNetLogsWorkflow()
+			child := NewOpenID4VPWalletLogsWorkflow()
 			env.RegisterWorkflowWithOptions(child.Workflow, workflow.RegisterOptions{
 				Name: child.Name(),
 			})
@@ -145,12 +145,12 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				env.RegisterDelayedCallback(func() {
 					env.SignalWorkflowByID(
 						"default-test-workflow-id-log",
-						OpenIDNetStartCheckSignal,
+						OpenID4VPWalletStartCheckSignal,
 						nil,
 					)
 				}, time.Second*30)
 				env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
-					Payload: OpenIDNetWorkflowPayload{
+					Payload: OpenID4VPWalletWorkflowPayload{
 						Variant:  "test-variant",
 						Form:     Form{Alias: "test-alias"},
 						TestName: "test-name",
@@ -239,7 +239,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 				Name: HTTPActivity.Name(),
 			})
-			w := NewOpenIDNetLogsWorkflow()
+			w := NewOpenID4VPWalletLogsWorkflow()
 			env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 				Run(func(_ mock.Arguments) {
 					callCount++
@@ -248,13 +248,13 @@ func Test_LogSubWorkflow(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				env.RegisterDelayedCallback(func() {
-					env.SignalWorkflow(OpenIDNetStartCheckSignal, nil)
+					env.SignalWorkflow(OpenID4VPWalletStartCheckSignal, nil)
 				}, time.Second*30)
 				if tc.expectedCancel {
 					env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*45)
 				}
 				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
-					Payload: OpenIDNetLogsWorkflowPayload{
+					Payload: OpenID4VPWalletLogsWorkflowPayload{
 						Rid:   "12345",
 						Token: "test-token",
 					},
@@ -291,10 +291,10 @@ func Test_LogSubWorkflow(t *testing.T) {
 	}
 }
 
-func TestOpenIDNetWorkflowStart(t *testing.T) {
-	origStart := openidnetStartWorkflowWithOptions
+func TestOpenID4VPWalletWorkflowStart(t *testing.T) {
+	origStart := openID4VPWalletStartWorkflowWithOptions
 	t.Cleanup(func() {
-		openidnetStartWorkflowWithOptions = origStart
+		openID4VPWalletStartWorkflowWithOptions = origStart
 	})
 
 	var capturedNamespace string
@@ -302,7 +302,7 @@ func TestOpenIDNetWorkflowStart(t *testing.T) {
 	var capturedName string
 	var capturedInput workflowengine.WorkflowInput
 
-	openidnetStartWorkflowWithOptions = func(
+	openID4VPWalletStartWorkflowWithOptions = func(
 		namespace string,
 		options client.StartWorkflowOptions,
 		name string,
@@ -315,7 +315,7 @@ func TestOpenIDNetWorkflowStart(t *testing.T) {
 		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
 	}
 
-	w := NewOpenIDNetWorkflow()
+	w := NewOpenID4VPWalletWorkflow()
 	input := workflowengine.WorkflowInput{
 		Config: map[string]any{
 			"namespace": "ns-1",
@@ -328,7 +328,7 @@ func TestOpenIDNetWorkflowStart(t *testing.T) {
 	require.Equal(t, "ns-1", capturedNamespace)
 	require.Equal(t, w.Name(), capturedName)
 	require.Equal(t, input, capturedInput)
-	require.Equal(t, OpenIDNetTaskQueue, capturedOptions.TaskQueue)
-	require.True(t, strings.HasPrefix(capturedOptions.ID, "OpenIDNetCheckWorkflow"))
+	require.Equal(t, OpenID4VPWalletTaskQueue, capturedOptions.TaskQueue)
+	require.True(t, strings.HasPrefix(capturedOptions.ID, "OpenID4VPWalletCheckWorkflow"))
 	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
 }

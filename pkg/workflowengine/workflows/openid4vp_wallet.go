@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package workflows provides implementations of workflows for the OpenID certification site.
-// It includes the OpenIDNetWorkflow for conformance checks and the OpenIDNetLogsWorkflow
+// It includes the OpenID4VPWalletWorkflow for conformance checks and the OpenID4VPWalletLogsWorkflow
 // for draining logs from the OpenID certification site.
 package workflows
 
@@ -31,33 +31,33 @@ type SignalData struct {
 	Reason  string
 }
 
-// OpenIDNetTaskQueue is the task queue for OpenIDNet workflows.
+// OpenID4VPWalletTaskQueue is the task queue for OID4VP wallet workflows.
 const (
-	OpenIDNetTaskQueue              = "OpenIDNetTaskQueue"
-	OpenIDNetStepCITemplatePathv1_0 = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template_v1_0.yaml"
-	OpenIDNetStepCITemplatePathDr24 = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template_draft_24.yaml"
-	OpenIDNetSubscription           = "openidnet-logs"
-	OpenIDNetStartCheckSignal       = "start-openidnet-check-log-update"
-	OpenIDNetStopCheckSignal        = "stop-openidnet-check-log-update"
+	OpenID4VPWalletTaskQueue              = "OpenID4VPWalletTaskQueue"
+	OpenID4VPWalletStepCITemplatePathv1_0 = "pkg/workflowengine/workflows/openid4vp_wallet_config/stepci_wallet_template_v1_0.yaml"
+	OpenID4VPWalletStepCITemplatePathDr24 = "pkg/workflowengine/workflows/openid4vp_wallet_config/stepci_wallet_template_draft_24.yaml"
+	OpenID4VPWalletSubscription           = "openidnet-logs"
+	OpenID4VPWalletStartCheckSignal       = "start-openidnet-check-log-update"
+	OpenID4VPWalletStopCheckSignal        = "stop-openidnet-check-log-update"
 )
 
-// OpenIDNetWorkflow is a workflow that start a conformance checks on the OpenID certification site.
-type OpenIDNetWorkflow struct {
+// OpenID4VPWalletWorkflow is a workflow that start a conformance checks on the OpenID certification site.
+type OpenID4VPWalletWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
-var openidnetStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+var openID4VPWalletStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
-// OpenIDNetWorkflowPayload represents the payload for the OpenIDNetWorkflow.
-type OpenIDNetWorkflowPayload struct {
+// OpenID4VPWalletWorkflowPayload represents the payload for the OpenID4VPWalletWorkflow.
+type OpenID4VPWalletWorkflowPayload struct {
 	Variant  string `json:"variant"   yaml:"variant"   validate:"required"`
 	Form     Form   `json:"form"      yaml:"form"      validate:"required"`
 	UserMail string `json:"user_mail" yaml:"user_mail" validate:"required"`
 	TestName string `json:"test"      yaml:"test"      validate:"required"`
 }
 
-func NewOpenIDNetWorkflow() *OpenIDNetWorkflow {
-	w := &OpenIDNetWorkflow{}
+func NewOpenID4VPWalletWorkflow() *OpenID4VPWalletWorkflow {
+	w := &OpenID4VPWalletWorkflow{}
 	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
 	return w
 }
@@ -82,24 +82,24 @@ type Form struct {
 	} `json:"server"      yaml:"server"`
 }
 
-// Name returns the name of the OpenIDNetWorkflow.
-func (OpenIDNetWorkflow) Name() string {
-	return "Conformance check on https://www.certification.openid.net"
+// Name returns the name of the OpenID4VPWalletWorkflow.
+func (OpenID4VPWalletWorkflow) Name() string {
+	return "OID4VP Wallet conformance check on https://www.certification.openid.net"
 }
 
 // GetOptions Configure sets up the workflow with the necessary options.
-func (OpenIDNetWorkflow) GetOptions() workflow.ActivityOptions {
+func (OpenID4VPWalletWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-func (w *OpenIDNetWorkflow) Workflow(
+func (w *OpenID4VPWalletWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	return w.WorkflowFunc(ctx, input)
 }
 
-// ExecuteWorkflow is the main workflow function for the OpenIDNetWorkflow. It orchestrates
+// ExecuteWorkflow is the main workflow function for the OpenID4VPWalletWorkflow. It orchestrates
 // the execution of various activities and child workflows to perform conformance checks
 // and send notifications to the user.
 //
@@ -116,22 +116,22 @@ func (w *OpenIDNetWorkflow) Workflow(
 //  1. Configure and execute the StepCIWorkflowActivity to perform initial checks.
 //  2. Generate a URL with query parameters for the user to continue the process.
 //  3. Configure and execute the SendMailActivity to notify the user via email.
-//  4. Execute a child workflow (OpenIDNetLogsWorkflow) asynchronously to monitor logs.
-//  5. Wait for either a signal ("openidnet-check-result-signal") or the completion of the child workflow.
+//  4. Execute a child workflow (OpenID4VPWalletLogsWorkflow) asynchronously to monitor logs.
+//  5. Wait for either a log-start signal or the completion of the child workflow.
 //  6. Process the signal data to determine the success or failure of the workflow.
 //
 // Notes:
 //   - The workflow uses a selector to wait for either a signal or the child workflow's completion.
 //   - If the signal data indicates failure, the workflow terminates with a failure message.
 //   - The workflow relies on environment variables (e.g., OPENIDNET_TOKEN) for configuration.
-func (w *OpenIDNetWorkflow) ExecuteWorkflow(
+func (w *OpenID4VPWalletWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
-	payload, err := workflowengine.DecodePayload[OpenIDNetWorkflowPayload](input.Payload)
+	payload, err := workflowengine.DecodePayload[OpenID4VPWalletWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
@@ -194,14 +194,14 @@ func (w *OpenIDNetWorkflow) ExecuteWorkflow(
 		rid = ""
 	}
 
-	child := NewOpenIDNetLogsWorkflow()
+	child := NewOpenID4VPWalletLogsWorkflow()
 	ctx = child.Configure(ctx)
 
 	logsWorkflow := workflow.ExecuteChildWorkflow(
 		ctx,
 		child.Name(),
 		workflowengine.WorkflowInput{
-			Payload: OpenIDNetLogsWorkflowPayload{
+			Payload: OpenID4VPWalletLogsWorkflowPayload{
 				Rid:   rid,
 				Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 			},
@@ -247,7 +247,7 @@ func (w *OpenIDNetWorkflow) ExecuteWorkflow(
 	}, nil
 }
 
-// Start initializes and starts the OpenIDNetWorkflow execution.
+// Start initializes and starts the OpenID4VPWalletWorkflow execution.
 // It loads environment variables, configures the Temporal client with the specified namespace,
 // and sets up workflow options including a unique workflow ID and optional memo.
 // The workflow is then executed with the provided input.
@@ -263,55 +263,55 @@ func (w *OpenIDNetWorkflow) ExecuteWorkflow(
 //   - The namespace defaults to "default" if not provided in the input configuration.
 //   - The workflow ID is generated using a UUID to ensure uniqueness.
 //   - The Temporal client is closed after the workflow execution is initiated.
-func (w *OpenIDNetWorkflow) Start(
+func (w *OpenID4VPWalletWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:                       "OpenIDNetCheckWorkflow" + uuid.NewString(),
-		TaskQueue:                OpenIDNetTaskQueue,
+		ID:                       "OpenID4VPWalletCheckWorkflow" + uuid.NewString(),
+		TaskQueue:                OpenID4VPWalletTaskQueue,
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 	namespace := DefaultNamespace
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
 	}
-	return openidnetStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return openID4VPWalletStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
-// OpenIDNetLogsWorkflow is a workflow that drains logs from the OpenID certification site.
-type OpenIDNetLogsWorkflow struct {
+// OpenID4VPWalletLogsWorkflow is a workflow that drains logs from the OpenID certification site.
+type OpenID4VPWalletLogsWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
-type OpenIDNetLogsWorkflowPayload struct {
+type OpenID4VPWalletLogsWorkflowPayload struct {
 	Rid   string `json:"rid"   yaml:"rid"   validate:"required"`
 	Token string `json:"token" yaml:"token" validate:"required"`
 }
 
-func NewOpenIDNetLogsWorkflow() *OpenIDNetLogsWorkflow {
-	w := &OpenIDNetLogsWorkflow{}
+func NewOpenID4VPWalletLogsWorkflow() *OpenID4VPWalletLogsWorkflow {
+	w := &OpenID4VPWalletLogsWorkflow{}
 	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
 	return w
 }
 
-// Name returns the name of the OpenIDNetLogsWorkflow.
-func (OpenIDNetLogsWorkflow) Name() string {
+// Name returns the name of the OpenID4VPWalletLogsWorkflow.
+func (OpenID4VPWalletLogsWorkflow) Name() string {
 	return "Drain logs from https://www.certification.openid.net"
 }
 
-// GetOptions returns the activity options for the OpenIDNetLogsWorkflow.
-func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
+// GetOptions returns the activity options for the OpenID4VPWalletLogsWorkflow.
+func (OpenID4VPWalletLogsWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-func (w *OpenIDNetLogsWorkflow) Workflow(
+func (w *OpenID4VPWalletLogsWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	return w.WorkflowFunc(ctx, input)
 }
 
-// ExecuteWorkflow is the main workflow function for the OpenIDNetLogsWorkflow.
+// ExecuteWorkflow is the main workflow function for the OpenID4VPWalletLogsWorkflow.
 // It periodically fetches logs from a specified URL and processes them
 // based on the provided input configuration. The workflow listens for
 // signals to trigger additional activities and terminates when a specific
@@ -334,7 +334,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 //     the input configuration.
 //   - Terminates when the logs reach a terminal result.
 //   - Sends logs to a specified endpoint when triggered by a signal.
-func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
+func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
@@ -342,7 +342,7 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 
 	subCtx := workflow.WithActivityOptions(ctx, w.GetOptions())
 
-	payload, err := workflowengine.DecodePayload[OpenIDNetLogsWorkflowPayload](input.Payload)
+	payload, err := workflowengine.DecodePayload[OpenID4VPWalletLogsWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
@@ -366,8 +366,8 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 		},
 	}
 	var logs []map[string]any
-	startSignalChan := workflow.GetSignalChannel(subCtx, OpenIDNetStartCheckSignal)
-	stopSignalChan := workflow.GetSignalChannel(subCtx, OpenIDNetStopCheckSignal)
+	startSignalChan := workflow.GetSignalChannel(subCtx, OpenID4VPWalletStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(subCtx, OpenID4VPWalletStopCheckSignal)
 	pipelineCancelChan := workflow.GetSignalChannel(subCtx, PipelineCancelSignal)
 	selector := workflow.NewSelector(subCtx)
 
@@ -500,7 +500,7 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 	}
 }
 
-// Configure sets up the OpenIDNetLogsWorkflow with specific child workflow options.
+// Configure sets up the OpenID4VPWalletLogsWorkflow with specific child workflow options.
 // It configures the child workflow to have a unique WorkflowID by appending "-log"
 // to the parent workflow's ID and sets the ParentClosePolicy to terminate the child
 // workflow when the parent workflow is closed.
@@ -510,7 +510,7 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 //
 // Returns:
 //   - A new workflow.Context configured with the specified child workflow options.
-func (w *OpenIDNetLogsWorkflow) Configure(ctx workflow.Context) workflow.Context {
+func (w *OpenID4VPWalletLogsWorkflow) Configure(ctx workflow.Context) workflow.Context {
 	childOptions := workflow.ChildWorkflowOptions{
 		WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-log",
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,

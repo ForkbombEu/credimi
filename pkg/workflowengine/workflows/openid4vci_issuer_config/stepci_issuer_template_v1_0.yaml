@@ -162,11 +162,11 @@ tests:
           check:
             status: 201
           captures:
-            runner_id:
+            rid:
               jsonpath: $.id
       - name: Trigger test execution
         http:
-          url: https://www.certification.openid.net/api/runner/${{captures.runner_id}}
+          url: https://www.certification.openid.net/api/runner/${{captures.rid}}
           auth:
             $ref: "#/components/token"
           method: GET
@@ -179,7 +179,7 @@ tests:
           count: 3
           interval: 10s
         http:
-          url: https://www.certification.openid.net/api/log/${{captures.runner_id}}
+          url: https://www.certification.openid.net/api/log/${{captures.rid}}
           auth:
             $ref: "#/components/token"
           method: GET

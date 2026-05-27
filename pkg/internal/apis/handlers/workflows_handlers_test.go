@@ -502,7 +502,11 @@ func TestHandleGetMyCheckRunInvalidArgument(t *testing.T) {
 }
 
 func TestComputeChildDisplayNameAdditional(t *testing.T) {
-	require.Equal(t, "View logs workflow", computeChildDisplayName("OpenIDNetCheckWorkflow-1"))
+	require.Equal(
+		t,
+		"View logs workflow",
+		computeChildDisplayName("OpenID4VPWalletCheckWorkflow-1"),
+	)
 	require.Equal(t, "View logs workflow", computeChildDisplayName("EWCWorkflow-1"))
 
 	uuid := "123e4567-e89b-12d3-a456-426614174000"

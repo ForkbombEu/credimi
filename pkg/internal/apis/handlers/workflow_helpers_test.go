@@ -81,7 +81,11 @@ func TestParsePaginationParams(t *testing.T) {
 func TestComputeChildDisplayName(t *testing.T) {
 	t.Parallel()
 
-	require.Equal(t, "View logs workflow", computeChildDisplayName("OpenIDNetCheckWorkflow_123"))
+	require.Equal(
+		t,
+		"View logs workflow",
+		computeChildDisplayName("OpenID4VPWalletCheckWorkflow_123"),
+	)
 	require.Equal(t, "View logs workflow", computeChildDisplayName("EWCWorkflow_123"))
 
 	workflowID := "prefix_123e4567-e89b-12d3-a456-426614174000_child-name"
