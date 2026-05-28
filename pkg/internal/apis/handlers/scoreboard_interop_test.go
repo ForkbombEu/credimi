@@ -350,6 +350,78 @@ func TestHandleInteropMatrix_WalletsCredentialsHappyPath(t *testing.T) {
 	require.Equal(t, 8, cell.TotalSuccesses)
 }
 
+func TestHandleInteropMatrix_WalletsIssuersHappyPath(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipeline := createPipelineRecord(t, app, orgID, "interop-wallets-issuers")
+
+	walletsCollection, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsCollection)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", "interop-wallet")
+	require.NoError(t, app.Save(wallet))
+
+	issuersCollection, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+
+	issuer := core.NewRecord(issuersCollection)
+	issuer.Set("url", "https://interop-issuer.example.com")
+	issuer.Set("name", "interop-issuer")
+	issuer.Set("owner", orgID)
+	issuer.Set("imported", true)
+	require.NoError(t, app.Save(issuer))
+
+	cacheCollection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+
+	cacheRecord := core.NewRecord(cacheCollection)
+	cacheRecord.Set("pipeline", pipeline.Id)
+	cacheRecord.Set("total_runs", 12)
+	cacheRecord.Set("total_successes", 9)
+	cacheRecord.Set("success_rate", 75.0)
+	cacheRecord.Set("manually_executed_runs", 7)
+	cacheRecord.Set("scheduled_runs", 5)
+	cacheRecord.Set("CI_runs", 0)
+	cacheRecord.Set("minimum_running_time", "1m15s")
+	cacheRecord.Set("first_execution", "2026-05-01T10:00:00Z")
+	cacheRecord.Set("last_execution_date", "2026-05-01T11:00:00Z")
+	cacheRecord.Set("wallets", []string{wallet.Id})
+	cacheRecord.Set("issuers", []string{issuer.Id})
+	require.NoError(t, app.Save(cacheRecord))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode=wallets_issuers", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleInteropMatrix()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp InteropMatrixResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+
+	require.Equal(t, interopModeWalletsIssuers, resp.Mode)
+	require.Equal(t, "wallet", resp.RowAxis)
+	require.Equal(t, "issuer", resp.ColumnAxis)
+	require.NotEmpty(t, resp.Cells)
+
+	cell, ok := findInteropCell(resp, wallet.Id, issuer.Id)
+	require.True(t, ok, "expected wallet x issuer relation cell")
+	require.Equal(t, 12, cell.TotalRuns)
+	require.Equal(t, 9, cell.TotalSuccesses)
+}
+
 func TestHandleInteropMatrix_WalletsCredentialsColumnMetadataFallbackOrder(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
@@ -479,30 +551,51 @@ func TestHandleInteropMatrix_WalletsCredentialsColumnMetadataFallbackOrder(t *te
 	}
 }
 
-func TestHandleInteropMatrix_UnsupportedModeReturnsBadRequest(t *testing.T) {
+func TestHandleInteropMatrix_ModeValidationReturnsBadRequest(t *testing.T) {
 	t.Parallel()
 
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode=bad_mode", nil)
-	rec := httptest.NewRecorder()
-
-	err = HandleInteropMatrix()(&core.RequestEvent{
-		App: app,
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
+	cases := []struct {
+		name string
+		url  string
+	}{
+		{
+			name: "invalid mode",
+			url:  "/api/scoreboard/interop?mode=bad_mode",
 		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
+		{
+			name: "missing mode",
+			url:  "/api/scoreboard/interop",
+		},
+	}
 
-	var apiErr apierror.APIError
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
-	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Equal(t, "mode", apiErr.Domain)
-	require.Equal(t, "unsupported or missing mode", apiErr.Reason)
-	require.Equal(t, "use mode=wallets_issuers or mode=wallets_credentials", apiErr.Message)
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			app, err := tests.NewTestApp(testDataDir)
+			require.NoError(t, err)
+			defer app.Cleanup()
+
+			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
+			rec := httptest.NewRecorder()
+
+			err = HandleInteropMatrix()(&core.RequestEvent{
+				App: app,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+
+			var apiErr apierror.APIError
+			require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
+			require.Equal(t, http.StatusBadRequest, apiErr.Code)
+			require.Equal(t, "mode", apiErr.Domain)
+			require.Equal(t, "unsupported or missing mode", apiErr.Reason)
+			require.Equal(t, "use mode=wallets_issuers or mode=wallets_credentials", apiErr.Message)
+		})
+	}
 }
