@@ -55,7 +55,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{m.interop_matrix_corner_label()}
 					</th>
 					{#each matrix.columns as column (column.id)}
-						{@const columnSubtitle = getSubtitleOrVersion(column.subtitle, column.version_label)}
+						{@const columnSubtitle = getSubtitleOrVersion(
+							column.subtitle,
+							column.version_label
+						)}
 						<th
 							class="sticky top-0 z-10 min-w-32 border-b bg-muted/60 px-3 py-3 text-center font-semibold"
 						>
@@ -89,7 +92,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<th
 							class="sticky left-0 z-10 border-r bg-muted/40 px-3 py-3 text-left align-middle font-medium"
 						>
-							<a class="inline-flex items-center gap-2 hover:underline" href={hubHref('wallets', row.path)}>
+							<a
+								class="inline-flex items-center gap-2 hover:underline"
+								href={hubHref('wallets', row.path)}
+							>
 								{#if row.avatar_url}
 									<img
 										src={row.avatar_url}
@@ -101,7 +107,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<span>{row.name}</span>
 							</a>
 							{#if rowSubtitle}
-								<span class="mt-0.5 block text-xs font-normal text-muted-foreground">
+								<span
+									class="mt-0.5 block text-xs font-normal text-muted-foreground"
+								>
 									{rowSubtitle}
 								</span>
 							{/if}
