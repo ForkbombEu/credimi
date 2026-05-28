@@ -12,7 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
-	import { getHubItemData } from '$lib/hub';
+	import { type HubItem, getHubItemData } from '$lib/hub';
+	import { getHubItemTypeFilter } from '$lib/hub/utils.js';
 	import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
 	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
@@ -23,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import ItemCard from '../_partials/item-card.svelte';
 	import SearchInput from '../_partials/search-input.svelte';
-	import WithEmptyState from '../_partials/with-empty-state.svelte';
+	import StepCollectionPicker from '../_partials/step-collection-picker.svelte';
 	import WithLabel from '../_partials/with-label.svelte';
 	import WalletActionForm from './wallet-action-form.svelte';
 	import {
@@ -91,52 +92,66 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 {#if form.state === 'select-wallet'}
-	<WithLabel label={m.Wallet()} class="p-4">
-		<SearchInput search={form.walletSearch} />
-	</WithLabel>
-
-	<WithEmptyState items={form.foundWallets} emptyText={m.No_results_found()}>
-		{#snippet item({ item })}
+	<StepCollectionPicker
+		collection="hub_items"
+		label={m.Wallet()}
+		queryOptions={{
+			filter: getHubItemTypeFilter('wallets'),
+			searchFields: ['name']
+		}}
+		onSelect={(record) => form.selectWallet(record as HubItem)}
+	>
+		{#snippet item({ record, onSelect })}
+			{@const item = record as HubItem}
+			{@const data = getHubItemData(item)}
 			<ItemCard
-				avatar={getHubItemData(item).logo}
+				avatar={data.logo}
 				title={item.name}
 				subtitle={item.organization_name}
-				onClick={() => form.selectWallet(item)}
+				onClick={() => onSelect(record)}
 			/>
 		{/snippet}
-	</WithEmptyState>
+	</StepCollectionPicker>
 {:else if form.state === 'select-version'}
-	<WithLabel label={m.Version()} class="p-4" />
-
-	<div class="px-4">
-		<ItemCard
-			title={m.Install_from_external_source()}
-			onClick={() => form.selectExternalVersion()}
-		>
-			{#snippet titleRight()}
-				<span class="ml-0.5 inline-flex translate-0.5 gap-1 text-gray-300">
-					<ExternalLinkIcon size={16} class="stroke-2" />
-				</span>
-			{/snippet}
-		</ItemCard>
-	</div>
-
-	<WithEmptyState items={form.foundVersions} emptyText={m.No_wallet_versions_found()}>
-		{#snippet item({ item })}
-			<ItemCard title={item.tag} onClick={() => form.selectVersion(item)}>
+	<StepCollectionPicker
+		collection="wallet_versions"
+		label={m.Version()}
+		queryOptions={{
+			filter: `wallet = '${form.data.wallet!.id}'`,
+			sort: ['tag', 'DESC']
+		}}
+		emptyText={m.No_wallet_versions_found()}
+		onSelect={(record) => form.selectVersion(record)}
+	>
+		{#snippet prepend()}
+			<div class="px-4">
+				<ItemCard
+					title={m.Install_from_external_source()}
+					onClick={() => form.selectExternalVersion()}
+				>
+					{#snippet titleRight()}
+						<span class="ml-0.5 inline-flex translate-0.5 gap-1 text-gray-300">
+							<ExternalLinkIcon size={16} class="stroke-2" />
+						</span>
+					{/snippet}
+				</ItemCard>
+			</div>
+		{/snippet}
+		{#snippet item({ record, onSelect })}
+			<ItemCard title={record.tag} onClick={() => onSelect(record)}>
 				{#snippet titleRight()}
 					<span class="ml-0.5 inline-flex translate-0.5 gap-1 text-gray-300">
-						{#if item.android_installer}
+						{#if record.android_installer}
 							<AndroidLogo size={16} />
 						{/if}
-						{#if item.ios_installer}
+						{#if record.ios_installer}
 							<AppleLogo size={16} />
 						{/if}
 					</span>
 				{/snippet}
 			</ItemCard>
 		{/snippet}
-	</WithEmptyState>
+	</StepCollectionPicker>
 {:else if form.state === 'select-runner'}
 	<WithLabel label={m.Runner()} class="p-4">
 		<SearchInput search={form.runnerSearch} />
@@ -151,23 +166,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSelect={(item) => form.selectRunner(item)}
 	/>
 {:else if form.state === 'select-action'}
-	<WithLabel label={m.Wallet_action()} class="p-4">
-		<SearchInput search={form.actionSearch} placeholder={m.Search()} />
-	</WithLabel>
-
-	<WithEmptyState items={form.foundActions} emptyText={m.No_actions_available()}>
-		{#snippet item({ item })}
-			<ItemCard title={item.name} onClick={() => form.selectAction(item)}>
+	<StepCollectionPicker
+		collection="wallet_actions"
+		label={m.Wallet_action()}
+		queryOptions={{
+			filter: `wallet = '${form.data.wallet!.id}'`,
+			searchFields: ['name', 'canonified_name'],
+			sort: ['category', 'ASC']
+		}}
+		emptyText={m.No_actions_available()}
+		onSelect={(record) => form.selectAction(record)}
+	>
+		{#snippet item({ record, onSelect })}
+			<ItemCard title={record.name} onClick={() => onSelect(record)}>
 				{#snippet beforeContent()}
-					{@const category = Wallet.Action.getCategoryLabel(item)}
+					{@const category = Wallet.Action.getCategoryLabel(record)}
 					{#if category}
 						<T class="text-xs text-muted-foreground">{category}</T>
 					{/if}
 				{/snippet}
-
 				{#snippet afterContent()}
-					<WalletActionTags action={item} variant="secondary" containerClass="pt-2">
-						{#if !item.published}
+					<WalletActionTags action={record} variant="secondary" containerClass="pt-2">
+						{#if !record.published}
 							<Badge variant="outline">
 								{m.private()}
 							</Badge>
@@ -176,5 +196,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/snippet}
 			</ItemCard>
 		{/snippet}
-	</WithEmptyState>
+	</StepCollectionPicker>
 {/if}
