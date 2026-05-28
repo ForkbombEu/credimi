@@ -9,8 +9,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { m } from '@/i18n';
 
-	import MatrixCell from './matrix-cell.svelte';
 	import type { InteropMatrixResponse } from './types';
+
+	import MatrixCell from './matrix-cell.svelte';
 
 	type Props = {
 		matrix: InteropMatrixResponse;
@@ -23,8 +24,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		new Map(matrix.cells.map((cell) => [`${cell.row_id}:${cell.column_id}`, cell] as const))
 	);
 
-	function hubHref(collection: 'wallets' | 'credential_issuers', path: string) {
+	const columnCollection = $derived(
+		matrix.mode === 'wallets_credentials' ? 'credentials' : 'credential_issuers'
+	);
+
+	function hubHref(collection: 'wallets' | 'credential_issuers' | 'credentials', path: string) {
 		return `/hub/${collection}/${path}`;
+	}
+
+	function getSubtitleOrVersion(
+		subtitle: string | null | undefined,
+		versionLabel: string | null | undefined
+	) {
+		return subtitle ? subtitle : versionLabel;
 	}
 </script>
 
@@ -43,12 +55,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{m.interop_matrix_corner_label()}
 					</th>
 					{#each matrix.columns as column (column.id)}
+						{@const columnSubtitle = getSubtitleOrVersion(column.subtitle, column.version_label)}
 						<th
 							class="sticky top-0 z-10 min-w-32 border-b bg-muted/60 px-3 py-3 text-center font-semibold"
 						>
 							<a
 								class="inline-flex max-w-44 flex-col items-center gap-1 hover:underline"
-								href={hubHref('credential_issuers', column.path)}
+								href={hubHref(columnCollection, column.path)}
 							>
 								{#if column.avatar_url}
 									<img
@@ -59,9 +72,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									/>
 								{/if}
 								<span>{column.name}</span>
-								{#if column.subtitle || column.version_label}
+								{#if columnSubtitle}
 									<span class="text-xs font-normal text-muted-foreground">
-										{column.subtitle ?? column.version_label}
+										{columnSubtitle}
 									</span>
 								{/if}
 							</a>
@@ -71,6 +84,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</thead>
 			<tbody>
 				{#each matrix.rows as row (row.id)}
+					{@const rowSubtitle = getSubtitleOrVersion(row.subtitle, row.version_label)}
 					<tr class="border-b last:border-b-0">
 						<th
 							class="sticky left-0 z-10 border-r bg-muted/40 px-3 py-3 text-left align-middle font-medium"
@@ -86,9 +100,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 								<span>{row.name}</span>
 							</a>
-							{#if row.subtitle || row.version_label}
+							{#if rowSubtitle}
 								<span class="mt-0.5 block text-xs font-normal text-muted-foreground">
-									{row.subtitle ?? row.version_label}
+									{rowSubtitle}
 								</span>
 							{/if}
 						</th>

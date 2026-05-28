@@ -5,13 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { InteropMode, InteropStatus } from '$lib/scoreboard/interop/types';
+
+	import { resolve } from '$app/paths';
 	import MatrixGrid from '$lib/scoreboard/interop/matrix-grid.svelte';
 	import { interopStatusStyles } from '$lib/scoreboard/interop/status';
-	import type { InteropMode, InteropStatus } from '$lib/scoreboard/interop/types';
 
 	import PublicPageHeader from '@/components/layout/public-page-header.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { m } from '@/i18n';
+	import { localizeHref, m } from '@/i18n';
 
 	let { data } = $props();
 
@@ -42,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							? 'bg-primary text-primary-foreground'
 							: 'text-muted-foreground hover:text-foreground'
 					}`}
-					href={`/scoreboard/interop?mode=${tab.value}`}
+					href={resolve(localizeHref(`/scoreboard/interop?mode=${tab.value}`) as '/')}
 					aria-current={data.mode === tab.value ? 'page' : undefined}
 				>
 					{tab.label()}
