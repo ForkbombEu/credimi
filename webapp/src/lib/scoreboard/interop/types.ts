@@ -4,9 +4,13 @@
 
 export type InteropStatus = 'stable' | 'flaky' | 'failing' | 'broken';
 
+export type InteropMode = 'wallets_credentials' | 'wallets_issuers';
+
 export type InteropMatrixEntity = {
 	id: string;
 	name: string;
+	subtitle?: string;
+	avatar_url?: string;
 	path: string;
 	version_label?: string;
 };
@@ -22,7 +26,7 @@ export type InteropMatrixCell = {
 };
 
 export type InteropMatrixResponse = {
-	mode: string;
+	mode: InteropMode;
 	row_axis: string;
 	column_axis: string;
 	rows: InteropMatrixEntity[];
