@@ -350,6 +350,135 @@ func TestHandleInteropMatrix_WalletsCredentialsHappyPath(t *testing.T) {
 	require.Equal(t, 8, cell.TotalSuccesses)
 }
 
+func TestHandleInteropMatrix_WalletsCredentialsColumnMetadataFallbackOrder(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipeline := createPipelineRecord(t, app, orgID, "interop-wallets-credentials-column-metadata")
+
+	walletsCollection, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsCollection)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", "interop-wallet")
+	require.NoError(t, app.Save(wallet))
+
+	issuersCollection, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+
+	issuerWithAvatar := core.NewRecord(issuersCollection)
+	issuerWithAvatar.Set("url", "https://interop-issuer-a.example.com")
+	issuerWithAvatar.Set("name", "Issuer With Avatar")
+	issuerWithAvatar.Set("logo_url", "https://cdn.example.com/issuer.png")
+	issuerWithAvatar.Set("owner", orgID)
+	issuerWithAvatar.Set("imported", true)
+	require.NoError(t, app.Save(issuerWithAvatar))
+
+	issuerWithoutAvatar := core.NewRecord(issuersCollection)
+	issuerWithoutAvatar.Set("url", "https://interop-issuer-b.example.com")
+	issuerWithoutAvatar.Set("name", "Issuer Without Avatar")
+	issuerWithoutAvatar.Set("owner", orgID)
+	issuerWithoutAvatar.Set("imported", true)
+	require.NoError(t, app.Save(issuerWithoutAvatar))
+
+	credentialsCollection, err := app.FindCollectionByNameOrId("credentials")
+	require.NoError(t, err)
+
+	credentialWithOwnAvatar := core.NewRecord(credentialsCollection)
+	credentialWithOwnAvatar.Set("credential_issuer", issuerWithAvatar.Id)
+	credentialWithOwnAvatar.Set("name", "credential-with-own-avatar")
+	credentialWithOwnAvatar.Set("display_name", "Credential With Own Avatar")
+	credentialWithOwnAvatar.Set("logo_url", "https://cdn.example.com/credential.png")
+	credentialWithOwnAvatar.Set("json", `{}`)
+	credentialWithOwnAvatar.Set("owner", orgID)
+	require.NoError(t, app.Save(credentialWithOwnAvatar))
+
+	credentialWithIssuerFallback := core.NewRecord(credentialsCollection)
+	credentialWithIssuerFallback.Set("credential_issuer", issuerWithAvatar.Id)
+	credentialWithIssuerFallback.Set("name", "credential-with-issuer-fallback")
+	credentialWithIssuerFallback.Set("display_name", "Credential With Issuer Fallback")
+	credentialWithIssuerFallback.Set("json", `{}`)
+	credentialWithIssuerFallback.Set("owner", orgID)
+	require.NoError(t, app.Save(credentialWithIssuerFallback))
+
+	credentialWithNoAvatars := core.NewRecord(credentialsCollection)
+	credentialWithNoAvatars.Set("credential_issuer", issuerWithoutAvatar.Id)
+	credentialWithNoAvatars.Set("name", "credential-with-no-avatars")
+	credentialWithNoAvatars.Set("display_name", "Credential With No Avatars")
+	credentialWithNoAvatars.Set("json", `{}`)
+	credentialWithNoAvatars.Set("owner", orgID)
+	require.NoError(t, app.Save(credentialWithNoAvatars))
+
+	cacheCollection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+
+	cacheRecord := core.NewRecord(cacheCollection)
+	cacheRecord.Set("pipeline", pipeline.Id)
+	cacheRecord.Set("total_runs", 12)
+	cacheRecord.Set("total_successes", 9)
+	cacheRecord.Set("success_rate", 75.0)
+	cacheRecord.Set("manually_executed_runs", 7)
+	cacheRecord.Set("scheduled_runs", 5)
+	cacheRecord.Set("CI_runs", 0)
+	cacheRecord.Set("minimum_running_time", "1m20s")
+	cacheRecord.Set("first_execution", "2026-05-02T10:00:00Z")
+	cacheRecord.Set("last_execution_date", "2026-05-02T11:00:00Z")
+	cacheRecord.Set("wallets", []string{wallet.Id})
+	cacheRecord.Set("credentials", []string{
+		credentialWithOwnAvatar.Id,
+		credentialWithIssuerFallback.Id,
+		credentialWithNoAvatars.Id,
+	})
+	require.NoError(t, app.Save(cacheRecord))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode=wallets_credentials", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleInteropMatrix()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp InteropMatrixResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+
+	columnsByID := make(map[string]InteropMatrixEntity, len(resp.Columns))
+	for _, column := range resp.Columns {
+		columnsByID[column.ID] = column
+	}
+
+	colWithOwnAvatar, ok := columnsByID[credentialWithOwnAvatar.Id]
+	require.True(t, ok, "expected credential-with-own-avatar column")
+	require.NotNil(t, colWithOwnAvatar.Subtitle)
+	require.Equal(t, "Issuer With Avatar", *colWithOwnAvatar.Subtitle)
+	require.NotNil(t, colWithOwnAvatar.AvatarURL)
+	require.Equal(t, "https://cdn.example.com/credential.png", *colWithOwnAvatar.AvatarURL)
+
+	colWithIssuerFallback, ok := columnsByID[credentialWithIssuerFallback.Id]
+	require.True(t, ok, "expected credential-with-issuer-fallback column")
+	require.NotNil(t, colWithIssuerFallback.Subtitle)
+	require.Equal(t, "Issuer With Avatar", *colWithIssuerFallback.Subtitle)
+	require.NotNil(t, colWithIssuerFallback.AvatarURL)
+	require.Equal(t, "https://cdn.example.com/issuer.png", *colWithIssuerFallback.AvatarURL)
+
+	colWithNoAvatars, ok := columnsByID[credentialWithNoAvatars.Id]
+	require.True(t, ok, "expected credential-with-no-avatars column")
+	require.NotNil(t, colWithNoAvatars.Subtitle)
+	require.Equal(t, "Issuer Without Avatar", *colWithNoAvatars.Subtitle)
+	if colWithNoAvatars.AvatarURL != nil {
+		require.Empty(t, *colWithNoAvatars.AvatarURL)
+	}
+}
+
 func TestHandleInteropMatrix_UnsupportedModeReturnsBadRequest(t *testing.T) {
 	t.Parallel()
 

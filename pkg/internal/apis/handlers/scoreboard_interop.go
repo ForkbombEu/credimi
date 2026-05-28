@@ -384,14 +384,17 @@ func interopEntityFromRecord(
 			issuerRecord, err := app.FindRecordById("credential_issuers", issuerID)
 			if err == nil {
 				issuerName = optionalTrimmedStringPtr(issuerRecord.GetString("name"))
-				issuerAvatarURL = optionalTrimmedStringPtr(issuerRecord.GetString("avatar"))
+				issuerAvatarURL = firstNonEmptyStringPtr(
+					issuerRecord.GetString("avatar"),
+					issuerRecord.GetString("logo_url"),
+				)
 			}
 		}
 		return buildCredentialEntityMetadata(
 			record.Id,
 			record.GetString("name"),
 			path,
-			optionalTrimmedStringPtr(record.GetString("avatar")),
+			firstNonEmptyStringPtr(record.GetString("avatar"), record.GetString("logo_url")),
 			issuerName,
 			issuerAvatarURL,
 		), nil
@@ -432,6 +435,15 @@ func optionalTrimmedStringPtr(raw string) *string {
 		return nil
 	}
 	return &value
+}
+
+func firstNonEmptyStringPtr(values ...string) *string {
+	for _, raw := range values {
+		if value := optionalTrimmedStringPtr(raw); value != nil {
+			return value
+		}
+	}
+	return nil
 }
 
 func walletVersionLabelFor(app core.App, cacheRecord *core.Record, walletID string) *string {
