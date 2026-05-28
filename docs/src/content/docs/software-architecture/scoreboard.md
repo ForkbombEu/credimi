@@ -13,7 +13,7 @@ The Scoreboard shows aggregated pipeline execution results across the platform. 
 
 ### `GET /api/scoreboard/interop`
 
-Public interoperability matrix (v1: `?mode=wallets_issuers`).
+Public interoperability matrix with mode support via `?mode=wallets_credentials|wallets_issuers`.
 
 **Authentication:** None
 
@@ -70,7 +70,19 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
 
 ### Interop matrix (`/scoreboard/interop`)
 
+- Supports `mode=wallets_credentials|wallets_issuers` query parameter
+- Default UI mode is `wallets_credentials`
 - `GET /api/scoreboard/interop?mode=wallets_issuers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×issuer grid
+- `GET /api/scoreboard/interop?mode=wallets_credentials` — public aggregation of `pipeline_scoreboard_cache` into a wallet×credential grid
+- Unified row/column metadata contract in API responses:
+  - `id` (required)
+  - `name` (required)
+  - `subtitle?` (optional)
+  - `avatar_url?` (optional)
+  - `path` (required)
+- `wallets_credentials` metadata behavior:
+  - Credential columns set `subtitle` to the linked issuer name when available
+  - Credential column `avatar_url` fallback order is credential avatar, then issuer avatar, then omitted
 - Per cell: `success_rate = Σ total_successes / Σ total_runs`, `pipeline_count` distinct pipelines (Cartesian attribution on last-success relations)
 - Status bands: stable ≥90%, flaky 70–89%, failing 50–69%, broken &lt;50%
 
