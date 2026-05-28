@@ -35,13 +35,42 @@ const (
 	interopModeWalletsCredentials interopMode = "wallets_credentials"
 )
 
+type interopModeConfig struct {
+	RowRelationField    string
+	ColumnRelationField string
+	RowAxis             string
+	ColumnAxis          string
+	RowCollection       string
+	ColumnCollection    string
+}
+
+var interopModeConfigs = map[interopMode]interopModeConfig{
+	interopModeWalletsIssuers: {
+		RowRelationField:    "wallets",
+		ColumnRelationField: "issuers",
+		RowAxis:             "wallet",
+		ColumnAxis:          "issuer",
+		RowCollection:       "wallets",
+		ColumnCollection:    "credential_issuers",
+	},
+	interopModeWalletsCredentials: {
+		RowRelationField:    "wallets",
+		ColumnRelationField: "credentials",
+		RowAxis:             "wallet",
+		ColumnAxis:          "credential",
+		RowCollection:       "wallets",
+		ColumnCollection:    "credentials",
+	},
+}
+
+func getInteropModeConfig(mode interopMode) (interopModeConfig, bool) {
+	cfg, ok := interopModeConfigs[mode]
+	return cfg, ok
+}
+
 func isSupportedInteropMode(mode interopMode) bool {
-	switch mode {
-	case interopModeWalletsIssuers, interopModeWalletsCredentials:
-		return true
-	default:
-		return false
-	}
+	_, ok := getInteropModeConfig(mode)
+	return ok
 }
 
 type interopCacheInput struct {
@@ -256,7 +285,8 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 }
 
 func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixResponse, error) {
-	if mode != interopModeWalletsIssuers {
+	modeConfig, ok := getInteropModeConfig(mode)
+	if !ok {
 		return InteropMatrixResponse{}, unsupportedInteropModeError{mode: mode}
 	}
 
@@ -275,12 +305,8 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 	columnEntities := map[string]InteropMatrixEntity{}
 
 	for _, record := range records {
-		var rowIDs, colIDs []string
-		switch mode {
-		case interopModeWalletsIssuers:
-			rowIDs = record.GetStringSlice("wallets")
-			colIDs = record.GetStringSlice("issuers")
-		}
+		rowIDs := record.GetStringSlice(modeConfig.RowRelationField)
+		colIDs := record.GetStringSlice(modeConfig.ColumnRelationField)
 
 		inputs = append(inputs, interopCacheInput{
 			PipelineID:     record.GetString("pipeline"),
@@ -290,61 +316,48 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 			ColumnIDs:      colIDs,
 		})
 
-		if err := mergeInteropWalletEntities(app, record, rowIDs, rowEntities); err != nil {
+		if err := mergeInteropEntities(app, modeConfig.RowCollection, record, rowIDs, rowEntities); err != nil {
 			return InteropMatrixResponse{}, err
 		}
-		if err := mergeInteropIssuerEntities(app, colIDs, columnEntities); err != nil {
+		if err := mergeInteropEntities(app, modeConfig.ColumnCollection, nil, colIDs, columnEntities); err != nil {
 			return InteropMatrixResponse{}, err
 		}
 	}
 
-	return buildInteropMatrix(inputs, rowEntities, columnEntities), nil
+	resp := buildInteropMatrix(inputs, rowEntities, columnEntities)
+	resp.Mode = mode
+	resp.RowAxis = modeConfig.RowAxis
+	resp.ColumnAxis = modeConfig.ColumnAxis
+
+	return resp, nil
 }
 
-func mergeInteropWalletEntities(
+func mergeInteropEntities(
 	app core.App,
+	collectionName string,
 	cacheRecord *core.Record,
-	walletIDs []string,
+	recordIDs []string,
 	entities map[string]InteropMatrixEntity,
 ) error {
-	for _, walletID := range walletIDs {
-		if _, ok := entities[walletID]; ok {
+	for _, recordID := range recordIDs {
+		if _, ok := entities[recordID]; ok {
 			continue
 		}
-		wallet, err := app.FindRecordById("wallets", walletID)
+		record, err := app.FindRecordById(collectionName, recordID)
 		if err != nil {
 			continue
 		}
-		entity, err := interopEntityFromRecord(app, wallet, "wallets")
+		entity, err := interopEntityFromRecord(app, record, collectionName)
 		if err != nil {
 			return err
 		}
-		if label := walletVersionLabelFor(app, cacheRecord, walletID); label != nil {
-			entity.VersionLabel = label
+		if collectionName == "wallets" {
+			label := walletVersionLabelFor(app, cacheRecord, recordID)
+			if label != nil {
+				entity.VersionLabel = label
+			}
 		}
-		entities[walletID] = entity
-	}
-	return nil
-}
-
-func mergeInteropIssuerEntities(
-	app core.App,
-	issuerIDs []string,
-	entities map[string]InteropMatrixEntity,
-) error {
-	for _, issuerID := range issuerIDs {
-		if _, ok := entities[issuerID]; ok {
-			continue
-		}
-		issuer, err := app.FindRecordById("credential_issuers", issuerID)
-		if err != nil {
-			continue
-		}
-		entity, err := interopEntityFromRecord(app, issuer, "credential_issuers")
-		if err != nil {
-			return err
-		}
-		entities[issuerID] = entity
+		entities[recordID] = entity
 	}
 	return nil
 }

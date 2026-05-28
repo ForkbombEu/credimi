@@ -146,6 +146,31 @@ func TestInteropModeValidation(t *testing.T) {
 	require.False(t, isSupportedInteropMode(interopMode("bad_mode")))
 }
 
+func TestInteropModeConfigRelations(t *testing.T) {
+	t.Parallel()
+
+	walletIssuer, ok := getInteropModeConfig(interopModeWalletsIssuers)
+	require.True(t, ok)
+	require.Equal(t, "wallets", walletIssuer.RowRelationField)
+	require.Equal(t, "issuers", walletIssuer.ColumnRelationField)
+	require.Equal(t, "wallet", walletIssuer.RowAxis)
+	require.Equal(t, "issuer", walletIssuer.ColumnAxis)
+	require.Equal(t, "wallets", walletIssuer.RowCollection)
+	require.Equal(t, "credential_issuers", walletIssuer.ColumnCollection)
+
+	walletCredential, ok := getInteropModeConfig(interopModeWalletsCredentials)
+	require.True(t, ok)
+	require.Equal(t, "wallets", walletCredential.RowRelationField)
+	require.Equal(t, "credentials", walletCredential.ColumnRelationField)
+	require.Equal(t, "wallet", walletCredential.RowAxis)
+	require.Equal(t, "credential", walletCredential.ColumnAxis)
+	require.Equal(t, "wallets", walletCredential.RowCollection)
+	require.Equal(t, "credentials", walletCredential.ColumnCollection)
+
+	_, ok = getInteropModeConfig(interopMode("bad_mode"))
+	require.False(t, ok)
+}
+
 func TestInteropMatrixEntityJSONShape(t *testing.T) {
 	t.Parallel()
 
@@ -190,22 +215,22 @@ func TestLoadInteropMatrixFromCache_UnsupportedModeError(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	_, err = loadInteropMatrixFromCache(app, interopModeWalletsCredentials)
+	_, err = loadInteropMatrixFromCache(app, interopMode("bad_mode"))
 	require.Error(t, err)
 
 	unsupported := unsupportedInteropModeError{}
 	require.ErrorAs(t, err, &unsupported)
-	require.Equal(t, interopModeWalletsCredentials, unsupported.mode)
+	require.Equal(t, interopMode("bad_mode"), unsupported.mode)
 }
 
-func TestHandleInteropMatrix_WalletsCredentialsReturnsBadRequest(t *testing.T) {
+func TestHandleInteropMatrix_UnsupportedModeReturnsBadRequest(t *testing.T) {
 	t.Parallel()
 
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode=wallets_credentials", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode=bad_mode", nil)
 	rec := httptest.NewRecorder()
 
 	err = HandleInteropMatrix()(&core.RequestEvent{
@@ -222,6 +247,6 @@ func TestHandleInteropMatrix_WalletsCredentialsReturnsBadRequest(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
 	require.Equal(t, "mode", apiErr.Domain)
-	require.Equal(t, "mode not implemented", apiErr.Reason)
-	require.Equal(t, `interop mode "wallets_credentials" is not implemented`, apiErr.Message)
+	require.Equal(t, "unsupported or missing mode", apiErr.Reason)
+	require.Equal(t, "use mode=wallets_issuers or mode=wallets_credentials", apiErr.Message)
 }
