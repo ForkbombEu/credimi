@@ -13,7 +13,8 @@ The Scoreboard shows aggregated pipeline execution results across the platform. 
 
 ### `GET /api/scoreboard/interop`
 
-Public interoperability matrix. Requires `mode` query parameter: `wallets_credentials` or `wallets_issuers`. Missing or invalid `mode` returns `400 Bad Request`.
+Public interoperability matrix. Requires `mode` query parameter: `wallets_credentials`, `wallets_issuers`, `wallets_verifiers`, or `wallets_use_case_verifications`. Missing or invalid `mode` returns `400 Bad Request`.
+Defaults to `wallets_credentials` in the UI.
 
 **Authentication:** None
 
@@ -74,6 +75,8 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
 - Default UI mode is `wallets_credentials`
 - `GET /api/scoreboard/interop?mode=wallets_issuers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×issuer grid
 - `GET /api/scoreboard/interop?mode=wallets_credentials` — public aggregation of `pipeline_scoreboard_cache` into a wallet×credential grid
+- `GET /api/scoreboard/interop?mode=wallets_verifiers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×verifier grid
+- `GET /api/scoreboard/interop?mode=wallets_use_case_verifications` — public aggregation of `pipeline_scoreboard_cache` into a wallet×use_case_verification grid
 - Unified row/column metadata contract in API responses:
   - `id` (required)
   - `name` (required)

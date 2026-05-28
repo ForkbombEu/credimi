@@ -4,7 +4,11 @@
 
 export type InteropStatus = 'stable' | 'flaky' | 'failing' | 'broken';
 
-export type InteropMode = 'wallets_credentials' | 'wallets_issuers';
+export type InteropMode =
+	| 'wallets_credentials'
+	| 'wallets_issuers'
+	| 'wallets_verifiers'
+	| 'wallets_use_case_verifications';
 
 export type InteropMatrixEntity = {
 	id: string;

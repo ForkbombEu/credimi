@@ -31,8 +31,10 @@ const (
 type interopMode string
 
 const (
-	interopModeWalletsIssuers     interopMode = "wallets_issuers"
-	interopModeWalletsCredentials interopMode = "wallets_credentials"
+	interopModeWalletsIssuers              interopMode = "wallets_issuers"
+	interopModeWalletsCredentials          interopMode = "wallets_credentials"
+	interopModeWalletsVerifiers            interopMode = "wallets_verifiers"
+	interopModeWalletsUseCaseVerifications interopMode = "wallets_use_case_verifications"
 )
 
 type interopModeConfig struct {
@@ -60,6 +62,22 @@ var interopModeConfigs = map[interopMode]interopModeConfig{
 		ColumnAxis:          "credential",
 		RowCollection:       "wallets",
 		ColumnCollection:    "credentials",
+	},
+	interopModeWalletsVerifiers: {
+		RowRelationField:    "wallets",
+		ColumnRelationField: "verifiers",
+		RowAxis:             "wallet",
+		ColumnAxis:          "verifier",
+		RowCollection:       "wallets",
+		ColumnCollection:    "verifiers",
+	},
+	interopModeWalletsUseCaseVerifications: {
+		RowRelationField:    "wallets",
+		ColumnRelationField: "use_case_verifications",
+		RowAxis:             "wallet",
+		ColumnAxis:          "use_case_verification",
+		RowCollection:       "wallets",
+		ColumnCollection:    "use_cases_verifications",
 	},
 }
 
@@ -235,13 +253,13 @@ var ScoreboardInteropPublicRoutes = routing.RouteGroup{
 			OperationID:    "scoreboard.interop",
 			Handler:        HandleInteropMatrix,
 			ResponseSchema: InteropMatrixResponse{},
-			Summary:        "Wallet×issuer interoperability matrix",
+			Summary:        "Interoperability matrix",
 			Description:    "Interoperability matrix from pipeline_scoreboard_cache",
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
 					Name:        "mode",
 					Required:    true,
-					Description: "Matrix pair mode. Supports wallets_issuers or wallets_credentials.",
+					Description: "Matrix pair mode. Supports wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications.",
 				},
 			},
 		},
@@ -256,7 +274,7 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 				http.StatusBadRequest,
 				"mode",
 				"unsupported or missing mode",
-				"use mode=wallets_issuers or mode=wallets_credentials",
+				"use mode=wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications",
 			).JSON(e)
 		}
 
@@ -376,6 +394,30 @@ func interopEntityFromRecord(
 		return InteropMatrixEntity{}, err
 	}
 
+	if collection == "use_cases_verifications" {
+		var verifierName *string
+		var verifierLogoURL *string
+		verifierID := strings.TrimSpace(record.GetString("verifier"))
+		if verifierID != "" {
+			verifierRecord, err := app.FindRecordById("verifiers", verifierID)
+			if err == nil {
+				verifierName = optionalTrimmedStringPtr(verifierRecord.GetString("name"))
+				verifierLogoURL = firstNonEmptyStringPtr(
+					verifierRecord.GetString("avatar"),
+					verifierRecord.GetString("logo"),
+				)
+			}
+		}
+		return buildEnrichedEntityMetadata(
+			record.Id,
+			record.GetString("name"),
+			path,
+			firstNonEmptyStringPtr(record.GetString("avatar"), record.GetString("logo")),
+			verifierName,
+			verifierLogoURL,
+		), nil
+	}
+
 	if collection == "credentials" {
 		var issuerName *string
 		var issuerAvatarURL *string
@@ -390,7 +432,7 @@ func interopEntityFromRecord(
 				)
 			}
 		}
-		return buildCredentialEntityMetadata(
+		return buildEnrichedEntityMetadata(
 			record.Id,
 			record.GetString("name"),
 			path,
@@ -401,29 +443,30 @@ func interopEntityFromRecord(
 	}
 
 	return InteropMatrixEntity{
-		ID:   record.Id,
-		Name: record.GetString("name"),
-		Path: path,
+		ID:        record.Id,
+		Name:      record.GetString("name"),
+		Path:      path,
+		AvatarURL: firstNonEmptyStringPtr(record.GetString("avatar"), record.GetString("logo"), record.GetString("logo_url")),
 	}, nil
 }
 
-func buildCredentialEntityMetadata(
+func buildEnrichedEntityMetadata(
 	id string,
 	name string,
 	path string,
-	credentialAvatarURL *string,
-	issuerName *string,
-	issuerAvatarURL *string,
+	entityAvatarURL *string,
+	subtitle *string,
+	fallbackAvatarURL *string,
 ) InteropMatrixEntity {
-	avatar := credentialAvatarURL
+	avatar := entityAvatarURL
 	if avatar == nil {
-		avatar = issuerAvatarURL
+		avatar = fallbackAvatarURL
 	}
 
 	return InteropMatrixEntity{
 		ID:        id,
 		Name:      name,
-		Subtitle:  issuerName,
+		Subtitle:  subtitle,
 		AvatarURL: avatar,
 		Path:      path,
 	}

@@ -6,11 +6,18 @@ import type { InteropMatrixResponse, InteropMode } from '$lib/scoreboard/interop
 
 import { error } from '@sveltejs/kit';
 
+const SUPPORTED_MODES: InteropMode[] = [
+	'wallets_credentials',
+	'wallets_issuers',
+	'wallets_verifiers',
+	'wallets_use_case_verifications'
+];
+
 const DEFAULT_MODE: InteropMode = 'wallets_credentials';
 
 function normalizeMode(mode: string | null): InteropMode {
-	if (mode === 'wallets_credentials' || mode === 'wallets_issuers') {
-		return mode;
+	if (SUPPORTED_MODES.includes(mode as InteropMode)) {
+		return mode as InteropMode;
 	}
 
 	return DEFAULT_MODE;

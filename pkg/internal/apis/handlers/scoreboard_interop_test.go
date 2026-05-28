@@ -13,11 +13,22 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 )
+
+func ptrTo[T any](v T) *T { return &v }
+
+func setupScoreboardInteropApp(t testing.TB) *tests.TestApp {
+	t.Helper()
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	canonify.RegisterCanonifyHooks(app)
+	return app
+}
 
 func findInteropCell(resp InteropMatrixResponse, rowID, colID string) (InteropMatrixCell, bool) {
 	for _, c := range resp.Cells {
@@ -143,6 +154,11 @@ func TestInteropModeValidation(t *testing.T) {
 
 	require.True(t, isSupportedInteropMode(interopModeWalletsIssuers))
 	require.True(t, isSupportedInteropMode(interopModeWalletsCredentials))
+	require.True(t, isSupportedInteropMode(interopModeWalletsVerifiers))
+	require.True(t, isSupportedInteropMode("wallets_verifiers"))
+	require.True(t, isSupportedInteropMode(interopModeWalletsUseCaseVerifications))
+	require.True(t, isSupportedInteropMode("wallets_use_case_verifications"))
+	require.False(t, isSupportedInteropMode(interopMode("")))
 	require.False(t, isSupportedInteropMode(interopMode("bad_mode")))
 }
 
@@ -166,6 +182,24 @@ func TestInteropModeConfigRelations(t *testing.T) {
 	require.Equal(t, "credential", walletCredential.ColumnAxis)
 	require.Equal(t, "wallets", walletCredential.RowCollection)
 	require.Equal(t, "credentials", walletCredential.ColumnCollection)
+
+	cfg, ok := getInteropModeConfig(interopModeWalletsVerifiers)
+	require.True(t, ok)
+	require.Equal(t, "wallets", cfg.RowRelationField)
+	require.Equal(t, "verifiers", cfg.ColumnRelationField)
+	require.Equal(t, "wallet", cfg.RowAxis)
+	require.Equal(t, "wallets", cfg.RowCollection)
+	require.Equal(t, "verifier", cfg.ColumnAxis)
+	require.Equal(t, "verifiers", cfg.ColumnCollection)
+
+	cfg, ok = getInteropModeConfig(interopModeWalletsUseCaseVerifications)
+	require.True(t, ok)
+	require.Equal(t, "wallets", cfg.RowRelationField)
+	require.Equal(t, "use_case_verifications", cfg.ColumnRelationField)
+	require.Equal(t, "wallet", cfg.RowAxis)
+	require.Equal(t, "wallets", cfg.RowCollection)
+	require.Equal(t, "use_case_verification", cfg.ColumnAxis)
+	require.Equal(t, "use_cases_verifications", cfg.ColumnCollection)
 
 	_, ok = getInteropModeConfig(interopMode("bad_mode"))
 	require.False(t, ok)
@@ -215,7 +249,7 @@ func TestResolveCredentialEntityMetadata_AvatarFallbackOrder(t *testing.T) {
 	issuerAvatar := "https://cdn/issuer.png"
 	issuerName := "Issuer A"
 
-	entity := buildCredentialEntityMetadata(
+	entity := buildEnrichedEntityMetadata(
 		"cred1",
 		"Credential A",
 		"org/credentials/credential-a",
@@ -229,7 +263,7 @@ func TestResolveCredentialEntityMetadata_AvatarFallbackOrder(t *testing.T) {
 	require.NotNil(t, entity.AvatarURL)
 	require.Equal(t, credentialAvatar, *entity.AvatarURL)
 
-	entity = buildCredentialEntityMetadata(
+	entity = buildEnrichedEntityMetadata(
 		"cred2",
 		"Credential B",
 		"org/credentials/credential-b",
@@ -240,7 +274,7 @@ func TestResolveCredentialEntityMetadata_AvatarFallbackOrder(t *testing.T) {
 	require.NotNil(t, entity.AvatarURL)
 	require.Equal(t, issuerAvatar, *entity.AvatarURL)
 
-	entity = buildCredentialEntityMetadata(
+	entity = buildEnrichedEntityMetadata(
 		"cred3",
 		"Credential C",
 		"org/credentials/credential-c",
@@ -595,7 +629,176 @@ func TestHandleInteropMatrix_ModeValidationReturnsBadRequest(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Code)
 			require.Equal(t, "mode", apiErr.Domain)
 			require.Equal(t, "unsupported or missing mode", apiErr.Reason)
-			require.Equal(t, "use mode=wallets_issuers or mode=wallets_credentials", apiErr.Message)
+			require.Equal(t, "use mode=wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications", apiErr.Message)
 		})
 	}
 }
+
+func TestBuildEnrichedEntityMetadata_UseCaseVerification(t *testing.T) {
+	t.Parallel()
+
+	useCaseLogo := "https://cdn/usecase-logo.png"
+	verifierLogo := "https://cdn/verifier-logo.png"
+	verifierName := "Verifier A"
+
+	entity := buildEnrichedEntityMetadata(
+		"uc1", "PID Verification", "org/v/p",
+		ptrTo(useCaseLogo), ptrTo(verifierName), ptrTo(verifierLogo),
+	)
+	require.Equal(t, "PID Verification", entity.Name)
+	require.NotNil(t, entity.Subtitle)
+	require.Equal(t, verifierName, *entity.Subtitle)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, useCaseLogo, *entity.AvatarURL)
+
+	entity = buildEnrichedEntityMetadata(
+		"uc2", "PID Verification", "org/v/p",
+		nil, ptrTo(verifierName), ptrTo(verifierLogo),
+	)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, verifierLogo, *entity.AvatarURL)
+
+	entity = buildEnrichedEntityMetadata(
+		"uc3", "PID Verification", "org/v/p",
+		nil, nil, nil,
+	)
+	require.Nil(t, entity.AvatarURL)
+	require.Nil(t, entity.Subtitle)
+}
+
+func TestInteropEntityFromRecord_CredentialIssuerLogoURLFallback(t *testing.T) {
+	t.Parallel()
+	app := setupScoreboardInteropApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	credentialIssuersColl, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+
+	rec := core.NewRecord(credentialIssuersColl)
+	rec.Set("owner", orgID)
+	rec.Set("url", "https://example.com")
+	rec.Set("name", "Test Issuer")
+	rec.Set("canonified_name", "test-issuer")
+	rec.Set("imported", true)
+	rec.Set("logo_url", "https://cdn.example.com/logo.png")
+	require.NoError(t, app.Save(rec))
+
+	entity, err := interopEntityFromRecord(app, rec, "credential_issuers")
+	require.NoError(t, err)
+	require.Equal(t, "Test Issuer", entity.Name)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, "https://cdn.example.com/logo.png", *entity.AvatarURL)
+	require.Nil(t, entity.Subtitle)
+}
+
+func TestHandleInteropMatrix_AllSupportedModes(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipeline := createPipelineRecord(t, app, orgID, "interop-all-modes")
+
+	walletsCollection, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsCollection)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", "interop-mode-wallet")
+	require.NoError(t, app.Save(wallet))
+
+	issuersCollection, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+
+	issuer := core.NewRecord(issuersCollection)
+	issuer.Set("url", "https://interop-all-modes.example.com")
+	issuer.Set("name", "interop-mode-issuer")
+	issuer.Set("owner", orgID)
+	issuer.Set("imported", true)
+	require.NoError(t, app.Save(issuer))
+
+	credentialsCollection, err := app.FindCollectionByNameOrId("credentials")
+	require.NoError(t, err)
+
+	credential := core.NewRecord(credentialsCollection)
+	credential.Set("credential_issuer", issuer.Id)
+	credential.Set("name", "interop-mode-credential")
+	credential.Set("display_name", "Interop Mode Credential")
+	credential.Set("json", `{}`)
+	credential.Set("owner", orgID)
+	require.NoError(t, app.Save(credential))
+
+	verifiersCollection, err := app.FindCollectionByNameOrId("verifiers")
+	require.NoError(t, err)
+
+	verifier := core.NewRecord(verifiersCollection)
+	verifier.Set("url", "https://interop-mode-verifier.example.com")
+	verifier.Set("name", "interop-mode-verifier")
+	verifier.Set("owner", orgID)
+	verifier.Set("standard_and_version", "testsuite/draft-01")
+	verifier.Set("format", []string{"SD-JWT"})
+	verifier.Set("signing_algorithms", []string{"ES256"})
+	verifier.Set("cryptographic_binding_methods", []string{"jwk"})
+	verifier.Set("description", "example description")
+	require.NoError(t, app.Save(verifier))
+
+	useCasesCollection, err := app.FindCollectionByNameOrId("use_cases_verifications")
+	require.NoError(t, err)
+
+	useCase := core.NewRecord(useCasesCollection)
+	useCase.Set("name", "interop-mode-usecase")
+	useCase.Set("deeplink", "https://example.com/usecase")
+	useCase.Set("yaml", "type: verification")
+	useCase.Set("verifier", verifier.Id)
+	useCase.Set("owner", orgID)
+	require.NoError(t, app.Save(useCase))
+
+	cacheCollection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+
+	cacheRecord := core.NewRecord(cacheCollection)
+	cacheRecord.Set("pipeline", pipeline.Id)
+	cacheRecord.Set("total_runs", 10)
+	cacheRecord.Set("total_successes", 8)
+	cacheRecord.Set("success_rate", 80.0)
+	cacheRecord.Set("manually_executed_runs", 6)
+	cacheRecord.Set("scheduled_runs", 4)
+	cacheRecord.Set("CI_runs", 0)
+	cacheRecord.Set("minimum_running_time", "1m10s")
+	cacheRecord.Set("first_execution", "2026-05-01T10:00:00Z")
+	cacheRecord.Set("last_execution_date", "2026-05-01T11:00:00Z")
+	cacheRecord.Set("wallets", []string{wallet.Id})
+	cacheRecord.Set("issuers", []string{issuer.Id})
+	cacheRecord.Set("credentials", []string{credential.Id})
+	cacheRecord.Set("verifiers", []string{verifier.Id})
+	cacheRecord.Set("use_case_verifications", []string{useCase.Id})
+	require.NoError(t, app.Save(cacheRecord))
+
+	for _, mode := range []string{
+		"wallets_credentials",
+		"wallets_issuers",
+		"wallets_verifiers",
+		"wallets_use_case_verifications",
+	} {
+		t.Run(mode, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode="+mode, nil)
+			rec := httptest.NewRecorder()
+
+			err := HandleInteropMatrix()(&core.RequestEvent{
+				App: app,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code)
+		})
+	}
+}
+
+
