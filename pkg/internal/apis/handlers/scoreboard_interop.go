@@ -241,7 +241,7 @@ var ScoreboardInteropPublicRoutes = routing.RouteGroup{
 				{
 					Name:        "mode",
 					Required:    true,
-					Description: "Matrix pair mode. v1 supports wallets_issuers.",
+					Description: "Matrix pair mode. Supports wallets_issuers or wallets_credentials.",
 				},
 			},
 		},

@@ -223,6 +223,89 @@ func TestLoadInteropMatrixFromCache_UnsupportedModeError(t *testing.T) {
 	require.Equal(t, interopMode("bad_mode"), unsupported.mode)
 }
 
+func TestHandleInteropMatrix_WalletsCredentialsHappyPath(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipeline := createPipelineRecord(t, app, orgID, "interop-wallets-credentials")
+
+	walletsCollection, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsCollection)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", "interop-wallet")
+	require.NoError(t, app.Save(wallet))
+
+	issuersCollection, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+
+	issuer := core.NewRecord(issuersCollection)
+	issuer.Set("url", "https://interop-issuer.example.com")
+	issuer.Set("name", "interop-issuer")
+	issuer.Set("owner", orgID)
+	issuer.Set("imported", true)
+	require.NoError(t, app.Save(issuer))
+
+	credentialsCollection, err := app.FindCollectionByNameOrId("credentials")
+	require.NoError(t, err)
+
+	credential := core.NewRecord(credentialsCollection)
+	credential.Set("credential_issuer", issuer.Id)
+	credential.Set("name", "interop-credential")
+	credential.Set("display_name", "Interop Credential")
+	credential.Set("json", `{}`)
+	credential.Set("owner", orgID)
+	require.NoError(t, app.Save(credential))
+
+	cacheCollection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+
+	cacheRecord := core.NewRecord(cacheCollection)
+	cacheRecord.Set("pipeline", pipeline.Id)
+	cacheRecord.Set("total_runs", 10)
+	cacheRecord.Set("total_successes", 8)
+	cacheRecord.Set("success_rate", 80.0)
+	cacheRecord.Set("manually_executed_runs", 6)
+	cacheRecord.Set("scheduled_runs", 4)
+	cacheRecord.Set("CI_runs", 0)
+	cacheRecord.Set("minimum_running_time", "1m10s")
+	cacheRecord.Set("first_execution", "2026-05-01T10:00:00Z")
+	cacheRecord.Set("last_execution_date", "2026-05-01T11:00:00Z")
+	cacheRecord.Set("wallets", []string{wallet.Id})
+	cacheRecord.Set("credentials", []string{credential.Id})
+	require.NoError(t, app.Save(cacheRecord))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode=wallets_credentials", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleInteropMatrix()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp InteropMatrixResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+
+	require.Equal(t, interopModeWalletsCredentials, resp.Mode)
+	require.Equal(t, "wallet", resp.RowAxis)
+	require.Equal(t, "credential", resp.ColumnAxis)
+	require.NotEmpty(t, resp.Cells)
+
+	cell, ok := findInteropCell(resp, wallet.Id, credential.Id)
+	require.True(t, ok, "expected wallet x credential relation cell")
+	require.Equal(t, 10, cell.TotalRuns)
+	require.Equal(t, 8, cell.TotalSuccesses)
+}
+
 func TestHandleInteropMatrix_UnsupportedModeReturnsBadRequest(t *testing.T) {
 	t.Parallel()
 
