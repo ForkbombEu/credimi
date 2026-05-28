@@ -773,11 +773,21 @@ func sendEWCLikeLogUpdateStart(
 func extractEWCLikeLogsFromWorkflowError(err error) []map[string]any {
 	for current := err; current != nil; current = errors.Unwrap(current) {
 		details := workflowengine.ParseWorkflowError(current)
-		if logs := extractEWCLikeLogsFromPayload(details.Payload); len(logs) > 0 {
+		if logs := extractEWCLikeLogsFromPayload(workflowErrorDetailsPayload(details)); len(logs) > 0 {
 			return logs
 		}
 	}
 	return nil
+}
+
+func workflowErrorDetailsPayload(details workflowengine.WorkflowError) any {
+	if details.Details == nil {
+		return nil
+	}
+	if payload, ok := details.Details["payload"]; ok {
+		return payload
+	}
+	return details.Details
 }
 
 func extractEWCLikeLogsFromPayload(payload any) []map[string]any {
@@ -794,6 +804,11 @@ func extractEWCLikeLogsFromPayload(payload any) []map[string]any {
 	}
 
 	if payloadMap := workflowengine.AsMap(payload); payloadMap != nil {
+		if nestedPayload, ok := payloadMap["payload"]; ok {
+			if logs := extractEWCLikeLogsFromPayload(nestedPayload); len(logs) > 0 {
+				return logs
+			}
+		}
 		if logs := workflowengine.AsSliceOfMaps(
 			payloadMap["logs"],
 		); len(logs) > 0 &&
@@ -842,7 +857,7 @@ func looksLikeEWCLikeLogs(logs []map[string]any) bool {
 func extractIssuerLogsFromWorkflowError(err error) []map[string]any {
 	for current := err; current != nil; current = errors.Unwrap(current) {
 		details := workflowengine.ParseWorkflowError(current)
-		if logs := extractIssuerLogsFromPayload(details.Payload); len(logs) > 0 {
+		if logs := extractIssuerLogsFromPayload(workflowErrorDetailsPayload(details)); len(logs) > 0 {
 			return logs
 		}
 	}
@@ -857,6 +872,14 @@ func extractIssuerLogsFromPayload(payload any) []map[string]any {
 	if payloads, ok := payload.([]any); ok {
 		for _, item := range payloads {
 			if logs := extractIssuerLogsFromPayload(item); len(logs) > 0 {
+				return logs
+			}
+		}
+	}
+
+	if payloadMap := workflowengine.AsMap(payload); payloadMap != nil {
+		if nestedPayload, ok := payloadMap["payload"]; ok {
+			if logs := extractIssuerLogsFromPayload(nestedPayload); len(logs) > 0 {
 				return logs
 			}
 		}

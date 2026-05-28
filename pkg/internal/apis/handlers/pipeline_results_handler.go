@@ -737,9 +737,7 @@ func buildWorkflowExecutionSummary(
 		Status:    normalizeTemporalStatus(exec.Status),
 	}
 
-	if c != nil && enums.WorkflowExecutionStatus(
-		enums.WorkflowExecutionStatus_value[exec.Status],
-	) == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
+	if c != nil && summary.Status == string(WorkflowStatusFailed) {
 		if failure := fetchWorkflowFailure(
 			context.Background(),
 			c,

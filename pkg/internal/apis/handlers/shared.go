@@ -630,7 +630,7 @@ func fetchWorkflowFailure(
 	}
 
 	msg := failure.GetMessage()
-	if msg == "Failure exceeds size limit." && failure.GetCause() != nil {
+	if failure.GetCause() != nil && (msg == "" || msg == "Failure exceeds size limit.") {
 		msg = failure.GetCause().GetMessage()
 	}
 	if msg == "" {
