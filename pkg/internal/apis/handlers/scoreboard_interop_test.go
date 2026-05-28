@@ -143,6 +143,11 @@ func TestInteropModeValidation(t *testing.T) {
 
 	require.True(t, isSupportedInteropMode(interopModeWalletsIssuers))
 	require.True(t, isSupportedInteropMode(interopModeWalletsCredentials))
+	require.True(t, isSupportedInteropMode(interopModeWalletsVerifiers))
+	require.True(t, isSupportedInteropMode("wallets_verifiers"))
+	require.True(t, isSupportedInteropMode(interopModeWalletsUseCaseVerifications))
+	require.True(t, isSupportedInteropMode("wallets_use_case_verifications"))
+	require.False(t, isSupportedInteropMode(interopMode("")))
 	require.False(t, isSupportedInteropMode(interopMode("bad_mode")))
 }
 
@@ -166,6 +171,24 @@ func TestInteropModeConfigRelations(t *testing.T) {
 	require.Equal(t, "credential", walletCredential.ColumnAxis)
 	require.Equal(t, "wallets", walletCredential.RowCollection)
 	require.Equal(t, "credentials", walletCredential.ColumnCollection)
+
+	cfg, ok := getInteropModeConfig(interopModeWalletsVerifiers)
+	require.True(t, ok)
+	require.Equal(t, "wallets", cfg.RowRelationField)
+	require.Equal(t, "verifiers", cfg.ColumnRelationField)
+	require.Equal(t, "wallet", cfg.RowAxis)
+	require.Equal(t, "wallets", cfg.RowCollection)
+	require.Equal(t, "verifier", cfg.ColumnAxis)
+	require.Equal(t, "verifiers", cfg.ColumnCollection)
+
+	cfg, ok = getInteropModeConfig(interopModeWalletsUseCaseVerifications)
+	require.True(t, ok)
+	require.Equal(t, "wallets", cfg.RowRelationField)
+	require.Equal(t, "use_case_verifications", cfg.ColumnRelationField)
+	require.Equal(t, "wallet", cfg.RowAxis)
+	require.Equal(t, "wallets", cfg.RowCollection)
+	require.Equal(t, "use_case_verification", cfg.ColumnAxis)
+	require.Equal(t, "use_cases_verifications", cfg.ColumnCollection)
 
 	_, ok = getInteropModeConfig(interopMode("bad_mode"))
 	require.False(t, ok)
@@ -595,7 +618,7 @@ func TestHandleInteropMatrix_ModeValidationReturnsBadRequest(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Code)
 			require.Equal(t, "mode", apiErr.Domain)
 			require.Equal(t, "unsupported or missing mode", apiErr.Reason)
-			require.Equal(t, "use mode=wallets_issuers or mode=wallets_credentials", apiErr.Message)
+			require.Equal(t, "use mode=wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications", apiErr.Message)
 		})
 	}
 }

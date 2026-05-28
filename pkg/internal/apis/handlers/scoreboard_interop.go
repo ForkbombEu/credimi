@@ -31,8 +31,10 @@ const (
 type interopMode string
 
 const (
-	interopModeWalletsIssuers     interopMode = "wallets_issuers"
-	interopModeWalletsCredentials interopMode = "wallets_credentials"
+	interopModeWalletsIssuers              interopMode = "wallets_issuers"
+	interopModeWalletsCredentials          interopMode = "wallets_credentials"
+	interopModeWalletsVerifiers            interopMode = "wallets_verifiers"
+	interopModeWalletsUseCaseVerifications interopMode = "wallets_use_case_verifications"
 )
 
 type interopModeConfig struct {
@@ -60,6 +62,22 @@ var interopModeConfigs = map[interopMode]interopModeConfig{
 		ColumnAxis:          "credential",
 		RowCollection:       "wallets",
 		ColumnCollection:    "credentials",
+	},
+	interopModeWalletsVerifiers: {
+		RowRelationField:    "wallets",
+		ColumnRelationField: "verifiers",
+		RowAxis:             "wallet",
+		ColumnAxis:          "verifier",
+		RowCollection:       "wallets",
+		ColumnCollection:    "verifiers",
+	},
+	interopModeWalletsUseCaseVerifications: {
+		RowRelationField:    "wallets",
+		ColumnRelationField: "use_case_verifications",
+		RowAxis:             "wallet",
+		ColumnAxis:          "use_case_verification",
+		RowCollection:       "wallets",
+		ColumnCollection:    "use_cases_verifications",
 	},
 }
 
@@ -256,7 +274,7 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 				http.StatusBadRequest,
 				"mode",
 				"unsupported or missing mode",
-				"use mode=wallets_issuers or mode=wallets_credentials",
+				"use mode=wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications",
 			).JSON(e)
 		}
 
