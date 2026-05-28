@@ -984,6 +984,8 @@
 	"interop_matrix_legend_failing": "Failing",
 	"interop_matrix_legend_flaky": "Flaky",
 	"interop_matrix_legend_stable": "Stable",
+	"interop_mode_wallets_credentials": "Wallets / Credentials",
+	"interop_mode_wallets_issuers": "Wallets / Issuers",
 	"interop_matrix_pipeline_count_one": "{count} pipe.",
 	"interop_matrix_pipeline_count_other": "{count} pipes.",
 	"Change_wallet_version": "Change wallet version",

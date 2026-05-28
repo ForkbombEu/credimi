@@ -7,13 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import MatrixGrid from '$lib/scoreboard/interop/matrix-grid.svelte';
 	import { interopStatusStyles } from '$lib/scoreboard/interop/status';
-	import type { InteropStatus } from '$lib/scoreboard/interop/types';
+	import type { InteropMode, InteropStatus } from '$lib/scoreboard/interop/types';
 
 	import PublicPageHeader from '@/components/layout/public-page-header.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
 
 	let { data } = $props();
+
+	const modeTabs: { value: InteropMode; label: () => string }[] = [
+		{ value: 'wallets_credentials', label: () => m.interop_mode_wallets_credentials() },
+		{ value: 'wallets_issuers', label: () => m.interop_mode_wallets_issuers() }
+	];
 
 	const legendItems: { status: InteropStatus; label: () => string }[] = [
 		{ status: 'broken', label: () => m.interop_matrix_legend_broken() },
@@ -27,6 +32,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<PublicPageHeader entity="scoreboard" description={m.interop_matrix_description()} />
 	<div class="mx-auto mb-6 flex max-w-7xl justify-center px-4 md:px-8">
 		<Button variant="outline" href="/scoreboard">{m.Back()}</Button>
+	</div>
+	<div class="mx-auto mb-4 flex max-w-7xl justify-center px-4 md:px-8">
+		<div class="inline-flex rounded-md border bg-background p-1">
+			{#each modeTabs as tab (tab.value)}
+				<a
+					class={`rounded-sm px-3 py-1.5 text-sm ${
+						data.mode === tab.value
+							? 'bg-primary text-primary-foreground'
+							: 'text-muted-foreground hover:text-foreground'
+					}`}
+					href={`/scoreboard/interop?mode=${tab.value}`}
+					aria-current={data.mode === tab.value ? 'page' : undefined}
+				>
+					{tab.label()}
+				</a>
+			{/each}
+		</div>
 	</div>
 	<MatrixGrid matrix={data.matrix}>
 		{#snippet legend()}

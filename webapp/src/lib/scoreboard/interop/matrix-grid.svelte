@@ -47,10 +47,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="sticky top-0 z-10 min-w-32 border-b bg-muted/60 px-3 py-3 text-center font-semibold"
 						>
 							<a
-								class="hover:underline"
+								class="inline-flex max-w-44 flex-col items-center gap-1 hover:underline"
 								href={hubHref('credential_issuers', column.path)}
 							>
-								{column.name}
+								{#if column.avatar_url}
+									<img
+										src={column.avatar_url}
+										alt={column.name}
+										class="size-6 rounded-full object-cover"
+										loading="lazy"
+									/>
+								{/if}
+								<span>{column.name}</span>
+								{#if column.subtitle || column.version_label}
+									<span class="text-xs font-normal text-muted-foreground">
+										{column.subtitle ?? column.version_label}
+									</span>
+								{/if}
 							</a>
 						</th>
 					{/each}
@@ -62,14 +75,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<th
 							class="sticky left-0 z-10 border-r bg-muted/40 px-3 py-3 text-left align-middle font-medium"
 						>
-							<a class="hover:underline" href={hubHref('wallets', row.path)}>
-								{row.name}
+							<a class="inline-flex items-center gap-2 hover:underline" href={hubHref('wallets', row.path)}>
+								{#if row.avatar_url}
+									<img
+										src={row.avatar_url}
+										alt={row.name}
+										class="size-6 rounded-full object-cover"
+										loading="lazy"
+									/>
+								{/if}
+								<span>{row.name}</span>
 							</a>
-							{#if row.version_label}
-								<span
-									class="mt-0.5 block text-xs font-normal text-muted-foreground"
-								>
-									{row.version_label}
+							{#if row.subtitle || row.version_label}
+								<span class="mt-0.5 block text-xs font-normal text-muted-foreground">
+									{row.subtitle ?? row.version_label}
 								</span>
 							{/if}
 						</th>
