@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -101,6 +102,14 @@ func interopStatusFromRate(rate float64) interopStatus {
 type interopMatrixCellKey struct {
 	row string
 	col string
+}
+
+type unsupportedInteropModeError struct {
+	mode interopMode
+}
+
+func (e unsupportedInteropModeError) Error() string {
+	return fmt.Sprintf("interop mode %q is not implemented", e.mode)
 }
 
 func sortedInteropEntities(all map[string]InteropMatrixEntity, seen map[string]struct{}) []InteropMatrixEntity {
@@ -224,6 +233,16 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 
 		resp, err := loadInteropMatrixFromCache(e.App, mode)
 		if err != nil {
+			var unsupportedModeErr unsupportedInteropModeError
+			if errors.As(err, &unsupportedModeErr) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"mode",
+					"mode not implemented",
+					unsupportedModeErr.Error(),
+				).JSON(e)
+			}
+
 			return apierror.New(
 				http.StatusInternalServerError,
 				"scoreboard",
@@ -237,6 +256,10 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 }
 
 func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixResponse, error) {
+	if mode != interopModeWalletsIssuers {
+		return InteropMatrixResponse{}, unsupportedInteropModeError{mode: mode}
+	}
+
 	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
 	if err != nil {
 		return InteropMatrixResponse{}, fmt.Errorf("find collection: %w", err)
@@ -257,8 +280,6 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 		case interopModeWalletsIssuers:
 			rowIDs = record.GetStringSlice("wallets")
 			colIDs = record.GetStringSlice("issuers")
-		default:
-			return InteropMatrixResponse{}, fmt.Errorf("unsupported mode %q", mode)
 		}
 
 		inputs = append(inputs, interopCacheInput{

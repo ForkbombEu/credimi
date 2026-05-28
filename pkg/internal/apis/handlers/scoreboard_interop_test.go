@@ -8,8 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 )
 
@@ -175,4 +181,47 @@ func TestInteropMatrixEntityJSONShape(t *testing.T) {
 	require.False(t, hasSubtitle)
 	_, hasAvatarURL := nilPayload["avatar_url"]
 	require.False(t, hasAvatarURL)
+}
+
+func TestLoadInteropMatrixFromCache_UnsupportedModeError(t *testing.T) {
+	t.Parallel()
+
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	_, err = loadInteropMatrixFromCache(app, interopModeWalletsCredentials)
+	require.Error(t, err)
+
+	unsupported := unsupportedInteropModeError{}
+	require.ErrorAs(t, err, &unsupported)
+	require.Equal(t, interopModeWalletsCredentials, unsupported.mode)
+}
+
+func TestHandleInteropMatrix_WalletsCredentialsReturnsBadRequest(t *testing.T) {
+	t.Parallel()
+
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode=wallets_credentials", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleInteropMatrix()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var apiErr apierror.APIError
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "mode", apiErr.Domain)
+	require.Equal(t, "mode not implemented", apiErr.Reason)
+	require.Equal(t, `interop mode "wallets_credentials" is not implemented`, apiErr.Message)
 }
