@@ -208,6 +208,50 @@ func TestInteropMatrixEntityJSONShape(t *testing.T) {
 	require.False(t, hasAvatarURL)
 }
 
+func TestResolveCredentialEntityMetadata_AvatarFallbackOrder(t *testing.T) {
+	t.Parallel()
+
+	credentialAvatar := "https://cdn/credential.png"
+	issuerAvatar := "https://cdn/issuer.png"
+	issuerName := "Issuer A"
+
+	entity := buildCredentialEntityMetadata(
+		"cred1",
+		"Credential A",
+		"org/credentials/credential-a",
+		&credentialAvatar,
+		&issuerName,
+		&issuerAvatar,
+	)
+	require.Equal(t, "Credential A", entity.Name)
+	require.NotNil(t, entity.Subtitle)
+	require.Equal(t, issuerName, *entity.Subtitle)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, credentialAvatar, *entity.AvatarURL)
+
+	entity = buildCredentialEntityMetadata(
+		"cred2",
+		"Credential B",
+		"org/credentials/credential-b",
+		nil,
+		&issuerName,
+		&issuerAvatar,
+	)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, issuerAvatar, *entity.AvatarURL)
+
+	entity = buildCredentialEntityMetadata(
+		"cred3",
+		"Credential C",
+		"org/credentials/credential-c",
+		nil,
+		nil,
+		nil,
+	)
+	require.Nil(t, entity.AvatarURL)
+	require.Nil(t, entity.Subtitle)
+}
+
 func TestLoadInteropMatrixFromCache_UnsupportedModeError(t *testing.T) {
 	t.Parallel()
 

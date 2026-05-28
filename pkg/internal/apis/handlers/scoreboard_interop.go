@@ -375,11 +375,63 @@ func interopEntityFromRecord(
 	if err != nil {
 		return InteropMatrixEntity{}, err
 	}
+
+	if collection == "credentials" {
+		var issuerName *string
+		var issuerAvatarURL *string
+		issuerID := strings.TrimSpace(record.GetString("credential_issuer"))
+		if issuerID != "" {
+			issuerRecord, err := app.FindRecordById("credential_issuers", issuerID)
+			if err == nil {
+				issuerName = optionalTrimmedStringPtr(issuerRecord.GetString("name"))
+				issuerAvatarURL = optionalTrimmedStringPtr(issuerRecord.GetString("avatar"))
+			}
+		}
+		return buildCredentialEntityMetadata(
+			record.Id,
+			record.GetString("name"),
+			path,
+			optionalTrimmedStringPtr(record.GetString("avatar")),
+			issuerName,
+			issuerAvatarURL,
+		), nil
+	}
+
 	return InteropMatrixEntity{
 		ID:   record.Id,
 		Name: record.GetString("name"),
 		Path: path,
 	}, nil
+}
+
+func buildCredentialEntityMetadata(
+	id string,
+	name string,
+	path string,
+	credentialAvatarURL *string,
+	issuerName *string,
+	issuerAvatarURL *string,
+) InteropMatrixEntity {
+	avatar := credentialAvatarURL
+	if avatar == nil {
+		avatar = issuerAvatarURL
+	}
+
+	return InteropMatrixEntity{
+		ID:        id,
+		Name:      name,
+		Subtitle:  issuerName,
+		AvatarURL: avatar,
+		Path:      path,
+	}
+}
+
+func optionalTrimmedStringPtr(raw string) *string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func walletVersionLabelFor(app core.App, cacheRecord *core.Record, walletID string) *string {
