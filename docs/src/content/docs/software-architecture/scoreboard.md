@@ -13,7 +13,7 @@ The Scoreboard shows aggregated pipeline execution results across the platform. 
 
 ### `GET /api/scoreboard/interop`
 
-Public interoperability matrix with mode support via `?mode=wallets_credentials|wallets_issuers`.
+Public interoperability matrix. Requires `mode` query parameter: `wallets_credentials` or `wallets_issuers`. Missing or invalid `mode` returns `400 Bad Request`.
 
 **Authentication:** None
 
@@ -70,7 +70,7 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
 
 ### Interop matrix (`/scoreboard/interop`)
 
-- Supports `mode=wallets_credentials|wallets_issuers` query parameter
+- Requires `mode=wallets_credentials|wallets_issuers` query parameter (missing/invalid mode returns `400`)
 - Default UI mode is `wallets_credentials`
 - `GET /api/scoreboard/interop?mode=wallets_issuers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×issuer grid
 - `GET /api/scoreboard/interop?mode=wallets_credentials` — public aggregation of `pipeline_scoreboard_cache` into a wallet×credential grid
@@ -80,6 +80,7 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
   - `subtitle?` (optional)
   - `avatar_url?` (optional)
   - `path` (required)
+  - `version_label?` (optional; currently populated for wallet entities when a wallet version tag is available)
 - `wallets_credentials` metadata behavior:
   - Credential columns set `subtitle` to the linked issuer name when available
   - Credential column `avatar_url` fallback order is credential avatar, then issuer avatar, then omitted
