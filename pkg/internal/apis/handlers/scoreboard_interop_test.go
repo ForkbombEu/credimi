@@ -155,10 +155,24 @@ func TestInteropMatrixEntityJSONShape(t *testing.T) {
 
 	raw, err := json.Marshal(entity)
 	require.NoError(t, err)
-	payload := string(raw)
-	require.Contains(t, payload, `"id":"rec1"`)
-	require.Contains(t, payload, `"name":"Entity"`)
-	require.Contains(t, payload, `"path":"org/entities/entity"`)
-	require.Contains(t, payload, `"subtitle":"subtitle"`)
-	require.Contains(t, payload, `"avatar_url":"https://example.com/avatar.png"`)
+
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(raw, &payload))
+	require.Equal(t, "rec1", payload["id"])
+	require.Equal(t, "Entity", payload["name"])
+	require.Equal(t, "org/entities/entity", payload["path"])
+	require.Equal(t, "subtitle", payload["subtitle"])
+	require.Equal(t, "https://example.com/avatar.png", payload["avatar_url"])
+
+	entity.Subtitle = nil
+	entity.AvatarURL = nil
+	raw, err = json.Marshal(entity)
+	require.NoError(t, err)
+
+	var nilPayload map[string]any
+	require.NoError(t, json.Unmarshal(raw, &nilPayload))
+	_, hasSubtitle := nilPayload["subtitle"]
+	require.False(t, hasSubtitle)
+	_, hasAvatarURL := nilPayload["avatar_url"]
+	require.False(t, hasAvatarURL)
 }

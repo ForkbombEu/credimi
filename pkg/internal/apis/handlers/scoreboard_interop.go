@@ -213,12 +213,12 @@ var ScoreboardInteropPublicRoutes = routing.RouteGroup{
 func HandleInteropMatrix() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		mode := interopMode(e.Request.URL.Query().Get("mode"))
-		if mode != interopModeWalletsIssuers {
+		if !isSupportedInteropMode(mode) {
 			return apierror.New(
 				http.StatusBadRequest,
 				"mode",
 				"unsupported or missing mode",
-				"use mode=wallets_issuers",
+				"use mode=wallets_issuers or mode=wallets_credentials",
 			).JSON(e)
 		}
 
