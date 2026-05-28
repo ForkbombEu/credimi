@@ -13,11 +13,22 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 )
+
+func ptrTo[T any](v T) *T { return &v }
+
+func setupScoreboardInteropApp(t testing.TB) *tests.TestApp {
+	t.Helper()
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	canonify.RegisterCanonifyHooks(app)
+	return app
+}
 
 func findInteropCell(resp InteropMatrixResponse, rowID, colID string) (InteropMatrixCell, bool) {
 	for _, c := range resp.Cells {
@@ -238,7 +249,7 @@ func TestResolveCredentialEntityMetadata_AvatarFallbackOrder(t *testing.T) {
 	issuerAvatar := "https://cdn/issuer.png"
 	issuerName := "Issuer A"
 
-	entity := buildCredentialEntityMetadata(
+	entity := buildEnrichedEntityMetadata(
 		"cred1",
 		"Credential A",
 		"org/credentials/credential-a",
@@ -252,7 +263,7 @@ func TestResolveCredentialEntityMetadata_AvatarFallbackOrder(t *testing.T) {
 	require.NotNil(t, entity.AvatarURL)
 	require.Equal(t, credentialAvatar, *entity.AvatarURL)
 
-	entity = buildCredentialEntityMetadata(
+	entity = buildEnrichedEntityMetadata(
 		"cred2",
 		"Credential B",
 		"org/credentials/credential-b",
@@ -263,7 +274,7 @@ func TestResolveCredentialEntityMetadata_AvatarFallbackOrder(t *testing.T) {
 	require.NotNil(t, entity.AvatarURL)
 	require.Equal(t, issuerAvatar, *entity.AvatarURL)
 
-	entity = buildCredentialEntityMetadata(
+	entity = buildEnrichedEntityMetadata(
 		"cred3",
 		"Credential C",
 		"org/credentials/credential-c",
@@ -621,4 +632,96 @@ func TestHandleInteropMatrix_ModeValidationReturnsBadRequest(t *testing.T) {
 			require.Equal(t, "use mode=wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications", apiErr.Message)
 		})
 	}
+}
+
+func TestBuildEnrichedEntityMetadata_UseCaseVerification(t *testing.T) {
+	t.Parallel()
+
+	useCaseLogo := "https://cdn/usecase-logo.png"
+	verifierLogo := "https://cdn/verifier-logo.png"
+	verifierName := "Verifier A"
+
+	entity := buildEnrichedEntityMetadata(
+		"uc1", "PID Verification", "org/v/p",
+		ptrTo(useCaseLogo), ptrTo(verifierName), ptrTo(verifierLogo),
+	)
+	require.Equal(t, "PID Verification", entity.Name)
+	require.NotNil(t, entity.Subtitle)
+	require.Equal(t, verifierName, *entity.Subtitle)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, useCaseLogo, *entity.AvatarURL)
+
+	entity = buildEnrichedEntityMetadata(
+		"uc2", "PID Verification", "org/v/p",
+		nil, ptrTo(verifierName), ptrTo(verifierLogo),
+	)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, verifierLogo, *entity.AvatarURL)
+
+	entity = buildEnrichedEntityMetadata(
+		"uc3", "PID Verification", "org/v/p",
+		nil, nil, nil,
+	)
+	require.Nil(t, entity.AvatarURL)
+	require.Nil(t, entity.Subtitle)
+}
+
+func TestInteropEntityFromRecord_VerifierAvatarURL(t *testing.T) {
+	t.Parallel()
+	app := setupScoreboardInteropApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	credentialIssuersColl, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+
+	rec := core.NewRecord(credentialIssuersColl)
+	rec.Set("owner", orgID)
+	rec.Set("url", "https://example.com")
+	rec.Set("name", "Test Issuer")
+	rec.Set("canonified_name", "test-issuer")
+	rec.Set("imported", true)
+	rec.Set("logo_url", "https://cdn.example.com/logo.png")
+	require.NoError(t, app.Save(rec))
+
+	entity, err := interopEntityFromRecord(app, rec, "credential_issuers")
+	require.NoError(t, err)
+	require.Equal(t, "Test Issuer", entity.Name)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, "https://cdn.example.com/logo.png", *entity.AvatarURL)
+	require.Nil(t, entity.Subtitle)
+}
+
+func TestBuildEnrichedEntityMetadata_CredentialAvatarFallback(t *testing.T) {
+	t.Parallel()
+
+	credentialAvatar := "https://cdn/credential.png"
+	issuerAvatar := "https://cdn/issuer.png"
+	issuerName := "Issuer A"
+
+	entity := buildEnrichedEntityMetadata(
+		"cred1", "Credential A", "org/credentials/credential-a",
+		ptrTo(credentialAvatar), ptrTo(issuerName), ptrTo(issuerAvatar),
+	)
+	require.Equal(t, "Credential A", entity.Name)
+	require.NotNil(t, entity.Subtitle)
+	require.Equal(t, issuerName, *entity.Subtitle)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, credentialAvatar, *entity.AvatarURL)
+
+	entity = buildEnrichedEntityMetadata(
+		"cred2", "Credential B", "org/credentials/credential-b",
+		nil, ptrTo(issuerName), ptrTo(issuerAvatar),
+	)
+	require.NotNil(t, entity.AvatarURL)
+	require.Equal(t, issuerAvatar, *entity.AvatarURL)
+
+	entity = buildEnrichedEntityMetadata(
+		"cred3", "Credential C", "org/credentials/credential-c",
+		nil, nil, nil,
+	)
+	require.Nil(t, entity.AvatarURL)
+	require.Nil(t, entity.Subtitle)
 }
