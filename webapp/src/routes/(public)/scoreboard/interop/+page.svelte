@@ -19,7 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const modeTabs: { value: InteropMode; label: () => string }[] = [
 		{ value: 'wallets_credentials', label: () => m.interop_mode_wallets_credentials() },
-		{ value: 'wallets_issuers', label: () => m.interop_mode_wallets_issuers() }
+		{ value: 'wallets_issuers', label: () => m.interop_mode_wallets_issuers() },
+		{ value: 'wallets_verifiers', label: () => m.interop_mode_wallets_verifiers() },
+		{ value: 'wallets_use_case_verifications', label: () => m.interop_mode_wallets_use_case_verifications() }
 	];
 
 	const legendItems: { status: InteropStatus; label: () => string }[] = [
