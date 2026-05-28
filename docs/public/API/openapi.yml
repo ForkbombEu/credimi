@@ -698,12 +698,12 @@ paths:
       description: Interoperability matrix from pipeline_scoreboard_cache
       operationId: scoreboard.interop
       parameters:
-      - description: Matrix pair mode. v1 supports wallets_issuers.
+      - description: Matrix pair mode. Supports wallets_issuers or wallets_credentials.
         in: query
         name: mode
         required: true
         schema:
-          description: Matrix pair mode. v1 supports wallets_issuers.
+          description: Matrix pair mode. Supports wallets_issuers or wallets_credentials.
           type: string
       responses:
         "200":
@@ -901,11 +901,17 @@ components:
       type: object
     HandlersInteropMatrixEntity:
       properties:
+        avatar_url:
+          nullable: true
+          type: string
         id:
           type: string
         name:
           type: string
         path:
+          type: string
+        subtitle:
+          nullable: true
           type: string
         version_label:
           nullable: true
