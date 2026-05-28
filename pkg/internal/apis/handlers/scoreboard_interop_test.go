@@ -666,7 +666,7 @@ func TestBuildEnrichedEntityMetadata_UseCaseVerification(t *testing.T) {
 	require.Nil(t, entity.Subtitle)
 }
 
-func TestInteropEntityFromRecord_VerifierAvatarURL(t *testing.T) {
+func TestInteropEntityFromRecord_CredentialIssuerLogoURLFallback(t *testing.T) {
 	t.Parallel()
 	app := setupScoreboardInteropApp(t)
 	defer app.Cleanup()
@@ -694,34 +694,3 @@ func TestInteropEntityFromRecord_VerifierAvatarURL(t *testing.T) {
 	require.Nil(t, entity.Subtitle)
 }
 
-func TestBuildEnrichedEntityMetadata_CredentialAvatarFallback(t *testing.T) {
-	t.Parallel()
-
-	credentialAvatar := "https://cdn/credential.png"
-	issuerAvatar := "https://cdn/issuer.png"
-	issuerName := "Issuer A"
-
-	entity := buildEnrichedEntityMetadata(
-		"cred1", "Credential A", "org/credentials/credential-a",
-		ptrTo(credentialAvatar), ptrTo(issuerName), ptrTo(issuerAvatar),
-	)
-	require.Equal(t, "Credential A", entity.Name)
-	require.NotNil(t, entity.Subtitle)
-	require.Equal(t, issuerName, *entity.Subtitle)
-	require.NotNil(t, entity.AvatarURL)
-	require.Equal(t, credentialAvatar, *entity.AvatarURL)
-
-	entity = buildEnrichedEntityMetadata(
-		"cred2", "Credential B", "org/credentials/credential-b",
-		nil, ptrTo(issuerName), ptrTo(issuerAvatar),
-	)
-	require.NotNil(t, entity.AvatarURL)
-	require.Equal(t, issuerAvatar, *entity.AvatarURL)
-
-	entity = buildEnrichedEntityMetadata(
-		"cred3", "Credential C", "org/credentials/credential-c",
-		nil, nil, nil,
-	)
-	require.Nil(t, entity.AvatarURL)
-	require.Nil(t, entity.Subtitle)
-}

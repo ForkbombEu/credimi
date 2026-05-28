@@ -454,19 +454,19 @@ func buildEnrichedEntityMetadata(
 	id string,
 	name string,
 	path string,
-	credentialAvatarURL *string,
-	issuerName *string,
-	issuerAvatarURL *string,
+	entityAvatarURL *string,
+	subtitle *string,
+	fallbackAvatarURL *string,
 ) InteropMatrixEntity {
-	avatar := credentialAvatarURL
+	avatar := entityAvatarURL
 	if avatar == nil {
-		avatar = issuerAvatarURL
+		avatar = fallbackAvatarURL
 	}
 
 	return InteropMatrixEntity{
 		ID:        id,
 		Name:      name,
-		Subtitle:  issuerName,
+		Subtitle:  subtitle,
 		AvatarURL: avatar,
 		Path:      path,
 	}
