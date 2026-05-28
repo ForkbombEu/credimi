@@ -12,7 +12,7 @@ require (
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.6.0
-	github.com/forkbombeu/credimi-extra v1.10.4
+	github.com/forkbombeu/credimi-extra v1.10.5-0.20260528083239-59ba55e29b03
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-sprout/sprout v1.0.0
