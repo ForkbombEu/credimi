@@ -35,6 +35,7 @@ const (
 	interopModeWalletsCredentials          interopMode = "wallets_credentials"
 	interopModeWalletsVerifiers            interopMode = "wallets_verifiers"
 	interopModeWalletsUseCaseVerifications interopMode = "wallets_use_case_verifications"
+	interopModeWalletsConformanceChecks    interopMode = "wallets_conformance_checks"
 )
 
 type interopModeConfig struct {
@@ -44,6 +45,7 @@ type interopModeConfig struct {
 	ColumnAxis          string
 	RowCollection       string
 	ColumnCollection    string
+	ColumnIsPathBased   bool
 }
 
 var interopModeConfigs = map[interopMode]interopModeConfig{
@@ -78,6 +80,15 @@ var interopModeConfigs = map[interopMode]interopModeConfig{
 		ColumnAxis:          "use_case_verification",
 		RowCollection:       "wallets",
 		ColumnCollection:    "use_cases_verifications",
+	},
+	interopModeWalletsConformanceChecks: {
+		RowRelationField:    "wallets",
+		ColumnRelationField: "conformance_checks",
+		RowAxis:             "wallet",
+		ColumnAxis:          "conformance_check",
+		RowCollection:       "wallets",
+		ColumnCollection:    "",
+		ColumnIsPathBased:   true,
 	},
 }
 
@@ -254,12 +265,12 @@ var ScoreboardInteropPublicRoutes = routing.RouteGroup{
 			Handler:        HandleInteropMatrix,
 			ResponseSchema: InteropMatrixResponse{},
 			Summary:        "Interoperability matrix",
-			Description:    "Interoperability matrix from pipeline_scoreboard_cache",
+			Description:    "Interoperability matrix from pipeline_scoreboard_cache. Supports wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, and wallets_conformance_checks.",
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
 					Name:        "mode",
 					Required:    true,
-					Description: "Matrix pair mode. Supports wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications.",
+					Description: "Matrix pair mode. Supports wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, or wallets_conformance_checks.",
 				},
 			},
 		},
@@ -274,7 +285,7 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 				http.StatusBadRequest,
 				"mode",
 				"unsupported or missing mode",
-				"use mode=wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications",
+				"use mode=wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, or wallets_conformance_checks",
 			).JSON(e)
 		}
 
@@ -324,7 +335,31 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 
 	for _, record := range records {
 		rowIDs := record.GetStringSlice(modeConfig.RowRelationField)
-		colIDs := record.GetStringSlice(modeConfig.ColumnRelationField)
+
+		var colIDs []string
+		if modeConfig.ColumnIsPathBased {
+			var rawIDs []string
+			if err := record.UnmarshalJSONField(modeConfig.ColumnRelationField, &rawIDs); err == nil {
+				for _, id := range rawIDs {
+					if id != "" {
+						colIDs = append(colIDs, id)
+					}
+				}
+			}
+			if len(colIDs) > 0 {
+				for _, pathID := range colIDs {
+					if _, ok := columnEntities[pathID]; !ok {
+						columnEntities[pathID] = InteropMatrixEntity{
+							ID:   pathID,
+							Name: conformanceCheckName(pathID),
+							Path: pathID,
+						}
+					}
+				}
+			}
+		} else {
+			colIDs = record.GetStringSlice(modeConfig.ColumnRelationField)
+		}
 
 		inputs = append(inputs, interopCacheInput{
 			PipelineID:     record.GetString("pipeline"),
@@ -337,8 +372,10 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 		if err := mergeInteropEntities(app, modeConfig.RowCollection, record, rowIDs, rowEntities); err != nil {
 			return InteropMatrixResponse{}, err
 		}
-		if err := mergeInteropEntities(app, modeConfig.ColumnCollection, nil, colIDs, columnEntities); err != nil {
-			return InteropMatrixResponse{}, err
+		if !modeConfig.ColumnIsPathBased {
+			if err := mergeInteropEntities(app, modeConfig.ColumnCollection, nil, colIDs, columnEntities); err != nil {
+				return InteropMatrixResponse{}, err
+			}
 		}
 	}
 
@@ -487,6 +524,27 @@ func firstNonEmptyStringPtr(values ...string) *string {
 		}
 	}
 	return nil
+}
+
+func conformanceCheckName(pathID string) string {
+	parts := strings.Split(pathID, "/")
+	last := parts[len(parts)-1]
+	ext := strings.LastIndex(last, ".")
+	if ext >= 0 {
+		last = last[:ext]
+	}
+	name := strings.NewReplacer("-", " ", "_", " ").Replace(last)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return pathID
+	}
+	words := strings.Fields(name)
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+		}
+	}
+	return strings.Join(words, " ")
 }
 
 func walletVersionLabelFor(app core.App, cacheRecord *core.Record, walletID string) *string {

@@ -5,6 +5,7 @@
 export type { Standard, Suite, Version } from './types';
 
 export { listAll } from './query';
+export { get, load } from './store.svelte.ts';
 
 export * as Check from './check.js';
 export * as Standards from './standard/index.js';

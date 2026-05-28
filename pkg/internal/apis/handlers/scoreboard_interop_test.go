@@ -629,7 +629,7 @@ func TestHandleInteropMatrix_ModeValidationReturnsBadRequest(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Code)
 			require.Equal(t, "mode", apiErr.Domain)
 			require.Equal(t, "unsupported or missing mode", apiErr.Reason)
-			require.Equal(t, "use mode=wallets_credentials, wallets_issuers, wallets_verifiers, or wallets_use_case_verifications", apiErr.Message)
+			require.Equal(t, "use mode=wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, or wallets_conformance_checks", apiErr.Message)
 		})
 	}
 }
@@ -801,4 +801,84 @@ func TestHandleInteropMatrix_AllSupportedModes(t *testing.T) {
 	}
 }
 
+func TestInteropModeValidation_ConformanceChecks(t *testing.T) {
+	t.Parallel()
+	require.True(t, isSupportedInteropMode(interopModeWalletsConformanceChecks))
+	require.True(t, isSupportedInteropMode(interopModeWalletsCredentials))
+	require.False(t, isSupportedInteropMode(interopMode("bad_mode")))
+}
 
+func TestInteropModeConfig_ConformanceChecks(t *testing.T) {
+	t.Parallel()
+	cfg, ok := getInteropModeConfig(interopModeWalletsConformanceChecks)
+	require.True(t, ok)
+	require.Equal(t, "wallets", cfg.RowRelationField)
+	require.Equal(t, "conformance_checks", cfg.ColumnRelationField)
+	require.True(t, cfg.ColumnIsPathBased)
+	require.Equal(t, "wallet", cfg.RowAxis)
+	require.Equal(t, "conformance_check", cfg.ColumnAxis)
+	require.Equal(t, "wallets", cfg.RowCollection)
+	require.Equal(t, "", cfg.ColumnCollection)
+}
+
+func TestConformanceCheckName(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		path     string
+		expected string
+	}{
+		{
+			path:     "openid4vp_wallet/1.0/webuild/WEBUILD-VP001-x509-direct_post-post-dcql-sd_jwt",
+			expected: "Webuild Vp001 X509 Direct Post Post Dcql Sd Jwt",
+		},
+		{
+			path:     "short",
+			expected: "Short",
+		},
+		{
+			path:     "openid4vp_wallet/1.0/webuild/WEBUILD-VP001-x509-direct_post.json",
+			expected: "Webuild Vp001 X509 Direct Post",
+		},
+		{
+			path:     ".json",
+			expected: ".json",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			require.Equal(t, tc.expected, conformanceCheckName(tc.path))
+		})
+	}
+}
+
+func TestBuildInteropMatrix_PathBasedColumns(t *testing.T) {
+	t.Parallel()
+	inputs := []interopCacheInput{
+		{
+			PipelineID:     "p1",
+			TotalRuns:      100,
+			TotalSuccesses: 80,
+			RowIDs:         []string{"w1"},
+			ColumnIDs:      []string{"openid4vp_wallet/1.0/webuild/check-a"},
+		},
+		{
+			PipelineID:     "p2",
+			TotalRuns:      50,
+			TotalSuccesses: 30,
+			RowIDs:         []string{"w1"},
+			ColumnIDs:      []string{"openid4vp_wallet/1.0/webuild/check-b"},
+		},
+	}
+	rowEntities := map[string]InteropMatrixEntity{
+		"w1": {ID: "w1", Name: "Wallet", Path: "org/wallets/w1"},
+	}
+	colEntities := map[string]InteropMatrixEntity{
+		"openid4vp_wallet/1.0/webuild/check-a": {ID: "openid4vp_wallet/1.0/webuild/check-a", Name: "Check A", Path: "openid4vp_wallet/1.0/webuild/check-a"},
+		"openid4vp_wallet/1.0/webuild/check-b": {ID: "openid4vp_wallet/1.0/webuild/check-b", Name: "Check B", Path: "openid4vp_wallet/1.0/webuild/check-b"},
+	}
+
+	resp := buildInteropMatrix(inputs, rowEntities, colEntities)
+	require.Len(t, resp.Cells, 2)
+	require.Len(t, resp.Columns, 2)
+	require.Len(t, resp.Rows, 1)
+}

@@ -8,8 +8,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { m } from '@/i18n';
+	import { get as getConformanceStore } from '$lib/conformance';
 
 	import type { InteropMatrixResponse } from './types';
+	import type { InteropMatrixEntity } from './types';
+	import { resolveConformanceCheck } from './resolve-conformance';
 
 	import MatrixCell from './matrix-cell.svelte';
 
@@ -27,6 +30,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const columnCollection = $derived(
 		matrix.mode === 'wallets_credentials' ? 'credentials' : 'credential_issuers'
 	);
+
+	const isConformanceMode = $derived(matrix.mode === 'wallets_conformance_checks');
+
+	function enrichedColumn(column: InteropMatrixEntity): InteropMatrixEntity {
+		if (!isConformanceMode) return column;
+		const resolved = resolveConformanceCheck(column.id, getConformanceStore().standards);
+		if (!resolved) return column;
+		return {
+			...column,
+			name: resolved.name,
+			subtitle: resolved.subtitle ?? undefined,
+			avatar_url: resolved.avatar_url ?? undefined
+		};
+	}
 
 	function hubHref(collection: 'wallets' | 'credential_issuers' | 'credentials', path: string) {
 		return `/hub/${collection}/${path}`;
@@ -55,26 +72,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{m.interop_matrix_corner_label()}
 					</th>
 					{#each matrix.columns as column (column.id)}
+						{@const enriched = enrichedColumn(column)}
 						{@const columnSubtitle = getSubtitleOrVersion(
-							column.subtitle,
-							column.version_label
+							enriched.subtitle,
+							enriched.version_label
 						)}
 						<th
 							class="sticky top-0 z-10 min-w-32 border-b bg-muted/60 px-3 py-3 text-center font-semibold"
 						>
 							<a
 								class="inline-flex max-w-44 flex-col items-center gap-1 hover:underline"
-								href={hubHref(columnCollection, column.path)}
+								href={isConformanceMode
+									? `/hub/${column.path}`
+									: hubHref(columnCollection, column.path)}
 							>
-								{#if column.avatar_url}
+								{#if enriched.avatar_url}
 									<img
-										src={column.avatar_url}
-										alt={column.name}
+										src={enriched.avatar_url}
+										alt={enriched.name}
 										class="size-6 rounded-full object-cover"
 										loading="lazy"
 									/>
 								{/if}
-								<span>{column.name}</span>
+								<span>{enriched.name}</span>
 								{#if columnSubtitle}
 									<span class="text-xs font-normal text-muted-foreground">
 										{columnSubtitle}

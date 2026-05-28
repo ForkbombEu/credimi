@@ -9,6 +9,7 @@ SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/credimi"
 
 [[annotations]]
 path = [
+    ".agents/**/*",
     ".claude/**/*",
     ".cursor/**/*",
     ".env.example",
@@ -26,6 +27,7 @@ path = [
     "pkg/credential_issuer/openid-credential-issuer.schema.go",
     "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "schemas/**/*",
+    "skills-lock.json",
     "test_pb_data/*",
     ".planning/**/*",
     "VERSION",

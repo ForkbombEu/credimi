@@ -695,17 +695,19 @@ paths:
       summary: Terminate a specific workflow run
   /api/scoreboard/interop:
     get:
-      description: Interoperability matrix from pipeline_scoreboard_cache
+      description: Interoperability matrix from pipeline_scoreboard_cache. Supports
+        wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications,
+        and wallets_conformance_checks.
       operationId: scoreboard.interop
       parameters:
       - description: Matrix pair mode. Supports wallets_credentials, wallets_issuers,
-          wallets_verifiers, or wallets_use_case_verifications.
+          wallets_verifiers, wallets_use_case_verifications, or wallets_conformance_checks.
         in: query
         name: mode
         required: true
         schema:
           description: Matrix pair mode. Supports wallets_credentials, wallets_issuers,
-            wallets_verifiers, or wallets_use_case_verifications.
+            wallets_verifiers, wallets_use_case_verifications, or wallets_conformance_checks.
           type: string
       responses:
         "200":
