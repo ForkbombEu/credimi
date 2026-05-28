@@ -29,7 +29,19 @@ const (
 
 type interopMode string
 
-const interopModeWalletsIssuers interopMode = "wallets_issuers"
+const (
+	interopModeWalletsIssuers     interopMode = "wallets_issuers"
+	interopModeWalletsCredentials interopMode = "wallets_credentials"
+)
+
+func isSupportedInteropMode(mode interopMode) bool {
+	switch mode {
+	case interopModeWalletsIssuers, interopModeWalletsCredentials:
+		return true
+	default:
+		return false
+	}
+}
 
 type interopCacheInput struct {
 	PipelineID     string
@@ -48,6 +60,8 @@ type interopCellAccumulator struct {
 type InteropMatrixEntity struct {
 	ID           string  `json:"id"`
 	Name         string  `json:"name"`
+	Subtitle     *string `json:"subtitle,omitempty"`
+	AvatarURL    *string `json:"avatar_url,omitempty"`
 	Path         string  `json:"path"`
 	VersionLabel *string `json:"version_label,omitempty"`
 }

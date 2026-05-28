@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -129,4 +130,35 @@ func TestInteropStatusFromRate(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestInteropModeValidation(t *testing.T) {
+	t.Parallel()
+
+	require.True(t, isSupportedInteropMode(interopModeWalletsIssuers))
+	require.True(t, isSupportedInteropMode(interopModeWalletsCredentials))
+	require.False(t, isSupportedInteropMode(interopMode("bad_mode")))
+}
+
+func TestInteropMatrixEntityJSONShape(t *testing.T) {
+	t.Parallel()
+
+	subtitle := "subtitle"
+	avatarURL := "https://example.com/avatar.png"
+	entity := InteropMatrixEntity{
+		ID:        "rec1",
+		Name:      "Entity",
+		Subtitle:  &subtitle,
+		AvatarURL: &avatarURL,
+		Path:      "org/entities/entity",
+	}
+
+	raw, err := json.Marshal(entity)
+	require.NoError(t, err)
+	payload := string(raw)
+	require.Contains(t, payload, `"id":"rec1"`)
+	require.Contains(t, payload, `"name":"Entity"`)
+	require.Contains(t, payload, `"path":"org/entities/entity"`)
+	require.Contains(t, payload, `"subtitle":"subtitle"`)
+	require.Contains(t, payload, `"avatar_url":"https://example.com/avatar.png"`)
 }
