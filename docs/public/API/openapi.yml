@@ -698,12 +698,14 @@ paths:
       description: Interoperability matrix from pipeline_scoreboard_cache
       operationId: scoreboard.interop
       parameters:
-      - description: Matrix pair mode. Supports wallets_issuers or wallets_credentials.
+      - description: Matrix pair mode. Supports wallets_credentials, wallets_issuers,
+          wallets_verifiers, or wallets_use_case_verifications.
         in: query
         name: mode
         required: true
         schema:
-          description: Matrix pair mode. Supports wallets_issuers or wallets_credentials.
+          description: Matrix pair mode. Supports wallets_credentials, wallets_issuers,
+            wallets_verifiers, or wallets_use_case_verifications.
           type: string
       responses:
         "200":
@@ -718,7 +720,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
-      summary: Wallet×issuer interoperability matrix
+      summary: Interoperability matrix
 components:
   schemas:
     ApierrorAPIError:
