@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { Standard } from '$lib/conformance/types';
 
+import { m } from '@/i18n';
+
 import type { InteropMatrixResponse } from './types';
 
 import { hubHref, subtitleOrVersion, toViewMatrix } from './to-view-matrix';
@@ -43,9 +45,8 @@ const standards: Standard[] = [
 
 function minimalMatrix(overrides: Partial<InteropMatrixResponse> = {}): InteropMatrixResponse {
 	return {
-		mode: 'wallets_issuers',
-		row: { key: 'wallet', hub_collection: 'wallets', path_based: false },
-		column: { key: 'issuer', hub_collection: 'credential_issuers', path_based: false },
+		row: { hub_collection: 'wallets', path_based: false },
+		column: { hub_collection: 'credential_issuers', path_based: false },
 		rows: [
 			{
 				id: 'w1',
@@ -77,23 +78,19 @@ function minimalMatrix(overrides: Partial<InteropMatrixResponse> = {}): InteropM
 	};
 }
 
-const viewOptions = {
-	standards,
-	axisLabel: (key: string) => `label:${key}`,
-	cornerLabel: ({ row, column }: { row: string; column: string }) => `${row} × ${column}`
-};
+const viewOptions = { standards };
 
 describe('hubHref', () => {
 	it('joins hub collection and entity path', () => {
-		expect(
-			hubHref({ key: 'wallet', hub_collection: 'wallets', path_based: false }, 'org/w1')
-		).toBe('/hub/wallets/org/w1');
+		expect(hubHref({ hub_collection: 'wallets', path_based: false }, 'org/w1')).toBe(
+			'/hub/wallets/org/w1'
+		);
 	});
 
 	it('uses conformance-checks segment for path-based columns', () => {
 		expect(
 			hubHref(
-				{ key: 'conformance_check', hub_collection: 'conformance-checks', path_based: true },
+				{ hub_collection: 'conformance-checks', path_based: true },
 				'std/ver/suite/check-a'
 			)
 		).toBe('/hub/conformance-checks/std/ver/suite/check-a');
@@ -118,7 +115,9 @@ describe('toViewMatrix', () => {
 	it('builds corner label, entity hrefs, subtitles, and cell lookup', () => {
 		const view = toViewMatrix(minimalMatrix(), viewOptions);
 
-		expect(view.cornerLabel).toBe('label:wallet × label:issuer');
+		expect(view.cornerLabel).toBe(
+			m.interop_matrix_corner_label({ row: m.Wallet(), column: m.Issuer() })
+		);
 		expect(view.rows).toEqual([
 			{
 				id: 'w1',
@@ -142,9 +141,7 @@ describe('toViewMatrix', () => {
 		const checkPath = 'std/ver/suite/my-check';
 		const view = toViewMatrix(
 			minimalMatrix({
-				mode: 'wallets_conformance_checks',
 				column: {
-					key: 'conformance_check',
 					hub_collection: 'conformance-checks',
 					path_based: true
 				},

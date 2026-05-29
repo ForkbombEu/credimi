@@ -4,6 +4,10 @@
 
 import type { Standard } from '$lib/conformance/types';
 
+import { m } from '@/i18n';
+
+import { interopEntityData } from './interop-entity-data';
+import type { InteropHubCollection } from './interop-hub-collections';
 import type { InteropAxis, InteropMatrixCell, InteropMatrixEntity, InteropMatrixResponse } from './types';
 
 import { resolveConformanceCheck } from './resolve-conformance';
@@ -25,9 +29,13 @@ export type ViewMatrix = {
 
 export type ToViewMatrixOptions = {
 	standards: readonly Standard[];
-	axisLabel: (key: string) => string;
-	cornerLabel: (labels: { row: string; column: string }) => string;
 };
+
+function hubLabel(hub: string, plural: boolean): string {
+	if (!(hub in interopEntityData)) return hub;
+	const data = interopEntityData[hub as InteropHubCollection];
+	return plural ? (data.labels.plural ?? data.labels.singular) : data.labels.singular;
+}
 
 export function hubHref(axis: InteropAxis, path: string): string {
 	return `/hub/${axis.hub_collection}/${path}`;
@@ -76,17 +84,17 @@ function toViewEntity(
 
 export function toViewMatrix(
 	response: InteropMatrixResponse,
-	{ standards, axisLabel, cornerLabel }: ToViewMatrixOptions
+	{ standards }: ToViewMatrixOptions
 ): ViewMatrix {
-	const rowLabel = axisLabel(response.row.key);
-	const columnLabel = axisLabel(response.column.key);
+	const rowLabel = hubLabel(response.row.hub_collection, false);
+	const columnLabel = hubLabel(response.column.hub_collection, false);
 
 	const cells = new Map(
 		response.cells.map((cell) => [`${cell.row_id}:${cell.column_id}`, cell] as const)
 	);
 
 	return {
-		cornerLabel: cornerLabel({ row: rowLabel, column: columnLabel }),
+		cornerLabel: m.interop_matrix_corner_label({ row: rowLabel, column: columnLabel }),
 		rows: response.rows.map((row) => toViewEntity(row, response.row, standards)),
 		columns: response.columns.map((column) => toViewEntity(column, response.column, standards)),
 		cells

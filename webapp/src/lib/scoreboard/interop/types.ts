@@ -2,10 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { InteropMode } from './modes';
-
-export type { InteropMode } from './modes';
-
 export type InteropStatus = 'stable' | 'flaky' | 'failing' | 'broken';
 
 export type InteropMatrixEntity = {
@@ -28,13 +24,11 @@ export type InteropMatrixCell = {
 };
 
 export type InteropAxis = {
-	key: string;
 	hub_collection: string;
 	path_based: boolean;
 };
 
 export type InteropMatrixResponse = {
-	mode: InteropMode;
 	row: InteropAxis;
 	column: InteropAxis;
 	rows: InteropMatrixEntity[];

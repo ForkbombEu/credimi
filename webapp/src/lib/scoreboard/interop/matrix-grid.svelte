@@ -9,11 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { get as getConformanceStore } from '$lib/conformance';
 
-	import { m } from '@/i18n';
-
 	import type { InteropMatrixResponse } from './types';
 
-	import { interopAxisLabel } from './axes';
 	import MatrixCell from './matrix-cell.svelte';
 	import { toViewMatrix } from './to-view-matrix';
 
@@ -26,9 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const view = $derived(
 		toViewMatrix(matrix, {
-			standards: getConformanceStore().standards,
-			axisLabel: interopAxisLabel,
-			cornerLabel: (labels) => m.interop_matrix_corner_label(labels)
+			standards: getConformanceStore().standards
 		})
 	);
 </script>
