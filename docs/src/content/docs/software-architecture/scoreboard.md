@@ -13,8 +13,8 @@ The Scoreboard shows aggregated pipeline execution results across the platform. 
 
 ### `GET /api/scoreboard/interop`
 
-Public interoperability matrix. Requires `mode` query parameter: `wallets_credentials`, `wallets_issuers`, `wallets_verifiers`, `wallets_use_case_verifications`, `wallets_conformance_checks`, or `use_case_verifications_conformance_checks`. Missing or invalid `mode` returns `400 Bad Request`.
-Defaults to `wallets_credentials` in the UI.
+Public interoperability matrix. Requires `row` and `column` query parameters (hub collection slugs). Missing, unknown, or identical axis values return `400 Bad Request`; legacy `mode` is rejected with `400`.
+The UI defaults to `?row=wallets&column=credentials`.
 
 **Authentication:** None
 
@@ -71,14 +71,14 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
 
 ### Interop matrix (`/scoreboard/interop`)
 
-- Requires a `mode` query parameter (missing/invalid mode returns `400`)
-- Default UI mode is `wallets_credentials`
-- `GET /api/scoreboard/interop?mode=wallets_issuers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×issuer grid
-- `GET /api/scoreboard/interop?mode=wallets_credentials` — public aggregation of `pipeline_scoreboard_cache` into a wallet×credential grid
-- `GET /api/scoreboard/interop?mode=wallets_verifiers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×verifier grid
-- `GET /api/scoreboard/interop?mode=wallets_use_case_verifications` — public aggregation of `pipeline_scoreboard_cache` into a wallet×use_case_verification grid
-- `GET /api/scoreboard/interop?mode=wallets_conformance_checks` — public aggregation of `pipeline_scoreboard_cache` into a wallet×conformance_check grid (columns are path-based, resolved client-side from the conformance store)
-- `GET /api/scoreboard/interop?mode=use_case_verifications_conformance_checks` — public aggregation of `pipeline_scoreboard_cache` into a use_case_verification×conformance_check grid (path-based columns)
+- Requires `row` and `column` hub-collection query parameters (missing/invalid pair returns `400`)
+- Default UI pair is `?row=wallets&column=credentials`
+- `GET /api/scoreboard/interop?row=wallets&column=credential_issuers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×issuer grid
+- `GET /api/scoreboard/interop?row=wallets&column=credentials` — public aggregation of `pipeline_scoreboard_cache` into a wallet×credential grid
+- `GET /api/scoreboard/interop?row=wallets&column=verifiers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×verifier grid
+- `GET /api/scoreboard/interop?row=wallets&column=use_cases_verifications` — public aggregation of `pipeline_scoreboard_cache` into a wallet×use_case_verification grid
+- `GET /api/scoreboard/interop?row=wallets&column=conformance-checks` — public aggregation of `pipeline_scoreboard_cache` into a wallet×conformance_check grid (columns are path-based, resolved client-side from the conformance store)
+- `GET /api/scoreboard/interop?row=use_cases_verifications&column=conformance-checks` — public aggregation of `pipeline_scoreboard_cache` into a use_case_verification×conformance_check grid (path-based columns)
 - Unified row/column metadata contract in API responses:
   - `id` (required)
   - `name` (required)
@@ -86,7 +86,7 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
   - `avatar_url?` (optional)
   - `path` (required)
   - `version_label?` (optional; currently populated for wallet entities when a wallet version tag is available)
-- `wallets_credentials` metadata behavior:
+- Wallet×credential metadata behavior:
   - Credential columns set `subtitle` to the linked issuer name when available
   - Credential column `avatar_url` fallback order is credential avatar, then issuer avatar, then omitted
 - Per cell: `success_rate = Σ total_successes / Σ total_runs`, `pipeline_count` distinct pipelines (Cartesian attribution on last-success relations)
