@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { InteropMatrixResponse } from './types';
 
+	import { interopAxisLabel } from './axes';
 	import MatrixCell from './matrix-cell.svelte';
 	import { toViewMatrix } from './to-view-matrix';
 
@@ -23,29 +24,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { matrix, legend }: Props = $props();
 
-	function axisLabel(axis: string): string {
-		switch (axis) {
-			case 'wallet':
-				return m.Wallet();
-			case 'issuer':
-				return m.Issuer();
-			case 'credential':
-				return m.Credential();
-			case 'verifier':
-				return m.Verifier();
-			case 'use_case_verification':
-				return m.Use_case_verification();
-			case 'conformance_check':
-				return m.Conformance_check();
-			default:
-				return axis;
-		}
-	}
-
 	const view = $derived(
 		toViewMatrix(matrix, {
 			standards: getConformanceStore().standards,
-			axisLabel,
+			axisLabel: interopAxisLabel,
 			cornerLabel: (labels) => m.interop_matrix_corner_label(labels)
 		})
 	);
