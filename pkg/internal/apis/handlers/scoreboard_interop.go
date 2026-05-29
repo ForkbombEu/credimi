@@ -172,18 +172,15 @@ type InteropMatrixCell struct {
 }
 
 // InteropAxis bundles an axis with the facts a caller needs to render it:
-// its stable key (mapped to an i18n label by the caller), the hub URL segment
-// for its entities (e.g. "wallets", "conformance-checks"), and whether column
-// IDs are conformance check paths from a JSON field rather than PocketBase
-// relation record IDs.
+// the hub URL segment for its entities (e.g. "wallets", "conformance-checks"),
+// and whether IDs are conformance check paths from a JSON field rather than
+// PocketBase relation record IDs.
 type InteropAxis struct {
-	Key           string `json:"key"`
 	HubCollection string `json:"hub_collection"`
 	PathBased     bool   `json:"path_based"`
 }
 
 type InteropMatrixResponse struct {
-	Mode    interopMode           `json:"mode"`
 	Row     InteropAxis           `json:"row"`
 	Column  InteropAxis           `json:"column"`
 	Rows    []InteropMatrixEntity `json:"rows"`
@@ -230,6 +227,7 @@ type interopCacheScan struct {
 	inputs              []interopCacheInput
 	rowIDs              map[string]struct{}
 	columnIDs           map[string]struct{}
+	rowEntities         map[string]InteropMatrixEntity
 	columnEntities      map[string]InteropMatrixEntity
 	walletVersionLabels map[string]*string
 }
@@ -264,6 +262,8 @@ func sortedInteropEntities(all map[string]InteropMatrixEntity, seen map[string]s
 
 func buildInteropMatrix(
 	inputs []interopCacheInput,
+	rowAxis InteropAxis,
+	colAxis InteropAxis,
 	rowEntities map[string]InteropMatrixEntity,
 	columnEntities map[string]InteropMatrixEntity,
 ) InteropMatrixResponse {
@@ -314,9 +314,8 @@ func buildInteropMatrix(
 	}
 
 	return InteropMatrixResponse{
-		Mode:    interopModeWalletsIssuers,
-		Row:     InteropAxis{Key: "wallet", HubCollection: "wallets"},
-		Column:  InteropAxis{Key: "issuer", HubCollection: "credential_issuers"},
+		Row:     rowAxis,
+		Column:  colAxis,
 		Rows:    sortedInteropEntities(rowEntities, rowSeen),
 		Columns: sortedInteropEntities(columnEntities, colSeen),
 		Cells:   cells,
@@ -363,7 +362,7 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		resp, err := loadInteropMatrixFromCache(e.App, mode)
+		resp, err := loadInteropMatrixFromCacheByMode(e.App, mode)
 		if err != nil {
 			var unsupportedModeErr unsupportedInteropModeError
 			if errors.As(err, &unsupportedModeErr) {
@@ -387,12 +386,33 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 	}
 }
 
-func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixResponse, error) {
+func interopAxesFromModeConfig(cfg interopModeConfig) (rowAxis, colAxis interopAxis) {
+	rowAxis = interopAxis{
+		HubCollection: cfg.RowCollection,
+		CacheField:    cfg.RowRelationField,
+	}
+	colAxis = interopAxis{
+		HubCollection: cfg.ColumnCollection,
+		CacheField:    cfg.ColumnRelationField,
+		PathBased:     cfg.ColumnIsPathBased,
+	}
+	return rowAxis, colAxis
+}
+
+func loadInteropMatrixFromCacheByMode(app core.App, mode interopMode) (InteropMatrixResponse, error) {
 	modeConfig, ok := getInteropModeConfig(mode)
 	if !ok {
 		return InteropMatrixResponse{}, unsupportedInteropModeError{mode: mode}
 	}
+	rowAxis, colAxis := interopAxesFromModeConfig(modeConfig)
+	return loadInteropMatrixFromCache(app, rowAxis, colAxis)
+}
 
+func loadInteropMatrixFromCache(
+	app core.App,
+	rowAxis interopAxis,
+	colAxis interopAxis,
+) (InteropMatrixResponse, error) {
 	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
 	if err != nil {
 		return InteropMatrixResponse{}, fmt.Errorf("find collection: %w", err)
@@ -403,29 +423,41 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 		return InteropMatrixResponse{}, fmt.Errorf("list cache: %w", err)
 	}
 
-	scan := scanInteropCacheRecords(records, modeConfig)
+	scan := scanInteropCacheRecords(records, rowAxis, colAxis)
 
-	walletVersionsByID, err := loadWalletVersionsForCacheRecords(app, records)
-	if err != nil {
-		return InteropMatrixResponse{}, err
+	if rowAxis.HubCollection == "wallets" {
+		walletVersionsByID, err := loadWalletVersionsForCacheRecords(app, records)
+		if err != nil {
+			return InteropMatrixResponse{}, err
+		}
+		resolveWalletVersionLabels(scan, records, rowAxis, walletVersionsByID)
 	}
-	resolveWalletVersionLabels(scan, records, modeConfig, walletVersionsByID)
 
-	rowEntities, err := loadInteropEntitiesByIDs(
-		app,
-		modeConfig.RowCollection,
-		scan.rowIDs,
-		scan.walletVersionLabels,
-	)
-	if err != nil {
-		return InteropMatrixResponse{}, err
+	var rowEntities map[string]InteropMatrixEntity
+	if rowAxis.PathBased {
+		rowEntities = scan.rowEntities
+	} else {
+		var err error
+		rowEntities, err = loadInteropEntitiesByIDs(
+			app,
+			rowAxis.HubCollection,
+			scan.rowIDs,
+			scan.walletVersionLabels,
+		)
+		if err != nil {
+			return InteropMatrixResponse{}, err
+		}
+		for id, entity := range scan.rowEntities {
+			rowEntities[id] = entity
+		}
 	}
 
 	columnEntities := scan.columnEntities
-	if !modeConfig.ColumnIsPathBased {
+	if !colAxis.PathBased {
+		var err error
 		columnEntities, err = loadInteropEntitiesByIDs(
 			app,
-			modeConfig.ColumnCollection,
+			colAxis.HubCollection,
 			scan.columnIDs,
 			nil,
 		)
@@ -434,59 +466,64 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 		}
 	}
 
-	resp := buildInteropMatrix(scan.inputs, rowEntities, columnEntities)
-	resp.Mode = mode
-	resp.Row = InteropAxis{
-		Key:           modeConfig.RowAxis,
-		HubCollection: modeConfig.RowCollection,
-	}
-	resp.Column = InteropAxis{
-		Key:           modeConfig.ColumnAxis,
-		HubCollection: modeConfig.ColumnCollection,
-		PathBased:     modeConfig.ColumnIsPathBased,
-	}
+	return buildInteropMatrix(
+		scan.inputs,
+		InteropAxis{HubCollection: rowAxis.HubCollection, PathBased: rowAxis.PathBased},
+		InteropAxis{HubCollection: colAxis.HubCollection, PathBased: colAxis.PathBased},
+		rowEntities,
+		columnEntities,
+	), nil
+}
 
-	return resp, nil
+func readAxisIDs(record *core.Record, axis interopAxis) ([]string, map[string]InteropMatrixEntity) {
+	inline := map[string]InteropMatrixEntity{}
+	if !axis.PathBased {
+		ids := record.GetStringSlice(axis.CacheField)
+		return ids, inline
+	}
+	var rawIDs []string
+	if err := record.UnmarshalJSONField(axis.CacheField, &rawIDs); err != nil {
+		return nil, inline
+	}
+	out := make([]string, 0, len(rawIDs))
+	for _, id := range rawIDs {
+		if id == "" {
+			continue
+		}
+		out = append(out, id)
+		if _, ok := inline[id]; ok {
+			continue
+		}
+		inline[id] = InteropMatrixEntity{
+			ID:   id,
+			Name: conformanceCheckName(id),
+			Path: id,
+		}
+	}
+	return out, inline
 }
 
 func scanInteropCacheRecords(
 	records []*core.Record,
-	modeConfig interopModeConfig,
+	rowAxis interopAxis,
+	colAxis interopAxis,
 ) interopCacheScan {
 	scan := interopCacheScan{
 		rowIDs:              map[string]struct{}{},
 		columnIDs:           map[string]struct{}{},
+		rowEntities:         map[string]InteropMatrixEntity{},
 		columnEntities:      map[string]InteropMatrixEntity{},
 		walletVersionLabels: map[string]*string{},
 	}
-
 	for _, record := range records {
-		rowIDs := record.GetStringSlice(modeConfig.RowRelationField)
-
-		var colIDs []string
-		if modeConfig.ColumnIsPathBased {
-			var rawIDs []string
-			if err := record.UnmarshalJSONField(modeConfig.ColumnRelationField, &rawIDs); err == nil {
-				for _, id := range rawIDs {
-					if id != "" {
-						colIDs = append(colIDs, id)
-					}
-				}
-			}
-			for _, pathID := range colIDs {
-				if _, ok := scan.columnEntities[pathID]; ok {
-					continue
-				}
-				scan.columnEntities[pathID] = InteropMatrixEntity{
-					ID:   pathID,
-					Name: conformanceCheckName(pathID),
-					Path: pathID,
-				}
-			}
-		} else {
-			colIDs = record.GetStringSlice(modeConfig.ColumnRelationField)
+		rowIDs, rowInline := readAxisIDs(record, rowAxis)
+		colIDs, colInline := readAxisIDs(record, colAxis)
+		for id, entity := range rowInline {
+			scan.rowEntities[id] = entity
 		}
-
+		for id, entity := range colInline {
+			scan.columnEntities[id] = entity
+		}
 		scan.inputs = append(scan.inputs, interopCacheInput{
 			PipelineID:     record.GetString("pipeline"),
 			TotalRuns:      record.GetInt("total_runs"),
@@ -494,17 +531,17 @@ func scanInteropCacheRecords(
 			RowIDs:         rowIDs,
 			ColumnIDs:      colIDs,
 		})
-
 		for _, rowID := range rowIDs {
-			scan.rowIDs[rowID] = struct{}{}
+			if !rowAxis.PathBased {
+				scan.rowIDs[rowID] = struct{}{}
+			}
 		}
 		for _, colID := range colIDs {
-			if !modeConfig.ColumnIsPathBased {
+			if !colAxis.PathBased {
 				scan.columnIDs[colID] = struct{}{}
 			}
 		}
 	}
-
 	return scan
 }
 
@@ -526,16 +563,16 @@ func loadWalletVersionsForCacheRecords(
 func resolveWalletVersionLabels(
 	scan interopCacheScan,
 	records []*core.Record,
-	modeConfig interopModeConfig,
+	axis interopAxis,
 	versionsByID map[string]*core.Record,
 ) {
-	rowResolver, err := getInteropEntityResolver(modeConfig.RowCollection)
+	rowResolver, err := getInteropEntityResolver(axis.HubCollection)
 	if err != nil || !rowResolver.SupportsVersionLabels() {
 		return
 	}
 
 	for _, record := range records {
-		for _, walletID := range record.GetStringSlice(modeConfig.RowRelationField) {
+		for _, walletID := range record.GetStringSlice(axis.CacheField) {
 			if walletID == "" {
 				continue
 			}

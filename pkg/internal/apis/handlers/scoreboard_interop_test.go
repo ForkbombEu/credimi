@@ -63,13 +63,16 @@ func TestBuildInteropMatrix_CartesianAndSums(t *testing.T) {
 		{PipelineID: p1, TotalRuns: 60, TotalSuccesses: 53, RowIDs: []string{w2}, ColumnIDs: []string{i1}},
 	}
 
-	got := buildInteropMatrix(inputs, rowEntities, colEntities)
+	got := buildInteropMatrix(
+		inputs,
+		InteropAxis{HubCollection: "wallets", PathBased: false},
+		InteropAxis{HubCollection: "credential_issuers", PathBased: false},
+		rowEntities,
+		colEntities,
+	)
 
-	require.Equal(t, interopModeWalletsIssuers, got.Mode)
-	require.Equal(t, "wallet", got.Row.Key)
 	require.Equal(t, "wallets", got.Row.HubCollection)
 	require.False(t, got.Row.PathBased)
-	require.Equal(t, "issuer", got.Column.Key)
 	require.Equal(t, "credential_issuers", got.Column.HubCollection)
 	require.False(t, got.Column.PathBased)
 	require.Len(t, got.Cells, 2)
@@ -120,7 +123,13 @@ func TestBuildInteropMatrix_SkipsEmptySides(t *testing.T) {
 		{PipelineID: p1, TotalRuns: 10, TotalSuccesses: 9, RowIDs: []string{w1}, ColumnIDs: []string{i1}},
 	}
 
-	got := buildInteropMatrix(inputs, rowEntities, colEntities)
+	got := buildInteropMatrix(
+		inputs,
+		InteropAxis{HubCollection: "wallets", PathBased: false},
+		InteropAxis{HubCollection: "credential_issuers", PathBased: false},
+		rowEntities,
+		colEntities,
+	)
 
 	require.Len(t, got.Cells, 1)
 	c, ok := findInteropCell(got, w1, i1)
@@ -314,7 +323,7 @@ func TestLoadInteropMatrixFromCache_UnsupportedModeError(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	_, err = loadInteropMatrixFromCache(app, interopMode("bad_mode"))
+	_, err = loadInteropMatrixFromCacheByMode(app, interopMode("bad_mode"))
 	require.Error(t, err)
 
 	unsupported := unsupportedInteropModeError{}
@@ -394,10 +403,7 @@ func TestHandleInteropMatrix_WalletsCredentialsHappyPath(t *testing.T) {
 	var resp InteropMatrixResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
-	require.Equal(t, interopModeWalletsCredentials, resp.Mode)
-	require.Equal(t, "wallet", resp.Row.Key)
 	require.Equal(t, "wallets", resp.Row.HubCollection)
-	require.Equal(t, "credential", resp.Column.Key)
 	require.Equal(t, "credentials", resp.Column.HubCollection)
 	require.False(t, resp.Column.PathBased)
 	require.NotEmpty(t, resp.Cells)
@@ -469,10 +475,7 @@ func TestHandleInteropMatrix_WalletsIssuersHappyPath(t *testing.T) {
 	var resp InteropMatrixResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
-	require.Equal(t, interopModeWalletsIssuers, resp.Mode)
-	require.Equal(t, "wallet", resp.Row.Key)
 	require.Equal(t, "wallets", resp.Row.HubCollection)
-	require.Equal(t, "issuer", resp.Column.Key)
 	require.Equal(t, "credential_issuers", resp.Column.HubCollection)
 	require.NotEmpty(t, resp.Cells)
 
@@ -939,11 +942,8 @@ func TestHandleInteropMatrix_UseCaseVerificationsConformanceChecksHappyPath(t *t
 	var resp InteropMatrixResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
-	require.Equal(t, interopModeUseCaseVerificationsConformanceChecks, resp.Mode)
-	require.Equal(t, "use_case_verification", resp.Row.Key)
 	require.Equal(t, "use_cases_verifications", resp.Row.HubCollection)
 	require.False(t, resp.Row.PathBased)
-	require.Equal(t, "conformance_check", resp.Column.Key)
 	require.Equal(t, "conformance-checks", resp.Column.HubCollection)
 	require.True(t, resp.Column.PathBased)
 	require.NotEmpty(t, resp.Cells)
@@ -1028,7 +1028,13 @@ func TestBuildInteropMatrix_PathBasedColumns(t *testing.T) {
 		"openid4vp_wallet/1.0/webuild/check-b": {ID: "openid4vp_wallet/1.0/webuild/check-b", Name: "Check B", Path: "openid4vp_wallet/1.0/webuild/check-b"},
 	}
 
-	resp := buildInteropMatrix(inputs, rowEntities, colEntities)
+	resp := buildInteropMatrix(
+		inputs,
+		InteropAxis{HubCollection: "wallets", PathBased: false},
+		InteropAxis{HubCollection: "conformance-checks", PathBased: true},
+		rowEntities,
+		colEntities,
+	)
 	require.Len(t, resp.Cells, 2)
 	require.Len(t, resp.Columns, 2)
 	require.Len(t, resp.Rows, 1)
