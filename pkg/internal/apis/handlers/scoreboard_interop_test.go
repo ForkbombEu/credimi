@@ -170,6 +170,7 @@ func TestHandleInteropMatrix_PairValidationReturnsBadRequest(t *testing.T) {
 		{name: "missing row", url: "/api/scoreboard/interop?column=credentials"},
 		{name: "missing column", url: "/api/scoreboard/interop?row=wallets"},
 		{name: "unknown row", url: "/api/scoreboard/interop?row=bad&column=credentials"},
+		{name: "unknown column", url: "/api/scoreboard/interop?row=wallets&column=bad"},
 		{name: "equal axes", url: "/api/scoreboard/interop?row=wallets&column=wallets"},
 		{name: "legacy mode param", url: "/api/scoreboard/interop?mode=wallets_credentials"},
 		{name: "mode with row column", url: "/api/scoreboard/interop?mode=x&row=wallets&column=credentials"},
@@ -728,6 +729,80 @@ func TestHandleInteropMatrix_AllSupportedModes(t *testing.T) {
 			require.Equal(t, http.StatusOK, rec.Code)
 		})
 	}
+}
+
+func TestHandleInteropMatrix_WalletsConformanceChecksHappyPath(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipeline := createPipelineRecord(t, app, orgID, "interop-wallets-conformance")
+
+	walletsCollection, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsCollection)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", "interop-conformance-wallet")
+	require.NoError(t, app.Save(wallet))
+
+	const checkPath = "openid4vp_wallet/1.0/webuild/WEBUILD-VP001-x509-direct_post-post-dcql-sd_jwt"
+
+	cacheCollection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+
+	cacheRecord := core.NewRecord(cacheCollection)
+	cacheRecord.Set("pipeline", pipeline.Id)
+	cacheRecord.Set("total_runs", 20)
+	cacheRecord.Set("total_successes", 19)
+	cacheRecord.Set("success_rate", 95.0)
+	cacheRecord.Set("manually_executed_runs", 10)
+	cacheRecord.Set("scheduled_runs", 8)
+	cacheRecord.Set("CI_runs", 0)
+	cacheRecord.Set("minimum_running_time", "1m20s")
+	cacheRecord.Set("first_execution", "2026-05-01T10:00:00Z")
+	cacheRecord.Set("last_execution_date", "2026-05-01T11:00:00Z")
+	cacheRecord.Set("wallets", []string{wallet.Id})
+	cacheRecord.Set("conformance_checks", []string{checkPath})
+	require.NoError(t, app.Save(cacheRecord))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?row=wallets&column=conformance-checks", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleInteropMatrix()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp InteropMatrixResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+
+	require.Equal(t, "wallets", resp.Row.HubCollection)
+	require.False(t, resp.Row.PathBased)
+	require.Equal(t, "conformance-checks", resp.Column.HubCollection)
+	require.True(t, resp.Column.PathBased)
+	require.NotEmpty(t, resp.Cells)
+
+	cell, ok := findInteropCell(resp, wallet.Id, checkPath)
+	require.True(t, ok, "expected wallet x conformance check cell")
+	require.Equal(t, 20, cell.TotalRuns)
+	require.Equal(t, 19, cell.TotalSuccesses)
+	require.Equal(t, interopStatusStable, cell.Status)
+
+	columnsByID := make(map[string]InteropMatrixEntity, len(resp.Columns))
+	for _, column := range resp.Columns {
+		columnsByID[column.ID] = column
+	}
+	checkColumn, ok := columnsByID[checkPath]
+	require.True(t, ok, "expected conformance check column")
+	require.Equal(t, checkPath, checkColumn.Path)
 }
 
 func TestHandleInteropMatrix_UseCaseVerificationsConformanceChecksHappyPath(t *testing.T) {

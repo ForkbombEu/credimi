@@ -31,8 +31,8 @@ type interopCacheInput struct {
 	PipelineID     string
 	TotalRuns      int
 	TotalSuccesses int
-	RowIDs         []string // wallet IDs for wallets_issuers mode
-	ColumnIDs      []string // issuer IDs
+	RowIDs         []string // row axis entity IDs from cache scan
+	ColumnIDs      []string // column axis entity IDs from cache scan
 }
 
 type interopCellAccumulator struct {
