@@ -8,7 +8,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { InteropStatus } from '$lib/scoreboard/interop/types';
 
 	import { resolve } from '$app/paths';
-	import { interopModeTabs } from '$lib/scoreboard/interop/modes';
+	import { FEATURED_INTEROP_PAIRS } from '$lib/scoreboard/interop/featured-pairs';
+	import { interopEntityData } from '$lib/scoreboard/interop/interop-entity-data';
+	import type { InteropHubCollection } from '$lib/scoreboard/interop/interop-hub-collections';
 	import MatrixGrid from '$lib/scoreboard/interop/matrix-grid.svelte';
 	import { interopStatusStyles } from '$lib/scoreboard/interop/status';
 
@@ -18,14 +20,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 
-	const modeTabs = interopModeTabs();
-
 	const legendItems: { status: InteropStatus; label: () => string }[] = [
 		{ status: 'broken', label: () => m.interop_matrix_legend_broken() },
 		{ status: 'failing', label: () => m.interop_matrix_legend_failing() },
 		{ status: 'flaky', label: () => m.interop_matrix_legend_flaky() },
 		{ status: 'stable', label: () => m.interop_matrix_legend_stable() }
 	];
+
+	function pairLabel(row: InteropHubCollection, column: InteropHubCollection): string {
+		const rowData = interopEntityData[row];
+		const colData = interopEntityData[column];
+		const rowLabel = rowData.labels.plural ?? rowData.labels.singular;
+		const colLabel = colData.labels.plural ?? colData.labels.singular;
+		return `${rowLabel} × ${colLabel}`;
+	}
 </script>
 
 <div class="grow bg-secondary pt-0 pb-20">
@@ -35,17 +43,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 	<div class="mx-auto mb-4 flex max-w-7xl justify-center px-4 md:px-8">
 		<div class="inline-flex rounded-md border bg-background p-1">
-			{#each modeTabs as tab (tab.value)}
+			{#each FEATURED_INTEROP_PAIRS as pair (pair.row + pair.column)}
 				<a
 					class={`rounded-sm px-3 py-1.5 text-sm ${
-						data.mode === tab.value
+						data.row === pair.row && data.column === pair.column
 							? 'bg-primary text-primary-foreground'
 							: 'text-muted-foreground hover:text-foreground'
 					}`}
-					href={resolve(localizeHref(`/scoreboard/interop?mode=${tab.value}`) as '/')}
-					aria-current={data.mode === tab.value ? 'page' : undefined}
+					href={resolve(
+						localizeHref(
+							`/scoreboard/interop?row=${pair.row}&column=${pair.column}`
+						) as '/'
+					)}
+					aria-current={data.row === pair.row && data.column === pair.column ? 'page' : undefined}
 				>
-					{tab.label()}
+					{pairLabel(pair.row, pair.column)}
 				</a>
 			{/each}
 		</div>
