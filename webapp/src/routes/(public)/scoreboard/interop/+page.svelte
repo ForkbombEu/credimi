@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { InteropMode, InteropStatus } from '$lib/scoreboard/interop/types';
+	import type { InteropStatus } from '$lib/scoreboard/interop/types';
 
 	import { resolve } from '$app/paths';
+	import { interopModeTabs } from '$lib/scoreboard/interop/modes';
 	import MatrixGrid from '$lib/scoreboard/interop/matrix-grid.svelte';
 	import { interopStatusStyles } from '$lib/scoreboard/interop/status';
 
@@ -17,23 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 
-	const modeTabs: { value: InteropMode; label: () => string }[] = [
-		{ value: 'wallets_credentials', label: () => m.interop_mode_wallets_credentials() },
-		{ value: 'wallets_issuers', label: () => m.interop_mode_wallets_issuers() },
-		{ value: 'wallets_verifiers', label: () => m.interop_mode_wallets_verifiers() },
-		{
-			value: 'wallets_use_case_verifications',
-			label: () => m.interop_mode_wallets_use_case_verifications()
-		},
-		{
-			value: 'wallets_conformance_checks',
-			label: () => m.interop_mode_wallets_conformance_checks()
-		},
-		{
-			value: 'use_case_verifications_conformance_checks',
-			label: () => m.interop_mode_use_case_verifications_conformance_checks()
-		}
-	];
+	const modeTabs = interopModeTabs();
 
 	const legendItems: { status: InteropStatus; label: () => string }[] = [
 		{ status: 'broken', label: () => m.interop_matrix_legend_broken() },

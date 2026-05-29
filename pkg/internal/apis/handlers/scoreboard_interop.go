@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -112,6 +112,32 @@ func isSupportedInteropMode(mode interopMode) bool {
 	return ok
 }
 
+func supportedInteropModes() []interopMode {
+	modes := make([]interopMode, 0, len(interopModeConfigs))
+	for mode := range interopModeConfigs {
+		modes = append(modes, mode)
+	}
+	sort.Slice(modes, func(i, j int) bool { return modes[i] < modes[j] })
+	return modes
+}
+
+func supportedInteropModeStrings() []string {
+	modes := supportedInteropModes()
+	out := make([]string, len(modes))
+	for i, mode := range modes {
+		out[i] = string(mode)
+	}
+	return out
+}
+
+func interopModesUsageHint() string {
+	return "use mode=" + strings.Join(supportedInteropModeStrings(), ", ")
+}
+
+func interopModesDescription(prefix string) string {
+	return prefix + " Supports " + strings.Join(supportedInteropModeStrings(), ", ") + "."
+}
+
 type interopCacheInput struct {
 	PipelineID     string
 	TotalRuns      int
@@ -181,6 +207,31 @@ func interopStatusFromRate(rate float64) interopStatus {
 type interopMatrixCellKey struct {
 	row string
 	col string
+}
+
+const interopRecordIDFilterChunkSize = 50
+
+type interopRelatedRecords struct {
+	byCollection map[string]map[string]*core.Record
+}
+
+func (r interopRelatedRecords) record(collection, id string) *core.Record {
+	if r.byCollection == nil {
+		return nil
+	}
+	records, ok := r.byCollection[collection]
+	if !ok {
+		return nil
+	}
+	return records[id]
+}
+
+type interopCacheScan struct {
+	inputs              []interopCacheInput
+	rowIDs              map[string]struct{}
+	columnIDs           map[string]struct{}
+	columnEntities      map[string]InteropMatrixEntity
+	walletVersionLabels map[string]*string
 }
 
 type unsupportedInteropModeError struct {
@@ -286,12 +337,14 @@ var ScoreboardInteropPublicRoutes = routing.RouteGroup{
 			Handler:        HandleInteropMatrix,
 			ResponseSchema: InteropMatrixResponse{},
 			Summary:        "Interoperability matrix",
-			Description:    "Interoperability matrix from pipeline_scoreboard_cache. Supports wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks, and use_case_verifications_conformance_checks.",
+			Description: interopModesDescription(
+				"Interoperability matrix from pipeline_scoreboard_cache.",
+			),
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
 					Name:        "mode",
 					Required:    true,
-					Description: "Matrix pair mode. Supports wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks, or use_case_verifications_conformance_checks.",
+					Description: interopModesDescription("Matrix pair mode."),
 				},
 			},
 		},
@@ -306,7 +359,7 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 				http.StatusBadRequest,
 				"mode",
 				"unsupported or missing mode",
-				"use mode=wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks, or use_case_verifications_conformance_checks",
+				interopModesUsageHint(),
 			).JSON(e)
 		}
 
@@ -350,57 +403,38 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 		return InteropMatrixResponse{}, fmt.Errorf("list cache: %w", err)
 	}
 
-	var inputs []interopCacheInput
-	rowEntities := map[string]InteropMatrixEntity{}
-	columnEntities := map[string]InteropMatrixEntity{}
+	scan := scanInteropCacheRecords(records, modeConfig)
 
-	for _, record := range records {
-		rowIDs := record.GetStringSlice(modeConfig.RowRelationField)
+	walletVersionsByID, err := loadWalletVersionsForCacheRecords(app, records)
+	if err != nil {
+		return InteropMatrixResponse{}, err
+	}
+	resolveWalletVersionLabels(scan, records, modeConfig, walletVersionsByID)
 
-		var colIDs []string
-		if modeConfig.ColumnIsPathBased {
-			var rawIDs []string
-			if err := record.UnmarshalJSONField(modeConfig.ColumnRelationField, &rawIDs); err == nil {
-				for _, id := range rawIDs {
-					if id != "" {
-						colIDs = append(colIDs, id)
-					}
-				}
-			}
-			if len(colIDs) > 0 {
-				for _, pathID := range colIDs {
-					if _, ok := columnEntities[pathID]; !ok {
-						columnEntities[pathID] = InteropMatrixEntity{
-							ID:   pathID,
-							Name: conformanceCheckName(pathID),
-							Path: pathID,
-						}
-					}
-				}
-			}
-		} else {
-			colIDs = record.GetStringSlice(modeConfig.ColumnRelationField)
-		}
+	rowEntities, err := loadInteropEntitiesByIDs(
+		app,
+		modeConfig.RowCollection,
+		scan.rowIDs,
+		scan.walletVersionLabels,
+	)
+	if err != nil {
+		return InteropMatrixResponse{}, err
+	}
 
-		inputs = append(inputs, interopCacheInput{
-			PipelineID:     record.GetString("pipeline"),
-			TotalRuns:      record.GetInt("total_runs"),
-			TotalSuccesses: record.GetInt("total_successes"),
-			RowIDs:         rowIDs,
-			ColumnIDs:      colIDs,
-		})
-
-		if err := mergeInteropEntities(app, modeConfig.RowCollection, record, rowIDs, rowEntities); err != nil {
+	columnEntities := scan.columnEntities
+	if !modeConfig.ColumnIsPathBased {
+		columnEntities, err = loadInteropEntitiesByIDs(
+			app,
+			modeConfig.ColumnCollection,
+			scan.columnIDs,
+			nil,
+		)
+		if err != nil {
 			return InteropMatrixResponse{}, err
-		}
-		if !modeConfig.ColumnIsPathBased {
-			if err := mergeInteropEntities(app, modeConfig.ColumnCollection, nil, colIDs, columnEntities); err != nil {
-				return InteropMatrixResponse{}, err
-			}
 		}
 	}
 
-	resp := buildInteropMatrix(inputs, rowEntities, columnEntities)
+	resp := buildInteropMatrix(scan.inputs, rowEntities, columnEntities)
 	resp.Mode = mode
 	resp.Row = InteropAxis{
 		Key:           modeConfig.RowAxis,
@@ -415,104 +449,250 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 	return resp, nil
 }
 
-func mergeInteropEntities(
+func scanInteropCacheRecords(
+	records []*core.Record,
+	modeConfig interopModeConfig,
+) interopCacheScan {
+	scan := interopCacheScan{
+		rowIDs:              map[string]struct{}{},
+		columnIDs:           map[string]struct{}{},
+		columnEntities:      map[string]InteropMatrixEntity{},
+		walletVersionLabels: map[string]*string{},
+	}
+
+	for _, record := range records {
+		rowIDs := record.GetStringSlice(modeConfig.RowRelationField)
+
+		var colIDs []string
+		if modeConfig.ColumnIsPathBased {
+			var rawIDs []string
+			if err := record.UnmarshalJSONField(modeConfig.ColumnRelationField, &rawIDs); err == nil {
+				for _, id := range rawIDs {
+					if id != "" {
+						colIDs = append(colIDs, id)
+					}
+				}
+			}
+			for _, pathID := range colIDs {
+				if _, ok := scan.columnEntities[pathID]; ok {
+					continue
+				}
+				scan.columnEntities[pathID] = InteropMatrixEntity{
+					ID:   pathID,
+					Name: conformanceCheckName(pathID),
+					Path: pathID,
+				}
+			}
+		} else {
+			colIDs = record.GetStringSlice(modeConfig.ColumnRelationField)
+		}
+
+		scan.inputs = append(scan.inputs, interopCacheInput{
+			PipelineID:     record.GetString("pipeline"),
+			TotalRuns:      record.GetInt("total_runs"),
+			TotalSuccesses: record.GetInt("total_successes"),
+			RowIDs:         rowIDs,
+			ColumnIDs:      colIDs,
+		})
+
+		for _, rowID := range rowIDs {
+			scan.rowIDs[rowID] = struct{}{}
+		}
+		for _, colID := range colIDs {
+			if !modeConfig.ColumnIsPathBased {
+				scan.columnIDs[colID] = struct{}{}
+			}
+		}
+	}
+
+	return scan
+}
+
+func loadWalletVersionsForCacheRecords(
+	app core.App,
+	records []*core.Record,
+) (map[string]*core.Record, error) {
+	versionIDs := map[string]struct{}{}
+	for _, record := range records {
+		for _, versionID := range record.GetStringSlice("wallet_versions") {
+			if versionID != "" {
+				versionIDs[versionID] = struct{}{}
+			}
+		}
+	}
+	return findRecordsByIDs(app, "wallet_versions", interopUniqueIDs(versionIDs))
+}
+
+func resolveWalletVersionLabels(
+	scan interopCacheScan,
+	records []*core.Record,
+	modeConfig interopModeConfig,
+	versionsByID map[string]*core.Record,
+) {
+	rowResolver, err := getInteropEntityResolver(modeConfig.RowCollection)
+	if err != nil || !rowResolver.SupportsVersionLabels() {
+		return
+	}
+
+	for _, record := range records {
+		for _, walletID := range record.GetStringSlice(modeConfig.RowRelationField) {
+			if walletID == "" {
+				continue
+			}
+			if _, ok := scan.walletVersionLabels[walletID]; ok {
+				continue
+			}
+			scan.walletVersionLabels[walletID] = walletVersionLabelFromCacheRecord(
+				record,
+				walletID,
+				versionsByID,
+			)
+		}
+	}
+}
+
+func loadInteropEntitiesByIDs(
 	app core.App,
 	collectionName string,
-	cacheRecord *core.Record,
-	recordIDs []string,
-	entities map[string]InteropMatrixEntity,
-) error {
-	for _, recordID := range recordIDs {
-		if _, ok := entities[recordID]; ok {
+	ids map[string]struct{},
+	walletVersionLabels map[string]*string,
+) (map[string]InteropMatrixEntity, error) {
+	entities := make(map[string]InteropMatrixEntity, len(ids))
+	if len(ids) == 0 {
+		return entities, nil
+	}
+
+	resolver, err := getInteropEntityResolver(collectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	recordsByID, err := findRecordsByIDs(app, collectionName, interopUniqueIDs(ids))
+	if err != nil {
+		return nil, err
+	}
+
+	related, err := loadInteropRelatedRecords(app, resolver, recordsByID)
+	if err != nil {
+		return nil, err
+	}
+
+	for id := range ids {
+		record, ok := recordsByID[id]
+		if !ok {
 			continue
 		}
-		record, err := app.FindRecordById(collectionName, recordID)
+		entity, err := resolver.Entity(app, record, related)
 		if err != nil {
-			continue
+			return nil, err
 		}
-		entity, err := interopEntityFromRecord(app, record, collectionName)
-		if err != nil {
-			return err
-		}
-		if collectionName == "wallets" {
-			label := walletVersionLabelFor(app, cacheRecord, recordID)
-			if label != nil {
+		if walletVersionLabels != nil && resolver.SupportsVersionLabels() {
+			if label, ok := walletVersionLabels[id]; ok && label != nil {
 				entity.VersionLabel = label
 			}
 		}
-		entities[recordID] = entity
+		entities[id] = entity
 	}
-	return nil
+
+	return entities, nil
 }
 
-func interopEntityFromRecord(
+func loadInteropRelatedRecords(
 	app core.App,
-	record *core.Record,
-	collection string,
-) (InteropMatrixEntity, error) {
-	tpl, ok := canonify.CanonifyPaths[collection]
-	if !ok {
-		return InteropMatrixEntity{}, fmt.Errorf("no canonify path for collection %s", collection)
-	}
-	path, err := canonify.BuildPath(app, record, tpl, "")
-	if err != nil {
-		return InteropMatrixEntity{}, err
-	}
+	resolver interopEntityResolver,
+	recordsByID map[string]*core.Record,
+) (interopRelatedRecords, error) {
+	related := interopRelatedRecords{byCollection: map[string]map[string]*core.Record{}}
 
-	if collection == "use_cases_verifications" {
-		var verifierName *string
-		var verifierLogoURL *string
-		verifierID := strings.TrimSpace(record.GetString("verifier"))
-		if verifierID != "" {
-			verifierRecord, err := app.FindRecordById("verifiers", verifierID)
-			if err == nil {
-				verifierName = optionalTrimmedStringPtr(verifierRecord.GetString("name"))
-				verifierLogoURL = firstNonEmptyStringPtr(
-					verifierRecord.GetString("avatar"),
-					verifierRecord.GetString("logo"),
-				)
-			}
+	for _, spec := range resolver.RelatedCollections() {
+		relatedIDs := interopRelationIDs(recordsByID, spec.Field)
+		records, err := findRecordsByIDs(app, spec.Collection, relatedIDs)
+		if err != nil {
+			return interopRelatedRecords{}, err
 		}
-		return buildEnrichedEntityMetadata(
-			record.Id,
-			record.GetString("name"),
-			path,
-			firstNonEmptyStringPtr(record.GetString("avatar"), record.GetString("logo")),
-			verifierName,
-			verifierLogoURL,
-		), nil
+		related.byCollection[spec.Collection] = records
 	}
 
-	if collection == "credentials" {
-		var issuerName *string
-		var issuerAvatarURL *string
-		issuerID := strings.TrimSpace(record.GetString("credential_issuer"))
-		if issuerID != "" {
-			issuerRecord, err := app.FindRecordById("credential_issuers", issuerID)
-			if err == nil {
-				issuerName = optionalTrimmedStringPtr(issuerRecord.GetString("name"))
-				issuerAvatarURL = firstNonEmptyStringPtr(
-					issuerRecord.GetString("avatar"),
-					issuerRecord.GetString("logo_url"),
-				)
-			}
+	return related, nil
+}
+
+func interopRelationIDs(recordsByID map[string]*core.Record, field string) []string {
+	seen := map[string]struct{}{}
+	for _, record := range recordsByID {
+		id := strings.TrimSpace(record.GetString(field))
+		if id == "" {
+			continue
 		}
-		return buildEnrichedEntityMetadata(
-			record.Id,
-			record.GetString("name"),
-			path,
-			firstNonEmptyStringPtr(record.GetString("avatar"), record.GetString("logo_url")),
-			issuerName,
-			issuerAvatarURL,
-		), nil
+		seen[id] = struct{}{}
+	}
+	return interopUniqueIDs(seen)
+}
+
+func interopUniqueIDs(seen map[string]struct{}) []string {
+	if len(seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seen))
+	for id := range seen {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func buildRecordIDsFilter(ids []string) (string, dbx.Params) {
+	clauses := make([]string, 0, len(ids))
+	params := dbx.Params{}
+	for idx, id := range ids {
+		if id == "" {
+			continue
+		}
+		paramKey := fmt.Sprintf("id_%d", idx)
+		params[paramKey] = id
+		clauses = append(clauses, fmt.Sprintf("id = {:%s}", paramKey))
+	}
+	return strings.Join(clauses, " || "), params
+}
+
+func findRecordsByIDs(
+	app core.App,
+	collectionName string,
+	ids []string,
+) (map[string]*core.Record, error) {
+	recordsByID := make(map[string]*core.Record, len(ids))
+	if len(ids) == 0 {
+		return recordsByID, nil
 	}
 
-	return InteropMatrixEntity{
-		ID:        record.Id,
-		Name:      record.GetString("name"),
-		Path:      path,
-		AvatarURL: firstNonEmptyStringPtr(record.GetString("avatar"), record.GetString("logo"), record.GetString("logo_url")),
-	}, nil
+	for start := 0; start < len(ids); start += interopRecordIDFilterChunkSize {
+		end := start + interopRecordIDFilterChunkSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		chunk := ids[start:end]
+
+		filter, params := buildRecordIDsFilter(chunk)
+		if filter == "" {
+			continue
+		}
+
+		records, err := app.FindRecordsByFilter(
+			collectionName,
+			filter,
+			"",
+			-1,
+			0,
+			params,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("find %s records: %w", collectionName, err)
+		}
+		for _, record := range records {
+			recordsByID[record.Id] = record
+		}
+	}
+
+	return recordsByID, nil
 }
 
 func buildEnrichedEntityMetadata(
@@ -575,10 +755,14 @@ func conformanceCheckName(pathID string) string {
 	return strings.Join(words, " ")
 }
 
-func walletVersionLabelFor(app core.App, cacheRecord *core.Record, walletID string) *string {
+func walletVersionLabelFromCacheRecord(
+	cacheRecord *core.Record,
+	walletID string,
+	versionsByID map[string]*core.Record,
+) *string {
 	for _, versionID := range cacheRecord.GetStringSlice("wallet_versions") {
-		version, err := app.FindRecordById("wallet_versions", versionID)
-		if err != nil {
+		version := versionsByID[versionID]
+		if version == nil {
 			continue
 		}
 		if version.GetString("wallet") != walletID {

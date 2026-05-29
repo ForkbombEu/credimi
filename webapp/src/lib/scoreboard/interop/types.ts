@@ -2,15 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export type InteropStatus = 'stable' | 'flaky' | 'failing' | 'broken';
+import type { InteropMode } from './modes';
 
-export type InteropMode =
-	| 'wallets_credentials'
-	| 'wallets_issuers'
-	| 'wallets_verifiers'
-	| 'wallets_use_case_verifications'
-	| 'wallets_conformance_checks'
-	| 'use_case_verifications_conformance_checks';
+export type { InteropMode } from './modes';
+
+export type InteropStatus = 'stable' | 'flaky' | 'failing' | 'broken';
 
 export type InteropMatrixEntity = {
 	id: string;

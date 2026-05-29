@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -164,6 +165,22 @@ func TestInteropModeValidation(t *testing.T) {
 	require.True(t, isSupportedInteropMode("wallets_use_case_verifications"))
 	require.False(t, isSupportedInteropMode(interopMode("")))
 	require.False(t, isSupportedInteropMode(interopMode("bad_mode")))
+}
+
+func TestSupportedInteropModeStrings(t *testing.T) {
+	t.Parallel()
+
+	got := supportedInteropModeStrings()
+	require.Len(t, got, len(interopModeConfigs))
+	require.Equal(t, []string{
+		"use_case_verifications_conformance_checks",
+		"wallets_conformance_checks",
+		"wallets_credentials",
+		"wallets_issuers",
+		"wallets_use_case_verifications",
+		"wallets_verifiers",
+	}, got)
+	require.Equal(t, "use mode="+strings.Join(got, ", "), interopModesUsageHint())
 }
 
 func TestInteropModeConfigRelations(t *testing.T) {
@@ -638,7 +655,7 @@ func TestHandleInteropMatrix_ModeValidationReturnsBadRequest(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Code)
 			require.Equal(t, "mode", apiErr.Domain)
 			require.Equal(t, "unsupported or missing mode", apiErr.Reason)
-			require.Equal(t, "use mode=wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks, or use_case_verifications_conformance_checks", apiErr.Message)
+			require.Equal(t, interopModesUsageHint(), apiErr.Message)
 		})
 	}
 }
@@ -695,7 +712,10 @@ func TestInteropEntityFromRecord_CredentialIssuerLogoURLFallback(t *testing.T) {
 	rec.Set("logo_url", "https://cdn.example.com/logo.png")
 	require.NoError(t, app.Save(rec))
 
-	entity, err := interopEntityFromRecord(app, rec, "credential_issuers")
+	resolver, err := getInteropEntityResolver("credential_issuers")
+	require.NoError(t, err)
+
+	entity, err := resolver.Entity(app, rec, interopRelatedRecords{})
 	require.NoError(t, err)
 	require.Equal(t, "Test Issuer", entity.Name)
 	require.NotNil(t, entity.AvatarURL)
@@ -1012,4 +1032,46 @@ func TestBuildInteropMatrix_PathBasedColumns(t *testing.T) {
 	require.Len(t, resp.Cells, 2)
 	require.Len(t, resp.Columns, 2)
 	require.Len(t, resp.Rows, 1)
+}
+
+func TestBuildRecordIDsFilter(t *testing.T) {
+	t.Parallel()
+
+	filter, params := buildRecordIDsFilter([]string{"a", "b"})
+	require.Equal(t, "id = {:id_0} || id = {:id_1}", filter)
+	require.Equal(t, "a", params["id_0"])
+	require.Equal(t, "b", params["id_1"])
+
+	filter, params = buildRecordIDsFilter(nil)
+	require.Empty(t, filter)
+	require.Empty(t, params)
+}
+
+func TestWalletVersionLabelFromCacheRecord(t *testing.T) {
+	t.Parallel()
+
+	app := setupScoreboardInteropApp(t)
+	defer app.Cleanup()
+
+	versionsCollection, err := app.FindCollectionByNameOrId("wallet_versions")
+	require.NoError(t, err)
+
+	version := core.NewRecord(versionsCollection)
+	version.Id = "version-1"
+	version.Set("wallet", "wallet-1")
+	version.Set("tag", "1.2.3")
+
+	cacheCollection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+
+	cacheRecord := core.NewRecord(cacheCollection)
+	cacheRecord.Set("wallet_versions", []string{version.Id})
+
+	label := walletVersionLabelFromCacheRecord(
+		cacheRecord,
+		"wallet-1",
+		map[string]*core.Record{version.Id: version},
+	)
+	require.NotNil(t, label)
+	require.Equal(t, "v1.2.3", *label)
 }
