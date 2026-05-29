@@ -5,7 +5,6 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -27,116 +26,6 @@ const (
 	interopStatusFailing interopStatus = "failing"
 	interopStatusBroken  interopStatus = "broken"
 )
-
-type interopMode string
-
-const (
-	interopModeWalletsIssuers                        interopMode = "wallets_issuers"
-	interopModeWalletsCredentials                    interopMode = "wallets_credentials"
-	interopModeWalletsVerifiers                      interopMode = "wallets_verifiers"
-	interopModeWalletsUseCaseVerifications           interopMode = "wallets_use_case_verifications"
-	interopModeWalletsConformanceChecks              interopMode = "wallets_conformance_checks"
-	interopModeUseCaseVerificationsConformanceChecks interopMode = "use_case_verifications_conformance_checks"
-)
-
-type interopModeConfig struct {
-	RowRelationField    string
-	ColumnRelationField string
-	RowAxis             string
-	ColumnAxis          string
-	RowCollection       string
-	ColumnCollection    string
-	ColumnIsPathBased   bool
-}
-
-var interopModeConfigs = map[interopMode]interopModeConfig{
-	interopModeWalletsIssuers: {
-		RowRelationField:    "wallets",
-		ColumnRelationField: "issuers",
-		RowAxis:             "wallet",
-		ColumnAxis:          "issuer",
-		RowCollection:       "wallets",
-		ColumnCollection:    "credential_issuers",
-	},
-	interopModeWalletsCredentials: {
-		RowRelationField:    "wallets",
-		ColumnRelationField: "credentials",
-		RowAxis:             "wallet",
-		ColumnAxis:          "credential",
-		RowCollection:       "wallets",
-		ColumnCollection:    "credentials",
-	},
-	interopModeWalletsVerifiers: {
-		RowRelationField:    "wallets",
-		ColumnRelationField: "verifiers",
-		RowAxis:             "wallet",
-		ColumnAxis:          "verifier",
-		RowCollection:       "wallets",
-		ColumnCollection:    "verifiers",
-	},
-	interopModeWalletsUseCaseVerifications: {
-		RowRelationField:    "wallets",
-		ColumnRelationField: "use_case_verifications",
-		RowAxis:             "wallet",
-		ColumnAxis:          "use_case_verification",
-		RowCollection:       "wallets",
-		ColumnCollection:    "use_cases_verifications",
-	},
-	interopModeWalletsConformanceChecks: {
-		RowRelationField:    "wallets",
-		ColumnRelationField: "conformance_checks",
-		RowAxis:             "wallet",
-		ColumnAxis:          "conformance_check",
-		RowCollection:       "wallets",
-		ColumnCollection:    "conformance-checks",
-		ColumnIsPathBased:   true,
-	},
-	interopModeUseCaseVerificationsConformanceChecks: {
-		RowRelationField:    "use_case_verifications",
-		ColumnRelationField: "conformance_checks",
-		RowAxis:             "use_case_verification",
-		ColumnAxis:          "conformance_check",
-		RowCollection:       "use_cases_verifications",
-		ColumnCollection:    "conformance-checks",
-		ColumnIsPathBased:   true,
-	},
-}
-
-func getInteropModeConfig(mode interopMode) (interopModeConfig, bool) {
-	cfg, ok := interopModeConfigs[mode]
-	return cfg, ok
-}
-
-func isSupportedInteropMode(mode interopMode) bool {
-	_, ok := getInteropModeConfig(mode)
-	return ok
-}
-
-func supportedInteropModes() []interopMode {
-	modes := make([]interopMode, 0, len(interopModeConfigs))
-	for mode := range interopModeConfigs {
-		modes = append(modes, mode)
-	}
-	sort.Slice(modes, func(i, j int) bool { return modes[i] < modes[j] })
-	return modes
-}
-
-func supportedInteropModeStrings() []string {
-	modes := supportedInteropModes()
-	out := make([]string, len(modes))
-	for i, mode := range modes {
-		out[i] = string(mode)
-	}
-	return out
-}
-
-func interopModesUsageHint() string {
-	return "use mode=" + strings.Join(supportedInteropModeStrings(), ", ")
-}
-
-func interopModesDescription(prefix string) string {
-	return prefix + " Supports " + strings.Join(supportedInteropModeStrings(), ", ") + "."
-}
 
 type interopCacheInput struct {
 	PipelineID     string
@@ -230,14 +119,6 @@ type interopCacheScan struct {
 	rowEntities         map[string]InteropMatrixEntity
 	columnEntities      map[string]InteropMatrixEntity
 	walletVersionLabels map[string]*string
-}
-
-type unsupportedInteropModeError struct {
-	mode interopMode
-}
-
-func (e unsupportedInteropModeError) Error() string {
-	return fmt.Sprintf("interop mode %q is not implemented", e.mode)
 }
 
 func sortedInteropEntities(all map[string]InteropMatrixEntity, seen map[string]struct{}) []InteropMatrixEntity {
@@ -335,15 +216,18 @@ var ScoreboardInteropPublicRoutes = routing.RouteGroup{
 			OperationID:    "scoreboard.interop",
 			Handler:        HandleInteropMatrix,
 			ResponseSchema: InteropMatrixResponse{},
-			Summary:        "Interoperability matrix",
-			Description: interopModesDescription(
-				"Interoperability matrix from pipeline_scoreboard_cache.",
-			),
+			Summary:     "Interoperability matrix",
+			Description: "Interoperability matrix from pipeline_scoreboard_cache. " + interopHubsUsageHint(),
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
-					Name:        "mode",
+					Name:        "row",
 					Required:    true,
-					Description: interopModesDescription("Matrix pair mode."),
+					Description: "Row hub collection (e.g. wallets).",
+				},
+				{
+					Name:        "column",
+					Required:    true,
+					Description: "Column hub collection (e.g. credentials).",
 				},
 			},
 		},
@@ -352,28 +236,54 @@ var ScoreboardInteropPublicRoutes = routing.RouteGroup{
 
 func HandleInteropMatrix() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		mode := interopMode(e.Request.URL.Query().Get("mode"))
-		if !isSupportedInteropMode(mode) {
+		q := e.Request.URL.Query()
+		if q.Has("mode") {
 			return apierror.New(
 				http.StatusBadRequest,
 				"mode",
-				"unsupported or missing mode",
-				interopModesUsageHint(),
+				"mode query param is no longer supported",
+				interopHubsUsageHint(),
+			).JSON(e)
+		}
+		rowHub := q.Get("row")
+		colHub := q.Get("column")
+		if rowHub == "" || colHub == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"row",
+				"missing row or column hub collection",
+				interopHubsUsageHint(),
+			).JSON(e)
+		}
+		if rowHub == colHub {
+			return apierror.New(
+				http.StatusBadRequest,
+				"row",
+				"row and column must differ",
+				interopHubsUsageHint(),
+			).JSON(e)
+		}
+		rowAxis, ok := getInteropAxis(rowHub)
+		if !ok {
+			return apierror.New(
+				http.StatusBadRequest,
+				"row",
+				"unknown row hub collection",
+				interopHubsUsageHint(),
+			).JSON(e)
+		}
+		colAxis, ok := getInteropAxis(colHub)
+		if !ok {
+			return apierror.New(
+				http.StatusBadRequest,
+				"column",
+				"unknown column hub collection",
+				interopHubsUsageHint(),
 			).JSON(e)
 		}
 
-		resp, err := loadInteropMatrixFromCacheByMode(e.App, mode)
+		resp, err := loadInteropMatrixFromCache(e.App, rowAxis, colAxis)
 		if err != nil {
-			var unsupportedModeErr unsupportedInteropModeError
-			if errors.As(err, &unsupportedModeErr) {
-				return apierror.New(
-					http.StatusBadRequest,
-					"mode",
-					"mode not implemented",
-					unsupportedModeErr.Error(),
-				).JSON(e)
-			}
-
 			return apierror.New(
 				http.StatusInternalServerError,
 				"scoreboard",
@@ -384,28 +294,6 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, resp)
 	}
-}
-
-func interopAxesFromModeConfig(cfg interopModeConfig) (rowAxis, colAxis interopAxis) {
-	rowAxis = interopAxis{
-		HubCollection: cfg.RowCollection,
-		CacheField:    cfg.RowRelationField,
-	}
-	colAxis = interopAxis{
-		HubCollection: cfg.ColumnCollection,
-		CacheField:    cfg.ColumnRelationField,
-		PathBased:     cfg.ColumnIsPathBased,
-	}
-	return rowAxis, colAxis
-}
-
-func loadInteropMatrixFromCacheByMode(app core.App, mode interopMode) (InteropMatrixResponse, error) {
-	modeConfig, ok := getInteropModeConfig(mode)
-	if !ok {
-		return InteropMatrixResponse{}, unsupportedInteropModeError{mode: mode}
-	}
-	rowAxis, colAxis := interopAxesFromModeConfig(modeConfig)
-	return loadInteropMatrixFromCache(app, rowAxis, colAxis)
 }
 
 func loadInteropMatrixFromCache(
