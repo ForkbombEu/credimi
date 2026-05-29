@@ -31,11 +31,12 @@ const (
 type interopMode string
 
 const (
-	interopModeWalletsIssuers              interopMode = "wallets_issuers"
-	interopModeWalletsCredentials          interopMode = "wallets_credentials"
-	interopModeWalletsVerifiers            interopMode = "wallets_verifiers"
-	interopModeWalletsUseCaseVerifications interopMode = "wallets_use_case_verifications"
-	interopModeWalletsConformanceChecks    interopMode = "wallets_conformance_checks"
+	interopModeWalletsIssuers                        interopMode = "wallets_issuers"
+	interopModeWalletsCredentials                    interopMode = "wallets_credentials"
+	interopModeWalletsVerifiers                      interopMode = "wallets_verifiers"
+	interopModeWalletsUseCaseVerifications           interopMode = "wallets_use_case_verifications"
+	interopModeWalletsConformanceChecks              interopMode = "wallets_conformance_checks"
+	interopModeUseCaseVerificationsConformanceChecks interopMode = "use_case_verifications_conformance_checks"
 )
 
 type interopModeConfig struct {
@@ -87,6 +88,15 @@ var interopModeConfigs = map[interopMode]interopModeConfig{
 		RowAxis:             "wallet",
 		ColumnAxis:          "conformance_check",
 		RowCollection:       "wallets",
+		ColumnCollection:    "",
+		ColumnIsPathBased:   true,
+	},
+	interopModeUseCaseVerificationsConformanceChecks: {
+		RowRelationField:    "use_case_verifications",
+		ColumnRelationField: "conformance_checks",
+		RowAxis:             "use_case_verification",
+		ColumnAxis:          "conformance_check",
+		RowCollection:       "use_cases_verifications",
 		ColumnCollection:    "",
 		ColumnIsPathBased:   true,
 	},
@@ -265,12 +275,12 @@ var ScoreboardInteropPublicRoutes = routing.RouteGroup{
 			Handler:        HandleInteropMatrix,
 			ResponseSchema: InteropMatrixResponse{},
 			Summary:        "Interoperability matrix",
-			Description:    "Interoperability matrix from pipeline_scoreboard_cache. Supports wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, and wallets_conformance_checks.",
+			Description:    "Interoperability matrix from pipeline_scoreboard_cache. Supports wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks, and use_case_verifications_conformance_checks.",
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
 					Name:        "mode",
 					Required:    true,
-					Description: "Matrix pair mode. Supports wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, or wallets_conformance_checks.",
+					Description: "Matrix pair mode. Supports wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks, or use_case_verifications_conformance_checks.",
 				},
 			},
 		},
@@ -285,7 +295,7 @@ func HandleInteropMatrix() func(*core.RequestEvent) error {
 				http.StatusBadRequest,
 				"mode",
 				"unsupported or missing mode",
-				"use mode=wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, or wallets_conformance_checks",
+				"use mode=wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks, or use_case_verifications_conformance_checks",
 			).JSON(e)
 		}
 

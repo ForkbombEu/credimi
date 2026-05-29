@@ -7,14 +7,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { m } from '@/i18n';
 	import { get as getConformanceStore } from '$lib/conformance';
+
+	import { m } from '@/i18n';
 
 	import type { InteropMatrixResponse } from './types';
 	import type { InteropMatrixEntity } from './types';
-	import { resolveConformanceCheck } from './resolve-conformance';
 
 	import MatrixCell from './matrix-cell.svelte';
+	import { resolveConformanceCheck } from './resolve-conformance';
 
 	type Props = {
 		matrix: InteropMatrixResponse;
@@ -27,14 +28,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		new Map(matrix.cells.map((cell) => [`${cell.row_id}:${cell.column_id}`, cell] as const))
 	);
 
-	const columnCollection = $derived(
-		matrix.mode === 'wallets_credentials' ? 'credentials' : 'credential_issuers'
-	);
+	const isConformanceColumns = $derived(matrix.column_axis === 'conformance_check');
 
-	const isConformanceMode = $derived(matrix.mode === 'wallets_conformance_checks');
+	const columnCollection = $derived(columnHubCollection(matrix.column_axis));
+	const rowCollection = $derived(rowHubCollection(matrix.row_axis));
+
+	function rowHubCollection(axis: string): string {
+		return axis === 'use_case_verification' ? 'use_cases_verifications' : 'wallets';
+	}
+
+	function columnHubCollection(axis: string): string {
+		switch (axis) {
+			case 'credential':
+				return 'credentials';
+			case 'verifier':
+				return 'verifiers';
+			case 'use_case_verification':
+				return 'use_cases_verifications';
+			default:
+				return 'credential_issuers';
+		}
+	}
 
 	function enrichedColumn(column: InteropMatrixEntity): InteropMatrixEntity {
-		if (!isConformanceMode) return column;
+		if (!isConformanceColumns) return column;
 		const resolved = resolveConformanceCheck(column.id, getConformanceStore().standards);
 		if (!resolved) return column;
 		return {
@@ -45,9 +62,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	}
 
-	function hubHref(collection: 'wallets' | 'credential_issuers' | 'credentials', path: string) {
+	function hubHref(collection: string, path: string) {
 		return `/hub/${collection}/${path}`;
 	}
+
+	function axisLabel(axis: string): string {
+		switch (axis) {
+			case 'wallet':
+				return m.Wallet();
+			case 'issuer':
+				return m.Issuer();
+			case 'credential':
+				return m.Credential();
+			case 'verifier':
+				return m.Verifier();
+			case 'use_case_verification':
+				return m.Use_case_verification();
+			case 'conformance_check':
+				return m.Conformance_check();
+			default:
+				return axis;
+		}
+	}
+
+	const cornerLabel = $derived(
+		m.interop_matrix_corner_label({
+			row: axisLabel(matrix.row_axis),
+			column: axisLabel(matrix.column_axis)
+		})
+	);
 
 	function getSubtitleOrVersion(
 		subtitle: string | null | undefined,
@@ -69,7 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<th
 						class="sticky left-0 z-20 min-w-40 border-r border-b bg-muted/80 px-3 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase"
 					>
-						{m.interop_matrix_corner_label()}
+						{cornerLabel}
 					</th>
 					{#each matrix.columns as column (column.id)}
 						{@const enriched = enrichedColumn(column)}
@@ -82,7 +125,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						>
 							<a
 								class="inline-flex max-w-44 flex-col items-center gap-1 hover:underline"
-								href={isConformanceMode
+								href={isConformanceColumns
 									? `/hub/${column.path}`
 									: hubHref(columnCollection, column.path)}
 							>
@@ -114,7 +157,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						>
 							<a
 								class="inline-flex items-center gap-2 hover:underline"
-								href={hubHref('wallets', row.path)}
+								href={hubHref(rowCollection, row.path)}
 							>
 								{#if row.avatar_url}
 									<img

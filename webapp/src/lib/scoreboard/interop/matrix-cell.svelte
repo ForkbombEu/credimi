@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import type { InteropMatrixCell } from './types';
+
 	import { interopStatusStyles } from './status';
 
 	type Props = {

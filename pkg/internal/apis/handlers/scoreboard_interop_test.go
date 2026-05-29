@@ -629,7 +629,7 @@ func TestHandleInteropMatrix_ModeValidationReturnsBadRequest(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Code)
 			require.Equal(t, "mode", apiErr.Domain)
 			require.Equal(t, "unsupported or missing mode", apiErr.Reason)
-			require.Equal(t, "use mode=wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, or wallets_conformance_checks", apiErr.Message)
+			require.Equal(t, "use mode=wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks, or use_case_verifications_conformance_checks", apiErr.Message)
 		})
 	}
 }
@@ -819,6 +819,124 @@ func TestInteropModeConfig_ConformanceChecks(t *testing.T) {
 	require.Equal(t, "conformance_check", cfg.ColumnAxis)
 	require.Equal(t, "wallets", cfg.RowCollection)
 	require.Equal(t, "", cfg.ColumnCollection)
+}
+
+func TestInteropModeConfig_UseCaseVerificationsConformanceChecks(t *testing.T) {
+	t.Parallel()
+	cfg, ok := getInteropModeConfig(interopModeUseCaseVerificationsConformanceChecks)
+	require.True(t, ok)
+	require.Equal(t, "use_case_verifications", cfg.RowRelationField)
+	require.Equal(t, "conformance_checks", cfg.ColumnRelationField)
+	require.True(t, cfg.ColumnIsPathBased)
+	require.Equal(t, "use_case_verification", cfg.RowAxis)
+	require.Equal(t, "conformance_check", cfg.ColumnAxis)
+	require.Equal(t, "use_cases_verifications", cfg.RowCollection)
+	require.Equal(t, "", cfg.ColumnCollection)
+}
+
+func TestInteropModeValidation_UseCaseVerificationsConformanceChecks(t *testing.T) {
+	t.Parallel()
+	require.True(t, isSupportedInteropMode(interopModeUseCaseVerificationsConformanceChecks))
+	require.True(t, isSupportedInteropMode("use_case_verifications_conformance_checks"))
+}
+
+func TestHandleInteropMatrix_UseCaseVerificationsConformanceChecksHappyPath(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipeline := createPipelineRecord(t, app, orgID, "interop-usecase-conformance")
+
+	verifiersCollection, err := app.FindCollectionByNameOrId("verifiers")
+	require.NoError(t, err)
+
+	verifier := core.NewRecord(verifiersCollection)
+	verifier.Set("url", "https://interop-usecase-verifier.example.com")
+	verifier.Set("name", "interop-usecase-verifier")
+	verifier.Set("owner", orgID)
+	verifier.Set("standard_and_version", "testsuite/draft-01")
+	verifier.Set("format", []string{"SD-JWT"})
+	verifier.Set("signing_algorithms", []string{"ES256"})
+	verifier.Set("cryptographic_binding_methods", []string{"jwk"})
+	verifier.Set("description", "example description")
+	require.NoError(t, app.Save(verifier))
+
+	useCasesCollection, err := app.FindCollectionByNameOrId("use_cases_verifications")
+	require.NoError(t, err)
+
+	useCase := core.NewRecord(useCasesCollection)
+	useCase.Set("name", "interop-usecase")
+	useCase.Set("deeplink", "https://example.com/usecase")
+	useCase.Set("yaml", "type: verification")
+	useCase.Set("verifier", verifier.Id)
+	useCase.Set("owner", orgID)
+	require.NoError(t, app.Save(useCase))
+
+	const checkPath = "openid4vp_wallet/1.0/webuild/WEBUILD-VP001-x509-direct_post-post-dcql-sd_jwt"
+
+	cacheCollection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+
+	cacheRecord := core.NewRecord(cacheCollection)
+	cacheRecord.Set("pipeline", pipeline.Id)
+	cacheRecord.Set("total_runs", 20)
+	cacheRecord.Set("total_successes", 19)
+	cacheRecord.Set("success_rate", 95.0)
+	cacheRecord.Set("manually_executed_runs", 12)
+	cacheRecord.Set("scheduled_runs", 8)
+	cacheRecord.Set("CI_runs", 0)
+	cacheRecord.Set("minimum_running_time", "1m30s")
+	cacheRecord.Set("first_execution", "2026-05-01T10:00:00Z")
+	cacheRecord.Set("last_execution_date", "2026-05-01T11:00:00Z")
+	cacheRecord.Set("use_case_verifications", []string{useCase.Id})
+	cacheRecord.Set("conformance_checks", []string{checkPath})
+	require.NoError(t, app.Save(cacheRecord))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/scoreboard/interop?mode=use_case_verifications_conformance_checks", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleInteropMatrix()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp InteropMatrixResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+
+	require.Equal(t, interopModeUseCaseVerificationsConformanceChecks, resp.Mode)
+	require.Equal(t, "use_case_verification", resp.RowAxis)
+	require.Equal(t, "conformance_check", resp.ColumnAxis)
+	require.NotEmpty(t, resp.Cells)
+
+	cell, ok := findInteropCell(resp, useCase.Id, checkPath)
+	require.True(t, ok, "expected use case verification x conformance check cell")
+	require.Equal(t, 20, cell.TotalRuns)
+	require.Equal(t, 19, cell.TotalSuccesses)
+	require.Equal(t, interopStatusStable, cell.Status)
+
+	rowsByID := make(map[string]InteropMatrixEntity, len(resp.Rows))
+	for _, row := range resp.Rows {
+		rowsByID[row.ID] = row
+	}
+	useCaseRow, ok := rowsByID[useCase.Id]
+	require.True(t, ok, "expected use case verification row")
+	require.NotNil(t, useCaseRow.Subtitle)
+	require.Equal(t, "interop-usecase-verifier", *useCaseRow.Subtitle)
+
+	columnsByID := make(map[string]InteropMatrixEntity, len(resp.Columns))
+	for _, column := range resp.Columns {
+		columnsByID[column.ID] = column
+	}
+	checkColumn, ok := columnsByID[checkPath]
+	require.True(t, ok, "expected conformance check column")
+	require.Equal(t, checkPath, checkColumn.Path)
 }
 
 func TestConformanceCheckName(t *testing.T) {

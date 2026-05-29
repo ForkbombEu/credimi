@@ -28,6 +28,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			value: 'wallets_conformance_checks',
 			label: () => m.interop_mode_wallets_conformance_checks()
+		},
+		{
+			value: 'use_case_verifications_conformance_checks',
+			label: () => m.interop_mode_use_case_verifications_conformance_checks()
 		}
 	];
 

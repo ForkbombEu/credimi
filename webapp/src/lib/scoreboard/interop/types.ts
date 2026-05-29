@@ -9,7 +9,8 @@ export type InteropMode =
 	| 'wallets_issuers'
 	| 'wallets_verifiers'
 	| 'wallets_use_case_verifications'
-	| 'wallets_conformance_checks';
+	| 'wallets_conformance_checks'
+	| 'use_case_verifications_conformance_checks';
 
 export type InteropMatrixEntity = {
 	id: string;

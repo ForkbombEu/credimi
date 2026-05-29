@@ -13,7 +13,7 @@ The Scoreboard shows aggregated pipeline execution results across the platform. 
 
 ### `GET /api/scoreboard/interop`
 
-Public interoperability matrix. Requires `mode` query parameter: `wallets_credentials`, `wallets_issuers`, `wallets_verifiers`, or `wallets_use_case_verifications`. Missing or invalid `mode` returns `400 Bad Request`.
+Public interoperability matrix. Requires `mode` query parameter: `wallets_credentials`, `wallets_issuers`, `wallets_verifiers`, `wallets_use_case_verifications`, `wallets_conformance_checks`, or `use_case_verifications_conformance_checks`. Missing or invalid `mode` returns `400 Bad Request`.
 Defaults to `wallets_credentials` in the UI.
 
 **Authentication:** None
@@ -71,12 +71,14 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
 
 ### Interop matrix (`/scoreboard/interop`)
 
-- Requires `mode=wallets_credentials|wallets_issuers` query parameter (missing/invalid mode returns `400`)
+- Requires a `mode` query parameter (missing/invalid mode returns `400`)
 - Default UI mode is `wallets_credentials`
 - `GET /api/scoreboard/interop?mode=wallets_issuers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×issuer grid
 - `GET /api/scoreboard/interop?mode=wallets_credentials` — public aggregation of `pipeline_scoreboard_cache` into a wallet×credential grid
 - `GET /api/scoreboard/interop?mode=wallets_verifiers` — public aggregation of `pipeline_scoreboard_cache` into a wallet×verifier grid
 - `GET /api/scoreboard/interop?mode=wallets_use_case_verifications` — public aggregation of `pipeline_scoreboard_cache` into a wallet×use_case_verification grid
+- `GET /api/scoreboard/interop?mode=wallets_conformance_checks` — public aggregation of `pipeline_scoreboard_cache` into a wallet×conformance_check grid (columns are path-based, resolved client-side from the conformance store)
+- `GET /api/scoreboard/interop?mode=use_case_verifications_conformance_checks` — public aggregation of `pipeline_scoreboard_cache` into a use_case_verification×conformance_check grid (path-based columns)
 - Unified row/column metadata contract in API responses:
   - `id` (required)
   - `name` (required)
