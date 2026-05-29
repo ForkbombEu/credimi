@@ -923,6 +923,15 @@ components:
           nullable: true
           type: string
       type: object
+    HandlersInteropAxis:
+      properties:
+        hub_collection:
+          type: string
+        key:
+          type: string
+        path_based:
+          type: boolean
+      type: object
     HandlersInteropMatrixResponse:
       properties:
         cells:
@@ -930,8 +939,8 @@ components:
             $ref: '#/components/schemas/HandlersInteropMatrixCell'
           nullable: true
           type: array
-        column_axis:
-          type: string
+        column:
+          $ref: '#/components/schemas/HandlersInteropAxis'
         columns:
           items:
             $ref: '#/components/schemas/HandlersInteropMatrixEntity'
@@ -939,8 +948,8 @@ components:
           type: array
         mode:
           type: string
-        row_axis:
-          type: string
+        row:
+          $ref: '#/components/schemas/HandlersInteropAxis'
         rows:
           items:
             $ref: '#/components/schemas/HandlersInteropMatrixEntity'

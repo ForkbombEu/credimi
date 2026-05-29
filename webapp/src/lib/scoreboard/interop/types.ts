@@ -31,10 +31,16 @@ export type InteropMatrixCell = {
 	status: InteropStatus;
 };
 
+export type InteropAxis = {
+	key: string;
+	hub_collection: string;
+	path_based: boolean;
+};
+
 export type InteropMatrixResponse = {
 	mode: InteropMode;
-	row_axis: string;
-	column_axis: string;
+	row: InteropAxis;
+	column: InteropAxis;
 	rows: InteropMatrixEntity[];
 	columns: InteropMatrixEntity[];
 	cells: InteropMatrixCell[];

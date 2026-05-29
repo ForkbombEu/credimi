@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { m } from '@/i18n';
 
-	import type { InteropMatrixResponse } from './types';
+	import type { InteropAxis, InteropMatrixResponse } from './types';
 	import type { InteropMatrixEntity } from './types';
 
 	import MatrixCell from './matrix-cell.svelte';
@@ -28,27 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		new Map(matrix.cells.map((cell) => [`${cell.row_id}:${cell.column_id}`, cell] as const))
 	);
 
-	const isConformanceColumns = $derived(matrix.column_axis === 'conformance_check');
-
-	const columnCollection = $derived(columnHubCollection(matrix.column_axis));
-	const rowCollection = $derived(rowHubCollection(matrix.row_axis));
-
-	function rowHubCollection(axis: string): string {
-		return axis === 'use_case_verification' ? 'use_cases_verifications' : 'wallets';
-	}
-
-	function columnHubCollection(axis: string): string {
-		switch (axis) {
-			case 'credential':
-				return 'credentials';
-			case 'verifier':
-				return 'verifiers';
-			case 'use_case_verification':
-				return 'use_cases_verifications';
-			default:
-				return 'credential_issuers';
-		}
-	}
+	const isConformanceColumns = $derived(matrix.column.path_based);
 
 	function enrichedColumn(column: InteropMatrixEntity): InteropMatrixEntity {
 		if (!isConformanceColumns) return column;
@@ -62,8 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	}
 
-	function hubHref(collection: string, path: string) {
-		return `/hub/${collection}/${path}`;
+	function hubHref(axis: InteropAxis, path: string) {
+		return `/hub/${axis.hub_collection}/${path}`;
 	}
 
 	function axisLabel(axis: string): string {
@@ -87,8 +67,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const cornerLabel = $derived(
 		m.interop_matrix_corner_label({
-			row: axisLabel(matrix.row_axis),
-			column: axisLabel(matrix.column_axis)
+			row: axisLabel(matrix.row.key),
+			column: axisLabel(matrix.column.key)
 		})
 	);
 
@@ -125,9 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						>
 							<a
 								class="inline-flex max-w-44 flex-col items-center gap-1 hover:underline"
-								href={isConformanceColumns
-									? `/hub/${column.path}`
-									: hubHref(columnCollection, column.path)}
+								href={hubHref(matrix.column, column.path)}
 							>
 								{#if enriched.avatar_url}
 									<img
@@ -157,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						>
 							<a
 								class="inline-flex items-center gap-2 hover:underline"
-								href={hubHref(rowCollection, row.path)}
+								href={hubHref(matrix.row, row.path)}
 							>
 								{#if row.avatar_url}
 									<img

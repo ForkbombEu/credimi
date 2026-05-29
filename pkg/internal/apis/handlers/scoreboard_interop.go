@@ -88,7 +88,7 @@ var interopModeConfigs = map[interopMode]interopModeConfig{
 		RowAxis:             "wallet",
 		ColumnAxis:          "conformance_check",
 		RowCollection:       "wallets",
-		ColumnCollection:    "",
+		ColumnCollection:    "conformance-checks",
 		ColumnIsPathBased:   true,
 	},
 	interopModeUseCaseVerificationsConformanceChecks: {
@@ -97,7 +97,7 @@ var interopModeConfigs = map[interopMode]interopModeConfig{
 		RowAxis:             "use_case_verification",
 		ColumnAxis:          "conformance_check",
 		RowCollection:       "use_cases_verifications",
-		ColumnCollection:    "",
+		ColumnCollection:    "conformance-checks",
 		ColumnIsPathBased:   true,
 	},
 }
@@ -145,13 +145,24 @@ type InteropMatrixCell struct {
 	Status         interopStatus `json:"status"`
 }
 
+// InteropAxis bundles an axis with the facts a caller needs to render it:
+// its stable key (mapped to an i18n label by the caller), the hub URL segment
+// for its entities (e.g. "wallets", "conformance-checks"), and whether column
+// IDs are conformance check paths from a JSON field rather than PocketBase
+// relation record IDs.
+type InteropAxis struct {
+	Key           string `json:"key"`
+	HubCollection string `json:"hub_collection"`
+	PathBased     bool   `json:"path_based"`
+}
+
 type InteropMatrixResponse struct {
-	Mode       interopMode           `json:"mode"`
-	RowAxis    string                `json:"row_axis"`
-	ColumnAxis string                `json:"column_axis"`
-	Rows       []InteropMatrixEntity `json:"rows"`
-	Columns    []InteropMatrixEntity `json:"columns"`
-	Cells      []InteropMatrixCell   `json:"cells"`
+	Mode    interopMode           `json:"mode"`
+	Row     InteropAxis           `json:"row"`
+	Column  InteropAxis           `json:"column"`
+	Rows    []InteropMatrixEntity `json:"rows"`
+	Columns []InteropMatrixEntity `json:"columns"`
+	Cells   []InteropMatrixCell   `json:"cells"`
 }
 
 func interopStatusFromRate(rate float64) interopStatus {
@@ -252,12 +263,12 @@ func buildInteropMatrix(
 	}
 
 	return InteropMatrixResponse{
-		Mode:       interopModeWalletsIssuers,
-		RowAxis:    "wallet",
-		ColumnAxis: "issuer",
-		Rows:       sortedInteropEntities(rowEntities, rowSeen),
-		Columns:    sortedInteropEntities(columnEntities, colSeen),
-		Cells:      cells,
+		Mode:    interopModeWalletsIssuers,
+		Row:     InteropAxis{Key: "wallet", HubCollection: "wallets"},
+		Column:  InteropAxis{Key: "issuer", HubCollection: "credential_issuers"},
+		Rows:    sortedInteropEntities(rowEntities, rowSeen),
+		Columns: sortedInteropEntities(columnEntities, colSeen),
+		Cells:   cells,
 	}
 }
 
@@ -391,8 +402,15 @@ func loadInteropMatrixFromCache(app core.App, mode interopMode) (InteropMatrixRe
 
 	resp := buildInteropMatrix(inputs, rowEntities, columnEntities)
 	resp.Mode = mode
-	resp.RowAxis = modeConfig.RowAxis
-	resp.ColumnAxis = modeConfig.ColumnAxis
+	resp.Row = InteropAxis{
+		Key:           modeConfig.RowAxis,
+		HubCollection: modeConfig.RowCollection,
+	}
+	resp.Column = InteropAxis{
+		Key:           modeConfig.ColumnAxis,
+		HubCollection: modeConfig.ColumnCollection,
+		PathBased:     modeConfig.ColumnIsPathBased,
+	}
 
 	return resp, nil
 }

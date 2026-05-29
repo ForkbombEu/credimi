@@ -65,8 +65,12 @@ func TestBuildInteropMatrix_CartesianAndSums(t *testing.T) {
 	got := buildInteropMatrix(inputs, rowEntities, colEntities)
 
 	require.Equal(t, interopModeWalletsIssuers, got.Mode)
-	require.Equal(t, "wallet", got.RowAxis)
-	require.Equal(t, "issuer", got.ColumnAxis)
+	require.Equal(t, "wallet", got.Row.Key)
+	require.Equal(t, "wallets", got.Row.HubCollection)
+	require.False(t, got.Row.PathBased)
+	require.Equal(t, "issuer", got.Column.Key)
+	require.Equal(t, "credential_issuers", got.Column.HubCollection)
+	require.False(t, got.Column.PathBased)
 	require.Len(t, got.Cells, 2)
 
 	require.Len(t, got.Rows, 2)
@@ -374,8 +378,11 @@ func TestHandleInteropMatrix_WalletsCredentialsHappyPath(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
 	require.Equal(t, interopModeWalletsCredentials, resp.Mode)
-	require.Equal(t, "wallet", resp.RowAxis)
-	require.Equal(t, "credential", resp.ColumnAxis)
+	require.Equal(t, "wallet", resp.Row.Key)
+	require.Equal(t, "wallets", resp.Row.HubCollection)
+	require.Equal(t, "credential", resp.Column.Key)
+	require.Equal(t, "credentials", resp.Column.HubCollection)
+	require.False(t, resp.Column.PathBased)
 	require.NotEmpty(t, resp.Cells)
 
 	cell, ok := findInteropCell(resp, wallet.Id, credential.Id)
@@ -446,8 +453,10 @@ func TestHandleInteropMatrix_WalletsIssuersHappyPath(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
 	require.Equal(t, interopModeWalletsIssuers, resp.Mode)
-	require.Equal(t, "wallet", resp.RowAxis)
-	require.Equal(t, "issuer", resp.ColumnAxis)
+	require.Equal(t, "wallet", resp.Row.Key)
+	require.Equal(t, "wallets", resp.Row.HubCollection)
+	require.Equal(t, "issuer", resp.Column.Key)
+	require.Equal(t, "credential_issuers", resp.Column.HubCollection)
 	require.NotEmpty(t, resp.Cells)
 
 	cell, ok := findInteropCell(resp, wallet.Id, issuer.Id)
@@ -818,7 +827,7 @@ func TestInteropModeConfig_ConformanceChecks(t *testing.T) {
 	require.Equal(t, "wallet", cfg.RowAxis)
 	require.Equal(t, "conformance_check", cfg.ColumnAxis)
 	require.Equal(t, "wallets", cfg.RowCollection)
-	require.Equal(t, "", cfg.ColumnCollection)
+	require.Equal(t, "conformance-checks", cfg.ColumnCollection)
 }
 
 func TestInteropModeConfig_UseCaseVerificationsConformanceChecks(t *testing.T) {
@@ -831,7 +840,7 @@ func TestInteropModeConfig_UseCaseVerificationsConformanceChecks(t *testing.T) {
 	require.Equal(t, "use_case_verification", cfg.RowAxis)
 	require.Equal(t, "conformance_check", cfg.ColumnAxis)
 	require.Equal(t, "use_cases_verifications", cfg.RowCollection)
-	require.Equal(t, "", cfg.ColumnCollection)
+	require.Equal(t, "conformance-checks", cfg.ColumnCollection)
 }
 
 func TestInteropModeValidation_UseCaseVerificationsConformanceChecks(t *testing.T) {
@@ -911,8 +920,12 @@ func TestHandleInteropMatrix_UseCaseVerificationsConformanceChecksHappyPath(t *t
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
 	require.Equal(t, interopModeUseCaseVerificationsConformanceChecks, resp.Mode)
-	require.Equal(t, "use_case_verification", resp.RowAxis)
-	require.Equal(t, "conformance_check", resp.ColumnAxis)
+	require.Equal(t, "use_case_verification", resp.Row.Key)
+	require.Equal(t, "use_cases_verifications", resp.Row.HubCollection)
+	require.False(t, resp.Row.PathBased)
+	require.Equal(t, "conformance_check", resp.Column.Key)
+	require.Equal(t, "conformance-checks", resp.Column.HubCollection)
+	require.True(t, resp.Column.PathBased)
 	require.NotEmpty(t, resp.Cells)
 
 	cell, ok := findInteropCell(resp, useCase.Id, checkPath)
