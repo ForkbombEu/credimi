@@ -695,21 +695,24 @@ paths:
       summary: Terminate a specific workflow run
   /api/scoreboard/interop:
     get:
-      description: Interoperability matrix from pipeline_scoreboard_cache. Supports
-        wallets_credentials, wallets_issuers, wallets_verifiers, wallets_use_case_verifications,
-        wallets_conformance_checks, and use_case_verifications_conformance_checks.
+      description: 'Interoperability matrix from pipeline_scoreboard_cache. use row=
+        and column= with hub collections: conformance-checks, credential_issuers,
+        credentials, use_cases_verifications, verifiers, wallets'
       operationId: scoreboard.interop
       parameters:
-      - description: Matrix pair mode. Supports wallets_credentials, wallets_issuers,
-          wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks,
-          or use_case_verifications_conformance_checks.
+      - description: Row hub collection (e.g. wallets).
         in: query
-        name: mode
+        name: row
         required: true
         schema:
-          description: Matrix pair mode. Supports wallets_credentials, wallets_issuers,
-            wallets_verifiers, wallets_use_case_verifications, wallets_conformance_checks,
-            or use_case_verifications_conformance_checks.
+          description: Row hub collection (e.g. wallets).
+          type: string
+      - description: Column hub collection (e.g. credentials).
+        in: query
+        name: column
+        required: true
+        schema:
+          description: Column hub collection (e.g. credentials).
           type: string
       responses:
         "200":
@@ -888,6 +891,13 @@ components:
         workflowExecutionInfo:
           $ref: '#/components/schemas/HandlersWorkflowExecutionInfo'
       type: object
+    HandlersInteropAxis:
+      properties:
+        hub_collection:
+          type: string
+        path_based:
+          type: boolean
+      type: object
     HandlersInteropMatrixCell:
       properties:
         column_id:
@@ -923,15 +933,6 @@ components:
           nullable: true
           type: string
       type: object
-    HandlersInteropAxis:
-      properties:
-        hub_collection:
-          type: string
-        key:
-          type: string
-        path_based:
-          type: boolean
-      type: object
     HandlersInteropMatrixResponse:
       properties:
         cells:
@@ -946,8 +947,6 @@ components:
             $ref: '#/components/schemas/HandlersInteropMatrixEntity'
           nullable: true
           type: array
-        mode:
-          type: string
         row:
           $ref: '#/components/schemas/HandlersInteropAxis'
         rows:
