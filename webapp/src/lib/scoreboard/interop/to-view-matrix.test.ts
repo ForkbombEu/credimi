@@ -10,7 +10,13 @@ import { m } from '@/i18n';
 
 import type { InteropMatrixResponse } from './types';
 
-import { hubHref, subtitleOrVersion, toViewMatrix } from './to-view-matrix';
+import {
+	buildVisibleMatrix,
+	cellKey,
+	hubHref,
+	subtitleOrVersion,
+	toViewMatrix
+} from './to-view-matrix';
 
 const standards: Standard[] = [
 	{
@@ -82,7 +88,84 @@ function minimalMatrix(overrides: Partial<InteropMatrixResponse> = {}): InteropM
 	};
 }
 
-const viewOptions = { standards };
+const viewOptions = {
+	standards,
+	expandedRowGroups: new Set<string>(),
+	expandedColumnGroups: new Set<string>()
+};
+
+function tieredWalletIssuerMatrix(): InteropMatrixResponse {
+	return {
+		row: { hub_collection: 'wallets', path_based: false, tiered: true },
+		column: { hub_collection: 'credential_issuers', path_based: false, tiered: true },
+		row_groups: [
+			{
+				id: 'wallet-g',
+				name: 'Wallet Group',
+				path: 'org/wallet',
+				child_count: 2,
+				avatar_url: 'https://example.com/w.png'
+			}
+		],
+		row_leaves: [
+			{
+				id: 'version-1',
+				parent_id: 'wallet-g',
+				name: 'Wallet Group',
+				path: 'org/wallet/v1',
+				version_label: 'v1.0'
+			},
+			{
+				id: 'wallet-g::__no_version__',
+				parent_id: 'wallet-g',
+				name: 'Wallet Group',
+				path: 'org/wallet',
+				version_label: null
+			}
+		],
+		column_groups: [
+			{
+				id: 'issuer-g',
+				name: 'Issuer Group',
+				path: 'org/issuer',
+				child_count: 1
+			}
+		],
+		column_leaves: [
+			{
+				id: 'cred-1',
+				parent_id: 'issuer-g',
+				name: 'Credential',
+				path: 'org/issuer/c1',
+				subtitle: 'Cred sub'
+			}
+		],
+		cells: [
+			{
+				row_id: 'wallet-g',
+				column_id: 'issuer-g',
+				row_tier: 'group',
+				column_tier: 'group',
+				pipeline_count: 2,
+				total_runs: 20,
+				total_successes: 18,
+				success_rate: 90,
+				status: 'stable'
+			},
+			{
+				row_id: 'version-1',
+				column_id: 'cred-1',
+				row_tier: 'leaf',
+				column_tier: 'leaf',
+				pipeline_count: 1,
+				total_runs: 5,
+				total_successes: 4,
+				success_rate: 80,
+				status: 'flaky'
+			}
+		]
+	};
+}
 
 describe('hubHref', () => {
 	it('joins hub collection and entity path', () => {
@@ -115,9 +198,15 @@ describe('subtitleOrVersion', () => {
 	});
 });
 
-describe('toViewMatrix', () => {
-	it('builds corner label, entity hrefs, subtitles, and cell lookup', () => {
-		const view = toViewMatrix(minimalMatrix(), viewOptions);
+describe('cellKey', () => {
+	it('joins tier and id for row and column', () => {
+		expect(cellKey('group', 'r1', 'leaf', 'c2')).toBe('group:r1:leaf:c2');
+	});
+});
+
+describe('buildVisibleMatrix', () => {
+	it('builds corner label, entity hrefs, subtitles, and tier-aware cell lookup', () => {
+		const view = buildVisibleMatrix(minimalMatrix(), viewOptions);
 
 		expect(view.cornerLabel).toBe(
 			m.interop_matrix_corner_label({ row: m.Wallet(), column: m.Issuer() })
@@ -127,7 +216,8 @@ describe('toViewMatrix', () => {
 				id: 'w1',
 				name: 'Wallet One',
 				displaySubtitle: 'v2',
-				href: '/hub/wallets/org/w1'
+				href: '/hub/wallets/org/w1',
+				tier: 'leaf'
 			}
 		]);
 		expect(view.columns).toEqual([
@@ -135,20 +225,89 @@ describe('toViewMatrix', () => {
 				id: 'i1',
 				name: 'Issuer One',
 				displaySubtitle: 'Issuer sub',
-				href: '/hub/credential_issuers/org/i1'
+				href: '/hub/credential_issuers/org/i1',
+				tier: 'leaf'
 			}
 		]);
-		expect(view.cells.get('w1:i1')).toMatchObject({ status: 'stable' });
+		expect(view.cells.get(cellKey('leaf', 'w1', 'leaf', 'i1'))).toMatchObject({ status: 'stable' });
+	});
+
+	it('shows group rows when tiered axis is collapsed', () => {
+		const view = buildVisibleMatrix(tieredWalletIssuerMatrix(), viewOptions);
+
+		expect(view.rows).toEqual([
+			{
+				id: 'wallet-g',
+				name: 'Wallet Group',
+				href: '/hub/wallets/org/wallet',
+				avatar_url: 'https://example.com/w.png',
+				tier: 'group',
+				child_count: 2
+			}
+		]);
+		expect(view.columns).toEqual([
+			{
+				id: 'issuer-g',
+				name: 'Issuer Group',
+				href: '/hub/credential_issuers/org/issuer',
+				tier: 'group',
+				child_count: 1
+			}
+		]);
+		expect(view.cells.get(cellKey('group', 'wallet-g', 'group', 'issuer-g'))).toMatchObject({
+			status: 'stable'
+		});
+	});
+
+	it('shows leaf rows when group is expanded', () => {
+		const view = buildVisibleMatrix(tieredWalletIssuerMatrix(), {
+			...viewOptions,
+			expandedRowGroups: new Set(['wallet-g'])
+		});
+
+		expect(view.rows.map((row) => row.id)).toEqual(['version-1', 'wallet-g::__no_version__']);
+		expect(view.rows.every((row) => row.tier === 'leaf')).toBe(true);
+		expect(view.rows[0]?.displaySubtitle).toBe('v1.0');
+		expect(view.rows[1]?.displaySubtitle).toBe(m.interop_matrix_version_undefined());
+	});
+
+	it('shows leaf columns when column group is expanded', () => {
+		const view = buildVisibleMatrix(tieredWalletIssuerMatrix(), {
+			...viewOptions,
+			expandedColumnGroups: new Set(['issuer-g'])
+		});
+
+		expect(view.columns).toEqual([
+			{
+				id: 'cred-1',
+				name: 'Credential',
+				displaySubtitle: 'Cred sub',
+				href: '/hub/credential_issuers/org/issuer/c1',
+				tier: 'leaf'
+			}
+		]);
+	});
+
+	it('resolves cells with tier-aware keys when both axes expanded', () => {
+		const view = buildVisibleMatrix(tieredWalletIssuerMatrix(), {
+			...viewOptions,
+			expandedRowGroups: new Set(['wallet-g']),
+			expandedColumnGroups: new Set(['issuer-g'])
+		});
+
+		expect(view.cells.get(cellKey('leaf', 'version-1', 'leaf', 'cred-1'))).toMatchObject({
+			status: 'flaky'
+		});
 	});
 
 	it('enriches path-based columns from conformance standards', () => {
 		const checkPath = 'std/ver/suite/my-check';
-		const view = toViewMatrix(
+		const view = buildVisibleMatrix(
 			minimalMatrix({
 				column: {
 					hub_collection: 'conformance-checks',
 					path_based: true,
-					tiered: true
+					tiered: false
 				},
 				column_groups: [],
 				column_leaves: [
@@ -168,7 +327,16 @@ describe('toViewMatrix', () => {
 			name: 'my-check',
 			displaySubtitle: 'Suite Name',
 			avatar_url: 'https://example.com/logo.png',
-			href: `/hub/conformance-checks/${checkPath}`
+			href: `/hub/conformance-checks/${checkPath}`,
+			tier: 'leaf'
 		});
+	});
+});
+
+describe('toViewMatrix', () => {
+	it('delegates to buildVisibleMatrix', () => {
+		const fromAlias = toViewMatrix(minimalMatrix(), viewOptions);
+		const fromBuild = buildVisibleMatrix(minimalMatrix(), viewOptions);
+		expect(fromAlias).toEqual(fromBuild);
 	});
 });

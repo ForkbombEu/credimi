@@ -7,22 +7,64 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import type { Standard } from '$lib/conformance/types';
+
+	import { m } from '@/i18n';
 
 	import type { InteropMatrixResponse } from './types';
 
 	import MatrixCell from './matrix-cell.svelte';
-	import { toViewMatrix } from './to-view-matrix';
+	import { buildVisibleMatrix, cellKey } from './to-view-matrix';
 
 	type Props = {
 		matrix: InteropMatrixResponse;
 		standards: readonly Standard[];
+		expandedRowGroups?: Set<string>;
+		expandedColumnGroups?: Set<string>;
 		legend?: Snippet;
 	};
 
-	let { matrix, standards, legend }: Props = $props();
+	let {
+		matrix,
+		standards,
+		expandedRowGroups = $bindable(new Set<string>()),
+		expandedColumnGroups = $bindable(new Set<string>()),
+		legend
+	}: Props = $props();
 
-	const view = $derived(toViewMatrix(matrix, { standards }));
+	const view = $derived(
+		buildVisibleMatrix(matrix, {
+			standards,
+			expandedRowGroups,
+			expandedColumnGroups
+		})
+	);
+
+	function toggleRowGroup(groupId: string) {
+		const next = new Set(expandedRowGroups);
+		if (next.has(groupId)) {
+			next.delete(groupId);
+		} else {
+			next.add(groupId);
+		}
+		expandedRowGroups = next;
+	}
+
+	function toggleColumnGroup(groupId: string) {
+		const next = new Set(expandedColumnGroups);
+		if (next.has(groupId)) {
+			next.delete(groupId);
+		} else {
+			next.add(groupId);
+		}
+		expandedColumnGroups = next;
+	}
+
+	function groupChildCountLabel(count: number | undefined): string {
+		return count === undefined ? '' : `(${count})`;
+	}
 </script>
 
 <div class="mx-auto max-w-7xl px-4 md:px-8">
@@ -39,64 +81,124 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					>
 						{view.cornerLabel}
 					</th>
-					{#each view.columns as column (column.id)}
+					{#each view.columns as column (column.id + column.tier)}
 						<th
 							class="sticky top-0 z-10 min-w-32 border-b bg-muted/60 px-3 py-3 text-center font-semibold"
 						>
-							<a
-								class="inline-flex max-w-44 flex-col items-center gap-1 hover:underline"
-								href={column.href}
-							>
-								{#if column.avatar_url}
-									<img
-										src={column.avatar_url}
-										alt={column.name}
-										class="size-6 rounded-full object-cover"
-										loading="lazy"
-									/>
+							<div class="inline-flex max-w-44 flex-col items-center gap-1">
+								{#if matrix.column.tiered && column.tier === 'group'}
+									<button
+										type="button"
+										class="inline-flex items-center gap-1 rounded-sm p-0.5 hover:bg-muted"
+										aria-expanded={expandedColumnGroups.has(column.id)}
+										aria-label={expandedColumnGroups.has(column.id)
+											? m.interop_matrix_collapse_group()
+											: m.interop_matrix_expand_group()}
+										onclick={() => toggleColumnGroup(column.id)}
+									>
+										{#if expandedColumnGroups.has(column.id)}
+											<ChevronDownIcon class="size-4 shrink-0" />
+										{:else}
+											<ChevronRightIcon class="size-4 shrink-0" />
+										{/if}
+										<span>{column.name}</span>
+										<span class="text-xs font-normal text-muted-foreground">
+											{groupChildCountLabel(column.child_count)}
+										</span>
+									</button>
+								{:else}
+									<a
+										class="inline-flex flex-col items-center gap-1 hover:underline"
+										href={column.href}
+									>
+										{#if column.avatar_url}
+											<img
+												src={column.avatar_url}
+												alt={column.name}
+												class="size-6 rounded-full object-cover"
+												loading="lazy"
+											/>
+										{/if}
+										<span>{column.name}</span>
+										{#if column.displaySubtitle}
+											<span class="text-xs font-normal text-muted-foreground">
+												{column.displaySubtitle}
+											</span>
+										{/if}
+									</a>
 								{/if}
-								<span>{column.name}</span>
-								{#if column.displaySubtitle}
-									<span class="text-xs font-normal text-muted-foreground">
-										{column.displaySubtitle}
-									</span>
-								{/if}
-							</a>
+							</div>
 						</th>
 					{/each}
 				</tr>
 			</thead>
 			<tbody>
-				{#each view.rows as row (row.id)}
+				{#each view.rows as row (row.id + row.tier)}
 					<tr class="border-b last:border-b-0">
 						<th
 							class="sticky left-0 z-10 border-r bg-muted/40 px-3 py-3 text-left align-middle font-medium"
 						>
-							<a
-								class="inline-flex items-center gap-2 hover:underline"
-								href={row.href}
-							>
-								{#if row.avatar_url}
-									<img
-										src={row.avatar_url}
-										alt={row.name}
-										class="size-6 rounded-full object-cover"
-										loading="lazy"
-									/>
-								{/if}
-								<span>{row.name}</span>
-							</a>
-							{#if row.displaySubtitle}
-								<span
-									class="mt-0.5 block text-xs font-normal text-muted-foreground"
+							{#if matrix.row.tiered && row.tier === 'group'}
+								<button
+									type="button"
+									class="inline-flex w-full items-center gap-2 rounded-sm text-left hover:bg-muted/60"
+									aria-expanded={expandedRowGroups.has(row.id)}
+									aria-label={expandedRowGroups.has(row.id)
+										? m.interop_matrix_collapse_group()
+										: m.interop_matrix_expand_group()}
+									onclick={() => toggleRowGroup(row.id)}
 								>
-									{row.displaySubtitle}
-								</span>
+									{#if expandedRowGroups.has(row.id)}
+										<ChevronDownIcon class="size-4 shrink-0" />
+									{:else}
+										<ChevronRightIcon class="size-4 shrink-0" />
+									{/if}
+									{#if row.avatar_url}
+										<img
+											src={row.avatar_url}
+											alt={row.name}
+											class="size-6 rounded-full object-cover"
+											loading="lazy"
+										/>
+									{/if}
+									<span class="min-w-0 flex-1">
+										<span class="block">{row.name}</span>
+										<span class="text-xs font-normal text-muted-foreground">
+											{groupChildCountLabel(row.child_count)}
+										</span>
+									</span>
+								</button>
+							{:else}
+								<a
+									class="inline-flex items-center gap-2 hover:underline"
+									href={row.href}
+								>
+									{#if row.avatar_url}
+										<img
+											src={row.avatar_url}
+											alt={row.name}
+											class="size-6 rounded-full object-cover"
+											loading="lazy"
+										/>
+									{/if}
+									<span>{row.name}</span>
+								</a>
+								{#if row.displaySubtitle}
+									<span
+										class="mt-0.5 block text-xs font-normal text-muted-foreground"
+									>
+										{row.displaySubtitle}
+									</span>
+								{/if}
 							{/if}
 						</th>
-						{#each view.columns as column (column.id)}
+						{#each view.columns as column (column.id + column.tier)}
 							<td class="border-l p-2 align-top">
-								<MatrixCell cell={view.cells.get(`${row.id}:${column.id}`)} />
+								<MatrixCell
+									cell={view.cells.get(
+										cellKey(row.tier, row.id, column.tier, column.id)
+									)}
+								/>
 							</td>
 						{/each}
 					</tr>

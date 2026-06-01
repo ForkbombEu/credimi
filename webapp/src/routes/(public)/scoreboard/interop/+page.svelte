@@ -22,6 +22,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 
+	let expandedRowGroups = $state(new Set<string>());
+	let expandedColumnGroups = $state(new Set<string>());
+
+	$effect(() => {
+		data.row;
+		data.column;
+		expandedRowGroups = new Set();
+		expandedColumnGroups = new Set();
+	});
+
 	const legendItems: { status: InteropStatus; label: () => string }[] = [
 		{ status: 'broken', label: () => m.interop_matrix_legend_broken() },
 		{ status: 'failing', label: () => m.interop_matrix_legend_failing() },
@@ -64,7 +74,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/each}
 		</div>
 	</div>
-	<MatrixGrid matrix={data.matrix} standards={data.standards}>
+	<MatrixGrid
+		matrix={data.matrix}
+		standards={data.standards}
+		bind:expandedRowGroups
+		bind:expandedColumnGroups
+	>
 		{#snippet legend()}
 			<span class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
 				>Cross</span

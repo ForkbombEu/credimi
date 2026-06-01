@@ -12,7 +12,7 @@ export type InteropMatrixEntity = {
 	subtitle?: string;
 	avatar_url?: string;
 	path: string;
-	version_label?: string;
+	version_label?: string | null;
 };
 
 export type InteropMatrixGroup = {
