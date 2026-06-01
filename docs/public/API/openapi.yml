@@ -897,14 +897,26 @@ components:
           type: string
         path_based:
           type: boolean
+        tiered:
+          type: boolean
       type: object
     HandlersInteropMatrixCell:
       properties:
         column_id:
           type: string
+        column_tier:
+          enum:
+            - group
+            - leaf
+          type: string
         pipeline_count:
           type: integer
         row_id:
+          type: string
+        row_tier:
+          enum:
+            - group
+            - leaf
           type: string
         status:
           type: string
@@ -933,6 +945,43 @@ components:
           nullable: true
           type: string
       type: object
+    HandlersInteropMatrixGroup:
+      properties:
+        avatar_url:
+          nullable: true
+          type: string
+        child_count:
+          type: integer
+        id:
+          type: string
+        name:
+          type: string
+        path:
+          type: string
+        subtitle:
+          nullable: true
+          type: string
+      type: object
+    HandlersInteropMatrixLeaf:
+      properties:
+        avatar_url:
+          nullable: true
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        parent_id:
+          type: string
+        path:
+          type: string
+        subtitle:
+          nullable: true
+          type: string
+        version_label:
+          nullable: true
+          type: string
+      type: object
     HandlersInteropMatrixResponse:
       properties:
         cells:
@@ -942,16 +991,26 @@ components:
           type: array
         column:
           $ref: '#/components/schemas/HandlersInteropAxis'
-        columns:
+        column_groups:
           items:
-            $ref: '#/components/schemas/HandlersInteropMatrixEntity'
+            $ref: '#/components/schemas/HandlersInteropMatrixGroup'
+          nullable: true
+          type: array
+        column_leaves:
+          items:
+            $ref: '#/components/schemas/HandlersInteropMatrixLeaf'
           nullable: true
           type: array
         row:
           $ref: '#/components/schemas/HandlersInteropAxis'
-        rows:
+        row_groups:
           items:
-            $ref: '#/components/schemas/HandlersInteropMatrixEntity'
+            $ref: '#/components/schemas/HandlersInteropMatrixGroup'
+          nullable: true
+          type: array
+        row_leaves:
+          items:
+            $ref: '#/components/schemas/HandlersInteropMatrixLeaf'
           nullable: true
           type: array
       type: object
