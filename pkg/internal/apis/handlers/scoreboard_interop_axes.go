@@ -9,10 +9,23 @@ import (
 	"strings"
 )
 
+type interopAxisTier struct {
+	GroupCollection string
+	LeafCollection  string
+	LeafCacheField  string
+	LeafParentField string
+	NoLeafSentinel  string
+}
+
 type interopAxis struct {
 	HubCollection string
 	CacheField    string
 	PathBased     bool
+	Tier          *interopAxisTier
+}
+
+func (a interopAxis) Tiered() bool {
+	return a.Tier != nil
 }
 
 var interopAxisRegistry = map[string]interopAxis{
@@ -20,11 +33,25 @@ var interopAxisRegistry = map[string]interopAxis{
 		HubCollection: "wallets",
 		CacheField:    "wallets",
 		PathBased:     false,
+		Tier: &interopAxisTier{
+			GroupCollection: "wallets",
+			LeafCollection:  "wallet_versions",
+			LeafCacheField:  "wallet_versions",
+			LeafParentField: "wallet",
+			NoLeafSentinel:  "__no_version__",
+		},
 	},
 	"credential_issuers": {
 		HubCollection: "credential_issuers",
 		CacheField:    "issuers",
 		PathBased:     false,
+		Tier: &interopAxisTier{
+			GroupCollection: "credential_issuers",
+			LeafCollection:  "credentials",
+			LeafCacheField:  "credentials",
+			LeafParentField: "credential_issuer",
+			NoLeafSentinel:  "__no_leaf__",
+		},
 	},
 	"credentials": {
 		HubCollection: "credentials",
@@ -35,6 +62,13 @@ var interopAxisRegistry = map[string]interopAxis{
 		HubCollection: "verifiers",
 		CacheField:    "verifiers",
 		PathBased:     false,
+		Tier: &interopAxisTier{
+			GroupCollection: "verifiers",
+			LeafCollection:  "use_case_verifications",
+			LeafCacheField:  "use_case_verifications",
+			LeafParentField: "verifier",
+			NoLeafSentinel:  "__no_leaf__",
+		},
 	},
 	"use_cases_verifications": {
 		HubCollection: "use_cases_verifications",
@@ -45,6 +79,13 @@ var interopAxisRegistry = map[string]interopAxis{
 		HubCollection: "conformance-checks",
 		CacheField:    "conformance_checks",
 		PathBased:     true,
+		Tier: &interopAxisTier{
+			GroupCollection: "conformance-checks",
+			LeafCollection:  "conformance-checks",
+			LeafCacheField:  "conformance_checks",
+			LeafParentField: "",
+			NoLeafSentinel:  "",
+		},
 	},
 }
 

@@ -30,6 +30,26 @@ func TestGetInteropAxis_KnownHubs(t *testing.T) {
 	require.True(t, conformance.PathBased)
 }
 
+func TestGetInteropAxis_WalletsTiered(t *testing.T) {
+	t.Parallel()
+
+	axis, ok := getInteropAxis("wallets")
+	require.True(t, ok)
+	require.NotNil(t, axis.Tier)
+	require.Equal(t, "wallet_versions", axis.Tier.LeafCacheField)
+	require.Equal(t, "__no_version__", axis.Tier.NoLeafSentinel)
+	require.True(t, axis.Tiered())
+}
+
+func TestGetInteropAxis_CredentialsFlat(t *testing.T) {
+	t.Parallel()
+
+	axis, ok := getInteropAxis("credentials")
+	require.True(t, ok)
+	require.Nil(t, axis.Tier)
+	require.False(t, axis.Tiered())
+}
+
 func TestGetInteropAxis_Unknown(t *testing.T) {
 	t.Parallel()
 	_, ok := getInteropAxis("bad_hub")
