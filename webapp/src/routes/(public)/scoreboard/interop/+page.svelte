@@ -9,8 +9,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { resolve } from '$app/paths';
 	import { FEATURED_INTEROP_PAIRS } from '$lib/scoreboard/interop/featured-pairs';
-	import { interopEntityData } from '$lib/scoreboard/interop/interop-entity-data';
-	import type { InteropHubCollection } from '$lib/scoreboard/interop/interop-hub-collections';
+	import {
+		interopHubEntity,
+		type InteropHubCollection
+	} from '$lib/scoreboard/interop/interop-hub-collections';
 	import MatrixGrid from '$lib/scoreboard/interop/matrix-grid.svelte';
 	import { interopStatusStyles } from '$lib/scoreboard/interop/status';
 
@@ -28,8 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 
 	function pairLabel(row: InteropHubCollection, column: InteropHubCollection): string {
-		const rowData = interopEntityData[row];
-		const colData = interopEntityData[column];
+		const rowData = interopHubEntity(row);
+		const colData = interopHubEntity(column);
 		const rowLabel = rowData.labels.plural ?? rowData.labels.singular;
 		const colLabel = colData.labels.plural ?? colData.labels.singular;
 		return `${rowLabel} × ${colLabel}`;
@@ -62,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/each}
 		</div>
 	</div>
-	<MatrixGrid matrix={data.matrix}>
+	<MatrixGrid matrix={data.matrix} standards={data.standards}>
 		{#snippet legend()}
 			<span class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
 				>Cross</span

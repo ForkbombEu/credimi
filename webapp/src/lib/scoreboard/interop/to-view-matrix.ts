@@ -6,9 +6,15 @@ import type { Standard } from '$lib/conformance/types';
 
 import { m } from '@/i18n';
 
-import { interopEntityData } from './interop-entity-data';
-import type { InteropHubCollection } from './interop-hub-collections';
-import type { InteropAxis, InteropMatrixCell, InteropMatrixEntity, InteropMatrixResponse } from './types';
+import { interopHubEntity, isInteropHubCollection } from './interop-hub-collections';
+import type {
+	InteropAxis,
+	InteropMatrixCell,
+	InteropMatrixEntity,
+	InteropMatrixGroup,
+	InteropMatrixLeaf,
+	InteropMatrixResponse
+} from './types';
 
 import { resolveConformanceCheck } from './resolve-conformance';
 
@@ -31,9 +37,26 @@ export type ToViewMatrixOptions = {
 	standards: readonly Standard[];
 };
 
+/** Temporary until Task 9 expand UI: prefer leaves, else map groups to entity shape. */
+function axisEntitiesForView(
+	groups: InteropMatrixGroup[],
+	leaves: InteropMatrixLeaf[]
+): InteropMatrixEntity[] {
+	if (leaves.length > 0) {
+		return leaves;
+	}
+	return groups.map((group) => ({
+		id: group.id,
+		name: group.name,
+		path: group.path,
+		avatar_url: group.avatar_url,
+		subtitle: group.subtitle
+	}));
+}
+
 function hubLabel(hub: string, plural: boolean): string {
-	if (!(hub in interopEntityData)) return hub;
-	const data = interopEntityData[hub as InteropHubCollection];
+	if (!isInteropHubCollection(hub)) return hub;
+	const data = interopHubEntity(hub);
 	return plural ? (data.labels.plural ?? data.labels.singular) : data.labels.singular;
 }
 
@@ -93,10 +116,13 @@ export function toViewMatrix(
 		response.cells.map((cell) => [`${cell.row_id}:${cell.column_id}`, cell] as const)
 	);
 
+	const rowEntities = axisEntitiesForView(response.row_groups, response.row_leaves);
+	const columnEntities = axisEntitiesForView(response.column_groups, response.column_leaves);
+
 	return {
 		cornerLabel: m.interop_matrix_corner_label({ row: rowLabel, column: columnLabel }),
-		rows: response.rows.map((row) => toViewEntity(row, response.row, standards)),
-		columns: response.columns.map((column) => toViewEntity(column, response.column, standards)),
+		rows: rowEntities.map((row) => toViewEntity(row, response.row, standards)),
+		columns: columnEntities.map((column) => toViewEntity(column, response.column, standards)),
 		cells
 	};
 }

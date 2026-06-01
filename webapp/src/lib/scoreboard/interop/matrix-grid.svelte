@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { get as getConformanceStore } from '$lib/conformance';
+	import type { Standard } from '$lib/conformance/types';
 
 	import type { InteropMatrixResponse } from './types';
 
@@ -16,16 +16,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		matrix: InteropMatrixResponse;
+		standards: readonly Standard[];
 		legend?: Snippet;
 	};
 
-	let { matrix, legend }: Props = $props();
+	let { matrix, standards, legend }: Props = $props();
 
-	const view = $derived(
-		toViewMatrix(matrix, {
-			standards: getConformanceStore().standards
-		})
-	);
+	const view = $derived(toViewMatrix(matrix, { standards }));
 </script>
 
 <div class="mx-auto max-w-7xl px-4 md:px-8">

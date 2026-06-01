@@ -4,6 +4,8 @@
 
 export type InteropStatus = 'stable' | 'flaky' | 'failing' | 'broken';
 
+export type InteropMatrixTier = 'group' | 'leaf';
+
 export type InteropMatrixEntity = {
 	id: string;
 	name: string;
@@ -13,9 +15,30 @@ export type InteropMatrixEntity = {
 	version_label?: string;
 };
 
+export type InteropMatrixGroup = {
+	id: string;
+	name: string;
+	path: string;
+	child_count: number;
+	avatar_url?: string;
+	subtitle?: string;
+};
+
+export type InteropMatrixLeaf = InteropMatrixEntity & {
+	parent_id?: string;
+};
+
+export type InteropAxis = {
+	hub_collection: string;
+	path_based: boolean;
+	tiered: boolean;
+};
+
 export type InteropMatrixCell = {
 	row_id: string;
 	column_id: string;
+	row_tier: InteropMatrixTier;
+	column_tier: InteropMatrixTier;
 	pipeline_count: number;
 	total_runs: number;
 	total_successes: number;
@@ -23,15 +46,12 @@ export type InteropMatrixCell = {
 	status: InteropStatus;
 };
 
-export type InteropAxis = {
-	hub_collection: string;
-	path_based: boolean;
-};
-
 export type InteropMatrixResponse = {
 	row: InteropAxis;
 	column: InteropAxis;
-	rows: InteropMatrixEntity[];
-	columns: InteropMatrixEntity[];
+	row_groups: InteropMatrixGroup[];
+	row_leaves: InteropMatrixLeaf[];
+	column_groups: InteropMatrixGroup[];
+	column_leaves: InteropMatrixLeaf[];
 	cells: InteropMatrixCell[];
 };

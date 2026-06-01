@@ -5,6 +5,7 @@
 import { DEFAULT_INTEROP_PAIR } from '$lib/scoreboard/interop/featured-pairs';
 import { isInteropHubCollection } from '$lib/scoreboard/interop/interop-hub-collections';
 import type { InteropMatrixResponse } from '$lib/scoreboard/interop/types';
+import { getStandardsWithTestSuites } from '$lib/standards';
 
 import { error, redirect } from '@sveltejs/kit';
 
@@ -27,5 +28,11 @@ export const load = async ({ fetch, url }) => {
 		error(res.status, 'Failed to load interoperability matrix');
 	}
 	const matrix = (await res.json()) as InteropMatrixResponse;
-	return { matrix, row, column };
+
+	const standards = await getStandardsWithTestSuites({ fetch, forPipeline: true });
+	if (standards instanceof Error) {
+		error(500, 'Failed to load conformance standards');
+	}
+
+	return { matrix, row, column, standards };
 };

@@ -45,9 +45,10 @@ const standards: Standard[] = [
 
 function minimalMatrix(overrides: Partial<InteropMatrixResponse> = {}): InteropMatrixResponse {
 	return {
-		row: { hub_collection: 'wallets', path_based: false },
-		column: { hub_collection: 'credential_issuers', path_based: false },
-		rows: [
+		row: { hub_collection: 'wallets', path_based: false, tiered: false },
+		column: { hub_collection: 'credential_issuers', path_based: false, tiered: false },
+		row_groups: [],
+		row_leaves: [
 			{
 				id: 'w1',
 				name: 'Wallet One',
@@ -55,7 +56,8 @@ function minimalMatrix(overrides: Partial<InteropMatrixResponse> = {}): InteropM
 				version_label: 'v2'
 			}
 		],
-		columns: [
+		column_groups: [],
+		column_leaves: [
 			{
 				id: 'i1',
 				name: 'Issuer One',
@@ -67,6 +69,8 @@ function minimalMatrix(overrides: Partial<InteropMatrixResponse> = {}): InteropM
 			{
 				row_id: 'w1',
 				column_id: 'i1',
+				row_tier: 'leaf',
+				column_tier: 'leaf',
 				pipeline_count: 1,
 				total_runs: 10,
 				total_successes: 9,
@@ -82,7 +86,7 @@ const viewOptions = { standards };
 
 describe('hubHref', () => {
 	it('joins hub collection and entity path', () => {
-		expect(hubHref({ hub_collection: 'wallets', path_based: false }, 'org/w1')).toBe(
+		expect(hubHref({ hub_collection: 'wallets', path_based: false, tiered: false }, 'org/w1')).toBe(
 			'/hub/wallets/org/w1'
 		);
 	});
@@ -90,7 +94,7 @@ describe('hubHref', () => {
 	it('uses conformance-checks segment for path-based columns', () => {
 		expect(
 			hubHref(
-				{ hub_collection: 'conformance-checks', path_based: true },
+				{ hub_collection: 'conformance-checks', path_based: true, tiered: true },
 				'std/ver/suite/check-a'
 			)
 		).toBe('/hub/conformance-checks/std/ver/suite/check-a');
@@ -143,9 +147,11 @@ describe('toViewMatrix', () => {
 			minimalMatrix({
 				column: {
 					hub_collection: 'conformance-checks',
-					path_based: true
+					path_based: true,
+					tiered: true
 				},
-				columns: [
+				column_groups: [],
+				column_leaves: [
 					{
 						id: checkPath,
 						name: 'Placeholder',
