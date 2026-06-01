@@ -29,9 +29,15 @@ func setupScoreboardInteropApp(t testing.TB) *tests.TestApp {
 	return app
 }
 
-func findInteropCell(resp InteropMatrixResponse, rowID, colID string) (InteropMatrixCell, bool) {
+func findInteropCell(
+	resp InteropMatrixResponse,
+	rowTier InteropMatrixTier,
+	rowID string,
+	colTier InteropMatrixTier,
+	colID string,
+) (InteropMatrixCell, bool) {
 	for _, c := range resp.Cells {
-		if c.RowID == rowID && c.ColumnID == colID {
+		if c.RowID == rowID && c.ColumnID == colID && c.RowTier == rowTier && c.ColumnTier == colTier {
 			return c, true
 		}
 	}
@@ -48,41 +54,54 @@ func TestBuildInteropMatrix_CartesianAndSums(t *testing.T) {
 		p1 = "pipeline_one"
 		p2 = "pipeline_two"
 	)
-	rowEntities := map[string]InteropMatrixEntity{
-		w1: {ID: w1, Name: "Wallet B", Path: "/w/b"},
-		w2: {ID: w2, Name: "Wallet A", Path: "/w/a"},
-	}
-	colEntities := map[string]InteropMatrixEntity{
-		i1: {ID: i1, Name: "Issuer One", Path: "/issuers/one"},
-	}
-	inputs := []interopCacheInput{
-		{PipelineID: p1, TotalRuns: 92, TotalSuccesses: 78, RowIDs: []string{w1}, ColumnIDs: []string{i1}},
-		{PipelineID: p2, TotalRuns: 92, TotalSuccesses: 78, RowIDs: []string{w1}, ColumnIDs: []string{i1}},
-		{PipelineID: p1, TotalRuns: 60, TotalSuccesses: 53, RowIDs: []string{w2}, ColumnIDs: []string{i1}},
+	inputs := []interopTieredCacheInput{
+		{
+			PipelineID: p1, TotalRuns: 92, TotalSuccesses: 78,
+			RowCoords:    []interopAxisCoord{{Tier: interopTierLeaf, Key: w1}},
+			ColumnCoords: []interopAxisCoord{{Tier: interopTierLeaf, Key: i1}},
+		},
+		{
+			PipelineID: p2, TotalRuns: 92, TotalSuccesses: 78,
+			RowCoords:    []interopAxisCoord{{Tier: interopTierLeaf, Key: w1}},
+			ColumnCoords: []interopAxisCoord{{Tier: interopTierLeaf, Key: i1}},
+		},
+		{
+			PipelineID: p1, TotalRuns: 60, TotalSuccesses: 53,
+			RowCoords:    []interopAxisCoord{{Tier: interopTierLeaf, Key: w2}},
+			ColumnCoords: []interopAxisCoord{{Tier: interopTierLeaf, Key: i1}},
+		},
 	}
 
-	got := buildInteropMatrix(
-		inputs,
-		InteropAxis{HubCollection: "wallets", PathBased: false},
-		InteropAxis{HubCollection: "credential_issuers", PathBased: false},
-		rowEntities,
-		colEntities,
+	cellsMap := aggregateInteropCells(inputs)
+	got := buildInteropTieredMatrix(
+		InteropAxis{HubCollection: "wallets", PathBased: false, Tiered: true},
+		InteropAxis{HubCollection: "credential_issuers", PathBased: false, Tiered: true},
+		nil,
+		[]InteropMatrixLeaf{
+			{InteropMatrixEntity: InteropMatrixEntity{ID: w2, Name: "Wallet A", Path: "/w/a"}},
+			{InteropMatrixEntity: InteropMatrixEntity{ID: w1, Name: "Wallet B", Path: "/w/b"}},
+		},
+		nil,
+		[]InteropMatrixLeaf{
+			{InteropMatrixEntity: InteropMatrixEntity{ID: i1, Name: "Issuer One", Path: "/issuers/one"}},
+		},
+		cellsMap,
 	)
 
 	require.Equal(t, "wallets", got.Row.HubCollection)
-	require.False(t, got.Row.PathBased)
+	require.True(t, got.Row.Tiered)
 	require.Equal(t, "credential_issuers", got.Column.HubCollection)
-	require.False(t, got.Column.PathBased)
+	require.True(t, got.Column.Tiered)
 	require.Len(t, got.Cells, 2)
 
-	require.Len(t, got.Rows, 2)
-	require.Equal(t, w2, got.Rows[0].ID)
-	require.Equal(t, w1, got.Rows[1].ID)
+	require.Len(t, got.RowLeaves, 2)
+	require.Equal(t, w2, got.RowLeaves[0].ID)
+	require.Equal(t, w1, got.RowLeaves[1].ID)
 
-	require.Len(t, got.Columns, 1)
-	require.Equal(t, i1, got.Columns[0].ID)
+	require.Len(t, got.ColumnLeaves, 1)
+	require.Equal(t, i1, got.ColumnLeaves[0].ID)
 
-	cellW1I1, ok := findInteropCell(got, w1, i1)
+	cellW1I1, ok := findInteropCell(got, InteropMatrixTierLeaf, w1, InteropMatrixTierLeaf, i1)
 	require.True(t, ok)
 	require.Equal(t, 2, cellW1I1.PipelineCount)
 	require.Equal(t, 184, cellW1I1.TotalRuns)
@@ -91,7 +110,7 @@ func TestBuildInteropMatrix_CartesianAndSums(t *testing.T) {
 	expectedRate := 156.0 / 184.0 * 100
 	require.InDelta(t, expectedRate, cellW1I1.SuccessRate, 1e-9)
 
-	cellW2I1, ok := findInteropCell(got, w2, i1)
+	cellW2I1, ok := findInteropCell(got, InteropMatrixTierLeaf, w2, InteropMatrixTierLeaf, i1)
 	require.True(t, ok)
 	require.Equal(t, 1, cellW2I1.PipelineCount)
 	require.Equal(t, 60, cellW2I1.TotalRuns)
@@ -108,29 +127,34 @@ func TestBuildInteropMatrix_SkipsEmptySides(t *testing.T) {
 		i1 = "issuer1"
 		p1 = "pipeline_one"
 	)
-	rowEntities := map[string]InteropMatrixEntity{w1: {ID: w1, Name: "Wal", Path: "/w"}}
-	colEntities := map[string]InteropMatrixEntity{i1: {ID: i1, Name: "Iss", Path: "/i"}}
+	rowEntity := InteropMatrixEntity{ID: w1, Name: "Wal", Path: "/w"}
+	colEntity := InteropMatrixEntity{ID: i1, Name: "Iss", Path: "/i"}
 
 	skippedRuns := math.MaxInt
-	inputs := []interopCacheInput{
-		{PipelineID: p1, TotalRuns: skippedRuns, TotalSuccesses: 1, RowIDs: nil, ColumnIDs: []string{i1}},
-		{PipelineID: p1, TotalRuns: skippedRuns, TotalSuccesses: 1, RowIDs: []string{}, ColumnIDs: []string{i1}},
-		{PipelineID: p1, TotalRuns: skippedRuns, TotalSuccesses: 1, RowIDs: []string{w1}, ColumnIDs: nil},
-		{PipelineID: p1, TotalRuns: skippedRuns, TotalSuccesses: 1, RowIDs: []string{w1}, ColumnIDs: []string{}},
-		{PipelineID: p1, TotalRuns: 0, TotalSuccesses: 0, RowIDs: []string{w1}, ColumnIDs: []string{i1}},
-		{PipelineID: p1, TotalRuns: 10, TotalSuccesses: 9, RowIDs: []string{w1}, ColumnIDs: []string{i1}},
+	leafI1 := []interopAxisCoord{{Tier: interopTierLeaf, Key: i1}}
+	leafW1 := []interopAxisCoord{{Tier: interopTierLeaf, Key: w1}}
+	inputs := []interopTieredCacheInput{
+		{PipelineID: p1, TotalRuns: skippedRuns, TotalSuccesses: 1, RowCoords: nil, ColumnCoords: leafI1},
+		{PipelineID: p1, TotalRuns: skippedRuns, TotalSuccesses: 1, RowCoords: []interopAxisCoord{}, ColumnCoords: leafI1},
+		{PipelineID: p1, TotalRuns: skippedRuns, TotalSuccesses: 1, RowCoords: leafW1, ColumnCoords: nil},
+		{PipelineID: p1, TotalRuns: skippedRuns, TotalSuccesses: 1, RowCoords: leafW1, ColumnCoords: []interopAxisCoord{}},
+		{PipelineID: p1, TotalRuns: 0, TotalSuccesses: 0, RowCoords: leafW1, ColumnCoords: leafI1},
+		{PipelineID: p1, TotalRuns: 10, TotalSuccesses: 9, RowCoords: leafW1, ColumnCoords: leafI1},
 	}
 
-	got := buildInteropMatrix(
-		inputs,
-		InteropAxis{HubCollection: "wallets", PathBased: false},
-		InteropAxis{HubCollection: "credential_issuers", PathBased: false},
-		rowEntities,
-		colEntities,
+	cellsMap := aggregateInteropCells(inputs)
+	got := buildInteropTieredMatrix(
+		InteropAxis{HubCollection: "wallets", PathBased: false, Tiered: true},
+		InteropAxis{HubCollection: "credential_issuers", PathBased: false, Tiered: true},
+		nil,
+		[]InteropMatrixLeaf{{InteropMatrixEntity: rowEntity}},
+		nil,
+		[]InteropMatrixLeaf{{InteropMatrixEntity: colEntity}},
+		cellsMap,
 	)
 
 	require.Len(t, got.Cells, 1)
-	c, ok := findInteropCell(got, w1, i1)
+	c, ok := findInteropCell(got, InteropMatrixTierLeaf, w1, InteropMatrixTierLeaf, i1)
 	require.True(t, ok)
 	require.Equal(t, 1, c.PipelineCount)
 	require.Equal(t, 10, c.TotalRuns)
@@ -348,12 +372,15 @@ func TestHandleInteropMatrix_WalletsCredentialsHappyPath(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
 	require.Equal(t, "wallets", resp.Row.HubCollection)
+	require.True(t, resp.Row.Tiered)
 	require.Equal(t, "credentials", resp.Column.HubCollection)
+	require.False(t, resp.Column.Tiered)
 	require.False(t, resp.Column.PathBased)
 	require.NotEmpty(t, resp.Cells)
 
-	cell, ok := findInteropCell(resp, wallet.Id, credential.Id)
-	require.True(t, ok, "expected wallet x credential relation cell")
+	syntheticLeafID := wallet.Id + "::__no_version__"
+	cell, ok := findInteropCell(resp, InteropMatrixTierLeaf, syntheticLeafID, InteropMatrixTierLeaf, credential.Id)
+	require.True(t, ok, "expected wallet leaf x credential relation cell")
 	require.Equal(t, 10, cell.TotalRuns)
 	require.Equal(t, 8, cell.TotalSuccesses)
 }
@@ -420,11 +447,13 @@ func TestHandleInteropMatrix_WalletsIssuersHappyPath(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
 	require.Equal(t, "wallets", resp.Row.HubCollection)
+	require.True(t, resp.Row.Tiered)
 	require.Equal(t, "credential_issuers", resp.Column.HubCollection)
+	require.True(t, resp.Column.Tiered)
 	require.NotEmpty(t, resp.Cells)
 
-	cell, ok := findInteropCell(resp, wallet.Id, issuer.Id)
-	require.True(t, ok, "expected wallet x issuer relation cell")
+	cell, ok := findInteropCell(resp, InteropMatrixTierGroup, wallet.Id, InteropMatrixTierGroup, issuer.Id)
+	require.True(t, ok, "expected wallet group x issuer group relation cell")
 	require.Equal(t, 12, cell.TotalRuns)
 	require.Equal(t, 9, cell.TotalSuccesses)
 }
@@ -530,8 +559,8 @@ func TestHandleInteropMatrix_WalletsCredentialsColumnMetadataFallbackOrder(t *te
 	var resp InteropMatrixResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
-	columnsByID := make(map[string]InteropMatrixEntity, len(resp.Columns))
-	for _, column := range resp.Columns {
+	columnsByID := make(map[string]InteropMatrixLeaf, len(resp.ColumnLeaves))
+	for _, column := range resp.ColumnLeaves {
 		columnsByID[column.ID] = column
 	}
 
@@ -785,19 +814,24 @@ func TestHandleInteropMatrix_WalletsConformanceChecksHappyPath(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
 	require.Equal(t, "wallets", resp.Row.HubCollection)
+	require.True(t, resp.Row.Tiered)
 	require.False(t, resp.Row.PathBased)
 	require.Equal(t, "conformance-checks", resp.Column.HubCollection)
+	require.True(t, resp.Column.Tiered)
 	require.True(t, resp.Column.PathBased)
 	require.NotEmpty(t, resp.Cells)
 
-	cell, ok := findInteropCell(resp, wallet.Id, checkPath)
-	require.True(t, ok, "expected wallet x conformance check cell")
+	group, _, err := interopSuiteGroupFromPath(checkPath)
+	require.NoError(t, err)
+
+	cell, ok := findInteropCell(resp, InteropMatrixTierGroup, wallet.Id, InteropMatrixTierGroup, group.ID)
+	require.True(t, ok, "expected wallet group x conformance suite group cell")
 	require.Equal(t, 20, cell.TotalRuns)
 	require.Equal(t, 19, cell.TotalSuccesses)
 	require.Equal(t, interopStatusStable, cell.Status)
 
-	columnsByID := make(map[string]InteropMatrixEntity, len(resp.Columns))
-	for _, column := range resp.Columns {
+	columnsByID := make(map[string]InteropMatrixLeaf, len(resp.ColumnLeaves))
+	for _, column := range resp.ColumnLeaves {
 		columnsByID[column.ID] = column
 	}
 	checkColumn, ok := columnsByID[checkPath]
@@ -876,19 +910,21 @@ func TestHandleInteropMatrix_UseCaseVerificationsConformanceChecksHappyPath(t *t
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
 	require.Equal(t, "use_cases_verifications", resp.Row.HubCollection)
+	require.False(t, resp.Row.Tiered)
 	require.False(t, resp.Row.PathBased)
 	require.Equal(t, "conformance-checks", resp.Column.HubCollection)
+	require.True(t, resp.Column.Tiered)
 	require.True(t, resp.Column.PathBased)
 	require.NotEmpty(t, resp.Cells)
 
-	cell, ok := findInteropCell(resp, useCase.Id, checkPath)
+	cell, ok := findInteropCell(resp, InteropMatrixTierLeaf, useCase.Id, InteropMatrixTierLeaf, checkPath)
 	require.True(t, ok, "expected use case verification x conformance check cell")
 	require.Equal(t, 20, cell.TotalRuns)
 	require.Equal(t, 19, cell.TotalSuccesses)
 	require.Equal(t, interopStatusStable, cell.Status)
 
-	rowsByID := make(map[string]InteropMatrixEntity, len(resp.Rows))
-	for _, row := range resp.Rows {
+	rowsByID := make(map[string]InteropMatrixLeaf, len(resp.RowLeaves))
+	for _, row := range resp.RowLeaves {
 		rowsByID[row.ID] = row
 	}
 	useCaseRow, ok := rowsByID[useCase.Id]
@@ -896,8 +932,8 @@ func TestHandleInteropMatrix_UseCaseVerificationsConformanceChecksHappyPath(t *t
 	require.NotNil(t, useCaseRow.Subtitle)
 	require.Equal(t, "interop-usecase-verifier", *useCaseRow.Subtitle)
 
-	columnsByID := make(map[string]InteropMatrixEntity, len(resp.Columns))
-	for _, column := range resp.Columns {
+	columnsByID := make(map[string]InteropMatrixLeaf, len(resp.ColumnLeaves))
+	for _, column := range resp.ColumnLeaves {
 		columnsByID[column.ID] = column
 	}
 	checkColumn, ok := columnsByID[checkPath]
@@ -959,12 +995,14 @@ func TestHandleInteropMatrix_ConformanceChecksAsRow(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 
 	require.Equal(t, "conformance-checks", resp.Row.HubCollection)
+	require.True(t, resp.Row.Tiered)
 	require.True(t, resp.Row.PathBased)
 	require.Equal(t, "wallets", resp.Column.HubCollection)
+	require.True(t, resp.Column.Tiered)
 	require.False(t, resp.Column.PathBased)
 	require.NotEmpty(t, resp.Cells)
 
-	cell, ok := findInteropCell(resp, checkPath, wallet.Id)
+	cell, ok := findInteropCell(resp, InteropMatrixTierLeaf, checkPath, InteropMatrixTierGroup, wallet.Id)
 	require.True(t, ok, "expected conformance check x wallet cell")
 	require.Equal(t, 15, cell.TotalRuns)
 	require.Equal(t, 12, cell.TotalSuccesses)
@@ -1002,40 +1040,43 @@ func TestConformanceCheckName(t *testing.T) {
 
 func TestBuildInteropMatrix_PathBasedColumns(t *testing.T) {
 	t.Parallel()
-	inputs := []interopCacheInput{
+	const (
+		checkA = "openid4vp_wallet/1.0/webuild/check-a"
+		checkB = "openid4vp_wallet/1.0/webuild/check-b"
+	)
+	inputs := []interopTieredCacheInput{
 		{
 			PipelineID:     "p1",
 			TotalRuns:      100,
 			TotalSuccesses: 80,
-			RowIDs:         []string{"w1"},
-			ColumnIDs:      []string{"openid4vp_wallet/1.0/webuild/check-a"},
+			RowCoords:        []interopAxisCoord{{Tier: interopTierGroup, Key: "w1"}},
+			ColumnCoords:     []interopAxisCoord{{Tier: interopTierLeaf, Key: checkA}},
 		},
 		{
 			PipelineID:     "p2",
 			TotalRuns:      50,
 			TotalSuccesses: 30,
-			RowIDs:         []string{"w1"},
-			ColumnIDs:      []string{"openid4vp_wallet/1.0/webuild/check-b"},
+			RowCoords:        []interopAxisCoord{{Tier: interopTierGroup, Key: "w1"}},
+			ColumnCoords:     []interopAxisCoord{{Tier: interopTierLeaf, Key: checkB}},
 		},
 	}
-	rowEntities := map[string]InteropMatrixEntity{
-		"w1": {ID: "w1", Name: "Wallet", Path: "org/wallets/w1"},
-	}
-	colEntities := map[string]InteropMatrixEntity{
-		"openid4vp_wallet/1.0/webuild/check-a": {ID: "openid4vp_wallet/1.0/webuild/check-a", Name: "Check A", Path: "openid4vp_wallet/1.0/webuild/check-a"},
-		"openid4vp_wallet/1.0/webuild/check-b": {ID: "openid4vp_wallet/1.0/webuild/check-b", Name: "Check B", Path: "openid4vp_wallet/1.0/webuild/check-b"},
-	}
 
-	resp := buildInteropMatrix(
-		inputs,
-		InteropAxis{HubCollection: "wallets", PathBased: false},
-		InteropAxis{HubCollection: "conformance-checks", PathBased: true},
-		rowEntities,
-		colEntities,
+	cellsMap := aggregateInteropCells(inputs)
+	resp := buildInteropTieredMatrix(
+		InteropAxis{HubCollection: "wallets", PathBased: false, Tiered: true},
+		InteropAxis{HubCollection: "conformance-checks", PathBased: true, Tiered: true},
+		[]InteropMatrixGroup{{ID: "w1", Name: "Wallet", Path: "org/wallets/w1"}},
+		nil,
+		nil,
+		[]InteropMatrixLeaf{
+			{InteropMatrixEntity: InteropMatrixEntity{ID: checkA, Name: "Check A", Path: checkA}},
+			{InteropMatrixEntity: InteropMatrixEntity{ID: checkB, Name: "Check B", Path: checkB}},
+		},
+		cellsMap,
 	)
 	require.Len(t, resp.Cells, 2)
-	require.Len(t, resp.Columns, 2)
-	require.Len(t, resp.Rows, 1)
+	require.Len(t, resp.ColumnLeaves, 2)
+	require.Len(t, resp.RowGroups, 1)
 }
 
 func TestBuildRecordIDsFilter(t *testing.T) {

@@ -27,14 +27,6 @@ const (
 	interopStatusBroken  interopStatus = "broken"
 )
 
-type interopCacheInput struct {
-	PipelineID     string
-	TotalRuns      int
-	TotalSuccesses int
-	RowIDs         []string // row axis entity IDs from cache scan
-	ColumnIDs      []string // column axis entity IDs from cache scan
-}
-
 type interopCellAccumulator struct {
 	pipelineIDs    map[string]struct{}
 	totalRuns      int
@@ -50,31 +42,57 @@ type InteropMatrixEntity struct {
 	VersionLabel *string `json:"version_label,omitempty"`
 }
 
+type InteropMatrixTier string
+
+const (
+	InteropMatrixTierGroup InteropMatrixTier = "group"
+	InteropMatrixTierLeaf  InteropMatrixTier = "leaf"
+)
+
+type InteropMatrixGroup struct {
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Path       string  `json:"path"`
+	ChildCount int     `json:"child_count"`
+	AvatarURL  *string `json:"avatar_url,omitempty"`
+	Subtitle   *string `json:"subtitle,omitempty"`
+}
+
+type InteropMatrixLeaf struct {
+	InteropMatrixEntity
+	ParentID string `json:"parent_id,omitempty"`
+}
+
 type InteropMatrixCell struct {
-	RowID          string        `json:"row_id"`
-	ColumnID       string        `json:"column_id"`
-	PipelineCount  int           `json:"pipeline_count"`
-	TotalRuns      int           `json:"total_runs"`
-	TotalSuccesses int           `json:"total_successes"`
-	SuccessRate    float64       `json:"success_rate"`
-	Status         interopStatus `json:"status"`
+	RowID          string            `json:"row_id"`
+	ColumnID       string            `json:"column_id"`
+	RowTier        InteropMatrixTier `json:"row_tier"`
+	ColumnTier     InteropMatrixTier `json:"column_tier"`
+	PipelineCount  int               `json:"pipeline_count"`
+	TotalRuns      int               `json:"total_runs"`
+	TotalSuccesses int               `json:"total_successes"`
+	SuccessRate    float64           `json:"success_rate"`
+	Status         interopStatus     `json:"status"`
 }
 
 // InteropAxis bundles an axis with the facts a caller needs to render it:
 // the hub URL segment for its entities (e.g. "wallets", "conformance-checks"),
-// and whether IDs are conformance check paths from a JSON field rather than
-// PocketBase relation record IDs.
+// whether IDs are conformance check paths from a JSON field rather than
+// PocketBase relation record IDs, and whether the axis supports group/leaf tiers.
 type InteropAxis struct {
 	HubCollection string `json:"hub_collection"`
 	PathBased     bool   `json:"path_based"`
+	Tiered        bool   `json:"tiered"`
 }
 
 type InteropMatrixResponse struct {
-	Row     InteropAxis           `json:"row"`
-	Column  InteropAxis           `json:"column"`
-	Rows    []InteropMatrixEntity `json:"rows"`
-	Columns []InteropMatrixEntity `json:"columns"`
-	Cells   []InteropMatrixCell   `json:"cells"`
+	Row          InteropAxis          `json:"row"`
+	Column       InteropAxis          `json:"column"`
+	RowGroups    []InteropMatrixGroup `json:"row_groups"`
+	RowLeaves    []InteropMatrixLeaf  `json:"row_leaves"`
+	ColumnGroups []InteropMatrixGroup `json:"column_groups"`
+	ColumnLeaves []InteropMatrixLeaf  `json:"column_leaves"`
+	Cells        []InteropMatrixCell  `json:"cells"`
 }
 
 func interopStatusFromRate(rate float64) interopStatus {
@@ -90,77 +108,72 @@ func interopStatusFromRate(rate float64) interopStatus {
 	}
 }
 
-type interopMatrixCellKey struct {
-	row string
-	col string
-}
-
 const interopRecordIDFilterChunkSize = 50
 
-type interopCacheScan struct {
-	inputs         []interopCacheInput
-	rowIDs         map[string]struct{}
-	columnIDs      map[string]struct{}
-	rowEntities    map[string]InteropMatrixEntity
-	columnEntities map[string]InteropMatrixEntity
+type interopAxisKeys struct {
+	groups           map[string]struct{}
+	leaves           map[string]struct{}
+	suiteGroupTitles map[string]string
 }
 
-func sortedInteropEntities(all map[string]InteropMatrixEntity, seen map[string]struct{}) []InteropMatrixEntity {
-	out := make([]InteropMatrixEntity, 0, len(seen))
-	for id := range seen {
-		e, ok := all[id]
-		if !ok {
-			continue
-		}
-		out = append(out, e)
+func newInteropAxisKeys() interopAxisKeys {
+	return interopAxisKeys{
+		groups:           map[string]struct{}{},
+		leaves:           map[string]struct{}{},
+		suiteGroupTitles: map[string]string{},
 	}
-	sort.Slice(out, func(i, j int) bool {
-		ni := strings.ToLower(strings.TrimSpace(out[i].Name))
-		nj := strings.ToLower(strings.TrimSpace(out[j].Name))
-		if ni != nj {
-			return ni < nj
-		}
-		return out[i].ID < out[j].ID
-	})
-	return out
 }
 
-func buildInteropMatrix(
-	inputs []interopCacheInput,
-	rowAxis InteropAxis,
-	colAxis InteropAxis,
-	rowEntities map[string]InteropMatrixEntity,
-	columnEntities map[string]InteropMatrixEntity,
-) InteropMatrixResponse {
-	cellsMap := map[interopMatrixCellKey]*interopCellAccumulator{}
-	rowSeen := map[string]struct{}{}
-	colSeen := map[string]struct{}{}
-
-	for _, in := range inputs {
-		if len(in.RowIDs) == 0 || len(in.ColumnIDs) == 0 || in.TotalRuns <= 0 {
-			continue
-		}
-		for _, rowID := range in.RowIDs {
-			for _, colID := range in.ColumnIDs {
-				key := interopMatrixCellKey{row: rowID, col: colID}
-				acc := cellsMap[key]
-				if acc == nil {
-					acc = &interopCellAccumulator{
-						pipelineIDs: make(map[string]struct{}),
-					}
-					cellsMap[key] = acc
+func collectInteropAxisKeys(keys *interopAxisKeys, coords []interopAxisCoord, axis interopAxis) {
+	for _, coord := range coords {
+		switch coord.Tier {
+		case interopTierGroup:
+			keys.groups[coord.Key] = struct{}{}
+			if axis.PathBased {
+				keys.suiteGroupTitles[coord.Key] = interopSuiteGroupTitleFromID(coord.Key)
+			}
+		case interopTierLeaf:
+			keys.leaves[coord.Key] = struct{}{}
+			if axis.PathBased {
+				group, _, err := interopSuiteGroupFromPath(coord.Key)
+				if err == nil {
+					keys.groups[group.ID] = struct{}{}
+					keys.suiteGroupTitles[group.ID] = group.Title
 				}
-				if in.PipelineID != "" {
-					acc.pipelineIDs[in.PipelineID] = struct{}{}
-				}
-				acc.totalRuns += in.TotalRuns
-				acc.totalSuccesses += in.TotalSuccesses
-				rowSeen[rowID] = struct{}{}
-				colSeen[colID] = struct{}{}
 			}
 		}
 	}
+}
 
+func interopSuiteGroupTitleFromID(groupID string) string {
+	parts := strings.Split(groupID, "/")
+	if len(parts) != 3 {
+		return groupID
+	}
+	return fmt.Sprintf("%s • %s • %s", parts[0], parts[1], parts[2])
+}
+
+func interopAxisDTO(axis interopAxis) InteropAxis {
+	return InteropAxis{
+		HubCollection: axis.HubCollection,
+		PathBased:     axis.PathBased,
+		Tiered:        axis.Tiered(),
+	}
+}
+
+func interopMatrixTierString(t interopTier) InteropMatrixTier {
+	return InteropMatrixTier(t)
+}
+
+func buildInteropTieredMatrix(
+	rowAxis InteropAxis,
+	colAxis InteropAxis,
+	rowGroups []InteropMatrixGroup,
+	rowLeaves []InteropMatrixLeaf,
+	columnGroups []InteropMatrixGroup,
+	columnLeaves []InteropMatrixLeaf,
+	cellsMap map[interopTieredMatrixCellKey]*interopCellAccumulator,
+) InteropMatrixResponse {
 	cells := make([]InteropMatrixCell, 0, len(cellsMap))
 	for k, acc := range cellsMap {
 		if acc.totalRuns <= 0 {
@@ -168,8 +181,10 @@ func buildInteropMatrix(
 		}
 		rate := float64(acc.totalSuccesses) / float64(acc.totalRuns) * 100
 		cells = append(cells, InteropMatrixCell{
-			RowID:          k.row,
-			ColumnID:       k.col,
+			RowID:          k.rowKey,
+			ColumnID:       k.colKey,
+			RowTier:        interopMatrixTierString(k.rowTier),
+			ColumnTier:     interopMatrixTierString(k.colTier),
 			PipelineCount:  len(acc.pipelineIDs),
 			TotalRuns:      acc.totalRuns,
 			TotalSuccesses: acc.totalSuccesses,
@@ -179,12 +194,50 @@ func buildInteropMatrix(
 	}
 
 	return InteropMatrixResponse{
-		Row:     rowAxis,
-		Column:  colAxis,
-		Rows:    sortedInteropEntities(rowEntities, rowSeen),
-		Columns: sortedInteropEntities(columnEntities, colSeen),
-		Cells:   cells,
+		Row:          rowAxis,
+		Column:       colAxis,
+		RowGroups:    rowGroups,
+		RowLeaves:    rowLeaves,
+		ColumnGroups: columnGroups,
+		ColumnLeaves: columnLeaves,
+		Cells:        cells,
 	}
+}
+
+func sortedInteropMatrixGroups(groups []InteropMatrixGroup) []InteropMatrixGroup {
+	sort.Slice(groups, func(i, j int) bool {
+		ni := strings.ToLower(strings.TrimSpace(groups[i].Name))
+		nj := strings.ToLower(strings.TrimSpace(groups[j].Name))
+		if ni != nj {
+			return ni < nj
+		}
+		return groups[i].ID < groups[j].ID
+	})
+	return groups
+}
+
+func sortedInteropMatrixLeaves(leaves []InteropMatrixLeaf) []InteropMatrixLeaf {
+	sort.Slice(leaves, func(i, j int) bool {
+		ni := strings.ToLower(strings.TrimSpace(leaves[i].Name))
+		nj := strings.ToLower(strings.TrimSpace(leaves[j].Name))
+		if ni != nj {
+			return ni < nj
+		}
+		return leaves[i].ID < leaves[j].ID
+	})
+	return leaves
+}
+
+func interopChildCountByParent(leaves []InteropMatrixLeaf) map[string]int {
+	counts := map[string]int{}
+	for _, leaf := range leaves {
+		parentID := strings.TrimSpace(leaf.ParentID)
+		if parentID == "" {
+			continue
+		}
+		counts[parentID]++
+	}
+	return counts
 }
 
 var ScoreboardInteropPublicRoutes = routing.RouteGroup{
@@ -295,165 +348,344 @@ func loadInteropMatrixFromCache(
 		return InteropMatrixResponse{}, fmt.Errorf("list cache: %w", err)
 	}
 
-	scan := scanInteropCacheRecords(records, rowAxis, colAxis)
+	inputs := make([]interopTieredCacheInput, 0, len(records))
+	rowKeys := newInteropAxisKeys()
+	colKeys := newInteropAxisKeys()
 
-	var rowEntities map[string]InteropMatrixEntity
-	if rowAxis.PathBased {
-		rowEntities = scan.rowEntities
-	} else {
-		var err error
-		rowEntities, err = loadInteropEntitiesByIDs(app, rowAxis, scan.rowIDs, records)
-		if err != nil {
-			return InteropMatrixResponse{}, err
-		}
-		for id, entity := range scan.rowEntities {
-			rowEntities[id] = entity
-		}
-	}
-
-	columnEntities := scan.columnEntities
-	if !colAxis.PathBased {
-		var err error
-		columnEntities, err = loadInteropEntitiesByIDs(app, colAxis, scan.columnIDs, nil)
-		if err != nil {
-			return InteropMatrixResponse{}, err
-		}
-	}
-
-	return buildInteropMatrix(
-		scan.inputs,
-		InteropAxis{HubCollection: rowAxis.HubCollection, PathBased: rowAxis.PathBased},
-		InteropAxis{HubCollection: colAxis.HubCollection, PathBased: colAxis.PathBased},
-		rowEntities,
-		columnEntities,
-	), nil
-}
-
-func readAxisIDs(record *core.Record, axis interopAxis) ([]string, map[string]InteropMatrixEntity) {
-	inline := map[string]InteropMatrixEntity{}
-	if !axis.PathBased {
-		ids := record.GetStringSlice(axis.CacheField)
-		return ids, inline
-	}
-	var rawIDs []string
-	if err := record.UnmarshalJSONField(axis.CacheField, &rawIDs); err != nil {
-		return nil, inline
-	}
-	out := make([]string, 0, len(rawIDs))
-	for _, id := range rawIDs {
-		if id == "" {
-			continue
-		}
-		out = append(out, id)
-		if _, ok := inline[id]; ok {
-			continue
-		}
-		inline[id] = InteropMatrixEntity{
-			ID:   id,
-			Name: conformanceCheckName(id),
-			Path: id,
-		}
-	}
-	return out, inline
-}
-
-func scanInteropCacheRecords(
-	records []*core.Record,
-	rowAxis interopAxis,
-	colAxis interopAxis,
-) interopCacheScan {
-	scan := interopCacheScan{
-		rowIDs:         map[string]struct{}{},
-		columnIDs:      map[string]struct{}{},
-		rowEntities:    map[string]InteropMatrixEntity{},
-		columnEntities: map[string]InteropMatrixEntity{},
-	}
 	for _, record := range records {
-		rowIDs, rowInline := readAxisIDs(record, rowAxis)
-		colIDs, colInline := readAxisIDs(record, colAxis)
-		for id, entity := range rowInline {
-			scan.rowEntities[id] = entity
+		rowCoords, err := resolveAxisCoords(app, record, rowAxis)
+		if err != nil {
+			return InteropMatrixResponse{}, fmt.Errorf("resolve row coords: %w", err)
 		}
-		for id, entity := range colInline {
-			scan.columnEntities[id] = entity
+		colCoords, err := resolveAxisCoords(app, record, colAxis)
+		if err != nil {
+			return InteropMatrixResponse{}, fmt.Errorf("resolve column coords: %w", err)
 		}
-		scan.inputs = append(scan.inputs, interopCacheInput{
+
+		if len(rowCoords) == 0 || len(colCoords) == 0 {
+			continue
+		}
+
+		collectInteropAxisKeys(&rowKeys, rowCoords, rowAxis)
+		collectInteropAxisKeys(&colKeys, colCoords, colAxis)
+
+		inputs = append(inputs, interopTieredCacheInput{
 			PipelineID:     record.GetString("pipeline"),
 			TotalRuns:      record.GetInt("total_runs"),
 			TotalSuccesses: record.GetInt("total_successes"),
-			RowIDs:         rowIDs,
-			ColumnIDs:      colIDs,
+			RowCoords:      rowCoords,
+			ColumnCoords:   colCoords,
 		})
-		for _, rowID := range rowIDs {
-			if !rowAxis.PathBased {
-				scan.rowIDs[rowID] = struct{}{}
-			}
-		}
-		for _, colID := range colIDs {
-			if !colAxis.PathBased {
-				scan.columnIDs[colID] = struct{}{}
-			}
-		}
 	}
-	return scan
+
+	cellsMap := aggregateInteropCells(inputs)
+
+	rowGroups, rowLeaves, err := loadInteropAxisPresentation(app, rowAxis, rowKeys, records)
+	if err != nil {
+		return InteropMatrixResponse{}, fmt.Errorf("load row axis: %w", err)
+	}
+	columnGroups, columnLeaves, err := loadInteropAxisPresentation(app, colAxis, colKeys, records)
+	if err != nil {
+		return InteropMatrixResponse{}, fmt.Errorf("load column axis: %w", err)
+	}
+
+	return buildInteropTieredMatrix(
+		interopAxisDTO(rowAxis),
+		interopAxisDTO(colAxis),
+		rowGroups,
+		rowLeaves,
+		columnGroups,
+		columnLeaves,
+		cellsMap,
+	), nil
 }
 
-func loadInteropEntitiesByIDs(
+func loadInteropAxisPresentation(
 	app core.App,
 	axis interopAxis,
-	ids map[string]struct{},
+	keys interopAxisKeys,
 	cacheRecords []*core.Record,
-) (map[string]InteropMatrixEntity, error) {
-	entities := make(map[string]InteropMatrixEntity, len(ids))
-	if len(ids) == 0 {
-		return entities, nil
+) ([]InteropMatrixGroup, []InteropMatrixLeaf, error) {
+	leaves, err := loadInteropLeaves(app, axis, keys.leaves, cacheRecords)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	childCounts := interopChildCountByParent(leaves)
+
+	var groups []InteropMatrixGroup
+	if axis.Tiered() {
+		groups, err = loadInteropGroups(app, axis, keys, childCounts)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return sortedInteropMatrixGroups(groups), sortedInteropMatrixLeaves(leaves), nil
+}
+
+func loadInteropGroups(
+	app core.App,
+	axis interopAxis,
+	keys interopAxisKeys,
+	childCounts map[string]int,
+) ([]InteropMatrixGroup, error) {
+	groups := make([]InteropMatrixGroup, 0, len(keys.groups))
+	if len(keys.groups) == 0 {
+		return groups, nil
+	}
+
+	if axis.PathBased {
+		for groupID := range keys.groups {
+			title := keys.suiteGroupTitles[groupID]
+			if title == "" {
+				title = interopSuiteGroupTitleFromID(groupID)
+			}
+			groups = append(groups, InteropMatrixGroup{
+				ID:         groupID,
+				Name:       title,
+				Path:       groupID,
+				ChildCount: childCounts[groupID],
+			})
+		}
+		return groups, nil
 	}
 
 	if axis.buildEntity == nil {
-		return entities, nil
+		return groups, nil
 	}
 
-	recordsByID, err := findRecordsByIDs(app, axis.HubCollection, interopUniqueIDs(ids))
+	recordsByID, err := findRecordsByIDs(app, axis.Tier.GroupCollection, interopUniqueIDs(keys.groups))
 	if err != nil {
 		return nil, err
 	}
 
-	cacheRecordByID := interopFirstCacheRecordByEntityID(cacheRecords, axis)
-
-	for id := range ids {
-		record, ok := recordsByID[id]
-		if !ok {
+	for groupID := range keys.groups {
+		record := recordsByID[groupID]
+		if record == nil {
 			continue
 		}
-		entity, err := axis.buildEntity(app, record, cacheRecordByID[id])
+		entity, err := axis.buildEntity(app, record, nil)
 		if err != nil {
 			return nil, err
 		}
-		entities[id] = entity
+		groups = append(groups, InteropMatrixGroup{
+			ID:         entity.ID,
+			Name:       entity.Name,
+			Path:       entity.Path,
+			ChildCount: childCounts[groupID],
+			AvatarURL:  entity.AvatarURL,
+			Subtitle:   entity.Subtitle,
+		})
 	}
 
-	return entities, nil
+	return groups, nil
 }
 
-func interopFirstCacheRecordByEntityID(
+func loadInteropLeaves(
+	app core.App,
+	axis interopAxis,
+	leafIDs map[string]struct{},
+	cacheRecords []*core.Record,
+) ([]InteropMatrixLeaf, error) {
+	leaves := make([]InteropMatrixLeaf, 0, len(leafIDs))
+	if len(leafIDs) == 0 {
+		return leaves, nil
+	}
+
+	cacheRecordByLeafID := interopFirstCacheRecordByLeafID(cacheRecords, axis)
+
+	for leafID := range leafIDs {
+		leaf, err := buildInteropLeaf(app, axis, leafID, cacheRecordByLeafID[leafID])
+		if err != nil {
+			return nil, err
+		}
+		if leaf.ID == "" {
+			continue
+		}
+		leaves = append(leaves, leaf)
+	}
+
+	return leaves, nil
+}
+
+func buildInteropLeaf(
+	app core.App,
+	axis interopAxis,
+	leafID string,
+	cacheRecord *core.Record,
+) (InteropMatrixLeaf, error) {
+	if axis.PathBased {
+		entity := InteropMatrixEntity{
+			ID:   leafID,
+			Name: conformanceCheckName(leafID),
+			Path: leafID,
+		}
+		parentID := ""
+		if group, _, err := interopSuiteGroupFromPath(leafID); err == nil {
+			parentID = group.ID
+		}
+		return InteropMatrixLeaf{InteropMatrixEntity: entity, ParentID: parentID}, nil
+	}
+
+	if !axis.Tiered() {
+		if axis.buildEntity == nil {
+			return InteropMatrixLeaf{}, nil
+		}
+		record, err := findRecordsByIDs(app, axis.HubCollection, []string{leafID})
+		if err != nil {
+			return InteropMatrixLeaf{}, err
+		}
+		rec := record[leafID]
+		if rec == nil {
+			return InteropMatrixLeaf{}, nil
+		}
+		entity, err := axis.buildEntity(app, rec, cacheRecord)
+		if err != nil {
+			return InteropMatrixLeaf{}, err
+		}
+		return InteropMatrixLeaf{InteropMatrixEntity: entity}, nil
+	}
+
+	return buildInteropTieredPBLeaf(app, axis, leafID, cacheRecord)
+}
+
+func buildInteropTieredPBLeaf(
+	app core.App,
+	axis interopAxis,
+	leafID string,
+	cacheRecord *core.Record,
+) (InteropMatrixLeaf, error) {
+	sentinel := "::" + axis.Tier.NoLeafSentinel
+	if strings.Contains(leafID, sentinel) {
+		parentID := strings.TrimSuffix(leafID, sentinel)
+		walletRecords, err := findRecordsByIDs(app, axis.Tier.GroupCollection, []string{parentID})
+		if err != nil {
+			return InteropMatrixLeaf{}, err
+		}
+		wallet := walletRecords[parentID]
+		if wallet == nil || axis.buildEntity == nil {
+			return InteropMatrixLeaf{}, nil
+		}
+		entity, err := axis.buildEntity(app, wallet, cacheRecord)
+		if err != nil {
+			return InteropMatrixLeaf{}, err
+		}
+		entity.ID = leafID
+		entity.VersionLabel = nil
+		return InteropMatrixLeaf{InteropMatrixEntity: entity, ParentID: parentID}, nil
+	}
+
+	leafRecords, err := findRecordsByIDs(app, axis.Tier.LeafCollection, []string{leafID})
+	if err != nil {
+		return InteropMatrixLeaf{}, err
+	}
+	leafRecord := leafRecords[leafID]
+	if leafRecord == nil {
+		return InteropMatrixLeaf{}, nil
+	}
+
+	parentID := strings.TrimSpace(leafRecord.GetString(axis.Tier.LeafParentField))
+
+	switch axis.HubCollection {
+	case "wallets":
+		walletRecords, err := findRecordsByIDs(app, "wallets", []string{parentID})
+		if err != nil {
+			return InteropMatrixLeaf{}, err
+		}
+		wallet := walletRecords[parentID]
+		if wallet == nil || axis.buildEntity == nil {
+			return InteropMatrixLeaf{}, nil
+		}
+		entity, err := axis.buildEntity(app, wallet, cacheRecord)
+		if err != nil {
+			return InteropMatrixLeaf{}, err
+		}
+		entity.ID = leafID
+		if entity.VersionLabel == nil {
+			tag := strings.TrimSpace(leafRecord.GetString("tag"))
+			if tag != "" {
+				label := tag
+				if !strings.HasPrefix(label, "v") {
+					label = "v" + label
+				}
+				entity.VersionLabel = &label
+			}
+		}
+		return InteropMatrixLeaf{InteropMatrixEntity: entity, ParentID: parentID}, nil
+	default:
+		buildEntity := axis.buildEntity
+		switch axis.HubCollection {
+		case "credential_issuers":
+			if credAxis, ok := getInteropAxis("credentials"); ok {
+				buildEntity = credAxis.buildEntity
+			}
+		case "verifiers":
+			if ucAxis, ok := getInteropAxis("use_cases_verifications"); ok {
+				buildEntity = ucAxis.buildEntity
+			}
+		}
+		if buildEntity == nil {
+			return InteropMatrixLeaf{}, nil
+		}
+		entity, err := buildEntity(app, leafRecord, cacheRecord)
+		if err != nil {
+			return InteropMatrixLeaf{}, err
+		}
+		return InteropMatrixLeaf{InteropMatrixEntity: entity, ParentID: parentID}, nil
+	}
+}
+
+func interopFirstCacheRecordByLeafID(
 	cacheRecords []*core.Record,
 	axis interopAxis,
 ) map[string]*core.Record {
 	if len(cacheRecords) == 0 {
 		return nil
 	}
+
 	out := map[string]*core.Record{}
+	assign := func(leafID string, cacheRecord *core.Record) {
+		if leafID == "" {
+			return
+		}
+		if _, ok := out[leafID]; ok {
+			return
+		}
+		out[leafID] = cacheRecord
+	}
+
 	for _, cacheRecord := range cacheRecords {
-		for _, id := range cacheRecord.GetStringSlice(axis.CacheField) {
-			if id == "" {
+		if !axis.Tiered() {
+			for _, id := range cacheRecord.GetStringSlice(axis.CacheField) {
+				assign(id, cacheRecord)
+			}
+			continue
+		}
+
+		if axis.PathBased {
+			var paths []string
+			if err := cacheRecord.UnmarshalJSONField(axis.Tier.LeafCacheField, &paths); err != nil {
 				continue
 			}
-			if _, ok := out[id]; ok {
+			for _, path := range paths {
+				assign(strings.TrimSpace(path), cacheRecord)
+			}
+			continue
+		}
+
+		for _, leafID := range cacheRecord.GetStringSlice(axis.Tier.LeafCacheField) {
+			assign(strings.TrimSpace(leafID), cacheRecord)
+		}
+		for _, parentID := range cacheRecord.GetStringSlice(axis.CacheField) {
+			parentID = strings.TrimSpace(parentID)
+			if parentID == "" {
 				continue
 			}
-			out[id] = cacheRecord
+			assign(fmt.Sprintf("%s::%s", parentID, axis.Tier.NoLeafSentinel), cacheRecord)
 		}
 	}
+
 	return out
 }
 

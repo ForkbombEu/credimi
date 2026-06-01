@@ -71,7 +71,7 @@ var interopAxisRegistry = map[string]interopAxis{
 		buildEntity:   verifierBuildEntity,
 		Tier: &interopAxisTier{
 			GroupCollection: "verifiers",
-			LeafCollection:  "use_case_verifications",
+			LeafCollection:  "use_cases_verifications",
 			LeafCacheField:  "use_case_verifications",
 			LeafParentField: "verifier",
 			NoLeafSentinel:  "__no_leaf__",
