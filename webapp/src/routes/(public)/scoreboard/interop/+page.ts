@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { DEFAULT_INTEROP_PAIR } from '$lib/scoreboard/interop/featured-pairs';
-import { isInteropHubCollection } from '$lib/scoreboard/interop/interop-hub-collections';
 import type { InteropMatrixResponse } from '$lib/scoreboard/interop/types';
-import { getStandardsWithTestSuites } from '$lib/standards';
 
 import { error, redirect } from '@sveltejs/kit';
+import { DEFAULT_INTEROP_PAIR } from '$lib/scoreboard/interop/featured-pairs';
+import { isInteropHubCollection } from '$lib/scoreboard/interop/interop-hub-collections';
+import { getStandardsWithTestSuites } from '$lib/standards';
 
 export const load = async ({ fetch, url }) => {
 	const row = url.searchParams.get('row');

@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, it } from 'vitest';
-
 import type { Standard } from '$lib/conformance/types';
+
+import { describe, expect, it } from 'vitest';
 
 import { m } from '@/i18n';
 
@@ -169,9 +169,9 @@ function tieredWalletIssuerMatrix(): InteropMatrixResponse {
 
 describe('hubHref', () => {
 	it('joins hub collection and entity path', () => {
-		expect(hubHref({ hub_collection: 'wallets', path_based: false, tiered: false }, 'org/w1')).toBe(
-			'/hub/wallets/org/w1'
-		);
+		expect(
+			hubHref({ hub_collection: 'wallets', path_based: false, tiered: false }, 'org/w1')
+		).toBe('/hub/wallets/org/w1');
 	});
 
 	it('uses conformance-checks segment for path-based columns', () => {
@@ -229,7 +229,9 @@ describe('buildVisibleMatrix', () => {
 				tier: 'leaf'
 			}
 		]);
-		expect(view.cells.get(cellKey('leaf', 'w1', 'leaf', 'i1'))).toMatchObject({ status: 'stable' });
+		expect(view.cells.get(cellKey('leaf', 'w1', 'leaf', 'i1'))).toMatchObject({
+			status: 'stable'
+		});
 	});
 
 	it('shows group rows when tiered axis is collapsed', () => {

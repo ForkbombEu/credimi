@@ -26,8 +26,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let expandedColumnGroups = $state(new Set<string>());
 
 	$effect(() => {
-		data.row;
-		data.column;
+		const { row, column } = data;
+		void row;
+		void column;
 		expandedRowGroups = new Set();
 		expandedColumnGroups = new Set();
 	});
@@ -67,7 +68,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							`/scoreboard/interop?row=${pair.row}&column=${pair.column}`
 						) as '/'
 					)}
-					aria-current={data.row === pair.row && data.column === pair.column ? 'page' : undefined}
+					aria-current={data.row === pair.row && data.column === pair.column
+						? 'page'
+						: undefined}
 				>
 					{pairLabel(pair.row, pair.column)}
 				</a>

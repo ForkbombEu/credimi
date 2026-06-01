@@ -6,7 +6,6 @@ import type { Standard } from '$lib/conformance/types';
 
 import { m } from '@/i18n';
 
-import { interopHubEntity, isInteropHubCollection } from './interop-hub-collections';
 import type {
 	InteropAxis,
 	InteropMatrixCell,
@@ -17,6 +16,7 @@ import type {
 	InteropMatrixTier
 } from './types';
 
+import { interopHubEntity, isInteropHubCollection } from './interop-hub-collections';
 import { resolveConformanceCheck } from './resolve-conformance';
 
 export type ViewMatrixEntity = {

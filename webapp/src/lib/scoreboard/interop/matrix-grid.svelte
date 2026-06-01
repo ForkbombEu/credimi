@@ -5,11 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Standard } from '$lib/conformance/types';
 	import type { Snippet } from 'svelte';
 
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import type { Standard } from '$lib/conformance/types';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	import { m } from '@/i18n';
 
@@ -29,8 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let {
 		matrix,
 		standards,
-		expandedRowGroups = $bindable(new Set<string>()),
-		expandedColumnGroups = $bindable(new Set<string>()),
+		expandedRowGroups = $bindable(new SvelteSet<string>()),
+		expandedColumnGroups = $bindable(new SvelteSet<string>()),
 		legend
 	}: Props = $props();
 
@@ -43,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	function toggleRowGroup(groupId: string) {
-		const next = new Set(expandedRowGroups);
+		const next = new SvelteSet(expandedRowGroups);
 		if (next.has(groupId)) {
 			next.delete(groupId);
 		} else {
@@ -53,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	function toggleColumnGroup(groupId: string) {
-		const next = new Set(expandedColumnGroups);
+		const next = new SvelteSet(expandedColumnGroups);
 		if (next.has(groupId)) {
 			next.delete(groupId);
 		} else {
