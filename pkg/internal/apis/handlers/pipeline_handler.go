@@ -119,6 +119,14 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			},
 		},
 		{
+			Method:         http.MethodPost,
+			Path:           "/mobile-flow",
+			Handler:        HandlePipelineMobileFlow,
+			RequestSchema:  PipelineMobileFlowInput{},
+			ResponseSchema: PipelineMobileFlowResponse{},
+			Description:    "Run a wallet mobile action on the initialized device reserved by a running pipeline",
+		},
+		{
 			Method:        http.MethodPost,
 			Path:          "/pipeline-execution-results",
 			Handler:       HandleSetPipelineExecutionResults,
