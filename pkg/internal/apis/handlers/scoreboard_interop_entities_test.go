@@ -11,62 +11,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetInteropEntityResolver_UnknownCollection(t *testing.T) {
-	t.Parallel()
-
-	_, err := getInteropEntityResolver("unknown_collection")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no interop entity resolver")
-}
-
-func TestInteropEntityResolverRegistry_Collections(t *testing.T) {
+func TestInteropAxisRegistry_BuildEntity(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		collection            string
-		relatedCollections    []string
-		supportsVersionLabels bool
+		hubCollection string
+		expectNil     bool
 	}{
-		{
-			collection:            "wallets",
-			supportsVersionLabels: true,
-		},
-		{
-			collection:         "credentials",
-			relatedCollections: []string{"credential_issuers"},
-		},
-		{
-			collection:         "use_cases_verifications",
-			relatedCollections: []string{"verifiers"},
-		},
-		{
-			collection: "credential_issuers",
-		},
-		{
-			collection: "verifiers",
-		},
+		{hubCollection: "wallets"},
+		{hubCollection: "credentials"},
+		{hubCollection: "use_cases_verifications"},
+		{hubCollection: "credential_issuers"},
+		{hubCollection: "verifiers"},
+		{hubCollection: "conformance-checks", expectNil: true},
 	}
 
 	for _, tc := range cases {
-		t.Run(tc.collection, func(t *testing.T) {
+		t.Run(tc.hubCollection, func(t *testing.T) {
 			t.Parallel()
 
-			resolver, err := getInteropEntityResolver(tc.collection)
-			require.NoError(t, err)
-			require.Equal(t, tc.collection, resolver.Collection())
-			require.Equal(t, tc.supportsVersionLabels, resolver.SupportsVersionLabels())
-
-			specs := resolver.RelatedCollections()
-			require.Len(t, specs, len(tc.relatedCollections))
-			for i, relatedCollection := range tc.relatedCollections {
-				require.Equal(t, relatedCollection, specs[i].Collection)
-				require.NotEmpty(t, specs[i].Field)
+			axis, ok := getInteropAxis(tc.hubCollection)
+			require.True(t, ok)
+			if tc.expectNil {
+				require.Nil(t, axis.buildEntity)
+				return
 			}
+			require.NotNil(t, axis.buildEntity)
 		})
 	}
 }
 
-func TestCredentialsInteropEntityResolver_Entity(t *testing.T) {
+func TestCredentialBuildEntity(t *testing.T) {
 	t.Parallel()
 
 	app := setupScoreboardInteropApp(t)
@@ -97,16 +72,10 @@ func TestCredentialsInteropEntityResolver_Entity(t *testing.T) {
 	credential.Set("owner", orgID)
 	require.NoError(t, app.Save(credential))
 
-	resolver, err := getInteropEntityResolver("credentials")
-	require.NoError(t, err)
+	axis, ok := getInteropAxis("credentials")
+	require.True(t, ok)
 
-	related := interopRelatedRecords{
-		byCollection: map[string]map[string]*core.Record{
-			"credential_issuers": {issuer.Id: issuer},
-		},
-	}
-
-	entity, err := resolver.Entity(app, credential, related)
+	entity, err := axis.buildEntity(app, credential, nil)
 	require.NoError(t, err)
 	require.Equal(t, credential.Id, entity.ID)
 	require.NotNil(t, entity.Subtitle)
@@ -115,7 +84,7 @@ func TestCredentialsInteropEntityResolver_Entity(t *testing.T) {
 	require.Equal(t, "https://cdn.example.com/issuer.png", *entity.AvatarURL)
 }
 
-func TestUseCasesVerificationsInteropEntityResolver_Entity(t *testing.T) {
+func TestUseCaseVerificationBuildEntity(t *testing.T) {
 	t.Parallel()
 
 	app := setupScoreboardInteropApp(t)
@@ -149,31 +118,79 @@ func TestUseCasesVerificationsInteropEntityResolver_Entity(t *testing.T) {
 	useCase.Set("owner", orgID)
 	require.NoError(t, app.Save(useCase))
 
-	// Logo is a file field; set in-memory only for resolver reads.
-	verifier.Set("logo", "https://cdn.example.com/verifier.png")
+	axis, ok := getInteropAxis("use_cases_verifications")
+	require.True(t, ok)
 
-	resolver, err := getInteropEntityResolver("use_cases_verifications")
-	require.NoError(t, err)
-
-	related := interopRelatedRecords{
-		byCollection: map[string]map[string]*core.Record{
-			"verifiers": {verifier.Id: verifier},
-		},
-	}
-
-	entity, err := resolver.Entity(app, useCase, related)
+	entity, err := axis.buildEntity(app, useCase, nil)
 	require.NoError(t, err)
 	require.Equal(t, useCase.Id, entity.ID)
 	require.NotNil(t, entity.Subtitle)
 	require.Equal(t, "Resolver Verifier", *entity.Subtitle)
-	require.NotNil(t, entity.AvatarURL)
-	require.Equal(t, "https://cdn.example.com/verifier.png", *entity.AvatarURL)
 }
 
-func TestWalletsInteropEntityResolver_SupportsVersionLabels(t *testing.T) {
+func TestWalletBuildEntity_VersionLabelFromCacheRecord(t *testing.T) {
 	t.Parallel()
 
-	resolver, err := getInteropEntityResolver("wallets")
+	app := setupScoreboardInteropApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
-	require.True(t, resolver.SupportsVersionLabels())
+
+	walletsCollection, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsCollection)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", "interop-wallet")
+	require.NoError(t, app.Save(wallet))
+
+	versionsCollection, err := app.FindCollectionByNameOrId("wallet_versions")
+	require.NoError(t, err)
+
+	version := core.NewRecord(versionsCollection)
+	version.Set("wallet", wallet.Id)
+	version.Set("tag", "2.0.0")
+	version.Set("owner", orgID)
+	require.NoError(t, app.Save(version))
+
+	cacheCollection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+
+	cacheRecord := core.NewRecord(cacheCollection)
+	cacheRecord.Set("wallets", []string{wallet.Id})
+	cacheRecord.Set("wallet_versions", []string{version.Id})
+
+	axis, ok := getInteropAxis("wallets")
+	require.True(t, ok)
+
+	entity, err := axis.buildEntity(app, wallet, cacheRecord)
+	require.NoError(t, err)
+	require.NotNil(t, entity.VersionLabel)
+	require.Equal(t, "v2.0.0", *entity.VersionLabel)
+}
+
+func TestWalletBuildEntity_NoVersionLabelWithoutCacheRecord(t *testing.T) {
+	t.Parallel()
+
+	app := setupScoreboardInteropApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	walletsCollection, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsCollection)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", "interop-wallet")
+	require.NoError(t, app.Save(wallet))
+
+	axis, ok := getInteropAxis("wallets")
+	require.True(t, ok)
+
+	entity, err := axis.buildEntity(app, wallet, nil)
+	require.NoError(t, err)
+	require.Nil(t, entity.VersionLabel)
 }

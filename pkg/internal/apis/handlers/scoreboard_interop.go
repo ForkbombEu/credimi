@@ -97,28 +97,12 @@ type interopMatrixCellKey struct {
 
 const interopRecordIDFilterChunkSize = 50
 
-type interopRelatedRecords struct {
-	byCollection map[string]map[string]*core.Record
-}
-
-func (r interopRelatedRecords) record(collection, id string) *core.Record {
-	if r.byCollection == nil {
-		return nil
-	}
-	records, ok := r.byCollection[collection]
-	if !ok {
-		return nil
-	}
-	return records[id]
-}
-
 type interopCacheScan struct {
-	inputs              []interopCacheInput
-	rowIDs              map[string]struct{}
-	columnIDs           map[string]struct{}
-	rowEntities         map[string]InteropMatrixEntity
-	columnEntities      map[string]InteropMatrixEntity
-	walletVersionLabels map[string]*string
+	inputs         []interopCacheInput
+	rowIDs         map[string]struct{}
+	columnIDs      map[string]struct{}
+	rowEntities    map[string]InteropMatrixEntity
+	columnEntities map[string]InteropMatrixEntity
 }
 
 func sortedInteropEntities(all map[string]InteropMatrixEntity, seen map[string]struct{}) []InteropMatrixEntity {
@@ -313,25 +297,12 @@ func loadInteropMatrixFromCache(
 
 	scan := scanInteropCacheRecords(records, rowAxis, colAxis)
 
-	if rowAxis.HubCollection == "wallets" {
-		walletVersionsByID, err := loadWalletVersionsForCacheRecords(app, records)
-		if err != nil {
-			return InteropMatrixResponse{}, err
-		}
-		resolveWalletVersionLabels(scan, records, rowAxis, walletVersionsByID)
-	}
-
 	var rowEntities map[string]InteropMatrixEntity
 	if rowAxis.PathBased {
 		rowEntities = scan.rowEntities
 	} else {
 		var err error
-		rowEntities, err = loadInteropEntitiesByIDs(
-			app,
-			rowAxis.HubCollection,
-			scan.rowIDs,
-			scan.walletVersionLabels,
-		)
+		rowEntities, err = loadInteropEntitiesByIDs(app, rowAxis, scan.rowIDs, records)
 		if err != nil {
 			return InteropMatrixResponse{}, err
 		}
@@ -343,12 +314,7 @@ func loadInteropMatrixFromCache(
 	columnEntities := scan.columnEntities
 	if !colAxis.PathBased {
 		var err error
-		columnEntities, err = loadInteropEntitiesByIDs(
-			app,
-			colAxis.HubCollection,
-			scan.columnIDs,
-			nil,
-		)
+		columnEntities, err = loadInteropEntitiesByIDs(app, colAxis, scan.columnIDs, nil)
 		if err != nil {
 			return InteropMatrixResponse{}, err
 		}
@@ -397,11 +363,10 @@ func scanInteropCacheRecords(
 	colAxis interopAxis,
 ) interopCacheScan {
 	scan := interopCacheScan{
-		rowIDs:              map[string]struct{}{},
-		columnIDs:           map[string]struct{}{},
-		rowEntities:         map[string]InteropMatrixEntity{},
-		columnEntities:      map[string]InteropMatrixEntity{},
-		walletVersionLabels: map[string]*string{},
+		rowIDs:         map[string]struct{}{},
+		columnIDs:      map[string]struct{}{},
+		rowEntities:    map[string]InteropMatrixEntity{},
+		columnEntities: map[string]InteropMatrixEntity{},
 	}
 	for _, record := range records {
 		rowIDs, rowInline := readAxisIDs(record, rowAxis)
@@ -433,88 +398,36 @@ func scanInteropCacheRecords(
 	return scan
 }
 
-func loadWalletVersionsForCacheRecords(
-	app core.App,
-	records []*core.Record,
-) (map[string]*core.Record, error) {
-	versionIDs := map[string]struct{}{}
-	for _, record := range records {
-		for _, versionID := range record.GetStringSlice("wallet_versions") {
-			if versionID != "" {
-				versionIDs[versionID] = struct{}{}
-			}
-		}
-	}
-	return findRecordsByIDs(app, "wallet_versions", interopUniqueIDs(versionIDs))
-}
-
-func resolveWalletVersionLabels(
-	scan interopCacheScan,
-	records []*core.Record,
-	axis interopAxis,
-	versionsByID map[string]*core.Record,
-) {
-	rowResolver, err := getInteropEntityResolver(axis.HubCollection)
-	if err != nil || !rowResolver.SupportsVersionLabels() {
-		return
-	}
-
-	for _, record := range records {
-		for _, walletID := range record.GetStringSlice(axis.CacheField) {
-			if walletID == "" {
-				continue
-			}
-			if _, ok := scan.walletVersionLabels[walletID]; ok {
-				continue
-			}
-			scan.walletVersionLabels[walletID] = walletVersionLabelFromCacheRecord(
-				record,
-				walletID,
-				versionsByID,
-			)
-		}
-	}
-}
-
 func loadInteropEntitiesByIDs(
 	app core.App,
-	collectionName string,
+	axis interopAxis,
 	ids map[string]struct{},
-	walletVersionLabels map[string]*string,
+	cacheRecords []*core.Record,
 ) (map[string]InteropMatrixEntity, error) {
 	entities := make(map[string]InteropMatrixEntity, len(ids))
 	if len(ids) == 0 {
 		return entities, nil
 	}
 
-	resolver, err := getInteropEntityResolver(collectionName)
+	if axis.buildEntity == nil {
+		return entities, nil
+	}
+
+	recordsByID, err := findRecordsByIDs(app, axis.HubCollection, interopUniqueIDs(ids))
 	if err != nil {
 		return nil, err
 	}
 
-	recordsByID, err := findRecordsByIDs(app, collectionName, interopUniqueIDs(ids))
-	if err != nil {
-		return nil, err
-	}
-
-	related, err := loadInteropRelatedRecords(app, resolver, recordsByID)
-	if err != nil {
-		return nil, err
-	}
+	cacheRecordByID := interopFirstCacheRecordByEntityID(cacheRecords, axis)
 
 	for id := range ids {
 		record, ok := recordsByID[id]
 		if !ok {
 			continue
 		}
-		entity, err := resolver.Entity(app, record, related)
+		entity, err := axis.buildEntity(app, record, cacheRecordByID[id])
 		if err != nil {
 			return nil, err
-		}
-		if walletVersionLabels != nil && resolver.SupportsVersionLabels() {
-			if label, ok := walletVersionLabels[id]; ok && label != nil {
-				entity.VersionLabel = label
-			}
 		}
 		entities[id] = entity
 	}
@@ -522,35 +435,26 @@ func loadInteropEntitiesByIDs(
 	return entities, nil
 }
 
-func loadInteropRelatedRecords(
-	app core.App,
-	resolver interopEntityResolver,
-	recordsByID map[string]*core.Record,
-) (interopRelatedRecords, error) {
-	related := interopRelatedRecords{byCollection: map[string]map[string]*core.Record{}}
-
-	for _, spec := range resolver.RelatedCollections() {
-		relatedIDs := interopRelationIDs(recordsByID, spec.Field)
-		records, err := findRecordsByIDs(app, spec.Collection, relatedIDs)
-		if err != nil {
-			return interopRelatedRecords{}, err
-		}
-		related.byCollection[spec.Collection] = records
+func interopFirstCacheRecordByEntityID(
+	cacheRecords []*core.Record,
+	axis interopAxis,
+) map[string]*core.Record {
+	if len(cacheRecords) == 0 {
+		return nil
 	}
-
-	return related, nil
-}
-
-func interopRelationIDs(recordsByID map[string]*core.Record, field string) []string {
-	seen := map[string]struct{}{}
-	for _, record := range recordsByID {
-		id := strings.TrimSpace(record.GetString(field))
-		if id == "" {
-			continue
+	out := map[string]*core.Record{}
+	for _, cacheRecord := range cacheRecords {
+		for _, id := range cacheRecord.GetStringSlice(axis.CacheField) {
+			if id == "" {
+				continue
+			}
+			if _, ok := out[id]; ok {
+				continue
+			}
+			out[id] = cacheRecord
 		}
-		seen[id] = struct{}{}
 	}
-	return interopUniqueIDs(seen)
+	return out
 }
 
 func interopUniqueIDs(seen map[string]struct{}) []string {

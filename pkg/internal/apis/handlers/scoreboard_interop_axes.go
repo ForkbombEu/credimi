@@ -7,6 +7,8 @@ package handlers
 import (
 	"sort"
 	"strings"
+
+	"github.com/pocketbase/pocketbase/core"
 )
 
 type interopAxisTier struct {
@@ -22,6 +24,7 @@ type interopAxis struct {
 	CacheField    string
 	PathBased     bool
 	Tier          *interopAxisTier
+	buildEntity   func(app core.App, axisRecord *core.Record, cacheRecord *core.Record) (InteropMatrixEntity, error)
 }
 
 func (a interopAxis) Tiered() bool {
@@ -33,6 +36,7 @@ var interopAxisRegistry = map[string]interopAxis{
 		HubCollection: "wallets",
 		CacheField:    "wallets",
 		PathBased:     false,
+		buildEntity:   walletBuildEntity,
 		Tier: &interopAxisTier{
 			GroupCollection: "wallets",
 			LeafCollection:  "wallet_versions",
@@ -45,6 +49,7 @@ var interopAxisRegistry = map[string]interopAxis{
 		HubCollection: "credential_issuers",
 		CacheField:    "issuers",
 		PathBased:     false,
+		buildEntity:   credentialIssuerBuildEntity,
 		Tier: &interopAxisTier{
 			GroupCollection: "credential_issuers",
 			LeafCollection:  "credentials",
@@ -57,11 +62,13 @@ var interopAxisRegistry = map[string]interopAxis{
 		HubCollection: "credentials",
 		CacheField:    "credentials",
 		PathBased:     false,
+		buildEntity:   credentialBuildEntity,
 	},
 	"verifiers": {
 		HubCollection: "verifiers",
 		CacheField:    "verifiers",
 		PathBased:     false,
+		buildEntity:   verifierBuildEntity,
 		Tier: &interopAxisTier{
 			GroupCollection: "verifiers",
 			LeafCollection:  "use_case_verifications",
@@ -74,6 +81,7 @@ var interopAxisRegistry = map[string]interopAxis{
 		HubCollection: "use_cases_verifications",
 		CacheField:    "use_case_verifications",
 		PathBased:     false,
+		buildEntity:   useCaseVerificationBuildEntity,
 	},
 	"conformance-checks": {
 		HubCollection: "conformance-checks",

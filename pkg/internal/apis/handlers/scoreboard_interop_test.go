@@ -610,10 +610,10 @@ func TestInteropEntityFromRecord_CredentialIssuerLogoURLFallback(t *testing.T) {
 	rec.Set("logo_url", "https://cdn.example.com/logo.png")
 	require.NoError(t, app.Save(rec))
 
-	resolver, err := getInteropEntityResolver("credential_issuers")
-	require.NoError(t, err)
+	axis, ok := getInteropAxis("credential_issuers")
+	require.True(t, ok)
 
-	entity, err := resolver.Entity(app, rec, interopRelatedRecords{})
+	entity, err := axis.buildEntity(app, rec, nil)
 	require.NoError(t, err)
 	require.Equal(t, "Test Issuer", entity.Name)
 	require.NotNil(t, entity.AvatarURL)
