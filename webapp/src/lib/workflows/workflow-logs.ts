@@ -15,6 +15,7 @@ export enum LogStatus {
 	FAILURE = 'FAILURE',
 	WARNING = 'WARNING',
 	INFO = 'INFO',
+	FINISHED = 'FINISHED',
 	INTERRUPTED = 'INTERRUPTED'
 }
 
