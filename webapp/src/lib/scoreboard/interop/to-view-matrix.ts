@@ -30,6 +30,8 @@ export type ViewMatrixEntity = {
 export type ViewMatrixAxisEntry = ViewMatrixEntity & {
 	tier: InteropMatrixTier;
 	child_count?: number;
+	/** Leaf row/column shown under an expanded group. */
+	nested?: boolean;
 };
 
 export type ViewMatrix = {
@@ -117,7 +119,7 @@ function toViewEntity(
 
 type VisibleAxisItem =
 	| { tier: 'group'; group: InteropMatrixGroup }
-	| { tier: 'leaf'; leaf: InteropMatrixLeaf };
+	| { tier: 'leaf'; leaf: InteropMatrixLeaf; nested: boolean };
 
 function visibleAxisItems(
 	axis: InteropAxis,
@@ -126,19 +128,17 @@ function visibleAxisItems(
 	expandedGroups: ReadonlySet<string>
 ): VisibleAxisItem[] {
 	if (!axis.tiered) {
-		return leaves.map((leaf) => ({ tier: 'leaf', leaf }));
+		return leaves.map((leaf) => ({ tier: 'leaf', leaf, nested: false }));
 	}
 
 	const items: VisibleAxisItem[] = [];
 	for (const group of groups) {
+		items.push({ tier: 'group', group });
 		if (expandedGroups.has(group.id)) {
-			for (const leaf of leaves) {
-				if (leaf.parent_id === group.id) {
-					items.push({ tier: 'leaf', leaf });
-				}
+			const groupLeaves = leaves.filter((leaf) => leaf.parent_id === group.id);
+			for (const leaf of groupLeaves) {
+				items.push({ tier: 'leaf', leaf, nested: true });
 			}
-		} else {
-			items.push({ tier: 'group', group });
 		}
 	}
 	return items;
@@ -160,7 +160,8 @@ function toViewAxisEntry(
 
 	return {
 		...toViewEntity(item.leaf, axis, standards),
-		tier: 'leaf'
+		tier: 'leaf',
+		nested: item.nested
 	};
 }
 

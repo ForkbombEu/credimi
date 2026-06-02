@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { InteropStatus } from '$lib/scoreboard/interop/types';
 
+	import { SvelteSet } from 'svelte/reactivity';
+
 	import { resolve } from '$app/paths';
 	import { FEATURED_INTEROP_PAIRS } from '$lib/scoreboard/interop/featured-pairs';
 	import {
@@ -22,15 +24,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 
-	let expandedRowGroups = $state(new Set<string>());
-	let expandedColumnGroups = $state(new Set<string>());
+	let expandedRowGroups = $state(new SvelteSet<string>());
+	let expandedColumnGroups = $state(new SvelteSet<string>());
 
 	$effect(() => {
 		const { row, column } = data;
 		void row;
 		void column;
-		expandedRowGroups = new Set();
-		expandedColumnGroups = new Set();
+		expandedRowGroups = new SvelteSet();
+		expandedColumnGroups = new SvelteSet();
 	});
 
 	const legendItems: { status: InteropStatus; label: () => string }[] = [

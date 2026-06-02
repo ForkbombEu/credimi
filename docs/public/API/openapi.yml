@@ -905,18 +905,12 @@ components:
         column_id:
           type: string
         column_tier:
-          enum:
-            - group
-            - leaf
           type: string
         pipeline_count:
           type: integer
         row_id:
           type: string
         row_tier:
-          enum:
-            - group
-            - leaf
           type: string
         status:
           type: string
@@ -926,24 +920,6 @@ components:
           type: integer
         total_successes:
           type: integer
-      type: object
-    HandlersInteropMatrixEntity:
-      properties:
-        avatar_url:
-          nullable: true
-          type: string
-        id:
-          type: string
-        name:
-          type: string
-        path:
-          type: string
-        subtitle:
-          nullable: true
-          type: string
-        version_label:
-          nullable: true
-          type: string
       type: object
     HandlersInteropMatrixGroup:
       properties:

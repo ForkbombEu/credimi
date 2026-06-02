@@ -66,11 +66,69 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function groupChildCountLabel(count: number | undefined): string {
 		return count === undefined ? '' : `(${count})`;
 	}
+
+	function isGroupExpanded(groupId: string, expanded: ReadonlySet<string>): boolean {
+		return expanded.has(groupId);
+	}
 </script>
+
+{#snippet groupChevron(
+	groupId: string,
+	expanded: Set<string>,
+	onToggle: (id: string) => void
+)}
+	<button
+		type="button"
+		class="inline-flex shrink-0 items-center justify-center rounded-sm p-0.5 hover:bg-muted"
+		aria-expanded={isGroupExpanded(groupId, expanded)}
+		aria-label={isGroupExpanded(groupId, expanded)
+			? m.interop_matrix_collapse_group()
+			: m.interop_matrix_expand_group()}
+		onclick={() => onToggle(groupId)}
+	>
+		{#if isGroupExpanded(groupId, expanded)}
+			<ChevronDownIcon class="size-4 text-foreground" aria-hidden="true" />
+		{:else}
+			<ChevronRightIcon class="size-4 text-foreground" aria-hidden="true" />
+		{/if}
+	</button>
+{/snippet}
+
+{#snippet groupToggleButton(
+	groupId: string,
+	expanded: Set<string>,
+	onToggle: (id: string) => void,
+	label: string,
+	childCount?: number
+)}
+	<button
+		type="button"
+		class="inline-flex items-center gap-1.5 rounded-sm p-0.5 text-left hover:bg-muted"
+		aria-expanded={isGroupExpanded(groupId, expanded)}
+		aria-label={isGroupExpanded(groupId, expanded)
+			? m.interop_matrix_collapse_group()
+			: m.interop_matrix_expand_group()}
+		onclick={() => onToggle(groupId)}
+	>
+		{#if isGroupExpanded(groupId, expanded)}
+			<ChevronDownIcon class="size-4 shrink-0 text-foreground" aria-hidden="true" />
+		{:else}
+			<ChevronRightIcon class="size-4 shrink-0 text-foreground" aria-hidden="true" />
+		{/if}
+		<span>{label}</span>
+		{#if childCount !== undefined}
+			<span class="text-xs font-normal text-muted-foreground">
+				{groupChildCountLabel(childCount)}
+			</span>
+		{/if}
+	</button>
+{/snippet}
 
 <div class="mx-auto max-w-7xl px-4 md:px-8">
 	{#if legend}
-		<div class="mb-4 flex flex-wrap items-center justify-end gap-4">{@render legend()}</div>
+		<div class="mb-4 flex flex-wrap items-center justify-end gap-4">
+			{@render legend()}
+		</div>
 	{/if}
 
 	<div class="overflow-x-auto rounded-lg border bg-background shadow-sm">
@@ -83,31 +141,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{view.cornerLabel}
 					</th>
 					{#each view.columns as column (column.id + column.tier)}
+						{@const columnGroupExpanded =
+							column.tier === 'group' && expandedColumnGroups.has(column.id)}
 						<th
-							class="sticky top-0 z-10 min-w-32 border-b bg-muted/60 px-3 py-3 text-center font-semibold"
+							class="sticky top-0 z-10 border-b bg-muted/60 text-center font-semibold {columnGroupExpanded
+								? 'w-9 min-w-9 max-w-9 px-0 py-1'
+								: 'min-w-32 px-3 py-3'}"
 						>
-							<div class="inline-flex max-w-44 flex-col items-center gap-1">
-								{#if matrix.column.tiered && column.tier === 'group'}
-									<button
-										type="button"
-										class="inline-flex items-center gap-1 rounded-sm p-0.5 hover:bg-muted"
-										aria-expanded={expandedColumnGroups.has(column.id)}
-										aria-label={expandedColumnGroups.has(column.id)
-											? m.interop_matrix_collapse_group()
-											: m.interop_matrix_expand_group()}
-										onclick={() => toggleColumnGroup(column.id)}
-									>
-										{#if expandedColumnGroups.has(column.id)}
-											<ChevronDownIcon class="size-4 shrink-0" />
-										{:else}
-											<ChevronRightIcon class="size-4 shrink-0" />
-										{/if}
-										<span>{column.name}</span>
-										<span class="text-xs font-normal text-muted-foreground">
-											{groupChildCountLabel(column.child_count)}
-										</span>
-									</button>
-								{:else}
+							{#if column.tier === 'group' && columnGroupExpanded}
+								<div class="flex min-h-7 items-center justify-center">
+									{@render groupChevron(
+										column.id,
+										expandedColumnGroups,
+										toggleColumnGroup
+									)}
+								</div>
+							{:else if column.tier === 'group'}
+								<div class="inline-flex max-w-44 flex-col items-center gap-1">
+									{@render groupToggleButton(
+										column.id,
+										expandedColumnGroups,
+										toggleColumnGroup,
+										column.name,
+										column.child_count
+									)}
+								</div>
+							{:else}
+								<div class="inline-flex max-w-44 flex-col items-center gap-1">
 									<a
 										class="inline-flex flex-col items-center gap-1 hover:underline"
 										href={column.href}
@@ -127,43 +187,56 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											</span>
 										{/if}
 									</a>
-								{/if}
-							</div>
+								</div>
+							{/if}
 						</th>
 					{/each}
 				</tr>
 			</thead>
 			<tbody>
 				{#each view.rows as row (row.id + row.tier)}
-					<tr class="border-b last:border-b-0">
+					{@const rowGroupExpanded =
+						row.tier === 'group' && expandedRowGroups.has(row.id)}
+					<tr
+						class="border-b last:border-b-0 {rowGroupExpanded ? 'h-8' : ''}"
+					>
 						<th
-							class="sticky left-0 z-10 border-r bg-muted/40 px-3 py-3 text-left align-middle font-medium"
+							class="sticky left-0 z-10 border-r bg-muted/40 text-left align-middle font-medium {rowGroupExpanded
+								? 'px-1 py-0.5'
+								: row.nested
+									? 'px-3 py-3 ps-8'
+									: 'px-3 py-3'}"
 						>
-							{#if matrix.row.tiered && row.tier === 'group'}
+							{#if row.tier === 'group' && rowGroupExpanded}
+								<div class="flex min-h-7 items-center">
+									{@render groupChevron(
+										row.id,
+										expandedRowGroups,
+										toggleRowGroup
+									)}
+								</div>
+							{:else if row.tier === 'group'}
 								<button
 									type="button"
 									class="inline-flex w-full items-center gap-2 rounded-sm text-left hover:bg-muted/60"
-									aria-expanded={expandedRowGroups.has(row.id)}
-									aria-label={expandedRowGroups.has(row.id)
-										? m.interop_matrix_collapse_group()
-										: m.interop_matrix_expand_group()}
+									aria-expanded={false}
+									aria-label={m.interop_matrix_expand_group()}
 									onclick={() => toggleRowGroup(row.id)}
 								>
-									{#if expandedRowGroups.has(row.id)}
-										<ChevronDownIcon class="size-4 shrink-0" />
-									{:else}
-										<ChevronRightIcon class="size-4 shrink-0" />
-									{/if}
+									<ChevronRightIcon
+										class="size-4 shrink-0 text-foreground"
+										aria-hidden="true"
+									/>
 									{#if row.avatar_url}
 										<img
 											src={row.avatar_url}
 											alt={row.name}
-											class="size-6 rounded-full object-cover"
+											class="size-6 shrink-0 rounded-full object-cover"
 											loading="lazy"
 										/>
 									{/if}
 									<span class="min-w-0 flex-1">
-										<span class="block">{row.name}</span>
+										<span class="block font-medium">{row.name}</span>
 										<span class="text-xs font-normal text-muted-foreground">
 											{groupChildCountLabel(row.child_count)}
 										</span>
@@ -194,7 +267,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{/if}
 						</th>
 						{#each view.columns as column (column.id + column.tier)}
-							<td class="border-l p-2 align-top">
+							{@const columnGroupExpanded =
+								column.tier === 'group' && expandedColumnGroups.has(column.id)}
+							<td
+								class="border-l align-top {rowGroupExpanded || columnGroupExpanded
+									? 'p-0.5'
+									: 'p-2'}"
+							>
 								<MatrixCell
 									cell={view.cells.get(
 										cellKey(row.tier, row.id, column.tier, column.id)

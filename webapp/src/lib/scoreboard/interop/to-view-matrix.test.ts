@@ -217,7 +217,8 @@ describe('buildVisibleMatrix', () => {
 				name: 'Wallet One',
 				displaySubtitle: 'v2',
 				href: '/hub/wallets/org/w1',
-				tier: 'leaf'
+				tier: 'leaf',
+				nested: false
 			}
 		]);
 		expect(view.columns).toEqual([
@@ -226,7 +227,8 @@ describe('buildVisibleMatrix', () => {
 				name: 'Issuer One',
 				displaySubtitle: 'Issuer sub',
 				href: '/hub/credential_issuers/org/i1',
-				tier: 'leaf'
+				tier: 'leaf',
+				nested: false
 			}
 		]);
 		expect(view.cells.get(cellKey('leaf', 'w1', 'leaf', 'i1'))).toMatchObject({
@@ -261,33 +263,33 @@ describe('buildVisibleMatrix', () => {
 		});
 	});
 
-	it('shows leaf rows when group is expanded', () => {
+	it('shows group row plus nested leaves when row group is expanded', () => {
 		const view = buildVisibleMatrix(tieredWalletIssuerMatrix(), {
 			...viewOptions,
 			expandedRowGroups: new Set(['wallet-g'])
 		});
 
-		expect(view.rows.map((row) => row.id)).toEqual(['version-1', 'wallet-g::__no_version__']);
-		expect(view.rows.every((row) => row.tier === 'leaf')).toBe(true);
-		expect(view.rows[0]?.displaySubtitle).toBe('v1.0');
-		expect(view.rows[1]?.displaySubtitle).toBe(m.interop_matrix_version_undefined());
+		expect(view.rows.map((row) => row.id)).toEqual([
+			'wallet-g',
+			'version-1',
+			'wallet-g::__no_version__'
+		]);
+		expect(view.rows[0]?.tier).toBe('group');
+		expect(view.rows[1]?.nested).toBe(true);
+		expect(view.rows[1]?.displaySubtitle).toBe('v1.0');
+		expect(view.rows[2]?.displaySubtitle).toBe(m.interop_matrix_version_undefined());
 	});
 
-	it('shows leaf columns when column group is expanded', () => {
+	it('shows group column plus nested leaves when column group is expanded', () => {
 		const view = buildVisibleMatrix(tieredWalletIssuerMatrix(), {
 			...viewOptions,
 			expandedColumnGroups: new Set(['issuer-g'])
 		});
 
-		expect(view.columns).toEqual([
-			{
-				id: 'cred-1',
-				name: 'Credential',
-				displaySubtitle: 'Cred sub',
-				href: '/hub/credential_issuers/org/issuer/c1',
-				tier: 'leaf'
-			}
-		]);
+		expect(view.columns.map((column) => column.id)).toEqual(['issuer-g', 'cred-1']);
+		expect(view.columns[0]?.tier).toBe('group');
+		expect(view.columns[1]?.tier).toBe('leaf');
+		expect(view.columns[1]?.nested).toBe(true);
 	});
 
 	it('resolves cells with tier-aware keys when both axes expanded', () => {
@@ -330,7 +332,8 @@ describe('buildVisibleMatrix', () => {
 			displaySubtitle: 'Suite Name',
 			avatar_url: 'https://example.com/logo.png',
 			href: `/hub/conformance-checks/${checkPath}`,
-			tier: 'leaf'
+			tier: 'leaf',
+			nested: false
 		});
 	});
 });
