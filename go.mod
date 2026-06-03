@@ -13,7 +13,7 @@ require (
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/forkbombeu/credimi-extra v1.10.4
-	github.com/forkbombeu/eudi-conformance-evidence v0.0.0
+	github.com/forkbombeu/eudi-conformance-evidence v1.0.2
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-sprout/sprout v1.0.0
@@ -39,8 +39,6 @@ require (
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/yaml.v3 v3.0.1
 )
-
-replace github.com/forkbombeu/eudi-conformance-evidence => ../eudi-conformance-evidence
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250825161204-c5933d9347a5 //nolint
 
