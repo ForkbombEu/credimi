@@ -246,6 +246,89 @@ func TestSetPipelineExecutionResultsIdempotent(t *testing.T) {
 	require.NoError(t, serveErr)
 }
 
+func TestUpdatePipelineExecutionEvidence(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipelineRecord := core.NewRecord(pipelineColl)
+	pipelineRecord.Set("owner", orgID)
+	pipelineRecord.Set("name", "pipeline123")
+	pipelineRecord.Set("description", "test-description")
+	pipelineRecord.Set("yaml", "example-yaml-content")
+	require.NoError(t, app.Save(pipelineRecord))
+
+	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	if resultsColl.Fields.GetByName("credential_well_knowns") == nil {
+		resultsColl.Fields.Add(&core.JSONField{Name: "credential_well_knowns"})
+	}
+	if resultsColl.Fields.GetByName("presentation_results") == nil {
+		resultsColl.Fields.Add(&core.JSONField{Name: "presentation_results"})
+	}
+	require.NoError(t, app.Save(resultsColl))
+
+	resultRecord := core.NewRecord(resultsColl)
+	resultRecord.Set("owner", orgID)
+	resultRecord.Set("pipeline", pipelineRecord.Id)
+	resultRecord.Set("workflow_id", "workflow-evidence")
+	resultRecord.Set("run_id", "run-evidence")
+	require.NoError(t, app.Save(resultRecord))
+
+	baseRouter, err := apis.NewRouter(app)
+	require.NoError(t, err)
+
+	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		mux, err := e.Router.BuildMux()
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/pipeline-execution-results/evidence",
+			jsonBody(map[string]any{
+				"workflow_id": "workflow-evidence",
+				"run_id":      "run-evidence",
+				"credential_well_knowns": []map[string]any{
+					{
+						"step_id":       "cred-step",
+						"credential_id": "tenant/credential-1",
+						"well_known":    map[string]any{"credential_issuer": "issuer-1"},
+					},
+				},
+				"presentation_results": []map[string]any{
+					{
+						"step_id":     "vp-step",
+						"use_case_id": "tenant/use-case-1",
+						"result":      map[string]any{"format": "jwt"},
+					},
+				},
+			}),
+		)
+		req.Header.Set("content-type", "application/json")
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		reloaded, err := app.FindRecordById("pipeline_results", resultRecord.Id)
+		require.NoError(t, err)
+		var credentialWellKnowns []map[string]any
+		var presentationResults []map[string]any
+		require.NoError(t, reloaded.UnmarshalJSONField("credential_well_knowns", &credentialWellKnowns))
+		require.NoError(t, reloaded.UnmarshalJSONField("presentation_results", &presentationResults))
+		require.Len(t, credentialWellKnowns, 1)
+		require.Len(t, presentationResults, 1)
+
+		return nil
+	})
+	require.NoError(t, serveErr)
+}
+
 func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)

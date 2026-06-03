@@ -129,6 +129,16 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			},
 		},
 		{
+			Method:        http.MethodPost,
+			Path:          "/pipeline-execution-results/evidence",
+			Handler:       HandleUpdatePipelineExecutionEvidence,
+			RequestSchema: PipelineResultEvidenceInput{},
+			Description:   "Update pipeline execution evidence fields",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
 			Method:  http.MethodGet,
 			Path:    "/scoreboard/{namespace}",
 			Handler: HandleGetPipelineScoreboard,
@@ -246,6 +256,13 @@ type PipelineResultInput struct {
 	Type       string `json:"type,omitempty"`
 }
 
+type PipelineResultEvidenceInput struct {
+	WorkflowID           string           `json:"workflow_id"`
+	RunID                string           `json:"run_id"`
+	CredentialWellKnowns []map[string]any `json:"credential_well_knowns"`
+	PresentationResults  []map[string]any `json:"presentation_results"`
+}
+
 func pipelineRunType(input string) string {
 	input = strings.TrimSpace(input)
 	if input == "" {
@@ -259,6 +276,70 @@ func setPipelineRunType(record *core.Record, coll *core.Collection, runType stri
 		return
 	}
 	record.Set("type", pipelineRunType(runType))
+}
+
+func HandleUpdatePipelineExecutionEvidence() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[PipelineResultEvidenceInput](e)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(input.WorkflowID) == "" || strings.TrimSpace(input.RunID) == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"workflow_id and run_id are required",
+				"missing workflow_id or run_id",
+			).JSON(e)
+		}
+
+		coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"collection",
+				"failed to get collection",
+				err.Error(),
+			).JSON(e)
+		}
+
+		record, err := e.App.FindFirstRecordByFilter(
+			coll,
+			"workflow_id = {:workflow_id} && run_id = {:run_id}",
+			dbx.Params{
+				"workflow_id": input.WorkflowID,
+				"run_id":      input.RunID,
+			},
+		)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return apierror.New(
+					http.StatusNotFound,
+					"pipeline",
+					"pipeline execution result not found",
+					"pipeline execution result not found for workflow_id and run_id",
+				).JSON(e)
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to lookup pipeline execution result",
+				err.Error(),
+			).JSON(e)
+		}
+
+		record.Set("credential_well_knowns", input.CredentialWellKnowns)
+		record.Set("presentation_results", input.PresentationResults)
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to save pipeline evidence",
+				err.Error(),
+			).JSON(e)
+		}
+		return e.JSON(http.StatusOK, record.FieldsData())
+	}
 }
 
 func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {

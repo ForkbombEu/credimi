@@ -211,13 +211,16 @@ type storeRecordingResultsInput struct {
 
 func MobileAutomationSetupHook(
 	ctx workflow.Context,
-	steps *[]pipeline.StepDefinition,
-	ao *workflow.ActivityOptions,
+	wfDef *pipeline.WorkflowDefinition,
 	config map[string]any,
 	runData *map[string]any,
+	_ *map[string]any,
+	_ log.Logger,
 ) error {
 	logger := workflow.GetLogger(ctx)
-	ctx = workflow.WithActivityOptions(ctx, *ao)
+	steps := &wfDef.Steps
+	ao := PrepareWorkflowOptions(wfDef.Runtime).ActivityOptions
+	ctx = workflow.WithActivityOptions(ctx, ao)
 
 	// Validate runner_id configuration
 	globalRunnerID, _ := config["global_runner_id"].(string)
@@ -267,7 +270,7 @@ func MobileAutomationSetupHook(
 			ctx:            ctx,
 			step:           step,
 			config:         config,
-			ao:             ao,
+			ao:             &ao,
 			settedDevices:  settedDevices,
 			runData:        runData,
 			httpActivity:   httpActivity,
@@ -287,7 +290,7 @@ func MobileAutomationSetupHook(
 		if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
 			ctx:           ctx,
 			settedDevices: settedDevices,
-			ao:            ao,
+			ao:            &ao,
 		}); err != nil {
 			return err
 		}
@@ -296,7 +299,7 @@ func MobileAutomationSetupHook(
 	if err := startRecordingForDevices(startRecordingForDevicesInput{
 		ctx:           ctx,
 		settedDevices: settedDevices,
-		ao:            ao,
+		ao:            &ao,
 	}); err != nil {
 		return err
 	}

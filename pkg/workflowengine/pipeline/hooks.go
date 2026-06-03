@@ -12,10 +12,11 @@ import (
 
 type SetupFunc func(
 	ctx workflow.Context,
-	steps *[]pipeline.StepDefinition,
-	ao *workflow.ActivityOptions,
+	wfDef *pipeline.WorkflowDefinition,
 	config map[string]any,
 	runData *map[string]any,
+	finalOutput *map[string]any,
+	logger log.Logger,
 ) error
 
 type CleanupFunc func(
@@ -31,6 +32,7 @@ var (
 	setupHooks = []SetupFunc{
 		MobileAutomationSetupHook,
 		ConformanceCheckSetupHook,
+		PipelineEvidenceSetupHook,
 	}
 
 	cleanupHooks = []CleanupFunc{
@@ -44,13 +46,14 @@ var (
 
 func runSetupHooks(
 	ctx workflow.Context,
-	steps *[]pipeline.StepDefinition,
-	ao *workflow.ActivityOptions,
+	wfDef *pipeline.WorkflowDefinition,
 	config map[string]any,
 	runData *map[string]any,
+	finalOutput *map[string]any,
+	logger log.Logger,
 ) error {
 	for _, hook := range setupHooks {
-		if err := hook(ctx, steps, ao, config, runData); err != nil {
+		if err := hook(ctx, wfDef, config, runData, finalOutput, logger); err != nil {
 			return err
 		}
 	}

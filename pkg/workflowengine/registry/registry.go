@@ -170,6 +170,12 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.InternalHTTPActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
+	"pipeline-evidence-extraction": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewPipelineEvidenceExtractionActivity() },
+		PayloadType: reflect.TypeOf(activities.PipelineEvidenceExtractionInput{}),
+		OutputKind:  workflowengine.OutputMap,
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker

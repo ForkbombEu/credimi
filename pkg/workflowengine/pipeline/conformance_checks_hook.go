@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
+	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/workflow"
 	"gopkg.in/yaml.v3"
 )
@@ -27,12 +28,14 @@ const conformanceCheckStepUse = "conformance-check"
 
 func ConformanceCheckSetupHook(
 	ctx workflow.Context,
-	steps *[]pipeline.StepDefinition,
-	_ *workflow.ActivityOptions,
+	wfDef *pipeline.WorkflowDefinition,
 	config map[string]any,
 	runData *map[string]any,
+	_ *map[string]any,
+	_ log.Logger,
 ) error {
 	logger := workflow.GetLogger(ctx)
+	steps := &wfDef.Steps
 
 	for i := range *steps {
 		step := &(*steps)[i]

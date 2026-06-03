@@ -43,32 +43,89 @@ func TestRunSetupHooksStopsOnError(t *testing.T) {
 	setupHooks = []SetupFunc{
 		func(
 			_ workflow.Context,
-			_ *[]pipeline.StepDefinition,
-			_ *workflow.ActivityOptions,
+			_ *pipeline.WorkflowDefinition,
 			_ map[string]any,
 			_ *map[string]any,
+			_ *map[string]any,
+			_ log.Logger,
 		) error {
 			return nil
 		},
 		func(
 			_ workflow.Context,
-			_ *[]pipeline.StepDefinition,
-			_ *workflow.ActivityOptions,
+			_ *pipeline.WorkflowDefinition,
 			_ map[string]any,
 			_ *map[string]any,
+			_ *map[string]any,
+			_ log.Logger,
 		) error {
 			return errors.New("boom")
 		},
 	}
 
 	var ctx workflow.Context
-	var steps []pipeline.StepDefinition
-	var ao workflow.ActivityOptions
 	config := map[string]any{}
 	runData := map[string]any{}
+	finalOutput := map[string]any{}
 
-	err := runSetupHooks(ctx, &steps, &ao, config, &runData)
+	err := runSetupHooks(
+		ctx,
+		&pipeline.WorkflowDefinition{},
+		config,
+		&runData,
+		&finalOutput,
+		log.Logger(noopLogger{}),
+	)
 	require.Error(t, err)
+}
+
+func TestRunSetupHooksRunsAllHooks(t *testing.T) {
+	origHooks := setupHooks
+	t.Cleanup(func() {
+		setupHooks = origHooks
+	})
+
+	var called []string
+	setupHooks = []SetupFunc{
+		func(
+			_ workflow.Context,
+			_ *pipeline.WorkflowDefinition,
+			_ map[string]any,
+			_ *map[string]any,
+			_ *map[string]any,
+			_ log.Logger,
+		) error {
+			called = append(called, "first")
+			return nil
+		},
+		func(
+			_ workflow.Context,
+			_ *pipeline.WorkflowDefinition,
+			_ map[string]any,
+			_ *map[string]any,
+			_ *map[string]any,
+			_ log.Logger,
+		) error {
+			called = append(called, "second")
+			return nil
+		},
+	}
+
+	var ctx workflow.Context
+	config := map[string]any{}
+	runData := map[string]any{}
+	finalOutput := map[string]any{}
+
+	err := runSetupHooks(
+		ctx,
+		&pipeline.WorkflowDefinition{},
+		config,
+		&runData,
+		&finalOutput,
+		log.Logger(noopLogger{}),
+	)
+	require.NoError(t, err)
+	require.Equal(t, []string{"first", "second"}, called)
 }
 
 func TestRunCleanupHooksCollectsErrors(t *testing.T) {
