@@ -5,7 +5,9 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -125,6 +127,38 @@ func TestPipelineMobileFlowDeviceRequiresRunningPipeline(t *testing.T) {
 	_, _, apiErr := pipelineMobileFlowDevice(context.Background(), client, "pipeline-1", "run-1")
 	require.NotNil(t, apiErr)
 	require.Contains(t, apiErr.Error(), "pipeline workflow is not running")
+}
+
+func TestPipelineMobileFlowResponseIncludesOutput(t *testing.T) {
+	response := pipelineMobileFlowResponse(workflowengine.WorkflowResult{
+		Output: map[string]any{
+			"status": "done",
+		},
+	}, nil)
+
+	require.True(t, response.Success)
+	require.Equal(t, map[string]any{"status": "done"}, response.Output)
+	require.Nil(t, response.Error)
+}
+
+func TestPipelineMobileFlowResponseIncludesError(t *testing.T) {
+	response := pipelineMobileFlowResponse(
+		workflowengine.WorkflowResult{},
+		errors.New("maestro flow failed"),
+	)
+
+	require.False(t, response.Success)
+	require.Nil(t, response.Output)
+	require.Equal(t, "maestro flow failed", response.Error)
+}
+
+func TestPipelineMobileFlowActivityOptions(t *testing.T) {
+	options := pipelineMobileFlowActivityOptions()
+
+	require.Equal(t, 20*time.Minute, options.ScheduleToCloseTimeout)
+	require.Equal(t, 20*time.Minute, options.StartToCloseTimeout)
+	require.NotNil(t, options.RetryPolicy)
+	require.Equal(t, int32(1), options.RetryPolicy.MaximumAttempts)
 }
 
 func pipelineMobileFlowDescription(

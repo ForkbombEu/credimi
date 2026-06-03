@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -20,6 +21,8 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/workflow"
 )
 
 const pipelineMobileFlowWorkflowIDPrefix = "Pipeline-Mobile-Flow-"
@@ -33,7 +36,9 @@ type PipelineMobileFlowInput struct {
 }
 
 type PipelineMobileFlowResponse struct {
-	OK bool `json:"ok"`
+	Success bool `json:"success"`
+	Output  any  `json:"output,omitempty"`
+	Error   any  `json:"error,omitempty"`
 }
 
 var pipelineMobileFlowTemporalClient = temporalclient.GetTemporalClientWithNamespace
@@ -93,13 +98,16 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		activityOptions := workflows.DefaultActivityOptions
+		activityOptions := pipelineMobileFlowActivityOptions()
 		mobileWorkflow := workflows.NewMobileAutomationWorkflow()
 		run, err := temporalClient.ExecuteWorkflow(
 			e.Request.Context(),
 			client.StartWorkflowOptions{
 				ID:        pipelineMobileFlowWorkflowIDPrefix + uuid.NewString(),
 				TaskQueue: fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID)),
+				Memo: map[string]any{
+					"test": fmt.Sprintf("mobile-flow: %s", strings.TrimSpace(input.ActionID)),
+				},
 			},
 			mobileWorkflow.Name(),
 			workflowengine.WorkflowInput{
@@ -128,9 +136,36 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 		}
 
 		var result workflowengine.WorkflowResult
-		_ = run.Get(e.Request.Context(), &result)
+		waitErr := run.Get(e.Request.Context(), &result)
 
-		return e.JSON(http.StatusOK, PipelineMobileFlowResponse{OK: true})
+		return e.JSON(http.StatusOK, pipelineMobileFlowResponse(result, waitErr))
+	}
+}
+
+func pipelineMobileFlowActivityOptions() workflow.ActivityOptions {
+	return workflow.ActivityOptions{
+		ScheduleToCloseTimeout: 20 * time.Minute,
+		StartToCloseTimeout:    20 * time.Minute,
+		RetryPolicy: &temporal.RetryPolicy{
+			MaximumAttempts: 1,
+		},
+	}
+}
+
+func pipelineMobileFlowResponse(
+	result workflowengine.WorkflowResult,
+	err error,
+) PipelineMobileFlowResponse {
+	if err != nil {
+		return PipelineMobileFlowResponse{
+			Success: false,
+			Error:   err.Error(),
+		}
+	}
+
+	return PipelineMobileFlowResponse{
+		Success: true,
+		Output:  result.Output,
 	}
 }
 
