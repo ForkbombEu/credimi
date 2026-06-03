@@ -94,7 +94,8 @@ func createReverseProxy(target string) func(r *core.RequestEvent) error {
 
 		proxy := &httputil.ReverseProxy{}
 		proxy.Rewrite = func(req *httputil.ProxyRequest) {
-			req.SetURL(targetURL)
+			req.Out.URL.Scheme = targetURL.Scheme
+			req.Out.URL.Host = targetURL.Host
 			req.Out.Host = targetURL.Host
 			req.Out.Header.Set("X-Forwarded-For", req.In.RemoteAddr)
 			if origin := req.In.Header.Get("Origin"); origin != "" {
