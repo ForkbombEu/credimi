@@ -375,6 +375,53 @@ test: "verifier-test"`
 		require.Equal(t, "verifier-check", memo["test"])
 	})
 
+	t.Run("openid4vci wallet suite uses wallet StepCI template", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "openid4vci_wallet/1.0/openid_conformance_suite/wallet-check"
+		configTemplate := `action_id: "org/wallet/get-credential"
+organization_id: "org"
+run_id: "run-1"
+test: "wallet-test"
+workflow_id: "workflow-1"`
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+		writeTemplateFile(
+			t,
+			rootDir,
+			workflows.OpenID4VCIWalletStepCITemplatePath,
+			"openid4vci wallet template",
+		)
+
+		result := runConformanceHookWorkflow(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+
+		payload := result.Payload
+		require.Equal(t, workflows.OpenIDConformanceSuite, payload["suite"])
+		require.Equal(t, workflows.OpenID4VCIWalletStandard, payload["standard"])
+		require.Equal(t, "wallet-test", payload["test"])
+		parameters, ok := payload["parameters"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "org/wallet/get-credential", parameters["action_id"])
+		require.Equal(t, "org", parameters["organization_id"])
+		require.Equal(t, "run-1", parameters["run_id"])
+		require.Equal(t, "workflow-1", parameters["workflow_id"])
+		require.Equal(t, "openid4vci wallet template", result.Config["template"])
+
+		memo, ok := result.Config["memo"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, workflows.OpenIDConformanceSuite, memo["author"])
+		require.Equal(t, workflows.OpenID4VCIWalletStandard, memo["standard"])
+		require.Equal(t, "wallet-check", memo["test"])
+	})
+
 	t.Run("missing user_mail returns error", func(t *testing.T) {
 		rootDir := t.TempDir()
 		t.Setenv("ROOT_DIR", rootDir)

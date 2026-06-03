@@ -24,11 +24,21 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	initForm: (opts) => new ConformanceCheckStepForm(opts),
 
-	serialize: ({ test }) => {
+	serialize: ({ test, action_id }) => {
 		type StepData = PipelineStepData<PipelineStepByType<'conformance-check'>>;
 		const _with: StepData = { check_id: test };
 		if (test.startsWith('openid4vci_issuer') || test.startsWith('openid4vp_verifier')) {
 			_with.parameters = { deeplink: '<placeholder>' };
+		} else if (test.startsWith('openid4vci_wallet')) {
+			if (!action_id) {
+				throw new Error('Missing wallet action for OpenID4VCI wallet conformance check');
+			}
+			_with.parameters = {
+				workflow_id: '${{ workflow_id }}',
+				run_id: '${{ run_id }}',
+				organization_id: '${{ organization_id }}',
+				action_id
+			};
 		}
 		return _with;
 	},
@@ -51,7 +61,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	makeId: ({ check_id }) => getLastPathSegment(check_id),
 
-	deserialize: async ({ check_id }) => {
+	deserialize: async ({ check_id, parameters }) => {
 		const chunks = check_id.split('/');
 		if (chunks.length !== 4) throw new Error('Invalid check_id');
 
@@ -70,7 +80,9 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 			standard,
 			version,
 			suite,
-			test
+			test,
+			action_id:
+				typeof parameters?.action_id === 'string' ? parameters.action_id : undefined
 		};
 	},
 
