@@ -10,7 +10,6 @@ package routes
 
 import (
 	"log"
-	"net/http"
 	"net/http/httputil"
 	"net/url"
 
@@ -93,18 +92,16 @@ func createReverseProxy(target string) func(r *core.RequestEvent) error {
 			)
 		}
 
-		proxy := httputil.NewSingleHostReverseProxy(targetURL)
-		proxy.Director = func(req *http.Request) {
-			req.URL.Scheme = targetURL.Scheme
-			req.URL.Host = targetURL.Host
-			req.Host = targetURL.Host
-			req.Header.Set("Host", targetURL.Host)
-			req.Header.Set("X-Forwarded-For", req.RemoteAddr)
-			if origin := req.Header.Get("Origin"); origin != "" {
-				req.Header.Set("Origin", origin)
+		proxy := &httputil.ReverseProxy{}
+		proxy.Rewrite = func(req *httputil.ProxyRequest) {
+			req.SetURL(targetURL)
+			req.Out.Host = targetURL.Host
+			req.Out.Header.Set("X-Forwarded-For", req.In.RemoteAddr)
+			if origin := req.In.Header.Get("Origin"); origin != "" {
+				req.Out.Header.Set("Origin", origin)
 			}
-			if referer := req.Header.Get("Referer"); referer != "" {
-				req.Header.Set("Referer", referer)
+			if referer := req.In.Header.Get("Referer"); referer != "" {
+				req.Out.Header.Set("Referer", referer)
 			}
 		}
 		proxy.ServeHTTP(r.Response, r.Request)
