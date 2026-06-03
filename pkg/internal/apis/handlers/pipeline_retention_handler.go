@@ -36,6 +36,11 @@ var pipelineRetentionFileFields = []string{
 	"ios_logstreams",
 }
 
+var pipelineRetentionEvidenceFields = []string{
+	"credential_well_knowns",
+	"presentation_results",
+}
+
 var pipelineRetentionImmediateTriggerOptions = client.ScheduleTriggerOptions{
 	Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
 }
@@ -393,11 +398,14 @@ func deletePipelineResultFilesOlderThan(
 
 			response.MatchedRecords++
 			counts := countPipelineResultFiles(record)
-			if counts.Total == 0 {
+			hasFiles := counts.Total > 0
+			if !hasFiles && !hasPipelineResultEvidence(record) {
 				continue
 			}
 
-			response.RecordsWithFiles++
+			if hasFiles {
+				response.RecordsWithFiles++
+			}
 			response.DeletedFiles = addPipelineResultFileCounts(response.DeletedFiles, counts)
 
 			if dryRun {
@@ -465,4 +473,19 @@ func clearPipelineResultFiles(record *core.Record) {
 	for _, field := range pipelineRetentionFileFields {
 		record.Set(field, []string{})
 	}
+	for _, field := range pipelineRetentionEvidenceFields {
+		record.Set(field, []any{})
+	}
+}
+
+func hasPipelineResultEvidence(record *core.Record) bool {
+	if record == nil {
+		return false
+	}
+	for _, field := range pipelineRetentionEvidenceFields {
+		if len(strings.TrimSpace(record.GetString(field))) > 0 {
+			return true
+		}
+	}
+	return false
 }
