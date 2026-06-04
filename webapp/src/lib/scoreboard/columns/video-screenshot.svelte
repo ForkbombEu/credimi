@@ -102,10 +102,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<MediaPreview icon="document" class="size-8!" {...sheetTriggerAttributes} />
 					{/snippet}
 					{#snippet content()}
-						<div class="min-w-0 max-w-full p-4">
+						<div class="max-w-full min-w-0 p-4">
 							<RenderMD
 								content={report}
-								class="prose prose-sm max-w-none prose-headings:text-primary"
+								scrollableTables
+								class="prose prose-sm max-w-none prose-headings:text-primary prose-a:text-primary [&_th]:bg-secondary [&_th]:pt-2"
 							/>
 						</div>
 					{/snippet}
