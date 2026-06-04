@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
+	import { showPipelineFormError } from '../../errors.js';
 	import { type EnrichedStep, Enrich404Error } from '../types';
 	import { getStepConfig, getStepData } from './utils';
 
@@ -44,7 +45,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const config = $derived(getStepConfig(step));
 	const stepData = $derived(getStepData(step));
-	const cardData = $derived(stepData ? config?.cardData(stepData) : undefined);
+	const cardData = $derived.by(() => {
+		if (!stepData) return undefined;
+		try {
+			return config?.cardData(stepData);
+		} catch (e) {
+			showPipelineFormError(e);
+			return e instanceof Error ? e : new Error(String(e));
+		}
+	});
 	const CardDetailsComponent = $derived(config?.CardDetailsComponent);
 </script>
 
@@ -79,6 +88,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{#if step[1] instanceof Enrich404Error}
 							<p class="pt-2 text-xs opacity-60">{step[1].description}</p>
 						{/if}
+					</div>
+				{:else if cardData instanceof Error}
+					<div class="rounded-md bg-red-700 p-3 text-white">
+						<div class="flex items-center gap-2">
+							<TriangleAlert size={12} />
+							<p class="text-xs">{cardData.message}</p>
+						</div>
 					</div>
 				{:else if step[0].use === 'debug'}
 					<div class="text-xs text-gray-500">{m.debug_step_description()}</div>
@@ -116,7 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 
-			{#if cardData && cardData.meta}
+			{#if cardData && !(cardData instanceof Error) && cardData.meta}
 				<div class="space-y-0.5">
 					{#each Object.entries(cardData.meta) as [key, value] (key)}
 						<p class="text-xs text-muted-foreground">
