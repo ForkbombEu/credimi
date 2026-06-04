@@ -1495,7 +1495,7 @@ func extractAndStoreRecordingInfo(
 
 func MobileAutomationCleanupHook(
 	ctx workflow.Context,
-	steps []pipeline.StepDefinition,
+	_ *pipeline.WorkflowDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData map[string]any,
@@ -1577,7 +1577,13 @@ func cleanupDevice(
 	}
 	initialInstalledApps := extractInitialInstalledApps(deviceMap)
 	reenablePlayStore := wasPlayStoreDisabled(deviceMap)
-	if !shouldRunDeviceCleanup(deviceType, packages, initialInstalledApps, reenablePlayStore, deviceMap) {
+	if !shouldRunDeviceCleanup(
+		deviceType,
+		packages,
+		initialInstalledApps,
+		reenablePlayStore,
+		deviceMap,
+	) {
 		deviceMap["cleaned"] = true
 		return nil
 	}

@@ -137,7 +137,7 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 	cleanupHooks = []CleanupFunc{
 		func(
 			_ workflow.Context,
-			_ []pipeline.StepDefinition,
+			_ *pipeline.WorkflowDefinition,
 			_ *workflow.ActivityOptions,
 			_ map[string]any,
 			_ map[string]any,
@@ -147,7 +147,7 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 		},
 		func(
 			_ workflow.Context,
-			_ []pipeline.StepDefinition,
+			_ *pipeline.WorkflowDefinition,
 			_ *workflow.ActivityOptions,
 			_ map[string]any,
 			_ map[string]any,
@@ -158,7 +158,7 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 	}
 
 	var ctx workflow.Context
-	var steps []pipeline.StepDefinition
+	wfDef := &pipeline.WorkflowDefinition{}
 	var ao workflow.ActivityOptions
 	config := map[string]any{}
 	runData := map[string]any{}
@@ -167,7 +167,7 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 
 	runCleanupHooks(
 		ctx,
-		steps,
+		wfDef,
 		&ao,
 		config,
 		runData,

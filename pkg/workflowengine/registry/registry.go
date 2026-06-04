@@ -176,6 +176,12 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.PipelineEvidenceExtractionInput{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
+	"pipeline-report-generation": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewPipelineReportGenerationActivity() },
+		PayloadType: reflect.TypeOf(activities.PipelineReportGenerationInput{}),
+		OutputKind:  workflowengine.OutputMap,
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker

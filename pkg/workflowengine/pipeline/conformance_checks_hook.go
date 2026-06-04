@@ -373,14 +373,17 @@ func extractValues(node any) any {
 
 func ConformanceCheckCleanupHook(
 	ctx workflow.Context,
-	steps []pipeline.StepDefinition,
+	wfDef *pipeline.WorkflowDefinition,
 	_ *workflow.ActivityOptions,
 	_ map[string]any,
 	_ map[string]any,
 	output *map[string]any,
 ) error {
+	if wfDef == nil {
+		return nil
+	}
 	cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
-	for _, step := range steps {
+	for _, step := range wfDef.Steps {
 		if step.Use != conformanceCheckStepUse {
 			continue
 		}

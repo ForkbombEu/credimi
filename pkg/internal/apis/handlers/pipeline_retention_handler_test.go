@@ -52,6 +52,9 @@ func ensurePipelineRetentionEvidenceFields(t testing.TB, app *tests.TestApp) {
 	if collection.Fields.GetByName("presentation_results") == nil {
 		collection.Fields.Add(&core.JSONField{Name: "presentation_results"})
 	}
+	if collection.Fields.GetByName("report") == nil {
+		collection.Fields.Add(&core.FileField{Name: "report", MaxSelect: 1})
+	}
 	require.NoError(t, app.Save(collection))
 }
 
@@ -183,6 +186,32 @@ func TestDeletePipelineResultFilesClearsOldFiles(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, serveErr)
+}
+
+func TestDeletePipelineResultFilesClearsReport(t *testing.T) {
+	app := setupPipelineRetentionApp(t)
+	defer app.Cleanup()
+
+	oldRecord := createPipelineRetentionRecord(t, app)
+	require.NoError(t, app.Save(oldRecord))
+	setPipelineResultReport(t, app, oldRecord.Id, "workflow-1.md")
+	setPipelineResultCreatedAt(t, app, oldRecord.Id, time.Now().UTC().AddDate(0, 0, -35))
+
+	response, err := deletePipelineResultFilesOlderThan(
+		app,
+		time.Now().UTC().AddDate(0, 0, -30),
+		30,
+		false,
+		10,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, response.UpdatedRecords)
+	require.Equal(t, 1, response.DeletedFiles.Report)
+	require.Equal(t, 1, response.DeletedFiles.Total)
+
+	reloaded, err := app.FindRecordById("pipeline_results", oldRecord.Id)
+	require.NoError(t, err)
+	require.Empty(t, reloaded.GetStringSlice("report"))
 }
 
 func TestPipelineRetentionEvidenceHelpers(t *testing.T) {
@@ -721,6 +750,20 @@ func setPipelineResultEvidence(t testing.TB, app *tests.TestApp, recordID string
 		"credential_well_knowns": `[{"credential_id":"credential-1"}]`,
 		"presentation_results":   `[{"use_case_id":"use-case-1"}]`,
 		"id":                     recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, report string) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET report = {:report}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"report": mustMarshalJSONStringArray(t, []string{report}),
+		"id":     recordID,
 	}).Execute()
 	require.NoError(t, err)
 }

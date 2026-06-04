@@ -34,6 +34,7 @@ var pipelineRetentionFileFields = []string{
 	"screenshots",
 	"logcats",
 	"ios_logstreams",
+	"report",
 }
 
 var pipelineRetentionEvidenceFields = []string{
@@ -56,6 +57,7 @@ type PipelineResultFileCounts struct {
 	Screenshots   int `json:"screenshots"`
 	Logcats       int `json:"logcats"`
 	IOSLogstreams int `json:"ios_logstreams"`
+	Report        int `json:"report"`
 	Total         int `json:"total"`
 }
 
@@ -450,8 +452,9 @@ func countPipelineResultFiles(record *core.Record) PipelineResultFileCounts {
 		Screenshots:   len(record.GetStringSlice("screenshots")),
 		Logcats:       len(record.GetStringSlice("logcats")),
 		IOSLogstreams: len(record.GetStringSlice("ios_logstreams")),
+		Report:        len(record.GetStringSlice("report")),
 	}
-	counts.Total = counts.VideoResults + counts.Screenshots + counts.Logcats + counts.IOSLogstreams
+	counts.Total = counts.VideoResults + counts.Screenshots + counts.Logcats + counts.IOSLogstreams + counts.Report
 
 	return counts
 }
@@ -464,6 +467,7 @@ func addPipelineResultFileCounts(
 	left.Screenshots += right.Screenshots
 	left.Logcats += right.Logcats
 	left.IOSLogstreams += right.IOSLogstreams
+	left.Report += right.Report
 	left.Total += right.Total
 
 	return left

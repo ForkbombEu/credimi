@@ -5,6 +5,7 @@
 package activities
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,9 @@ import (
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/eudi-conformance-evidence/pkg/credoffer"
+	"github.com/forkbombeu/eudi-conformance-evidence/pkg/discovery"
+	"github.com/forkbombeu/eudi-conformance-evidence/pkg/presentation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -75,6 +79,9 @@ func TestPipelineEvidenceExtractionActivityExecute(t *testing.T) {
 	out, ok := res.Output.(PipelineEvidenceExtractionOutput)
 	require.True(t, ok)
 	require.Empty(t, out.Warnings)
+	require.Len(t, out.CredentialOffers, 1)
+	require.Equal(t, "cred-step", out.CredentialOffers[0]["step_id"])
+	require.Equal(t, "tenant/credential-1", out.CredentialOffers[0]["credential_id"])
 	require.Len(t, out.CredentialWellKnowns, 1)
 	require.Equal(t, "cred-step", out.CredentialWellKnowns[0]["step_id"])
 	require.Equal(t, "tenant/credential-1", out.CredentialWellKnowns[0]["credential_id"])
@@ -89,7 +96,13 @@ func TestPipelineEvidenceExtractionActivityExecute(t *testing.T) {
 	result, ok := out.PresentationResults[0]["result"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "jwt", result["format"])
-	require.Equal(t, "haip-vp://?request_uri="+url.QueryEscape(server.URL+"/request.jwt")+"&request_uri_method=get", result["deeplink_uri"])
+	require.Equal(
+		t,
+		"haip-vp://?request_uri="+url.QueryEscape(
+			server.URL+"/request.jwt",
+		)+"&request_uri_method=get",
+		result["deeplink_uri"],
+	)
 	require.Equal(t, map[string]any{"sub": "test"}, result["payload"])
 	require.Equal(t, "c2ln", result["signature"])
 	require.Equal(t, true, result["signature_present"])
@@ -111,6 +124,52 @@ func TestPipelineEvidenceExtractionActivityWarnsWhenEmpty(t *testing.T) {
 	out, ok := res.Output.(PipelineEvidenceExtractionOutput)
 	require.True(t, ok)
 	require.Empty(t, out.CredentialWellKnowns)
+	require.Empty(t, out.CredentialOffers)
 	require.Empty(t, out.PresentationResults)
-	require.Contains(t, out.Warnings, "no credential well-knowns or presentation results were extracted")
+	require.Contains(
+		t,
+		out.Warnings,
+		"no credential well-knowns or presentation results were extracted",
+	)
+}
+
+func TestPipelineEvidenceHelpers(t *testing.T) {
+	require.Nil(t, decodeRawJSON(nil))
+	require.Equal(t, "not-json", decodeRawJSON(json.RawMessage("not-json")))
+
+	credentialErr := &credoffer.ExtractionError{}
+	credentialErr.Error.Message = "credential failed"
+	presentationErr := &presentation.ExtractionError{}
+	presentationErr.Error.Message = "presentation failed"
+
+	warnings := []string{}
+	appendCredentialWarning(&warnings, discovery.Step{StepID: "credential-step"}, nil)
+	appendCredentialWarning(
+		&warnings,
+		discovery.Step{StepID: "credential-step"},
+		&credoffer.Result{Error: credentialErr},
+	)
+	appendPresentationWarning(&warnings, discovery.Step{StepID: "presentation-step"}, nil)
+	appendPresentationWarning(
+		&warnings,
+		discovery.Step{StepID: "presentation-step"},
+		&presentation.Result{Error: presentationErr},
+	)
+
+	require.Contains(t, warnings, "failed to extract credential evidence for step credential-step")
+	require.Contains(
+		t,
+		warnings,
+		"failed to extract credential evidence for step credential-step: credential failed",
+	)
+	require.Contains(
+		t,
+		warnings,
+		"failed to extract presentation evidence for step presentation-step",
+	)
+	require.Contains(
+		t,
+		warnings,
+		"failed to extract presentation evidence for step presentation-step: presentation failed",
+	)
 }

@@ -21,7 +21,7 @@ type SetupFunc func(
 
 type CleanupFunc func(
 	ctx workflow.Context,
-	steps []pipeline.StepDefinition,
+	wfDef *pipeline.WorkflowDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData map[string]any,
@@ -36,6 +36,7 @@ var (
 	}
 
 	cleanupHooks = []CleanupFunc{
+		PipelineReportCleanupHook,
 		MobileAutomationCleanupHook,
 		ConformanceCheckCleanupHook,
 		tempCredentialsCleanupHook,
@@ -62,7 +63,7 @@ func runSetupHooks(
 
 func runCleanupHooks(
 	ctx workflow.Context,
-	steps []pipeline.StepDefinition,
+	wfDef *pipeline.WorkflowDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData map[string]any,
@@ -71,7 +72,7 @@ func runCleanupHooks(
 	cleanupErrors *[]error,
 ) {
 	for _, hook := range cleanupHooks {
-		if err := hook(ctx, steps, ao, config, runData, finalOutput); err != nil {
+		if err := hook(ctx, wfDef, ao, config, runData, finalOutput); err != nil {
 			logger.Error("cleanup hook error", "error", err)
 			*cleanupErrors = append(*cleanupErrors, err)
 		}

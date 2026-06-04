@@ -32,6 +32,7 @@ type PipelineEvidenceExtractionInput struct {
 }
 
 type PipelineEvidenceExtractionOutput struct {
+	CredentialOffers     []map[string]any `json:"credential_offers"`
 	CredentialWellKnowns []map[string]any `json:"credential_well_knowns"`
 	PresentationResults  []map[string]any `json:"presentation_results"`
 	Warnings             []string         `json:"warnings,omitempty"`
@@ -79,7 +80,7 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 	}
 
 	out := PipelineEvidenceExtractionOutput{}
-	out.CredentialWellKnowns = extractCredentialWellKnowns(
+	out.CredentialOffers, out.CredentialWellKnowns = extractCredentialEvidence(
 		ctx,
 		client,
 		discovered.CredentialOfferSteps,
@@ -95,13 +96,18 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 		&out.Warnings,
 	)
 	if len(out.CredentialWellKnowns) == 0 && len(out.PresentationResults) == 0 {
-		out.Warnings = append(out.Warnings, "no credential well-knowns or presentation results were extracted")
+		out.Warnings = append(
+			out.Warnings,
+			"no credential well-knowns or presentation results were extracted",
+		)
 	}
 
 	return workflowengine.ActivityResult{Output: out}, nil
 }
 
-func discoverWorkflowDefinition(def *pipelineinternal.WorkflowDefinition) (*discovery.Result, error) {
+func discoverWorkflowDefinition(
+	def *pipelineinternal.WorkflowDefinition,
+) (*discovery.Result, error) {
 	raw, err := json.Marshal(map[string]any{"workflow_definition": def})
 	if err != nil {
 		return nil, fmt.Errorf("marshal workflow definition: %w", err)
@@ -113,18 +119,19 @@ func discoverWorkflowDefinition(def *pipelineinternal.WorkflowDefinition) (*disc
 	return discovered, nil
 }
 
-func extractCredentialWellKnowns(
+func extractCredentialEvidence(
 	ctx context.Context,
 	client *http.Client,
 	steps []discovery.Step,
 	payload PipelineEvidenceExtractionInput,
 	warnings *[]string,
-) []map[string]any {
-	results := make([]map[string]any, 0, len(steps))
+) ([]map[string]any, []map[string]any) {
+	offers := make([]map[string]any, 0, len(steps))
+	wellKnowns := make([]map[string]any, 0, len(steps))
 	for _, step := range steps {
 		if ctx.Err() != nil {
 			*warnings = append(*warnings, ctx.Err().Error())
-			return results
+			return offers, wellKnowns
 		}
 		res := credoffer.Resolve(
 			client,
@@ -138,6 +145,11 @@ func extractCredentialWellKnowns(
 			appendCredentialWarning(warnings, step, res)
 			continue
 		}
+		offers = append(offers, map[string]any{
+			"step_id":          step.StepID,
+			"credential_id":    step.CredentialID,
+			"credential_offer": res.CredentialOffer,
+		})
 		wellKnown, fetch, err := credoffer.FetchIssuerMetadata(client, res.CredentialOffer)
 		if err != nil {
 			*warnings = append(
@@ -146,14 +158,14 @@ func extractCredentialWellKnowns(
 			)
 			continue
 		}
-		results = append(results, map[string]any{
+		wellKnowns = append(wellKnowns, map[string]any{
 			"step_id":       step.StepID,
 			"credential_id": step.CredentialID,
 			"well_known":    decodeRawJSON(wellKnown),
 			"fetch":         fetch,
 		})
 	}
-	return results
+	return offers, wellKnowns
 }
 
 func extractPresentationResults(
@@ -215,22 +227,36 @@ func appendCredentialWarning(warnings *[]string, step discovery.Step, res *credo
 	if res != nil && res.Error != nil {
 		*warnings = append(
 			*warnings,
-			fmt.Sprintf("failed to extract credential evidence for step %s: %s", step.StepID, res.Error.Error.Message),
+			fmt.Sprintf(
+				"failed to extract credential evidence for step %s: %s",
+				step.StepID,
+				res.Error.Error.Message,
+			),
 		)
 		return
 	}
-	*warnings = append(*warnings, fmt.Sprintf("failed to extract credential evidence for step %s", step.StepID))
+	*warnings = append(
+		*warnings,
+		fmt.Sprintf("failed to extract credential evidence for step %s", step.StepID),
+	)
 }
 
 func appendPresentationWarning(warnings *[]string, step discovery.Step, res *presentation.Result) {
 	if res != nil && res.Error != nil {
 		*warnings = append(
 			*warnings,
-			fmt.Sprintf("failed to extract presentation evidence for step %s: %s", step.StepID, res.Error.Error.Message),
+			fmt.Sprintf(
+				"failed to extract presentation evidence for step %s: %s",
+				step.StepID,
+				res.Error.Error.Message,
+			),
 		)
 		return
 	}
-	*warnings = append(*warnings, fmt.Sprintf("failed to extract presentation evidence for step %s", step.StepID))
+	*warnings = append(
+		*warnings,
+		fmt.Sprintf("failed to extract presentation evidence for step %s", step.StepID),
+	)
 }
 
 func decodeRawJSON(raw json.RawMessage) any {

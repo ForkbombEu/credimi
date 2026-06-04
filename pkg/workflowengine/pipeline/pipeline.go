@@ -155,7 +155,7 @@ func (w *PipelineWorkflow) Workflow(
 
 		runCleanupHooks(
 			ctx,
-			wfDef.Steps,
+			wfDef,
 			&ao,
 			config,
 			runData,

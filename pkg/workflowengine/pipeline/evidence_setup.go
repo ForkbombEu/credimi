@@ -20,13 +20,17 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-const setupWarningsOutputKey = "setup_warnings"
+const (
+	setupWarningsOutputKey     = "setup_warnings"
+	cleanupWarningsOutputKey   = "cleanup_warnings"
+	pipelineEvidenceRunDataKey = "pipeline_evidence"
+)
 
 func PipelineEvidenceSetupHook(
 	ctx workflow.Context,
 	wfDef *pipelineinternal.WorkflowDefinition,
 	config map[string]any,
-	_ *map[string]any,
+	runData *map[string]any,
 	finalOutput *map[string]any,
 	logger log.Logger,
 ) error {
@@ -49,7 +53,10 @@ func PipelineEvidenceSetupHook(
 		},
 	}
 
-	extractionCtx := workflow.WithActivityOptions(ctx, evidenceActivityOptions(&baseAO, 5*time.Minute, 1))
+	extractionCtx := workflow.WithActivityOptions(
+		ctx,
+		evidenceActivityOptions(&baseAO, 5*time.Minute, 1),
+	)
 	var extractionResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(extractionCtx, extractionActivity.Name(), extractionReq).
 		Get(extractionCtx, &extractionResult); err != nil {
@@ -63,11 +70,15 @@ func PipelineEvidenceSetupHook(
 
 	output, err := decodePipelineEvidenceOutput(extractionResult)
 	if err != nil {
-		appendSetupWarning(finalOutput, fmt.Sprintf("pipeline evidence extraction output invalid: %v", err))
+		appendSetupWarning(
+			finalOutput,
+			fmt.Sprintf("pipeline evidence extraction output invalid: %v", err),
+		)
 		logger.Warn("Pipeline evidence extraction output invalid", "error", err)
 		return nil
 	}
 	appendSetupWarnings(finalOutput, output.Warnings)
+	SetRunDataValue(runData, pipelineEvidenceRunDataKey, output)
 	if len(output.CredentialWellKnowns) == 0 && len(output.PresentationResults) == 0 {
 		return nil
 	}
@@ -94,7 +105,10 @@ func PipelineEvidenceSetupHook(
 		},
 	}
 
-	updateCtx := workflow.WithActivityOptions(ctx, evidenceActivityOptions(&baseAO, 2*time.Minute, 5))
+	updateCtx := workflow.WithActivityOptions(
+		ctx,
+		evidenceActivityOptions(&baseAO, 2*time.Minute, 5),
+	)
 	var updateResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(updateCtx, internalHTTPActivity.Name(), updateReq).
 		Get(updateCtx, &updateResult); err != nil {
@@ -161,6 +175,14 @@ func appendSetupWarnings(finalOutput *map[string]any, warnings []string) {
 }
 
 func appendSetupWarning(finalOutput *map[string]any, warning string) {
+	appendOutputWarning(finalOutput, setupWarningsOutputKey, warning)
+}
+
+func appendCleanupWarning(finalOutput *map[string]any, warning string) {
+	appendOutputWarning(finalOutput, cleanupWarningsOutputKey, warning)
+}
+
+func appendOutputWarning(finalOutput *map[string]any, key string, warning string) {
 	warning = strings.TrimSpace(warning)
 	if warning == "" {
 		return
@@ -168,9 +190,9 @@ func appendSetupWarning(finalOutput *map[string]any, warning string) {
 	if *finalOutput == nil {
 		*finalOutput = map[string]any{}
 	}
-	existing, _ := (*finalOutput)[setupWarningsOutputKey].([]string)
+	existing, _ := (*finalOutput)[key].([]string)
 	existing = append(existing, warning)
-	(*finalOutput)[setupWarningsOutputKey] = existing
+	(*finalOutput)[key] = existing
 }
 
 func finalOutputValue(finalOutput *map[string]any, key string) any {

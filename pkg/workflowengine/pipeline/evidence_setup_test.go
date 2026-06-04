@@ -31,7 +31,9 @@ func TestPipelineEvidenceSetupHookAddsWarningsWithoutFailing(t *testing.T) {
 		) (workflowengine.ActivityResult, error) {
 			return workflowengine.ActivityResult{
 				Output: activities.PipelineEvidenceExtractionOutput{
-					Warnings: []string{"no credential well-knowns or presentation results were extracted"},
+					Warnings: []string{
+						"no credential well-knowns or presentation results were extracted",
+					},
 				},
 			}, nil
 		},
@@ -89,7 +91,9 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 			_ context.Context,
 			_ workflowengine.ActivityInput,
 		) (workflowengine.ActivityResult, error) {
-			return workflowengine.ActivityResult{Output: map[string]any{"status": http.StatusOK}}, nil
+			return workflowengine.ActivityResult{
+				Output: map[string]any{"status": http.StatusOK},
+			}, nil
 		},
 		activity.RegisterOptions{Name: internalHTTPActivity.Name()},
 	)
@@ -97,10 +101,16 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+				input.Payload,
+			)
 			require.NoError(t, err)
 			require.Equal(t, http.MethodPost, payload.Method)
-			require.Equal(t, "https://credimi.test/api/pipeline/pipeline-execution-results/evidence", payload.URL)
+			require.Equal(
+				t,
+				"https://credimi.test/api/pipeline/pipeline-execution-results/evidence",
+				payload.URL,
+			)
 			body, ok := payload.Body.(map[string]any)
 			require.True(t, ok)
 			require.Equal(t, "workflow-1", body["workflow_id"])
@@ -116,6 +126,10 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 	env.AssertExpectations(t)
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, true, result["run_data_has_evidence"])
+	require.Equal(t, false, result["final_output_has_evidence"])
 }
 
 func TestPipelineEvidenceSetupHelpers(t *testing.T) {
@@ -166,5 +180,9 @@ func testPipelineEvidenceSetupWorkflow(ctx workflow.Context) (map[string]any, er
 		&finalOutput,
 		workflow.GetLogger(ctx),
 	)
+	_, runDataHasEvidence := runData[pipelineEvidenceRunDataKey]
+	_, finalOutputHasEvidence := finalOutput[pipelineEvidenceRunDataKey]
+	finalOutput["run_data_has_evidence"] = runDataHasEvidence
+	finalOutput["final_output_has_evidence"] = finalOutputHasEvidence
 	return finalOutput, err
 }
