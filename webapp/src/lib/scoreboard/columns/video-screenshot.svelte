@@ -11,6 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { PipelineResultsResponse } from '@/pocketbase/types';
 
+	import RenderMD from '@/components/ui-custom/renderMD.svelte';
+	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import { pb } from '@/pocketbase';
 
 	import * as Column from '../column';
@@ -21,8 +23,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export const column = Column.define({
 		fn: (row) => {
 			const latestResults = row.expand.latest_successful_execution;
-			if (!latestResults) return [];
-			return groupExecutionArtifacts(latestResults);
+			if (!latestResults) return undefined;
+			const groups = groupExecutionArtifacts(latestResults);
+			const reportPath = pb.files.getURL(latestResults, latestResults.report);
+			return { groups, reportPath };
 		},
 		id: 'video_screenshot',
 		header: ' '
@@ -62,29 +66,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	let { value }: Column.Props<typeof column> = $props();
+
+	const reportPromise = $derived.by(() => {
+		if (!value?.reportPath) return undefined;
+		return fetch(value.reportPath).then((res) => res.text());
+	});
 </script>
 
-<div class="flex items-center gap-2 pr-4">
-	{#each value as item (item.id)}
-		<div class="flex items-center gap-1">
-			{#if item.screenshot}
-				<MediaPreview
-					image={item.screenshot}
-					href={item.screenshot}
-					icon="image"
-					class="size-8!"
-				/>
+{#if value && (value.groups.length > 0 || value.reportPath)}
+	<div class="flex items-center gap-2 pr-4">
+		{#each value.groups as item (item.id)}
+			<div class="flex items-center gap-1">
+				{#if item.screenshot}
+					<MediaPreview
+						image={item.screenshot}
+						href={item.screenshot}
+						icon="image"
+						class="size-8!"
+					/>
+				{/if}
+				{#if item.video}
+					<MediaPreview
+						image={item.screenshot}
+						href={item.video}
+						icon="video"
+						class="size-8!"
+					/>
+				{/if}
+			</div>
+		{/each}
+		{#await reportPromise then report}
+			{#if report}
+				<Sheet>
+					{#snippet trigger({ sheetTriggerAttributes })}
+						<MediaPreview icon="document" class="size-8!" {...sheetTriggerAttributes} />
+					{/snippet}
+					{#snippet content()}
+						<div class="min-w-0 max-w-full p-4">
+							<RenderMD
+								content={report}
+								class="prose prose-sm max-w-none prose-headings:text-primary"
+							/>
+						</div>
+					{/snippet}
+				</Sheet>
 			{/if}
-			{#if item.video}
-				<MediaPreview
-					image={item.screenshot}
-					href={item.video}
-					icon="video"
-					class="size-8!"
-				/>
-			{/if}
-		</div>
-	{:else}
-		<EntityDisplay.Na />
-	{/each}
-</div>
+		{/await}
+	</div>
+{:else}
+	<EntityDisplay.Na />
+{/if}
