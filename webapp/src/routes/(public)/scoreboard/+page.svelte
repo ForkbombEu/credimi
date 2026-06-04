@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { ArrowRight } from '@lucide/svelte';
 	import { Scoreboard } from '$lib';
 
 	import PublicPageHeader from '@/components/layout/public-page-header.svelte';
@@ -22,12 +23,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="grow bg-secondary pt-0 pb-20">
-	<PublicPageHeader entity="scoreboard" description={m.scoreboard_page_description()} />
-	<div class="mx-auto mb-6 flex max-w-7xl justify-center px-4">
-		<Button variant="outline" href="/scoreboard/interop"
-			>{m.scoreboard_view_interop_matrix()}</Button
-		>
-	</div>
+	<PublicPageHeader entity="scoreboard" description={m.scoreboard_page_description()}>
+		{#snippet titleRight()}
+			<Button
+				variant="outline"
+				size="sm"
+				href="/scoreboard/interop"
+				class={[
+					'border-primary bg-transparent text-xs hover:bg-primary/10',
+					'gap-1 [&_svg]:size-2',
+					'h-auto! w-auto! px-2 py-2'
+				]}
+			>
+				{m.scoreboard_view_interop_matrix()}
+				<ArrowRight />
+			</Button>
+		{/snippet}
+	</PublicPageHeader>
+
 	<div class="px-4">
 		<Scoreboard.Component {scoreboard} />
 	</div>

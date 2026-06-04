@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	import { entities, type EntitySlug } from '$lib/global/entities.js';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
@@ -13,9 +15,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		entity: EntitySlug;
 		description?: string;
+		titleRight?: Snippet;
 	};
 
-	let { entity, description }: Props = $props();
+	let { entity, description, titleRight }: Props = $props();
 
 	const entityData = $derived(entities[entity]);
 </script>
@@ -28,6 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T tag="h1">
 			{entityData.labels.singular}
 		</T>
+		{@render titleRight?.()}
 	</div>
 	<p class="max-w-[80ch] text-center text-balance">{description}</p>
 </div>
