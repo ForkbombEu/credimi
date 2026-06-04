@@ -103,7 +103,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 				...this.metadataForm.value,
 				yaml
 			};
-			runWithLoading({
+			await runWithLoading({
 				fn: async () => {
 					try {
 						this.isSaving = true;
@@ -114,7 +114,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 						} else {
 							await pb.collection('pipelines').create(data);
 						}
-						goto('/my/pipelines');
+						await goto('/my/pipelines');
 					} catch (e) {
 						showPipelineFormError(e);
 						throw e;
