@@ -7,8 +7,10 @@ import { getPath } from '$lib/utils';
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
-import { pb } from '@/pocketbase';
 import type { WalletActionsResponse } from '@/pocketbase/types';
+
+import { m } from '@/i18n';
+import { pb } from '@/pocketbase';
 
 import { ExecutionTarget } from '../../execution-target';
 import { BaseForm, type InitFormOptions } from '../types';
@@ -65,7 +67,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		} else if (standard && version && suite && test) {
 			return 'ready';
 		} else {
-			throw new Error('Invalid state');
+			throw new Error(m.Pipeline_form_invalid_state());
 		}
 	});
 
@@ -161,9 +163,8 @@ type Test = Suite['paths'][number];
 async function getOpenID4VCIWalletActionId() {
 	const wallet = ExecutionTarget.state.current?.wallet;
 	if (!wallet) {
-		throw new Error('Choose a wallet before adding an OpenID4VCI wallet conformance check');
+		throw new Error(m.Pipeline_form_choose_wallet_before_openid4vci_wallet_check());
 	}
-	console.log('Wallet id: ', wallet.id);
 	const actions = await pb.collection('wallet_actions').getFullList<WalletActionsResponse>({
 		filter: pb.filter('wallet = {:wallet} && category ~ {:category}', {
 			wallet: wallet.id,
@@ -176,7 +177,10 @@ async function getOpenID4VCIWalletActionId() {
 
 	if (!action) {
 		throw new Error(
-			`Wallet "${wallet.name}" has no action category "${OPENID4VCI_WALLET_ACTION_CATEGORY}"`
+			m.Pipeline_form_wallet_missing_action_category({
+				wallet: wallet.name,
+				category: OPENID4VCI_WALLET_ACTION_CATEGORY
+			})
 		);
 	}
 

@@ -72,7 +72,7 @@ export const customCheckStepConfig: TypedConfig<'custom-check', HubItem> = {
 		),
 	serialize: (item) => ({ check_id: getPath(item) }),
 	deserialize: async ({ check_id }) => {
-		if (!check_id) throw new Error('Missing check_id');
+		if (!check_id) throw new Error(m.Pipeline_form_missing_check_id());
 		return getHubItemByPath(check_id);
 	},
 	cardData: getHubItemCardData,
