@@ -34,6 +34,12 @@ var pipelineRetentionFileFields = []string{
 	"screenshots",
 	"logcats",
 	"ios_logstreams",
+	"report",
+}
+
+var pipelineRetentionEvidenceFields = []string{
+	"credential_well_knowns",
+	"presentation_results",
 }
 
 var pipelineRetentionImmediateTriggerOptions = client.ScheduleTriggerOptions{
@@ -51,6 +57,7 @@ type PipelineResultFileCounts struct {
 	Screenshots   int `json:"screenshots"`
 	Logcats       int `json:"logcats"`
 	IOSLogstreams int `json:"ios_logstreams"`
+	Report        int `json:"report"`
 	Total         int `json:"total"`
 }
 
@@ -393,11 +400,14 @@ func deletePipelineResultFilesOlderThan(
 
 			response.MatchedRecords++
 			counts := countPipelineResultFiles(record)
-			if counts.Total == 0 {
+			hasFiles := counts.Total > 0
+			if !hasFiles && !hasPipelineResultEvidence(record) {
 				continue
 			}
 
-			response.RecordsWithFiles++
+			if hasFiles {
+				response.RecordsWithFiles++
+			}
 			response.DeletedFiles = addPipelineResultFileCounts(response.DeletedFiles, counts)
 
 			if dryRun {
@@ -442,8 +452,9 @@ func countPipelineResultFiles(record *core.Record) PipelineResultFileCounts {
 		Screenshots:   len(record.GetStringSlice("screenshots")),
 		Logcats:       len(record.GetStringSlice("logcats")),
 		IOSLogstreams: len(record.GetStringSlice("ios_logstreams")),
+		Report:        len(record.GetStringSlice("report")),
 	}
-	counts.Total = counts.VideoResults + counts.Screenshots + counts.Logcats + counts.IOSLogstreams
+	counts.Total = counts.VideoResults + counts.Screenshots + counts.Logcats + counts.IOSLogstreams + counts.Report
 
 	return counts
 }
@@ -456,6 +467,7 @@ func addPipelineResultFileCounts(
 	left.Screenshots += right.Screenshots
 	left.Logcats += right.Logcats
 	left.IOSLogstreams += right.IOSLogstreams
+	left.Report += right.Report
 	left.Total += right.Total
 
 	return left
@@ -465,4 +477,19 @@ func clearPipelineResultFiles(record *core.Record) {
 	for _, field := range pipelineRetentionFileFields {
 		record.Set(field, []string{})
 	}
+	for _, field := range pipelineRetentionEvidenceFields {
+		record.Set(field, []any{})
+	}
+}
+
+func hasPipelineResultEvidence(record *core.Record) bool {
+	if record == nil {
+		return false
+	}
+	for _, field := range pipelineRetentionEvidenceFields {
+		if len(strings.TrimSpace(record.GetString(field))) > 0 {
+			return true
+		}
+	}
+	return false
 }

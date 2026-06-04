@@ -12,15 +12,16 @@ import (
 
 type SetupFunc func(
 	ctx workflow.Context,
-	steps *[]pipeline.StepDefinition,
-	ao *workflow.ActivityOptions,
+	wfDef *pipeline.WorkflowDefinition,
 	config map[string]any,
 	runData *map[string]any,
+	finalOutput *map[string]any,
+	logger log.Logger,
 ) error
 
 type CleanupFunc func(
 	ctx workflow.Context,
-	steps []pipeline.StepDefinition,
+	wfDef *pipeline.WorkflowDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData map[string]any,
@@ -31,9 +32,11 @@ var (
 	setupHooks = []SetupFunc{
 		MobileAutomationSetupHook,
 		ConformanceCheckSetupHook,
+		PipelineEvidenceSetupHook,
 	}
 
 	cleanupHooks = []CleanupFunc{
+		PipelineReportCleanupHook,
 		MobileAutomationCleanupHook,
 		ConformanceCheckCleanupHook,
 		tempCredentialsCleanupHook,
@@ -44,13 +47,14 @@ var (
 
 func runSetupHooks(
 	ctx workflow.Context,
-	steps *[]pipeline.StepDefinition,
-	ao *workflow.ActivityOptions,
+	wfDef *pipeline.WorkflowDefinition,
 	config map[string]any,
 	runData *map[string]any,
+	finalOutput *map[string]any,
+	logger log.Logger,
 ) error {
 	for _, hook := range setupHooks {
-		if err := hook(ctx, steps, ao, config, runData); err != nil {
+		if err := hook(ctx, wfDef, config, runData, finalOutput, logger); err != nil {
 			return err
 		}
 	}
@@ -59,7 +63,7 @@ func runSetupHooks(
 
 func runCleanupHooks(
 	ctx workflow.Context,
-	steps []pipeline.StepDefinition,
+	wfDef *pipeline.WorkflowDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData map[string]any,
@@ -68,7 +72,7 @@ func runCleanupHooks(
 	cleanupErrors *[]error,
 ) {
 	for _, hook := range cleanupHooks {
-		if err := hook(ctx, steps, ao, config, runData, finalOutput); err != nil {
+		if err := hook(ctx, wfDef, ao, config, runData, finalOutput); err != nil {
 			logger.Error("cleanup hook error", "error", err)
 			*cleanupErrors = append(*cleanupErrors, err)
 		}

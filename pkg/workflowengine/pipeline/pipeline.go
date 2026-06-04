@@ -155,7 +155,7 @@ func (w *PipelineWorkflow) Workflow(
 
 		runCleanupHooks(
 			ctx,
-			wfDef.Steps,
+			wfDef,
 			&ao,
 			config,
 			runData,
@@ -193,7 +193,7 @@ func (w *PipelineWorkflow) Workflow(
 		}
 	}()
 
-	if err := runSetupHooks(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
+	if err := runSetupHooks(ctx, wfDef, config, &runData, &state.finalOutput, logger); err != nil {
 		return workflowengine.WorkflowResult{}, wrapWorkflowCancellationError(err, runMetadata)
 	}
 
@@ -437,6 +437,9 @@ func buildFinallyPipelineOutput(
 	if warnings, ok := finalOutput["cleanup_warnings"]; ok {
 		pipelineOutput["cleanup_warnings"] = warnings
 	}
+	if warnings, ok := finalOutput[setupWarningsOutputKey]; ok {
+		pipelineOutput[setupWarningsOutputKey] = warnings
+	}
 	if finalErr != nil {
 		pipelineOutput["error"] = finalErr.Error()
 	}
@@ -452,6 +455,7 @@ func collectFinallyOutputs(finalOutput map[string]any) map[string]any {
 		case "workflow-id",
 			"workflow-run-id",
 			"result_video_warning",
+			setupWarningsOutputKey,
 			"cleanup_warnings",
 			"finally_errors":
 			continue

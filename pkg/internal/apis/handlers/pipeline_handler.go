@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
 
@@ -124,6 +126,26 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandleSetPipelineExecutionResults,
 			RequestSchema: PipelineResultInput{},
 			Description:   "Create pipeline execution results record",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/pipeline-execution-results/evidence",
+			Handler:       HandleUpdatePipelineExecutionEvidence,
+			RequestSchema: PipelineResultEvidenceInput{},
+			Description:   "Update pipeline execution evidence fields",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/pipeline-execution-results/report",
+			Handler:       HandleUpdatePipelineExecutionReport,
+			RequestSchema: PipelineResultReportInput{},
+			Description:   "Update pipeline execution markdown report file",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
@@ -246,6 +268,20 @@ type PipelineResultInput struct {
 	Type       string `json:"type,omitempty"`
 }
 
+type PipelineResultEvidenceInput struct {
+	WorkflowID           string           `json:"workflow_id"`
+	RunID                string           `json:"run_id"`
+	CredentialWellKnowns []map[string]any `json:"credential_well_knowns"`
+	PresentationResults  []map[string]any `json:"presentation_results"`
+}
+
+type PipelineResultReportInput struct {
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
+	Filename   string `json:"filename"`
+	Markdown   string `json:"markdown"`
+}
+
 func pipelineRunType(input string) string {
 	input = strings.TrimSpace(input)
 	if input == "" {
@@ -259,6 +295,152 @@ func setPipelineRunType(record *core.Record, coll *core.Collection, runType stri
 		return
 	}
 	record.Set("type", pipelineRunType(runType))
+}
+
+func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[PipelineResultReportInput](e)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(input.WorkflowID) == "" || strings.TrimSpace(input.RunID) == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"workflow_id and run_id are required",
+				"missing workflow_id or run_id",
+			).JSON(e)
+		}
+		if strings.TrimSpace(input.Markdown) == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"report",
+				"markdown is required",
+				"missing markdown",
+			).JSON(e)
+		}
+
+		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		filename := sanitizePipelineReportFilename(input.Filename)
+		file, err := filesystem.NewFileFromBytes([]byte(input.Markdown), filename)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"report",
+				"failed to create report file",
+				err.Error(),
+			).JSON(e)
+		}
+		record.Set("report", []*filesystem.File{file})
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to save pipeline report",
+				err.Error(),
+			).JSON(e)
+		}
+		return e.JSON(http.StatusOK, record.FieldsData())
+	}
+}
+
+func HandleUpdatePipelineExecutionEvidence() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[PipelineResultEvidenceInput](e)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(input.WorkflowID) == "" || strings.TrimSpace(input.RunID) == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"workflow_id and run_id are required",
+				"missing workflow_id or run_id",
+			).JSON(e)
+		}
+
+		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		record.Set("credential_well_knowns", input.CredentialWellKnowns)
+		record.Set("presentation_results", input.PresentationResults)
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to save pipeline evidence",
+				err.Error(),
+			).JSON(e)
+		}
+		return e.JSON(http.StatusOK, record.FieldsData())
+	}
+}
+
+func findPipelineResultByWorkflowRun(
+	e *core.RequestEvent,
+	workflowID string,
+	runID string,
+) (*core.Record, *apierror.APIError) {
+	coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"collection",
+			"failed to get collection",
+			err.Error(),
+		)
+	}
+
+	record, err := e.App.FindFirstRecordByFilter(
+		coll,
+		"workflow_id = {:workflow_id} && run_id = {:run_id}",
+		dbx.Params{
+			"workflow_id": workflowID,
+			"run_id":      runID,
+		},
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apierror.New(
+				http.StatusNotFound,
+				"pipeline",
+				"pipeline execution result not found",
+				"pipeline execution result not found for workflow_id and run_id",
+			)
+		}
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"pipeline",
+			"failed to lookup pipeline execution result",
+			err.Error(),
+		)
+	}
+
+	return record, nil
+}
+
+var unsafePipelineReportFilenameChars = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+
+func sanitizePipelineReportFilename(filename string) string {
+	filename = strings.TrimSpace(filename)
+	if filename == "" {
+		filename = "pipeline-report.md"
+	}
+	filename = unsafePipelineReportFilenameChars.ReplaceAllString(filename, "-")
+	filename = strings.Trim(filename, ".-_")
+	if filename == "" {
+		return "pipeline-report.md"
+	}
+	if !strings.HasSuffix(strings.ToLower(filename), ".md") {
+		filename += ".md"
+	}
+	return filename
 }
 
 func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {

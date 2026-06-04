@@ -19,7 +19,7 @@ const tempUseCaseVerificationsConfigKey = "temp_use_case_verifications"
 
 func tempCredentialsCleanupHook(
 	ctx workflow.Context,
-	_ []pipelineinternal.StepDefinition,
+	_ *pipelineinternal.WorkflowDefinition,
 	_ *workflow.ActivityOptions,
 	config map[string]any,
 	_ map[string]any,
@@ -34,7 +34,7 @@ func tempCredentialsCleanupHook(
 
 func tempUseCaseVerificationsCleanupHook(
 	ctx workflow.Context,
-	_ []pipelineinternal.StepDefinition,
+	_ *pipelineinternal.WorkflowDefinition,
 	_ *workflow.ActivityOptions,
 	config map[string]any,
 	_ map[string]any,

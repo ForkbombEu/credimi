@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -1525,17 +1526,19 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 				},
 			}
 			runData := map[string]any{}
+			wfDef := &pipeline.WorkflowDefinition{Steps: steps}
 
 			err := MobileAutomationSetupHook(
 				ctx,
-				&steps,
-				&ao,
+				wfDef,
 				map[string]any{
 					"app_url":                              "https://app.example",
 					"global_runner_id":                     "tenant/runner-1",
 					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
 				},
 				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
 			)
 			if err != nil {
 				return nil, err
@@ -1682,11 +1685,11 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 				},
 			}
 			runData := map[string]any{}
+			wfDef := &pipeline.WorkflowDefinition{Steps: steps}
 
 			err := MobileAutomationSetupHook(
 				ctx,
-				&steps,
-				&ao,
+				wfDef,
 				map[string]any{
 					"app_url":                              "https://app.example",
 					"global_runner_id":                     "tenant/runner-1",
@@ -1694,6 +1697,8 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 					mobileDisableAndroidPlayStoreConfigKey: true,
 				},
 				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
 			)
 			if err != nil {
 				return nil, err
@@ -1824,11 +1829,11 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 				},
 			}
 			runData := map[string]any{}
+			wfDef := &pipeline.WorkflowDefinition{Steps: steps}
 
 			err := MobileAutomationSetupHook(
 				ctx,
-				&steps,
-				&ao,
+				wfDef,
 				map[string]any{
 					"app_url":                              "https://app.example",
 					"global_runner_id":                     "tenant/runner-1",
@@ -1836,6 +1841,8 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 					mobileDisableAndroidPlayStoreConfigKey: true,
 				},
 				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
 			)
 			if err != nil {
 				return nil, err
@@ -1844,7 +1851,7 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1"].(map[string]any)
 			_, hasPlayStoreDisabled := deviceMap["play_store_disabled"]
 			return map[string]any{
-				"use":                        steps[0].Use,
+				"use":                        wfDef.Steps[0].Use,
 				"pending_play_store_disable": runData[mobilePendingPlayStoreDisableRunDataKey],
 				"play_store_disabled":        hasPlayStoreDisabled,
 				"recording":                  deviceMap["recording"],
@@ -2187,7 +2194,6 @@ func TestMobileAutomationSetupHookCollectRunnerIDsError(t *testing.T) {
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			steps := []pipeline.StepDefinition{
 				{
 					StepSpec: pipeline.StepSpec{
@@ -2205,10 +2211,11 @@ func TestMobileAutomationSetupHookCollectRunnerIDsError(t *testing.T) {
 			runData := map[string]any{}
 			return MobileAutomationSetupHook(
 				ctx,
-				&steps,
-				&ao,
+				&pipeline.WorkflowDefinition{Steps: steps},
 				map[string]any{mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1"},
 				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
 			)
 		},
 		workflow.RegisterOptions{Name: "test-mobile-setup-collect-runner-error"},
@@ -2226,7 +2233,6 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			steps := []pipeline.StepDefinition{
 				{
 					StepSpec: pipeline.StepSpec{
@@ -2243,13 +2249,14 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 			runData := map[string]any{}
 			return MobileAutomationSetupHook(
 				ctx,
-				&steps,
-				&ao,
+				&pipeline.WorkflowDefinition{Steps: steps},
 				map[string]any{
 					"app_url":                              "https://app.example",
 					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
 				},
 				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
 			)
 		},
 		workflow.RegisterOptions{Name: "test-mobile-setup-process-step-error"},
@@ -2635,14 +2642,21 @@ func testSetupHookWorkflow(
 	steps []pipeline.StepDefinition,
 	semaphoreManaged bool,
 ) error {
-	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 	config := map[string]any{"app_url": "https://example.test"}
 	if semaphoreManaged {
 		config["mobile_runner_semaphore_ticket_id"] = "ticket-1"
 	}
 	runData := map[string]any{}
 
-	return MobileAutomationSetupHook(ctx, &steps, &activityOptions, config, &runData)
+	finalOutput := map[string]any{}
+	return MobileAutomationSetupHook(
+		ctx,
+		&pipeline.WorkflowDefinition{Steps: steps},
+		config,
+		&runData,
+		&finalOutput,
+		log.Logger(noopLogger{}),
+	)
 }
 
 func testStartRecordingMissingSerialWorkflow(ctx workflow.Context) error {
