@@ -942,11 +942,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 
 		selectedExecutions := selectTopExecutionsByPipeline(allExecutions, 5)
 
-		var flatSummaries []*WorkflowExecutionSummary
-		for _, executions := range selectedExecutions {
-			flatSummaries = append(flatSummaries, executions...)
-		}
-		if err := attachPipelineArtifactsToSummaries(e.App, organization.Id, flatSummaries); err != nil {
+		if err := attachPipelineArtifactsToSummaries(e.App, organization.Id, selectedExecutions); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"database",

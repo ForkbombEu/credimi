@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
@@ -117,16 +118,8 @@ type WorkflowExecutionAPIResponse struct {
 	PendingWorkflowTask    *PendingWorkflowTaskInfo             `json:"pendingWorkflowTask,omitempty"`
 }
 
-type PipelineResults struct {
-	Video      string `json:"video,omitempty"`
-	Screenshot string `json:"screenshot,omitempty"`
-	Log        string `json:"log,omitempty"`
-}
-
-type PipelineExecutionArtifacts struct {
-	Results []PipelineResults `json:"results"`
-	Report  string            `json:"report,omitempty"`
-}
+type PipelineResults = pipelineresults.PipelineResults
+type PipelineExecutionArtifacts = pipelineresults.PipelineExecutionArtifacts
 
 type WorkflowStatus string
 

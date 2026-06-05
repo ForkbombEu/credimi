@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -56,7 +55,7 @@ func TestHandlePipelineResultsEnrichSetsArtifacts(t *testing.T) {
 	switch got := record.Get("artifacts").(type) {
 	case map[string]any:
 		artifacts = got
-	case handlers.PipelineExecutionArtifacts:
+	case PipelineExecutionArtifacts:
 		raw, err := json.Marshal(got)
 		require.NoError(t, err)
 		require.NoError(t, json.Unmarshal(raw, &artifacts))
