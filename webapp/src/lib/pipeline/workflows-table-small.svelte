@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ArrowRightIcon,
 		EllipsisVerticalIcon,
 		FileCogIcon,
+		FileIcon,
 		ImageIcon,
 		VideoIcon
 	} from '@lucide/svelte';
@@ -21,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { makeDropdownActions } from './actions';
+	import PipelineReportSheet from './results/pipeline-report-sheet.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 	import * as PipelineWorkflows from './workflows';
 
@@ -70,36 +72,51 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</td>
 
 							<td>
-								{#each workflow.results as result, index (index)}
-									<div class="flex items-center gap-1">
-										<IconButton
-											size="mini"
-											variant="ghost"
-											icon={VideoIcon}
-											href={result.video}
-											target="_blank"
-											class="text-primary hover:bg-secondary"
-										/>
-										<IconButton
-											size="mini"
-											variant="ghost"
-											icon={ImageIcon}
-											href={result.screenshot}
-											target="_blank"
-											class="text-primary hover:bg-secondary"
-										/>
-										<IconButton
-											size="mini"
-											variant="ghost"
-											icon={FileCogIcon}
-											href={result.log}
-											target="_blank"
-											class="text-primary hover:bg-secondary"
-										/>
+								{#if (workflow.results?.length ?? 0) > 0 || workflow.report}
+									<div class="flex flex-wrap items-center gap-1">
+										{#each workflow.results ?? [] as result, index (index)}
+											<div class="flex items-center gap-1">
+												<IconButton
+													size="mini"
+													variant="ghost"
+													icon={VideoIcon}
+													href={result.video}
+													target="_blank"
+													class="text-primary hover:bg-secondary"
+												/>
+												<IconButton
+													size="mini"
+													variant="ghost"
+													icon={ImageIcon}
+													href={result.screenshot}
+													target="_blank"
+													class="text-primary hover:bg-secondary"
+												/>
+												<IconButton
+													size="mini"
+													variant="ghost"
+													icon={FileCogIcon}
+													href={result.log}
+													target="_blank"
+													class="text-primary hover:bg-secondary"
+												/>
+											</div>
+										{/each}
+										<PipelineReportSheet reportUrl={workflow.report}>
+											{#snippet sheetTrigger({ props })}
+												<IconButton
+													size="mini"
+													variant="ghost"
+													icon={FileIcon}
+													class="text-primary hover:bg-secondary"
+													{...props}
+												/>
+											{/snippet}
+										</PipelineReportSheet>
 									</div>
 								{:else}
 									{@render na()}
-								{/each}
+								{/if}
 							</td>
 							<td class="text-muted-foreground">
 								{#if workflow.queue}
