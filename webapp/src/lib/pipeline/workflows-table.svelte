@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ArrowRightIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
-	import MediaPreview from '$lib/components/media-preview.svelte';
 	import WorkflowsTable from '$lib/workflows/workflows-table.svelte';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -16,7 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ExecutionSummary } from './workflows';
 
 	import { makeDropdownActions } from './actions';
-	import PipelineReportSheet from './results/pipeline-report-sheet.svelte';
+	import { fromApiSummary } from './execution-artifacts';
+	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 
 	//
@@ -87,25 +87,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Td>
 
 		<Td>
-			{#if (workflow.results?.length ?? 0) > 0 || workflow.report}
-				<div class="flex items-center gap-2">
-					{#each workflow.results ?? [] as result (result.video)}
-						<div class="flex items-center gap-1">
-							<MediaPreview image={result.video} href={result.video} icon="video" />
-							<MediaPreview
-								image={result.screenshot}
-								href={result.screenshot}
-								icon="image"
-							/>
-							<MediaPreview href={result.log} icon="file" />
-						</div>
-					{/each}
-					<PipelineReportSheet reportUrl={workflow.report}>
-						{#snippet sheetTrigger({ props })}
-							<MediaPreview icon="document" {...props} />
-						{/snippet}
-					</PipelineReportSheet>
-				</div>
+			{@const artifacts = fromApiSummary(workflow)}
+			{#if artifacts}
+				<ExecutionArtifactsPreview {artifacts} variant="preview" />
 			{:else}
 				<span class="text-muted-foreground opacity-50">N/A</span>
 			{/if}

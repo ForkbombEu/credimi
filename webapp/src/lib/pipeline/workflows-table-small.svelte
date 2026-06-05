@@ -5,14 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import {
-		ArrowRightIcon,
-		EllipsisVerticalIcon,
-		FileCogIcon,
-		FileIcon,
-		ImageIcon,
-		VideoIcon
-	} from '@lucide/svelte';
+	import { ArrowRightIcon, EllipsisVerticalIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
 
@@ -22,7 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { makeDropdownActions } from './actions';
-	import PipelineReportSheet from './results/pipeline-report-sheet.svelte';
+	import { fromApiSummary } from './execution-artifacts';
+	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 	import * as PipelineWorkflows from './workflows';
 
@@ -72,48 +66,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</td>
 
 							<td>
-								{#if (workflow.results?.length ?? 0) > 0 || workflow.report}
-									<div class="flex flex-wrap items-center gap-1">
-										{#each workflow.results ?? [] as result, index (index)}
-											<div class="flex items-center gap-1">
-												<IconButton
-													size="mini"
-													variant="ghost"
-													icon={VideoIcon}
-													href={result.video}
-													target="_blank"
-													class="text-primary hover:bg-secondary"
-												/>
-												<IconButton
-													size="mini"
-													variant="ghost"
-													icon={ImageIcon}
-													href={result.screenshot}
-													target="_blank"
-													class="text-primary hover:bg-secondary"
-												/>
-												<IconButton
-													size="mini"
-													variant="ghost"
-													icon={FileCogIcon}
-													href={result.log}
-													target="_blank"
-													class="text-primary hover:bg-secondary"
-												/>
-											</div>
-										{/each}
-										<PipelineReportSheet reportUrl={workflow.report}>
-											{#snippet sheetTrigger({ props })}
-												<IconButton
-													size="mini"
-													variant="ghost"
-													icon={FileIcon}
-													class="text-primary hover:bg-secondary"
-													{...props}
-												/>
-											{/snippet}
-										</PipelineReportSheet>
-									</div>
+								{#if fromApiSummary(workflow) as artifacts}
+									<ExecutionArtifactsPreview {artifacts} variant="compact" />
 								{:else}
 									{@render na()}
 								{/if}
