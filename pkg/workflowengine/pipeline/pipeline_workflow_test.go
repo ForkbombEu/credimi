@@ -279,6 +279,73 @@ func TestPipelineWorkflowContinueOnError(t *testing.T) {
 	require.Contains(t, err.Error(), "Pipeline failed: 1 step failed (step-1)")
 }
 
+func TestPipelineWorkflowContinueOnErrorIncludesOnErrorStepFailures(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	jsonAct := activities.NewJSONActivity(map[string]reflect.Type{
+		"map": reflect.TypeOf(map[string]any{}),
+	})
+	env.RegisterActivityWithOptions(
+		jsonAct.Execute,
+		activity.RegisterOptions{Name: jsonAct.Name()},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "continue-on-error-hook-failure",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "step-1",
+							Use: "json-parse",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"struct_type": "map",
+								},
+							},
+						},
+						ContinueOnError: true,
+						OnError: []*pipeline.OnErrorStepDefinition{
+							{
+								StepSpec: pipeline.StepSpec{
+									ID:  "on-error",
+									Use: "json-parse",
+									With: pipeline.StepInputs{
+										Payload: map[string]any{
+											"struct_type": "map",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Pipeline failed: 2 steps failed (step-1, on-error)")
+}
+
 func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
