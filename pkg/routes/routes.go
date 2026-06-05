@@ -17,9 +17,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/logo"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	walletversions "github.com/forkbombeu/credimi/pkg/internal/wallet_versions"
 	"github.com/forkbombeu/credimi/pkg/utils"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
@@ -55,17 +55,18 @@ func bindAppHooks(app core.App) {
 //     for JavaScript-based templates and automatic migration.
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
-	pb.HookNamespaceOrgs(app)
+	// pb.HookNamespaceOrgs(app)
 	pb.RegisterPipelineHooks(app)
 	pb.RegisterSchedulesHooks(app)
 	apis.RegisterMyRoutes(app)
-	hooks.WorkersHook(app)
+	// hooks.WorkersHook(app)
 	canonify.RegisterCanonifyHooks(app)
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)
 	apis.HookTurnstileVerification(app)
 	logo.LogoHooks(app)
 	walletversions.WalletVersionHooks(app)
+	pipelineresults.RegisterPipelineResultsHooks(app)
 	// apis.IssuersRoutes.Add(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
