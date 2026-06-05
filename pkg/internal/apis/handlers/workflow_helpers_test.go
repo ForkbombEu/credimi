@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -153,13 +154,70 @@ func TestComputePipelineResultsFromRecord(t *testing.T) {
 	record.Set("screenshots", []string{"abc_screenshot_main.png"})
 	record.Set("logcats", []string{"abc_logfile_main.zip"})
 
-	got := computePipelineResultsFromRecord(app, record)
+	got := pipelineresults.ComputePipelineResultsFromRecord(app, record)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0].Video, "https://app.test")
 	require.Contains(t, got[0].Video, "abc_result_video_main.mp4")
 	require.Contains(t, got[0].Screenshot, "abc_screenshot_main.png")
 	require.Contains(t, got[0].Log, "abc_logfile_main.zip")
 
-	require.Nil(t, computePipelineResultsFromRecord(nil, record))
-	require.Nil(t, computePipelineResultsFromRecord(app, nil))
+	require.Nil(t, pipelineresults.ComputePipelineResultsFromRecord(nil, record))
+	require.Nil(t, pipelineresults.ComputePipelineResultsFromRecord(app, nil))
+}
+
+func TestComputePipelineReportURLFromRecord(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	app.Settings().Meta.AppURL = "https://app.test"
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Id = "rec123"
+	record.Set("report", []string{"run_report.md"})
+
+	got := pipelineresults.ComputePipelineReportURLFromRecord(app, record)
+	require.Equal(t, "https://app.test/api/files/pipeline_results/rec123/run_report.md", got)
+
+	record.Set("report", []string{})
+	require.Equal(t, "", pipelineresults.ComputePipelineReportURLFromRecord(app, record))
+	require.Equal(t, "", pipelineresults.ComputePipelineReportURLFromRecord(nil, record))
+	require.Equal(t, "", pipelineresults.ComputePipelineReportURLFromRecord(app, nil))
+}
+
+func TestBuildPipelineExecutionArtifacts(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	app.Settings().Meta.AppURL = "https://app.test"
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Id = "rec123"
+	record.Set("video_results", []string{"abc_result_video_main.mp4"})
+	record.Set("screenshots", []string{"abc_screenshot_main.png"})
+	record.Set("logcats", []string{"abc_logfile_main.zip"})
+	record.Set("report", []string{"run_report.md"})
+
+	got := pipelineresults.BuildPipelineExecutionArtifacts(app, record)
+	require.Len(t, got.Results, 1)
+	require.Contains(t, got.Results[0].Log, "abc_logfile_main.zip")
+	require.Equal(t, "https://app.test/api/files/pipeline_results/rec123/run_report.md", got.Report)
+
+	require.Equal(
+		t,
+		pipelineresults.PipelineExecutionArtifacts{Results: []pipelineresults.PipelineResults{}},
+		pipelineresults.BuildPipelineExecutionArtifacts(nil, record),
+	)
+	require.Equal(
+		t,
+		pipelineresults.PipelineExecutionArtifacts{Results: []pipelineresults.PipelineResults{}},
+		pipelineresults.BuildPipelineExecutionArtifacts(app, nil),
+	)
 }

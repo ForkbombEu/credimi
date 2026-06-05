@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
@@ -642,12 +643,21 @@ func conformanceHookWorkflow(
 		},
 	}
 	runData := map[string]any{}
-	if err := ConformanceCheckSetupHook(ctx, &steps, nil, input.Config, &runData); err != nil {
+	finalOutput := map[string]any{}
+	wfDef := &pipeline.WorkflowDefinition{Steps: steps}
+	if err := ConformanceCheckSetupHook(
+		ctx,
+		wfDef,
+		input.Config,
+		&runData,
+		&finalOutput,
+		log.Logger(noopLogger{}),
+	); err != nil {
 		return conformanceHookResult{}, err
 	}
 
 	return conformanceHookResult{
-		Payload: steps[0].With.Payload,
-		Config:  steps[0].With.Config,
+		Payload: wfDef.Steps[0].With.Payload,
+		Config:  wfDef.Steps[0].With.Config,
 	}, nil
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/log"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
@@ -524,10 +525,11 @@ func TestPipelineWorkflowWrapsSetupHookCancellation(t *testing.T) {
 	setupHooks = []SetupFunc{
 		func(
 			_ workflow.Context,
-			_ *[]pipeline.StepDefinition,
-			_ *workflow.ActivityOptions,
+			_ *pipeline.WorkflowDefinition,
 			_ map[string]any,
 			_ *map[string]any,
+			_ *map[string]any,
+			_ log.Logger,
 		) error {
 			return temporal.NewCanceledError("setup canceled")
 		},
@@ -581,10 +583,11 @@ func TestPipelineWorkflowDefersPlayStoreDisableUntilAfterExternalInstallSteps(t 
 	setupHooks = []SetupFunc{
 		func(
 			_ workflow.Context,
-			_ *[]pipeline.StepDefinition,
-			_ *workflow.ActivityOptions,
+			_ *pipeline.WorkflowDefinition,
 			_ map[string]any,
 			runData *map[string]any,
+			_ *map[string]any,
+			_ log.Logger,
 		) error {
 			(*runData)["setted_devices"] = map[string]any{
 				"tenant/runner-1": map[string]any{

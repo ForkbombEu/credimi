@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -534,6 +535,8 @@ func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
 	record.Id = "result-1"
 	record.Set("video_results", []string{"sample_result_video_1.mp4"})
 	record.Set("screenshots", []string{"sample_screenshot_1.png"})
+	record.Set("logcats", []string{"sample_logfile_1.zip"})
+	record.Set("report", []string{"run_report.md"})
 
 	pipelineWf := pipeline.PipelineWorkflow{}
 	root := &WorkflowExecution{
@@ -560,8 +563,11 @@ func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
 		nil,
 	)
 	require.Len(t, summaries, 1)
-	require.NotEmpty(t, summaries[0].Results)
-	require.Len(t, summaries[0].Children, 1)
+	rootSummary := summaries[0]
+	require.Len(t, rootSummary.Results, 1)
+	require.Contains(t, rootSummary.Results[0].Log, "sample_logfile_1.zip")
+	require.Contains(t, rootSummary.Report, "run_report.md")
+	require.Len(t, rootSummary.Children, 1)
 }
 
 func TestBuildChildWorkflowParentQueryPipelineResults(t *testing.T) {
@@ -850,7 +856,7 @@ func TestComputePipelineResultsFromRecordPipelineResultsHandler(t *testing.T) {
 	record.Set("screenshots", []string{"sample_screenshot_1.png", "extra.png"})
 	record.Set("ios_logstreams", []string{"sample_logfile_1.zip"})
 
-	results := computePipelineResultsFromRecord(app, record)
+	results := pipelineresults.ComputePipelineResultsFromRecord(app, record)
 	require.Len(t, results, 1)
 	require.Contains(t, results[0].Video, "sample_result_video_1.mp4")
 	require.Contains(t, results[0].Screenshot, "sample_screenshot_1.png")

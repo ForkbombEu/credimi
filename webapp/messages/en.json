@@ -993,5 +993,11 @@
 	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run.",
 	"selected": "Selected",
 	"Execution_stats": "Execution stats",
-	"Editing_is_disabled_because_you_are_not_the_owner_of_the_action": "Editing is disabled because you are not the owner of the action."
+	"Editing_is_disabled_because_you_are_not_the_owner_of_the_action": "Editing is disabled because you are not the owner of the action.",
+	"Print": "Print",
+	"Open_in_new_page": "Open in new page",
+	"pipeline_artifact_video_tooltip": "View video",
+	"pipeline_artifact_screenshot_tooltip": "View screenshot",
+	"pipeline_artifact_log_tooltip": "View logs",
+	"pipeline_artifact_report_tooltip": "View report"
 }

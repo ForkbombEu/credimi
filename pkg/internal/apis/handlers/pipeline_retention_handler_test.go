@@ -36,8 +36,26 @@ func setupPipelineRetentionApp(t testing.TB) *tests.TestApp {
 	canonify.RegisterCanonifyHooks(app)
 	PipelineTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
+	ensurePipelineRetentionEvidenceFields(t, app)
 
 	return app
+}
+
+func ensurePipelineRetentionEvidenceFields(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	if collection.Fields.GetByName("credential_well_knowns") == nil {
+		collection.Fields.Add(&core.JSONField{Name: "credential_well_knowns"})
+	}
+	if collection.Fields.GetByName("presentation_results") == nil {
+		collection.Fields.Add(&core.JSONField{Name: "presentation_results"})
+	}
+	if collection.Fields.GetByName("report") == nil {
+		collection.Fields.Add(&core.FileField{Name: "report", MaxSelect: 1})
+	}
+	require.NoError(t, app.Save(collection))
 }
 
 func TestDeletePipelineResultFilesDryRun(t *testing.T) {
@@ -55,6 +73,7 @@ func TestDeletePipelineResultFilesDryRun(t *testing.T) {
 		[]string{"old-log.zip"},
 		nil,
 	)
+	setPipelineResultEvidence(t, app, oldRecord.Id)
 	setPipelineResultCreatedAt(t, app, oldRecord.Id, time.Now().UTC().AddDate(0, 0, -40))
 
 	newRecord := createPipelineRetentionRecord(t, app)
@@ -97,6 +116,7 @@ func TestDeletePipelineResultFilesDryRun(t *testing.T) {
 		require.Equal(t, []string{"old-video.mp4"}, reloadedOld.GetStringSlice("video_results"))
 		require.Equal(t, []string{"old-shot.png"}, reloadedOld.GetStringSlice("screenshots"))
 		require.Equal(t, []string{"old-log.zip"}, reloadedOld.GetStringSlice("logcats"))
+		requirePipelineResultEvidence(t, reloadedOld, true)
 
 		reloadedNew, err := app.FindRecordById("pipeline_results", newRecord.Id)
 		require.NoError(t, err)
@@ -122,6 +142,7 @@ func TestDeletePipelineResultFilesClearsOldFiles(t *testing.T) {
 		nil,
 		[]string{"old-ios-log.zip"},
 	)
+	setPipelineResultEvidence(t, app, oldRecord.Id)
 	setPipelineResultCreatedAt(t, app, oldRecord.Id, time.Now().UTC().AddDate(0, 0, -35))
 
 	baseRouter, err := apis.NewRouter(app)
@@ -160,10 +181,67 @@ func TestDeletePipelineResultFilesClearsOldFiles(t *testing.T) {
 		require.Empty(t, reloaded.GetStringSlice("screenshots"))
 		require.Empty(t, reloaded.GetStringSlice("logcats"))
 		require.Empty(t, reloaded.GetStringSlice("ios_logstreams"))
+		requirePipelineResultEvidence(t, reloaded, false)
 
 		return nil
 	})
 	require.NoError(t, serveErr)
+}
+
+func TestDeletePipelineResultFilesClearsReport(t *testing.T) {
+	app := setupPipelineRetentionApp(t)
+	defer app.Cleanup()
+
+	oldRecord := createPipelineRetentionRecord(t, app)
+	require.NoError(t, app.Save(oldRecord))
+	setPipelineResultReport(t, app, oldRecord.Id, "workflow-1.md")
+	setPipelineResultCreatedAt(t, app, oldRecord.Id, time.Now().UTC().AddDate(0, 0, -35))
+
+	response, err := deletePipelineResultFilesOlderThan(
+		app,
+		time.Now().UTC().AddDate(0, 0, -30),
+		30,
+		false,
+		10,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, response.UpdatedRecords)
+	require.Equal(t, 1, response.DeletedFiles.Report)
+	require.Equal(t, 1, response.DeletedFiles.Total)
+
+	reloaded, err := app.FindRecordById("pipeline_results", oldRecord.Id)
+	require.NoError(t, err)
+	require.Empty(t, reloaded.GetStringSlice("report"))
+}
+
+func TestPipelineRetentionEvidenceHelpers(t *testing.T) {
+	app := setupPipelineRetentionApp(t)
+	defer app.Cleanup()
+
+	record := createPipelineRetentionRecord(t, app)
+	require.NoError(t, app.Save(record))
+	setPipelineResultFiles(
+		t,
+		app,
+		record.Id,
+		[]string{"video.mp4"},
+		[]string{"screenshot.png"},
+		[]string{"log.zip"},
+		[]string{"ios-log.zip"},
+	)
+	setPipelineResultEvidence(t, app, record.Id)
+
+	reloaded, err := app.FindRecordById("pipeline_results", record.Id)
+	require.NoError(t, err)
+	require.True(t, hasPipelineResultEvidence(reloaded))
+	require.False(t, hasPipelineResultEvidence(nil))
+
+	clearPipelineResultFiles(reloaded)
+	require.Empty(t, reloaded.GetStringSlice("video_results"))
+	require.Empty(t, reloaded.GetStringSlice("screenshots"))
+	require.Empty(t, reloaded.GetStringSlice("logcats"))
+	require.Empty(t, reloaded.GetStringSlice("ios_logstreams"))
+	requirePipelineResultEvidence(t, reloaded, false)
 }
 
 func TestDeletePipelineResultFilesValidatesRequest(t *testing.T) {
@@ -658,6 +736,52 @@ func setPipelineResultFiles(
 		"id":             recordID,
 	}).Execute()
 	require.NoError(t, err)
+}
+
+func setPipelineResultEvidence(t testing.TB, app *tests.TestApp, recordID string) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET credential_well_knowns = {:credential_well_knowns},
+		    presentation_results = {:presentation_results}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"credential_well_knowns": `[{"credential_id":"credential-1"}]`,
+		"presentation_results":   `[{"use_case_id":"use-case-1"}]`,
+		"id":                     recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, report string) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET report = {:report}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"report": mustMarshalJSONStringArray(t, []string{report}),
+		"id":     recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func requirePipelineResultEvidence(t testing.TB, record *core.Record, wantPresent bool) {
+	t.Helper()
+
+	var credentialWellKnowns []map[string]any
+	var presentationResults []map[string]any
+	require.NoError(t, record.UnmarshalJSONField("credential_well_knowns", &credentialWellKnowns))
+	require.NoError(t, record.UnmarshalJSONField("presentation_results", &presentationResults))
+	if wantPresent {
+		require.NotEmpty(t, credentialWellKnowns)
+		require.NotEmpty(t, presentationResults)
+		return
+	}
+	require.Empty(t, credentialWellKnowns)
+	require.Empty(t, presentationResults)
 }
 
 func mustMarshalJSONStringArray(t testing.TB, values []string) string {

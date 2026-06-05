@@ -10,7 +10,6 @@ package routes
 
 import (
 	"log"
-	"net/http"
 	"net/http/httputil"
 	"net/url"
 
@@ -18,9 +17,10 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/logo"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	walletversions "github.com/forkbombeu/credimi/pkg/internal/wallet_versions"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
@@ -67,6 +67,7 @@ func Setup(app *pocketbase.PocketBase) {
 	apis.HookTurnstileVerification(app)
 	logo.LogoHooks(app)
 	walletversions.WalletVersionHooks(app)
+	pipelineresults.RegisterPipelineResultsHooks(app)
 	// apis.IssuersRoutes.Add(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
@@ -93,18 +94,17 @@ func createReverseProxy(target string) func(r *core.RequestEvent) error {
 			)
 		}
 
-		proxy := httputil.NewSingleHostReverseProxy(targetURL)
-		proxy.Director = func(req *http.Request) {
-			req.URL.Scheme = targetURL.Scheme
-			req.URL.Host = targetURL.Host
-			req.Host = targetURL.Host
-			req.Header.Set("Host", targetURL.Host)
-			req.Header.Set("X-Forwarded-For", req.RemoteAddr)
-			if origin := req.Header.Get("Origin"); origin != "" {
-				req.Header.Set("Origin", origin)
+		proxy := &httputil.ReverseProxy{}
+		proxy.Rewrite = func(req *httputil.ProxyRequest) {
+			req.Out.URL.Scheme = targetURL.Scheme
+			req.Out.URL.Host = targetURL.Host
+			req.Out.Host = targetURL.Host
+			req.Out.Header.Set("X-Forwarded-For", req.In.RemoteAddr)
+			if origin := req.In.Header.Get("Origin"); origin != "" {
+				req.Out.Header.Set("Origin", origin)
 			}
-			if referer := req.Header.Get("Referer"); referer != "" {
-				req.Header.Set("Referer", referer)
+			if referer := req.In.Header.Get("Referer"); referer != "" {
+				req.Out.Header.Set("Referer", referer)
 			}
 		}
 		proxy.ServeHTTP(r.Response, r.Request)

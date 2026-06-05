@@ -22,6 +22,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -1355,14 +1356,14 @@ func buildExecutionHierarchyRaw(
 
 		w := pipeline.PipelineWorkflow{}
 		if current.Type.Name == w.Name() {
-			results := computePipelineResults(
+			artifacts := pipelineresults.ResolvePipelineExecutionArtifacts(
 				app,
 				owner,
 				exec.Execution.WorkflowID,
 				exec.Execution.RunID,
 			)
-
-			current.Results = results
+			current.Results = artifacts.Results
+			current.Report = artifacts.Report
 		}
 		current.DisplayName = parentDisplay
 		roots = append(roots, current)

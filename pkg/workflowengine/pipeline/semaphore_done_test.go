@@ -40,7 +40,7 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 	cleanupHooks = []CleanupFunc{
 		func(
 			ctx workflow.Context,
-			steps []pipeline.StepDefinition,
+			wfDef *pipeline.WorkflowDefinition,
 			ao *workflow.ActivityOptions,
 			config map[string]any,
 			runData map[string]any,

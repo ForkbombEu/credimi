@@ -5,13 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import {
-		ArrowRightIcon,
-		EllipsisVerticalIcon,
-		FileCogIcon,
-		ImageIcon,
-		VideoIcon
-	} from '@lucide/svelte';
+	import { ArrowRightIcon, EllipsisVerticalIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
 
@@ -21,6 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { makeDropdownActions } from './actions';
+	import { fromApiSummary } from './execution-artifacts';
+	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 	import * as PipelineWorkflows from './workflows';
 
@@ -52,6 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
 						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
+						{@const artifacts = fromApiSummary(workflow)}
 						<tr>
 							<td>
 								<WorkflowStatusTag
@@ -70,36 +67,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</td>
 
 							<td>
-								{#each workflow.results as result, index (index)}
-									<div class="flex items-center gap-1">
-										<IconButton
-											size="mini"
-											variant="ghost"
-											icon={VideoIcon}
-											href={result.video}
-											target="_blank"
-											class="text-primary hover:bg-secondary"
-										/>
-										<IconButton
-											size="mini"
-											variant="ghost"
-											icon={ImageIcon}
-											href={result.screenshot}
-											target="_blank"
-											class="text-primary hover:bg-secondary"
-										/>
-										<IconButton
-											size="mini"
-											variant="ghost"
-											icon={FileCogIcon}
-											href={result.log}
-											target="_blank"
-											class="text-primary hover:bg-secondary"
-										/>
-									</div>
+								{#if artifacts}
+									<ExecutionArtifactsPreview {artifacts} variant="compact" />
 								{:else}
 									{@render na()}
-								{/each}
+								{/if}
 							</td>
 							<td class="text-muted-foreground">
 								{#if workflow.queue}

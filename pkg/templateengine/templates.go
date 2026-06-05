@@ -262,12 +262,16 @@ func jwk(alg string) (string, error) {
 	}
 
 	size := (priv.Curve.Params().BitSize + 7) / 8
+	privateKeyBytes, err := priv.Bytes()
+	if err != nil {
+		return "", err
+	}
 
 	jwkKey := map[string]interface{}{
 		"kty": "EC",
 		"alg": alg,
 		"crv": crvName,
-		"d":   b64(padBytes(priv.D.Bytes(), size)),
+		"d":   b64(padBytes(privateKeyBytes, size)),
 		"x":   b64(padBytes(priv.X.Bytes(), size)),
 		"y":   b64(padBytes(priv.Y.Bytes(), size)),
 	}

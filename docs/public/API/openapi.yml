@@ -1035,15 +1035,6 @@ components:
         state:
           type: string
       type: object
-    HandlersPipelineResults:
-      properties:
-        log:
-          type: string
-        screenshot:
-          type: string
-        video:
-          type: string
-      type: object
     HandlersReRunWorkflowRequest:
       properties:
         config:
@@ -1215,9 +1206,11 @@ components:
           type: string
         queue:
           $ref: '#/components/schemas/HandlersWorkflowQueueSummary'
+        report:
+          type: string
         results:
           items:
-            $ref: '#/components/schemas/HandlersPipelineResults'
+            $ref: '#/components/schemas/PipelineResultsPipelineResults'
           type: array
         startTime:
           type: string
@@ -1285,6 +1278,15 @@ components:
     HandlersWorkflowType:
       properties:
         name:
+          type: string
+      type: object
+    PipelineResultsPipelineResults:
+      properties:
+        log:
+          type: string
+        screenshot:
+          type: string
+        video:
           type: string
       type: object
     WorkflowengineScheduleMode:

@@ -102,7 +102,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Sheet.Header>
 		{/if}
 
-		<div class="overflow-x-visible overflow-y-auto px-6 {contentClass}">
+		<div class="min-w-0 overflow-x-hidden overflow-y-auto px-6 {contentClass}">
 			{@render content?.({ closeSheet })}
 		</div>
 	</Sheet.Content>
