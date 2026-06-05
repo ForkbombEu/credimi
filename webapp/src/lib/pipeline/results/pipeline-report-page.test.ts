@@ -52,7 +52,9 @@ describe('buildPipelineReportPageHref', () => {
 			)
 		).toBe(
 			'/pipeline-report?url=' +
-				encodeURIComponent('https://app.test/api/files/pipeline_results/rec123/run_report.md')
+				encodeURIComponent(
+					'https://app.test/api/files/pipeline_results/rec123/run_report.md'
+				)
 		);
 	});
 });

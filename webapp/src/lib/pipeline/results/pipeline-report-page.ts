@@ -4,10 +4,7 @@
 
 const PIPELINE_RESULTS_FILE_PREFIX = '/api/files/pipeline_results/';
 
-export function validatePipelineReportUrl(
-	reportUrl: string,
-	origin: string
-): string | undefined {
+export function validatePipelineReportUrl(reportUrl: string, origin: string): string | undefined {
 	try {
 		const parsed = new URL(reportUrl, origin);
 		if (parsed.origin !== origin) return undefined;
