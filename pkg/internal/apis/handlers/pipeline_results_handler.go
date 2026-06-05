@@ -860,6 +860,71 @@ func computePipelineReportURLFromRecord(app core.App, record *core.Record) strin
 	)
 }
 
+func BuildPipelineExecutionArtifacts(app core.App, record *core.Record) PipelineExecutionArtifacts {
+	results := computePipelineResultsFromRecord(app, record)
+	if results == nil {
+		results = []PipelineResults{}
+	}
+	return PipelineExecutionArtifacts{
+		Results: results,
+		Report:  computePipelineReportURLFromRecord(app, record),
+	}
+}
+
+func attachPipelineArtifactsToSummary(
+	summary *WorkflowExecutionSummary,
+	app core.App,
+	record *core.Record,
+) {
+	if summary == nil {
+		return
+	}
+	artifacts := BuildPipelineExecutionArtifacts(app, record)
+	summary.Results = artifacts.Results
+	summary.Report = artifacts.Report
+}
+
+func attachPipelineArtifactsToSummaries(
+	app core.App,
+	ownerID string,
+	summaries []*WorkflowExecutionSummary,
+) error {
+	if app == nil || len(summaries) == 0 {
+		return nil
+	}
+
+	refs := make([]workflowExecutionRef, 0, len(summaries))
+	for _, summary := range summaries {
+		if summary == nil || summary.Execution == nil {
+			continue
+		}
+		refs = append(refs, workflowExecutionRef{
+			WorkflowID: summary.Execution.WorkflowID,
+			RunID:      summary.Execution.RunID,
+		})
+	}
+
+	resultRecords, err := fetchPipelineResultRecords(app, ownerID, refs)
+	if err != nil {
+		return err
+	}
+
+	for _, summary := range summaries {
+		if summary == nil || summary.Execution == nil {
+			continue
+		}
+		ref := workflowExecutionRef{
+			WorkflowID: summary.Execution.WorkflowID,
+			RunID:      summary.Execution.RunID,
+		}
+		if record, ok := resultRecords[ref]; ok {
+			attachPipelineArtifactsToSummary(summary, app, record)
+		}
+	}
+
+	return nil
+}
+
 func computePipelineReportURL(
 	app core.App,
 	owner string,

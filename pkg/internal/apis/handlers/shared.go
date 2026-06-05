@@ -123,6 +123,11 @@ type PipelineResults struct {
 	Log        string `json:"log,omitempty"`
 }
 
+type PipelineExecutionArtifacts struct {
+	Results []PipelineResults `json:"results"`
+	Report  string            `json:"report,omitempty"`
+}
+
 type WorkflowStatus string
 
 const (
