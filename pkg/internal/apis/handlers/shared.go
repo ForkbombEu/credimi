@@ -72,19 +72,19 @@ type WorkflowExecution struct {
 }
 
 type WorkflowExecutionSummary struct {
-	Execution     *WorkflowIdentifier         `json:"execution"                validate:"required"`
-	Type          WorkflowType                `json:"type"                     validate:"required"`
-	StartTime     string                      `json:"startTime"`
-	EndTime       string                      `json:"endTime"`
-	Duration      string                      `json:"duration"`
-	EnqueuedAt    string                      `json:"enqueuedAt"`
-	Status        string                      `json:"status"                   validate:"required"`
-	DisplayName   string                      `json:"displayName"              validate:"required"`
-	Queue         *WorkflowQueueSummary       `json:"queue,omitempty"`
-	Children      []*WorkflowExecutionSummary `json:"children,omitempty"`
-	Results       []PipelineResults           `json:"results,omitempty"`
-	Report        string                      `json:"report,omitempty"`
-	FailureReason *string                     `json:"failure_reason,omitempty"`
+	Execution     *WorkflowIdentifier               `json:"execution"                validate:"required"`
+	Type          WorkflowType                      `json:"type"                     validate:"required"`
+	StartTime     string                            `json:"startTime"`
+	EndTime       string                            `json:"endTime"`
+	Duration      string                            `json:"duration"`
+	EnqueuedAt    string                            `json:"enqueuedAt"`
+	Status        string                            `json:"status"                   validate:"required"`
+	DisplayName   string                            `json:"displayName"              validate:"required"`
+	Queue         *WorkflowQueueSummary             `json:"queue,omitempty"`
+	Children      []*WorkflowExecutionSummary       `json:"children,omitempty"`
+	Results       []pipelineresults.PipelineResults `json:"results,omitempty"`
+	Report        string                            `json:"report,omitempty"`
+	FailureReason *string                           `json:"failure_reason,omitempty"`
 }
 
 type WorkflowQueueSummary struct {
@@ -95,14 +95,14 @@ type WorkflowQueueSummary struct {
 }
 
 type WorkflowDescriptionInfoSummary struct {
-	Execution     *WorkflowIdentifier `json:"execution"                validate:"required"`
-	Type          WorkflowType        `json:"type"                     validate:"required"`
-	StartTime     string              `json:"startTime"`
-	EndTime       string              `json:"endTime"`
-	Status        string              `json:"status"                   validate:"required"`
-	DisplayName   string              `json:"displayName"              validate:"required"`
-	Results       []PipelineResults   `json:"results,omitempty"`
-	FailureReason *string             `json:"failure_reason,omitempty"`
+	Execution     *WorkflowIdentifier               `json:"execution"                validate:"required"`
+	Type          WorkflowType                      `json:"type"                     validate:"required"`
+	StartTime     string                            `json:"startTime"`
+	EndTime       string                            `json:"endTime"`
+	Status        string                            `json:"status"                   validate:"required"`
+	DisplayName   string                            `json:"displayName"              validate:"required"`
+	Results       []pipelineresults.PipelineResults `json:"results,omitempty"`
+	FailureReason *string                           `json:"failure_reason,omitempty"`
 }
 
 type WorkflowExecutionAPIResponse struct {
@@ -114,9 +114,6 @@ type WorkflowExecutionAPIResponse struct {
 	Callbacks              *Callbacks                           `json:"callbacks,omitempty"`
 	PendingWorkflowTask    *PendingWorkflowTaskInfo             `json:"pendingWorkflowTask,omitempty"`
 }
-
-type PipelineResults = pipelineresults.PipelineResults
-type PipelineExecutionArtifacts = pipelineresults.PipelineExecutionArtifacts
 
 type WorkflowStatus string
 

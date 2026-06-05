@@ -212,12 +212,12 @@ func TestBuildPipelineExecutionArtifacts(t *testing.T) {
 
 	require.Equal(
 		t,
-		PipelineExecutionArtifacts{Results: []PipelineResults{}},
+		pipelineresults.PipelineExecutionArtifacts{Results: []pipelineresults.PipelineResults{}},
 		pipelineresults.BuildPipelineExecutionArtifacts(nil, record),
 	)
 	require.Equal(
 		t,
-		PipelineExecutionArtifacts{Results: []PipelineResults{}},
+		pipelineresults.PipelineExecutionArtifacts{Results: []pipelineresults.PipelineResults{}},
 		pipelineresults.BuildPipelineExecutionArtifacts(app, nil),
 	)
 }
