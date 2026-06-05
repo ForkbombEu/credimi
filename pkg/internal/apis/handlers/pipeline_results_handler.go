@@ -678,8 +678,7 @@ func buildPipelineExecutionHierarchyFromResult(
 	w := pipeline.PipelineWorkflow{}
 	if rootSummary.Type.Name == w.Name() {
 		if resultRecord != nil {
-			rootSummary.Results = computePipelineResultsFromRecord(app, resultRecord)
-			rootSummary.Report = computePipelineReportURLFromRecord(app, resultRecord)
+			attachPipelineArtifactsToSummary(rootSummary, app, resultRecord)
 		}
 		if len(rootSummary.Results) == 0 {
 			rootSummary.Results = computePipelineResults(
@@ -876,7 +875,7 @@ func attachPipelineArtifactsToSummary(
 	app core.App,
 	record *core.Record,
 ) {
-	if summary == nil {
+	if summary == nil || record == nil {
 		return
 	}
 	artifacts := BuildPipelineExecutionArtifacts(app, record)
