@@ -11,9 +11,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { PipelineResultsResponse } from '@/pocketbase/types';
 
+	import Button from '@/components/ui-custom/button.svelte';
 	import RenderMD from '@/components/ui-custom/renderMD.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
+	import { printElement } from '@/utils/printElement';
 
 	import * as Column from '../column';
 	import * as EntityDisplay from '../entity-display';
@@ -73,6 +76,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!value?.reportPath) return undefined;
 		return fetch(value.reportPath).then((res) => res.text());
 	});
+
+	let reportEl = $state<HTMLDivElement | undefined>();
+
+	function handlePrint() {
+		if (!reportEl) return;
+		printElement(reportEl);
+	}
 </script>
 
 {#if value && (value.groups.length > 0 || hasReport)}
@@ -105,12 +115,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#snippet content()}
 					{#await reportPromise then report}
 						{#if report}
-							<div class="max-w-full min-w-0 p-4">
+							<div bind:this={reportEl} class="max-w-full min-w-0 p-4">
 								<RenderMD
 									content={report}
 									scrollableTables
 									class="prose prose-sm max-w-none prose-headings:text-primary prose-a:text-primary [&_th]:bg-secondary [&_th]:pt-2"
 								/>
+							</div>
+							<div class="absolute right-6 bottom-6">
+								<Button onclick={handlePrint}>{m.Print()}</Button>
 							</div>
 						{/if}
 					{/await}
