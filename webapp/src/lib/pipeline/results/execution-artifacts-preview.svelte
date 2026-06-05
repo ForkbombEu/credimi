@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex items-center gap-1">
 				{#if variant === 'preview'}
 					<MediaPreview
-						image={result.video}
+						image={result.screenshot}
 						href={result.video}
 						icon="video"
 						class={previewClass}
