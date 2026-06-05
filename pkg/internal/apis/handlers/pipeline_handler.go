@@ -942,6 +942,19 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 
 		selectedExecutions := selectTopExecutionsByPipeline(allExecutions, 5)
 
+		var flatSummaries []*WorkflowExecutionSummary
+		for _, executions := range selectedExecutions {
+			flatSummaries = append(flatSummaries, executions...)
+		}
+		if err := attachPipelineArtifactsToSummaries(e.App, organization.Id, flatSummaries); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"database",
+				"failed to fetch pipeline results",
+				err.Error(),
+			).JSON(e)
+		}
+
 		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
 		runnerCache := map[string]map[string]any{}
 		loc, err := time.LoadLocation(authRecord.GetString("Timezone"))
