@@ -309,7 +309,7 @@ func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
 				"workflow",
 				"workflow_id and run_id are required",
 				"missing workflow_id or run_id",
-			).JSON(e)
+			)
 		}
 		if strings.TrimSpace(input.Markdown) == "" {
 			return apierror.New(
@@ -317,12 +317,12 @@ func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
 				"report",
 				"markdown is required",
 				"missing markdown",
-			).JSON(e)
+			)
 		}
 
 		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		filename := sanitizePipelineReportFilename(input.Filename)
@@ -333,7 +333,7 @@ func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
 				"report",
 				"failed to create report file",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		record.Set("report", []*filesystem.File{file})
 		if err := e.App.Save(record); err != nil {
@@ -342,7 +342,7 @@ func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to save pipeline report",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, record.FieldsData())
 	}
@@ -360,12 +360,12 @@ func HandleUpdatePipelineExecutionEvidence() func(*core.RequestEvent) error {
 				"workflow",
 				"workflow_id and run_id are required",
 				"missing workflow_id or run_id",
-			).JSON(e)
+			)
 		}
 
 		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		record.Set("credential_well_knowns", input.CredentialWellKnowns)
@@ -376,7 +376,7 @@ func HandleUpdatePipelineExecutionEvidence() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to save pipeline evidence",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, record.FieldsData())
 	}

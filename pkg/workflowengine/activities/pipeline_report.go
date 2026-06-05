@@ -60,8 +60,11 @@ func (a *PipelineReportGenerationActivity) Execute(
 	}
 	if payload.WorkflowDefinition == nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-			"workflow_definition is required",
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+				Message: "workflow_definition is required",
+			},
 		)
 	}
 
@@ -70,22 +73,31 @@ func (a *PipelineReportGenerationActivity) Execute(
 	)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-			fmt.Sprintf("marshal pipeline input: %v", err),
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+				Message: fmt.Sprintf("marshal pipeline input: %v", err),
+			},
 		)
 	}
 	pipelineOutput, err := marshalRaw(payload.PipelineOutput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-			fmt.Sprintf("marshal pipeline output: %v", err),
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+				Message: fmt.Sprintf("marshal pipeline output: %v", err),
+			},
 		)
 	}
 	evidence, err := marshalRaw(payload.Evidence)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-			fmt.Sprintf("marshal evidence: %v", err),
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+				Message: fmt.Sprintf("marshal evidence: %v", err),
+			},
 		)
 	}
 
@@ -108,14 +120,20 @@ func (a *PipelineReportGenerationActivity) Execute(
 	)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.PipelineExecutionError].Code,
-			fmt.Sprintf("generate conformance report: %v", err),
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.PipelineExecutionError].Code,
+				Summary: errorcodes.Codes[errorcodes.PipelineExecutionError].Description,
+				Message: fmt.Sprintf("generate conformance report: %v", err),
+			},
 		)
 	}
 	if len(reportResult.Reports) == 0 {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.PipelineExecutionError].Code,
-			"generate conformance report: no report returned",
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.PipelineExecutionError].Code,
+				Summary: errorcodes.Codes[errorcodes.PipelineExecutionError].Description,
+				Message: "generate conformance report: no report returned",
+			},
 		)
 	}
 

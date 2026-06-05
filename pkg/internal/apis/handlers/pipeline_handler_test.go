@@ -33,6 +33,19 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+type structuredAPIErrorResponse struct {
+	APIVersion string `json:"apiVersion"`
+	Error      struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Errors  []struct {
+			Domain  string `json:"domain"`
+			Reason  string `json:"reason"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	} `json:"error"`
+}
+
 func setupPipelineApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -461,6 +474,11 @@ func TestUpdatePipelineExecutionReportValidationErrors(t *testing.T) {
 				rec := httptest.NewRecorder()
 				mux.ServeHTTP(rec, req)
 				require.Equal(t, scenario.want, rec.Code)
+				var resp structuredAPIErrorResponse
+				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+				require.Equal(t, "2.0", resp.APIVersion)
+				require.Equal(t, scenario.want, resp.Error.Code)
+				require.NotEmpty(t, resp.Error.Errors)
 				return nil
 			})
 			require.NoError(t, serveErr)
