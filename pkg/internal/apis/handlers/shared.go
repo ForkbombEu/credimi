@@ -7,16 +7,13 @@ package handlers
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 )
@@ -628,25 +625,6 @@ func fetchWorkflowFailure(
 
 	msg := cause.GetMessage()
 	return &msg
-}
-
-func computePipelineResults(
-	app core.App,
-	owner string,
-	workflowID string,
-	runID string,
-) []PipelineResults {
-	identifier := fmt.Sprintf("%s/%s-%s",
-		owner,
-		canonify.CanonifyPlain(workflowID),
-		canonify.CanonifyPlain(runID),
-	)
-	record, _ := canonify.Resolve(app, identifier)
-	if record == nil {
-		return nil
-	}
-
-	return computePipelineResultsFromRecord(app, record)
 }
 
 // calculateDuration calculates the duration between startTime and endTime
