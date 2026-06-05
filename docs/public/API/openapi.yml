@@ -839,6 +839,9 @@ components:
           $ref: '#/components/schemas/HandlersCallbacks'
         executionConfig:
           $ref: '#/components/schemas/HandlersWorkflowExecutionConfigWithMetadata'
+        failure_reason:
+          nullable: true
+          type: string
         pendingActivities:
           items:
             $ref: '#/components/schemas/HandlersPendingActivityInfo'
