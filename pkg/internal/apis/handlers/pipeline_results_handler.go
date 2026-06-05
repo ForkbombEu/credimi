@@ -677,9 +677,20 @@ func buildPipelineExecutionHierarchyFromResult(
 
 	w := pipeline.PipelineWorkflow{}
 	if rootSummary.Type.Name == w.Name() {
-		rootSummary.Results = computePipelineResultsFromRecord(app, resultRecord)
+		if resultRecord != nil {
+			rootSummary.Results = computePipelineResultsFromRecord(app, resultRecord)
+			rootSummary.Report = computePipelineReportURLFromRecord(app, resultRecord)
+		}
 		if len(rootSummary.Results) == 0 {
 			rootSummary.Results = computePipelineResults(
+				app,
+				namespace,
+				rootExecution.Execution.WorkflowID,
+				rootExecution.Execution.RunID,
+			)
+		}
+		if rootSummary.Report == "" {
+			rootSummary.Report = computePipelineReportURL(
 				app,
 				namespace,
 				rootExecution.Execution.WorkflowID,
@@ -824,6 +835,48 @@ func computePipelineResultsFromRecord(app core.App, record *core.Record) []Pipel
 	}
 
 	return results
+}
+
+func computePipelineReportURLFromRecord(app core.App, record *core.Record) string {
+	if app == nil || record == nil {
+		return ""
+	}
+
+	filename := record.GetString("report")
+	if filename == "" {
+		if reports := record.GetStringSlice("report"); len(reports) > 0 {
+			filename = reports[0]
+		}
+	}
+	if filename == "" {
+		return ""
+	}
+
+	return utils.JoinURL(
+		app.Settings().Meta.AppURL,
+		"api", "files", "pipeline_results",
+		record.Id,
+		filename,
+	)
+}
+
+func computePipelineReportURL(
+	app core.App,
+	owner string,
+	workflowID string,
+	runID string,
+) string {
+	identifier := fmt.Sprintf("%s/%s-%s",
+		owner,
+		canonify.CanonifyPlain(workflowID),
+		canonify.CanonifyPlain(runID),
+	)
+	record, _ := canonify.Resolve(app, identifier)
+	if record == nil {
+		return ""
+	}
+
+	return computePipelineReportURLFromRecord(app, record)
 }
 
 type pipelineResultFileRef struct {

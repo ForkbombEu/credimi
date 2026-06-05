@@ -31,6 +31,7 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 		line_len: number;
 		runner_ids: string[];
 	};
+	report?: string;
 	results?: Array<{
 		video: string;
 		screenshot: string;
