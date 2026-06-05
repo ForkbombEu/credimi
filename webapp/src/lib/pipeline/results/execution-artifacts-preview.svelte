@@ -19,10 +19,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		artifacts: PipelineExecutionArtifacts;
 		variant?: 'preview' | 'compact';
 		previewClass?: string;
+		hideLogs?: boolean;
 		emptyState?: Snippet;
 	};
 
-	let { artifacts, variant = 'preview', previewClass, emptyState }: Props = $props();
+	let {
+		artifacts,
+		variant = 'preview',
+		previewClass,
+		hideLogs = false,
+		emptyState
+	}: Props = $props();
 
 	const hasContent = $derived(artifacts.results.length > 0 || Boolean(artifacts.report));
 
@@ -48,7 +55,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						icon="image"
 						class={previewClass}
 					/>
-					<MediaPreview href={result.log} icon="file" class={previewClass} />
+					{#if !hideLogs}
+						<MediaPreview href={result.log} icon="file" class={previewClass} />
+					{/if}
 				{:else}
 					<IconButton
 						size="mini"
@@ -66,14 +75,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						target="_blank"
 						class="text-primary hover:bg-secondary"
 					/>
-					<IconButton
-						size="mini"
-						variant="ghost"
-						icon={FileCogIcon}
-						href={result.log}
-						target="_blank"
-						class="text-primary hover:bg-secondary"
-					/>
+					{#if !hideLogs}
+						<IconButton
+							size="mini"
+							variant="ghost"
+							icon={FileCogIcon}
+							href={result.log}
+							target="_blank"
+							class="text-primary hover:bg-secondary"
+						/>
+					{/if}
 				{/if}
 			</div>
 		{/each}

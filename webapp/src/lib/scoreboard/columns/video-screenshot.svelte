@@ -28,7 +28,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if value}
-	<ExecutionArtifactsPreview artifacts={value} variant="preview" previewClass="size-8!" />
+	<ExecutionArtifactsPreview
+		artifacts={value}
+		variant="preview"
+		previewClass="size-8!"
+		hideLogs
+	/>
 {:else}
 	<EntityDisplay.Na />
 {/if}
