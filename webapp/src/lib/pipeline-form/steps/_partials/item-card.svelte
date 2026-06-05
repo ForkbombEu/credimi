@@ -16,11 +16,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { cn } from '@/components/ui/utils';
 
+	import { showPipelineFormError } from '../../errors.js';
+
 	type Props = {
 		avatar?: string;
 		subtitle?: string;
 		title: string;
-		onClick?: (e: MouseEvent) => void;
+		onClick?: (e: MouseEvent) => void | Promise<void>;
 		onDiscard?: () => void;
 		right?: Snippet;
 		class?: ClassValue;
@@ -50,12 +52,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const classes = $derived(
 		cn('gap-3 rounded-md border border-slate-200 p-2 text-left w-full', className)
 	);
+
+	async function handleClick(e: MouseEvent) {
+		try {
+			await onClick?.(e);
+		} catch (error) {
+			showPipelineFormError(error);
+		}
+	}
 </script>
 
 <Tooltip disabled={!tooltip}>
 	{#snippet child({ props })}
 		{#if onClick}
-			<button class={['bg-card hover:ring', classes]} onclick={(e) => onClick(e)} {...props}>
+			<button class={['bg-card hover:ring', classes]} onclick={handleClick} {...props}>
 				{@render itemContent()}
 			</button>
 		{:else}

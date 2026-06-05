@@ -4,8 +4,8 @@
 
 import type { Renderable } from '$lib/renderable';
 
-import { cloneDeep } from 'lodash';
 import { StateManager } from '$lib/state-manager/state-manager';
+import { cloneDeep } from 'lodash';
 
 import type { GenericRecord } from '@/utils/types';
 
@@ -16,6 +16,7 @@ import type {
 } from '../steps/wallet-action/wallet-action-step-form.svelte.js';
 import type { EnrichedStep } from './types';
 
+import { showPipelineFormError } from '../errors.js';
 import { ExecutionTarget } from '../execution-target/index.js';
 import * as pipelinestep from '../steps';
 import { walletActionStepConfig } from '../steps/wallet-action/index.js';
@@ -75,7 +76,12 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	}
 
 	get yamlPreview() {
-		return this.props.yamlPreview();
+		try {
+			return this.props.yamlPreview();
+		} catch (e) {
+			showPipelineFormError(e);
+			return '';
+		}
 	}
 
 	undo() {
@@ -116,34 +122,44 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	) {
 		this.stateManager.run((state) => {
 			const effectCleanup = $effect.root(() => {
-				const form = config.initForm({
-					intent,
-					initial: opts.initial as never
-				});
-				form.onSubmit((formData) => {
-					this.stateManager.run((inner) => {
-						if (inner.mode.id !== 'form') return;
-
-						if (inner.mode.intent === 'add') {
-							const step: PipelineStep = {
-								use: config.use as never,
-								id: '',
-								continue_on_error: false,
-								with: config.serialize(formData)
-							};
-							inner.steps.push([step, formData as GenericRecord]);
-						} else {
-							const editIndex = inner.mode.stepIndex;
-							if (editIndex === undefined) return;
-							const tuple = inner.steps[editIndex];
-							if (!tuple || tuple[0].use === 'debug') return;
-							tuple[0].with = config.serialize(formData);
-							tuple[1] = formData as GenericRecord;
-						}
-
-						inner.mode = { id: 'idle' };
+				let form: pipelinestep.Form;
+				try {
+					form = config.initForm({
+						intent,
+						initial: opts.initial as never
 					});
-					this.disposeFormEffect();
+				} catch (e) {
+					showPipelineFormError(e);
+					return;
+				}
+				form.onSubmit((formData) => {
+					try {
+						this.stateManager.run((inner) => {
+							if (inner.mode.id !== 'form') return;
+
+							if (inner.mode.intent === 'add') {
+								const step: PipelineStep = {
+									use: config.use as never,
+									id: '',
+									continue_on_error: false,
+									with: config.serialize(formData)
+								};
+								inner.steps.push([step, formData as GenericRecord]);
+							} else {
+								const editIndex = inner.mode.stepIndex;
+								if (editIndex === undefined) return;
+								const tuple = inner.steps[editIndex];
+								if (!tuple || tuple[0].use === 'debug') return;
+								tuple[0].with = config.serialize(formData);
+								tuple[1] = formData as GenericRecord;
+							}
+
+							inner.mode = { id: 'idle' };
+						});
+						this.disposeFormEffect();
+					} catch (e) {
+						showPipelineFormError(e);
+					}
 				});
 				state.mode = {
 					id: 'form',

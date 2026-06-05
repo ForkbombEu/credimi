@@ -1,0 +1,197 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: "1.1"
+components:
+  token:
+    bearer:
+      token: ${{secrets.token}}
+
+env:
+  test_name: [[.test]]
+  organization_id: [[.organization_id]]
+  workflow_id: [[.workflow_id]]
+  run_id: [[.run_id]]
+  action_id: [[.action_id | toString]]
+
+tests:
+  OPENID4VCI_WALLET:
+    steps:
+      - name: Create new config extraction session
+        http:
+          url: https://capture-vci.credimi.io/sessions
+          method: POST
+          check:
+            status: 201
+          captures:
+            session_id:
+              jsonpath: $.session_id
+            fake_deeplink:
+              jsonpath: $.deeplink
+      - name: Extract config from wallet
+        http:
+          url: https://credimi.io/api/pipeline/mobile-flow
+          method: POST
+          json:
+            workflow_id: ${{ env.workflow_id }}
+            run_id: ${{ env.run_id }}
+            organization_id: ${{ env.organization_id }}
+            action_id: ${{ env.action_id }}
+            action_parameters:
+              deeplink: ${{ captures.fake_deeplink }}
+          check:
+            status: 200
+      - name: Get config extraction results
+        http:
+          url: https://capture-vci.credimi.io/sessions/${{ captures.session_id }}
+          method: GET
+          check:
+            status: 200
+            jsonpath:
+              $.observed.client_id.value:
+                - isDefined: true
+                - isString: true
+                - isNull: false
+              $.observed.redirect_uri.value:
+                - isDefined: true
+                - isString: true
+                - isNull: false
+              $.observed.wallet_jwks.jwks:
+                - isDefined: true
+                - isObject: true
+                - isNull: false
+              $.checks.pkce_present:
+                - eq: true
+              $.checks.pkce_valid:
+                - eq: true
+              $.checks.state_present:
+                - eq: true
+              $.checks.issuer_state_present:
+                - eq: true
+              $.checks.proof_jwt_present:
+                - eq: true
+              $.checks.proof_jwt_header_jwk_present:
+                - eq: true
+              $.checks.nonce_verified:
+                - eq: true
+          captures:
+            client_id:
+              jsonpath: $.observed.client_id.value
+            redirect_uri:
+              jsonpath: $.observed.redirect_uri.value
+            jwks_kty:
+              jsonpath: $.observed.wallet_jwks.jwks.keys[0].kty
+            jwks_crv:
+              jsonpath: $.observed.wallet_jwks.jwks.keys[0].crv
+            jwks_alg:
+              jsonpath: $.observed.wallet_jwks.jwks.keys[0].alg
+            jwks_use:
+              jsonpath: $.observed.wallet_jwks.jwks.keys[0].use
+            jwks_kid:
+              jsonpath: $.observed.wallet_jwks.jwks.keys[0].kid
+            jwks_x:
+              jsonpath: $.observed.wallet_jwks.jwks.keys[0].x
+            jwks_y:
+              jsonpath: $.observed.wallet_jwks.jwks.keys[0].y
+      - name: Create OpenID certification test plan
+        http:
+          url: https://www.certification.openid.net/api/plan
+          auth:
+            $ref: "#/components/token"
+          method: POST
+          params:
+            planName: oid4vci-1_0-wallet-test-plan
+            variant: >-
+              {
+                "fapi_profile":"vci",
+                "sender_constrain":"dpop",
+                "client_auth_type":"private_key_jwt",
+                "credential_format":"sd_jwt_vc",
+                "vci_authorization_code_flow_variant":"issuer_initiated",
+                "authorization_request_type":"simple",
+                "vci_credential_issuance_mode":"immediate",
+                "fapi_request_method":"unsigned",
+                "vci_grant_type":"authorization_code",
+                "vci_credential_offer_variant":"by_reference",
+                "vci_credential_encryption":"plain"
+              }
+          json:
+            alias: "credimi-oid4vci-wallet-test-${{ string.uuid | fake: 7 }}"
+            description: Automated OID4VCI wallet conformance test via Credimi
+            credential:
+              signing_jwk:
+                kty: EC
+                crv: P-256
+                alg: ES256
+                use: sig
+                kid: q9R9kV-qqToVRFAlD0zQusjKkCfY7uto91P_4mbcXqM
+                x: nHRol6QizZ3Gm3bK0Z28HwjbTS91fnnhAKLKsAZn2q0
+                "y": k8v-Mi_GKgkEksT7clOQwuU48feRrbeNHZdy82Vplpk
+                d: c6h3hjaLdXouK00xn47cR3I6pwC0uKFQHJ4D39ufSnI
+                x5c:
+                  - MIIB6DCCAY6gAwIBAgIUcarLMwCDvBIidVfC0ZyHUwT707EwCgYIKoZIzj0EAwIwHTEbMBkGA1UEAwwSZ2VuZXJhdGVkLWZpcnN0LWNhMB4XDTI2MDUyNzEyMzcwMVoXDTI4MDgyOTEyMzcwMVowIDEeMBwGA1UEAwwVZ2VuZXJhdGVkLXNlY29uZC1sZWFmMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnHRol6QizZ3Gm3bK0Z28HwjbTS91fnnhAKLKsAZn2q2Ty/4yL8YqCQSSxPtyU5DC5Tjx95Gtt40dl3LzZWmWmaOBqDCBpTAdBgNVHQ4EFgQUXDmKkOZMX+oIgbvKSbaaxwD+ZtswHwYDVR0jBBgwFoAUi3RzfBfNHWUK1U6TEagLlLkXNqYwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCB4AwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMCYGA1UdEQQfMB2CG2dlbmVyYXRlZC1zZWNvbmQtbGVhZi5sb2NhbDAKBggqhkjOPQQDAgNIADBFAiAZfKvkeVyDgp7fiTe4PzZHuGYha9raHx/VzGR5nd6oFQIhAMYLUJVRjbrOqD7J93KtHzFf+rVvYx/Y2r3Ks4VqIt2s
+            server:
+              jwks:
+                keys:
+                  - kty: EC
+                    crv: P-256
+                    alg: ES256
+                    use: sig
+                    kid: 5cxyjMBYMtCCd8Lvfuf40aLHSH3vUzdeSrpV-GJKLho
+                    x: GEDnh7z6A98Uu-CcJ1Q3HKa9qWZC0jrzl5GtyhIT7A0
+                    "y": kUpIsIfHSradTTvDqdtZ59wkmpnJxHUaquWs8ueNHa8
+                    d: YyuIrJ4A4bigpzQGUBOPqz5FUX26PZz4fJnWAkTsC7c
+            client:
+              client_id: ${{ captures.client_id }}
+              jwks:
+                keys:
+                  - kty: ${{ captures.jwks_kty }}
+                    crv: ${{ captures.jwks_crv }}
+                    alg: ${{ captures.jwks_alg }}
+                    use: ${{ captures.jwks_use }}
+                    kid: ${{ captures.jwks_kid }}
+                    x: ${{ captures.jwks_x }}
+                    "y": ${{ captures.jwks_y }}
+              redirect_uri: ${{ captures.redirect_uri }}
+            vci:
+              credential_offer_endpoint: openid-credential-offer://
+          check:
+            status: 201
+          captures:
+            plan_id:
+              jsonpath: $.id
+      - name: Start test runner
+        http:
+          url: https://www.certification.openid.net/api/runner
+          auth:
+            $ref: "#/components/token"
+          method: POST
+          params:
+            test: ${{ env.test_name }}
+            plan: ${{ captures.plan_id }}
+            variant: "{}"
+          body: ""
+          check:
+            status: 201
+          captures:
+            runner_id:
+              jsonpath: $.id
+      - name: Start Test
+        http:
+          method: GET
+          url: https://www.certification.openid.net/api/runner/${{captures.runner_id}}
+          auth:
+            $ref: "#/components/token"
+          captures:
+            deeplink:
+              jsonpath: $.browser.urls[0]
+            rid:
+              jsonpath: $.id
+          check:
+            status: 200
+            jsonpath:
+              $.browser.urls[0]:
+                - isString: true
+                - isDefined: true
+                - isNull: false

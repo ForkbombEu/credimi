@@ -4,6 +4,8 @@
 
 import type { PipelineStepType } from '$lib/pipeline/types';
 
+import { m } from '@/i18n';
+
 import type { AnyConfig } from './types';
 
 import { conformanceCheckStepConfig } from './conformance-check';
@@ -30,7 +32,7 @@ export const configs: AnyConfig[] = [...coreConfigs, ...utilsConfigs];
 
 export function getConfigByType(type: PipelineStepType): AnyConfig {
 	const config = configs.find((c) => c.use === type);
-	if (!config) throw new Error(`Unknown step type: ${type}`);
+	if (!config) throw new Error(m.Pipeline_form_unknown_step_type({ type }));
 	return config;
 }
 

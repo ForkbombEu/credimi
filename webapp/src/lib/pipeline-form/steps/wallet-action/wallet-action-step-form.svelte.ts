@@ -57,7 +57,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		} else if (wallet && version && runner && action) {
 			return 'ready';
 		} else {
-			throw new Error('Invalid state');
+			throw new Error(m.Pipeline_form_invalid_state());
 		}
 	});
 

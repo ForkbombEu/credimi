@@ -13,6 +13,8 @@ import type { Renderable } from '$lib/renderable';
 import type { Component } from 'svelte';
 import type { Simplify } from 'type-fest';
 
+import { showPipelineFormError } from '../errors.js';
+
 // Pipeline Step Config
 
 export type FormIntent = 'add' | 'edit';
@@ -81,9 +83,13 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 	}
 
 	commit(data?: Deserialized) {
-		const payload = data ?? this.getSubmitData();
-		if (payload !== undefined) {
-			this.handleSubmit(payload);
+		try {
+			const payload = data ?? this.getSubmitData();
+			if (payload !== undefined) {
+				this.handleSubmit(payload);
+			}
+		} catch (error) {
+			showPipelineFormError(error);
 		}
 	}
 

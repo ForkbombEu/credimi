@@ -13,6 +13,7 @@ import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 
+import { showPipelineFormError } from './errors.js';
 import { ExecutionTarget } from './execution-target/index.js';
 import { createPipelineYaml, type EnrichedPipeline } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
@@ -90,21 +91,36 @@ export class PipelineForm implements Renderable<PipelineForm> {
 				this.saveAfterMetadataFormSubmit = true;
 			}
 		} else {
+			let yaml: string;
+			try {
+				yaml = this.yamlString;
+			} catch (e) {
+				showPipelineFormError(e);
+				return;
+			}
+
 			const data: Omit<PipelinesFormData, 'owner' | 'canonified_name'> = {
 				...this.metadataForm.value,
-				yaml: this.yamlString
+				yaml
 			};
-			runWithLoading({
+			await runWithLoading({
 				fn: async () => {
-					this.isSaving = true;
-					if (this.props.mode === 'edit' && this.props.pipeline) {
-						await pb
-							.collection('pipelines')
-							.update(this.props.pipeline.record.id, data);
-					} else {
-						await pb.collection('pipelines').create(data);
+					try {
+						this.isSaving = true;
+						if (this.props.mode === 'edit' && this.props.pipeline) {
+							await pb
+								.collection('pipelines')
+								.update(this.props.pipeline.record.id, data);
+						} else {
+							await pb.collection('pipelines').create(data);
+						}
+						await goto('/my/pipelines');
+					} catch (e) {
+						showPipelineFormError(e);
+						throw e;
+					} finally {
+						this.isSaving = false;
 					}
-					goto('/my/pipelines');
 				}
 			});
 		}

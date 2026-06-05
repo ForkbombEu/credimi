@@ -239,8 +239,8 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 
 	output, ok := result.Output.(map[string]any)
 	require.True(t, ok)
-	require.NotEmpty(t, output["workflow-id"])
-	require.NotEmpty(t, output["workflow-run-id"])
+	require.NotContains(t, output, "workflow-id")
+	require.NotContains(t, output, "workflow-run-id")
 	require.NotContains(t, output, "result_video_warning")
 }
 

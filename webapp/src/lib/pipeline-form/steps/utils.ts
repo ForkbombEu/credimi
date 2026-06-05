@@ -18,13 +18,13 @@ export function getDisplayData(type: string): EntityData {
 		return debugEntityData;
 	} else {
 		const config = configs.find((c) => c.use === type);
-		if (!config) throw new Error(`Unknown step type: ${type}`);
+		if (!config) throw new Error(m.Pipeline_form_unknown_step_type({ type }));
 		return config.display;
 	}
 }
 
 export function formatLinkedId(step: PipelineStep) {
-	if (!('id' in step)) throw new Error('Step has no id');
+	if (!('id' in step)) throw new Error(m.Pipeline_form_step_has_no_id());
 	let deeplinkPath = '.outputs';
 	if (step.use === 'conformance-check') {
 		deeplinkPath += '.deeplink';
