@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -135,10 +136,11 @@ func TestPipelineTempWalletCleanupRunsAfterSetupFailure(t *testing.T) {
 	setupHooks = []SetupFunc{
 		func(
 			_ workflow.Context,
-			_ *[]pipelineinternal.StepDefinition,
-			_ *workflow.ActivityOptions,
+			_ *pipelineinternal.WorkflowDefinition,
 			_ map[string]any,
 			_ *map[string]any,
+			_ *map[string]any,
+			_ log.Logger,
 		) error {
 			return errors.New("setup failed")
 		},

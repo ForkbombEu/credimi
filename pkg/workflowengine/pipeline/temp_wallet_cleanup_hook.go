@@ -18,7 +18,7 @@ const tempWalletVersionConfigKey = "temp_wallet_version"
 
 func tempWalletVersionCleanupHook(
 	ctx workflow.Context,
-	_ []pipelineinternal.StepDefinition,
+	_ *pipelineinternal.WorkflowDefinition,
 	_ *workflow.ActivityOptions,
 	config map[string]any,
 	_ map[string]any,
