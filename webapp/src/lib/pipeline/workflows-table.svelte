@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ExecutionSummary } from './workflows';
 
 	import { makeDropdownActions } from './actions';
+	import PipelineReportSheet from './results/pipeline-report-sheet.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 
 	//
@@ -86,9 +87,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Td>
 
 		<Td>
-			{#if workflow.results && workflow.results.length > 0}
+			{#if (workflow.results?.length ?? 0) > 0 || workflow.report}
 				<div class="flex items-center gap-2">
-					{#each workflow.results as result (result.video)}
+					{#each workflow.results ?? [] as result (result.video)}
 						<div class="flex items-center gap-1">
 							<MediaPreview image={result.video} href={result.video} icon="video" />
 							<MediaPreview
@@ -99,6 +100,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<MediaPreview href={result.log} icon="file" />
 						</div>
 					{/each}
+					<PipelineReportSheet reportUrl={workflow.report}>
+						{#snippet sheetTrigger({ props })}
+							<MediaPreview icon="document" {...props} />
+						{/snippet}
+					</PipelineReportSheet>
 				</div>
 			{:else}
 				<span class="text-muted-foreground opacity-50">N/A</span>

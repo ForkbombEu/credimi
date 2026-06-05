@@ -534,6 +534,7 @@ func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
 	record.Id = "result-1"
 	record.Set("video_results", []string{"sample_result_video_1.mp4"})
 	record.Set("screenshots", []string{"sample_screenshot_1.png"})
+	record.Set("report", []string{"pipeline-report.md"})
 
 	pipelineWf := pipeline.PipelineWorkflow{}
 	root := &WorkflowExecution{
@@ -561,6 +562,7 @@ func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
 	)
 	require.Len(t, summaries, 1)
 	require.NotEmpty(t, summaries[0].Results)
+	require.Contains(t, summaries[0].Report, "pipeline-report.md")
 	require.Len(t, summaries[0].Children, 1)
 }
 

@@ -87,6 +87,7 @@ type WorkflowExecutionSummary struct {
 	Queue         *WorkflowQueueSummary       `json:"queue,omitempty"`
 	Children      []*WorkflowExecutionSummary `json:"children,omitempty"`
 	Results       []PipelineResults           `json:"results,omitempty"`
+	Report        string                      `json:"report,omitempty"`
 	FailureReason *string                     `json:"failure_reason,omitempty"`
 }
 

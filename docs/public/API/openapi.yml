@@ -1218,6 +1218,8 @@ components:
           type: string
         queue:
           $ref: '#/components/schemas/HandlersWorkflowQueueSummary'
+        report:
+          type: string
         results:
           items:
             $ref: '#/components/schemas/HandlersPipelineResults'

@@ -1374,6 +1374,12 @@ func buildExecutionHierarchyRaw(
 			)
 
 			current.Results = results
+			current.Report = computePipelineReportURL(
+				app,
+				owner,
+				exec.Execution.WorkflowID,
+				exec.Execution.RunID,
+			)
 		}
 		current.DisplayName = parentDisplay
 		roots = append(roots, current)

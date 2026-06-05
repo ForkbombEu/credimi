@@ -163,3 +163,26 @@ func TestComputePipelineResultsFromRecord(t *testing.T) {
 	require.Nil(t, computePipelineResultsFromRecord(nil, record))
 	require.Nil(t, computePipelineResultsFromRecord(app, nil))
 }
+
+func TestComputePipelineReportURLFromRecord(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	app.Settings().Meta.AppURL = "https://app.test"
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Id = "rec123"
+	record.Set("report", []string{"run_report.md"})
+
+	got := computePipelineReportURLFromRecord(app, record)
+	require.Equal(t, "https://app.test/api/files/pipeline_results/rec123/run_report.md", got)
+
+	record.Set("report", []string{})
+	require.Equal(t, "", computePipelineReportURLFromRecord(app, record))
+	require.Equal(t, "", computePipelineReportURLFromRecord(nil, record))
+	require.Equal(t, "", computePipelineReportURLFromRecord(app, nil))
+}
