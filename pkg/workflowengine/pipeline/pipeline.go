@@ -1039,15 +1039,7 @@ func ExecuteEventStepsOnError(
 		func(eventStep *pipeline.OnErrorStepDefinition) *pipeline.ActivityOptionsConfig {
 			return eventStep.ActivityOptions
 		},
-		func(
-			eventStep *pipeline.OnErrorStepDefinition,
-			ctx workflow.Context,
-			config map[string]any,
-			stepInputs map[string]any,
-			ao workflow.ActivityOptions,
-		) (any, error) {
-			return ExecuteOnError(eventStep, ctx, config, stepInputs, ao)
-		},
+		ExecuteOnError,
 	)
 }
 
@@ -1070,15 +1062,7 @@ func ExecuteEventStepsOnSuccess(
 		func(eventStep *pipeline.OnSuccessStepDefinition) *pipeline.ActivityOptionsConfig {
 			return eventStep.ActivityOptions
 		},
-		func(
-			eventStep *pipeline.OnSuccessStepDefinition,
-			ctx workflow.Context,
-			config map[string]any,
-			stepInputs map[string]any,
-			ao workflow.ActivityOptions,
-		) (any, error) {
-			return ExecuteOnSuccess(eventStep, ctx, config, stepInputs, ao)
-		},
+		ExecuteOnSuccess,
 	)
 }
 
