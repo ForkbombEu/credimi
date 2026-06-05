@@ -7,15 +7,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { PrinterIcon } from '@lucide/svelte';
+	import { buildPipelineReportPageHref } from '$lib/pipeline/results/pipeline-report-page';
+	import PipelineReportView from '$lib/pipeline/results/pipeline-report-view.svelte';
+	import { ExternalLinkIcon } from '@lucide/svelte';
 
 	import type { GenericRecord } from '@/utils/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
-	import RenderMD from '@/components/ui-custom/renderMD.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import { m } from '@/i18n';
-	import { printElement } from '@/utils/printElement';
 
 	type Props = {
 		reportUrl: string | undefined;
@@ -26,17 +26,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const hasReport = $derived(Boolean(reportUrl));
 
+	const reportPageHref = $derived(reportUrl ? buildPipelineReportPageHref(reportUrl) : undefined);
+
 	const reportPromise = $derived.by(() => {
 		if (!reportUrl) return undefined;
 		return fetch(reportUrl).then((res) => res.text());
 	});
-
-	let reportEl = $state<HTMLDivElement | undefined>();
-
-	function handlePrint() {
-		if (!reportEl) return;
-		printElement(reportEl);
-	}
 </script>
 
 {#if hasReport}
@@ -47,19 +42,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet content()}
 			{#await reportPromise then report}
 				{#if report}
-					<div bind:this={reportEl} class="max-w-full min-w-0 p-4">
-						<RenderMD
-							content={report}
-							scrollableTables
-							class="prose prose-sm max-w-none prose-headings:text-primary prose-a:text-primary [&_th]:bg-secondary [&_th]:pt-2"
-						/>
-					</div>
-					<div class="absolute right-6 bottom-6">
-						<Button onclick={handlePrint}>
-							<PrinterIcon class="size-4" />
-							{m.Print()}
-						</Button>
-					</div>
+					<PipelineReportView
+						content={report}
+						contentClass="max-w-full min-w-0 p-4"
+						actionsClass="absolute right-6 bottom-6 flex gap-2"
+					>
+						{#snippet actions()}
+							{#if reportPageHref}
+								<Button variant="outline" href={reportPageHref} target="_blank">
+									<ExternalLinkIcon class="size-4" />
+									{m.Open_in_new_page()}
+								</Button>
+							{/if}
+						{/snippet}
+					</PipelineReportView>
 				{/if}
 			{/await}
 		{/snippet}
