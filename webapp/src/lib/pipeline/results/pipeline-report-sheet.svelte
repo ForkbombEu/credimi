@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import { PrinterIcon } from '@lucide/svelte';
+
 	import type { GenericRecord } from '@/utils/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -53,7 +55,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						/>
 					</div>
 					<div class="absolute right-6 bottom-6">
-						<Button onclick={handlePrint}>{m.Print()}</Button>
+						<Button onclick={handlePrint}>
+							<PrinterIcon class="size-4" />
+							{m.Print()}
+						</Button>
 					</div>
 				{/if}
 			{/await}

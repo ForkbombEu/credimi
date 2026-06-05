@@ -481,6 +481,7 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 
 	app := setupPipelineStartApp(t)
 	defer app.Cleanup()
+	ensurePipelineRetentionEvidenceFields(t, app)
 
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
@@ -503,6 +504,20 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 	resultRecord.Set("workflow_id", "wf-1")
 	resultRecord.Set("run_id", "run-1")
 	require.NoError(t, app.Save(resultRecord))
+	setPipelineResultFiles(
+		t,
+		app,
+		resultRecord.Id,
+		[]string{"abc_result_video_main.mp4"},
+		[]string{"abc_screenshot_main.png"},
+		[]string{"abc_logfile_main.zip"},
+		nil,
+	)
+	setPipelineResultReport(t, app, resultRecord.Id, "run_report.md")
+	_, err = app.DB().NewQuery(
+		`UPDATE pipeline_results SET canonified_identifier = '' WHERE id = {:id}`,
+	).Bind(dbx.Params{"id": resultRecord.Id}).Execute()
+	require.NoError(t, err)
 
 	pipelinePath, err := canonify.BuildPath(
 		app,
@@ -577,6 +592,12 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	require.Len(t, response[pipelineRecord.Id], 1)
 	require.Equal(t, pipelineIdentifier, response[pipelineRecord.Id][0].PipelineIdentifier)
+
+	summary := response[pipelineRecord.Id][0]
+	require.Len(t, summary.Results, 1)
+	require.NotEmpty(t, summary.Results[0].Video)
+	require.NotEmpty(t, summary.Results[0].Log)
+	require.Contains(t, summary.Report, "run_report.md")
 }
 
 func TestHandleGetPipelineDetailsListError(t *testing.T) {

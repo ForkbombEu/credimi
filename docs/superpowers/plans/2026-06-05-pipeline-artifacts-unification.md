@@ -2,15 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Unify pipeline execution artifacts (video, screenshot, log, report) across `list-executions` API and scoreboard expand, with one shared Svelte preview component supporting `preview` and `compact` variants.
+**Goal:** Finish pipeline execution artifacts unification — backend grouping for all list-executions paths + enrich hook, frontend shared preview composing `PipelineReportSheet`.
 
-**Architecture:** Extend Go helpers (`buildPipelineExecutionArtifacts`) as single source of truth for grouping. Wire into `list-executions` handlers and `OnRecordEnrich("pipeline_results")`. Frontend normalizes via `execution-artifacts.ts` adapters into `ExecutionArtifactsPreview.svelte`.
+**Architecture:** Add `BuildPipelineExecutionArtifacts` wrapper and attach helpers over existing `computePipelineResultsFromRecord` / `computePipelineReportURLFromRecord`. Wire grouped `list-executions` batch attach and `OnRecordEnrich`. Frontend normalizes via `execution-artifacts.ts` into `ExecutionArtifactsPreview.svelte` (media only) + existing `PipelineReportSheet`.
 
-**Tech Stack:** Go (PocketBase hooks, handlers), Svelte 5, Vitest, existing MediaPreview / IconButton / Sheet / RenderMD.
+**Tech Stack:** Go (PocketBase hooks, handlers), Svelte 5, Vitest, MediaPreview / IconButton / PipelineReportSheet.
 
-**Spec:** `docs/superpowers/specs/2026-06-05-pipeline-artifacts-unification-design.md`
+**Spec:** `docs/superpowers/specs/2026-06-05-pipeline-artifacts-unification-design.md` (revised)
 
-**Pre-flight:** Run `gitnexus_impact({ target: "computePipelineResultsFromRecord", direction: "upstream" })` and note blast radius before Go edits.
+**Pre-flight:** Run `gitnexus_impact({ target: "computePipelineResultsFromRecord", direction: "upstream", repo: "credimi" })` and note blast radius before Go edits. Do **not** modify `computePipelineResultsFromRecord` logic — only wrap it.
+
+**Already done (skip):** `WorkflowExecutionSummary.Report`, `computePipelineReportURLFromRecord`, per-pipeline hierarchy wiring, `PipelineReportSheet.svelte`, workflow table inline rendering, `workflows.ts` types + mock removal.
 
 ---
 
@@ -18,23 +20,22 @@
 
 | File | Responsibility |
 |------|----------------|
-| `pkg/internal/apis/handlers/shared.go` | Add `Report` to `WorkflowExecutionSummary`; add `PipelineExecutionArtifacts` struct |
-| `pkg/internal/apis/handlers/pipeline_results_handler.go` | `computePipelineReportURL`, `BuildPipelineExecutionArtifacts`, `attachPipelineArtifactsToSummary` |
-| `pkg/internal/apis/handlers/pipeline_handler.go` | Batch-fetch + attach artifacts on grouped `list-executions` |
-| `pkg/internal/pipeline_results/pipeline_results.go` | `OnRecordEnrich` hook |
+| `pkg/internal/apis/handlers/shared.go` | Add `PipelineExecutionArtifacts` struct |
+| `pkg/internal/apis/handlers/pipeline_results_handler.go` | `BuildPipelineExecutionArtifacts`, `attachPipelineArtifactsToSummary`, `attachPipelineArtifactsToSummaries`; refactor hierarchy builder |
+| `pkg/internal/apis/handlers/pipeline_handler.go` | Batch attach on grouped `list-executions` |
+| `pkg/internal/pipeline_results/pipeline_results.go` | `RegisterPipelineResultsHooks`, `HandlePipelineResultsEnrich` |
 | `pkg/internal/pipeline_results/pipeline_results_test.go` | Enrich hook tests |
 | `pkg/routes/routes.go` | Register `RegisterPipelineResultsHooks` |
 | `webapp/src/lib/pipeline/execution-artifacts.ts` | Canonical type + adapters |
 | `webapp/src/lib/pipeline/execution-artifacts.test.ts` | Adapter unit tests |
-| `webapp/src/lib/pipeline/results/execution-artifacts-preview.svelte` | Shared dual-variant UI |
-| `webapp/src/lib/scoreboard/columns/video-screenshot.svelte` | Delegate to shared component |
+| `webapp/src/lib/pipeline/results/execution-artifacts-preview.svelte` | Shared dual-variant media UI + `PipelineReportSheet` |
+| `webapp/src/lib/scoreboard/columns/video-screenshot.svelte` | Delegate to shared component via enrich `artifacts` |
 | `webapp/src/lib/pipeline/workflows-table.svelte` | Delegate to shared component |
 | `webapp/src/lib/pipeline/workflows-table-small.svelte` | Delegate to shared component |
-| `webapp/src/lib/pipeline/workflows.ts` | Add `report?`; remove mock early-return |
 
 ---
 
-### Task 1: Go artifact types and report URL helper
+### Task 1: Go artifact wrapper and attach helpers
 
 **Files:**
 - Modify: `pkg/internal/apis/handlers/shared.go`
@@ -46,29 +47,6 @@
 Add to `workflow_helpers_test.go`:
 
 ```go
-func TestComputePipelineReportURL(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	app.Settings().Meta.AppURL = "https://app.test"
-
-	coll, err := app.FindCollectionByNameOrId("pipeline_results")
-	require.NoError(t, err)
-
-	record := core.NewRecord(coll)
-	record.Id = "rec123"
-	record.Set("report", "run_report.md")
-
-	got := computePipelineReportURL(app, record)
-	require.Equal(t, "https://app.test/api/files/pipeline_results/rec123/report/run_report.md", got)
-
-	record.Set("report", "")
-	require.Equal(t, "", computePipelineReportURL(app, record))
-	require.Equal(t, "", computePipelineReportURL(nil, record))
-	require.Equal(t, "", computePipelineReportURL(app, nil))
-}
-
 func TestBuildPipelineExecutionArtifacts(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -84,20 +62,23 @@ func TestBuildPipelineExecutionArtifacts(t *testing.T) {
 	record.Set("video_results", []string{"abc_result_video_main.mp4"})
 	record.Set("screenshots", []string{"abc_screenshot_main.png"})
 	record.Set("logcats", []string{"abc_logfile_main.zip"})
-	record.Set("report", "run_report.md")
+	record.Set("report", []string{"run_report.md"})
 
 	got := BuildPipelineExecutionArtifacts(app, record)
 	require.Len(t, got.Results, 1)
 	require.Contains(t, got.Results[0].Log, "abc_logfile_main.zip")
-	require.Equal(t, "https://app.test/api/files/pipeline_results/rec123/report/run_report.md", got.Report)
+	require.Equal(t, "https://app.test/api/files/pipeline_results/rec123/run_report.md", got.Report)
+
+	require.Equal(t, PipelineExecutionArtifacts{Results: []PipelineResults{}}, BuildPipelineExecutionArtifacts(nil, record))
+	require.Equal(t, PipelineExecutionArtifacts{Results: []PipelineResults{}}, BuildPipelineExecutionArtifacts(app, nil))
 }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `go test -tags=unit ./pkg/internal/apis/handlers/... -run 'TestComputePipelineReportURL|TestBuildPipelineExecutionArtifacts' -v`
+Run: `go test -tags=unit ./pkg/internal/apis/handlers/... -run TestBuildPipelineExecutionArtifacts -v`
 
-Expected: FAIL — `computePipelineReportURL` / `BuildPipelineExecutionArtifacts` not defined
+Expected: FAIL — `BuildPipelineExecutionArtifacts` not defined
 
 - [ ] **Step 3: Implement types and helpers**
 
@@ -110,28 +91,9 @@ type PipelineExecutionArtifacts struct {
 }
 ```
 
-Add `Report string \`json:"report,omitempty"\`` to `WorkflowExecutionSummary`.
-
 In `pipeline_results_handler.go`:
 
 ```go
-func computePipelineReportURL(app core.App, record *core.Record) string {
-	if app == nil || record == nil {
-		return ""
-	}
-	reportName := record.GetString("report")
-	if reportName == "" {
-		return ""
-	}
-	return utils.JoinURL(
-		app.Settings().Meta.AppURL,
-		"api", "files", "pipeline_results",
-		record.Id,
-		record.GetString("report"),
-		reportName,
-	)
-}
-
 func BuildPipelineExecutionArtifacts(app core.App, record *core.Record) PipelineExecutionArtifacts {
 	results := computePipelineResultsFromRecord(app, record)
 	if results == nil {
@@ -139,7 +101,7 @@ func BuildPipelineExecutionArtifacts(app core.App, record *core.Record) Pipeline
 	}
 	return PipelineExecutionArtifacts{
 		Results: results,
-		Report:  computePipelineReportURL(app, record),
+		Report:  computePipelineReportURLFromRecord(app, record),
 	}
 }
 
@@ -155,111 +117,7 @@ func attachPipelineArtifactsToSummary(
 	summary.Results = artifacts.Results
 	summary.Report = artifacts.Report
 }
-```
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `go test -tags=unit ./pkg/internal/apis/handlers/... -run 'TestComputePipelineReportURL|TestBuildPipelineExecutionArtifacts' -v`
-
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add pkg/internal/apis/handlers/shared.go pkg/internal/apis/handlers/pipeline_results_handler.go pkg/internal/apis/handlers/workflow_helpers_test.go
-git commit -m "feat: add pipeline execution artifacts builder and report URL helper"
-```
-
----
-
-### Task 2: Wire artifacts into per-pipeline list-executions
-
-**Files:**
-- Modify: `pkg/internal/apis/handlers/pipeline_results_handler.go` (`buildPipelineExecutionHierarchyFromResult`)
-- Test: `pkg/internal/apis/handlers/pipeline_results_handler_test.go`
-
-- [ ] **Step 1: Write the failing test**
-
-Extend an existing hierarchy test (or add) asserting `Report` is set when record has `report` field. Pattern from `TestComputePipelineResultsFromRecord` — create record with video/screenshot/log/report, call `buildPipelineExecutionHierarchyFromResult`, assert `rootSummary.Report` non-empty.
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `go test -tags=unit ./pkg/internal/apis/handlers/... -run 'buildPipelineExecutionHierarchyFromResult|PipelineExecutionHierarchy' -v`
-
-Expected: FAIL — `Report` empty
-
-- [ ] **Step 3: Update hierarchy builder**
-
-In `buildPipelineExecutionHierarchyFromResult`, replace the block that only sets `rootSummary.Results`:
-
-```go
-if rootSummary.Type.Name == w.Name() {
-	if resultRecord != nil {
-		attachPipelineArtifactsToSummary(rootSummary, app, resultRecord)
-	}
-	if len(rootSummary.Results) == 0 {
-		rootSummary.Results = computePipelineResults(
-			app,
-			namespace,
-			rootExecution.Execution.WorkflowID,
-			rootExecution.Execution.RunID,
-		)
-	}
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add pkg/internal/apis/handlers/pipeline_results_handler.go pkg/internal/apis/handlers/pipeline_results_handler_test.go
-git commit -m "feat: attach report URL to per-pipeline execution summaries"
-```
-
----
-
-### Task 3: Fix grouped list-executions artifacts
-
-**Files:**
-- Modify: `pkg/internal/apis/handlers/pipeline_handler.go`
-- Modify: `pkg/internal/apis/handlers/pipeline_results_handler.go` (add `attachPipelineArtifactsToSummaries` helper)
-- Test: `pkg/internal/apis/handlers/pipeline_handler_test.go`
-
-- [ ] **Step 1: Write the failing test**
-
-Extend `TestHandleGetPipelineDetailsReturnsResults` — set file fields on `resultRecord`:
-
-```go
-resultRecord.Set("video_results", []string{"abc_result_video_main.mp4"})
-resultRecord.Set("screenshots", []string{"abc_screenshot_main.png"})
-resultRecord.Set("logcats", []string{"abc_logfile_main.zip"})
-resultRecord.Set("report", "run_report.md")
-```
-
-After unmarshaling response, assert:
-
-```go
-summary := response[pipelineRecord.Id][0]
-require.Len(t, summary.Results, 1)
-require.NotEmpty(t, summary.Results[0].Video)
-require.NotEmpty(t, summary.Results[0].Log)
-require.Contains(t, summary.Report, "run_report.md")
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `go test -tags=unit ./pkg/internal/apis/handlers/... -run TestHandleGetPipelineDetailsReturnsResults -v`
-
-Expected: FAIL — `Results` empty or `Report` empty
-
-- [ ] **Step 3: Add batch attach helper**
-
-In `pipeline_results_handler.go`:
-
-```go
 func attachPipelineArtifactsToSummaries(
 	app core.App,
 	ownerID string,
@@ -302,18 +160,136 @@ func attachPipelineArtifactsToSummaries(
 }
 ```
 
-- [ ] **Step 4: Wire into HandleGetPipelineDetails**
+- [ ] **Step 4: Run test to verify it passes**
 
-After `selectTopExecutionsByPipeline`, before building response, flatten all selected summaries and call `attachPipelineArtifactsToSummaries(e.App, orgID, flatSummaries)`. Handle error with 500 response.
-
-- [ ] **Step 5: Run test to verify it passes**
+Run: `go test -tags=unit ./pkg/internal/apis/handlers/... -run TestBuildPipelineExecutionArtifacts -v`
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add pkg/internal/apis/handlers/pipeline_handler.go pkg/internal/apis/handlers/pipeline_results_handler.go pkg/internal/apis/handlers/pipeline_handler_test.go
+git add pkg/internal/apis/handlers/shared.go pkg/internal/apis/handlers/pipeline_results_handler.go pkg/internal/apis/handlers/workflow_helpers_test.go
+git commit -m "feat: add pipeline execution artifacts builder and attach helpers"
+```
+
+---
+
+### Task 2: Refactor per-pipeline hierarchy to use attach helper
+
+**Files:**
+- Modify: `pkg/internal/apis/handlers/pipeline_results_handler.go` (`buildPipelineExecutionHierarchyFromResult`)
+- Test: `pkg/internal/apis/handlers/pipeline_results_handler_test.go`
+
+- [ ] **Step 1: Write the failing test**
+
+Add or extend a hierarchy test asserting `Report` is set when record has `report` field. Create record with video/screenshot/log/report, call `buildPipelineExecutionHierarchyFromResult`, assert `rootSummary.Report` contains `run_report.md` and `len(rootSummary.Results) == 1`.
+
+- [ ] **Step 2: Run test to verify it passes with refactor** (behavior should already work; test guards regression)
+
+Run: `go test -tags=unit ./pkg/internal/apis/handlers/... -run 'buildPipelineExecutionHierarchyFromResult|PipelineExecutionHierarchy' -v`
+
+- [ ] **Step 3: Refactor hierarchy builder**
+
+In `buildPipelineExecutionHierarchyFromResult`, replace inline Results/Report assignment:
+
+```go
+if rootSummary.Type.Name == w.Name() {
+	if resultRecord != nil {
+		attachPipelineArtifactsToSummary(rootSummary, app, resultRecord)
+	}
+	if len(rootSummary.Results) == 0 {
+		rootSummary.Results = computePipelineResults(
+			app,
+			namespace,
+			rootExecution.Execution.WorkflowID,
+			rootExecution.Execution.RunID,
+		)
+	}
+	if rootSummary.Report == "" {
+		rootSummary.Report = computePipelineReportURL(
+			app,
+			namespace,
+			rootExecution.Execution.WorkflowID,
+			rootExecution.Execution.RunID,
+		)
+	}
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add pkg/internal/apis/handlers/pipeline_results_handler.go pkg/internal/apis/handlers/pipeline_results_handler_test.go
+git commit -m "refactor: use attach helper in per-pipeline execution hierarchy"
+```
+
+---
+
+### Task 3: Fix grouped list-executions artifacts
+
+**Files:**
+- Modify: `pkg/internal/apis/handlers/pipeline_handler.go`
+- Test: `pkg/internal/apis/handlers/pipeline_handler_test.go`
+
+- [ ] **Step 1: Write the failing test**
+
+Extend `TestHandleGetPipelineDetailsReturnsResults` — set file fields on `resultRecord`:
+
+```go
+resultRecord.Set("video_results", []string{"abc_result_video_main.mp4"})
+resultRecord.Set("screenshots", []string{"abc_screenshot_main.png"})
+resultRecord.Set("logcats", []string{"abc_logfile_main.zip"})
+resultRecord.Set("report", []string{"run_report.md"})
+```
+
+After unmarshaling response, assert:
+
+```go
+summary := response[pipelineRecord.Id][0]
+require.Len(t, summary.Results, 1)
+require.NotEmpty(t, summary.Results[0].Video)
+require.NotEmpty(t, summary.Results[0].Log)
+require.Contains(t, summary.Report, "run_report.md")
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `go test -tags=unit ./pkg/internal/apis/handlers/... -run TestHandleGetPipelineDetailsReturnsResults -v`
+
+Expected: FAIL — `Results` empty or `Report` empty
+
+- [ ] **Step 3: Wire batch attach into HandleGetPipelineDetails**
+
+After `selectTopExecutionsByPipeline`, before building response, flatten summaries:
+
+```go
+var flatSummaries []*WorkflowExecutionSummary
+for _, executions := range selectedExecutions {
+	flatSummaries = append(flatSummaries, executions...)
+}
+if err := attachPipelineArtifactsToSummaries(e.App, organization.Id, flatSummaries); err != nil {
+	return apierror.New(
+		http.StatusInternalServerError,
+		"database",
+		"failed to fetch pipeline results",
+		err.Error(),
+	).JSON(e)
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add pkg/internal/apis/handlers/pipeline_handler.go pkg/internal/apis/handlers/pipeline_handler_test.go
 git commit -m "feat: attach artifacts to grouped list-executions via batch lookup"
 ```
 
@@ -357,7 +333,7 @@ func TestHandlePipelineResultsEnrichSetsArtifacts(t *testing.T) {
 	record.Set("video_results", []string{"abc_result_video_main.mp4"})
 	record.Set("screenshots", []string{"abc_screenshot_main.png"})
 	record.Set("logcats", []string{"abc_logfile_main.zip"})
-	record.Set("report", "run_report.md")
+	record.Set("report", []string{"run_report.md"})
 	require.NoError(t, app.Save(record))
 
 	enriched, err := app.ExpandRecord(record, []string{}, nil)
@@ -427,7 +403,6 @@ git commit -m "feat: enrich pipeline_results with artifacts on record view"
 **Files:**
 - Create: `webapp/src/lib/pipeline/execution-artifacts.ts`
 - Create: `webapp/src/lib/pipeline/execution-artifacts.test.ts`
-- Modify: `webapp/src/lib/pipeline/workflows.ts`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -512,8 +487,6 @@ export function fromEnrichedRecord(record: {
 }
 ```
 
-Add `report?: string` to `ExecutionSummary` in `workflows.ts`.
-
 - [ ] **Step 4: Run test to verify it passes**
 
 Expected: PASS
@@ -521,7 +494,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add webapp/src/lib/pipeline/execution-artifacts.ts webapp/src/lib/pipeline/execution-artifacts.test.ts webapp/src/lib/pipeline/workflows.ts
+git add webapp/src/lib/pipeline/execution-artifacts.ts webapp/src/lib/pipeline/execution-artifacts.test.ts
 git commit -m "feat: add pipeline execution artifacts adapters"
 ```
 
@@ -531,23 +504,22 @@ git commit -m "feat: add pipeline execution artifacts adapters"
 
 **Files:**
 - Create: `webapp/src/lib/pipeline/results/execution-artifacts-preview.svelte`
-- Delete: `webapp/src/lib/pipeline/results/artifacts-buttons.svelte` (WIP stub)
 
 - [ ] **Step 1: Create component**
 
-Port logic from `video-screenshot.svelte` (report Sheet + MediaPreview) and `workflows-table-small.svelte` (IconButtons). Props:
+Media-only shared component composing `PipelineReportSheet`. Props:
 
 ```svelte
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { FileCogIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 
 	import MediaPreview from '$lib/components/media-preview.svelte';
 	import type { PipelineExecutionArtifacts } from '$lib/pipeline/execution-artifacts';
 
-	import RenderMD from '@/components/ui-custom/renderMD.svelte';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+
+	import PipelineReportSheet from './pipeline-report-sheet.svelte';
 
 	type Props = {
 		artifacts: PipelineExecutionArtifacts;
@@ -561,26 +533,25 @@ Port logic from `video-screenshot.svelte` (report Sheet + MediaPreview) and `wor
 	const hasContent = $derived(
 		artifacts.results.length > 0 || Boolean(artifacts.report)
 	);
-
-	const reportPromise = $derived.by(() => {
-		if (!artifacts.report) return undefined;
-		return fetch(artifacts.report).then((res) => res.text());
-	});
 </script>
 ```
 
-Render loop: for each result group, branch on `variant === 'preview'` (MediaPreview trio) vs `compact` (IconButton trio). Append report Sheet when `reportPromise` resolves (same markup as `video-screenshot.svelte`). If `!hasContent` and `emptyState` provided, render `emptyState`.
+Render loop per result group:
+- `variant === 'preview'`: MediaPreview trio (video, screenshot, log/file icon) with `class={previewClass}`
+- `variant === 'compact'`: IconButton trio (`VideoIcon`, `ImageIcon`, `FileCogIcon`) with `target="_blank"`
 
-Run Svelte autofixer / `bun run check` after writing.
+Append report via `PipelineReportSheet`:
+- `preview` variant: `MediaPreview icon="document"` trigger
+- `compact` variant: `IconButton icon={FileIcon}` trigger
 
-- [ ] **Step 2: Delete WIP stub**
+If `!hasContent` and `emptyState` provided, render `emptyState`.
 
-Remove `artifacts-buttons.svelte`; grep for imports and update any references.
+Run Svelte autofixer / `cd webapp && bun run check` after writing.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
-git add webapp/src/lib/pipeline/results/
+git add webapp/src/lib/pipeline/results/execution-artifacts-preview.svelte
 git commit -m "feat: add shared execution artifacts preview component"
 ```
 
@@ -592,7 +563,6 @@ git commit -m "feat: add shared execution artifacts preview component"
 - Modify: `webapp/src/lib/scoreboard/columns/video-screenshot.svelte`
 - Modify: `webapp/src/lib/pipeline/workflows-table.svelte`
 - Modify: `webapp/src/lib/pipeline/workflows-table-small.svelte`
-- Modify: `webapp/src/lib/pipeline/workflows.ts`
 
 - [ ] **Step 1: Refactor scoreboard column**
 
@@ -608,11 +578,21 @@ export const column = Column.define({
 });
 ```
 
-Cell: `<ExecutionArtifactsPreview artifacts={value} variant="preview" previewClass="size-8!" />` or show `<EntityDisplay.Na />` when undefined.
+Cell:
+
+```svelte
+{#if value}
+	<ExecutionArtifactsPreview artifacts={value} variant="preview" previewClass="size-8!" />
+{:else}
+	<EntityDisplay.Na />
+{/if}
+```
+
+Remove: `groupExecutionArtifacts`, `effect/Array.groupBy`, `nanoid`, `pb.files.getURL` grouping, direct `PipelineReportSheet` import.
 
 - [ ] **Step 2: Refactor workflow tables**
 
-`workflows-table.svelte`: replace inline MediaPreview loop with:
+`workflows-table.svelte` — replace inline MediaPreview loop + `PipelineReportSheet`:
 
 ```svelte
 import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
@@ -626,28 +606,19 @@ import { fromApiSummary } from './execution-artifacts';
 {/if}
 ```
 
-`workflows-table-small.svelte`: same with `variant="compact"` and existing `na()` snippet.
+`workflows-table-small.svelte` — same with `variant="compact"` and existing `na()` snippet. Remove direct `PipelineReportSheet`, `VideoIcon`, `ImageIcon`, `FileCogIcon`, `FileIcon` imports if no longer used elsewhere in file.
 
-- [ ] **Step 3: Remove mock in workflows.ts**
-
-Delete lines:
-
-```ts
-const test = await import('./workflows.mock.json');
-return test.default;
-```
-
-- [ ] **Step 4: Run checks**
+- [ ] **Step 3: Run checks**
 
 Run: `cd webapp && bun run check`
 Run: `cd webapp && bun run test:unit -- src/lib/pipeline/execution-artifacts.test.ts`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add webapp/src/lib/scoreboard/columns/video-screenshot.svelte webapp/src/lib/pipeline/workflows-table.svelte webapp/src/lib/pipeline/workflows-table-small.svelte webapp/src/lib/pipeline/workflows.ts
+git add webapp/src/lib/scoreboard/columns/video-screenshot.svelte webapp/src/lib/pipeline/workflows-table.svelte webapp/src/lib/pipeline/workflows-table-small.svelte
 git commit -m "feat: wire shared artifacts preview across scoreboard and workflow tables"
 ```
 
@@ -669,10 +640,10 @@ Expected: PASS
 
 - [ ] **Step 3: GitNexus detect changes**
 
-Run: `gitnexus_detect_changes()` per AGENTS.md — confirm scope matches expected symbols only.
+Run: `gitnexus_detect_changes({ repo: "credimi" })` per AGENTS.md — confirm scope matches expected symbols only.
 
 - [ ] **Step 4: Manual smoke (optional)**
 
 - Scoreboard row shows log icon alongside video/screenshot
-- Report sheet opens from both variants
+- Report sheet + print opens from all three surfaces
 - Grouped `list-executions` returns populated `results` + `report`

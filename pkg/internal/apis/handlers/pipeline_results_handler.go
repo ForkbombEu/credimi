@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -678,24 +679,21 @@ func buildPipelineExecutionHierarchyFromResult(
 	w := pipeline.PipelineWorkflow{}
 	if rootSummary.Type.Name == w.Name() {
 		if resultRecord != nil {
-			rootSummary.Results = computePipelineResultsFromRecord(app, resultRecord)
-			rootSummary.Report = computePipelineReportURLFromRecord(app, resultRecord)
+			attachPipelineArtifactsToSummary(rootSummary, app, resultRecord)
 		}
-		if len(rootSummary.Results) == 0 {
-			rootSummary.Results = computePipelineResults(
+		if len(rootSummary.Results) == 0 || rootSummary.Report == "" {
+			artifacts := pipelineresults.ResolvePipelineExecutionArtifacts(
 				app,
 				namespace,
 				rootExecution.Execution.WorkflowID,
 				rootExecution.Execution.RunID,
 			)
-		}
-		if rootSummary.Report == "" {
-			rootSummary.Report = computePipelineReportURL(
-				app,
-				namespace,
-				rootExecution.Execution.WorkflowID,
-				rootExecution.Execution.RunID,
-			)
+			if len(rootSummary.Results) == 0 {
+				rootSummary.Results = artifacts.Results
+			}
+			if rootSummary.Report == "" {
+				rootSummary.Report = artifacts.Report
+			}
 		}
 	}
 
@@ -764,124 +762,74 @@ func buildWorkflowExecutionSummary(
 	return summary
 }
 
-func computePipelineResultsFromRecord(app core.App, record *core.Record) []PipelineResults {
-	if app == nil || record == nil {
-		return nil
-	}
-
-	videos := record.GetStringSlice("video_results")
-	screenshots := record.GetStringSlice("screenshots")
-	if len(videos) == 0 || len(screenshots) == 0 {
-		return nil
-	}
-
-	screenshotMap := make(map[string]string, len(screenshots))
-	for _, name := range screenshots {
-		if key, ok := baseKey(name, "_screenshot_"); ok {
-			screenshotMap[key] = name
-		}
-	}
-	logMap := make(map[string]pipelineResultFileRef)
-	for _, field := range []string{"logcats", "ios_logstreams"} {
-		for _, name := range record.GetStringSlice(field) {
-			if key, ok := baseKey(name, "_logfile_"); ok {
-				logMap[key] = pipelineResultFileRef{
-					field: field,
-					name:  name,
-				}
-			}
-		}
-	}
-
-	results := make([]PipelineResults, 0, len(videos))
-	for _, name := range videos {
-		key, ok := baseKey(name, "_result_video_")
-		if !ok {
-			continue
-		}
-
-		screenshot, found := screenshotMap[key]
-		if !found {
-			continue
-		}
-
-		result := PipelineResults{
-			Video: utils.JoinURL(
-				app.Settings().Meta.AppURL,
-				"api", "files", "pipeline_results",
-				record.Id,
-				record.GetString("video_results"),
-				name,
-			),
-			Screenshot: utils.JoinURL(
-				app.Settings().Meta.AppURL,
-				"api", "files", "pipeline_results",
-				record.Id,
-				record.GetString("screenshots"),
-				screenshot,
-			),
-		}
-		if logFile, found := logMap[key]; found {
-			result.Log = utils.JoinURL(
-				app.Settings().Meta.AppURL,
-				"api", "files", "pipeline_results",
-				record.Id,
-				record.GetString(logFile.field),
-				logFile.name,
-			)
-		}
-
-		results = append(results, result)
-	}
-
-	return results
-}
-
-func computePipelineReportURLFromRecord(app core.App, record *core.Record) string {
-	if app == nil || record == nil {
-		return ""
-	}
-
-	filename := record.GetString("report")
-	if filename == "" {
-		if reports := record.GetStringSlice("report"); len(reports) > 0 {
-			filename = reports[0]
-		}
-	}
-	if filename == "" {
-		return ""
-	}
-
-	return utils.JoinURL(
-		app.Settings().Meta.AppURL,
-		"api", "files", "pipeline_results",
-		record.Id,
-		filename,
-	)
-}
-
-func computePipelineReportURL(
+func attachPipelineArtifactsToSummary(
+	summary *WorkflowExecutionSummary,
 	app core.App,
-	owner string,
-	workflowID string,
-	runID string,
-) string {
-	identifier := fmt.Sprintf("%s/%s-%s",
-		owner,
-		canonify.CanonifyPlain(workflowID),
-		canonify.CanonifyPlain(runID),
-	)
-	record, _ := canonify.Resolve(app, identifier)
-	if record == nil {
-		return ""
+	record *core.Record,
+) {
+	if summary == nil || record == nil {
+		return
 	}
-
-	return computePipelineReportURLFromRecord(app, record)
+	artifacts := pipelineresults.BuildPipelineExecutionArtifacts(app, record)
+	summary.Results = artifacts.Results
+	summary.Report = artifacts.Report
 }
 
-type pipelineResultFileRef struct {
-	field string
-	name  string
+func flattenWorkflowExecutionSummaryMap(
+	groupedSummaries map[string][]*WorkflowExecutionSummary,
+) []*WorkflowExecutionSummary {
+	flatSummaries := make([]*WorkflowExecutionSummary, 0)
+	for _, summaries := range groupedSummaries {
+		flatSummaries = append(flatSummaries, summaries...)
+	}
+
+	return flatSummaries
+}
+
+func attachPipelineArtifactsToSummaries(
+	app core.App,
+	ownerID string,
+	groupedSummaries map[string][]*WorkflowExecutionSummary,
+) error {
+	if app == nil || len(groupedSummaries) == 0 {
+		return nil
+	}
+
+	summaries := flattenWorkflowExecutionSummaryMap(groupedSummaries)
+	if len(summaries) == 0 {
+		return nil
+	}
+
+	refs := make([]workflowExecutionRef, 0, len(summaries))
+	for _, summary := range summaries {
+		if summary == nil || summary.Execution == nil {
+			continue
+		}
+		refs = append(refs, workflowExecutionRef{
+			WorkflowID: summary.Execution.WorkflowID,
+			RunID:      summary.Execution.RunID,
+		})
+	}
+
+	resultRecords, err := fetchPipelineResultRecords(app, ownerID, refs)
+	if err != nil {
+		return err
+	}
+
+	for _, summary := range summaries {
+		if summary == nil || summary.Execution == nil {
+			continue
+		}
+		ref := workflowExecutionRef{
+			WorkflowID: summary.Execution.WorkflowID,
+			RunID:      summary.Execution.RunID,
+		}
+		if record, ok := resultRecords[ref]; ok {
+			attachPipelineArtifactsToSummary(summary, app, record)
+		}
+	}
+
+	return nil
 }
 
 func getChildWorkflowsByParents(
