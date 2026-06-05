@@ -762,18 +762,6 @@ func buildWorkflowExecutionSummary(
 	return summary
 }
 
-func computePipelineResultsFromRecord(app core.App, record *core.Record) []PipelineResults {
-	return pipelineresults.ComputePipelineResultsFromRecord(app, record)
-}
-
-func computePipelineReportURLFromRecord(app core.App, record *core.Record) string {
-	return pipelineresults.ComputePipelineReportURLFromRecord(app, record)
-}
-
-func BuildPipelineExecutionArtifacts(app core.App, record *core.Record) PipelineExecutionArtifacts {
-	return pipelineresults.BuildPipelineExecutionArtifacts(app, record)
-}
-
 func attachPipelineArtifactsToSummary(
 	summary *WorkflowExecutionSummary,
 	app core.App,
@@ -782,7 +770,7 @@ func attachPipelineArtifactsToSummary(
 	if summary == nil || record == nil {
 		return
 	}
-	artifacts := BuildPipelineExecutionArtifacts(app, record)
+	artifacts := pipelineresults.BuildPipelineExecutionArtifacts(app, record)
 	summary.Results = artifacts.Results
 	summary.Report = artifacts.Report
 }

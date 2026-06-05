@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -855,7 +856,7 @@ func TestComputePipelineResultsFromRecordPipelineResultsHandler(t *testing.T) {
 	record.Set("screenshots", []string{"sample_screenshot_1.png", "extra.png"})
 	record.Set("ios_logstreams", []string{"sample_logfile_1.zip"})
 
-	results := computePipelineResultsFromRecord(app, record)
+	results := pipelineresults.ComputePipelineResultsFromRecord(app, record)
 	require.Len(t, results, 1)
 	require.Contains(t, results[0].Video, "sample_result_video_1.mp4")
 	require.Contains(t, results[0].Screenshot, "sample_screenshot_1.png")
