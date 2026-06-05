@@ -4,17 +4,16 @@ info:
     email: support@forkbomb.eu
     name: credimi Support
     url: https://forkbomb.solutions
-  description:
-    Credimi API — schedule and run conformance checks, manage pipeline
+  description: Credimi API — schedule and run conformance checks, manage pipeline
     automation, orchestrate mobile runners, publish marketplace integrations, and
     inspect end-to-end test results for decentralized identity services.
   title: Credimi API
   version: 1.4.0
 servers:
-  - description: Production server
-    url: https://credimi.io
-  - description: Localhost server
-    url: http://localhost:8090/
+- description: Production server
+  url: https://credimi.io
+- description: Localhost server
+  url: http://localhost:8090/
 paths:
   /api/apikey/authenticate:
     get:
@@ -25,13 +24,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersAuthenticateApiKeyResponse"
+                $ref: '#/components/schemas/HandlersAuthenticateApiKeyResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Authenticate API Key
   /api/apikey/generate:
@@ -39,36 +38,36 @@ paths:
       description: Generate a new API key for the authenticated user or superuser.
       operationId: apiKey.generate
       parameters:
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/HandlersGenerateApiKeyRequest"
+              $ref: '#/components/schemas/HandlersGenerateApiKeyRequest'
         required: true
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersGenerateApiKeyResponse"
+                $ref: '#/components/schemas/HandlersGenerateApiKeyResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Generate API Key
   /api/custom-integrations/run:
@@ -76,23 +75,23 @@ paths:
       description: Run a custom integration
       operationId: custom-integration.run
       parameters:
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/HandlersRunCustomIntegrationRequestInput"
+              $ref: '#/components/schemas/HandlersRunCustomIntegrationRequestInput'
         required: true
       responses:
         "200":
@@ -101,50 +100,47 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Run a custom integration
   /api/mobile-runners:
     get:
-      description:
-        Lists mobile runners visible to the caller, including health, devices,
+      description: Lists mobile runners visible to the caller, including health, devices,
         and queue length for online runners.
       operationId: listMobileRunners
       parameters:
-        - description:
-            Optional response view. Use 'selector' to return the lightweight
+      - description: Optional response view. Use 'selector' to return the lightweight
+          runner selector shape and skip queue/device details.
+        in: query
+        name: view
+        schema:
+          description: Optional response view. Use 'selector' to return the lightweight
             runner selector shape and skip queue/device details.
-          in: query
-          name: view
-          schema:
-            description:
-              Optional response view. Use 'selector' to return the lightweight
-              runner selector shape and skip queue/device details.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersListMobileRunnersPublicResponseSchema"
+                $ref: '#/components/schemas/HandlersListMobileRunnersPublicResponseSchema'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: List available mobile runners
   /api/my/schedules:
@@ -152,30 +148,30 @@ paths:
       description: List all schedules for the authenticated user
       operationId: schedules.list
       parameters:
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersListMySchedulesResponse"
+                $ref: '#/components/schemas/HandlersListMySchedulesResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Get a list of all schedules for the authenticated user
   /api/my/schedules/{scheduleId}/cancel:
@@ -183,37 +179,37 @@ paths:
       description: Cancel a specific schedule
       operationId: schedule.cancel
       parameters:
-        - description: The ID for the scheduleId.
-          in: path
-          name: scheduleId
-          required: true
-          schema:
-            description: The ID for the scheduleId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the scheduleId.
+        in: path
+        name: scheduleId
+        required: true
+        schema:
+          description: The ID for the scheduleId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersCancelScheduleResponse"
+                $ref: '#/components/schemas/HandlersCancelScheduleResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Cancel a specific schedule
   /api/my/schedules/{scheduleId}/pause:
@@ -221,37 +217,37 @@ paths:
       description: Pause a specific schedule
       operationId: schedule.pause
       parameters:
-        - description: The ID for the scheduleId.
-          in: path
-          name: scheduleId
-          required: true
-          schema:
-            description: The ID for the scheduleId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the scheduleId.
+        in: path
+        name: scheduleId
+        required: true
+        schema:
+          description: The ID for the scheduleId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersPauseScheduleResponse"
+                $ref: '#/components/schemas/HandlersPauseScheduleResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Pause a specific schedule
   /api/my/schedules/{scheduleId}/resume:
@@ -259,37 +255,37 @@ paths:
       description: Resume a specific schedule
       operationId: schedule.resume
       parameters:
-        - description: The ID for the scheduleId.
-          in: path
-          name: scheduleId
-          required: true
-          schema:
-            description: The ID for the scheduleId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the scheduleId.
+        in: path
+        name: scheduleId
+        required: true
+        schema:
+          description: The ID for the scheduleId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersResumeScheduleResponse"
+                $ref: '#/components/schemas/HandlersResumeScheduleResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Resume a specific schedule
   /api/my/schedules/start:
@@ -297,36 +293,36 @@ paths:
       description: Start a new schedule from an existing workflow
       operationId: schedule.start
       parameters:
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/HandlersStartScheduleRequest"
+              $ref: '#/components/schemas/HandlersStartScheduleRequest'
         required: true
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersStartScheduleResponse"
+                $ref: '#/components/schemas/HandlersStartScheduleResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Start a new schedule from an existing workflow
   /api/my/workflows/{workflowId}/runs:
@@ -334,37 +330,37 @@ paths:
       description: List all runs for a specific workflow
       operationId: workflowRuns.list
       parameters:
-        - description: The ID for the workflowId.
-          in: path
-          name: workflowId
-          required: true
-          schema:
-            description: The ID for the workflowId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersListMyWorkflowRunsResponse"
+                $ref: '#/components/schemas/HandlersListMyWorkflowRunsResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Get a list of all runs for a specific workflow
   /api/my/workflows/{workflowId}/runs/{runId}:
@@ -372,44 +368,44 @@ paths:
       description: Get details of a specific run for a workflow
       operationId: workflowRun.get
       parameters:
-        - description: The ID for the workflowId.
-          in: path
-          name: workflowId
-          required: true
-          schema:
-            description: The ID for the workflowId.
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            description: The ID for the runId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersGetMyWorkflowRunResponse"
+                $ref: '#/components/schemas/HandlersGetMyWorkflowRunResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Get details of a specific run for a workflow
   /api/my/workflows/{workflowId}/runs/{runId}/cancel:
@@ -417,44 +413,44 @@ paths:
       description: Cancel a specific workflow run
       operationId: workflowRun.cancel
       parameters:
-        - description: The ID for the workflowId.
-          in: path
-          name: workflowId
-          required: true
-          schema:
-            description: The ID for the workflowId.
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            description: The ID for the runId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersCancelMyWorkflowRunResponse"
+                $ref: '#/components/schemas/HandlersCancelMyWorkflowRunResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Cancel a specific workflow run
   /api/my/workflows/{workflowId}/runs/{runId}/export:
@@ -462,44 +458,44 @@ paths:
       description: Export a specific workflow run
       operationId: workflowRun.export
       parameters:
-        - description: The ID for the workflowId.
-          in: path
-          name: workflowId
-          required: true
-          schema:
-            description: The ID for the workflowId.
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            description: The ID for the runId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersExportMyWorkflowRunResponse"
+                $ref: '#/components/schemas/HandlersExportMyWorkflowRunResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Export a specific workflow run
   /api/my/workflows/{workflowId}/runs/{runId}/history:
@@ -507,101 +503,98 @@ paths:
       description: Get the history of events for a specific run of a workflow
       operationId: workflowRun.history
       parameters:
-        - description: The ID for the workflowId.
-          in: path
-          name: workflowId
-          required: true
-          schema:
-            description: The ID for the workflowId.
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            description: The ID for the runId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersGetMyWorkflowRunHistoryResponse"
+                $ref: '#/components/schemas/HandlersGetMyWorkflowRunHistoryResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Get the history of events for a specific run of a workflow
   /api/my/workflows/{workflowId}/runs/{runId}/logs:
     get:
-      description:
-        Start or Stop logs for a specific workflow run and get the log
+      description: Start or Stop logs for a specific workflow run and get the log
         channel
       operationId: workflowRun.logs
       parameters:
-        - description:
-            Can be 'start' or 'stop' to control logging for the workflow
+      - description: Can be 'start' or 'stop' to control logging for the workflow
+          run
+        in: query
+        name: action
+        schema:
+          description: Can be 'start' or 'stop' to control logging for the workflow
             run
-          in: query
-          name: action
-          schema:
-            description:
-              Can be 'start' or 'stop' to control logging for the workflow
-              run
-            type: string
-        - description: The ID for the workflowId.
-          in: path
-          name: workflowId
-          required: true
-          schema:
-            description: The ID for the workflowId.
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            description: The ID for the runId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+          type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersWorkflowLogsResponse"
+                $ref: '#/components/schemas/HandlersWorkflowLogsResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Start or Stop logs for a specific workflow run
   /api/my/workflows/{workflowId}/runs/{runId}/rerun:
@@ -609,50 +602,50 @@ paths:
       description: Re-run a specific workflow run
       operationId: workflowRun.rerun
       parameters:
-        - description: The ID for the workflowId.
-          in: path
-          name: workflowId
-          required: true
-          schema:
-            description: The ID for the workflowId.
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            description: The ID for the runId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/HandlersReRunWorkflowRequest"
+              $ref: '#/components/schemas/HandlersReRunWorkflowRequest'
         required: true
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersReRunWorkflowResponse"
+                $ref: '#/components/schemas/HandlersReRunWorkflowResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Re-run a specific workflow run
   /api/my/workflows/{workflowId}/runs/{runId}/terminate:
@@ -660,44 +653,44 @@ paths:
       description: Terminate a specific workflow run
       operationId: workflowRun.terminate
       parameters:
-        - description: The ID for the workflowId.
-          in: path
-          name: workflowId
-          required: true
-          schema:
-            description: The ID for the workflowId.
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            description: The ID for the runId.
-            type: string
-        - description: Bearer token for authentication.
-          in: header
-          name: Authorization
-          schema:
-            description: Bearer token for authentication.
-            type: string
-        - description: User API key or internal admin API key, depending on the endpoint.
-          in: header
-          name: Credimi-Api-Key
-          schema:
-            description: User API key or internal admin API key, depending on the endpoint.
-            type: string
+      - description: The ID for the workflowId.
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          description: The ID for the workflowId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HandlersTerminateMyWorkflowRunResponse"
+                $ref: '#/components/schemas/HandlersTerminateMyWorkflowRunResponse'
           description: Successful response
         default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApierrorAPIError"
+                $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Terminate a specific workflow run
 components:
@@ -732,20 +725,20 @@ components:
         lastAttemptCompleteTime:
           type: string
         lastAttemptFailure:
-          $ref: "#/components/schemas/HandlersFailure"
+          $ref: '#/components/schemas/HandlersFailure'
         nextAttemptScheduleTime:
           type: string
         publicInfo:
-          $ref: "#/components/schemas/HandlersCallbackInfo"
+          $ref: '#/components/schemas/HandlersCallbackInfo'
         state:
           type: string
         trigger:
-          $ref: "#/components/schemas/HandlersCallbackInfo"
+          $ref: '#/components/schemas/HandlersCallbackInfo'
       type: object
     HandlersCallbackInfo:
       properties:
         callback:
-          $ref: "#/components/schemas/HandlersPayload"
+          $ref: '#/components/schemas/HandlersPayload'
         registrationTime:
           type: string
       type: object
@@ -753,7 +746,7 @@ components:
       properties:
         callbacks:
           items:
-            $ref: "#/components/schemas/HandlersCallback"
+            $ref: '#/components/schemas/HandlersCallback'
           type: array
       type: object
     HandlersCancelMyWorkflowRunResponse:
@@ -794,12 +787,12 @@ components:
     HandlersExportMyWorkflowRunResponse:
       properties:
         export:
-          $ref: "#/components/schemas/HandlersWorkflowExportData"
+          $ref: '#/components/schemas/HandlersWorkflowExportData'
       type: object
     HandlersFailure:
       properties:
         cause:
-          $ref: "#/components/schemas/HandlersFailure"
+          $ref: '#/components/schemas/HandlersFailure'
         failureInfo:
           additionalProperties:
             type: string
@@ -843,31 +836,31 @@ components:
     HandlersGetMyWorkflowRunResponse:
       properties:
         callbacks:
-          $ref: "#/components/schemas/HandlersCallbacks"
+          $ref: '#/components/schemas/HandlersCallbacks'
         executionConfig:
-          $ref: "#/components/schemas/HandlersWorkflowExecutionConfigWithMetadata"
+          $ref: '#/components/schemas/HandlersWorkflowExecutionConfigWithMetadata'
         pendingActivities:
           items:
-            $ref: "#/components/schemas/HandlersPendingActivityInfo"
+            $ref: '#/components/schemas/HandlersPendingActivityInfo'
           type: array
         pendingChildren:
           items:
-            $ref: "#/components/schemas/HandlersPendingChildren"
+            $ref: '#/components/schemas/HandlersPendingChildren'
           type: array
         pendingNexusOperations:
           items:
-            $ref: "#/components/schemas/HandlersPendingNexusOperation"
+            $ref: '#/components/schemas/HandlersPendingNexusOperation'
           type: array
         pendingWorkflowTask:
-          $ref: "#/components/schemas/HandlersPendingWorkflowTaskInfo"
+          $ref: '#/components/schemas/HandlersPendingWorkflowTaskInfo'
         workflowExecutionInfo:
-          $ref: "#/components/schemas/HandlersWorkflowExecutionInfo"
+          $ref: '#/components/schemas/HandlersWorkflowExecutionInfo'
       type: object
     HandlersListMobileRunnersPublicResponseSchema:
       properties:
         runners:
           items:
-            $ref: "#/components/schemas/HandlersMobileRunnerListItem"
+            $ref: '#/components/schemas/HandlersMobileRunnerListItem'
           nullable: true
           type: array
       type: object
@@ -875,14 +868,14 @@ components:
       properties:
         schedules:
           items:
-            $ref: "#/components/schemas/HandlersScheduleInfoSummary"
+            $ref: '#/components/schemas/HandlersScheduleInfoSummary'
           type: array
       type: object
     HandlersListMyWorkflowRunsResponse:
       properties:
         executions:
           items:
-            $ref: "#/components/schemas/HandlersWorkflowExecutionSummary"
+            $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
           nullable: true
           type: array
       type: object
@@ -890,7 +883,7 @@ components:
       properties:
         fields:
           additionalProperties:
-            $ref: "#/components/schemas/HandlersPayload"
+            $ref: '#/components/schemas/HandlersPayload'
           type: object
       type: object
     HandlersMobileRunnerHealthDevice:
@@ -914,7 +907,7 @@ components:
           type: string
         devices:
           items:
-            $ref: "#/components/schemas/HandlersMobileRunnerHealthDevice"
+            $ref: '#/components/schemas/HandlersMobileRunnerHealthDevice'
           type: array
         is_online:
           type: boolean
@@ -959,7 +952,7 @@ components:
       type: object
     HandlersPayloads:
       items:
-        $ref: "#/components/schemas/HandlersPayload"
+        $ref: '#/components/schemas/HandlersPayload'
       nullable: true
       type: array
     HandlersPendingActivityInfo:
@@ -967,7 +960,7 @@ components:
         activityId:
           type: string
         activityType:
-          $ref: "#/components/schemas/HandlersActivityType"
+          $ref: '#/components/schemas/HandlersActivityType'
         assignedBuildId:
           type: string
         attempt:
@@ -975,9 +968,9 @@ components:
         expirationTime:
           type: string
         heartbeatDetails:
-          $ref: "#/components/schemas/HandlersPayloads"
+          $ref: '#/components/schemas/HandlersPayloads'
         lastFailure:
-          $ref: "#/components/schemas/HandlersFailure"
+          $ref: '#/components/schemas/HandlersFailure'
         lastHeartbeatTime:
           type: string
         lastStartedTime:
@@ -1013,7 +1006,7 @@ components:
         lastAttemptCompleteTime:
           type: string
         lastAttemptFailure:
-          $ref: "#/components/schemas/HandlersFailure"
+          $ref: '#/components/schemas/HandlersFailure'
         nextAttemptScheduleTime:
           type: string
         operation:
@@ -1032,7 +1025,7 @@ components:
         attempt:
           type: integer
         lastFailure:
-          $ref: "#/components/schemas/HandlersFailure"
+          $ref: '#/components/schemas/HandlersFailure'
         originalScheduledTime:
           type: string
         scheduledTime:
@@ -1091,9 +1084,9 @@ components:
         pipeline_id:
           type: string
         schedule_mode:
-          $ref: "#/components/schemas/WorkflowengineScheduleMode"
+          $ref: '#/components/schemas/WorkflowengineScheduleMode'
         workflowType:
-          $ref: "#/components/schemas/HandlersWorkflowType"
+          $ref: '#/components/schemas/HandlersWorkflowType'
       type: object
     HandlersStartScheduleRequest:
       properties:
@@ -1102,7 +1095,7 @@ components:
         pipeline_id:
           type: string
         schedule_mode:
-          $ref: "#/components/schemas/WorkflowengineScheduleMode"
+          $ref: '#/components/schemas/WorkflowengineScheduleMode'
       type: object
     HandlersStartScheduleResponse:
       properties:
@@ -1111,7 +1104,7 @@ components:
         schedule_id:
           type: string
         schedule_mode:
-          $ref: "#/components/schemas/WorkflowengineScheduleMode"
+          $ref: '#/components/schemas/WorkflowengineScheduleMode'
       type: object
     HandlersTaskQueue:
       properties:
@@ -1140,9 +1133,9 @@ components:
     HandlersUserMetadata:
       properties:
         details:
-          $ref: "#/components/schemas/HandlersPayload"
+          $ref: '#/components/schemas/HandlersPayload'
         summary:
-          $ref: "#/components/schemas/HandlersPayload"
+          $ref: '#/components/schemas/HandlersPayload'
       type: object
     HandlersVersioningInfo:
       properties:
@@ -1153,15 +1146,15 @@ components:
     HandlersWorkflowExecutionConfigWithMetadata:
       properties:
         defaultWorkflowTaskTimeout:
-          $ref: "#/components/schemas/HandlersDuration"
+          $ref: '#/components/schemas/HandlersDuration'
         taskQueue:
-          $ref: "#/components/schemas/HandlersTaskQueue"
+          $ref: '#/components/schemas/HandlersTaskQueue'
         userMetadata:
-          $ref: "#/components/schemas/HandlersUserMetadata"
+          $ref: '#/components/schemas/HandlersUserMetadata'
         workflowExecutionTimeout:
-          $ref: "#/components/schemas/HandlersDuration"
+          $ref: '#/components/schemas/HandlersDuration'
         workflowRunTimeout:
-          $ref: "#/components/schemas/HandlersDuration"
+          $ref: '#/components/schemas/HandlersDuration'
       type: object
     HandlersWorkflowExecutionInfo:
       properties:
@@ -1170,7 +1163,7 @@ components:
         closeTime:
           type: string
         execution:
-          $ref: "#/components/schemas/HandlersWorkflowIdentifier"
+          $ref: '#/components/schemas/HandlersWorkflowIdentifier'
         executionTime:
           type: string
         historyLength:
@@ -1178,9 +1171,9 @@ components:
         historySizeBytes:
           type: string
         memo:
-          $ref: "#/components/schemas/HandlersMemo"
+          $ref: '#/components/schemas/HandlersMemo'
         searchAttributes:
-          $ref: "#/components/schemas/HandlersWorkflowSearchAttributes"
+          $ref: '#/components/schemas/HandlersWorkflowSearchAttributes'
         startTime:
           type: string
         stateTransitionCount:
@@ -1188,15 +1181,15 @@ components:
         status:
           type: string
         type:
-          $ref: "#/components/schemas/HandlersWorkflowType"
+          $ref: '#/components/schemas/HandlersWorkflowType'
         versioningInfo:
-          $ref: "#/components/schemas/HandlersVersioningInfo"
+          $ref: '#/components/schemas/HandlersVersioningInfo'
       type: object
     HandlersWorkflowExecutionSummary:
       properties:
         children:
           items:
-            $ref: "#/components/schemas/HandlersWorkflowExecutionSummary"
+            $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
           type: array
         displayName:
           type: string
@@ -1207,24 +1200,24 @@ components:
         enqueuedAt:
           type: string
         execution:
-          $ref: "#/components/schemas/HandlersWorkflowIdentifier"
+          $ref: '#/components/schemas/HandlersWorkflowIdentifier'
         failure_reason:
           nullable: true
           type: string
         queue:
-          $ref: "#/components/schemas/HandlersWorkflowQueueSummary"
+          $ref: '#/components/schemas/HandlersWorkflowQueueSummary'
         report:
           type: string
         results:
           items:
-            $ref: "#/components/schemas/PipelineResultsPipelineResults"
+            $ref: '#/components/schemas/PipelineResultsPipelineResults'
           type: array
         startTime:
           type: string
         status:
           type: string
         type:
-          $ref: "#/components/schemas/HandlersWorkflowType"
+          $ref: '#/components/schemas/HandlersWorkflowType'
       type: object
     HandlersWorkflowExportData:
       properties:

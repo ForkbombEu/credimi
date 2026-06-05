@@ -5,15 +5,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import { FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
-
-	import MediaPreview from '$lib/components/media-preview.svelte';
 	import type { PipelineExecutionArtifacts } from '$lib/pipeline/execution-artifacts';
+	import type { Snippet } from 'svelte';
+
+	import { FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import MediaPreview from '$lib/components/media-preview.svelte';
+	import { mergeProps } from 'bits-ui';
+
+	import type { IconComponent } from '@/components/types';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
+	import { m } from '@/i18n';
 
 	import PipelineReportSheet from './pipeline-report-sheet.svelte';
+
+	type PreviewIcon = 'image' | 'video' | 'file' | 'document';
+
+	type ArtifactButtonArgs = {
+		tooltip: string;
+		previewIcon: PreviewIcon;
+		compactIcon: IconComponent;
+		href?: string;
+		image?: string;
+		target?: string;
+		extraProps?: Record<string, unknown>;
+	};
 
 	type Props = {
 		artifacts: PipelineExecutionArtifacts;
@@ -42,68 +59,83 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class={containerClass}>
 		{#each artifacts.results as result, index (index)}
 			<div class="flex items-center gap-1">
-				{#if variant === 'preview'}
-					<MediaPreview
-						image={result.screenshot}
-						href={result.video}
-						icon="video"
-						class={previewClass}
-					/>
-					<MediaPreview
-						image={result.screenshot}
-						href={result.screenshot}
-						icon="image"
-						class={previewClass}
-					/>
-					{#if !hideLogs}
-						<MediaPreview href={result.log} icon="file" class={previewClass} />
-					{/if}
-				{:else}
-					<IconButton
-						size="mini"
-						variant="ghost"
-						icon={VideoIcon}
-						href={result.video}
-						target="_blank"
-						class="text-primary hover:bg-secondary"
-					/>
-					<IconButton
-						size="mini"
-						variant="ghost"
-						icon={ImageIcon}
-						href={result.screenshot}
-						target="_blank"
-						class="text-primary hover:bg-secondary"
-					/>
-					{#if !hideLogs}
-						<IconButton
-							size="mini"
-							variant="ghost"
-							icon={FileCogIcon}
-							href={result.log}
-							target="_blank"
-							class="text-primary hover:bg-secondary"
-						/>
-					{/if}
+				{@render artifactButton({
+					tooltip: m.pipeline_artifact_video_tooltip(),
+					previewIcon: 'video',
+					compactIcon: VideoIcon,
+					image: result.screenshot,
+					href: result.video,
+					target: '_blank'
+				})}
+				{@render artifactButton({
+					tooltip: m.pipeline_artifact_screenshot_tooltip(),
+					previewIcon: 'image',
+					compactIcon: ImageIcon,
+					image: result.screenshot,
+					href: result.screenshot,
+					target: '_blank'
+				})}
+				{#if !hideLogs}
+					{@render artifactButton({
+						tooltip: m.pipeline_artifact_log_tooltip(),
+						previewIcon: 'file',
+						compactIcon: FileCogIcon,
+						href: result.log,
+						target: '_blank'
+					})}
 				{/if}
 			</div>
 		{/each}
 		<PipelineReportSheet reportUrl={artifacts.report}>
 			{#snippet sheetTrigger({ props })}
-				{#if variant === 'preview'}
-					<MediaPreview icon="document" class={previewClass} {...props} />
-				{:else}
-					<IconButton
-						size="mini"
-						variant="ghost"
-						icon={FileIcon}
-						class="text-primary hover:bg-secondary"
-						{...props}
-					/>
-				{/if}
+				{@render artifactButton({
+					tooltip: m.pipeline_artifact_report_tooltip(),
+					previewIcon: 'document',
+					compactIcon: FileIcon,
+					extraProps: props
+				})}
 			{/snippet}
 		</PipelineReportSheet>
 	</div>
 {:else if emptyState}
 	{@render emptyState()}
 {/if}
+
+{#snippet artifactButton({
+	tooltip,
+	previewIcon,
+	compactIcon,
+	href,
+	image,
+	target,
+	extraProps = {}
+}: ArtifactButtonArgs)}
+	{#if variant === 'preview'}
+		<Tooltip>
+			{#snippet child({ props })}
+				<MediaPreview
+					{image}
+					{href}
+					icon={previewIcon}
+					class={previewClass}
+					{...mergeProps(extraProps, props)}
+				/>
+			{/snippet}
+
+			{#snippet content()}
+				<p>{tooltip}</p>
+			{/snippet}
+		</Tooltip>
+	{:else}
+		<IconButton
+			size="mini"
+			variant="ghost"
+			icon={compactIcon}
+			{href}
+			{target}
+			class="text-primary hover:bg-secondary"
+			{tooltip}
+			{...extraProps}
+		/>
+	{/if}
+{/snippet}
