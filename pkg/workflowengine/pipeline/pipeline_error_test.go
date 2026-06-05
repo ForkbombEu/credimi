@@ -12,14 +12,35 @@ import (
 )
 
 func TestBuildPipelineFailureSummary(t *testing.T) {
-	summary := buildPipelineFailureSummary([]string{
-		"CRE302: workflow engine Get a credential offer: stepci run failed",
-		"CRE228: Failed to resolve pipeline inputs: error decoding payload for step mobile",
+	summary := buildPipelineFailureSummary([]pipelineStepFailure{
+		{
+			StepID:  "get-credential",
+			Message: "CRE302: workflow engine Get a credential offer: stepci run failed",
+		},
+		{
+			StepID:  "mobile",
+			Message: "CRE228: Failed to resolve pipeline inputs: error decoding payload for step mobile",
+		},
 	})
 
 	require.Equal(
 		t,
-		"Pipeline failed: 2 steps failed",
+		"Pipeline failed: 2 steps failed (get-credential, mobile)",
+		summary,
+	)
+}
+
+func TestBuildPipelineFailureSummaryLimitsStepIDs(t *testing.T) {
+	summary := buildPipelineFailureSummary([]pipelineStepFailure{
+		{StepID: "step-1", Message: "err-1"},
+		{StepID: "step-2", Message: "err-2"},
+		{StepID: "step-3", Message: "err-3"},
+		{StepID: "step-4", Message: "err-4"},
+	})
+
+	require.Equal(
+		t,
+		"Pipeline failed: 4 steps failed (step-1, step-2, step-3, +1 more)",
 		summary,
 	)
 }

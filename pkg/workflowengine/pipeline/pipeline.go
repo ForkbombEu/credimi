@@ -6,6 +6,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -42,8 +43,14 @@ type PipelineWorkflowInput struct {
 
 type pipelineExecutionState struct {
 	errorsList     []string
+	failures       []pipelineStepFailure
 	finalOutput    map[string]any
 	previousStepID string
+}
+
+type pipelineStepFailure struct {
+	StepID  string
+	Message string
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -225,9 +232,9 @@ func (w *PipelineWorkflow) Workflow(
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 		appErr := workflowengine.NewAppError(workflowengine.WorkflowError{
 			Code:    errCode.Code,
-			Summary: buildPipelineFailureSummary(state.errorsList),
+			Summary: buildPipelineFailureSummary(state.failures),
 			Details: map[string]any{
-				"errors": buildPipelineFailureErrors(state.errorsList),
+				"errors": buildPipelineFailureErrors(state.failures),
 				"output": state.finalOutput,
 			},
 		})
@@ -277,21 +284,62 @@ func pipelineFinalResult(ctx workflow.Context, finalErr error) string {
 	return resultSuccess
 }
 
-func buildPipelineFailureSummary(errorsList []string) string {
-	if len(errorsList) == 1 {
-		return "Pipeline failed: 1 step failed"
+func buildPipelineFailureSummary(failures []pipelineStepFailure) string {
+	if len(failures) == 0 {
+		return "Pipeline failed"
 	}
-	return fmt.Sprintf("Pipeline failed: %d steps failed", len(errorsList))
+
+	var base string
+	if len(failures) == 1 {
+		base = "Pipeline failed: 1 step failed"
+	} else {
+		base = fmt.Sprintf("Pipeline failed: %d steps failed", len(failures))
+	}
+
+	stepIDs := uniqueOrderedStepIDs(failures)
+	if len(stepIDs) == 0 {
+		return base
+	}
+
+	display := stepIDs
+	if len(display) > 3 {
+		display = display[:3]
+	}
+
+	summary := fmt.Sprintf("%s (%s", base, strings.Join(display, ", "))
+	if len(stepIDs) > len(display) {
+		summary = fmt.Sprintf("%s, +%d more", summary, len(stepIDs)-len(display))
+	}
+	return summary + ")"
 }
 
-func buildPipelineFailureErrors(errorsList []string) []workflowengine.WorkflowError {
-	failures := make([]workflowengine.WorkflowError, 0, len(errorsList))
-	for _, message := range errorsList {
+func buildPipelineFailureErrors(stepFailures []pipelineStepFailure) []workflowengine.WorkflowError {
+	failures := make([]workflowengine.WorkflowError, 0, len(stepFailures))
+	for _, failure := range stepFailures {
 		failures = append(failures, workflowengine.WorkflowError{
-			Message: message,
+			Message: failure.Message,
+			Details: map[string]any{
+				"step_id": failure.StepID,
+			},
 		})
 	}
 	return failures
+}
+
+func uniqueOrderedStepIDs(failures []pipelineStepFailure) []string {
+	stepIDs := make([]string, 0, len(failures))
+	seen := make(map[string]struct{}, len(failures))
+	for _, failure := range failures {
+		if failure.StepID == "" {
+			continue
+		}
+		if _, ok := seen[failure.StepID]; ok {
+			continue
+		}
+		seen[failure.StepID] = struct{}{}
+		stepIDs = append(stepIDs, failure.StepID)
+	}
+	return stepIDs
 }
 
 func buildPipelineCleanupFailureErrors(errorsList []error) []workflowengine.WorkflowError {
@@ -307,6 +355,7 @@ func buildPipelineCleanupFailureErrors(errorsList []error) []workflowengine.Work
 func newPipelineExecutionState(workflowID string, runID string) *pipelineExecutionState {
 	return &pipelineExecutionState{
 		errorsList: []string{},
+		failures:   []pipelineStepFailure{},
 		finalOutput: map[string]any{
 			"workflow-id":     workflowID,
 			"workflow-run-id": runID,
@@ -600,6 +649,10 @@ func handleChildPipelineStepError(
 			"outputs": childOut,
 		}
 		state.errorsList = append(state.errorsList, err.Error())
+		state.failures = append(state.failures, pipelineStepFailure{
+			StepID:  step.ID,
+			Message: err.Error(),
+		})
 		return nil
 	}
 
@@ -707,6 +760,10 @@ func handleRegularStepError(
 
 	if step.ContinueOnError {
 		state.errorsList = append(state.errorsList, err.Error())
+		state.failures = append(state.failures, pipelineStepFailure{
+			StepID:  step.ID,
+			Message: err.Error(),
+		})
 		return nil
 	}
 	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]

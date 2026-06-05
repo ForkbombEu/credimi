@@ -276,7 +276,7 @@ func TestPipelineWorkflowContinueOnError(t *testing.T) {
 
 	err := env.GetWorkflowError()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Pipeline failed: 1 step failed")
+	require.Contains(t, err.Error(), "Pipeline failed: 1 step failed (step-1)")
 }
 
 func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
