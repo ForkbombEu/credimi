@@ -67,13 +67,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	let { value }: Column.Props<typeof column> = $props();
 
+	const hasReport = $derived(value?.reportPath !== undefined && value?.reportPath !== '');
+
 	const reportPromise = $derived.by(() => {
 		if (!value?.reportPath) return undefined;
 		return fetch(value.reportPath).then((res) => res.text());
 	});
 </script>
 
-{#if value && (value.groups.length > 0 || value.reportPath)}
+{#if value && (value.groups.length > 0 || hasReport)}
 	<div class="flex items-center gap-2 pr-4">
 		{#each value.groups as item (item.id)}
 			<div class="flex items-center gap-1">
@@ -95,24 +97,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 		{/each}
-		{#await reportPromise then report}
-			{#if report}
-				<Sheet>
-					{#snippet trigger({ sheetTriggerAttributes })}
-						<MediaPreview icon="document" class="size-8!" {...sheetTriggerAttributes} />
-					{/snippet}
-					{#snippet content()}
-						<div class="max-w-full min-w-0 p-4">
-							<RenderMD
-								content={report}
-								scrollableTables
-								class="prose prose-sm max-w-none prose-headings:text-primary prose-a:text-primary [&_th]:bg-secondary [&_th]:pt-2"
-							/>
-						</div>
-					{/snippet}
-				</Sheet>
-			{/if}
-		{/await}
+		{#if hasReport}
+			<Sheet>
+				{#snippet trigger({ sheetTriggerAttributes })}
+					<MediaPreview icon="document" class="size-8!" {...sheetTriggerAttributes} />
+				{/snippet}
+				{#snippet content()}
+					{#await reportPromise then report}
+						{#if report}
+							<div class="max-w-full min-w-0 p-4">
+								<RenderMD
+									content={report}
+									scrollableTables
+									class="prose prose-sm max-w-none prose-headings:text-primary prose-a:text-primary [&_th]:bg-secondary [&_th]:pt-2"
+								/>
+							</div>
+						{/if}
+					{/await}
+				{/snippet}
+			</Sheet>
+		{/if}
 	</div>
 {:else}
 	<EntityDisplay.Na />
