@@ -8,10 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ScoreboardRow } from '$lib/scoreboard/types';
 
 	import { entities, EntityTag } from '$lib/global';
-	import { getPath } from '$lib/utils';
 	import CardLink from '$lib/layout/card-link.svelte';
 	import * as EntityDisplay from '$lib/scoreboard/entity-display';
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
+	import { getPath } from '$lib/utils';
 
 	type Props = {
 		records: ScoreboardRow[];
