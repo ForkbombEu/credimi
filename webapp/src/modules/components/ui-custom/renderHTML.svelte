@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={[
-		'min-w-0 max-w-full w-full prose-a:underline prose-a:underline-offset-1 prose-strong:text-current',
+		'w-full max-w-full min-w-0 prose-a:underline prose-a:underline-offset-1 prose-strong:text-current',
 		className
 	]}
 >
