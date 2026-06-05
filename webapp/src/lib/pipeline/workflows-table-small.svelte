@@ -48,6 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
 						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
+						{@const artifacts = fromApiSummary(workflow)}
 						<tr>
 							<td>
 								<WorkflowStatusTag
@@ -66,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</td>
 
 							<td>
-								{#if fromApiSummary(workflow) as artifacts}
+								{#if artifacts}
 									<ExecutionArtifactsPreview {artifacts} variant="compact" />
 								{:else}
 									{@render na()}
