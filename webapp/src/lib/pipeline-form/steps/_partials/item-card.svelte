@@ -31,6 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		afterContent?: Snippet;
 		titleRight?: Snippet;
 		hideArrow?: boolean;
+		disabled?: boolean;
 	};
 
 	let {
@@ -45,9 +46,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		beforeContent,
 		afterContent,
 		titleRight,
-		hideArrow = false
+		hideArrow = false,
+		disabled = false
 	}: Props = $props();
-	const isInteractive = $derived(onClick !== undefined);
+	const isInteractive = $derived(onClick !== undefined && !disabled);
 
 	const classes = $derived(
 		cn('gap-3 rounded-md border border-slate-200 p-2 text-left w-full', className)
@@ -64,7 +66,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Tooltip disabled={!tooltip}>
 	{#snippet child({ props })}
-		{#if onClick}
+		{#if disabled}
+			<button
+				{disabled}
+				class={[
+					'bg-card cursor-not-allowed opacity-60 disabled:cursor-not-allowed',
+					classes
+				]}
+				{...props}
+			>
+				{@render itemContent()}
+			</button>
+		{:else if onClick}
 			<button class={['bg-card hover:ring', classes]} onclick={handleClick} {...props}>
 				{@render itemContent()}
 			</button>

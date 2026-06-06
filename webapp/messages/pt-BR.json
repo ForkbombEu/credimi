@@ -812,7 +812,7 @@
 	"Pipeline_form_missing_wallet_action_openid4vci_wallet_check": "Missing wallet action for OpenID4VCI wallet conformance check",
 	"Pipeline_form_standard_version_or_suite_not_found": "Standard, version, or suite not found",
 	"Pipeline_form_conformance_check_path_not_found": "Conformance check path not found for selected test",
-	"Pipeline_form_choose_wallet_before_openid4vci_wallet_check": "Choose a wallet before adding an OpenID4VCI wallet conformance check",
+	"Pipeline_form_choose_wallet_before_openid4vci_wallet_check": "Add a wallet step before this check. The wallet must have a \"{category}\" action.",
 	"Pipeline_form_wallet_missing_action_category": "Wallet \"{wallet}\" has no action category \"{category}\"",
 	"Pipeline_started_successfully": "Pipeline started com sucesso",
 	"Terminate": "Terminate",
