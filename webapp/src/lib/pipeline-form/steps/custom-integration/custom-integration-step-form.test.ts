@@ -17,8 +17,26 @@ vi.mock('@sjsf/form', () => ({
 	validate: vi.fn(() => ({ errors: [{ message: 'required' }] }))
 }));
 
+vi.mock('$lib/utils', () => ({
+	getPath: vi.fn((record: { canonified_name?: string }, trim?: boolean) =>
+		trim ? (record.canonified_name ?? '') : (record.canonified_name ?? '')
+	)
+}));
+
+vi.mock('./config-storage.js', () => ({
+	getStoredConfig: vi.fn(),
+	resolveInitialConfig: vi.fn((integration, explicitConfig) => {
+		if (explicitConfig !== undefined) return explicitConfig;
+		return undefined;
+	}),
+	setStoredConfig: vi.fn()
+}));
+
 import { validate } from '@sjsf/form';
 
+import { createJsonSchemaForm } from '@/components/json-schema-form';
+
+import { resolveInitialConfig, setStoredConfig } from './config-storage.js';
 import { CustomIntegrationStepForm } from './custom-integration-step-form.svelte.js';
 
 const integrationNoSchema = {
@@ -30,14 +48,22 @@ const integrationNoSchema = {
 const integrationWithSchema = {
 	id: 'ci2',
 	name: 'With Schema',
+	canonified_name: 'org/with-schema',
 	input_json_schema: { type: 'object', properties: { apiKey: { type: 'string' } } },
-	input_json_sample: { apiKey: '' }
+	input_json_sample: { apiKey: 'sample-value' }
 } as CustomChecksResponse;
 
 describe('CustomIntegrationStepForm', () => {
 	beforeEach(() => {
 		vi.mocked(validate).mockReset();
 		vi.mocked(validate).mockReturnValue({ errors: [] } as never);
+		vi.mocked(createJsonSchemaForm).mockClear();
+		vi.mocked(resolveInitialConfig).mockReset();
+		vi.mocked(resolveInitialConfig).mockImplementation((_integration, explicitConfig) => {
+			if (explicitConfig !== undefined) return explicitConfig;
+			return undefined;
+		});
+		vi.mocked(setStoredConfig).mockReset();
 	});
 
 	it('selectIntegration auto-commits on add when no schema', () => {
@@ -109,5 +135,57 @@ describe('CustomIntegrationStepForm', () => {
 		form.submit();
 		expect(onSubmit).toHaveBeenCalledOnce();
 		expect(onSubmit.mock.calls[0][0].config).toEqual({ apiKey: 'abc' });
+	});
+
+	it('selectIntegration does not pass input_json_sample to createJsonSchemaForm', () => {
+		const form = new CustomIntegrationStepForm({ intent: 'add' });
+		form.selectIntegration(integrationWithSchema);
+		expect(createJsonSchemaForm).toHaveBeenCalledWith(integrationWithSchema.input_json_schema, {
+			hideTitle: true,
+			initialValue: undefined
+		});
+	});
+
+	it('selectIntegration uses resolveInitialConfig without explicit config', () => {
+		const form = new CustomIntegrationStepForm({ intent: 'add' });
+		form.selectIntegration(integrationWithSchema);
+		expect(resolveInitialConfig).toHaveBeenCalledWith(integrationWithSchema, undefined);
+	});
+
+	it('constructor passes explicit config to resolveInitialConfig in edit mode', () => {
+		vi.mocked(resolveInitialConfig).mockReturnValue({ apiKey: 'from-yaml' });
+		new CustomIntegrationStepForm({
+			intent: 'edit',
+			initial: {
+				integration: integrationWithSchema,
+				config: { apiKey: 'from-yaml' }
+			}
+		});
+		expect(resolveInitialConfig).toHaveBeenCalledWith(integrationWithSchema, {
+			apiKey: 'from-yaml'
+		});
+	});
+
+	it('commit persists config to localStorage', () => {
+		vi.mocked(validate).mockReturnValue({ errors: [] } as never);
+		const onSubmit = vi.fn();
+		const form = new CustomIntegrationStepForm({
+			intent: 'add',
+			initial: { integration: integrationWithSchema }
+		});
+		form.onSubmit(onSubmit);
+		form.commit();
+		expect(onSubmit).toHaveBeenCalledOnce();
+		expect(setStoredConfig).toHaveBeenCalledWith('org/with-schema', { apiKey: 'abc' });
+	});
+
+	it('commit does not persist when payload is invalid', () => {
+		vi.mocked(validate).mockReturnValue({ errors: [{ message: 'required' }] } as never);
+		const form = new CustomIntegrationStepForm({
+			intent: 'add',
+			initial: { integration: integrationWithSchema }
+		});
+		form.commit();
+		expect(setStoredConfig).not.toHaveBeenCalled();
 	});
 });

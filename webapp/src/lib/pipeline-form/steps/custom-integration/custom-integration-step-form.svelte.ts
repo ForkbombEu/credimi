@@ -8,7 +8,10 @@ import type { CustomChecksResponse } from '@/pocketbase/types';
 
 import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
 
+import { getPath } from '$lib/utils';
+
 import { BaseForm, type InitFormOptions } from '../types';
+import { resolveInitialConfig, setStoredConfig } from './config-storage.js';
 import Component from './custom-integration-step-form.svelte';
 
 export type CustomIntegrationStepFormData = {
@@ -71,6 +74,15 @@ export class CustomIntegrationStepForm extends BaseForm<
 		};
 	}
 
+	commit(data?: CustomIntegrationStepFormData) {
+		const payload = data ?? this.getSubmitData();
+		if (payload === undefined) return;
+		super.commit(payload);
+		if (payload.config && payload.integration) {
+			setStoredConfig(getPath(payload.integration, true), payload.config);
+		}
+	}
+
 	selectIntegration(integration: CustomChecksResponse) {
 		this.data.integration = integration;
 		this.data.config = undefined;
@@ -99,7 +111,7 @@ export class CustomIntegrationStepForm extends BaseForm<
 		if (schema) {
 			this.jsonSchemaForm = createJsonSchemaForm(schema as object, {
 				hideTitle: true,
-				initialValue: initialConfig ?? integration.input_json_sample ?? undefined
+				initialValue: resolveInitialConfig(integration, initialConfig)
 			});
 		} else {
 			this.jsonSchemaForm = undefined;
