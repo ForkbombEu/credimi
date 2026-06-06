@@ -4,7 +4,7 @@
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./custom-integration-step-form.svelte', () => ({ default: class {} }));
 
@@ -35,6 +35,11 @@ const integrationWithSchema = {
 } as CustomChecksResponse;
 
 describe('CustomIntegrationStepForm', () => {
+	beforeEach(() => {
+		vi.mocked(validate).mockReset();
+		vi.mocked(validate).mockReturnValue({ errors: [] } as never);
+	});
+
 	it('selectIntegration auto-commits on add when no schema', () => {
 		const onSubmit = vi.fn();
 		const form = new CustomIntegrationStepForm({ intent: 'add' });
@@ -45,12 +50,21 @@ describe('CustomIntegrationStepForm', () => {
 	});
 
 	it('selectIntegration does not auto-commit on add when schema exists', () => {
+		vi.mocked(validate).mockReturnValue({ errors: [{ message: 'required' }] } as never);
 		const onSubmit = vi.fn();
 		const form = new CustomIntegrationStepForm({ intent: 'add' });
 		form.onSubmit(onSubmit);
 		form.selectIntegration(integrationWithSchema);
 		expect(onSubmit).not.toHaveBeenCalled();
 		expect(form.state).toBe('configure');
+	});
+
+	it('selectIntegration does not auto-commit on edit intent', () => {
+		const onSubmit = vi.fn();
+		const form = new CustomIntegrationStepForm({ intent: 'edit' });
+		form.onSubmit(onSubmit);
+		form.selectIntegration(integrationNoSchema);
+		expect(onSubmit).not.toHaveBeenCalled();
 	});
 
 	it('canSave is false when schema invalid', () => {
