@@ -39,8 +39,15 @@ export class CustomIntegrationStepForm extends BaseForm<
 
 	isSchemaValid = $derived.by(() => {
 		if (!this.hasSchema) return true;
-		if (!this.jsonSchemaForm) return false;
-		return (validate(this.jsonSchemaForm).errors ?? []).length === 0;
+		const jsonSchemaForm = this.jsonSchemaForm;
+		if (!jsonSchemaForm) return false;
+		getValueSnapshot(jsonSchemaForm);
+		return (validate(jsonSchemaForm).errors ?? []).length === 0;
+	});
+
+	isValid = $derived.by(() => {
+		if (!this.data.integration) return false;
+		return this.isSchemaValid;
 	});
 
 	state: FormState = $derived.by(() => {
@@ -50,7 +57,7 @@ export class CustomIntegrationStepForm extends BaseForm<
 	});
 
 	canSave() {
-		return this.state === 'ready';
+		return this.isValid;
 	}
 
 	getSubmitData(): CustomIntegrationStepFormData | undefined {

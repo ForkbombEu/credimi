@@ -54,13 +54,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#if form.jsonSchemaForm}
 			<div class="space-y-2">
-				<h3 class="text-sm font-medium">{m.Fields()}</h3>
+				<div class="flex items-center gap-2">
+					<hr class="grow border border-muted" />
+					<h3 class="text-sm text-muted-foreground">{m.Configure_integration()}</h3>
+					<hr class="grow border border-muted" />
+				</div>
 				<JsonSchemaFormComponent form={form.jsonSchemaForm} hideSubmitButton />
 			</div>
 		{/if}
 
 		{#if form.intent === 'add' && form.hasSchema}
-			<Button class="w-full" disabled={!form.canSave()} onclick={() => form.submit()}>
+			<Button class="w-full" disabled={!form.isValid} onclick={() => form.submit()}>
 				<T>{m.Add_step()}</T>
 			</Button>
 		{/if}

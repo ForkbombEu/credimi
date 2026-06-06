@@ -74,6 +74,7 @@ describe('CustomIntegrationStepForm', () => {
 			initial: { integration: integrationWithSchema, config: {} }
 		});
 		expect(form.canSave()).toBe(false);
+		expect(form.isValid).toBe(false);
 	});
 
 	it('canSave is true when schema valid', () => {
@@ -83,6 +84,7 @@ describe('CustomIntegrationStepForm', () => {
 			initial: { integration: integrationWithSchema, config: { apiKey: 'abc' } }
 		});
 		expect(form.canSave()).toBe(true);
+		expect(form.isValid).toBe(true);
 	});
 
 	it('discardIntegration clears selection and schema form', () => {
