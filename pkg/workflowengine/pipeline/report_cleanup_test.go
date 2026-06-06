@@ -52,7 +52,7 @@ func TestPipelineReportCleanupHookStoresReport(t *testing.T) {
 				}
 				payload = decoded
 			}
-			return payload.WorkflowID == "workflow-1" &&
+			return payload.WorkflowID == "default-test-workflow-id" &&
 				len(payload.Evidence.CredentialOffers) == 1
 		}),
 	).Return(
@@ -87,8 +87,8 @@ func TestPipelineReportCleanupHookStoresReport(t *testing.T) {
 				payload.URL,
 				"/api/pipeline/pipeline-execution-results/report",
 			) &&
-				body["workflow_id"] == "workflow-1" &&
-				body["run_id"] == "run-1" &&
+				body["workflow_id"] == "default-test-workflow-id" &&
+				body["run_id"] == "default-test-run-id" &&
 				body["filename"] == "workflow-1.md" &&
 				body["markdown"] == "# Report"
 		}),
@@ -100,7 +100,7 @@ func TestPipelineReportCleanupHookStoresReport(t *testing.T) {
 }
 
 func TestPipelineReportCleanupHookWarnsWhenEvidenceMissing(t *testing.T) {
-	finalOutput := map[string]any{"workflow-id": "workflow-1", "workflow-run-id": "run-1"}
+	finalOutput := map[string]any{"workflow_id": "workflow-1", "run_id": "run-1"}
 	evidence, ok := pipelineEvidenceFromRunData(nil)
 	require.False(t, ok)
 	require.Empty(t, evidence)
@@ -117,7 +117,7 @@ func TestPipelineReportCleanupHookWarnsWhenEvidenceMissing(t *testing.T) {
 }
 
 func TestPipelineReportCleanupHookWarnsWhenAppURLMissing(t *testing.T) {
-	finalOutput := map[string]any{"workflow-id": "workflow-1", "workflow-run-id": "run-1"}
+	finalOutput := map[string]any{"workflow_id": "workflow-1", "run_id": "run-1"}
 	err := PipelineReportCleanupHook(
 		nil,
 		&pipelineinternal.WorkflowDefinition{
@@ -162,12 +162,18 @@ func TestPipelineReportCleanupHelpers(t *testing.T) {
 	require.Equal(t, "# Report", result.Markdown)
 	require.Equal(t, "workflow-1.md", result.Filename)
 
-	finalOutput := map[string]any{"workflow-id": "workflow-1"}
+	finalOutput := map[string]any{"workflow_id": "workflow-1"}
 	copied := copyStringAnyMap(&finalOutput)
-	copied["workflow-id"] = "changed"
-	require.Equal(t, "workflow-1", finalOutput["workflow-id"])
-	require.Equal(t, "workflow-1", stringFinalOutputValue(&finalOutput, "workflow-id"))
-	require.Empty(t, stringFinalOutputValue(nil, "workflow-id"))
+	copied["workflow_id"] = "changed"
+	require.Equal(t, "workflow-1", finalOutput["workflow_id"])
+	require.Equal(t, "workflow-1", stringFinalOutputValue(&finalOutput, "workflow_id"))
+	require.Empty(t, stringFinalOutputValue(nil, "workflow_id"))
+	workflowID, runID := pipelineWorkflowIDs(nil, &map[string]any{
+		"workflow_id": "workflow-1",
+		"run_id":      "run-1",
+	})
+	require.Equal(t, "workflow-1", workflowID)
+	require.Equal(t, "run-1", runID)
 }
 
 func TestPipelineReportCleanupHookSkipsWithoutEvidenceSteps(t *testing.T) {
@@ -191,10 +197,7 @@ func TestPipelineReportCleanupHookSkipsWithoutEvidenceSteps(t *testing.T) {
 func pipelineReportCleanupHookTestWorkflow(ctx workflow.Context) (map[string]any, error) {
 	ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 	ctx = workflow.WithActivityOptions(ctx, ao)
-	finalOutput := map[string]any{
-		"workflow-id":     "workflow-1",
-		"workflow-run-id": "run-1",
-	}
+	finalOutput := map[string]any{}
 	runData := map[string]any{
 		pipelineEvidenceRunDataKey: activities.PipelineEvidenceExtractionOutput{
 			CredentialOffers: []map[string]any{

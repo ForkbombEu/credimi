@@ -30,8 +30,8 @@ func TestPipelineReportGenerationActivityExecute(t *testing.T) {
 					},
 				},
 				PipelineOutput: map[string]any{
-					"workflow-id":     "workflow-1",
-					"workflow-run-id": "run-1",
+					"workflow_id":     "workflow-1",
+					"run_id":          "run-1",
 					"credential-step": map[string]any{"outputs": map[string]any{"status": "ok"}},
 				},
 				Evidence: PipelineEvidenceExtractionOutput{
