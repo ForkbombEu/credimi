@@ -9,7 +9,7 @@ import { getPath } from '$lib/utils';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 
-import { m } from '@/i18n/index.js';
+import { localizeHref, m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase';
 
 import type { TypedConfig } from '../types';
@@ -48,7 +48,7 @@ export const customCheckStepConfig: TypedConfig<'custom-check', CustomIntegratio
 		title: integration.name,
 		copyText: getPath(integration, true),
 		avatar: integration.logo ? pb.files.getURL(integration, integration.logo) : undefined,
-		publicUrl: getCustomCheckPublicUrl(integration)
+		publicUrl: localizeHref(getCustomCheckPublicUrl(integration))
 	}),
 	makeId: ({ check_id }) => getLastPathSegment(check_id ?? 'custom-check-unknown')
 };
