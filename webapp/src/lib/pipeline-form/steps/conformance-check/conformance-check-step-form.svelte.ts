@@ -134,6 +134,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 				return { test, testName, enabled: false };
 			}
 
+			// Task 2: replace with resolveWalletActionSelection + select-wallet-action funnel step
 			const action = this.walletActions.current?.find(
 				(entry) => entry.category === OPENID4VCI_WALLET_ACTION_CATEGORY
 			);
@@ -242,7 +243,7 @@ type Version = Standard['versions'][number];
 type Suite = Version['suites'][number];
 type Test = Suite['paths'][number];
 
-function getWalletTestBlockReason(
+export function getWalletTestBlockReason(
 	wallet: HubItem | undefined,
 	walletActions: {
 		loading: boolean;
