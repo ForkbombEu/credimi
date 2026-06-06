@@ -59,28 +59,6 @@ export const useCaseVerificationStepConfig: TypedConfig<'use-case-verification-d
 
 //
 
-export const customCheckStepConfig: TypedConfig<'custom-check', HubItem> = {
-	use: 'custom-check',
-	display: entities.custom_checks,
-	initForm: (opts) =>
-		new HubItemStepForm(
-			{
-				collection: 'custom_checks',
-				entityData: entities.custom_checks
-			},
-			opts
-		),
-	serialize: (item) => ({ check_id: getPath(item) }),
-	deserialize: async ({ check_id }) => {
-		if (!check_id) throw new Error(m.Pipeline_form_missing_check_id());
-		return getHubItemByPath(check_id);
-	},
-	cardData: getHubItemCardData,
-	makeId: ({ check_id }) => getLastPathSegment(check_id ?? 'custom-check-unknown')
-};
-
-//
-
 function getHubItemCardData(item: HubItem) {
 	return {
 		title: item.name,
