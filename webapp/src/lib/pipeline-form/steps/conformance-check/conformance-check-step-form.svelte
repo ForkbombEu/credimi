@@ -115,11 +115,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<ItemCard title={suite.name} onClick={() => form.selectSuite(suite)} />
 						{/each}
 					{:else if form.state === 'select-test'}
-						{#each form.availableTests as test (test)}
-							{@const testName = test.split('/').at(-1)}
+						{#each form.testOptions as option (option.test)}
 							<ItemCard
-								title={testName ?? test}
-								onClick={() => form.selectTest(test)}
+								title={option.testName}
+								subtitle={option.subtitle}
+								disabled={!option.enabled}
+								onClick={option.enabled ? () => form.selectTest(option) : undefined}
 							/>
 						{/each}
 					{/if}

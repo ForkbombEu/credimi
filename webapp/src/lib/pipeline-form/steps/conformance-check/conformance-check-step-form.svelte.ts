@@ -7,10 +7,9 @@ import { getPath } from '$lib/utils';
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
-import type { WalletActionsResponse } from '@/pocketbase/types';
-
 import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
+import { WalletActionsCategoryOptions, type WalletActionsResponse } from '@/pocketbase/types';
 
 import { ExecutionTarget } from '../../execution-target';
 import { BaseForm, type InitFormOptions } from '../types';
@@ -18,7 +17,7 @@ import Component from './conformance-check-step-form.svelte';
 
 //
 
-const OPENID4VCI_WALLET_ACTION_CATEGORY = 'get-credential-generic';
+const OPENID4VCI_WALLET_ACTION_CATEGORY = WalletActionsCategoryOptions['get-credential-generic'];
 
 export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceCheckStepForm> {
 	readonly Component = Component;
@@ -29,6 +28,22 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 			const result = await getStandardsWithTestSuites({ forPipeline: true });
 			if (result instanceof Error) throw result;
 			return result;
+		},
+		{}
+	);
+
+	walletActions = resource(
+		() => ExecutionTarget.state.current?.wallet?.id,
+		async (walletId) => {
+			if (!walletId) return null;
+
+			return pb.collection('wallet_actions').getFullList<WalletActionsResponse>({
+				filter: pb.filter('wallet = {:wallet} && category ~ {:category}', {
+					wallet: walletId,
+					category: OPENID4VCI_WALLET_ACTION_CATEGORY
+				}),
+				sort: 'created'
+			});
 		},
 		{}
 	);
@@ -77,6 +92,58 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	availableSuites = $derived(this.data.version?.suites ?? []);
 	availableTests = $derived(this.data.suite?.paths ?? []);
 
+	testOptions: TestOption[] = $derived.by(() => {
+		const wallet = ExecutionTarget.state.current?.wallet;
+
+		return this.availableTests.map((test) => {
+			const testName = test.split('/').at(-1) ?? test;
+
+			if (!test.startsWith('openid4vci_wallet')) {
+				return { test, testName, enabled: true };
+			}
+
+			if (!wallet) {
+				return {
+					test,
+					testName,
+					enabled: false,
+					subtitle: m.Pipeline_form_choose_wallet_before_openid4vci_wallet_check()
+				};
+			}
+
+			if (this.walletActions.loading) {
+				return { test, testName, enabled: false, subtitle: m.Loading() };
+			}
+
+			if (this.walletActions.error) {
+				return {
+					test,
+					testName,
+					enabled: false,
+					subtitle: this.walletActions.error.message
+				};
+			}
+
+			const action = this.walletActions.current?.find(
+				(entry) => entry.category === OPENID4VCI_WALLET_ACTION_CATEGORY
+			);
+
+			if (!action) {
+				return {
+					test,
+					testName,
+					enabled: false,
+					subtitle: m.Pipeline_form_wallet_missing_action_category({
+						wallet: wallet.name,
+						category: OPENID4VCI_WALLET_ACTION_CATEGORY
+					})
+				};
+			}
+
+			return { test, testName, enabled: true, action_id: getPath(action) };
+		});
+	});
+
 	async selectStandard(standard: Standard) {
 		this.data.standard = standard;
 		await tick();
@@ -97,19 +164,24 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		this.data.suite = suite;
 		await tick();
 		if (this.availableTests?.length === 1) {
-			await this.selectTest(this.availableTests[0]);
+			const option = this.testOptions[0];
+			if (option?.enabled) {
+				this.selectTest(option);
+			}
 		}
 	}
 
-	async selectTest(test: Test) {
-		const action_id = test.startsWith('openid4vci_wallet')
-			? await getOpenID4VCIWalletActionId()
-			: undefined;
+	selectTest(option: TestOption) {
+		if (!option.enabled) return;
 
-		this.data.test = test;
-		this.data.action_id = action_id;
+		this.data.test = option.test;
+		this.data.action_id = option.action_id;
 		if (this.intent === 'add') {
-			this.commit({ ...this.data, test, action_id } as FormData);
+			this.commit({
+				...this.data,
+				test: option.test,
+				action_id: option.action_id
+			} as FormData);
 		}
 	}
 
@@ -144,6 +216,14 @@ export type FormData = {
 	action_id?: string;
 };
 
+export type TestOption = {
+	test: Test;
+	testName: string;
+	enabled: boolean;
+	subtitle?: string;
+	action_id?: string;
+};
+
 export type FormState =
 	| 'select-standard'
 	| 'select-version'
@@ -159,30 +239,3 @@ type Standard = StandardsWithTestSuites[number];
 type Version = Standard['versions'][number];
 type Suite = Version['suites'][number];
 type Test = Suite['paths'][number];
-
-async function getOpenID4VCIWalletActionId() {
-	const wallet = ExecutionTarget.state.current?.wallet;
-	if (!wallet) {
-		throw new Error(m.Pipeline_form_choose_wallet_before_openid4vci_wallet_check());
-	}
-	const actions = await pb.collection('wallet_actions').getFullList<WalletActionsResponse>({
-		filter: pb.filter('wallet = {:wallet} && category ~ {:category}', {
-			wallet: wallet.id,
-			category: OPENID4VCI_WALLET_ACTION_CATEGORY
-		}),
-		sort: 'created'
-	});
-
-	const action = actions.find((action) => action.category === OPENID4VCI_WALLET_ACTION_CATEGORY);
-
-	if (!action) {
-		throw new Error(
-			m.Pipeline_form_wallet_missing_action_category({
-				wallet: wallet.name,
-				category: OPENID4VCI_WALLET_ACTION_CATEGORY
-			})
-		);
-	}
-
-	return getPath(action);
-}
