@@ -115,10 +115,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<ItemCard title={suite.name} onClick={() => form.selectSuite(suite)} />
 						{/each}
 					{:else if form.state === 'select-test'}
+						{#if form.testPickerNotice.kind === 'loading'}
+							<div class="flex items-center gap-2 text-sm text-muted-foreground">
+								<Spinner />
+								<T>{m.Loading()}</T>
+							</div>
+						{:else if form.testPickerNotice.kind === 'alert'}
+							<div
+								class="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+								role="alert"
+							>
+								<TriangleAlert size={16} class="mt-0.5 shrink-0" />
+								<T>{form.testPickerNotice.message}</T>
+							</div>
+						{/if}
 						{#each form.testOptions as option (option.test)}
 							<ItemCard
 								title={option.testName}
-								subtitle={option.subtitle}
 								disabled={!option.enabled}
 								onClick={option.enabled ? () => form.selectTest(option) : undefined}
 							/>

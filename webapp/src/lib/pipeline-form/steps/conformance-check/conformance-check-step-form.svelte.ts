@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { HubItem } from '$lib/hub';
+
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { getPath } from '$lib/utils';
 import { resource } from 'runed';
@@ -92,8 +94,34 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	availableSuites = $derived(this.data.version?.suites ?? []);
 	availableTests = $derived(this.data.suite?.paths ?? []);
 
+	hasWalletTests = $derived(
+		this.availableTests.some((test) => test.startsWith('openid4vci_wallet'))
+	);
+
+	testPickerNotice: TestPickerNotice = $derived.by(() => {
+		if (!this.hasWalletTests) {
+			return { kind: 'none' };
+		}
+
+		const wallet = ExecutionTarget.state.current?.wallet;
+
+		if (wallet && this.walletActions.loading) {
+			return { kind: 'loading' };
+		}
+
+		const message = getWalletTestBlockReason(wallet, this.walletActions);
+		if (message) {
+			return { kind: 'alert', message };
+		}
+
+		return { kind: 'none' };
+	});
+
 	testOptions: TestOption[] = $derived.by(() => {
 		const wallet = ExecutionTarget.state.current?.wallet;
+		const walletTestsBlocked =
+			this.hasWalletTests &&
+			(!wallet || this.walletActions.loading || getWalletTestBlockReason(wallet, this.walletActions));
 
 		return this.availableTests.map((test) => {
 			const testName = test.split('/').at(-1) ?? test;
@@ -102,45 +130,15 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 				return { test, testName, enabled: true };
 			}
 
-			if (!wallet) {
-				return {
-					test,
-					testName,
-					enabled: false,
-					subtitle: m.Pipeline_form_choose_wallet_before_openid4vci_wallet_check()
-				};
-			}
-
-			if (this.walletActions.loading) {
-				return { test, testName, enabled: false, subtitle: m.Loading() };
-			}
-
-			if (this.walletActions.error) {
-				return {
-					test,
-					testName,
-					enabled: false,
-					subtitle: this.walletActions.error.message
-				};
+			if (walletTestsBlocked) {
+				return { test, testName, enabled: false };
 			}
 
 			const action = this.walletActions.current?.find(
 				(entry) => entry.category === OPENID4VCI_WALLET_ACTION_CATEGORY
 			);
 
-			if (!action) {
-				return {
-					test,
-					testName,
-					enabled: false,
-					subtitle: m.Pipeline_form_wallet_missing_action_category({
-						wallet: wallet.name,
-						category: OPENID4VCI_WALLET_ACTION_CATEGORY
-					})
-				};
-			}
-
-			return { test, testName, enabled: true, action_id: getPath(action) };
+			return { test, testName, enabled: true, action_id: getPath(action!) };
 		});
 	});
 
@@ -220,9 +218,13 @@ export type TestOption = {
 	test: Test;
 	testName: string;
 	enabled: boolean;
-	subtitle?: string;
 	action_id?: string;
 };
+
+export type TestPickerNotice =
+	| { kind: 'none' }
+	| { kind: 'loading' }
+	| { kind: 'alert'; message: string };
 
 export type FormState =
 	| 'select-standard'
@@ -239,3 +241,39 @@ type Standard = StandardsWithTestSuites[number];
 type Version = Standard['versions'][number];
 type Suite = Version['suites'][number];
 type Test = Suite['paths'][number];
+
+function getWalletTestBlockReason(
+	wallet: HubItem | undefined,
+	walletActions: {
+		loading: boolean;
+		error: Error | undefined;
+		current: WalletActionsResponse[] | null | undefined;
+	}
+): string | null {
+	if (!wallet) {
+		return m.Pipeline_form_choose_wallet_before_openid4vci_wallet_check({
+			category: OPENID4VCI_WALLET_ACTION_CATEGORY
+		});
+	}
+
+	if (walletActions.loading) {
+		return null;
+	}
+
+	if (walletActions.error) {
+		return walletActions.error.message;
+	}
+
+	const action = walletActions.current?.find(
+		(entry) => entry.category === OPENID4VCI_WALLET_ACTION_CATEGORY
+	);
+
+	if (!action) {
+		return m.Pipeline_form_wallet_missing_action_category({
+			wallet: wallet.name,
+			category: OPENID4VCI_WALLET_ACTION_CATEGORY
+		});
+	}
+
+	return null;
+}

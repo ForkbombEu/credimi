@@ -147,3 +147,31 @@ Optional v1: extract a pure `getWalletTestEligibility({ test, wallet, actions, l
 - Eligibility must react when `ExecutionTarget.state.current` changes (e.g. user adds a wallet step before opening conformance check).
 - Do not filter out disabled tests from the list — they remain visible with explanation.
 - `item-card.svelte` async error handler (`showPipelineFormError`) remains for other callers; disabled wallet checks never reach it via click.
+
+---
+
+## Addendum (2026-06-06): Grouped notice above test list
+
+**Status:** Approved  
+**Replaces:** Per-card subtitles for wallet-check disable reasons.
+
+### Change
+
+When `openid4vci_wallet*` tests are disabled for a shared precondition, show **one notice above the test list** instead of repeating the same subtitle on every disabled card.
+
+| Condition | Above-list UI |
+|-----------|---------------|
+| Suite has wallet tests + wallet set + actions loading | Compact **spinner** + `Loading()` (not yellow alert) |
+| Suite has disabled wallet tests + actions resolved | **Yellow alert** (`border-amber-200 bg-amber-50 text-amber-800`) with shared message |
+| All wallet tests enabled, or no wallet tests in suite | Nothing |
+
+Disabled wallet cards keep muted/disabled styling only — **no subtitle**.
+
+Mixed suites: alert explains wallet precondition; non-wallet tests remain enabled below.
+
+### Implementation
+
+- `testPickerNotice` derived on form: `{ kind: 'none' | 'loading' | 'alert' }`
+- `getWalletTestBlockReason()` shared helper for alert message + eligibility
+- `TestOption` drops `subtitle` field
+- Template renders notice then list in `select-test` state
