@@ -105,6 +105,26 @@ describe('getWalletTestBlockReason', () => {
 	});
 });
 
+describe('ConformanceCheckStepForm discard cascade', () => {
+	it('discardSuite clears test and action_id', () => {
+		const form = new ConformanceCheckStepForm({
+			initial: {
+				standard: { uid: 's', name: 'S', versions: [] } as never,
+				version: { uid: 'v', name: 'V', suites: [] } as never,
+				suite: { uid: 'su', name: 'Su', paths: [] } as never,
+				test: 'openid4vci_wallet/foo',
+				action_id: 'owners/w/actions/a1'
+			}
+		});
+
+		form.discardSuite();
+
+		expect(form.data.suite).toBeUndefined();
+		expect(form.data.test).toBeUndefined();
+		expect(form.data.action_id).toBeUndefined();
+	});
+});
+
 describe('ConformanceCheckStepForm edit intent', () => {
 	it('selectWalletAction does not commit until commit()', () => {
 		const onSubmit = vi.fn();

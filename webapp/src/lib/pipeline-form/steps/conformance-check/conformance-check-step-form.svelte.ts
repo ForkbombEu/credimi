@@ -232,6 +232,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	//
 
 	discardSuite() {
+		this.discardTest();
 		this.data.suite = undefined;
 	}
 
