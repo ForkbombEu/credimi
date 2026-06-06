@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <BasicForm
 	{form}
 	class={[
-		'space-y-6',
+		hideSubmitButton ? undefined : 'space-y-6',
 		className,
 		{
 			'[&>button[type=submit]]:hidden': hideSubmitButton

@@ -3,12 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { getValueSnapshot, validate } from '@sjsf/form';
+import { getPath } from '$lib/utils';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 
 import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
-
-import { getPath } from '$lib/utils';
 
 import { BaseForm, type InitFormOptions } from '../types';
 import { resolveInitialConfig, setStoredConfig } from './config-storage.js';

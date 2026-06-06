@@ -53,12 +53,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</WithLabel>
 
 		{#if form.jsonSchemaForm}
-			<div class="space-y-2">
-				<div class="flex items-center gap-2">
-					<hr class="grow border border-muted" />
-					<h3 class="text-sm text-muted-foreground">{m.Configure_integration()}</h3>
-					<hr class="grow border border-muted" />
-				</div>
+			<div class="space-y-4 rounded-md border border-slate-200 bg-slate-50 p-2">
+				<h3 class="text-sm text-muted-foreground">{m.Configure_integration()}</h3>
 				<JsonSchemaFormComponent form={form.jsonSchemaForm} hideSubmitButton />
 			</div>
 		{/if}
