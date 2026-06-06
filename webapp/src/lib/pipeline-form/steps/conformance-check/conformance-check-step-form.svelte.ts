@@ -223,6 +223,10 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	discardWalletAction() {
 		this.data.action_id = undefined;
+		const selection = resolveWalletActionSelection(this.genericCredentialActions);
+		if (selection.kind === 'auto') {
+			this.data.action_id = getPath(selection.action);
+		}
 	}
 
 	//
