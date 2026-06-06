@@ -7,6 +7,13 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('./conformance-check-step-form.svelte', () => ({ default: class {} }));
 // Avoids uuid import failure when loading conformance-check-step-form module graph in Vitest.
 vi.mock('@forkbombeu/temporal-ui', () => ({}));
+vi.mock('runed', () => ({
+	resource: () => ({
+		loading: false,
+		error: undefined,
+		current: null
+	})
+}));
 const i18nMocks = vi.hoisted(() => ({
 	Pipeline_form_choose_wallet_before_openid4vci_wallet_check: ({ category }: { category: string }) =>
 		`choose-wallet:${category}`,
@@ -32,6 +39,7 @@ vi.mock('@/i18n', () => ({
 }));
 
 import {
+	ConformanceCheckStepForm,
 	getWalletTestBlockReason,
 	resolveWalletActionSelection,
 	type WalletActionSelection
@@ -94,6 +102,21 @@ describe('getWalletTestBlockReason', () => {
 		}
 	])('$name', ({ wallet: testWallet, walletActions, expected }) => {
 		expect(getWalletTestBlockReason(testWallet, walletActions)).toBe(expected);
+	});
+});
+
+describe('ConformanceCheckStepForm edit intent', () => {
+	it('selectWalletAction does not commit until commit()', () => {
+		const onSubmit = vi.fn();
+		const form = new ConformanceCheckStepForm({
+			intent: 'edit',
+			initial: { action_id: 'old/action/path' }
+		});
+		form.onSubmit(onSubmit);
+		const newAction = { __canonified_path__: 'new/action/path' } as never;
+		form.selectWalletAction(newAction);
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(form.data.action_id).toBe('new/action/path');
 	});
 });
 
