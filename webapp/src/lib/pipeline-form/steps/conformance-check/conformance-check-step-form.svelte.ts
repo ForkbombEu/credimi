@@ -264,11 +264,9 @@ function getWalletTestBlockReason(
 		return walletActions.error.message;
 	}
 
-	const action = walletActions.current?.find(
-		(entry) => entry.category === OPENID4VCI_WALLET_ACTION_CATEGORY
-	);
+	const actions = walletActions.current ?? [];
 
-	if (!action) {
+	if (actions.length === 0) {
 		return m.Pipeline_form_wallet_missing_action_category({
 			wallet: wallet.name,
 			category: OPENID4VCI_WALLET_ACTION_CATEGORY
@@ -276,4 +274,21 @@ function getWalletTestBlockReason(
 	}
 
 	return null;
+}
+
+export type WalletActionSelection =
+	| { kind: 'blocked' }
+	| { kind: 'auto'; action: WalletActionsResponse }
+	| { kind: 'picker' };
+
+export function isOpenId4VciWalletTest(test: string) {
+	return test.startsWith('openid4vci_wallet');
+}
+
+export function resolveWalletActionSelection(
+	actions: WalletActionsResponse[]
+): WalletActionSelection {
+	if (actions.length === 0) return { kind: 'blocked' };
+	if (actions.length === 1) return { kind: 'auto', action: actions[0]! };
+	return { kind: 'picker' };
 }
