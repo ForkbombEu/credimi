@@ -82,6 +82,11 @@ func PipelineEvidenceSetupHook(
 	if len(output.CredentialWellKnowns) == 0 && len(output.PresentationResults) == 0 {
 		return nil
 	}
+	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
+	if workflowID == "" || runID == "" {
+		appendSetupWarning(finalOutput, "pipeline evidence storage skipped: missing workflow_id or run_id")
+		return nil
+	}
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	updateReq := workflowengine.ActivityInput{
@@ -97,8 +102,8 @@ func PipelineEvidenceSetupHook(
 			ExpectedStatus: http.StatusOK,
 			Timeout:        "30",
 			Body: map[string]any{
-				"workflow_id":            finalOutputValue(finalOutput, "workflow-id"),
-				"run_id":                 finalOutputValue(finalOutput, "workflow-run-id"),
+				"workflow_id":            workflowID,
+				"run_id":                 runID,
 				"credential_well_knowns": output.CredentialWellKnowns,
 				"presentation_results":   output.PresentationResults,
 			},

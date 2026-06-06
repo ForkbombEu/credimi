@@ -471,8 +471,8 @@ func collectFinallyOutputs(finalOutput map[string]any) map[string]any {
 
 	for key, value := range finalOutput {
 		switch key {
-		case "workflow-id",
-			"workflow-run-id",
+		case "workflow_id",
+			"run_id",
 			"result_video_warning",
 			setupWarningsOutputKey,
 			"cleanup_warnings",
