@@ -82,6 +82,13 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		} else if (standard && version && suite && !test) {
 			return 'select-test';
 		} else if (standard && version && suite && test) {
+			if (
+				isOpenId4VciWalletTest(test) &&
+				resolveWalletActionSelection(this.genericCredentialActions).kind === 'picker' &&
+				!this.data.action_id
+			) {
+				return 'select-wallet-action';
+			}
 			return 'ready';
 		} else {
 			throw new Error(m.Pipeline_form_invalid_state());
@@ -95,8 +102,17 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	availableTests = $derived(this.data.suite?.paths ?? []);
 
 	hasWalletTests = $derived(
-		this.availableTests.some((test) => test.startsWith('openid4vci_wallet'))
+		this.availableTests.some((test) => isOpenId4VciWalletTest(test))
 	);
+
+	genericCredentialActions = $derived(this.walletActions.current ?? []);
+
+	selectedWalletAction = $derived.by(() => {
+		if (!this.data.action_id) return undefined;
+		return this.genericCredentialActions.find(
+			(action) => getPath(action) === this.data.action_id
+		);
+	});
 
 	testPickerNotice: TestPickerNotice = $derived.by(() => {
 		if (!this.hasWalletTests) {
@@ -126,7 +142,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		return this.availableTests.map((test) => {
 			const testName = test.split('/').at(-1) ?? test;
 
-			if (!test.startsWith('openid4vci_wallet')) {
+			if (!isOpenId4VciWalletTest(test)) {
 				return { test, testName, enabled: true };
 			}
 
@@ -134,12 +150,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 				return { test, testName, enabled: false };
 			}
 
-			// Task 2: replace with resolveWalletActionSelection + select-wallet-action funnel step
-			const action = this.walletActions.current?.find(
-				(entry) => entry.category === OPENID4VCI_WALLET_ACTION_CATEGORY
-			);
-
-			return { test, testName, enabled: true, action_id: getPath(action!) };
+			return { test, testName, enabled: true };
 		});
 	});
 
@@ -174,18 +185,44 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		if (!option.enabled) return;
 
 		this.data.test = option.test;
-		this.data.action_id = option.action_id;
+
+		if (!isOpenId4VciWalletTest(option.test)) {
+			this.data.action_id = undefined;
+			if (this.intent === 'add') {
+				this.commit({ ...this.data, test: option.test } as FormData);
+			}
+			return;
+		}
+
+		const selection = resolveWalletActionSelection(this.genericCredentialActions);
+		if (selection.kind === 'auto') {
+			this.data.action_id = getPath(selection.action);
+			if (this.intent === 'add') {
+				this.commit({
+					...this.data,
+					test: option.test,
+					action_id: this.data.action_id
+				} as FormData);
+			}
+		} else {
+			this.data.action_id = undefined;
+		}
+	}
+
+	selectWalletAction(action: WalletActionsResponse) {
+		this.data.action_id = getPath(action);
 		if (this.intent === 'add') {
-			this.commit({
-				...this.data,
-				test: option.test,
-				action_id: option.action_id
-			} as FormData);
+			this.commit({ ...this.data, action_id: this.data.action_id } as FormData);
 		}
 	}
 
 	discardTest() {
 		this.data.test = undefined;
+		this.data.action_id = undefined;
+	}
+
+	discardWalletAction() {
+		this.data.action_id = undefined;
 	}
 
 	//
@@ -219,7 +256,6 @@ export type TestOption = {
 	test: Test;
 	testName: string;
 	enabled: boolean;
-	action_id?: string;
 };
 
 export type TestPickerNotice =
@@ -232,6 +268,7 @@ export type FormState =
 	| 'select-version'
 	| 'select-suite'
 	| 'select-test'
+	| 'select-wallet-action'
 	| 'ready'
 	| 'loading'
 	| 'error';
