@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { CustomChecksResponse } from '@/pocketbase/types';
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { CustomChecksResponse } from '@/pocketbase/types';
 
 vi.mock('$lib/canonify/index.js', () => ({
 	getRecordByCanonifiedPath: vi.fn()
@@ -12,7 +12,7 @@ vi.mock('$lib/canonify/index.js', () => ({
 
 vi.mock('$lib/utils', () => ({
 	getPath: vi.fn((record: { canonified_name?: string }, trim?: boolean) =>
-		trim ? record.canonified_name ?? '' : record.canonified_name ?? ''
+		trim ? (record.canonified_name ?? '') : (record.canonified_name ?? '')
 	)
 }));
 

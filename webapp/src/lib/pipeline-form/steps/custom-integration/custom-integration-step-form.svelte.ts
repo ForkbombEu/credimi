@@ -84,7 +84,10 @@ export class CustomIntegrationStepForm extends BaseForm<
 		this.commit();
 	}
 
-	private initJsonSchemaForm(integration: CustomChecksResponse, initialConfig?: Record<string, unknown>) {
+	private initJsonSchemaForm(
+		integration: CustomChecksResponse,
+		initialConfig?: Record<string, unknown>
+	) {
 		const schema = integration.input_json_schema;
 		if (schema) {
 			this.jsonSchemaForm = createJsonSchemaForm(schema as object, {

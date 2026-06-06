@@ -81,7 +81,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet item({ record, onSelect })}
 			{@const integration = record as CustomChecksResponse}
 			<ItemCard
-				avatar={integration.logo ? pb.files.getURL(integration, integration.logo) : undefined}
+				avatar={integration.logo
+					? pb.files.getURL(integration, integration.logo)
+					: undefined}
 				title={integration.name}
 				subtitle={ownerSubtitle(integration)}
 				onClick={() => onSelect(record)}

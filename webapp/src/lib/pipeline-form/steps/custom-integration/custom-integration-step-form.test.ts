@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { CustomChecksResponse } from '@/pocketbase/types';
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { CustomChecksResponse } from '@/pocketbase/types';
 
 vi.mock('./custom-integration-step-form.svelte', () => ({ default: class {} }));
 

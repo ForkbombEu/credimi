@@ -9,6 +9,7 @@ import { m } from '@/i18n';
 import type { AnyConfig } from './types';
 
 import { conformanceCheckStepConfig } from './conformance-check';
+import { customCheckStepConfig } from './custom-integration';
 import * as hubSteps from './hub-item';
 import * as utilsSteps from './utils-steps';
 import { walletActionStepConfig } from './wallet-action';
@@ -25,7 +26,7 @@ export const coreConfigs: AnyConfig[] = [
 	hubSteps.credentialsStepConfig,
 	hubSteps.useCaseVerificationStepConfig,
 	conformanceCheckStepConfig,
-	hubSteps.customCheckStepConfig
+	customCheckStepConfig
 ];
 
 export const configs: AnyConfig[] = [...coreConfigs, ...utilsConfigs];
