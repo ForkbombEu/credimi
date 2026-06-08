@@ -12,7 +12,7 @@ require (
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.6.0
-	github.com/forkbombeu/credimi-conformance-assessment v1.3.0
+	github.com/forkbombeu/credimi-conformance-assessment v1.3.1
 	github.com/forkbombeu/credimi-extra v1.10.4
 	github.com/forkbombeu/eudi-conformance-evidence v1.0.2
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
