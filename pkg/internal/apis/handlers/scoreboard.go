@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -918,7 +919,7 @@ func getPipelineResultFromRecord(
 		return "", "", ""
 	}
 
-	results := computePipelineResultsFromRecord(app, record)
+	results := pipelineresults.ComputePipelineResultsFromRecord(app, record)
 	if len(results) == 0 {
 		return "", "", ""
 	}

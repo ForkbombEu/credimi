@@ -223,7 +223,8 @@ func resolveSuiteSetup(
 	switch suite {
 	case workflows.OpenIDConformanceSuite:
 		if standard == workflows.OpenID4VCIIssuerStandard ||
-			standard == workflows.OpenID4VPVerifierStandard {
+			standard == workflows.OpenID4VPVerifierStandard ||
+			standard == workflows.OpenID4VCIWalletStandard {
 			var testVal string
 			if tVal, ok := tpl["test"].(string); ok {
 				testVal = tVal
@@ -235,6 +236,9 @@ func resolveSuiteSetup(
 			)
 			if standard == workflows.OpenID4VPVerifierStandard {
 				return extra, workflows.OpenID4VPVerifierStepCITemplatePath, nil
+			}
+			if standard == workflows.OpenID4VCIWalletStandard {
+				return extra, workflows.OpenID4VCIWalletStepCITemplatePath, nil
 			}
 			return extra, workflows.OpenID4VCIIssuerStepCITemplatePath, nil
 		}

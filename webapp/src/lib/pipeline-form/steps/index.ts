@@ -4,9 +4,12 @@
 
 import type { PipelineStepType } from '$lib/pipeline/types';
 
+import { m } from '@/i18n';
+
 import type { AnyConfig } from './types';
 
 import { conformanceCheckStepConfig } from './conformance-check';
+import { customCheckStepConfig } from './custom-integration';
 import * as hubSteps from './hub-item';
 import * as utilsSteps from './utils-steps';
 import { walletActionStepConfig } from './wallet-action';
@@ -23,14 +26,14 @@ export const coreConfigs: AnyConfig[] = [
 	hubSteps.credentialsStepConfig,
 	hubSteps.useCaseVerificationStepConfig,
 	conformanceCheckStepConfig,
-	hubSteps.customCheckStepConfig
+	customCheckStepConfig
 ];
 
 export const configs: AnyConfig[] = [...coreConfigs, ...utilsConfigs];
 
 export function getConfigByType(type: PipelineStepType): AnyConfig {
 	const config = configs.find((c) => c.use === type);
-	if (!config) throw new Error(`Unknown step type: ${type}`);
+	if (!config) throw new Error(m.Pipeline_form_unknown_step_type({ type }));
 	return config;
 }
 

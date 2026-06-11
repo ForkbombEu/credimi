@@ -8,9 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { SelfProp } from '$lib/renderable';
 
 	import { TriangleAlert } from '@lucide/svelte';
+	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
+	import * as Wallet from '$lib/wallet';
 
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
 	import type { ConformanceCheckStepForm } from './conformance-check-step-form.svelte.js';
@@ -36,6 +39,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return m.Suite();
 		} else if (form.state === 'select-test') {
 			return m.Test();
+		} else if (form.state === 'select-wallet-action') {
+			return m.Wallet_action();
 		} else {
 			return '';
 		}
@@ -90,6 +95,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						/>
 					</WithLabel>
 				{/if}
+				{#if form.data.action_id && form.selectedWalletAction}
+					<WithLabel label={m.Wallet_action()}>
+						<ItemCard
+							title={form.selectedWalletAction.name}
+							onDiscard={() => form.discardWalletAction()}
+						/>
+					</WithLabel>
+				{/if}
 			</div>
 		{/if}
 
@@ -115,12 +128,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<ItemCard title={suite.name} onClick={() => form.selectSuite(suite)} />
 						{/each}
 					{:else if form.state === 'select-test'}
-						{#each form.availableTests as test (test)}
-							{@const testName = test.split('/').at(-1)}
+						{#if form.testPickerNotice.kind === 'loading'}
+							<div class="flex items-center gap-2 text-sm text-muted-foreground">
+								<Spinner />
+								<T>{m.Loading()}</T>
+							</div>
+						{:else if form.testPickerNotice.kind === 'alert'}
+							<div
+								class="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+								role="alert"
+							>
+								<TriangleAlert size={16} class="mt-0.5 shrink-0" />
+								<T>{form.testPickerNotice.message}</T>
+							</div>
+						{/if}
+						{#each form.testOptions as option (option.test)}
 							<ItemCard
-								title={testName ?? test}
-								onClick={() => form.selectTest(test)}
+								title={option.testName}
+								disabled={!option.enabled}
+								onClick={option.enabled ? () => form.selectTest(option) : undefined}
 							/>
+						{/each}
+					{:else if form.state === 'select-wallet-action'}
+						{#each form.genericCredentialActions as action (action.id)}
+							<ItemCard
+								title={action.name}
+								onClick={() => form.selectWalletAction(action)}
+							>
+								{#snippet beforeContent()}
+									{@const category = Wallet.Action.getCategoryLabel(action)}
+									{#if category}
+										<T class="text-xs text-muted-foreground">{category}</T>
+									{/if}
+								{/snippet}
+								{#snippet afterContent()}
+									<WalletActionTags
+										{action}
+										variant="secondary"
+										containerClass="pt-2"
+									>
+										{#if !action.published}
+											<Badge variant="outline">
+												{m.private()}
+											</Badge>
+										{/if}
+									</WalletActionTags>
+								{/snippet}
+							</ItemCard>
 						{/each}
 					{/if}
 				</div>

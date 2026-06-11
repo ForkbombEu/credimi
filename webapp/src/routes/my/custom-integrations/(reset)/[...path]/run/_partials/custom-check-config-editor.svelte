@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { editor }: { editor: CustomCheckConfigEditor } = $props();
 </script>
 
-<div class="-mb-6 space-y-6">
+<div class="space-y-6">
 	<div class="flex gap-6">
 		{#if editor.jsonSchemaForm}
 			<div class="grow basis-1 space-y-6">

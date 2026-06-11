@@ -17,9 +17,10 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/logo"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	walletversions "github.com/forkbombeu/credimi/pkg/internal/wallet_versions"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
@@ -66,6 +67,7 @@ func Setup(app *pocketbase.PocketBase) {
 	apis.HookTurnstileVerification(app)
 	logo.LogoHooks(app)
 	walletversions.WalletVersionHooks(app)
+	pipelineresults.RegisterPipelineResultsHooks(app)
 	// apis.IssuersRoutes.Add(app)
 
 	jsvm.MustRegister(app, jsvm.Config{

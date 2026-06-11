@@ -53,13 +53,14 @@ func PipelineReportCleanupHook(
 	cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 
 	reportActivity := activities.NewPipelineReportGenerationActivity()
+	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
 	reportReq := workflowengine.ActivityInput{
 		Payload: activities.PipelineReportGenerationInput{
 			WorkflowDefinition: wfDef,
 			PipelineOutput:     copyStringAnyMap(finalOutput),
 			Evidence:           evidence,
-			WorkflowID:         stringFinalOutputValue(finalOutput, "workflow-id"),
-			RunID:              stringFinalOutputValue(finalOutput, "workflow-run-id"),
+			WorkflowID:         workflowID,
+			RunID:              runID,
 		},
 	}
 
@@ -91,6 +92,13 @@ func PipelineReportCleanupHook(
 	if strings.TrimSpace(reportOutput.Markdown) == "" {
 		return nil
 	}
+	if workflowID == "" || runID == "" {
+		appendCleanupWarning(
+			finalOutput,
+			"pipeline report storage skipped: missing workflow_id or run_id",
+		)
+		return nil
+	}
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	updateReq := workflowengine.ActivityInput{
@@ -106,8 +114,8 @@ func PipelineReportCleanupHook(
 			ExpectedStatus: http.StatusOK,
 			Timeout:        "30",
 			Body: map[string]any{
-				"workflow_id": stringFinalOutputValue(finalOutput, "workflow-id"),
-				"run_id":      stringFinalOutputValue(finalOutput, "workflow-run-id"),
+				"workflow_id": workflowID,
+				"run_id":      runID,
 				"filename":    reportOutput.Filename,
 				"markdown":    reportOutput.Markdown,
 			},
@@ -167,6 +175,21 @@ func decodePipelineReportOutput(
 		return out, fmt.Errorf("decode output: %w", err)
 	}
 	return out, nil
+}
+
+func pipelineWorkflowIDs(ctx workflow.Context, finalOutput *map[string]any) (string, string) {
+	workflowID := stringFinalOutputValue(finalOutput, "workflow_id")
+	runID := stringFinalOutputValue(finalOutput, "run_id")
+	if (workflowID == "" || runID == "") && ctx != nil {
+		info := workflow.GetInfo(ctx)
+		if workflowID == "" {
+			workflowID = info.WorkflowExecution.ID
+		}
+		if runID == "" {
+			runID = info.WorkflowExecution.RunID
+		}
+	}
+	return workflowID, runID
 }
 
 func copyStringAnyMap(value *map[string]any) map[string]any {

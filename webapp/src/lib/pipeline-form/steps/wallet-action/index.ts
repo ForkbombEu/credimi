@@ -64,8 +64,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	makeId: (data) => {
 		if (!('action_id' in data) || !('version_id' in data)) {
-			console.log(data);
-			throw new Error('Invalid data');
+			throw new Error(m.Pipeline_form_invalid_step_data());
 		}
 		return getLastPathSegment(data.action_id);
 	},
@@ -109,7 +108,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	deserialize: async (data) => {
 		if (!('action_id' in data) || !('version_id' in data)) {
-			throw new Error('Invalid data');
+			throw new Error(m.Pipeline_form_invalid_step_data());
 		}
 
 		const action = await getRecordByCanonifiedPath<WalletActionsResponse>(data.action_id);

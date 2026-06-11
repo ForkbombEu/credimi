@@ -7,7 +7,7 @@ import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/index.j
 import { entities } from '$lib/global/entities.js';
 import { getStandardsWithTestSuites } from '$lib/standards';
 
-import { localizeHref } from '@/i18n/index.js';
+import { localizeHref, m } from '@/i18n/index.js';
 
 import type { TypedConfig } from '../types';
 
@@ -24,11 +24,21 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	initForm: (opts) => new ConformanceCheckStepForm(opts),
 
-	serialize: ({ test }) => {
+	serialize: ({ test, action_id }) => {
 		type StepData = PipelineStepData<PipelineStepByType<'conformance-check'>>;
 		const _with: StepData = { check_id: test };
 		if (test.startsWith('openid4vci_issuer') || test.startsWith('openid4vp_verifier')) {
 			_with.parameters = { deeplink: '<placeholder>' };
+		} else if (test.startsWith('openid4vci_wallet')) {
+			if (!action_id) {
+				throw new Error(m.Pipeline_form_missing_wallet_action_openid4vci_wallet_check());
+			}
+			_with.parameters = {
+				workflow_id: '${{ workflow_id }}',
+				run_id: '${{ run_id }}',
+				organization_id: '${{ organization_id }}',
+				action_id
+			};
 		}
 		return _with;
 	},
@@ -51,9 +61,9 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	makeId: ({ check_id }) => getLastPathSegment(check_id),
 
-	deserialize: async ({ check_id }) => {
+	deserialize: async ({ check_id, parameters }) => {
 		const chunks = check_id.split('/');
-		if (chunks.length !== 4) throw new Error('Invalid check_id');
+		if (chunks.length !== 4) throw new Error(m.Pipeline_form_invalid_check_id());
 
 		const [standardUid, versionUid, suiteUid, test] = chunks;
 		const standardsWithTestSuites = await getStandardsWithTestSuites();
@@ -64,20 +74,21 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		const suite = version?.suites.find((suite) => suite.uid === suiteUid);
 
 		if (!standard || !version || !suite)
-			throw new Error('Standard, version, or suite not found');
+			throw new Error(m.Pipeline_form_standard_version_or_suite_not_found());
 
 		return {
 			standard,
 			version,
 			suite,
-			test
+			test,
+			action_id: typeof parameters?.action_id === 'string' ? parameters.action_id : undefined
 		};
 	},
 
 	cardData: ({ suite, test, standard }) => {
 		const testPath = suite.paths.find((path) => path.endsWith(test));
 		if (testPath === undefined) {
-			throw new Error('Conformance check path not found for selected test');
+			throw new Error(m.Pipeline_form_conformance_check_path_not_found());
 		}
 		return {
 			title: test.split('/').at(-1) ?? '',

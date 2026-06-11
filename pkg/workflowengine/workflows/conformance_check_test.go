@@ -798,6 +798,87 @@ func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
+func TestStartCheckWorkflowOpenID4VCIWallet(t *testing.T) {
+	t.Setenv("OPENIDNET_TOKEN", "test_token")
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		stepCIActivity.Execute,
+		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	childOpenID := NewOpenID4VPWalletLogsWorkflow()
+	env.RegisterWorkflowWithOptions(
+		childOpenID.Workflow,
+		workflow.RegisterOptions{Name: childOpenID.Name()},
+	)
+	w := NewStartCheckWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	env.OnActivity(
+		stepCIActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			data, ok := payload["data"].(map[string]any)
+			if !ok {
+				return false
+			}
+			return data["action_id"] == "org/wallet/get-credential" &&
+				data["organization_id"] == "org" &&
+				data["run_id"] == "run-1" &&
+				data["test"] == "wallet-test" &&
+				data["workflow_id"] == "workflow-1"
+		}),
+	).Return(workflowengine.ActivityResult{
+		Output: map[string]any{
+			"captures": map[string]any{
+				"deeplink":  "openid-credential-offer://wallet-test",
+				"runner_id": "runner-wallet-789",
+			},
+		},
+	}, nil).Once()
+	env.OnWorkflow(childOpenID.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.WorkflowResult{}, nil).Maybe()
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: StartCheckWorkflowPayload{
+			Suite:    OpenIDConformanceSuite,
+			Standard: OpenID4VCIWalletStandard,
+			CheckID:  "wallet-check",
+			TestName: "wallet-test",
+			Parameters: map[string]any{
+				"action_id":       "org/wallet/get-credential",
+				"organization_id": "org",
+				"run_id":          "run-1",
+				"workflow_id":     "workflow-1",
+			},
+		},
+		Config: map[string]any{
+			"app_url":   "https://test-app.com",
+			"template":  "test-template",
+			"namespace": "test-namespace",
+		},
+		ActivityOptions: &DefaultActivityOptions,
+	})
+
+	require.NoError(t, env.GetWorkflowError())
+
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "Check completed successfully", result.Message)
+	output, ok := result.Output.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "openid-credential-offer://wallet-test", output["deeplink"])
+	require.NotEmpty(t, output["child_id"])
+	env.AssertExpectations(t)
+}
+
 func TestRunStepCIAndSendMailMissingCaptures(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

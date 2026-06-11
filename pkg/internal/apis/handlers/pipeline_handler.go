@@ -121,6 +121,14 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			},
 		},
 		{
+			Method:         http.MethodPost,
+			Path:           "/mobile-flow",
+			Handler:        HandlePipelineMobileFlow,
+			RequestSchema:  PipelineMobileFlowInput{},
+			ResponseSchema: PipelineMobileFlowResponse{},
+			Description:    "Run a wallet mobile action on the initialized device reserved by a running pipeline",
+		},
+		{
 			Method:        http.MethodPost,
 			Path:          "/pipeline-execution-results",
 			Handler:       HandleSetPipelineExecutionResults,
@@ -941,6 +949,15 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 		}
 
 		selectedExecutions := selectTopExecutionsByPipeline(allExecutions, 5)
+
+		if err := attachPipelineArtifactsToSummaries(e.App, organization.Id, selectedExecutions); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"database",
+				"failed to fetch pipeline results",
+				err.Error(),
+			).JSON(e)
+		}
 
 		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
 		runnerCache := map[string]map[string]any{}

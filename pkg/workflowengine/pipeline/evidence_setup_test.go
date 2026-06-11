@@ -113,8 +113,8 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 			)
 			body, ok := payload.Body.(map[string]any)
 			require.True(t, ok)
-			require.Equal(t, "workflow-1", body["workflow_id"])
-			require.Equal(t, "run-1", body["run_id"])
+			require.Equal(t, "default-test-workflow-id", body["workflow_id"])
+			require.Equal(t, "default-test-run-id", body["run_id"])
 			require.Len(t, body["credential_well_knowns"], 1)
 			require.Len(t, body["presentation_results"], 1)
 			return true
@@ -144,10 +144,10 @@ func TestPipelineEvidenceSetupHelpers(t *testing.T) {
 	require.False(t, hasPipelineEvidenceStep(&pipelineinternal.WorkflowDefinition{}))
 	require.False(t, hasPipelineEvidenceStep(nil))
 
-	finalOutput := map[string]any{"workflow-id": "workflow-1"}
+	finalOutput := map[string]any{"workflow_id": "workflow-1"}
 	appendSetupWarning(&finalOutput, "warning-1")
 	appendSetupWarnings(&finalOutput, []string{"warning-2"})
-	require.Equal(t, "workflow-1", finalOutputValue(&finalOutput, "workflow-id"))
+	require.Equal(t, "workflow-1", finalOutputValue(&finalOutput, "workflow_id"))
 	require.Nil(t, finalOutputValue(&finalOutput, "missing"))
 	require.Equal(t, []string{"warning-1", "warning-2"}, finalOutput[setupWarningsOutputKey])
 }
@@ -168,10 +168,7 @@ func testPipelineEvidenceSetupWorkflow(ctx workflow.Context) (map[string]any, er
 		},
 	}
 	runData := map[string]any{}
-	finalOutput := map[string]any{
-		"workflow-id":     "workflow-1",
-		"workflow-run-id": "run-1",
-	}
+	finalOutput := map[string]any{}
 	err := PipelineEvidenceSetupHook(
 		ctx,
 		wfDef,

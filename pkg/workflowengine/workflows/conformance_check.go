@@ -192,11 +192,13 @@ func conformanceCheckStandard(payload StartCheckWorkflowPayload, config map[stri
 }
 
 func conformanceCheckNeedsDeeplinkOutput(standard string) bool {
-	return standard != OpenID4VPVerifierStandard && standard != OpenID4VCIIssuerStandard
+	return standard != OpenID4VPVerifierStandard &&
+		standard != OpenID4VCIIssuerStandard
 }
 
 func isOpenIDAutomatedConformanceStandard(standard string) bool {
-	return standard == OpenID4VPVerifierStandard || standard == OpenID4VCIIssuerStandard
+	return standard == OpenID4VPVerifierStandard ||
+		standard == OpenID4VCIIssuerStandard
 }
 
 func conformanceCheckSessionID(payload StartCheckWorkflowPayload, captures map[string]any) string {

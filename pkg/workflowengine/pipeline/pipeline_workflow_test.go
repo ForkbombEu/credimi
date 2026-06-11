@@ -853,6 +853,9 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 									"pipeline_url":    "${{pipeline_url}}",
 									"input_value":     "${{inputs.tenant}}",
 									"pipeline_output": "${{pipeline_output}}",
+									"workflow_id":     "${{workflow_id}}",
+									"run_id":          "${{run_id}}",
+									"organization_id": "${{organization_id}}",
 								},
 							},
 						},
@@ -909,6 +912,9 @@ func TestPipelineWorkflowFinallyWithHTTP(t *testing.T) {
 		capturedFinallyBody["pipeline_url"],
 	)
 	require.Equal(t, "acme", capturedFinallyBody["input_value"])
+	require.Equal(t, "default-test-workflow-id", capturedFinallyBody["workflow_id"])
+	require.Equal(t, "default-test-run-id", capturedFinallyBody["run_id"])
+	require.Equal(t, "default-test-namespace", capturedFinallyBody["organization_id"])
 
 	pipelineOutput, ok := capturedFinallyBody["pipeline_output"].(map[string]any)
 	require.True(t, ok)

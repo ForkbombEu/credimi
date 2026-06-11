@@ -27,6 +27,8 @@ const (
 
 	childPipelineStepUse = "child-pipeline"
 	httpRequestStepUse   = "http-request"
+
+	PipelineMobileDevicesQuery = "GetPipelineMobileDevices"
 )
 
 type PipelineWorkflow struct{}
@@ -139,7 +141,9 @@ func (w *PipelineWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
-	state := newPipelineExecutionState(workflowID, runID)
+	state := &pipelineExecutionState{
+		finalOutput: map[string]any{},
+	}
 	if hasMobileAutomationStep(wfDef.Steps) {
 		state.finalOutput["result_video_warning"] = "Video recordings are limited to 30 minutes. " +
 			"Tests exceeding this duration may result in an incomplete video."
@@ -155,6 +159,11 @@ func (w *PipelineWorkflow) Workflow(
 
 	if input.ParentRunData != nil {
 		runData = input.ParentRunData
+	}
+	if err := workflow.SetQueryHandler(ctx, PipelineMobileDevicesQuery, func() (map[string]any, error) {
+		return getOrCreateSettedDevices(&runData), nil
+	}); err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
 	defer func() {
@@ -182,7 +191,13 @@ func (w *PipelineWorkflow) Workflow(
 			wfDef.Name,
 			runMetadata.TemporalUI,
 			finalResult,
-			buildFinallyPipelineOutput(state.finalOutput, runMetadata.TemporalUI, finalErr),
+			buildFinallyPipelineOutput(
+				state.finalOutput,
+				runMetadata.TemporalUI,
+				workflowID,
+				runID,
+				finalErr,
+			),
 			state.finalOutput,
 			logger,
 			&finallyErrors,
@@ -482,7 +497,7 @@ func buildEnrichedStepInputs(
 	pipelineURL string,
 	hasErrors bool,
 ) map[string]any {
-	return enrichDataContext(
+	enriched := enrichDataContext(
 		buildPipelineStepInputs(
 			finalOutput,
 			payload,
@@ -492,19 +507,33 @@ func buildEnrichedStepInputs(
 		hasErrors,
 		workflow.Now(ctx).Format(time.RFC3339),
 	)
+	addPipelineExecutionContext(ctx, enriched)
+	return enriched
+}
+
+func addPipelineExecutionContext(ctx workflow.Context, dataCtx map[string]any) {
+	if dataCtx == nil {
+		return
+	}
+	info := workflow.GetInfo(ctx)
+	dataCtx["workflow_id"] = info.WorkflowExecution.ID
+	dataCtx["run_id"] = info.WorkflowExecution.RunID
+	dataCtx["organization_id"] = info.Namespace
 }
 
 func buildFinallyPipelineOutput(
 	finalOutput map[string]any,
 	pipelineURL string,
+	workflowID string,
+	runID string,
 	finalErr error,
 ) map[string]any {
 	pipelineOutput := map[string]any{
 		"outputs": collectFinallyOutputs(finalOutput),
 		"metadata": map[string]any{
 			"pipeline_url":    pipelineURL,
-			"workflow_id":     finalOutput["workflow-id"],
-			"workflow_run_id": finalOutput["workflow-run-id"],
+			"workflow_id":     workflowID,
+			"workflow_run_id": runID,
 		},
 	}
 
@@ -529,8 +558,8 @@ func collectFinallyOutputs(finalOutput map[string]any) map[string]any {
 
 	for key, value := range finalOutput {
 		switch key {
-		case "workflow-id",
-			"workflow-run-id",
+		case "workflow_id",
+			"run_id",
 			"result_video_warning",
 			setupWarningsOutputKey,
 			"cleanup_warnings",
@@ -1131,6 +1160,7 @@ func runFinallySteps(
 		)
 		enrichedStepInputs["result"] = finalResult
 		enrichedStepInputs["pipeline_output"] = pipelineOutput
+		addPipelineExecutionContext(ctx, enrichedStepInputs)
 
 		_, err := ExecuteStep(
 			step.ID,
