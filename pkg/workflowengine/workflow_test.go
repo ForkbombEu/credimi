@@ -72,11 +72,30 @@ func (t *testWorkflow) GetOptions() workflow.ActivityOptions {
 
 func TestNewWorkflowError_NonApplicationError(t *testing.T) {
 	baseErr := errors.New("plain error")
-	metadata := &WorkflowRunMetadata{WorkflowName: "wf", TemporalUI: "https://temporal.test"}
+	metadata := &WorkflowRunMetadata{
+		WorkflowName: "wf",
+		WorkflowID:   "wf-1",
+		RunID:        "run-1",
+		Namespace:    "default",
+		TemporalUI:   "https://temporal.test",
+	}
 
 	got := NewWorkflowError(baseErr, metadata)
 
-	require.Equal(t, baseErr, got)
+	var appErr *temporal.ApplicationError
+	require.ErrorAs(t, got, &appErr)
+	require.Equal(t, errorcodes.Codes[errorcodes.UnexpectedWorkflowError].Code, appErr.Type())
+
+	var details WorkflowError
+	require.NoError(t, appErr.Details(&details))
+	require.Equal(t, errorcodes.Codes[errorcodes.UnexpectedWorkflowError].Code, details.Code)
+	require.Equal(t, errorcodes.Codes[errorcodes.UnexpectedWorkflowError].Description, details.Summary)
+	require.Equal(t, "plain error", details.Message)
+	require.Equal(t, "wf", details.WorkflowName)
+	require.Equal(t, "wf-1", details.WorkflowID)
+	require.Equal(t, "run-1", details.RunID)
+	require.Equal(t, "default", details.Namespace)
+	require.Equal(t, "https://temporal.test", details.TemporalUI)
 }
 
 func TestNewWorkflowError_WrapsTemporalApplicationError(t *testing.T) {

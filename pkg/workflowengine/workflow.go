@@ -131,9 +131,18 @@ func BuildWorkflow(
 }
 
 func NewWorkflowError(err error, metadata *WorkflowRunMetadata) error {
+	if err == nil {
+		return nil
+	}
+
 	failure := ParseWorkflowError(err)
 	if isEmptyWorkflowError(failure) {
-		return err
+		errCode := errorcodes.Codes[errorcodes.UnexpectedWorkflowError]
+		failure = WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: err.Error(),
+		}
 	}
 
 	applyWorkflowRunMetadata(&failure, metadata)
