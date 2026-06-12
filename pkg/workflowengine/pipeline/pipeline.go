@@ -6,7 +6,6 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -47,11 +46,6 @@ type pipelineExecutionState struct {
 	failures       []pipelineStepFailure
 	finalOutput    map[string]any
 	previousStepID string
-}
-
-type pipelineStepFailure struct {
-	StepID  string
-	Message string
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -243,20 +237,7 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	if len(state.failures) > 0 {
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		appErr := workflowengine.NewAppError(workflowengine.WorkflowError{
-			Code:    errCode.Code,
-			Summary: buildPipelineFailureSummary(state.failures),
-			Details: map[string]any{
-				"errors": buildPipelineFailureErrors(state.failures),
-				"output": state.finalOutput,
-			},
-		})
-
-		finalErr = workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-		)
+		finalErr = newPipelineExecutionError(state.failures, state.finalOutput, runMetadata)
 		result = workflowengine.WorkflowResult{}
 		return result, finalErr
 	}
@@ -296,60 +277,6 @@ func pipelineFinalResult(ctx workflow.Context, finalErr error) string {
 		return resultFailed
 	}
 	return resultSuccess
-}
-
-func buildPipelineFailureSummary(failures []pipelineStepFailure) string {
-	var base string
-	if len(failures) == 1 {
-		base = "Pipeline failed: 1 step failed"
-	} else {
-		base = fmt.Sprintf("Pipeline failed: %d steps failed", len(failures))
-	}
-
-	stepIDs := uniqueOrderedStepIDs(failures)
-	if len(stepIDs) == 0 {
-		return base
-	}
-
-	display := stepIDs
-	if len(display) > 3 {
-		display = display[:3]
-	}
-
-	summary := fmt.Sprintf("%s (%s", base, strings.Join(display, ", "))
-	if len(stepIDs) > len(display) {
-		summary = fmt.Sprintf("%s, +%d more", summary, len(stepIDs)-len(display))
-	}
-	return summary + ")"
-}
-
-func buildPipelineFailureErrors(stepFailures []pipelineStepFailure) []workflowengine.WorkflowError {
-	failures := make([]workflowengine.WorkflowError, 0, len(stepFailures))
-	for _, failure := range stepFailures {
-		failures = append(failures, workflowengine.WorkflowError{
-			Message: failure.Message,
-			Details: map[string]any{
-				"step_id": failure.StepID,
-			},
-		})
-	}
-	return failures
-}
-
-func uniqueOrderedStepIDs(failures []pipelineStepFailure) []string {
-	stepIDs := make([]string, 0, len(failures))
-	seen := make(map[string]struct{}, len(failures))
-	for _, failure := range failures {
-		if failure.StepID == "" {
-			continue
-		}
-		if _, ok := seen[failure.StepID]; ok {
-			continue
-		}
-		seen[failure.StepID] = struct{}{}
-		stepIDs = append(stepIDs, failure.StepID)
-	}
-	return stepIDs
 }
 
 func buildPipelineCleanupFailureErrors(errorsList []error) []workflowengine.WorkflowError {
@@ -672,10 +599,7 @@ func handleChildPipelineStepError(
 		true,
 	)
 	if step.ContinueOnError {
-		state.failures = append(state.failures, pipelineStepFailure{
-			StepID:  step.ID,
-			Message: err.Error(),
-		})
+		state.failures = append(state.failures, newPipelineStepFailure(step.ID, err))
 		if out := workflowengine.ExtractOutputFromError(err); out != nil {
 			childOut = out
 		}
@@ -704,7 +628,8 @@ func handleChildPipelineStepError(
 		logger,
 	)
 
-	return workflowengine.NewWorkflowError(err, runMetadata)
+	failures := prependPipelineStepFailure(newPipelineStepFailure(step.ID, err), state.failures)
+	return newPipelineExecutionError(failures, state.finalOutput, runMetadata)
 }
 
 func (w *PipelineWorkflow) executeRegularStep(
@@ -813,10 +738,7 @@ func handleRegularStepError(
 		true,
 	)
 	if step.ContinueOnError {
-		state.failures = append(state.failures, pipelineStepFailure{
-			StepID:  step.ID,
-			Message: err.Error(),
-		})
+		state.failures = append(state.failures, newPipelineStepFailure(step.ID, err))
 		state.failures = runStepErrorHooks(
 			ctx,
 			step,
@@ -837,19 +759,18 @@ func handleRegularStepError(
 		config,
 		logger,
 	)
-	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-	appErr := workflowengine.NewAppError(
-		workflowengine.WorkflowError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
-			Details: map[string]any{
-				"step_id": step.ID,
-				"output":  state.finalOutput,
-			},
-		},
-	)
-	return workflowengine.NewWorkflowError(appErr, runMetadata)
+	failures := prependPipelineStepFailure(newPipelineStepFailure(step.ID, err), state.failures)
+	return newPipelineExecutionError(failures, state.finalOutput, runMetadata)
+}
+
+func prependPipelineStepFailure(
+	failure pipelineStepFailure,
+	failures []pipelineStepFailure,
+) []pipelineStepFailure {
+	out := make([]pipelineStepFailure, 0, len(failures)+1)
+	out = append(out, failure)
+	out = append(out, failures...)
+	return out
 }
 
 func runStepErrorHooks(
@@ -1118,10 +1039,7 @@ func executeEventSteps[T any](
 
 		_, execErr := execute(eventStep, ctx, config, stepInputs, aO)
 		if execErr != nil {
-			failures = append(failures, pipelineStepFailure{
-				StepID:  stepID(eventStep),
-				Message: execErr.Error(),
-			})
+			failures = append(failures, newPipelineStepFailure(stepID(eventStep), execErr))
 		}
 	}
 	return failures

@@ -6,6 +6,7 @@ package workflowengine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
+	commonpb "go.temporal.io/api/common/v1"
+	failurepb "go.temporal.io/api/failure/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
@@ -128,18 +131,11 @@ func BuildWorkflow(
 }
 
 func NewWorkflowError(err error, metadata *WorkflowRunMetadata) error {
-	var appErr *temporal.ApplicationError
-	if !temporal.IsApplicationError(err) || !errors.As(err, &appErr) {
+	failure := ParseWorkflowError(err)
+	if isEmptyWorkflowError(failure) {
 		return err
 	}
 
-	failure := workflowErrorFromApplicationError(appErr)
-	if failure.Code == "" {
-		failure.Code = appErr.Type()
-	}
-	if failure.Summary == "" {
-		failure.Summary = appErr.Message()
-	}
 	applyWorkflowRunMetadata(&failure, metadata)
 
 	return temporal.NewApplicationError(
@@ -150,26 +146,122 @@ func NewWorkflowError(err error, metadata *WorkflowRunMetadata) error {
 }
 
 func workflowErrorFromApplicationError(appErr *temporal.ApplicationError) WorkflowError {
+	failure, _ := workflowErrorFromDetailDecoder(
+		appErr.Type(),
+		appErr.Message(),
+		func(target any) bool {
+			return decodeApplicationErrorDetails(appErr, target)
+		},
+	)
+	return failure
+}
+
+func workflowErrorFromDetailDecoder(
+	fallbackCode string,
+	fallbackSummary string,
+	decode func(any) bool,
+) (WorkflowError, bool) {
 	var failure WorkflowError
-	if decodeApplicationErrorDetails(appErr, &failure) && failure.Code != "" {
-		return failure
+	if decode(&failure) && failure.Code != "" {
+		return applyWorkflowErrorFallback(failure, fallbackCode, fallbackSummary), true
 	}
 
 	var activityErr ActivityError
-	if decodeApplicationErrorDetails(appErr, &activityErr) && activityErr.Code != "" {
-		return WorkflowError{
-			Code:         activityErr.Code,
-			Summary:      activityErr.Summary,
-			Message:      activityErr.Message,
-			ActivityName: activityErr.ActivityName,
-			Details:      activityErr.Details,
+	if decode(&activityErr) && activityErr.Code != "" {
+		return applyWorkflowErrorFallback(workflowErrorFromActivityError(activityErr), fallbackCode, fallbackSummary), true
+	}
+
+	return fallbackWorkflowError(fallbackCode, fallbackSummary)
+}
+
+func workflowErrorFromPayloads(
+	payloads []*commonpb.Payload,
+	fallbackCode string,
+	fallbackSummary string,
+) (WorkflowError, bool) {
+	for _, payload := range payloads {
+		var failure WorkflowError
+		if err := json.Unmarshal(payload.GetData(), &failure); err == nil && failure.Code != "" {
+			return applyWorkflowErrorFallback(failure, fallbackCode, fallbackSummary), true
 		}
 	}
 
-	return WorkflowError{
-		Code:    appErr.Type(),
-		Summary: appErr.Message(),
+	for _, payload := range payloads {
+		var activityErr ActivityError
+		if err := json.Unmarshal(payload.GetData(), &activityErr); err == nil && activityErr.Code != "" {
+			return applyWorkflowErrorFallback(
+				workflowErrorFromActivityError(activityErr),
+				fallbackCode,
+				fallbackSummary,
+			), true
+		}
 	}
+
+	return fallbackWorkflowError(fallbackCode, fallbackSummary)
+}
+
+func workflowErrorFromActivityError(activityErr ActivityError) WorkflowError {
+	return WorkflowError{
+		Code:         activityErr.Code,
+		Summary:      activityErr.Summary,
+		Message:      activityErr.Message,
+		ActivityName: activityErr.ActivityName,
+		Details:      activityErr.Details,
+	}
+}
+
+func applyWorkflowErrorFallback(
+	failure WorkflowError,
+	fallbackCode string,
+	fallbackSummary string,
+) WorkflowError {
+	if failure.Code == "" {
+		failure.Code = fallbackCode
+	}
+	if failure.Summary == "" {
+		failure.Summary = fallbackSummary
+	}
+	return failure
+}
+
+func fallbackWorkflowError(code string, summary string) (WorkflowError, bool) {
+	if code == "" && summary == "" {
+		return WorkflowError{}, false
+	}
+	return WorkflowError{
+		Code:    code,
+		Summary: summary,
+	}, true
+}
+
+func parseWorkflowErrorFromFailure(current *failurepb.Failure) (WorkflowError, bool) {
+	if current == nil {
+		return WorkflowError{}, false
+	}
+
+	info := current.GetApplicationFailureInfo()
+	if info == nil {
+		return WorkflowError{}, false
+	}
+
+	if details := info.GetDetails(); details != nil {
+		if failure, ok := workflowErrorFromPayloads(
+			details.GetPayloads(),
+			info.GetType(),
+			current.GetMessage(),
+		); ok {
+			return failure, true
+		}
+	}
+
+	if info.GetType() == "" && current.GetMessage() == "" {
+		return WorkflowError{}, false
+	}
+
+	return WorkflowError{
+		Code:    info.GetType(),
+		Summary: current.GetMessage(),
+	}, true
 }
 
 func applyWorkflowRunMetadata(failure *WorkflowError, metadata *WorkflowRunMetadata) {
@@ -233,6 +325,37 @@ func FormatWorkflowFailureReason(failure WorkflowError) string {
 	default:
 		return message
 	}
+}
+
+func ParseWorkflowFailure(failure *failurepb.Failure) WorkflowError {
+	if failure == nil {
+		return WorkflowError{}
+	}
+
+	var fallback WorkflowError
+	for current := failure; current != nil; current = current.GetCause() {
+		if structured, ok := parseWorkflowErrorFromFailure(current); ok {
+			if structured.Code != "" || structured.Summary != "" || structured.Message != "" {
+				return structured
+			}
+		}
+
+		if fallback.Code == "" && fallback.Summary == "" {
+			info := current.GetApplicationFailureInfo()
+			if info != nil && (info.GetType() != "" || current.GetMessage() != "") {
+				fallback = WorkflowError{
+					Code:    info.GetType(),
+					Summary: current.GetMessage(),
+				}
+			}
+		}
+	}
+
+	if fallback.Code != "" || fallback.Summary != "" {
+		return fallback
+	}
+
+	return WorkflowError{Summary: WorkflowFailureMessageFromHistory(failure)}
 }
 
 func errorMessage(summary string, message string) string {
@@ -379,6 +502,10 @@ func WaitForPartialResult[T any](
 }
 
 func ParseWorkflowError(err error) WorkflowError {
+	if err == nil {
+		return WorkflowError{}
+	}
+
 	var appErr *temporal.ApplicationError
 	if !errors.As(err, &appErr) {
 		return WorkflowError{}
@@ -386,17 +513,37 @@ func ParseWorkflowError(err error) WorkflowError {
 	return workflowErrorFromApplicationError(appErr)
 }
 
-func extractWorkflowError(err error) (WorkflowError, bool) {
-	var appErr *temporal.ApplicationError
-	if !errors.As(err, &appErr) {
-		return WorkflowError{}, false
+func isEmptyWorkflowError(failure WorkflowError) bool {
+	return failure.Code == "" && failure.Summary == "" && failure.Message == ""
+}
+
+func WorkflowFailureMessageFromHistory(failure *failurepb.Failure) string {
+	if failure == nil {
+		return ""
 	}
-	return workflowErrorFromApplicationError(appErr), true
+
+	for current := failure; current != nil; current = current.GetCause() {
+		msg := current.GetMessage()
+		if msg != "" && !isGenericTemporalFailureMessage(msg) {
+			return msg
+		}
+	}
+
+	return failure.GetMessage()
+}
+
+func isGenericTemporalFailureMessage(message string) bool {
+	switch strings.TrimSpace(strings.ToLower(message)) {
+	case "", "activity error", "child workflow execution error", "failure exceeds size limit.":
+		return true
+	default:
+		return false
+	}
 }
 
 func ExtractOutputFromError(err error) map[string]any {
-	failure, ok := extractWorkflowError(err)
-	if !ok || failure.Details == nil {
+	failure := ParseWorkflowError(err)
+	if isEmptyWorkflowError(failure) || failure.Details == nil {
 		return nil
 	}
 

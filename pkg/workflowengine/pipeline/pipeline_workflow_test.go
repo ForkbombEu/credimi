@@ -102,6 +102,38 @@ func (w *orderedWorkflow) ExecuteWorkflow(
 	}, nil
 }
 
+type failingWorkflowPayload struct{}
+
+type failingWorkflow struct {
+	name    string
+	failure workflowengine.WorkflowError
+}
+
+func (w *failingWorkflow) Name() string {
+	return w.name
+}
+
+func (w *failingWorkflow) GetOptions() workflow.ActivityOptions {
+	return workflow.ActivityOptions{}
+}
+
+func (w *failingWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.ExecuteWorkflow(ctx, input)
+}
+
+func (w *failingWorkflow) ExecuteWorkflow(
+	_ workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+		workflowengine.NewAppError(w.failure),
+		input.RunMetadata,
+	)
+}
+
 type runtimeCapturePayload struct {
 	Text string `json:"text"`
 	Fail bool   `json:"fail,omitempty"`
@@ -175,6 +207,59 @@ func registerRuntimeCaptureActivity(
 		PayloadType: reflect.TypeOf(runtimeCapturePayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	}
+}
+
+func registerFailingWorkflow(
+	t *testing.T,
+	env *testsuite.TestWorkflowEnvironment,
+	use string,
+	name string,
+	failure workflowengine.WorkflowError,
+) {
+	t.Helper()
+
+	wf := &failingWorkflow{name: name, failure: failure}
+	env.RegisterWorkflowWithOptions(
+		wf.Workflow,
+		workflow.RegisterOptions{Name: wf.Name()},
+	)
+
+	orig, hadOrig := registry.Registry[use]
+	t.Cleanup(func() {
+		if hadOrig {
+			registry.Registry[use] = orig
+			return
+		}
+		delete(registry.Registry, use)
+	})
+
+	registry.Registry[use] = registry.TaskFactory{
+		Kind:        registry.TaskWorkflow,
+		NewFunc:     func() any { return wf },
+		PayloadType: reflect.TypeOf(failingWorkflowPayload{}),
+	}
+}
+
+func requireFailureErrors(
+	t *testing.T,
+	err error,
+) []map[string]any {
+	t.Helper()
+
+	failure := workflowengine.ParseWorkflowError(err)
+	require.Equal(t, errorcodes.Codes[errorcodes.PipelineExecutionError].Code, failure.Code)
+
+	rawErrors, ok := failure.Details["errors"].([]any)
+	require.True(t, ok, "expected details.errors to be a slice")
+
+	out := make([]map[string]any, 0, len(rawErrors))
+	for _, raw := range rawErrors {
+		entry, ok := raw.(map[string]any)
+		require.True(t, ok, "expected error entry to be an object")
+		out = append(out, entry)
+	}
+
+	return out
 }
 
 // TestPipelineWorkflowFailsWithoutDefinition asserts a clear error when workflow_definition is missing.
@@ -276,7 +361,13 @@ func TestPipelineWorkflowContinueOnError(t *testing.T) {
 
 	err := env.GetWorkflowError()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Pipeline failed: 1 step failed (step-1)")
+	require.Contains(t, err.Error(), "Pipeline failed: 1 step failed; step-1 failed with")
+
+	errorsList := requireFailureErrors(t, err)
+	require.Len(t, errorsList, 1)
+	require.Equal(t, "CRE202", errorsList[0]["code"])
+	require.Equal(t, "Missing or invalid value in payload", errorsList[0]["summary"])
+	require.Equal(t, "step-1", errorsList[0]["details"].(map[string]any)["step_id"])
 }
 
 func TestPipelineWorkflowContinueOnErrorIncludesOnErrorStepFailures(t *testing.T) {
@@ -343,7 +434,209 @@ func TestPipelineWorkflowContinueOnErrorIncludesOnErrorStepFailures(t *testing.T
 
 	err := env.GetWorkflowError()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Pipeline failed: 2 steps failed (step-1, on-error)")
+	require.Contains(t, err.Error(), "Pipeline failed: 2 steps failed; step-1 failed with")
+	require.Contains(t, err.Error(), "; on-error failed with")
+
+	errorsList := requireFailureErrors(t, err)
+	require.Len(t, errorsList, 2)
+	require.Equal(t, "step-1", errorsList[0]["details"].(map[string]any)["step_id"])
+	require.Equal(t, "on-error", errorsList[1]["details"].(map[string]any)["step_id"])
+}
+
+func TestPipelineWorkflowContinueOnErrorPreservesStructuredChildWorkflowErrors(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	registerFailingWorkflow(
+		t,
+		env,
+		"structured-child-failure",
+		"structured-child-failure-workflow",
+		workflowengine.WorkflowError{
+			Code:    "CRE302",
+			Summary: "StepCI checks failed",
+			Message: "One or more StepCI assertions failed.",
+		},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "structured-child-failure-pipeline",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "child-step",
+							Use: "structured-child-failure",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{},
+							},
+						},
+						ContinueOnError: true,
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(
+		t,
+		err.Error(),
+		"Pipeline failed: 1 step failed; child-step failed with CRE302 StepCI checks failed",
+	)
+	require.NotContains(t, err.Error(), "child workflow execution error")
+
+	errorsList := requireFailureErrors(t, err)
+	require.Len(t, errorsList, 1)
+	require.Equal(t, "CRE302", errorsList[0]["code"])
+	require.Equal(t, "StepCI checks failed", errorsList[0]["summary"])
+	require.Equal(t, "One or more StepCI assertions failed.", errorsList[0]["message"])
+	require.Equal(t, "child-step", errorsList[0]["details"].(map[string]any)["step_id"])
+}
+
+func TestPipelineWorkflowFailFastRegularStepUsesPipelineFailureShape(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	jsonAct := activities.NewJSONActivity(map[string]reflect.Type{
+		"map": reflect.TypeOf(map[string]any{}),
+	})
+	env.RegisterActivityWithOptions(
+		jsonAct.Execute,
+		activity.RegisterOptions{Name: jsonAct.Name()},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "fail-fast-regular",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "step-1",
+							Use: "json-parse",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"struct_type": "map",
+								},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Pipeline failed: 1 step failed; step-1 failed with")
+	require.NotContains(t, err.Error(), "error executing step")
+
+	errorsList := requireFailureErrors(t, err)
+	require.Len(t, errorsList, 1)
+	require.Equal(t, "CRE202", errorsList[0]["code"])
+	require.Equal(t, "Missing or invalid value in payload", errorsList[0]["summary"])
+	require.Equal(t, "step-1", errorsList[0]["details"].(map[string]any)["step_id"])
+}
+
+func TestPipelineWorkflowFailFastChildWorkflowUsesPipelineFailureShape(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	registerFailingWorkflow(
+		t,
+		env,
+		"fail-fast-child",
+		"fail-fast-child-workflow",
+		workflowengine.WorkflowError{
+			Code:    "CRE302",
+			Summary: "StepCI checks failed",
+			Message: "One or more StepCI assertions failed.",
+			Details: map[string]any{
+				"output": map[string]any{"step": "login"},
+			},
+		},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "fail-fast-child-pipeline",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "child-step",
+							Use: "fail-fast-child",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	topLevel := workflowengine.ParseWorkflowError(err)
+	require.Equal(t, errorcodes.Codes[errorcodes.PipelineExecutionError].Code, topLevel.Code)
+	require.Contains(t, topLevel.Summary, "Pipeline failed: 1 step failed")
+
+	errorsList := requireFailureErrors(t, err)
+	require.Len(t, errorsList, 1)
+	require.Equal(t, "CRE302", errorsList[0]["code"])
+	require.Equal(t, "StepCI checks failed", errorsList[0]["summary"])
+	require.Equal(t, "One or more StepCI assertions failed.", errorsList[0]["message"])
+	require.Equal(t, map[string]any{"step": "login"}, errorsList[0]["details"].(map[string]any)["output"])
+	require.Equal(t, "child-step", errorsList[0]["details"].(map[string]any)["step_id"])
 }
 
 func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
@@ -423,6 +716,83 @@ func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 	output, ok := result.Output.(map[string]any)
 	require.True(t, ok)
 	require.Contains(t, output, "step-1")
+}
+
+func TestPipelineWorkflowOnSuccessHookFailuresPreserveStructuredErrors(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	jsonAct := activities.NewJSONActivity(map[string]reflect.Type{
+		"map": reflect.TypeOf(map[string]any{}),
+	})
+	env.RegisterActivityWithOptions(
+		jsonAct.Execute,
+		activity.RegisterOptions{Name: jsonAct.Name()},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "on-success-hook-failure",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "step-1",
+							Use: "json-parse",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"struct_type": "map",
+									"rawJSON":     `{"ok":true}`,
+								},
+							},
+						},
+						OnSuccess: []*pipeline.OnSuccessStepDefinition{
+							{
+								StepSpec: pipeline.StepSpec{
+									ID:  "on-success",
+									Use: "json-parse",
+									With: pipeline.StepInputs{
+										Payload: map[string]any{
+											"struct_type": "map",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(
+		t,
+		err.Error(),
+		"Pipeline failed: 1 step failed; on-success failed with CRE202 Missing or invalid value in payload",
+	)
+
+	errorsList := requireFailureErrors(t, err)
+	require.Len(t, errorsList, 1)
+	require.Equal(t, "CRE202", errorsList[0]["code"])
+	require.Equal(t, "Missing or invalid value in payload", errorsList[0]["summary"])
+	require.Equal(t, "on-success", errorsList[0]["details"].(map[string]any)["step_id"])
 }
 
 func TestPipelineWorkflowOnSuccessUsesCurrentStepOutputInRuntimeContext(t *testing.T) {

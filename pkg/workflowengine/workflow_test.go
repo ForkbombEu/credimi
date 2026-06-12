@@ -14,7 +14,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
+	failurepb "go.temporal.io/api/failure/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
@@ -361,6 +363,125 @@ func TestParseWorkflowError_PrefersStructuredFailure(t *testing.T) {
 	require.Equal(t, "Mobile automation failed", got.Summary)
 	require.Equal(t, "tap on login button failed", got.Message)
 	require.Equal(t, map[string]any{"step": "login"}, got.Details["output"])
+}
+
+func TestParseWorkflowError_ConvertsActivityError(t *testing.T) {
+	activity := BaseActivity{Name: "Run an automation workflow of API calls"}
+	err := activity.NewActivityError(ActivityError{
+		Code:    "CRE302",
+		Summary: "StepCI checks failed",
+		Message: "One or more StepCI assertions failed.",
+		Details: map[string]any{"output": map[string]any{"step": "login"}},
+	})
+
+	got := ParseWorkflowError(err)
+
+	require.Equal(t, "CRE302", got.Code)
+	require.Equal(t, "StepCI checks failed", got.Summary)
+	require.Equal(t, "One or more StepCI assertions failed.", got.Message)
+	require.Equal(t, "Run an automation workflow of API calls", got.ActivityName)
+	require.Equal(t, map[string]any{"step": "login"}, got.Details["output"])
+}
+
+func TestParseWorkflowError_RawApplicationErrorFallback(t *testing.T) {
+	got := ParseWorkflowError(temporal.NewApplicationError("boom", "CRE-RAW"))
+
+	require.Equal(t, "CRE-RAW", got.Code)
+	require.Equal(t, "boom", got.Summary)
+}
+
+func TestParseWorkflowFailure_UsesStructuredCause(t *testing.T) {
+	payload, err := json.Marshal(WorkflowError{
+		Code:         "CRE302",
+		Summary:      "StepCI checks failed",
+		Message:      "One or more StepCI assertions failed.",
+		ActivityName: "Run an automation workflow of API calls",
+	})
+	require.NoError(t, err)
+
+	failure := &failurepb.Failure{
+		Message: "activity error",
+		Cause: &failurepb.Failure{
+			Message: "StepCI checks failed: One or more StepCI assertions failed.",
+			FailureInfo: &failurepb.Failure_ApplicationFailureInfo{
+				ApplicationFailureInfo: &failurepb.ApplicationFailureInfo{
+					Type: "CRE302",
+					Details: &commonpb.Payloads{
+						Payloads: []*commonpb.Payload{{Data: payload}},
+					},
+				},
+			},
+		},
+	}
+
+	got := ParseWorkflowFailure(failure)
+
+	require.Equal(t, "CRE302", got.Code)
+	require.Equal(t, "StepCI checks failed", got.Summary)
+	require.Equal(t, "One or more StepCI assertions failed.", got.Message)
+	require.Equal(t, "Run an automation workflow of API calls", got.ActivityName)
+	require.Equal(
+		t,
+		"CRE302: [Run an automation workflow of API calls] StepCI checks failed: One or more StepCI assertions failed.",
+		FormatWorkflowFailureReason(got),
+	)
+	require.Equal(
+		t,
+		"StepCI checks failed: One or more StepCI assertions failed.",
+		WorkflowFailureMessageFromHistory(failure),
+	)
+}
+
+func TestParseWorkflowFailure_ConvertsActivityErrorPayload(t *testing.T) {
+	payload, err := json.Marshal(ActivityError{
+		Code:         "CRE302",
+		Summary:      "StepCI checks failed",
+		Message:      "One or more StepCI assertions failed.",
+		ActivityName: "Run an automation workflow of API calls",
+		Details: map[string]any{
+			"output": map[string]any{"step": "login"},
+		},
+	})
+	require.NoError(t, err)
+
+	failure := &failurepb.Failure{
+		Message: "activity error",
+		FailureInfo: &failurepb.Failure_ApplicationFailureInfo{
+			ApplicationFailureInfo: &failurepb.ApplicationFailureInfo{
+				Type: "CRE302",
+				Details: &commonpb.Payloads{
+					Payloads: []*commonpb.Payload{{Data: payload}},
+				},
+			},
+		},
+	}
+
+	got := ParseWorkflowFailure(failure)
+
+	require.Equal(t, "CRE302", got.Code)
+	require.Equal(t, "StepCI checks failed", got.Summary)
+	require.Equal(t, "One or more StepCI assertions failed.", got.Message)
+	require.Equal(t, "Run an automation workflow of API calls", got.ActivityName)
+	require.Equal(t, map[string]any{"step": "login"}, got.Details["output"])
+}
+
+func TestParseWorkflowFailure_UsesFirstUsefulMessageFallback(t *testing.T) {
+	failure := &failurepb.Failure{
+		Message: "child workflow execution error",
+		Cause: &failurepb.Failure{
+			Message: "activity error",
+			Cause: &failurepb.Failure{
+				Message: "Failure exceeds size limit.",
+				Cause:   &failurepb.Failure{Message: "actual failure"},
+			},
+		},
+	}
+
+	got := ParseWorkflowFailure(failure)
+
+	require.Equal(t, "actual failure", got.Summary)
+	require.Equal(t, "actual failure", WorkflowFailureMessageFromHistory(failure))
+	require.Equal(t, "actual failure", FormatWorkflowFailureReason(got))
 }
 
 func TestBuildWorkflowMetadataAndErrors(t *testing.T) {
