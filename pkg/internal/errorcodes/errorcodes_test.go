@@ -42,6 +42,7 @@ var allCodes = []string{
 	PipelineExecutionError,
 	ChildWorkflowExecutionError,
 	WorkflowCancellationError,
+	UnexpectedWorkflowError,
 	CommandExecutionFailed,
 	StepCIRunFailed,
 	UnexpectedStepCIOutput,

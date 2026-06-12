@@ -289,16 +289,6 @@ func buildPipelineCleanupFailureErrors(errorsList []error) []workflowengine.Work
 	return failures
 }
 
-func newPipelineExecutionState(workflowID string, runID string) *pipelineExecutionState {
-	return &pipelineExecutionState{
-		failures: []pipelineStepFailure{},
-		finalOutput: map[string]any{
-			"workflow-id":     workflowID,
-			"workflow-run-id": runID,
-		},
-	}
-}
-
 func hasMobileAutomationStep(steps []pipeline.StepDefinition) bool {
 	for _, step := range steps {
 		if step.Use == mobileAutomationStepUse {
