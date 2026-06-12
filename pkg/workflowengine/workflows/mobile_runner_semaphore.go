@@ -41,6 +41,13 @@ func NewMobileRunnerSemaphoreWorkflow() *MobileRunnerSemaphoreWorkflow {
 	return w
 }
 
+func newSemaphoreApplicationError(message string, code string) error {
+	return workflowengine.NewAppError(workflowengine.WorkflowError{
+		Code:    code,
+		Summary: message,
+	})
+}
+
 func (MobileRunnerSemaphoreWorkflow) Name() string {
 	return MobileRunnerSemaphoreWorkflowName
 }
@@ -120,7 +127,7 @@ func newMobileRunnerSemaphoreRuntime(
 	payload MobileRunnerSemaphoreWorkflowInput,
 ) (*mobileRunnerSemaphoreRuntime, error) {
 	if payload.RunnerID == "" {
-		return nil, temporal.NewApplicationError(
+		return nil, newSemaphoreApplicationError(
 			"runner_id is required",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -349,31 +356,31 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 	req MobileRunnerSemaphoreEnqueueRunRequest,
 ) (MobileRunnerSemaphoreEnqueueRunResponse, error) {
 	if req.TicketID == "" || req.OwnerNamespace == "" {
-		return MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 			"ticket_id and owner_namespace are required",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
 	if req.RunnerID == "" || req.RunnerID != r.runnerID {
-		return MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 			"runner_id must match semaphore runner",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
 	if req.EnqueuedAt.IsZero() {
-		return MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 			"enqueued_at is required",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
 	if len(req.RequiredRunnerIDs) == 0 || req.LeaderRunnerID == "" {
-		return MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 			"required_runner_ids and leader_runner_id are required",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
 	if !containsString(req.RequiredRunnerIDs, req.LeaderRunnerID) {
-		return MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 			"leader_runner_id must be included in required_runner_ids",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -381,7 +388,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 
 	if existing, ok := r.runTickets[req.TicketID]; ok {
 		if existing.Request.OwnerNamespace != req.OwnerNamespace {
-			return MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
+			return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 				"ticket owner mismatch",
 				MobileRunnerSemaphoreErrInvalidRequest,
 			)
@@ -403,7 +410,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 	if req.MaxPipelinesInQueue > 0 {
 		inFlight := r.inFlightRunCount(req.OwnerNamespace)
 		if inFlight >= req.MaxPipelinesInQueue {
-			return MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
+			return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 				fmt.Sprintf(
 					"queue limit exceeded for runner %s: %d of %d",
 					r.runnerID,
@@ -440,7 +447,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleCancelRun(
 	req MobileRunnerSemaphoreRunCancelRequest,
 ) (MobileRunnerSemaphoreRunStatusView, error) {
 	if req.TicketID == "" || req.OwnerNamespace == "" {
-		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreRunStatusView{}, newSemaphoreApplicationError(
 			"ticket_id and owner_namespace are required",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -483,7 +490,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleRunDone(
 	req MobileRunnerSemaphoreRunDoneRequest,
 ) (MobileRunnerSemaphoreRunStatusView, error) {
 	if req.TicketID == "" || req.OwnerNamespace == "" {
-		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreRunStatusView{}, newSemaphoreApplicationError(
 			"ticket_id and owner_namespace are required",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -1336,7 +1343,7 @@ func decodeStartQueuedPipelineOutput(
 	case map[string]any:
 		return decodeStartQueuedPipelineOutputMap(value)
 	default:
-		return activities.StartQueuedPipelineActivityOutput{}, temporal.NewApplicationError(
+		return activities.StartQueuedPipelineActivityOutput{}, newSemaphoreApplicationError(
 			"unexpected activity output",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -1348,14 +1355,14 @@ func decodeStartQueuedPipelineOutputMap(
 ) (activities.StartQueuedPipelineActivityOutput, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
-		return activities.StartQueuedPipelineActivityOutput{}, temporal.NewApplicationError(
+		return activities.StartQueuedPipelineActivityOutput{}, newSemaphoreApplicationError(
 			"failed to encode activity output",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
 	var output activities.StartQueuedPipelineActivityOutput
 	if err := json.Unmarshal(raw, &output); err != nil {
-		return activities.StartQueuedPipelineActivityOutput{}, temporal.NewApplicationError(
+		return activities.StartQueuedPipelineActivityOutput{}, newSemaphoreApplicationError(
 			"failed to decode activity output",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -1372,7 +1379,7 @@ func decodeCheckWorkflowClosedOutput(
 	case map[string]any:
 		return decodeCheckWorkflowClosedOutputMap(value)
 	default:
-		return activities.CheckWorkflowClosedActivityOutput{}, temporal.NewApplicationError(
+		return activities.CheckWorkflowClosedActivityOutput{}, newSemaphoreApplicationError(
 			"unexpected activity output",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -1412,7 +1419,7 @@ func decodeRunStatusView(output any) (MobileRunnerSemaphoreRunStatusView, error)
 	case map[string]any:
 		return decodeRunStatusViewMap(value)
 	default:
-		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreRunStatusView{}, newSemaphoreApplicationError(
 			"unexpected activity output",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -1422,14 +1429,14 @@ func decodeRunStatusView(output any) (MobileRunnerSemaphoreRunStatusView, error)
 func decodeRunStatusViewMap(value map[string]any) (MobileRunnerSemaphoreRunStatusView, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
-		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreRunStatusView{}, newSemaphoreApplicationError(
 			"failed to encode run status",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
 	var output MobileRunnerSemaphoreRunStatusView
 	if err := json.Unmarshal(raw, &output); err != nil {
-		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+		return MobileRunnerSemaphoreRunStatusView{}, newSemaphoreApplicationError(
 			"failed to decode run status",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
@@ -1442,14 +1449,14 @@ func decodeCheckWorkflowClosedOutputMap(
 ) (activities.CheckWorkflowClosedActivityOutput, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
-		return activities.CheckWorkflowClosedActivityOutput{}, temporal.NewApplicationError(
+		return activities.CheckWorkflowClosedActivityOutput{}, newSemaphoreApplicationError(
 			"failed to encode activity output",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
 	var output activities.CheckWorkflowClosedActivityOutput
 	if err := json.Unmarshal(raw, &output); err != nil {
-		return activities.CheckWorkflowClosedActivityOutput{}, temporal.NewApplicationError(
+		return activities.CheckWorkflowClosedActivityOutput{}, newSemaphoreApplicationError(
 			"failed to decode activity output",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)

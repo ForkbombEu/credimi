@@ -282,7 +282,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	case EWCSuite, WebuildSuite:
 		stepCIPayload.Data = parameters
 	default:
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			fmt.Errorf("unsupported suite: %s", payload.Suite),
+			input.RunMetadata,
+		)
 	}
 	cfg := StepCIAndEmailConfig{
 		Template:      input.Config["template"].(string),

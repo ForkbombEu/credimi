@@ -31,6 +31,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 		expectErr      bool
 		errorContains  string
+		errorCode      string
 	}{
 		{
 			name:  "OpenID suite succeeds",
@@ -167,6 +168,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			},
 			expectErr:     true,
 			errorContains: "unsupported suite",
+			errorCode:     errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
 		},
 		{
 			name:  "StepCI activity fails - OpenID",
@@ -355,6 +357,13 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					tc.errorContains,
 					"Error message should contain expected text",
 				)
+				if tc.errorCode != "" {
+					require.Equal(
+						t,
+						tc.errorCode,
+						workflowengine.ParseWorkflowError(env.GetWorkflowError()).Code,
+					)
+				}
 			} else {
 				require.NoError(t, env.GetWorkflowError(), "Expected workflow to succeed")
 

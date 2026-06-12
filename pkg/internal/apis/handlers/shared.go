@@ -7,7 +7,6 @@ package handlers
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"regexp"
 	"strings"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"go.temporal.io/api/enums/v1"
-	failurepb "go.temporal.io/api/failure/v1"
 	"go.temporal.io/sdk/client"
 )
 
@@ -618,34 +616,17 @@ func fetchWorkflowFailure(
 		return nil
 	}
 
-	if reason := workflowFailureReason(failure); reason != "" {
+	if reason := workflowengine.FormatWorkflowFailureReason(
+		workflowengine.ParseWorkflowFailure(failure),
+	); reason != "" {
 		return &reason
 	}
 
-	msg := failure.GetMessage()
-	if failure.GetCause() != nil && (msg == "" || msg == "Failure exceeds size limit.") {
-		msg = failure.GetCause().GetMessage()
-	}
+	msg := workflowengine.WorkflowFailureMessageFromHistory(failure)
 	if msg == "" {
 		return nil
 	}
 	return &msg
-}
-
-func workflowFailureReason(failure *failurepb.Failure) string {
-	info := failure.GetApplicationFailureInfo()
-	if info == nil || info.GetDetails() == nil {
-		return ""
-	}
-
-	for _, payload := range info.GetDetails().GetPayloads() {
-		var workflowErr workflowengine.WorkflowError
-		if err := json.Unmarshal(payload.GetData(), &workflowErr); err == nil && workflowErr.Code != "" {
-			return workflowengine.FormatWorkflowFailureReason(workflowErr)
-		}
-	}
-
-	return ""
 }
 
 // calculateDuration calculates the duration between startTime and endTime

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -292,16 +293,16 @@ func TestFetchChildPipelineYAMLValidationErrors(t *testing.T) {
 			if err == nil {
 				return "", errors.New("expected error")
 			}
-			return err.Error(), nil
+			return workflowengine.ParseWorkflowError(err).Code, nil
 		},
 		workflow.RegisterOptions{Name: "fetch-missing-id"},
 	)
 
 	env.ExecuteWorkflow("fetch-missing-id")
 	require.NoError(t, env.GetWorkflowError())
-	var errMsg string
-	require.NoError(t, env.GetWorkflowResult(&errMsg))
-	require.Contains(t, errMsg, "missing pipeline_id")
+	var errCode string
+	require.NoError(t, env.GetWorkflowResult(&errCode))
+	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code, errCode)
 }
 
 func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {

@@ -182,6 +182,66 @@ func TestFetchWorkflowFailure(t *testing.T) {
 		mockClient.AssertExpectations(t)
 	})
 
+	t.Run("activity wrapper uses structured cause workflow error", func(t *testing.T) {
+		payload, err := json.Marshal(workflowengine.WorkflowError{
+			Code:         "CRE302",
+			Summary:      "StepCI checks failed",
+			Message:      "One or more StepCI assertions failed.",
+			ActivityName: "Run an automation workflow of API calls",
+		})
+		require.NoError(t, err)
+
+		mockClient := &temporalmocks.Client{}
+		mockClient.
+			On(
+				"GetWorkflowHistory",
+				mock.Anything,
+				"wf-activity-wrapper",
+				"run-activity-wrapper",
+				false,
+				enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
+			).
+			Return(&fakeHistoryIterator{
+				events: []*historypb.HistoryEvent{
+					{
+						Attributes: &historypb.HistoryEvent_WorkflowExecutionFailedEventAttributes{
+							WorkflowExecutionFailedEventAttributes: &historypb.WorkflowExecutionFailedEventAttributes{
+								Failure: &failure.Failure{
+									Message: "activity error",
+									Cause: &failure.Failure{
+										Message: "StepCI checks failed: One or more StepCI assertions failed.",
+										FailureInfo: &failure.Failure_ApplicationFailureInfo{
+											ApplicationFailureInfo: &failure.ApplicationFailureInfo{
+												Type: "CRE302",
+												Details: &common.Payloads{
+													Payloads: []*common.Payload{{Data: payload}},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}, nil).
+			Once()
+
+		result := fetchWorkflowFailure(
+			context.Background(),
+			mockClient,
+			"wf-activity-wrapper",
+			"run-activity-wrapper",
+		)
+		require.NotNil(t, result)
+		require.Equal(
+			t,
+			"CRE302: [Run an automation workflow of API calls] StepCI checks failed: One or more StepCI assertions failed.",
+			*result,
+		)
+		mockClient.AssertExpectations(t)
+	})
+
 	t.Run("size limit failure uses cause message", func(t *testing.T) {
 		mockClient := &temporalmocks.Client{}
 		mockClient.

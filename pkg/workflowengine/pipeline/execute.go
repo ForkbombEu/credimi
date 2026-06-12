@@ -321,7 +321,10 @@ func fetchChildPipelineYAML(
 ) (string, error) {
 	pipelineID, ok := step.With.Payload["pipeline_id"].(string)
 	if !ok || pipelineID == "" {
-		return "", workflowengine.NewWorkflowError(fmt.Errorf("missing pipeline_id"), meta)
+		return "", workflowengine.NewMissingOrInvalidPayloadError(
+			fmt.Errorf("missing pipeline_id"),
+			meta,
+		)
 	}
 
 	appURL, ok := input.WorkflowInput.Config["app_url"].(string)
