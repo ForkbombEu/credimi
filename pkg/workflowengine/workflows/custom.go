@@ -177,12 +177,11 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: %v",
-				errCode.Description,
-				err,
-			),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
