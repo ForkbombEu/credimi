@@ -987,5 +987,11 @@
 	"Change_wallet_version_modal_title": "Alterar versão da carteira para todas as etapas",
 	"Change_wallet_version_modal_description": "Escolha uma versão. Todas as etapas de automação móvel neste pipeline usarão essa versão.",
 	"Wallet_version_current": "Atual",
-	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run."
+	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run.",
+	"extra_wallet_metadata_extractor": "Extrator de metadados de Wallet",
+	"extra_wallet_metadata_extractor_description": "Fake Issuer: extrair metadados de Wallet (via GUI ou REST)",
+	"extra_issuer_verifier_metadata_extractor": "Extrator de metadados Issuer/Verifier",
+	"extra_issuer_verifier_metadata_extractor_description": "Extrair metadados do Issuer (da oferta de credencial) e DC-QL do Verifier (da solicitação de apresentação)",
+	"extra_eudi_atlas": "EUDI Atlas",
+	"extra_eudi_atlas_description": "Mapa abrangente de documentos EUDI (organizado por função) com guia de testes de conformidade"
 }

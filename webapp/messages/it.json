@@ -993,5 +993,11 @@
 	"pipeline_artifact_video_tooltip": "Visualizza video",
 	"pipeline_artifact_screenshot_tooltip": "Visualizza screenshot",
 	"pipeline_artifact_log_tooltip": "Visualizza log",
-	"pipeline_artifact_report_tooltip": "Visualizza report"
+	"pipeline_artifact_report_tooltip": "Visualizza report",
+	"extra_wallet_metadata_extractor": "Estrattore metadati wallet",
+	"extra_wallet_metadata_extractor_description": "Fake Issuer: estrai metadati wallet (via GUI o REST)",
+	"extra_issuer_verifier_metadata_extractor": "Estrattore metadati Issuer/Verifier",
+	"extra_issuer_verifier_metadata_extractor_description": "Estrai metadati Issuer (da credential offer) e DC-QL del Verifier (da presentation request)",
+	"extra_eudi_atlas": "EUDI Atlas",
+	"extra_eudi_atlas_description": "Mappa completa dei documenti EUDI (organizzata per ruolo) con guida ai test di conformità"
 }
