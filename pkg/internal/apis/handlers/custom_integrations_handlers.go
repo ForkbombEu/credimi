@@ -5,7 +5,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -41,9 +40,9 @@ var CustomIntegrationsRoutes routing.RouteGroup = routing.RouteGroup{
 }
 
 type RunCustomIntegrationRequestInput struct {
-	Yaml           string `json:"yaml"                     validate:"required"`
-	Data           any    `json:"data"`
-	TimeoutSeconds *int   `json:"timeoutSeconds,omitempty"`
+	Yaml           string         `json:"yaml"                     validate:"required"`
+	Data           map[string]any `json:"data"`
+	TimeoutSeconds *int           `json:"timeoutSeconds,omitempty"`
 }
 
 func HandleRunCustomIntegration() func(*core.RequestEvent) error {
@@ -79,20 +78,6 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 
 		appURL := e.App.Settings().Meta.AppURL
 
-		var formJSON string
-		if req.Data != nil {
-			b, err := json.Marshal(req.Data)
-			if err != nil {
-				return apierror.New(
-					http.StatusBadRequest,
-					"data",
-					"failed to serialize data to JSON",
-					err.Error(),
-				).JSON(e)
-			}
-			formJSON = string(b)
-		}
-
 		memo := map[string]interface{}{
 			"test":   "custom-integration",
 			"author": authRecord.Id,
@@ -103,7 +88,7 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 			appURL,
 			namespace,
 			memo,
-			formJSON,
+			req.Data,
 			timeout,
 		)
 		if err != nil {
@@ -127,7 +112,7 @@ func processCustomChecks(
 	appURL string,
 	namespace string,
 	memo map[string]interface{},
-	formJSON string,
+	parameters map[string]any,
 	timeout time.Duration, // per-attempt timeout
 ) (workflowengine.WorkflowResult, error) {
 	yaml := testData
@@ -146,12 +131,12 @@ func processCustomChecks(
 
 	input := workflowengine.WorkflowInput{
 		Payload: workflows.CustomCheckWorkflowPayload{
-			Yaml: yaml,
+			Yaml:       yaml,
+			Parameters: parameters,
 		},
 		Config: map[string]any{
 			"memo":    memo,
 			"app_url": appURL,
-			"env":     formJSON,
 		},
 		ActivityOptions: &workflow.ActivityOptions{
 			ScheduleToCloseTimeout: totalTimeout,

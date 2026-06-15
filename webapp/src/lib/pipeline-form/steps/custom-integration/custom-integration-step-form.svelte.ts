@@ -15,7 +15,7 @@ import Component from './custom-integration-step-form.svelte';
 
 export type CustomIntegrationStepFormData = {
 	integration: CustomChecksResponse;
-	config?: Record<string, unknown>;
+	parameters?: Record<string, unknown>;
 };
 
 type FormState = 'select-integration' | 'configure' | 'ready';
@@ -33,7 +33,7 @@ export class CustomIntegrationStepForm extends BaseForm<
 		super(opts);
 		if (opts?.initial) {
 			this.data = { ...opts.initial };
-			this.initJsonSchemaForm(opts.initial.integration, opts.initial.config);
+			this.initJsonSchemaForm(opts.initial.integration, opts.initial.parameters);
 		}
 	}
 
@@ -64,12 +64,12 @@ export class CustomIntegrationStepForm extends BaseForm<
 
 	getSubmitData(): CustomIntegrationStepFormData | undefined {
 		if (this.state !== 'ready' || !this.data.integration) return undefined;
-		const config = this.jsonSchemaForm
+		const parameters = this.jsonSchemaForm
 			? (getValueSnapshot(this.jsonSchemaForm) as Record<string, unknown>)
 			: undefined;
 		return {
 			integration: this.data.integration,
-			config
+			parameters
 		};
 	}
 
@@ -77,14 +77,14 @@ export class CustomIntegrationStepForm extends BaseForm<
 		const payload = data ?? this.getSubmitData();
 		if (payload === undefined) return;
 		super.commit(payload);
-		if (payload.config && payload.integration) {
-			setStoredConfig(getPath(payload.integration, true), payload.config);
+		if (payload.parameters && payload.integration) {
+			setStoredConfig(getPath(payload.integration, true), payload.parameters);
 		}
 	}
 
 	selectIntegration(integration: CustomChecksResponse) {
 		this.data.integration = integration;
-		this.data.config = undefined;
+		this.data.parameters = undefined;
 		this.initJsonSchemaForm(integration);
 		if (this.intent === 'add' && !this.hasSchema) {
 			const payload = this.getSubmitData();
@@ -94,7 +94,7 @@ export class CustomIntegrationStepForm extends BaseForm<
 
 	discardIntegration() {
 		this.data.integration = undefined;
-		this.data.config = undefined;
+		this.data.parameters = undefined;
 		this.jsonSchemaForm = undefined;
 	}
 
@@ -104,13 +104,13 @@ export class CustomIntegrationStepForm extends BaseForm<
 
 	private initJsonSchemaForm(
 		integration: CustomChecksResponse,
-		initialConfig?: Record<string, unknown>
+		initialParameters?: Record<string, unknown>
 	) {
 		const schema = integration.input_json_schema;
 		if (schema) {
 			this.jsonSchemaForm = createJsonSchemaForm(schema as object, {
 				hideTitle: true,
-				initialValue: resolveInitialConfig(integration, initialConfig)
+				initialValue: resolveInitialConfig(integration, initialParameters)
 			});
 		} else {
 			this.jsonSchemaForm = undefined;

@@ -29,7 +29,8 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 		{
 			name: "Workflow succeeds when yaml is provided in payload",
 			inputPayload: CustomCheckWorkflowPayload{
-				Yaml: "test-yaml-content",
+				Yaml:       "test-yaml-content",
+				Parameters: map[string]any{"foo": "bar"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
@@ -37,7 +38,16 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 					Name: stepCI.Name(),
 				})
 
-				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					stepCI.Name(),
+					mock.Anything,
+					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+						payload, ok := input.Payload.(map[string]any)
+						return ok &&
+							payload["yaml"] == "test-yaml-content" &&
+							payload["env"] == `{"foo":"bar"}`
+					}),
+				).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"tests": []any{"test1", "test2"},
 					}}, nil)
@@ -47,7 +57,8 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 		{
 			name: "Workflow fetches yaml via HTTP when only id is provided",
 			inputPayload: CustomCheckWorkflowPayload{
-				CheckID: "custom-check-id",
+				CheckID:    "custom-check-id",
+				Parameters: map[string]any{"runner": "ios"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
@@ -68,7 +79,16 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 						},
 					}}, nil)
 
-				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					stepCI.Name(),
+					mock.Anything,
+					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+						payload, ok := input.Payload.(map[string]any)
+						return ok &&
+							payload["yaml"] == "fetched-yaml" &&
+							payload["env"] == `{"runner":"ios"}`
+					}),
+				).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"tests": []any{"ok"},
 					}}, nil)
@@ -113,7 +133,6 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 				Payload: tc.inputPayload,
 				Config: map[string]any{
 					"app_url": "https://test-app.com",
-					"env":     "test",
 				},
 			})
 

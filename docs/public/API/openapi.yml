@@ -1064,7 +1064,10 @@ components:
       type: object
     HandlersRunCustomIntegrationRequestInput:
       properties:
-        data: {}
+        data:
+          additionalProperties: {}
+          nullable: true
+          type: object
         timeoutSeconds:
           nullable: true
           type: integer

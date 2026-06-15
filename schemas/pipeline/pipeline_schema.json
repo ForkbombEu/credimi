@@ -656,6 +656,9 @@
                         "additionalProperties": true,
                         "type": "object"
                       },
+                      "parameters": {
+                        "type": "object"
+                      },
                       "yaml": {
                         "type": "string"
                       }
@@ -673,6 +676,9 @@
                       },
                       "config": {
                         "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "parameters": {
                         "type": "object"
                       },
                       "yaml": {
