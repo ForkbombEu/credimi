@@ -26,22 +26,22 @@ export const customCheckStepConfig: TypedConfig<'custom-check', CustomIntegratio
 	use: 'custom-check',
 	display: entities.custom_checks,
 	initForm: (opts) => new CustomIntegrationStepForm(opts),
-	serialize: ({ integration, config }) => {
-		const serialized: { check_id: string; config?: Record<string, unknown> } = {
+	serialize: ({ integration, parameters }) => {
+		const serialized: { check_id: string; parameters?: Record<string, unknown> } = {
 			check_id: getPath(integration, true)
 		};
-		if (config && Object.keys(config).length > 0) {
-			serialized.config = config;
+		if (parameters && Object.keys(parameters).length > 0) {
+			serialized.parameters = parameters;
 		}
 		return serialized;
 	},
-	deserialize: async ({ check_id, config }) => {
+	deserialize: async ({ check_id, parameters }) => {
 		if (!check_id) throw new Error(m.Pipeline_form_missing_check_id());
 		const integration = await getRecordByCanonifiedPath<CustomChecksResponse>(check_id);
 		if (integration instanceof Error) throw integration;
 		return {
 			integration,
-			config: config as Record<string, unknown> | undefined
+			parameters: parameters as Record<string, unknown> | undefined
 		};
 	},
 	cardData: ({ integration }) => ({

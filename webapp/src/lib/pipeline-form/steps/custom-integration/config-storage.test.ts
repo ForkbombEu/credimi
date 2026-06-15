@@ -67,19 +67,19 @@ describe('config-storage', () => {
 		});
 	});
 
-	it('resolveInitialConfig prefers explicit config over localStorage', () => {
+	it('resolveInitialConfig prefers explicit parameters over localStorage', () => {
 		setStoredConfig('org/my-integration', { apiKey: 'from-storage' });
 		expect(resolveInitialConfig(integration, { apiKey: 'from-yaml' })).toEqual({
 			apiKey: 'from-yaml'
 		});
 	});
 
-	it('resolveInitialConfig uses localStorage when no explicit config', () => {
+	it('resolveInitialConfig uses localStorage when no explicit parameters', () => {
 		setStoredConfig('org/my-integration', { apiKey: 'from-storage' });
 		expect(resolveInitialConfig(integration)).toEqual({ apiKey: 'from-storage' });
 	});
 
-	it('resolveInitialConfig returns undefined when no explicit config and no localStorage', () => {
+	it('resolveInitialConfig returns undefined when no explicit parameters and no localStorage', () => {
 		expect(resolveInitialConfig(integration)).toBeUndefined();
 	});
 
