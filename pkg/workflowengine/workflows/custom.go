@@ -5,6 +5,7 @@
 package workflows
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -29,6 +30,7 @@ var customStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 type CustomCheckWorkflowPayload struct {
 	Yaml    string `json:"yaml,omitempty"     xoneof:"custom_check"`
 	CheckID string `json:"check_id,omitempty" xoneof:"custom_check"`
+	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
 func NewCustomCheckWorkflow() *CustomCheckWorkflow {
@@ -38,7 +40,7 @@ func NewCustomCheckWorkflow() *CustomCheckWorkflow {
 }
 
 func (CustomCheckWorkflow) Name() string {
-	return "Custom Check Workflow"
+	return "Run a custom integration flow"
 }
 
 func (CustomCheckWorkflow) GetOptions() workflow.ActivityOptions {
@@ -171,11 +173,26 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 		}
 		yaml = storedYaml
 	}
-	env, _ := input.Config["env"].(string)
+	envBytes, err := json.Marshal(payload.Parameters)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf(
+				"%s: %v",
+				errCode.Description,
+				err,
+			),
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
+	}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: activities.StepCIWorkflowActivityPayload{
 			Yaml: yaml,
-			Env:  env,
+			Env:  string(envBytes),
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult

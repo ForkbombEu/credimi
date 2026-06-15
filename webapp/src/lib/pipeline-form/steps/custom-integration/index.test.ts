@@ -48,47 +48,47 @@ describe('customCheckStepConfig', () => {
 		vi.mocked(getRecordByCanonifiedPath).mockReset();
 	});
 
-	it('serialize emits check_id only when config is absent', () => {
+	it('serialize emits check_id only when parameters are absent', () => {
 		expect(customCheckStepConfig.serialize({ integration })).toEqual({
 			check_id: 'org/my-integration'
 		});
 	});
 
-	it('serialize includes config when non-empty', () => {
+	it('serialize includes parameters when non-empty', () => {
 		expect(
 			customCheckStepConfig.serialize({
 				integration,
-				config: { apiKey: 'secret' }
+				parameters: { apiKey: 'secret' }
 			})
 		).toEqual({
 			check_id: 'org/my-integration',
-			config: { apiKey: 'secret' }
+			parameters: { apiKey: 'secret' }
 		});
 	});
 
-	it('serialize omits config when empty object', () => {
+	it('serialize omits parameters when empty object', () => {
 		expect(
 			customCheckStepConfig.serialize({
 				integration,
-				config: {}
+				parameters: {}
 			})
 		).toEqual({
 			check_id: 'org/my-integration'
 		});
 	});
 
-	it('deserialize loads integration and config', async () => {
+	it('deserialize loads integration and parameters', async () => {
 		vi.mocked(getRecordByCanonifiedPath).mockResolvedValue(integration);
 
 		const result = await customCheckStepConfig.deserialize({
 			check_id: 'org/my-integration',
-			config: { apiKey: 'secret' }
+			parameters: { apiKey: 'secret' }
 		});
 
 		expect(getRecordByCanonifiedPath).toHaveBeenCalledWith('org/my-integration');
 		expect(result).toEqual({
 			integration,
-			config: { apiKey: 'secret' }
+			parameters: { apiKey: 'secret' }
 		});
 	});
 

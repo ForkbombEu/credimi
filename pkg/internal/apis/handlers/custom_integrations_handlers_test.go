@@ -102,41 +102,6 @@ func TestHandleRunCustomIntegrationWorkflowStartError(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "failed to process custom integration")
 }
 
-func TestHandleRunCustomIntegrationDataMarshalError(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-	require.NoError(t, err)
-
-	input := RunCustomIntegrationRequestInput{
-		Yaml: "steps: []\n",
-		Data: map[string]any{
-			"bad": func() {},
-		},
-	}
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/api/custom-integrations/run",
-		bytes.NewBufferString("{}"),
-	)
-	req = withValidatedCustomIntegrationInput(req, input)
-	rec := httptest.NewRecorder()
-
-	err = HandleRunCustomIntegration()(&core.RequestEvent{
-		App:  app,
-		Auth: authRecord,
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
-	require.Contains(t, rec.Body.String(), "failed to serialize data to JSON")
-}
-
 func TestHandleRunCustomIntegrationSuccess(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -197,9 +162,9 @@ func TestHandleRunCustomIntegrationSuccess(t *testing.T) {
 	payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
 	require.True(t, ok)
 	require.Equal(t, "steps: []\n", payload.Yaml)
+	require.Equal(t, map[string]any{"foo": "bar"}, payload.Parameters)
 
 	require.Equal(t, app.Settings().Meta.AppURL, capturedInput.Config["app_url"])
-	require.Equal(t, `{"foo":"bar"}`, capturedInput.Config["env"])
 
 	memo, ok := capturedInput.Config["memo"].(map[string]interface{})
 	require.True(t, ok)
@@ -220,7 +185,7 @@ func TestProcessCustomChecksEmptyYAML(t *testing.T) {
 		"https://app.example",
 		"ns-1",
 		map[string]interface{}{"author": "custom"},
-		"",
+		nil,
 		5*time.Second,
 	)
 	require.Error(t, err)
@@ -244,7 +209,7 @@ func TestProcessCustomChecksStartError(t *testing.T) {
 		"https://app.example",
 		"ns-1",
 		map[string]interface{}{"author": "custom"},
-		"",
+		nil,
 		5*time.Second,
 	)
 	require.Error(t, err)
@@ -276,7 +241,7 @@ func TestProcessCustomChecksSuccess(t *testing.T) {
 		"https://app.example.com",
 		"ns",
 		map[string]interface{}{"author": "custom-user"},
-		`{"foo":"bar"}`,
+		map[string]any{"foo": "bar"},
 		12*time.Second,
 	)
 	require.NoError(t, err)
@@ -288,9 +253,9 @@ func TestProcessCustomChecksSuccess(t *testing.T) {
 	payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
 	require.True(t, ok)
 	require.Equal(t, "steps: []\n", payload.Yaml)
+	require.Equal(t, map[string]any{"foo": "bar"}, payload.Parameters)
 
 	require.Equal(t, "https://app.example.com", capturedInput.Config["app_url"])
-	require.Equal(t, `{"foo":"bar"}`, capturedInput.Config["env"])
 
 	memo, ok := capturedInput.Config["memo"].(map[string]interface{})
 	require.True(t, ok)

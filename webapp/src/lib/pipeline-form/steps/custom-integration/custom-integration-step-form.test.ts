@@ -25,8 +25,8 @@ vi.mock('$lib/utils', () => ({
 
 vi.mock('./config-storage.js', () => ({
 	getStoredConfig: vi.fn(),
-	resolveInitialConfig: vi.fn((integration, explicitConfig) => {
-		if (explicitConfig !== undefined) return explicitConfig;
+	resolveInitialConfig: vi.fn((integration, explicitParameters) => {
+		if (explicitParameters !== undefined) return explicitParameters;
 		return undefined;
 	}),
 	setStoredConfig: vi.fn()
@@ -59,8 +59,8 @@ describe('CustomIntegrationStepForm', () => {
 		vi.mocked(validate).mockReturnValue({ errors: [] } as never);
 		vi.mocked(createJsonSchemaForm).mockClear();
 		vi.mocked(resolveInitialConfig).mockReset();
-		vi.mocked(resolveInitialConfig).mockImplementation((_integration, explicitConfig) => {
-			if (explicitConfig !== undefined) return explicitConfig;
+		vi.mocked(resolveInitialConfig).mockImplementation((_integration, explicitParameters) => {
+			if (explicitParameters !== undefined) return explicitParameters;
 			return undefined;
 		});
 		vi.mocked(setStoredConfig).mockReset();
@@ -97,7 +97,7 @@ describe('CustomIntegrationStepForm', () => {
 		vi.mocked(validate).mockReturnValue({ errors: [{ message: 'required' }] } as never);
 		const form = new CustomIntegrationStepForm({
 			intent: 'edit',
-			initial: { integration: integrationWithSchema, config: {} }
+			initial: { integration: integrationWithSchema, parameters: {} }
 		});
 		expect(form.canSave()).toBe(false);
 		expect(form.isValid).toBe(false);
@@ -107,7 +107,7 @@ describe('CustomIntegrationStepForm', () => {
 		vi.mocked(validate).mockReturnValue({ errors: [] } as never);
 		const form = new CustomIntegrationStepForm({
 			intent: 'edit',
-			initial: { integration: integrationWithSchema, config: { apiKey: 'abc' } }
+			initial: { integration: integrationWithSchema, parameters: { apiKey: 'abc' } }
 		});
 		expect(form.canSave()).toBe(true);
 		expect(form.isValid).toBe(true);
@@ -124,7 +124,7 @@ describe('CustomIntegrationStepForm', () => {
 		expect(form.state).toBe('select-integration');
 	});
 
-	it('submit commits valid schema config', () => {
+	it('submit commits valid schema parameters', () => {
 		vi.mocked(validate).mockReturnValue({ errors: [] } as never);
 		const onSubmit = vi.fn();
 		const form = new CustomIntegrationStepForm({
@@ -134,7 +134,7 @@ describe('CustomIntegrationStepForm', () => {
 		form.onSubmit(onSubmit);
 		form.submit();
 		expect(onSubmit).toHaveBeenCalledOnce();
-		expect(onSubmit.mock.calls[0][0].config).toEqual({ apiKey: 'abc' });
+		expect(onSubmit.mock.calls[0][0].parameters).toEqual({ apiKey: 'abc' });
 	});
 
 	it('selectIntegration does not pass input_json_sample to createJsonSchemaForm', () => {
@@ -146,19 +146,19 @@ describe('CustomIntegrationStepForm', () => {
 		});
 	});
 
-	it('selectIntegration uses resolveInitialConfig without explicit config', () => {
+	it('selectIntegration uses resolveInitialConfig without explicit parameters', () => {
 		const form = new CustomIntegrationStepForm({ intent: 'add' });
 		form.selectIntegration(integrationWithSchema);
 		expect(resolveInitialConfig).toHaveBeenCalledWith(integrationWithSchema, undefined);
 	});
 
-	it('constructor passes explicit config to resolveInitialConfig in edit mode', () => {
+	it('constructor passes explicit parameters to resolveInitialConfig in edit mode', () => {
 		vi.mocked(resolveInitialConfig).mockReturnValue({ apiKey: 'from-yaml' });
 		new CustomIntegrationStepForm({
 			intent: 'edit',
 			initial: {
 				integration: integrationWithSchema,
-				config: { apiKey: 'from-yaml' }
+				parameters: { apiKey: 'from-yaml' }
 			}
 		});
 		expect(resolveInitialConfig).toHaveBeenCalledWith(integrationWithSchema, {
@@ -166,7 +166,7 @@ describe('CustomIntegrationStepForm', () => {
 		});
 	});
 
-	it('commit persists config to localStorage', () => {
+	it('commit persists parameters to localStorage', () => {
 		vi.mocked(validate).mockReturnValue({ errors: [] } as never);
 		const onSubmit = vi.fn();
 		const form = new CustomIntegrationStepForm({

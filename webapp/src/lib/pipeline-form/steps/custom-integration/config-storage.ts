@@ -32,10 +32,10 @@ export function getStoredConfig(checkId: string): Record<string, unknown> | unde
 	}
 }
 
-export function setStoredConfig(checkId: string, config: Record<string, unknown>): void {
+export function setStoredConfig(checkId: string, parameters: Record<string, unknown>): void {
 	try {
 		const current = storage.get() ?? {};
-		storage.set({ ...current, [checkId]: config });
+		storage.set({ ...current, [checkId]: parameters });
 	} catch (error) {
 		console.error('Failed to set custom integration config:', error);
 	}
@@ -43,8 +43,8 @@ export function setStoredConfig(checkId: string, config: Record<string, unknown>
 
 export function resolveInitialConfig(
 	integration: CustomChecksResponse,
-	explicitConfig?: Record<string, unknown>
+	explicitParameters?: Record<string, unknown>
 ): Record<string, unknown> | undefined {
-	if (explicitConfig !== undefined) return explicitConfig;
+	if (explicitParameters !== undefined) return explicitParameters;
 	return getStoredConfig(getPath(integration, true)) ?? undefined;
 }
