@@ -40,7 +40,7 @@ func NewCustomCheckWorkflow() *CustomCheckWorkflow {
 }
 
 func (CustomCheckWorkflow) Name() string {
-	return "Custom Check Workflow"
+	return "Run a custom integration flow"
 }
 
 func (CustomCheckWorkflow) GetOptions() workflow.ActivityOptions {
