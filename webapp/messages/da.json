@@ -987,5 +987,11 @@
 	"Change_wallet_version_modal_title": "Skift wallet-version for alle trin",
 	"Change_wallet_version_modal_description": "Vælg en version. Hvert mobile-automation-trin i denne pipeline bruger den.",
 	"Wallet_version_current": "Aktuel",
-	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run."
+	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run.",
+	"extra_wallet_metadata_extractor": "Wallet-metadataekstraktor",
+	"extra_wallet_metadata_extractor_description": "Fake Issuer: udtræk Wallet-metadata (via GUI eller REST)",
+	"extra_issuer_verifier_metadata_extractor": "Issuer/Verifier-metadataekstraktor",
+	"extra_issuer_verifier_metadata_extractor_description": "Udtræk Issuer-metadata (fra credential offer) og Verifiers DC-QL (fra presentation request)",
+	"extra_eudi_atlas": "EUDI Atlas",
+	"extra_eudi_atlas_description": "Omfattende EUDI-dokumentkort (organiseret efter rolle) med konformitetstestguide"
 }

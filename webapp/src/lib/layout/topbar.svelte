@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { LayoutDashboardIcon } from '@lucide/svelte';
+	import { ChevronDownIcon, LayoutDashboardIcon, SquareArrowOutUpRight } from '@lucide/svelte';
 	import { fromStore } from 'svelte/store';
 
 	import type { LinkWithIcon } from '@/components/types';
@@ -13,12 +13,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { AppLogo } from '@/brand';
 	import BaseTopbar from '@/components/layout/topbar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import Popover from '@/components/ui-custom/popover.svelte';
 	import { featureFlags, Features, type FeatureFlags } from '@/features';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
 	import NavLink from './nav-link.svelte';
 	import MobileNav from './nav-mobile.svelte';
+	import { extras, leftItems } from './topbar-links';
 	import UserNav from './userNav.svelte';
 
 	//
@@ -36,25 +38,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function href(href: string) {
 		return getFlags().DEMO ? '#waitlist' : href;
 	}
-
-	const leftItems: LinkWithIcon[] = [
-		{
-			href: href('/hub'),
-			title: m.Hub()
-		},
-		{
-			href: href('/scoreboard'),
-			title: m.Scoreboard()
-		},
-		{
-			href: href('/organizations'),
-			title: m.organizations()
-		},
-		{
-			href: '/news',
-			title: m.News()
-		}
-	];
 
 	const rightItems: LinkWithIcon[] = $derived.by(() => {
 		const { DEMO, AUTH } = getFlags();
@@ -93,6 +76,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each leftItems as item (item)}
 					<NavLink link={item} variant="desktop" />
 				{/each}
+				<Popover containerClass="p-1">
+					{#snippet trigger({ props })}
+						<Button {...props} target="_blank" variant="link" class="gap-1 border-none">
+							{m.Extras()}
+							<ChevronDownIcon />
+						</Button>
+					{/snippet}
+					{#snippet content()}
+						<div>
+							{#each extras as item (item)}
+								<a
+									href={item.href}
+									target="_blank"
+									class="block cursor-pointer space-y-0.5 rounded-md px-3 py-2 text-sm hover:bg-secondary/50"
+								>
+									<p class="font-medium text-primary">
+										{item.title}
+										<SquareArrowOutUpRight
+											class="inline-block size-3 -translate-y-px"
+										/>
+									</p>
+									<p class="text-xs text-balance text-muted-foreground">
+										{item.description}
+									</p>
+								</a>
+							{/each}
+						</div>
+					{/snippet}
+				</Popover>
 			</div>
 		</div>
 	{/snippet}
