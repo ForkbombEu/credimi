@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	/* eslint-disable perfectionist/sort-imports */
 	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
+	import { ArrowRightIcon, Pencil } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
@@ -17,9 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 	import { fromScoreboardRow } from '$lib/scoreboard/extras/from-scoreboard-row';
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
-	import type { ScoreboardRow } from '$lib/scoreboard/types';
+	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import { getPath } from '$lib/utils';
-	import { ArrowRightIcon, Pencil } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
@@ -29,7 +28,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
 	import { type EnrichedSchedule } from './types';
@@ -53,43 +51,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	let scoreboardResults = $state<ScoreboardRow | undefined>();
-	let scoreboardPipelineId = $state<string | undefined>();
-
-	$effect(() => {
-		const pipelineId = pipeline.id;
-		if (scoreboardPipelineId === pipelineId) return;
-
-		let cancelled = false;
-		void Scoreboard.Records.loadForPipeline(pipelineId)
-			.then((results) => {
-				if (!cancelled) {
-					scoreboardResults = results;
-					scoreboardPipelineId = pipelineId;
-				}
-			})
-			.catch((error) => {
-				console.error(error);
-				if (!cancelled) scoreboardPipelineId = pipelineId;
-			});
-
-		return () => {
-			cancelled = true;
-		};
-	});
+	const scoreboardPromise = $derived.by(() =>
+		Scoreboard.Records.loadForPipeline(pipeline.id).catch((error) => {
+			console.error(error);
+			return undefined;
+		})
+	);
 
 	// Variables for displaying UI elements
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
 	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
-
-	const hasSummary = $derived(
-		scoreboardResults
-			? Scoreboard.EntityDisplay.buildPipelineSummaryItems(scoreboardResults).length > 0
-			: false
-	);
-
-	const executionStats = $derived(fromScoreboardRow(scoreboardResults));
 	const showContent = $derived(workflows && workflows.length > 0);
 
 	const avatar = $derived.by(() => {
@@ -151,9 +123,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet editAction()}
 	<IconButton
-		href={resolve('/my/pipelines/(group)/[...path]/edit', {
-			path: getPath(pipeline, true)
-		})}
+		href={resolve(
+			pipeline.manual
+				? '/my/pipelines/(group)/[...path]/edit/manual'
+				: '/my/pipelines/(group)/[...path]/edit',
+			{
+				path: getPath(pipeline, true)
+			}
+		)}
 		icon={Pencil}
 		tooltip={pipeline.published ? m.pipeline_edit_disabled_while_published() : m.Edit()}
 		disabled={pipeline.published}
@@ -161,17 +138,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet afterDescription()}
-	{#if scoreboardResults && hasSummary}
-		<div class="flex items-start justify-between gap-4 pt-1">
-			<PipelineContentSummary results={scoreboardResults} />
-		</div>
-	{:else}
-		<div
-			class="flex h-8 w-fit items-center justify-start rounded-md bg-muted p-2 text-xs text-muted-foreground"
-		>
-			{m.Pipeline_summary_will_be_available_after_the_first_successful_run()}
-		</div>
-	{/if}
+	{#await scoreboardPromise}
+		{@render emptyState()}
+	{:then results}
+		{#if results && Scoreboard.EntityDisplay.buildPipelineSummaryItems(results).length > 0}
+			<div class="flex items-start justify-between gap-4 pt-1">
+				<PipelineContentSummary {results} />
+			</div>
+		{:else}
+			{@render emptyState()}
+		{/if}
+	{:catch}
+		{@render emptyState()}
+	{/await}
 {/snippet}
 
 {#snippet content()}
@@ -181,9 +160,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Pipeline.Workflows.SmallTable {workflows} />
 
 				<div class="flex items-center justify-between gap-2">
-					{#if executionStats}
-						<PipelineExecutionStats stats={executionStats} layout="card-inline" />
-					{/if}
+					{#await scoreboardPromise}
+						<!-- pending -->
+					{:then results}
+						{@const executionStats = results ? fromScoreboardRow(results) : undefined}
+						{#if executionStats}
+							<PipelineExecutionStats stats={executionStats} layout="card-inline" />
+						{/if}
+					{/await}
 
 					<BlueButton
 						compact
@@ -197,5 +181,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			</div>
 		{/if}
+	</div>
+{/snippet}
+
+{#snippet emptyState()}
+	<div
+		class="flex h-8 w-fit items-center justify-start rounded-md bg-muted p-2 text-xs text-muted-foreground"
+	>
+		{m.Pipeline_summary_will_be_available_after_the_first_successful_run()}
 	</div>
 {/snippet}

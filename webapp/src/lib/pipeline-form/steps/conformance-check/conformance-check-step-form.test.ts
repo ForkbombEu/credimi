@@ -130,7 +130,13 @@ describe('ConformanceCheckStepForm edit intent', () => {
 		const onSubmit = vi.fn();
 		const form = new ConformanceCheckStepForm({
 			intent: 'edit',
-			initial: { action_id: 'old/action/path' }
+			initial: {
+				standard: { uid: 's', name: 'S', versions: [] } as never,
+				version: { uid: 'v', name: 'V', suites: [] } as never,
+				suite: { uid: 'su', name: 'Su', paths: [] } as never,
+				test: 'openid4vci_wallet/foo',
+				action_id: 'old/action/path'
+			}
 		});
 		form.onSubmit(onSubmit);
 		const newAction = { __canonified_path__: 'new/action/path' } as never;
