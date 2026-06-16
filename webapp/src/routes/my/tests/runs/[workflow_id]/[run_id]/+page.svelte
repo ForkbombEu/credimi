@@ -14,7 +14,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import { onMount } from 'svelte';
-	import { z } from 'zod/v3';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -39,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	let { organization, workflow } = $derived(data);
-	let { memo, execution, eventHistory } = $derived(workflow);
+	let { memo, execution } = $derived(workflow);
 	let { id: workflowId, runId } = $derived(execution);
 
 	/* Iframe communication */
@@ -124,29 +123,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: isDedicatedOpenID4VCIIssuerWorkflow || isDedicatedOpenID4VPVerifierWorkflow
 	);
 
-	const failureMessage = $derived.by(() => {
-		let failedEvent: FailedEvent | undefined;
-		for (const event of eventHistory.toReversed()) {
-			const parsed = failedEventSchema.safeParse(event);
-			if (parsed.success) {
-				failedEvent = parsed.data;
-				break;
-			}
-		}
-		return failedEvent?.workflowExecutionFailedEventAttributes.failure.cause.message;
-	});
-
-	type FailedEvent = z.infer<typeof failedEventSchema>;
-
-	const failedEventSchema = z.object({
-		workflowExecutionFailedEventAttributes: z.object({
-			failure: z.object({
-				cause: z.object({
-					message: z.string()
-				})
-			})
-		})
-	});
+	const failureMessage = $derived(
+		(execution as typeof execution & { failure_reason?: string }).failure_reason
+	);
 </script>
 
 <svelte:head>

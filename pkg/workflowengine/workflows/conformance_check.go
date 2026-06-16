@@ -42,7 +42,7 @@ type StepCIAndEmailConfig struct {
 	Template      string
 	StepCIPayload activities.StepCIWorkflowActivityPayload
 	Secrets       map[string]any
-	RunMetadata   *workflowengine.WorkflowErrorMetadata
+	RunMetadata   *workflowengine.WorkflowRunMetadata
 	Suite         string
 	SendMail      bool
 }
@@ -104,7 +104,13 @@ func RunStepCIAndSendMail(
 		u, err := url.Parse(baseURL)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-			appErr := workflowengine.NewAppError(errCode, baseURL)
+			appErr := workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: baseURL,
+				},
+			)
 			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(appErr, cfg.RunMetadata)
 		}
 		q := u.Query()
@@ -276,7 +282,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	case EWCSuite, WebuildSuite:
 		stepCIPayload.Data = parameters
 	default:
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			fmt.Errorf("unsupported suite: %s", payload.Suite),
+			input.RunMetadata,
+		)
 	}
 	cfg := StepCIAndEmailConfig{
 		Template:      input.Config["template"].(string),
@@ -356,7 +365,13 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			logger.Error("Failed to execute child workflow", "error", err)
 			errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				workflowengine.NewAppError(errCode, err.Error(), nil),
+				workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+					},
+				),
 				cfg.RunMetadata,
 			)
 		}
@@ -444,7 +459,13 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				logger.Error("Failed to execute child workflow", "error", err)
 				errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
 				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-					workflowengine.NewAppError(errCode, err.Error(), nil),
+					workflowengine.NewAppError(
+						workflowengine.WorkflowError{
+							Code:    errCode.Code,
+							Summary: errCode.Description,
+							Message: err.Error(),
+						},
+					),
 					cfg.RunMetadata,
 				)
 			}
@@ -462,7 +483,13 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			logger.Error("Failed to execute child workflow", "error", err)
 			errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				workflowengine.NewAppError(errCode, err.Error(), nil),
+				workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+					},
+				),
 				cfg.RunMetadata,
 			)
 		}

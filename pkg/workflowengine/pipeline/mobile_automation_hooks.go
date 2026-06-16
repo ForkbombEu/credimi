@@ -235,9 +235,13 @@ func MobileAutomationSetupHook(
 		if !ok || appURL == "" {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 			return workflowengine.NewAppError(
-				errCode,
-				"missing or invalid app_url in workflow input config",
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "missing or invalid app_url in workflow input config",
+				},
 			)
+
 		}
 
 		if err := prepareMobileAutomationSteps(ctx, steps, appURL); err != nil {
@@ -252,9 +256,13 @@ func MobileAutomationSetupHook(
 	if len(runnerIDs) > 0 && !semaphoreManaged {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 		return workflowengine.NewAppError(
-			errCode,
-			"mobile-runner pipelines must be started via queue/semaphore",
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "mobile-runner pipelines must be started via queue/semaphore",
+			},
 		)
+
 	}
 
 	settedDevices := getOrCreateSettedDevices(runData)
@@ -339,9 +347,13 @@ func validateRunnerIDConfiguration(steps *[]pipeline.StepDefinition, globalRunne
 	if !allStepsHaveRunnerID && globalRunnerID == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 		return workflowengine.NewAppError(
-			errCode,
-			"mobile-automation steps require either a runner_id or a global_runner_id in the pipeline configuration",
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "mobile-automation steps require either a runner_id or a global_runner_id in the pipeline configuration",
+			},
 		)
+
 	}
 
 	return nil
@@ -485,10 +497,14 @@ func fetchMobileActionCategory(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		return "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("invalid action validation response for step %s", stepID),
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("invalid action validation response for step %s", stepID),
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 	}
 
 	record, ok := body["record"].(map[string]any)
@@ -618,9 +634,13 @@ func processStep(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing or invalid app_url for step %s", input.step.ID),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing or invalid app_url for step %s", input.step.ID),
+			},
 		)
+
 	}
 
 	deviceMap, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
@@ -663,10 +683,14 @@ func processStep(
 	if !ok || runnerURL == "" {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing or invalid runner_url for step %s", input.step.ID),
-			deviceMap,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing or invalid runner_url for step %s", input.step.ID),
+				Details: map[string]any{"payload": deviceMap},
+			},
 		)
+
 	}
 	if err := validateRunnerURL(runnerURL, input.step.ID, deviceMap); err != nil {
 		return err
@@ -725,38 +749,59 @@ func decodeAndValidatePayload(
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	if len(step.With.Payload) == 0 {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"missing payload for step %s: expected with.action_id or with.payload.action_id",
-				step.ID,
-			),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"missing payload for step %s: expected with.action_id or with.payload.action_id",
+					step.ID,
+				),
+			},
 		)
+
 	}
 	payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](
 		step.With.Payload,
 	)
 	if err != nil {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"error decoding payload for step %s: %s",
+					step.ID,
+					err.Error(),
+				),
+			},
 		)
+
 	}
 
 	// If action_code is present, version_id is REQUIRED
 	if payload.ActionCode != "" {
 		if payload.VersionID == "" {
 			return nil, workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("missing or invalid version_id for step %s", step.ID))
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("missing or invalid version_id for step %s", step.ID),
+				},
+			)
+
 		}
 	}
 	// If action_code is NOT present -> action_id is REQUIRED
 	if payload.ActionCode == "" {
 		if payload.ActionID == "" {
 			return nil, workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
+				},
 			)
+
 		}
 	}
 
@@ -872,19 +917,27 @@ func fetchRunnerInfo(
 	body, ok := runnerRes.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
 		return "", "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("invalid HTTP response format for step %s", input.stepID),
-			runnerRes.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("invalid HTTP response format for step %s", input.stepID),
+				Details: map[string]any{"payload": runnerRes.Output},
+			},
 		)
+
 	}
 
 	runnerURL, ok := body["runner_url"].(string)
 	if !ok || runnerURL == "" {
 		return "", "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing or invalid runner_url for step %s", input.stepID),
-			body,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing or invalid runner_url for step %s", input.stepID),
+				Details: map[string]any{"payload": body},
+			},
 		)
+
 	}
 	if err := validateRunnerURL(runnerURL, input.stepID, body); err != nil {
 		return "", "", "", err
@@ -893,27 +946,39 @@ func fetchRunnerInfo(
 	rawDeviceType, ok := body["type"].(string)
 	if !ok {
 		return "", "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
-			body,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
+				Details: map[string]any{"payload": body},
+			},
 		)
+
 	}
 	deviceType := normalizeDeviceType(rawDeviceType)
 	if deviceType == "" {
 		return "", "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
-			body,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
+				Details: map[string]any{"payload": body},
+			},
 		)
+
 	}
 
 	serial, ok := body["serial"].(string)
 	if !ok {
 		return "", "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("invalid device serial for step %s", input.stepID),
-			body,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("invalid device serial for step %s", input.stepID),
+				Details: map[string]any{"payload": body},
+			},
 		)
+
 	}
 
 	return runnerURL, deviceType, serial, nil
@@ -929,10 +994,14 @@ func validateRunnerURL(runnerURL string, stepID string, details any) error {
 
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 	return workflowengine.NewAppError(
-		errCode,
-		fmt.Sprintf("missing or invalid runner_url for step %s", stepID),
-		details,
+		workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: fmt.Sprintf("missing or invalid runner_url for step %s", stepID),
+			Details: map[string]any{"payload": details},
+		},
 	)
+
 }
 
 func startManagedDevice(
@@ -959,42 +1028,54 @@ func startManagedDevice(
 	body, ok := startResult.Output.(map[string]any)
 	if !ok {
 		return "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: invalid response format for step %s",
-				errCode.Description,
-				input.stepID,
-			),
-			startResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: invalid response format for step %s",
+					errCode.Description,
+					input.stepID,
+				),
+				Details: map[string]any{"payload": startResult.Output},
+			},
 		)
+
 	}
 
 	if serialValue, exists := body["serial"]; exists && serialValue != nil {
 		serial, ok = serialValue.(string)
 		if !ok {
 			return "", "", workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: invalid serial in response for step %s",
-					errCode.Description,
-					input.stepID,
-				),
-				startResult.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"%s: invalid serial in response for step %s",
+						errCode.Description,
+						input.stepID,
+					),
+					Details: map[string]any{"payload": startResult.Output},
+				},
 			)
+
 		}
 	}
 
 	name, ok := body["name"].(string)
 	if !ok {
 		return "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: missing name in response for step %s",
-				errCode.Description,
-				input.stepID,
-			),
-			startResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: missing name in response for step %s",
+					errCode.Description,
+					input.stepID,
+				),
+				Details: map[string]any{"payload": startResult.Output},
+			},
 		)
+
 	}
 
 	return name, serial, nil
@@ -1133,10 +1214,14 @@ func parseInstallerActionResponseBody(
 	body, ok := res.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("invalid HTTP response format for step %s", step.ID),
-			res.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("invalid HTTP response format for step %s", step.ID),
+				Details: map[string]any{"payload": res.Output},
+			},
 		)
+
 	}
 
 	return body, nil
@@ -1151,27 +1236,35 @@ func parseInstallerResponse(
 	apkPath, ok := body["installer_path"].(string)
 	if !ok {
 		return "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: missing installer_path in response for step %s",
-				errCode.Description,
-				step.ID,
-			),
-			body,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: missing installer_path in response for step %s",
+					errCode.Description,
+					step.ID,
+				),
+				Details: map[string]any{"payload": body},
+			},
 		)
+
 	}
 
 	versionIdentifier, ok := body["version_id"].(string)
 	if !ok {
 		return "", "", workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: missing version_id in response for step %s",
-				errCode.Description,
-				step.ID,
-			),
-			body,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: missing version_id in response for step %s",
+					errCode.Description,
+					step.ID,
+				),
+				Details: map[string]any{"payload": body},
+			},
 		)
+
 	}
 
 	return apkPath, versionIdentifier, nil
@@ -1189,14 +1282,18 @@ func parseInstallerActionCode(
 		actionCode, ok = body["code"].(string)
 		if !ok || actionCode == "" {
 			return "", workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: missing action_code in response for step %s",
-					errCode.Description,
-					step.ID,
-				),
-				body,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"%s: missing action_code in response for step %s",
+						errCode.Description,
+						step.ID,
+					),
+					Details: map[string]any{"payload": body},
+				},
 			)
+
 		}
 	}
 
@@ -1265,14 +1362,18 @@ func installAppIfNeeded(
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: missing package_id in response for step %s",
-					errCode.Description,
-					input.stepID,
-				),
-				finalOutput.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"%s: missing package_id in response for step %s",
+						errCode.Description,
+						input.stepID,
+					),
+					Details: map[string]any{"payload": finalOutput.Output},
+				},
 			)
+
 		}
 		installed[input.versionID] = packageID
 		input.deviceMap["installed"] = installed
@@ -1321,9 +1422,13 @@ func disablePlayStoreForDevices(
 		if !ok || serial == "" {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("missing serial for device %s", runnerID),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("missing serial for device %s", runnerID),
+				},
 			)
+
 		}
 
 		mobileAO := *input.ao
@@ -1356,9 +1461,13 @@ func startRecordingForDevice(
 	serial, ok := input.deviceMap["serial"].(string)
 	if !ok || serial == "" {
 		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing serial for device %s", input.runnerID),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing serial for device %s", input.runnerID),
+			},
 		)
+
 	}
 
 	mobileAO := *input.ao
@@ -1404,81 +1513,105 @@ func extractAndStoreRecordingInfo(
 	output, ok := recordResult.Output.(map[string]any)
 	if !ok {
 		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: invalid start record video response for device %s",
-				errCode.Description,
-				runnerID,
-			),
-			recordResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: invalid start record video response for device %s",
+					errCode.Description,
+					runnerID,
+				),
+				Details: map[string]any{"payload": recordResult.Output},
+			},
 		)
+
 	}
 
 	recordingProcessPID, ok := output["recording_process_pid"].(float64)
 	if !ok {
 		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: missing recording_process in start record video response for device %s",
-				errCode.Description,
-				runnerID,
-			),
-			recordResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: missing recording_process in start record video response for device %s",
+					errCode.Description,
+					runnerID,
+				),
+				Details: map[string]any{"payload": recordResult.Output},
+			},
 		)
+
 	}
 
 	ffmpegPID := float64(0)
 	logPID, ok := output["log_process_pid"].(float64)
 	if !ok {
 		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: missing log_process in start record video response for device %s",
-				errCode.Description,
-				runnerID,
-			),
-			recordResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: missing log_process in start record video response for device %s",
+					errCode.Description,
+					runnerID,
+				),
+				Details: map[string]any{"payload": recordResult.Output},
+			},
 		)
+
 	}
 	if !deviceType.IsIOS() {
 		ffmpegPID, ok = output["ffmpeg_process_pid"].(float64)
 		if !ok {
 			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: missing ffmpeg_process in start record video response for device %s",
-					errCode.Description,
-					runnerID,
-				),
-				recordResult.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"%s: missing ffmpeg_process in start record video response for device %s",
+						errCode.Description,
+						runnerID,
+					),
+					Details: map[string]any{"payload": recordResult.Output},
+				},
 			)
+
 		}
 	}
 
 	videoPath, ok := output["video_path"].(string)
 	if !ok {
 		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: missing video_path in start record video response for device %s",
-				errCode.Description,
-				runnerID,
-			),
-			recordResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: missing video_path in start record video response for device %s",
+					errCode.Description,
+					runnerID,
+				),
+				Details: map[string]any{"payload": recordResult.Output},
+			},
 		)
+
 	}
 
 	logPath, hasLogPath := output["log_path"].(string)
 	if !hasLogPath || logPath == "" {
 		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: missing log_path in start record video response for device %s",
-				errCode.Description,
-				runnerID,
-			),
-			recordResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: missing log_path in start record video response for device %s",
+					errCode.Description,
+					runnerID,
+				),
+				Details: map[string]any{"payload": recordResult.Output},
+			},
 		)
+
 	}
 
 	deviceMap["recording_process_pid"] = int(recordingProcessPID)
@@ -1508,9 +1641,13 @@ func MobileAutomationCleanupHook(
 	appURL, ok := config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
-			"missing or invalid app_url in workflow input config",
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
+				Message: "missing or invalid app_url in workflow input config",
+			},
 		)
+
 	}
 
 	var cleanupErrs []error
@@ -1519,10 +1656,14 @@ func MobileAutomationCleanupHook(
 
 	runIdentifier, ok := runData["run_identifier"].(string)
 	if !ok || runIdentifier == "" {
-		cleanupErrs = append(cleanupErrs,
+		cleanupErrs = append(
+			cleanupErrs,
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				"missing run_identifier in run data",
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+					Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+					Message: "missing run_identifier in run data",
+				},
 			),
 		)
 	}
@@ -1546,10 +1687,14 @@ func MobileAutomationCleanupHook(
 	if len(cleanupErrs) > 0 {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 		return workflowengine.NewAppError(
-			errCode,
-			"one or more errors occurred during mobile automation cleanup",
-			cleanupErrs,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "one or more errors occurred during mobile automation cleanup",
+				Details: map[string]any{"payload": cleanupErrs},
+			},
 		)
+
 	}
 
 	return nil
@@ -1705,10 +1850,14 @@ func parseDeviceMap(
 	deviceMap, ok := raw.(map[string]any)
 	if !ok {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			"error decoding payload for device "+runnerID,
-			raw,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "error decoding payload for device " + runnerID,
+				Details: map[string]any{"payload": raw},
+			},
 		)
+
 	}
 	return deviceMap, nil
 }
@@ -1722,19 +1871,27 @@ func extractDeviceInfo(
 	deviceType, ok := deviceMap["type"].(string)
 	if !ok || deviceType == "" {
 		return "", "", "", nil, workflowengine.NewAppError(
-			errCode,
-			"error decoding payload for device "+runnerID,
-			deviceMap,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "error decoding payload for device " + runnerID,
+				Details: map[string]any{"payload": deviceMap},
+			},
 		)
+
 	}
 
 	serial, ok := deviceMap["serial"].(string)
 	if !ok || serial == "" {
 		return "", "", "", nil, workflowengine.NewAppError(
-			errCode,
-			"error decoding payload for device "+runnerID,
-			deviceMap,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "error decoding payload for device " + runnerID,
+				Details: map[string]any{"payload": deviceMap},
+			},
 		)
+
 	}
 
 	name, _ := deviceMap["name"].(string)
@@ -1749,10 +1906,14 @@ func extractDeviceInfo(
 		}
 	} else {
 		return "", "", "", nil, workflowengine.NewAppError(
-			errCode,
-			"error decoding payload for device "+runnerID,
-			deviceMap,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "error decoding payload for device " + runnerID,
+				Details: map[string]any{"payload": deviceMap},
+			},
 		)
+
 	}
 
 	return deviceType, serial, name, packages, nil
@@ -1793,10 +1954,14 @@ func cleanupRecording(
 
 	runner_url, ok := input.deviceInfo["runner_url"].(string)
 	if !ok || runner_url == "" {
-		*input.cleanupErrs = append(*input.cleanupErrs,
+		*input.cleanupErrs = append(
+			*input.cleanupErrs,
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				"missing runner_url for device "+input.runnerID,
+				workflowengine.WorkflowError{
+					Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+					Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+					Message: "missing runner_url for device " + input.runnerID,
+				},
 			),
 		)
 		return
@@ -1858,34 +2023,50 @@ func extractRecordingInfo(
 	videoPath, ok := deviceInfo["video_path"].(string)
 	if !ok || videoPath == "" {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			"missing video_path for device "+runnerID,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "missing video_path for device " + runnerID,
+			},
 		)
+
 	}
 
 	logPath, hasLogPath := deviceInfo["log_path"].(string)
 	if !hasLogPath || logPath == "" {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			"missing log_path for device "+runnerID,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "missing log_path for device " + runnerID,
+			},
 		)
+
 	}
 
 	recordingPid, ok := deviceInfo["recording_process_pid"].(int)
 	if !ok || recordingPid == 0 {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			"missing recording_process_pid for device "+runnerID,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "missing recording_process_pid for device " + runnerID,
+			},
 		)
+
 	}
 
 	if deviceType.IsIOS() {
 		logPid, ok := deviceInfo["recording_log_pid"].(int)
 		if !ok || logPid == 0 {
 			return nil, workflowengine.NewAppError(
-				errCode,
-				"missing recording_log_pid for device "+runnerID,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "missing recording_log_pid for device " + runnerID,
+				},
 			)
+
 		}
 		return &recordingInfo{
 			deviceType:   deviceType,
@@ -1900,17 +2081,25 @@ func extractRecordingInfo(
 	recordingFfmpegPid, ok := deviceInfo["recording_ffmpeg_pid"].(int)
 	if !ok || recordingFfmpegPid == 0 {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			"missing recording_ffmpeg_pid for device "+runnerID,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "missing recording_ffmpeg_pid for device " + runnerID,
+			},
 		)
+
 	}
 
 	recordingLogPid, ok := deviceInfo["recording_log_pid"].(int)
 	if !ok || recordingLogPid == 0 {
 		return nil, workflowengine.NewAppError(
-			errCode,
-			"missing recording_log_pid for device "+runnerID,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "missing recording_log_pid for device " + runnerID,
+			},
 		)
+
 	}
 
 	return &recordingInfo{
@@ -1964,10 +2153,14 @@ func stopRecording(
 	lastFramePath, ok := stopResult.Output.(map[string]any)["last_frame_path"].(string)
 	if !ok || lastFramePath == "" {
 		err := workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-			"missing last_frame_path in stop recording result",
-			stopResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Code,
+				Summary: errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Description,
+				Message: "missing last_frame_path in stop recording result",
+				Details: map[string]any{"payload": stopResult.Output},
+			},
 		)
+
 		return "", err
 	}
 
@@ -2029,10 +2222,14 @@ func extractAndStoreURLs(
 	body, ok := storeResult.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
 		err := workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-			"missing body in store result",
-			storeResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Code,
+				Summary: errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Description,
+				Message: "missing body in store result",
+				Details: map[string]any{"payload": storeResult.Output},
+			},
 		)
+
 		return err
 	}
 
@@ -2041,10 +2238,14 @@ func extractAndStoreURLs(
 
 	if len(resultURLs) == 0 || len(frameURLs) == 0 {
 		err := workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-			"missing result or screenshot URLs",
-			storeResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Code,
+				Summary: errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Description,
+				Message: "missing result or screenshot URLs",
+				Details: map[string]any{"payload": storeResult.Output},
+			},
 		)
+
 		return err
 	}
 

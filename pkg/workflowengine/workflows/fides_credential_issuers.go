@@ -96,10 +96,14 @@ func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 	if len(issuers) == 0 {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-				"Fides catalog returned no credential issuers",
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "Fides catalog returned no credential issuers",
+				},
 			),
 			input.RunMetadata,
 		)
@@ -203,8 +207,11 @@ func fetchFidesCredentialIssuerURLs(
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: body", httpActivity.Name()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: body", httpActivity.Name()),
+				},
 			)
 			return nil, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 		}
@@ -220,8 +227,11 @@ func fetchFidesCredentialIssuerURLs(
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: output", parseActivity.Name()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: output", parseActivity.Name()),
+				},
 			)
 			return nil, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 		}
@@ -270,8 +280,11 @@ func storeOrUpdateCredentialIssuerRecord(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: body", internalHTTPActivity.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: body", internalHTTPActivity.Name()),
+			},
 		)
 		return "", workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
@@ -279,8 +292,11 @@ func storeOrUpdateCredentialIssuerRecord(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: body.record", internalHTTPActivity.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: body.record", internalHTTPActivity.Name()),
+			},
 		)
 		return "", workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
@@ -288,8 +304,11 @@ func storeOrUpdateCredentialIssuerRecord(
 	if !ok || id == "" {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: body.record.id", internalHTTPActivity.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: body.record.id", internalHTTPActivity.Name()),
+			},
 		)
 		return "", workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}

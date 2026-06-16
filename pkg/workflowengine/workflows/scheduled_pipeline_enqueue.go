@@ -158,10 +158,14 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	output, ok := httpResult.Output.(map[string]any)
 	if !ok {
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: invalid output format", errCode.Description),
-			httpResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: invalid output format", errCode.Description),
+				Details: map[string]any{"payload": httpResult.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -171,10 +175,14 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	body, ok := output["body"].(map[string]any)
 	if !ok {
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: missing body in output", errCode.Description),
-			output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: missing body in output", errCode.Description),
+				Details: map[string]any{"payload": output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -184,10 +192,14 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	record, ok := body["record"].(map[string]any)
 	if !ok {
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: missing record in body", errCode.Description),
-			body,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: missing record in body", errCode.Description),
+				Details: map[string]any{"payload": body},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -197,10 +209,14 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	pipelineYAML, ok := record["yaml"].(string)
 	if !ok {
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: missing yaml in record", errCode.Description),
-			record,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: missing yaml in record", errCode.Description),
+				Details: map[string]any{"payload": record},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -210,7 +226,13 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	parsedPipeline, runnerInfo, err := parseScheduledPipelineDefinition(pipelineYAML)
 	if err != nil {
 		parseCode := errorcodes.Codes[errorcodes.PipelineParsingError]
-		appErr := workflowengine.NewAppError(parseCode, err.Error())
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    parseCode.Code,
+				Summary: parseCode.Description,
+				Message: err.Error(),
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -238,10 +260,14 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	sort.Strings(runnerIDs)
 	if len(runnerIDs) == 0 {
 		configErr := workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
-			"runner_ids",
-			"no runner ids resolved from yaml",
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
+				Message: "runner_ids",
+				Details: map[string]any{"payload": "no runner ids resolved from yaml"},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			configErr,
 			input.RunMetadata,
@@ -321,7 +347,7 @@ func validateScheduledPipelineRunnerAccess(
 	appURL string,
 	ownerNamespace string,
 	runnerIDs []string,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 ) error {
 	httpActivity := activities.NewInternalHTTPActivity()
 	request := workflowengine.ActivityInput{

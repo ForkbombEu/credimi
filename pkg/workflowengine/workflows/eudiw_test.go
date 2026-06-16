@@ -166,14 +166,22 @@ func Test_EudiwWorkflow(t *testing.T) {
 					<-done
 					var result workflowengine.WorkflowResult
 					require.NoError(t, env.GetWorkflowResult(&result))
-					require.Equal(t, 3, int(callCount.Load())) // Only two activity call (no looping)
+					require.Equal(
+						t,
+						3,
+						int(callCount.Load()),
+					) // Only two activity call (no looping)
 				}
 			} else {
 				<-done
 				var result workflowengine.WorkflowResult
 				require.Error(t, env.GetWorkflowResult(&result))
 				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Code)
-				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Description)
+				require.Contains(
+					t,
+					env.GetWorkflowResult(&result).Error(),
+					tc.errorCode.Description,
+				)
 			}
 		})
 	}

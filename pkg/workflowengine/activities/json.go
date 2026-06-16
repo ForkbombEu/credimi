@@ -60,9 +60,14 @@ func (a *JSONActivity) Execute(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnregisteredStructType]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: '%s'", errCode.Description, payload.StructType),
-			payload.StructType,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("unregistered struct type %q", payload.StructType),
+				Details: map[string]any{
+					"struct_type": payload.StructType,
+				},
+			},
 		)
 	}
 
@@ -74,9 +79,14 @@ func (a *JSONActivity) Execute(
 	if err := decoder.Decode(target); err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			payload.RawJSON,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"raw_json": payload.RawJSON,
+				},
+			},
 		)
 	}
 	result.Output = reflect.ValueOf(target).Elem().Interface()

@@ -75,7 +75,7 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	}
 
 	ctx = workflow.WithActivityOptions(ctx, opts)
-	runMetadata := &workflowengine.WorkflowErrorMetadata{
+	runMetadata := &workflowengine.WorkflowRunMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
@@ -121,10 +121,14 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	if !ok {
 		appErr :=
 			workflowengine.NewAppError(
-				errCode,
-				"invalid HTTP response format",
-				resp.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "invalid HTTP response format",
+					Details: map[string]any{"payload": resp.Output},
+				},
 			)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 
@@ -132,10 +136,14 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	if !ok {
 		appErr :=
 			workflowengine.NewAppError(
-				errCode,
-				"invalid HTTP response body",
-				body,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "invalid HTTP response body",
+					Details: map[string]any{"payload": body},
+				},
 			)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 

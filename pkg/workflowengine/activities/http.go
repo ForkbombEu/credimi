@@ -102,9 +102,12 @@ func executeHTTPRequest(
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 			return result, act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s': %v", errCode.Description, err),
-				url,
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+					Details: map[string]any{"url": url},
+				},
 			)
 		}
 
@@ -132,9 +135,12 @@ func executeHTTPRequest(
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 				return result, act.NewActivityError(
-					errCode.Code,
-					fmt.Sprintf("%s for request body: %v", errCode.Description, err),
-					payload.Body,
+					workflowengine.ActivityError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+						Details: map[string]any{"body": payload.Body},
+					},
 				)
 			}
 			body = bytes.NewBuffer(jsonBody)
@@ -145,11 +151,16 @@ func executeHTTPRequest(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]
 		return result, act.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			payload.Method,
-			url,
-			payload.Body,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"method": payload.Method,
+					"url":    url,
+					"body":   payload.Body,
+				},
+			},
 		)
 	}
 
@@ -175,9 +186,12 @@ func executeHTTPRequest(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
 		return result, act.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			reqSnap,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{"request": reqSnap},
+			},
 		)
 	}
 	defer resp.Body.Close()
@@ -186,10 +200,15 @@ func executeHTTPRequest(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ReadFromReaderFailed]
 		return result, act.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			resp.StatusCode,
-			resp.Header,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"status":  resp.StatusCode,
+					"headers": resp.Header,
+				},
+			},
 		)
 	}
 
@@ -198,7 +217,12 @@ func executeHTTPRequest(
 		output = string(respBody)
 	}
 
-	if err := validateExpectedStatus(resp.StatusCode, payload.ExpectedStatus, output, act); err != nil {
+	if err := validateExpectedStatus(
+		resp.StatusCode,
+		payload.ExpectedStatus,
+		output,
+		act,
+	); err != nil {
 		return result, err
 	}
 
@@ -206,9 +230,11 @@ func executeHTTPRequest(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		return result, act.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("failed to extract outputs: %v", err),
-			nil,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("failed to extract outputs: %v", err),
+			},
 		)
 	}
 	resultMap := map[string]any{
@@ -358,12 +384,21 @@ func validateOutputRules(rules map[string]OutputRule) error {
 		}
 
 		if ruleCount == 0 {
-			return fmt.Errorf("output rule '%s' must specify one of: xpath, selector, cookie, or regex", name)
+			return fmt.Errorf(
+				"output rule '%s' must specify one of: xpath, selector, cookie, or regex",
+				name,
+			)
 		}
 
 		if ruleCount > 1 {
-			return fmt.Errorf("output rule '%s' cannot specify multiple extraction methods (found: xpath=%t, selector=%t, cookie=%t, regex=%t)",
-				name, rule.XPath != "", rule.Selector != "", rule.Cookie != "", rule.Regex != "")
+			return fmt.Errorf(
+				"output rule '%s' cannot specify multiple extraction methods (found: xpath=%t, selector=%t, cookie=%t, regex=%t)",
+				name,
+				rule.XPath != "",
+				rule.Selector != "",
+				rule.Cookie != "",
+				rule.Regex != "",
+			)
 		}
 	}
 	return nil
@@ -387,9 +422,12 @@ func validateExpectedStatus(
 		if statusCode != int(v) {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 			return act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: expected '%d', got '%d'", errCode.Description, int(v), statusCode),
-				output,
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("expected %d, got %d", int(v), statusCode),
+					Details: map[string]any{"output": output},
+				},
 			)
 		}
 		return nil
@@ -401,9 +439,12 @@ func validateExpectedStatus(
 		if statusCode != v {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 			return act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: expected '%d', got '%d'", errCode.Description, v, statusCode),
-				output,
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("expected %d, got %d", v, statusCode),
+					Details: map[string]any{"output": output},
+				},
 			)
 		}
 		return nil
@@ -414,17 +455,27 @@ func validateExpectedStatus(
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 			return act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("invalid regex pattern for expected_status: %v", err),
-				v,
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("invalid regex pattern for expected_status: %v", err),
+					Details: map[string]any{"expected_status": v},
+				},
 			)
 		}
 		if !matched {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 			return act.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: expected pattern '/%s/', got '%d'", errCode.Description, trimmedPattern, statusCode),
-				output,
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"expected pattern '/%s/', got %d",
+						trimmedPattern,
+						statusCode,
+					),
+					Details: map[string]any{"output": output},
+				},
 			)
 		}
 		return nil
@@ -432,9 +483,15 @@ func validateExpectedStatus(
 	default:
 		errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 		return act.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("expected_status must be integer or regex string, got %T", expectedStatus),
-			expectedStatus,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"expected_status must be integer or regex string, got %T",
+					expectedStatus,
+				),
+				Details: map[string]any{"expected_status": expectedStatus},
+			},
 		)
 	}
 }

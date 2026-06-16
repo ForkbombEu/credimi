@@ -178,7 +178,11 @@ func Test_EWCWorkflow(t *testing.T) {
 				var result workflowengine.WorkflowResult
 				require.Error(t, env.GetWorkflowResult(&result))
 				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Code)
-				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Description)
+				require.Contains(
+					t,
+					env.GetWorkflowResult(&result).Error(),
+					tc.errorCode.Description,
+				)
 			}
 		})
 	}

@@ -166,7 +166,11 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				future.Get(&result)
-				require.Equal(t, tt.expectStatus, int(result.Output.(map[string]any)["status"].(float64)))
+				require.Equal(
+					t,
+					tt.expectStatus,
+					int(result.Output.(map[string]any)["status"].(float64)),
+				)
 				require.Equal(t, tt.expectResponse, result.Output.(map[string]any)["body"])
 			}
 		})
@@ -538,7 +542,7 @@ func TestValidateExpectedStatus(t *testing.T) {
 			statusCode:     404,
 			expectedStatus: 200,
 			expectError:    true,
-			errorContains:  "expected '200', got '404'",
+			errorContains:  "expected 200, got 404",
 		},
 		{
 			name:           "Success - regex pattern /^20/ matches 200",
@@ -563,14 +567,14 @@ func TestValidateExpectedStatus(t *testing.T) {
 			statusCode:     300,
 			expectedStatus: "/^20/",
 			expectError:    true,
-			errorContains:  "expected pattern '/^20/', got '300'",
+			errorContains:  "expected pattern '/^20/', got 300",
 		},
 		{
 			name:           "Error - regex pattern /^20/ fails with 404",
 			statusCode:     404,
 			expectedStatus: "/^20/",
 			expectError:    true,
-			errorContains:  "expected pattern '/^20/', got '404'",
+			errorContains:  "expected pattern '/^20/', got 404",
 		},
 		{
 			name:           "Error - invalid regex pattern",

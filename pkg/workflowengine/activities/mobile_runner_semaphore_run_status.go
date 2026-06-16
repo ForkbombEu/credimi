@@ -6,7 +6,6 @@ package activities
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -52,11 +51,11 @@ func (a *QueryMobileRunnerSemaphoreRunStatusActivity) Execute(
 	if payload.RunnerID == "" || payload.OwnerNamespace == "" || payload.TicketID == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(
-				"%s: runner_id, owner_namespace, and ticket_id are required",
-				errCode.Description,
-			),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "runner_id, owner_namespace, and ticket_id are required",
+			},
 		)
 	}
 

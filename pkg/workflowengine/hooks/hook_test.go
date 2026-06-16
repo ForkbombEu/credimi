@@ -68,11 +68,11 @@ func (f fakeActivity) Name() string {
 	return f.name
 }
 
-func (f fakeActivity) NewActivityError(string, string, ...any) error {
+func (f fakeActivity) NewActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
-func (f fakeActivity) NewNonRetryableActivityError(string, string, ...any) error {
+func (f fakeActivity) NewNonRetryableActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 

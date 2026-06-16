@@ -99,13 +99,17 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 		if err != nil {
 			var decodeErr *FederationDecodingError
 			if errors.As(err, &decodeErr) {
+				errCode := errorcodes.Codes[errorcodes.DecodeFailed]
 				return result, a.NewActivityError(
-					errorcodes.Codes[errorcodes.DecodeFailed].Code,
-					fmt.Sprintf(
-						"Openid-federation well.known exists but JWT decoding failed: %v",
-						decodeErr.Err,
-					),
-					decodeErr.Payload,
+					workflowengine.ActivityError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: fmt.Sprintf(
+							"Openid-federation well.known exists but JWT decoding failed: %v",
+							decodeErr.Err,
+						),
+						Details: map[string]any{"payload": decodeErr.Payload},
+					},
 				)
 			}
 			return result, err
@@ -175,10 +179,15 @@ func fetchJSONFromURL(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]
 		return "", a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			http.MethodGet,
-			url,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"method": http.MethodGet,
+					"url":    url,
+				},
+			},
 		)
 	}
 
@@ -186,9 +195,15 @@ func fetchJSONFromURL(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
 		return "", a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			req,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"method": req.Method,
+					"url":    req.URL.String(),
+				},
+			},
 		)
 	}
 	defer resp.Body.Close()
@@ -196,9 +211,14 @@ func fetchJSONFromURL(
 	if resp.StatusCode != http.StatusOK {
 		errCode := errorcodes.Codes[errorcodes.IsNotCredentialIssuer]
 		return "", a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: ", errCode.Description),
-			url,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Details: map[string]any{
+					"url":         url,
+					"status_code": resp.StatusCode,
+				},
+			},
 		)
 	}
 
@@ -206,9 +226,11 @@ func fetchJSONFromURL(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ReadFromReaderFailed]
 		return "", a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			resp.Body,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 

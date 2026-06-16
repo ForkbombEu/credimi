@@ -123,10 +123,14 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 	if len(metadata.CredentialConfigurations) == 0 {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-				"credential issuer metadata contains no credential_configurations_supported entries",
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "credential issuer metadata contains no credential_configurations_supported entries",
+				},
 			),
 			input.RunMetadata,
 		)
@@ -210,8 +214,11 @@ func fetchCredentialIssuerMetadata(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: output", checkIssuer.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: output", checkIssuer.Name()),
+			},
 		)
 		return credentialIssuerMetadata{}, workflowengine.NewWorkflowError(
 			appErr,
@@ -222,8 +229,11 @@ func fetchCredentialIssuerMetadata(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: source", checkIssuer.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: source", checkIssuer.Name()),
+			},
 		)
 		return credentialIssuerMetadata{}, workflowengine.NewWorkflowError(
 			appErr,
@@ -234,8 +244,11 @@ func fetchCredentialIssuerMetadata(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: rawJSON", checkIssuer.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: rawJSON", checkIssuer.Name()),
+			},
 		)
 		return credentialIssuerMetadata{}, workflowengine.NewWorkflowError(
 			appErr,
@@ -273,8 +286,11 @@ func fetchCredentialIssuerMetadata(
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: output", parseJSON.Name()),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: output", parseJSON.Name()),
+			},
 		)
 		return credentialIssuerMetadata{}, workflowengine.NewWorkflowError(
 			appErr,
@@ -350,10 +366,14 @@ func storeCredentialIssuerCredentials(
 	metadata credentialIssuerMetadata,
 ) (credentialIssuerCredentialStoreResult, error) {
 	if params.IssuerID == "" {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		return credentialIssuerCredentialStoreResult{}, workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-				"credential issuer record id is required",
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "credential issuer record id is required",
+				},
 			),
 			input.RunMetadata,
 		)
@@ -392,8 +412,11 @@ func storeCredentialIssuerCredentials(
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: body.key", internalHTTPActivity.Name()),
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("%s: body.key", internalHTTPActivity.Name()),
+				},
 			)
 			return credentialIssuerCredentialStoreResult{}, workflowengine.NewWorkflowError(
 				appErr,
@@ -527,10 +550,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	responseBody, ok := result.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"output is not a map",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "output is not a map",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -539,10 +566,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	dynamic, ok := responseBody["dynamic"].(bool)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"dynamic is not a bool",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "dynamic is not a bool",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -552,10 +583,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 		credentialOffer, ok := responseBody["credential_offer"].(string)
 		if !ok {
 			wErr := workflowengine.NewAppError(
-				errCode,
-				"credential_offer is not a string",
-				result.Output,
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "credential_offer is not a string",
+					Details: map[string]any{"payload": result.Output},
+				},
 			)
+
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				wErr,
 				input.RunMetadata,
@@ -570,10 +605,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	code, ok := responseBody["code"].(string)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"yaml code is not a string",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "yaml code is not a string",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -598,10 +637,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	captures, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"captures is not a map",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "captures is not a map",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -610,10 +653,14 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	credentialOffer, ok := captures["deeplink"].(string)
 	if !ok {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"deeplink missing or invalid from captures",
-			result.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "deeplink missing or invalid from captures",
+				Details: map[string]any{"payload": result.Output},
+			},
 		)
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			wErr,
 			input.RunMetadata,
@@ -627,49 +674,61 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 
 func extractSchemaValidationIssues(
 	err error,
-	runMetadata *workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowRunMetadata,
 ) ([]activities.SchemaValidationIssue, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityErrorDetails]
-	details, err := extractAppErrorDetails(err)
-	if err != nil {
-		return nil, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	if len(details) == 0 {
-		wErr := workflowengine.NewAppError(errCode, "schema validation details are empty")
-		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
-	}
-
-	firstDetail := details[0]
-	if nestedDetails, ok := firstDetail.([]any); ok && len(nestedDetails) > 0 {
-		firstDetail = nestedDetails[0]
-	}
-	if typed, ok := firstDetail.(activities.SchemaValidationErrorDetails); ok {
-		return credentialSchemaValidationIssues(typed.Issues), nil
-	}
-
-	rawMap, ok := firstDetail.(map[string]any)
-	if !ok {
-		wErr := workflowengine.NewAppError(errCode, "schema validation details[0] is not a map")
-		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
-	}
-
-	rawIssues, ok := rawMap["issues"].([]any)
-	if !ok {
+	failure := workflowengine.ParseWorkflowError(err)
+	if len(failure.Details) == 0 {
 		wErr := workflowengine.NewAppError(
-			errCode,
-			"schema validation details should contain normalized issues",
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "schema validation details are empty",
+			},
 		)
 		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
 
-	issues := make([]activities.SchemaValidationIssue, 0, len(rawIssues))
-	for _, rawIssue := range rawIssues {
+	rawIssues, ok := failure.Details["issues"]
+	if !ok {
+		wErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "schema validation details should contain normalized issues",
+			},
+		)
+
+		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
+
+	if typed, ok := rawIssues.([]activities.SchemaValidationIssue); ok {
+		return credentialSchemaValidationIssues(typed), nil
+	}
+
+	rawIssueList, ok := rawIssues.([]any)
+	if !ok {
+		wErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "schema validation issues should be a list",
+			},
+		)
+		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
+	issues := make([]activities.SchemaValidationIssue, 0, len(rawIssueList))
+	for _, rawIssue := range rawIssueList {
 		issue, ok := schemaValidationIssueFromMap(rawIssue)
 		if !ok {
 			wErr := workflowengine.NewAppError(
-				errCode,
-				"each schema validation issue should be a map",
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "each schema validation issue should be a map",
+				},
 			)
+
 			return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 		}
 		issues = append(issues, issue)
@@ -809,9 +868,13 @@ func validateCredentialIssuerIdentifier(
 ) error {
 	metadataIssuer, ok := issuerData["credential_issuer"].(string)
 	if !ok || strings.TrimSpace(metadataIssuer) == "" {
+		errCode := errorcodes.Codes[errorcodes.SchemaValidationFailed]
 		return workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.SchemaValidationFailed],
-			"credential_issuer is required",
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "credential_issuer is required",
+			},
 		)
 	}
 
@@ -821,13 +884,17 @@ func validateCredentialIssuerIdentifier(
 	}
 	if normalizeCredentialIssuerIdentifier(metadataIssuer) !=
 		normalizeCredentialIssuerIdentifier(expectedIssuer) {
+		errCode := errorcodes.Codes[errorcodes.SchemaValidationFailed]
 		return workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.SchemaValidationFailed],
-			fmt.Sprintf(
-				"credential_issuer %q does not match expected issuer identifier %q",
-				metadataIssuer,
-				expectedIssuer,
-			),
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"credential_issuer %q does not match expected issuer identifier %q",
+					metadataIssuer,
+					expectedIssuer,
+				),
+			},
 		)
 	}
 
@@ -886,11 +953,29 @@ func extractAppErrorDetails(err error) ([]any, error) {
 			if derr == nil {
 				return details, nil
 			}
-			return nil, workflowengine.NewAppError(errCode, derr.Error())
+			return nil, workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: derr.Error(),
+				},
+			)
 		}
-		return nil, workflowengine.NewAppError(errCode, actErr.Unwrap().Error())
+		return nil, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: actErr.Unwrap().Error(),
+			},
+		)
 	}
-	return nil, workflowengine.NewAppError(errCode, err.Error())
+	return nil, workflowengine.NewAppError(
+		workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: err.Error(),
+		},
+	)
 }
 
 func validateInput(

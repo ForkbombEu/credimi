@@ -8,7 +8,6 @@ package workflows
 import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -99,11 +98,13 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	_ = ctx
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 	return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-		temporal.NewApplicationError(
-			"mobile automation is disabled; build with -tags=credimi_extra",
-			errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		),
+		workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: "mobile automation is disabled; build with -tags=credimi_extra",
+		}),
 		input.RunMetadata,
 	)
 }
@@ -113,11 +114,13 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	_ = ctx
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 	return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-		temporal.NewApplicationError(
-			"mobile automation is disabled; build with -tags=credimi_extra",
-			errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-		),
+		workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: "mobile automation is disabled; build with -tags=credimi_extra",
+		}),
 		input.RunMetadata,
 	)
 }

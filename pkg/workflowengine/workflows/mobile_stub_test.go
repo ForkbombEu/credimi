@@ -24,7 +24,7 @@ func TestMobileAutomationWorkflowDisabled(t *testing.T) {
 	})
 
 	input := workflowengine.WorkflowInput{
-		RunMetadata: &workflowengine.WorkflowErrorMetadata{WorkflowName: w.Name()},
+		RunMetadata: &workflowengine.WorkflowRunMetadata{WorkflowName: w.Name()},
 		Config:      map[string]any{"app_url": ""},
 	}
 	env.ExecuteWorkflow(w.Name(), input)
@@ -32,6 +32,10 @@ func TestMobileAutomationWorkflowDisabled(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code)
+	failure := workflowengine.ParseWorkflowError(err)
+	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code, failure.Code)
+	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description, failure.Summary)
+	require.Equal(t, "mobile automation is disabled; build with -tags=credimi_extra", failure.Message)
 }
 
 func TestMobileExternalInstallWorkflowDisabled(t *testing.T) {
@@ -44,7 +48,7 @@ func TestMobileExternalInstallWorkflowDisabled(t *testing.T) {
 	})
 
 	input := workflowengine.WorkflowInput{
-		RunMetadata: &workflowengine.WorkflowErrorMetadata{WorkflowName: w.Name()},
+		RunMetadata: &workflowengine.WorkflowRunMetadata{WorkflowName: w.Name()},
 		Config:      map[string]any{"app_url": ""},
 	}
 	env.ExecuteWorkflow(w.Name(), input)
@@ -52,4 +56,8 @@ func TestMobileExternalInstallWorkflowDisabled(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code)
+	failure := workflowengine.ParseWorkflowError(err)
+	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code, failure.Code)
+	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description, failure.Summary)
+	require.Equal(t, "mobile automation is disabled; build with -tags=credimi_extra", failure.Message)
 }

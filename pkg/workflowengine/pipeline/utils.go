@@ -5,6 +5,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -224,8 +225,94 @@ func DecodePayload(s *pipeline.StepDefinition) (any, error) {
 	valPtr := reflect.New(desc.PayloadType).Interface()
 
 	if err := json.Unmarshal(data, valPtr); err != nil {
-		return nil, fmt.Errorf("failed to decode payload for %s: %w", s.ID, err)
+		return nil, fmt.Errorf(
+			"failed to decode payload for %s: %s",
+			s.ID,
+			formatPayloadDecodeError(s, err),
+		)
 	}
 
 	return valPtr, nil
+}
+
+func formatPayloadDecodeError(s *pipeline.StepDefinition, err error) string {
+	var typeErr *json.UnmarshalTypeError
+	if !errors.As(err, &typeErr) {
+		return err.Error()
+	}
+
+	if typeErr.Field == "parameters" && typeErr.Type.Kind() == reflect.String {
+		return formatStringParameterDecodeError(s)
+	}
+
+	if typeErr.Field == "" {
+		return fmt.Sprintf(
+			"invalid payload for %s: expected %s but got %s",
+			s.Use,
+			typeErr.Type,
+			typeErr.Value,
+		)
+	}
+
+	return fmt.Sprintf(
+		"invalid payload for %s: with.payload.%s expected %s but got %s",
+		s.Use,
+		typeErr.Field,
+		typeErr.Type,
+		typeErr.Value,
+	)
+}
+
+func formatStringParameterDecodeError(s *pipeline.StepDefinition) string {
+	paramName, paramType := firstNonStringParameter(s.With.Payload["parameters"])
+	if paramName == "" {
+		return fmt.Sprintf(
+			"invalid payload for %s: with.payload.parameters must contain only string values",
+			s.Use,
+		)
+	}
+
+	return fmt.Sprintf(
+		"invalid payload for %s: with.payload.parameters must contain only string values; "+
+			"parameter %q resolved to %s",
+		s.Use,
+		paramName,
+		paramType,
+	)
+}
+
+func firstNonStringParameter(parameters any) (string, string) {
+	switch params := parameters.(type) {
+	case map[string]any:
+		for key, value := range params {
+			if _, ok := value.(string); !ok {
+				return key, payloadValueType(value)
+			}
+		}
+	case map[string]string:
+		return "", ""
+	default:
+		return "parameters", payloadValueType(parameters)
+	}
+
+	return "", ""
+}
+
+func payloadValueType(value any) string {
+	switch value.(type) {
+	case nil:
+		return "null"
+	case map[string]any, map[string]string:
+		return "object"
+	case []any, []string:
+		return "array"
+	case string:
+		return "string"
+	case bool:
+		return "boolean"
+	case float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return "number"
+	default:
+		return fmt.Sprintf("%T", value)
+	}
 }

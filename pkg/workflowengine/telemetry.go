@@ -23,9 +23,17 @@ func MergeTelemetryConfig(ctx workflow.Context, cfg map[string]any) map[string]a
 	merged := copyAnyMap(cfg)
 	info := workflow.GetInfo(ctx)
 
-	rootWorkflowID := stringConfigValue(merged, TelemetryRootWorkflowIDKey, info.WorkflowExecution.ID)
+	rootWorkflowID := stringConfigValue(
+		merged,
+		TelemetryRootWorkflowIDKey,
+		info.WorkflowExecution.ID,
+	)
 	rootRunID := stringConfigValue(merged, TelemetryRootRunIDKey, info.WorkflowExecution.RunID)
-	parentWorkflowID := stringConfigValue(merged, TelemetryParentWorkflowIDKey, info.WorkflowExecution.ID)
+	parentWorkflowID := stringConfigValue(
+		merged,
+		TelemetryParentWorkflowIDKey,
+		info.WorkflowExecution.ID,
+	)
 	parentRunID := stringConfigValue(merged, TelemetryParentRunIDKey, info.WorkflowExecution.RunID)
 
 	merged[TelemetryRootWorkflowIDKey] = rootWorkflowID

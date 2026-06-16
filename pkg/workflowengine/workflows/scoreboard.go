@@ -205,7 +205,8 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		},
 	}
 	var saveResult workflowengine.ActivityResult
-	if err = workflow.ExecuteActivity(ctx, httpActivity.Name(), saveRequest).Get(ctx, &saveResult); err != nil {
+	if err = workflow.ExecuteActivity(ctx, httpActivity.Name(), saveRequest).
+		Get(ctx, &saveResult); err != nil {
 		logger.Error("Failed to save results", "error", err)
 	}
 
@@ -526,17 +527,22 @@ func fetchExecutionDetails(
 	}
 
 	var detailsResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), detailsRequest).Get(ctx, &detailsResult); err != nil {
+	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), detailsRequest).
+		Get(ctx, &detailsResult); err != nil {
 		return nil, err
 	}
 
 	detailsBody, ok := detailsResult.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
 		return nil, workflowengine.NewAppError(
-			errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
-			"execution details body is not a map",
-			detailsResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Code,
+				Summary: errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Description,
+				Message: "execution details body is not a map",
+				Details: map[string]any{"payload": detailsResult.Output},
+			},
 		)
+
 	}
 
 	return &LatestExecutionDetails{

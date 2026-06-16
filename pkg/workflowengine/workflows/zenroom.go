@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -93,13 +92,25 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 		tmpDirLocal, err := os.MkdirTemp("", "zenroom-workflow-")
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MkdirFailed]
-			return workflowengine.NewAppError(errCode, err.Error())
+			return workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+				},
+			)
 		}
 
 		errCode := errorcodes.Codes[errorcodes.WriteFileFailed]
 		contractPath := filepath.Join(tmpDirLocal, "contract.zen")
 		if err := os.WriteFile(contractPath, []byte(payload.Contract), 0600); err != nil {
-			return workflowengine.NewAppError(errCode, err.Error())
+			return workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+				},
+			)
 		}
 
 		cmdArgsLocal := make([]string, 0)
@@ -107,7 +118,13 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 		if payload.Keys != "" {
 			keysPath := filepath.Join(tmpDirLocal, "keys.json")
 			if err := os.WriteFile(keysPath, []byte(payload.Keys), 0600); err != nil {
-				return workflowengine.NewAppError(errCode, err.Error())
+				return workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+					},
+				)
 			}
 			cmdArgsLocal = append(cmdArgsLocal, "-k", "/tmp/keys.json")
 		}
@@ -115,7 +132,13 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 		if payload.Data != "" {
 			dataPath := filepath.Join(tmpDirLocal, "data.json")
 			if err := os.WriteFile(dataPath, []byte(payload.Data), 0600); err != nil {
-				return workflowengine.NewAppError(errCode, err.Error())
+				return workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: err.Error(),
+					},
+				)
 			}
 			cmdArgsLocal = append(cmdArgsLocal, "-a", "/tmp/data.json")
 		}
@@ -165,7 +188,13 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 	cli, err := newDockerClient()
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
-		appErr := workflowengine.NewAppError(errCode, err.Error())
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -176,7 +205,14 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 	if !ok {
 		if !ok {
 			msg := fmt.Sprintf("unexpected output type: %T", result.Output)
-			appErr := workflowengine.NewAppError(errCode, msg, result.Output)
+			appErr := workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: msg,
+					Details: map[string]any{"payload": result.Output},
+				},
+			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				input.RunMetadata,
@@ -191,7 +227,14 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 
 	exitCode, ok := output["exitCode"].(float64)
 	if !ok {
-		appErr := workflowengine.NewAppError(errCode, "invalid exit code", output["exitCode"])
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "invalid exit code",
+				Details: map[string]any{"payload": output["exitCode"]},
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -199,7 +242,14 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 	}
 	stderr, ok := output["stderr"].(string)
 	if !ok {
-		appErr := workflowengine.NewAppError(errCode, "invalid stderr ", output["stderr"])
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "invalid stderr ",
+				Details: map[string]any{"payload": output["stderr"]},
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -207,7 +257,14 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 	}
 	stdout, ok := output["stdout"].(string)
 	if !ok {
-		appErr := workflowengine.NewAppError(errCode, "invalid stdout ", output["stout"])
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "invalid stdout ",
+				Details: map[string]any{"payload": output["stout"]},
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,
@@ -216,10 +273,16 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 	if int(exitCode) != 0 {
 		errCode := errorcodes.Codes[errorcodes.ZenroomExecutionFailed]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			strconv.Itoa(int(exitCode)),
-			stderr,
-			stdout,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("zenroom exited with code %d", int(exitCode)),
+				Details: map[string]any{
+					"exit_code": int(exitCode),
+					"stderr":    stderr,
+					"stdout":    stdout,
+				},
+			},
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
@@ -231,7 +294,14 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 	if err := json.Unmarshal([]byte(stdout), &parsedOutput); err != nil {
 		logger.Error("Failed to parse stdout JSON", "error", err)
 		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
-		appErr := workflowengine.NewAppError(errCode, err.Error(), stdout)
+		appErr := workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{"payload": stdout},
+			},
+		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,

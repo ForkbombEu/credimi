@@ -580,7 +580,7 @@ func (a *RunMobileFlowActivity) Execute(
 
 func buildMobileInput(
 	payload any,
-	newErr func(code string, msg string, details ...any) error,
+	newErr func(workflowengine.ActivityError) error,
 	extraErrorCodes map[string]mobile.ErrorCode,
 	withCommand bool,
 ) mobile.MobileActivityInput {

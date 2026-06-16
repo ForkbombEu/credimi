@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi-extra/mobile"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -162,7 +163,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			return workflowengine.WorkflowResult{}, executeErr
 		}
 
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 			executeErr,
 			input.RunMetadata,
 			map[string]any{
@@ -222,7 +223,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 
 	beforeApps, err := executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 			err,
 			input.RunMetadata,
 			map[string]any{"output": output},
@@ -251,7 +252,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 			return workflowengine.WorkflowResult{}, executeErr
 		}
 
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 			executeErr,
 			input.RunMetadata,
 			map[string]any{
@@ -267,7 +268,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 		beforeApps,
 	)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 			err,
 			input.RunMetadata,
 			map[string]any{
@@ -278,7 +279,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	}
 
 	if len(addedApps) != 1 {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 			fmt.Errorf("expected exactly one installed app, found %d", len(addedApps)),
 			input.RunMetadata,
 			map[string]any{
@@ -307,7 +308,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 		postInstallActivityName,
 		workflowengine.ActivityInput{Payload: postInstallPayload},
 	).Get(runnerCtx, &postInstallResponse); err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 			err,
 			input.RunMetadata,
 			map[string]any{"output": output},
@@ -354,7 +355,11 @@ func waitForAddedInstalledApps(
 	beforeApps []string,
 ) ([]string, []string, [][]string, error) {
 	deadline := workflow.Now(ctx).Add(externalInstallAppDetectionTimeout)
-	attempts := make([][]string, 0, int(externalInstallAppDetectionTimeout/externalInstallAppDetectionInterval)+1)
+	attempts := make(
+		[][]string,
+		0,
+		int(externalInstallAppDetectionTimeout/externalInstallAppDetectionInterval)+1,
+	)
 
 	for {
 		afterApps, err := executeListInstalledApps(ctx, serial, deviceType)
@@ -410,4 +415,30 @@ func isIOSWorkflowDeviceType(deviceType string) bool {
 	default:
 		return false
 	}
+}
+
+func newMobileWorkflowError(
+	err error,
+	metadata *workflowengine.WorkflowRunMetadata,
+	details map[string]any,
+) error {
+	failure := workflowengine.ParseWorkflowError(err)
+	if failure.Code == "" {
+		errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
+		failure = workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: err.Error(),
+		}
+	}
+	if len(details) > 0 {
+		if failure.Details == nil {
+			failure.Details = map[string]any{}
+		}
+		for key, value := range details {
+			failure.Details[key] = value
+		}
+	}
+
+	return workflowengine.NewWorkflowError(workflowengine.NewAppError(failure), metadata)
 }

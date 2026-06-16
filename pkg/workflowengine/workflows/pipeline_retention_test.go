@@ -39,7 +39,10 @@ func TestPipelineRetentionWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				act := activities.NewInternalHTTPActivity()
-				env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+				env.RegisterActivityWithOptions(
+					act.Execute,
+					activity.RegisterOptions{Name: act.Name()},
+				)
 				env.OnActivity(
 					act.Name(),
 					mock.Anything,
@@ -97,7 +100,10 @@ func TestPipelineRetentionWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				act := activities.NewInternalHTTPActivity()
-				env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+				env.RegisterActivityWithOptions(
+					act.Execute,
+					activity.RegisterOptions{Name: act.Name()},
+				)
 				env.OnActivity(
 					act.Name(),
 					mock.Anything,

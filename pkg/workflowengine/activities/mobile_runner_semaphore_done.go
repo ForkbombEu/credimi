@@ -60,7 +60,11 @@ func (a *ReportMobileRunnerSemaphoreDoneActivity) Execute(
 	ownerNamespace := strings.TrimSpace(payload.OwnerNamespace)
 	if ticketID == "" || leaderRunnerID == "" || ownerNamespace == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, errCode.Description)
+		return result, a.NewActivityError(workflowengine.ActivityError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: "ticket_id, leader_runner_id, and owner_namespace are required",
+		})
 	}
 
 	if isMobileRunnerSemaphoreDisabled() {

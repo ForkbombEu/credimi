@@ -9,7 +9,6 @@ package activities
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os/exec"
 	"path/filepath"
 
@@ -57,9 +56,14 @@ func (a *CESRParsingActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CESRParsingError]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			payload.RawCESR,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{
+					"raw_cesr": payload.RawCESR,
+				},
+			},
 		)
 	}
 	result.Output = events
@@ -118,9 +122,16 @@ func (a *CESRValidateActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(errCode.Description+": %v", err),
-			stderrStr,
+			workflowengine.ActivityError{
+				Code:     errCode.Code,
+				Summary:  "CESR validation command failed",
+				Message:  err.Error(),
+				Category: "external_command",
+				Details: map[string]any{
+					"stderr": stderrStr,
+					"stdout": stdoutStr,
+				},
+			},
 		)
 	}
 

@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/failure/v1"
 	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflow/v1"
@@ -355,6 +356,101 @@ func TestHandleGetMyCheckRunSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "workflowExecutionInfo")
+}
+
+func TestHandleGetMyCheckRunIncludesFailureReason(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := workflowTemporalClient
+	t.Cleanup(func() {
+		workflowTemporalClient = origClient
+	})
+
+	mockClient := &temporalmocks.Client{}
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+	payload, err := json.Marshal(workflowengine.WorkflowError{
+		Code:         "CRE302",
+		Summary:      "StepCI checks failed",
+		Message:      "One or more StepCI assertions failed.",
+		ActivityName: "Run an automation workflow of API calls",
+	})
+	require.NoError(t, err)
+
+	mockClient.
+		On(
+			"DescribeWorkflowExecution",
+			mock.Anything,
+			"check-1",
+			"run-1",
+		).
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Execution: &common.WorkflowExecution{WorkflowId: "check-1", RunId: "run-1"},
+				Type:      &common.WorkflowType{Name: "CustomCheck"},
+				Status:    enums.WORKFLOW_EXECUTION_STATUS_FAILED,
+			},
+		}, nil)
+	mockClient.
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"check-1",
+			"run-1",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
+		).
+		Return(&fakeHistoryIterator{
+			events: []*historypb.HistoryEvent{
+				{
+					Attributes: &historypb.HistoryEvent_WorkflowExecutionFailedEventAttributes{
+						WorkflowExecutionFailedEventAttributes: &historypb.WorkflowExecutionFailedEventAttributes{
+							Failure: &failure.Failure{
+								Message: "StepCI checks failed: One or more StepCI assertions failed.",
+								FailureInfo: &failure.Failure_ApplicationFailureInfo{
+									ApplicationFailureInfo: &failure.ApplicationFailureInfo{
+										Type: "CRE302",
+										Details: &common.Payloads{
+											Payloads: []*common.Payload{{Data: payload}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-1/runs/run-1", nil)
+	req.SetPathValue("workflowId", "check-1")
+	req.SetPathValue("runId", "run-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetMyWorkflowRun()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+	require.Equal(
+		t,
+		"CRE302: [Run an automation workflow of API calls] StepCI checks failed: One or more StepCI assertions failed.",
+		response["failure_reason"],
+	)
 }
 
 func TestHandleGetMyCheckRunInvalidArgument(t *testing.T) {

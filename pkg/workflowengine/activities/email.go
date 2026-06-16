@@ -7,7 +7,6 @@ package activities
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"html/template"
 	"strconv"
 
@@ -83,9 +82,11 @@ func (a *SendMailActivity) Execute(
 	switch {
 	case payload.Body != "" && payload.Template != "":
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'body' and 'template' cannot both be provided in payload",
-				errCode.Description),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "'body' and 'template' cannot both be provided in payload",
+			},
 		)
 	case payload.Body != "":
 		m.SetBody("text/plain", payload.Body)
@@ -94,27 +95,33 @@ func (a *SendMailActivity) Execute(
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return workflowengine.ActivityResult{}, a.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: %v", errCode.Description, err),
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+				},
 			)
 		}
 		var bodyBuffer bytes.Buffer
 		if err := tmpl.Execute(&bodyBuffer, payload.Data); err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return workflowengine.ActivityResult{}, a.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: %v", errCode.Description, err),
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+				},
 			)
 		}
 		m.SetBody("text/html", bodyBuffer.String())
 	default:
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(
-				"%s: either 'body' or both 'template' and 'data' must be provided in payload",
-				errCode.Description,
-			),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "either 'body' or both 'template' and 'data' must be provided in payload",
+			},
 		)
 	}
 
@@ -122,9 +129,14 @@ func (a *SendMailActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'SMTP_PORT environment variable not an integer'", errCode.Description),
-			input.Config["smtp_port"],
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "SMTP_PORT environment variable is not an integer",
+				Details: map[string]any{
+					"smtp_port": input.Config["smtp_port"],
+				},
+			},
 		)
 	}
 
@@ -138,8 +150,11 @@ func (a *SendMailActivity) Execute(
 	if err := d.DialAndSend(m); err != nil {
 		errCode := errorcodes.Codes[errorcodes.EmailSendFailed]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 

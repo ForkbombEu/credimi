@@ -55,13 +55,21 @@ func (a *CheckWorkflowClosedActivity) Execute(
 	workflowID := strings.TrimSpace(payload.WorkflowID)
 	if workflowID == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "workflow_id is required")
+		return result, a.NewActivityError(workflowengine.ActivityError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: "workflow_id is required",
+		})
 	}
 
 	workflowNamespace := strings.TrimSpace(payload.WorkflowNamespace)
 	if workflowNamespace == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "workflow_namespace is required")
+		return result, a.NewActivityError(workflowengine.ActivityError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: "workflow_namespace is required",
+		})
 	}
 
 	client, err := temporalclient.GetTemporalClientWithNamespace(workflowNamespace)

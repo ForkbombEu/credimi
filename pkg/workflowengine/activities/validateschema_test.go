@@ -286,31 +286,26 @@ func schemaValidationIssuesFromError(t *testing.T, err error) []SchemaValidation
 		require.ErrorAs(t, err, &activityErr)
 		require.ErrorAs(t, activityErr.Unwrap(), &appErr)
 	}
-	var rawDetails []any
-	require.NoError(t, appErr.Details(&rawDetails))
-	require.NotEmpty(t, rawDetails)
-	firstDetail := rawDetails[0]
-	if nestedDetails, ok := firstDetail.([]any); ok && len(nestedDetails) > 0 {
-		firstDetail = nestedDetails[0]
-	}
-	if typed, ok := firstDetail.(SchemaValidationErrorDetails); ok {
-		return typed.Issues
-	}
-	rawMap, ok := firstDetail.(map[string]any)
-	require.True(t, ok)
-	rawIssues, ok := rawMap["issues"].([]any)
-	require.True(t, ok)
-	details.Issues = make([]SchemaValidationIssue, 0, len(rawIssues))
-	for _, rawIssue := range rawIssues {
-		issueMap, ok := rawIssue.(map[string]any)
-		require.True(t, ok)
-		details.Issues = append(details.Issues, SchemaValidationIssue{
-			Scope:        issueMap["scope"].(string),
-			CredentialID: stringFromMap(issueMap, "credential_id"),
-			Field:        stringFromMap(issueMap, "field"),
-			Path:         workflowengine.AsSliceOfStrings(issueMap["path"]),
-			Message:      issueMap["message"].(string),
-		})
+	var activityFailure workflowengine.ActivityError
+	require.NoError(t, appErr.Details(&activityFailure))
+	switch rawIssues := activityFailure.Details["issues"].(type) {
+	case []SchemaValidationIssue:
+		details.Issues = rawIssues
+	case []any:
+		details.Issues = make([]SchemaValidationIssue, 0, len(rawIssues))
+		for _, rawIssue := range rawIssues {
+			issueMap, ok := rawIssue.(map[string]any)
+			require.True(t, ok)
+			details.Issues = append(details.Issues, SchemaValidationIssue{
+				Scope:        issueMap["scope"].(string),
+				CredentialID: stringFromMap(issueMap, "credential_id"),
+				Field:        stringFromMap(issueMap, "field"),
+				Path:         workflowengine.AsSliceOfStrings(issueMap["path"]),
+				Message:      issueMap["message"].(string),
+			})
+		}
+	default:
+		require.Failf(t, "unexpected issues shape", "%T", rawIssues)
 	}
 	return details.Issues
 }

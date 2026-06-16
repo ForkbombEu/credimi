@@ -131,7 +131,7 @@ func pollOpenIDConformanceLogs(
 	appURL string,
 	token string,
 	notifyLogs bool,
-	metadata *workflowengine.WorkflowErrorMetadata,
+	metadata *workflowengine.WorkflowRunMetadata,
 ) (workflowengine.WorkflowResult, error) {
 	httpActivity := activities.NewHTTPActivity()
 	pollCtx := workflow.WithActivityOptions(ctx, openIDConformancePollingActivityOptions)
@@ -191,7 +191,14 @@ func pollOpenIDConformanceLogs(
 		if lastResult == openIDCertificationResultInterrupted ||
 			testModuleResult == openIDCertificationTestModuleFailed {
 			errCode := errorcodes.Codes[errorcodes.OpenID4VCIIssuerCheckFailed]
-			appErr := workflowengine.NewAppError(errCode, errCode.Description, logs)
+			appErr := workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: errCode.Description,
+					Details: map[string]any{"payload": logs},
+				},
+			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				metadata,

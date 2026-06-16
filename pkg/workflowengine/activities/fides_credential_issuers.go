@@ -7,7 +7,6 @@ package activities
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -72,9 +71,12 @@ func (a *ParseFidesCredentialIssuersActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			payload.Data,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+				Details: map[string]any{"payload": payload.Data},
+			},
 		)
 	}
 

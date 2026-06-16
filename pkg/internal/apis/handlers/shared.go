@@ -231,6 +231,7 @@ type GetMyWorkflowRunResponse struct {
 	ExecutionConfig        *WorkflowExecutionConfigWithMetadata `json:"executionConfig,omitempty"`
 	Callbacks              *Callbacks                           `json:"callbacks,omitempty"`
 	PendingWorkflowTask    *PendingWorkflowTaskInfo             `json:"pendingWorkflowTask,omitempty"`
+	FailureReason          *string                              `json:"failure_reason,omitempty"`
 }
 
 // ListMyWorkflowRunsResponse represents the response containing the runs of a workflow.
@@ -615,12 +616,16 @@ func fetchWorkflowFailure(
 		return nil
 	}
 
-	cause := failure.GetCause()
-	if cause == nil {
-		return nil
+	if reason := workflowengine.FormatWorkflowFailureReason(
+		workflowengine.ParseWorkflowFailure(failure),
+	); reason != "" {
+		return &reason
 	}
 
-	msg := cause.GetMessage()
+	msg := workflowengine.WorkflowFailureMessageFromHistory(failure)
+	if msg == "" {
+		return nil
+	}
 	return &msg
 }
 

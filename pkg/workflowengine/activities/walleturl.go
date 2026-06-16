@@ -8,7 +8,6 @@ package activities
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -64,8 +63,11 @@ func (a *ParseWalletURLActivity) Execute(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
 		)
 	}
 
@@ -83,9 +85,14 @@ func (a *ParseWalletURLActivity) Execute(
 		if len(matches) == 0 {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return result, a.NewNonRetryableActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: 'url' is not a correct Apple store URL", errCode.Description),
-				payload.URL,
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: "'url' is not a correct Apple store URL",
+					Details: map[string]any{
+						"url": payload.URL,
+					},
+				},
 			)
 		}
 		apiInput = matches[1]
@@ -94,9 +101,14 @@ func (a *ParseWalletURLActivity) Execute(
 	default:
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewNonRetryableActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'url' does not match a supported store type", errCode.Description),
-			payload.URL,
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "'url' does not match a supported store type",
+				Details: map[string]any{
+					"url": payload.URL,
+				},
+			},
 		)
 	}
 

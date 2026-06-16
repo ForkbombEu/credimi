@@ -31,6 +31,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 		expectErr      bool
 		errorContains  string
+		errorCode      string
 	}{
 		{
 			name:  "OpenID suite succeeds",
@@ -167,6 +168,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			},
 			expectErr:     true,
 			errorContains: "unsupported suite",
+			errorCode:     errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
 		},
 		{
 			name:  "StepCI activity fails - OpenID",
@@ -355,6 +357,13 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					tc.errorContains,
 					"Error message should contain expected text",
 				)
+				if tc.errorCode != "" {
+					require.Equal(
+						t,
+						tc.errorCode,
+						workflowengine.ParseWorkflowError(env.GetWorkflowError()).Code,
+					)
+				}
 			} else {
 				require.NoError(t, env.GetWorkflowError(), "Expected workflow to succeed")
 
@@ -404,7 +413,7 @@ func TestRunStepCIAndSendMailNoMail(t *testing.T) {
 				AppURL:        "https://app.example",
 				Template:      "steps: []",
 				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
-				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				RunMetadata:   &workflowengine.WorkflowRunMetadata{},
 				SendMail:      false,
 			}
 			return RunStepCIAndSendMail(ctx, cfg)
@@ -899,7 +908,7 @@ func TestRunStepCIAndSendMailMissingCaptures(t *testing.T) {
 				AppURL:        "https://app.example",
 				Template:      "steps: []",
 				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
-				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				RunMetadata:   &workflowengine.WorkflowRunMetadata{},
 				SendMail:      false,
 			}
 			return RunStepCIAndSendMail(ctx, cfg)
@@ -944,7 +953,7 @@ func TestRunStepCIAndSendMailMissingDeeplink(t *testing.T) {
 				Namespace:     "ns-1",
 				Template:      "steps: []",
 				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
-				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				RunMetadata:   &workflowengine.WorkflowRunMetadata{},
 				Suite:         OpenIDConformanceSuite,
 				SendMail:      true,
 			}
@@ -970,7 +979,7 @@ func TestRunStepCIAndSendMailConfigureError(t *testing.T) {
 				AppURL:        "https://app.example",
 				Template:      "",
 				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
-				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				RunMetadata:   &workflowengine.WorkflowRunMetadata{},
 				SendMail:      false,
 			}
 			return RunStepCIAndSendMail(ctx, cfg)
@@ -1002,7 +1011,7 @@ func TestRunStepCIAndSendMailStepCIExecuteError(t *testing.T) {
 				AppURL:        "https://app.example",
 				Template:      "steps: []",
 				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
-				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				RunMetadata:   &workflowengine.WorkflowRunMetadata{},
 				SendMail:      false,
 			}
 			return RunStepCIAndSendMail(ctx, cfg)
@@ -1042,7 +1051,7 @@ func TestRunStepCIAndSendMailInvalidAppURL(t *testing.T) {
 				AppURL:        "http://[::1",
 				Template:      "steps: []",
 				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
-				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				RunMetadata:   &workflowengine.WorkflowRunMetadata{},
 				AppName:       "Credimi",
 				AppLogo:       "logo.png",
 				UserName:      "User",
@@ -1088,7 +1097,7 @@ func TestRunStepCIAndSendMailEmailConfigureError(t *testing.T) {
 				AppURL:        "https://app.example",
 				Template:      "steps: []",
 				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
-				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				RunMetadata:   &workflowengine.WorkflowRunMetadata{},
 				AppName:       "Credimi",
 				AppLogo:       "logo.png",
 				UserName:      "User",
@@ -1142,7 +1151,7 @@ func TestRunStepCIAndSendMailEmailExecuteError(t *testing.T) {
 				AppURL:        "https://app.example",
 				Template:      "steps: []",
 				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
-				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				RunMetadata:   &workflowengine.WorkflowRunMetadata{},
 				AppName:       "Credimi",
 				AppLogo:       "logo.png",
 				UserName:      "User",

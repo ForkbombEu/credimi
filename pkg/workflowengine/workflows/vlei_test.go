@@ -100,7 +100,7 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 				env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: parsed}, nil)
 				env.OnActivity(validateActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(errorcodes.Codes[errorcodes.SchemaValidationFailed], ""))
+					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(workflowengine.WorkflowError{Code: errorcodes.Codes[errorcodes.SchemaValidationFailed].Code, Summary: errorcodes.Codes[errorcodes.SchemaValidationFailed].Description, Message: ""}))
 			},
 		},
 	}
@@ -200,7 +200,7 @@ func Test_VLEIValidationLocalWorkflow(t *testing.T) {
 				env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: parsed}, nil)
 				env.OnActivity(validateActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(errorcodes.Codes[errorcodes.SchemaValidationFailed], ""))
+					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(workflowengine.WorkflowError{Code: errorcodes.Codes[errorcodes.SchemaValidationFailed].Code, Summary: errorcodes.Codes[errorcodes.SchemaValidationFailed].Description, Message: ""}))
 			},
 		},
 	}

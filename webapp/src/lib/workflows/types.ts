@@ -39,6 +39,7 @@ export type WorkflowExecutionInfo = z.infer<typeof workflowExecutionInfoSchema>;
 export const workflowResponseSchema = z.object({
 	workflowExecutionInfo: workflowExecutionInfoSchema,
 	executionConfig: z.unknown(),
+	failure_reason: z.string().optional(),
 	pendingActivities: z.unknown()
 });
 

@@ -305,7 +305,7 @@ func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompleted(t *testing.T) {
 		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
 		Run(func(args mock.Arguments) {
 			out := args.Get(1).(*workflowengine.WorkflowResult)
-			out.Log = []any{map[string]any{"step": "done"}}
+			out.Log = []any{map[string]any{"msg": "done", "result": "FINISHED"}}
 		}).
 		Return(nil).
 		Once()
@@ -316,16 +316,259 @@ func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompleted(t *testing.T) {
 		mockClient,
 		HandleSendTemporalSignalInput{WorkflowID: "wf-1-log"},
 	)
-	require.Error(t, err)
-	var apiErr *apierror.APIError
-	require.True(t, errors.As(err, &apiErr))
-	require.Equal(t, http.StatusNotFound, apiErr.Code)
+	require.NoError(t, err)
 	require.Equal(t, "wf-1"+workflows.OpenID4VPWalletSubscription, capturedSubscription)
 	require.Len(t, capturedLogs, 1)
-	require.Equal(t, "done", capturedLogs[0]["step"])
+	require.Equal(t, "done", capturedLogs[0]["msg"])
 
 	mockClient.AssertExpectations(t)
 	mockRun.AssertExpectations(t)
+}
+
+func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompletedErrorLogs(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	originalNotify := complianceNotifyLogsUpdate
+	t.Cleanup(func() {
+		complianceNotifyLogsUpdate = originalNotify
+	})
+
+	var capturedSubscription string
+	var capturedLogs []map[string]any
+	complianceNotifyLogsUpdate = func(_ core.App, subscription string, data []map[string]any) error {
+		capturedSubscription = subscription
+		capturedLogs = data
+		return nil
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockRun := &temporalmocks.WorkflowRun{}
+	mockClient.
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"wf-2-log",
+			"",
+			workflows.OpenID4VPWalletStartCheckSignal,
+			mock.Anything,
+		).
+		Return(&serviceerror.NotFound{Message: "workflow execution already completed"}).
+		Once()
+	mockRun.
+		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
+		Return(workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    "CRE999",
+			Summary: "failed",
+			Details: map[string]any{
+				"payload": []any{map[string]any{"msg": "finished", "result": "FINISHED"}},
+			},
+		})).
+		Once()
+	mockClient.On("GetWorkflow", mock.Anything, "wf-2-log", "").Return(mockRun).Once()
+
+	err = sendOpenID4VPWalletLogUpdateStart(
+		app,
+		mockClient,
+		HandleSendTemporalSignalInput{WorkflowID: "wf-2-log"},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "wf-2"+workflows.OpenID4VPWalletSubscription, capturedSubscription)
+	require.Len(t, capturedLogs, 1)
+	require.Equal(t, "FINISHED", capturedLogs[0]["result"])
+
+	mockClient.AssertExpectations(t)
+	mockRun.AssertExpectations(t)
+}
+
+func TestSendOpenIDNetConformanceLogUpdateStartCompleted(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	originalNotify := complianceNotifyLogsUpdate
+	t.Cleanup(func() {
+		complianceNotifyLogsUpdate = originalNotify
+	})
+
+	var capturedSubscription string
+	var capturedLogs []map[string]any
+	complianceNotifyLogsUpdate = func(_ core.App, subscription string, data []map[string]any) error {
+		capturedSubscription = subscription
+		capturedLogs = data
+		return nil
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockRun := &temporalmocks.WorkflowRun{}
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "verifier-wf", "").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			},
+		}, nil).
+		Once()
+	mockRun.
+		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
+		Run(func(args mock.Arguments) {
+			out := args.Get(1).(*workflowengine.WorkflowResult)
+			out.Log = []map[string]any{{"msg": "ok", "result": "FINISHED"}}
+		}).
+		Return(nil).
+		Once()
+	mockClient.On("GetWorkflow", mock.Anything, "verifier-wf", "").Return(mockRun).Once()
+
+	err = sendOpenIDNetConformanceLogUpdateStart(
+		app,
+		mockClient,
+		HandleSendTemporalSignalInput{WorkflowID: "verifier-wf"},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "verifier-wf"+workflows.OpenID4VPWalletSubscription, capturedSubscription)
+	require.Len(t, capturedLogs, 1)
+	require.Equal(t, "FINISHED", capturedLogs[0]["result"])
+
+	mockClient.AssertExpectations(t)
+	mockRun.AssertExpectations(t)
+}
+
+func TestSendEWCLikeLogUpdateStartFallsBackToDirectWorkflow(t *testing.T) {
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"ewc-wf-status",
+			"",
+			workflows.EwcStartCheckSignal,
+			mock.Anything,
+		).
+		Return(&serviceerror.NotFound{Message: "workflow not found"}).
+		Once()
+	mockClient.
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"ewc-wf",
+			"",
+			workflows.EwcStartCheckSignal,
+			mock.Anything,
+		).
+		Return(nil).
+		Once()
+
+	err := sendEWCLikeLogUpdateStart(
+		nil,
+		mockClient,
+		HandleSendTemporalSignalInput{WorkflowID: "ewc-wf-status"},
+	)
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestEWCLikeWorkflowIDsDoesNotAppendStatusSuffix(t *testing.T) {
+	require.Equal(t, []string{"ewc-wf"}, ewcLikeWorkflowIDs("ewc-wf"))
+	require.Equal(t, []string{"ewc-wf-status", "ewc-wf"}, ewcLikeWorkflowIDs("ewc-wf-status"))
+}
+
+func TestSendEWCLikeLogUpdateStartReplaysCompletedDirectWorkflowLogs(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	originalNotify := complianceNotifyLogsUpdate
+	t.Cleanup(func() {
+		complianceNotifyLogsUpdate = originalNotify
+	})
+
+	var capturedSubscription string
+	var capturedLogs []map[string]any
+	complianceNotifyLogsUpdate = func(_ core.App, subscription string, data []map[string]any) error {
+		capturedSubscription = subscription
+		capturedLogs = data
+		return nil
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockRun := &temporalmocks.WorkflowRun{}
+	mockClient.
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"ewc-wf-status",
+			"",
+			workflows.EwcStartCheckSignal,
+			mock.Anything,
+		).
+		Return(&serviceerror.NotFound{Message: "workflow not found"}).
+		Once()
+	mockClient.
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"ewc-wf",
+			"",
+			workflows.EwcStartCheckSignal,
+			mock.Anything,
+		).
+		Return(&serviceerror.NotFound{Message: "workflow execution already completed"}).
+		Once()
+	mockRun.
+		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
+		Run(func(args mock.Arguments) {
+			out := args.Get(1).(*workflowengine.WorkflowResult)
+			out.Log = []map[string]any{{"message": "done", "level": "info"}}
+		}).
+		Return(nil).
+		Once()
+	mockClient.On("GetWorkflow", mock.Anything, "ewc-wf", "").Return(mockRun).Once()
+
+	err = sendEWCLikeLogUpdateStart(
+		app,
+		mockClient,
+		HandleSendTemporalSignalInput{WorkflowID: "ewc-wf-status"},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "ewc-wf"+workflows.EWCSubscription, capturedSubscription)
+	require.Len(t, capturedLogs, 1)
+	require.Equal(t, "done", capturedLogs[0]["message"])
+	mockClient.AssertExpectations(t)
+	mockRun.AssertExpectations(t)
+}
+
+func TestSendEWCLikeLogUpdateStopFallsBackToDirectWorkflow(t *testing.T) {
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"ewc-wf-status",
+			"",
+			workflows.EwcStopCheckSignal,
+			mock.Anything,
+		).
+		Return(&serviceerror.NotFound{Message: "workflow not found"}).
+		Once()
+	mockClient.
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"ewc-wf",
+			"",
+			workflows.EwcStopCheckSignal,
+			mock.Anything,
+		).
+		Return(nil).
+		Once()
+
+	err := sendEWCLikeLogUpdateStop(
+		mockClient,
+		HandleSendTemporalSignalInput{WorkflowID: "ewc-wf-status"},
+	)
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
 }
 
 func TestHandleGetWorkflowsHistorySuccess(t *testing.T) {

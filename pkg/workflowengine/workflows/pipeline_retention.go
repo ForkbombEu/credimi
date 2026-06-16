@@ -112,30 +112,48 @@ func (w *PipelineRetentionWorkflow) ExecuteWorkflow(
 	}
 
 	var httpResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), request).Get(ctx, &httpResult); err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
+	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), request).
+		Get(ctx, &httpResult); err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 
 	output, ok := httpResult.Output.(map[string]any)
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: invalid output format", errCode.Description),
-			httpResult.Output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: invalid output format", errCode.Description),
+				Details: map[string]any{"payload": httpResult.Output},
+			},
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
+
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	body, ok := output["body"].(map[string]any)
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: missing body in output", errCode.Description),
-			output,
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("%s: missing body in output", errCode.Description),
+				Details: map[string]any{"payload": output},
+			},
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
+
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	message := "Pipeline retention completed"

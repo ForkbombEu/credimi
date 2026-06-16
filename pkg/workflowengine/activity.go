@@ -8,7 +8,6 @@ package workflowengine
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"syscall"
 	"time"
@@ -32,11 +31,20 @@ type ActivityResult struct {
 	Log    []string `json:"log,omitempty"`
 }
 
+type ActivityError struct {
+	Code         string         `json:"code"`
+	Summary      string         `json:"summary"`
+	Message      string         `json:"message,omitempty"`
+	ActivityName string         `json:"activityName,omitempty"`
+	Category     string         `json:"category,omitempty"`
+	Details      map[string]any `json:"details,omitempty"`
+}
+
 // BaseActivity provides the common interface for all activities.
 type Activity interface {
 	Name() string
-	NewActivityError(errorType string, errorMsg string, payload ...any) error
-	NewNonRetryableActivityError(errorType string, errorMsg string, payload ...any) error
+	NewActivityError(failure ActivityError) error
+	NewNonRetryableActivityError(failure ActivityError) error
 	NewMissingOrInvalidPayloadError(err error) error
 }
 
@@ -58,45 +66,39 @@ type ConfigurableActivity interface {
 }
 
 func (a *BaseActivity) NewActivityError(
-	errorType string,
-	errorMsg string,
-	activityPayload ...any,
+	failure ActivityError,
 ) error {
-	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
-
-	// Flatten payloads into a single []any
-	var flatPayload []any
-	for _, p := range activityPayload {
-		switch v := p.(type) {
-		case []any:
-			flatPayload = append(flatPayload, v...)
-		default:
-			flatPayload = append(flatPayload, v)
-		}
-	}
-
-	return temporal.NewApplicationError(msg, errorType, flatPayload)
+	failure = a.withActivityName(failure)
+	return temporal.NewApplicationError(errorMessage(failure.Summary, failure.Message), failure.Code, failure)
 }
 
 func (a *BaseActivity) NewNonRetryableActivityError(
-	errorType string,
-	errorMsg string,
-	activityPayload ...any,
+	failure ActivityError,
 ) error {
-	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
-	// NewNonRetryableActivityError returns a non-retryable application error with a message, type, and optional payload.
-	// This error is used to indicate that the activity should not be retried upon failure.
-	return temporal.NewNonRetryableApplicationError(msg, errorType, nil, activityPayload)
+	failure = a.withActivityName(failure)
+	return temporal.NewNonRetryableApplicationError(
+		errorMessage(failure.Summary, failure.Message),
+		failure.Code,
+		nil,
+		failure,
+	)
+}
+
+func (a *BaseActivity) withActivityName(failure ActivityError) ActivityError {
+	if failure.ActivityName == "" && a != nil {
+		failure.ActivityName = a.Name
+	}
+	return failure
 }
 
 func (a *BaseActivity) NewMissingOrInvalidPayloadError(err error) error {
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	return a.NewActivityError(
-		errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-		fmt.Sprintf(
-			"%s: %v",
-			errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-			err,
-		),
+		ActivityError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: err.Error(),
+		},
 	)
 }
 

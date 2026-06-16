@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -41,11 +42,11 @@ func (f *fakeActivity) Name() string {
 	return f.name
 }
 
-func (f *fakeActivity) NewActivityError(string, string, ...any) error {
+func (f *fakeActivity) NewActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
-func (f *fakeActivity) NewNonRetryableActivityError(string, string, ...any) error {
+func (f *fakeActivity) NewNonRetryableActivityError(workflowengine.ActivityError) error {
 	return errors.New("activity error")
 }
 
@@ -227,7 +228,7 @@ steps: []
 				input,
 				"child-workflow",
 				map[string]any{},
-				&workflowengine.WorkflowErrorMetadata{},
+				&workflowengine.WorkflowRunMetadata{},
 			)
 			if err != nil {
 				return nil, err
@@ -287,21 +288,21 @@ func TestFetchChildPipelineYAMLValidationErrors(t *testing.T) {
 				ctx,
 				step,
 				input,
-				&workflowengine.WorkflowErrorMetadata{},
+				&workflowengine.WorkflowRunMetadata{},
 			)
 			if err == nil {
 				return "", errors.New("expected error")
 			}
-			return err.Error(), nil
+			return workflowengine.ParseWorkflowError(err).Code, nil
 		},
 		workflow.RegisterOptions{Name: "fetch-missing-id"},
 	)
 
 	env.ExecuteWorkflow("fetch-missing-id")
 	require.NoError(t, env.GetWorkflowError())
-	var errMsg string
-	require.NoError(t, env.GetWorkflowResult(&errMsg))
-	require.Contains(t, errMsg, "missing pipeline_id")
+	var errCode string
+	require.NoError(t, env.GetWorkflowResult(&errCode))
+	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code, errCode)
 }
 
 func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
@@ -331,7 +332,7 @@ func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
 				ctx,
 				step,
 				input,
-				&workflowengine.WorkflowErrorMetadata{},
+				&workflowengine.WorkflowRunMetadata{},
 			)
 			if err == nil {
 				return "", errors.New("expected error")
@@ -435,7 +436,7 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 	) (string, error) {
 		ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 		ctx = workflow.WithActivityOptions(ctx, ao)
-		meta := &workflowengine.WorkflowErrorMetadata{}
+		meta := &workflowengine.WorkflowRunMetadata{}
 		return fetchChildPipelineYAML(ctx, step, input, meta)
 	}
 	env.RegisterWorkflowWithOptions(
@@ -522,7 +523,7 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 			) (string, error) {
 				ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 				ctx = workflow.WithActivityOptions(ctx, ao)
-				meta := &workflowengine.WorkflowErrorMetadata{}
+				meta := &workflowengine.WorkflowRunMetadata{}
 				return fetchChildPipelineYAML(ctx, step, input, meta)
 			}
 			env.RegisterWorkflowWithOptions(

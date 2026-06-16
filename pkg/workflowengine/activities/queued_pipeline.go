@@ -148,15 +148,33 @@ func (a *StartQueuedPipelineActivity) Execute(
 
 	if strings.TrimSpace(payload.OwnerNamespace) == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "owner_namespace is required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "owner_namespace is required",
+			},
+		)
 	}
 	if strings.TrimSpace(payload.PipelineIdentifier) == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "pipeline_identifier is required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "pipeline_identifier is required",
+			},
+		)
 	}
 	if strings.TrimSpace(payload.YAML) == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "yaml is required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "yaml is required",
+			},
+		)
 	}
 
 	config := payload.PipelineConfig
@@ -170,7 +188,13 @@ func (a *StartQueuedPipelineActivity) Execute(
 	appURL, ok := config["app_url"].(string)
 	if !ok || strings.TrimSpace(appURL) == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "app_url is required in pipeline_config")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "app_url is required in pipeline_config",
+			},
+		)
 	}
 
 	memo := payload.Memo
@@ -181,7 +205,13 @@ func (a *StartQueuedPipelineActivity) Execute(
 	workflowDef, workflowDefMap, err := parseQueuedWorkflowDefinition(payload.YAML)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.PipelineParsingError]
-		return result, a.NewActivityError(errCode.Code, err.Error())
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
 	}
 
 	for key, value := range workflowDef.Config {
@@ -217,7 +247,12 @@ func (a *StartQueuedPipelineActivity) Execute(
 	if err != nil {
 		return result, fmt.Errorf("failed to parse entity IDs: %w", err)
 	}
-	workflowengine.ApplyPipelineSearchAttributes(&options.Options, payload.PipelineIdentifier, payload.RequiredRunnerIDs, entityIDs)
+	workflowengine.ApplyPipelineSearchAttributes(
+		&options.Options,
+		payload.PipelineIdentifier,
+		payload.RequiredRunnerIDs,
+		entityIDs,
+	)
 
 	namespace := config["namespace"].(string)
 	temporalFactory := a.temporalClientFactory
@@ -229,7 +264,13 @@ func (a *StartQueuedPipelineActivity) Execute(
 	temporalClient, err := temporalFactory(namespace)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return result, a.NewActivityError(errCode.Code, err.Error())
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
 	}
 
 	workflowInput := map[string]any{
@@ -249,7 +290,13 @@ func (a *StartQueuedPipelineActivity) Execute(
 	)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return result, a.NewActivityError(errCode.Code, err.Error())
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
 	}
 
 	workflowID := workflowRun.GetID()

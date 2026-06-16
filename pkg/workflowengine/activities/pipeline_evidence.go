@@ -58,14 +58,20 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 	}
 	if payload.WorkflowDefinition == nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-			"workflow_definition is required",
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+				Message: "workflow_definition is required",
+			},
 		)
 	}
 	if strings.TrimSpace(payload.CredimiBaseURL) == "" {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-			"credimi_base_url is required",
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
+				Message: "credimi_base_url is required",
+			},
 		)
 	}
 
@@ -74,8 +80,11 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 	discovered, err := discoverWorkflowDefinition(payload.WorkflowDefinition)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-			err.Error(),
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+				Message: err.Error(),
+			},
 		)
 	}
 

@@ -76,28 +76,58 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 	ticketID := strings.TrimSpace(payload.TicketID)
 	if ticketID == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "ticket_id is required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "ticket_id is required",
+			},
+		)
 	}
 	ownerNamespace := strings.TrimSpace(payload.OwnerNamespace)
 	if ownerNamespace == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "owner_namespace is required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "owner_namespace is required",
+			},
+		)
 	}
 	pipelineIdentifier := strings.TrimSpace(payload.PipelineIdentifier)
 	if pipelineIdentifier == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "pipeline_identifier is required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "pipeline_identifier is required",
+			},
+		)
 	}
 	yaml := strings.TrimSpace(payload.YAML)
 	if yaml == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "yaml is required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "yaml is required",
+			},
+		)
 	}
 
 	runnerIDs := normalizeRunnerIDs(payload.RunnerIDs)
 	if len(runnerIDs) == 0 {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(errCode.Code, "runner_ids are required")
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "runner_ids are required",
+			},
+		)
 	}
 
 	config := payload.PipelineConfig
@@ -118,13 +148,25 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 	temporalClient, err := factory(workflowengine.MobileRunnerSemaphoreDefaultNamespace)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return result, a.NewActivityError(errCode.Code, err.Error())
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
 	}
 
 	for _, runnerID := range runnerIDs {
 		if err := ensureRunQueueSemaphoreWorkflow(ctx, temporalClient, runnerID); err != nil {
 			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-			return result, a.NewActivityError(errCode.Code, err.Error())
+			return result, a.NewActivityError(
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+				},
+			)
 		}
 	}
 
@@ -192,7 +234,13 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 				return result, err
 			}
 			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-			return result, a.NewActivityError(errCode.Code, err.Error())
+			return result, a.NewActivityError(
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: err.Error(),
+				},
+			)
 		}
 		runnerStatuses = append(runnerStatuses, EnqueuePipelineRunTicketRunnerStatus{
 			RunnerID: runnerID,
