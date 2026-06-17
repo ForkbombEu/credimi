@@ -20,8 +20,11 @@ import { showPipelineFormError } from '../errors.js';
 import { ExecutionTarget } from '../execution-target/index.js';
 import * as pipelinestep from '../steps';
 import { walletActionStepConfig } from '../steps/wallet-action/index.js';
+import { m } from '@/i18n';
+
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
 import { getStepConfig, getStepData, isStepEditable } from './_partials/utils.js';
+import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
 
 //
@@ -39,7 +42,8 @@ type BuilderMode =
 			stepIndex?: number;
 			config: pipelinestep.AnyConfig;
 			form: pipelinestep.Form;
-	  };
+	  }
+	| { id: 'manual'; editor: InlineManualEditor };
 
 type State = {
 	steps: EnrichedStep[];
@@ -82,6 +86,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			showPipelineFormError(e);
 			return '';
 		}
+	}
+
+	get isManualMode() {
+		return this.state.mode.id === 'manual';
 	}
 
 	undo() {
@@ -211,6 +219,33 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			state.mode = { id: 'idle' };
 		});
 		this.disposeFormEffect();
+	}
+
+	enterManualMode(initialYaml: string) {
+		if (this.state.mode.id === 'form') {
+			this.exitFormState();
+		}
+		const editor = new InlineManualEditor(initialYaml);
+		this.stateManager.run((state) => {
+			state.mode = { id: 'manual', editor };
+		});
+		void editor.validateNow();
+	}
+
+	async exitManualMode(): Promise<boolean> {
+		if (this.state.mode.id !== 'manual') return true;
+		const { editor } = this.state.mode;
+		if (editor.isDirty) {
+			const confirmed = confirm(
+				m.discard_manual_yaml_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form()
+			);
+			if (!confirmed) return false;
+		}
+		editor.dispose();
+		this.stateManager.run((state) => {
+			state.mode = { id: 'idle' };
+		});
+		return true;
 	}
 
 	private disposeFormEffect() {
