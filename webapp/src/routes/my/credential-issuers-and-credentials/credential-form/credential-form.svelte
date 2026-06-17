@@ -94,7 +94,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		hide: {
 			yaml: credential?.yaml,
-			secrets: '',
 			credential_issuer: credentialIssuer.id,
 			display_name: credential?.display_name
 		},

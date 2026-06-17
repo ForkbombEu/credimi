@@ -37,8 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			fieldsOptions: {
 				hide: {
 					owner: organizationId,
-					verifier: verifierId,
-					secrets: ''
+					verifier: verifierId
 				},
 				descriptions: {
 					name: m.verifier_field_description_cryptographic_binding_methods(),
