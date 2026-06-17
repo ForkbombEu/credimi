@@ -22,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionForm } from '@/collections-components';
 	import SubmitButton from '@/collections-components/manager/record-actions/submit-button.svelte';
 	import { FormError } from '@/forms';
+	import { CodeEditorField } from '@/forms/fields';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
@@ -42,7 +43,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Field = keyof CredentialsFormData;
 	const exclude: Field[] = $derived.by(() => {
 		const commonFields: Field[] = [
-			'json',
 			'owner',
 			'conformant',
 			'imported',
@@ -53,6 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const editFields: Field[] = ['format', 'display_name', 'locale', 'logo_url', 'name'];
 		if (mode === 'edit' && credential?.imported) {
 			commonFields.push(...editFields);
+			commonFields.push('json');
 		}
 		return commonFields;
 	});
@@ -82,7 +83,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})}
 	fieldsOptions={{
 		exclude,
-		order: ['name', 'display_name', 'description', 'deeplink', 'logo'],
+		order: [
+			'name',
+			'display_name',
+			'description',
+			'logo',
+			'deeplink',
+			'format',
+			'locale',
+			'json'
+		],
 		labels: {
 			published: m.Publish_to_hub(),
 			deeplink: m.QR_Code_Generation()
@@ -90,7 +100,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		snippets: {
 			description,
 			deeplink: qr_generation,
-			logo
+			logo,
+			secrets,
+			json
 		},
 		hide: {
 			yaml: credential?.yaml,
@@ -138,4 +150,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet logo()}
 	<CollectionLogoField />
+{/snippet}
+
+{#snippet secrets()}{/snippet}
+
+{#snippet json({ form }: FieldSnippetOptions<'credentials'>)}
+	<CodeEditorField {form} name="json" options={{ lang: 'json', minHeight: 300 }} />
 {/snippet}

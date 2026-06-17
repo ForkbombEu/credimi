@@ -88,29 +88,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <LayoutWithToc {sections}>
 	<div class="flex flex-col items-start gap-6 md:flex-row">
-		<PageSection
-			indexItem={sec.credential_properties}
-			class="grow"
-			empty={isCredentialPropertiesEmpty}
-		>
-			<div class="flex gap-6">
-				<InfoBox label="Format" value={credential.format} />
-				<InfoBox label="Locale" value={credential.locale} />
-			</div>
-
-			<div class="flex gap-6">
-				<InfoBox label="Signing algorithms supported" value={signingAlgorithms} />
-				<InfoBox
-					label="Cryptographic binding methods supported"
-					value={cryptographicBindingMethods}
-				/>
-			</div>
-		</PageSection>
-
+		<DescriptionSection description={credential.description} />
 		<QrSection record={credential} />
 	</div>
 
-	<DescriptionSection description={credential.description} />
+	<PageSection
+		indexItem={sec.credential_properties}
+		class="grow"
+		empty={isCredentialPropertiesEmpty}
+	>
+		<div class="flex gap-6">
+			<InfoBox label="Format" value={credential.format} />
+			<InfoBox label="Locale" value={credential.locale} />
+		</div>
+
+		<div class="flex gap-6">
+			<InfoBox label="Signing algorithms supported" value={signingAlgorithms} />
+			<InfoBox
+				label="Cryptographic binding methods supported"
+				value={cryptographicBindingMethods}
+			/>
+		</div>
+	</PageSection>
 
 	<CodeSection
 		indexItem={sec.credential_subjects}
