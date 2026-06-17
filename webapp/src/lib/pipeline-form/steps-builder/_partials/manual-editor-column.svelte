@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		lang="yaml"
 		bind:value={editor.yaml}
 		minHeight={null}
-		class="min-h-0 grow rounded-none"
+		class="h-full min-h-0 grow rounded-none"
 		hideCopyButton
 	/>
 	{#if !editor.validation.ok}

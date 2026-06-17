@@ -67,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<Resizable.PaneGroup direction="horizontal" class="gap-2">
+<Resizable.PaneGroup direction="horizontal" class="min-h-0 grow gap-2">
 	<Column
 		bind:pane={addStepPane}
 		title={columnTitle}

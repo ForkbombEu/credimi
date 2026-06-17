@@ -56,11 +56,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render titleRight?.()}
 	</div>
 
-	<div class={['relative flex grow flex-col overflow-y-scroll', contentClass]}>
+	<div class={['relative flex min-h-0 grow flex-col overflow-y-scroll', contentClass]}>
 		{#if disabled}
 			<div class="absolute inset-0 z-10 bg-white/40" aria-hidden="true"></div>
 		{/if}
-		<div class={disabled ? 'opacity-60' : ''}>
+		<div class={['flex min-h-0 grow flex-col', disabled && 'opacity-60']}>
 			{@render children?.()}
 		</div>
 	</div>
