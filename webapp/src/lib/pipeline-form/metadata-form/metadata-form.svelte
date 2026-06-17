@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Dialog bind:open={form.isOpen} title={m.Metadata()}>
 	{#snippet trigger({ props })}
-		<Button variant="outline" {...props}>
+		<Button variant="outline" disabled={form.disabled} {...props}>
 			<PencilIcon />
 			{m.Info()}
 		</Button>

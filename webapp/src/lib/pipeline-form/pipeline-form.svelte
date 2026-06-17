@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Render, type SelfProp } from '$lib/renderable';
 
 	import { Button } from '@/components/ui/button';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
 
 	import type { PipelineForm } from './pipeline-form.svelte.js';
@@ -23,6 +24,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const activityOptions = $derived.by(() => form.runtimeOptionsForm);
 	const builder = $derived.by(() => form.stepsBuilder);
 
+	const manualMode = $derived(builder.isManualMode);
+	const manualTooltip = m.unavailable_in_manual_edit();
+
 	const saveButtonText = $derived(m.Save());
 
 	const title = $derived.by(() => {
@@ -32,18 +36,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return m.Edit_pipeline();
 		}
 	});
+
+	$effect(() => {
+		metadata.disabled = manualMode;
+		activityOptions.disabled = manualMode;
+	});
 </script>
 
 <PipelineFormLayout {title} class="h-screen overflow-hidden">
 	{#snippet topbarMiddle()}
-		<Button variant="ghost" onclick={() => builder.undo()}>
-			<UndoIcon />
-			{m.Undo()}
-		</Button>
-		<Button variant="ghost" onclick={() => builder.redo()}>
-			<RedoIcon />
-			{m.Redo()}
-		</Button>
+		<Tooltip disabled={!manualMode}>
+			{#snippet child({ props })}
+				<span {...props} class="inline-flex">
+					<Button variant="ghost" disabled={manualMode} onclick={() => builder.undo()}>
+						<UndoIcon />
+						{m.Undo()}
+					</Button>
+				</span>
+			{/snippet}
+			{#snippet content()}{manualTooltip}{/snippet}
+		</Tooltip>
+		<Tooltip disabled={!manualMode}>
+			{#snippet child({ props })}
+				<span {...props} class="inline-flex">
+					<Button variant="ghost" disabled={manualMode} onclick={() => builder.redo()}>
+						<RedoIcon />
+						{m.Redo()}
+					</Button>
+				</span>
+			{/snippet}
+			{#snippet content()}{manualTooltip}{/snippet}
+		</Tooltip>
 	{/snippet}
 
 	{#snippet topbarRight()}

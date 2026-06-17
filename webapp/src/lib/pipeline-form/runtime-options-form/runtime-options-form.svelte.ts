@@ -69,6 +69,7 @@ export class RuntimeOptionsForm implements Renderable<RuntimeOptionsForm> {
 	}
 
 	isOpen = $state(false);
+	disabled = $state(false);
 }
 
 // Schema

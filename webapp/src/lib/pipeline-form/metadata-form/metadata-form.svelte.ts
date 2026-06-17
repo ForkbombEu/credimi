@@ -56,6 +56,7 @@ export class MetadataForm implements Renderable<MetadataForm> {
 	}
 
 	isOpen = $state(false);
+	disabled = $state(false);
 }
 
 export const metadataSchema = z.object({

@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Dialog bind:open={form.isOpen}>
 	{#snippet trigger({ props })}
-		<Button variant="outline" {...props}>
+		<Button variant="outline" disabled={form.disabled} {...props}>
 			<HourglassIcon />
 			{m.parameters()}
 		</Button>
