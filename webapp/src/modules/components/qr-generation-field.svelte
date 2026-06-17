@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import type { SuperForm } from 'sveltekit-superforms';
 
 	import { generateDeeplinkFromYaml } from '$lib/utils';
@@ -30,6 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		loadingMessage?: string;
 		// enableStructuredErrors?: boolean;
 		hideLabel?: boolean;
+		footer?: Snippet;
 	}
 
 	let {
@@ -40,7 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		placeholder = m.Run_the_code_to_generate_QR_code(),
 		successMessage = m.Test_Completed_Successfully(),
 		loadingMessage = m.Running_test(),
-		hideLabel = false
+		hideLabel = false,
+		footer
 	}: Props = $props();
 
 	const fieldProxy = formFieldProxy(form, fieldName);
@@ -201,6 +204,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				canRun: !hasErrors
 			}}
 		/>
+
+		{#if footer}
+			<div class="mt-4 border-t border-blue-200 pt-4">
+				{@render footer()}
+			</div>
+		{/if}
 	</div>
 
 	<div class={{ 'pt-[22px]': !hideLabel }}>

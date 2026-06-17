@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { yaml } from '@codemirror/lang-yaml';
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
 	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
-	import { stepciYamlSchema } from '$lib/utils';
+	import { optionalSecretsYamlSchema, stepciYamlSchema } from '$lib/utils';
 	import { z } from 'zod/v3';
 
 	import type {
@@ -29,12 +30,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return {
 			refineSchema: (schema) =>
 				schema.extend({
-					yaml: stepciYamlSchema as unknown as z.ZodString
+					yaml: stepciYamlSchema as unknown as z.ZodString,
+					secrets: optionalSecretsYamlSchema as unknown as z.ZodOptional<z.ZodString>
 				}),
 			fieldsOptions: {
 				hide: {
 					owner: organizationId,
-					verifier: verifierId
+					verifier: verifierId,
+					secrets: ''
 				},
 				descriptions: {
 					name: m.verifier_field_description_cryptographic_binding_methods(),
@@ -67,6 +70,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet yaml_editor({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
+	{#snippet secrets_editor()}
+		<CodeEditorField
+			{form}
+			name="secrets"
+			options={{
+				lang: yaml(),
+				minHeight: 160,
+				maxHeight: 300,
+				label: m.Secrets(),
+				description: m.Secrets_field_description()
+			}}
+		/>
+	{/snippet}
+
 	<QrFieldWrapper label={m.YAML_Configuration()} required class="p-3!">
 		<QrGenerationField
 			{form}
@@ -76,6 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			successMessage={m.Test_Completed_Successfully()}
 			loadingMessage={m.Running_test()}
 			hideLabel
+			footer={secrets_editor}
 		/>
 	</QrFieldWrapper>
 {/snippet}

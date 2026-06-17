@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { createIntentUrl } from '$lib/credentials';
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { fromStore } from 'svelte/store';
 	import { stringProxy, type SuperForm } from 'sveltekit-superforms';
 
@@ -26,13 +26,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	interface Props {
-		form: SuperForm<{ deeplink: string; yaml: string }>;
+		form: SuperForm<{ deeplink: string; yaml: string; secrets?: string }>;
 		credential?: CredentialsRecord;
 		credentialIssuer: CredentialIssuersResponse;
 		activeTab: FieldMode;
+		secretsEditor?: Snippet;
 	}
 
-	let { form, credential, credentialIssuer, activeTab = $bindable('static') }: Props = $props();
+	let {
+		form,
+		credential,
+		credentialIssuer,
+		activeTab = $bindable('static'),
+		secretsEditor
+	}: Props = $props();
 
 	/* Field value */
 
@@ -125,6 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder={m.Run_the_code_to_generate_QR_code()}
 			successMessage={m.Compliance_Test_Completed_Successfully()}
 			loadingMessage={m.Running_compliance_test()}
+			footer={secretsEditor}
 		/>
 	</Tabs.Content>
 </Tabs.Root>

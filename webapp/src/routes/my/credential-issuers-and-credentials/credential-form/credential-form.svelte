@@ -7,9 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SuperForm } from 'sveltekit-superforms';
 
+	import { yaml } from '@codemirror/lang-yaml';
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
 	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
-	import { refineAsStepciYaml } from '$lib/utils';
+	import { optionalSecretsYamlSchema, refineAsStepciYaml } from '$lib/utils';
 	import { z } from 'zod/v3';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -22,6 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionForm } from '@/collections-components';
 	import SubmitButton from '@/collections-components/manager/record-actions/submit-button.svelte';
 	import { FormError } from '@/forms';
+	import { CodeEditorField } from '@/forms/fields';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
@@ -75,7 +77,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 	refineSchema={(schema) =>
 		schema.extend({
-			yaml: refineAsStepciYaml(z.string().optional()) as unknown as z.ZodOptional<z.ZodString>
+			yaml: refineAsStepciYaml(z.string().optional()) as unknown as z.ZodOptional<z.ZodString>,
+			secrets: optionalSecretsYamlSchema as unknown as z.ZodOptional<z.ZodString>
 		})}
 	fieldsOptions={{
 		exclude,
@@ -91,6 +94,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		hide: {
 			yaml: credential?.yaml,
+			secrets: '',
 			credential_issuer: credentialIssuer.id,
 			display_name: credential?.display_name
 		},
@@ -119,12 +123,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet qr_generation({ form }: FieldSnippetOptions<'credentials'>)}
+	{#snippet secrets_editor()}
+		<CodeEditorField
+			{form}
+			name="secrets"
+			options={{
+				lang: yaml(),
+				minHeight: 160,
+				maxHeight: 300,
+				label: m.Secrets(),
+				description: m.Secrets_field_description()
+			}}
+		/>
+	{/snippet}
+
 	<QrFieldWrapper label={m.Credential_Deeplink()}>
 		<QrGenerationField
-			form={form as unknown as SuperForm<{ deeplink: string; yaml: string }>}
+			form={form as unknown as SuperForm<{ deeplink: string; yaml: string; secrets?: string }>}
 			{credential}
 			{credentialIssuer}
 			bind:activeTab
+			secretsEditor={secrets_editor}
 		/>
 	</QrFieldWrapper>
 {/snippet}
