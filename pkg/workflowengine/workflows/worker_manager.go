@@ -97,7 +97,6 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	}
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	publicHTTPActivity := activities.NewHTTPActivity()
 	listReq := workflowengine.ActivityInput{
 		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodGet,
@@ -155,8 +154,8 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 			RunnerURL: runnerURL,
 		}
 
-		err = workflow.ExecuteActivity(ctx, publicHTTPActivity.Name(), workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
+		err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), workflowengine.ActivityInput{
+			Payload: activities.InternalHTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					runnerURL,

@@ -33,6 +33,32 @@ paths:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Authenticate API Key
+  /api/apikey/authenticate-internal-admin:
+    get:
+      description: Authenticate an internal-admin API key.
+      operationId: apiKey.authenticateInternalAdmin
+      parameters:
+      - description: Internal admin API key.
+        in: header
+        name: Credimi-Api-Key
+        required: true
+        schema:
+          description: Internal admin API key.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersAuthenticateInternalAdminAPIKeyResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Authenticate Internal Admin API Key
   /api/apikey/generate:
     post:
       description: Generate a new API key for the authenticated user or superuser.
@@ -716,6 +742,11 @@ components:
         message:
           type: string
         token:
+          type: string
+      type: object
+    HandlersAuthenticateInternalAdminAPIKeyResponse:
+      properties:
+        message:
           type: string
       type: object
     HandlersCallback:
