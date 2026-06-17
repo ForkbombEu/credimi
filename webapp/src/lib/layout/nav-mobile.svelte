@@ -16,15 +16,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Sheet from '@/components/ui/sheet';
 	import { m } from '@/i18n';
 
-	import NavLink from './nav-link.svelte';
+	import type { ExtraLink } from './topbar-links';
 
-	//
+	import NavExtrasGroup from './nav-extras-group.svelte';
+	import NavLink from './nav-link.svelte';
 
 	interface Props {
 		items: LinkWithIcon[];
+		extras: ExtraLink[];
 	}
 
-	const { items }: Props = $props();
+	const { items, extras }: Props = $props();
 
 	let open = $state(false);
 
@@ -57,6 +59,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					badge={item.href?.endsWith('/my/tests/new') ? m.Beta() : undefined}
 				/>
 			{/each}
+			<div class="mt-2 border-t pt-2">
+				<NavExtrasGroup
+					{extras}
+					onNavigate={() => {
+						open = false;
+					}}
+				/>
+			</div>
 		</div>
 	</Sheet.Content>
 </Sheet.Root>
