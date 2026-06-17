@@ -99,16 +99,29 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			}
 		} else {
 			let yaml: string;
-			try {
-				yaml = this.yamlString;
-			} catch (e) {
-				showPipelineFormError(e);
-				return;
+			let manual = false;
+
+			if (this.stepsBuilder.isManualMode && this.stepsBuilder.mode.id === 'manual') {
+				const result = await this.stepsBuilder.mode.editor.validateNow();
+				if (!result.ok) {
+					showPipelineFormError(result.message);
+					return;
+				}
+				yaml = result.value;
+				manual = true;
+			} else {
+				try {
+					yaml = this.yamlString;
+				} catch (e) {
+					showPipelineFormError(e);
+					return;
+				}
 			}
 
 			const data: Omit<PipelinesFormData, 'owner' | 'canonified_name'> = {
 				...this.metadataForm.value,
-				yaml
+				yaml,
+				...(manual ? { manual: true } : {})
 			};
 			await runWithLoading({
 				fn: async () => {
@@ -138,25 +151,37 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	hasChanges = $derived.by(() => {
 		const { pipeline } = this.props;
 
+		const runtimeOptionsChanged = !_.isEqual(this.runtimeOptionsForm.value, pipeline?.runtime);
+		const nameChanged = this.metadataForm.value?.name !== pipeline?.record.name;
+		const descChanged = this.metadataForm.value?.description !== pipeline?.record.description;
+		const metadataChanged = nameChanged || descChanged;
+
+		if (this.stepsBuilder.isManualMode && this.stepsBuilder.mode.id === 'manual') {
+			return this.stepsBuilder.mode.editor.isDirty || runtimeOptionsChanged || metadataChanged;
+		}
+
 		const stepsChanged = !_.isEqual(
 			this.stepsBuilder.steps.map(([step]) => step),
 			pipeline?.steps.map(([step]) => step)
 		);
 
-		const runtimeOptionsChanged = !_.isEqual(this.runtimeOptionsForm.value, pipeline?.runtime);
-
-		const nameChanged = this.metadataForm.value?.name !== pipeline?.record.name;
-		const descChanged = this.metadataForm.value?.description !== pipeline?.record.description;
-
-		return stepsChanged || runtimeOptionsChanged || nameChanged || descChanged;
+		return stepsChanged || runtimeOptionsChanged || metadataChanged;
 	});
 
 	canSave = $derived.by(() => {
+		if (this.stepsBuilder.isManualMode && this.stepsBuilder.mode.id === 'manual') {
+			return this.hasChanges && this.stepsBuilder.mode.editor.isValid;
+		}
 		return this.hasChanges && this.stepsBuilder.steps.length > 0;
 	});
 
 	validateExit() {
-		if (this.hasChanges) {
+		const manualEditorDirty =
+			this.stepsBuilder.isManualMode &&
+			this.stepsBuilder.mode.id === 'manual' &&
+			this.stepsBuilder.mode.editor.isDirty;
+
+		if (this.hasChanges || manualEditorDirty) {
 			return confirm(
 				m.You_have_unsaved_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form()
 			);
