@@ -19,9 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { self: form }: SelfProp<PipelineForm> = $props();
 
-	const metadata = form.metadataForm;
-	const activityOptions = form.runtimeOptionsForm;
-	const builder = form.stepsBuilder;
+	const metadata = $derived.by(() => form.metadataForm);
+	const activityOptions = $derived.by(() => form.runtimeOptionsForm);
+	const builder = $derived.by(() => form.stepsBuilder);
 
 	const saveButtonText = $derived(m.Save());
 
@@ -47,12 +47,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet topbarRight()}
-		{#if form.mode === 'create'}
-			<Button href="/my/pipelines/new/manual" variant="ghost">
-				<PencilIcon />
-				{m.manual_mode()}
-			</Button>
-		{/if}
+		<Button href={form.manualEditHref} variant="ghost">
+			<PencilIcon />
+			{m.manual_mode()}
+		</Button>
 		<Render item={metadata} />
 		<Render item={activityOptions} />
 		<Button disabled={!form.canSave} onclick={() => form.save()}>

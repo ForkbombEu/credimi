@@ -87,10 +87,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{recordId}
 			{initialData}
 			fieldsOptions={{
-				exclude: ['owner', 'canonified_name', 'published'],
+				exclude: ['owner', 'canonified_name', 'published', 'manual'],
 				hide: { steps: '[]' },
 				snippets: { yaml }
 			}}
+			beforeSubmit={(data) => ({ ...data, manual: true })}
 			onSuccess={async () => {
 				await goto('/my/pipelines');
 			}}

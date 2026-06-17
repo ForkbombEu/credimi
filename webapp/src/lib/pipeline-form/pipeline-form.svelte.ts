@@ -5,6 +5,7 @@
 import type { Renderable } from '$lib/renderable';
 
 import { beforeNavigate } from '$app/navigation';
+import { Pipeline } from '$lib';
 import { runWithLoading } from '$lib/utils/index.js';
 import _ from 'lodash';
 
@@ -69,6 +70,12 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	get mode() {
 		return this.props.mode;
 	}
+
+	readonly manualEditHref = $derived.by(() => {
+		const record = this.props.pipeline?.record;
+		if (!record) return '/my/pipelines/new/manual';
+		return Pipeline.getManualEditHref(record);
+	});
 
 	readonly yamlString: string = $derived.by(() =>
 		createPipelineYaml(
