@@ -45,6 +45,19 @@ var ApiKeyRoutes = routing.RouteGroup{
 				{Func: middlewares.ErrorHandlingMiddleware},
 			},
 		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/authenticate-internal-admin",
+			OperationID:    "apiKey.authenticateInternalAdmin",
+			Description:    "Authenticate an internal-admin API key.",
+			Summary:        "Authenticate Internal Admin API Key",
+			ResponseSchema: AuthenticateInternalAdminAPIKeyResponse{},
+			Handler:        AuthenticateInternalAdminAPIKey,
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+				{Func: middlewares.ErrorHandlingMiddleware},
+			},
+		},
 	},
 	AuthenticationRequired: false,
 }
@@ -58,6 +71,10 @@ type GenerateApiKeyResponse struct {
 type AuthenticateApiKeyResponse struct {
 	Message string `json:"message"`
 	Token   string `json:"token"`
+}
+
+type AuthenticateInternalAdminAPIKeyResponse struct {
+	Message string `json:"message"`
 }
 
 type APIKeyGenerationService interface {
@@ -166,6 +183,14 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func AuthenticateInternalAdminAPIKey() func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		return e.JSON(http.StatusOK, AuthenticateInternalAdminAPIKeyResponse{
+			Message: "Internal admin API key authenticated successfully",
+		})
 	}
 }
 
