@@ -1121,7 +1121,6 @@ func fetchAndInstallAPK(
 	input fetchAndInstallAPKInput,
 ) error {
 	body := map[string]any{
-		"instance_url":       input.appURL,
 		"version_identifier": input.payload.VersionID,
 		"action_identifier":  input.payload.ActionID,
 		"platform":           installerPlatformForDeviceType(input.deviceType),
@@ -2169,7 +2168,6 @@ func storeRecordingResults(
 		"last_frame_path":   input.lastFrame,
 		"run_identifier":    input.runID,
 		"runner_identifier": input.runnerID,
-		"instance_url":      input.appURL,
 		"platform":          installerPlatformForDeviceType(input.deviceType),
 	}
 	if input.logPath != "" {
