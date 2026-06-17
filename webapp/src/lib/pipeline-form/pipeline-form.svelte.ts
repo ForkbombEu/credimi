@@ -56,7 +56,8 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		}
 
 		this.runtimeOptionsForm = new RuntimeOptionsForm({
-			initialData: props.pipeline?.runtime
+			initialData: props.pipeline?.runtime,
+			isDisabled: () => this.stepsBuilder.isManualMode
 		});
 
 		this.metadataForm = new MetadataForm({

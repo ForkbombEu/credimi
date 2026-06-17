@@ -23,6 +23,7 @@ export type RuntimeOptions = NonNullable<Pipeline.Pipeline['runtime']>;
 
 type Props = {
 	initialData?: RuntimeOptions;
+	isDisabled?: () => boolean;
 };
 
 export const DEFAULT_RUNTIME_OPTIONS: RuntimeOptions = {
@@ -41,7 +42,7 @@ export const DEFAULT_RUNTIME_OPTIONS: RuntimeOptions = {
 export class RuntimeOptionsForm implements Renderable<RuntimeOptionsForm> {
 	readonly Component = Component;
 
-	constructor(props: Props) {
+	constructor(private props: Props) {
 		this.#value = props.initialData ?? DEFAULT_RUNTIME_OPTIONS;
 	}
 
@@ -69,7 +70,10 @@ export class RuntimeOptionsForm implements Renderable<RuntimeOptionsForm> {
 	}
 
 	isOpen = $state(false);
-	disabled = $state(false);
+
+	get disabled() {
+		return this.props.isDisabled?.() ?? false;
+	}
 }
 
 // Schema

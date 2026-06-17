@@ -36,11 +36,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return m.Edit_pipeline();
 		}
 	});
-
-	$effect(() => {
-		metadata.disabled = manualMode;
-		activityOptions.disabled = manualMode;
-	});
 </script>
 
 <PipelineFormLayout {title} class="h-screen overflow-hidden">
@@ -70,8 +65,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet topbarRight()}
-		<Render item={metadata} />
 		<Render item={activityOptions} />
+		<Render item={metadata} />
 		<Button disabled={!form.canSave} onclick={() => form.save()}>
 			<SaveIcon />
 			{saveButtonText}

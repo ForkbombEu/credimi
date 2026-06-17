@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Tooltip disabled={!form.disabled}>
 			{#snippet child({ props: tooltipProps })}
 				<span {...tooltipProps} class="inline-flex">
-					<Button variant="outline" disabled={form.disabled} {...dialogProps}>
+					<Button variant="outline" {...dialogProps} disabled={form.disabled}>
 						<HourglassIcon />
 						{m.parameters()}
 					</Button>
