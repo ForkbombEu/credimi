@@ -37,7 +37,11 @@ vi.mock('$lib/utils/index.js', () => ({
 vi.mock('svelte-sonner', () => ({
 	toast: { error: vi.fn() }
 }));
+vi.mock('$lib/layout/global-confirm.svelte', () => ({
+	confirm: vi.fn()
+}));
 
+import { confirm } from '$lib/layout/global-confirm.svelte';
 import { goto } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 
@@ -136,12 +140,10 @@ describe('PipelineForm manual save warning', () => {
 
 	afterEach(() => {
 		vi.clearAllMocks();
-		vi.unstubAllGlobals();
 	});
 
 	it('create + manual mode + confirm cancel does not persist', async () => {
-		const confirm = vi.fn(() => false);
-		vi.stubGlobal('confirm', confirm);
+		vi.mocked(confirm).mockResolvedValue(false);
 
 		const form = createFormWithMetadata({ mode: 'create' });
 		enterDirtyManualMode(form);
@@ -155,8 +157,7 @@ describe('PipelineForm manual save warning', () => {
 	});
 
 	it('create + manual mode + confirm OK persists', async () => {
-		const confirm = vi.fn(() => true);
-		vi.stubGlobal('confirm', confirm);
+		vi.mocked(confirm).mockResolvedValue(true);
 
 		const form = createFormWithMetadata({ mode: 'create' });
 		enterDirtyManualMode(form);
@@ -170,8 +171,7 @@ describe('PipelineForm manual save warning', () => {
 	});
 
 	it('edit blocks pipeline + manual mode + confirm OK updates with warning', async () => {
-		const confirm = vi.fn(() => true);
-		vi.stubGlobal('confirm', confirm);
+		vi.mocked(confirm).mockResolvedValue(true);
 
 		const form = new PipelineForm({
 			mode: 'edit',
@@ -197,8 +197,7 @@ describe('PipelineForm manual save warning', () => {
 	});
 
 	it('edit manual:true pipeline re-save does not confirm', async () => {
-		const confirm = vi.fn(() => true);
-		vi.stubGlobal('confirm', confirm);
+		vi.mocked(confirm).mockResolvedValue(true);
 
 		const form = new PipelineForm({
 			mode: 'edit',

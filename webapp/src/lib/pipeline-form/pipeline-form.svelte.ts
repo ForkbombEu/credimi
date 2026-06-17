@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { BeforeNavigate } from '@sveltejs/kit';
 import type { Renderable } from '$lib/renderable';
 
 import { beforeNavigate } from '$app/navigation';
+import { confirm } from '$lib/layout/global-confirm.svelte';
 import { runWithLoading } from '$lib/utils/index.js';
 import _ from 'lodash';
 import { toast } from 'svelte-sonner';
@@ -72,10 +74,35 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			}
 		});
 
-		beforeNavigate(({ cancel }) => {
-			if (this.isSaving) return;
-			if (!this.validateExit()) cancel();
+		beforeNavigate((navigation) => this.guardUnsavedExit(navigation));
+	}
+
+	private guardUnsavedExit(navigation: BeforeNavigate) {
+		if (this.isSaving) return;
+
+		// A navigation the user already confirmed must pass through, otherwise the
+		// confirm()-then-navigate flow below would re-trigger this guard and loop forever.
+		if (this.exitConfirmed) {
+			this.exitConfirmed = false;
+			return;
+		}
+
+		if (!this.shouldWarnOnExit() || !navigation.to) return;
+
+		navigation.cancel();
+		void this.confirmExit(navigation.to.url);
+	}
+
+	private async confirmExit(url: URL) {
+		const confirmed = await confirm({
+			message:
+				m.You_have_unsaved_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form(),
+			destructive: true
 		});
+		if (!confirmed) return;
+
+		this.exitConfirmed = true;
+		await goto(`${url.pathname}${url.search}${url.hash}`);
 	}
 
 	get mode() {
@@ -96,18 +123,20 @@ export class PipelineForm implements Renderable<PipelineForm> {
 
 	private isSaving = false;
 
+	private exitConfirmed = false;
+
 	async save() {
 		if (!this.ensureMetadataBeforeSave()) return;
 
 		const payload = await this.buildSavePayload();
 		if (!payload) return;
 
-		if (!this.confirmManualSaveIfNeeded()) return;
+		if (!(await this.confirmManualSaveIfNeeded())) return;
 
 		await this.persistPipeline(payload);
 	}
 
-	private confirmManualSaveIfNeeded(): boolean {
+	private async confirmManualSaveIfNeeded(): Promise<boolean> {
 		const isAlreadyManualPipeline =
 			this.props.mode === 'edit' && this.props.pipeline?.record.manual === true;
 
@@ -115,7 +144,11 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			return true;
 		}
 
-		return confirm(m.manual_save_warning());
+		return confirm({
+			message: m.manual_save_warning(),
+			confirmLabel: m.Save(),
+			destructive: true
+		});
 	}
 
 	private ensureMetadataBeforeSave(): boolean {
@@ -157,15 +190,15 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		};
 	}
 
-	private async persistPipeline(
-		data: Omit<PipelinesFormData, 'owner' | 'canonified_name'>
-	) {
+	private async persistPipeline(data: Omit<PipelinesFormData, 'owner' | 'canonified_name'>) {
 		await runWithLoading({
 			fn: async () => {
 				try {
 					this.isSaving = true;
 					if (this.props.mode === 'edit' && this.props.pipeline) {
-						await pb.collection('pipelines').update(this.props.pipeline.record.id, data);
+						await pb
+							.collection('pipelines')
+							.update(this.props.pipeline.record.id, data);
 					} else {
 						await pb.collection('pipelines').create(data);
 					}
@@ -211,16 +244,10 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		return this.hasChanges && this.stepsBuilder.steps.length > 0;
 	});
 
-	validateExit() {
+	private shouldWarnOnExit(): boolean {
 		const { mode } = this.stepsBuilder;
 		const manualEditorDirty = mode.id === 'manual' && mode.editor.isDirty;
 
-		if (this.hasChanges || manualEditorDirty) {
-			return confirm(
-				m.You_have_unsaved_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form()
-			);
-		} else {
-			return true;
-		}
+		return this.hasChanges || manualEditorDirty;
 	}
 }

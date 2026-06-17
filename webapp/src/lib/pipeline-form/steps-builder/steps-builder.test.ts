@@ -10,6 +10,11 @@ vi.mock('$lib', async () => {
 });
 
 vi.mock('./steps-builder.svelte', () => ({ default: class {} }));
+vi.mock('$lib/layout/global-confirm.svelte', () => ({
+	confirm: vi.fn()
+}));
+
+import { confirm } from '$lib/layout/global-confirm.svelte';
 
 import { StepsBuilder } from './steps-builder.svelte.js';
 
@@ -32,7 +37,7 @@ type BuilderInternal = {
 
 describe('StepsBuilder manual mode', () => {
 	afterEach(() => {
-		vi.unstubAllGlobals();
+		vi.clearAllMocks();
 	});
 
 	it('exposes isSavedManualPipeline from constructor props', () => {
@@ -97,13 +102,10 @@ describe('StepsBuilder manual mode', () => {
 		if (builder.mode.id !== 'manual') throw new Error('expected manual mode');
 		builder.mode.editor.yaml = `${VALID_YAML}\n`;
 
-		const confirm = vi.fn();
-		vi.stubGlobal('confirm', confirm);
-
 		const ok = await builder.exitManualMode();
 
-		expect(ok).toBe(true);
 		expect(confirm).not.toHaveBeenCalled();
+		expect(ok).toBe(true);
 		expect(builder.mode.id).toBe('manual');
 		expect(builder.isManualLocked).toBe(true);
 		if (builder.mode.id === 'manual') builder.mode.editor.dispose();
@@ -126,18 +128,12 @@ describe('StepsBuilder manual mode', () => {
 		if (builder.mode.id !== 'manual') throw new Error('expected manual mode');
 		builder.mode.editor.yaml = `${VALID_YAML}\n`;
 
-		vi.stubGlobal(
-			'confirm',
-			vi.fn(() => false)
-		);
+		vi.mocked(confirm).mockResolvedValue(false);
 		const cancelled = await builder.exitManualMode();
 		expect(cancelled).toBe(false);
 		expect(builder.mode.id).toBe('manual');
 
-		vi.stubGlobal(
-			'confirm',
-			vi.fn(() => true)
-		);
+		vi.mocked(confirm).mockResolvedValue(true);
 		const ok = await builder.exitManualMode();
 		expect(ok).toBe(true);
 		expect(builder.mode.id).toBe('idle');
