@@ -41,9 +41,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import { HubItemCard } from '$lib/hub/index.js';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import { HubItemCard } from '$lib/hub/index.js';
 	import { String } from 'effect';
 
 	import T from '@/components/ui-custom/t.svelte';

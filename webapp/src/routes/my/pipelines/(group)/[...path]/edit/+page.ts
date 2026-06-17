@@ -2,27 +2,33 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getEnrichedPipeline } from '$lib/pipeline-form/functions';
-import { getManualEditHref } from '$lib/pipeline/utils';
+import type { EnrichedPipeline } from '$lib/pipeline-form/functions.js';
 
-import { redirect } from '@/i18n/index.js';
+import { getEnrichedPipeline } from '$lib/pipeline-form/functions';
 
 //
 
-export const load = async ({ fetch, parent }) => {
-	const { pipeline } = await parent();
+function minimalPipeline(record: EnrichedPipeline['record']): EnrichedPipeline {
+	return { record, steps: [], runtime: undefined };
+}
 
-	if (pipeline.manual) {
-		redirect(getManualEditHref(pipeline));
+export const load = async ({ fetch, parent }) => {
+	const { pipeline: record } = await parent();
+
+	if (record.manual) {
+		return {
+			pipeline: minimalPipeline(record),
+			startLockedManual: true as const
+		};
 	}
 
 	try {
-		const enriched = await getEnrichedPipeline(pipeline.id, { fetch });
-		return {
-			pipeline: enriched
-		};
+		const enriched = await getEnrichedPipeline(record.id, { fetch });
+		return { pipeline: enriched };
 	} catch {
-		// If the pipeline is not found, redirect to the manual edit page
-		redirect(getManualEditHref(pipeline));
+		return {
+			pipeline: minimalPipeline(record),
+			startLockedManual: true as const
+		};
 	}
 };

@@ -8,8 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Pencil, PlayIcon, Plus } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { entities } from '$lib/global/entities';
-	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { getCustomCheckPublicUrl } from '$lib/hub/utils.js';
+	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { getPath } from '$lib/utils';
 
 	import { CollectionManager } from '@/collections-components';

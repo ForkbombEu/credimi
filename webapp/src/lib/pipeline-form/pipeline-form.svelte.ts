@@ -5,14 +5,15 @@
 import type { Renderable } from '$lib/renderable';
 
 import { beforeNavigate } from '$app/navigation';
-import { Pipeline } from '$lib';
 import { runWithLoading } from '$lib/utils/index.js';
 import _ from 'lodash';
+import { toast } from 'svelte-sonner';
 
 import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
 
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
+import { getExceptionMessage } from '@/utils/errors.js';
 
 import { showPipelineFormError } from './errors.js';
 import { ExecutionTarget } from './execution-target/index.js';
@@ -27,6 +28,7 @@ import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
 type Props = {
 	mode: 'create' | 'edit';
 	pipeline?: EnrichedPipeline;
+	startLockedManual?: boolean;
 };
 
 export class PipelineForm implements Renderable<PipelineForm> {
@@ -48,8 +50,16 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			yamlPreview: () => this.yamlString
 		});
 
+		const shouldStartLockedManual =
+			props.pipeline?.record.manual === true || props.startLockedManual === true;
+
+		if (shouldStartLockedManual && props.pipeline?.record.yaml) {
+			this.stepsBuilder.enterManualMode(props.pipeline.record.yaml, { locked: true });
+		}
+
 		this.runtimeOptionsForm = new RuntimeOptionsForm({
-			initialData: props.pipeline?.runtime
+			initialData: props.pipeline?.runtime,
+			isDisabled: () => this.stepsBuilder.isManualMode
 		});
 
 		this.metadataForm = new MetadataForm({
@@ -71,12 +81,6 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		return this.props.mode;
 	}
 
-	readonly manualEditHref = $derived.by(() => {
-		const record = this.props.pipeline?.record;
-		if (!record) return '/my/pipelines/new/manual';
-		return Pipeline.getManualEditHref(record);
-	});
-
 	readonly yamlString: string = $derived.by(() =>
 		createPipelineYaml(
 			this.metadataForm.value?.name ?? '',
@@ -92,45 +96,74 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	private isSaving = false;
 
 	async save() {
-		if (!this.metadataForm.value) {
-			this.metadataForm.isOpen = true;
-			if (this.props.mode === 'create') {
-				this.saveAfterMetadataFormSubmit = true;
+		if (!this.ensureMetadataBeforeSave()) return;
+
+		const payload = await this.buildSavePayload();
+		if (!payload) return;
+
+		await this.persistPipeline(payload);
+	}
+
+	private ensureMetadataBeforeSave(): boolean {
+		if (this.metadataForm.value) return true;
+
+		this.metadataForm.isOpen = true;
+		if (this.props.mode === 'create') {
+			this.saveAfterMetadataFormSubmit = true;
+		}
+		return false;
+	}
+
+	private async buildSavePayload(): Promise<
+		Omit<PipelinesFormData, 'owner' | 'canonified_name'> | undefined
+	> {
+		const { mode } = this.stepsBuilder;
+		let yaml: string;
+
+		if (mode.id === 'manual') {
+			const result = await mode.editor.validateNow();
+			if (!result.ok) {
+				toast.error(result.message);
+				return;
 			}
+			yaml = result.value;
 		} else {
-			let yaml: string;
 			try {
 				yaml = this.yamlString;
 			} catch (e) {
-				showPipelineFormError(e);
+				toast.error(getExceptionMessage(e));
 				return;
 			}
-
-			const data: Omit<PipelinesFormData, 'owner' | 'canonified_name'> = {
-				...this.metadataForm.value,
-				yaml
-			};
-			await runWithLoading({
-				fn: async () => {
-					try {
-						this.isSaving = true;
-						if (this.props.mode === 'edit' && this.props.pipeline) {
-							await pb
-								.collection('pipelines')
-								.update(this.props.pipeline.record.id, data);
-						} else {
-							await pb.collection('pipelines').create(data);
-						}
-						await goto('/my/pipelines');
-					} catch (e) {
-						showPipelineFormError(e);
-						throw e;
-					} finally {
-						this.isSaving = false;
-					}
-				}
-			});
 		}
+
+		return {
+			...this.metadataForm.value!,
+			yaml,
+			...(mode.id === 'manual' ? { manual: true } : {})
+		};
+	}
+
+	private async persistPipeline(
+		data: Omit<PipelinesFormData, 'owner' | 'canonified_name'>
+	) {
+		await runWithLoading({
+			fn: async () => {
+				try {
+					this.isSaving = true;
+					if (this.props.mode === 'edit' && this.props.pipeline) {
+						await pb.collection('pipelines').update(this.props.pipeline.record.id, data);
+					} else {
+						await pb.collection('pipelines').create(data);
+					}
+					await goto('/my/pipelines');
+				} catch (e) {
+					showPipelineFormError(e);
+					throw e;
+				} finally {
+					this.isSaving = false;
+				}
+			}
+		});
 	}
 
 	//
@@ -138,25 +171,37 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	hasChanges = $derived.by(() => {
 		const { pipeline } = this.props;
 
+		const runtimeOptionsChanged = !_.isEqual(this.runtimeOptionsForm.value, pipeline?.runtime);
+		const nameChanged = this.metadataForm.value?.name !== pipeline?.record.name;
+		const descChanged = this.metadataForm.value?.description !== pipeline?.record.description;
+		const metadataChanged = nameChanged || descChanged;
+
+		const { mode } = this.stepsBuilder;
+		if (mode.id === 'manual') {
+			return mode.editor.isDirty || runtimeOptionsChanged || metadataChanged;
+		}
+
 		const stepsChanged = !_.isEqual(
 			this.stepsBuilder.steps.map(([step]) => step),
 			pipeline?.steps.map(([step]) => step)
 		);
 
-		const runtimeOptionsChanged = !_.isEqual(this.runtimeOptionsForm.value, pipeline?.runtime);
-
-		const nameChanged = this.metadataForm.value?.name !== pipeline?.record.name;
-		const descChanged = this.metadataForm.value?.description !== pipeline?.record.description;
-
-		return stepsChanged || runtimeOptionsChanged || nameChanged || descChanged;
+		return stepsChanged || runtimeOptionsChanged || metadataChanged;
 	});
 
 	canSave = $derived.by(() => {
+		const { mode } = this.stepsBuilder;
+		if (mode.id === 'manual') {
+			return this.hasChanges && mode.editor.isValid;
+		}
 		return this.hasChanges && this.stepsBuilder.steps.length > 0;
 	});
 
 	validateExit() {
-		if (this.hasChanges) {
+		const { mode } = this.stepsBuilder;
+		const manualEditorDirty = mode.id === 'manual' && mode.editor.isDirty;
+
+		if (this.hasChanges || manualEditorDirty) {
 			return confirm(
 				m.You_have_unsaved_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form()
 			);

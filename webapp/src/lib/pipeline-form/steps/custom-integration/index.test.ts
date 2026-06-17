@@ -93,7 +93,9 @@ describe('customCheckStepConfig', () => {
 	});
 
 	it('deserialize throws when check_id is missing', async () => {
-		await expect(customCheckStepConfig.deserialize({} as never)).rejects.toThrow('Missing check ID');
+		await expect(customCheckStepConfig.deserialize({} as never)).rejects.toThrow(
+			'Missing check ID'
+		);
 	});
 
 	it('deserialize propagates lookup errors', async () => {

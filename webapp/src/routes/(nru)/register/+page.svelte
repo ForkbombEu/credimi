@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 	import { onMount } from 'svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod/v3';
@@ -20,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { goto, m } from '@/i18n';
 	import { OrganizationInviteSession } from '@/organizations/invites';
 	import { pb } from '@/pocketbase';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	//
 
@@ -60,8 +60,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onError: () => {
 			captchaToken = '';
 			captchaError = m.Please_complete_the_captcha();
-			if (turnstileWidgetId && (window as any).turnstile) {
-				(window as any).turnstile.reset(turnstileWidgetId);
+			if (turnstileWidgetId && window.turnstile) {
+				window.turnstile.reset(turnstileWidgetId);
 			}
 		}
 	});
@@ -87,8 +87,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		script.async = true;
 		script.defer = true;
 		script.onload = () => {
-			if (turnstileContainer && (window as any).turnstile) {
-				turnstileWidgetId = (window as any).turnstile.render(turnstileContainer, {
+			if (turnstileContainer && window.turnstile) {
+				turnstileWidgetId = window.turnstile.render(turnstileContainer, {
 					sitekey: PUBLIC_TURNSTILE_SITE_KEY,
 					callback: (token: string) => {
 						captchaToken = token;

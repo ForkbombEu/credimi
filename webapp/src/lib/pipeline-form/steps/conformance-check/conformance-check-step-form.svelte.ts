@@ -101,9 +101,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	availableSuites = $derived(this.data.version?.suites ?? []);
 	availableTests = $derived(this.data.suite?.paths ?? []);
 
-	hasWalletTests = $derived(
-		this.availableTests.some((test) => isOpenId4VciWalletTest(test))
-	);
+	hasWalletTests = $derived(this.availableTests.some((test) => isOpenId4VciWalletTest(test)));
 
 	genericCredentialActions = $derived(this.walletActions.current ?? []);
 
@@ -137,7 +135,9 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		const wallet = ExecutionTarget.state.current?.wallet;
 		const walletTestsBlocked =
 			this.hasWalletTests &&
-			(!wallet || this.walletActions.loading || getWalletTestBlockReason(wallet, this.walletActions));
+			(!wallet ||
+				this.walletActions.loading ||
+				getWalletTestBlockReason(wallet, this.walletActions));
 
 		return this.availableTests.map((test) => {
 			const testName = test.split('/').at(-1) ?? test;
