@@ -5,7 +5,6 @@
 import type { Renderable } from '$lib/renderable';
 
 import { beforeNavigate } from '$app/navigation';
-import { Pipeline } from '$lib';
 import { runWithLoading } from '$lib/utils/index.js';
 import _ from 'lodash';
 
@@ -27,6 +26,7 @@ import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
 type Props = {
 	mode: 'create' | 'edit';
 	pipeline?: EnrichedPipeline;
+	startLockedManual?: boolean;
 };
 
 export class PipelineForm implements Renderable<PipelineForm> {
@@ -47,6 +47,13 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			steps: props.pipeline?.steps ?? [],
 			yamlPreview: () => this.yamlString
 		});
+
+		const shouldStartLockedManual =
+			props.pipeline?.record.manual === true || props.startLockedManual === true;
+
+		if (shouldStartLockedManual && props.pipeline?.record.yaml) {
+			this.stepsBuilder.enterManualMode(props.pipeline.record.yaml, { locked: true });
+		}
 
 		this.runtimeOptionsForm = new RuntimeOptionsForm({
 			initialData: props.pipeline?.runtime
@@ -70,12 +77,6 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	get mode() {
 		return this.props.mode;
 	}
-
-	readonly manualEditHref = $derived.by(() => {
-		const record = this.props.pipeline?.record;
-		if (!record) return '/my/pipelines/new/manual';
-		return Pipeline.getManualEditHref(record);
-	});
 
 	readonly yamlString: string = $derived.by(() =>
 		createPipelineYaml(
