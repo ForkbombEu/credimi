@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
 
-	import { HelpCircle, XIcon } from '@lucide/svelte';
+	import { BlocksIcon, HelpCircle, XIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import { String } from 'effect';
@@ -29,6 +29,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ManualEditorColumn from './_partials/manual-editor-column.svelte';
 	import StepCard from './_partials/step-card.svelte';
 	import YamlPreviewMenu from './_partials/yaml-preview-menu.svelte';
+	import {
+		applyStepsBuilderPaneLayout,
+		STEPS_BUILDER_PANE_LAYOUT as LAYOUT,
+		type PaneHandle
+	} from './pane-layout.js';
 
 	//
 
@@ -36,17 +41,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { debugEntityData } = steps;
 
+	let addStepPane: PaneHandle | null = $state(null);
+	let stepsPane: PaneHandle | null = $state(null);
+	let rightPane: PaneHandle | null = $state(null);
+
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
 	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
 	const stepDocsUrl = $derived(formMode?.config.docsUrl);
+	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
+
+	let lastAppliedManualMode: boolean | null = $state(null);
+
+	$effect(() => {
+		const isManual = builder.isManualMode;
+		const panesReady = addStepPane && stepsPane && rightPane;
+		if (!panesReady) return;
+		if (lastAppliedManualMode === isManual) return;
+
+		lastAppliedManualMode = isManual;
+		applyStepsBuilderPaneLayout(
+			{ addStep: addStepPane, stepsSequence: stepsPane, right: rightPane },
+			isManual
+		);
+	});
 </script>
 
 <Resizable.PaneGroup direction="horizontal" class="gap-2">
-	<Column title={columnTitle} disabled={builder.isManualMode}>
-		{#if builder.mode.id == 'idle'}
-			{@render stepButtons()}
-		{:else if builder.mode.id == 'form'}
+	<Column
+		bind:pane={addStepPane}
+		title={columnTitle}
+		defaultSize={LAYOUT.blocks.addStep}
+		order={1}
+		disabled={builder.isManualMode}
+	>
+		{#if builder.mode.id == 'form'}
 			<div class="flex grow flex-col" in:fly>
 				<Render item={builder.mode.form} />
 				{#if formMode?.intent === 'edit'}
@@ -61,6 +90,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/if}
 			</div>
+		{:else}
+			{@render stepButtons()}
 		{/if}
 
 		{#snippet titleRight()}
@@ -90,7 +121,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Resizable.Handle class="hover:bg-primary" />
 
-	<Column title={m.Steps_sequence()} disabled={builder.isManualMode}>
+	<Column
+		bind:pane={stepsPane}
+		title={m.Steps_sequence()}
+		defaultSize={LAYOUT.blocks.stepsSequence}
+		order={2}
+		disabled={builder.isManualMode}
+	>
 		{#snippet titleRight()}
 			<BulkWalletVersionChange {builder} />
 		{/snippet}
@@ -110,26 +147,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Resizable.Handle class="hover:bg-primary" />
 
-	{#if builder.mode.id === 'manual'}
-		<ManualEditorColumn {builder} editor={builder.mode.editor} />
-	{:else}
-		<Column title={m.YAML_preview()} class="card min-w-0 overflow-hidden">
-			{#snippet titleRight()}
-				<YamlPreviewMenu {builder} initialYaml={builder.yamlPreview} />
-			{/snippet}
-
-			{#if String.isEmpty(builder.yamlPreview)}
-				<EmptyState text={m.YAML_preview_will_appear_here()} />
+	<Column
+		bind:pane={rightPane}
+		title={rightColumnTitle}
+		class="card min-w-0 overflow-hidden"
+		contentClass={builder.isManualMode ? 'overflow-hidden' : undefined}
+		defaultSize={LAYOUT.blocks.right}
+		order={3}
+	>
+		{#snippet titleRight()}
+			{#if builder.mode.id === 'manual'}
+				<Button variant="outline" size="sm" onclick={() => void builder.exitManualMode()}>
+					<BlocksIcon />
+					{m.back_to_steps()}
+				</Button>
 			{:else}
-				<CodeDisplay
-					content={builder.yamlPreview}
-					language="yaml"
-					containerClass="rounded-none grow"
-					contentClass="text-sm"
-				/>
+				<YamlPreviewMenu {builder} initialYaml={builder.yamlPreview} />
 			{/if}
-		</Column>
-	{/if}
+		{/snippet}
+
+		{#if builder.mode.id === 'manual'}
+			<ManualEditorColumn editor={builder.mode.editor} />
+		{:else if String.isEmpty(builder.yamlPreview)}
+			<EmptyState text={m.YAML_preview_will_appear_here()} />
+		{:else}
+			<CodeDisplay
+				content={builder.yamlPreview}
+				language="yaml"
+				containerClass="rounded-none grow"
+				contentClass="text-sm"
+			/>
+		{/if}
+	</Column>
 </Resizable.PaneGroup>
 
 <!--  -->

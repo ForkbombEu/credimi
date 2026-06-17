@@ -11,11 +11,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Resizable from '@/components/ui/resizable/index.js';
 	import { cn } from '@/components/ui/utils';
 
+	import type { PaneHandle } from '../pane-layout.js';
+
 	type Props = {
 		children?: Snippet;
 		class?: string;
 		contentClass?: string;
+		defaultSize?: number;
 		disabled?: boolean;
+		minSize?: number;
+		order?: number;
+		pane?: PaneHandle | null;
 		title: string;
 		titleRight?: Snippet;
 	};
@@ -24,7 +30,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		children,
 		class: className,
 		contentClass,
+		defaultSize,
 		disabled = false,
+		minSize,
+		order,
+		pane = $bindable<PaneHandle | null>(null),
 		title,
 		titleRight
 	}: Props = $props();
@@ -34,7 +44,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 </script>
 
-<Resizable.Pane class={classes}>
+<Resizable.Pane
+	bind:this={pane}
+	class={classes}
+	{defaultSize}
+	{minSize}
+	{order}
+>
 	<div class="flex items-center justify-between border-b bg-slate-100 px-4 py-2">
 		<T class="font-semibold">{title}</T>
 		{@render titleRight?.()}
