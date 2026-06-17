@@ -70,7 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<button
 				{disabled}
 				class={[
-					'bg-card cursor-not-allowed opacity-60 disabled:cursor-not-allowed',
+					'cursor-not-allowed bg-card opacity-60 disabled:cursor-not-allowed',
 					classes
 				]}
 				{...props}

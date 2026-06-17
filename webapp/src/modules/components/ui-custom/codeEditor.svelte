@@ -90,7 +90,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'&': { minHeight: 'none', maxHeight: 'none' },
 			'.cm-scroller': { overflow: 'auto' }
 		};
-		if (minHeight) baseStyles['&'].minHeight = `${minHeight}px`;
+		if (minHeight) {
+			baseStyles['&'].minHeight = `${minHeight}px`;
+		} else {
+			baseStyles['&'].height = '100%';
+		}
 		if (maxHeight) baseStyles['&'].maxHeight = `${maxHeight}px`;
 		return baseStyles;
 	});

@@ -29,8 +29,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 
-	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { HubItemCard } from '$lib/hub';
+	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { String } from 'effect';
 
 	import CodeSection from './_utils/code-section.svelte';

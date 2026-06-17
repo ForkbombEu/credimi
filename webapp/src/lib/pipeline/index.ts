@@ -7,4 +7,5 @@ export * as Queue from './queue';
 export * as Runner from './runner/index.js';
 export * from './types';
 export * from './utils';
+export { validateYaml, type PipelineYamlValidation } from './validate-yaml';
 export * as Workflows from './workflows';

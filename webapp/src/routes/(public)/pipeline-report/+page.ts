@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-
 import { validatePipelineReportUrl } from '$lib/pipeline/results/pipeline-report-page';
 
 export const load = ({ url }) => {

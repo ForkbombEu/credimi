@@ -41,8 +41,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { HubItemCard } from '$lib/hub';
+	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { String } from 'effect';
 
 	import { CollectionForm } from '@/collections-components/index.js';

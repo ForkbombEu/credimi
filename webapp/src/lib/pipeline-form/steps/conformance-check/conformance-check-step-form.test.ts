@@ -15,8 +15,11 @@ vi.mock('runed', () => ({
 	})
 }));
 const i18nMocks = vi.hoisted(() => ({
-	Pipeline_form_choose_wallet_before_openid4vci_wallet_check: ({ category }: { category: string }) =>
-		`choose-wallet:${category}`,
+	Pipeline_form_choose_wallet_before_openid4vci_wallet_check: ({
+		category
+	}: {
+		category: string;
+	}) => `choose-wallet:${category}`,
 	Pipeline_form_wallet_missing_action_category: ({
 		wallet,
 		category
@@ -45,8 +48,7 @@ import {
 	type WalletActionSelection
 } from './conformance-check-step-form.svelte.js';
 
-const action = (id: string) =>
-	({ id, name: id, category: 'get-credential-generic' }) as never;
+const action = (id: string) => ({ id, name: id, category: 'get-credential-generic' }) as never;
 
 const wallet = { name: 'TestWallet' } as never;
 

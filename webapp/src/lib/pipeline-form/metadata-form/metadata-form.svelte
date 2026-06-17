@@ -25,8 +25,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Dialog bind:open={form.isOpen} title={m.Metadata()}>
-	{#snippet trigger({ props })}
-		<Button variant="outline" {...props}>
+	{#snippet trigger({ props: dialogProps })}
+		<Button variant="outline" {...dialogProps}>
 			<PencilIcon />
 			{m.Info()}
 		</Button>

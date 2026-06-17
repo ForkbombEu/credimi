@@ -4,25 +4,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./run-now-button.svelte', () => ({ default: {} }));
-vi.mock('./runner-select-input.svelte', () => ({ default: {} }));
-vi.mock('./runner-select-modal.svelte', () => ({ default: {} }));
-vi.mock('./catalog.svelte.js', () => ({
-	dispose: () => {},
-	findByPath: () => undefined,
-	init: () => {},
-	isReady: () => false,
-	read: () => [],
-	refresh: async () => {},
-	search: () => [],
-	startLiveRefresh: () => () => {}
-}));
-
 import type { PipelinesResponse } from '@/pocketbase/types';
 
 import type { RunnerRecord as Record } from './types';
 
-import { Binding } from './index';
+import * as Binding from './binding.js';
 
 function pipeline(id: string, yaml: string): PipelinesResponse {
 	return { id, yaml } as PipelinesResponse;

@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
 
-	import { HelpCircle, XIcon } from '@lucide/svelte';
+	import { BlocksIcon, HelpCircle, PencilIcon, XIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import { String } from 'effect';
@@ -26,7 +26,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BulkWalletVersionChange from './_partials/bulk-wallet-version-change.svelte';
 	import Column from './_partials/column.svelte';
 	import EmptyState from './_partials/empty-state.svelte';
+	import ManualEditorColumn from './_partials/manual-editor-column.svelte';
 	import StepCard from './_partials/step-card.svelte';
+	import {
+		applyStepsBuilderPaneLayout,
+		STEPS_BUILDER_PANE_LAYOUT as LAYOUT,
+		type PaneHandle
+	} from './pane-layout.js';
 
 	//
 
@@ -34,17 +40,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { debugEntityData } = steps;
 
+	let addStepPane: PaneHandle | null = $state(null);
+	let stepsPane: PaneHandle | null = $state(null);
+	let rightPane: PaneHandle | null = $state(null);
+
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
 	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
 	const stepDocsUrl = $derived(formMode?.config.docsUrl);
+	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
+
+	let lastAppliedManualMode: boolean | null = $state(null);
+
+	$effect(() => {
+		const isManual = builder.isManualMode;
+		const panesReady = addStepPane && stepsPane && rightPane;
+		if (!panesReady) return;
+		if (lastAppliedManualMode === isManual) return;
+
+		lastAppliedManualMode = isManual;
+		applyStepsBuilderPaneLayout(
+			{ addStep: addStepPane, stepsSequence: stepsPane, right: rightPane },
+			isManual
+		);
+	});
 </script>
 
-<Resizable.PaneGroup direction="horizontal" class="gap-2">
-	<Column title={columnTitle}>
-		{#if builder.mode.id == 'idle'}
-			{@render stepButtons()}
-		{:else if builder.mode.id == 'form'}
+<Resizable.PaneGroup direction="horizontal" class="min-h-0 grow gap-2">
+	<Column
+		bind:pane={addStepPane}
+		title={columnTitle}
+		defaultSize={LAYOUT.blocks.addStep}
+		order={1}
+		disabled={builder.isManualMode}
+	>
+		{#if builder.mode.id == 'form'}
 			<div class="flex grow flex-col" in:fly>
 				<Render item={builder.mode.form} />
 				{#if formMode?.intent === 'edit'}
@@ -59,6 +89,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/if}
 			</div>
+		{:else}
+			{@render stepButtons()}
 		{/if}
 
 		{#snippet titleRight()}
@@ -88,9 +120,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Resizable.Handle class="hover:bg-primary" />
 
-	<Column title={m.Steps_sequence()}>
+	<Column
+		bind:pane={stepsPane}
+		title={m.Steps_sequence()}
+		defaultSize={LAYOUT.blocks.stepsSequence}
+		order={2}
+		disabled={builder.isManualMode}
+	>
 		{#snippet titleRight()}
-			<BulkWalletVersionChange {builder} />
+			{#if !builder.isManualMode}
+				<BulkWalletVersionChange {builder} />
+			{/if}
 		{/snippet}
 
 		{#if builder.steps.length > 0}
@@ -108,8 +148,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Resizable.Handle class="hover:bg-primary" />
 
-	<Column title={m.YAML_preview()} class="card overflow-hidden">
-		{#if String.isEmpty(builder.yamlPreview)}
+	<Column
+		bind:pane={rightPane}
+		title={rightColumnTitle}
+		class="card min-w-0 overflow-hidden"
+		contentClass={builder.isManualMode ? 'overflow-hidden' : undefined}
+		defaultSize={LAYOUT.blocks.right}
+		order={3}
+	>
+		{#snippet titleRight()}
+			{#if builder.mode.id === 'manual' && !builder.isManualLocked}
+				<Button
+					variant="link"
+					class="h-fit gap-1 p-0 text-xs"
+					onclick={() => void builder.exitManualMode()}
+				>
+					<BlocksIcon size={10} />
+					{m.back_to_steps()}
+				</Button>
+			{:else if !builder.isManualMode}
+				<Button
+					variant="link"
+					class="h-fit gap-1 p-0 text-xs"
+					onclick={() => builder.enterManualMode(builder.yamlPreview)}
+				>
+					<PencilIcon size={10} />
+					{m.edit_manually()}
+				</Button>
+			{/if}
+		{/snippet}
+
+		{#if builder.mode.id === 'manual'}
+			<ManualEditorColumn editor={builder.mode.editor} />
+		{:else if String.isEmpty(builder.yamlPreview)}
 			<EmptyState text={m.YAML_preview_will_appear_here()} />
 		{:else}
 			<CodeDisplay

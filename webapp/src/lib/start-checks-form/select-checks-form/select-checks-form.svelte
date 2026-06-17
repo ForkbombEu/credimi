@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Suite } from '$lib/standards';
 
+	import { ArrowRight, GitBranch, HelpCircle, Home } from '@lucide/svelte';
 	import SectionCard from '$lib/layout/section-card.svelte';
 	import Footer from '$start-checks-form/_utils/footer.svelte';
-	import { ArrowRight, GitBranch, HelpCircle, Home } from '@lucide/svelte';
 	import { Checkbox as Check } from 'bits-ui';
 
 	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
