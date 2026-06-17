@@ -305,14 +305,9 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 	env.RegisterActivityWithOptions(
 		startEmuActivity.Execute,
 		activity.RegisterOptions{Name: startEmuActivity.Name()},
@@ -336,7 +331,6 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 				appURL:                    "http://localhost:8090",
 				stepID:                    "step-1",
 				trackInitialInstalledApps: true,
-				httpActivity:              httpActivity,
 			})
 		},
 		workflow.RegisterOptions{Name: workflowName},
@@ -371,14 +365,9 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 	env.RegisterActivityWithOptions(
 		startEmuActivity.Execute,
 		activity.RegisterOptions{Name: startEmuActivity.Name()},
@@ -402,7 +391,6 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 				appURL:                    "http://localhost:8090",
 				stepID:                    "step-1",
 				trackInitialInstalledApps: true,
-				httpActivity:              httpActivity,
 			})
 		},
 		workflow.RegisterOptions{Name: workflowName},
@@ -446,12 +434,7 @@ func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testin
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 
 	workflowName := "get-device-map-no-snapshot"
 	env.RegisterWorkflowWithOptions(
@@ -466,7 +449,6 @@ func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testin
 				settedDevices: map[string]any{},
 				appURL:        "http://localhost:8090",
 				stepID:        "step-1",
-				httpActivity:  httpActivity,
 			})
 		},
 		workflow.RegisterOptions{Name: workflowName},
