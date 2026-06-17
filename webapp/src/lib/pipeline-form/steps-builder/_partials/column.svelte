@@ -15,11 +15,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		children?: Snippet;
 		class?: string;
 		contentClass?: string;
+		disabled?: boolean;
 		title: string;
 		titleRight?: Snippet;
 	};
 
-	let { children, class: className, contentClass, title, titleRight }: Props = $props();
+	let {
+		children,
+		class: className,
+		contentClass,
+		disabled = false,
+		title,
+		titleRight
+	}: Props = $props();
 
 	const classes = $derived(
 		cn('flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm', className)
@@ -32,7 +40,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render titleRight?.()}
 	</div>
 
-	<div class={['flex grow flex-col overflow-y-scroll', contentClass]}>
-		{@render children?.()}
+	<div class={['relative flex grow flex-col overflow-y-scroll', contentClass]}>
+		{#if disabled}
+			<div class="absolute inset-0 z-10 bg-white/40" aria-hidden="true"></div>
+		{/if}
+		<div class={disabled ? 'opacity-60' : ''}>
+			{@render children?.()}
+		</div>
 	</div>
 </Resizable.Pane>
