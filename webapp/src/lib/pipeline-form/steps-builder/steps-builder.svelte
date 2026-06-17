@@ -26,7 +26,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BulkWalletVersionChange from './_partials/bulk-wallet-version-change.svelte';
 	import Column from './_partials/column.svelte';
 	import EmptyState from './_partials/empty-state.svelte';
+	import ManualEditorColumn from './_partials/manual-editor-column.svelte';
 	import StepCard from './_partials/step-card.svelte';
+	import YamlPreviewMenu from './_partials/yaml-preview-menu.svelte';
 
 	//
 
@@ -41,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Resizable.PaneGroup direction="horizontal" class="gap-2">
-	<Column title={columnTitle}>
+	<Column title={columnTitle} disabled={builder.isManualMode}>
 		{#if builder.mode.id == 'idle'}
 			{@render stepButtons()}
 		{:else if builder.mode.id == 'form'}
@@ -88,7 +90,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Resizable.Handle class="hover:bg-primary" />
 
-	<Column title={m.Steps_sequence()}>
+	<Column title={m.Steps_sequence()} disabled={builder.isManualMode}>
 		{#snippet titleRight()}
 			<BulkWalletVersionChange {builder} />
 		{/snippet}
@@ -108,18 +110,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Resizable.Handle class="hover:bg-primary" />
 
-	<Column title={m.YAML_preview()} class="card overflow-hidden">
-		{#if String.isEmpty(builder.yamlPreview)}
-			<EmptyState text={m.YAML_preview_will_appear_here()} />
-		{:else}
-			<CodeDisplay
-				content={builder.yamlPreview}
-				language="yaml"
-				containerClass="rounded-none grow"
-				contentClass="text-sm"
-			/>
-		{/if}
-	</Column>
+	{#if builder.mode.id === 'manual'}
+		<ManualEditorColumn {builder} editor={builder.mode.editor} />
+	{:else}
+		<Column title={m.YAML_preview()} class="card min-w-0 overflow-hidden">
+			{#snippet titleRight()}
+				<YamlPreviewMenu {builder} initialYaml={builder.yamlPreview} />
+			{/snippet}
+
+			{#if String.isEmpty(builder.yamlPreview)}
+				<EmptyState text={m.YAML_preview_will_appear_here()} />
+			{:else}
+				<CodeDisplay
+					content={builder.yamlPreview}
+					language="yaml"
+					containerClass="rounded-none grow"
+					contentClass="text-sm"
+				/>
+			{/if}
+		</Column>
+	{/if}
 </Resizable.PaneGroup>
 
 <!--  -->
