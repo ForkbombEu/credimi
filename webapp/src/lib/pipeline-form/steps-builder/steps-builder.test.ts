@@ -26,7 +26,7 @@ function createBuilder() {
 	});
 }
 
-type BuilderWithState = StepsBuilder & {
+type BuilderInternal = {
 	state: { mode: StepsBuilder['mode']; steps: unknown[] };
 };
 
@@ -38,7 +38,7 @@ describe('StepsBuilder manual mode', () => {
 	it('enterManualMode closes form mode and sets manual', () => {
 		const builder = createBuilder();
 		const exitFormState = vi.spyOn(builder, 'exitFormState');
-		(builder as BuilderWithState).state.mode = {
+		(builder as unknown as BuilderInternal).state.mode = {
 			id: 'form',
 			intent: 'add',
 			config: {} as never,
@@ -72,12 +72,18 @@ describe('StepsBuilder manual mode', () => {
 		if (builder.mode.id !== 'manual') throw new Error('expected manual mode');
 		builder.mode.editor.yaml = `${VALID_YAML}\n`;
 
-		vi.stubGlobal('confirm', vi.fn(() => false));
+		vi.stubGlobal(
+			'confirm',
+			vi.fn(() => false)
+		);
 		const cancelled = await builder.exitManualMode();
 		expect(cancelled).toBe(false);
 		expect(builder.mode.id).toBe('manual');
 
-		vi.stubGlobal('confirm', vi.fn(() => true));
+		vi.stubGlobal(
+			'confirm',
+			vi.fn(() => true)
+		);
 		const ok = await builder.exitManualMode();
 		expect(ok).toBe(true);
 		expect(builder.mode.id).toBe('idle');
