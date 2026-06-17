@@ -11,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import CodeEditorField from '@/forms/fields/codeEditorField.svelte';
 	import Form from '@/forms/form.svelte';
@@ -24,11 +25,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Dialog bind:open={form.isOpen}>
-	{#snippet trigger({ props })}
-		<Button variant="outline" disabled={form.disabled} {...props}>
-			<HourglassIcon />
-			{m.parameters()}
-		</Button>
+	{#snippet trigger({ props: dialogProps })}
+		<Tooltip disabled={!form.disabled}>
+			{#snippet child({ props: tooltipProps })}
+				<span {...tooltipProps} class="inline-flex">
+					<Button variant="outline" disabled={form.disabled} {...dialogProps}>
+						<HourglassIcon />
+						{m.parameters()}
+					</Button>
+				</span>
+			{/snippet}
+			{#snippet content()}{m.unavailable_in_manual_edit()}{/snippet}
+		</Tooltip>
 	{/snippet}
 
 	{#snippet content()}
