@@ -13,6 +13,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	InternalPipeline "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	pip "github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -96,7 +97,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 		// 5. Determine Temporal namespace based on user organization (or default)
 		namespace := "default"
 		if e.Auth != nil {
-			organization, err := GetUserOrganization(e.App, e.Auth.Id)
+			organization, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
 			if err == nil {
 				namespace = organization.GetString("canonified_name")
 			}

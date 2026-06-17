@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -569,7 +570,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		organization, err := GetUserOrganization(e.App, authRecord.Id)
+		organization, err := pbutils.GetUserOrganization(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -792,7 +793,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		organization, err := GetUserOrganization(e.App, authRecord.Id)
+		organization, err := pbutils.GetUserOrganization(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

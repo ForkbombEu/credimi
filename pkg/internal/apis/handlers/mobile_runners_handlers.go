@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -156,7 +157,7 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		if !isSuperuserAuth(e.Auth) {
-			orgID, err := GetUserOrganizationID(e.App, e.Auth.Id)
+			orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,

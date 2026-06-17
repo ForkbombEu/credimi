@@ -15,6 +15,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -155,7 +156,7 @@ func TestHandleRunCustomIntegrationSuccess(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "wf-custom")
 
-	expectedNamespace, err := GetUserOrganizationCanonifiedName(app, authRecord.Id)
+	expectedNamespace, err := pbutils.GetUserOrganizationCanonifiedName(app, authRecord.Id)
 	require.NoError(t, err)
 	require.Equal(t, expectedNamespace, capturedNamespace)
 

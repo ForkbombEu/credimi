@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/core"
@@ -125,7 +126,7 @@ func HandleMyResults() func(*core.RequestEvent) error {
 		}
 
 		userID := e.Auth.Id
-		orgID, err := GetUserOrganizationID(e.App, userID)
+		orgID, err := pbutils.GetUserOrganizationID(e.App, userID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

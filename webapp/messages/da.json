@@ -423,6 +423,8 @@
 	"Custom_check_description_field": "Forklar, hvad denne brugerdefinerede integration gør, hvordan den fungerer, og hvad den er rettet mod.",
 	"YAML_Configuration": "YAML-konfiguration",
 	"YAML_Configuration_section_description": "Angiv testkonfigurationen i YAML-format. Du kan uploade en fil eller indsætte/redigere den direkte.",
+	"Secrets": "Secrets",
+	"Secrets_field_description": "Optional YAML mapping of secret names to values, used when running the workflow configuration (e.g. token: your-token).",
 	"Upload_yaml": "Upload .yaml-fil",
 	"Make_public": "Gør disse brugerdefinerede checks offentlige",
 	"Make_public_section_description": "Gør denne kontrol offentlig og tilgængelig for andre brugere. Du kan også vælge at gøre den privat, så kun du kan køre den.",

@@ -18,6 +18,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -381,7 +382,7 @@ func TestHandleCredentialIssuerStartCheckSuccess(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
 	require.NoError(t, err)
 
 	issuerCollection, err := app.FindCollectionByNameOrId("credential_issuers")
@@ -608,7 +609,7 @@ func TestHandleCredentialIssuerStartCheckUsesHostnameFallbackAdditional(t *testi
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
 	require.NoError(t, err)
 	records, err := app.FindRecordsByFilter(
 		"credential_issuers",
@@ -631,7 +632,7 @@ func TestHandleCredentialIssuerStartCheckExistingRecordStartErrorAdditional(t *t
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
 	require.NoError(t, err)
 
 	issuerCollection, err := app.FindCollectionByNameOrId("credential_issuers")
@@ -690,9 +691,9 @@ func TestHandleCredentialIssuerImportFidesSuccess(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
 	require.NoError(t, err)
-	orgName, err := GetOrganizationCanonifiedName(app, orgID)
+	orgName, err := pbutils.GetOrganizationCanonifiedName(app, orgID)
 	require.NoError(t, err)
 
 	origRead := credentialIssuerReadSchemaFile
@@ -751,9 +752,9 @@ func TestHandleCredentialIssuerImportFidesSchedule(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
 	require.NoError(t, err)
-	orgName, err := GetOrganizationCanonifiedName(app, orgID)
+	orgName, err := pbutils.GetOrganizationCanonifiedName(app, orgID)
 	require.NoError(t, err)
 
 	origRead := credentialIssuerReadSchemaFile
@@ -951,7 +952,7 @@ func TestHandleCredentialIssuerStartCheckWorkflowErrorDeletesNewRecord(t *testin
 	require.NoError(t, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
-	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
 	require.NoError(t, err)
 	issuers, err := app.FindRecordsByFilter(
 		"credential_issuers",
@@ -1026,7 +1027,7 @@ func TestHandleCredentialIssuerStartCheckWaitErrorDeletesNewRecord(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
-	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
 	require.NoError(t, err)
 	issuers, err := app.FindRecordsByFilter(
 		"credential_issuers",

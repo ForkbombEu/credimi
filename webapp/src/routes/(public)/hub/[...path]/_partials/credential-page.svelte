@@ -107,7 +107,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</PageSection>
 
-		<QrSection yaml={credential.yaml} deeplink={credential.deeplink} />
+		<QrSection record={credential} />
 	</div>
 
 	<DescriptionSection description={credential.description} />

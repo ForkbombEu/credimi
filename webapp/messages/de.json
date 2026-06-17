@@ -423,6 +423,8 @@
 	"Custom_check_description_field": "Erklären Sie, was diese benutzerdefinierte Integration bewirkt, wie sie funktioniert und worauf sie abzielt.",
 	"YAML_Configuration": "YAML-Konfiguration",
 	"YAML_Configuration_section_description": "Testkonfiguration im YAML-Format bereitstellen. Du kannst eine Datei hochladen oder direkt einfügen/bearbeiten.",
+	"Secrets": "Secrets",
+	"Secrets_field_description": "Optional YAML mapping of secret names to values, used when running the workflow configuration (e.g. token: your-token).",
 	"Upload_yaml": "YAML hochladen",
 	"Make_public": "Benutzerdefinierten Prüfungen öffentlich machen",
 	"Make_public_section_description": "Diese Prüfung öffentlich machen und für andere Benutzer verfügbar. Du kannst sie auch privat machen, sodass nur Du sie ausführen können.",

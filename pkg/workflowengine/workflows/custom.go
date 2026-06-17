@@ -28,9 +28,10 @@ type CustomCheckWorkflow struct {
 var customStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type CustomCheckWorkflowPayload struct {
-	Yaml    string `json:"yaml,omitempty"     xoneof:"custom_check"`
-	CheckID string `json:"check_id,omitempty" xoneof:"custom_check"`
-	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	Yaml       string            `json:"yaml,omitempty"     xoneof:"custom_check"`
+	CheckID    string            `json:"check_id,omitempty" xoneof:"custom_check"`
+	Parameters map[string]any    `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	Secrets    map[string]string `json:"secrets,omitempty"    yaml:"secrets,omitempty"`
 }
 
 func NewCustomCheckWorkflow() *CustomCheckWorkflow {
@@ -190,8 +191,9 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 	}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: activities.StepCIWorkflowActivityPayload{
-			Yaml: yaml,
-			Env:  string(envBytes),
+			Yaml:    yaml,
+			Env:     string(envBytes),
+			Secrets: payload.Secrets,
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult

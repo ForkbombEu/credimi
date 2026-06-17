@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -116,7 +117,9 @@ func TestHandleGetDeeplinkSuccess(t *testing.T) {
 	restore := installDeeplinkSeams(t)
 	defer restore()
 
+	var capturedInput workflowengine.WorkflowInput
 	deeplinkStartWorkflow = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		capturedInput = input
 		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
 	}
 	deeplinkTemporalClient = func(namespace string) (client.Client, error) {
@@ -138,7 +141,10 @@ func TestHandleGetDeeplinkSuccess(t *testing.T) {
 		}, nil
 	}
 
-	body, _ := json.Marshal(CredentialDeeplinkRequest{Yaml: "test"})
+	body, _ := json.Marshal(CredentialDeeplinkRequest{
+		Yaml:    "test",
+		Secrets: "secret1: value1\nsecret2: value2\n",
+	})
 	req := httptest.NewRequest(http.MethodPost, "/api/get-deeplink", bytes.NewBuffer(body))
 	rec := httptest.NewRecorder()
 
@@ -152,6 +158,12 @@ func TestHandleGetDeeplinkSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "credimi://link")
+	payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
+	require.True(t, ok)
+	require.Equal(t, map[string]string{
+		"secret1": "value1",
+		"secret2": "value2",
+	}, payload.Secrets)
 }
 
 func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
@@ -170,6 +182,8 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(issuerRecord))
 
 		credColl, _ := app.FindCollectionByNameOrId("credentials")
+		ensureTextField(t, app, credColl.Name, "secrets")
+		credColl, _ = app.FindCollectionByNameOrId("credentials")
 		credential := core.NewRecord(credColl)
 		credential.Set("owner", orgID)
 		credential.Set("name", "test credential")
@@ -191,6 +205,8 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(verifierRecord))
 
 		useCaseColl, _ := app.FindCollectionByNameOrId("use_cases_verifications")
+		ensureTextField(t, app, useCaseColl.Name, "secrets")
+		useCaseColl, _ = app.FindCollectionByNameOrId("use_cases_verifications")
 		useCase := core.NewRecord(useCaseColl)
 		useCase.Set("owner", orgID)
 		useCase.Set("name", "test use cases")
@@ -203,11 +219,25 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 	}
 }
 
+func ensureTextField(t testing.TB, app *tests.TestApp, collectionName string, fieldName string) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId(collectionName)
+	require.NoError(t, err)
+	if collection.Fields.GetByName(fieldName) != nil {
+		return
+	}
+
+	collection.Fields.Add(&core.TextField{Name: fieldName})
+	require.NoError(t, app.Save(collection))
+}
+
 func TestGetCredentialDeeplink(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-	installSuccessfulDeeplinkWorkflow(t)
+	var capturedInput workflowengine.WorkflowInput
+	installSuccessfulDeeplinkWorkflow(t, &capturedInput)
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -300,9 +330,17 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
 				r.Set("deeplink", "")
 				r.Set("yaml", "test: yaml content")
+				r.Set("secrets", "token: credential-secret\n")
 				require.NoError(t, app.Save(r))
 
 				return app
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
+				require.True(t.(*testing.T), ok)
+				require.Equal(t.(*testing.T), map[string]string{
+					"token": "credential-secret",
+				}, payload.Secrets)
 			},
 		},
 	}
@@ -316,7 +354,8 @@ func TestGetVerificationDeeplink(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-	installSuccessfulDeeplinkWorkflow(t)
+	var capturedInput workflowengine.WorkflowInput
+	installSuccessfulDeeplinkWorkflow(t, &capturedInput)
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -363,7 +402,22 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			ExpectedContent: []string{
 				`mock-deeplink-from-yaml`,
 			},
-			TestAppFactory: setupDeeplinkApp(orgID),
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupDeeplinkApp(orgID)(t)
+				coll, _ := app.FindCollectionByNameOrId("use_cases_verifications")
+				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test use cases"`)
+				r.Set("secrets", "pin: '1234'\n")
+				require.NoError(t, app.Save(r))
+
+				return app
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
+				require.True(t.(*testing.T), ok)
+				require.Equal(t.(*testing.T), map[string]string{
+					"pin": "1234",
+				}, payload.Secrets)
+			},
 		},
 		{
 			Name:           "get verification deeplink - redirect",
@@ -382,13 +436,16 @@ func TestGetVerificationDeeplink(t *testing.T) {
 	}
 }
 
-func installSuccessfulDeeplinkWorkflow(t testing.TB) {
+func installSuccessfulDeeplinkWorkflow(t testing.TB, capturedInput *workflowengine.WorkflowInput) {
 	t.Helper()
 
 	restore := installDeeplinkSeams(t)
 	t.Cleanup(restore)
 
 	deeplinkStartWorkflow = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		if capturedInput != nil {
+			*capturedInput = input
+		}
 		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
 	}
 	deeplinkTemporalClient = func(namespace string) (client.Client, error) {

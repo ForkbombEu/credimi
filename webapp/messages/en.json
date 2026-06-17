@@ -423,6 +423,8 @@
 	"Custom_check_description_field": "Explain what this custom integration does, how it works, and what it targets.",
 	"YAML_Configuration": "YAML Configuration",
 	"YAML_Configuration_section_description": "Provide the test configuration in YAML format. You can upload a file or paste/edit it directly.",
+	"Secrets": "Secrets",
+	"Secrets_field_description": "Optional YAML mapping of secret names to values, used when running the workflow configuration (e.g. token: your-token).",
 	"Upload_yaml": "Upload .yaml",
 	"Make_public": "Make this custom checks public",
 	"Make_public_section_description": "Make this check public and available to other users. You can also choose to make it private, so only you can run it.",

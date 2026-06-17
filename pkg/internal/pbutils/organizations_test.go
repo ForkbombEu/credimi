@@ -2,25 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package handlers
+package pbutils
 
 import (
 	"testing"
 
-	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
 )
 
-func setupUtilityTestApp(t testing.TB) *tests.TestApp {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	return app
-}
+const testDataDir = "../../../test_pb_data"
 
 func TestGetUserOrganizationID(t *testing.T) {
-	app := setupUtilityTestApp(t)
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
 	defer app.Cleanup()
 
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
@@ -33,21 +29,23 @@ func TestGetUserOrganizationID(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	orgID, err := GetUserOrganizationID(app, user.Id)
 	require.NoError(t, err)
 	require.Equal(t, orgAuth.GetString("organization"), orgID)
 }
 
 func TestGetUserOrganizationIDMissingUser(t *testing.T) {
-	app := setupUtilityTestApp(t)
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
 	defer app.Cleanup()
 
-	_, err := pbutils.GetUserOrganizationID(app, "missing-user")
+	_, err = GetUserOrganizationID(app, "missing-user")
 	require.Error(t, err)
 }
 
 func TestGetUserOrganizationCanonifiedName(t *testing.T) {
-	app := setupUtilityTestApp(t)
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
 	defer app.Cleanup()
 
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
@@ -63,15 +61,24 @@ func TestGetUserOrganizationCanonifiedName(t *testing.T) {
 	org, err := app.FindRecordById("organizations", orgAuth.GetString("organization"))
 	require.NoError(t, err)
 
-	name, err := pbutils.GetUserOrganizationCanonifiedName(app, user.Id)
+	name, err := GetUserOrganizationCanonifiedName(app, user.Id)
 	require.NoError(t, err)
 	require.Equal(t, org.GetString("canonified_name"), name)
 }
 
-func TestGetUserOrganizationCanonifiedNameMissingUser(t *testing.T) {
-	app := setupUtilityTestApp(t)
+func TestGetOrganizationCanonifiedName(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
 	defer app.Cleanup()
 
-	_, err := pbutils.GetUserOrganizationCanonifiedName(app, "missing-user")
-	require.Error(t, err)
+	org, err := app.FindFirstRecordByFilter(
+		"organizations",
+		"name={:name}",
+		dbx.Params{"name": "userA's organization"},
+	)
+	require.NoError(t, err)
+
+	name, err := GetOrganizationCanonifiedName(app, org.Id)
+	require.NoError(t, err)
+	require.Equal(t, org.GetString("canonified_name"), name)
 }

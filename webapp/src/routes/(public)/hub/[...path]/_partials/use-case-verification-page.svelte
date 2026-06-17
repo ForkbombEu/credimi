@@ -66,7 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<div class="flex items-start gap-6">
 		<DescriptionSection description={useCaseVerification.description} class="grow" />
-		<QrSection yaml={useCaseVerification.yaml} />
+		<QrSection record={useCaseVerification} />
 	</div>
 
 	<CodeSection indexItem={s.workflow_yaml} code={useCaseVerification.yaml} language="yaml" />

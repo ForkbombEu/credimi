@@ -94,3 +94,40 @@ export function refineAsStepciYaml(schema: z.ZodString | z.ZodOptional<z.ZodStri
 }
 
 export const stepciYamlSchema = refineAsStepciYaml(z.string());
+
+export const optionalSecretsYamlSchema = z
+	.string()
+	.optional()
+	.superRefine((value, ctx) => {
+		if (!value?.trim()) {
+			return;
+		}
+
+		let parsed: unknown;
+		try {
+			parsed = parseYaml(value);
+		} catch (e) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `Invalid YAML document: ${getExceptionMessage(e)}`
+			});
+			return;
+		}
+
+		if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'Secrets must be a YAML mapping of string keys to string values'
+			});
+			return;
+		}
+
+		for (const [key, secretValue] of Object.entries(parsed)) {
+			if (typeof secretValue !== 'string') {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: `Secret "${key}" must be a string value`
+				});
+			}
+		}
+	});

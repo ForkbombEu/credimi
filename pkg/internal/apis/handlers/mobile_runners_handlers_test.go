@@ -13,6 +13,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -92,7 +93,7 @@ func TestListMobileRunners(t *testing.T) {
 
 		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 		require.NoError(t, err)
-		userOrgID, err := GetUserOrganizationID(app, user.Id)
+		userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 		require.NoError(t, err)
 		otherOrg := createOtherWalletAPKOrganization(t, app)
 
@@ -230,7 +231,7 @@ func TestListMobileRunners(t *testing.T) {
 
 		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 		require.NoError(t, err)
-		userOrgID, err := GetUserOrganizationID(app, user.Id)
+		userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 		require.NoError(t, err)
 
 		createMobileRunnerRecord(t, app, userOrgID, "owned-online", "online-owned", false)
@@ -601,7 +602,7 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 
 		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 		require.NoError(t, err)
-		orgID, err := GetUserOrganizationID(app, user.Id)
+		orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 		require.NoError(t, err)
 
 		coll, err := app.FindCollectionByNameOrId("mobile_runners")
@@ -731,7 +732,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 
 		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 		require.NoError(t, err)
-		orgID, err := GetUserOrganizationID(app, user.Id)
+		orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 		require.NoError(t, err)
 
 		coll, err := app.FindCollectionByNameOrId("mobile_runners")
