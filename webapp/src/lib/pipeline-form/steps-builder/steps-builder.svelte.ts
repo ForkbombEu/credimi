@@ -48,6 +48,7 @@ type BuilderMode =
 type State = {
 	steps: EnrichedStep[];
 	mode: BuilderMode;
+	manualLocked: boolean;
 };
 
 export class StepsBuilder implements Renderable<StepsBuilder> {
@@ -55,7 +56,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	private state = $state<State>({
 		steps: [],
-		mode: { id: 'idle' }
+		mode: { id: 'idle' },
+		manualLocked: false
 	});
 
 	private stateManager = new StateManager(
@@ -90,6 +92,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	get isManualMode() {
 		return this.state.mode.id === 'manual';
+	}
+
+	get isManualLocked() {
+		return this.state.manualLocked;
 	}
 
 	undo() {
@@ -221,19 +227,22 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.disposeFormEffect();
 	}
 
-	enterManualMode(initialYaml: string) {
+	enterManualMode(initialYaml: string, options?: { locked?: boolean }) {
 		if (this.state.mode.id === 'form') {
 			this.exitFormState();
 		}
 		const editor = new InlineManualEditor(initialYaml);
 		this.stateManager.run((state) => {
 			state.mode = { id: 'manual', editor };
+			state.manualLocked = options?.locked ?? false;
 		});
 		void editor.validateNow();
 	}
 
 	async exitManualMode(): Promise<boolean> {
 		if (this.state.mode.id !== 'manual') return true;
+		if (this.state.manualLocked) return true;
+
 		const { editor } = this.state.mode;
 		if (editor.isDirty) {
 			const confirmed = confirm(
@@ -244,6 +253,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		editor.dispose();
 		this.stateManager.run((state) => {
 			state.mode = { id: 'idle' };
+			state.manualLocked = false;
 		});
 		return true;
 	}

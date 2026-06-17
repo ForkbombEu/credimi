@@ -66,6 +66,44 @@ describe('StepsBuilder manual mode', () => {
 		expect(builder.mode.id).toBe('idle');
 	});
 
+	it('enterManualMode with locked sets isManualLocked', () => {
+		const builder = createBuilder();
+		builder.enterManualMode(VALID_YAML, { locked: true });
+
+		expect(builder.isManualLocked).toBe(true);
+		expect(builder.isManualMode).toBe(true);
+		if (builder.mode.id === 'manual') builder.mode.editor.dispose();
+	});
+
+	it('exitManualMode is no-op when locked', async () => {
+		const builder = createBuilder();
+		builder.enterManualMode(VALID_YAML, { locked: true });
+		if (builder.mode.id !== 'manual') throw new Error('expected manual mode');
+		builder.mode.editor.yaml = `${VALID_YAML}\n`;
+
+		const confirm = vi.fn();
+		vi.stubGlobal('confirm', confirm);
+
+		const ok = await builder.exitManualMode();
+
+		expect(ok).toBe(true);
+		expect(confirm).not.toHaveBeenCalled();
+		expect(builder.mode.id).toBe('manual');
+		expect(builder.isManualLocked).toBe(true);
+		if (builder.mode.id === 'manual') builder.mode.editor.dispose();
+	});
+
+	it('exitManualMode clears manualLocked when unlocked', async () => {
+		const builder = createBuilder();
+		builder.enterManualMode(VALID_YAML);
+
+		const ok = await builder.exitManualMode();
+
+		expect(ok).toBe(true);
+		expect(builder.isManualLocked).toBe(false);
+		expect(builder.mode.id).toBe('idle');
+	});
+
 	it('exitManualMode prompts when dirty and respects confirm', async () => {
 		const builder = createBuilder();
 		builder.enterManualMode(VALID_YAML);
