@@ -88,15 +88,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <LayoutWithToc {sections}>
 	<div class="flex flex-col items-start gap-6 md:flex-row">
-		<DescriptionSection description={credential.description} />
+		<DescriptionSection description={credential.description} class="grow" />
 		<QrSection record={credential} />
 	</div>
 
-	<PageSection
-		indexItem={sec.credential_properties}
-		class="grow"
-		empty={isCredentialPropertiesEmpty}
-	>
+	<PageSection indexItem={sec.credential_properties} empty={isCredentialPropertiesEmpty}>
 		<div class="flex gap-6">
 			<InfoBox label="Format" value={credential.format} />
 			<InfoBox label="Locale" value={credential.locale} />
