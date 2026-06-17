@@ -9,8 +9,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import { yaml } from '@codemirror/lang-yaml';
 	import { createIntentUrl } from '$lib/credentials';
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount } from 'svelte';
 	import { fromStore } from 'svelte/store';
 	import { stringProxy, type SuperForm } from 'sveltekit-superforms';
 
@@ -19,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import QrGenerationField from '@/components/qr-generation-field.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Tabs from '@/components/ui/tabs';
+	import { CodeEditorField } from '@/forms/fields';
 	import Field from '@/forms/fields/field.svelte';
 	import { m } from '@/i18n';
 	import { QrCode } from '@/qr';
@@ -30,16 +32,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credential?: CredentialsRecord;
 		credentialIssuer: CredentialIssuersResponse;
 		activeTab: FieldMode;
-		secretsEditor?: Snippet;
 	}
 
-	let {
-		form,
-		credential,
-		credentialIssuer,
-		activeTab = $bindable('static'),
-		secretsEditor
-	}: Props = $props();
+	let { form, credential, credentialIssuer, activeTab = $bindable('static') }: Props = $props();
 
 	/* Field value */
 
@@ -132,8 +127,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder={m.Run_the_code_to_generate_QR_code()}
 			successMessage={m.Compliance_Test_Completed_Successfully()}
 			loadingMessage={m.Running_compliance_test()}
-			footer={secretsEditor}
-		/>
+		>
+			{#snippet footer()}
+				<CodeEditorField
+					{form}
+					name="secrets"
+					options={{
+						lang: yaml(),
+						minHeight: 160,
+						maxHeight: 300,
+						label: m.Secrets(),
+						description: m.Secrets_field_description()
+					}}
+				/>
+			{/snippet}
+		</QrGenerationField>
 	</Tabs.Content>
 </Tabs.Root>
 
