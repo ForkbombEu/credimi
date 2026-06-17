@@ -6,10 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { BlocksIcon } from '@lucide/svelte';
+	import { Pipeline } from '$lib';
 	import SectionCard from '$lib/layout/section-card.svelte';
-	import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
-	import Ajv from 'ajv/dist/2020';
-	import { parse as parseYaml } from 'yaml';
 	import z from 'zod/v3';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -19,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import CodeEditorField from '@/forms/fields/codeEditorField.svelte';
 	import { goto, m } from '@/i18n';
-	import { getExceptionMessage } from '@/utils/errors';
 
 	import PipelineFormLayout from './pipeline-form-layout.svelte';
 
@@ -42,31 +39,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const ajv = new Ajv({ allowUnionTypes: true, dynamicRef: true });
-	const validatePipeline = ajv.compile(PipelineSchema);
-
 	function refineAsPipelineYaml(schema: z.ZodString | z.ZodOptional<z.ZodString>) {
 		return schema.superRefine((v, ctx) => {
 			if (!v) return;
-
-			let res: unknown;
-			try {
-				res = parseYaml(v);
-			} catch (e) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					message: `Invalid YAML document: ${getExceptionMessage(e)}`
-				});
-				return;
-			}
-
-			const isValid = validatePipeline(res);
-			if (!isValid) {
-				const error = ajv.errorsText(validatePipeline.errors);
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					message: `Invalid YAML document: ${error}`
-				});
+			const result = Pipeline.validateYaml(v);
+			if (!result.ok) {
+				ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.message });
 			}
 		});
 	}
