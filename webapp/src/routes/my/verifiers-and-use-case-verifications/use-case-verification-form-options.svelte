@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					credentials: m.use_case_verification_field_description_credentials(),
 					published: m.use_case_verification_field_description_published()
 				},
-				order: ['name', 'description', 'yaml', 'credentials'],
+				order: ['name', 'description', 'logo', 'yaml', 'credentials'],
 				relations: {
 					credentials: {
 						mode: 'select',
