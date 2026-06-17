@@ -11,7 +11,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const { data } = $props();
-	const form = new PipelineForm({ mode: 'edit', pipeline: data.pipeline });
+	const form = new PipelineForm({
+		mode: 'edit',
+		pipeline: data.pipeline,
+		startLockedManual: data.startLockedManual
+	});
 </script>
 
 <Render item={form} />
