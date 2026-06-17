@@ -21,10 +21,12 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+	"gopkg.in/yaml.v3"
 )
 
 type CredentialDeeplinkRequest struct {
-	Yaml string `json:"yaml"`
+	Yaml    string `json:"yaml"`
+	Secrets string `json:"secrets,omitempty"`
 }
 
 var DeepLinkRoutes routing.RouteGroup = routing.RouteGroup{
@@ -70,7 +72,11 @@ type deeplinkWorkflowResponse struct {
 	Output   []any
 }
 
-func getDeeplinkFromYAML(app core.App, yaml string) (deeplinkWorkflowResponse, error) {
+func getDeeplinkFromYAML(
+	app core.App,
+	yaml string,
+	secrets map[string]string,
+) (deeplinkWorkflowResponse, error) {
 	appURL := app.Settings().Meta.AppURL
 
 	memo := map[string]any{
@@ -88,7 +94,8 @@ func getDeeplinkFromYAML(app core.App, yaml string) (deeplinkWorkflowResponse, e
 	}
 	input := workflowengine.WorkflowInput{
 		Payload: workflows.CustomCheckWorkflowPayload{
-			Yaml: yaml,
+			Yaml:    yaml,
+			Secrets: secrets,
 		},
 		Config: map[string]any{
 			"memo":    memo,
@@ -195,7 +202,12 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			return apis.NewBadRequestError("invalid JSON body", err)
 		}
 
-		response, err := getDeeplinkFromYAML(e.App, body.Yaml)
+		secrets, apiErr := parseSecretsYAML(body.Secrets)
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		response, err := getDeeplinkFromYAML(e.App, body.Yaml, secrets)
 		if err != nil {
 			if apiErr, ok := err.(*apierror.APIError); ok {
 				return apiErr.JSON(e)
@@ -302,7 +314,12 @@ func deeplinkFromRecord(app core.App, rec *core.Record, missingDomain string) (s
 		)
 	}
 
-	response, err := getDeeplinkFromYAML(app, yamlStr)
+	secrets, apiErr := parseSecretsYAML(rec.GetString("secrets"))
+	if apiErr != nil {
+		return "", apiErr
+	}
+
+	response, err := getDeeplinkFromYAML(app, yamlStr, secrets)
 	if err != nil {
 		if apiErr, ok := err.(*apierror.APIError); ok {
 			return "", apiErr
@@ -317,4 +334,22 @@ func deeplinkFromRecord(app core.App, rec *core.Record, missingDomain string) (s
 	}
 
 	return response.Deeplink, nil
+}
+
+func parseSecretsYAML(secretsYAML string) (map[string]string, *apierror.APIError) {
+	if secretsYAML == "" {
+		return nil, nil
+	}
+
+	var secrets map[string]string
+	if err := yaml.Unmarshal([]byte(secretsYAML), &secrets); err != nil {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"secrets",
+			"invalid secrets yaml",
+			err.Error(),
+		)
+	}
+
+	return secrets, nil
 }
