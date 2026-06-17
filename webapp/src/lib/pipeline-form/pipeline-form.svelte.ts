@@ -117,35 +117,30 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	private async buildSavePayload(): Promise<
 		Omit<PipelinesFormData, 'owner' | 'canonified_name'> | undefined
 	> {
-		const yamlResult = await this.resolveYaml();
-		if (!yamlResult.ok) {
-			toast.error(yamlResult.message);
-			return;
+		const { mode } = this.stepsBuilder;
+		let yaml: string;
+
+		if (mode.id === 'manual') {
+			const result = await mode.editor.validateNow();
+			if (!result.ok) {
+				toast.error(result.message);
+				return;
+			}
+			yaml = result.value;
+		} else {
+			try {
+				yaml = this.yamlString;
+			} catch (e) {
+				toast.error(getExceptionMessage(e));
+				return;
+			}
 		}
 
 		return {
 			...this.metadataForm.value!,
-			yaml: yamlResult.value,
-			...(yamlResult.manual ? { manual: true } : {})
+			yaml,
+			...(mode.id === 'manual' ? { manual: true } : {})
 		};
-	}
-
-	private async resolveYaml(): Promise<
-		{ ok: true; value: string; manual: boolean } | { ok: false; message: string }
-	> {
-		const { mode } = this.stepsBuilder;
-		if (mode.id === 'manual') {
-			const result = await mode.editor.validateNow();
-			return result.ok
-				? { ok: true, value: result.value, manual: true }
-				: { ok: false, message: result.message };
-		}
-
-		try {
-			return { ok: true, value: this.yamlString, manual: false };
-		} catch (e) {
-			return { ok: false, message: getExceptionMessage(e) };
-		}
 	}
 
 	private async persistPipeline(
