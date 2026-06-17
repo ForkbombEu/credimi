@@ -39,6 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/* Field value */
 
 	const deeplinkState = fromStore(stringProxy(form, 'deeplink', { empty: 'undefined' }));
+	const secretsState = fromStore(stringProxy(form, 'secrets', { empty: 'undefined' }));
 	const tainted = fromStore(form.tainted);
 	const isDeeplinkTainted = $derived(Boolean(tainted.current?.deeplink));
 
@@ -127,6 +128,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder={m.Run_the_code_to_generate_QR_code()}
 			successMessage={m.Compliance_Test_Completed_Successfully()}
 			loadingMessage={m.Running_compliance_test()}
+			getSecrets={() => secretsState.current ?? ''}
 		>
 			{#snippet footer()}
 				<CodeEditorField

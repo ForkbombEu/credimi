@@ -32,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		// enableStructuredErrors?: boolean;
 		hideLabel?: boolean;
 		footer?: Snippet;
+		getSecrets?: () => string;
 	}
 
 	let {
@@ -43,7 +44,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		successMessage = m.Test_Completed_Successfully(),
 		loadingMessage = m.Running_test(),
 		hideLabel = false,
-		footer
+		footer,
+		getSecrets
 	}: Props = $props();
 
 	const fieldProxy = formFieldProxy(form, fieldName);
@@ -88,7 +90,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflowError = undefined;
 
 		try {
-			const result = await generateDeeplinkFromYaml(yamlContent);
+			const secrets = getSecrets?.()?.trim() || undefined;
+			const result = await generateDeeplinkFromYaml(yamlContent, secrets);
 			generatedDeeplink = result.deeplink;
 			workflowSteps = result.steps;
 			workflowOutput = result.output;
