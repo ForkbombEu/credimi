@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 	const options = $derived(merge(defaultFormOptions, formsOptions.base, formsOptions.edit));
 
-	const sheetTitle = $derived(formTitle ?? m.Create_record());
+	const sheetTitle = $derived(formTitle ?? m.Save());
 </script>
 
 <Sheet title={sheetTitle} class="pb-0">
@@ -94,6 +94,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if buttonText}
 		{@render buttonText?.()}
 	{:else}
-		{m.Create_record()}
+		{m.Save()}
 	{/if}
 {/snippet}
