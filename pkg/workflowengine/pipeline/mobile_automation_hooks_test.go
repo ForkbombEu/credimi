@@ -112,7 +112,7 @@ func TestCleanupRecordingSuccess(t *testing.T) {
 	)
 
 	stopActivity := activities.NewStopRecordingActivity()
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(
 		stopActivity.Execute,
 		activity.RegisterOptions{Name: stopActivity.Name()},
@@ -312,7 +312,7 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
@@ -360,17 +360,16 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 			}
 
 			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
-				ctx:          ctx,
-				mobileCtx:    ctx,
-				step:         step,
-				payload:      payload,
-				deviceMap:    deviceMap,
-				deviceType:   deviceTypeAndroidPhone,
-				activities:   activitiesForDeviceType(deviceTypeAndroidPhone),
-				appURL:       "https://app.example",
-				runnerURL:    "https://runner.example",
-				serial:       "serial-1",
-				httpActivity: httpActivity,
+				ctx:        ctx,
+				mobileCtx:  ctx,
+				step:       step,
+				payload:    payload,
+				deviceMap:  deviceMap,
+				deviceType: deviceTypeAndroidPhone,
+				activities: activitiesForDeviceType(deviceTypeAndroidPhone),
+				appURL:     "https://app.example",
+				runnerURL:  "https://runner.example",
+				serial:     "serial-1",
 			})
 			if err != nil {
 				return nil, err
@@ -451,7 +450,7 @@ func TestFetchAndInstallAPKExternalInstallSkipsInstallerAndMutatesStepUse(t *tes
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -502,7 +501,6 @@ func TestFetchAndInstallAPKExternalInstallSkipsInstallerAndMutatesStepUse(t *tes
 				serial:          "serial-1",
 				skipInstaller:   true,
 				externalInstall: true,
-				httpActivity:    httpActivity,
 			})
 			if err != nil {
 				return nil, err
@@ -559,7 +557,7 @@ func TestFetchAndInstallAPKExternalSourceNonInstallStepSkipsInstallerWithoutMuta
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -606,7 +604,6 @@ func TestFetchAndInstallAPKExternalSourceNonInstallStepSkipsInstallerWithoutMuta
 				runnerURL:     "https://runner.example",
 				serial:        "serial-1",
 				skipInstaller: true,
-				httpActivity:  httpActivity,
 			})
 			if err != nil {
 				return nil, err
@@ -764,15 +761,10 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
@@ -812,7 +804,6 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 				ao:             &ao,
 				settedDevices:  settedDevices,
 				runData:        &runData,
-				httpActivity:   httpActivity,
 				logger:         workflow.GetLogger(ctx),
 				globalRunnerID: "tenant/runner-1",
 			})
@@ -859,7 +850,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -1099,7 +1090,7 @@ func TestFetchAndInstallAPKKeepsExistingActionCode(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	env.RegisterActivityWithOptions(
@@ -1142,17 +1133,16 @@ func TestFetchAndInstallAPKKeepsExistingActionCode(t *testing.T) {
 			deviceMap := map[string]any{}
 
 			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
-				ctx:          ctx,
-				mobileCtx:    ctx,
-				step:         step,
-				payload:      payload,
-				deviceMap:    deviceMap,
-				deviceType:   deviceTypeAndroidPhone,
-				activities:   activitiesForDeviceType(deviceTypeAndroidPhone),
-				appURL:       "https://app.example",
-				runnerURL:    "https://runner.example",
-				serial:       "serial-1",
-				httpActivity: httpActivity,
+				ctx:        ctx,
+				mobileCtx:  ctx,
+				step:       step,
+				payload:    payload,
+				deviceMap:  deviceMap,
+				deviceType: deviceTypeAndroidPhone,
+				activities: activitiesForDeviceType(deviceTypeAndroidPhone),
+				appURL:     "https://app.example",
+				runnerURL:  "https://runner.example",
+				serial:     "serial-1",
 			})
 			if err != nil {
 				return nil, err
@@ -1198,7 +1188,7 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -1276,7 +1266,7 @@ func TestStoreRecordingResultsInitializesMissingOutputSlices(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -1333,7 +1323,7 @@ func TestStoreRecordingResultsIOSSendsLogPath(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -1480,16 +1470,11 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	recordActivity := activities.NewStartRecordingActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
@@ -1577,7 +1562,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	}}, nil)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -1639,16 +1624,11 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	disablePlayStoreActivity := activities.NewDisableAndroidPlayStoreActivity()
 	recordActivity := activities.NewStartRecordingActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
@@ -1730,7 +1710,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	}}, nil)
 
 	env.OnActivity(
-		httpActivity.Name(),
+		internalHTTPActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -1792,14 +1772,9 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
 	internalHTTPActivity := registerInternalHTTPActivity(env)
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	recordActivity := activities.NewStartRecordingActivity()
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
 	env.RegisterActivityWithOptions(
 		listAppsActivity.Execute,
 		activity.RegisterOptions{Name: listAppsActivity.Name()},
@@ -1914,29 +1889,6 @@ func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(
 		}
 	})
 
-	env.OnActivity(
-		httpActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(map[string]any)
-			if !ok {
-				return false
-			}
-			if workflowengine.AsString(
-				payload["url"],
-			) != "https://runner.example/credimi/installer-action" {
-				return false
-			}
-			body, ok := payload["body"].(map[string]any)
-			return ok && workflowengine.AsBool(body["skip_installer"])
-		}),
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"version_id": mobileExternalSourceVersionID,
-			"code":       "code-1",
-		},
-	}}, nil)
-
 	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil)
 	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
@@ -1964,7 +1916,7 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stopActivity := activities.NewStopRecordingActivity()
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	cleanupActivity := activities.NewCleanupDeviceActivity()
 	env.RegisterActivityWithOptions(
 		stopActivity.Execute,
@@ -2082,7 +2034,6 @@ func TestProcessStepMissingAppURL(t *testing.T) {
 				ao:            &ao,
 				settedDevices: map[string]any{},
 				runData:       &runData,
-				httpActivity:  activities.NewHTTPActivity(),
 				logger:        workflow.GetLogger(ctx),
 			})
 		},
@@ -2099,7 +2050,7 @@ func TestStoreRecordingResultsReturnsActivityError(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -2304,7 +2255,6 @@ func TestProcessStepMissingRunnerURL(t *testing.T) {
 					},
 				},
 				runData:        &runData,
-				httpActivity:   activities.NewHTTPActivity(),
 				logger:         workflow.GetLogger(ctx),
 				globalRunnerID: "",
 			})

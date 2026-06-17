@@ -6,6 +6,7 @@ package workflows
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -41,25 +42,40 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				internalHTTPAct := activities.NewInternalHTTPActivity()
-				httpAct := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
 					Name: internalHTTPAct.Name(),
 				})
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-					Name: httpAct.Name(),
-				})
 
 				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
-					workflowengine.ActivityResult{
-						Output: map[string]any{
-							"status": "ok",
-							"body":   map[string]any{"runners": []any{"runner1", "runner2"}},
-						},
+					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+						require.NoError(t, err)
+
+						if payload.Method == http.MethodGet {
+							require.Equal(t, "https://test-server.com/api/mobile-runner/list-urls", payload.URL)
+							require.Equal(t, 200, payload.ExpectedStatus)
+							return workflowengine.ActivityResult{
+								Output: map[string]any{
+									"status": "ok",
+									"body": map[string]any{
+										"runners": []any{"https://runner1.test", "https://runner2.test"},
+									},
+								},
+							}, nil
+						}
+
+						require.Equal(t, http.MethodPost, payload.Method)
+						require.Contains(t, []string{
+							"https://runner1.test/worker/test-namespace",
+							"https://runner2.test/worker/test-namespace",
+						}, payload.URL)
+						require.Equal(t, 202, payload.ExpectedStatus)
+						body, ok := payload.Body.(map[string]any)
+						require.True(t, ok)
+						require.Equal(t, "old-test-namespace", body["old_namespace"])
+						return workflowengine.ActivityResult{}, nil
 					},
-					nil,
 				)
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{}, nil)
 			},
 			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
 				require.Equal(
@@ -90,36 +106,42 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				internalHTTPAct := activities.NewInternalHTTPActivity()
-				httpAct := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
 					Name: internalHTTPAct.Name(),
 				})
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-					Name: httpAct.Name(),
-				})
 
 				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
-					workflowengine.ActivityResult{
-						Output: map[string]any{
-							"status": "ok",
-							"body": map[string]any{
-								"runners": []any{"runner1", "runner2", "runner3"},
-							},
-						},
-					},
-					nil,
-				)
+					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+						require.NoError(t, err)
 
-				callCount := 0
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).Return(
-					func(_ context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-						callCount++
-						switch callCount {
-						case 2:
-							return workflowengine.ActivityResult{}, errors.New("runner timeout")
-						default:
-							return workflowengine.ActivityResult{}, nil
+						if payload.Method == http.MethodGet {
+							require.Equal(t, "https://test-server.com/api/mobile-runner/list-urls", payload.URL)
+							require.Equal(t, 200, payload.ExpectedStatus)
+							return workflowengine.ActivityResult{
+								Output: map[string]any{
+									"status": "ok",
+									"body": map[string]any{
+										"runners": []any{
+											"https://runner1.test",
+											"https://runner2.test",
+											"https://runner3.test",
+										},
+									},
+								},
+							}, nil
 						}
+
+						require.Equal(t, http.MethodPost, payload.Method)
+						require.Equal(t, 202, payload.ExpectedStatus)
+						body, ok := payload.Body.(map[string]any)
+						require.True(t, ok)
+						require.Equal(t, "old-test-namespace", body["old_namespace"])
+
+						if payload.URL == "https://runner2.test/worker/test-namespace" {
+							return workflowengine.ActivityResult{}, errors.New("runner timeout")
+						}
+						return workflowengine.ActivityResult{}, nil
 					},
 				)
 			},

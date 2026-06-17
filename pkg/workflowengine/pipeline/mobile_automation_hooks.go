@@ -83,7 +83,6 @@ type processStepInput struct {
 	ao             *workflow.ActivityOptions
 	settedDevices  map[string]any
 	runData        *map[string]any
-	httpActivity   *activities.HTTPActivity
 	logger         log.Logger
 	globalRunnerID string
 }
@@ -101,7 +100,6 @@ type fetchAndInstallAPKInput struct {
 	serial          string
 	skipInstaller   bool
 	externalInstall bool
-	httpActivity    *activities.HTTPActivity
 }
 
 type getOrCreateDeviceMapInput struct {
@@ -112,7 +110,6 @@ type getOrCreateDeviceMapInput struct {
 	appURL                    string
 	stepID                    string
 	trackInitialInstalledApps bool
-	httpActivity              *activities.HTTPActivity
 }
 
 type setupNewDeviceInput struct {
@@ -123,7 +120,6 @@ type setupNewDeviceInput struct {
 	appURL                    string
 	stepID                    string
 	trackInitialInstalledApps bool
-	httpActivity              *activities.HTTPActivity
 }
 
 type fetchRunnerInfoInput struct {
@@ -229,7 +225,6 @@ func MobileAutomationSetupHook(
 	}
 	semaphoreManaged := isSemaphoreManagedRun(config)
 
-	httpActivity := activities.NewHTTPActivity()
 	if hasExternalSourceMobileSteps(*steps) {
 		appURL, ok := config["app_url"].(string)
 		if !ok || appURL == "" {
@@ -281,7 +276,6 @@ func MobileAutomationSetupHook(
 			ao:             &ao,
 			settedDevices:  settedDevices,
 			runData:        runData,
-			httpActivity:   httpActivity,
 			logger:         logger,
 			globalRunnerID: globalRunnerID,
 		}); err != nil {
@@ -651,7 +645,6 @@ func processStep(
 		appURL:                    appURL,
 		stepID:                    input.step.ID,
 		trackInitialInstalledApps: shouldTrackInitialInstalledApps(input.step, payload),
-		httpActivity:              input.httpActivity,
 	})
 	if err != nil {
 		return err
@@ -711,7 +704,6 @@ func processStep(
 		serial:          serial,
 		skipInstaller:   payload.VersionID == mobileExternalSourceVersionID,
 		externalInstall: isSpecialMobileInstallStep(input.step),
-		httpActivity:    input.httpActivity,
 	}); err != nil {
 		return err
 	}
@@ -832,7 +824,6 @@ func getOrCreateDeviceMap(
 		appURL:                    input.appURL,
 		stepID:                    input.stepID,
 		trackInitialInstalledApps: input.trackInitialInstalledApps,
-		httpActivity:              input.httpActivity,
 	}); err != nil {
 		return nil, err
 	}
@@ -1130,7 +1121,6 @@ func fetchAndInstallAPK(
 	input fetchAndInstallAPKInput,
 ) error {
 	body := map[string]any{
-		"instance_url":       input.appURL,
 		"version_identifier": input.payload.VersionID,
 		"action_identifier":  input.payload.ActionID,
 		"platform":           installerPlatformForDeviceType(input.deviceType),
@@ -1140,7 +1130,7 @@ func fetchAndInstallAPK(
 	}
 
 	req := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodPost,
 			URL: utils.JoinURL(
 				input.runnerURL,
@@ -1157,7 +1147,8 @@ func fetchAndInstallAPK(
 	}
 
 	var res workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(input.ctx, input.httpActivity.Name(), req).
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
+	if err := workflow.ExecuteActivity(input.ctx, internalHTTPActivity.Name(), req).
 		Get(input.ctx, &res); err != nil {
 		return err
 	}
@@ -2170,14 +2161,13 @@ func stopRecording(
 func storeRecordingResults(
 	input storeRecordingResultsInput,
 ) error {
-	httpActivity := activities.NewHTTPActivity()
+	httpActivity := activities.NewInternalHTTPActivity()
 	var storeResult workflowengine.ActivityResult
 	body := map[string]any{
 		"video_path":        input.videoPath,
 		"last_frame_path":   input.lastFrame,
 		"run_identifier":    input.runID,
 		"runner_identifier": input.runnerID,
-		"instance_url":      input.appURL,
 		"platform":          installerPlatformForDeviceType(input.deviceType),
 	}
 	if input.logPath != "" {
@@ -2188,7 +2178,7 @@ func storeRecordingResults(
 		input.ctx,
 		httpActivity.Name(),
 		workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
+			Payload: activities.InternalHTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					input.runnerURL,
