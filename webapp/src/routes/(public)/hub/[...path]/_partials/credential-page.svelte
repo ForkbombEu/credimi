@@ -92,11 +92,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<QrSection record={credential} />
 	</div>
 
-	<PageSection
-		indexItem={sec.credential_properties}
-		empty={isCredentialPropertiesEmpty}
-		class="grow"
-	>
+	<PageSection indexItem={sec.credential_properties} empty={isCredentialPropertiesEmpty}>
 		<div class="flex gap-6">
 			<InfoBox label="Format" value={credential.format} />
 			<InfoBox label="Locale" value={credential.locale} />
