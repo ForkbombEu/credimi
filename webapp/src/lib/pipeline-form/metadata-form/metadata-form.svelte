@@ -12,7 +12,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Field, SwitchField } from '@/forms/fields';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import Form from '@/forms/form.svelte';
@@ -27,17 +26,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Dialog bind:open={form.isOpen} title={m.Metadata()}>
 	{#snippet trigger({ props: dialogProps })}
-		<Tooltip disabled={!form.disabled}>
-			{#snippet child({ props: tooltipProps })}
-				<span {...tooltipProps} class="inline-flex">
-					<Button variant="outline" disabled={form.disabled} {...dialogProps}>
-						<PencilIcon />
-						{m.Info()}
-					</Button>
-				</span>
-			{/snippet}
-			{#snippet content()}{m.unavailable_in_manual_edit()}{/snippet}
-		</Tooltip>
+		<Button variant="outline" {...dialogProps}>
+			<PencilIcon />
+			{m.Info()}
+		</Button>
 	{/snippet}
 
 	{#snippet content()}
