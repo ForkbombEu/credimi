@@ -7,11 +7,13 @@ import type { Renderable } from '$lib/renderable';
 import { beforeNavigate } from '$app/navigation';
 import { runWithLoading } from '$lib/utils/index.js';
 import _ from 'lodash';
+import { toast } from 'svelte-sonner';
 
 import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
 
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
+import { getExceptionMessage } from '@/utils/errors.js';
 
 import { showPipelineFormError } from './errors.js';
 import { ExecutionTarget } from './execution-target/index.js';
@@ -94,58 +96,79 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	private isSaving = false;
 
 	async save() {
-		if (!this.metadataForm.value) {
-			this.metadataForm.isOpen = true;
-			if (this.props.mode === 'create') {
-				this.saveAfterMetadataFormSubmit = true;
-			}
-		} else {
-			let yaml: string;
-			let manual = false;
+		if (!this.ensureMetadataBeforeSave()) return;
 
-			if (this.stepsBuilder.isManualMode && this.stepsBuilder.mode.id === 'manual') {
-				const result = await this.stepsBuilder.mode.editor.validateNow();
-				if (!result.ok) {
-					showPipelineFormError(result.message);
-					return;
-				}
-				yaml = result.value;
-				manual = true;
-			} else {
+		const payload = await this.buildSavePayload();
+		if (!payload) return;
+
+		await this.persistPipeline(payload);
+	}
+
+	private ensureMetadataBeforeSave(): boolean {
+		if (this.metadataForm.value) return true;
+
+		this.metadataForm.isOpen = true;
+		if (this.props.mode === 'create') {
+			this.saveAfterMetadataFormSubmit = true;
+		}
+		return false;
+	}
+
+	private async buildSavePayload(): Promise<
+		Omit<PipelinesFormData, 'owner' | 'canonified_name'> | undefined
+	> {
+		const yamlResult = await this.resolveYaml();
+		if (!yamlResult.ok) {
+			toast.error(yamlResult.message);
+			return;
+		}
+
+		return {
+			...this.metadataForm.value!,
+			yaml: yamlResult.value,
+			...(yamlResult.manual ? { manual: true } : {})
+		};
+	}
+
+	private async resolveYaml(): Promise<
+		{ ok: true; value: string; manual: boolean } | { ok: false; message: string }
+	> {
+		const { mode } = this.stepsBuilder;
+		if (mode.id === 'manual') {
+			const result = await mode.editor.validateNow();
+			return result.ok
+				? { ok: true, value: result.value, manual: true }
+				: { ok: false, message: result.message };
+		}
+
+		try {
+			return { ok: true, value: this.yamlString, manual: false };
+		} catch (e) {
+			return { ok: false, message: getExceptionMessage(e) };
+		}
+	}
+
+	private async persistPipeline(
+		data: Omit<PipelinesFormData, 'owner' | 'canonified_name'>
+	) {
+		await runWithLoading({
+			fn: async () => {
 				try {
-					yaml = this.yamlString;
+					this.isSaving = true;
+					if (this.props.mode === 'edit' && this.props.pipeline) {
+						await pb.collection('pipelines').update(this.props.pipeline.record.id, data);
+					} else {
+						await pb.collection('pipelines').create(data);
+					}
+					await goto('/my/pipelines');
 				} catch (e) {
 					showPipelineFormError(e);
-					return;
+					throw e;
+				} finally {
+					this.isSaving = false;
 				}
 			}
-
-			const data: Omit<PipelinesFormData, 'owner' | 'canonified_name'> = {
-				...this.metadataForm.value,
-				yaml,
-				...(manual ? { manual: true } : {})
-			};
-			await runWithLoading({
-				fn: async () => {
-					try {
-						this.isSaving = true;
-						if (this.props.mode === 'edit' && this.props.pipeline) {
-							await pb
-								.collection('pipelines')
-								.update(this.props.pipeline.record.id, data);
-						} else {
-							await pb.collection('pipelines').create(data);
-						}
-						await goto('/my/pipelines');
-					} catch (e) {
-						showPipelineFormError(e);
-						throw e;
-					} finally {
-						this.isSaving = false;
-					}
-				}
-			});
-		}
+		});
 	}
 
 	//
@@ -158,10 +181,9 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		const descChanged = this.metadataForm.value?.description !== pipeline?.record.description;
 		const metadataChanged = nameChanged || descChanged;
 
-		if (this.stepsBuilder.isManualMode && this.stepsBuilder.mode.id === 'manual') {
-			return (
-				this.stepsBuilder.mode.editor.isDirty || runtimeOptionsChanged || metadataChanged
-			);
+		const { mode } = this.stepsBuilder;
+		if (mode.id === 'manual') {
+			return mode.editor.isDirty || runtimeOptionsChanged || metadataChanged;
 		}
 
 		const stepsChanged = !_.isEqual(
@@ -173,17 +195,16 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	});
 
 	canSave = $derived.by(() => {
-		if (this.stepsBuilder.isManualMode && this.stepsBuilder.mode.id === 'manual') {
-			return this.hasChanges && this.stepsBuilder.mode.editor.isValid;
+		const { mode } = this.stepsBuilder;
+		if (mode.id === 'manual') {
+			return this.hasChanges && mode.editor.isValid;
 		}
 		return this.hasChanges && this.stepsBuilder.steps.length > 0;
 	});
 
 	validateExit() {
-		const manualEditorDirty =
-			this.stepsBuilder.isManualMode &&
-			this.stepsBuilder.mode.id === 'manual' &&
-			this.stepsBuilder.mode.editor.isDirty;
+		const { mode } = this.stepsBuilder;
+		const manualEditorDirty = mode.id === 'manual' && mode.editor.isDirty;
 
 		if (this.hasChanges || manualEditorDirty) {
 			return confirm(
