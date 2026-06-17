@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { generateDeeplinkFromYaml } from '$lib/utils';
+	import { fetchRecordDeeplink, type DeeplinkRecord } from '$lib/utils';
 
 	import { m } from '@/i18n';
 	import { QrCode } from '@/qr';
@@ -17,58 +17,43 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		yaml?: string;
-		deeplink?: string;
+		record: DeeplinkRecord;
 	};
 
-	let { yaml, deeplink }: Props = $props();
+	let { record }: Props = $props();
 
 	//
 
-	let isLoading = $derived.by(() => {
-		if (deeplink && !yaml) return false;
-		else if (yaml) return true;
-		else return false;
-	});
-
-	let yamlDeeplink = $state<string>();
-	let yamlError = $state<string>();
+	let isLoading = $state(true);
+	let deeplink = $state<string>();
+	let error = $state<string>();
 
 	$effect(() => {
-		generateYamlDeeplink();
+		loadDeeplink(record);
 	});
 
-	async function generateYamlDeeplink() {
-		if (!yaml) return;
+	async function loadDeeplink(rec: DeeplinkRecord) {
+		isLoading = true;
+		error = undefined;
+		deeplink = undefined;
+
 		try {
-			const result = await generateDeeplinkFromYaml(yaml);
-			yamlDeeplink = result.deeplink;
-		} catch (error) {
-			console.error('Failed to process YAML for credential offer:', error);
-			yamlError = getExceptionMessage(error);
+			const result = await fetchRecordDeeplink(rec);
+			deeplink = result.deeplink;
+		} catch (err) {
+			console.error('Failed to fetch record deeplink:', err);
+			error = getExceptionMessage(err);
 		} finally {
 			isLoading = false;
 		}
 	}
-
-	const qrLink = $derived.by(() => {
-		if (yaml) {
-			if (isLoading) return undefined;
-			else if (yamlDeeplink) return yamlDeeplink;
-			else return undefined;
-		} else if (deeplink) {
-			return deeplink;
-		} else {
-			return undefined;
-		}
-	});
 </script>
 
 <PageSection indexItem={sections.qr_code} class="flex flex-col items-stretch space-y-0">
 	<QrCode
-		src={qrLink}
+		src={deeplink}
 		{isLoading}
-		error={yamlError}
+		{error}
 		loadingText={m.Processing_YAML_configuration()}
 		placeholder={m.No_deeplink_available()}
 		showLink

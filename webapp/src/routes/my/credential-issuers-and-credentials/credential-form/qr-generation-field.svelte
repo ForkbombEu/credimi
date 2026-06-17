@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import { yaml } from '@codemirror/lang-yaml';
 	import { createIntentUrl } from '$lib/credentials';
 	import { onMount } from 'svelte';
 	import { fromStore } from 'svelte/store';
@@ -19,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import QrGenerationField from '@/components/qr-generation-field.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Tabs from '@/components/ui/tabs';
+	import { CodeEditorField } from '@/forms/fields';
 	import Field from '@/forms/fields/field.svelte';
 	import { m } from '@/i18n';
 	import { QrCode } from '@/qr';
@@ -26,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	interface Props {
-		form: SuperForm<{ deeplink: string; yaml: string }>;
+		form: SuperForm<{ deeplink: string; yaml: string; secrets?: string }>;
 		credential?: CredentialsRecord;
 		credentialIssuer: CredentialIssuersResponse;
 		activeTab: FieldMode;
@@ -37,6 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/* Field value */
 
 	const deeplinkState = fromStore(stringProxy(form, 'deeplink', { empty: 'undefined' }));
+	const secretsState = fromStore(stringProxy(form, 'secrets', { empty: 'undefined' }));
 	const tainted = fromStore(form.tainted);
 	const isDeeplinkTainted = $derived(Boolean(tainted.current?.deeplink));
 
@@ -125,7 +128,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder={m.Run_the_code_to_generate_QR_code()}
 			successMessage={m.Compliance_Test_Completed_Successfully()}
 			loadingMessage={m.Running_compliance_test()}
-		/>
+			getSecrets={() => secretsState.current ?? ''}
+		>
+			{#snippet footer()}
+				<CodeEditorField
+					{form}
+					name="secrets"
+					options={{
+						lang: yaml(),
+						minHeight: 160,
+						maxHeight: 300,
+						label: m.Secrets(),
+						description: m.Secrets_field_description()
+					}}
+				/>
+			{/snippet}
+		</QrGenerationField>
 	</Tabs.Content>
 </Tabs.Root>
 

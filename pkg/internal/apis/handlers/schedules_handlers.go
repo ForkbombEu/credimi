@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -117,7 +118,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			)
 		}
 
-		orgRecord, err := GetUserOrganization(e.App, e.Auth.Id)
+		orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -246,7 +247,7 @@ func validateScheduleMode(mode *workflowengine.ScheduleMode) error {
 
 func HandleListMySchedules() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -352,7 +353,7 @@ func HandleCancelSchedule() func(*core.RequestEvent) error {
 			}
 		},
 		func(e *core.RequestEvent, scheduleID string) error {
-			orgID, err := GetUserOrganizationID(e.App, e.Auth.Id)
+			orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
 			if err != nil {
 				return err
 			}
@@ -445,7 +446,7 @@ func handleSchedule(
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

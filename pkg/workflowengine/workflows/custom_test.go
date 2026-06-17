@@ -31,6 +31,7 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 			inputPayload: CustomCheckWorkflowPayload{
 				Yaml:       "test-yaml-content",
 				Parameters: map[string]any{"foo": "bar"},
+				Secrets:    map[string]string{"api_key": "secret-value"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
@@ -45,7 +46,10 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 						payload, ok := input.Payload.(map[string]any)
 						return ok &&
 							payload["yaml"] == "test-yaml-content" &&
-							payload["env"] == `{"foo":"bar"}`
+							payload["env"] == `{"foo":"bar"}` &&
+							requireSecrets(t, payload["secrets"], map[string]string{
+								"api_key": "secret-value",
+							})
 					}),
 				).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -151,6 +155,24 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func requireSecrets(t *testing.T, raw any, expected map[string]string) bool {
+	t.Helper()
+
+	secrets, ok := raw.(map[string]any)
+	if !ok {
+		return false
+	}
+	if len(secrets) != len(expected) {
+		return false
+	}
+	for key, expectedValue := range expected {
+		if secrets[key] != expectedValue {
+			return false
+		}
+	}
+	return true
 }
 
 func TestCustomCheckWorkflowStart(t *testing.T) {

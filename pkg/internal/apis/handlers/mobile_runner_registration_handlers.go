@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -269,7 +270,7 @@ func resolveMobileRunnerOwner(
 		return record, nil
 	}
 
-	record, err := GetUserOrganization(app, auth.Id)
+	record, err := pbutils.GetUserOrganization(app, auth.Id)
 	if err != nil {
 		return nil, apierror.New(
 			http.StatusInternalServerError,

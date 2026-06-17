@@ -423,6 +423,8 @@
 	"Custom_check_description_field": "Spiega cosa fa questa integrazione personalizzata, come funziona e a cosa mira.",
 	"YAML_Configuration": "Configurazione YAML",
 	"YAML_Configuration_section_description": "Fornisci la configurazione del test in formato YAML. Puoi caricare un file o incollarlo/modificarlo direttamente.",
+	"Secrets": "Secrets",
+	"Secrets_field_description": "Optional YAML mapping of secret names to values, used when running the workflow configuration (e.g. token: your-token).",
 	"Upload_yaml": "Carica .yaml",
 	"Make_public": "Rendi pubblici questi controlli personalizzati",
 	"Make_public_section_description": "Rendi questo controllo pubblico e disponibile ad altri utenti. Puoi anche scegliere di renderlo privato, in modo che solo tu possa eseguirlo.",

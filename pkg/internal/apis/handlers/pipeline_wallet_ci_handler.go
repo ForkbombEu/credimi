@@ -17,6 +17,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -258,7 +259,7 @@ func resolvePipelineRunWalletAPKContext(
 		)
 	}
 
-	orgRecord, err := GetUserOrganization(e.App, e.Auth.Id)
+	orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
 	if err != nil {
 		return pipelineRunWalletAPKContext{}, apierror.New(
 			http.StatusInternalServerError,

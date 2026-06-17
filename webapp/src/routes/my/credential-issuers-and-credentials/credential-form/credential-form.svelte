@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
 	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
-	import { refineAsStepciYaml } from '$lib/utils';
+	import { optionalSecretsYamlSchema, refineAsStepciYaml } from '$lib/utils';
 	import { z } from 'zod/v3';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -75,7 +75,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 	refineSchema={(schema) =>
 		schema.extend({
-			yaml: refineAsStepciYaml(z.string().optional()) as unknown as z.ZodOptional<z.ZodString>
+			yaml: refineAsStepciYaml(
+				z.string().optional()
+			) as unknown as z.ZodOptional<z.ZodString>,
+			secrets: optionalSecretsYamlSchema as unknown as z.ZodOptional<z.ZodString>
 		})}
 	fieldsOptions={{
 		exclude,
@@ -121,7 +124,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet qr_generation({ form }: FieldSnippetOptions<'credentials'>)}
 	<QrFieldWrapper label={m.Credential_Deeplink()}>
 		<QrGenerationField
-			form={form as unknown as SuperForm<{ deeplink: string; yaml: string }>}
+			form={form as unknown as SuperForm<{
+				deeplink: string;
+				yaml: string;
+				secrets?: string;
+			}>}
 			{credential}
 			{credentialIssuer}
 			bind:activeTab

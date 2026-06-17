@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -168,7 +169,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -230,7 +231,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		owner, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		owner, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -424,7 +425,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"missing runId",
 			).JSON(e)
 		}
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -539,7 +540,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -631,7 +632,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"missing workflowId parameter",
 			).JSON(e)
 		}
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -696,7 +697,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		owner, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		owner, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -742,7 +743,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -863,7 +864,7 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -936,7 +937,7 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -1105,7 +1106,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -1220,7 +1221,7 @@ func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

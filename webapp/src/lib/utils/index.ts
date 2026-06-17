@@ -5,6 +5,7 @@
 import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { userOrganization } from '$lib/app-state';
+import { ClientResponseError } from 'pocketbase';
 import slugify from 'slugify';
 import { z } from 'zod/v3';
 
@@ -13,6 +14,11 @@ import { loadFeatureFlags } from '@/features';
 import { redirect } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { PocketbaseQueryAgent } from '@/pocketbase/query';
+import {
+	Collections,
+	type CredentialsResponse,
+	type UseCasesVerificationsResponse
+} from '@/pocketbase/types';
 
 //
 
@@ -65,15 +71,58 @@ const deeplinkGenerationResponseSchema = z.object({
 	output: z.array(z.unknown())
 });
 
-export async function generateDeeplinkFromYaml(yaml: string) {
+export type DeeplinkRecord = CredentialsResponse | UseCasesVerificationsResponse;
+
+const deeplinkEndpoints: Record<string, string> = {
+	[Collections.Credentials]: 'api/credential/deeplink',
+	[Collections.UseCasesVerifications]: 'api/verification/deeplink'
+};
+
+const recordDeeplinkErrorSchema = z.object({
+	status: z.number(),
+	error: z.string(),
+	reason: z.string(),
+	message: z.string()
+});
+
+export async function generateDeeplinkFromYaml(yaml: string, secrets?: string) {
 	const res = await pb.send('api/get-deeplink', {
 		method: 'POST',
 		body: {
-			yaml
+			yaml,
+			...(secrets ? { secrets } : {})
 		},
 		requestKey: null
 	});
 	return deeplinkGenerationResponseSchema.parse(res);
+}
+
+export async function fetchRecordDeeplink(record: DeeplinkRecord) {
+	const endpoint = deeplinkEndpoints[record.collectionName];
+	if (!endpoint) {
+		throw new Error('Unsupported record type');
+	}
+
+	const recordPath = getPath(record);
+	if (recordPath === '__no_path__') {
+		throw new Error('Record has no canonified path');
+	}
+
+	// Record deeplink handlers return plain text via e.String(); pb.send always JSON-parses.
+	const url = pb.buildURL(`${endpoint}?id=${encodeURIComponent(recordPath)}`);
+	const response = await fetch(url, { method: 'GET' });
+
+	if (!response.ok) {
+		const errorBody = recordDeeplinkErrorSchema.safeParse(await response.json().catch(() => null));
+		throw new ClientResponseError({
+			url: response.url,
+			status: response.status,
+			data: errorBody.success ? errorBody.data : {}
+		});
+	}
+
+	const deeplink = z.string().min(1).parse((await response.text()).trim());
+	return { deeplink };
 }
 
 //
@@ -84,7 +133,7 @@ export function getPath<T extends object>(record: T, trim = false) {
 		if (trim) return removeLeadingAndTrailingSlashes(path);
 		return path;
 	}
-	return '__no_path__';
+	return '__no_path__' as const;
 }
 
 export function slug(string: string) {

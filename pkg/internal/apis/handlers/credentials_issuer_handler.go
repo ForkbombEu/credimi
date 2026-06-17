@@ -17,6 +17,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -162,7 +163,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		organization, err := GetUserOrganizationID(e.App, e.Auth.Id)
+		organization, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -171,7 +172,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		orgName, err := GetOrganizationCanonifiedName(e.App, organization)
+		orgName, err := pbutils.GetOrganizationCanonifiedName(e.App, organization)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -397,7 +398,7 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		organization, err := GetUserOrganizationID(e.App, e.Auth.Id)
+		organization, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -406,7 +407,7 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		orgName, err := GetOrganizationCanonifiedName(e.App, organization)
+		orgName, err := pbutils.GetOrganizationCanonifiedName(e.App, organization)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

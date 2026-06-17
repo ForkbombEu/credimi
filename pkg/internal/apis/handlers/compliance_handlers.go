@@ -16,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -103,7 +104,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -181,7 +182,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 		}
 
 		authRecord := e.Auth
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -364,7 +365,7 @@ func HandleGetWorkflowResult() func(*core.RequestEvent) error {
 		}
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -977,7 +978,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

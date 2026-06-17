@@ -11,6 +11,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -53,7 +54,7 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 		}
 
 		authRecord := e.Auth
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

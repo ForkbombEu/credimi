@@ -16,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -253,7 +254,7 @@ func TestHandleSaveVariablesAndStartVariablesFlow(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "wf-variables")
 	require.Contains(t, captured.YAMLData, "foo: bar")
 
-	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
 	require.NoError(t, err)
 
 	records, err := app.FindRecordsByFilter(
