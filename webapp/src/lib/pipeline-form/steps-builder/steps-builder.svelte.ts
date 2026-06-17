@@ -32,6 +32,7 @@ import Component from './steps-builder.svelte';
 type Props = {
 	steps: EnrichedStep[];
 	yamlPreview: () => string;
+	isSavedManualPipeline?: boolean;
 };
 
 type BuilderMode =
@@ -96,6 +97,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	get isManualLocked() {
 		return this.state.manualLocked;
+	}
+
+	get isSavedManualPipeline() {
+		return this.props.isSavedManualPipeline === true;
 	}
 
 	undo() {

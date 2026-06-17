@@ -35,6 +35,22 @@ describe('StepsBuilder manual mode', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('exposes isSavedManualPipeline from constructor props', () => {
+		const builder = new StepsBuilder({
+			steps: [],
+			yamlPreview: () => VALID_YAML,
+			isSavedManualPipeline: true
+		});
+
+		expect(builder.isSavedManualPipeline).toBe(true);
+	});
+
+	it('defaults isSavedManualPipeline to false', () => {
+		const builder = createBuilder();
+
+		expect(builder.isSavedManualPipeline).toBe(false);
+	});
+
 	it('enterManualMode closes form mode and sets manual', () => {
 		const builder = createBuilder();
 		const exitFormState = vi.spyOn(builder, 'exitFormState');

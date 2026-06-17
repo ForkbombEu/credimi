@@ -47,7 +47,8 @@ export class PipelineForm implements Renderable<PipelineForm> {
 
 		this.stepsBuilder = new StepsBuilder({
 			steps: props.pipeline?.steps ?? [],
-			yamlPreview: () => this.yamlString
+			yamlPreview: () => this.yamlString,
+			isSavedManualPipeline: props.pipeline?.record.manual === true
 		});
 
 		const shouldStartLockedManual =
@@ -101,7 +102,20 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		const payload = await this.buildSavePayload();
 		if (!payload) return;
 
+		if (!this.confirmManualSaveIfNeeded()) return;
+
 		await this.persistPipeline(payload);
+	}
+
+	private confirmManualSaveIfNeeded(): boolean {
+		const isAlreadyManualPipeline =
+			this.props.mode === 'edit' && this.props.pipeline?.record.manual === true;
+
+		if (this.stepsBuilder.mode.id !== 'manual' || isAlreadyManualPipeline) {
+			return true;
+		}
+
+		return confirm(m.manual_save_warning());
 	}
 
 	private ensureMetadataBeforeSave(): boolean {
