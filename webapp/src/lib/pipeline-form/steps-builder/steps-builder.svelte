@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
 
-	import { BlocksIcon, HelpCircle, XIcon } from '@lucide/svelte';
+	import { BlocksIcon, HelpCircle, PencilIcon, XIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import { String } from 'effect';
@@ -28,7 +28,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EmptyState from './_partials/empty-state.svelte';
 	import ManualEditorColumn from './_partials/manual-editor-column.svelte';
 	import StepCard from './_partials/step-card.svelte';
-	import YamlPreviewMenu from './_partials/yaml-preview-menu.svelte';
 	import {
 		applyStepsBuilderPaneLayout,
 		STEPS_BUILDER_PANE_LAYOUT as LAYOUT,
@@ -159,12 +158,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet titleRight()}
 			{#if builder.mode.id === 'manual' && !builder.isManualLocked}
-				<Button variant="outline" size="sm" onclick={() => void builder.exitManualMode()}>
-					<BlocksIcon />
+				<Button
+					variant="link"
+					class="h-fit gap-1 p-0 text-xs"
+					onclick={() => void builder.exitManualMode()}
+				>
+					<BlocksIcon size={10} />
 					{m.back_to_steps()}
 				</Button>
 			{:else if !builder.isManualMode}
-				<YamlPreviewMenu {builder} initialYaml={builder.yamlPreview} />
+				<Button
+					variant="link"
+					class="h-fit gap-1 p-0 text-xs"
+					onclick={() => builder.enterManualMode(builder.yamlPreview)}
+				>
+					<PencilIcon size={10} />
+					{m.edit_manually()}
+				</Button>
 			{/if}
 		{/snippet}
 
