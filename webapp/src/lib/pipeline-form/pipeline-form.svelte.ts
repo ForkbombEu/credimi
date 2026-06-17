@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { BeforeNavigate } from '@sveltejs/kit';
 import type { Renderable } from '$lib/renderable';
 
 import { beforeNavigate } from '$app/navigation';
+import { confirm } from '$lib/layout/global-confirm.svelte';
 import { runWithLoading } from '$lib/utils/index.js';
 import _ from 'lodash';
 import { toast } from 'svelte-sonner';
@@ -47,7 +49,8 @@ export class PipelineForm implements Renderable<PipelineForm> {
 
 		this.stepsBuilder = new StepsBuilder({
 			steps: props.pipeline?.steps ?? [],
-			yamlPreview: () => this.yamlString
+			yamlPreview: () => this.yamlString,
+			isSavedManualPipeline: props.pipeline?.record.manual === true
 		});
 
 		const shouldStartLockedManual =
@@ -66,15 +69,40 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			initialData: props.pipeline?.record,
 			onSubmit: async () => {
 				if (!this.saveAfterMetadataFormSubmit) return;
-				await this.save();
+				await this.save({ skipManualConfirm: true });
 				this.saveAfterMetadataFormSubmit = false;
 			}
 		});
 
-		beforeNavigate(({ cancel }) => {
-			if (this.isSaving) return;
-			if (!this.validateExit()) cancel();
+		beforeNavigate((navigation) => this.guardUnsavedExit(navigation));
+	}
+
+	private guardUnsavedExit(navigation: BeforeNavigate) {
+		if (this.isSaving) return;
+
+		// A navigation the user already confirmed must pass through, otherwise the
+		// confirm()-then-navigate flow below would re-trigger this guard and loop forever.
+		if (this.exitConfirmed) {
+			this.exitConfirmed = false;
+			return;
+		}
+
+		if (!this.shouldWarnOnExit() || !navigation.to) return;
+
+		navigation.cancel();
+		void this.confirmExit(navigation.to.url);
+	}
+
+	private async confirmExit(url: URL) {
+		const confirmed = await confirm({
+			message:
+				m.You_have_unsaved_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form(),
+			destructive: true
 		});
+		if (!confirmed) return;
+
+		this.exitConfirmed = true;
+		await goto(`${url.pathname}${url.search}${url.hash}`);
 	}
 
 	get mode() {
@@ -95,13 +123,36 @@ export class PipelineForm implements Renderable<PipelineForm> {
 
 	private isSaving = false;
 
-	async save() {
+	private exitConfirmed = false;
+
+	async save(options?: { skipManualConfirm?: boolean }) {
+		if (!options?.skipManualConfirm && !(await this.confirmManualSaveIfNeeded())) return;
 		if (!this.ensureMetadataBeforeSave()) return;
 
-		const payload = await this.buildSavePayload();
-		if (!payload) return;
+		this.isSaving = true;
+		try {
+			const payload = await this.buildSavePayload();
+			if (!payload) return;
 
-		await this.persistPipeline(payload);
+			await this.persistPipeline(payload);
+		} finally {
+			this.isSaving = false;
+		}
+	}
+
+	private async confirmManualSaveIfNeeded(): Promise<boolean> {
+		const isAlreadyManualPipeline =
+			this.props.mode === 'edit' && this.props.pipeline?.record.manual === true;
+
+		if (this.stepsBuilder.mode.id !== 'manual' || isAlreadyManualPipeline) {
+			return true;
+		}
+
+		return confirm({
+			message: m.manual_save_warning(),
+			confirmLabel: m.Save(),
+			destructive: true
+		});
 	}
 
 	private ensureMetadataBeforeSave(): boolean {
@@ -143,24 +194,22 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		};
 	}
 
-	private async persistPipeline(
-		data: Omit<PipelinesFormData, 'owner' | 'canonified_name'>
-	) {
+	private async persistPipeline(data: Omit<PipelinesFormData, 'owner' | 'canonified_name'>) {
 		await runWithLoading({
 			fn: async () => {
 				try {
-					this.isSaving = true;
 					if (this.props.mode === 'edit' && this.props.pipeline) {
-						await pb.collection('pipelines').update(this.props.pipeline.record.id, data);
+						await pb
+							.collection('pipelines')
+							.update(this.props.pipeline.record.id, data);
 					} else {
 						await pb.collection('pipelines').create(data);
 					}
+					this.exitConfirmed = true;
 					await goto('/my/pipelines');
 				} catch (e) {
 					showPipelineFormError(e);
 					throw e;
-				} finally {
-					this.isSaving = false;
 				}
 			}
 		});
@@ -197,16 +246,10 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		return this.hasChanges && this.stepsBuilder.steps.length > 0;
 	});
 
-	validateExit() {
+	private shouldWarnOnExit(): boolean {
 		const { mode } = this.stepsBuilder;
 		const manualEditorDirty = mode.id === 'manual' && mode.editor.isDirty;
 
-		if (this.hasChanges || manualEditorDirty) {
-			return confirm(
-				m.You_have_unsaved_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form()
-			);
-		} else {
-			return true;
-		}
+		return this.hasChanges || manualEditorDirty;
 	}
 }

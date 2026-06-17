@@ -23,6 +23,7 @@ import {
 //
 
 export { loading, runWithLoading } from '$lib/layout/global-loading.svelte';
+export { confirm } from '$lib/layout/global-confirm.svelte';
 export * from './schemas';
 
 //

@@ -141,6 +141,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/each}
 			</div>
+		{:else if builder.isSavedManualPipeline}
+			<EmptyState text={m.pipeline_manually_saved_no_cards()} />
 		{:else}
 			<EmptyState text={m.Pipeline_steps_will_appear_here()} />
 		{/if}

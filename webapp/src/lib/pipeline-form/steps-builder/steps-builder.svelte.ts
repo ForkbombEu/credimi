@@ -4,6 +4,7 @@
 
 import type { Renderable } from '$lib/renderable';
 
+import { confirm } from '$lib/layout/global-confirm.svelte';
 import { StateManager } from '$lib/state-manager/state-manager';
 import { cloneDeep } from 'lodash';
 
@@ -32,6 +33,7 @@ import Component from './steps-builder.svelte';
 type Props = {
 	steps: EnrichedStep[];
 	yamlPreview: () => string;
+	isSavedManualPipeline?: boolean;
 };
 
 type BuilderMode =
@@ -96,6 +98,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	get isManualLocked() {
 		return this.state.manualLocked;
+	}
+
+	get isSavedManualPipeline() {
+		return this.props.isSavedManualPipeline === true;
 	}
 
 	undo() {
@@ -245,9 +251,11 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 		const { editor } = this.state.mode;
 		if (editor.isDirty) {
-			const confirmed = confirm(
-				m.discard_manual_yaml_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form()
-			);
+			const confirmed = await confirm({
+				message:
+					m.discard_manual_yaml_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form(),
+				destructive: true
+			});
 			if (!confirmed) return false;
 		}
 		editor.dispose();
