@@ -158,12 +158,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		order={3}
 	>
 		{#snippet titleRight()}
-			{#if builder.mode.id === 'manual'}
+			{#if builder.mode.id === 'manual' && !builder.isManualLocked}
 				<Button variant="outline" size="sm" onclick={() => void builder.exitManualMode()}>
 					<BlocksIcon />
 					{m.back_to_steps()}
 				</Button>
-			{:else}
+			{:else if !builder.isManualMode}
 				<YamlPreviewMenu {builder} initialYaml={builder.yamlPreview} />
 			{/if}
 		{/snippet}
