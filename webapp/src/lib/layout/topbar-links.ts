@@ -8,6 +8,8 @@ import { m } from '@/i18n';
 
 //
 
+export type ExtraLink = Link & { description: string };
+
 export const leftItems: Link[] = [
 	{
 		href: '/hub',
@@ -19,7 +21,7 @@ export const leftItems: Link[] = [
 	}
 ];
 
-export const extras: (Link & { description: string })[] = [
+export const extras: ExtraLink[] = [
 	{
 		href: 'https://capture-wallet.credimi.io/',
 		title: m.extra_wallet_metadata_extractor(),

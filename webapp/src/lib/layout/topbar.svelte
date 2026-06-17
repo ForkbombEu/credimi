@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ChevronDownIcon, LayoutDashboardIcon, SquareArrowOutUpRight } from '@lucide/svelte';
+	import { ChevronDownIcon, LayoutDashboardIcon } from '@lucide/svelte';
 	import { fromStore } from 'svelte/store';
 
 	import type { LinkWithIcon } from '@/components/types';
@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
+	import NavExtraLink from './nav-extra-link.svelte';
 	import NavLink from './nav-link.svelte';
 	import MobileNav from './nav-mobile.svelte';
 	import { extras, leftItems } from './topbar-links';
@@ -85,22 +86,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/snippet}
 					{#snippet content()}
 						<div>
-							{#each extras as item (item)}
-								<a
-									href={item.href}
-									target="_blank"
-									class="block cursor-pointer space-y-0.5 rounded-md px-3 py-2 text-sm hover:bg-secondary/50"
-								>
-									<p class="font-medium text-primary">
-										{item.title}
-										<SquareArrowOutUpRight
-											class="inline-block size-3 -translate-y-px"
-										/>
-									</p>
-									<p class="text-xs text-balance text-muted-foreground">
-										{item.description}
-									</p>
-								</a>
+							{#each extras as item (item.href)}
+								<NavExtraLink link={item} />
 							{/each}
 						</div>
 					{/snippet}
@@ -126,7 +113,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			<div class="lg:hidden">
-				<MobileNav items={allItems} />
+				<MobileNav items={allItems} {extras} />
 			</div>
 		</div>
 	{/snippet}
