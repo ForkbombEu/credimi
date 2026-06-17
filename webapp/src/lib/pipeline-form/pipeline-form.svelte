@@ -8,8 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { PencilIcon, RedoIcon, SaveIcon, UndoIcon } from '@lucide/svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 
-	import { Button } from '@/components/ui/button';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
+	import { Button } from '@/components/ui/button';
 	import { m } from '@/i18n';
 
 	import type { PipelineForm } from './pipeline-form.svelte.js';

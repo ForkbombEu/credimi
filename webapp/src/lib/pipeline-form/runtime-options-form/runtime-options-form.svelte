@@ -11,8 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import CodeEditorField from '@/forms/fields/codeEditorField.svelte';
 	import Form from '@/forms/form.svelte';
 	import { m } from '@/i18n/index.js';

@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { getPath } from '$lib/utils';
+
 import type { CustomChecksResponse } from '@/pocketbase/types';
+
 import { createStorageHandlers } from '@/utils/storage';
 
 type CustomIntegrationConfigStore = Record<string, Record<string, unknown>>;

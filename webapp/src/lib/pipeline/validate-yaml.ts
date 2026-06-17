@@ -8,9 +8,7 @@ import { parse as parseYaml } from 'yaml';
 
 import { getExceptionMessage } from '@/utils/errors';
 
-export type PipelineYamlValidation =
-	| { ok: true; value: string }
-	| { ok: false; message: string };
+export type PipelineYamlValidation = { ok: true; value: string } | { ok: false; message: string };
 
 const ajv = new Ajv({ allowUnionTypes: true, dynamicRef: true });
 const validatePipeline = ajv.compile(PipelineSchema);
@@ -24,7 +22,10 @@ export function validateYaml(yaml: string): PipelineYamlValidation {
 	}
 
 	if (!validatePipeline(parsed)) {
-		return { ok: false, message: `Invalid YAML document: ${ajv.errorsText(validatePipeline.errors)}` };
+		return {
+			ok: false,
+			message: `Invalid YAML document: ${ajv.errorsText(validatePipeline.errors)}`
+		};
 	}
 
 	return { ok: true, value: yaml };

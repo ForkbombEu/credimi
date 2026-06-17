@@ -157,7 +157,9 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		const metadataChanged = nameChanged || descChanged;
 
 		if (this.stepsBuilder.isManualMode && this.stepsBuilder.mode.id === 'manual') {
-			return this.stepsBuilder.mode.editor.isDirty || runtimeOptionsChanged || metadataChanged;
+			return (
+				this.stepsBuilder.mode.editor.isDirty || runtimeOptionsChanged || metadataChanged
+			);
 		}
 
 		const stepsChanged = !_.isEqual(

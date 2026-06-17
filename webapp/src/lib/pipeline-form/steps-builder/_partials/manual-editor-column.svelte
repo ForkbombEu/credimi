@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { builder, editor }: Props = $props();
 </script>
 
-<Column title={m.manual_edit()} class="card basis-2 min-w-0 overflow-hidden">
+<Column title={m.manual_edit()} class="card min-w-0 basis-2 overflow-hidden">
 	{#snippet titleRight()}
 		<Button variant="outline" size="sm" onclick={() => void builder.exitManualMode()}>
 			<BlocksIcon />
@@ -41,7 +41,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			hideCopyButton
 		/>
 		{#if !editor.validation.ok}
-			<div class="sticky bottom-0 border-t bg-destructive/10 px-4 py-2 text-sm text-destructive">
+			<div
+				class="sticky bottom-0 border-t bg-destructive/10 px-4 py-2 text-sm text-destructive"
+			>
 				{editor.validation.message}
 			</div>
 		{/if}

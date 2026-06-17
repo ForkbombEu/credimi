@@ -9,6 +9,8 @@ import { cloneDeep } from 'lodash';
 
 import type { GenericRecord } from '@/utils/types';
 
+import { m } from '@/i18n';
+
 import type { PipelineStep, PipelineStepByType } from '../../pipeline/types';
 import type {
 	SelectedVersion,
@@ -20,8 +22,6 @@ import { showPipelineFormError } from '../errors.js';
 import { ExecutionTarget } from '../execution-target/index.js';
 import * as pipelinestep from '../steps';
 import { walletActionStepConfig } from '../steps/wallet-action/index.js';
-import { m } from '@/i18n';
-
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
 import { getStepConfig, getStepData, isStepEditable } from './_partials/utils.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
