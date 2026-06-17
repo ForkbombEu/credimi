@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import { ExternalLinkIcon } from '@lucide/svelte';
 	import { buildPipelineReportPageHref } from '$lib/pipeline/results/pipeline-report-page';
 	import PipelineReportView from '$lib/pipeline/results/pipeline-report-view.svelte';
-	import { ExternalLinkIcon } from '@lucide/svelte';
 
 	import type { GenericRecord } from '@/utils/types';
 

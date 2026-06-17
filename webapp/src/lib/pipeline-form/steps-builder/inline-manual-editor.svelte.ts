@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Pipeline } from '$lib';
-
 import type { PipelineYamlValidation } from '$lib/pipeline/validate-yaml';
+
+import { Pipeline } from '$lib';
 
 const VALIDATION_DEBOUNCE_MS = 400;
 
