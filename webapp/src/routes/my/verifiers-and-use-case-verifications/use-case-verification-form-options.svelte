@@ -58,7 +58,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					description,
 					yaml: yaml_editor,
 					logo,
-					dcql_query
+					dcql_query,
+					secrets
 				}
 			}
 		};
@@ -114,3 +115,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 	/>
 {/snippet}
+
+{#snippet secrets()}{/snippet}

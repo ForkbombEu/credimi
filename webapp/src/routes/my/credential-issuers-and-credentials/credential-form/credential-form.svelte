@@ -90,7 +90,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		snippets: {
 			description,
 			deeplink: qr_generation,
-			logo
+			logo,
+			secrets
 		},
 		hide: {
 			yaml: credential?.yaml,
@@ -139,3 +140,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet logo()}
 	<CollectionLogoField />
 {/snippet}
+
+{#snippet secrets()}{/snippet}
