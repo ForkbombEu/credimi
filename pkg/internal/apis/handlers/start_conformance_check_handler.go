@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -142,7 +143,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		appURL := e.App.Settings().Meta.AppURL
 		userID := e.Auth.Id
 		email := e.Auth.GetString("email")
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, userID)
+		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, userID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -151,7 +152,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		orgID, err := GetUserOrganizationID(e.App, userID)
+		orgID, err := pbutils.GetUserOrganizationID(e.App, userID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
