@@ -129,7 +129,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		disabled={builder.isManualMode}
 	>
 		{#snippet titleRight()}
-			<BulkWalletVersionChange {builder} />
+			{#if !builder.isManualMode}
+				<BulkWalletVersionChange {builder} />
+			{/if}
 		{/snippet}
 
 		{#if builder.steps.length > 0}
