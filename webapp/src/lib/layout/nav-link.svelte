@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Button
 		variant="ghost"
 		{href}
-		class="group w-full justify-start text-left"
+		class="group w-full justify-start text-left text-primary"
 		{...rest as GenericRecord}
 	>
 		{#if icon}
