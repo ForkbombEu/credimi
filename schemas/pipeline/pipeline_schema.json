@@ -659,6 +659,12 @@
                       "parameters": {
                         "type": "object"
                       },
+                      "secrets": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
                       "yaml": {
                         "type": "string"
                       }
@@ -679,6 +685,12 @@
                         "type": "object"
                       },
                       "parameters": {
+                        "type": "object"
+                      },
+                      "secrets": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
                         "type": "object"
                       },
                       "yaml": {
