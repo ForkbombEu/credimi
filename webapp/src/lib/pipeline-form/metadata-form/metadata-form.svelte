@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { self: form }: SelfProp<MetadataForm> = $props();
 </script>
 
-<Dialog bind:open={form.isOpen} title={m.Metadata()}>
+<Dialog bind:open={form.isOpen} title={m.Metadata()} onclose={() => form.resetForm()}>
 	{#snippet trigger({ props: dialogProps })}
 		<Button variant="outline" {...dialogProps}>
 			<PencilIcon />

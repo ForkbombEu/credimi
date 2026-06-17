@@ -37,17 +37,23 @@ export class MetadataForm implements Renderable<MetadataForm> {
 	superform: SuperForm<Metadata> | undefined;
 
 	mountForm() {
+		if (this.superform) return this.superform;
+
 		this.superform = createForm({
 			adapter: zod(metadataSchema),
 			initialData: this.#value,
 			onSubmit: async ({ form }) => {
 				this.#value = form.data;
+				this.isOpen = false;
 				await tick();
 				await this.props.onSubmit?.();
-				this.isOpen = false;
 			}
 		});
 		return this.superform;
+	}
+
+	resetForm() {
+		this.superform = undefined;
 	}
 
 	#isValid = $state(false);

@@ -69,7 +69,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			initialData: props.pipeline?.record,
 			onSubmit: async () => {
 				if (!this.saveAfterMetadataFormSubmit) return;
-				await this.save();
+				await this.save({ skipManualConfirm: true });
 				this.saveAfterMetadataFormSubmit = false;
 			}
 		});
@@ -125,15 +125,19 @@ export class PipelineForm implements Renderable<PipelineForm> {
 
 	private exitConfirmed = false;
 
-	async save() {
+	async save(options?: { skipManualConfirm?: boolean }) {
+		if (!options?.skipManualConfirm && !(await this.confirmManualSaveIfNeeded())) return;
 		if (!this.ensureMetadataBeforeSave()) return;
 
-		const payload = await this.buildSavePayload();
-		if (!payload) return;
+		this.isSaving = true;
+		try {
+			const payload = await this.buildSavePayload();
+			if (!payload) return;
 
-		if (!(await this.confirmManualSaveIfNeeded())) return;
-
-		await this.persistPipeline(payload);
+			await this.persistPipeline(payload);
+		} finally {
+			this.isSaving = false;
+		}
 	}
 
 	private async confirmManualSaveIfNeeded(): Promise<boolean> {
@@ -194,7 +198,6 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		await runWithLoading({
 			fn: async () => {
 				try {
-					this.isSaving = true;
 					if (this.props.mode === 'edit' && this.props.pipeline) {
 						await pb
 							.collection('pipelines')
@@ -202,12 +205,11 @@ export class PipelineForm implements Renderable<PipelineForm> {
 					} else {
 						await pb.collection('pipelines').create(data);
 					}
+					this.exitConfirmed = true;
 					await goto('/my/pipelines');
 				} catch (e) {
 					showPipelineFormError(e);
 					throw e;
-				} finally {
-					this.isSaving = false;
 				}
 			}
 		});
