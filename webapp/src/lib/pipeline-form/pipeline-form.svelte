@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { PencilIcon, RedoIcon, SaveIcon, UndoIcon } from '@lucide/svelte';
+	import { RedoIcon, SaveIcon, UndoIcon } from '@lucide/svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
@@ -70,10 +70,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet topbarRight()}
-		<Button href={form.manualEditHref} variant="ghost">
-			<PencilIcon />
-			{m.manual_mode()}
-		</Button>
 		<Render item={metadata} />
 		<Render item={activityOptions} />
 		<Button disabled={!form.canSave} onclick={() => form.save()}>
