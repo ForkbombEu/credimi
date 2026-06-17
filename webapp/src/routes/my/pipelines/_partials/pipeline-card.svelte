@@ -123,14 +123,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet editAction()}
 	<IconButton
-		href={resolve(
-			pipeline.manual
-				? '/my/pipelines/(group)/[...path]/edit/manual'
-				: '/my/pipelines/(group)/[...path]/edit',
-			{
-				path: getPath(pipeline, true)
-			}
-		)}
+		href={resolve('/my/pipelines/(group)/[...path]/edit', {
+			path: getPath(pipeline, true)
+		})}
 		icon={Pencil}
 		tooltip={pipeline.published ? m.pipeline_edit_disabled_while_published() : m.Edit()}
 		disabled={pipeline.published}
