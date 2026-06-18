@@ -94,13 +94,13 @@ func getDeeplinkFromYAML(
 	}
 	input := workflowengine.WorkflowInput{
 		Payload: workflows.CustomCheckWorkflowPayload{
-			Yaml:    yaml,
-			Secrets: secrets,
+			Yaml: yaml,
 		},
 		Config: map[string]any{
 			"memo":    memo,
 			"app_url": appURL,
 		},
+		Secrets:         secretsToMap(secrets),
 		ActivityOptions: ao,
 	}
 
@@ -193,6 +193,18 @@ func getDeeplinkFromYAML(
 		Steps:    steps,
 		Output:   output,
 	}, nil
+}
+
+func secretsToMap(secrets map[string]string) map[string]any {
+	if len(secrets) == 0 {
+		return nil
+	}
+
+	out := make(map[string]any, len(secrets))
+	for key, value := range secrets {
+		out[key] = value
+	}
+	return out
 }
 
 func HandleGetDeeplink() func(*core.RequestEvent) error {

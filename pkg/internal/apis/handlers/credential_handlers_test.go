@@ -125,6 +125,8 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				`"dynamic":true`,
 				`"code"`,
 				`"print('hello world')"`,
+				`"secrets"`,
+				`"token":"credential-secret"`,
 			},
 			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -140,11 +142,15 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 
 				coll, err := app.FindCollectionByNameOrId("credentials")
 				require.NoError(t, err)
+				ensureTextField(t, app, coll.Name, "secrets")
+				coll, err = app.FindCollectionByNameOrId("credentials")
+				require.NoError(t, err)
 				record := core.NewRecord(coll)
 				record.Set("name", "cred789")
 				record.Set("owner", orgID)
 				record.Set("credential_issuer", issuer.Id)
 				record.Set("yaml", "print('hello world')")
+				record.Set("secrets", "token: credential-secret\n")
 				require.NoError(t, app.Save(record))
 
 				return app

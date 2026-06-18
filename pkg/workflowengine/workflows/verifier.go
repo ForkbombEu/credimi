@@ -134,13 +134,13 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
 	var stepCIResult workflowengine.ActivityResult
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: activities.StepCIWorkflowActivityPayload{
 			Yaml: code,
 		},
+		Secrets: result.Secrets,
 	}
 
 	err = workflow.ExecuteActivity(ctx, stepCIActivity.Name(), stepCIInput).Get(ctx, &stepCIResult)

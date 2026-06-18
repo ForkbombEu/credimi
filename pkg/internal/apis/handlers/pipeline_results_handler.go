@@ -19,6 +19,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -29,7 +30,6 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/converter"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -548,7 +548,7 @@ func decodeWorkflowSearchAttributes(
 	}
 
 	decoded := DecodedWorkflowSearchAttributes{}
-	dataConverter := converter.GetDefaultDataConverter()
+	dataConverter := temporalcrypto.DataConverter()
 	for key, payload := range fields {
 		if payload == nil {
 			continue
@@ -1323,7 +1323,7 @@ func readGlobalRunnerIDFromTemporalHistory(
 		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 	)
 
-	dc := converter.GetDefaultDataConverter()
+	dc := temporalcrypto.DataConverter()
 
 	for iter.HasNext() {
 		ev, err := iter.Next()

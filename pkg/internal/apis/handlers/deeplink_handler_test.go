@@ -14,7 +14,6 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -158,12 +157,10 @@ func TestHandleGetDeeplinkSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "credimi://link")
-	payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
-	require.True(t, ok)
-	require.Equal(t, map[string]string{
+	require.Equal(t, map[string]any{
 		"secret1": "value1",
 		"secret2": "value2",
-	}, payload.Secrets)
+	}, capturedInput.Secrets)
 }
 
 func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
@@ -336,11 +333,9 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				return app
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
-				require.True(t.(*testing.T), ok)
-				require.Equal(t.(*testing.T), map[string]string{
+				require.Equal(t.(*testing.T), map[string]any{
 					"token": "credential-secret",
-				}, payload.Secrets)
+				}, capturedInput.Secrets)
 			},
 		},
 	}
@@ -412,11 +407,9 @@ func TestGetVerificationDeeplink(t *testing.T) {
 				return app
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
-				require.True(t.(*testing.T), ok)
-				require.Equal(t.(*testing.T), map[string]string{
+				require.Equal(t.(*testing.T), map[string]any{
 					"pin": "1234",
-				}, payload.Secrets)
+				}, capturedInput.Secrets)
 			},
 		},
 		{

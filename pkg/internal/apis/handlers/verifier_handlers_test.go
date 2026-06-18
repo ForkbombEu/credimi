@@ -59,6 +59,8 @@ func TestGetUseCaseVerificationDeeplink(t *testing.T) {
 			ExpectedContent: []string{
 				`"code"`,
 				`"example code"`,
+				`"secrets"`,
+				`"pin":"1234"`,
 			},
 			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -79,11 +81,15 @@ func TestGetUseCaseVerificationDeeplink(t *testing.T) {
 
 				coll, err := app.FindCollectionByNameOrId("use_cases_verifications")
 				require.NoError(t, err)
+				ensureTextField(t, app, coll.Name, "secrets")
+				coll, err = app.FindCollectionByNameOrId("use_cases_verifications")
+				require.NoError(t, err)
 				record := core.NewRecord(coll)
 				record.Set("name", "usecase123")
 				record.Set("owner", orgID)
 				record.Set("verifier", verifier.Id)
 				record.Set("yaml", "example code")
+				record.Set("secrets", "pin: '1234'\n")
 				require.NoError(t, app.Save(record))
 
 				return app

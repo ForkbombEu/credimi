@@ -22,13 +22,15 @@ import (
 type ActivityInput struct {
 	Payload any               `json:"payload,omitempty"`
 	Config  map[string]string `json:"config,omitempty"`
+	Secrets map[string]any    `json:"secrets,omitempty"`
 }
 
 // ActivityResult represents the result of an activity execution, including output, errors, and logs.
 // It is designed to be extensible, allowing for different types of output and error handling.
 type ActivityResult struct {
-	Output any      `json:"output,omitempty"`
-	Log    []string `json:"log,omitempty"`
+	Output  any            `json:"output,omitempty"`
+	Log     []string       `json:"log,omitempty"`
+	Secrets map[string]any `json:"secrets,omitempty"`
 }
 
 type ActivityError struct {

@@ -78,9 +78,6 @@ func runOpenIDConformanceWorkflow(
 
 	stepCIPayload := activities.StepCIWorkflowActivityPayload{
 		Data: payload.Parameters,
-		Secrets: map[string]string{
-			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
-		},
 	}
 	stepCIPayload.Data["test"] = payload.TestName
 
@@ -92,10 +89,13 @@ func runOpenIDConformanceWorkflow(
 		UserMail:      payload.UserMail,
 		Template:      template,
 		StepCIPayload: stepCIPayload,
-		Namespace:     workflowengine.AsString(input.Config["namespace"]),
-		RunMetadata:   input.RunMetadata,
-		Suite:         OpenIDConformanceSuite,
-		SendMail:      false,
+		Secrets: map[string]any{
+			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
+		},
+		Namespace:   workflowengine.AsString(input.Config["namespace"]),
+		RunMetadata: input.RunMetadata,
+		Suite:       OpenIDConformanceSuite,
+		SendMail:    false,
 	})
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err

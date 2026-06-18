@@ -524,13 +524,9 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 			if !ok {
 				return false
 			}
-			secrets, ok := payload["secrets"].(map[string]any)
-			if !ok {
-				return false
-			}
 			return data["deeplink"] == "openid-credential-offer://static-offer" &&
 				data["test"] == "issuer-test" &&
-				secrets["token"] == "test_token"
+				input.Secrets["token"] == "test_token"
 		}),
 	).Return(workflowengine.ActivityResult{
 		Output: map[string]any{

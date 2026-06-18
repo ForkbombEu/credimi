@@ -16,7 +16,8 @@ import (
 )
 
 type GetUseCaseVerificationDeeplinkResponse struct {
-	Code string `json:"code"`
+	Code    string            `json:"code"`
+	Secrets map[string]string `json:"secrets,omitempty"`
 }
 
 var VerifierTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
@@ -67,8 +68,14 @@ func HandleGetUseCaseVerificationDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		var response GetCredentialOfferResponse
+		secrets, apiErr := parseSecretsYAML(record.GetString("secrets"))
+		if apiErr != nil {
+			return apiErr.JSON(e)
+		}
+
+		var response GetUseCaseVerificationDeeplinkResponse
 		response.Code = record.GetString("yaml")
+		response.Secrets = secrets
 
 		return e.JSON(http.StatusOK, response)
 	}

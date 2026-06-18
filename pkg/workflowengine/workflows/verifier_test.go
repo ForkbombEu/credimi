@@ -46,16 +46,30 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 					stepCIAct.Execute,
 					activity.RegisterOptions{Name: stepCIAct.Name()},
 				)
-				env.OnActivity(stepCIAct.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{
-						Output: map[string]any{
-							"captures": map[string]any{"deeplink": "test-deeplink"},
-						},
-					}, nil)
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
-							"body": map[string]any{"code": "yaml-test-code"},
+							"body": map[string]any{
+								"code": "yaml-test-code",
+							},
+						},
+						Secrets: map[string]any{"pin": "1234"},
+					}, nil)
+				env.OnActivity(
+					stepCIAct.Name(),
+					mock.Anything,
+					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+						payload, ok := input.Payload.(map[string]any)
+						return ok &&
+							payload["yaml"] == "yaml-test-code" &&
+							requireSecrets(t, input.Secrets, map[string]string{
+								"pin": "1234",
+							})
+					}),
+				).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"captures": map[string]any{"deeplink": "test-deeplink"},
 						},
 					}, nil)
 			},
