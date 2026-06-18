@@ -172,7 +172,12 @@ func TestFetchWorkflowFailure(t *testing.T) {
 			}, nil).
 			Once()
 
-		result := fetchWorkflowFailure(context.Background(), mockClient, "wf-structured", "run-structured")
+		result := fetchWorkflowFailure(
+			context.Background(),
+			mockClient,
+			"wf-structured",
+			"run-structured",
+		)
 		require.NotNil(t, result)
 		require.Equal(
 			t,
@@ -260,7 +265,9 @@ func TestFetchWorkflowFailure(t *testing.T) {
 							WorkflowExecutionFailedEventAttributes: &historypb.WorkflowExecutionFailedEventAttributes{
 								Failure: &failure.Failure{
 									Message: "Failure exceeds size limit.",
-									Cause:   &failure.Failure{Message: "StepCI checks failed: One or more StepCI assertions failed."},
+									Cause: &failure.Failure{
+										Message: "StepCI checks failed: One or more StepCI assertions failed.",
+									},
 								},
 							},
 						},

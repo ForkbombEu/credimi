@@ -486,7 +486,9 @@ func decodeImportFidesCredentialIssuersRequest(
 		return ImportFidesCredentialIssuersRequest{}, err
 	}
 	if input.IntervalDays < 0 {
-		return ImportFidesCredentialIssuersRequest{}, fmt.Errorf("interval_days must be greater than or equal to 1")
+		return ImportFidesCredentialIssuersRequest{}, fmt.Errorf(
+			"interval_days must be greater than or equal to 1",
+		)
 	}
 	return input, nil
 }

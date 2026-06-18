@@ -142,8 +142,6 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 
 				coll, err := app.FindCollectionByNameOrId("credentials")
 				require.NoError(t, err)
-				coll, err = app.FindCollectionByNameOrId("credentials")
-				require.NoError(t, err)
 				record := core.NewRecord(coll)
 				record.Set("name", "cred789")
 				record.Set("owner", orgID)

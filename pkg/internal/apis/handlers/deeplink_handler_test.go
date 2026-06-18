@@ -179,7 +179,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(issuerRecord))
 
 		credColl, _ := app.FindCollectionByNameOrId("credentials")
-		credColl, _ = app.FindCollectionByNameOrId("credentials")
 		credential := core.NewRecord(credColl)
 		credential.Set("owner", orgID)
 		credential.Set("name", "test credential")
@@ -201,7 +200,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(verifierRecord))
 
 		useCaseColl, _ := app.FindCollectionByNameOrId("use_cases_verifications")
-		useCaseColl, _ = app.FindCollectionByNameOrId("use_cases_verifications")
 		useCase := core.NewRecord(useCaseColl)
 		useCase.Set("owner", orgID)
 		useCase.Set("name", "test use cases")
@@ -213,7 +211,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		return app
 	}
 }
-
 
 func TestGetCredentialDeeplink(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
@@ -276,7 +273,11 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			ExpectedStatus: http.StatusMovedPermanently,
 			TestAppFactory: setupDeeplinkApp(orgID),
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				require.Equal(t.(*testing.T), "openid-credential-offer://...", res.Header.Get("Location"))
+				require.Equal(
+					t.(*testing.T),
+					"openid-credential-offer://...",
+					res.Header.Get("Location"),
+				)
 			},
 		},
 		{

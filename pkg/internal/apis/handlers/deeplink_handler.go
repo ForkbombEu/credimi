@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -221,7 +222,8 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 
 		response, err := getDeeplinkFromYAML(e.App, body.Yaml, secrets)
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
 			}
 
@@ -310,7 +312,11 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 	return e.String(http.StatusOK, deeplink)
 }
 
-func deeplinkFromRecord(app core.App, rec *core.Record, missingDomain string) (string, *apierror.APIError) {
+func deeplinkFromRecord(
+	app core.App,
+	rec *core.Record,
+	missingDomain string,
+) (string, *apierror.APIError) {
 	yamlStr := rec.GetString("yaml")
 	if yamlStr == "" {
 		deeplink := rec.GetString("deeplink")
@@ -333,7 +339,8 @@ func deeplinkFromRecord(app core.App, rec *core.Record, missingDomain string) (s
 
 	response, err := getDeeplinkFromYAML(app, yamlStr, secrets)
 	if err != nil {
-		if apiErr, ok := err.(*apierror.APIError); ok {
+		apiErr := &apierror.APIError{}
+		if errors.As(err, &apiErr) {
 			return "", apiErr
 		}
 
