@@ -142,7 +142,6 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 
 				coll, err := app.FindCollectionByNameOrId("credentials")
 				require.NoError(t, err)
-				ensureTextField(t, app, coll.Name, "secrets")
 				coll, err = app.FindCollectionByNameOrId("credentials")
 				require.NoError(t, err)
 				record := core.NewRecord(coll)

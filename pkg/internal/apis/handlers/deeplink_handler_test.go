@@ -179,7 +179,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(issuerRecord))
 
 		credColl, _ := app.FindCollectionByNameOrId("credentials")
-		ensureTextField(t, app, credColl.Name, "secrets")
 		credColl, _ = app.FindCollectionByNameOrId("credentials")
 		credential := core.NewRecord(credColl)
 		credential.Set("owner", orgID)
@@ -202,7 +201,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(verifierRecord))
 
 		useCaseColl, _ := app.FindCollectionByNameOrId("use_cases_verifications")
-		ensureTextField(t, app, useCaseColl.Name, "secrets")
 		useCaseColl, _ = app.FindCollectionByNameOrId("use_cases_verifications")
 		useCase := core.NewRecord(useCaseColl)
 		useCase.Set("owner", orgID)
@@ -216,18 +214,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 	}
 }
 
-func ensureTextField(t testing.TB, app *tests.TestApp, collectionName string, fieldName string) {
-	t.Helper()
-
-	collection, err := app.FindCollectionByNameOrId(collectionName)
-	require.NoError(t, err)
-	if collection.Fields.GetByName(fieldName) != nil {
-		return
-	}
-
-	collection.Fields.Add(&core.TextField{Name: fieldName})
-	require.NoError(t, app.Save(collection))
-}
 
 func TestGetCredentialDeeplink(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")

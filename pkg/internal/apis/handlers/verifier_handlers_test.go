@@ -81,7 +81,6 @@ func TestGetUseCaseVerificationDeeplink(t *testing.T) {
 
 				coll, err := app.FindCollectionByNameOrId("use_cases_verifications")
 				require.NoError(t, err)
-				ensureTextField(t, app, coll.Name, "secrets")
 				coll, err = app.FindCollectionByNameOrId("use_cases_verifications")
 				require.NoError(t, err)
 				record := core.NewRecord(coll)
