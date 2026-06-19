@@ -80,7 +80,8 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		if action == nil || action.Collection() == nil || action.Collection().Name != "wallet_actions" {
+		if action == nil || action.Collection() == nil ||
+			action.Collection().Name != "wallet_actions" {
 			return apierror.New(
 				http.StatusNotFound,
 				"action_id",
@@ -115,13 +116,17 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 					"app_url": e.App.Settings().Meta.AppURL,
 				},
 				Payload: workflows.MobileAutomationWorkflowPayload{
-					RunIdentifier: strings.TrimSpace(input.WorkflowID) + "/" + strings.TrimSpace(input.RunID),
-					ActionID:      strings.TrimSpace(input.ActionID),
-					ActionCode:    actionCode,
-					Serial:        workflowengine.AsString(device["serial"]),
-					Type:          workflowengine.AsString(device["type"]),
-					RunnerID:      runnerID,
-					Parameters:    input.ActionParameters,
+					RunIdentifier: strings.TrimSpace(
+						input.WorkflowID,
+					) + "/" + strings.TrimSpace(
+						input.RunID,
+					),
+					ActionID:   strings.TrimSpace(input.ActionID),
+					ActionCode: actionCode,
+					Serial:     workflowengine.AsString(device["serial"]),
+					Type:       workflowengine.AsString(device["type"]),
+					RunnerID:   runnerID,
+					Parameters: input.ActionParameters,
 				},
 				ActivityOptions: &activityOptions,
 			},

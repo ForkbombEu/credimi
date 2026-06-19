@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -94,13 +95,13 @@ func getDeeplinkFromYAML(
 	}
 	input := workflowengine.WorkflowInput{
 		Payload: workflows.CustomCheckWorkflowPayload{
-			Yaml:    yaml,
-			Secrets: secrets,
+			Yaml: yaml,
 		},
 		Config: map[string]any{
 			"memo":    memo,
 			"app_url": appURL,
 		},
+		Secrets:         secretsToMap(secrets),
 		ActivityOptions: ao,
 	}
 
@@ -195,6 +196,18 @@ func getDeeplinkFromYAML(
 	}, nil
 }
 
+func secretsToMap(secrets map[string]string) map[string]any {
+	if len(secrets) == 0 {
+		return nil
+	}
+
+	out := make(map[string]any, len(secrets))
+	for key, value := range secrets {
+		out[key] = value
+	}
+	return out
+}
+
 func HandleGetDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var body CredentialDeeplinkRequest
@@ -209,7 +222,8 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 
 		response, err := getDeeplinkFromYAML(e.App, body.Yaml, secrets)
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
 			}
 
@@ -298,7 +312,11 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 	return e.String(http.StatusOK, deeplink)
 }
 
-func deeplinkFromRecord(app core.App, rec *core.Record, missingDomain string) (string, *apierror.APIError) {
+func deeplinkFromRecord(
+	app core.App,
+	rec *core.Record,
+	missingDomain string,
+) (string, *apierror.APIError) {
 	yamlStr := rec.GetString("yaml")
 	if yamlStr == "" {
 		deeplink := rec.GetString("deeplink")
@@ -321,7 +339,8 @@ func deeplinkFromRecord(app core.App, rec *core.Record, missingDomain string) (s
 
 	response, err := getDeeplinkFromYAML(app, yamlStr, secrets)
 	if err != nil {
-		if apiErr, ok := err.(*apierror.APIError); ok {
+		apiErr := &apierror.APIError{}
+		if errors.As(err, &apiErr) {
 			return "", apiErr
 		}
 

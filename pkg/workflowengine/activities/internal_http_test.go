@@ -5,11 +5,13 @@
 package activities
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 )
@@ -80,4 +82,23 @@ func TestRedactHeaderMap(t *testing.T) {
 	require.Equal(t, []string{"[REDACTED]"}, redacted["Credimi-Api-Key"])
 	require.Equal(t, []string{"[REDACTED]"}, redacted["Cookie"])
 	require.Equal(t, []string{"value"}, redacted["X-Test"])
+}
+
+func TestSplitSecretsFromOutput(t *testing.T) {
+	output, secrets, err := splitSecretsFromOutput(map[string]any{
+		"code":    "steps: []",
+		"secrets": map[string]any{"token": "secret-value"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"code": "steps: []"}, output)
+	require.Equal(t, map[string]any{"token": "secret-value"}, secrets)
+
+	dc := temporalcrypto.NewDataConverter(bytes.Repeat([]byte{1}, 32))
+	payload, err := dc.ToPayload(workflowengine.ActivityResult{
+		Output:  output,
+		Secrets: secrets,
+	})
+	require.NoError(t, err)
+	require.Contains(t, string(payload.GetData()), `"code":"steps: []"`)
+	require.NotContains(t, string(payload.GetData()), "secret-value")
 }

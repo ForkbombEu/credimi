@@ -59,6 +59,8 @@ func TestGetUseCaseVerificationDeeplink(t *testing.T) {
 			ExpectedContent: []string{
 				`"code"`,
 				`"example code"`,
+				`"secrets"`,
+				`"pin":"1234"`,
 			},
 			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -84,6 +86,7 @@ func TestGetUseCaseVerificationDeeplink(t *testing.T) {
 				record.Set("owner", orgID)
 				record.Set("verifier", verifier.Id)
 				record.Set("yaml", "example code")
+				record.Set("secrets", "pin: '1234'\n")
 				require.NoError(t, app.Save(record))
 
 				return app

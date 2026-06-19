@@ -217,6 +217,18 @@ func executeHTTPRequest(
 		output = string(respBody)
 	}
 
+	output, result.Secrets, err = splitSecretsFromOutput(output)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		return result, act.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("failed to decode response secrets: %v", err),
+			},
+		)
+	}
+
 	if err := validateExpectedStatus(
 		resp.StatusCode,
 		payload.ExpectedStatus,
@@ -248,6 +260,48 @@ func executeHTTPRequest(
 
 	result.Output = resultMap
 	return result, nil
+}
+
+func splitSecretsFromOutput(output any) (any, map[string]any, error) {
+	outputMap, ok := output.(map[string]any)
+	if !ok {
+		return output, nil, nil
+	}
+
+	rawSecrets, ok := outputMap["secrets"]
+	if !ok {
+		return output, nil, nil
+	}
+
+	secrets, err := decodeSecretsMap(rawSecrets)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decode response secrets: %w", err)
+	}
+
+	cleanOutput := make(map[string]any, len(outputMap)-1)
+	for key, value := range outputMap {
+		if key == "secrets" {
+			continue
+		}
+		cleanOutput[key] = value
+	}
+
+	return cleanOutput, secrets, nil
+}
+
+func decodeSecretsMap(raw any) (map[string]any, error) {
+	switch values := raw.(type) {
+	case map[string]any:
+		return values, nil
+	case map[string]string:
+		secrets := make(map[string]any, len(values))
+		for key, value := range values {
+			secrets[key] = value
+		}
+		return secrets, nil
+	default:
+		return nil, fmt.Errorf("secrets is %T, expected map", raw)
+	}
 }
 
 func redactHeaderMap(headers http.Header) map[string][]string {

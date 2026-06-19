@@ -89,10 +89,9 @@ type StepCIWorkflowActivity struct {
 
 // StepCIWorkflowActivityPayload is the input for the StepCIWorkflowActivity
 type StepCIWorkflowActivityPayload struct {
-	Yaml    string            `json:"yaml"              yaml:"yaml"`
-	Data    map[string]any    `json:"data,omitempty"    yaml:"data,omitempty"`
-	Secrets map[string]string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
-	Env     string            `json:"env,omitempty"     yaml:"env,omitempty"`
+	Yaml string         `json:"yaml"           yaml:"yaml"`
+	Data map[string]any `json:"data,omitempty" yaml:"data,omitempty"`
+	Env  string         `json:"env,omitempty"  yaml:"env,omitempty"`
 }
 
 func NewStepCIWorkflowActivity() *StepCIWorkflowActivity {
@@ -150,11 +149,7 @@ func (a *StepCIWorkflowActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	secrets := make(map[string]string)
-	if payload.Secrets != nil {
-		secrets = payload.Secrets
-	}
-	secretBytes, err := json.Marshal(secrets)
+	secretBytes, err := json.Marshal(input.Secrets)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 		return result, a.NewActivityError(

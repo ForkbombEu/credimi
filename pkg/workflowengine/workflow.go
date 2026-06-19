@@ -28,6 +28,7 @@ var workflowTemporalClient = temporalclient.GetTemporalClientWithNamespace
 type WorkflowInput struct {
 	Payload         any                       `json:"payload,omitempty"`
 	Config          map[string]any            `json:"config,omitempty"`
+	Secrets         map[string]any            `json:"secrets,omitempty"`
 	ActivityOptions *workflow.ActivityOptions `json:"activityOptions,omitempty"`
 	RunMetadata     *WorkflowRunMetadata      `json:"runMetadata,omitempty"`
 }

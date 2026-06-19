@@ -14,7 +14,6 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -158,12 +157,10 @@ func TestHandleGetDeeplinkSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "credimi://link")
-	payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
-	require.True(t, ok)
-	require.Equal(t, map[string]string{
+	require.Equal(t, map[string]any{
 		"secret1": "value1",
 		"secret2": "value2",
-	}, payload.Secrets)
+	}, capturedInput.Secrets)
 }
 
 func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
@@ -182,8 +179,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(issuerRecord))
 
 		credColl, _ := app.FindCollectionByNameOrId("credentials")
-		ensureTextField(t, app, credColl.Name, "secrets")
-		credColl, _ = app.FindCollectionByNameOrId("credentials")
 		credential := core.NewRecord(credColl)
 		credential.Set("owner", orgID)
 		credential.Set("name", "test credential")
@@ -205,8 +200,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(verifierRecord))
 
 		useCaseColl, _ := app.FindCollectionByNameOrId("use_cases_verifications")
-		ensureTextField(t, app, useCaseColl.Name, "secrets")
-		useCaseColl, _ = app.FindCollectionByNameOrId("use_cases_verifications")
 		useCase := core.NewRecord(useCaseColl)
 		useCase.Set("owner", orgID)
 		useCase.Set("name", "test use cases")
@@ -217,19 +210,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 
 		return app
 	}
-}
-
-func ensureTextField(t testing.TB, app *tests.TestApp, collectionName string, fieldName string) {
-	t.Helper()
-
-	collection, err := app.FindCollectionByNameOrId(collectionName)
-	require.NoError(t, err)
-	if collection.Fields.GetByName(fieldName) != nil {
-		return
-	}
-
-	collection.Fields.Add(&core.TextField{Name: fieldName})
-	require.NoError(t, app.Save(collection))
 }
 
 func TestGetCredentialDeeplink(t *testing.T) {
@@ -293,7 +273,11 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			ExpectedStatus: http.StatusMovedPermanently,
 			TestAppFactory: setupDeeplinkApp(orgID),
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				require.Equal(t.(*testing.T), "openid-credential-offer://...", res.Header.Get("Location"))
+				require.Equal(
+					t.(*testing.T),
+					"openid-credential-offer://...",
+					res.Header.Get("Location"),
+				)
 			},
 		},
 		{
@@ -336,11 +320,9 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				return app
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
-				require.True(t.(*testing.T), ok)
-				require.Equal(t.(*testing.T), map[string]string{
+				require.Equal(t.(*testing.T), map[string]any{
 					"token": "credential-secret",
-				}, payload.Secrets)
+				}, capturedInput.Secrets)
 			},
 		},
 	}
@@ -412,11 +394,9 @@ func TestGetVerificationDeeplink(t *testing.T) {
 				return app
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				payload, ok := capturedInput.Payload.(workflows.CustomCheckWorkflowPayload)
-				require.True(t.(*testing.T), ok)
-				require.Equal(t.(*testing.T), map[string]string{
+				require.Equal(t.(*testing.T), map[string]any{
 					"pin": "1234",
-				}, payload.Secrets)
+				}, capturedInput.Secrets)
 			},
 		},
 		{

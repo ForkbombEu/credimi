@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -21,7 +22,6 @@ import (
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/converter"
 )
 
 var schedulesTemporalClient = temporalclient.GetTemporalClientWithNamespace
@@ -192,7 +192,7 @@ func globalRunnerIDFromPayload(payload *commonpb.Payload) string {
 		return ""
 	}
 
-	dc := converter.GetDefaultDataConverter()
+	dc := temporalcrypto.DataConverter()
 	var scheduledInput workflows.ScheduledPipelineEnqueueWorkflowInput
 	if err := dc.FromPayload(payload, &scheduledInput); err == nil {
 		if globalRunnerID := globalRunnerIDFromScheduledInput(scheduledInput, nil); globalRunnerID != "" {

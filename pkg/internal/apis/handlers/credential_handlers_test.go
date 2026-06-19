@@ -125,6 +125,8 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				`"dynamic":true`,
 				`"code"`,
 				`"print('hello world')"`,
+				`"secrets"`,
+				`"token":"credential-secret"`,
 			},
 			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -145,6 +147,7 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				record.Set("owner", orgID)
 				record.Set("credential_issuer", issuer.Id)
 				record.Set("yaml", "print('hello world')")
+				record.Set("secrets", "token: credential-secret\n")
 				require.NoError(t, app.Save(record))
 
 				return app
