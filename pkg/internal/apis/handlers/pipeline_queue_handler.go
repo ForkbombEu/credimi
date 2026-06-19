@@ -113,7 +113,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 		pipelineIdentifier := strings.TrimSpace(input.PipelineIdentifier)
 		if pipelineIdentifier == "" {
@@ -122,7 +122,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				"pipeline_identifier",
 				"pipeline_identifier is required",
 				"missing pipeline_identifier",
-			).JSON(e)
+			)
 		}
 		yaml := strings.TrimSpace(input.YAML)
 		if yaml == "" {
@@ -131,7 +131,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				"yaml",
 				"yaml is required",
 				"missing yaml",
-			).JSON(e)
+			)
 		}
 
 		pipelineRecord, err := canonify.Resolve(e.App, pipelineIdentifier)
@@ -141,7 +141,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				"pipeline_identifier",
 				"pipeline not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
@@ -151,7 +151,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization record",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		response, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
 			pipelineRecord:     pipelineRecord,
@@ -163,7 +163,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			yaml:               yaml,
 		})
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		return e.JSON(http.StatusOK, response)
 	}
@@ -394,7 +394,7 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		requestContext, apiErr := parseQueueRequestContext(e)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		runnerStatuses, apiErr := queryQueueRunnerStatuses(
@@ -404,7 +404,7 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 			requestContext.ticketID,
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		response := buildQueueStatusResponse(
 			requestContext.ticketID,
@@ -420,7 +420,7 @@ func HandlePipelineQueueCancel() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		requestContext, apiErr := parseQueueRequestContext(e)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		runnerStatuses, apiErr := cancelQueueRunnerStatuses(
@@ -430,14 +430,14 @@ func HandlePipelineQueueCancel() func(*core.RequestEvent) error {
 			requestContext.ticketID,
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		if apiErr := cleanupCanceledQueueResources(
 			e.App,
 			requestContext.ownerID,
 			runnerStatuses,
 		); apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		response := buildQueueStatusResponse(

@@ -651,9 +651,9 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 		)
 
 		err = HandlePreviewMobileRunnerID()(event)
-		require.NoError(t, err)
 
 		recorder := responseRecorder(t, event)
+		requireHandlerErrorHandled(t, recorder, err)
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
 		require.Contains(t, recorder.Body.String(), "organization is required")
 	})
@@ -795,9 +795,9 @@ func TestUpsertMobileRunner(t *testing.T) {
 		)
 
 		err = HandleUpsertMobileRunner()(event)
-		require.NoError(t, err)
 
 		recorder := responseRecorder(t, event)
+		requireHandlerErrorHandled(t, recorder, err)
 		require.Equal(t, http.StatusConflict, recorder.Code)
 		require.Contains(t, recorder.Body.String(), "does not match the next available id")
 	})

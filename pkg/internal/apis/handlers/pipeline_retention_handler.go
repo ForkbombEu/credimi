@@ -102,7 +102,7 @@ func HandleDeletePipelineResultFiles() func(*core.RequestEvent) error {
 				"request.validation",
 				"invalid_request",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		batchSize := input.BatchSize
@@ -124,7 +124,7 @@ func HandleDeletePipelineResultFiles() func(*core.RequestEvent) error {
 				"pipeline_results",
 				"failed to delete retained files",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, response)
@@ -140,7 +140,7 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 				"request.validation",
 				"invalid_request",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		olderThanDays := input.OlderThanDays
@@ -163,7 +163,7 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 				"temporal",
 				"failed to create temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		ctx := context.Background()
@@ -202,7 +202,7 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 				"schedule",
 				"failed to upsert retention schedule",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, SchedulePipelineRetentionResponse{
@@ -228,7 +228,7 @@ func HandleDeletePipelineRetentionSchedule() func(*core.RequestEvent) error {
 				"temporal",
 				"failed to create temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		ctx := context.Background()
@@ -242,14 +242,14 @@ func HandleDeletePipelineRetentionSchedule() func(*core.RequestEvent) error {
 					"schedule",
 					"retention schedule not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"schedule",
 				"failed to delete retention schedule",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, DeletePipelineRetentionScheduleResponse{

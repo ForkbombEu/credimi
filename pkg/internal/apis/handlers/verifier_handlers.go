@@ -54,7 +54,7 @@ func HandleGetUseCaseVerificationDeeplink() func(*core.RequestEvent) error {
 				"use_case_identifier",
 				"use_case_identifier is required",
 				"missing use_case_identifier",
-			).JSON(e)
+			)
 		}
 
 		record, err := canonify.Resolve(e.App, useCaseIdentifier)
@@ -64,7 +64,7 @@ func HandleGetUseCaseVerificationDeeplink() func(*core.RequestEvent) error {
 				"use_case_identifier",
 				"use case verification not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		var response GetCredentialOfferResponse

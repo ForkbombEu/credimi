@@ -58,7 +58,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 				"temporal",
 				"failed to get temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		runnerID, device, apiErr := pipelineMobileFlowDevice(
@@ -68,7 +68,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			strings.TrimSpace(input.RunID),
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		action, err := canonify.Resolve(e.App, strings.TrimSpace(input.ActionID))
@@ -78,7 +78,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 				"action_id",
 				"wallet action not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if action == nil || action.Collection() == nil || action.Collection().Name != "wallet_actions" {
 			return apierror.New(
@@ -86,7 +86,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 				"action_id",
 				"wallet action not found",
 				"resolved record is not a wallet action",
-			).JSON(e)
+			)
 		}
 		actionCode := strings.TrimSpace(action.GetString("code"))
 		if actionCode == "" {
@@ -95,7 +95,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 				"action_id",
 				"wallet action has no code",
 				"wallet action code is empty",
-			).JSON(e)
+			)
 		}
 
 		activityOptions := pipelineMobileFlowActivityOptions()
@@ -132,7 +132,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start mobile automation workflow",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		var result workflowengine.WorkflowResult

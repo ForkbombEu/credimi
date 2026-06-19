@@ -83,7 +83,7 @@ func handleTempRecordDelete(collection, resourceName string) func(*core.RequestE
 				"record",
 				resourceName+" record id is required",
 				"missing record path parameter",
-			).JSON(e)
+			)
 		}
 
 		var input tempRecordDeleteInput
@@ -95,7 +95,7 @@ func handleTempRecordDelete(collection, resourceName string) func(*core.RequestE
 					resourceDomain,
 					"invalid delete validation payload",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 		}
 
@@ -109,7 +109,7 @@ func handleTempRecordDelete(collection, resourceName string) func(*core.RequestE
 				resourceDomain,
 				"failed to find "+resourceName,
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		if apiErr := validateTempRecordDeleteRequest(
@@ -119,7 +119,7 @@ func handleTempRecordDelete(collection, resourceName string) func(*core.RequestE
 			resourceName,
 			resourceDomain,
 		); apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		if err := e.App.Delete(record); err != nil {
@@ -128,7 +128,7 @@ func handleTempRecordDelete(collection, resourceName string) func(*core.RequestE
 				resourceDomain,
 				"failed to delete "+resourceName,
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{"deleted": true})

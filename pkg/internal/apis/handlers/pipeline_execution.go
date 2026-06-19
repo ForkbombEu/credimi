@@ -45,7 +45,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"body",
 				"failed to read request body",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		defer e.Request.Body.Close()
 
@@ -56,7 +56,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"body",
 				"request body cannot be empty",
 				"empty body",
-			).JSON(e)
+			)
 		}
 
 		// 2. Query parameters
@@ -69,7 +69,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"redirect",
 				"redirect=true requires deeplink=true",
 				"redirect without deeplink",
-			).JSON(e)
+			)
 		}
 
 		// 3. Parse pipeline
@@ -80,7 +80,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"yaml",
 				"failed to parse pipeline YAML",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		// 4. Validate pipeline steps
@@ -91,7 +91,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 					"yaml",
 					fmt.Sprintf("pipeline contains invalid step type '%s'. Only 'http-request' steps are allowed", step.Use),
 					"",
-				).JSON(e)
+				)
 			}
 		}
 		// 5. Determine Temporal namespace based on user organization (or default)
@@ -129,7 +129,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"temporal",
 				fmt.Sprintf("unable to get temporal client for namespace '%s': %v", namespace, err),
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), PipelineExecuteTimeout)
@@ -142,7 +142,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"workflow",
 				fmt.Sprintf("failed to start workflow in namespace '%s': %v", namespace, err),
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		e.App.Logger().Info("workflow started",
 			"namespace", namespace,
@@ -158,7 +158,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"workflow",
 				fmt.Sprintf("workflow execution failed in namespace '%s': %v", namespace, err),
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		// 9. Return response
@@ -177,7 +177,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"deeplink",
 				err.Error(),
 				"",
-			).JSON(e)
+			)
 		}
 
 		if redirectFlag {

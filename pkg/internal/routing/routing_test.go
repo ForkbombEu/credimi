@@ -54,9 +54,9 @@ func TestGetValidatedInput(t *testing.T) {
 		rec := newRequestEvent(app, http.MethodGet, "/", nil, ctx)
 
 		val, err := GetValidatedInput[samplePayload](rec.Event)
-		require.NoError(t, err)
+		require.Error(t, err)
 		require.Equal(t, samplePayload{}, val)
-		require.Equal(t, http.StatusInternalServerError, rec.Recorder.Code)
+		require.Contains(t, err.Error(), "critical type mismatch for validated input")
 	})
 }
 
@@ -139,6 +139,7 @@ func TestRegisterRoutesWithValidation_RequireAuth(t *testing.T) {
 			}, nil
 		},
 	)
+	r.Bind(&hook.Handler[*core.RequestEvent]{Func: middlewares.ErrorHandlingMiddleware})
 
 	RegisterRoutesWithValidation(app, r.RouterGroup, []RouteDefinition{secureRoute}, true)
 	mux, err := r.BuildMux()

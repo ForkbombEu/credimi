@@ -43,15 +43,15 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, apiErr := parsePipelineCIBaseRequest(e, "credential_ids", issuerCIURLField)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		if apiErr := validatePipelineCIBaseRequest(input, issuerCIURLField); apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		runContext, apiErr := resolvePipelineCIRunContext(e, input.PipelineIdentifier)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		credentialRefs, apiErr := resolvePipelineRunIssuerCredentialReferences(
 			e.App,
@@ -59,7 +59,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			input.IDs,
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		tempCredentials, rewriteMap, apiErr := createPipelineCITempRecords(
 			e,
@@ -78,17 +78,17 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			},
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		rewrittenYAML, apiErr := rewritePipelineRunIssuerYAML(runContext.PipelineYAML, rewriteMap)
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		workflowDefinition, apiErr := parsePipelineCIWorkflow(rewrittenYAML)
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIRunnerID(
 			e.Request.Context(),
@@ -99,7 +99,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		warning := pipelineCIIgnoredRunnerWarning(
 			input.RunnerID,
@@ -116,7 +116,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		notification := buildPipelineGitHubPRNotification(
 			input.Metadata,
@@ -142,7 +142,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 		})
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		response := buildPipelineRunIssuerResponse(

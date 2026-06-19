@@ -111,7 +111,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -121,7 +121,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 				"workflowId",
 				"workflowId is required",
 				"missing workflowId",
-			).JSON(e)
+			)
 		}
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
@@ -130,7 +130,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
-			).JSON(e)
+			)
 		}
 
 		history, err := getWorkflowHistoryWithFallback(namespace, workflowID, runID)
@@ -144,14 +144,14 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow history not found",
 					err.Error(),
-				).JSON(e)
+				)
 			default:
 				return apierror.New(
 					http.StatusInternalServerError,
 					"workflow",
 					"failed to get workflow history",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 		}
 
@@ -168,7 +168,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"workflowId",
 				"workflowId is required",
 				"missing workflowId",
-			).JSON(e)
+			)
 		}
 
 		runID := e.Request.PathValue("runId")
@@ -178,7 +178,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
-			).JSON(e)
+			)
 		}
 
 		authRecord := e.Auth
@@ -189,7 +189,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -197,7 +197,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			).JSON(e)
+			)
 		}
 
 		exec, err := getWorkflowExecutionWithFallback(namespace, workflowID, runID)
@@ -211,21 +211,21 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow not found",
 					err.Error(),
-				).JSON(e)
+				)
 			case errors.As(err, &invalidArg):
 				return apierror.New(
 					http.StatusBadRequest,
 					"workflow",
 					"invalid workflow ID",
 					err.Error(),
-				).JSON(e)
+				)
 			default:
 				return apierror.New(
 					http.StatusInternalServerError,
 					"workflow",
 					"failed to describe workflow execution",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 		}
 
@@ -236,7 +236,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to process workflow execution",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, finalJSON)
@@ -372,7 +372,7 @@ func HandleGetWorkflowResult() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -466,7 +466,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		switch req.Signal {
 		case workflows.OpenID4VPWalletStartCheckSignal:
@@ -487,7 +487,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 
 			return err
@@ -514,7 +514,7 @@ func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
 				"workflow",
 				"failed to send realtime logs update",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
 	}
@@ -966,7 +966,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"workflowId",
 				"workflowId is required",
 				"missing workflowId",
-			).JSON(e)
+			)
 		}
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
@@ -975,7 +975,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
@@ -985,7 +985,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -993,7 +993,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			).JSON(e)
+			)
 		}
 		c, err := complianceTemporalClient(namespace)
 		if err != nil {
@@ -1002,7 +1002,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		author, err := getWorkflowAuthor(c, workflowID, runID)
@@ -1091,7 +1091,7 @@ func handleDeeplinkFromHistory(
 			"workflow",
 			"workflow history not found",
 			"not found",
-		).JSON(e)
+		)
 	}
 
 	for historyIterator.HasNext() {
@@ -1102,7 +1102,7 @@ func handleDeeplinkFromHistory(
 				"workflow",
 				"failed to iterate workflow history",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		eventData, err := protojson.Marshal(event)
 		if err != nil {
@@ -1120,7 +1120,7 @@ func handleDeeplinkFromHistory(
 				"workflow",
 				"failed to unmarshal history event",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		if attrRaw, ok := eventMap["activityTaskCompletedEventAttributes"]; ok {
@@ -1151,7 +1151,7 @@ func handleDeeplinkFromHistory(
 								workflows.WebuildSuite,
 								workflows.EudiwSuite,
 							),
-						).JSON(e)
+						)
 					}
 				}
 			}
@@ -1224,7 +1224,7 @@ func getDeeplinkEudiw(e *core.RequestEvent, first map[string]any) error {
 				"deeplink",
 				"failed to build QR deep link",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, map[string]any{
 			"deeplink": deeplink,

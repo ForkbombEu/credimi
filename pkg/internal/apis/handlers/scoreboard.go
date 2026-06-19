@@ -128,7 +128,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 				"request",
 				"Failed to read body",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		var req SaveScoreboardResultsRequest
@@ -138,7 +138,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 				"request",
 				"Invalid JSON body",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		if len(req.AggregatedPipelines) == 0 {
@@ -147,7 +147,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 				"request",
 				"AggregatedPipelines cannot be empty",
 				"Please provide aggregated pipeline stats in the request body",
-			).JSON(e)
+			)
 		}
 
 		if err := truncateCollection(e.App, "pipeline_scoreboard_cache"); err != nil {
@@ -156,7 +156,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 				"truncate",
 				"Failed to truncate collection",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		result := &workflows.AggregateScoreboardWorkflowOutput{
@@ -176,7 +176,7 @@ func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
 				"insert",
 				"Failed to insert any results",
 				fmt.Sprintf("Errors: %v", saveErrors),
-			).JSON(e)
+			)
 		}
 
 		message := fmt.Sprintf("Results saved successfully (%d records)", recordsCount)
@@ -212,7 +212,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 					"schedule",
 					"Invalid schedule parameter",
 					"schedule must be a positive number of seconds",
-				).JSON(e)
+				)
 			}
 
 			namespace := aggregateScoreboardNamespace
@@ -225,7 +225,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 					"temporal",
 					"failed to create temporal client",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 
 			ctx := context.Background()
@@ -263,7 +263,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 					"schedule",
 					"failed to create schedule",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 
 			return e.JSON(http.StatusOK, map[string]any{
@@ -288,7 +288,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start aggregate scoreboard workflow",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, StartAggregateScoreboardResponse{
@@ -309,7 +309,7 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 				"params",
 				"schedule_id is required",
 				"missing schedule_id in path",
-			).JSON(e)
+			)
 		}
 
 		namespace := aggregateScoreboardNamespace
@@ -321,7 +321,7 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 				"temporal",
 				"failed to create temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		ctx := context.Background()
@@ -334,14 +334,14 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 					"schedule",
 					"schedule not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"schedule",
 				"failed to delete schedule",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
@@ -361,7 +361,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 				"namespace",
 				"namespace is required",
 				"please provide a namespace in the path",
-			).JSON(e)
+			)
 		}
 		pipelineRecords := make([]*core.Record, 0)
 		for offset := 0; ; offset += scoreboardPipelineRecordBatchSize {
@@ -379,7 +379,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 					"pipelines",
 					"failed to fetch pipelines",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			pipelineRecords = append(pipelineRecords, batch...)
 			if len(batch) < scoreboardPipelineRecordBatchSize {
@@ -403,7 +403,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		executions, err := listPipelineWorkflowExecutions(
@@ -421,7 +421,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to list workflows",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
 		runTypes := pipelineRunTypesForExecutions(e.App, executions)
@@ -533,7 +533,7 @@ func HandleGetExecutionDetails() func(*core.RequestEvent) error {
 				http.StatusBadRequest,
 				"params",
 				"namespace, workflow_id and run_id are required",
-				"").JSON(e)
+				"")
 		}
 
 		temporalClient, err := pipelineResultsTemporalClient(namespace)
@@ -542,7 +542,7 @@ func HandleGetExecutionDetails() func(*core.RequestEvent) error {
 				http.StatusInternalServerError,
 				"temporal",
 				"unable to create temporal client",
-				err.Error()).JSON(e)
+				err.Error())
 		}
 		exec, apiErr := getWorkflowExecutionWithDecodedAttrs(temporalClient, workflowID, runID)
 		if apiErr != nil {
@@ -550,7 +550,7 @@ func HandleGetExecutionDetails() func(*core.RequestEvent) error {
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to get workflow execution",
-				apiErr.Error()).JSON(e)
+				apiErr.Error())
 		}
 		pipelineIdentifier := pipelineIdentifierFromSearchAttributes(exec.SearchAttributes)
 

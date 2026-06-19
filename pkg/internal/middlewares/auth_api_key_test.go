@@ -5,6 +5,8 @@
 package middlewares
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -53,8 +55,10 @@ func TestRequireAuthOrAPIKey_BearerAndFallbackContract(t *testing.T) {
 
 		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
 		err := RequireAuthOrAPIKey().Func(e)
-		require.NoError(t, err)
+		require.Error(t, err)
+		writeMiddlewareErrorResponse(t, e, err)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		requireAPIErrorResponse(t, rec, http.StatusUnauthorized, "request.validation", "authentication_required", "Bearer token or Credimi-Api-Key is required")
 	})
 
 	t.Run("invalid api key returns unauthorized", func(t *testing.T) {
@@ -64,8 +68,10 @@ func TestRequireAuthOrAPIKey_BearerAndFallbackContract(t *testing.T) {
 
 		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
 		err := RequireAuthOrAPIKey().Func(e)
-		require.NoError(t, err)
+		require.Error(t, err)
+		writeMiddlewareErrorResponse(t, e, err)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		requireAPIErrorResponse(t, rec, http.StatusUnauthorized, "request.validation", "invalid_api_key", "Invalid API key provided")
 	})
 
 	t.Run("bearer takes precedence over api key fallback", func(t *testing.T) {
@@ -105,8 +111,10 @@ func TestRequireInternalAdminAPIKey(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
 		err := RequireInternalAdminAPIKey().Func(e)
-		require.NoError(t, err)
+		require.Error(t, err)
+		writeMiddlewareErrorResponse(t, e, err)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		requireAPIErrorResponse(t, rec, http.StatusUnauthorized, "request.validation", "api_key_required", "Credimi-Api-Key is required")
 	})
 
 	t.Run("rejects key without explicit internal admin scope", func(t *testing.T) {
@@ -123,8 +131,10 @@ func TestRequireInternalAdminAPIKey(t *testing.T) {
 		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
 
 		err := RequireInternalAdminAPIKey().Func(e)
-		require.NoError(t, err)
+		require.Error(t, err)
+		writeMiddlewareErrorResponse(t, e, err)
 		require.Equal(t, http.StatusForbidden, rec.Code)
+		requireAPIErrorResponse(t, rec, http.StatusForbidden, "request.validation", "insufficient_api_key_scope", "API key does not have required scope")
 	})
 
 }
@@ -193,11 +203,52 @@ func TestOptionalAuthOrAPIKey(t *testing.T) {
 		})
 
 		err := OptionalAuthOrAPIKey().Func(e)
-		require.NoError(t, err)
+		require.Error(t, err)
+		writeMiddlewareErrorResponse(t, e, err)
 		require.False(t, nextCalled)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
-		require.Contains(t, rec.Body.String(), "invalid_api_key")
+		requireAPIErrorResponse(t, rec, http.StatusUnauthorized, "request.validation", "invalid_api_key", "Invalid API key provided")
 	})
+}
+
+func writeMiddlewareErrorResponse(t *testing.T, e *core.RequestEvent, err error) {
+	t.Helper()
+
+	setNext(e, func() error { return err })
+	require.NoError(t, ErrorHandlingMiddleware(e))
+}
+
+func requireAPIErrorResponse(
+	t *testing.T,
+	rec *httptest.ResponseRecorder,
+	code int,
+	domain string,
+	reason string,
+	message string,
+) {
+	t.Helper()
+
+	requireAPIErrorResponseFromReader(t, rec.Body, code, domain, reason, message)
+}
+
+func requireAPIErrorResponseFromReader(
+	t *testing.T,
+	reader io.Reader,
+	code int,
+	domain string,
+	reason string,
+	message string,
+) {
+	t.Helper()
+
+	var body errorMiddlewareResponse
+	require.NoError(t, json.NewDecoder(reader).Decode(&body))
+	require.Equal(t, "2.0", body.APIVersion)
+	require.Equal(t, message, body.Message)
+	require.Equal(t, code, body.Error.Code)
+	require.Equal(t, domain, body.Error.Domain)
+	require.Equal(t, reason, body.Error.Reason)
+	require.Equal(t, message, body.Error.Message)
 }
 
 type apiKeyRecordInput struct {

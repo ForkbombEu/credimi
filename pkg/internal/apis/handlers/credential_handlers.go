@@ -59,7 +59,7 @@ func HandleGetCredentialOffer() func(*core.RequestEvent) error {
 				"credential_identifier",
 				"credential_identifier is required",
 				"missing credential_identifier",
-			).JSON(e)
+			)
 		}
 
 		record, err := canonify.Resolve(e.App, credentialIdentifier)
@@ -69,7 +69,7 @@ func HandleGetCredentialOffer() func(*core.RequestEvent) error {
 				"credential_identifier",
 				"credential not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		var response GetCredentialOfferResponse
@@ -96,7 +96,7 @@ func HandleGetCredentialOffer() func(*core.RequestEvent) error {
 				"credential_issuer",
 				"issuer not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		data := map[string]any{
 			"credential_configuration_ids": []string{record.GetString("name")},
