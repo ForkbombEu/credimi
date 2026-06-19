@@ -19,7 +19,7 @@ jobs:
   link-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Check internal credimi.io links (HTTP/1.1)
         run: |
           FAILED=0
@@ -61,7 +61,7 @@ jobs:
       group: pages
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
       - name: Generate OpenAPI spec
         run: go generate ./pkg/gen.go
