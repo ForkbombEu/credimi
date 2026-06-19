@@ -29,6 +29,7 @@ func TestGetTemporalClientWithNamespaceCaches(t *testing.T) {
 	callCount := 0
 	newLazyClient = func(options client.Options) (client.Client, error) {
 		callCount++
+		require.NotNil(t, options.DataConverter)
 		if options.Namespace == "other" {
 			return mockOther, nil
 		}
@@ -82,4 +83,35 @@ func TestShutdownClientsClearsCache(t *testing.T) {
 	for _, mockClient := range clients {
 		mockClient.AssertExpectations(t)
 	}
+}
+
+func TestGetTemporalClientWithNamespaceReturnsCreateError(t *testing.T) {
+	ShutdownClients()
+
+	origNewLazy := newLazyClient
+	t.Cleanup(func() {
+		newLazyClient = origNewLazy
+		ShutdownClients()
+	})
+
+	newLazyClient = func(options client.Options) (client.Client, error) {
+		require.NotNil(t, options.DataConverter)
+		return nil, assertError("boom")
+	}
+
+	_, err := GetTemporalClientWithNamespace("default")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unable to create client")
+}
+
+func assertError(message string) error {
+	return &testError{message: message}
+}
+
+type testError struct {
+	message string
+}
+
+func (e *testError) Error() string {
+	return e.message
 }

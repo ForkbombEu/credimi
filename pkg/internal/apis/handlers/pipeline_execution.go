@@ -89,7 +89,10 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				return apierror.New(
 					http.StatusBadRequest,
 					"yaml",
-					fmt.Sprintf("pipeline contains invalid step type '%s'. Only 'http-request' steps are allowed", step.Use),
+					fmt.Sprintf(
+						"pipeline contains invalid step type '%s'. Only 'http-request' steps are allowed",
+						step.Use,
+					),
 					"",
 				)
 			}
@@ -118,7 +121,12 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 		// This endpoint executes ephemeral YAML directly, not a stored pipeline record.
 		// Do not attach PipelineIdentifier search attributes or create pipeline_results.
 		workflowOptions := client.StartWorkflowOptions{
-			ID:        fmt.Sprintf("%s%s-%s", pipelineExecuteWorkflowIDPrefix, canonify.CanonifyPlain(wfDef.Name), uuid.NewString()),
+			ID: fmt.Sprintf(
+				"%s%s-%s",
+				pipelineExecuteWorkflowIDPrefix,
+				canonify.CanonifyPlain(wfDef.Name),
+				uuid.NewString(),
+			),
 			TaskQueue: pip.PipelineTaskQueue,
 		}
 
@@ -135,7 +143,12 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 		ctx, cancel := context.WithTimeout(context.Background(), PipelineExecuteTimeout)
 		defer cancel()
 
-		we, err := temporalClient.ExecuteWorkflow(ctx, workflowOptions, "Dynamic Pipeline Workflow", workflowInput)
+		we, err := temporalClient.ExecuteWorkflow(
+			ctx,
+			workflowOptions,
+			"Dynamic Pipeline Workflow",
+			workflowInput,
+		)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

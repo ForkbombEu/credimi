@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"go.temporal.io/sdk/client"
 )
@@ -35,8 +36,9 @@ func getTemporalClient(args ...string) (client.Client, error) {
 	}
 	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
 	c, err := newLazyClient(client.Options{
-		HostPort:  hostPort,
-		Namespace: namespace,
+		HostPort:      hostPort,
+		Namespace:     namespace,
+		DataConverter: temporalcrypto.DataConverter(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create client: %w", err)

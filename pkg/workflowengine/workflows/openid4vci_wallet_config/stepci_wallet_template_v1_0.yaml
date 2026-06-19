@@ -20,7 +20,7 @@ tests:
     steps:
       - name: Create new config extraction session
         http:
-          url: https://capture-vci.credimi.io/sessions
+          url: https://capture-wallet.credimi.io/sessions
           method: POST
           check:
             status: 201
@@ -44,7 +44,7 @@ tests:
             status: 200
       - name: Get config extraction results
         http:
-          url: https://capture-vci.credimi.io/sessions/${{ captures.session_id }}
+          url: https://capture-wallet.credimi.io/sessions/${{ captures.session_id }}
           method: GET
           check:
             status: 200

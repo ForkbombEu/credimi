@@ -63,6 +63,7 @@ func RunStepCIAndSendMail(
 		Config: map[string]string{
 			"template": cfg.Template,
 		},
+		Secrets: cfg.Secrets,
 	}
 	if err := stepCIActivity.Configure(&stepCIInput); err != nil {
 		logger.Error("StepCI configure failed", "error", err)
@@ -266,6 +267,14 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	var ewcSessionID string
 	parameters := conformanceCheckParameters(payload)
 	standard := conformanceCheckStandard(payload, input.Config)
+	cfg := StepCIAndEmailConfig{
+		Template:      input.Config["template"].(string),
+		StepCIPayload: stepCIPayload,
+		Namespace:     input.Config["namespace"].(string),
+		RunMetadata:   input.RunMetadata,
+		Suite:         payload.Suite,
+		SendMail:      payload.SendMail,
+	}
 	switch payload.Suite {
 	case OpenIDConformanceSuite:
 		if payload.TestName == "" {
@@ -276,7 +285,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		}
 		stepCIPayload.Data = parameters
 		stepCIPayload.Data["test"] = payload.TestName
-		stepCIPayload.Secrets = map[string]string{
+		cfg.Secrets = map[string]any{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		}
 	case EWCSuite, WebuildSuite:
@@ -287,14 +296,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	cfg := StepCIAndEmailConfig{
-		Template:      input.Config["template"].(string),
-		StepCIPayload: stepCIPayload,
-		Namespace:     input.Config["namespace"].(string),
-		RunMetadata:   input.RunMetadata,
-		Suite:         payload.Suite,
-		SendMail:      payload.SendMail,
-	}
+	cfg.StepCIPayload = stepCIPayload
 
 	if payload.SendMail {
 		cfg.AppURL = appURL

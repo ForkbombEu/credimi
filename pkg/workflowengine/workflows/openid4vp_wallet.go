@@ -167,9 +167,6 @@ func (w *OpenID4VPWalletWorkflow) ExecuteWorkflow(
 			"form":    payload.Form,
 			"test":    payload.TestName,
 		},
-		Secrets: map[string]string{
-			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
-		},
 	}
 	cfg := StepCIAndEmailConfig{
 		AppURL:        appURL,
@@ -179,9 +176,12 @@ func (w *OpenID4VPWalletWorkflow) ExecuteWorkflow(
 		UserMail:      payload.UserMail,
 		Template:      template,
 		StepCIPayload: stepCIPayload,
-		Namespace:     input.Config["namespace"].(string),
-		RunMetadata:   input.RunMetadata,
-		Suite:         suite,
+		Secrets: map[string]any{
+			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
+		},
+		Namespace:   input.Config["namespace"].(string),
+		RunMetadata: input.RunMetadata,
+		Suite:       suite,
 	}
 
 	result, err := RunStepCIAndSendMail(ctx, cfg)

@@ -19,9 +19,10 @@ import (
 )
 
 type GetCredentialOfferResponse struct {
-	CredentialOffer string `json:"credential_offer"`
-	Dynamic         bool   `json:"dynamic"`
-	Code            string `json:"code"`
+	CredentialOffer string            `json:"credential_offer"`
+	Dynamic         bool              `json:"dynamic"`
+	Code            string            `json:"code"`
+	Secrets         map[string]string `json:"secrets,omitempty"`
 }
 
 var CredentialTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
@@ -75,8 +76,13 @@ func HandleGetCredentialOffer() func(*core.RequestEvent) error {
 		var response GetCredentialOfferResponse
 		code := record.GetString("yaml")
 		if code != "" {
+			secrets, apiErr := parseSecretsYAML(record.GetString("secrets"))
+			if apiErr != nil {
+				return apiErr
+			}
 			response.Dynamic = true
 			response.Code = code
+			response.Secrets = secrets
 			return e.JSON(http.StatusOK, response)
 		}
 

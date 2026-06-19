@@ -802,7 +802,11 @@ func extractOpenIDNetLogsFromResultOrError(
 func extractEWCLikeLogsFromWorkflowError(err error) []map[string]any {
 	for current := err; current != nil; current = errors.Unwrap(current) {
 		details := workflowengine.ParseWorkflowError(current)
-		if logs := extractEWCLikeLogsFromPayload(workflowErrorDetailsPayload(details)); len(logs) > 0 {
+		if logs := extractEWCLikeLogsFromPayload(
+			workflowErrorDetailsPayload(details),
+		); len(
+			logs,
+		) > 0 {
 			return logs
 		}
 	}
@@ -902,7 +906,11 @@ func looksLikeEWCLikeLogs(logs []map[string]any) bool {
 func extractOpenIDNetLogsFromWorkflowError(err error) []map[string]any {
 	for current := err; current != nil; current = errors.Unwrap(current) {
 		details := workflowengine.ParseWorkflowError(current)
-		if logs := extractOpenIDNetLogsFromPayload(workflowErrorDetailsPayload(details)); len(logs) > 0 {
+		if logs := extractOpenIDNetLogsFromPayload(
+			workflowErrorDetailsPayload(details),
+		); len(
+			logs,
+		) > 0 {
 			return logs
 		}
 	}
@@ -910,7 +918,10 @@ func extractOpenIDNetLogsFromWorkflowError(err error) []map[string]any {
 }
 
 func extractOpenIDNetLogsFromPayload(payload any) []map[string]any {
-	if logs := workflowengine.AsSliceOfMaps(payload); len(logs) > 0 && looksLikeOpenIDNetLogs(logs) {
+	if logs := workflowengine.AsSliceOfMaps(
+		payload,
+	); len(logs) > 0 &&
+		looksLikeOpenIDNetLogs(logs) {
 		return logs
 	}
 

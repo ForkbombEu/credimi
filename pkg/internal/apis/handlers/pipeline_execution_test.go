@@ -462,7 +462,12 @@ func TestHandlePipelineExecute_WithAuthUsesOrgNamespace(t *testing.T) {
 	}
 	scenario.Test(t)
 
-	require.NotEqual(t, "default", capturedNamespace, "authenticated user should use org namespace, not default")
+	require.NotEqual(
+		t,
+		"default",
+		capturedNamespace,
+		"authenticated user should use org namespace, not default",
+	)
 }
 
 func TestHandlePipelineExecute_WithoutAuthUsesDefaultNamespace(t *testing.T) {
