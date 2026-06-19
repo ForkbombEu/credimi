@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+          go install golang.org/x/vuln/cmd/govulncheck@vlatest
 
       - name: Run govulncheck (text output for logs)
         shell: bash
