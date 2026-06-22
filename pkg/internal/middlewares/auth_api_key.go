@@ -43,29 +43,21 @@ func RequireAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 						"request.validation",
 						"authentication_required",
 						"Bearer token or Credimi-Api-Key is required",
-					).JSON(e)
+					)
 				}
 
 				principal, apiErr := authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeUser)
 				if apiErr != nil {
-					return apiErr.JSON(e)
+					return apiErr
 				}
 				e.Auth = principal
 
 				return e.Next()
 			}
 
-			if err := apis.RequireAuth().Func(e); err == nil {
-				return nil
+			if !strings.HasPrefix(authHeader, "Bearer ") {
+				e.Request.Header.Set("Authorization", "Bearer "+authHeader)
 			}
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				e.Request.Header.Set(
-					"Authorization",
-					strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer ")),
-				)
-				return apis.RequireAuth().Func(e)
-			}
-			e.Request.Header.Set("Authorization", "Bearer "+authHeader)
 			return apis.RequireAuth().Func(e)
 		},
 	}
@@ -83,12 +75,12 @@ func RequireInternalAdminAPIKey() *hook.Handler[*core.RequestEvent] {
 					"request.validation",
 					"api_key_required",
 					"Credimi-Api-Key is required",
-				).JSON(e)
+				)
 			}
 
 			principal, apiErr := authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeInternalAdmin)
 			if apiErr != nil {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 			e.Auth = principal
 
@@ -266,7 +258,7 @@ func OptionalAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 
 			principal, apiErr := authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeUser)
 			if apiErr != nil {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 			e.Auth = principal
 

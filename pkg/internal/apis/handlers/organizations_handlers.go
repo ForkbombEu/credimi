@@ -59,7 +59,7 @@ func HandleGetMyOrganization() func(*core.RequestEvent) error {
 				"organizations",
 				"unable to get user organization ID",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		orgRecord, err := e.App.FindRecordById("organizations", orgID)
 		if err != nil {
@@ -68,7 +68,7 @@ func HandleGetMyOrganization() func(*core.RequestEvent) error {
 				"organizations",
 				"unable to get user organization record",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, orgRecord.FieldsData())
 	}
@@ -83,7 +83,7 @@ func HandleGetAllNamespaces() func(*core.RequestEvent) error {
 				"organizations",
 				"failed to fetch organizations",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		namespaces := make([]string, 0, len(records))

@@ -55,7 +55,7 @@ func HandleIdentifierValidate() func(*core.RequestEvent) error {
 				"identifier",
 				"failed to validate identifier",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		record.WithCustomData(true)
 		record.Set("__canonified_path__", canonify.NormalizePath(req.CanonifiedName))
@@ -75,7 +75,7 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 				"collection",
 				"collection is required",
 				"missing collection",
-			).JSON(e)
+			)
 		}
 
 		recID := e.Request.URL.Query().Get("id")
@@ -85,7 +85,7 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 				"id",
 				"record id is required",
 				"missing id",
-			).JSON(e)
+			)
 		}
 
 		rec, err := e.App.FindRecordById(collection, recID)
@@ -95,7 +95,7 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 				"id",
 				"record not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		if collection == "hub_items" {
@@ -108,7 +108,7 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 					"id",
 					"record not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 		}
 
@@ -119,7 +119,7 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 				"collection",
 				"no path template for collection",
 				collection,
-			).JSON(e)
+			)
 		}
 
 		identifier, err := canonify.BuildPath(e.App, rec, tpl, "")
@@ -129,7 +129,7 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 				"path",
 				"failed to build identifier path",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{

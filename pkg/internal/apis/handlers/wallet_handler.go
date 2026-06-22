@@ -133,7 +133,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get user organization",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		orgName, err := pbutils.GetOrganizationCanonifiedName(e.App, organization)
 		if err != nil {
@@ -142,7 +142,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get organization",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		// Start the workflow
 		workflowInput := workflowengine.WorkflowInput{
@@ -161,7 +161,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start workflow",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		client, err := walletTemporalClient(
 			orgName,
@@ -172,7 +172,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				"temporal",
 				"failed to get temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		result, err := walletWaitForPartialResult(
 			client,
@@ -188,7 +188,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to get partial workflow result",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		storeType := getStringFromMap(result, "storeType")
 		metadata, ok := result["metadata"].(map[string]any)
@@ -198,7 +198,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to get partial workflow result",
 				"failed to get metadata",
-			).JSON(e)
+			)
 		}
 		var name, logo, appleAppID, googleAppID, playstoreURL, appstoreURL, homeURL string
 		description := getStringFromMap(metadata, "description")
@@ -261,7 +261,7 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 				"identifier",
 				"no identifier provided",
 				"at least one identifier must be provided",
-			).JSON(e)
+			)
 		}
 
 		platform, err := normalizeWalletPlatform(req.Platform)
@@ -271,7 +271,7 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 				"platform",
 				"invalid platform",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if req.SkipInstaller {
 			return e.JSON(http.StatusOK, WalletInstallerMD5OrETagResponse{
@@ -290,10 +290,10 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 				"wallet_version",
 				"wallet version not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if apiErr := authorizeWalletInstallerAccess(e, versionRecord); apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		installerField := installerFieldForPlatform(platform)
@@ -304,7 +304,7 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 				installerField,
 				fmt.Sprintf("no %s file found for this wallet version", installerField),
 				fmt.Sprintf("%s field is empty", installerField),
-			).JSON(e)
+			)
 		}
 
 		identifier, err := getFileMD5OrETagFromPocketBase(e.App, versionRecord, installer)
@@ -314,7 +314,7 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 				"filesystem",
 				"failed to get file MD5 or ETag",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		versionIdentifier := req.WalletVersionIdentifier
 		if versionIdentifier == "" {
@@ -439,7 +439,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 				"multipart",
 				"failed to parse multipart form",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		runnerIdentifier := e.Request.FormValue("runner_identifier")
@@ -451,7 +451,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 				"platform",
 				"invalid platform",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		resultRecord, err := canonify.Resolve(e.App, runIdentifier)
@@ -461,10 +461,10 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 				"pipeline_results",
 				"record not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if apiErr := authorizeOwnerAccess(e, resultRecord.GetString("owner")); apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		versionName := strings.ReplaceAll(
@@ -477,7 +477,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			e, resultRecord, "result_video", "video_results", filename, false,
 		)
 		if apierr != nil {
-			return apierr.JSON(e)
+			return apierr
 		}
 
 		filename = versionName + "_screenshot"
@@ -485,7 +485,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			e, resultRecord, "last_frame", "screenshots", filename, false,
 		)
 		if apierr != nil {
-			return apierr.JSON(e)
+			return apierr
 		}
 
 		response := map[string]any{
@@ -503,7 +503,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			e, resultRecord, "logfile", logRecordFieldForPlatform(platform), filename, true,
 		)
 		if apierr != nil {
-			return apierr.JSON(e)
+			return apierr
 		}
 		response["log_file_name"] = logFilename
 		response["log_urls"] = logURLs

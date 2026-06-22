@@ -61,7 +61,7 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -69,7 +69,7 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			).JSON(e)
+			)
 		}
 
 		timeout := 30 * time.Second
@@ -98,7 +98,7 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 				"custom-integration",
 				"failed to process custom integration",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, workflowengine.WorkflowResult{

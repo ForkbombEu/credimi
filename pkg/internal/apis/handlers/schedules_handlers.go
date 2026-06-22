@@ -125,7 +125,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get user organization record",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		namespace := orgRecord.GetString("canonified_name")
 		if namespace == "" {
@@ -134,7 +134,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get user organization",
 				"missing organization canonified name",
-			).JSON(e)
+			)
 		}
 		orgID := orgRecord.Id
 		maxPipelinesInQueue := orgRecord.GetInt("max_pipelines_in_queue")
@@ -150,7 +150,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to resolve pipeline_id",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
@@ -171,7 +171,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				"schedule",
 				"failed to start scheduled workflow",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		coll, err := e.App.FindCollectionByNameOrId("schedules")
 		if err != nil {
@@ -180,7 +180,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				"schedule",
 				"failed to get schedules collection",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		pipeline, err := canonify.Resolve(e.App, req.PipelineID)
@@ -190,7 +190,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to resolve pipeline identifier",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		rec = core.NewRecord(coll)
@@ -205,7 +205,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				"schedule",
 				"failed to save schedule record",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, StartScheduleResponse{
@@ -254,7 +254,7 @@ func HandleListMySchedules() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get user organization name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		schedules, err := listScheduledWorkflows(namespace)
@@ -264,7 +264,7 @@ func HandleListMySchedules() func(*core.RequestEvent) error {
 				"schedule",
 				"failed to list scheduled workflows",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		response := ListMySchedulesResponse{
 			Schedules: schedules,
@@ -433,7 +433,7 @@ func handleSchedule(
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		scheduleID := e.Request.PathValue("scheduleId")
@@ -443,7 +443,7 @@ func handleSchedule(
 				"params",
 				"scheduleId is required",
 				"missing required parameters",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -453,7 +453,7 @@ func handleSchedule(
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		c, err := scheduleTemporalClient(namespace)
@@ -463,7 +463,7 @@ func handleSchedule(
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		ctx := context.Background()
@@ -477,14 +477,14 @@ func handleSchedule(
 					"schedule",
 					"schedule not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"schedule",
 				"failed to modify schedule",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		if after != nil {
@@ -494,7 +494,7 @@ func handleSchedule(
 					"schedule",
 					"failed to update local schedule state",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 		}
 

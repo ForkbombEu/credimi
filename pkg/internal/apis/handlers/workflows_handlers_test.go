@@ -39,9 +39,13 @@ import (
 
 func decodeAPIError(t testing.TB, rec *httptest.ResponseRecorder) apierror.APIError {
 	t.Helper()
-	var apiErr apierror.APIError
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
-	return apiErr
+	body := decodeHandlerErrorResponse(t, rec)
+	return apierror.APIError{
+		Code:    body.Error.Code,
+		Domain:  body.Error.Domain,
+		Reason:  body.Error.Reason,
+		Message: body.Error.Message,
+	}
 }
 
 func TestWorkflowListingRoutesRegistered(t *testing.T) {
@@ -96,7 +100,7 @@ func TestHandleGetMyCheckRunRequiresAuth(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -128,7 +132,7 @@ func TestHandleGetMyCheckRunMissingRunID(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -155,7 +159,7 @@ func TestHandleListMyCheckRunsMissingCheckID(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -179,7 +183,7 @@ func TestHandleListMyCheckRunsUnauthorized(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -214,7 +218,7 @@ func TestHandleListMyCheckRunsTemporalClientError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -252,7 +256,7 @@ func TestHandleListMyCheckRunsListError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -300,7 +304,7 @@ func TestHandleGetMyCheckRunHistoryMissingParams(t *testing.T) {
 			Response: ar,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, ar, err)
 	require.Equal(t, http.StatusBadRequest, ar.Code)
 
 	apiErr := decodeAPIError(t, ar)
@@ -493,7 +497,7 @@ func TestHandleGetMyCheckRunInvalidArgument(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -727,7 +731,7 @@ func TestHandleCancelMyCheckRunNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -743,7 +747,7 @@ func TestHandleTerminateMyCheckRunMissingAuth(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
@@ -766,7 +770,7 @@ func TestHandleTerminateMyCheckRunMissingParams(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -793,7 +797,7 @@ func TestHandleTerminateMyCheckRunMissingOrganization(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -827,7 +831,7 @@ func TestHandleTerminateMyCheckRunClientError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -874,7 +878,7 @@ func TestHandleTerminateMyCheckRunNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -921,7 +925,7 @@ func TestHandleTerminateMyCheckRunError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1025,7 +1029,7 @@ func TestHandleMyCheckLogsMissingAuth(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
@@ -1048,7 +1052,7 @@ func TestHandleMyCheckLogsMissingParams(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -1086,7 +1090,7 @@ func TestHandleMyCheckLogsMissingOrganization(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -1120,7 +1124,7 @@ func TestHandleMyCheckLogsClientError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1160,7 +1164,7 @@ func TestHandleMyCheckLogsDescribeNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -1200,7 +1204,7 @@ func TestHandleMyCheckLogsDescribeError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1248,7 +1252,7 @@ func TestHandleMyCheckLogsSignalStartError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1296,7 +1300,7 @@ func TestHandleMyCheckLogsSignalStopError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1616,7 +1620,7 @@ func TestHandleListMyWorkflowsTemporalClientError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -1890,7 +1894,7 @@ func TestHandleListMyWorkflowsListError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -1915,7 +1919,7 @@ func TestHandleRerunMyCheckUnauthorizedAdditional(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
@@ -1938,7 +1942,7 @@ func TestHandleRerunMyCheckMissingParamsAdditional(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -1977,7 +1981,7 @@ func TestHandleRerunMyCheckDescribeNotFoundAdditional(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -2010,7 +2014,7 @@ func TestHandleRerunMyCheckTemporalClientErrorAdditional(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -2059,7 +2063,7 @@ func TestHandleRerunMyCheckGetInputErrorAdditional(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -2118,7 +2122,7 @@ func TestHandleRerunMyCheckStartErrorAdditional(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -2181,7 +2185,7 @@ func TestHandleExportMyCheckRunMissingParamsAdditional(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -2220,7 +2224,7 @@ func TestHandleExportMyCheckRunGetInputErrorAdditional(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 

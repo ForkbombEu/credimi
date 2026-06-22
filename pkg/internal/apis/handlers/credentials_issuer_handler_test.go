@@ -370,7 +370,7 @@ func TestHandleCredentialIssuerStartCheckBadURL(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -496,7 +496,7 @@ func TestHandleCredentialIssuerStartCheckReadSchemaErrorAdditional(t *testing.T)
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -543,7 +543,7 @@ func TestHandleCredentialIssuerStartCheckTemporalClientErrorAdditional(t *testin
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -674,7 +674,7 @@ func TestHandleCredentialIssuerStartCheckExistingRecordStartErrorAdditional(t *t
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	_, err = app.FindRecordById("credential_issuers", record.Id)
@@ -907,7 +907,7 @@ func TestHandleCredentialIssuerStoreOrUpdateInvalidSavedJSONAdditional(t *testin
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -949,7 +949,7 @@ func TestHandleCredentialIssuerStartCheckWorkflowErrorDeletesNewRecord(t *testin
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
@@ -1024,7 +1024,7 @@ func TestHandleCredentialIssuerStartCheckWaitErrorDeletesNewRecord(t *testing.T)
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
@@ -1099,7 +1099,7 @@ func TestHandleCredentialIssuerStartCheckInvalidCredentialsNumber(t *testing.T) 
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 

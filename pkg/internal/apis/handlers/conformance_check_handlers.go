@@ -50,7 +50,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"request",
 				"missing check id",
 				"id parameter is required",
-			).JSON(e)
+			)
 		}
 
 		redirect := e.Request.URL.Query().Get("redirect") == RedirectFlagTrue
@@ -69,7 +69,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"request",
 				"invalid check name",
 				"checkName may only contain letters, numbers, dash and underscore",
-			).JSON(e)
+			)
 		}
 		appURL := e.App.Settings().Meta.AppURL
 		memo := map[string]any{
@@ -100,7 +100,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"suite",
 				"unsupported suite",
 				"only ewc and webuild suites are supported",
-			).JSON(e)
+			)
 		}
 		templatePath := filepath.Join(
 			utils.GetEnvironmentVariable("ROOT_DIR", true),
@@ -115,7 +115,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"request",
 				"invalid check name",
 				"checkName must not contain slashes or parent directory references",
-			).JSON(e)
+			)
 		}
 		templateData, err := os.ReadFile(templatePath)
 
@@ -125,7 +125,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"file",
 				"failed to read template file",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		input := workflowengine.WorkflowInput{
@@ -152,7 +152,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start get deeplink check",
 				errStart.Error(),
-			).JSON(e)
+			)
 		}
 		client, err := temporalclient.GetTemporalClientWithNamespace(
 			"default",
@@ -163,7 +163,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"temporal",
 				"failed to get temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		result, err := workflowengine.WaitForWorkflowResult(
 			client,
@@ -187,7 +187,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to get workflow output",
 				"output is not a map",
-			).JSON(e)
+			)
 		}
 
 		deeplink, ok := output["deeplink"].(string)
@@ -197,7 +197,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to get workflow output",
 				"deeplink is not present in output",
-			).JSON(e)
+			)
 		}
 
 		if redirect {

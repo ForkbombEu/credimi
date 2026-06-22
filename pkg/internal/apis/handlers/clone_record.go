@@ -244,7 +244,7 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 				"not_found",
 				fmt.Sprintf("Record '%s' not found in collection '%s'", req.ID, req.Collection),
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		if config.CanDuplicate != nil {
@@ -269,7 +269,7 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 				"clone_failed",
 				fmt.Sprintf("Failed to clone record in '%s'", req.Collection),
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		response := CloneResponse{
 			ClonedRecord: clonedRecord.FieldsData(),

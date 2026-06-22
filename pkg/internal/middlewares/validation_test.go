@@ -6,6 +6,7 @@ package middlewares
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -80,17 +81,18 @@ func TestDynamicValidateInputByType_InvalidJSON(t *testing.T) {
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(body)}
 	e.Request.ContentLength = int64(body.Len())
 	err := handler(e.RequestEvent)
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
+	require.Error(t, err)
+	writeMiddlewareErrorResponse(t, e.RequestEvent, err)
 
 	resp := e.Response.(*mockResponseWriter)
 	if resp.code != http.StatusBadRequest {
 		t.Errorf("expected status 400, got %d", resp.code)
 	}
-	if !strings.Contains(resp.body.String(), "Invalid JSON format") {
-		t.Errorf("expected JSON error in body, got: %s", resp.body.String())
-	}
+	responseBody := decodeValidationMiddlewareResponse(t, resp)
+	require.Equal(t, http.StatusBadRequest, responseBody.Error.Code)
+	require.Equal(t, "request.body.json", responseBody.Error.Domain)
+	require.Equal(t, "Invalid JSON format for the expected type", responseBody.Error.Reason)
+	require.Contains(t, responseBody.Error.Message, "invalid character")
 }
 
 func TestDynamicValidateInputByType_ValidationFails(t *testing.T) {
@@ -99,17 +101,18 @@ func TestDynamicValidateInputByType_ValidationFails(t *testing.T) {
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(body)}
 	e.Request.ContentLength = int64(body.Len())
 	err := handler(e.RequestEvent)
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
+	require.Error(t, err)
+	writeMiddlewareErrorResponse(t, e.RequestEvent, err)
 
 	resp := e.Response.(*mockResponseWriter)
 	if resp.code != http.StatusBadRequest {
 		t.Errorf("expected status 400, got %d", resp.code)
 	}
-	if !strings.Contains(resp.body.String(), "Validation failed") {
-		t.Errorf("expected validation error in body, got: %s", resp.body.String())
-	}
+	responseBody := decodeValidationMiddlewareResponse(t, resp)
+	require.Equal(t, http.StatusBadRequest, responseBody.Error.Code)
+	require.Equal(t, "request.validation", responseBody.Error.Domain)
+	require.Equal(t, "Validation failed", responseBody.Error.Reason)
+	require.Contains(t, responseBody.Error.Message, "testStruct.Name")
 }
 
 func TestDynamicValidateInputByType_ValidationPasses(t *testing.T) {
@@ -141,17 +144,26 @@ func TestDynamicValidateInputByType_ReadBodyError(t *testing.T) {
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(badReader)}
 	e.Request.ContentLength = 10
 	err := handler(e.RequestEvent)
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
+	require.Error(t, err)
+	writeMiddlewareErrorResponse(t, e.RequestEvent, err)
 
 	resp := e.Response.(*mockResponseWriter)
 	if resp.code != http.StatusBadRequest {
 		t.Errorf("expected status 400, got %d", resp.code)
 	}
-	if !strings.Contains(resp.body.String(), "Failed to read request body") {
-		t.Errorf("expected body read error in body, got: %s", resp.body.String())
-	}
+	responseBody := decodeValidationMiddlewareResponse(t, resp)
+	require.Equal(t, http.StatusBadRequest, responseBody.Error.Code)
+	require.Equal(t, "request.body.read", responseBody.Error.Domain)
+	require.Equal(t, "Failed to read request body", responseBody.Error.Reason)
+	require.Equal(t, "read error", responseBody.Error.Message)
+}
+
+func decodeValidationMiddlewareResponse(t *testing.T, resp *mockResponseWriter) errorMiddlewareResponse {
+	t.Helper()
+
+	var body errorMiddlewareResponse
+	require.NoError(t, json.NewDecoder(&resp.body).Decode(&body))
+	return body
 }
 
 type errReader struct{}

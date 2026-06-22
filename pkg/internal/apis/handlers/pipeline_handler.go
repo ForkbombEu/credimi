@@ -252,7 +252,7 @@ func HandleGetPipelineYAML() func(*core.RequestEvent) error {
 				"pipeline_identifier",
 				"pipeline_identifier is required",
 				"missing pipeline_identifier",
-			).JSON(e)
+			)
 		}
 
 		record, err := canonify.Resolve(e.App, pipelineIdentifier)
@@ -262,7 +262,7 @@ func HandleGetPipelineYAML() func(*core.RequestEvent) error {
 				"pipeline_identifier",
 				"pipeline not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		yaml := record.GetString("yaml")
 		return e.String(http.StatusOK, yaml)
@@ -318,7 +318,7 @@ func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
 				"workflow",
 				"workflow_id and run_id are required",
 				"missing workflow_id or run_id",
-			).JSON(e)
+			)
 		}
 		if strings.TrimSpace(input.Markdown) == "" {
 			return apierror.New(
@@ -326,12 +326,12 @@ func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
 				"report",
 				"markdown is required",
 				"missing markdown",
-			).JSON(e)
+			)
 		}
 
 		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		filename := sanitizePipelineReportFilename(input.Filename)
@@ -342,7 +342,7 @@ func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
 				"report",
 				"failed to create report file",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		record.Set("report", []*filesystem.File{file})
 		if err := e.App.Save(record); err != nil {
@@ -351,7 +351,7 @@ func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to save pipeline report",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, record.FieldsData())
 	}
@@ -369,12 +369,12 @@ func HandleUpdatePipelineExecutionEvidence() func(*core.RequestEvent) error {
 				"workflow",
 				"workflow_id and run_id are required",
 				"missing workflow_id or run_id",
-			).JSON(e)
+			)
 		}
 
 		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		record.Set("credential_well_knowns", input.CredentialWellKnowns)
@@ -385,7 +385,7 @@ func HandleUpdatePipelineExecutionEvidence() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to save pipeline evidence",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, record.FieldsData())
 	}
@@ -466,7 +466,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				"pipeline",
 				"pipeline not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		owner, err := canonify.Resolve(e.App, input.Owner)
@@ -476,7 +476,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				"owner",
 				"owner not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
@@ -486,7 +486,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				"collection",
 				"failed to get collection",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		runType := pipelineRunType(input.Type)
 		if !pipelineinternal.ValidRunType(runType) {
@@ -499,7 +499,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 					pipelineinternal.RunTypeScheduled,
 					pipelineinternal.RunTypeCI,
 				),
-			).JSON(e)
+			)
 		}
 
 		existing, err := e.App.FindFirstRecordByFilter(
@@ -520,7 +520,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				"pipeline",
 				"pipeline execution result already exists",
 				"pipeline execution result owner or pipeline mismatch",
-			).JSON(e)
+			)
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
 			return apierror.New(
@@ -528,7 +528,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to lookup pipeline execution result",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		record := core.NewRecord(coll)
@@ -543,7 +543,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to save pipeline record",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, record.FieldsData())
 	}
@@ -558,7 +558,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 		pipelineID := e.Request.PathValue("id")
 		if pipelineID == "" {
@@ -567,7 +567,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				"pipeline",
 				"pipeline ID is required",
 				"missing pipeline ID in path parameter",
-			).JSON(e)
+			)
 		}
 
 		organization, err := pbutils.GetUserOrganization(e.App, authRecord.Id)
@@ -577,7 +577,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get user organization",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		namespace := organization.GetString("canonified_name")
 		limit, pageNum := parsePaginationParams(e, 20, 0)
@@ -601,7 +601,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				"pipelines",
 				"failed to fetch pipelines",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		if len(pipelineRecords) == 0 {
@@ -621,7 +621,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				"pipeline",
 				"failed to build pipeline identifier",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		pipelineIdentifier := strings.Trim(pipelinePath, "/")
 
@@ -634,7 +634,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to list queued runs",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 
 			queuedByPipelineID := mapQueuedRunsToPipelines(
@@ -680,7 +680,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 					nil,
 				)
 				if apiErr != nil {
-					return apiErr.JSON(e)
+					return apiErr
 				}
 				return e.JSON(http.StatusOK, append(queuedSummaries, completedSummaries...))
 			}
@@ -695,7 +695,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		summaries, apiErr := fetchCompletedWorkflowsWithPagination(
 			e,
@@ -710,7 +710,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			temporalClient,
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		return e.JSON(http.StatusOK, summaries)
@@ -790,7 +790,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		organization, err := pbutils.GetUserOrganization(e.App, authRecord.Id)
@@ -800,7 +800,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get user organization",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		namespace := organization.GetString("canonified_name")
 
@@ -821,7 +821,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				"pipelines",
 				"failed to fetch pipelines",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		if len(pipelineRecords) == 0 {
@@ -835,7 +835,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to list queued runs",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
 
@@ -866,7 +866,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create temporal client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		executions, err := listPipelineWorkflowExecutions(
@@ -884,7 +884,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to list workflows",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
@@ -961,7 +961,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				"database",
 				"failed to fetch pipeline results",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
@@ -989,7 +989,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 					"temporal",
 					"failed to read workflow history",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			pipelineIdentifier := pipelineIdentifierByID[pipelineID]
 			for _, summary := range annotated {

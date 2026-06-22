@@ -150,7 +150,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"credential issuer endpoints not accessible",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		// Check if a record with the given URL already exists
@@ -161,7 +161,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"failed to find credential issuers collection",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		organization, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
@@ -170,7 +170,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get user organization",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		orgName, err := pbutils.GetOrganizationCanonifiedName(e.App, organization)
 		if err != nil {
@@ -179,7 +179,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		existingRecords, err := e.App.FindRecordsByFilter(
 			collection.Id,
@@ -198,7 +198,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"failed to find credential issuer",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		parsedURL, err := url.Parse(req.URL)
 		if err != nil {
@@ -207,7 +207,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				fmt.Sprintf("credential_issuers_%s", req.URL),
 				"invalid URL format",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		var record *core.Record
 		var isNew bool
@@ -226,7 +226,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					fmt.Sprintf("credential_issuers_%s", req),
 					"failed to save credential issuer",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			isNew = true
 		}
@@ -236,7 +236,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			) + "/" + workflows.CredentialIssuerSchemaPath,
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		appURL := e.App.Settings().Meta.AppURL
@@ -264,7 +264,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 						"credential_issuers",
 						"failed to delete credential issuer",
 						err.Error(),
-					).JSON(e)
+					)
 				}
 			}
 			return apierror.New(
@@ -272,7 +272,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start workflow",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		workflowURL := utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
@@ -292,7 +292,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 						"credential_issuers",
 						"failed to delete credential issuer",
 						err.Error(),
-					).JSON(e)
+					)
 				}
 			}
 			return apierror.New(
@@ -300,7 +300,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		issuerResult, err := credentialIssuerWaitForPartialResult(
 			c,
@@ -319,7 +319,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 						"credential_issuers",
 						"failed to delete credential issuer",
 						err.Error(),
-					).JSON(e)
+					)
 				}
 			}
 			details := workflowengine.ParseWorkflowError(err)
@@ -328,7 +328,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"workflow",
 				details.Summary,
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		issuerName := getStringFromMap(issuerResult, "issuerName")
@@ -343,7 +343,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"",
 				"failed to parse credentials number",
 				"unxexpected credentials number format",
-			).JSON(e)
+			)
 		}
 		record.Set("name", issuerName)
 		record.Set("logo_url", logo)
@@ -354,7 +354,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				fmt.Sprintf("credential_issuers_%s", req),
 				"failed to save credential issuer",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		//
 		// providers, err := app.FindCollectionByNameOrId("services")
@@ -385,7 +385,7 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"authentication required",
 				"authenticated user or user API key is required",
-			).JSON(e)
+			)
 		}
 
 		req, err := decodeImportFidesCredentialIssuersRequest(e.Request)
@@ -395,7 +395,7 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 				"request.validation",
 				"invalid_request",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		organization, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
@@ -405,7 +405,7 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get user organization",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		orgName, err := pbutils.GetOrganizationCanonifiedName(e.App, organization)
 		if err != nil {
@@ -414,14 +414,14 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 				"organization",
 				"failed to get organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		issuerSchema, apiErr := credentialIssuerReadSchemaFile(
 			utils.GetEnvironmentVariable("ROOT_DIR") + "/" + workflows.CredentialIssuerSchemaPath,
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		workflowInput := workflowengine.WorkflowInput{
@@ -445,7 +445,7 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 					"schedule",
 					"failed to schedule Fides credential issuers import",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return e.JSON(http.StatusOK, result)
 		}
@@ -457,7 +457,7 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start Fides credential issuers import",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
@@ -621,7 +621,7 @@ func HandleCredentialIssuerStoreOrUpdateExtractedCredentials() func(*core.Reques
 				"credentials",
 				"failed to find credentials collection",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		existing, err := e.App.FindFirstRecordByFilter(collection,
 			"name = {:key} && credential_issuer = {:issuerID}",
@@ -649,7 +649,7 @@ func HandleCredentialIssuerStoreOrUpdateExtractedCredentials() func(*core.Reques
 					"credentials",
 					"failed to unmarshal credentials",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			var orginalName, originalLogo string
 			if displayList, ok := savedCred["display"].([]any); ok &&
@@ -685,7 +685,7 @@ func HandleCredentialIssuerStoreOrUpdateExtractedCredentials() func(*core.Reques
 				"credentials",
 				"failed to marshal credentials",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		record.Set("format", format)
 		record.Set("locale", locale)
@@ -702,7 +702,7 @@ func HandleCredentialIssuerStoreOrUpdateExtractedCredentials() func(*core.Reques
 				"credentials",
 				"failed to save credentials",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		return e.JSON(http.StatusOK, map[string]any{"key": body.CredKey})
 	}
@@ -757,7 +757,7 @@ func HandleCredentialIssuerStoreOrUpdate() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"missing credential issuer URL",
 				"url is required",
-			).JSON(e)
+			)
 		}
 		if strings.TrimSpace(body.OrgID) == "" {
 			return apierror.New(
@@ -765,7 +765,7 @@ func HandleCredentialIssuerStoreOrUpdate() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"missing organization",
 				"orgID is required",
-			).JSON(e)
+			)
 		}
 
 		collection, err := e.App.FindCollectionByNameOrId("credential_issuers")
@@ -775,7 +775,7 @@ func HandleCredentialIssuerStoreOrUpdate() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"failed to find credential issuers collection",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		record, err := e.App.FindFirstRecordByFilter(
@@ -805,7 +805,7 @@ func HandleCredentialIssuerStoreOrUpdate() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"failed to save credential issuer",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{

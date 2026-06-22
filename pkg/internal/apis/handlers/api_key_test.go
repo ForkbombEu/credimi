@@ -102,7 +102,7 @@ func TestGenerateApiKeyInvalidInput(t *testing.T) {
 	}
 
 	err := handler(e)
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), "name_required")
 }
@@ -196,7 +196,7 @@ func TestAuthenticateInternalAdminAPIKey(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
 
-		require.NoError(t, middlewares.RequireInternalAdminAPIKey().Func(e))
+		requireHandlerErrorHandled(t, rec, middlewares.RequireInternalAdminAPIKey().Func(e))
 		require.Equal(t, http.StatusForbidden, rec.Code)
 		require.Contains(t, rec.Body.String(), "insufficient_api_key_scope")
 	})
@@ -216,7 +216,7 @@ func TestAuthenticateInternalAdminAPIKey(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
 
-		require.NoError(t, middlewares.RequireInternalAdminAPIKey().Func(e))
+		requireHandlerErrorHandled(t, rec, middlewares.RequireInternalAdminAPIKey().Func(e))
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 		require.Contains(t, rec.Body.String(), "revoked_api_key")
 	})
@@ -237,7 +237,7 @@ func TestAuthenticateInternalAdminAPIKey(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
 
-		require.NoError(t, middlewares.RequireInternalAdminAPIKey().Func(e))
+		requireHandlerErrorHandled(t, rec, middlewares.RequireInternalAdminAPIKey().Func(e))
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 		require.Contains(t, rec.Body.String(), "expired_api_key")
 	})
@@ -247,7 +247,7 @@ func TestAuthenticateInternalAdminAPIKey(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
 
-		require.NoError(t, middlewares.RequireInternalAdminAPIKey().Func(e))
+		requireHandlerErrorHandled(t, rec, middlewares.RequireInternalAdminAPIKey().Func(e))
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 		require.Contains(t, rec.Body.String(), "api_key_required")
 	})

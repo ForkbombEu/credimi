@@ -665,7 +665,7 @@ func TestHandleGetPipelineDetailsListError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -724,7 +724,7 @@ func TestHandleGetPipelineDetailsTemporalClientError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -768,7 +768,7 @@ func TestHandleGetPipelineDetailsQueuedRunsError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1175,7 +1175,7 @@ func TestHandleGetPipelineSpecificDetailsMissingAuth(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
@@ -1197,7 +1197,7 @@ func TestHandleGetPipelineSpecificDetailsMissingID(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -1412,7 +1412,7 @@ func TestHandleGetPipelineSpecificDetailsListError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 

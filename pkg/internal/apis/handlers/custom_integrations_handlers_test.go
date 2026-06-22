@@ -58,7 +58,7 @@ func TestHandleRunCustomIntegrationMissingYAML(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), "yaml is empty")
 }
@@ -98,7 +98,7 @@ func TestHandleRunCustomIntegrationWorkflowStartError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), "failed to process custom integration")
 }

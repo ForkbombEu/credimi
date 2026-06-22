@@ -63,7 +63,7 @@ func TestHandleSaveVariablesAndStartMissingProtocol(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -107,7 +107,7 @@ func TestHandleSaveVariablesAndStartUnsupportedAuthor(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -314,7 +314,7 @@ func TestHandleSaveVariablesAndStartVariablesMissingTemplate(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), "failed to open template")
 }

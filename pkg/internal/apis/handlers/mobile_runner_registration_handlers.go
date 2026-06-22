@@ -97,17 +97,17 @@ func HandlePreviewMobileRunnerID() func(*core.RequestEvent) error {
 				"mobile_runner",
 				"invalid_request",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		owner, apiErr := resolveMobileRunnerOwner(e.App, e.Auth, input.Organization)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		preview, apiErr := previewMobileRunnerIdentifier(e.App, owner, input.Name)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		return e.JSON(http.StatusOK, preview)
@@ -123,24 +123,24 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 				"mobile_runner",
 				"invalid_request",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		owner, apiErr := resolveMobileRunnerOwner(e.App, e.Auth, input.Organization)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		normalizedRunnerID := canonify.NormalizePath(input.RunnerID)
 		record, apiErr := resolveExistingMobileRunner(e.App, owner, normalizedRunnerID)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		if normalizedRunnerID != "" && record == nil {
 			preview, previewErr := previewMobileRunnerIdentifier(e.App, owner, input.Name)
 			if previewErr != nil {
-				return previewErr.JSON(e)
+				return previewErr
 			}
 			if preview.RunnerID != normalizedRunnerID {
 				return apierror.New(
@@ -152,7 +152,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 						normalizedRunnerID,
 						preview.RunnerID,
 					),
-				).JSON(e)
+				)
 			}
 		}
 
@@ -163,7 +163,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 				"name",
 				"runner_name_conflict",
 				"name does not match the existing runner_id",
-			).JSON(e)
+			)
 		}
 
 		if record == nil {
@@ -174,7 +174,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 					"collection",
 					"mobile_runners collection not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			record = core.NewRecord(collection)
 			record.Set("owner", owner.Id)
@@ -196,7 +196,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 				"mobile_runner",
 				"failed_to_save_mobile_runner",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		runnerID, err := mobileRunnerIdentifier(e.App, record)
@@ -206,7 +206,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 				"mobile_runner",
 				"failed_to_build_runner_id",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, UpsertMobileRunnerResponse{

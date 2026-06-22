@@ -90,7 +90,7 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 				"request.validation",
 				"user_not_authenticated",
 				"user must be authenticated to generate an API key",
-			).JSON(e)
+			)
 		}
 
 		input, err := routing.GetValidatedInput[GenerateApiKeyRequest](e)
@@ -100,7 +100,7 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 				"request.validation",
 				"invalid_request",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		service := NewApiKeyService(NewAppAdapter(e.App))
@@ -108,7 +108,7 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 			return err
 		}
@@ -160,7 +160,7 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 				"request.validation",
 				"api_key_required",
 				"API key is required for authentication",
-			).JSON(e)
+			)
 		}
 
 		service := NewApiKeyService(NewAppAdapter(e.App))
@@ -168,7 +168,7 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 			return err
 		}
@@ -177,7 +177,7 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 			return err
 		}
