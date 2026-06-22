@@ -265,6 +265,8 @@ var DefaultWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStartQueuedPipelineActivity(),
 			activities.NewCheckWorkflowClosedActivity(),
+			activities.NewCancelWorkflowActivity(),
+			activities.NewCleanupMobileRunnerSemaphoreResourcesActivity(),
 			activities.NewQueryMobileRunnerSemaphoreRunStatusActivity(),
 			activities.NewUpdateGitHubPRCommentActivity(),
 			activities.NewPatchGitHubPRCommentActivity(),

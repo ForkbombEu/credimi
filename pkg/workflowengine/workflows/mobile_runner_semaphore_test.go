@@ -4,6 +4,7 @@
 package workflows
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -1907,4 +1908,63 @@ func drainErrors(errCh <-chan error) []error {
 			return errs
 		}
 	}
+}
+
+func TestMobileRunnerSemaphoreWorkflowCancellationTriggersShutdownCleanup(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	cancelAct := activities.NewCancelWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload, err := workflowengine.DecodePayload[activities.CancelWorkflowActivityInput](input.Payload)
+			require.NoError(t, err)
+			require.Equal(t, "wf-1", payload.WorkflowID)
+			require.Equal(t, "tenant-1", payload.WorkflowNamespace)
+			return workflowengine.ActivityResult{
+				Output: activities.CancelWorkflowActivityOutput{Canceled: true, Status: "CANCELED"},
+			}, nil
+		},
+		activity.RegisterOptions{Name: cancelAct.Name()},
+	)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second)
+
+	env.OnSignalExternalWorkflow(
+		mock.Anything,
+		MobileRunnerSemaphoreWorkflowID("runner-2"),
+		"",
+		MobileRunnerSemaphoreRunDoneSignalName,
+		mock.MatchedBy(func(signal MobileRunnerSemaphoreRunDoneSignal) bool {
+			return signal.TicketID == "ticket-1" &&
+				signal.WorkflowResult == "canceled"
+		}),
+	).Return(nil).Once()
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: MobileRunnerSemaphoreWorkflowInput{
+			RunnerID: "runner-1",
+			Capacity: 1,
+			State: &MobileRunnerSemaphoreWorkflowState{
+				Capacity: 1,
+				RunTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:          "ticket-1",
+							OwnerNamespace:    "tenant-1",
+							RequiredRunnerIDs: []string{"runner-1", "runner-2"},
+							LeaderRunnerID:    "runner-1",
+						},
+						Status: mobileRunnerSemaphoreRunQueued,
+					},
+				},
+			},
+		},
+	})
+
+	require.Error(t, env.GetWorkflowError())
+	require.Contains(t, env.GetWorkflowError().Error(), "canceled")
 }

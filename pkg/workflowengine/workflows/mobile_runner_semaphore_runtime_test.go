@@ -11,6 +11,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/temporal"
@@ -591,4 +592,154 @@ func TestExecuteWorkflowMissingRunnerID(t *testing.T) {
 	var appErr *temporal.ApplicationError
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, MobileRunnerSemaphoreErrInvalidRequest, appErr.Type())
+}
+
+func TestShutdownRunnerRemovesQueuedTicketAndRunsCleanup(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	cleanupAct := activities.NewCleanupMobileRunnerSemaphoreResourcesActivity()
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload, err := workflowengine.DecodePayload[activities.CleanupMobileRunnerSemaphoreResourcesActivityInput](
+				input.Payload,
+			)
+			require.NoError(t, err)
+			require.Equal(t, "https://example.test", payload.AppURL)
+			require.Equal(t, "wallet-1", payload.Cleanup.TempWalletVersionID)
+			return workflowengine.ActivityResult{
+				Output: activities.CleanupMobileRunnerSemaphoreResourcesActivityOutput{},
+			}, nil
+		},
+		activity.RegisterOptions{Name: cleanupAct.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (MobileRunnerSemaphoreShutdownRunnerResponse, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runQueue: []string{"ticket-1"},
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:       "ticket-1",
+							OwnerNamespace: "tenant-1",
+							PipelineConfig: map[string]any{"app_url": "https://example.test"},
+							Cleanup: &MobileRunnerSemaphoreCleanupMetadata{
+								TempWalletVersionID: "wallet-1",
+							},
+						},
+						Status: mobileRunnerSemaphoreRunQueued,
+					},
+				},
+			}
+			return rt.shutdownRunner(ctx, "shutdown")
+		},
+		workflow.RegisterOptions{Name: "test-shutdown-queued-cleanup"},
+	)
+
+	env.ExecuteWorkflow("test-shutdown-queued-cleanup")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result MobileRunnerSemaphoreShutdownRunnerResponse
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, 1, result.QueuedCanceled)
+	require.Empty(t, result.CleanupFailures)
+}
+
+func TestShutdownRunnerCancelsRunningPipelineAndSignalsPeers(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	cancelAct := activities.NewCancelWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload, err := workflowengine.DecodePayload[activities.CancelWorkflowActivityInput](input.Payload)
+			require.NoError(t, err)
+			require.Equal(t, "wf-1", payload.WorkflowID)
+			require.Equal(t, "tenant-1", payload.WorkflowNamespace)
+			return workflowengine.ActivityResult{
+				Output: activities.CancelWorkflowActivityOutput{Canceled: true, Status: "CANCELED"},
+			}, nil
+		},
+		activity.RegisterOptions{Name: cancelAct.Name()},
+	)
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (MobileRunnerSemaphoreShutdownRunnerResponse, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:          "ticket-1",
+							OwnerNamespace:    "tenant-1",
+							RequiredRunnerIDs: []string{"runner-1", "runner-2"},
+							LeaderRunnerID:    "runner-1",
+						},
+						Status:            mobileRunnerSemaphoreRunRunning,
+						WorkflowID:        "wf-1",
+						RunID:             "run-1",
+						WorkflowNamespace: "tenant-1",
+					},
+				},
+			}
+			return rt.shutdownRunner(ctx, "shutdown")
+		},
+		workflow.RegisterOptions{Name: "test-shutdown-running-cancel"},
+	)
+	env.OnSignalExternalWorkflow(
+		mock.Anything,
+		MobileRunnerSemaphoreWorkflowID("runner-2"),
+		"",
+		MobileRunnerSemaphoreRunDoneSignalName,
+		mock.Anything,
+	).Return(nil).Once()
+
+	env.ExecuteWorkflow("test-shutdown-running-cancel")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result MobileRunnerSemaphoreShutdownRunnerResponse
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, 1, result.RunningPipelinesCanceled)
+	require.Equal(t, 1, result.FollowerSignalsSent)
+	require.Empty(t, result.PipelineCancelFailures)
+	require.Empty(t, result.FollowerSignalFailures)
+}
+
+func TestShutdownRunnerIsIdempotent(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) ([]MobileRunnerSemaphoreShutdownRunnerResponse, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runQueue: []string{"ticket-1"},
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:       "ticket-1",
+							OwnerNamespace: "tenant-1",
+						},
+						Status: mobileRunnerSemaphoreRunQueued,
+					},
+				},
+			}
+			first, err := rt.shutdownRunner(ctx, "shutdown")
+			require.NoError(t, err)
+			second, err := rt.shutdownRunner(ctx, "shutdown")
+			require.NoError(t, err)
+			return []MobileRunnerSemaphoreShutdownRunnerResponse{first, second}, nil
+		},
+		workflow.RegisterOptions{Name: "test-shutdown-idempotent"},
+	)
+
+	env.ExecuteWorkflow("test-shutdown-idempotent")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result []MobileRunnerSemaphoreShutdownRunnerResponse
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Len(t, result, 2)
+	require.Equal(t, 1, result[0].QueuedCanceled)
+	require.Equal(t, 0, result[1].QueuedCanceled)
 }

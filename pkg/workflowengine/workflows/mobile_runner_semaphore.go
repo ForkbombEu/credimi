@@ -77,6 +77,21 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
+	defer func() {
+		if runtime.shouldContinue || runtime.shutdownCompleted {
+			return
+		}
+		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
+		if _, shutdownErr := runtime.shutdownRunnerWithOptions(
+			cleanupCtx,
+			"semaphore workflow canceled",
+			true,
+			false,
+		); shutdownErr != nil {
+			workflow.GetLogger(ctx).Error("semaphore shutdown cleanup failed", "error", shutdownErr)
+		}
+	}()
+
 	if err := runtime.registerQueryHandler(); err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
@@ -101,6 +116,10 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
+	if err := runtime.registerShutdownRunnerHandler(); err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
 	runtime.startRunSignalHandlers()
 	runtime.startRunStarter()
 	runtime.startRunSafetyNet()
@@ -120,6 +139,8 @@ type mobileRunnerSemaphoreRuntime struct {
 	continueInput       workflowengine.WorkflowInput
 	runStarterRequested bool
 	queuePositionsDirty bool
+	shutdownRequested   bool
+	shutdownCompleted   bool
 }
 
 func newMobileRunnerSemaphoreRuntime(
@@ -243,6 +264,16 @@ func (r *mobileRunnerSemaphoreRuntime) registerRunDoneHandler() error {
 	)
 }
 
+func (r *mobileRunnerSemaphoreRuntime) registerShutdownRunnerHandler() error {
+	return workflow.SetUpdateHandler(
+		r.ctx,
+		MobileRunnerSemaphoreShutdownRunnerUpdate,
+		func(ctx workflow.Context, req MobileRunnerSemaphoreShutdownRunnerRequest) (MobileRunnerSemaphoreShutdownRunnerResponse, error) {
+			return r.shutdownRunner(ctx, req.Reason)
+		},
+	)
+}
+
 func (r *mobileRunnerSemaphoreRuntime) startRunSignalHandlers() {
 	startRunSignalHandler(
 		r.ctx,
@@ -355,6 +386,12 @@ func (r *mobileRunnerSemaphoreRuntime) requestRunStart() {
 func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 	req MobileRunnerSemaphoreEnqueueRunRequest,
 ) (MobileRunnerSemaphoreEnqueueRunResponse, error) {
+	if r.shutdownRequested {
+		return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
+			"runner shutdown in progress",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
 	if req.TicketID == "" || req.OwnerNamespace == "" {
 		return MobileRunnerSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 			"ticket_id and owner_namespace are required",
@@ -597,7 +634,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleListQueuedRunsQuery(
 }
 
 func (r *mobileRunnerSemaphoreRuntime) maybeScheduleContinue() {
-	if r.shouldContinue || r.updateCount < mobileRunnerSemaphoreMaxUpdateBatches {
+	if r.shutdownRequested || r.shouldContinue || r.updateCount < mobileRunnerSemaphoreMaxUpdateBatches {
 		return
 	}
 
@@ -619,7 +656,9 @@ func (r *mobileRunnerSemaphoreRuntime) maybeScheduleContinue() {
 }
 
 func (r *mobileRunnerSemaphoreRuntime) awaitContinue() (workflowengine.WorkflowResult, error) {
-	if err := workflow.Await(r.ctx, func() bool { return r.shouldContinue }); err != nil {
+	if err := workflow.Await(r.ctx, func() bool {
+		return r.shouldContinue || r.shutdownCompleted
+	}); err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
 
@@ -636,6 +675,9 @@ func (r *mobileRunnerSemaphoreRuntime) awaitContinue() (workflowengine.WorkflowR
 
 func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) {
 	defer r.flushQueuedPositionUpdates(ctx)
+	if r.shutdownRequested {
+		return
+	}
 
 	r.startReadyRuns(ctx)
 
@@ -650,6 +692,9 @@ func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) {
 }
 
 func (r *mobileRunnerSemaphoreRuntime) startReadyRuns(ctx workflow.Context) {
+	if r.shutdownRequested {
+		return
+	}
 	logger := workflow.GetLogger(ctx)
 	ticketIDs := r.sortedRunTicketIDs()
 	for _, ticketID := range ticketIDs {
@@ -1131,6 +1176,92 @@ func (r *mobileRunnerSemaphoreRuntime) handleRunDoneSignal(
 	)
 }
 
+func (r *mobileRunnerSemaphoreRuntime) shutdownRunner(
+	ctx workflow.Context,
+	reason string,
+) (MobileRunnerSemaphoreShutdownRunnerResponse, error) {
+	return r.shutdownRunnerWithOptions(ctx, reason, true, true)
+}
+
+func (r *mobileRunnerSemaphoreRuntime) shutdownRunnerWithOptions(
+	ctx workflow.Context,
+	reason string,
+	signalPeers bool,
+	signalRunningPeers bool,
+) (MobileRunnerSemaphoreShutdownRunnerResponse, error) {
+	response := MobileRunnerSemaphoreShutdownRunnerResponse{
+		RunnerID: r.runnerID,
+	}
+	if r.shutdownCompleted {
+		return response, nil
+	}
+
+	r.shutdownRequested = true
+	r.shouldContinue = false
+
+	ticketIDs := append([]string(nil), r.sortedRunTicketIDs()...)
+	for _, ticketID := range ticketIDs {
+		state, ok := r.runTickets[ticketID]
+		if !ok {
+			continue
+		}
+
+		switch state.Status {
+		case mobileRunnerSemaphoreRunQueued:
+			r.runQueue = removeFromQueue(r.runQueue, ticketID)
+			response.QueuedCanceled++
+			response.CleanupFailures = append(
+				response.CleanupFailures,
+				r.cleanupRunTicketResources(ctx, state)...,
+			)
+			if signalPeers {
+				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(ctx, ticketID, state, &response)
+			}
+			delete(r.runTickets, ticketID)
+			r.updateCount++
+			r.markQueuePositionsDirty()
+		case mobileRunnerSemaphoreRunStarting:
+			r.runQueue = removeFromQueue(r.runQueue, ticketID)
+			response.StartingCanceled++
+			if !ticketHasStartedWorkflow(state) {
+				response.CleanupFailures = append(
+					response.CleanupFailures,
+					r.cleanupRunTicketResources(ctx, state)...,
+				)
+			} else if r.cancelTrackedWorkflow(ctx, ticketID, state, reason, &response) {
+				response.RunningPipelinesCanceled++
+			}
+			if signalPeers {
+				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(ctx, ticketID, state, &response)
+			}
+			delete(r.runTickets, ticketID)
+			r.updateCount++
+			r.markQueuePositionsDirty()
+		case mobileRunnerSemaphoreRunRunning:
+			if r.cancelTrackedWorkflow(ctx, ticketID, state, reason, &response) {
+				response.RunningPipelinesCanceled++
+			}
+			if signalPeers && signalRunningPeers {
+				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(ctx, ticketID, state, &response)
+			}
+			delete(r.runTickets, ticketID)
+			r.updateCount++
+			r.markQueuePositionsDirty()
+		case mobileRunnerSemaphoreRunFailed,
+			mobileRunnerSemaphoreRunCanceled,
+			mobileRunnerSemaphoreRunNotFound:
+			r.runQueue = removeFromQueue(r.runQueue, ticketID)
+			delete(r.runTickets, ticketID)
+			r.updateCount++
+			r.markQueuePositionsDirty()
+		}
+	}
+
+	r.flushQueuedPositionUpdates(ctx)
+	r.shutdownCompleted = true
+	return response, nil
+}
+
 func (r *mobileRunnerSemaphoreRuntime) notifyQueuedPositionUpdates(ctx workflow.Context) {
 	for _, ticketID := range r.runQueue {
 		state, ok := r.runTickets[ticketID]
@@ -1161,6 +1292,121 @@ func (r *mobileRunnerSemaphoreRuntime) flushQueuedPositionUpdates(ctx workflow.C
 	}
 	r.queuePositionsDirty = false
 	r.notifyQueuedPositionUpdates(ctx)
+}
+
+func (r *mobileRunnerSemaphoreRuntime) cleanupRunTicketResources(
+	ctx workflow.Context,
+	state MobileRunnerSemaphoreRunTicketState,
+) []string {
+	if state.Request.Cleanup == nil {
+		return nil
+	}
+
+	cleanupActivity := activities.NewCleanupMobileRunnerSemaphoreResourcesActivity()
+	activityOptions := DefaultActivityOptions
+	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
+	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
+
+	var result workflowengine.ActivityResult
+	err := workflow.ExecuteActivity(activityCtx, cleanupActivity.Name(), workflowengine.ActivityInput{
+		Payload: activities.CleanupMobileRunnerSemaphoreResourcesActivityInput{
+			AppURL:  runTicketAppURL(state),
+			Cleanup: state.Request.Cleanup,
+		},
+	}).Get(activityCtx, &result)
+	if err != nil {
+		return []string{err.Error()}
+	}
+
+	output, decodeErr := decodeCleanupMobileRunnerSemaphoreResourcesOutput(result.Output)
+	if decodeErr != nil {
+		return []string{decodeErr.Error()}
+	}
+	return output.CleanupFailures
+}
+
+func (r *mobileRunnerSemaphoreRuntime) cancelTrackedWorkflow(
+	ctx workflow.Context,
+	ticketID string,
+	state MobileRunnerSemaphoreRunTicketState,
+	reason string,
+	response *MobileRunnerSemaphoreShutdownRunnerResponse,
+) bool {
+	if strings.TrimSpace(state.WorkflowID) == "" || strings.TrimSpace(state.WorkflowNamespace) == "" {
+		return false
+	}
+
+	cancelActivity := activities.NewCancelWorkflowActivity()
+	activityOptions := DefaultActivityOptions
+	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
+	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
+
+	var result workflowengine.ActivityResult
+	err := workflow.ExecuteActivity(activityCtx, cancelActivity.Name(), workflowengine.ActivityInput{
+		Payload: activities.CancelWorkflowActivityInput{
+			WorkflowID:        state.WorkflowID,
+			RunID:             state.RunID,
+			WorkflowNamespace: state.WorkflowNamespace,
+			Reason:            reason,
+		},
+	}).Get(activityCtx, &result)
+	if err != nil {
+		response.PipelineCancelFailures = append(
+			response.PipelineCancelFailures,
+			fmt.Sprintf("ticket %s pipeline cancel failed: %v", ticketID, err),
+		)
+		return false
+	}
+
+	output, decodeErr := decodeCancelWorkflowOutput(result.Output)
+	if decodeErr != nil {
+		response.PipelineCancelFailures = append(
+			response.PipelineCancelFailures,
+			fmt.Sprintf("ticket %s pipeline cancel decode failed: %v", ticketID, decodeErr),
+		)
+		return false
+	}
+
+	return output.Canceled || output.Status == "NOT_FOUND"
+}
+
+func (r *mobileRunnerSemaphoreRuntime) signalRunCanceledForShutdown(
+	ctx workflow.Context,
+	ticketID string,
+	state MobileRunnerSemaphoreRunTicketState,
+	response *MobileRunnerSemaphoreShutdownRunnerResponse,
+) int {
+	if len(state.Request.RequiredRunnerIDs) == 0 || state.Request.LeaderRunnerID != r.runnerID {
+		return 0
+	}
+
+	count := 0
+	for _, runnerID := range sortedRunnerIDs(state.Request.RequiredRunnerIDs) {
+		if runnerID == r.runnerID {
+			continue
+		}
+		future := workflow.SignalExternalWorkflow(
+			ctx,
+			MobileRunnerSemaphoreWorkflowID(runnerID),
+			"",
+			MobileRunnerSemaphoreRunDoneSignalName,
+			MobileRunnerSemaphoreRunDoneSignal{
+				TicketID:       ticketID,
+				WorkflowID:     state.WorkflowID,
+				RunID:          state.RunID,
+				WorkflowResult: "canceled",
+			},
+		)
+		if err := future.Get(ctx, nil); err != nil {
+			response.FollowerSignalFailures = append(
+				response.FollowerSignalFailures,
+				fmt.Sprintf("ticket %s signal to %s failed: %v", ticketID, runnerID, err),
+			)
+			continue
+		}
+		count++
+	}
+	return count
 }
 
 func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
@@ -1277,6 +1523,27 @@ func (r *mobileRunnerSemaphoreRuntime) sortedRunTicketIDs() []string {
 	return ids
 }
 
+func ticketHasStartedWorkflow(state MobileRunnerSemaphoreRunTicketState) bool {
+	return strings.TrimSpace(state.WorkflowID) != "" &&
+		strings.TrimSpace(state.WorkflowNamespace) != ""
+}
+
+func runTicketAppURL(state MobileRunnerSemaphoreRunTicketState) string {
+	if appURL, ok := state.Request.PipelineConfig["app_url"].(string); ok {
+		return strings.TrimSpace(appURL)
+	}
+	if state.Request.Notification != nil && state.Request.Notification.GitHubPR != nil {
+		return strings.TrimSpace(state.Request.Notification.GitHubPR.AppURL)
+	}
+	return ""
+}
+
+func sortedRunnerIDs(runnerIDs []string) []string {
+	out := append([]string(nil), runnerIDs...)
+	sort.Strings(out)
+	return out
+}
+
 func (r *mobileRunnerSemaphoreRuntime) hasRunningTickets() bool {
 	for _, state := range r.runTickets {
 		if state.Status == mobileRunnerSemaphoreRunRunning {
@@ -1381,6 +1648,64 @@ func decodeCheckWorkflowClosedOutput(
 	default:
 		return activities.CheckWorkflowClosedActivityOutput{}, newSemaphoreApplicationError(
 			"unexpected activity output",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+}
+
+func decodeCancelWorkflowOutput(output any) (activities.CancelWorkflowActivityOutput, error) {
+	switch value := output.(type) {
+	case activities.CancelWorkflowActivityOutput:
+		return value, nil
+	case map[string]any:
+		raw, err := json.Marshal(value)
+		if err != nil {
+			return activities.CancelWorkflowActivityOutput{}, newSemaphoreApplicationError(
+				"failed to encode cancel workflow output",
+				MobileRunnerSemaphoreErrInvalidRequest,
+			)
+		}
+		var decoded activities.CancelWorkflowActivityOutput
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			return activities.CancelWorkflowActivityOutput{}, newSemaphoreApplicationError(
+				"failed to decode cancel workflow output",
+				MobileRunnerSemaphoreErrInvalidRequest,
+			)
+		}
+		return decoded, nil
+	default:
+		return activities.CancelWorkflowActivityOutput{}, newSemaphoreApplicationError(
+			"unexpected cancel workflow output",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+}
+
+func decodeCleanupMobileRunnerSemaphoreResourcesOutput(
+	output any,
+) (activities.CleanupMobileRunnerSemaphoreResourcesActivityOutput, error) {
+	switch value := output.(type) {
+	case activities.CleanupMobileRunnerSemaphoreResourcesActivityOutput:
+		return value, nil
+	case map[string]any:
+		raw, err := json.Marshal(value)
+		if err != nil {
+			return activities.CleanupMobileRunnerSemaphoreResourcesActivityOutput{}, newSemaphoreApplicationError(
+				"failed to encode cleanup output",
+				MobileRunnerSemaphoreErrInvalidRequest,
+			)
+		}
+		var decoded activities.CleanupMobileRunnerSemaphoreResourcesActivityOutput
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			return activities.CleanupMobileRunnerSemaphoreResourcesActivityOutput{}, newSemaphoreApplicationError(
+				"failed to decode cleanup output",
+				MobileRunnerSemaphoreErrInvalidRequest,
+			)
+		}
+		return decoded, nil
+	default:
+		return activities.CleanupMobileRunnerSemaphoreResourcesActivityOutput{}, newSemaphoreApplicationError(
+			"unexpected cleanup output",
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}

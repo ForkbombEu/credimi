@@ -20,11 +20,12 @@ const (
 )
 
 const (
-	EnqueueRunUpdate    = "EnqueueRun"
-	RunStatusQuery      = "GetRunStatus"
-	ListQueuedRunsQuery = "ListQueuedRuns"
-	RunDoneUpdate       = "RunDone"
-	CancelRunUpdate     = "CancelRun"
+	EnqueueRunUpdate     = "EnqueueRun"
+	RunStatusQuery       = "GetRunStatus"
+	ListQueuedRunsQuery  = "ListQueuedRuns"
+	RunDoneUpdate        = "RunDone"
+	CancelRunUpdate      = "CancelRun"
+	ShutdownRunnerUpdate = "ShutdownRunner"
 
 	RunGrantedSignal = "RunGranted"
 	RunStartedSignal = "RunStarted"
@@ -157,6 +158,21 @@ type MobileRunnerSemaphoreRunCancelRequest struct {
 	TicketID       string `json:"ticket_id"`
 	OwnerNamespace string `json:"owner_namespace,omitempty"`
 	Reason         string `json:"reason,omitempty"`
+}
+
+type MobileRunnerSemaphoreShutdownRunnerRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+type MobileRunnerSemaphoreShutdownRunnerResponse struct {
+	RunnerID                 string   `json:"runner_id"`
+	QueuedCanceled           int      `json:"queued_canceled"`
+	StartingCanceled         int      `json:"starting_canceled"`
+	RunningPipelinesCanceled int      `json:"running_pipelines_canceled"`
+	FollowerSignalsSent      int      `json:"follower_signals_sent"`
+	CleanupFailures          []string `json:"cleanup_failures,omitempty"`
+	PipelineCancelFailures   []string `json:"pipeline_cancel_failures,omitempty"`
+	FollowerSignalFailures   []string `json:"follower_signal_failures,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunGrantedSignal struct {

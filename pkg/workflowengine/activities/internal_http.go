@@ -53,13 +53,21 @@ func (a *InternalHTTPActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
+	return executeInternalHTTPRequest(ctx, payload, &a.BaseActivity)
+}
+
+func executeInternalHTTPRequest(
+	ctx context.Context,
+	payload InternalHTTPActivityPayload,
+	act *workflowengine.BaseActivity,
+) (workflowengine.ActivityResult, error) {
 	authLevel := payload.AuthLevel
 	if authLevel == "" {
 		authLevel = InternalHTTPAuthLevelAdmin
 	}
 	if authLevel != InternalHTTPAuthLevelAdmin {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(
+		return workflowengine.ActivityResult{}, act.NewActivityError(
 			workflowengine.ActivityError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -71,7 +79,7 @@ func (a *InternalHTTPActivity) Execute(
 	apiKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
 	if apiKey == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return result, a.NewActivityError(
+		return workflowengine.ActivityResult{}, act.NewActivityError(
 			workflowengine.ActivityError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -94,6 +102,6 @@ func (a *InternalHTTPActivity) Execute(
 		ctx,
 		httpPayload,
 		map[string]string{"Credimi-Api-Key": apiKey},
-		&a.BaseActivity,
+		act,
 	)
 }
