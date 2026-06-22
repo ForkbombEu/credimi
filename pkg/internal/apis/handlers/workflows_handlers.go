@@ -166,7 +166,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -176,7 +176,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				"organizations",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		limit, pageNum := parsePaginationParams(e, 20, 0)
@@ -189,7 +189,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		statusParam := e.Request.URL.Query().Get("status")
 		statusFilters, statusOK := parseWorkflowStatusFilters(statusParam)
@@ -208,7 +208,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to list workflows",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		listJSON, err := protojson.Marshal(list)
 		if err != nil {
@@ -217,7 +217,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to marshal workflow list",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		var execs struct {
 			Executions []*WorkflowExecution `json:"executions"`
@@ -229,7 +229,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to unmarshal workflow list",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		owner, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
@@ -238,7 +238,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				"organizations",
 				"unable to get user organization ca",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		filteredExecutions, err := filterNonPipelineExecutions(
@@ -252,7 +252,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to resolve workflow parents",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		hierarchy := buildExecutionHierarchy(
@@ -412,7 +412,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -423,7 +423,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
-			).JSON(e)
+			)
 		}
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
@@ -432,7 +432,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -440,7 +440,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			).JSON(e)
+			)
 		}
 
 		c, err := workflowTemporalClient(namespace)
@@ -450,7 +450,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			context.Background(),
@@ -465,7 +465,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			invalidArgument := &serviceerror.InvalidArgument{}
 			if errors.As(err, &invalidArgument) {
@@ -474,14 +474,14 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 					"workflow",
 					"invalid workflow ID",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to describe workflow execution",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		weJSON, err := protojson.Marshal(workflowExecution)
 		if err != nil {
@@ -490,7 +490,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to marshal workflow execution",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		finalJSON := make(map[string]interface{})
 		err = json.Unmarshal(weJSON, &finalJSON)
@@ -500,7 +500,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to unmarshal workflow execution",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if info := workflowExecution.GetWorkflowExecutionInfo(); info != nil &&
 			info.GetStatus() == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
@@ -526,7 +526,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -537,7 +537,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 				"params",
 				"workflowId and runId are required",
 				"missing required parameters",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -547,7 +547,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		c, err := workflowTemporalClient(namespace)
@@ -557,7 +557,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		historyIterator := c.GetWorkflowHistory(
@@ -577,7 +577,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to get workflow history",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			eventJSON, err := protojson.Marshal(event)
 			if err != nil {
@@ -586,7 +586,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to marshal workflow event",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			var eventMap map[string]interface{}
 			err = json.Unmarshal(eventJSON, &eventMap)
@@ -596,7 +596,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to unmarshal workflow event",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			history = append(history, eventMap)
 		}
@@ -621,7 +621,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 		workflowID := e.Request.PathValue("workflowId")
 		if workflowID == "" {
@@ -630,7 +630,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"workflowId",
 				"workflowId is required",
 				"missing workflowId parameter",
-			).JSON(e)
+			)
 		}
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
@@ -639,7 +639,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -647,7 +647,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			).JSON(e)
+			)
 		}
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
@@ -656,7 +656,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		list, err := c.ListWorkflow(
@@ -672,7 +672,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to list workflow executions",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		listJSON, err := protojson.Marshal(list)
 		if err != nil {
@@ -681,7 +681,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to marshal workflow list",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		var execs struct {
 			Executions []*WorkflowExecution `json:"executions"`
@@ -694,7 +694,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to unmarshal workflow list",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		owner, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -704,7 +704,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 				"organizations",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		hierarchy := buildExecutionHierarchy(
 			e.App,
@@ -729,7 +729,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -740,7 +740,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 				"params",
 				"workflowId and runId are required",
 				"missing required parameters",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -750,7 +750,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		c, err := workflowTemporalClient(namespace)
@@ -760,7 +760,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		workflowExecution, err := c.DescribeWorkflowExecution(
@@ -776,14 +776,14 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow execution not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to describe workflow execution",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		workflowName := workflowExecution.GetWorkflowExecutionInfo().GetType().GetName()
@@ -805,7 +805,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to get workflow input",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		var req ReRunWorkflowRequest
@@ -831,7 +831,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start workflow",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
@@ -850,7 +850,7 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -861,7 +861,7 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 				"params",
 				"workflowId and runId are required",
 				"missing required parameters",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -871,7 +871,7 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		c, err := workflowTemporalClient(namespace)
@@ -881,7 +881,7 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		err = c.CancelWorkflow(context.Background(), workflowID, runID)
@@ -893,14 +893,14 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow execution not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to cancel workflow execution",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
@@ -923,7 +923,7 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -934,7 +934,7 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 				"params",
 				"workflowId and runId are required",
 				"missing required parameters",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -944,7 +944,7 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		c, err := workflowTemporalClient(namespace)
@@ -954,7 +954,7 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		workflowInput, err := workflowRunInputGetter(workflowID, runID, c)
@@ -964,7 +964,7 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to get workflow input",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if workflowInput.Config == nil {
 			workflowInput.Config = make(map[string]interface{})
@@ -1092,7 +1092,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -1103,7 +1103,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 				"params",
 				"workflowId and runId are required",
 				"missing required parameters",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -1113,7 +1113,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -1121,7 +1121,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			).JSON(e)
+			)
 		}
 
 		c, err := workflowTemporalClient(namespace)
@@ -1131,7 +1131,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		_, err = c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
@@ -1143,14 +1143,14 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow execution not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to describe workflow execution",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		action := e.Request.URL.Query().Get("action")
@@ -1170,7 +1170,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to send start logs signal",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 		case "stop":
 			err = c.SignalWorkflow(context.Background(), workflowID, runID, "stop-logs", struct{}{})
@@ -1180,7 +1180,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to send stop logs signal",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 		}
 
@@ -1207,7 +1207,7 @@ func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -1218,7 +1218,7 @@ func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 				"params",
 				"workflowId and runId are required",
 				"missing required parameters",
-			).JSON(e)
+			)
 		}
 
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -1228,7 +1228,7 @@ func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		c, err := workflowTemporalClient(namespace)
@@ -1238,7 +1238,7 @@ func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		err = c.TerminateWorkflow(
@@ -1256,14 +1256,14 @@ func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow execution not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to terminate workflow execution",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{

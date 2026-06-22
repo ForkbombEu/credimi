@@ -74,7 +74,7 @@ func TestHandleGetWorkflowMissingParams(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
@@ -90,7 +90,7 @@ func TestHandleGetWorkflowMissingParams(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 }
@@ -642,7 +642,7 @@ func TestHandleGetWorkflowsHistoryMissingParams(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
 	req = httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-1//history", nil)
@@ -657,7 +657,7 @@ func TestHandleGetWorkflowsHistoryMissingParams(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -719,7 +719,7 @@ func TestHandleGetWorkflowsHistoryNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -757,7 +757,7 @@ func TestHandleGetWorkflowNamespaceEmpty(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -805,7 +805,7 @@ func TestHandleGetWorkflowNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -839,7 +839,7 @@ func TestHandleGetWorkflowClientError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1062,7 +1062,7 @@ func TestHandleSendEudiwLogUpdateError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -1085,7 +1085,7 @@ func TestHandleDeeplinkMissingParams(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
 	req = httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink/wf-1/", nil)
@@ -1100,7 +1100,7 @@ func TestHandleDeeplinkMissingParams(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -1133,7 +1133,7 @@ func TestHandleDeeplinkTemporalClientError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1173,7 +1173,7 @@ func TestHandleSendTemporalSignalMissingParams(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
@@ -1212,7 +1212,7 @@ func TestHandleSendTemporalSignalNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 

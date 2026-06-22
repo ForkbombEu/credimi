@@ -122,7 +122,7 @@ func HandleMyResults() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			).JSON(e)
+			)
 		}
 
 		userID := e.Auth.Id
@@ -133,7 +133,7 @@ func HandleMyResults() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization ID",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		response, err := buildScoreboardResponse(e.App, orgID, true)
@@ -143,7 +143,7 @@ func HandleMyResults() func(*core.RequestEvent) error {
 				"scoreboard",
 				"failed to build scoreboard response",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, response)
@@ -160,7 +160,7 @@ func HandleAllResults() func(*core.RequestEvent) error {
 				"scoreboard",
 				"failed to build scoreboard response",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		return e.JSON(http.StatusOK, response)

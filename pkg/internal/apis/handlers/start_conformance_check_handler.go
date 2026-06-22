@@ -150,7 +150,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization canonified name",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		orgID, err := pbutils.GetUserOrganizationID(e.App, userID)
 		if err != nil {
@@ -159,7 +159,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"organization",
 				"unable to get user organization ID",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		appName := e.App.Settings().Meta.AppName
 		logoURL := utils.JoinURL(
@@ -178,7 +178,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"protocol and version",
 				"protocol and version are required",
 				"missing parameters",
-			).JSON(e)
+			)
 		}
 
 		rootDir := utils.GetEnvironmentVariable("ROOT_DIR", ".")
@@ -189,7 +189,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"directory",
 				"directory does not exist for test "+rootDir+"/"+protocol+"/"+version,
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		var returns []workflowengine.WorkflowResult
@@ -202,7 +202,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"author",
 					"author is required",
 					"missing author",
-				).JSON(e)
+				)
 			}
 			memo := map[string]interface{}{
 				"test":     testName,
@@ -230,7 +230,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"json",
 					"failed to process JSON checks",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			returns = append(returns, results)
 		}
@@ -243,7 +243,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"author",
 					"author is required",
 					"missing author",
-				).JSON(e)
+				)
 			}
 			memo := map[string]interface{}{
 				"test":     testName,
@@ -273,7 +273,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"variables",
 					"failed to process variables test",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			returns = append(returns, results)
 		}

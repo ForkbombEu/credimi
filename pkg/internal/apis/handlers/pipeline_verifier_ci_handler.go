@@ -38,15 +38,15 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, apiErr := parsePipelineCIBaseRequest(e, "use_case_ids", "verifier_url")
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		if apiErr := validatePipelineCIBaseRequest(input, "verifier_url"); apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		runContext, apiErr := resolvePipelineCIRunContext(e, input.PipelineIdentifier)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		useCaseRefs, apiErr := resolvePipelineRunVerifierUseCaseReferences(
 			e.App,
@@ -54,7 +54,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			input.IDs,
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		tempUseCases, rewriteMap, apiErr := createPipelineCITempRecords(
 			e,
@@ -71,7 +71,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			},
 		)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		rewrittenYAML, apiErr := rewritePipelineCIStepRefsYAML(
 			runContext.PipelineYAML,
@@ -81,12 +81,12 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		workflowDefinition, apiErr := parsePipelineCIWorkflow(rewrittenYAML)
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIRunnerID(
 			e.Request.Context(),
@@ -97,7 +97,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		warning := pipelineCIIgnoredRunnerWarning(
 			input.RunnerID,
@@ -114,7 +114,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		notification := buildPipelineGitHubPRNotification(
 			input.Metadata,
@@ -140,7 +140,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 		})
 		if apiErr != nil {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		response := buildPipelineRunVerifierResponse(

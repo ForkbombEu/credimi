@@ -165,7 +165,7 @@ func TestHandleStartSchedulePipelineNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -215,7 +215,7 @@ func TestHandleStartScheduleTemporalCreateError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -267,7 +267,7 @@ func TestHandleStartScheduleDescribeError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -481,7 +481,7 @@ func TestHandleScheduleNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
@@ -652,7 +652,7 @@ func TestHandleCancelScheduleNotFound(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -713,7 +713,7 @@ func TestHandlePauseSchedule(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
@@ -774,7 +774,7 @@ func TestHandleResumeSchedule(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 

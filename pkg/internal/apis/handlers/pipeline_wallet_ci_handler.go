@@ -111,19 +111,19 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, apiErr := parsePipelineRunWalletAPKRequest(e)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		if apiErr := validatePipelineRunWalletAPKRequest(input); apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		runContext, apiErr := resolvePipelineRunWalletAPKContext(e, input)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		tempVersion, apiErr := createPipelineRunWalletAPKTempVersion(e.App, runContext)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		rewrittenYAML, apiErr := rewritePipelineRunWalletAPKYAML(
 			runContext.pipelineYAML,
@@ -132,12 +132,12 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		workflowDefinition, apiErr := parsePipelineCIWorkflow(rewrittenYAML)
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKRunnerID(
 			e.Request.Context(),
@@ -148,7 +148,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		warning := pipelineCIIgnoredRunnerWarning(
 			input.RunnerID,
@@ -165,7 +165,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 		notification := buildWalletAPKGitHubPRNotification(
 			input.Metadata,
@@ -190,7 +190,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 		})
 		if apiErr != nil {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		response := buildPipelineRunWalletAPKResponse(

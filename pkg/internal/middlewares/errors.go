@@ -24,16 +24,12 @@ func ErrorHandlingMiddleware(e *core.RequestEvent) error {
 		log.Printf("Handled API error: %v", apiError)
 		return e.JSON(apiError.Code, map[string]interface{}{
 			"apiVersion": "2.0",
+			"message":    apiError.Message,
 			"error": map[string]interface{}{
 				"code":    apiError.Code,
+				"domain":  apiError.Domain,
+				"reason":  apiError.Reason,
 				"message": apiError.Message,
-				"errors": []map[string]string{
-					{
-						"domain":  apiError.Domain,
-						"reason":  apiError.Reason,
-						"message": apiError.Message,
-					},
-				},
 			},
 		})
 	}
@@ -41,16 +37,12 @@ func ErrorHandlingMiddleware(e *core.RequestEvent) error {
 
 	return e.JSON(500, map[string]interface{}{
 		"apiVersion": "2.0",
+		"message":    "Internal Server Error",
 		"error": map[string]interface{}{
 			"code":    500,
-			"message": "Internal Server Error",
-			"errors": []map[string]string{
-				{
-					"domain":  "internal",
-					"reason":  "UnhandledException",
-					"message": err.Error(),
-				},
-			},
+			"domain":  "internal",
+			"reason":  "UnhandledException",
+			"message": err.Error(),
 		},
 	})
 }

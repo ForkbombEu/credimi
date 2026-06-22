@@ -187,7 +187,7 @@ func TestHandleGetPipelineScoreboardMissingNamespace(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
 	var resp map[string]any
@@ -703,7 +703,7 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
@@ -726,7 +726,7 @@ func TestHandleGetExecutionDetails(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 
@@ -1220,7 +1220,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
@@ -1247,7 +1247,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
@@ -1275,7 +1275,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 
@@ -1467,7 +1467,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 }
@@ -1600,7 +1600,7 @@ func TestHandleScheduleAggregateScoreboard(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
@@ -1621,7 +1621,7 @@ func TestHandleScheduleAggregateScoreboard(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
@@ -1642,7 +1642,7 @@ func TestHandleScheduleAggregateScoreboard(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 	t.Run("fail - temporal client error", func(t *testing.T) {
@@ -1666,7 +1666,7 @@ func TestHandleScheduleAggregateScoreboard(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 
@@ -1696,7 +1696,7 @@ func TestHandleScheduleAggregateScoreboard(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 }
@@ -1760,7 +1760,7 @@ func TestHandleCancelAggregateScoreboardSchedule(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
@@ -1796,7 +1796,7 @@ func TestHandleCancelAggregateScoreboardSchedule(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
@@ -1821,7 +1821,7 @@ func TestHandleCancelAggregateScoreboardSchedule(t *testing.T) {
 				Response: rec,
 			},
 		})
-		require.NoError(t, err)
+		requireHandlerErrorHandled(t, rec, err)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 }

@@ -69,7 +69,7 @@ func TestHandleGetDeeplinkWaitError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 	require.Contains(t, rec.Body.String(), "failed to get workflow result")
 }
@@ -103,7 +103,7 @@ func TestHandleGetDeeplinkMalformedOutput(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 	require.Contains(t, rec.Body.String(), "output is not an array")
 }
@@ -236,7 +236,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL:            "/api/credential/deeplink",
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
-				`"error":"request"`,
+				`"domain":"request"`,
 				`"reason":"missing credential id"`,
 				`"message":"id parameter is required"`,
 			},
@@ -248,7 +248,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-2/test-credential",
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				`"error":"resolve"`,
+				`"domain":"resolve"`,
 				`"reason":"failed to resolve credential path"`,
 				`"message":"sql: no rows in result set"`,
 			},
@@ -260,7 +260,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
-				`"error":"record"`,
+				`"domain":"record"`,
 				`"reason":"invalid record type"`,
 				`"message":"id must resolve to a credentials record"`,
 			},
@@ -286,7 +286,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
 			ExpectedStatus: http.StatusInternalServerError,
 			ExpectedContent: []string{
-				`"error":"credential"`,
+				`"domain":"credential"`,
 				`"reason":"deeplink not found"`,
 				`"message":"field 'deeplink' is missing or empty"`,
 			},
@@ -346,7 +346,7 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL:            "/api/verification/deeplink",
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
-				`"error":"request"`,
+				`"domain":"request"`,
 				`"reason":"missing record id"`,
 				`"message":"id parameter is required"`,
 			},
@@ -358,7 +358,7 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier-2/test-use-cases",
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				`"error":"resolve"`,
+				`"domain":"resolve"`,
 				`"reason":"failed to resolve verification path"`,
 				`"message":"sql: no rows in result set"`,
 			},
@@ -370,7 +370,7 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL:            "/api/verification/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
-				`"error":"record"`,
+				`"domain":"record"`,
 				`"reason":"invalid record type"`,
 				`"message":"id must resolve to a use_cases_verifications record"`,
 			},

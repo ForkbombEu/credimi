@@ -5,12 +5,10 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -32,13 +30,12 @@ func TestHandleGetConformanceCheckDeeplinkMissingID(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
-	var apiErr apierror.APIError
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
-	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Equal(t, "missing check id", apiErr.Reason)
+	body := decodeHandlerErrorResponse(t, rec)
+	require.Equal(t, http.StatusBadRequest, body.Error.Code)
+	require.Equal(t, "missing check id", body.Error.Reason)
 }
 
 func TestHandleGetConformanceCheckDeeplinkInvalidCheckName(t *testing.T) {
@@ -60,13 +57,12 @@ func TestHandleGetConformanceCheckDeeplinkInvalidCheckName(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
-	var apiErr apierror.APIError
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
-	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Equal(t, "invalid check name", apiErr.Reason)
+	body := decodeHandlerErrorResponse(t, rec)
+	require.Equal(t, http.StatusBadRequest, body.Error.Code)
+	require.Equal(t, "invalid check name", body.Error.Reason)
 }
 
 func TestHandleGetConformanceCheckDeeplinkPathTraversal(t *testing.T) {
@@ -88,12 +84,11 @@ func TestHandleGetConformanceCheckDeeplinkPathTraversal(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
-	var apiErr apierror.APIError
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
-	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	body := decodeHandlerErrorResponse(t, rec)
+	require.Equal(t, http.StatusBadRequest, body.Error.Code)
 }
 
 func TestHandleGetConformanceCheckDeeplinkUnsupportedSuite(t *testing.T) {
@@ -115,11 +110,10 @@ func TestHandleGetConformanceCheckDeeplinkUnsupportedSuite(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
-	var apiErr apierror.APIError
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
-	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Equal(t, "unsupported suite", apiErr.Reason)
+	body := decodeHandlerErrorResponse(t, rec)
+	require.Equal(t, http.StatusBadRequest, body.Error.Code)
+	require.Equal(t, "unsupported suite", body.Error.Reason)
 }

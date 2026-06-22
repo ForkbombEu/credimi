@@ -393,7 +393,7 @@ func TestGenerateApiKey_UnauthenticatedUser(t *testing.T) {
 	}
 
 	err := handler(e)
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), "user_not_authenticated")
 }
@@ -411,7 +411,7 @@ func TestAuthenticateApiKey_MissingHeader(t *testing.T) {
 	}
 
 	err := handler(e)
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 	require.Contains(t, rec.Body.String(), "api_key_required")
 }

@@ -217,14 +217,14 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 
 		secrets, apiErr := parseSecretsYAML(body.Secrets)
 		if apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		response, err := getDeeplinkFromYAML(e.App, body.Yaml, secrets)
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 
 			return err
@@ -275,7 +275,7 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 			"request",
 			opts.MissingIDReason,
 			"id parameter is required",
-		).JSON(e)
+		)
 	}
 
 	redirect := e.Request.URL.Query().Get("redirect") == RedirectFlagTrue
@@ -287,7 +287,7 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 			"resolve",
 			opts.ResolveReason,
 			err.Error(),
-		).JSON(e)
+		)
 	}
 	if rec.Collection() == nil || rec.Collection().Name != opts.ExpectedCollection {
 		return apierror.New(
@@ -295,12 +295,12 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 			"record",
 			"invalid record type",
 			"id must resolve to a "+opts.ExpectedCollection+" record",
-		).JSON(e)
+		)
 	}
 
 	deeplink, apiErr := deeplinkFromRecord(e.App, rec, opts.MissingDomain)
 	if apiErr != nil {
-		return apiErr.JSON(e)
+		return apiErr
 	}
 
 	if redirect {

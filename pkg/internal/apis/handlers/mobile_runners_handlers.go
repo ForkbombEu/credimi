@@ -154,7 +154,7 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 				"auth",
 				"authentication_required",
 				"authentication is required",
-			).JSON(e)
+			)
 		}
 		if !isSuperuserAuth(e.Auth) {
 			orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
@@ -164,7 +164,7 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 					"organization",
 					"failed_to_find_user_organization",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			callerOrgID = orgID
 		}
@@ -176,7 +176,7 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 				"mobile_runners",
 				"failed_to_list_mobile_runners",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		response := ListMobileRunnersPublicResponseSchema{
@@ -192,7 +192,7 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 				includeDetails,
 			)
 			if apiErr != nil {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 			response.Runners = append(response.Runners, item)
 		}
@@ -347,7 +347,7 @@ func HandleGetMobileRunner() func(*core.RequestEvent) error {
 				"runner_identifier",
 				"runner_identifier is required",
 				"missing runner_identifier",
-			).JSON(e)
+			)
 		}
 		record, err := canonify.Resolve(e.App, runnerIdentifier)
 		if err != nil {
@@ -356,7 +356,7 @@ func HandleGetMobileRunner() func(*core.RequestEvent) error {
 				"runner_identifier",
 				"mobile runner not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		var response GetMobileRunnerResponseSchema
@@ -381,7 +381,7 @@ func HandleValidateMobileRunnerAccess() func(*core.RequestEvent) error {
 				"owner_namespace",
 				"owner_namespace is required",
 				"missing owner_namespace",
-			).JSON(e)
+			)
 		}
 
 		ownerRecord, err := e.App.FindFirstRecordByFilter(
@@ -395,14 +395,14 @@ func HandleValidateMobileRunnerAccess() func(*core.RequestEvent) error {
 				"owner_namespace",
 				"owner namespace not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 		if apiErr := validatePipelineRunnerAccess(
 			e.App,
 			ownerRecord.Id,
 			input.RunnerIDs,
 		); apiErr != nil {
-			return apiErr.JSON(e)
+			return apiErr
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{"valid": true})
@@ -422,7 +422,7 @@ func HandleGetMobileRunnerSemaphore() func(*core.RequestEvent) error {
 				"runner_identifier",
 				"runner_identifier is required",
 				"missing runner_identifier",
-			).JSON(e)
+			)
 		}
 
 		record, err := canonify.Resolve(e.App, runnerIdentifier)
@@ -432,7 +432,7 @@ func HandleGetMobileRunnerSemaphore() func(*core.RequestEvent) error {
 				"runner_identifier",
 				"mobile runner not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		runnerID := record.GetString("name")
@@ -442,7 +442,7 @@ func HandleGetMobileRunnerSemaphore() func(*core.RequestEvent) error {
 				"runner_identifier",
 				"mobile runner not found",
 				"runner name missing",
-			).JSON(e)
+			)
 		}
 
 		state, err := queryMobileRunnerSemaphoreState(e.Request.Context(), runnerID)
@@ -453,14 +453,14 @@ func HandleGetMobileRunnerSemaphore() func(*core.RequestEvent) error {
 					"semaphore",
 					"runner semaphore not found",
 					err.Error(),
-				).JSON(e)
+				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"semaphore",
 				"failed to query runner semaphore",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		response := MobileRunnerSemaphoreResponseSchema{
@@ -522,7 +522,7 @@ func HandleListMobileRunnerURLs() func(*core.RequestEvent) error {
 				"collection",
 				"mobile_runners collection not found",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		var records []*core.Record
@@ -534,7 +534,7 @@ func HandleListMobileRunnerURLs() func(*core.RequestEvent) error {
 				"records",
 				"failed to fetch mobile runners",
 				err.Error(),
-			).JSON(e)
+			)
 		}
 
 		response := ListMobileRunnersResponseSchema{

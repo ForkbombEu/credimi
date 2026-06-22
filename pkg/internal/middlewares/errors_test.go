@@ -5,6 +5,7 @@
 package middlewares
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,17 @@ import (
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 )
+
+type errorMiddlewareResponse struct {
+	APIVersion string `json:"apiVersion"`
+	Message    string `json:"message"`
+	Error      struct {
+		Code    int    `json:"code"`
+		Domain  string `json:"domain"`
+		Reason  string `json:"reason"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
 
 func setNext(e *core.RequestEvent, fn func() error) {
 	eventField := reflect.ValueOf(e).Elem().FieldByName("Event")
@@ -43,8 +55,15 @@ func TestErrorHandlingMiddlewareAPIError(t *testing.T) {
 	err := ErrorHandlingMiddleware(e)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
-	require.Contains(t, rec.Body.String(), "\"apiVersion\":\"2.0\"")
-	require.Contains(t, rec.Body.String(), "\"domain\":\"domain\"")
+
+	var body errorMiddlewareResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.Equal(t, "2.0", body.APIVersion)
+	require.Equal(t, "reason", body.Message)
+	require.Equal(t, http.StatusBadRequest, body.Error.Code)
+	require.Equal(t, "domain", body.Error.Domain)
+	require.Equal(t, "message", body.Error.Reason)
+	require.Equal(t, "reason", body.Error.Message)
 }
 
 func TestErrorHandlingMiddlewareUnhandledError(t *testing.T) {
@@ -64,5 +83,13 @@ func TestErrorHandlingMiddlewareUnhandledError(t *testing.T) {
 	err := ErrorHandlingMiddleware(e)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
-	require.Contains(t, rec.Body.String(), "UnhandledException")
+
+	var body errorMiddlewareResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.Equal(t, "2.0", body.APIVersion)
+	require.Equal(t, "Internal Server Error", body.Message)
+	require.Equal(t, http.StatusInternalServerError, body.Error.Code)
+	require.Equal(t, "internal", body.Error.Domain)
+	require.Equal(t, "UnhandledException", body.Error.Reason)
+	require.Equal(t, "boom", body.Error.Message)
 }

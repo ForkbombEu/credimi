@@ -429,6 +429,7 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 				walletRecord := core.NewRecord(walletColl)
 				walletRecord.Set("name", "wallet-forbidden")
 				walletRecord.Set("owner", otherOrg.Id)
+				walletRecord.Set("published", false)
 				require.NoError(t, app.Save(walletRecord))
 
 				walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
@@ -843,7 +844,7 @@ func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -901,7 +902,7 @@ func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -959,7 +960,7 @@ func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -1020,7 +1021,7 @@ func TestHandleWalletStartCheckMetadataError(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.NoError(t, err)
+	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
