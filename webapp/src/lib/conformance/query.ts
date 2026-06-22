@@ -15,14 +15,14 @@ import { standardSchema } from './types';
 const listAllResponseSchema = z.array(standardSchema);
 
 export type ListAllResponse = z.infer<typeof listAllResponseSchema>;
+export type TemplateSurface = 'manual' | 'pipeline';
 
 export function listAll(
-	options: { fetch?: typeof fetch; forPipeline?: boolean } = {}
+	options: { fetch?: typeof fetch; surface?: TemplateSurface } = {}
 ): Task.Task<ListAllResponse, ClientResponseError | ZodError> {
-	const { fetch: fetchFn = fetch, forPipeline = false } = options;
+	const { fetch: fetchFn = fetch, surface = 'manual' } = options;
 
-	let path = '/api/template/blueprints';
-	if (forPipeline) path += '?only_show_in_pipeline_gui=true';
+	const path = `/api/template/blueprints?surface=${surface}`;
 
 	return Task.tryOrElse(
 		(err) => err as ClientResponseError,

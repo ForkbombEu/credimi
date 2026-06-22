@@ -58,18 +58,17 @@ func TestWalkConfigTemplates(t *testing.T) {
 	versionYaml, _ := yaml.Marshal(versionMeta)
 	require.NoError(t, os.WriteFile(filepath.Join(versionDir, "version.yaml"), versionYaml, 0644))
 
-	// Suite 1 (has files + GUI)
+	// Suite 1 (has files + default visibility)
 	suite1UID := "ewc"
 	suite1Dir := filepath.Join(versionDir, suite1UID)
 	require.NoError(t, os.Mkdir(suite1Dir, 0755))
 	suite1Meta := SuiteMetadata{
-		UID:               "ewc",
-		Name:              "OpenID Foundation Conformance Suite",
-		Homepage:          "https://openid.net/certification/about-conformance-suite/",
-		Repository:        "https://gitlab.com/openid/conformance-suite",
-		Help:              "https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/",
-		Description:       "Conformance suite for OIDF’s OpenID Connect, FAPI & FAPI-CIBA Profiles",
-		ShowInPipelineGUI: true,
+		UID:         "ewc",
+		Name:        "OpenID Foundation Conformance Suite",
+		Homepage:    "https://openid.net/certification/about-conformance-suite/",
+		Repository:  "https://gitlab.com/openid/conformance-suite",
+		Help:        "https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/",
+		Description: "Conformance suite for OIDF’s OpenID Connect, FAPI & FAPI-CIBA Profiles",
 	}
 	suite1Yaml, _ := yaml.Marshal(suite1Meta)
 	require.NoError(t, os.WriteFile(filepath.Join(suite1Dir, "metadata.yaml"), suite1Yaml, 0644))
@@ -79,14 +78,14 @@ func TestWalkConfigTemplates(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(suite1Dir, fname), []byte("{}"), 0644))
 	}
 
-	// Suite 2 (has files + NOT visible in GUI)
+	// Suite 2 (has files + manual only)
 	suite2UID := "openid_conformance_suite"
 	suite2Dir := filepath.Join(versionDir, suite2UID)
 	require.NoError(t, os.Mkdir(suite2Dir, 0755))
 	suite2Meta := SuiteMetadata{
-		UID:               "openid_conformance_suite",
-		Name:              "OpenID Foundation Conformance Suite",
-		ShowInPipelineGUI: false,
+		UID:       "openid_conformance_suite",
+		Name:      "OpenID Foundation Conformance Suite",
+		VisibleIn: []string{TemplateSurfaceManual},
 	}
 	suite2Yaml, _ := yaml.Marshal(suite2Meta)
 	require.NoError(t, os.WriteFile(filepath.Join(suite2Dir, "metadata.yaml"), suite2Yaml, 0644))
@@ -99,14 +98,14 @@ func TestWalkConfigTemplates(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(suite2Dir, fname), []byte("{}"), 0644))
 	}
 
-	// Suite 3 (empty files + NOT visible in GUI)
+	// Suite 3 (empty files + pipeline only)
 	suite3UID := "empty_conformance_suite"
 	suite3Dir := filepath.Join(versionDir, suite3UID)
 	require.NoError(t, os.Mkdir(suite3Dir, 0755))
 	suite3Meta := SuiteMetadata{
-		UID:               "empty_conformance_suite",
-		Name:              "empty Conformance Suite",
-		ShowInPipelineGUI: false,
+		UID:       "empty_conformance_suite",
+		Name:      "empty Conformance Suite",
+		VisibleIn: []string{TemplateSurfacePipeline},
 	}
 	suite3Yaml, _ := yaml.Marshal(suite3Meta)
 	require.NoError(t, os.WriteFile(filepath.Join(suite3Dir, "metadata.yaml"), suite3Yaml, 0644))
@@ -132,12 +131,12 @@ func TestWalkConfigTemplates(t *testing.T) {
 	}
 
 	t.Run("walkConfigTemplates unfiltered", func(t *testing.T) {
-		got, err := walkConfigTemplates(testdataDir, false)
+		got, err := walkConfigTemplates(testdataDir, "")
 		require.NoError(t, err)
 		require.Equal(t, wantUnfiltered, got)
 	})
 
-	wantFiltered := Standards{
+	wantManual := Standards{
 		Standard{
 			StandardMetadata: standardMeta,
 			Versions: []Version{
@@ -145,20 +144,46 @@ func TestWalkConfigTemplates(t *testing.T) {
 					VersionMetadata: versionMeta,
 					Suites: []Suite{
 						{SuiteMetadata: suite1Meta, Files: ewcFiles, Paths: ewcPaths},
+						{
+							SuiteMetadata: suite2Meta,
+							Files:         conformanceFiles,
+							Paths:         conformancePaths,
+						},
 					},
 				},
 			},
 		},
 	}
 
-	t.Run("walkConfigTemplates filtered", func(t *testing.T) {
-		got, err := walkConfigTemplates(testdataDir, true)
+	t.Run("walkConfigTemplates manual surface", func(t *testing.T) {
+		got, err := walkConfigTemplates(testdataDir, TemplateSurfaceManual)
 		require.NoError(t, err)
-		require.Equal(t, wantFiltered, got)
+		require.Equal(t, wantManual, got)
+	})
+
+	wantPipeline := Standards{
+		Standard{
+			StandardMetadata: standardMeta,
+			Versions: []Version{
+				{
+					VersionMetadata: versionMeta,
+					Suites: []Suite{
+						{SuiteMetadata: suite3Meta, Files: []string{}, Paths: []string{}},
+						{SuiteMetadata: suite1Meta, Files: ewcFiles, Paths: ewcPaths},
+					},
+				},
+			},
+		},
+	}
+
+	t.Run("walkConfigTemplates pipeline surface", func(t *testing.T) {
+		got, err := walkConfigTemplates(testdataDir, TemplateSurfacePipeline)
+		require.NoError(t, err)
+		require.Equal(t, wantPipeline, got)
 	})
 
 	t.Run("readDir error", func(t *testing.T) {
-		_, err := walkConfigTemplates(filepath.Join(testdataDir, "doesnotexist"), false)
+		_, err := walkConfigTemplates(filepath.Join(testdataDir, "doesnotexist"), "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "filesystem.readDir")
 		require.Contains(t, err.Error(), "Failed to read directory")
@@ -167,17 +192,17 @@ func TestWalkConfigTemplates(t *testing.T) {
 	t.Run("yaml unmarshal error", func(t *testing.T) {
 		invalidYamlPath := filepath.Join(standardDir, "standard.yaml")
 		require.NoError(t, os.WriteFile(invalidYamlPath, []byte("invalid: [unclosed"), 0644))
-		_, err := walkConfigTemplates(testdataDir, false)
+		_, err := walkConfigTemplates(testdataDir, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "yaml.unmarshal")
 		require.Contains(t, err.Error(), "Failed to unmarshal yaml")
 	})
 }
 
-func TestHandleGetConfigsTemplatesInvalidFilter(t *testing.T) {
+func TestHandleGetConfigsTemplatesInvalidSurface(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/template/blueprints?only_show_in_pipeline_gui=notabool",
+		"/api/template/blueprints?surface=notasurface",
 		nil,
 	)
 	rec := httptest.NewRecorder()
@@ -225,9 +250,9 @@ func TestHandleGetConfigsTemplatesSuccess(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(versionDir, "version.yaml"), versionYaml, 0644))
 
 	suiteMeta := SuiteMetadata{
-		UID:               "suite-a",
-		Name:              "Suite A",
-		ShowInPipelineGUI: true,
+		UID:       "suite-a",
+		Name:      "Suite A",
+		VisibleIn: []string{TemplateSurfaceManual, TemplateSurfacePipeline},
 	}
 	suiteYaml, _ := yaml.Marshal(suiteMeta)
 	require.NoError(t, os.WriteFile(filepath.Join(suiteDir, "metadata.yaml"), suiteYaml, 0644))

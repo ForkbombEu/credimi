@@ -14,13 +14,13 @@ import { pb } from '@/pocketbase';
 /* Exports */
 
 export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseSchema>;
+export type TemplateSurface = 'manual' | 'pipeline';
 
 export function getStandardsWithTestSuites(
-	options: { fetch?: typeof fetch; forPipeline?: boolean } = {}
+	options: { fetch?: typeof fetch; surface?: TemplateSurface } = {}
 ): Promise<StandardsWithTestSuites | Error> {
-	const { fetch: fetchFn = fetch, forPipeline = false } = options;
-	let url = '/api/template/blueprints';
-	if (forPipeline) url += '?only_show_in_pipeline_gui=true';
+	const { fetch: fetchFn = fetch, surface = 'manual' } = options;
+	const url = `/api/template/blueprints?surface=${surface}`;
 
 	return pipe(
 		_.tryPromise({
