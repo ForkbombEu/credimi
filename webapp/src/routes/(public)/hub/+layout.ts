@@ -10,7 +10,7 @@ export const load = async ({ fetch }) => {
 	const organization = await getUserOrganization({ fetch });
 	// Loading organization for displaying ownership status
 
-	const conformanceChecks = await getStandardsWithTestSuites({ fetch, forPipeline: true });
+	const conformanceChecks = await getStandardsWithTestSuites({ fetch, surface: 'pipeline' });
 
 	if (conformanceChecks instanceof Error) {
 		error(500, { message: conformanceChecks.message });

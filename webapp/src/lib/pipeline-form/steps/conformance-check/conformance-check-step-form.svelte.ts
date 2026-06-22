@@ -27,7 +27,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	standardsWithTestSuites = resource(
 		() => {},
 		async () => {
-			const result = await getStandardsWithTestSuites({ forPipeline: true });
+			const result = await getStandardsWithTestSuites({ surface: 'pipeline' });
 			if (result instanceof Error) throw result;
 			return result;
 		},

@@ -12,7 +12,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -48,22 +47,18 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 
 func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		onlyShow := false
-		if v := e.Request.URL.Query().Get("only_show_in_pipeline_gui"); v != "" {
-			parsed, err := strconv.ParseBool(v)
-			if err != nil {
-				return apierror.New(
-					http.StatusBadRequest,
-					"only_show_in_pipeline_gui",
-					"invalid value for only_show_in_pipeline_gui",
-					err.Error(),
-				)
-			}
-			onlyShow = parsed
+		surface := e.Request.URL.Query().Get("surface")
+		if surface != "" && surface != TemplateSurfaceManual && surface != TemplateSurfacePipeline {
+			return apierror.New(
+				http.StatusBadRequest,
+				"surface",
+				"invalid value for surface",
+				fmt.Sprintf("surface must be %q or %q", TemplateSurfaceManual, TemplateSurfacePipeline),
+			)
 		}
 
 		templatesDir := path.Join(os.Getenv("ROOT_DIR"), "config_templates")
-		configs, err := walkConfigTemplates(templatesDir, onlyShow)
+		configs, err := walkConfigTemplates(templatesDir, surface)
 		if err != nil {
 			appErr := &apierror.APIError{}
 			if errors.As(err, &appErr) {
@@ -74,6 +69,11 @@ func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 		return e.JSON(http.StatusOK, configs)
 	}
 }
+
+const (
+	TemplateSurfaceManual   = "manual"
+	TemplateSurfacePipeline = "pipeline"
+)
 
 type GetPlaceholdersByFilenamesRequestInput struct {
 	TestID    string   `json:"test_id"`
@@ -148,14 +148,14 @@ type VersionMetadata struct {
 }
 
 type SuiteMetadata struct {
-	UID               string `json:"uid"                  yaml:"uid"`
-	Name              string `json:"name"                 yaml:"name"`
-	Homepage          string `json:"homepage"             yaml:"homepage"`
-	Repository        string `json:"repository"           yaml:"repository"`
-	Help              string `json:"help"                 yaml:"help"`
-	Description       string `json:"description"          yaml:"description"`
-	ShowInPipelineGUI bool   `json:"show_in_pipeline_gui" yaml:"show_in_pipeline_gui"`
-	Logo              string `json:"logo"                 yaml:"logo"`
+	UID         string   `json:"uid"         yaml:"uid"`
+	Name        string   `json:"name"        yaml:"name"`
+	Homepage    string   `json:"homepage"    yaml:"homepage"`
+	Repository  string   `json:"repository"  yaml:"repository"`
+	Help        string   `json:"help"        yaml:"help"`
+	Description string   `json:"description" yaml:"description"`
+	VisibleIn   []string `json:"visible_in,omitempty" yaml:"visible_in,omitempty"`
+	Logo        string   `json:"logo"        yaml:"logo"`
 }
 
 type Suite struct {
@@ -176,8 +176,9 @@ type Standard struct {
 
 type Standards []Standard
 
-func walkConfigTemplates(dir string, filter bool) (Standards, error) {
+func walkConfigTemplates(dir string, surface string) (Standards, error) {
 	var standards = make(Standards, 0)
+	filter := surface != ""
 
 	readDir := func(path string) ([]os.DirEntry, error) {
 		entries, err := os.ReadDir(path)
@@ -280,7 +281,7 @@ func walkConfigTemplates(dir string, filter bool) (Standards, error) {
 					return nil, err
 				}
 
-				if filter && !suiteMeta.ShowInPipelineGUI {
+				if filter && !suiteVisibleIn(suiteMeta, surface) {
 					continue
 				}
 
@@ -331,4 +332,17 @@ func walkConfigTemplates(dir string, filter bool) (Standards, error) {
 	}
 
 	return standards, nil
+}
+
+func suiteVisibleIn(suiteMeta SuiteMetadata, surface string) bool {
+	if len(suiteMeta.VisibleIn) == 0 {
+		return surface == TemplateSurfaceManual || surface == TemplateSurfacePipeline
+	}
+
+	for _, visibleSurface := range suiteMeta.VisibleIn {
+		if visibleSurface == surface {
+			return true
+		}
+	}
+	return false
 }
