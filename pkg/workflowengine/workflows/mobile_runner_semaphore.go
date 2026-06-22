@@ -125,7 +125,10 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 	runtime.startRunSafetyNet()
 	runtime.startRunReconciler()
 
-	return runtime.awaitContinue()
+	if err := runtime.awaitContinue(); err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+	return workflowengine.WorkflowResult{}, nil
 }
 
 type mobileRunnerSemaphoreRuntime struct {
@@ -634,7 +637,8 @@ func (r *mobileRunnerSemaphoreRuntime) handleListQueuedRunsQuery(
 }
 
 func (r *mobileRunnerSemaphoreRuntime) maybeScheduleContinue() {
-	if r.shutdownRequested || r.shouldContinue || r.updateCount < mobileRunnerSemaphoreMaxUpdateBatches {
+	if r.shutdownRequested || r.shouldContinue ||
+		r.updateCount < mobileRunnerSemaphoreMaxUpdateBatches {
 		return
 	}
 
@@ -655,22 +659,22 @@ func (r *mobileRunnerSemaphoreRuntime) maybeScheduleContinue() {
 	r.shouldContinue = true
 }
 
-func (r *mobileRunnerSemaphoreRuntime) awaitContinue() (workflowengine.WorkflowResult, error) {
+func (r *mobileRunnerSemaphoreRuntime) awaitContinue() error {
 	if err := workflow.Await(r.ctx, func() bool {
 		return r.shouldContinue || r.shutdownCompleted
 	}); err != nil {
-		return workflowengine.WorkflowResult{}, err
+		return err
 	}
 
 	if r.shouldContinue {
-		return workflowengine.WorkflowResult{}, workflow.NewContinueAsNewError(
+		return workflow.NewContinueAsNewError(
 			r.ctx,
 			MobileRunnerSemaphoreWorkflowName,
 			r.continueInput,
 		)
 	}
 
-	return workflowengine.WorkflowResult{}, nil
+	return nil
 }
 
 func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) {
@@ -1215,7 +1219,12 @@ func (r *mobileRunnerSemaphoreRuntime) shutdownRunnerWithOptions(
 				r.cleanupRunTicketResources(ctx, state)...,
 			)
 			if signalPeers {
-				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(ctx, ticketID, state, &response)
+				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(
+					ctx,
+					ticketID,
+					state,
+					&response,
+				)
 			}
 			delete(r.runTickets, ticketID)
 			r.updateCount++
@@ -1232,7 +1241,12 @@ func (r *mobileRunnerSemaphoreRuntime) shutdownRunnerWithOptions(
 				response.RunningPipelinesCanceled++
 			}
 			if signalPeers {
-				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(ctx, ticketID, state, &response)
+				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(
+					ctx,
+					ticketID,
+					state,
+					&response,
+				)
 			}
 			delete(r.runTickets, ticketID)
 			r.updateCount++
@@ -1242,7 +1256,12 @@ func (r *mobileRunnerSemaphoreRuntime) shutdownRunnerWithOptions(
 				response.RunningPipelinesCanceled++
 			}
 			if signalPeers && signalRunningPeers {
-				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(ctx, ticketID, state, &response)
+				response.FollowerSignalsSent += r.signalRunCanceledForShutdown(
+					ctx,
+					ticketID,
+					state,
+					&response,
+				)
 			}
 			delete(r.runTickets, ticketID)
 			r.updateCount++
@@ -1313,7 +1332,8 @@ func (r *mobileRunnerSemaphoreRuntime) cleanupRunTicketResources(
 			AppURL:  runTicketAppURL(state),
 			Cleanup: state.Request.Cleanup,
 		},
-	}).Get(activityCtx, &result)
+	}).
+		Get(activityCtx, &result)
 	if err != nil {
 		return []string{err.Error()}
 	}
@@ -1332,7 +1352,8 @@ func (r *mobileRunnerSemaphoreRuntime) cancelTrackedWorkflow(
 	reason string,
 	response *MobileRunnerSemaphoreShutdownRunnerResponse,
 ) bool {
-	if strings.TrimSpace(state.WorkflowID) == "" || strings.TrimSpace(state.WorkflowNamespace) == "" {
+	if strings.TrimSpace(state.WorkflowID) == "" ||
+		strings.TrimSpace(state.WorkflowNamespace) == "" {
 		return false
 	}
 
@@ -1349,7 +1370,8 @@ func (r *mobileRunnerSemaphoreRuntime) cancelTrackedWorkflow(
 			WorkflowNamespace: state.WorkflowNamespace,
 			Reason:            reason,
 		},
-	}).Get(activityCtx, &result)
+	}).
+		Get(activityCtx, &result)
 	if err != nil {
 		response.PipelineCancelFailures = append(
 			response.PipelineCancelFailures,

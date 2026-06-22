@@ -1920,7 +1920,9 @@ func TestMobileRunnerSemaphoreWorkflowCancellationTriggersShutdownCleanup(t *tes
 	cancelAct := activities.NewCancelWorkflowActivity()
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-			payload, err := workflowengine.DecodePayload[activities.CancelWorkflowActivityInput](input.Payload)
+			payload, err := workflowengine.DecodePayload[activities.CancelWorkflowActivityInput](
+				input.Payload,
+			)
 			require.NoError(t, err)
 			require.Equal(t, "wf-1", payload.WorkflowID)
 			require.Equal(t, "tenant-1", payload.WorkflowNamespace)
