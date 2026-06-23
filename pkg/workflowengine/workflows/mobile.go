@@ -24,6 +24,7 @@ const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
 const (
 	externalInstallAppDetectionTimeout  = 20 * time.Second
 	externalInstallAppDetectionInterval = 2 * time.Second
+	mobileActivityHeartbeatTimeout      = 30 * time.Second
 )
 
 // MobileAutomationWorkflow is a workflow that runs a mobile automation flow
@@ -114,7 +115,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+	ctx = workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, ""))
 
 	var output MobileWorkflowOutput
 	testRunURL := utils.JoinURL(
@@ -181,7 +182,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+	ctx = workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, ""))
 
 	var output MobileWorkflowOutput
 	testRunURL := utils.JoinURL(
@@ -217,9 +218,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	runnerAO := *input.ActivityOptions
-	runnerAO.TaskQueue = taskqueue
-	runnerCtx := workflow.WithActivityOptions(ctx, runnerAO)
+	runnerCtx := workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, taskqueue))
 
 	beforeApps, err := executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
 	if err != nil {
@@ -323,6 +322,24 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	return workflowengine.WorkflowResult{
 		Output: output,
 	}, nil
+}
+
+func mobileActivityOptions(
+	input *workflow.ActivityOptions,
+	taskQueue string,
+) workflow.ActivityOptions {
+	var options workflow.ActivityOptions
+	if input != nil {
+		options = *input
+	}
+	if options.HeartbeatTimeout == 0 {
+		options.HeartbeatTimeout = mobileActivityHeartbeatTimeout
+	}
+	options.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
+	if taskQueue != "" {
+		options.TaskQueue = taskQueue
+	}
+	return options
 }
 
 func executeListInstalledApps(

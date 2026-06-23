@@ -622,8 +622,7 @@ func processStep(
 
 	taskqueue := mobileRunnerTaskQueue(payload.RunnerID)
 	SetConfigValue(&input.step.With.Config, "taskqueue", taskqueue)
-	mobileAo := *input.ao
-	mobileAo.TaskQueue = taskqueue
+	mobileAo := mobileRunnerActivityOptions(input.ao, payload.RunnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAo)
 
 	appURL, ok := input.config["app_url"].(string)
@@ -1439,8 +1438,7 @@ func disablePlayStoreForDevices(
 
 		}
 
-		mobileAO := *input.ao
-		mobileAO.TaskQueue = mobileRunnerTaskQueue(runnerID)
+		mobileAO := mobileRunnerActivityOptions(input.ao, runnerID)
 		mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
 
 		if err := workflow.ExecuteActivity(
@@ -1478,11 +1476,7 @@ func startRecordingForDevice(
 
 	}
 
-	mobileAO := *input.ao
-	if mobileAO.HeartbeatTimeout == 0 {
-		mobileAO.HeartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
-	}
-	mobileAO.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
+	mobileAO := mobileRunnerActivityOptions(input.ao, input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
 	deviceType := deviceTypeFromMap(input.deviceMap)
 	deviceActivities := activitiesForDeviceType(deviceType)
@@ -1719,6 +1713,22 @@ func isSemaphoreManagedRun(config map[string]any) bool {
 	return ok && ticketID != ""
 }
 
+func mobileRunnerActivityOptions(
+	input *workflow.ActivityOptions,
+	runnerID string,
+) workflow.ActivityOptions {
+	var options workflow.ActivityOptions
+	if input != nil {
+		options = *input
+	}
+	if options.HeartbeatTimeout == 0 {
+		options.HeartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
+	}
+	options.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
+	options.TaskQueue = mobileRunnerTaskQueue(runnerID)
+	return options
+}
+
 func cleanupDevice(
 	input cleanupDeviceInput,
 ) error {
@@ -1744,8 +1754,8 @@ func cleanupDevice(
 		return nil
 	}
 
-	input.mobileAo.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
-	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.mobileAo)
+	mobileAo := mobileRunnerActivityOptions(input.mobileAo, input.runnerID)
+	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAo)
 
 	cleanupRecording(cleanupRecordingInput{
 

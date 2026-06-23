@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/log"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -288,6 +289,22 @@ func TestHeartbeatAwareCleanupContextSetsSingleAttemptFallback(t *testing.T) {
 
 	var options workflow.ActivityOptions
 	require.NoError(t, env.GetWorkflowResult(&options))
+	require.NotNil(t, options.RetryPolicy)
+	require.Equal(t, int32(1), options.RetryPolicy.MaximumAttempts)
+}
+
+func TestMobileRunnerActivityOptionsUseSingleAttemptHeartbeat(t *testing.T) {
+	options := mobileRunnerActivityOptions(
+		&workflow.ActivityOptions{
+			StartToCloseTimeout: time.Minute,
+			RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: 5},
+		},
+		"runner-1",
+	)
+
+	require.Equal(t, time.Minute, options.StartToCloseTimeout)
+	require.Equal(t, 30*time.Second, options.HeartbeatTimeout)
+	require.Equal(t, "runner-1-TaskQueue", options.TaskQueue)
 	require.NotNil(t, options.RetryPolicy)
 	require.Equal(t, int32(1), options.RetryPolicy.MaximumAttempts)
 }
