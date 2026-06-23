@@ -772,6 +772,8 @@ func decodeAndValidatePayload(
 
 	}
 
+	normalizeMobileAutomationPayloadIDs(step, &payload)
+
 	// If action_code is present, version_id is REQUIRED
 	if payload.ActionCode != "" {
 		if payload.VersionID == "" {
@@ -800,6 +802,20 @@ func decodeAndValidatePayload(
 	}
 
 	return &payload, nil
+}
+
+func normalizeMobileAutomationPayloadIDs(
+	step *pipeline.StepDefinition,
+	payload *workflows.MobileAutomationWorkflowPipelinePayload,
+) {
+	if payload.ActionID != "" {
+		payload.ActionID = canonify.NormalizePath(payload.ActionID)
+		SetPayloadValue(&step.With.Payload, "action_id", payload.ActionID)
+	}
+	if payload.VersionID != "" {
+		payload.VersionID = canonify.NormalizePath(payload.VersionID)
+		SetPayloadValue(&step.With.Payload, "version_id", payload.VersionID)
+	}
 }
 
 func getOrCreateDeviceMap(
@@ -1259,7 +1275,6 @@ func parseInstallerResponse(
 		)
 
 	}
-
 	return apkPath, versionIdentifier, nil
 }
 

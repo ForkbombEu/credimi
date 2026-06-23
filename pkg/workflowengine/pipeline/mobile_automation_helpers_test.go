@@ -70,6 +70,28 @@ func TestDecodeAndValidatePayload(t *testing.T) {
 	require.Equal(t, "runner-2", payload.RunnerID)
 }
 
+func TestDecodeAndValidatePayloadNormalizesActionAndVersionIdentifiers(t *testing.T) {
+	step := &pipeline.StepDefinition{
+		StepSpec: pipeline.StepSpec{
+			ID: "step-1",
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"action_id":  " /tenant-a/wallet/action-1 ",
+				"version_id": " /tenant-a/wallet/v1 ",
+				"runner_id":  " /tenant-a/runner-1 ",
+			}},
+		},
+	}
+
+	payload, err := decodeAndValidatePayload(step)
+	require.NoError(t, err)
+	require.Equal(t, "tenant-a/wallet/action-1", payload.ActionID)
+	require.Equal(t, "tenant-a/wallet/v1", payload.VersionID)
+	require.Equal(t, " /tenant-a/runner-1 ", payload.RunnerID)
+	require.Equal(t, "tenant-a/wallet/action-1", step.With.Payload["action_id"])
+	require.Equal(t, "tenant-a/wallet/v1", step.With.Payload["version_id"])
+	require.Equal(t, " /tenant-a/runner-1 ", step.With.Payload["runner_id"])
+}
+
 func TestCollectMobileRunnerIDs(t *testing.T) {
 	steps := []pipeline.StepDefinition{
 		{
