@@ -1724,7 +1724,6 @@ func mobileRunnerActivityOptions(
 	if options.HeartbeatTimeout == 0 {
 		options.HeartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
 	}
-	options.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
 	options.TaskQueue = mobileRunnerTaskQueue(runnerID)
 	return options
 }

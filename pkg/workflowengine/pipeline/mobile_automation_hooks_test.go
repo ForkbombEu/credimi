@@ -293,7 +293,7 @@ func TestHeartbeatAwareCleanupContextSetsSingleAttemptFallback(t *testing.T) {
 	require.Equal(t, int32(1), options.RetryPolicy.MaximumAttempts)
 }
 
-func TestMobileRunnerActivityOptionsUseSingleAttemptHeartbeat(t *testing.T) {
+func TestMobileRunnerActivityOptionsAddHeartbeatAndPreserveRetryPolicy(t *testing.T) {
 	options := mobileRunnerActivityOptions(
 		&workflow.ActivityOptions{
 			StartToCloseTimeout: time.Minute,
@@ -306,7 +306,7 @@ func TestMobileRunnerActivityOptionsUseSingleAttemptHeartbeat(t *testing.T) {
 	require.Equal(t, 30*time.Second, options.HeartbeatTimeout)
 	require.Equal(t, "runner-1-TaskQueue", options.TaskQueue)
 	require.NotNil(t, options.RetryPolicy)
-	require.Equal(t, int32(1), options.RetryPolicy.MaximumAttempts)
+	require.Equal(t, int32(5), options.RetryPolicy.MaximumAttempts)
 }
 
 func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {

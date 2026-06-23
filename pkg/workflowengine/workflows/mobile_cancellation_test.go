@@ -63,7 +63,7 @@ func TestMobileAutomationWorkflowPropagatesActivityCancellation(t *testing.T) {
 	require.True(t, temporal.IsCanceledError(err))
 }
 
-func TestMobileActivityOptionsUseSingleAttemptHeartbeat(t *testing.T) {
+func TestMobileActivityOptionsAddHeartbeatAndPreserveRetryPolicy(t *testing.T) {
 	options := mobileActivityOptions(
 		&workflow.ActivityOptions{
 			StartToCloseTimeout: time.Minute,
@@ -78,5 +78,5 @@ func TestMobileActivityOptionsUseSingleAttemptHeartbeat(t *testing.T) {
 	require.Equal(t, 30*time.Second, options.HeartbeatTimeout)
 	require.Equal(t, "runner-1-TaskQueue", options.TaskQueue)
 	require.NotNil(t, options.RetryPolicy)
-	require.Equal(t, int32(1), options.RetryPolicy.MaximumAttempts)
+	require.Equal(t, int32(5), options.RetryPolicy.MaximumAttempts)
 }

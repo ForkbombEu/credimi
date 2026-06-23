@@ -335,7 +335,6 @@ func mobileActivityOptions(
 	if options.HeartbeatTimeout == 0 {
 		options.HeartbeatTimeout = mobileActivityHeartbeatTimeout
 	}
-	options.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
 	if taskQueue != "" {
 		options.TaskQueue = taskQueue
 	}
