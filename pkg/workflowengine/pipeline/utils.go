@@ -19,14 +19,15 @@ import (
 )
 
 const (
-	DefaultNameSpace               = "default"
-	DefaultExecutionTimeout        = "24h"
-	DefaultActivityScheduleTimeout = "10m"
-	DefaultActivityStartTimeout    = "5m"
-	DefaultRetryMaxAttempts        = int32(5)
-	DefaultRetryInitialInterval    = "5s"
-	DefaultRetryMaxInterval        = "1m"
-	DefaultRetryBackoff            = 2.0
+	DefaultNameSpace                = "default"
+	DefaultExecutionTimeout         = "24h"
+	DefaultActivityScheduleTimeout  = "10m"
+	DefaultActivityStartTimeout     = "5m"
+	DefaultActivityHeartbeatTimeout = "30s"
+	DefaultRetryMaxAttempts         = int32(5)
+	DefaultRetryInitialInterval     = "5s"
+	DefaultRetryMaxInterval         = "1m"
+	DefaultRetryBackoff             = 2.0
 )
 
 // Convert runtime config to Temporal SDK types
@@ -63,7 +64,8 @@ func PrepareWorkflowOptions(rc pipeline.RuntimeConfig) pipeline.WorkflowOptions 
 			rc.Temporal.ActivityOptions.StartToCloseTimeout,
 			DefaultActivityStartTimeout,
 		),
-		RetryPolicy: rp,
+		HeartbeatTimeout: parseDurationOrDefault("", DefaultActivityHeartbeatTimeout),
+		RetryPolicy:      rp,
 	}
 
 	return pipeline.WorkflowOptions{
@@ -85,6 +87,11 @@ func PrepareActivityOptions(
 	rp := globalAO.RetryPolicy
 	scheduleToClose := globalAO.ScheduleToCloseTimeout
 	startToClose := globalAO.StartToCloseTimeout
+	heartbeatTimeout := globalAO.HeartbeatTimeout
+
+	if heartbeatTimeout == 0 {
+		heartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
+	}
 
 	if stepAO != nil {
 		if stepAO.RetryPolicy.MaximumAttempts > 0 {
@@ -119,6 +126,7 @@ func PrepareActivityOptions(
 	return workflow.ActivityOptions{
 		ScheduleToCloseTimeout: scheduleToClose,
 		StartToCloseTimeout:    startToClose,
+		HeartbeatTimeout:       heartbeatTimeout,
 		RetryPolicy:            rp,
 	}
 }

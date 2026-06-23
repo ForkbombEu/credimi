@@ -25,6 +25,8 @@ const (
 	ListQueuedRunsQuery  = "ListQueuedRuns"
 	RunDoneUpdate        = "RunDone"
 	CancelRunUpdate      = "CancelRun"
+	PauseRunnerUpdate    = "PauseRunner"
+	ResumeRunnerUpdate   = "ResumeRunner"
 	ShutdownRunnerUpdate = "ShutdownRunner"
 
 	RunGrantedSignal = "RunGranted"
@@ -39,17 +41,27 @@ type MobileRunnerSemaphoreWorkflowInput struct {
 }
 
 type MobileRunnerSemaphoreWorkflowState struct {
-	Capacity    int                                            `json:"capacity"`
-	UpdateCount int                                            `json:"update_count,omitempty"`
-	RunQueue    []string                                       `json:"run_queue,omitempty"`
-	RunTickets  map[string]MobileRunnerSemaphoreRunTicketState `json:"run_tickets,omitempty"`
+	Capacity             int                                            `json:"capacity"`
+	UpdateCount          int                                            `json:"update_count,omitempty"`
+	RunQueue             []string                                       `json:"run_queue,omitempty"`
+	RunTickets           map[string]MobileRunnerSemaphoreRunTicketState `json:"run_tickets,omitempty"`
+	Paused               bool                                           `json:"paused,omitempty"`
+	PausedAt             time.Time                                      `json:"paused_at,omitempty"`
+	PauseReason          string                                         `json:"pause_reason,omitempty"`
+	PauseGeneration      int                                            `json:"pause_generation,omitempty"`
+	ShutdownAfterSeconds int                                            `json:"shutdown_after_seconds,omitempty"`
 }
 
 type MobileRunnerSemaphoreStateView struct {
-	RunnerID  string `json:"runner_id"`
-	Capacity  int    `json:"capacity"`
-	SlotsUsed int    `json:"slots_used"`
-	QueueLen  int    `json:"queue_len"`
+	RunnerID             string    `json:"runner_id"`
+	Capacity             int       `json:"capacity"`
+	SlotsUsed            int       `json:"slots_used"`
+	QueueLen             int       `json:"queue_len"`
+	Paused               bool      `json:"paused,omitempty"`
+	PausedAt             time.Time `json:"paused_at,omitempty"`
+	PauseReason          string    `json:"pause_reason,omitempty"`
+	PauseGeneration      int       `json:"pause_generation,omitempty"`
+	ShutdownAfterSeconds int       `json:"shutdown_after_seconds,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunStatus string
@@ -162,6 +174,30 @@ type MobileRunnerSemaphoreRunCancelRequest struct {
 
 type MobileRunnerSemaphoreShutdownRunnerRequest struct {
 	Reason string `json:"reason,omitempty"`
+}
+
+type MobileRunnerSemaphorePauseRunnerRequest struct {
+	Reason               string `json:"reason,omitempty"`
+	CancelRunning        bool   `json:"cancel_running"`
+	ShutdownAfterSeconds int    `json:"shutdown_after_seconds,omitempty"`
+}
+
+type MobileRunnerSemaphorePauseRunnerResponse struct {
+	RunnerID                 string   `json:"runner_id"`
+	Paused                   bool     `json:"paused"`
+	RunningPipelinesCanceled int      `json:"running_pipelines_canceled"`
+	PipelineCancelFailures   []string `json:"pipeline_cancel_failures,omitempty"`
+	ShutdownAfterSeconds     int      `json:"shutdown_after_seconds,omitempty"`
+}
+
+type MobileRunnerSemaphoreResumeRunnerRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+type MobileRunnerSemaphoreResumeRunnerResponse struct {
+	RunnerID string `json:"runner_id"`
+	Paused   bool   `json:"paused"`
+	QueueLen int    `json:"queue_len"`
 }
 
 type MobileRunnerSemaphoreShutdownRunnerResponse struct {

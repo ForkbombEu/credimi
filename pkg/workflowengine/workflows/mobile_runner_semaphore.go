@@ -120,10 +120,19 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
+	if err := runtime.registerPauseRunnerHandler(); err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
+	if err := runtime.registerResumeRunnerHandler(); err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
 	runtime.startRunSignalHandlers()
 	runtime.startRunStarter()
 	runtime.startRunSafetyNet()
 	runtime.startRunReconciler()
+	runtime.startPauseTimeoutWatcher()
 
 	if err := runtime.awaitContinue(); err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -132,18 +141,23 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 }
 
 type mobileRunnerSemaphoreRuntime struct {
-	ctx                 workflow.Context
-	runnerID            string
-	capacity            int
-	runQueue            []string
-	runTickets          map[string]MobileRunnerSemaphoreRunTicketState
-	updateCount         int
-	shouldContinue      bool
-	continueInput       workflowengine.WorkflowInput
-	runStarterRequested bool
-	queuePositionsDirty bool
-	shutdownRequested   bool
-	shutdownCompleted   bool
+	ctx                  workflow.Context
+	runnerID             string
+	capacity             int
+	runQueue             []string
+	runTickets           map[string]MobileRunnerSemaphoreRunTicketState
+	paused               bool
+	pausedAt             time.Time
+	pauseReason          string
+	pauseGeneration      int
+	shutdownAfterSeconds int
+	updateCount          int
+	shouldContinue       bool
+	continueInput        workflowengine.WorkflowInput
+	runStarterRequested  bool
+	queuePositionsDirty  bool
+	shutdownRequested    bool
+	shutdownCompleted    bool
 }
 
 func newMobileRunnerSemaphoreRuntime(
@@ -187,6 +201,11 @@ func (r *mobileRunnerSemaphoreRuntime) applyPayloadState(
 	}
 	r.runQueue = payload.State.RunQueue
 	r.runTickets = payload.State.RunTickets
+	r.paused = payload.State.Paused
+	r.pausedAt = payload.State.PausedAt
+	r.pauseReason = payload.State.PauseReason
+	r.pauseGeneration = payload.State.PauseGeneration
+	r.shutdownAfterSeconds = payload.State.ShutdownAfterSeconds
 	r.updateCount = payload.State.UpdateCount
 }
 
@@ -200,6 +219,9 @@ func (r *mobileRunnerSemaphoreRuntime) normalizeState() {
 	if r.runTickets == nil {
 		r.runTickets = map[string]MobileRunnerSemaphoreRunTicketState{}
 	}
+	if r.shutdownAfterSeconds < 0 {
+		r.shutdownAfterSeconds = 0
+	}
 }
 
 func (r *mobileRunnerSemaphoreRuntime) registerQueryHandler() error {
@@ -208,10 +230,15 @@ func (r *mobileRunnerSemaphoreRuntime) registerQueryHandler() error {
 		MobileRunnerSemaphoreStateQuery,
 		func() (MobileRunnerSemaphoreStateView, error) {
 			return MobileRunnerSemaphoreStateView{
-				RunnerID:  r.runnerID,
-				Capacity:  r.capacity,
-				SlotsUsed: r.runSlotsUsed(),
-				QueueLen:  len(r.runQueue),
+				RunnerID:             r.runnerID,
+				Capacity:             r.capacity,
+				SlotsUsed:            r.runSlotsUsed(),
+				QueueLen:             len(r.runQueue),
+				Paused:               r.paused,
+				PausedAt:             r.pausedAt,
+				PauseReason:          r.pauseReason,
+				PauseGeneration:      r.pauseGeneration,
+				ShutdownAfterSeconds: r.shutdownAfterSeconds,
 			}, nil
 		},
 	)
@@ -273,6 +300,39 @@ func (r *mobileRunnerSemaphoreRuntime) registerShutdownRunnerHandler() error {
 		MobileRunnerSemaphoreShutdownRunnerUpdate,
 		func(ctx workflow.Context, req MobileRunnerSemaphoreShutdownRunnerRequest) (MobileRunnerSemaphoreShutdownRunnerResponse, error) {
 			return r.shutdownRunner(ctx, req.Reason)
+		},
+	)
+}
+
+func (r *mobileRunnerSemaphoreRuntime) registerPauseRunnerHandler() error {
+	return workflow.SetUpdateHandler(
+		r.ctx,
+		MobileRunnerSemaphorePauseRunnerUpdate,
+		func(ctx workflow.Context, req MobileRunnerSemaphorePauseRunnerRequest) (MobileRunnerSemaphorePauseRunnerResponse, error) {
+			return r.handlePauseRunner(ctx, req)
+		},
+	)
+}
+
+func (r *mobileRunnerSemaphoreRuntime) registerResumeRunnerHandler() error {
+	return workflow.SetUpdateHandler(
+		r.ctx,
+		MobileRunnerSemaphoreResumeRunnerUpdate,
+		func(_ workflow.Context, _ MobileRunnerSemaphoreResumeRunnerRequest) (MobileRunnerSemaphoreResumeRunnerResponse, error) {
+			r.paused = false
+			r.pausedAt = time.Time{}
+			r.pauseReason = ""
+			r.pauseGeneration++
+			r.shutdownAfterSeconds = 0
+			r.updateCount++
+			r.maybeScheduleContinue()
+			r.requestRunStart()
+
+			return MobileRunnerSemaphoreResumeRunnerResponse{
+				RunnerID: r.runnerID,
+				Paused:   false,
+				QueueLen: len(r.runQueue),
+			}, nil
 		},
 	)
 }
@@ -382,6 +442,40 @@ func (r *mobileRunnerSemaphoreRuntime) startRunReconciler() {
 	})
 }
 
+func (r *mobileRunnerSemaphoreRuntime) startPauseTimeoutWatcher() {
+	workflow.Go(r.ctx, func(ctx workflow.Context) {
+		logger := workflow.GetLogger(ctx)
+		for {
+			if err := workflow.Await(ctx, func() bool {
+				return r.shouldContinue || (r.paused && r.shutdownAfterSeconds > 0)
+			}); err != nil {
+				logger.Error("pause timeout await failed", "error", err)
+				return
+			}
+			if r.shouldContinue {
+				return
+			}
+
+			generation := r.pauseGeneration
+			timeout := time.Duration(r.shutdownAfterSeconds) * time.Second
+			if err := workflow.Sleep(ctx, timeout); err != nil {
+				return
+			}
+			if r.shouldContinue {
+				return
+			}
+			if !r.paused || r.pauseGeneration != generation {
+				continue
+			}
+
+			if _, err := r.shutdownRunner(ctx, "runner pause timeout"); err != nil {
+				logger.Error("pause timeout shutdown failed", "error", err)
+			}
+			return
+		}
+	})
+}
+
 func (r *mobileRunnerSemaphoreRuntime) requestRunStart() {
 	r.runStarterRequested = true
 }
@@ -471,7 +565,9 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 
 	r.updateCount++
 	r.maybeScheduleContinue()
-	r.requestRunStart()
+	if !r.paused {
+		r.requestRunStart()
+	}
 	r.markQueuePositionsDirty()
 	r.flushQueuedPositionUpdates(r.ctx)
 
@@ -481,6 +577,82 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 		Position: position,
 		LineLen:  lineLen,
 	}, nil
+}
+
+func (r *mobileRunnerSemaphoreRuntime) handlePauseRunner(
+	ctx workflow.Context,
+	req MobileRunnerSemaphorePauseRunnerRequest,
+) (MobileRunnerSemaphorePauseRunnerResponse, error) {
+	resp := MobileRunnerSemaphorePauseRunnerResponse{
+		RunnerID:             r.runnerID,
+		Paused:               true,
+		ShutdownAfterSeconds: req.ShutdownAfterSeconds,
+	}
+	if resp.ShutdownAfterSeconds < 0 {
+		resp.ShutdownAfterSeconds = 0
+	}
+	if r.paused {
+		resp.ShutdownAfterSeconds = r.shutdownAfterSeconds
+		return resp, nil
+	}
+
+	r.paused = true
+	r.pausedAt = workflow.Now(ctx)
+	r.pauseReason = strings.TrimSpace(req.Reason)
+	r.pauseGeneration++
+	r.shutdownAfterSeconds = req.ShutdownAfterSeconds
+	if r.shutdownAfterSeconds < 0 {
+		r.shutdownAfterSeconds = 0
+	}
+	r.runStarterRequested = false
+
+	if req.CancelRunning {
+		ticketIDs := append([]string(nil), r.sortedRunTicketIDs()...)
+		for _, ticketID := range ticketIDs {
+			state, ok := r.runTickets[ticketID]
+			if !ok {
+				continue
+			}
+			if state.Status != mobileRunnerSemaphoreRunStarting &&
+				state.Status != mobileRunnerSemaphoreRunRunning {
+				continue
+			}
+
+			shutdownResp := &MobileRunnerSemaphoreShutdownRunnerResponse{}
+			if r.cancelTrackedWorkflow(
+				ctx,
+				ticketID,
+				state,
+				func() string {
+					if r.pauseReason == "" {
+						return "runner paused"
+					}
+					return "runner paused: " + r.pauseReason
+				}(),
+				shutdownResp,
+			) {
+				resp.RunningPipelinesCanceled++
+			}
+			resp.PipelineCancelFailures = append(
+				resp.PipelineCancelFailures,
+				shutdownResp.PipelineCancelFailures...,
+			)
+
+			if state.Request.LeaderRunnerID == r.runnerID {
+				signalResp := &MobileRunnerSemaphoreShutdownRunnerResponse{}
+				r.signalRunCanceledForShutdown(ctx, ticketID, state, signalResp)
+			}
+
+			r.runQueue = removeFromQueue(r.runQueue, ticketID)
+			delete(r.runTickets, ticketID)
+			r.updateCount++
+			r.markQueuePositionsDirty()
+		}
+	}
+
+	r.maybeScheduleContinue()
+	r.flushQueuedPositionUpdates(ctx)
+	return resp, nil
 }
 
 func (r *mobileRunnerSemaphoreRuntime) handleCancelRun(
@@ -643,10 +815,15 @@ func (r *mobileRunnerSemaphoreRuntime) maybeScheduleContinue() {
 	}
 
 	stateCopy := MobileRunnerSemaphoreWorkflowState{
-		Capacity:    r.capacity,
-		RunQueue:    copyQueue(r.runQueue),
-		RunTickets:  copyRunTickets(r.runTickets),
-		UpdateCount: 0,
+		Capacity:             r.capacity,
+		RunQueue:             copyQueue(r.runQueue),
+		RunTickets:           copyRunTickets(r.runTickets),
+		Paused:               r.paused,
+		PausedAt:             r.pausedAt,
+		PauseReason:          r.pauseReason,
+		PauseGeneration:      r.pauseGeneration,
+		ShutdownAfterSeconds: r.shutdownAfterSeconds,
+		UpdateCount:          0,
 	}
 
 	r.continueInput = workflowengine.WorkflowInput{
@@ -679,7 +856,7 @@ func (r *mobileRunnerSemaphoreRuntime) awaitContinue() error {
 
 func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) {
 	defer r.flushQueuedPositionUpdates(ctx)
-	if r.shutdownRequested {
+	if r.shutdownRequested || r.paused {
 		return
 	}
 
@@ -696,7 +873,7 @@ func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) {
 }
 
 func (r *mobileRunnerSemaphoreRuntime) startReadyRuns(ctx workflow.Context) {
-	if r.shutdownRequested {
+	if r.shutdownRequested || r.paused {
 		return
 	}
 	logger := workflow.GetLogger(ctx)
@@ -1446,7 +1623,12 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 	}
 	updateActivity := activities.NewUpdateGitHubPRCommentActivity()
 	activityOptions := DefaultActivityOptions
-	runnerType := githubPRCommentRunnerTypeForRunner(notification.GitHubPR, r.runnerID)
+	runnerType := ""
+	if value := strings.TrimSpace(notification.GitHubPR.RunnerTypes[r.runnerID]); value != "" {
+		runnerType = value
+	} else if notification.GitHubPR.RunnerID == r.runnerID {
+		runnerType = notification.GitHubPR.RunnerType
+	}
 	input := workflowengine.ActivityInput{
 		Payload: activities.UpdateGitHubPRCommentInput{
 			Repository:        notification.GitHubPR.Repository,
@@ -1481,22 +1663,6 @@ func (r *mobileRunnerSemaphoreRuntime) notifyGitHubPRComment(
 			)
 		}
 	})
-}
-
-func githubPRCommentRunnerTypeForRunner(
-	notification *MobileRunnerSemaphoreGitHubPRNotification,
-	runnerID string,
-) string {
-	if notification == nil {
-		return ""
-	}
-	if runnerType := strings.TrimSpace(notification.RunnerTypes[runnerID]); runnerType != "" {
-		return runnerType
-	}
-	if notification.RunnerID == runnerID {
-		return notification.RunnerType
-	}
-	return ""
 }
 
 func (r *mobileRunnerSemaphoreRuntime) nextQueuedRunTicket() (string, MobileRunnerSemaphoreRunTicketState, bool) {

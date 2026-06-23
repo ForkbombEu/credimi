@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -19,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"go.temporal.io/sdk/log"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -1462,6 +1464,9 @@ func startRecordingForDevice(
 	}
 
 	mobileAO := *input.ao
+	if mobileAO.HeartbeatTimeout == 0 {
+		mobileAO.HeartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
+	}
 	mobileAO.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
 	deviceType := deviceTypeFromMap(input.deviceMap)
@@ -2110,6 +2115,7 @@ func stopRecording(
 	logger log.Logger,
 ) (string, error) {
 	var stopResult workflowengine.ActivityResult
+	stopCtx := heartbeatAwareCleanupContext(ctx)
 
 	stopPayload := map[string]any{
 		"video_path":            info.videoPath,
@@ -2130,13 +2136,13 @@ func stopRecording(
 	}
 
 	if err := workflow.ExecuteActivity(
-		ctx,
+		stopCtx,
 		stopActivityName,
 		workflowengine.ActivityInput{
 			Payload: stopPayload,
-			Config:  workflowengine.ActivityTelemetryConfig(ctx, nil),
+			Config:  workflowengine.ActivityTelemetryConfig(stopCtx, nil),
 		},
-	).Get(ctx, &stopResult); err != nil {
+	).Get(stopCtx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)
 		return "", err
 	}
@@ -2156,6 +2162,20 @@ func stopRecording(
 	}
 
 	return lastFramePath, nil
+}
+
+func heartbeatAwareCleanupContext(ctx workflow.Context) workflow.Context {
+	ao := workflow.GetActivityOptions(ctx)
+	if ao.HeartbeatTimeout > 0 {
+		return ctx
+	}
+
+	return workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		ScheduleToCloseTimeout: 2 * time.Minute,
+		StartToCloseTimeout:    60 * time.Second,
+		HeartbeatTimeout:       30 * time.Second,
+		RetryPolicy:            &temporal.RetryPolicy{MaximumAttempts: 1},
+	})
 }
 
 func storeRecordingResults(

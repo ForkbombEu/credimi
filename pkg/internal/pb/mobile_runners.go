@@ -24,6 +24,8 @@ var mobileRunnerShutdownTemporalClient = temporalclient.GetTemporalClientWithNam
 const mobileRunnerShutdownAcceptedTimeout = 5 * time.Second
 
 func RegisterMobileRunnerHooks(app core.App) {
+	bindMobileRunnerLifecycleMonitor(app)
+
 	app.OnRecordAfterDeleteSuccess("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
 		runnerID, err := mobileRunnerRecordIdentifier(app, e.Record)
 		if err != nil {

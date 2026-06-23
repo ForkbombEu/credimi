@@ -152,6 +152,259 @@ func TestHandleEnqueueRunSuccess(t *testing.T) {
 	require.Len(t, rt.runQueue, 1)
 }
 
+func TestHandleEnqueueRunWhilePausedDoesNotRequestStart(t *testing.T) {
+	rt := newRuntimeForTests()
+	rt.paused = true
+
+	_, err := rt.handleEnqueueRun(MobileRunnerSemaphoreEnqueueRunRequest{
+		TicketID:          "ticket-1",
+		OwnerNamespace:    "ns-1",
+		RunnerID:          "runner-1",
+		EnqueuedAt:        time.Now(),
+		RequiredRunnerIDs: []string{"runner-1"},
+		LeaderRunnerID:    "runner-1",
+	})
+	require.NoError(t, err)
+	require.False(t, rt.runStarterRequested)
+}
+
+func TestHandleResumeRunnerClearsPauseState(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	type resumeState struct {
+		Response            MobileRunnerSemaphoreResumeRunnerResponse
+		Paused              bool
+		PauseReason         string
+		PauseGeneration     int
+		ShutdownAfterSecs   int
+		RunStarterRequested bool
+	}
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (resumeState, error) {
+			rt := newRuntimeForTests()
+			rt.ctx = ctx
+			rt.paused = true
+			rt.pauseReason = "heartbeat timeout"
+			rt.pauseGeneration = 2
+			rt.shutdownAfterSeconds = 30
+
+			if err := rt.registerResumeRunnerHandler(); err != nil {
+				return resumeState{}, err
+			}
+
+			workflow.GetSignalChannel(ctx, "kick").Receive(ctx, nil)
+
+			return resumeState{
+				Paused:              rt.paused,
+				PauseReason:         rt.pauseReason,
+				PauseGeneration:     rt.pauseGeneration,
+				ShutdownAfterSecs:   rt.shutdownAfterSeconds,
+				RunStarterRequested: rt.runStarterRequested,
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "test-resume-handler-clears-state"},
+	)
+
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(
+			MobileRunnerSemaphoreResumeRunnerUpdate,
+			"resume-1",
+			&testsuite.TestUpdateCallback{
+				OnReject: func(err error) { require.NoError(t, err) },
+				OnComplete: func(result interface{}, err error) {
+					require.NoError(t, err)
+				},
+			},
+			MobileRunnerSemaphoreResumeRunnerRequest{Reason: "runner_startup"},
+		)
+		env.SignalWorkflow("kick", nil)
+	}, time.Second)
+
+	env.ExecuteWorkflow("test-resume-handler-clears-state")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result resumeState
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.False(t, result.Paused)
+	require.Empty(t, result.PauseReason)
+	require.Equal(t, 3, result.PauseGeneration)
+	require.Zero(t, result.ShutdownAfterSecs)
+	require.True(t, result.RunStarterRequested)
+}
+
+func TestHandlePauseRunnerPreservesQueuedTickets(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	type pauseState struct {
+		Response     MobileRunnerSemaphorePauseRunnerResponse
+		Paused       bool
+		QueueLen     int
+		RemainingIDs []string
+	}
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (pauseState, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runQueue: []string{"ticket-1"},
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:       "ticket-1",
+							OwnerNamespace: "tenant-1",
+						},
+						Status: mobileRunnerSemaphoreRunQueued,
+					},
+				},
+			}
+
+			resp, err := rt.handlePauseRunner(ctx, MobileRunnerSemaphorePauseRunnerRequest{
+				Reason:               "heartbeat timeout",
+				CancelRunning:        true,
+				ShutdownAfterSeconds: 60,
+			})
+			return pauseState{
+				Response:     resp,
+				Paused:       rt.paused,
+				QueueLen:     len(rt.runQueue),
+				RemainingIDs: rt.sortedRunTicketIDs(),
+			}, err
+		},
+		workflow.RegisterOptions{Name: "test-pause-preserves-queued"},
+	)
+
+	env.ExecuteWorkflow("test-pause-preserves-queued")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result pauseState
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.True(t, result.Paused)
+	require.Equal(t, 1, result.QueueLen)
+	require.Equal(t, []string{"ticket-1"}, result.RemainingIDs)
+	require.Zero(t, result.Response.RunningPipelinesCanceled)
+}
+
+func TestHandlePauseRunnerCancelsRunningTicket(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	cancelAct := activities.NewCancelWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload, err := workflowengine.DecodePayload[activities.CancelWorkflowActivityInput](input.Payload)
+			require.NoError(t, err)
+			require.Equal(t, "wf-1", payload.WorkflowID)
+			return workflowengine.ActivityResult{
+				Output: activities.CancelWorkflowActivityOutput{Canceled: true, Status: "CANCELED"},
+			}, nil
+		},
+		activity.RegisterOptions{Name: cancelAct.Name()},
+	)
+
+	type pauseState struct {
+		Response     MobileRunnerSemaphorePauseRunnerResponse
+		QueueLen     int
+		RemainingIDs []string
+	}
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (pauseState, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runQueue: []string{"ticket-queued"},
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-running": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:          "ticket-running",
+							OwnerNamespace:    "tenant-1",
+							RequiredRunnerIDs: []string{"runner-1", "runner-2"},
+							LeaderRunnerID:    "runner-1",
+						},
+						Status:            mobileRunnerSemaphoreRunRunning,
+						WorkflowID:        "wf-1",
+						RunID:             "run-1",
+						WorkflowNamespace: "tenant-1",
+					},
+					"ticket-queued": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:       "ticket-queued",
+							OwnerNamespace: "tenant-1",
+							Cleanup: &MobileRunnerSemaphoreCleanupMetadata{
+								TempWalletVersionID: "wallet-1",
+							},
+						},
+						Status: mobileRunnerSemaphoreRunQueued,
+					},
+				},
+			}
+
+			resp, err := rt.handlePauseRunner(ctx, MobileRunnerSemaphorePauseRunnerRequest{
+				Reason:               "runner shutdown",
+				CancelRunning:        true,
+				ShutdownAfterSeconds: 60,
+			})
+			return pauseState{
+				Response:     resp,
+				QueueLen:     len(rt.runQueue),
+				RemainingIDs: rt.sortedRunTicketIDs(),
+			}, err
+		},
+		workflow.RegisterOptions{Name: "test-pause-cancels-running"},
+	)
+	env.OnSignalExternalWorkflow(
+		mock.Anything,
+		MobileRunnerSemaphoreWorkflowID("runner-2"),
+		"",
+		MobileRunnerSemaphoreRunDoneSignalName,
+		mock.Anything,
+	).Return(nil).Once()
+
+	env.ExecuteWorkflow("test-pause-cancels-running")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result pauseState
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, 1, result.Response.RunningPipelinesCanceled)
+	require.Equal(t, 1, result.QueueLen)
+	require.Equal(t, []string{"ticket-queued"}, result.RemainingIDs)
+}
+
+func TestHandlePauseRunnerAlreadyPausedReturnsCurrentState(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (MobileRunnerSemaphorePauseRunnerResponse, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID:             "runner-1",
+				paused:               true,
+				pauseGeneration:      2,
+				shutdownAfterSeconds: 120,
+				pauseReason:          "heartbeat timeout",
+				runQueue:             []string{},
+				runTickets:           map[string]MobileRunnerSemaphoreRunTicketState{},
+			}
+			return rt.handlePauseRunner(ctx, MobileRunnerSemaphorePauseRunnerRequest{
+				Reason:               "runner shutdown",
+				CancelRunning:        true,
+				ShutdownAfterSeconds: 10,
+			})
+		},
+		workflow.RegisterOptions{Name: "test-pause-already-paused"},
+	)
+
+	env.ExecuteWorkflow("test-pause-already-paused")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result MobileRunnerSemaphorePauseRunnerResponse
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.True(t, result.Paused)
+	require.Equal(t, 120, result.ShutdownAfterSeconds)
+}
+
 func TestHandleEnqueueRunReturnsExistingTicket(t *testing.T) {
 	rt := newRuntimeForTests()
 	rt.runTickets["ticket-1"] = MobileRunnerSemaphoreRunTicketState{

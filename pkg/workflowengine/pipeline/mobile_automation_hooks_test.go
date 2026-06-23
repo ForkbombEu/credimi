@@ -102,6 +102,35 @@ func TestStartRecordingForDeviceSuccess(t *testing.T) {
 	require.Equal(t, "/tmp/video.mp4", device["video_path"])
 }
 
+func TestStartRecordingForDeviceSetsDefaultHeartbeatTimeout(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	recordActivity := activities.NewStartRecordingActivity()
+	var observedHeartbeat time.Duration
+
+	env.RegisterWorkflowWithOptions(
+		testStartRecordingSuccessWorkflow,
+		workflow.RegisterOptions{Name: "test-start-recording-heartbeat"},
+	)
+	env.RegisterActivityWithOptions(
+		func(ctx context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			observedHeartbeat = activity.GetInfo(ctx).HeartbeatTimeout
+			return workflowengine.ActivityResult{Output: map[string]any{
+				"recording_process_pid": float64(1),
+				"ffmpeg_process_pid":    float64(2),
+				"log_process_pid":       float64(3),
+				"video_path":            "/tmp/video.mp4",
+				"log_path":              "/tmp/log.txt",
+			}}, nil
+		},
+		activity.RegisterOptions{Name: recordActivity.Name()},
+	)
+
+	env.ExecuteWorkflow("test-start-recording-heartbeat")
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, 30*time.Second, observedHeartbeat)
+}
+
 func TestCleanupRecordingSuccess(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -180,6 +209,87 @@ func TestStopRecordingMissingLastFrame(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing last_frame_path")
+}
+
+func TestStopRecordingUsesExistingHeartbeatTimeout(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	stopActivity := activities.NewStopRecordingActivity()
+	var observedHeartbeat time.Duration
+
+	env.RegisterWorkflowWithOptions(
+		testStopRecordingSuccessWorkflow,
+		workflow.RegisterOptions{Name: "test-stop-recording-existing-heartbeat"},
+	)
+	env.RegisterActivityWithOptions(
+		func(ctx context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			observedHeartbeat = activity.GetInfo(ctx).HeartbeatTimeout
+			return workflowengine.ActivityResult{Output: map[string]any{
+				"last_frame_path": "/tmp/last.png",
+			}}, nil
+		},
+		activity.RegisterOptions{Name: stopActivity.Name()},
+	)
+
+	env.ExecuteWorkflow(
+		"test-stop-recording-existing-heartbeat",
+		workflow.ActivityOptions{
+			StartToCloseTimeout: 5 * time.Minute,
+			HeartbeatTimeout:    45 * time.Second,
+		},
+	)
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, 45*time.Second, observedHeartbeat)
+}
+
+func TestStopRecordingUsesCleanupHeartbeatFallback(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	stopActivity := activities.NewStopRecordingActivity()
+	var observedOptions activity.Info
+
+	env.RegisterWorkflowWithOptions(
+		testStopRecordingSuccessWorkflow,
+		workflow.RegisterOptions{Name: "test-stop-recording-fallback-heartbeat"},
+	)
+	env.RegisterActivityWithOptions(
+		func(ctx context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			observedOptions = activity.GetInfo(ctx)
+			return workflowengine.ActivityResult{Output: map[string]any{
+				"last_frame_path": "/tmp/last.png",
+			}}, nil
+		},
+		activity.RegisterOptions{Name: stopActivity.Name()},
+	)
+
+	env.ExecuteWorkflow(
+		"test-stop-recording-fallback-heartbeat",
+		workflow.ActivityOptions{
+			StartToCloseTimeout: 5 * time.Minute,
+		},
+	)
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, 2*time.Minute, observedOptions.ScheduleToCloseTimeout)
+	require.Equal(t, 60*time.Second, observedOptions.StartToCloseTimeout)
+	require.Equal(t, 30*time.Second, observedOptions.HeartbeatTimeout)
+}
+
+func TestHeartbeatAwareCleanupContextSetsSingleAttemptFallback(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		testStopRecordingUsesCleanupFallbackWorkflow,
+		workflow.RegisterOptions{Name: "test-stop-recording-fallback-options"},
+	)
+
+	env.ExecuteWorkflow("test-stop-recording-fallback-options")
+	require.NoError(t, env.GetWorkflowError())
+
+	var options workflow.ActivityOptions
+	require.NoError(t, env.GetWorkflowResult(&options))
+	require.NotNil(t, options.RetryPolicy)
+	require.Equal(t, int32(1), options.RetryPolicy.MaximumAttempts)
 }
 
 func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
@@ -2718,6 +2828,33 @@ func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
 	}
 	_, err := stopRecording(ctx, info, workflow.GetLogger(ctx))
 	return err
+}
+
+func testStopRecordingSuccessWorkflow(ctx workflow.Context, ao workflow.ActivityOptions) (string, error) {
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		ao,
+	)
+
+	info := &recordingInfo{
+		videoPath:    "/tmp/video.mp4",
+		logPath:      "/tmp/log.txt",
+		recordingPid: 1,
+		ffmpegPid:    2,
+		logPid:       3,
+	}
+	return stopRecording(ctx, info, workflow.GetLogger(ctx))
+}
+
+func testStopRecordingUsesCleanupFallbackWorkflow(ctx workflow.Context) (workflow.ActivityOptions, error) {
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{
+			StartToCloseTimeout: 5 * time.Minute,
+		},
+	)
+
+	return workflow.GetActivityOptions(heartbeatAwareCleanupContext(ctx)), nil
 }
 
 func mobileAutomationSetupSteps() []pipeline.StepDefinition {

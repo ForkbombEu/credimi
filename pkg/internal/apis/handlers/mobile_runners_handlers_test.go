@@ -24,14 +24,32 @@ import (
 func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
+	ensureMobileRunnerLifecycleFields(t, app)
 
 	canonify.RegisterCanonifyHooks(app)
 	MobileRunnersPublicRoutes.Add(app)
 	MobileRunnerRegistrationRoutes.Add(app)
+	MobileRunnerLifecycleRoutes.Add(app)
 	MobileRunnersTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 
 	return app
+}
+
+func ensureMobileRunnerLifecycleFields(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+
+	if collection.Fields.GetByName("online") == nil {
+		collection.Fields.Add(&core.BoolField{Name: "online"})
+	}
+	if collection.Fields.GetByName("last_heartbeat_at") == nil {
+		collection.Fields.Add(&core.DateField{Name: "last_heartbeat_at"})
+	}
+
+	require.NoError(t, app.Save(collection))
 }
 
 func performMobileRunnerRequest(
