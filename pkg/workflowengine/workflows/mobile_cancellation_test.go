@@ -50,7 +50,8 @@ func TestMobileAutomationWorkflowPropagatesActivityCancellation(t *testing.T) {
 				ActionCode: "steps: []",
 			},
 			Config: map[string]any{
-				"app_url": "https://example.test",
+				"app_url":   "https://example.test",
+				"taskqueue": "runner-1-TaskQueue",
 			},
 			ActivityOptions: &workflow.ActivityOptions{
 				StartToCloseTimeout: time.Second,
@@ -76,6 +77,7 @@ func TestMobileActivityOptionsAddHeartbeatAndPreserveRetryPolicy(t *testing.T) {
 
 	require.Equal(t, time.Minute, options.StartToCloseTimeout)
 	require.Equal(t, 30*time.Second, options.HeartbeatTimeout)
+	require.Equal(t, 30*time.Second, options.ScheduleToStartTimeout)
 	require.Equal(t, "runner-1-TaskQueue", options.TaskQueue)
 	require.NotNil(t, options.RetryPolicy)
 	require.Equal(t, int32(5), options.RetryPolicy.MaximumAttempts)

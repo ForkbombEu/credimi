@@ -31,7 +31,7 @@ func TestRegistryContainsCoreTasks(t *testing.T) {
 	require.Equal(t, TaskWorkflow, mobileTask.Kind)
 	require.NotNil(t, mobileTask.NewFunc())
 	require.NotNil(t, mobileTask.PayloadType)
-	require.True(t, mobileTask.CustomTaskQueue)
+	require.False(t, mobileTask.CustomTaskQueue)
 	require.NotNil(t, mobileTask.PipelinePayloadType)
 
 	externalInstallTask := Registry["mobile-external-install"]
@@ -165,11 +165,4 @@ func TestPipelineInternalRegistryFactoriesCreateInstances(t *testing.T) {
 			require.Contains(t, []TaskKind{TaskActivity, TaskWorkflow}, factory.Kind)
 		})
 	}
-}
-
-func TestPipelineWorkerDenylist(t *testing.T) {
-	t.Parallel()
-
-	_, ok := PipelineWorkerDenylist["mobile-automation"]
-	require.True(t, ok)
 }

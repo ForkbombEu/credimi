@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
@@ -1918,6 +1919,24 @@ func TestMobileRunnerSemaphoreWorkflowCancellationTriggersShutdownCleanup(t *tes
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	cancelAct := activities.NewCancelWorkflowActivity()
+	signalAct := activities.NewSignalWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload, err := workflowengine.DecodePayload[activities.SignalWorkflowActivityInput](
+				input.Payload,
+			)
+			require.NoError(t, err)
+			require.Equal(t, "wf-1", payload.WorkflowID)
+			require.Equal(t, pipelineinternal.PipelineCancellationPolicySignal, payload.SignalName)
+			policy := workflowengine.AsMap(payload.Payload)
+			require.True(t, workflowengine.AsBool(policy["skip_runner_cleanup"]))
+			require.Equal(t, []string{"runner-1"}, workflowengine.AsSliceOfStrings(policy["skip_runner_cleanup_ids"]))
+			return workflowengine.ActivityResult{
+				Output: activities.SignalWorkflowActivityOutput{Signaled: true, Status: "SIGNALED"},
+			}, nil
+		},
+		activity.RegisterOptions{Name: signalAct.Name()},
+	)
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 			payload, err := workflowengine.DecodePayload[activities.CancelWorkflowActivityInput](

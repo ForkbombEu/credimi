@@ -22,9 +22,10 @@ import (
 const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
 
 const (
-	externalInstallAppDetectionTimeout  = 20 * time.Second
-	externalInstallAppDetectionInterval = 2 * time.Second
-	mobileActivityHeartbeatTimeout      = 30 * time.Second
+	externalInstallAppDetectionTimeout   = 20 * time.Second
+	externalInstallAppDetectionInterval  = 2 * time.Second
+	mobileActivityHeartbeatTimeout       = 30 * time.Second
+	mobileActivityScheduleToStartTimeout = 30 * time.Second
 )
 
 // MobileAutomationWorkflow is a workflow that runs a mobile automation flow
@@ -142,11 +143,22 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
+	_ = appURL
+
+	taskqueue, ok := input.Config["taskqueue"].(string)
+	if !ok || strings.TrimSpace(taskqueue) == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"taskqueue",
+			input.RunMetadata,
+		)
+	}
+
+	runnerCtx := workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, taskqueue))
 
 	mobileActivity := activities.NewRunMobileFlowActivity()
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
-		Config: workflowengine.ActivityTelemetryConfig(ctx, input.Config),
+		Config: workflowengine.ActivityTelemetryConfig(runnerCtx, input.Config),
 		Payload: mobile.RunMobileFlowPayload{
 			Serial:     payload.Serial,
 			Type:       payload.Type,
@@ -155,8 +167,8 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			WorkflowId: workflow.GetInfo(ctx).WorkflowExecution.ID,
 		},
 	}
-	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
-		Get(ctx, &mobileResponse)
+	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
+		Get(runnerCtx, &mobileResponse)
 	output.FlowOutput = mobileResponse.Output
 
 	if executeErr != nil {
@@ -336,6 +348,9 @@ func mobileActivityOptions(
 		options.HeartbeatTimeout = mobileActivityHeartbeatTimeout
 	}
 	if taskQueue != "" {
+		if options.ScheduleToStartTimeout == 0 {
+			options.ScheduleToStartTimeout = mobileActivityScheduleToStartTimeout
+		}
 		options.TaskQueue = taskQueue
 	}
 	return options

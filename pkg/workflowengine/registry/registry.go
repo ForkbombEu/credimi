@@ -99,7 +99,6 @@ var Registry = map[string]TaskFactory{
 		Kind:                TaskWorkflow,
 		NewFunc:             func() any { return workflows.NewMobileAutomationWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
-		CustomTaskQueue:     true,
 		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
 	"mobile-external-install": {
@@ -182,9 +181,4 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.PipelineReportGenerationInput{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
-}
-
-// Denylist of task keys that should NOT be registered in the pipeline worker
-var PipelineWorkerDenylist = map[string]struct{}{
-	"mobile-automation": {},
 }

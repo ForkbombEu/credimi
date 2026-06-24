@@ -304,6 +304,7 @@ func TestMobileRunnerActivityOptionsAddHeartbeatAndPreserveRetryPolicy(t *testin
 
 	require.Equal(t, time.Minute, options.StartToCloseTimeout)
 	require.Equal(t, 30*time.Second, options.HeartbeatTimeout)
+	require.Equal(t, 30*time.Second, options.ScheduleToStartTimeout)
 	require.Equal(t, "runner-1-TaskQueue", options.TaskQueue)
 	require.NotNil(t, options.RetryPolicy)
 	require.Equal(t, int32(5), options.RetryPolicy.MaximumAttempts)
@@ -2264,6 +2265,132 @@ func TestMobileAutomationCleanupHookMissingRunIdentifier(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "one or more errors occurred during mobile automation cleanup")
+}
+
+func TestMobileAutomationCleanupHookSkipsOnlyPolicyRunnerCleanup(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	cleanupActivity := activities.NewCleanupDeviceActivity()
+	calledSerials := []string{}
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload := workflowengine.AsMap(input.Payload)
+			calledSerials = append(calledSerials, workflowengine.AsString(payload["serial"]))
+			return workflowengine.ActivityResult{}, nil
+		},
+		activity.RegisterOptions{Name: cleanupActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			output := map[string]any{}
+			runData := map[string]any{
+				"run_identifier": "run-1",
+				"setted_devices": map[string]any{
+					"tenant/runner-a": map[string]any{
+						"type":       "android_phone",
+						"serial":     "serial-a",
+						"runner_url": "https://runner-a.example",
+						"recording":  false,
+						"installed":  map[string]string{"ver-1": "pkg-a"},
+					},
+					"tenant/runner-b": map[string]any{
+						"type":       "android_phone",
+						"serial":     "serial-b",
+						"runner_url": "https://runner-b.example",
+						"recording":  false,
+						"installed":  map[string]string{"ver-1": "pkg-b"},
+					},
+				},
+				pipelineCancellationPolicyRunDataKey: pipeline.PipelineCancellationPolicy{
+					Reason:               "runner paused",
+					SkipRunnerCleanup:    true,
+					SkipRunnerCleanupIDs: []string{"tenant/runner-a"},
+				},
+			}
+
+			err := MobileAutomationCleanupHook(
+				ctx,
+				nil,
+				&ao,
+				map[string]any{"app_url": "https://app.example"},
+				runData,
+				&output,
+			)
+			return output, err
+		},
+		workflow.RegisterOptions{Name: "test-mobile-cleanup-hook-skip-policy-runner"},
+	)
+
+	env.ExecuteWorkflow("test-mobile-cleanup-hook-skip-policy-runner")
+	require.NoError(t, env.GetWorkflowError())
+
+	var output map[string]any
+	require.NoError(t, env.GetWorkflowResult(&output))
+	require.Equal(t, []string{"serial-b"}, calledSerials)
+	require.Contains(
+		t,
+		workflowengine.AsSliceOfStrings(output["cleanup_warnings"]),
+		"runner cleanup skipped for tenant/runner-a because pipeline cancellation policy requested it",
+	)
+}
+
+func TestMobileAutomationCleanupHookRunsRunnerCleanupWithoutPolicy(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	cleanupActivity := activities.NewCleanupDeviceActivity()
+	calledSerials := []string{}
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload := workflowengine.AsMap(input.Payload)
+			calledSerials = append(calledSerials, workflowengine.AsString(payload["serial"]))
+			return workflowengine.ActivityResult{}, nil
+		},
+		activity.RegisterOptions{Name: cleanupActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			output := map[string]any{}
+			return MobileAutomationCleanupHook(
+				ctx,
+				nil,
+				&ao,
+				map[string]any{"app_url": "https://app.example"},
+				map[string]any{
+					"run_identifier": "run-1",
+					"setted_devices": map[string]any{
+						"tenant/runner-a": map[string]any{
+							"type":       "android_phone",
+							"serial":     "serial-a",
+							"runner_url": "https://runner-a.example",
+							"recording":  false,
+							"installed":  map[string]string{"ver-1": "pkg-a"},
+						},
+						"tenant/runner-b": map[string]any{
+							"type":       "android_phone",
+							"serial":     "serial-b",
+							"runner_url": "https://runner-b.example",
+							"recording":  false,
+							"installed":  map[string]string{"ver-1": "pkg-b"},
+						},
+					},
+				},
+				&output,
+			)
+		},
+		workflow.RegisterOptions{Name: "test-mobile-cleanup-hook-without-policy"},
+	)
+
+	env.ExecuteWorkflow("test-mobile-cleanup-hook-without-policy")
+	require.NoError(t, env.GetWorkflowError())
+	require.ElementsMatch(t, []string{"serial-a", "serial-b"}, calledSerials)
 }
 
 func TestMobileAutomationSetupHookCollectRunnerIDsError(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/temporal"
@@ -1539,6 +1540,46 @@ func (r *mobileRunnerSemaphoreRuntime) cancelTrackedWorkflow(
 	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
 	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
 
+	signalActivity := activities.NewSignalWorkflowActivity()
+	var signalResult workflowengine.ActivityResult
+	signalErr := workflow.ExecuteActivity(activityCtx, signalActivity.Name(), workflowengine.ActivityInput{
+		Payload: activities.SignalWorkflowActivityInput{
+			WorkflowID:        state.WorkflowID,
+			RunID:             state.RunID,
+			WorkflowNamespace: state.WorkflowNamespace,
+			SignalName:        pipelineinternal.PipelineCancellationPolicySignal,
+			Payload: pipelineinternal.PipelineCancellationPolicy{
+				Reason:               reason,
+				SkipRunnerCleanup:    true,
+				SkipRunnerCleanupIDs: []string{r.runnerID},
+			},
+		},
+	}).
+		Get(activityCtx, &signalResult)
+	if signalErr != nil {
+		response.PipelineCancelFailures = append(
+			response.PipelineCancelFailures,
+			fmt.Sprintf("ticket %s pipeline cancellation policy signal failed: %v", ticketID, signalErr),
+		)
+	} else {
+		signalOutput, decodeErr := decodeSignalWorkflowOutput(signalResult.Output)
+		if decodeErr != nil {
+			response.PipelineCancelFailures = append(
+				response.PipelineCancelFailures,
+				fmt.Sprintf("ticket %s pipeline cancellation policy signal decode failed: %v", ticketID, decodeErr),
+			)
+		} else if signalOutput.Status != "SIGNALED" && signalOutput.Status != "NOT_FOUND" {
+			response.PipelineCancelFailures = append(
+				response.PipelineCancelFailures,
+				fmt.Sprintf(
+					"ticket %s pipeline cancellation policy signal returned unexpected status: %s",
+					ticketID,
+					signalOutput.Status,
+				),
+			)
+		}
+	}
+
 	var result workflowengine.ActivityResult
 	err := workflow.ExecuteActivity(activityCtx, cancelActivity.Name(), workflowengine.ActivityInput{
 		Payload: activities.CancelWorkflowActivityInput{
@@ -1864,6 +1905,34 @@ func decodeCancelWorkflowOutput(output any) (activities.CancelWorkflowActivityOu
 	default:
 		return activities.CancelWorkflowActivityOutput{}, newSemaphoreApplicationError(
 			"unexpected cancel workflow output",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+}
+
+func decodeSignalWorkflowOutput(output any) (activities.SignalWorkflowActivityOutput, error) {
+	switch value := output.(type) {
+	case activities.SignalWorkflowActivityOutput:
+		return value, nil
+	case map[string]any:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return activities.SignalWorkflowActivityOutput{}, newSemaphoreApplicationError(
+				fmt.Sprintf("failed to marshal signal workflow output: %v", err),
+				MobileRunnerSemaphoreErrInvalidRequest,
+			)
+		}
+		var decoded activities.SignalWorkflowActivityOutput
+		if err := json.Unmarshal(encoded, &decoded); err != nil {
+			return activities.SignalWorkflowActivityOutput{}, newSemaphoreApplicationError(
+				fmt.Sprintf("failed to decode signal workflow output: %v", err),
+				MobileRunnerSemaphoreErrInvalidRequest,
+			)
+		}
+		return decoded, nil
+	default:
+		return activities.SignalWorkflowActivityOutput{}, newSemaphoreApplicationError(
+			fmt.Sprintf("unsupported signal workflow output type %T", output),
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}

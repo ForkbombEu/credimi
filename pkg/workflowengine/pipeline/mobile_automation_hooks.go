@@ -1674,6 +1674,16 @@ func MobileAutomationCleanupHook(
 	}
 
 	for runnerID, raw := range devices {
+		if shouldSkipRunnerCleanup(runData, runnerID) {
+			appendCleanupWarning(
+				output,
+				fmt.Sprintf(
+					"runner cleanup skipped for %s because pipeline cancellation policy requested it",
+					runnerID,
+				),
+			)
+			continue
+		}
 		if err := cleanupDevice(cleanupDeviceInput{
 			ctx:           ctx,
 			runnerID:      runnerID,
@@ -1724,8 +1734,35 @@ func mobileRunnerActivityOptions(
 	if options.HeartbeatTimeout == 0 {
 		options.HeartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
 	}
+	if options.ScheduleToStartTimeout == 0 {
+		options.ScheduleToStartTimeout = 30 * time.Second
+	}
 	options.TaskQueue = mobileRunnerTaskQueue(runnerID)
 	return options
+}
+
+func shouldSkipRunnerCleanup(runData map[string]any, runnerID string) bool {
+	rawPolicy, ok := runData[pipelineCancellationPolicyRunDataKey]
+	if !ok {
+		return false
+	}
+
+	policy, ok := rawPolicy.(pipeline.PipelineCancellationPolicy)
+	if !ok || !policy.SkipRunnerCleanup {
+		return false
+	}
+
+	if len(policy.SkipRunnerCleanupIDs) == 0 {
+		return true
+	}
+
+	for _, skipRunnerID := range policy.SkipRunnerCleanupIDs {
+		if skipRunnerID == runnerID {
+			return true
+		}
+	}
+
+	return false
 }
 
 func cleanupDevice(
