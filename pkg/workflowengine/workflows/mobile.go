@@ -41,7 +41,6 @@ type MobileExternalInstallWorkflow struct {
 
 // MobileAutomationWorkflowPayload is the payload for the mobile automation workflow
 type MobileAutomationWorkflowPayload struct {
-	RunIdentifier    string            `json:"run_identifier,omitempty"     yaml:"run_identifier,omitempty"`
 	ActionID         string            `json:"action_id,omitempty"          yaml:"action_id,omitempty"`
 	VersionID        string            `json:"version_id,omitempty"         yaml:"version_id,omitempty"`
 	ActionCode       string            `json:"action_code,omitempty"        yaml:"action_code,omitempty"`

@@ -1091,9 +1091,6 @@
                     },
                     "type": "object"
                   },
-                  "run_identifier": {
-                    "type": "string"
-                  },
                   "runner_id": {
                     "type": "string"
                   },
