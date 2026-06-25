@@ -37,7 +37,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 
-	const isRunnerGlobal = $derived(ExecutionTarget.hasGlobalRunner());
+	const isTargetLocked = $derived(form.isTargetLocked);
+	const showChooseRunnerLater = $derived(
+		ExecutionTarget.hasUndefinedRunner() && !form.hasOtherMobileWallets
+	);
 
 	const runnerCatalog = bindRunnerCatalogSearch({
 		search: form.runnerSearch
@@ -45,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#snippet chooseRunnerLater()}
-	{#if ExecutionTarget.hasUndefinedRunner()}
+	{#if showChooseRunnerLater}
 		<div class="px-4">
 			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
 		</div>
@@ -61,14 +64,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				avatar={data.logo}
 				title={form.data.wallet.name}
 				subtitle={form.data.wallet.organization_name}
-				onDiscard={isRunnerGlobal ? undefined : () => form.removeWallet()}
+				onDiscard={isTargetLocked ? undefined : () => form.removeWallet()}
 			/>
 		</WithLabel>
 		{#if form.data.version}
 			<WithLabel label={m.Version()}>
 				<ItemCard
 					title={getVersionLabel(form.data.version)}
-					onDiscard={isRunnerGlobal ? undefined : () => form.removeVersion()}
+					onDiscard={isTargetLocked ? undefined : () => form.removeVersion()}
 				/>
 			</WithLabel>
 		{/if}
@@ -76,7 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<WithLabel label={m.Runner()}>
 				<ItemCard
 					title={getRunnerLabel(form.data.runner)}
-					onDiscard={isRunnerGlobal ? undefined : () => form.removeRunner()}
+					onDiscard={isTargetLocked ? undefined : () => form.removeRunner()}
 				/>
 			</WithLabel>
 		{/if}

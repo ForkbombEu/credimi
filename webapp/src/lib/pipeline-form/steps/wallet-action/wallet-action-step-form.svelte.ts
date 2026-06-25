@@ -42,6 +42,9 @@ export function getRunnerLabel(runner: SelectedRunner) {
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
+	private existingMobileCount: number;
+	private otherMobileWalletIds: string[];
+
 	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
@@ -63,6 +66,8 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	constructor(opts?: InitFormOptions<WalletActionStepData>) {
 		super(opts);
+		this.existingMobileCount = opts?.existingMobileCount ?? 0;
+		this.otherMobileWalletIds = opts?.otherMobileWalletIds ?? [];
 		if (opts?.initial) {
 			this.data = { ...opts.initial };
 		} else if (ExecutionTarget.state.current) {
@@ -73,8 +78,21 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		}
 	}
 
+	get isTargetLocked() {
+		return ExecutionTarget.state.locked || (this.intent === 'add' && this.existingMobileCount >= 2);
+	}
+
+	get hasOtherMobileWallets() {
+		return this.otherMobileWalletIds.length > 0;
+	}
+
 	canSave() {
-		return this.state === 'ready';
+		if (this.state !== 'ready') return false;
+		if (this.data.runner === GLOBAL_RUNNER && this.otherMobileWalletIds.length > 0) {
+			const walletId = this.data.wallet?.id;
+			if (walletId && this.otherMobileWalletIds.some((id) => id !== walletId)) return false;
+		}
+		return true;
 	}
 
 	getSubmitData() {
@@ -86,23 +104,38 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	selectWallet(wallet: HubItem) {
 		this.data.wallet = wallet;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+		if (
+			this.shouldAllowGlobalRunner() &&
+			(ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner())
+		) {
 			this.data.runner = 'global';
 		}
 	}
 
 	selectVersion(version: WalletVersionsResponse) {
 		this.data.version = version;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+		if (
+			this.shouldAllowGlobalRunner() &&
+			(ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner())
+		) {
 			this.data.runner = 'global';
 		}
 	}
 
 	selectExternalVersion() {
 		this.data.version = EXTERNAL_VERSION;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+		if (
+			this.shouldAllowGlobalRunner() &&
+			(ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner())
+		) {
 			this.data.runner = 'global';
 		}
+	}
+
+	private shouldAllowGlobalRunner(): boolean {
+		const walletId = this.data.wallet?.id;
+		if (!walletId) return true;
+		return !this.otherMobileWalletIds.some((id) => id !== walletId);
 	}
 
 	//
