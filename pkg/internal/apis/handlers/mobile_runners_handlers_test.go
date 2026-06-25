@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -20,6 +22,12 @@ import (
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
@@ -102,6 +110,38 @@ func responseRecorder(t testing.TB, event *core.RequestEvent) *httptest.Response
 	recorder, ok := event.Response.(*httptest.ResponseRecorder)
 	require.True(t, ok)
 	return recorder
+}
+
+func TestCheckMobileRunnerHealthHTTP(t *testing.T) {
+	t.Run("empty url is offline without error", func(t *testing.T) {
+		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), " ")
+		require.NoError(t, err)
+		require.False(t, online)
+		require.Nil(t, devices)
+	})
+
+	t.Run("healthy runner returns devices", func(t *testing.T) {
+		origClient := http.DefaultClient
+		t.Cleanup(func() { http.DefaultClient = origClient })
+
+		http.DefaultClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			require.Equal(t, "/health", req.URL.Path)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body: io.NopCloser(strings.NewReader(
+					`{"devices":[{"serial":"ABC123","state":"device","model":"Pixel 8"}]}`,
+				)),
+			}, nil
+		})}
+
+		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), "https://runner.example")
+		require.NoError(t, err)
+		require.True(t, online)
+		require.Len(t, devices, 1)
+		require.Equal(t, "ABC123", devices[0].Serial)
+		require.Equal(t, "device", devices[0].State)
+		require.Equal(t, "Pixel 8", devices[0].Model)
+	})
 }
 
 func TestListMobileRunners(t *testing.T) {

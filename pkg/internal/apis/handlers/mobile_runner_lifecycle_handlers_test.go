@@ -87,6 +87,68 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 	require.Equal(t, fixedNow.Format("2006-01-02 15:04:05.000Z"), record.GetString("last_heartbeat_at"))
 }
 
+func TestHandleMobileRunnerLifecycleHeartbeat(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, orgID, "heartbeat-runner", "https://runner.example", false)
+
+	origNow := mobileRunnerLifecycleNow
+	t.Cleanup(func() { mobileRunnerLifecycleNow = origNow })
+
+	fixedNow := time.Date(2026, 6, 24, 10, 15, 30, 0, time.UTC)
+	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
+
+	event := performMobileRunnerRequest(
+		t,
+		app,
+		user,
+		"/api/mobile-runner/lifecycle/heartbeat",
+		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/heartbeat-runner"},
+	)
+
+	err = HandleMobileRunnerLifecycleHeartbeat()(event)
+	require.NoError(t, err)
+
+	recorder := responseRecorder(t, event)
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	response := decodeJSONBody(t, recorder)
+	require.Equal(t, "usera-s-organization/heartbeat-runner", response["runner_id"])
+	require.Equal(t, true, response["online"])
+	require.Equal(t, float64(defaultMobileRunnerHeartbeatTimeoutSeconds), response["heartbeat_timeout_seconds"])
+
+	record, err := canonify.Resolve(app, "/usera-s-organization/heartbeat-runner")
+	require.NoError(t, err)
+	require.True(t, record.GetBool("online"))
+	require.Equal(t, fixedNow.Format("2006-01-02 15:04:05.000Z"), record.GetString("last_heartbeat_at"))
+}
+
+func TestHandleMobileRunnerLifecycleHeartbeatRejectsEmptyRunnerID(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	event := performMobileRunnerRequest(
+		t,
+		app,
+		user,
+		"/api/mobile-runner/lifecycle/heartbeat",
+		MobileRunnerLifecycleRequest{RunnerID: " "},
+	)
+
+	err = HandleMobileRunnerLifecycleHeartbeat()(event)
+	recorder := responseRecorder(t, event)
+	requireHandlerErrorHandled(t, recorder, err)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
 func TestHandleMobileRunnerLifecyclePauseMissingSemaphoreSucceeds(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
