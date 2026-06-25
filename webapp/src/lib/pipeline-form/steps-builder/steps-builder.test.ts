@@ -16,6 +16,9 @@ vi.mock('$lib/layout/global-confirm.svelte', () => ({
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
 
+import * as ExecutionTarget from '../execution-target/state.svelte.js';
+import { GLOBAL_RUNNER } from '../steps/wallet-action/wallet-action-step-form.svelte.js';
+import type { EnrichedStep } from './types.js';
 import { StepsBuilder } from './steps-builder.svelte.js';
 
 const VALID_YAML = `name: test
@@ -24,9 +27,18 @@ steps:
   - use: debug
 `;
 
-function createBuilder() {
+const wallet = { id: 'w1', name: 'W' } as never;
+const version = { id: 'v1', tag: '1' } as never;
+const action = { id: 'a1', name: 'A' } as never;
+
+function mobileTuple(): EnrichedStep {
+	const data = { wallet, version, runner: GLOBAL_RUNNER, action };
+	return [{ use: 'mobile-automation', id: 's', continue_on_error: false, with: {} }, data] as unknown as EnrichedStep;
+}
+
+function createBuilder(steps: EnrichedStep[] = []) {
 	return new StepsBuilder({
-		steps: [],
+		steps,
 		yamlPreview: () => VALID_YAML
 	});
 }
@@ -34,6 +46,31 @@ function createBuilder() {
 type BuilderInternal = {
 	state: { mode: StepsBuilder['mode']; steps: unknown[] };
 };
+
+describe('StepsBuilder undo/redo', () => {
+	afterEach(() => {
+		ExecutionTarget.clear();
+		vi.clearAllMocks();
+	});
+
+	it('resyncs ExecutionTarget after undo and redo', () => {
+		const builder = createBuilder([mobileTuple()]);
+		ExecutionTarget.syncFromSteps(builder.steps);
+		expect(ExecutionTarget.state.current?.wallet.id).toBe('w1');
+
+		builder.deleteStep(0);
+		expect(builder.steps).toHaveLength(0);
+		expect(ExecutionTarget.state.current).toBeUndefined();
+
+		builder.undo();
+		expect(builder.steps).toHaveLength(1);
+		expect(ExecutionTarget.state.current?.wallet.id).toBe('w1');
+
+		builder.redo();
+		expect(builder.steps).toHaveLength(0);
+		expect(ExecutionTarget.state.current).toBeUndefined();
+	});
+});
 
 describe('StepsBuilder manual mode', () => {
 	afterEach(() => {

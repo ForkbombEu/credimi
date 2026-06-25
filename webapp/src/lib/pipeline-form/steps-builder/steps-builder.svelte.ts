@@ -110,10 +110,12 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	undo() {
 		this.stateManager.undo();
+		this.syncExecutionTarget();
 	}
 
 	redo() {
 		this.stateManager.redo();
+		this.syncExecutionTarget();
 	}
 
 	// Core functionality
