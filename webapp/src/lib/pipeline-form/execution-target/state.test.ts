@@ -40,6 +40,22 @@ describe('ExecutionTarget.syncFromSteps', () => {
 		ExecutionTarget.syncFromSteps([mobileTuple(), mobileTuple()]);
 		expect(ExecutionTarget.state.locked).toBe(true);
 	});
+
+	it('stays unlocked when two mobile steps have different wallets', () => {
+		const otherWallet = { id: 'w2', name: 'W2' } as never;
+		ExecutionTarget.syncFromSteps([mobileTuple(), mobileTuple({ wallet: otherWallet })]);
+		expect(ExecutionTarget.state.locked).toBe(false);
+	});
+
+	it('clears secondStepPrefillSnapshot when no mobile steps remain', () => {
+		const config = { wallet, version, runner: GLOBAL_RUNNER };
+		ExecutionTarget.state.current = config;
+		ExecutionTarget.beginSecondStepAdd();
+		expect(ExecutionTarget.state.secondStepPrefillSnapshot).toEqual(config);
+
+		ExecutionTarget.syncFromSteps([[{ use: 'debug' }, {}]]);
+		expect(ExecutionTarget.state.secondStepPrefillSnapshot).toBeUndefined();
+	});
 });
 
 describe('ExecutionTarget.finishSecondStepAdd', () => {
@@ -55,6 +71,16 @@ describe('ExecutionTarget.finishSecondStepAdd', () => {
 	it('stays unlocked when submitted target differs', () => {
 		const config = { wallet, version, runner: GLOBAL_RUNNER };
 		ExecutionTarget.state.current = config;
+		ExecutionTarget.beginSecondStepAdd();
+		const otherWallet = { id: 'w2', name: 'W2' } as never;
+		ExecutionTarget.finishSecondStepAdd({ wallet: otherWallet, version, runner: GLOBAL_RUNNER });
+		expect(ExecutionTarget.state.locked).toBe(false);
+	});
+
+	it('unlocks when submitted target differs after prior lock', () => {
+		const config = { wallet, version, runner: GLOBAL_RUNNER };
+		ExecutionTarget.state.current = config;
+		ExecutionTarget.state.locked = true;
 		ExecutionTarget.beginSecondStepAdd();
 		const otherWallet = { id: 'w2', name: 'W2' } as never;
 		ExecutionTarget.finishSecondStepAdd({ wallet: otherWallet, version, runner: GLOBAL_RUNNER });

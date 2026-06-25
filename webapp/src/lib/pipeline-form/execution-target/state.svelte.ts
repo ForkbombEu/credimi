@@ -40,31 +40,25 @@ export function hasUndefinedRunner() {
 	return state.current?.runner === undefined;
 }
 
+function configFromStepData(data: WalletActionStepData): Config {
+	const { wallet, version, runner } = data;
+	return { wallet, version, runner };
+}
+
 export function syncFromSteps(steps: EnrichedStep[]) {
-	const mobileSteps = steps.filter((step) => step[0].use === 'mobile-automation');
+	const shared = getSharedExecutionTargetContext(steps);
+	const mobileSteps = steps.filter(
+		([raw, data]) => raw.use === 'mobile-automation' && !isError(data)
+	);
 
 	if (mobileSteps.length === 0) {
-		state.current = undefined;
-		state.locked = false;
+		clear();
 		return;
 	}
 
-	const lastStep = mobileSteps.at(-1)!;
-	const [, data] = lastStep;
-	if (isError(data)) {
-		state.current = undefined;
-		state.locked = false;
-		return;
-	}
-
-	const { wallet, version, runner } = data as unknown as WalletActionStepData;
-
-	state.current = {
-		wallet,
-		version,
-		runner
-	};
-	state.locked = mobileSteps.length >= 2 && getSharedExecutionTargetContext(steps) !== null;
+	const lastData = mobileSteps.at(-1)![1];
+	state.current = configFromStepData(lastData as WalletActionStepData);
+	state.locked = mobileSteps.length >= 2 && shared !== null;
 }
 
 export function loadFromPipeline(pipeline: EnrichedPipeline) {
@@ -83,6 +77,8 @@ export function finishSecondStepAdd(submitted: Config) {
 		targetsEqual(state.secondStepPrefillSnapshot, submitted)
 	) {
 		state.locked = true;
+	} else {
+		state.locked = false;
 	}
 	state.secondStepPrefillSnapshot = undefined;
 }
