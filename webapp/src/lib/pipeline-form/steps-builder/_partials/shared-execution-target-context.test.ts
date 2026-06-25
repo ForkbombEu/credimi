@@ -12,14 +12,15 @@ import {
 	getSharedExecutionTargetContext,
 	hasDistinctMobileWallets
 } from './shared-execution-target-context.js';
+import type { EnrichedStep } from '../types.js';
 
 const walletA = { id: 'w-a', name: 'A' } as never;
 const walletB = { id: 'w-b', name: 'B' } as never;
 const version = { id: 'v1', tag: '1.0' } as never;
 const runner = { path: 'org/runner', name: 'R' } as never;
 
-function mobileStep(data: object) {
-	return [{ use: 'mobile-automation', id: 's1', continue_on_error: false, with: {} }, data] as const;
+function mobileStep(data: object): EnrichedStep {
+	return [{ use: 'mobile-automation', id: 's1', continue_on_error: false, with: {} }, data] as unknown as EnrichedStep;
 }
 
 describe('getSharedExecutionTargetContext', () => {
@@ -61,9 +62,9 @@ describe('hasDistinctMobileWallets', () => {
 
 describe('countMobileSteps', () => {
 	it('counts only mobile-automation steps', () => {
-		const steps = [
+		const steps: EnrichedStep[] = [
 			mobileStep({ wallet: walletA, version, runner, action: {} }),
-			[{ use: 'debug' }, {}]
+			[{ use: 'debug' }, {}] as unknown as EnrichedStep
 		];
 		expect(countMobileSteps(steps)).toBe(1);
 	});

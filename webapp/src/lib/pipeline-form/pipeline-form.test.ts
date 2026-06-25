@@ -14,7 +14,7 @@ vi.mock('./steps-builder/steps-builder.svelte', () => ({ default: class {} }));
 vi.mock('./metadata-form/metadata-form.svelte', () => ({ default: class {} }));
 vi.mock('./runtime-options-form/runtime-options-form.svelte', () => ({ default: class {} }));
 vi.mock('./execution-target/index.js', () => ({
-	ExecutionTarget: { loadFromPipeline: vi.fn(), clear: vi.fn() }
+	ExecutionTarget: { loadFromPipeline: vi.fn(), clear: vi.fn(), syncFromSteps: vi.fn() }
 }));
 vi.mock('@/pocketbase/index.js', () => ({
 	pb: {

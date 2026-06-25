@@ -7,15 +7,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../steps/wallet-action/wallet-action-step-form.svelte', () => ({ default: class {} }));
 
 import * as ExecutionTarget from './state.svelte.js';
+import type { Config } from './state.svelte.js';
 import { GLOBAL_RUNNER } from '../steps/wallet-action/wallet-action-step-form.svelte.js';
+import type { EnrichedStep } from '../steps-builder/types.js';
 
 const wallet = { id: 'w1', name: 'W' } as never;
 const version = { id: 'v1', tag: '1' } as never;
 const action = { id: 'a1', name: 'A' } as never;
 
-function mobileTuple(overrides?: Partial<{ wallet: typeof wallet }>) {
+function mobileTuple(overrides?: Partial<{ wallet: typeof wallet }>): EnrichedStep {
 	const data = { wallet, version, runner: GLOBAL_RUNNER, action, ...overrides };
-	return [{ use: 'mobile-automation', id: 's', continue_on_error: false, with: {} }, data] as const;
+	return [{ use: 'mobile-automation', id: 's', continue_on_error: false, with: {} }, data] as unknown as EnrichedStep;
 }
 
 afterEach(() => {
@@ -48,7 +50,7 @@ describe('ExecutionTarget.syncFromSteps', () => {
 	});
 
 	it('clears secondStepPrefillSnapshot when no mobile steps remain', () => {
-		const config = { wallet, version, runner: GLOBAL_RUNNER };
+		const config: Config = { wallet, version, runner: GLOBAL_RUNNER };
 		ExecutionTarget.state.current = config;
 		ExecutionTarget.beginSecondStepAdd();
 		expect(ExecutionTarget.state.secondStepPrefillSnapshot).toEqual(config);
@@ -60,7 +62,7 @@ describe('ExecutionTarget.syncFromSteps', () => {
 
 describe('ExecutionTarget.finishSecondStepAdd', () => {
 	it('locks when submitted target matches snapshot', () => {
-		const config = { wallet, version, runner: GLOBAL_RUNNER };
+		const config: Config = { wallet, version, runner: GLOBAL_RUNNER };
 		ExecutionTarget.state.current = config;
 		ExecutionTarget.beginSecondStepAdd();
 		ExecutionTarget.finishSecondStepAdd(config);
@@ -69,7 +71,7 @@ describe('ExecutionTarget.finishSecondStepAdd', () => {
 	});
 
 	it('stays unlocked when submitted target differs', () => {
-		const config = { wallet, version, runner: GLOBAL_RUNNER };
+		const config: Config = { wallet, version, runner: GLOBAL_RUNNER };
 		ExecutionTarget.state.current = config;
 		ExecutionTarget.beginSecondStepAdd();
 		const otherWallet = { id: 'w2', name: 'W2' } as never;
@@ -78,7 +80,7 @@ describe('ExecutionTarget.finishSecondStepAdd', () => {
 	});
 
 	it('unlocks when submitted target differs after prior lock', () => {
-		const config = { wallet, version, runner: GLOBAL_RUNNER };
+		const config: Config = { wallet, version, runner: GLOBAL_RUNNER };
 		ExecutionTarget.state.current = config;
 		ExecutionTarget.state.locked = true;
 		ExecutionTarget.beginSecondStepAdd();

@@ -57,7 +57,7 @@ export function syncFromSteps(steps: EnrichedStep[]) {
 	}
 
 	const lastData = mobileSteps.at(-1)![1];
-	state.current = configFromStepData(lastData as WalletActionStepData);
+	state.current = configFromStepData(lastData as unknown as WalletActionStepData);
 	state.locked = mobileSteps.length >= 2 && shared !== null;
 }
 

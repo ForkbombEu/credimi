@@ -149,7 +149,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		config: pipelinestep.AnyConfig
 	) {
 		if (config.use !== 'mobile-automation') return;
-		const data = formData as WalletActionStepData;
+		const data = formData as unknown as WalletActionStepData;
 		if (intent === 'add' && ExecutionTarget.state.secondStepPrefillSnapshot !== undefined) {
 			ExecutionTarget.finishSecondStepAdd({
 				wallet: data.wallet,
@@ -216,7 +216,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 							}
 
 							inner.mode = { id: 'idle' };
-							this.finishMobileStepSubmit(submitIntent, formData, config);
+							this.finishMobileStepSubmit(submitIntent, formData as GenericRecord, config);
 						});
 						this.disposeFormEffect();
 					} catch (e) {
