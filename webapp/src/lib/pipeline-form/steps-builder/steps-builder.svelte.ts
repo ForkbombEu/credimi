@@ -24,6 +24,10 @@ import { ExecutionTarget } from '../execution-target/index.js';
 import * as pipelinestep from '../steps';
 import { walletActionStepConfig } from '../steps/wallet-action/index.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
+import {
+	countMobileSteps,
+	mobileWalletIds
+} from './_partials/shared-execution-target-context.js';
 import { getStepConfig, getStepData, isStepEditable } from './_partials/utils.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
@@ -135,6 +139,27 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.openForm('edit', config, { initial: data, stepIndex: index });
 	}
 
+	private syncExecutionTarget(steps = this.state.steps) {
+		ExecutionTarget.syncFromSteps(steps);
+	}
+
+	private finishMobileStepSubmit(
+		intent: pipelinestep.FormIntent,
+		formData: GenericRecord,
+		config: pipelinestep.AnyConfig
+	) {
+		if (config.use !== 'mobile-automation') return;
+		const data = formData as WalletActionStepData;
+		if (intent === 'add' && ExecutionTarget.state.secondStepPrefillSnapshot !== undefined) {
+			ExecutionTarget.finishSecondStepAdd({
+				wallet: data.wallet,
+				version: data.version,
+				runner: data.runner
+			});
+		}
+		this.syncExecutionTarget();
+	}
+
 	private openForm(
 		intent: pipelinestep.FormIntent,
 		config: pipelinestep.AnyConfig,
@@ -144,9 +169,23 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			const effectCleanup = $effect.root(() => {
 				let form: pipelinestep.Form;
 				try {
+					const existingMobileCount = countMobileSteps(state.steps);
+					if (config.use === 'mobile-automation' && intent === 'add' && existingMobileCount === 1) {
+						ExecutionTarget.beginSecondStepAdd();
+					}
+					const walletIds = [...mobileWalletIds(state.steps)];
+					const otherMobileWalletIds =
+						config.use === 'mobile-automation'
+							? walletIds.filter(
+									(id) => id !== (opts.initial as WalletActionStepData | undefined)?.wallet?.id
+								)
+							: undefined;
+
 					form = config.initForm({
 						intent,
-						initial: opts.initial as never
+						initial: opts.initial as never,
+						existingMobileCount,
+						otherMobileWalletIds
 					});
 				} catch (e) {
 					showPipelineFormError(e);
@@ -156,6 +195,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 					try {
 						this.stateManager.run((inner) => {
 							if (inner.mode.id !== 'form') return;
+
+							const submitIntent = inner.mode.intent;
 
 							if (inner.mode.intent === 'add') {
 								const step: PipelineStep = {
@@ -175,6 +216,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 							}
 
 							inner.mode = { id: 'idle' };
+							this.finishMobileStepSubmit(submitIntent, formData, config);
 						});
 						this.disposeFormEffect();
 					} catch (e) {
@@ -202,6 +244,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	deleteStep(index: number) {
 		this.stateManager.run((state) => {
 			state.steps.splice(index, 1);
+			this.syncExecutionTarget(state.steps);
 		});
 	}
 
@@ -214,6 +257,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				pipelineStep.id = '';
 			}
 			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
+			this.syncExecutionTarget(state.steps);
 		});
 	}
 
@@ -313,6 +357,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			}
 		});
 
+		this.syncExecutionTarget();
 		ExecutionTarget.syncVersionIfSameWallet(ctx.wallet.id, version);
 	}
 }

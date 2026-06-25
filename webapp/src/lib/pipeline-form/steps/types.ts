@@ -22,6 +22,8 @@ export type FormIntent = 'add' | 'edit';
 export type InitFormOptions<Deserialized = unknown> = {
 	intent?: FormIntent;
 	initial?: Deserialized;
+	existingMobileCount?: number;
+	otherMobileWalletIds?: string[];
 };
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
