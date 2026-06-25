@@ -82,8 +82,10 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		return ExecutionTarget.state.locked || (this.intent === 'add' && this.existingMobileCount >= 2);
 	}
 
-	get hasOtherMobileWallets() {
-		return this.otherMobileWalletIds.length > 0;
+	get hasDistinctOtherMobileWallets() {
+		const walletId = this.data.wallet?.id;
+		if (!walletId) return this.otherMobileWalletIds.length > 0;
+		return this.otherMobileWalletIds.some((id) => id !== walletId);
 	}
 
 	canSave() {

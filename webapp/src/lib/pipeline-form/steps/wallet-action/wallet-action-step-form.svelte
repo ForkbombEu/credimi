@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const isTargetLocked = $derived(form.isTargetLocked);
 	const showChooseRunnerLater = $derived(
-		ExecutionTarget.hasUndefinedRunner() && !form.hasOtherMobileWallets
+		ExecutionTarget.hasUndefinedRunner() && !form.hasDistinctOtherMobileWallets
 	);
 
 	const runnerCatalog = bindRunnerCatalogSearch({

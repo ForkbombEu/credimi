@@ -54,6 +54,18 @@ describe('WalletActionStepForm target lock', () => {
 	});
 });
 
+describe('WalletActionStepForm distinct other wallets', () => {
+	it('hasDistinctOtherMobileWallets is false when other step shares same wallet', () => {
+		const form = new WalletActionStepForm({
+			intent: 'add',
+			existingMobileCount: 1,
+			otherMobileWalletIds: ['w-a']
+		});
+		form.data.wallet = { id: 'w-a', name: 'A' } as never;
+		expect(form.hasDistinctOtherMobileWallets).toBe(false);
+	});
+});
+
 describe('WalletActionStepForm multi-wallet global runner', () => {
 	it('canSave is false when distinct wallets and runner is global', () => {
 		const form = new WalletActionStepForm({
