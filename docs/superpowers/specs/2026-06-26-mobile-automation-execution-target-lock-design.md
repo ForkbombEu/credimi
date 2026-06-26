@@ -219,3 +219,4 @@ Prefer unit tests in `execution-target/*.test.ts` for rules/sync; no E2E require
 | Edit behavior with 2+ mobile steps | Locked on edit (same as second add) — **A** |
 | Recommended approach | Pass `lockExecutionTarget` from `StepsBuilder` — **Approach 1** |
 | API surface | Group all rules in `execution-target/`; export only meaningful functions (no raw `state`) |
+| Lock delivery to form | **Explicit** — `StepsBuilder` passes `lockExecutionTarget` via `InitFormOptions` (not session state on the module) |
