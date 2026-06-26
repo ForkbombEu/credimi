@@ -42,6 +42,8 @@ export function getRunnerLabel(runner: SelectedRunner) {
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
+	readonly lockExecutionTarget: boolean;
+
 	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
@@ -63,13 +65,12 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	constructor(opts?: InitFormOptions<WalletActionStepData>) {
 		super(opts);
+		this.lockExecutionTarget = opts?.lockExecutionTarget ?? false;
 		if (opts?.initial) {
 			this.data = { ...opts.initial };
-		} else if (ExecutionTarget.state.current) {
-			this.data = {
-				...ExecutionTarget.state.current,
-				action: undefined
-			};
+		} else {
+			const prefill = ExecutionTarget.getAddFormPrefill();
+			if (prefill) this.data = { ...prefill, action: undefined };
 		}
 	}
 
@@ -85,22 +86,23 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	//
 
 	selectWallet(wallet: HubItem) {
+		const walletChanged = this.data.wallet?.id !== wallet.id;
 		this.data.wallet = wallet;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
-			this.data.runner = 'global';
+		if (walletChanged) {
+			this.clearWalletDependents();
 		}
 	}
 
 	selectVersion(version: WalletVersionsResponse) {
 		this.data.version = version;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+		if (ExecutionTarget.shouldDefaultRunnerToGlobal()) {
 			this.data.runner = 'global';
 		}
 	}
 
 	selectExternalVersion() {
 		this.data.version = EXTERNAL_VERSION;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+		if (ExecutionTarget.shouldDefaultRunnerToGlobal()) {
 			this.data.runner = 'global';
 		}
 	}
@@ -111,18 +113,19 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		onSearch: () => {}
 	});
 
-	selectRunner(runner: ExecutionTarget.Config['runner']) {
+	selectRunner(runner: SelectedRunner) {
 		this.data.runner = runner;
 	}
 
 	//
 
 	selectAction(action: WalletActionsResponse) {
-		ExecutionTarget.state.current = {
+		ExecutionTarget.establishFromStep({
 			wallet: this.data.wallet!,
 			version: this.data.version!,
-			runner: this.data.runner!
-		};
+			runner: this.data.runner!,
+			action
+		} as WalletActionStepData);
 		this.data.action = action;
 		if (this.intent === 'add') {
 			this.commit({ ...this.data, action } as WalletActionStepData);
@@ -137,8 +140,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	removeWallet() {
 		this.data.wallet = undefined;
-		this.data.version = undefined;
-		this.data.runner = undefined;
+		this.clearWalletDependents();
 	}
 
 	removeVersion() {
@@ -148,5 +150,11 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	removeRunner() {
 		this.data.runner = undefined;
+	}
+
+	private clearWalletDependents() {
+		this.data.version = undefined;
+		this.data.runner = undefined;
+		this.data.action = undefined;
 	}
 }

@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./wallet-action-step-form.svelte', () => ({ default: class {} }));
+
+import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 
 import {
 	EXTERNAL_VERSION,
@@ -13,6 +15,69 @@ import {
 } from './wallet-action-step-form.svelte.js';
 
 describe('WalletActionStepForm edit intent', () => {
+	beforeEach(() => {
+		ExecutionTarget.clear();
+		vi.restoreAllMocks();
+	});
+
+	it('stores lockExecutionTarget from opts', () => {
+		const form = new WalletActionStepForm({ lockExecutionTarget: true });
+		expect(form.lockExecutionTarget).toBe(true);
+	});
+
+	it('prefills add from getAddFormPrefill', () => {
+		vi.spyOn(ExecutionTarget, 'getAddFormPrefill').mockReturnValue({
+			wallet: { id: 'w1', name: 'W' } as never,
+			version: EXTERNAL_VERSION,
+			runner: GLOBAL_RUNNER
+		});
+		const form = new WalletActionStepForm({ intent: 'add' });
+		expect(form.data.wallet?.id).toBe('w1');
+		expect(form.data.action).toBeUndefined();
+	});
+
+	it('removeWallet clears wallet dependents', () => {
+		const form = new WalletActionStepForm({
+			intent: 'edit',
+			initial: {
+				wallet: { id: 'w1', name: 'W' } as never,
+				version: EXTERNAL_VERSION,
+				runner: GLOBAL_RUNNER,
+				action: { id: 'a1', name: 'Old' } as never
+			}
+		});
+		form.removeWallet();
+		expect(form.data.version).toBeUndefined();
+		expect(form.data.runner).toBeUndefined();
+		expect(form.data.action).toBeUndefined();
+	});
+
+	it('selectWallet clears dependents when wallet changes', () => {
+		const form = new WalletActionStepForm({
+			intent: 'edit',
+			initial: {
+				wallet: { id: 'w1', name: 'W' } as never,
+				version: EXTERNAL_VERSION,
+				runner: GLOBAL_RUNNER,
+				action: { id: 'a1', name: 'Old' } as never
+			}
+		});
+		form.selectWallet({ id: 'w2', name: 'W2' } as never);
+		expect(form.data.version).toBeUndefined();
+		expect(form.data.runner).toBeUndefined();
+		expect(form.data.action).toBeUndefined();
+		expect(form.state).toBe('select-version');
+	});
+
+	it('defaults runner to global after version, not wallet', () => {
+		const form = new WalletActionStepForm({ intent: 'add' });
+		form.selectWallet({ id: 'w1', name: 'W' } as never);
+		expect(form.data.runner).toBeUndefined();
+		form.selectExternalVersion();
+		expect(form.data.runner).toBe(GLOBAL_RUNNER);
+		expect(form.state).toBe('select-action');
+	});
+
 	it('selectAction does not commit until commit()', () => {
 		const onSubmit = vi.fn();
 		const form = new WalletActionStepForm({

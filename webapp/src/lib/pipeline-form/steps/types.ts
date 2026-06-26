@@ -22,6 +22,7 @@ export type FormIntent = 'add' | 'edit';
 export type InitFormOptions<Deserialized = unknown> = {
 	intent?: FormIntent;
 	initial?: Deserialized;
+	lockExecutionTarget?: boolean;
 };
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {

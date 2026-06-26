@@ -35,7 +35,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	);
 
 	walletActions = resource(
-		() => ExecutionTarget.state.current?.wallet?.id,
+		() => ExecutionTarget.getCurrentWallet()?.id,
 		async (walletId) => {
 			if (!walletId) return null;
 
@@ -117,7 +117,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 			return { kind: 'none' };
 		}
 
-		const wallet = ExecutionTarget.state.current?.wallet;
+		const wallet = ExecutionTarget.getCurrentWallet();
 
 		if (wallet && this.walletActions.loading) {
 			return { kind: 'loading' };
@@ -132,7 +132,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	});
 
 	testOptions: TestOption[] = $derived.by(() => {
-		const wallet = ExecutionTarget.state.current?.wallet;
+		const wallet = ExecutionTarget.getCurrentWallet();
 		const walletTestsBlocked =
 			this.hasWalletTests &&
 			(!wallet ||

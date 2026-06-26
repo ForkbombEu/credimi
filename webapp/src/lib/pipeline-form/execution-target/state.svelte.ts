@@ -4,14 +4,14 @@
 
 import type { HubItem } from '$lib/hub';
 
-import {
-	type SelectedRunner,
-	type SelectedVersion,
-	type WalletActionStepData
-} from '$pipeline-form/steps/wallet-action/wallet-action-step-form.svelte.js';
 import { isError } from 'effect/Predicate';
 
 import type { EnrichedPipeline } from '../functions';
+import type {
+	SelectedRunner,
+	SelectedVersion,
+	WalletActionStepData
+} from '../steps/wallet-action/wallet-action-step-form.svelte.js';
 
 //
 
@@ -21,16 +21,23 @@ export interface Config {
 	runner: SelectedRunner;
 }
 
-export const state = $state({
+const state = $state({
 	current: undefined as Config | undefined
 });
 
-export function hasGlobalRunner() {
-	return state.current?.runner === 'global';
+export function getCurrentConfig(): Config | undefined {
+	return state.current;
 }
 
-export function hasUndefinedRunner() {
-	return state.current?.runner === undefined;
+/** Plain copy safe to use outside reactive context (e.g. form prefill, sync). */
+export function getConfigClone(): Config | undefined {
+	const current = state.current;
+	if (!current) return undefined;
+	return structuredClone(current);
+}
+
+export function setCurrentConfig(config: Config | undefined) {
+	state.current = config === undefined ? undefined : structuredClone(config);
 }
 
 export function loadFromPipeline(pipeline: EnrichedPipeline) {
@@ -50,19 +57,9 @@ export function loadFromPipeline(pipeline: EnrichedPipeline) {
 
 	const { wallet, version, runner } = data as unknown as WalletActionStepData;
 
-	state.current = {
-		wallet,
-		version,
-		runner
-	};
+	setCurrentConfig({ wallet, version, runner });
 }
 
 export function clear() {
 	state.current = undefined;
-}
-
-export function syncVersionIfSameWallet(walletId: string, version: SelectedVersion) {
-	if (state.current?.wallet.id === walletId) {
-		state.current = { ...state.current, version };
-	}
 }

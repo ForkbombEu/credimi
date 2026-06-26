@@ -13,9 +13,16 @@ vi.mock('./steps-builder.svelte', () => ({ default: class {} }));
 vi.mock('$lib/layout/global-confirm.svelte', () => ({
 	confirm: vi.fn()
 }));
+vi.mock('../execution-target/index.js', () => ({
+	ExecutionTarget: {
+		shouldLockFormFields: vi.fn(() => false),
+		syncAfterStepsChange: vi.fn()
+	}
+}));
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
 
+import { ExecutionTarget } from '../execution-target/index.js';
 import { StepsBuilder } from './steps-builder.svelte.js';
 
 const VALID_YAML = `name: test
@@ -137,5 +144,20 @@ describe('StepsBuilder manual mode', () => {
 		const ok = await builder.exitManualMode();
 		expect(ok).toBe(true);
 		expect(builder.mode.id).toBe('idle');
+	});
+});
+
+describe('StepsBuilder execution target sync', () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('deleteStep calls syncAfterStepsChange', () => {
+		const builder = createBuilder();
+		(builder as unknown as BuilderInternal).state.steps = [
+			[{ use: 'mobile-automation', id: '', continue_on_error: false, with: {} }, {}]
+		];
+		builder.deleteStep(0);
+		expect(ExecutionTarget.syncAfterStepsChange).toHaveBeenCalledOnce();
 	});
 });

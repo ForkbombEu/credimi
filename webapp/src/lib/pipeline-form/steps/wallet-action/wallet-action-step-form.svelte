@@ -37,15 +37,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 
-	const isRunnerGlobal = $derived(ExecutionTarget.hasGlobalRunner());
-
 	const runnerCatalog = bindRunnerCatalogSearch({
 		search: form.runnerSearch
 	});
 </script>
 
 {#snippet chooseRunnerLater()}
-	{#if ExecutionTarget.hasUndefinedRunner()}
+	{#if ExecutionTarget.shouldOfferChooseRunnerLater(form.lockExecutionTarget)}
 		<div class="px-4">
 			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
 		</div>
@@ -61,14 +59,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				avatar={data.logo}
 				title={form.data.wallet.name}
 				subtitle={form.data.wallet.organization_name}
-				onDiscard={isRunnerGlobal ? undefined : () => form.removeWallet()}
+				onDiscard={form.lockExecutionTarget ? undefined : () => form.removeWallet()}
 			/>
 		</WithLabel>
 		{#if form.data.version}
 			<WithLabel label={m.Version()}>
 				<ItemCard
 					title={getVersionLabel(form.data.version)}
-					onDiscard={isRunnerGlobal ? undefined : () => form.removeVersion()}
+					onDiscard={form.lockExecutionTarget ? undefined : () => form.removeVersion()}
 				/>
 			</WithLabel>
 		{/if}
@@ -76,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<WithLabel label={m.Runner()}>
 				<ItemCard
 					title={getRunnerLabel(form.data.runner)}
-					onDiscard={isRunnerGlobal ? undefined : () => form.removeRunner()}
+					onDiscard={form.lockExecutionTarget ? undefined : () => form.removeRunner()}
 				/>
 			</WithLabel>
 		{/if}
@@ -91,7 +89,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 {/if}
 
-{#if form.state === 'select-wallet'}
+{#if !form.lockExecutionTarget && form.state === 'select-wallet'}
 	<StepCollectionPicker
 		collection="hub_items"
 		label={m.Wallet()}
@@ -112,7 +110,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 		{/snippet}
 	</StepCollectionPicker>
-{:else if form.state === 'select-version'}
+{:else if !form.lockExecutionTarget && form.state === 'select-version'}
 	<StepCollectionPicker
 		collection="wallet_versions"
 		label={m.Version()}
@@ -152,7 +150,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</ItemCard>
 		{/snippet}
 	</StepCollectionPicker>
-{:else if form.state === 'select-runner'}
+{:else if !form.lockExecutionTarget && form.state === 'select-runner'}
 	<WithLabel label={m.Runner()} class="p-4">
 		<SearchInput search={form.runnerSearch} />
 	</WithLabel>

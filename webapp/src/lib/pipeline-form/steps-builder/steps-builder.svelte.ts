@@ -132,7 +132,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const config = getStepConfig(step);
 		const data = getStepData(step);
 		if (!config || !data) return;
-		this.openForm('edit', config, { initial: data, stepIndex: index });
+		this.openForm('edit', config, { initial: cloneDeep(data), stepIndex: index });
 	}
 
 	private openForm(
@@ -140,57 +140,75 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		config: pipelinestep.AnyConfig,
 		opts: { initial?: GenericRecord; stepIndex?: number }
 	) {
-		this.stateManager.run((state) => {
-			const effectCleanup = $effect.root(() => {
-				let form: pipelinestep.Form;
+		this.disposeFormEffect();
+
+		const lockExecutionTarget =
+			config.use === 'mobile-automation'
+				? ExecutionTarget.shouldLockFormFields({ intent, steps: this.state.steps })
+				: undefined;
+
+		let form: pipelinestep.Form | undefined;
+
+		const effectCleanup = $effect.root(() => {
+			try {
+				form = config.initForm({
+					intent,
+					initial: opts.initial as never,
+					lockExecutionTarget
+				});
+			} catch (e) {
+				showPipelineFormError(e);
+				return;
+			}
+
+			form.onSubmit((formData) => {
 				try {
-					form = config.initForm({
-						intent,
-						initial: opts.initial as never
+					const snapshot = cloneDeep(formData) as GenericRecord;
+					this.stateManager.run((inner) => {
+						if (inner.mode.id !== 'form') return;
+
+						if (inner.mode.intent === 'add') {
+							const step: PipelineStep = {
+								use: config.use as never,
+								id: '',
+								continue_on_error: false,
+								with: config.serialize(snapshot)
+							};
+							inner.steps.push([step, snapshot]);
+						} else {
+							const editIndex = inner.mode.stepIndex;
+							if (editIndex === undefined) return;
+							const tuple = inner.steps[editIndex];
+							if (!tuple || tuple[0].use === 'debug') return;
+							tuple[0].with = config.serialize(snapshot);
+							tuple[1] = snapshot;
+						}
+
+						ExecutionTarget.syncAfterStepsChange(inner.steps);
+						inner.mode = { id: 'idle' };
 					});
+					this.disposeFormEffect();
 				} catch (e) {
 					showPipelineFormError(e);
-					return;
 				}
-				form.onSubmit((formData) => {
-					try {
-						this.stateManager.run((inner) => {
-							if (inner.mode.id !== 'form') return;
-
-							if (inner.mode.intent === 'add') {
-								const step: PipelineStep = {
-									use: config.use as never,
-									id: '',
-									continue_on_error: false,
-									with: config.serialize(formData)
-								};
-								inner.steps.push([step, formData as GenericRecord]);
-							} else {
-								const editIndex = inner.mode.stepIndex;
-								if (editIndex === undefined) return;
-								const tuple = inner.steps[editIndex];
-								if (!tuple || tuple[0].use === 'debug') return;
-								tuple[0].with = config.serialize(formData);
-								tuple[1] = formData as GenericRecord;
-							}
-
-							inner.mode = { id: 'idle' };
-						});
-						this.disposeFormEffect();
-					} catch (e) {
-						showPipelineFormError(e);
-					}
-				});
-				state.mode = {
-					id: 'form',
-					intent,
-					stepIndex: opts.stepIndex,
-					config,
-					form
-				};
 			});
-			this.formEffectCleanup = effectCleanup;
 		});
+
+		if (!form) {
+			effectCleanup();
+			return;
+		}
+
+		this.stateManager.run((state) => {
+			state.mode = {
+				id: 'form',
+				intent,
+				stepIndex: opts.stepIndex,
+				config,
+				form
+			};
+		});
+		this.formEffectCleanup = effectCleanup;
 	}
 
 	addDebugStep() {
@@ -200,8 +218,12 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	}
 
 	deleteStep(index: number) {
+		if (this.state.mode.id === 'form' && this.state.mode.stepIndex === index) {
+			this.exitFormState();
+		}
 		this.stateManager.run((state) => {
 			state.steps.splice(index, 1);
+			ExecutionTarget.syncAfterStepsChange(state.steps);
 		});
 	}
 
@@ -253,7 +275,9 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (editor.isDirty) {
 			const confirmed = await confirm({
 				message:
-					m.discard_manual_yaml_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form(),
+					m.discard_manual_yaml_changes() +
+					'\n' +
+					m.Are_you_sure_you_want_to_exit_the_form(),
 				destructive: true
 			});
 			if (!confirmed) return false;
