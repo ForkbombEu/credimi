@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { FlexRender } from '@/components/ui/data-table/index.js';
 	import * as Pagination from '@/components/ui/pagination/index.js';
 	import * as Table from '@/components/ui/table/index.js';
+	import HorizontalScrollArea from '@/components/ui-custom/horizontal-scroll-area.svelte';
 
 	import type { ScoreboardTable } from './table.svelte.ts';
 
@@ -17,11 +18,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { scoreboard }: { scoreboard: ScoreboardTable } = $props();
+
+	const scrollRefresh = $derived({
+		page: scoreboard.currentPage,
+		rows: scoreboard.table.getRowModel().rows.length
+	});
 </script>
 
 <div class="space-y-4">
-	<div class="overflow-hidden rounded-md bg-background">
-		<Table.Root>
+	<HorizontalScrollArea
+		class="overflow-hidden rounded-md bg-background"
+		refresh={scrollRefresh}
+	>
+		<table class="w-full caption-bottom text-sm">
 			<Table.Header>
 				{#each scoreboard.table.getHeaderGroups() as headerGroup (headerGroup.id)}
 					<Table.Row class="bg-[#d1c8f3] hover:bg-[#d1c8f3]">
@@ -82,8 +91,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Table.Row>
 				{/each}
 			</Table.Body>
-		</Table.Root>
-	</div>
+		</table>
+	</HorizontalScrollArea>
 
 	{#if scoreboard.pageCount > 1}
 		<div class="flex items-center justify-center space-x-2 py-4">
