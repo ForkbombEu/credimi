@@ -18,8 +18,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const MIN_THUMB_PX = 48;
-	/** Matches horizontal inset applied to the floating scrollbar bar (Tailwind `px-4`). */
-	const BAR_INSET_X = 16;
+	/** Matches horizontal inset applied to the floating scrollbar bar (Tailwind `px-2`). */
+	const BAR_INSET_X = 8;
 	const DEFAULT_BAR_HEIGHT = 22;
 
 	let { class: className, contentClass, refresh, children }: Props = $props();
@@ -27,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const contentId = `horizontal-scroll-${crypto.randomUUID()}`;
 
 	let contentEl = $state<HTMLDivElement | null>(null);
+	let wrapperEl = $state<HTMLDivElement | null>(null);
 	let pinnedBarEl = $state<HTMLDivElement | null>(null);
 	let trackEl = $state<HTMLDivElement | null>(null);
 
@@ -77,9 +78,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		if (isPinned) {
 			const barHeight = pinnedBarEl?.offsetHeight ?? DEFAULT_BAR_HEIGHT;
+			const wrapperRect = wrapperEl?.getBoundingClientRect() ?? rect;
+
 			barTop = viewportHeight - barHeight;
-			barLeft = rect.left + BAR_INSET_X;
-			barWidth = Math.max(0, clientWidth - BAR_INSET_X * 2);
+			barLeft = wrapperRect.left;
+			barWidth = wrapperRect.width;
 		}
 
 		const trackWidth = getTrackWidth(el);
@@ -154,7 +157,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const el = contentEl;
 		if (!el) return;
 
-		const trackWidth = trackEl?.getBoundingClientRect().width ?? el.clientWidth - BAR_INSET_X * 2;
+		const trackWidth =
+			trackEl?.getBoundingClientRect().width ?? el.clientWidth - BAR_INSET_X * 2;
 		const step = Math.max(40, trackWidth * 0.1);
 
 		if (event.key === 'ArrowLeft') {
@@ -193,6 +197,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const observer = new ResizeObserver(measure);
 
 		observer.observe(el);
+		if (wrapperEl) {
+			observer.observe(wrapperEl);
+		}
 		for (const child of el.children) {
 			observer.observe(child);
 		}
@@ -232,7 +239,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		<div
 			aria-hidden="true"
-			class="absolute top-0 h-full cursor-grab rounded-full bg-primary active:cursor-grabbing"
+			class="absolute top-0 h-full cursor-grab rounded-full bg-primary hover:bg-primary/80 active:cursor-grabbing active:bg-primary/90"
 			style:width="{thumbWidth}px"
 			style:transform="translateX({thumbLeft}px)"
 			onpointerdown={onThumbPointerDown}
@@ -240,7 +247,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 {/snippet}
 
-<div class={cn('relative', className)}>
+<div bind:this={wrapperEl} class={cn('relative', className)}>
 	<div
 		id={contentId}
 		bind:this={contentEl}
@@ -252,7 +259,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	{#if barVisible && !isPinned}
-		<div class="border-t border-border bg-background px-4 py-1.5">
+		<div class="border-t border-border bg-background px-2 py-1.5">
 			{@render scrollbarTrack()}
 		</div>
 	{/if}
@@ -266,7 +273,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		style:left="{barLeft}px"
 		style:width="{barWidth}px"
 	>
-		<div class="pointer-events-auto">
+		<div class="pointer-events-auto px-2">
 			{@render scrollbarTrack()}
 		</div>
 	</div>
