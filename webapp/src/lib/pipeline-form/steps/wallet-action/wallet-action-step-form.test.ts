@@ -83,6 +83,43 @@ describe('WalletActionStepForm multi-wallet global runner', () => {
 	});
 });
 
+describe('WalletActionStepForm wallet change', () => {
+	afterEach(() => ExecutionTarget.clear());
+
+	it('selectWallet clears version, runner, and action from previous wallet', () => {
+		const form = new WalletActionStepForm({
+			intent: 'edit',
+			initial: {
+				wallet: { id: 'w1', name: 'W1' } as never,
+				version: EXTERNAL_VERSION,
+				runner: GLOBAL_RUNNER,
+				action: { id: 'a1', name: 'Old action', wallet: 'w1' } as never
+			}
+		});
+		form.selectWallet({ id: 'w2', name: 'W2' } as never);
+		expect(form.data.wallet?.id).toBe('w2');
+		expect(form.data.version).toBeUndefined();
+		expect(form.data.runner).toBe(GLOBAL_RUNNER);
+		expect(form.data.action).toBeUndefined();
+		expect(form.state).toBe('select-version');
+	});
+
+	it('removeWallet clears action', () => {
+		const form = new WalletActionStepForm({
+			intent: 'edit',
+			initial: {
+				wallet: { id: 'w1', name: 'W1' } as never,
+				version: EXTERNAL_VERSION,
+				runner: GLOBAL_RUNNER,
+				action: { id: 'a1', name: 'Old action' } as never
+			}
+		});
+		form.removeWallet();
+		expect(form.data.action).toBeUndefined();
+		expect(form.state).toBe('select-wallet');
+	});
+});
+
 describe('WalletActionStepForm edit intent', () => {
 	it('selectAction does not commit until commit()', () => {
 		const onSubmit = vi.fn();

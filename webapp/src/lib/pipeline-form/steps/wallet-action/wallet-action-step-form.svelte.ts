@@ -106,6 +106,9 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	selectWallet(wallet: HubItem) {
 		this.data.wallet = wallet;
+		this.data.version = undefined;
+		this.data.runner = undefined;
+		this.data.action = undefined;
 		if (
 			this.shouldAllowGlobalRunner() &&
 			(ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner())
@@ -174,6 +177,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		this.data.wallet = undefined;
 		this.data.version = undefined;
 		this.data.runner = undefined;
+		this.data.action = undefined;
 	}
 
 	removeVersion() {
