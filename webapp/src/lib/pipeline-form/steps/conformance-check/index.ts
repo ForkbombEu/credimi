@@ -4,8 +4,8 @@
 
 import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/index.js';
 
+import { Conformance } from '$lib';
 import { entities } from '$lib/global/entities.js';
-import { getStandardsWithTestSuites } from '$lib/standards';
 
 import { localizeHref, m } from '@/i18n/index.js';
 
@@ -66,10 +66,14 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		if (chunks.length !== 4) throw new Error(m.Pipeline_form_invalid_check_id());
 
 		const [standardUid, versionUid, suiteUid, test] = chunks;
-		const standardsWithTestSuites = await getStandardsWithTestSuites();
-		if (standardsWithTestSuites instanceof Error) throw standardsWithTestSuites;
+		const conformanceChecksResponse = await Conformance.listAll({
+			surface: 'pipeline'
+		});
+		if (conformanceChecksResponse.isErr) throw conformanceChecksResponse.error;
 
-		const standard = standardsWithTestSuites.find((standard) => standard.uid === standardUid);
+		const standard = conformanceChecksResponse.value.find(
+			(standard) => standard.uid === standardUid
+		);
 		const version = standard?.versions.find((version) => version.uid === versionUid);
 		const suite = version?.suites.find((suite) => suite.uid === suiteUid);
 
