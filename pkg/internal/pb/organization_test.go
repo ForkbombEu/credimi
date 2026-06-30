@@ -250,7 +250,7 @@ func TestOrganizationPublicationHooks_PublishesOrgWhenWalletPublished(t *testing
 	require.NoError(t, err)
 	require.False(t, org.GetBool("published"))
 
-	wallet := createOrganizationPublicationWallet(t, app, orgID, true)
+	wallet := createOrganizationPublicationWallet(t, app, orgID)
 	require.NoError(t, app.Save(wallet))
 
 	org, err = app.FindRecordById("organizations", orgID)
@@ -270,7 +270,7 @@ func TestOrganizationPublicationHooks_UnpublishesOrgWhenLastPublicEntityUnpublis
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
 
-	wallet := createOrganizationPublicationWallet(t, app, orgID, true)
+	wallet := createOrganizationPublicationWallet(t, app, orgID)
 	require.NoError(t, app.Save(wallet))
 
 	wallet.Set("published", false)
@@ -293,7 +293,7 @@ func TestOrganizationPublicationHooks_KeepsOrgPublishedWhileAnotherEntityPublic(
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
 
-	wallet := createOrganizationPublicationWallet(t, app, orgID, true)
+	wallet := createOrganizationPublicationWallet(t, app, orgID)
 	require.NoError(t, app.Save(wallet))
 
 	pipeline := createTestPipelineRecord(t, app)
@@ -327,7 +327,7 @@ func TestOrganizationPublicationHooks_BlocksManualUnpublishWithPublicEntity(t *t
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
 
-	wallet := createOrganizationPublicationWallet(t, app, orgID, true)
+	wallet := createOrganizationPublicationWallet(t, app, orgID)
 	require.NoError(t, app.Save(wallet))
 
 	org, err := app.FindRecordById("organizations", orgID)
@@ -397,7 +397,6 @@ func createOrganizationPublicationWallet(
 	t testing.TB,
 	app core.App,
 	orgID string,
-	published bool,
 ) *core.Record {
 	t.Helper()
 
@@ -407,7 +406,7 @@ func createOrganizationPublicationWallet(
 	wallet := core.NewRecord(walletsColl)
 	wallet.Set("owner", orgID)
 	wallet.Set("name", "hook-test-wallet")
-	wallet.Set("published", published)
+	wallet.Set("published", true)
 
 	return wallet
 }

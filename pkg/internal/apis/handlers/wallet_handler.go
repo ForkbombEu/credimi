@@ -622,7 +622,12 @@ func publishedRunnerCanStoreForPublishedOrganization(
 
 	runner, err := canonify.Resolve(app, runnerIdentifier)
 	if err != nil {
-		return false, nil
+		return false, apierror.New(
+			http.StatusBadRequest,
+			"runner_identifier",
+			"failed_to_resolve_runner_identifier",
+			err.Error(),
+		)
 	}
 	if runner.Collection() == nil || runner.Collection().Name != "mobile_runners" {
 		return false, nil
