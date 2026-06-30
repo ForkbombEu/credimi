@@ -158,7 +158,10 @@ func TestDynamicValidateInputByType_ReadBodyError(t *testing.T) {
 	require.Equal(t, "read error", responseBody.Error.Message)
 }
 
-func decodeValidationMiddlewareResponse(t *testing.T, resp *mockResponseWriter) errorMiddlewareResponse {
+func decodeValidationMiddlewareResponse(
+	t *testing.T,
+	resp *mockResponseWriter,
+) errorMiddlewareResponse {
 	t.Helper()
 
 	var body errorMiddlewareResponse

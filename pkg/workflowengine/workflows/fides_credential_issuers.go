@@ -60,7 +60,12 @@ func (w *FidesCredentialIssuersWorkflow) Start(
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
-	return fidesCredentialIssuersStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return fidesCredentialIssuersStartWorkflowWithOptions(
+		namespace,
+		workflowOptions,
+		w.Name(),
+		input,
+	)
 }
 
 func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
@@ -272,7 +277,8 @@ func storeOrUpdateCredentialIssuerRecord(
 			},
 			ExpectedStatus: http.StatusOK,
 		},
-	}).Get(ctx, &storeResult); err != nil {
+	}).
+		Get(ctx, &storeResult); err != nil {
 		return "", workflowengine.NewWorkflowError(err, input.RunMetadata)
 	}
 

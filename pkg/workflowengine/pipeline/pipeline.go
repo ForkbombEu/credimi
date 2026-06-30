@@ -156,9 +156,13 @@ func (w *PipelineWorkflow) Workflow(
 		runData = input.ParentRunData
 	}
 	startPipelineCancellationPolicyReceiver(ctx, &runData)
-	if err := workflow.SetQueryHandler(ctx, PipelineMobileDevicesQuery, func() (map[string]any, error) {
-		return getOrCreateSettedDevices(&runData), nil
-	}); err != nil {
+	if err := workflow.SetQueryHandler(
+		ctx,
+		PipelineMobileDevicesQuery,
+		func() (map[string]any, error) {
+			return getOrCreateSettedDevices(&runData), nil
+		},
+	); err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 

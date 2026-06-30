@@ -193,7 +193,10 @@ func TestPlaceholderMetadataGetDefaultValue(t *testing.T) {
 
 func TestRenderTemplateBasic(t *testing.T) {
 	templateStr := `{"name":"{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"name\",\"field_label\":\"label\",\"field_description\":\"desc\",\"field_default_value\":\"\",\"field_type\":\"string\",\"field_options\":[]}" }}"}`
-	out, err := RenderTemplate(strings.NewReader(templateStr), map[string]interface{}{"name": "Alice"})
+	out, err := RenderTemplate(
+		strings.NewReader(templateStr),
+		map[string]interface{}{"name": "Alice"},
+	)
 	if err != nil {
 		t.Fatalf("RenderTemplate returned error: %v", err)
 	}

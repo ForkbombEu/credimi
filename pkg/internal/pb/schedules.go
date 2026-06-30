@@ -195,7 +195,10 @@ func globalRunnerIDFromPayload(payload *commonpb.Payload) string {
 	dc := temporalcrypto.DataConverter()
 	var scheduledInput workflows.ScheduledPipelineEnqueueWorkflowInput
 	if err := dc.FromPayload(payload, &scheduledInput); err == nil {
-		if globalRunnerID := globalRunnerIDFromScheduledInput(scheduledInput, nil); globalRunnerID != "" {
+		if globalRunnerID := globalRunnerIDFromScheduledInput(
+			scheduledInput,
+			nil,
+		); globalRunnerID != "" {
 			return globalRunnerID
 		}
 	}

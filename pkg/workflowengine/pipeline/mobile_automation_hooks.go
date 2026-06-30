@@ -238,7 +238,6 @@ func MobileAutomationSetupHook(
 					Message: "missing or invalid app_url in workflow input config",
 				},
 			)
-
 		}
 
 		if err := prepareMobileAutomationSteps(ctx, steps, appURL); err != nil {
@@ -259,7 +258,6 @@ func MobileAutomationSetupHook(
 				Message: "mobile-runner pipelines must be started via queue/semaphore",
 			},
 		)
-
 	}
 
 	settedDevices := getOrCreateSettedDevices(runData)
@@ -349,7 +347,6 @@ func validateRunnerIDConfiguration(steps *[]pipeline.StepDefinition, globalRunne
 				Message: "mobile-automation steps require either a runner_id or a global_runner_id in the pipeline configuration",
 			},
 		)
-
 	}
 
 	return nil
@@ -500,7 +497,6 @@ func fetchMobileActionCategory(
 				Details: map[string]any{"payload": result.Output},
 			},
 		)
-
 	}
 
 	record, ok := body["record"].(map[string]any)
@@ -635,7 +631,6 @@ func processStep(
 				Message: fmt.Sprintf("missing or invalid app_url for step %s", input.step.ID),
 			},
 		)
-
 	}
 
 	deviceMap, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
@@ -684,7 +679,6 @@ func processStep(
 				Details: map[string]any{"payload": deviceMap},
 			},
 		)
-
 	}
 	if err := validateRunnerURL(runnerURL, input.step.ID, deviceMap); err != nil {
 		return err
@@ -751,7 +745,6 @@ func decodeAndValidatePayload(
 				),
 			},
 		)
-
 	}
 	payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](
 		step.With.Payload,
@@ -768,7 +761,6 @@ func decodeAndValidatePayload(
 				),
 			},
 		)
-
 	}
 
 	normalizeMobileAutomationPayloadIDs(step, &payload)
@@ -783,7 +775,6 @@ func decodeAndValidatePayload(
 					Message: fmt.Sprintf("missing or invalid version_id for step %s", step.ID),
 				},
 			)
-
 		}
 	}
 	// If action_code is NOT present -> action_id is REQUIRED
@@ -796,7 +787,6 @@ func decodeAndValidatePayload(
 					Message: fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
 				},
 			)
-
 		}
 	}
 
@@ -932,7 +922,6 @@ func fetchRunnerInfo(
 				Details: map[string]any{"payload": runnerRes.Output},
 			},
 		)
-
 	}
 
 	runnerURL, ok := body["runner_url"].(string)
@@ -945,7 +934,6 @@ func fetchRunnerInfo(
 				Details: map[string]any{"payload": body},
 			},
 		)
-
 	}
 	if err := validateRunnerURL(runnerURL, input.stepID, body); err != nil {
 		return "", "", "", err
@@ -961,7 +949,6 @@ func fetchRunnerInfo(
 				Details: map[string]any{"payload": body},
 			},
 		)
-
 	}
 	deviceType := normalizeDeviceType(rawDeviceType)
 	if deviceType == "" {
@@ -973,7 +960,6 @@ func fetchRunnerInfo(
 				Details: map[string]any{"payload": body},
 			},
 		)
-
 	}
 
 	serial, ok := body["serial"].(string)
@@ -986,7 +972,6 @@ func fetchRunnerInfo(
 				Details: map[string]any{"payload": body},
 			},
 		)
-
 	}
 
 	return runnerURL, deviceType, serial, nil
@@ -1009,7 +994,6 @@ func validateRunnerURL(runnerURL string, stepID string, details any) error {
 			Details: map[string]any{"payload": details},
 		},
 	)
-
 }
 
 func startManagedDevice(
@@ -1047,7 +1031,6 @@ func startManagedDevice(
 				Details: map[string]any{"payload": startResult.Output},
 			},
 		)
-
 	}
 
 	if serialValue, exists := body["serial"]; exists && serialValue != nil {
@@ -1065,7 +1048,6 @@ func startManagedDevice(
 					Details: map[string]any{"payload": startResult.Output},
 				},
 			)
-
 		}
 	}
 
@@ -1083,7 +1065,6 @@ func startManagedDevice(
 				Details: map[string]any{"payload": startResult.Output},
 			},
 		)
-
 	}
 
 	return name, serial, nil
@@ -1229,7 +1210,6 @@ func parseInstallerActionResponseBody(
 				Details: map[string]any{"payload": res.Output},
 			},
 		)
-
 	}
 
 	return body, nil
@@ -1255,7 +1235,6 @@ func parseInstallerResponse(
 				Details: map[string]any{"payload": body},
 			},
 		)
-
 	}
 
 	versionIdentifier, ok := body["version_id"].(string)
@@ -1272,7 +1251,6 @@ func parseInstallerResponse(
 				Details: map[string]any{"payload": body},
 			},
 		)
-
 	}
 	return apkPath, versionIdentifier, nil
 }
@@ -1300,7 +1278,6 @@ func parseInstallerActionCode(
 					Details: map[string]any{"payload": body},
 				},
 			)
-
 		}
 	}
 
@@ -1380,7 +1357,6 @@ func installAppIfNeeded(
 					Details: map[string]any{"payload": finalOutput.Output},
 				},
 			)
-
 		}
 		installed[input.versionID] = packageID
 		input.deviceMap["installed"] = installed
@@ -1435,7 +1411,6 @@ func disablePlayStoreForDevices(
 					Message: fmt.Sprintf("missing serial for device %s", runnerID),
 				},
 			)
-
 		}
 
 		mobileAO := mobileRunnerActivityOptions(input.ao, runnerID)
@@ -1473,7 +1448,6 @@ func startRecordingForDevice(
 				Message: fmt.Sprintf("missing serial for device %s", input.runnerID),
 			},
 		)
-
 	}
 
 	mobileAO := mobileRunnerActivityOptions(input.ao, input.runnerID)
@@ -1529,7 +1503,6 @@ func extractAndStoreRecordingInfo(
 				Details: map[string]any{"payload": recordResult.Output},
 			},
 		)
-
 	}
 
 	recordingProcessPID, ok := output["recording_process_pid"].(float64)
@@ -1546,7 +1519,6 @@ func extractAndStoreRecordingInfo(
 				Details: map[string]any{"payload": recordResult.Output},
 			},
 		)
-
 	}
 
 	ffmpegPID := float64(0)
@@ -1564,7 +1536,6 @@ func extractAndStoreRecordingInfo(
 				Details: map[string]any{"payload": recordResult.Output},
 			},
 		)
-
 	}
 	if !deviceType.IsIOS() {
 		ffmpegPID, ok = output["ffmpeg_process_pid"].(float64)
@@ -1581,7 +1552,6 @@ func extractAndStoreRecordingInfo(
 					Details: map[string]any{"payload": recordResult.Output},
 				},
 			)
-
 		}
 	}
 
@@ -1599,7 +1569,6 @@ func extractAndStoreRecordingInfo(
 				Details: map[string]any{"payload": recordResult.Output},
 			},
 		)
-
 	}
 
 	logPath, hasLogPath := output["log_path"].(string)
@@ -1616,7 +1585,6 @@ func extractAndStoreRecordingInfo(
 				Details: map[string]any{"payload": recordResult.Output},
 			},
 		)
-
 	}
 
 	deviceMap["recording_process_pid"] = int(recordingProcessPID)
@@ -1652,7 +1620,6 @@ func MobileAutomationCleanupHook(
 				Message: "missing or invalid app_url in workflow input config",
 			},
 		)
-
 	}
 
 	var cleanupErrs []error
@@ -1709,7 +1676,6 @@ func MobileAutomationCleanupHook(
 				Details: map[string]any{"payload": cleanupErrs},
 			},
 		)
-
 	}
 
 	return nil
@@ -1914,7 +1880,6 @@ func parseDeviceMap(
 				Details: map[string]any{"payload": raw},
 			},
 		)
-
 	}
 	return deviceMap, nil
 }
@@ -1935,7 +1900,6 @@ func extractDeviceInfo(
 				Details: map[string]any{"payload": deviceMap},
 			},
 		)
-
 	}
 
 	serial, ok := deviceMap["serial"].(string)
@@ -1948,7 +1912,6 @@ func extractDeviceInfo(
 				Details: map[string]any{"payload": deviceMap},
 			},
 		)
-
 	}
 
 	name, _ := deviceMap["name"].(string)
@@ -1970,7 +1933,6 @@ func extractDeviceInfo(
 				Details: map[string]any{"payload": deviceMap},
 			},
 		)
-
 	}
 
 	return deviceType, serial, name, packages, nil
@@ -2086,7 +2048,6 @@ func extractRecordingInfo(
 				Message: "missing video_path for device " + runnerID,
 			},
 		)
-
 	}
 
 	logPath, hasLogPath := deviceInfo["log_path"].(string)
@@ -2098,7 +2059,6 @@ func extractRecordingInfo(
 				Message: "missing log_path for device " + runnerID,
 			},
 		)
-
 	}
 
 	recordingPid, ok := deviceInfo["recording_process_pid"].(int)
@@ -2110,7 +2070,6 @@ func extractRecordingInfo(
 				Message: "missing recording_process_pid for device " + runnerID,
 			},
 		)
-
 	}
 
 	if deviceType.IsIOS() {
@@ -2123,7 +2082,6 @@ func extractRecordingInfo(
 					Message: "missing recording_log_pid for device " + runnerID,
 				},
 			)
-
 		}
 		return &recordingInfo{
 			deviceType:   deviceType,
@@ -2144,7 +2102,6 @@ func extractRecordingInfo(
 				Message: "missing recording_ffmpeg_pid for device " + runnerID,
 			},
 		)
-
 	}
 
 	recordingLogPid, ok := deviceInfo["recording_log_pid"].(int)
@@ -2156,7 +2113,6 @@ func extractRecordingInfo(
 				Message: "missing recording_log_pid for device " + runnerID,
 			},
 		)
-
 	}
 
 	return &recordingInfo{

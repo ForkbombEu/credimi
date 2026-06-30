@@ -171,7 +171,6 @@ func TestRegisterRoutesWithValidation_RequireAuth(t *testing.T) {
 	mux.ServeHTTP(res, req)
 	require.Equal(t, http.StatusOK, res.Code)
 	require.True(t, handlerCalled.Load())
-
 }
 
 func TestRegisterRoutesWithValidation_RequireAuthExcluded(t *testing.T) {
@@ -461,7 +460,14 @@ func TestRegisterRoutesWithoutValidation_MethodCoverage(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		res := httptest.NewRecorder()
 		mux.ServeHTTP(res, req)
-		require.Equalf(t, http.StatusNoContent, res.Code, "unexpected status for %s %s", tc.method, tc.path)
+		require.Equalf(
+			t,
+			http.StatusNoContent,
+			res.Code,
+			"unexpected status for %s %s",
+			tc.method,
+			tc.path,
+		)
 	}
 
 	res := httptest.NewRecorder()

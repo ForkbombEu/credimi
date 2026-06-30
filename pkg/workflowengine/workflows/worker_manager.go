@@ -167,7 +167,8 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 				},
 				ExpectedStatus: 202,
 			},
-		}).Get(ctx, nil)
+		}).
+			Get(ctx, nil)
 
 		if err != nil {
 			logger.Error(
