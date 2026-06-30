@@ -116,11 +116,6 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 					"app_url": e.App.Settings().Meta.AppURL,
 				},
 				Payload: workflows.MobileAutomationWorkflowPayload{
-					RunIdentifier: strings.TrimSpace(
-						input.WorkflowID,
-					) + "/" + strings.TrimSpace(
-						input.RunID,
-					),
 					ActionID:   strings.TrimSpace(input.ActionID),
 					ActionCode: actionCode,
 					Serial:     workflowengine.AsString(device["serial"]),

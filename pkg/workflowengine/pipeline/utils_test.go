@@ -10,6 +10,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/workflow"
 )
 
 func TestPrepareWorkflowOptionsDefaultsAndOverrides(t *testing.T) {
@@ -18,6 +19,7 @@ func TestPrepareWorkflowOptionsDefaultsAndOverrides(t *testing.T) {
 	require.Equal(t, 24*time.Hour, defaultOpts.Options.WorkflowExecutionTimeout)
 	require.Equal(t, 10*time.Minute, defaultOpts.ActivityOptions.ScheduleToCloseTimeout)
 	require.Equal(t, 5*time.Minute, defaultOpts.ActivityOptions.StartToCloseTimeout)
+	require.Equal(t, 30*time.Second, defaultOpts.ActivityOptions.HeartbeatTimeout)
 	require.NotNil(t, defaultOpts.ActivityOptions.RetryPolicy)
 	require.Equal(
 		t,
@@ -56,7 +58,20 @@ func TestPrepareActivityOptionsOverrides(t *testing.T) {
 	require.Equal(t, int32(2), out.RetryPolicy.MaximumAttempts)
 	require.Equal(t, 2*time.Second, out.RetryPolicy.InitialInterval)
 	require.Equal(t, 45*time.Second, out.StartToCloseTimeout)
+	require.Equal(t, global.HeartbeatTimeout, out.HeartbeatTimeout)
 	require.Equal(t, global.ScheduleToCloseTimeout, out.ScheduleToCloseTimeout)
+}
+
+func TestPrepareActivityOptionsAddsDefaultHeartbeatTimeout(t *testing.T) {
+	out := PrepareActivityOptions(
+		workflow.ActivityOptions{
+			ScheduleToCloseTimeout: 10 * time.Minute,
+			StartToCloseTimeout:    5 * time.Minute,
+		},
+		nil,
+	)
+
+	require.Equal(t, 30*time.Second, out.HeartbeatTimeout)
 }
 
 func TestSetPayloadValueAndMergePayload(t *testing.T) {

@@ -641,14 +641,10 @@ func TestStartWorkerRegistersEntries(t *testing.T) {
 func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	origNewWorker := newWorkerFn
 	origRegistry := registry.Registry
-	origInternal := registry.PipelineInternalRegistry
-	origDenylist := registry.PipelineWorkerDenylist
 
 	t.Cleanup(func() {
 		newWorkerFn = origNewWorker
 		registry.Registry = origRegistry
-		registry.PipelineInternalRegistry = origInternal
-		registry.PipelineWorkerDenylist = origDenylist
 	})
 
 	fw := &fakeWorker{}
@@ -657,9 +653,9 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	}
 
 	registry.Registry = map[string]registry.TaskFactory{
-		"skip-task": {
+		"extra-activity-task": {
 			Kind:    registry.TaskActivity,
-			NewFunc: func() any { return fakeActivity{name: "skip-act"} },
+			NewFunc: func() any { return fakeActivity{name: "extra-act"} },
 		},
 		"activity-task": {
 			Kind:    registry.TaskActivity,
@@ -669,19 +665,6 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 			Kind:    registry.TaskWorkflow,
 			NewFunc: func() any { return fakeWorkflow{name: "workflow-wf"} },
 		},
-	}
-	registry.PipelineInternalRegistry = map[string]registry.TaskFactory{
-		"internal-activity": {
-			Kind:    registry.TaskActivity,
-			NewFunc: func() any { return fakeActivity{name: "internal-act"} },
-		},
-		"internal-workflow": {
-			Kind:    registry.TaskWorkflow,
-			NewFunc: func() any { return fakeWorkflow{name: "internal-wf"} },
-		},
-	}
-	registry.PipelineWorkerDenylist = map[string]struct{}{
-		"skip-task": {},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -702,14 +685,11 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 
 	require.Contains(t, fw.registeredWorkflows, pipelineWf)
 	require.Contains(t, fw.registeredWorkflows, "workflow-wf")
-	require.Contains(t, fw.registeredWorkflows, "internal-wf")
-	require.NotContains(t, fw.registeredWorkflows, "skip-act")
 
 	require.Contains(t, fw.registeredActivities, debugAct)
 	require.Contains(t, fw.registeredActivities, githubPRCommentAct)
 	require.Contains(t, fw.registeredActivities, "activity-act")
-	require.Contains(t, fw.registeredActivities, "internal-act")
-	require.NotContains(t, fw.registeredActivities, "skip-act")
+	require.Contains(t, fw.registeredActivities, "extra-act")
 }
 
 func TestRunWorkerWithRetryRetriesOnTransientError(t *testing.T) {

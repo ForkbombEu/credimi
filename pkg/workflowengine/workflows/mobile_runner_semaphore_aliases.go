@@ -14,6 +14,9 @@ const (
 	MobileRunnerSemaphoreListQueuedRunsQuery  = mobilerunnersemaphore.ListQueuedRunsQuery
 	MobileRunnerSemaphoreRunDoneUpdate        = mobilerunnersemaphore.RunDoneUpdate
 	MobileRunnerSemaphoreCancelRunUpdate      = mobilerunnersemaphore.CancelRunUpdate
+	MobileRunnerSemaphorePauseRunnerUpdate    = mobilerunnersemaphore.PauseRunnerUpdate
+	MobileRunnerSemaphoreResumeRunnerUpdate   = mobilerunnersemaphore.ResumeRunnerUpdate
+	MobileRunnerSemaphoreShutdownRunnerUpdate = mobilerunnersemaphore.ShutdownRunnerUpdate
 	MobileRunnerSemaphoreRunGrantedSignalName = mobilerunnersemaphore.RunGrantedSignal
 	MobileRunnerSemaphoreRunStartedSignalName = mobilerunnersemaphore.RunStartedSignal
 	MobileRunnerSemaphoreRunDoneSignalName    = mobilerunnersemaphore.RunDoneSignal
@@ -49,6 +52,18 @@ type MobileRunnerSemaphoreQueuedRunView = mobilerunnersemaphore.MobileRunnerSema
 type MobileRunnerSemaphoreRunDoneRequest = mobilerunnersemaphore.MobileRunnerSemaphoreRunDoneRequest
 
 type MobileRunnerSemaphoreRunCancelRequest = mobilerunnersemaphore.MobileRunnerSemaphoreRunCancelRequest
+
+type MobileRunnerSemaphoreShutdownRunnerRequest = mobilerunnersemaphore.MobileRunnerSemaphoreShutdownRunnerRequest
+
+type MobileRunnerSemaphorePauseRunnerRequest = mobilerunnersemaphore.MobileRunnerSemaphorePauseRunnerRequest
+
+type MobileRunnerSemaphorePauseRunnerResponse = mobilerunnersemaphore.MobileRunnerSemaphorePauseRunnerResponse
+
+type MobileRunnerSemaphoreResumeRunnerRequest = mobilerunnersemaphore.MobileRunnerSemaphoreResumeRunnerRequest
+
+type MobileRunnerSemaphoreResumeRunnerResponse = mobilerunnersemaphore.MobileRunnerSemaphoreResumeRunnerResponse
+
+type MobileRunnerSemaphoreShutdownRunnerResponse = mobilerunnersemaphore.MobileRunnerSemaphoreShutdownRunnerResponse
 
 type MobileRunnerSemaphoreRunGrantedSignal = mobilerunnersemaphore.MobileRunnerSemaphoreRunGrantedSignal
 

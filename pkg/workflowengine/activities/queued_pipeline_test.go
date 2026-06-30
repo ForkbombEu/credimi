@@ -543,6 +543,7 @@ func TestPrepareQueuedWorkflowOptionsOverrides(t *testing.T) {
 	require.Equal(t, 2*time.Hour, opts.Options.WorkflowExecutionTimeout)
 	require.Equal(t, 15*time.Minute, opts.ActivityOptions.ScheduleToCloseTimeout)
 	require.Equal(t, 7*time.Minute, opts.ActivityOptions.StartToCloseTimeout)
+	require.Equal(t, 30*time.Second, opts.ActivityOptions.HeartbeatTimeout)
 	require.NotNil(t, opts.ActivityOptions.RetryPolicy)
 	require.Equal(t, int32(3), opts.ActivityOptions.RetryPolicy.MaximumAttempts)
 	require.Equal(t, 3*time.Second, opts.ActivityOptions.RetryPolicy.InitialInterval)

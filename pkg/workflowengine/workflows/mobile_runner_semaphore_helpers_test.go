@@ -122,6 +122,44 @@ func TestDecodeCheckWorkflowClosedOutputMapErrors(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestDecodeCancelWorkflowOutput(t *testing.T) {
+	output := activities.CancelWorkflowActivityOutput{Canceled: true, Status: "CANCELED"}
+
+	decoded, err := decodeCancelWorkflowOutput(output)
+	require.NoError(t, err)
+	require.Equal(t, output, decoded)
+
+	decoded, err = decodeCancelWorkflowOutput(map[string]any{
+		"canceled": false,
+		"status":   "NOT_FOUND",
+	})
+	require.NoError(t, err)
+	require.False(t, decoded.Canceled)
+	require.Equal(t, "NOT_FOUND", decoded.Status)
+
+	_, err = decodeCancelWorkflowOutput(1)
+	require.Error(t, err)
+}
+
+func TestDecodeCleanupMobileRunnerSemaphoreResourcesOutput(t *testing.T) {
+	output := activities.CleanupMobileRunnerSemaphoreResourcesActivityOutput{
+		CleanupFailures: []string{"boom"},
+	}
+
+	decoded, err := decodeCleanupMobileRunnerSemaphoreResourcesOutput(output)
+	require.NoError(t, err)
+	require.Equal(t, output, decoded)
+
+	decoded, err = decodeCleanupMobileRunnerSemaphoreResourcesOutput(map[string]any{
+		"cleanup_failures": []any{"boom", "bang"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"boom", "bang"}, decoded.CleanupFailures)
+
+	_, err = decodeCleanupMobileRunnerSemaphoreResourcesOutput(1)
+	require.Error(t, err)
+}
+
 func TestBuildRunStatusViewCopiesSlice(t *testing.T) {
 	runtime := &mobileRunnerSemaphoreRuntime{}
 	state := MobileRunnerSemaphoreRunTicketState{
@@ -148,6 +186,28 @@ func TestBuildRunStatusViewCopiesSlice(t *testing.T) {
 
 	state.Request.RequiredRunnerIDs[0] = "changed"
 	require.Equal(t, []string{"r1", "r2"}, view.RequiredRunnerIDs)
+}
+
+func TestRunTicketHelpers(t *testing.T) {
+	state := MobileRunnerSemaphoreRunTicketState{
+		WorkflowID:        "wf-1",
+		WorkflowNamespace: "ns-1",
+		Request: MobileRunnerSemaphoreEnqueueRunRequest{
+			PipelineConfig: map[string]any{"app_url": "https://example.test"},
+		},
+	}
+	require.True(t, ticketHasStartedWorkflow(state))
+	require.Equal(t, "https://example.test", runTicketAppURL(state))
+
+	state.WorkflowNamespace = ""
+	state.Request.PipelineConfig = nil
+	state.Request.Notification = &MobileRunnerSemaphoreNotification{
+		GitHubPR: &MobileRunnerSemaphoreGitHubPRNotification{AppURL: "https://fallback.test"},
+	}
+	require.False(t, ticketHasStartedWorkflow(state))
+	require.Equal(t, "https://fallback.test", runTicketAppURL(state))
+
+	require.Equal(t, []string{"a", "b"}, sortedRunnerIDs([]string{"b", "a"}))
 }
 
 func TestRemoveFromQueue(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -19,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"go.temporal.io/sdk/log"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -616,8 +618,7 @@ func processStep(
 
 	taskqueue := mobileRunnerTaskQueue(payload.RunnerID)
 	SetConfigValue(&input.step.With.Config, "taskqueue", taskqueue)
-	mobileAo := *input.ao
-	mobileAo.TaskQueue = taskqueue
+	mobileAo := mobileRunnerActivityOptions(input.ao, payload.RunnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAo)
 
 	appURL, ok := input.config["app_url"].(string)
@@ -1412,8 +1413,7 @@ func disablePlayStoreForDevices(
 			)
 		}
 
-		mobileAO := *input.ao
-		mobileAO.TaskQueue = mobileRunnerTaskQueue(runnerID)
+		mobileAO := mobileRunnerActivityOptions(input.ao, runnerID)
 		mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
 
 		if err := workflow.ExecuteActivity(
@@ -1450,8 +1450,7 @@ func startRecordingForDevice(
 		)
 	}
 
-	mobileAO := *input.ao
-	mobileAO.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
+	mobileAO := mobileRunnerActivityOptions(input.ao, input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
 	deviceType := deviceTypeFromMap(input.deviceMap)
 	deviceActivities := activitiesForDeviceType(deviceType)
@@ -1642,6 +1641,16 @@ func MobileAutomationCleanupHook(
 	}
 
 	for runnerID, raw := range devices {
+		if shouldSkipRunnerCleanup(runData, runnerID) {
+			appendCleanupWarning(
+				output,
+				fmt.Sprintf(
+					"runner cleanup skipped for %s because pipeline cancellation policy requested it",
+					runnerID,
+				),
+			)
+			continue
+		}
 		if err := cleanupDevice(cleanupDeviceInput{
 			ctx:           ctx,
 			runnerID:      runnerID,
@@ -1680,6 +1689,48 @@ func isSemaphoreManagedRun(config map[string]any) bool {
 	return ok && ticketID != ""
 }
 
+func mobileRunnerActivityOptions(
+	input *workflow.ActivityOptions,
+	runnerID string,
+) workflow.ActivityOptions {
+	var options workflow.ActivityOptions
+	if input != nil {
+		options = *input
+	}
+	if options.HeartbeatTimeout == 0 {
+		options.HeartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
+	}
+	if options.ScheduleToStartTimeout == 0 {
+		options.ScheduleToStartTimeout = 30 * time.Second
+	}
+	options.TaskQueue = mobileRunnerTaskQueue(runnerID)
+	return options
+}
+
+func shouldSkipRunnerCleanup(runData map[string]any, runnerID string) bool {
+	rawPolicy, ok := runData[pipelineCancellationPolicyRunDataKey]
+	if !ok {
+		return false
+	}
+
+	policy, ok := rawPolicy.(pipeline.PipelineCancellationPolicy)
+	if !ok || !policy.SkipRunnerCleanup {
+		return false
+	}
+
+	if len(policy.SkipRunnerCleanupIDs) == 0 {
+		return true
+	}
+
+	for _, skipRunnerID := range policy.SkipRunnerCleanupIDs {
+		if skipRunnerID == runnerID {
+			return true
+		}
+	}
+
+	return false
+}
+
 func cleanupDevice(
 	input cleanupDeviceInput,
 ) error {
@@ -1705,8 +1756,8 @@ func cleanupDevice(
 		return nil
 	}
 
-	input.mobileAo.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
-	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.mobileAo)
+	mobileAo := mobileRunnerActivityOptions(input.mobileAo, input.runnerID)
+	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAo)
 
 	cleanupRecording(cleanupRecordingInput{
 
@@ -2081,6 +2132,7 @@ func stopRecording(
 	logger log.Logger,
 ) (string, error) {
 	var stopResult workflowengine.ActivityResult
+	stopCtx := heartbeatAwareCleanupContext(ctx)
 
 	stopPayload := map[string]any{
 		"video_path":            info.videoPath,
@@ -2101,13 +2153,13 @@ func stopRecording(
 	}
 
 	if err := workflow.ExecuteActivity(
-		ctx,
+		stopCtx,
 		stopActivityName,
 		workflowengine.ActivityInput{
 			Payload: stopPayload,
-			Config:  workflowengine.ActivityTelemetryConfig(ctx, nil),
+			Config:  workflowengine.ActivityTelemetryConfig(stopCtx, nil),
 		},
-	).Get(ctx, &stopResult); err != nil {
+	).Get(stopCtx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)
 		return "", err
 	}
@@ -2127,6 +2179,20 @@ func stopRecording(
 	}
 
 	return lastFramePath, nil
+}
+
+func heartbeatAwareCleanupContext(ctx workflow.Context) workflow.Context {
+	ao := workflow.GetActivityOptions(ctx)
+	if ao.HeartbeatTimeout > 0 {
+		return ctx
+	}
+
+	return workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		ScheduleToCloseTimeout: 2 * time.Minute,
+		StartToCloseTimeout:    60 * time.Second,
+		HeartbeatTimeout:       30 * time.Second,
+		RetryPolicy:            &temporal.RetryPolicy{MaximumAttempts: 1},
+	})
 }
 
 func storeRecordingResults(
