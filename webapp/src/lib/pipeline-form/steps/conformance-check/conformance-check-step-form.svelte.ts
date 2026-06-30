@@ -83,7 +83,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 			return 'select-test';
 		} else if (standard && version && suite && test) {
 			if (
-				isOpenId4VciWalletTest(test) &&
+				isOpenIdWalletTest(test) &&
 				resolveWalletActionSelection(this.genericCredentialActions).kind === 'picker' &&
 				!this.data.action_id
 			) {
@@ -101,7 +101,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	availableSuites = $derived(this.data.version?.suites ?? []);
 	availableTests = $derived(this.data.suite?.paths ?? []);
 
-	hasWalletTests = $derived(this.availableTests.some((test) => isOpenId4VciWalletTest(test)));
+	hasWalletTests = $derived(this.availableTests.some((test) => isOpenIdWalletTest(test)));
 
 	genericCredentialActions = $derived(this.walletActions.current ?? []);
 
@@ -142,7 +142,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		return this.availableTests.map((test) => {
 			const testName = test.split('/').at(-1) ?? test;
 
-			if (!isOpenId4VciWalletTest(test)) {
+			if (!isOpenIdWalletTest(test)) {
 				return { test, testName, enabled: true };
 			}
 
@@ -186,7 +186,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 		this.data.test = option.test;
 
-		if (!isOpenId4VciWalletTest(option.test)) {
+		if (!isOpenIdWalletTest(option.test)) {
 			this.data.action_id = undefined;
 			if (this.intent === 'add') {
 				this.commit({ ...this.data, test: option.test } as FormData);
@@ -324,8 +324,8 @@ export type WalletActionSelection =
 	| { kind: 'auto'; action: WalletActionsResponse }
 	| { kind: 'picker' };
 
-export function isOpenId4VciWalletTest(test: string) {
-	return test.startsWith('openid4vci_wallet');
+export function isOpenIdWalletTest(test: string) {
+	return test.startsWith('openid4vci_wallet') || test.startsWith('openid4vp_wallet');
 }
 
 export function resolveWalletActionSelection(
