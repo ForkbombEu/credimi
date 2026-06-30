@@ -160,7 +160,7 @@ func authenticateAPIKeyByScope(
 	superuserID := matched.GetString("superuser")
 	hasUser := strings.TrimSpace(userID) != ""
 	hasSuperuser := strings.TrimSpace(superuserID) != ""
-	if hasUser == hasSuperuser && !(requiredScope == apiKeyScopeInternalAdmin && hasSuperuser) {
+	if hasUser == hasSuperuser && (requiredScope != apiKeyScopeInternalAdmin || !hasSuperuser) {
 		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",

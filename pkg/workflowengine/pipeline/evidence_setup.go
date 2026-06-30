@@ -84,7 +84,10 @@ func PipelineEvidenceSetupHook(
 	}
 	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
 	if workflowID == "" || runID == "" {
-		appendSetupWarning(finalOutput, "pipeline evidence storage skipped: missing workflow_id or run_id")
+		appendSetupWarning(
+			finalOutput,
+			"pipeline evidence storage skipped: missing workflow_id or run_id",
+		)
 		return nil
 	}
 

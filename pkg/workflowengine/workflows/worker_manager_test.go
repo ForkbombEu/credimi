@@ -48,17 +48,26 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 
 				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+							input.Payload,
+						)
 						require.NoError(t, err)
 
 						if payload.Method == http.MethodGet {
-							require.Equal(t, "https://test-server.com/api/mobile-runner/list-urls", payload.URL)
+							require.Equal(
+								t,
+								"https://test-server.com/api/mobile-runner/list-urls",
+								payload.URL,
+							)
 							require.Equal(t, 200, payload.ExpectedStatus)
 							return workflowengine.ActivityResult{
 								Output: map[string]any{
 									"status": "ok",
 									"body": map[string]any{
-										"runners": []any{"https://runner1.test", "https://runner2.test"},
+										"runners": []any{
+											"https://runner1.test",
+											"https://runner2.test",
+										},
 									},
 								},
 							}, nil
@@ -112,11 +121,17 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 
 				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+							input.Payload,
+						)
 						require.NoError(t, err)
 
 						if payload.Method == http.MethodGet {
-							require.Equal(t, "https://test-server.com/api/mobile-runner/list-urls", payload.URL)
+							require.Equal(
+								t,
+								"https://test-server.com/api/mobile-runner/list-urls",
+								payload.URL,
+							)
 							require.Equal(t, 200, payload.ExpectedStatus)
 							return workflowengine.ActivityResult{
 								Output: map[string]any{

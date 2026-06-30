@@ -89,7 +89,11 @@ func TestNewWorkflowError_NonApplicationError(t *testing.T) {
 	var details WorkflowError
 	require.NoError(t, appErr.Details(&details))
 	require.Equal(t, errorcodes.Codes[errorcodes.UnexpectedWorkflowError].Code, details.Code)
-	require.Equal(t, errorcodes.Codes[errorcodes.UnexpectedWorkflowError].Description, details.Summary)
+	require.Equal(
+		t,
+		errorcodes.Codes[errorcodes.UnexpectedWorkflowError].Description,
+		details.Summary,
+	)
 	require.Equal(t, "plain error", details.Message)
 	require.Equal(t, "wf", details.WorkflowName)
 	require.Equal(t, "wf-1", details.WorkflowID)

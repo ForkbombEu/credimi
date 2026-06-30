@@ -635,7 +635,11 @@ func TestPipelineWorkflowFailFastChildWorkflowUsesPipelineFailureShape(t *testin
 	require.Equal(t, "CRE302", errorsList[0]["code"])
 	require.Equal(t, "StepCI checks failed", errorsList[0]["summary"])
 	require.Equal(t, "One or more StepCI assertions failed.", errorsList[0]["message"])
-	require.Equal(t, map[string]any{"step": "login"}, errorsList[0]["details"].(map[string]any)["output"])
+	require.Equal(
+		t,
+		map[string]any{"step": "login"},
+		errorsList[0]["details"].(map[string]any)["output"],
+	)
 	require.Equal(t, "child-step", errorsList[0]["details"].(map[string]any)["step_id"])
 }
 

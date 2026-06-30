@@ -71,7 +71,11 @@ func (a *BaseActivity) NewActivityError(
 	failure ActivityError,
 ) error {
 	failure = a.withActivityName(failure)
-	return temporal.NewApplicationError(errorMessage(failure.Summary, failure.Message), failure.Code, failure)
+	return temporal.NewApplicationError(
+		errorMessage(failure.Summary, failure.Message),
+		failure.Code,
+		failure,
+	)
 }
 
 func (a *BaseActivity) NewNonRetryableActivityError(

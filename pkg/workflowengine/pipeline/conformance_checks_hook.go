@@ -58,7 +58,6 @@ func ConformanceCheckSetupHook(
 					),
 				},
 			)
-
 		}
 		payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPipelinePayload](
 			rawPayload,
@@ -77,7 +76,6 @@ func ConformanceCheckSetupHook(
 					),
 				},
 			)
-
 		}
 
 		if payload.CheckID == "" {
@@ -88,7 +86,6 @@ func ConformanceCheckSetupHook(
 					Message: fmt.Sprintf("missing check_id for step %s", step.ID),
 				},
 			)
-
 		}
 
 		rootDir := utils.GetEnvironmentVariable("ROOT_DIR", true)
@@ -107,7 +104,6 @@ func ConformanceCheckSetupHook(
 					),
 				},
 			)
-
 		}
 
 		extractedContent, err := extractCredimiJSON(string(content))
@@ -123,7 +119,6 @@ func ConformanceCheckSetupHook(
 					),
 				},
 			)
-
 		}
 		var tpl map[string]any
 		if err := yaml.Unmarshal([]byte(extractedContent), &tpl); err != nil {
@@ -139,7 +134,6 @@ func ConformanceCheckSetupHook(
 					),
 				},
 			)
-
 		}
 
 		tpl = extractValues(tpl).(map[string]any)
@@ -167,7 +161,6 @@ func ConformanceCheckSetupHook(
 					Message: "missing or invalid user_mail in workflow config",
 				},
 			)
-
 		}
 
 		defaultPayload := make(map[string]any)
@@ -200,7 +193,6 @@ func ConformanceCheckSetupHook(
 					Message: fmt.Sprintf("failed to read template file %s: %v", templatePath, err),
 				},
 			)
-
 		}
 
 		MergePayload(&defaultPayload, &step.With.Payload)
@@ -264,7 +256,6 @@ func resolveSuiteSetup(
 					),
 				},
 			)
-
 		}
 		form := map[string]any{}
 		if f, ok := tpl["form"].(map[string]any); ok {
@@ -308,7 +299,6 @@ func resolveSuiteSetup(
 				Message: fmt.Sprintf("missing or invalid suite for step %s", stepID),
 			},
 		)
-
 	}
 }
 
@@ -503,7 +493,6 @@ func ConformanceCheckCleanupHook(
 					),
 				},
 			)
-
 		}
 	}
 	return nil
