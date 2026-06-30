@@ -1,0 +1,5 @@
+test: oid4vp-1final-wallet-request-uri-method-post
+name: OpenID4VP Wallet Request URI Method POST
+description: |
+  Sends an authorization request with request_uri_method=post, which tells the wallet to use HTTP POST when fetching the request_uri.
+  If the wallet does not support POST, it may fall back to GET, which is permitted by the specification.
