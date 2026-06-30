@@ -1,0 +1,6 @@
+test: oid4vp-1final-wallet-happy-flow
+name: OpenID4VP Wallet Happy Flow
+description: |
+  This workflow tests the happy flow of an OID4VP wallet using the OpenID Foundation Certification Suite.
+  It creates a fake issuer credential offer, retrieves the credential, and runs the certification test plan
+  to ensure compliance with the OID4VP specifications.

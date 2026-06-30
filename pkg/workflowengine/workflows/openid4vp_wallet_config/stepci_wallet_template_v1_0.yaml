@@ -2,54 +2,120 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-version: "1.0"
+version: "1.1"
 components:
   token:
     bearer:
       token: ${{secrets.token}}
 
+env:
+  test_name: [[.test]]
+  organization_id: [[.organization_id]]
+  workflow_id: [[.workflow_id]]
+  run_id: [[.run_id]]
+  action_id: [[.action_id | toString]]
+
 tests:
-  OPENID4VP:
+  OPENID4VP_WALLET:
     steps:
-      - name: Create Test Plan
+      - name: Create fake issuer credential offer
         http:
+          url: https://capture-wallet.credimi.io/sessions
           method: POST
+          check:
+            status: 201
+          captures:
+            session_id:
+              jsonpath: $.session_id
+            fake_deeplink:
+              jsonpath: $.deeplink
+      - name: Get the fake issuer credential
+        http:
+          url: https://credimi.io/api/pipeline/mobile-flow
+          method: POST
+          json:
+            workflow_id: ${{ env.workflow_id }}
+            run_id: ${{ env.run_id }}
+            organization_id: ${{ env.organization_id }}
+            action_id: ${{ env.action_id }}
+            action_parameters:
+              deeplink: ${{ captures.fake_deeplink }}
+          check:
+            status: 200
+      - name: Create OpenID certification test plan
+        http:
           url: https://www.certification.openid.net/api/plan
-          params:
-            planName: oid4vp-1final-wallet-test-plan
-            variant: [[.variant | toJSON]]
           auth:
             $ref: "#/components/token"
-          headers:
-            Content-Type: application/json
-            accept: application/json
+          method: POST
+          params:
+            planName: oid4vp-1final-wallet-test-plan
+            variant: >-
+              {
+                "credential_format":"sd_jwt_vc",
+                "client_id_prefix":"x509_hash",
+                "request_method":"request_uri_signed",
+                "vp_profile":"plain_vp",
+                "response_mode":"direct_post.jwt"
+              }
           json:
-            #prettier-ignore
-            [[.form | toYAML | nindent 12 | trim]]
+            alias: "credimi-oid4vp-wallet-test-${{ string.uuid | fake: 7 }}"
+            description: Automated OID4VP wallet conformance test via Credimi
+            server:
+              authorization_endpoint: openid4vp://
+            client:
+              dcql:
+                credentials:
+                  - claims:
+                      - path:
+                          - given_name
+                      - path:
+                          - family_name
+                      - path:
+                          - birth_date
+                      - path:
+                          - iss
+                        values:
+                          - https://capture-wallet.credimi.io
+                    format: dc+sd-jwt
+                    id: credential
+                    meta:
+                      vct_values:
+                        - urn:eu.europa.ec.eudi:pid:1.jwt
+              jwks:
+                keys:
+                  - kty: EC
+                    x: xuzYGtoa5ULK3s1amwe9cIr6T4Wxh96LmSa71NLWx6M
+                    "y": 4vSfUuiSvsjx6Tz6SLbSyYQ79S7No0Ee-mmngjEuCag
+                    crv: P-256
+                    d: c5ebTNmR9Esdzt7VBPkh9Icl6j-S4wefswqRENrAGRc
+                    kid: dc7oChmwVLxtzz_0sMjvOyPI8kv5OPFlIoeCDn4Z9lw
+                    use: sig
+                    alg: ES256
+                    x5c:
+                      - MIIC5zCCAo2gAwIBAgIUcq1HH+u81Kv15/Q4Tb9q08XfKlUwCgYIKoZIzj0EAwIwVzEZMBcGA1UEAwwQUElEIElzc3VlciBDQSAwMjEtMCsGA1UECgwkRVVESSBXYWxsZXQgUmVmZXJlbmNlIEltcGxlbWVudGF0aW9uMQswCQYDVQQGEwJFVTAeFw0yNjA2MzAwOTQ4MDhaFw0yODA2MjkwOTQ4MDdaMFQxEDAOBgNVBAMMB0NyZWRpbWkxCzAJBgNVBAYTAklUMRUwEwYDVQQKDAxDcmVkaW1pIERlbW8xHDAaBgNVBGEME0VPUkNSRURJTUktREVNTy0wMDEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATG7Nga2hrlQsrezVqbB71wivpPhbGH3ouZJrvU0tbHo+L0n1Lokr7I8ek8+ki20smEO/UuzaNBHvppp4IxLgmoo4IBODCCATQwDAYDVR0TAQH/BAIwADAfBgNVHSMEGDAWgBRCUFC+ELgQ8J1EXI2/qxAI7ifcSTBZBggrBgEFBQcBAQRNMEswSQYIKwYBBQUHMAKGPWh0dHBzOi8vcHJlcHJvZC5wa2kuZXVkaXcuZGV2L2FpYS9QSURJc3N1ZXJDQTAyLUVVLmNhY2VydC5wZW0wHgYDVR0RBBcwFYYTaHR0cHM6Ly9jcmVkaW1pLmlvLzAUBgNVHSAEDTALMAkGBwQAi+xGAQIwQwYDVR0fBDwwOjA4oDagNIYyaHR0cHM6Ly9wcmVwcm9kLnBraS5ldWRpdy5kZXYvY3JsL3BpZF9DQV9FVV8wMi5jcmwwHQYDVR0OBBYEFKw2Lm4Us7AEDrco+GW+5HufsLNMMA4GA1UdDwEB/wQEAwIHgDAKBggqhkjOPQQDAgNIADBFAiEA4ENuANQnPBsfzPUmnHqINSwwEysxIWQNwz5aCwLczdgCIH85BtixLp2+r7cKz0cI9wDwNAG8Prw8ISk6LwTkavQs
+                    x5t#S256: dc7oChmwVLxtzz_0sMjvOyPI8kv5OPFlIoeCDn4Z9lw
+          check:
+            status: 201
           captures:
             plan_id:
               jsonpath: $.id
-          check:
-            status: 201
-      - name: Start Test Runner
+      - name: Start test runner
         http:
-          method: POST
           url: https://www.certification.openid.net/api/runner
-          params:
-            plan: ${{captures.plan_id}}
-            test: [[.test]]
-            runnerVariant: "{}"
           auth:
             $ref: "#/components/token"
-          headers:
-            Content-Type: application/json
-            accept: application/json
+          method: POST
+          params:
+            test: ${{ env.test_name }}
+            plan: ${{ captures.plan_id }}
+            variant: "{}"
           body: ""
+          check:
+            status: 201
           captures:
             runner_id:
               jsonpath: $.id
-          check:
-            status: 201
       - name: Start Test
         http:
           method: GET
@@ -63,3 +129,8 @@ tests:
               jsonpath: $.id
           check:
             status: 200
+            jsonpath:
+              $.browser.urls[0]:
+                - isString: true
+                - isDefined: true
+                - isNull: false
