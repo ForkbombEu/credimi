@@ -167,6 +167,9 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	})
 
 	origFetch := fetchNamespacesFn
+	origOrgRecords := workerManagerOrgRecordsFn
+	origAdminURLs := adminRunnerURLsFn
+	origPublishedURLs := publishedRunnerURLsFn
 	origEnsure := ensureNamespaceReadyFn
 	origStartAll := startAllWorkersByNamespace
 	origStartWorkerManager := startWorkerManagerWorkflow
@@ -174,6 +177,9 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 
 	t.Cleanup(func() {
 		fetchNamespacesFn = origFetch
+		workerManagerOrgRecordsFn = origOrgRecords
+		adminRunnerURLsFn = origAdminURLs
+		publishedRunnerURLsFn = origPublishedURLs
 		ensureNamespaceReadyFn = origEnsure
 		startAllWorkersByNamespace = origStartAll
 		startWorkerManagerWorkflow = origStartWorkerManager
@@ -182,6 +188,19 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 
 	fetchNamespacesFn = func(_ core.App) ([]string, error) {
 		return []string{"default", "org-1"}, nil
+	}
+	workerManagerOrgRecordsFn = func(_ core.App) ([]*core.Record, error) {
+		collection := core.NewBaseCollection("organizations")
+		record := core.NewRecord(collection)
+		record.Set("canonified_name", "org-1")
+		record.Set("published", false)
+		return []*core.Record{record}, nil
+	}
+	adminRunnerURLsFn = func(_ core.App) ([]string, error) {
+		return []string{"https://admin.runner"}, nil
+	}
+	publishedRunnerURLsFn = func(_ core.App) ([]string, error) {
+		return []string{"https://published.runner"}, nil
 	}
 
 	ensureCalls := make(chan string, 2)
@@ -195,9 +214,13 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 		startCalls <- ns
 	}
 
-	managerCalls := make(chan string, 2)
-	startWorkerManagerWorkflow = func(_ core.App, ns, _ string) {
-		managerCalls <- ns
+	type workerManagerCall struct {
+		namespace  string
+		runnerURLs []string
+	}
+	managerCalls := make(chan workerManagerCall, 2)
+	startWorkerManagerWorkflow = func(_ core.App, ns, _ string, runnerURLs []string) {
+		managerCalls <- workerManagerCall{namespace: ns, runnerURLs: runnerURLs}
 	}
 
 	shutdownCalled := make(chan struct{}, 1)
@@ -237,17 +260,17 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	require.Contains(t, gotWorkers, "default")
 	require.Contains(t, gotWorkers, "org-1")
 
-	gotManagers := map[string]struct{}{}
+	gotManagers := map[string][]string{}
 	for i := 0; i < 2; i++ {
 		select {
-		case ns := <-managerCalls:
-			gotManagers[ns] = struct{}{}
+		case call := <-managerCalls:
+			gotManagers[call.namespace] = call.runnerURLs
 		case <-time.After(time.Second):
 			t.Fatal("timeout waiting for start worker manager call")
 		}
 	}
-	require.Contains(t, gotManagers, "default")
-	require.Contains(t, gotManagers, "org-1")
+	require.Equal(t, []string{"https://admin.runner", "https://published.runner"}, gotManagers["default"])
+	require.Equal(t, []string{"https://admin.runner"}, gotManagers["org-1"])
 
 	terminateErr := app.OnTerminate().Trigger(
 		&core.TerminateEvent{App: app},
@@ -497,7 +520,12 @@ func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
 		return workflowengine.WorkflowResult{}, nil
 	}
 
-	err := executeWorkerManagerWorkflow("org-1", "org-0", "https://app.example")
+	err := executeWorkerManagerWorkflow(
+		"org-1",
+		"org-0",
+		"https://app.example",
+		[]string{" https://runner-1 ", "", "https://runner-1", "https://runner-2"},
+	)
 	require.NoError(t, err)
 	require.Equal(t, "default", gotNamespace)
 	require.NotNil(t, gotInput.ActivityOptions)
@@ -506,6 +534,7 @@ func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "org-1", payload.Namespace)
 	require.Equal(t, "org-0", payload.OldNamespace)
+	require.Equal(t, []string{"https://runner-1", "https://runner-2"}, payload.RunnerURLs)
 	require.Equal(t, "https://app.example", gotInput.Config["app_url"])
 }
 
@@ -520,7 +549,7 @@ func TestExecuteWorkerManagerWorkflowStartError(t *testing.T) {
 		return workflowengine.WorkflowResult{}, errors.New("boom")
 	}
 
-	err := executeWorkerManagerWorkflow("org-1", "", "http://app")
+	err := executeWorkerManagerWorkflow("org-1", "", "http://app", nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to start workflow")
 }
@@ -541,7 +570,7 @@ func TestExecuteWorkerManagerWorkflowTemporalClientError(t *testing.T) {
 		return nil, errors.New("no client")
 	}
 
-	err := executeWorkerManagerWorkflow("org-1", "", "http://app")
+	err := executeWorkerManagerWorkflow("org-1", "", "http://app", nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unable to create client")
 }
@@ -567,7 +596,7 @@ func TestExecuteWorkerManagerWorkflowWaitError(t *testing.T) {
 		return workflowengine.WorkflowResult{}, errors.New("wait failed")
 	}
 
-	err := executeWorkerManagerWorkflow("org-1", "", "http://app")
+	err := executeWorkerManagerWorkflow("org-1", "", "http://app", nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to start mobile automation worker")
 }
@@ -781,15 +810,21 @@ func TestStartWorkerManagerWorkflowInvokesExecute(t *testing.T) {
 	})
 
 	called := make(chan struct{}, 1)
-	executeWorkerManagerWorkflowFn = func(namespace, oldNamespace, appURL string) error {
+	executeWorkerManagerWorkflowFn = func(
+		namespace,
+		oldNamespace,
+		appURL string,
+		runnerURLs []string,
+	) error {
 		require.Equal(t, "org-1", namespace)
 		require.Equal(t, "org-0", oldNamespace)
 		require.Equal(t, "https://app.example", appURL)
+		require.Equal(t, []string{"https://runner-1"}, runnerURLs)
 		called <- struct{}{}
 		return nil
 	}
 
-	StartWorkerManagerWorkflow(app, "org-1", "org-0")
+	StartWorkerManagerWorkflow(app, "org-1", "org-0", []string{"https://runner-1"})
 
 	select {
 	case <-called:

@@ -65,8 +65,8 @@ type PreviewMobileRunnerIDResponse struct {
 type UpsertMobileRunnerRequest struct {
 	RunnerID     string `json:"runner_id,omitempty"`
 	Organization string `json:"organization,omitempty"`
-	Name         string `json:"name"                   validate:"required"`
-	IP           string `json:"ip"                     validate:"required"`
+	Name         string `json:"name" validate:"required"`
+	IP           string `json:"ip" validate:"required"`
 	Description  string `json:"description,omitempty"`
 	Type         string `json:"type,omitempty"`
 	Port         string `json:"port,omitempty"`
@@ -86,6 +86,7 @@ type UpsertMobileRunnerResponse struct {
 	Port           string `json:"port,omitempty"`
 	Serial         string `json:"serial,omitempty"`
 	Published      bool   `json:"published"`
+	AdminManaged   bool   `json:"admin_managed"`
 }
 
 func HandlePreviewMobileRunnerID() func(*core.RequestEvent) error {
@@ -136,6 +137,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr
 		}
+		creating := record == nil
 
 		if normalizedRunnerID != "" && record == nil {
 			preview, previewErr := previewMobileRunnerIdentifier(e.App, owner, input.Name)
@@ -179,6 +181,9 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			record = core.NewRecord(collection)
 			record.Set("owner", owner.Id)
 		}
+		if creating && isSuperuserAuth(e.Auth) {
+			record.Set("admin_managed", true)
+		}
 
 		record.Set("name", strings.TrimSpace(input.Name))
 		record.Set("ip", strings.TrimSpace(input.IP))
@@ -221,6 +226,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			Port:           record.GetString("port"),
 			Serial:         record.GetString("serial"),
 			Published:      record.GetBool("published"),
+			AdminManaged:   record.GetBool("admin_managed"),
 		})
 	}
 }

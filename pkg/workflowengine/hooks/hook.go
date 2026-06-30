@@ -50,6 +50,22 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		if err != nil {
 			log.Fatalf("Failed to fetch namespaces: %v", err)
 		}
+		orgRecords, err := workerManagerOrgRecordsFn(app)
+		if err != nil {
+			log.Fatalf("Failed to fetch organization records: %v", err)
+		}
+		adminRunnerURLs, err := adminRunnerURLsFn(app)
+		if err != nil {
+			log.Fatalf("Failed to fetch admin-managed runner URLs: %v", err)
+		}
+		publishedRunnerURLs, err := publishedRunnerURLsFn(app)
+		if err != nil {
+			log.Fatalf("Failed to fetch published runner URLs: %v", err)
+		}
+		publishedByNamespace := make(map[string]bool, len(orgRecords))
+		for _, org := range orgRecords {
+			publishedByNamespace[org.GetString("canonified_name")] = org.GetBool("published")
+		}
 
 		log.Printf("[WorkersHook] Ensuring %d namespace(s) are ready...", len(namespaces))
 
@@ -59,7 +75,12 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			}
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go startAllWorkersByNamespace(ns)
-			startWorkerManagerWorkflow(app, ns, "")
+
+			runnerURLs := adminRunnerURLs
+			if ns == "default" || publishedByNamespace[ns] {
+				runnerURLs = combineWorkerManagerRunnerURLs(adminRunnerURLs, publishedRunnerURLs)
+			}
+			startWorkerManagerWorkflow(app, ns, "", runnerURLs)
 		}
 
 		log.Printf("[WorkersHook] All namespaces ready, workers started")
@@ -303,6 +324,9 @@ var (
 	startWorkerFn              = startWorker
 	startPipelineWorkerFn      = startPipelineWorker
 	fetchNamespacesFn          = FetchNamespaces
+	workerManagerOrgRecordsFn  = workerManagerAllOrganizationRecords
+	adminRunnerURLsFn          = WorkerManagerAdminRunnerURLs
+	publishedRunnerURLsFn      = WorkerManagerPublishedNonAdminRunnerURLs
 	ensureNamespaceReadyFn     = ensureNamespaceReadyWithRetry
 	startAllWorkersByNamespace = StartAllWorkersByNamespace
 	startWorkerManagerWorkflow = StartWorkerManagerWorkflow
@@ -623,12 +647,13 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 	}
 }
 
-func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string) {
+func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string, runnerURLs []string) {
 	go func() {
 		if err := executeWorkerManagerWorkflowFn(
 			namespace,
 			oldNamespace,
 			app.Settings().Meta.AppURL,
+			runnerURLs,
 		); err != nil {
 			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
 		} else {
@@ -637,7 +662,12 @@ func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string) {
 	}()
 }
 
-func executeWorkerManagerWorkflow(namespace, oldNamespace, appURL string) error {
+func executeWorkerManagerWorkflow(
+	namespace,
+	oldNamespace,
+	appURL string,
+	runnerURLs []string,
+) error {
 	ao := &workflow.ActivityOptions{
 		ScheduleToCloseTimeout: time.Minute,
 		StartToCloseTimeout:    30 * time.Second,
@@ -653,6 +683,7 @@ func executeWorkerManagerWorkflow(namespace, oldNamespace, appURL string) error 
 		Payload: workflows.WorkerManagerWorkflowPayload{
 			Namespace:    namespace,
 			OldNamespace: oldNamespace,
+			RunnerURLs:   uniqueWorkerManagerURLs(runnerURLs),
 		},
 		Config: map[string]any{
 			"app_url": appURL,

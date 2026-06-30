@@ -463,7 +463,11 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		if apiErr := authorizeOwnerAccess(e, resultRecord.GetString("owner")); apiErr != nil {
+		if apiErr := authorizePipelineResultStoreAccess(
+			e,
+			resultRecord.GetString("owner"),
+			runnerIdentifier,
+		); apiErr != nil {
 			return apiErr
 		}
 
@@ -544,6 +548,95 @@ func authorizeOwnerAccess(e *core.RequestEvent, ownerID string) *apierror.APIErr
 	}
 
 	return nil
+}
+
+func authorizePipelineResultStoreAccess(
+	e *core.RequestEvent,
+	ownerID string,
+	runnerIdentifier string,
+) *apierror.APIError {
+	if isInternalAdminPrincipal(e.Auth) {
+		return nil
+	}
+	if ownerID == "" {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"owner",
+			"owner missing",
+			"record owner is required",
+		)
+	}
+
+	userOrgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
+	if err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"failed to get user organization",
+			err.Error(),
+		)
+	}
+	if userOrgID == ownerID {
+		return nil
+	}
+
+	allowed, apiErr := publishedRunnerCanStoreForPublishedOrganization(
+		e.App,
+		userOrgID,
+		ownerID,
+		runnerIdentifier,
+	)
+	if apiErr != nil {
+		return apiErr
+	}
+	if allowed {
+		return nil
+	}
+
+	return apierror.New(
+		http.StatusForbidden,
+		"authorization",
+		"forbidden",
+		"record does not belong to the authenticated user's organization",
+	)
+}
+
+func publishedRunnerCanStoreForPublishedOrganization(
+	app core.App,
+	runnerOwnerID string,
+	resultOwnerID string,
+	runnerIdentifier string,
+) (bool, *apierror.APIError) {
+	ownerOrg, err := app.FindRecordById("organizations", resultOwnerID)
+	if err != nil {
+		return false, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"failed to get result owner organization",
+			err.Error(),
+		)
+	}
+	if !ownerOrg.GetBool("published") {
+		return false, nil
+	}
+
+	runner, err := canonify.Resolve(app, runnerIdentifier)
+	if err != nil {
+		return false, apierror.New(
+			http.StatusBadRequest,
+			"runner_identifier",
+			"failed_to_resolve_runner_identifier",
+			err.Error(),
+		)
+	}
+	if runner.Collection() == nil || runner.Collection().Name != "mobile_runners" {
+		return false, nil
+	}
+	if runner.GetString("owner") != runnerOwnerID {
+		return false, nil
+	}
+
+	return runner.GetBool("published"), nil
 }
 
 func authorizeWalletInstallerAccess(

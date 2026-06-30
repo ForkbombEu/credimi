@@ -148,6 +148,7 @@ var checkMobileRunnerHealth = checkMobileRunnerHealthHTTP
 func HandleListMobileRunners() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		callerOrgID := ""
+		callerOrgPublished := false
 		if e.Auth == nil {
 			return apierror.New(
 				http.StatusUnauthorized,
@@ -157,7 +158,7 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 			)
 		}
 		if !isSuperuserAuth(e.Auth) {
-			orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
+			orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -166,10 +167,11 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 					err.Error(),
 				)
 			}
-			callerOrgID = orgID
+			callerOrgID = orgRecord.Id
+			callerOrgPublished = orgRecord.GetBool("published")
 		}
 
-		records, err := listMobileRunnerRecords(e.App, callerOrgID)
+		records, err := listMobileRunnerRecords(e.App, callerOrgID, callerOrgPublished)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -213,9 +215,24 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 	}
 }
 
-func listMobileRunnerRecords(app core.App, callerOrgID string) ([]*core.Record, error) {
+func listMobileRunnerRecords(
+	app core.App,
+	callerOrgID string,
+	callerOrgPublished bool,
+) ([]*core.Record, error) {
 	if callerOrgID == "" {
 		return app.FindRecordsByFilter("mobile_runners", "", "name", -1, 0)
+	}
+
+	if !callerOrgPublished {
+		return app.FindRecordsByFilter(
+			"mobile_runners",
+			"owner = {:owner} || (published = true && admin_managed = true)",
+			"name",
+			-1,
+			0,
+			dbx.Params{"owner": callerOrgID},
+		)
 	}
 
 	return app.FindRecordsByFilter(

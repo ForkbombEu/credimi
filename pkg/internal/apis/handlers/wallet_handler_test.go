@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/apis"
@@ -31,6 +32,7 @@ import (
 func setupWalletApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
+	ensureMobileRunnerAccessFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	WalletTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
@@ -574,6 +576,10 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	require.NoError(t, err)
 	userToken, err := userRecord.NewAuthToken()
 	require.NoError(t, err)
+	runnerUserRecord, err := getUserRecordFromName("userB")
+	require.NoError(t, err)
+	runnerUserToken, err := runnerUserRecord.NewAuthToken()
+	require.NoError(t, err)
 
 	// Prepare the success multipart request with MP4
 	var successBody bytes.Buffer
@@ -609,6 +615,29 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, successWriter.Close())
+
+	var crossOrgRunnerBody bytes.Buffer
+	crossOrgRunnerWriter := multipart.NewWriter(&crossOrgRunnerBody)
+	_ = crossOrgRunnerWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
+	_ = crossOrgRunnerWriter.WriteField("runner_identifier", "userb-s-organization/public-runner")
+	_ = crossOrgRunnerWriter.WriteField("platform", "android")
+
+	crossOrgVideoWriter, err := crossOrgRunnerWriter.CreatePart(partHeader)
+	require.NoError(t, err)
+	_, err = crossOrgVideoWriter.Write(mp4Header)
+	require.NoError(t, err)
+
+	crossOrgFrameWriter, err := crossOrgRunnerWriter.CreateFormFile("last_frame", "frame.txt")
+	require.NoError(t, err)
+	_, err = crossOrgFrameWriter.Write([]byte("test frame content"))
+	require.NoError(t, err)
+
+	crossOrgLogWriter, err := crossOrgRunnerWriter.CreateFormFile("logfile", "log.txt")
+	require.NoError(t, err)
+	_, err = crossOrgLogWriter.Write([]byte("test log content"))
+	require.NoError(t, err)
+
+	require.NoError(t, crossOrgRunnerWriter.Close())
 
 	var iosBody bytes.Buffer
 	iosWriter := multipart.NewWriter(&iosBody)
@@ -692,6 +721,38 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
 				setupWalletPipelineTestRecords(t, app, orgID)
+				return app
+			},
+		},
+		{
+			Name:   "published runner owner can store result for published organization",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(crossOrgRunnerBody.Bytes()),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + runnerUserToken,
+				"Content-Type":  crossOrgRunnerWriter.FormDataContentType(),
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"runner":"userb-s-organization/public-runner"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+				setupWalletPipelineTestRecords(t, app, orgID)
+				setOrganizationPublished(t, app, orgID, true)
+
+				runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUserRecord.Id)
+				require.NoError(t, err)
+				createMobileRunnerRecord(
+					t,
+					app,
+					runnerOrgID,
+					"public-runner",
+					"http://127.0.0.1:1",
+					true,
+				)
 				return app
 			},
 		},
