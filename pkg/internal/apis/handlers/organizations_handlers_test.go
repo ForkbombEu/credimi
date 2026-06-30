@@ -5,7 +5,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"testing"
 
@@ -18,6 +20,7 @@ import (
 func setupOrganizationApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
+	ensureOrganizationPublishedField(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	OrganizationRoutes.Add(app)
 	return app
@@ -26,10 +29,22 @@ func setupOrganizationApp(t testing.TB) *tests.TestApp {
 func setupOrganizationPublicApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
+	ensureOrganizationPublishedField(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	OrganizationTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 	return app
+}
+
+func ensureOrganizationPublishedField(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+
+	organizations, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	if organizations.Fields.GetByName("published") == nil {
+		organizations.Fields.Add(&core.BoolField{Name: "published"})
+	}
+	require.NoError(t, app.Save(organizations))
 }
 
 func getUserRecordFromName(name string) (*core.Record, error) {
@@ -73,9 +88,45 @@ func TestOrganizationHandlers(t *testing.T) {
 			TestAppFactory: setupOrganizationApp,
 		},
 		{
+			Name:   "get visible organization namespaces",
+			Method: http.MethodGet,
+			URL:    "/api/organizations/visible-namespaces",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				"namespaces",
+				"usera-s-organization",
+			},
+			TestAppFactory: setupOrganizationApp,
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				body, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				require.NotContains(t, string(body), "my_namespace")
+
+				var payload struct {
+					Namespaces []string `json:"namespaces"`
+				}
+				require.NoError(t, json.Unmarshal(body, &payload))
+				require.Contains(t, payload.Namespaces, "usera-s-organization")
+				require.NotEmpty(t, payload.Namespaces)
+			},
+		},
+		{
 			Name:           "get my organization info (unauthenticated)",
 			Method:         http.MethodGet,
 			URL:            "/api/organizations/my",
+			ExpectedStatus: 401,
+			ExpectedContent: []string{
+				"authentication_required",
+			},
+			TestAppFactory: setupOrganizationApp,
+		},
+		{
+			Name:           "get visible organization namespaces (unauthenticated)",
+			Method:         http.MethodGet,
+			URL:            "/api/organizations/visible-namespaces",
 			ExpectedStatus: 401,
 			ExpectedContent: []string{
 				"authentication_required",

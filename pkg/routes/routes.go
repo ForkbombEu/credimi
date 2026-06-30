@@ -57,7 +57,8 @@ func bindAppHooks(app core.App) {
 //     for JavaScript-based templates and automatic migration.
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
-	pb.HookNamespaceOrgs(app)
+	pb.HookOrganizations(app)
+	pb.RegisterMobileRunnerWorkerManagerHooks(app)
 	pb.RegisterPipelineHooks(app)
 	pb.RegisterSchedulesHooks(app)
 	apis.RegisterMyRoutes(app)

@@ -6,11 +6,13 @@ package handlers
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -27,6 +29,12 @@ var OrganizationRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/my",
 			Handler:     HandleGetMyOrganization,
 			Description: "Get the current user's organization info",
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/visible-namespaces",
+			Handler:     HandleGetVisibleOrganizationNamespaces,
+			Description: "Get the caller organization namespace plus all published organization namespaces",
 		},
 	},
 }
@@ -94,6 +102,57 @@ func HandleGetAllNamespaces() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
+			"namespaces": namespaces,
+		})
+	}
+}
+
+func HandleGetVisibleOrganizationNamespaces() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organizations",
+				"unable to get user organization",
+				err.Error(),
+			)
+		}
+
+		records, err := e.App.FindRecordsByFilter(
+			"organizations",
+			"published = true || id = {:id}",
+			"name",
+			-1,
+			0,
+			dbx.Params{"id": orgRecord.Id},
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organizations",
+				"failed to fetch visible organizations",
+				err.Error(),
+			)
+		}
+
+		seen := make(map[string]struct{}, len(records))
+		namespaces := make([]string, 0, len(records))
+		for _, record := range records {
+			namespace := record.GetString("canonified_name")
+			if namespace == "" {
+				continue
+			}
+			if _, ok := seen[namespace]; ok {
+				continue
+			}
+
+			seen[namespace] = struct{}{}
+			namespaces = append(namespaces, namespace)
+		}
+		sort.Strings(namespaces)
+
+		return e.JSON(http.StatusOK, map[string]any{
 			"namespaces": namespaces,
 		})
 	}

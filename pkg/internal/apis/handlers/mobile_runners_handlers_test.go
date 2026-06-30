@@ -25,6 +25,7 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 
+	ensureMobileRunnerAccessFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	MobileRunnersPublicRoutes.Add(app)
 	MobileRunnerRegistrationRoutes.Add(app)
@@ -32,6 +33,24 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	seedInternalAdminKey(t, app)
 
 	return app
+}
+
+func ensureMobileRunnerAccessFields(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+
+	orgs, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	if orgs.Fields.GetByName("published") == nil {
+		orgs.Fields.Add(&core.BoolField{Name: "published"})
+	}
+	require.NoError(t, app.Save(orgs))
+
+	runners, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+	if runners.Fields.GetByName("admin_managed") == nil {
+		runners.Fields.Add(&core.BoolField{Name: "admin_managed"})
+	}
+	require.NoError(t, app.Save(runners))
 }
 
 func performMobileRunnerRequest(
@@ -225,6 +244,61 @@ func TestListMobileRunners(t *testing.T) {
 		})
 	})
 
+	t.Run("normal user visibility depends only on ownership and published state", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+		require.NoError(t, err)
+		otherOrg := createOtherWalletAPKOrganization(t, app)
+
+		createMobileRunnerRecord(t, app, userOrgID, "owned-private", "http://127.0.0.1:1", false)
+		createMobileRunnerRecord(t, app, otherOrg.Id, "other-published", "http://127.0.0.1:1", true)
+		createMobileRunnerRecord(t, app, otherOrg.Id, "other-private", "http://127.0.0.1:1", false)
+		createMobileRunnerRecord(t, app, otherOrg.Id, "admin-published", "http://127.0.0.1:1", true)
+		createMobileRunnerRecord(t, app, otherOrg.Id, "admin-private", "http://127.0.0.1:1", false)
+
+		setMobileRunnerAdminManaged(t, app, "other-org/admin-published", true)
+		setMobileRunnerAdminManaged(t, app, "other-org/admin-private", true)
+
+		originalHealth := checkMobileRunnerHealth
+		checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+			return false, nil, nil
+		}
+		t.Cleanup(func() {
+			checkMobileRunnerHealth = originalHealth
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
+		rec := httptest.NewRecorder()
+		event := &core.RequestEvent{
+			App:  app,
+			Auth: user,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		}
+
+		err = HandleListMobileRunners()(event)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response ListMobileRunnersPublicResponseSchema
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.ElementsMatch(t, []string{
+			"usera-s-organization/owned-private",
+			"other-org/other-published",
+			"other-org/admin-published",
+		}, []string{
+			response.Runners[0].Path,
+			response.Runners[1].Path,
+			response.Runners[2].Path,
+		})
+	})
+
 	t.Run("selector view skips queue details and sensitive runner fields", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)
 		defer app.Cleanup()
@@ -313,6 +387,20 @@ func createMobileRunnerRecord(
 	record.Set("ip", runnerURL)
 	record.Set("type", "android_emulator")
 	record.Set("published", published)
+	require.NoError(t, app.Save(record))
+}
+
+func setMobileRunnerAdminManaged(
+	t testing.TB,
+	app *tests.TestApp,
+	runnerPath string,
+	adminManaged bool,
+) {
+	t.Helper()
+
+	record, err := canonify.Resolve(app, "/"+runnerPath)
+	require.NoError(t, err)
+	record.Set("admin_managed", adminManaged)
 	require.NoError(t, app.Save(record))
 }
 
@@ -718,6 +806,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 
 		body := decodeJSONBody(t, recorder)
 		require.Equal(t, "usera-s-organization/my-phone", body["runner_id"])
+		require.Equal(t, false, body["admin_managed"])
 
 		record, err := canonify.Resolve(app, "/usera-s-organization/my-phone")
 		require.NoError(t, err)
@@ -800,5 +889,81 @@ func TestUpsertMobileRunner(t *testing.T) {
 		requireHandlerErrorHandled(t, recorder, err)
 		require.Equal(t, http.StatusConflict, recorder.Code)
 		require.Contains(t, recorder.Body.String(), "does not match the next available id")
+	})
+
+	t.Run("admin create sets admin_managed", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+		require.NoError(t, err)
+
+		event := performMobileRunnerRequest(
+			t,
+			app,
+			superuser,
+			"/api/mobile-runner",
+			UpsertMobileRunnerRequest{
+				Organization: "userb-s-organization",
+				Name:         "Runner B",
+				IP:           "https://runner-b.example",
+				Type:         "android_emulator",
+			},
+		)
+
+		err = HandleUpsertMobileRunner()(event)
+		require.NoError(t, err)
+
+		recorder := responseRecorder(t, event)
+		require.Equal(t, http.StatusOK, recorder.Code)
+		body := decodeJSONBody(t, recorder)
+		require.Equal(t, true, body["admin_managed"])
+
+		runner, err := canonify.Resolve(app, "/userb-s-organization/runner-b")
+		require.NoError(t, err)
+		require.True(t, runner.GetBool("admin_managed"))
+	})
+
+	t.Run("admin update existing runner does not flip admin_managed", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+		require.NoError(t, err)
+
+		createEvent := performMobileRunnerRequest(
+			t,
+			app,
+			user,
+			"/api/mobile-runner",
+			UpsertMobileRunnerRequest{
+				Name: "Mutable Phone",
+				IP:   "https://runner-mutable.example",
+				Type: "android_emulator",
+			},
+		)
+		require.NoError(t, HandleUpsertMobileRunner()(createEvent))
+
+		updateEvent := performMobileRunnerRequest(
+			t,
+			app,
+			superuser,
+			"/api/mobile-runner",
+			UpsertMobileRunnerRequest{
+				Organization: "usera-s-organization",
+				RunnerID:     "/usera-s-organization/mutable-phone",
+				Name:         "Mutable Phone",
+				IP:           "https://runner-mutable-updated.example",
+				Type:         "android_emulator",
+			},
+		)
+		require.NoError(t, HandleUpsertMobileRunner()(updateEvent))
+
+		runner, err := canonify.Resolve(app, "/usera-s-organization/mutable-phone")
+		require.NoError(t, err)
+		require.False(t, runner.GetBool("admin_managed"))
+		require.Equal(t, "https://runner-mutable-updated.example", runner.GetString("ip"))
 	})
 }

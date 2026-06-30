@@ -89,6 +89,68 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 		},
 		{
+			name: "Workflow uses provided runner URLs without calling list endpoint",
+			inputPayload: WorkerManagerWorkflowPayload{
+				Namespace:    "test-namespace",
+				OldNamespace: "old-test-namespace",
+				RunnerURLs: []string{
+					" https://runner1.test ",
+					"",
+					"https://runner1.test",
+					"https://runner2.test",
+				},
+			},
+			inputConfig: map[string]any{
+				"app_url": "https://test-server.com",
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				internalHTTPAct := activities.NewInternalHTTPActivity()
+				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
+					Name: internalHTTPAct.Name(),
+				})
+
+				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
+					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+						require.NoError(t, err)
+						require.Equal(t, http.MethodPost, payload.Method)
+						require.Contains(t, []string{
+							"https://runner1.test/worker/test-namespace",
+							"https://runner2.test/worker/test-namespace",
+						}, payload.URL)
+						return workflowengine.ActivityResult{}, nil
+					},
+				)
+			},
+			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
+				require.Equal(
+					t,
+					"Send namespace 'test-namespace' to start workers finished: 2/2 succeeded (0 failed)",
+					result.Message,
+				)
+			},
+		},
+		{
+			name: "Workflow with explicit empty runner URLs does not call list endpoint",
+			inputPayload: WorkerManagerWorkflowPayload{
+				Namespace:    "test-namespace",
+				OldNamespace: "old-test-namespace",
+				RunnerURLs:   []string{},
+			},
+			inputConfig: map[string]any{
+				"app_url": "https://test-server.com",
+			},
+			mockActivities: func(_ *testsuite.TestWorkflowEnvironment) {},
+			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
+				require.Equal(
+					t,
+					"Send namespace 'test-namespace' to start workers finished: 0/0 succeeded (0 failed)",
+					result.Message,
+				)
+				assertWorkerManagerOutput(t, result.Output, 0, 0, 0)
+			},
+		},
+		{
 			name: "Workflow keeps running when one runner fails",
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",

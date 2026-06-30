@@ -6,6 +6,7 @@ package workflows
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -26,8 +27,9 @@ var workerManagerStartWorkflowWithOptions = workflowengine.StartWorkflowWithOpti
 
 // WorkerManagerWorkflowPayload is the payload for the worker manager workflow.
 type WorkerManagerWorkflowPayload struct {
-	Namespace    string `json:"namespace"               yaml:"namespace"               validate:"required"`
-	OldNamespace string `json:"old_namespace,omitempty" yaml:"old_namespace,omitempty"`
+	Namespace    string   `json:"namespace"               yaml:"namespace"               validate:"required"`
+	OldNamespace string   `json:"old_namespace,omitempty" yaml:"old_namespace,omitempty"`
+	RunnerURLs   []string `json:"runner_urls"             yaml:"runner_urls"`
 }
 
 type WorkerManagerRunnerResult struct {
@@ -97,53 +99,57 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	}
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	listReq := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				appURL,
-				"api",
-				"mobile-runner",
-				"list-urls",
-			),
-			ExpectedStatus: 200,
-		},
-	}
-	var resp workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), listReq).Get(ctx, &resp)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
+	runnerURLs := normalizeWorkerManagerRunnerURLs(payload.RunnerURLs)
+	if payload.RunnerURLs == nil {
+		listReq := workflowengine.ActivityInput{
+			Payload: activities.InternalHTTPActivityPayload{
+				Method: http.MethodGet,
+				URL: utils.JoinURL(
+					appURL,
+					"api",
+					"mobile-runner",
+					"list-urls",
+				),
+				ExpectedStatus: 200,
+			},
+		}
+		var resp workflowengine.ActivityResult
+		err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), listReq).Get(ctx, &resp)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		}
 
-	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-	body, ok := resp.Output.(map[string]any)["body"].(map[string]any)
-	if !ok {
-		appErr :=
-			workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: "invalid HTTP response format",
-					Details: map[string]any{"payload": resp.Output},
-				},
-			)
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		body, ok := resp.Output.(map[string]any)["body"].(map[string]any)
+		if !ok {
+			appErr :=
+				workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: "invalid HTTP response format",
+						Details: map[string]any{"payload": resp.Output},
+					},
+				)
 
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-	}
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		}
 
-	runnerURLs, ok := parseRunnerURLs(body["runners"])
-	if !ok {
-		appErr :=
-			workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: "invalid HTTP response body",
-					Details: map[string]any{"payload": body},
-				},
-			)
+		runnerURLs, ok = parseRunnerURLs(body["runners"])
+		if !ok {
+			appErr :=
+				workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: "invalid HTTP response body",
+						Details: map[string]any{"payload": body},
+					},
+				)
 
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		}
+		runnerURLs = normalizeWorkerManagerRunnerURLs(runnerURLs)
 	}
 
 	runnerResults := make([]WorkerManagerRunnerResult, 0, len(runnerURLs))
@@ -223,6 +229,25 @@ func parseRunnerURLs(rawRunners any) ([]string, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func normalizeWorkerManagerRunnerURLs(runnerURLs []string) []string {
+	seen := make(map[string]struct{}, len(runnerURLs))
+	result := make([]string, 0, len(runnerURLs))
+	for _, runnerURL := range runnerURLs {
+		trimmed := strings.TrimSpace(runnerURL)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+
+	return result
 }
 
 func (w *WorkerManagerWorkflow) Start(
