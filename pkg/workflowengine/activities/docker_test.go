@@ -5,14 +5,13 @@ package activities
 
 import (
 	"context"
+	"net/netip"
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
@@ -135,26 +134,26 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 				)
 				if tt.checkPort {
 					ctx := context.Background()
-					inspect, err := cli.ContainerInspect(ctx, containerID)
+					inspect, err := cli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
 					require.NoError(t, err)
-					_, ok := inspect.HostConfig.PortBindings[nat.Port(tt.expectedPort)]
+					_, ok := inspect.Container.HostConfig.PortBindings[network.MustParsePort(tt.expectedPort)]
 					require.True(t, ok, "Expected port %s to be exposed", tt.expectedPort)
 				}
 
 				if tt.name == "Success - custom network config (bridge)" {
 					require.NoError(t, err)
 					ctx := context.Background()
-					inspect, err := cli.ContainerInspect(ctx, containerID)
+					inspect, err := cli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
 					require.NoError(t, err)
 
 					// Check if "bridge" network is attached
-					_, ok := inspect.NetworkSettings.Networks["bridge"]
+					_, ok := inspect.Container.NetworkSettings.Networks["bridge"]
 					require.True(t, ok, "Expected container to be connected to 'bridge' network")
 				}
-				cli.ContainerRemove(
+				_, _ = cli.ContainerRemove(
 					context.Background(),
 					containerID,
-					container.RemoveOptions{Force: true},
+					client.ContainerRemoveOptions{Force: true},
 				)
 			}
 		})
@@ -167,21 +166,27 @@ func TestBuildPortMappings(t *testing.T) {
 		hostIP               string
 		ports                []string
 		expectedErr          bool
-		expectedExposedPorts nat.PortSet
-		expectedPortBindings nat.PortMap
+		expectedExposedPorts network.PortSet
+		expectedPortBindings network.PortMap
 	}{
 		{
 			name:        "Valid port mappings",
 			hostIP:      "0.0.0.0",
 			ports:       []string{"8080:80", "9090:90"},
 			expectedErr: false,
-			expectedExposedPorts: nat.PortSet{
-				"80/tcp": {},
-				"90/tcp": {},
+			expectedExposedPorts: network.PortSet{
+				network.MustParsePort("80/tcp"): {},
+				network.MustParsePort("90/tcp"): {},
 			},
-			expectedPortBindings: nat.PortMap{
-				"80/tcp": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "8080"}},
-				"90/tcp": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "9090"}},
+			expectedPortBindings: network.PortMap{
+				network.MustParsePort("80/tcp"): []network.PortBinding{{
+					HostIP:   netip.MustParseAddr("0.0.0.0"),
+					HostPort: "8080",
+				}},
+				network.MustParsePort("90/tcp"): []network.PortBinding{{
+					HostIP:   netip.MustParseAddr("0.0.0.0"),
+					HostPort: "9090",
+				}},
 			},
 		},
 		{

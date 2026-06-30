@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	dockerclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -30,10 +30,10 @@ type fakeDockerClient struct {
 func (f *fakeDockerClient) ContainerRemove(
 	_ context.Context,
 	containerID string,
-	_ container.RemoveOptions,
-) error {
+	_ dockerclient.ContainerRemoveOptions,
+) (dockerclient.ContainerRemoveResult, error) {
 	f.removed = append(f.removed, containerID)
-	return nil
+	return dockerclient.ContainerRemoveResult{}, nil
 }
 
 func TestZenroomWorkflowSuccess(t *testing.T) {

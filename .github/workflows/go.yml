@@ -67,61 +67,32 @@ jobs:
         with:
           sarif_file: govulncheck.sarif
 
-      - name: Enforce govulncheck (ignore selected vulns)
+      - name: Enforce govulncheck
         shell: bash
         run: |
           set -euo pipefail
 
-          IGNORE_IDS=(
-            "GO-2026-4887"
-            "GO-2026-4883"
-            "GO-2026-4514"
-            "GO-2026-4762"
-            "GO-2026-5005"
-            "GO-2026-5006"
-            "GO-2026-5013"
-            "GO-2026-5014"
-            "GO-2026-5015"
-            "GO-2026-5016"
-            "GO-2026-5017"
-            "GO-2026-5018"
-            "GO-2026-5019"
-            "GO-2026-5020"
-            "GO-2026-5021"
-            "GO-2026-5023"
-            "GO-2026-5033"
-          )
-
-          echo "Ignored vulnerability IDs:"
-          printf ' - %s\n' "${IGNORE_IDS[@]}"
-
-          echo
           echo "All finding IDs:"
           jq -r '
             select(.finding != null)
             | .finding.osv
           ' govulncheck.json | sort -u
 
-          JQ_FILTER='select(.finding != null) | .finding.osv'
-          for id in "${IGNORE_IDS[@]}"; do
-            JQ_FILTER="$JQ_FILTER | select(. != \"$id\")"
-          done
-
-          NON_IGNORED="$(jq -r "$JQ_FILTER" govulncheck.json | sort -u)"
+          FINDINGS="$(jq -r 'select(.finding != null) | .finding.osv' govulncheck.json | sort -u)"
 
           echo
           echo "Full govulncheck report:"
           cat govulncheck.txt
 
-          if [ -n "${NON_IGNORED}" ]; then
+          if [ -n "${FINDINGS}" ]; then
             echo
-            echo "❌ Vulnerabilities found (excluding ignored ones):"
-            printf '%s\n' "${NON_IGNORED}"
+            echo "❌ Vulnerabilities found:"
+            printf '%s\n' "${FINDINGS}"
             exit 1
           fi
 
           echo
-          echo "✅ Only ignored vulnerabilities present"
+          echo "✅ No vulnerabilities found"
 
       - uses: golangci/golangci-lint-action@v9
         with:

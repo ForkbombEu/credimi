@@ -12,17 +12,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/go-connections/nat"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 	"go.temporal.io/sdk/activity"
 )
 
@@ -89,7 +88,7 @@ func (a *DockerActivity) Execute(
 	}
 	defer cli.Close()
 
-	out, err := cli.ImagePull(ctx, payload.Image, image.PullOptions{})
+	out, err := cli.ImagePull(ctx, payload.Image, client.ImagePullOptions{})
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerPullImageFailed]
 		return result, a.NewActivityError(
@@ -137,14 +136,12 @@ func (a *DockerActivity) Execute(
 		Binds:        payload.Mounts,
 	}
 
-	resp, err := cli.ContainerCreate(
-		ctx,
-		config,
-		hostConfig,
-		payload.NetworkConfig,
-		nil,
-		payload.ContainerName,
-	)
+	resp, err := cli.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:           config,
+		HostConfig:       hostConfig,
+		NetworkingConfig: payload.NetworkConfig,
+		Name:             payload.ContainerName,
+	})
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerCreateContainerFailed]
 		return result, a.NewActivityError(
@@ -162,7 +159,7 @@ func (a *DockerActivity) Execute(
 		)
 	}
 
-	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	if _, err := cli.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerStartContainerFailed]
 		return result, a.NewActivityError(
 			workflowengine.ActivityError{
@@ -181,21 +178,29 @@ func (a *DockerActivity) Execute(
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
-	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	waitResult := cli.ContainerWait(
+		ctx,
+		resp.ID,
+		client.ContainerWaitOptions{Condition: container.WaitConditionNotRunning},
+	)
 	var stdoutBuf, stderrBuf, combinedBuf bytes.Buffer
 
 	for {
 		select {
 		case <-ctx.Done():
-			_ = cli.ContainerKill(context.Background(), resp.ID, "SIGTERM")
-			_ = cli.ContainerRemove(
+			_, _ = cli.ContainerKill(
 				context.Background(),
 				resp.ID,
-				container.RemoveOptions{Force: true},
+				client.ContainerKillOptions{Signal: "SIGTERM"},
+			)
+			_, _ = cli.ContainerRemove(
+				context.Background(),
+				resp.ID,
+				client.ContainerRemoveOptions{Force: true},
 			)
 			return result, ctx.Err()
 
-		case err := <-errCh:
+		case err := <-waitResult.Error:
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.DockerWaitContainerFailed]
 				return result, a.NewActivityError(
@@ -210,8 +215,8 @@ func (a *DockerActivity) Execute(
 				)
 			}
 
-		case <-statusCh:
-			inspect, err := cli.ContainerInspect(ctx, resp.ID)
+		case <-waitResult.Result:
+			inspect, err := cli.ContainerInspect(ctx, resp.ID, client.ContainerInspectOptions{})
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.DockerInspectContainerFailed]
 				return result, a.NewActivityError(
@@ -229,7 +234,7 @@ func (a *DockerActivity) Execute(
 			logs, err := cli.ContainerLogs(
 				ctx,
 				resp.ID,
-				container.LogsOptions{ShowStdout: true, ShowStderr: true},
+				client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true},
 			)
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.DockerFetchLogsFailed]
@@ -260,7 +265,7 @@ func (a *DockerActivity) Execute(
 				)
 			}
 
-			if inspect.State.ExitCode != 0 {
+			if inspect.Container.State.ExitCode != 0 {
 				errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
 				return result, a.NewActivityError(
 					workflowengine.ActivityError{
@@ -268,12 +273,12 @@ func (a *DockerActivity) Execute(
 						Summary: "Docker command failed",
 						Message: fmt.Sprintf(
 							"container exited with code %d",
-							inspect.State.ExitCode,
+							inspect.Container.State.ExitCode,
 						),
 						Category: "external_command",
 						Details: map[string]any{
 							"container_id": resp.ID,
-							"exit_code":    inspect.State.ExitCode,
+							"exit_code":    inspect.Container.State.ExitCode,
 							"stdout":       stdoutBuf.String(),
 							"stderr":       stderrBuf.String(),
 						},
@@ -286,7 +291,7 @@ func (a *DockerActivity) Execute(
 				"containerID": resp.ID,
 				"stdout":      stdoutBuf.String(),
 				"stderr":      stderrBuf.String(),
-				"exitCode":    inspect.State.ExitCode,
+				"exitCode":    inspect.Container.State.ExitCode,
 			}
 			return result, nil
 
@@ -298,9 +303,18 @@ func (a *DockerActivity) Execute(
 
 // buildPortMappings takes a slice of port mappings as strings (e.g., "8080:80") and returns
 // the Docker port bindings and exposed ports.
-func buildPortMappings(hostIP string, ports []string) (nat.PortSet, nat.PortMap, error) {
-	exposedPorts := nat.PortSet{}
-	portBindings := nat.PortMap{}
+func buildPortMappings(hostIP string, ports []string) (network.PortSet, network.PortMap, error) {
+	exposedPorts := network.PortSet{}
+	portBindings := network.PortMap{}
+
+	if len(ports) == 0 {
+		return exposedPorts, portBindings, nil
+	}
+
+	hostAddr, err := netip.ParseAddr(hostIP)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid host IP %q: %w", hostIP, err)
+	}
 
 	for _, port := range ports {
 		// Example: "8080:80"
@@ -314,12 +328,15 @@ func buildPortMappings(hostIP string, ports []string) (nat.PortSet, nat.PortMap,
 		hostPort := parts[0]
 		containerPort := parts[1]
 
-		exposedPort := nat.Port(containerPort + "/tcp")
+		exposedPort, err := network.ParsePort(containerPort + "/tcp")
+		if err != nil {
+			return nil, nil, err
+		}
 		exposedPorts[exposedPort] = struct{}{}
 
-		portBindings[exposedPort] = []nat.PortBinding{
+		portBindings[exposedPort] = []network.PortBinding{
 			{
-				HostIP:   hostIP,
+				HostIP:   hostAddr,
 				HostPort: hostPort,
 			},
 		}
