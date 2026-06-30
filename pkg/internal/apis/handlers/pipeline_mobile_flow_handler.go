@@ -105,7 +105,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			e.Request.Context(),
 			client.StartWorkflowOptions{
 				ID:        pipelineMobileFlowWorkflowIDPrefix + uuid.NewString(),
-				TaskQueue: fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID)),
+				TaskQueue: pipeline.PipelineTaskQueue,
 				Memo: map[string]any{
 					"test": fmt.Sprintf("mobile-flow: %s", strings.TrimSpace(input.ActionID)),
 				},
@@ -114,6 +114,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			workflowengine.WorkflowInput{
 				Config: map[string]any{
 					"app_url": e.App.Settings().Meta.AppURL,
+					"taskqueue": fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID)),
 				},
 				Payload: workflows.MobileAutomationWorkflowPayload{
 					ActionID:   strings.TrimSpace(input.ActionID),
