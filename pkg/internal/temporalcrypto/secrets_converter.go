@@ -64,22 +64,22 @@ func (c *SecretsJSONPayloadConverter) Encoding() string {
 func (c *SecretsJSONPayloadConverter) ToPayload(value any) (*commonpb.Payload, error) {
 	data, err := json.Marshal(value)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", converter.ErrUnableToEncode, err)
+		return nil, fmt.Errorf("%w: %w", converter.ErrUnableToEncode, err)
 	}
 
 	var generic any
 	if err := json.Unmarshal(data, &generic); err != nil {
-		return nil, fmt.Errorf("%w: %v", converter.ErrUnableToEncode, err)
+		return nil, fmt.Errorf("%w: %w", converter.ErrUnableToEncode, err)
 	}
 
 	transformed, err := encryptSecretsFields(c.key, reflect.ValueOf(value), generic)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", converter.ErrUnableToEncode, err)
+		return nil, fmt.Errorf("%w: %w", converter.ErrUnableToEncode, err)
 	}
 
 	data, err = json.Marshal(transformed)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", converter.ErrUnableToEncode, err)
+		return nil, fmt.Errorf("%w: %w", converter.ErrUnableToEncode, err)
 	}
 
 	return &commonpb.Payload{
@@ -93,21 +93,21 @@ func (c *SecretsJSONPayloadConverter) ToPayload(value any) (*commonpb.Payload, e
 func (c *SecretsJSONPayloadConverter) FromPayload(payload *commonpb.Payload, valuePtr any) error {
 	var generic any
 	if err := json.Unmarshal(payload.GetData(), &generic); err != nil {
-		return fmt.Errorf("%w: %v", converter.ErrUnableToDecode, err)
+		return fmt.Errorf("%w: %w", converter.ErrUnableToDecode, err)
 	}
 
 	transformed, err := decryptSecretsFields(c.key, generic)
 	if err != nil {
-		return fmt.Errorf("%w: %v", converter.ErrUnableToDecode, err)
+		return fmt.Errorf("%w: %w", converter.ErrUnableToDecode, err)
 	}
 
 	data, err := json.Marshal(transformed)
 	if err != nil {
-		return fmt.Errorf("%w: %v", converter.ErrUnableToDecode, err)
+		return fmt.Errorf("%w: %w", converter.ErrUnableToDecode, err)
 	}
 
 	if err := json.Unmarshal(data, valuePtr); err != nil {
-		return fmt.Errorf("%w: %v", converter.ErrUnableToDecode, err)
+		return fmt.Errorf("%w: %w", converter.ErrUnableToDecode, err)
 	}
 
 	return nil
@@ -118,7 +118,10 @@ func (c *SecretsJSONPayloadConverter) ToString(payload *commonpb.Payload) string
 }
 
 func loadKeyFromEnv() ([]byte, bool, error) {
-	if disabled := strings.EqualFold(strings.TrimSpace(os.Getenv(SecretsEncryptionDisabledEnv)), "true"); disabled {
+	if disabled := strings.EqualFold(
+		strings.TrimSpace(os.Getenv(SecretsEncryptionDisabledEnv)),
+		"true",
+	); disabled {
 		return nil, true, nil
 	}
 

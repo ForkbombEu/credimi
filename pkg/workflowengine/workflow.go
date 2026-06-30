@@ -178,7 +178,11 @@ func workflowErrorFromDetailDecoder(
 
 	var activityErr ActivityError
 	if decode(&activityErr) && activityErr.Code != "" {
-		return applyWorkflowErrorFallback(workflowErrorFromActivityError(activityErr), fallbackCode, fallbackSummary), true
+		return applyWorkflowErrorFallback(
+			workflowErrorFromActivityError(activityErr),
+			fallbackCode,
+			fallbackSummary,
+		), true
 	}
 
 	return fallbackWorkflowError(fallbackCode, fallbackSummary)
@@ -198,7 +202,11 @@ func workflowErrorFromPayloads(
 
 	for _, payload := range payloads {
 		var activityErr ActivityError
-		if err := json.Unmarshal(payload.GetData(), &activityErr); err == nil && activityErr.Code != "" {
+		if err := json.Unmarshal(
+			payload.GetData(),
+			&activityErr,
+		); err == nil &&
+			activityErr.Code != "" {
 			return applyWorkflowErrorFallback(
 				workflowErrorFromActivityError(activityErr),
 				fallbackCode,

@@ -154,9 +154,13 @@ func (w *PipelineWorkflow) Workflow(
 	if input.ParentRunData != nil {
 		runData = input.ParentRunData
 	}
-	if err := workflow.SetQueryHandler(ctx, PipelineMobileDevicesQuery, func() (map[string]any, error) {
-		return getOrCreateSettedDevices(&runData), nil
-	}); err != nil {
+	if err := workflow.SetQueryHandler(
+		ctx,
+		PipelineMobileDevicesQuery,
+		func() (map[string]any, error) {
+			return getOrCreateSettedDevices(&runData), nil
+		},
+	); err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 

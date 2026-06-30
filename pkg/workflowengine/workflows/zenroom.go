@@ -11,14 +11,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	dockerclient "github.com/docker/docker/client"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	dockerclient "github.com/moby/moby/client"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
@@ -26,14 +25,15 @@ import (
 const ZenroomTaskQueue = "ZenroomTaskQueue"
 
 type dockerClient interface {
-	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
+	ContainerRemove(
+		ctx context.Context,
+		containerID string,
+		options dockerclient.ContainerRemoveOptions,
+	) (dockerclient.ContainerRemoveResult, error)
 }
 
 var newDockerClient = func() (dockerClient, error) {
-	return dockerclient.NewClientWithOpts(
-		dockerclient.FromEnv,
-		dockerclient.WithAPIVersionNegotiation(),
-	)
+	return dockerclient.New(dockerclient.FromEnv)
 }
 
 type ZenroomWorkflow struct {
@@ -219,10 +219,10 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 			)
 		}
 	}
-	cli.ContainerRemove(
+	_, _ = cli.ContainerRemove(
 		context.Background(),
 		output["containerID"].(string),
-		container.RemoveOptions{Force: true},
+		dockerclient.ContainerRemoveOptions{Force: true},
 	)
 
 	exitCode, ok := output["exitCode"].(float64)

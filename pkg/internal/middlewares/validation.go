@@ -51,7 +51,7 @@ func validateMapValues(m reflect.Value) error {
 		mapVal := m.MapIndex(key).Interface()
 
 		if vType := reflect.TypeOf(mapVal); vType != nil &&
-			(vType.Kind() == reflect.Struct || (vType.Kind() == reflect.Ptr && vType.Elem().Kind() == reflect.Struct)) {
+			(vType.Kind() == reflect.Struct || (vType.Kind() == reflect.Pointer && vType.Elem().Kind() == reflect.Struct)) {
 			if err := validate.Struct(mapVal); err != nil {
 				var vErrs validator.ValidationErrors
 				if errors.As(err, &vErrs) {

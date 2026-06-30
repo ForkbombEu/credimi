@@ -53,7 +53,11 @@ func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 				http.StatusBadRequest,
 				"surface",
 				"invalid value for surface",
-				fmt.Sprintf("surface must be %q or %q", TemplateSurfaceManual, TemplateSurfacePipeline),
+				fmt.Sprintf(
+					"surface must be %q or %q",
+					TemplateSurfaceManual,
+					TemplateSurfacePipeline,
+				),
 			)
 		}
 
@@ -148,14 +152,14 @@ type VersionMetadata struct {
 }
 
 type SuiteMetadata struct {
-	UID         string   `json:"uid"         yaml:"uid"`
-	Name        string   `json:"name"        yaml:"name"`
-	Homepage    string   `json:"homepage"    yaml:"homepage"`
-	Repository  string   `json:"repository"  yaml:"repository"`
-	Help        string   `json:"help"        yaml:"help"`
-	Description string   `json:"description" yaml:"description"`
+	UID         string   `json:"uid"                  yaml:"uid"`
+	Name        string   `json:"name"                 yaml:"name"`
+	Homepage    string   `json:"homepage"             yaml:"homepage"`
+	Repository  string   `json:"repository"           yaml:"repository"`
+	Help        string   `json:"help"                 yaml:"help"`
+	Description string   `json:"description"          yaml:"description"`
 	VisibleIn   []string `json:"visible_in,omitempty" yaml:"visible_in,omitempty"`
-	Logo        string   `json:"logo"        yaml:"logo"`
+	Logo        string   `json:"logo"                 yaml:"logo"`
 }
 
 type Suite struct {

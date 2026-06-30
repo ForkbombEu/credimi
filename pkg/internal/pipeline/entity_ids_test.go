@@ -28,7 +28,7 @@ func TestParseEntityIDs(t *testing.T) {
 	})
 
 	t.Run("collects action_ids and version_ids from multiple steps", func(t *testing.T) {
-    yamlStr := `
+		yamlStr := `
 name: test
 steps:
   - id: step-1
@@ -48,10 +48,18 @@ steps:
       version_id: /org/wallet/v3-0-0
 `
 
-    	got, err := ParseEntityIDs(yamlStr)
-    	require.NoError(t, err)
-    	require.Equal(t, []string{"org/action-check", "org/action-offer", "org/action-onboarding"}, got.Actions)
-    	require.Equal(t, []string{"org/wallet/v1-0-0", "org/wallet/v2-0-0", "org/wallet/v3-0-0"}, got.Versions)
+		got, err := ParseEntityIDs(yamlStr)
+		require.NoError(t, err)
+		require.Equal(
+			t,
+			[]string{"org/action-check", "org/action-offer", "org/action-onboarding"},
+			got.Actions,
+		)
+		require.Equal(
+			t,
+			[]string{"org/wallet/v1-0-0", "org/wallet/v2-0-0", "org/wallet/v3-0-0"},
+			got.Versions,
+		)
 	})
 
 	t.Run("collects credential_ids from multiple steps", func(t *testing.T) {
@@ -112,7 +120,11 @@ steps:
 
 		got, err := ParseEntityIDs(yamlStr)
 		require.NoError(t, err)
-		require.Equal(t, []string{"conformance/check-1", "conformance/check-3"}, got.ConformanceChecks)
+		require.Equal(
+			t,
+			[]string{"conformance/check-1", "conformance/check-3"},
+			got.ConformanceChecks,
+		)
 		require.Equal(t, []string{"custom/check-2"}, got.CustomChecks)
 	})
 

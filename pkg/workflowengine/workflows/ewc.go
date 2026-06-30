@@ -558,7 +558,13 @@ func pollEWCCheck(
 			return workflowengine.WorkflowResult{}, err
 		}
 		if len(logs) > 0 {
-			if err := notifyEWCLikeLogs(ctx, appURL, workflow.GetInfo(ctx).WorkflowExecution.ID, logs, runMetadata); err != nil {
+			if err := notifyEWCLikeLogs(
+				ctx,
+				appURL,
+				workflow.GetInfo(ctx).WorkflowExecution.ID,
+				logs,
+				runMetadata,
+			); err != nil {
 				logger.Error("Failed to send EWC logs", "error", err)
 				return workflowengine.WorkflowResult{}, err
 			}
@@ -649,7 +655,8 @@ func fetchEWCLikeLogs(
 		},
 	}
 	var response workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), httpInput).Get(ctx, &response); err != nil {
+	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), httpInput).
+		Get(ctx, &response); err != nil {
 		return nil, nil, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
@@ -699,7 +706,8 @@ func notifyEWCLikeLogs(
 		},
 	}
 
-	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), triggerLogsInput).Get(ctx, nil); err != nil {
+	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), triggerLogsInput).
+		Get(ctx, nil); err != nil {
 		return workflowengine.NewWorkflowError(err, runMetadata)
 	}
 

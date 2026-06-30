@@ -240,8 +240,14 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"body": map[string]any{
 							"content": []any{
-								map[string]any{"issuanceProtocol": "oid4vci", "credentialIssuerUrl": "https://issuer-bad"},
-								map[string]any{"issuanceProtocol": "oid4vci", "credentialIssuerUrl": "https://issuer-good"},
+								map[string]any{
+									"issuanceProtocol":    "oid4vci",
+									"credentialIssuerUrl": "https://issuer-bad",
+								},
+								map[string]any{
+									"issuanceProtocol":    "oid4vci",
+									"credentialIssuerUrl": "https://issuer-good",
+								},
 							},
 							"page": map[string]any{"number": 0, "totalPages": 0},
 						},
@@ -360,12 +366,18 @@ func registerFidesWorkflowActivities(env *testsuite.TestWorkflowEnvironment) {
 	validateAct := activities.NewSchemaValidationActivity()
 
 	env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
-	env.RegisterActivityWithOptions(parseAct.Execute, activity.RegisterOptions{Name: parseAct.Name()})
+	env.RegisterActivityWithOptions(
+		parseAct.Execute,
+		activity.RegisterOptions{Name: parseAct.Name()},
+	)
 	env.RegisterActivityWithOptions(
 		internalAct.Execute,
 		activity.RegisterOptions{Name: internalAct.Name()},
 	)
-	env.RegisterActivityWithOptions(checkAct.Execute, activity.RegisterOptions{Name: checkAct.Name()})
+	env.RegisterActivityWithOptions(
+		checkAct.Execute,
+		activity.RegisterOptions{Name: checkAct.Name()},
+	)
 	env.RegisterActivityWithOptions(jsonAct.Execute, activity.RegisterOptions{Name: jsonAct.Name()})
 	env.RegisterActivityWithOptions(
 		validateAct.Execute,

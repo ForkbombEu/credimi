@@ -58,7 +58,13 @@ func TestRequireAuthOrAPIKey_BearerAndFallbackContract(t *testing.T) {
 		require.Error(t, err)
 		writeMiddlewareErrorResponse(t, e, err)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
-		requireAPIErrorResponse(t, rec, http.StatusUnauthorized, "authentication_required", "Bearer token or Credimi-Api-Key is required")
+		requireAPIErrorResponse(
+			t,
+			rec,
+			http.StatusUnauthorized,
+			"authentication_required",
+			"Bearer token or Credimi-Api-Key is required",
+		)
 	})
 
 	t.Run("invalid api key returns unauthorized", func(t *testing.T) {
@@ -71,7 +77,13 @@ func TestRequireAuthOrAPIKey_BearerAndFallbackContract(t *testing.T) {
 		require.Error(t, err)
 		writeMiddlewareErrorResponse(t, e, err)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
-		requireAPIErrorResponse(t, rec, http.StatusUnauthorized, "invalid_api_key", "Invalid API key provided")
+		requireAPIErrorResponse(
+			t,
+			rec,
+			http.StatusUnauthorized,
+			"invalid_api_key",
+			"Invalid API key provided",
+		)
 	})
 
 	t.Run("bearer takes precedence over api key fallback", func(t *testing.T) {
@@ -114,7 +126,13 @@ func TestRequireInternalAdminAPIKey(t *testing.T) {
 		require.Error(t, err)
 		writeMiddlewareErrorResponse(t, e, err)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
-		requireAPIErrorResponse(t, rec, http.StatusUnauthorized, "api_key_required", "Credimi-Api-Key is required")
+		requireAPIErrorResponse(
+			t,
+			rec,
+			http.StatusUnauthorized,
+			"api_key_required",
+			"Credimi-Api-Key is required",
+		)
 	})
 
 	t.Run("rejects key without explicit internal admin scope", func(t *testing.T) {
@@ -134,9 +152,14 @@ func TestRequireInternalAdminAPIKey(t *testing.T) {
 		require.Error(t, err)
 		writeMiddlewareErrorResponse(t, e, err)
 		require.Equal(t, http.StatusForbidden, rec.Code)
-		requireAPIErrorResponse(t, rec, http.StatusForbidden, "insufficient_api_key_scope", "API key does not have required scope")
+		requireAPIErrorResponse(
+			t,
+			rec,
+			http.StatusForbidden,
+			"insufficient_api_key_scope",
+			"API key does not have required scope",
+		)
 	})
-
 }
 
 func TestOptionalAuthOrAPIKey(t *testing.T) {
@@ -207,7 +230,13 @@ func TestOptionalAuthOrAPIKey(t *testing.T) {
 		writeMiddlewareErrorResponse(t, e, err)
 		require.False(t, nextCalled)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
-		requireAPIErrorResponse(t, rec, http.StatusUnauthorized, "invalid_api_key", "Invalid API key provided")
+		requireAPIErrorResponse(
+			t,
+			rec,
+			http.StatusUnauthorized,
+			"invalid_api_key",
+			"Invalid API key provided",
+		)
 	})
 }
 

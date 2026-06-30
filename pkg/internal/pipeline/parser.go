@@ -45,7 +45,10 @@ func (f *FinallyDefinition) UnmarshalYAML(value *yaml.Node) error {
 		}
 	}
 
-	return fmt.Errorf("invalid finally definition: expected list or map, got YAML node kind %d", value.Kind)
+	return fmt.Errorf(
+		"invalid finally definition: expected list or map, got YAML node kind %d",
+		value.Kind,
+	)
 }
 
 func (f *FinallyDefinition) UnmarshalJSON(data []byte) error {

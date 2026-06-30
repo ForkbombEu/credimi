@@ -488,21 +488,33 @@ func TestEWCStatusWorkflowUsesTemplatedStatusAndLogsEndpoints(t *testing.T) {
 	})
 
 	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-		return matchesHTTPPayload(input, "https://webuild.wallet-client.forkbomb.eu/session-status/session-123")
-	})).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{"status": "success"},
-	}}, nil).Once()
+		return matchesHTTPPayload(
+			input,
+			"https://webuild.wallet-client.forkbomb.eu/session-status/session-123",
+		)
+	})).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"status": "success"},
+		}}, nil).
+		Once()
 	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-		return matchesHTTPPayload(input, "https://webuild.wallet-client.forkbomb.eu/logs/session-123")
-	})).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"sessionId": "session-123",
-			"logs":      []any{map[string]any{"message": "ok"}},
-		},
-	}}, nil).Once()
+		return matchesHTTPPayload(
+			input,
+			"https://webuild.wallet-client.forkbomb.eu/logs/session-123",
+		)
+	})).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{
+				"sessionId": "session-123",
+				"logs":      []any{map[string]any{"message": "ok"}},
+			},
+		}}, nil).
+		Once()
 	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 		return matchesHTTPPayload(input, "https://test-app.com/api/compliance/send-ewc-log-update")
-	})).Return(workflowengine.ActivityResult{}, nil).Once()
+	})).
+		Return(workflowengine.ActivityResult{}, nil).
+		Once()
 
 	w := NewWebuildStatusWorkflow()
 	env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{

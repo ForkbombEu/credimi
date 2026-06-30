@@ -67,7 +67,10 @@ func NewFromEnv() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) CreateOrUpdatePRComment(ctx context.Context, input PRComment) (PRCommentResult, error) {
+func (c *Client) CreateOrUpdatePRComment(
+	ctx context.Context,
+	input PRComment,
+) (PRCommentResult, error) {
 	owner, repo, err := splitRepository(input.Repository)
 	if err != nil {
 		return PRCommentResult{}, err
@@ -98,7 +101,11 @@ func (c *Client) CreateOrUpdatePRComment(ctx context.Context, input PRComment) (
 	return c.createComment(ctx, token, owner, repo, input.PullRequestNumber, body)
 }
 
-func (c *Client) PullRequestHeadSHA(ctx context.Context, repository string, prNumber int) (string, error) {
+func (c *Client) PullRequestHeadSHA(
+	ctx context.Context,
+	repository string,
+	prNumber int,
+) (string, error) {
 	owner, repo, err := splitRepository(repository)
 	if err != nil {
 		return "", err
@@ -140,7 +147,14 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 	var installation struct {
 		ID int64 `json:"id"`
 	}
-	if err := c.doJSON(ctx, http.MethodGet, c.githubAPIURL("repos", owner, repo, "installation"), jwtToken, nil, &installation); err != nil {
+	if err := c.doJSON(
+		ctx,
+		http.MethodGet,
+		c.githubAPIURL("repos", owner, repo, "installation"),
+		jwtToken,
+		nil,
+		&installation,
+	); err != nil {
 		return "", err
 	}
 	if installation.ID <= 0 {
@@ -153,7 +167,12 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 	if err := c.doJSON(
 		ctx,
 		http.MethodPost,
-		c.githubAPIURL("app", "installations", strconv.FormatInt(installation.ID, 10), "access_tokens"),
+		c.githubAPIURL(
+			"app",
+			"installations",
+			strconv.FormatInt(installation.ID, 10),
+			"access_tokens",
+		),
 		jwtToken,
 		map[string]any{},
 		&tokenResp,
@@ -166,7 +185,12 @@ func (c *Client) installationToken(ctx context.Context, owner, repo string) (str
 	return tokenResp.Token, nil
 }
 
-func (c *Client) findCommentID(ctx context.Context, token, owner, repo string, prNumber int, marker string) (int64, error) {
+func (c *Client) findCommentID(
+	ctx context.Context,
+	token, owner, repo string,
+	prNumber int,
+	marker string,
+) (int64, error) {
 	requestURL := c.githubAPIURL("repos", owner, repo, "issues", strconv.Itoa(prNumber), "comments")
 	requestURL = withQueryParam(requestURL, "per_page", "100")
 	var comments []struct {
@@ -184,7 +208,12 @@ func (c *Client) findCommentID(ctx context.Context, token, owner, repo string, p
 	return 0, nil
 }
 
-func (c *Client) createComment(ctx context.Context, token, owner, repo string, prNumber int, body string) (PRCommentResult, error) {
+func (c *Client) createComment(
+	ctx context.Context,
+	token, owner, repo string,
+	prNumber int,
+	body string,
+) (PRCommentResult, error) {
 	var out struct {
 		ID int64 `json:"id"`
 	}
@@ -199,14 +228,26 @@ func (c *Client) createComment(ctx context.Context, token, owner, repo string, p
 	return PRCommentResult{CommentID: out.ID}, err
 }
 
-func (c *Client) patchComment(ctx context.Context, token, owner, repo string, commentID int64, body string) (PRCommentResult, error) {
+func (c *Client) patchComment(
+	ctx context.Context,
+	token, owner, repo string,
+	commentID int64,
+	body string,
+) (PRCommentResult, error) {
 	var out struct {
 		ID int64 `json:"id"`
 	}
 	err := c.doJSON(
 		ctx,
 		http.MethodPatch,
-		c.githubAPIURL("repos", owner, repo, "issues", "comments", strconv.FormatInt(commentID, 10)),
+		c.githubAPIURL(
+			"repos",
+			owner,
+			repo,
+			"issues",
+			"comments",
+			strconv.FormatInt(commentID, 10),
+		),
 		token,
 		map[string]any{"body": body},
 		&out,
@@ -232,7 +273,12 @@ func withQueryParam(rawURL string, key string, value string) string {
 	return parsed.String()
 }
 
-func (c *Client) doJSON(ctx context.Context, method, requestURL, token string, payload any, out any) error {
+func (c *Client) doJSON(
+	ctx context.Context,
+	method, requestURL, token string,
+	payload any,
+	out any,
+) error {
 	var body io.Reader
 	if payload != nil {
 		data, err := json.Marshal(payload)
@@ -259,7 +305,13 @@ func (c *Client) doJSON(ctx context.Context, method, requestURL, token string, p
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("github %s %s: %s: %s", method, requestURL, resp.Status, strings.TrimSpace(string(data)))
+		return fmt.Errorf(
+			"github %s %s: %s: %s",
+			method,
+			requestURL,
+			resp.Status,
+			strings.TrimSpace(string(data)),
+		)
 	}
 	if out == nil {
 		io.Copy(io.Discard, resp.Body)

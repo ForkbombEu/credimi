@@ -23,9 +23,10 @@ func TestHookTurnstileVerification(t *testing.T) {
 		HookTurnstileVerification(app)
 
 		event := newUserCreateRequestEvent(t, app, core.RequestInfoContextDefault)
-		err := app.OnRecordCreateRequest("users").Trigger(event, func(e *core.RecordRequestEvent) error {
-			return nil
-		})
+		err := app.OnRecordCreateRequest("users").
+			Trigger(event, func(e *core.RecordRequestEvent) error {
+				return nil
+			})
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "Captcha verification failed")
@@ -37,10 +38,11 @@ func TestHookTurnstileVerification(t *testing.T) {
 
 		called := false
 		event := newUserCreateRequestEvent(t, app, core.RequestInfoContextOAuth2)
-		err := app.OnRecordCreateRequest("users").Trigger(event, func(e *core.RecordRequestEvent) error {
-			called = true
-			return nil
-		})
+		err := app.OnRecordCreateRequest("users").
+			Trigger(event, func(e *core.RecordRequestEvent) error {
+				called = true
+				return nil
+			})
 
 		require.NoError(t, err)
 		require.True(t, called)
@@ -52,11 +54,25 @@ func TestIsOAuth2RecordCreateRequest(t *testing.T) {
 
 	require.False(t, isOAuth2RecordCreateRequest(nil))
 	require.False(t, isOAuth2RecordCreateRequest(&core.RecordRequestEvent{}))
-	require.False(t, isOAuth2RecordCreateRequest(newUserCreateRequestEvent(t, app, core.RequestInfoContextDefault)))
-	require.True(t, isOAuth2RecordCreateRequest(newUserCreateRequestEvent(t, app, core.RequestInfoContextOAuth2)))
+	require.False(
+		t,
+		isOAuth2RecordCreateRequest(
+			newUserCreateRequestEvent(t, app, core.RequestInfoContextDefault),
+		),
+	)
+	require.True(
+		t,
+		isOAuth2RecordCreateRequest(
+			newUserCreateRequestEvent(t, app, core.RequestInfoContextOAuth2),
+		),
+	)
 }
 
-func newUserCreateRequestEvent(t testing.TB, app core.App, context string) *core.RecordRequestEvent {
+func newUserCreateRequestEvent(
+	t testing.TB,
+	app core.App,
+	context string,
+) *core.RecordRequestEvent {
 	t.Helper()
 
 	users := core.NewAuthCollection("users")
