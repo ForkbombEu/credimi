@@ -90,7 +90,7 @@ func generateCredimiTemplate(data map[string]any, afterContent string) (string, 
 		if err != nil {
 			return "", err
 		}
-		b.WriteString(fmt.Sprintf("        \"%s\": %s", key, string(valueBytes)))
+		fmt.Fprintf(&b, "        \"%s\": %s", key, string(valueBytes))
 		if i != len(keys)-1 {
 			b.WriteString(",\n")
 		} else {
@@ -99,7 +99,7 @@ func generateCredimiTemplate(data map[string]any, afterContent string) (string, 
 	}
 
 	b.WriteString("      }\n")
-	b.WriteString(fmt.Sprintf("   `\n%s}}", afterContent))
+	fmt.Fprintf(&b, "   `\n%s}}", afterContent)
 
 	return b.String(), nil
 }

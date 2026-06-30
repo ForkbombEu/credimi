@@ -128,13 +128,14 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 				containerID, ok := result.Output.(map[string]any)["containerID"].(string)
 				require.True(t, ok)
 				require.NotEmpty(t, containerID)
-				cli, err := client.NewClientWithOpts(
-					client.FromEnv,
-					client.WithAPIVersionNegotiation(),
-				)
+				cli, err := client.New(client.FromEnv)
 				if tt.checkPort {
 					ctx := context.Background()
-					inspect, err := cli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
+					inspect, err := cli.ContainerInspect(
+						ctx,
+						containerID,
+						client.ContainerInspectOptions{},
+					)
 					require.NoError(t, err)
 					_, ok := inspect.Container.HostConfig.PortBindings[network.MustParsePort(tt.expectedPort)]
 					require.True(t, ok, "Expected port %s to be exposed", tt.expectedPort)
@@ -143,7 +144,11 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 				if tt.name == "Success - custom network config (bridge)" {
 					require.NoError(t, err)
 					ctx := context.Background()
-					inspect, err := cli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
+					inspect, err := cli.ContainerInspect(
+						ctx,
+						containerID,
+						client.ContainerInspectOptions{},
+					)
 					require.NoError(t, err)
 
 					// Check if "bridge" network is attached

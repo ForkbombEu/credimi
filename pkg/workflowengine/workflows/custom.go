@@ -28,9 +28,9 @@ type CustomCheckWorkflow struct {
 var customStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type CustomCheckWorkflowPayload struct {
-	Yaml       string         `json:"yaml,omitempty"     xoneof:"custom_check"`
-	CheckID    string         `json:"check_id,omitempty" xoneof:"custom_check"`
-	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	Yaml       string         `json:"yaml,omitempty"       xoneof:"custom_check"`
+	CheckID    string         `json:"check_id,omitempty"   xoneof:"custom_check"`
+	Parameters map[string]any `json:"parameters,omitempty"                       yaml:"parameters,omitempty"`
 }
 
 func NewCustomCheckWorkflow() *CustomCheckWorkflow {

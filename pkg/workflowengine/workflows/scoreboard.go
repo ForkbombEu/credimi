@@ -542,7 +542,6 @@ func fetchExecutionDetails(
 				Details: map[string]any{"payload": detailsResult.Output},
 			},
 		)
-
 	}
 
 	return &LatestExecutionDetails{

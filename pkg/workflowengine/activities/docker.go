@@ -75,7 +75,7 @@ func (a *DockerActivity) Execute(
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
 		return result, a.NewActivityError(

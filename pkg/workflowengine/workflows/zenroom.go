@@ -33,10 +33,7 @@ type dockerClient interface {
 }
 
 var newDockerClient = func() (dockerClient, error) {
-	return dockerclient.NewClientWithOpts(
-		dockerclient.FromEnv,
-		dockerclient.WithAPIVersionNegotiation(),
-	)
+	return dockerclient.New(dockerclient.FromEnv)
 }
 
 type ZenroomWorkflow struct {

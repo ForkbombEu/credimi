@@ -128,7 +128,12 @@ func ApplyFunction(value any, funcName string) (any, error) {
 				}
 				num, err := strconv.Atoi(part)
 				if err != nil {
-					return nil, fmt.Errorf("invalid parameter %q in function %s: %v", part, baseFunc, err)
+					return nil, fmt.Errorf(
+						"invalid parameter %q in function %s: %w",
+						part,
+						baseFunc,
+						err,
+					)
 				}
 				params = append(params, &num)
 			}
@@ -148,7 +153,6 @@ func ApplyFunction(value any, funcName string) (any, error) {
 	default:
 		return nil, fmt.Errorf("unknown function: %s", baseFunc)
 	}
-
 }
 
 func ResolvePipeline(expr string, ctx map[string]any) (any, error) {
@@ -532,8 +536,14 @@ func sliceString(s string, params []*int) (any, error) {
 		}
 
 		if start < 0 || start > length || end < 0 || end > length || start > end {
-			return nil, fmt.Errorf("slice: invalid range [%d:%d] for length %d (valid range: start in [0,%d], end in [0,%d], start <= end)",
-				start, end, length, length, length)
+			return nil, fmt.Errorf(
+				"slice: invalid range [%d:%d] for length %d (valid range: start in [0,%d], end in [0,%d], start <= end)",
+				start,
+				end,
+				length,
+				length,
+				length,
+			)
 		}
 
 		return string(runes[start:end]), nil
@@ -569,8 +579,14 @@ func sliceArray(arr []any, params []*int) (any, error) {
 		}
 
 		if start < 0 || start > length || end < 0 || end > length || start > end {
-			return nil, fmt.Errorf("slice: invalid range [%d:%d] for length %d (valid range: start in [0,%d], end in [0,%d], start <= end)",
-				start, end, length, length, length)
+			return nil, fmt.Errorf(
+				"slice: invalid range [%d:%d] for length %d (valid range: start in [0,%d], end in [0,%d], start <= end)",
+				start,
+				end,
+				length,
+				length,
+				length,
+			)
 		}
 
 		return arr[start:end], nil

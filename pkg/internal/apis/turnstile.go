@@ -53,7 +53,11 @@ func HookTurnstileVerification(app *pocketbase.PocketBase) {
 		}
 
 		if !result.Success {
-			log.Printf("[turnstile] verification failed: codes=%v hostname=%s", result.ErrorCodes, result.Hostname)
+			log.Printf(
+				"[turnstile] verification failed: codes=%v hostname=%s",
+				result.ErrorCodes,
+				result.Hostname,
+			)
 			return apis.NewBadRequestError("captcha verification failed", nil)
 		}
 
@@ -83,7 +87,12 @@ func verifyTurnstileToken(token, secret string) (*turnstileVerifyResponse, error
 		"response": {token},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://challenges.cloudflare.com/turnstile/v0/siteverify", nil)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"https://challenges.cloudflare.com/turnstile/v0/siteverify",
+		nil,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

@@ -15,7 +15,10 @@ import (
 
 func TestDataConverterUsesEnvKey(t *testing.T) {
 	t.Setenv(SecretsEncryptionDisabledEnv, "")
-	t.Setenv(SecretsEncryptionKeyEnv, base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{9}, 32)))
+	t.Setenv(
+		SecretsEncryptionKeyEnv,
+		base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{9}, 32)),
+	)
 
 	dc := DataConverter()
 	payload, err := dc.ToPayload(map[string]any{"hello": "world"})
@@ -39,7 +42,10 @@ func TestDataConverterDisabledUsesDefaultConverter(t *testing.T) {
 		t.Fatalf("ToPayload failed: %v", err)
 	}
 	if !bytes.Contains(payload.GetData(), []byte("plain")) {
-		t.Fatalf("expected plaintext payload with default converter, got %s", string(payload.GetData()))
+		t.Fatalf(
+			"expected plaintext payload with default converter, got %s",
+			string(payload.GetData()),
+		)
 	}
 }
 
@@ -105,8 +111,10 @@ func TestSecretsJSONPayloadConverterEncodeDecodeErrors(t *testing.T) {
 	}
 
 	payload := &commonpb.Payload{
-		Metadata: map[string][]byte{converter.MetadataEncoding: []byte(converter.MetadataEncodingJSON)},
-		Data:     []byte(`not-json`),
+		Metadata: map[string][]byte{
+			converter.MetadataEncoding: []byte(converter.MetadataEncodingJSON),
+		},
+		Data: []byte(`not-json`),
 	}
 	var target map[string]any
 	if err := c.FromPayload(payload, &target); err == nil {
@@ -122,13 +130,74 @@ func TestDecryptJSONValueValidationErrors(t *testing.T) {
 		value any
 	}{
 		{name: "not object", value: "bad"},
-		{name: "bad alg", value: map[string]any{encryptedSecretsMarker: true, "alg": "bad", "version": float64(1), "nonce": "a", "ciphertext": "b"}},
-		{name: "bad version", value: map[string]any{encryptedSecretsMarker: true, "alg": encryptedSecretsAlg, "version": float64(2), "nonce": "a", "ciphertext": "b"}},
-		{name: "missing nonce", value: map[string]any{encryptedSecretsMarker: true, "alg": encryptedSecretsAlg, "version": float64(1), "ciphertext": "b"}},
-		{name: "missing ciphertext", value: map[string]any{encryptedSecretsMarker: true, "alg": encryptedSecretsAlg, "version": float64(1), "nonce": "a"}},
-		{name: "bad nonce", value: map[string]any{encryptedSecretsMarker: true, "alg": encryptedSecretsAlg, "version": float64(1), "nonce": "%", "ciphertext": "a"}},
-		{name: "wrong nonce length", value: map[string]any{encryptedSecretsMarker: true, "alg": encryptedSecretsAlg, "version": float64(1), "nonce": base64.StdEncoding.EncodeToString(make([]byte, 4)), "ciphertext": "a"}},
-		{name: "bad ciphertext", value: map[string]any{encryptedSecretsMarker: true, "alg": encryptedSecretsAlg, "version": float64(1), "nonce": base64.StdEncoding.EncodeToString(make([]byte, 12)), "ciphertext": "%"}},
+		{
+			name: "bad alg",
+			value: map[string]any{
+				encryptedSecretsMarker: true,
+				"alg":                  "bad",
+				"version":              float64(1),
+				"nonce":                "a",
+				"ciphertext":           "b",
+			},
+		},
+		{
+			name: "bad version",
+			value: map[string]any{
+				encryptedSecretsMarker: true,
+				"alg":                  encryptedSecretsAlg,
+				"version":              float64(2),
+				"nonce":                "a",
+				"ciphertext":           "b",
+			},
+		},
+		{
+			name: "missing nonce",
+			value: map[string]any{
+				encryptedSecretsMarker: true,
+				"alg":                  encryptedSecretsAlg,
+				"version":              float64(1),
+				"ciphertext":           "b",
+			},
+		},
+		{
+			name: "missing ciphertext",
+			value: map[string]any{
+				encryptedSecretsMarker: true,
+				"alg":                  encryptedSecretsAlg,
+				"version":              float64(1),
+				"nonce":                "a",
+			},
+		},
+		{
+			name: "bad nonce",
+			value: map[string]any{
+				encryptedSecretsMarker: true,
+				"alg":                  encryptedSecretsAlg,
+				"version":              float64(1),
+				"nonce":                "%",
+				"ciphertext":           "a",
+			},
+		},
+		{
+			name: "wrong nonce length",
+			value: map[string]any{
+				encryptedSecretsMarker: true,
+				"alg":                  encryptedSecretsAlg,
+				"version":              float64(1),
+				"nonce":                base64.StdEncoding.EncodeToString(make([]byte, 4)),
+				"ciphertext":           "a",
+			},
+		},
+		{
+			name: "bad ciphertext",
+			value: map[string]any{
+				encryptedSecretsMarker: true,
+				"alg":                  encryptedSecretsAlg,
+				"version":              float64(1),
+				"nonce":                base64.StdEncoding.EncodeToString(make([]byte, 12)),
+				"ciphertext":           "%",
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -154,10 +223,13 @@ func TestDecryptJSONValueRejectsTamperedCiphertext(t *testing.T) {
 }
 
 func TestIsEmptySecretsValueVariants(t *testing.T) {
-	if !isEmptySecretsValue(nil) || !isEmptySecretsValue(map[string]any{}) || !isEmptySecretsValue([]any{}) || !isEmptySecretsValue("") {
+	if !isEmptySecretsValue(nil) || !isEmptySecretsValue(map[string]any{}) ||
+		!isEmptySecretsValue([]any{}) ||
+		!isEmptySecretsValue("") {
 		t.Fatal("expected empty variants to be true")
 	}
-	if isEmptySecretsValue("x") || isEmptySecretsValue([]any{1}) || isEmptySecretsValue(map[string]any{"a": 1}) {
+	if isEmptySecretsValue("x") || isEmptySecretsValue([]any{1}) ||
+		isEmptySecretsValue(map[string]any{"a": 1}) {
 		t.Fatal("expected non-empty variants to be false")
 	}
 }
