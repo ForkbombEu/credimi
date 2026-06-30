@@ -43,8 +43,6 @@ require (
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250825161204-c5933d9347a5 //nolint
 
-replace github.com/forkbombeu/credimi-extra => ../credimi-extra
-
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
 	4d63.com/gochecknoglobals v0.2.2 // indirect
