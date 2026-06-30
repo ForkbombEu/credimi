@@ -1,0 +1,9 @@
+test: oid4vp-1final-wallet-ignores-unusable-encryption-key
+name: OpenID4VP Wallet Ignores Unusbale Encryption Key
+description: |
+  Advertises two additional, unusable encryption keys alongside the usable key in the verifier's client_metadata:
+  a post-quantum-shaped key (kty=AKP with a non-existent ML-KEM parameter set) and a key with a made-up key type.
+  A conformant wallet must ignore the keys it cannot use and encrypt its response to the usable key, as per RFC 7517
+  section 5 (a recipient SHOULD ignore keys whose values are out of the supported ranges). This is the steady state
+  during any algorithm transition - e.g. a verifier adding post-quantum keys before all wallets support them.
+  The test passes if the suite can decrypt the wallet's response using the usable key.

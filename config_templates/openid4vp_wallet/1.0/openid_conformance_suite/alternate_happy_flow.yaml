@@ -1,0 +1,12 @@
+test: oid4vp-1final-wallet-alternate-happy-flow
+name: OpenID4VP Wallet Alternate Happy Flow
+description: |
+  Performs the normal flow with the following differences:
+  - Includes the optional 'state' parameter, using a longer-than-default value (64 chars)
+  - Uses a longer 'nonce' than the default (43 chars)
+  - Includes a random authorization endpoint parameter (which must be ignored)
+  - Includes an 'iss' claim in the request object that does not match 'client_id' (which must be ignored as per VP spec section 5)
+  - Encryption key without 'use: enc' (for encrypted response modes)
+  - Reordered query parameters in the redirect URL (no-op for DC API response modes, which don't use a redirect URL)
+  - response_uri response returns a redirect_uri which the wallet must open (no-op for DC API response modes; for ISO mdoc the default flow already returns a redirect_uri)
+  - response_uri request parameter is omitted when client_id_prefix=redirect_uri and response_mode is direct post or direct_post.jwt (per OID4VP $5.9.3, the wallet must derive it from client_id)

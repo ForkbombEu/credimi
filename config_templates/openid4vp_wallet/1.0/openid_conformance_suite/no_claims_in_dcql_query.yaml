@@ -1,0 +1,6 @@
+test: oid4vp-1final-wallet-no-claims-in-dcql-query
+name: OpenID4VP Wallet No Claims In DCQL Query
+description: |
+  Sends a DCQL query that requests a credential by type (vct) but without specifying individual claims.
+  The wallet should still return a matching credential, but because no selectively-disclosable claims were
+  requested it should disclose only mandatory claims and not include SD-JWT disclosures.

@@ -1,0 +1,6 @@
+test: oid4vp-1final-wallet-fewer-claims-than-available
+name: OpenID4VP Wallet Fewer Claims than Available
+description: |
+  Sends a DCQL query with one fewer claim than configured, testing that the wallet handles a subset of available claims.
+  The test checks data minimization — wallets should ideally only disclose the claims that were requested, not additional ones.
+  The DCQL configuration must contain at least 2 claims.
