@@ -50,7 +50,8 @@ func TestMobileAutomationWorkflowPropagatesActivityCancellation(t *testing.T) {
 				ActionCode: "steps: []",
 			},
 			Config: map[string]any{
-				"app_url": "https://example.test",
+				"app_url":   "https://example.test",
+				"taskqueue": "runner-1-TaskQueue",
 			},
 			ActivityOptions: &workflow.ActivityOptions{
 				StartToCloseTimeout: time.Second,
@@ -61,4 +62,23 @@ func TestMobileAutomationWorkflowPropagatesActivityCancellation(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.True(t, temporal.IsCanceledError(err))
+}
+
+func TestMobileActivityOptionsAddHeartbeatAndPreserveRetryPolicy(t *testing.T) {
+	options := mobileActivityOptions(
+		&workflow.ActivityOptions{
+			StartToCloseTimeout: time.Minute,
+			RetryPolicy: &temporal.RetryPolicy{
+				MaximumAttempts: 5,
+			},
+		},
+		"runner-1-TaskQueue",
+	)
+
+	require.Equal(t, time.Minute, options.StartToCloseTimeout)
+	require.Equal(t, 30*time.Second, options.HeartbeatTimeout)
+	require.Equal(t, 30*time.Second, options.ScheduleToStartTimeout)
+	require.Equal(t, "runner-1-TaskQueue", options.TaskQueue)
+	require.NotNil(t, options.RetryPolicy)
+	require.Equal(t, int32(5), options.RetryPolicy.MaximumAttempts)
 }

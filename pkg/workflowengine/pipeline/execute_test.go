@@ -362,8 +362,10 @@ func TestExecuteStepWorkflow(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
 			output := map[string]any{
-				"app_url":   input.Config["app_url"],
-				"taskqueue": input.Config["taskqueue"],
+				"app_url":           input.Config["app_url"],
+				"taskqueue":         input.Config["taskqueue"],
+				"child_task_queue":  workflow.GetInfo(ctx).TaskQueueName,
+				"custom_task_queue": registry.Registry["mobile-automation"].CustomTaskQueue,
 			}
 			return workflowengine.WorkflowResult{Output: output}, nil
 		},
@@ -420,6 +422,8 @@ func TestExecuteStepWorkflow(t *testing.T) {
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "custom-queue", result["taskqueue"])
 	require.Equal(t, "https://example.test", result["app_url"])
+	require.Equal(t, PipelineTaskQueue, result["child_task_queue"])
+	require.Equal(t, false, result["custom_task_queue"])
 }
 
 func TestFetchChildPipelineYAML(t *testing.T) {

@@ -27,7 +27,8 @@ const (
 	childPipelineStepUse = "child-pipeline"
 	httpRequestStepUse   = "http-request"
 
-	PipelineMobileDevicesQuery = "GetPipelineMobileDevices"
+	PipelineMobileDevicesQuery           = "GetPipelineMobileDevices"
+	pipelineCancellationPolicyRunDataKey = "pipeline_cancellation_policy"
 )
 
 type PipelineWorkflow struct{}
@@ -154,6 +155,7 @@ func (w *PipelineWorkflow) Workflow(
 	if input.ParentRunData != nil {
 		runData = input.ParentRunData
 	}
+	startPipelineCancellationPolicyReceiver(ctx, &runData)
 	if err := workflow.SetQueryHandler(
 		ctx,
 		PipelineMobileDevicesQuery,
@@ -166,6 +168,7 @@ func (w *PipelineWorkflow) Workflow(
 
 	defer func() {
 		finalResult := pipelineFinalResult(ctx, finalErr)
+		drainPipelineCancellationPolicySignal(ctx, &runData)
 
 		runCleanupHooks(
 			ctx,
@@ -281,6 +284,30 @@ func pipelineFinalResult(ctx workflow.Context, finalErr error) string {
 		return resultFailed
 	}
 	return resultSuccess
+}
+
+func startPipelineCancellationPolicyReceiver(ctx workflow.Context, runData *map[string]any) {
+	signalChan := workflow.GetSignalChannel(ctx, pipeline.PipelineCancellationPolicySignal)
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		for {
+			var policy pipeline.PipelineCancellationPolicy
+			if ok := signalChan.Receive(ctx, &policy); !ok {
+				return
+			}
+			SetRunDataValue(runData, pipelineCancellationPolicyRunDataKey, policy)
+		}
+	})
+}
+
+func drainPipelineCancellationPolicySignal(ctx workflow.Context, runData *map[string]any) {
+	signalChan := workflow.GetSignalChannel(ctx, pipeline.PipelineCancellationPolicySignal)
+	for {
+		var policy pipeline.PipelineCancellationPolicy
+		if !signalChan.ReceiveAsync(&policy) {
+			return
+		}
+		SetRunDataValue(runData, pipelineCancellationPolicyRunDataKey, policy)
+	}
 }
 
 func buildPipelineCleanupFailureErrors(errorsList []error) []workflowengine.WorkflowError {

@@ -22,8 +22,10 @@ import (
 const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
 
 const (
-	externalInstallAppDetectionTimeout  = 20 * time.Second
-	externalInstallAppDetectionInterval = 2 * time.Second
+	externalInstallAppDetectionTimeout   = 20 * time.Second
+	externalInstallAppDetectionInterval  = 2 * time.Second
+	mobileActivityHeartbeatTimeout       = 30 * time.Second
+	mobileActivityScheduleToStartTimeout = 30 * time.Second
 )
 
 // MobileAutomationWorkflow is a workflow that runs a mobile automation flow
@@ -39,7 +41,6 @@ type MobileExternalInstallWorkflow struct {
 
 // MobileAutomationWorkflowPayload is the payload for the mobile automation workflow
 type MobileAutomationWorkflowPayload struct {
-	RunIdentifier    string            `json:"run_identifier,omitempty"     yaml:"run_identifier,omitempty"`
 	ActionID         string            `json:"action_id,omitempty"          yaml:"action_id,omitempty"`
 	VersionID        string            `json:"version_id,omitempty"         yaml:"version_id,omitempty"`
 	ActionCode       string            `json:"action_code,omitempty"        yaml:"action_code,omitempty"`
@@ -114,7 +115,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+	ctx = workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, ""))
 
 	var output MobileWorkflowOutput
 	testRunURL := utils.JoinURL(
@@ -141,11 +142,22 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
+	_ = appURL
+
+	taskqueue, ok := input.Config["taskqueue"].(string)
+	if !ok || strings.TrimSpace(taskqueue) == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"taskqueue",
+			input.RunMetadata,
+		)
+	}
+
+	runnerCtx := workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, taskqueue))
 
 	mobileActivity := activities.NewRunMobileFlowActivity()
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
-		Config: workflowengine.ActivityTelemetryConfig(ctx, input.Config),
+		Config: workflowengine.ActivityTelemetryConfig(runnerCtx, input.Config),
 		Payload: mobile.RunMobileFlowPayload{
 			Serial:     payload.Serial,
 			Type:       payload.Type,
@@ -154,8 +166,8 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			WorkflowId: workflow.GetInfo(ctx).WorkflowExecution.ID,
 		},
 	}
-	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
-		Get(ctx, &mobileResponse)
+	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
+		Get(runnerCtx, &mobileResponse)
 	output.FlowOutput = mobileResponse.Output
 
 	if executeErr != nil {
@@ -181,7 +193,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+	ctx = workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, ""))
 
 	var output MobileWorkflowOutput
 	testRunURL := utils.JoinURL(
@@ -217,9 +229,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	runnerAO := *input.ActivityOptions
-	runnerAO.TaskQueue = taskqueue
-	runnerCtx := workflow.WithActivityOptions(ctx, runnerAO)
+	runnerCtx := workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, taskqueue))
 
 	beforeApps, err := executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
 	if err != nil {
@@ -323,6 +333,26 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	return workflowengine.WorkflowResult{
 		Output: output,
 	}, nil
+}
+
+func mobileActivityOptions(
+	input *workflow.ActivityOptions,
+	taskQueue string,
+) workflow.ActivityOptions {
+	var options workflow.ActivityOptions
+	if input != nil {
+		options = *input
+	}
+	if options.HeartbeatTimeout == 0 {
+		options.HeartbeatTimeout = mobileActivityHeartbeatTimeout
+	}
+	if taskQueue != "" {
+		if options.ScheduleToStartTimeout == 0 {
+			options.ScheduleToStartTimeout = mobileActivityScheduleToStartTimeout
+		}
+		options.TaskQueue = taskQueue
+	}
+	return options
 }
 
 func executeListInstalledApps(

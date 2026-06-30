@@ -58,6 +58,7 @@ const (
 	defaultExecutionTimeout        = "24h"
 	defaultActivityScheduleTimeout = "10m"
 	defaultActivityStartTimeout    = "5m"
+	defaultActivityHeartbeat       = "30s"
 	defaultRetryMaxAttempts        = int32(5)
 	defaultRetryInitialInterval    = "5s"
 	defaultRetryMaxInterval        = "1m"
@@ -405,7 +406,8 @@ func prepareQueuedWorkflowOptions(rc queuedRuntime) queuedWorkflowOptions {
 			rc.Temporal.ActivityOptions.StartToCloseTimeout,
 			defaultActivityStartTimeout,
 		),
-		RetryPolicy: rp,
+		HeartbeatTimeout: parseDurationOrDefault("", defaultActivityHeartbeat),
+		RetryPolicy:      rp,
 	}
 
 	return queuedWorkflowOptions{

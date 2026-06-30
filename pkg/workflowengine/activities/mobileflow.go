@@ -13,6 +13,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"go.temporal.io/sdk/activity"
 )
 
 type StartEmulatorActivity struct {
@@ -37,6 +38,7 @@ func (a *StartEmulatorActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -73,6 +75,7 @@ func (a *ApkInstallActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -108,6 +111,7 @@ func (a *ApkPostInstallChecksActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -149,6 +153,7 @@ func (a *UnlockEmulatorActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -185,6 +190,7 @@ func (a *StartIOSSimulatorActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -221,6 +227,7 @@ func (a *InstallIOSAppActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -256,6 +263,7 @@ func (a *IOSPostInstallChecksActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -297,6 +305,7 @@ func (a *CleanupDeviceActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -332,6 +341,7 @@ func (a *ListInstalledAppsActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -367,6 +377,7 @@ func (a *DisableAndroidPlayStoreActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -403,6 +414,7 @@ func (a *StartRecordingActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -444,6 +456,7 @@ func (a *StartIOSRecordingActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -485,6 +498,7 @@ func (a *StopRecordingActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -521,6 +535,7 @@ func (a *StopIOSRecordingActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -557,6 +572,7 @@ func (a *RunMobileFlowActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -579,6 +595,7 @@ func (a *RunMobileFlowActivity) Execute(
 }
 
 func buildMobileInput(
+	ctx context.Context,
 	payload any,
 	newErr func(workflowengine.ActivityError) error,
 	extraErrorCodes map[string]mobile.ErrorCode,
@@ -604,6 +621,9 @@ func buildMobileInput(
 		GetEnv:           utils.GetEnvironmentVariable,
 		NewActivityError: newErr,
 		ErrorCodes:       baseCodes,
+		Heartbeat: func(details ...any) {
+			recordMobileActivityHeartbeat(ctx, details...)
+		},
 	}
 
 	if withCommand {
@@ -611,4 +631,13 @@ func buildMobileInput(
 	}
 
 	return in
+}
+
+func recordMobileActivityHeartbeat(ctx context.Context, details ...any) {
+	defer func() {
+		// Unit tests can execute activities with a plain context instead of a
+		// Temporal activity context.
+		_ = recover()
+	}()
+	activity.RecordHeartbeat(ctx, details...)
 }

@@ -265,6 +265,9 @@ var DefaultWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStartQueuedPipelineActivity(),
 			activities.NewCheckWorkflowClosedActivity(),
+			activities.NewSignalWorkflowActivity(),
+			activities.NewCancelWorkflowActivity(),
+			activities.NewCleanupMobileRunnerSemaphoreResourcesActivity(),
 			activities.NewQueryMobileRunnerSemaphoreRunStatusActivity(),
 			activities.NewUpdateGitHubPRCommentActivity(),
 			activities.NewPatchGitHubPRCommentActivity(),
@@ -357,10 +360,7 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 			activity.RegisterOptions{Name: githubPRCommentAct.Name()},
 		)
 
-		for key, step := range registry.Registry {
-			if _, skip := registry.PipelineWorkerDenylist[key]; skip {
-				continue
-			}
+		for _, step := range registry.Registry {
 			switch step.Kind {
 			case registry.TaskActivity:
 				act := step.NewFunc().(workflowengine.ExecutableActivity)

@@ -11,7 +11,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/forkbombeu/credimi-conformance-assessment v1.3.1
-	github.com/forkbombeu/credimi-extra v1.10.6
+	github.com/forkbombeu/credimi-extra v1.11.0
 	github.com/forkbombeu/eudi-conformance-evidence v1.0.2
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/go-playground/validator/v10 v10.26.0
@@ -42,6 +42,8 @@ require (
 )
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250825161204-c5933d9347a5 //nolint
+
+replace github.com/forkbombeu/credimi-extra => ../credimi-extra
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
