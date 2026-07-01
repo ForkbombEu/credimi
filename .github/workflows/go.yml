@@ -44,6 +44,30 @@ jobs:
           set -euo pipefail
           go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
 
+      - name: Check module hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          go mod tidy -diff
+
+      - name: Verify modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          go mod verify
+
+      - name: Vet
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./...
+
+      - name: Verify credimi_extra build
+        shell: bash
+        run: |
+          set -euo pipefail
+          go build -tags=credimi_extra ./...
+
       - name: Run govulncheck (text output for logs)
         shell: bash
         run: |

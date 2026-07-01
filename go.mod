@@ -346,5 +346,3 @@ tool (
 	golang.org/x/vuln/cmd/govulncheck
 	honnef.co/go/tools/cmd/staticcheck
 )
-
-replace github.com/forkbombeu/credimi-extra => ../credimi-extra
