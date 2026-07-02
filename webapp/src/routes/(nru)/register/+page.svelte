@@ -124,7 +124,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <T tag="h4">{m.Create_an_account()}</T>
 
 {#if $featureFlags.OAUTH}
-	<Oauth></Oauth>
+	<Oauth requireCaptcha></Oauth>
 {/if}
 
 <Form {form} hideRequiredIndicator>
