@@ -38,6 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let captchaError = $state('');
 	let turnstileContainer = $state<HTMLDivElement>();
 	let turnstileWidgetId = $state('');
+	let turnstileScriptLoaded = $state(false);
 
 	const authMethods = pb
 		.collection('users')
@@ -81,6 +82,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			})
 		);
 
+	function renderTurnstile() {
+		if (!requireCaptcha || !turnstileContainer || !window.turnstile || turnstileWidgetId) {
+			return;
+		}
+
+		turnstileWidgetId = window.turnstile.render(turnstileContainer, {
+			sitekey: PUBLIC_TURNSTILE_SITE_KEY,
+			callback: (token: string) => {
+				captchaToken = token;
+				captchaError = '';
+			},
+			theme: 'auto'
+		});
+	}
+
+	$effect(() => {
+		if (turnstileScriptLoaded && turnstileContainer) {
+			renderTurnstile();
+		}
+	});
+
 	onMount(() => {
 		if (!requireCaptcha) {
 			return;
@@ -90,27 +112,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]'
 		);
 
-		const renderTurnstile = () => {
-			if (!turnstileContainer || !window.turnstile) {
-				return;
-			}
-			turnstileWidgetId = window.turnstile.render(turnstileContainer, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				callback: (token: string) => {
-					captchaToken = token;
-					captchaError = '';
-				},
-				theme: 'auto'
-			});
+		const markTurnstileReady = () => {
+			turnstileScriptLoaded = true;
+			renderTurnstile();
 		};
 
 		if (window.turnstile) {
-			renderTurnstile();
+			markTurnstileReady();
 			return;
 		}
 
 		if (existingScript) {
-			existingScript.addEventListener('load', renderTurnstile, { once: true });
+			existingScript.addEventListener('load', markTurnstileReady, { once: true });
 			return;
 		}
 
@@ -118,7 +131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 		script.async = true;
 		script.defer = true;
-		script.onload = renderTurnstile;
+		script.onload = markTurnstileReady;
 		document.head.appendChild(script);
 	});
 </script>
