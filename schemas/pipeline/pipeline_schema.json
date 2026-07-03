@@ -437,10 +437,14 @@
                               "type": "string"
                             },
                             "Gateway": {
-                              "type": "string"
+                              "additionalProperties": false,
+                              "properties": {},
+                              "type": "object"
                             },
                             "GlobalIPv6Address": {
-                              "type": "string"
+                              "additionalProperties": false,
+                              "properties": {},
+                              "type": "object"
                             },
                             "GlobalIPv6PrefixLen": {
                               "type": "integer"
@@ -452,28 +456,42 @@
                               "additionalProperties": false,
                               "properties": {
                                 "IPv4Address": {
-                                  "type": "string"
+                                  "additionalProperties": false,
+                                  "properties": {},
+                                  "type": "object"
                                 },
                                 "IPv6Address": {
-                                  "type": "string"
+                                  "additionalProperties": false,
+                                  "properties": {},
+                                  "type": "object"
                                 },
                                 "LinkLocalIPs": {
                                   "items": {
-                                    "type": "string"
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
                                   },
                                   "type": "array"
                                 }
                               },
+                              "required": [
+                                "IPv4Address",
+                                "IPv6Address"
+                              ],
                               "type": "object"
                             },
                             "IPAddress": {
-                              "type": "string"
+                              "additionalProperties": false,
+                              "properties": {},
+                              "type": "object"
                             },
                             "IPPrefixLen": {
                               "type": "integer"
                             },
                             "IPv6Gateway": {
-                              "type": "string"
+                              "additionalProperties": false,
+                              "properties": {},
+                              "type": "object"
                             },
                             "Links": {
                               "items": {
@@ -482,6 +500,7 @@
                               "type": "array"
                             },
                             "MacAddress": {
+                              "contentEncoding": "base64",
                               "type": "string"
                             },
                             "NetworkID": {
@@ -492,13 +511,13 @@
                             "IPAMConfig",
                             "Links",
                             "Aliases",
-                            "MacAddress",
                             "DriverOpts",
                             "GwPriority",
                             "NetworkID",
                             "EndpointID",
                             "Gateway",
                             "IPAddress",
+                            "MacAddress",
                             "IPPrefixLen",
                             "IPv6Gateway",
                             "GlobalIPv6Address",

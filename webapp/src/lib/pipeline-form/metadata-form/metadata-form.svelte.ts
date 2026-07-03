@@ -44,6 +44,7 @@ export class MetadataForm implements Renderable<MetadataForm> {
 			initialData: this.#value,
 			onSubmit: async ({ form }) => {
 				this.#value = form.data;
+				this.resetForm();
 				this.isOpen = false;
 				await tick();
 				await this.props.onSubmit?.();

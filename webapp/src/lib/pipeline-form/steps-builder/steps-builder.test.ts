@@ -56,6 +56,20 @@ describe('StepsBuilder manual mode', () => {
 		expect(builder.isSavedManualPipeline).toBe(false);
 	});
 
+	it('yamlPreview tracks upstream yaml changes', () => {
+		let name = 'first-pipeline';
+		const builder = new StepsBuilder({
+			steps: [],
+			yamlPreview: () => `name: ${name}\n\nsteps:\n  - use: debug\n`
+		});
+
+		expect(builder.yamlPreview).toContain('first-pipeline');
+
+		name = 'second-pipeline';
+
+		expect(builder.yamlPreview).toContain('second-pipeline');
+	});
+
 	it('enterManualMode closes form mode and sets manual', () => {
 		const builder = createBuilder();
 		const exitFormState = vi.spyOn(builder, 'exitFormState');
