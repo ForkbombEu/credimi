@@ -83,14 +83,14 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		return this.state.steps;
 	}
 
-	get yamlPreview() {
+	readonly yamlPreview = $derived.by(() => {
 		try {
 			return this.props.yamlPreview();
 		} catch (e) {
 			showPipelineFormError(e);
 			return '';
 		}
-	}
+	});
 
 	get isManualMode() {
 		return this.state.mode.id === 'manual';

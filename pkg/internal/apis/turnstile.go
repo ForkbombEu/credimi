@@ -30,39 +30,60 @@ type turnstileVerifyResponse struct {
 // HookTurnstileVerification validates Cloudflare Turnstile tokens on user registration.
 // It reads the token from the X-Turnstile-Token HTTP header and verifies it with Cloudflare.
 func HookTurnstileVerification(app *pocketbase.PocketBase) {
+	app.OnRecordAuthWithOAuth2Request("users").BindFunc(
+		func(e *core.RecordAuthWithOAuth2RequestEvent) error {
+			if !e.IsNewRecord {
+				return e.Next()
+			}
+
+			if err := requireTurnstile(e.RequestEvent); err != nil {
+				return err
+			}
+			return e.Next()
+		},
+	)
+
 	app.OnRecordCreateRequest("users").BindFunc(func(e *core.RecordRequestEvent) error {
 		if isOAuth2RecordCreateRequest(e) {
 			return e.Next()
 		}
 
-		token := e.Request.Header.Get("X-Turnstile-Token")
-		if token == "" {
-			return apis.NewBadRequestError("captcha verification failed", nil)
-		}
-
-		secret := utils.GetEnvironmentVariable("TURNSTILE_SECRET_KEY")
-		if secret == "" {
-			log.Printf("[turnstile] TURNSTILE_SECRET_KEY is not set, skipping verification")
-			return e.Next()
-		}
-
-		result, err := verifyTurnstileToken(token, secret)
-		if err != nil {
-			log.Printf("[turnstile] verification request failed: %v", err)
-			return apis.NewBadRequestError("captcha verification failed", nil)
-		}
-
-		if !result.Success {
-			log.Printf(
-				"[turnstile] verification failed: codes=%v hostname=%s",
-				result.ErrorCodes,
-				result.Hostname,
-			)
-			return apis.NewBadRequestError("captcha verification failed", nil)
+		if err := requireTurnstile(e.RequestEvent); err != nil {
+			return err
 		}
 
 		return e.Next()
 	})
+}
+
+func requireTurnstile(e *core.RequestEvent) error {
+	token := e.Request.Header.Get("X-Turnstile-Token")
+	if token == "" {
+		return apis.NewBadRequestError("captcha verification failed", nil)
+	}
+
+	secret := utils.GetEnvironmentVariable("TURNSTILE_SECRET_KEY")
+	if secret == "" {
+		log.Printf("[turnstile] TURNSTILE_SECRET_KEY is not set, skipping verification")
+		return nil
+	}
+
+	result, err := verifyTurnstileToken(token, secret)
+	if err != nil {
+		log.Printf("[turnstile] verification request failed: %v", err)
+		return apis.NewBadRequestError("captcha verification failed", nil)
+	}
+
+	if !result.Success {
+		log.Printf(
+			"[turnstile] verification failed: codes=%v hostname=%s",
+			result.ErrorCodes,
+			result.Hostname,
+		)
+		return apis.NewBadRequestError("captcha verification failed", nil)
+	}
+
+	return nil
 }
 
 func isOAuth2RecordCreateRequest(e *core.RecordRequestEvent) bool {

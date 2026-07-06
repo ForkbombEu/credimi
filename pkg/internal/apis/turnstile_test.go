@@ -47,6 +47,58 @@ func TestHookTurnstileVerification(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, called)
 	})
+
+	t.Run("requires captcha for OAuth2 registration", func(t *testing.T) {
+		app := pocketbase.New()
+		HookTurnstileVerification(app)
+
+		event := newOAuth2AuthRequestEvent(t, app)
+		event.IsNewRecord = true
+		err := app.OnRecordAuthWithOAuth2Request("users").
+			Trigger(event, func(e *core.RecordAuthWithOAuth2RequestEvent) error {
+				return nil
+			})
+
+		require.Error(t, err)
+		require.ErrorContains(t, err, "Captcha verification failed")
+	})
+
+	t.Run("allows OAuth2 login without captcha", func(t *testing.T) {
+		app := pocketbase.New()
+		HookTurnstileVerification(app)
+
+		called := false
+		event := newOAuth2AuthRequestEvent(t, app)
+		event.IsNewRecord = false
+		err := app.OnRecordAuthWithOAuth2Request("users").
+			Trigger(event, func(e *core.RecordAuthWithOAuth2RequestEvent) error {
+				called = true
+				return nil
+			})
+
+		require.NoError(t, err)
+		require.True(t, called)
+	})
+
+	t.Run("accepts OAuth2 registration with captcha when secret is not configured", func(t *testing.T) {
+		t.Setenv("TURNSTILE_SECRET_KEY", "")
+
+		app := pocketbase.New()
+		HookTurnstileVerification(app)
+
+		called := false
+		event := newOAuth2AuthRequestEvent(t, app)
+		event.IsNewRecord = true
+		event.Request.Header.Set("X-Turnstile-Token", "test-token")
+		err := app.OnRecordAuthWithOAuth2Request("users").
+			Trigger(event, func(e *core.RecordAuthWithOAuth2RequestEvent) error {
+				called = true
+				return nil
+			})
+
+		require.NoError(t, err)
+		require.True(t, called)
+	})
 }
 
 func TestIsOAuth2RecordCreateRequest(t *testing.T) {
@@ -91,6 +143,32 @@ func newUserCreateRequestEvent(
 	event := &core.RecordRequestEvent{
 		RequestEvent: requestEvent,
 		Record:       core.NewRecord(users),
+	}
+	event.Collection = users
+
+	return event
+}
+
+func newOAuth2AuthRequestEvent(
+	t testing.TB,
+	app core.App,
+) *core.RecordAuthWithOAuth2RequestEvent {
+	t.Helper()
+
+	users := core.NewAuthCollection("users")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/collections/users/auth-with-oauth2", nil)
+	rec := httptest.NewRecorder()
+	requestEvent := &core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	}
+
+	event := &core.RecordAuthWithOAuth2RequestEvent{
+		RequestEvent: requestEvent,
 	}
 	event.Collection = users
 

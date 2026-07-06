@@ -20,9 +20,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { self: form }: SelfProp<PipelineForm> = $props();
 
-	const metadata = $derived.by(() => form.metadataForm);
-	const activityOptions = $derived.by(() => form.runtimeOptionsForm);
-	const builder = $derived.by(() => form.stepsBuilder);
+	const metadata = form.metadataForm;
+	const activityOptions = form.runtimeOptionsForm;
+	const builder = form.stepsBuilder;
 
 	const manualMode = $derived(builder.isManualMode);
 	const manualTooltip = m.unavailable_in_manual_edit();
