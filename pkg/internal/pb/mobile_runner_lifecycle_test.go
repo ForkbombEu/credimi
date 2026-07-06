@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -74,7 +75,7 @@ func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 
 	staleAt := time.Date(2026, 6, 23, 10, 0, 0, 0, time.UTC)
 	freshAt := staleAt.Add(119 * time.Second)
-	now := staleAt.Add(mobileRunnerLifecycleHeartbeatTimeout + time.Second)
+	now := staleAt.Add(mobilerunnerlifecycle.DefaultHeartbeatTimeout + time.Second)
 
 	createLifecycleMonitorRunner(t, app, orgID, "stale-runner", true, staleAt)
 	createLifecycleMonitorRunner(t, app, orgID, "fresh-runner", true, freshAt)
@@ -96,12 +97,16 @@ func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
 				req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
 				return ok &&
-					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID("usera-s-organization/stale-runner") &&
+					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
+						"usera-s-organization/stale-runner",
+					) &&
 					options.UpdateName == workflows.MobileRunnerSemaphorePauseRunnerUpdate &&
 					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
 					req.Reason == "heartbeat timeout" &&
 					req.CancelRunning &&
-					req.ShutdownAfterSeconds == int(mobileRunnerLifecycleShutdownAfter/time.Second)
+					req.ShutdownAfterSeconds == int(
+						mobilerunnerlifecycle.DefaultShutdownAfter/time.Second,
+					)
 			}),
 		).
 		Return(handle, nil).
@@ -119,6 +124,59 @@ func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 	fresh, err := canonify.Resolve(app, "/usera-s-organization/fresh-runner")
 	require.NoError(t, err)
 	require.True(t, fresh.GetBool("online"))
+}
+
+func TestMarkStaleRunnersOfflineUsesHeartbeatTimeoutEnv(t *testing.T) {
+	t.Setenv(mobilerunnerlifecycle.HeartbeatTimeoutEnv, "5m")
+	t.Setenv(mobilerunnerlifecycle.ShutdownAfterEnv, "10m")
+
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	ensureLifecycleMonitorFields(t, app)
+	canonify.RegisterCanonifyHooks(app)
+
+	orgID, err := getOrgIDfromName(app)
+	require.NoError(t, err)
+
+	lastHeartbeat := time.Date(2026, 6, 23, 10, 0, 0, 0, time.UTC)
+	now := lastHeartbeat.Add(5*time.Minute + time.Second)
+	createLifecycleMonitorRunner(t, app, orgID, "env-stale-runner", true, lastHeartbeat)
+
+	origNow := mobileRunnerLifecycleMonitorNow
+	origClient := mobileRunnerLifecycleMonitorTemporalClient
+	t.Cleanup(func() {
+		mobileRunnerLifecycleMonitorNow = origNow
+		mobileRunnerLifecycleMonitorTemporalClient = origClient
+	})
+	mobileRunnerLifecycleMonitorNow = func() time.Time { return now }
+
+	mockClient := temporalmocks.NewClient(t)
+	handle := temporalmocks.NewWorkflowUpdateHandle(t)
+	mockClient.
+		On(
+			"UpdateWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
+				req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
+				return ok &&
+					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
+						"usera-s-organization/env-stale-runner",
+					) &&
+					req.ShutdownAfterSeconds == int((10*time.Minute)/time.Second)
+			}),
+		).
+		Return(handle, nil).
+		Once()
+	mobileRunnerLifecycleMonitorTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	require.NoError(t, markStaleRunnersOfflineAndPauseSemaphores(context.Background(), app))
+
+	stale, err := canonify.Resolve(app, "/usera-s-organization/env-stale-runner")
+	require.NoError(t, err)
+	require.False(t, stale.GetBool("online"))
 }
 
 func TestMarkRunnerOfflineIfStillStaleSkipsFreshHeartbeat(t *testing.T) {
@@ -154,7 +212,11 @@ func TestPauseStaleRunnerSemaphoreIgnoresMissingWorkflow(t *testing.T) {
 		return mockClient, nil
 	}
 
-	err := pauseStaleRunnerSemaphore(context.Background(), "runner-1", time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC))
+	err := pauseStaleRunnerSemaphore(
+		context.Background(),
+		"runner-1",
+		time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC),
+	)
 	require.NoError(t, err)
 }
 
@@ -167,9 +229,20 @@ func TestMarkRunnerOfflineIfStillStaleAlreadyOffline(t *testing.T) {
 
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
-	record := createLifecycleMonitorRunner(t, app, orgID, "offline-runner", false, time.Date(2026, 6, 23, 10, 0, 0, 0, time.UTC))
+	record := createLifecycleMonitorRunner(
+		t,
+		app,
+		orgID,
+		"offline-runner",
+		false,
+		time.Date(2026, 6, 23, 10, 0, 0, 0, time.UTC),
+	)
 
-	shouldPause, err := markRunnerOfflineIfStillStale(app, record.Id, time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC))
+	shouldPause, err := markRunnerOfflineIfStillStale(
+		app,
+		record.Id,
+		time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC),
+	)
 	require.NoError(t, err)
 	require.True(t, shouldPause)
 }

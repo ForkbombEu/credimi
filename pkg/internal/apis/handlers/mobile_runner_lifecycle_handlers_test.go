@@ -5,11 +5,13 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/stretchr/testify/mock"
@@ -43,7 +45,13 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 
 	mockClient := temporalmocks.NewClient(t)
 	mockClient.
-		On("ExecuteWorkflow", mock.Anything, mock.Anything, workflows.MobileRunnerSemaphoreWorkflowName, mock.Anything).
+		On(
+			"ExecuteWorkflow",
+			mock.Anything,
+			mock.Anything,
+			workflows.MobileRunnerSemaphoreWorkflowName,
+			mock.Anything,
+		).
 		Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
 
 	updateHandle := temporalmocks.NewWorkflowUpdateHandle(t)
@@ -54,7 +62,9 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
 				req, ok := options.Args[0].(workflows.MobileRunnerSemaphoreResumeRunnerRequest)
 				return ok &&
-					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID("usera-s-organization/resume-runner") &&
+					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
+						"usera-s-organization/resume-runner",
+					) &&
 					options.UpdateName == workflows.MobileRunnerSemaphoreResumeRunnerUpdate &&
 					req.Reason == "runner_startup"
 			}),
@@ -84,7 +94,11 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 	record, err := canonify.Resolve(app, "/usera-s-organization/resume-runner")
 	require.NoError(t, err)
 	require.True(t, record.GetBool("online"))
-	require.Equal(t, fixedNow.Format("2006-01-02 15:04:05.000Z"), record.GetString("last_heartbeat_at"))
+	require.Equal(
+		t,
+		fixedNow.Format("2006-01-02 15:04:05.000Z"),
+		record.GetString("last_heartbeat_at"),
+	)
 }
 
 func TestHandleMobileRunnerLifecycleHeartbeat(t *testing.T) {
@@ -98,10 +112,17 @@ func TestHandleMobileRunnerLifecycleHeartbeat(t *testing.T) {
 	createMobileRunnerRecord(t, app, orgID, "heartbeat-runner", "https://runner.example", false)
 
 	origNow := mobileRunnerLifecycleNow
-	t.Cleanup(func() { mobileRunnerLifecycleNow = origNow })
+	origQuerySemaphore := queryMobileRunnerSemaphoreState
+	t.Cleanup(func() {
+		mobileRunnerLifecycleNow = origNow
+		queryMobileRunnerSemaphoreState = origQuerySemaphore
+	})
 
 	fixedNow := time.Date(2026, 6, 24, 10, 15, 30, 0, time.UTC)
 	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
+	queryMobileRunnerSemaphoreState = func(_ context.Context, _ string) (workflows.MobileRunnerSemaphoreStateView, error) {
+		return workflows.MobileRunnerSemaphoreStateView{}, errSemaphoreNotFound
+	}
 
 	event := performMobileRunnerRequest(
 		t,
@@ -120,12 +141,93 @@ func TestHandleMobileRunnerLifecycleHeartbeat(t *testing.T) {
 	response := decodeJSONBody(t, recorder)
 	require.Equal(t, "usera-s-organization/heartbeat-runner", response["runner_id"])
 	require.Equal(t, true, response["online"])
-	require.Equal(t, float64(defaultMobileRunnerHeartbeatTimeoutSeconds), response["heartbeat_timeout_seconds"])
+	require.Equal(
+		t,
+		float64(mobilerunnerlifecycle.DefaultHeartbeatTimeout/time.Second),
+		response["heartbeat_timeout_seconds"],
+	)
 
 	record, err := canonify.Resolve(app, "/usera-s-organization/heartbeat-runner")
 	require.NoError(t, err)
 	require.True(t, record.GetBool("online"))
-	require.Equal(t, fixedNow.Format("2006-01-02 15:04:05.000Z"), record.GetString("last_heartbeat_at"))
+	require.Equal(
+		t,
+		fixedNow.Format("2006-01-02 15:04:05.000Z"),
+		record.GetString("last_heartbeat_at"),
+	)
+}
+
+func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(
+		t,
+		app,
+		orgID,
+		"heartbeat-resume-runner",
+		"https://runner.example",
+		false,
+	)
+
+	origNow := mobileRunnerLifecycleNow
+	origQuerySemaphore := queryMobileRunnerSemaphoreState
+	origLifecycleClient := mobileRunnerLifecycleTemporalClient
+	t.Cleanup(func() {
+		mobileRunnerLifecycleNow = origNow
+		queryMobileRunnerSemaphoreState = origQuerySemaphore
+		mobileRunnerLifecycleTemporalClient = origLifecycleClient
+	})
+
+	fixedNow := time.Date(2026, 6, 24, 10, 20, 30, 0, time.UTC)
+	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
+	queryMobileRunnerSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileRunnerSemaphoreStateView, error) {
+		require.Equal(t, "usera-s-organization/heartbeat-resume-runner", runnerID)
+		return workflows.MobileRunnerSemaphoreStateView{
+			RunnerID:    runnerID,
+			Paused:      true,
+			PauseReason: "heartbeat timeout",
+		}, nil
+	}
+
+	mockClient := temporalmocks.NewClient(t)
+	handle := temporalmocks.NewWorkflowUpdateHandle(t)
+	mockClient.
+		On(
+			"UpdateWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
+				req, ok := options.Args[0].(workflows.MobileRunnerSemaphoreResumeRunnerRequest)
+				return ok &&
+					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
+						"usera-s-organization/heartbeat-resume-runner",
+					) &&
+					options.UpdateName == workflows.MobileRunnerSemaphoreResumeRunnerUpdate &&
+					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
+					req.Reason == "heartbeat_recovered"
+			}),
+		).
+		Return(handle, nil).
+		Once()
+	mobileRunnerLifecycleTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	event := performMobileRunnerRequest(
+		t,
+		app,
+		user,
+		"/api/mobile-runner/lifecycle/heartbeat",
+		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/heartbeat-resume-runner"},
+	)
+
+	err = HandleMobileRunnerLifecycleHeartbeat()(event)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
 }
 
 func TestHandleMobileRunnerLifecycleHeartbeatRejectsEmptyRunnerID(t *testing.T) {
@@ -306,16 +408,24 @@ func TestHandleMobileRunnerLifecyclePauseSendsPauseUpdate(t *testing.T) {
 	mockClient := temporalmocks.NewClient(t)
 	handle := temporalmocks.NewWorkflowUpdateHandle(t)
 	mockClient.
-		On("UpdateWorkflow", mock.Anything, mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
-			req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
-			return ok &&
-				options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID("usera-s-organization/pause-update-runner") &&
-				options.UpdateName == workflows.MobileRunnerSemaphorePauseRunnerUpdate &&
-				options.WaitForStage == client.WorkflowUpdateStageAccepted &&
-				req.CancelRunning &&
-				req.Reason == "runner_shutdown" &&
-				req.ShutdownAfterSeconds == defaultMobileRunnerShutdownAfterSeconds
-		})).
+		On(
+			"UpdateWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
+				req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
+				return ok &&
+					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
+						"usera-s-organization/pause-update-runner",
+					) &&
+					options.UpdateName == workflows.MobileRunnerSemaphorePauseRunnerUpdate &&
+					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
+					req.CancelRunning &&
+					req.Reason == "runner_shutdown" &&
+					req.ShutdownAfterSeconds == int(
+						mobilerunnerlifecycle.DefaultShutdownAfter/time.Second,
+					)
+			}),
+		).
 		Return(handle, nil).
 		Once()
 	mobileRunnerLifecycleTemporalClient = func(_ string) (client.Client, error) {

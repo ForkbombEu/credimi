@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -27,11 +28,6 @@ import (
 	tclient "go.temporal.io/sdk/client"
 )
 
-const (
-	defaultMobileRunnerHeartbeatTimeoutSeconds = 120
-	defaultMobileRunnerShutdownAfterSeconds    = 7 * 24 * 60 * 60
-)
-
 var mobileRunnerLifecycleNow = func() time.Time {
 	return time.Now().UTC()
 }
@@ -39,7 +35,7 @@ var mobileRunnerLifecycleNow = func() time.Time {
 var mobileRunnerLifecycleTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type MobileRunnerLifecycleRequest struct {
-	RunnerID string `json:"runner_id" validate:"required"`
+	RunnerID string `json:"runner_id"        validate:"required"`
 	Reason   string `json:"reason,omitempty"`
 }
 
@@ -95,7 +91,12 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[MobileRunnerLifecycleRequest](e)
 		if err != nil {
-			return apierror.New(http.StatusBadRequest, "mobile_runner", "invalid_request", err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"mobile_runner",
+				"invalid_request",
+				err.Error(),
+			)
 		}
 
 		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
@@ -106,23 +107,43 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 		now := mobileRunnerLifecycleNow()
 		setRunnerHeartbeat(record, true, now)
 		if err := e.App.Save(record); err != nil {
-			return apierror.New(http.StatusInternalServerError, "mobile_runner", "failed_to_save_mobile_runner", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"mobile_runner",
+				"failed_to_save_mobile_runner",
+				err.Error(),
+			)
 		}
 
-		if err := ensureRunQueueSemaphoreWorkflowTemporal(e.Request.Context(), runnerID); err != nil {
-			return apierror.New(http.StatusInternalServerError, "mobile_runner", "failed_to_ensure_runner_semaphore", err.Error())
+		if err := ensureRunQueueSemaphoreWorkflowTemporal(
+			e.Request.Context(),
+			runnerID,
+		); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"mobile_runner",
+				"failed_to_ensure_runner_semaphore",
+				err.Error(),
+			)
 		}
 
 		_, err = updateRunnerSemaphore(
 			e.Request.Context(),
 			runnerID,
 			workflows.MobileRunnerSemaphoreResumeRunnerUpdate,
-			workflows.MobileRunnerSemaphoreResumeRunnerRequest{Reason: lifecycleReason(input.Reason, "runner_startup")},
+			workflows.MobileRunnerSemaphoreResumeRunnerRequest{
+				Reason: lifecycleReason(input.Reason, "runner_startup"),
+			},
 			nil,
 			lifecycleUpdateID("resume", runnerID),
 		)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "mobile_runner", "failed_to_resume_runner_semaphore", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"mobile_runner",
+				"failed_to_resume_runner_semaphore",
+				err.Error(),
+			)
 		}
 
 		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, true))
@@ -133,7 +154,12 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[MobileRunnerLifecycleRequest](e)
 		if err != nil {
-			return apierror.New(http.StatusBadRequest, "mobile_runner", "invalid_request", err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"mobile_runner",
+				"invalid_request",
+				err.Error(),
+			)
 		}
 
 		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
@@ -143,7 +169,21 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 
 		setRunnerHeartbeat(record, true, mobileRunnerLifecycleNow())
 		if err := e.App.Save(record); err != nil {
-			return apierror.New(http.StatusInternalServerError, "mobile_runner", "failed_to_save_mobile_runner", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"mobile_runner",
+				"failed_to_save_mobile_runner",
+				err.Error(),
+			)
+		}
+
+		if err := resumeHeartbeatPausedRunnerSemaphore(e.Request.Context(), runnerID); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"mobile_runner",
+				"failed_to_resume_runner_semaphore",
+				err.Error(),
+			)
 		}
 
 		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, true))
@@ -154,7 +194,12 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[MobileRunnerLifecycleRequest](e)
 		if err != nil {
-			return apierror.New(http.StatusBadRequest, "mobile_runner", "invalid_request", err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"mobile_runner",
+				"invalid_request",
+				err.Error(),
+			)
 		}
 
 		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
@@ -164,7 +209,12 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 
 		record.Set("online", false)
 		if err := e.App.Save(record); err != nil {
-			return apierror.New(http.StatusInternalServerError, "mobile_runner", "failed_to_save_mobile_runner", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"mobile_runner",
+				"failed_to_save_mobile_runner",
+				err.Error(),
+			)
 		}
 
 		_, err = updateRunnerSemaphore(
@@ -174,13 +224,18 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 			workflows.MobileRunnerSemaphorePauseRunnerRequest{
 				Reason:               lifecycleReason(input.Reason, "runner_shutdown"),
 				CancelRunning:        true,
-				ShutdownAfterSeconds: defaultMobileRunnerShutdownAfterSeconds,
+				ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 			},
 			nil,
 			lifecycleUpdateID("pause", runnerID),
 		)
 		if err != nil && !errors.Is(err, errSemaphoreNotFound) {
-			return apierror.New(http.StatusInternalServerError, "mobile_runner", "failed_to_pause_runner_semaphore", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"mobile_runner",
+				"failed_to_pause_runner_semaphore",
+				err.Error(),
+			)
 		}
 
 		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, false))
@@ -194,36 +249,97 @@ func resolveLifecycleRunner(
 ) (*core.Record, string, *apierror.APIError) {
 	normalizedRunnerID := canonify.NormalizePath(runnerID)
 	if normalizedRunnerID == "" {
-		return nil, "", apierror.New(http.StatusBadRequest, "runner_id", "runner_id_required", "runner_id is required")
+		return nil, "", apierror.New(
+			http.StatusBadRequest,
+			"runner_id",
+			"runner_id_required",
+			"runner_id is required",
+		)
 	}
 
 	record, err := canonify.Resolve(app, normalizedRunnerID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, "", apierror.New(http.StatusNotFound, "runner_id", "mobile_runner_not_found", "mobile runner not found")
+			return nil, "", apierror.New(
+				http.StatusNotFound,
+				"runner_id",
+				"mobile_runner_not_found",
+				"mobile runner not found",
+			)
 		}
-		return nil, "", apierror.New(http.StatusInternalServerError, "runner_id", "failed_to_resolve_runner_id", err.Error())
+		return nil, "", apierror.New(
+			http.StatusInternalServerError,
+			"runner_id",
+			"failed_to_resolve_runner_id",
+			err.Error(),
+		)
 	}
 	if record.Collection() == nil || record.Collection().Name != "mobile_runners" {
-		return nil, "", apierror.New(http.StatusBadRequest, "runner_id", "invalid_runner_id", "runner_id does not reference a mobile runner")
+		return nil, "", apierror.New(
+			http.StatusBadRequest,
+			"runner_id",
+			"invalid_runner_id",
+			"runner_id does not reference a mobile runner",
+		)
 	}
 
 	if !isSuperuserAuth(auth) {
 		orgID, err := pbutils.GetUserOrganizationID(app, auth.Id)
 		if err != nil {
-			return nil, "", apierror.New(http.StatusInternalServerError, "organization", "failed_to_find_user_organization", err.Error())
+			return nil, "", apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed_to_find_user_organization",
+				err.Error(),
+			)
 		}
 		if record.GetString("owner") != orgID {
-			return nil, "", apierror.New(http.StatusForbidden, "runner_id", "runner_owner_mismatch", "runner_id does not belong to the authenticated organization")
+			return nil, "", apierror.New(
+				http.StatusForbidden,
+				"runner_id",
+				"runner_owner_mismatch",
+				"runner_id does not belong to the authenticated organization",
+			)
 		}
 	}
 
 	canonicalRunnerID, err := mobileRunnerIdentifier(app, record)
 	if err != nil {
-		return nil, "", apierror.New(http.StatusInternalServerError, "runner_id", "failed_to_build_runner_id", err.Error())
+		return nil, "", apierror.New(
+			http.StatusInternalServerError,
+			"runner_id",
+			"failed_to_build_runner_id",
+			err.Error(),
+		)
 	}
 
 	return record, canonicalRunnerID, nil
+}
+
+func resumeHeartbeatPausedRunnerSemaphore(ctx context.Context, runnerID string) error {
+	state, err := queryMobileRunnerSemaphoreState(ctx, runnerID)
+	if err != nil {
+		if errors.Is(err, errSemaphoreNotFound) {
+			return nil
+		}
+		return err
+	}
+	if !state.Paused || strings.TrimSpace(state.PauseReason) != "heartbeat timeout" {
+		return nil
+	}
+
+	_, err = updateRunnerSemaphore(
+		ctx,
+		runnerID,
+		workflows.MobileRunnerSemaphoreResumeRunnerUpdate,
+		workflows.MobileRunnerSemaphoreResumeRunnerRequest{Reason: "heartbeat_recovered"},
+		nil,
+		lifecycleUpdateID("heartbeat-resume", runnerID),
+	)
+	if errors.Is(err, errSemaphoreNotFound) {
+		return nil
+	}
+	return err
 }
 
 func updateRunnerSemaphore(
@@ -234,7 +350,9 @@ func updateRunnerSemaphore(
 	out any,
 	updateID string,
 ) (bool, error) {
-	client, err := mobileRunnerLifecycleTemporalClient(workflowengine.MobileRunnerSemaphoreDefaultNamespace)
+	client, err := mobileRunnerLifecycleTemporalClient(
+		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+	)
 	if err != nil {
 		return false, err
 	}
@@ -275,8 +393,8 @@ func lifecycleResponse(
 		RunnerID:                runnerID,
 		Online:                  online,
 		SemaphoreWorkflowID:     workflows.MobileRunnerSemaphoreWorkflowID(runnerID),
-		HeartbeatTimeoutSeconds: defaultMobileRunnerHeartbeatTimeoutSeconds,
-		ShutdownAfterSeconds:    defaultMobileRunnerShutdownAfterSeconds,
+		HeartbeatTimeoutSeconds: int(mobilerunnerlifecycle.HeartbeatTimeout() / time.Second),
+		ShutdownAfterSeconds:    int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 	}
 }
 
