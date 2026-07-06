@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -19,9 +20,6 @@ import (
 )
 
 const (
-	mobileRunnerLifecycleMonitorInterval       = 30 * time.Second
-	mobileRunnerLifecycleHeartbeatTimeout      = 120 * time.Second
-	mobileRunnerLifecycleShutdownAfter         = 7 * 24 * time.Hour
 	mobileRunnerLifecycleMonitorCancelStoreKey = "mobile_runner_lifecycle_monitor_cancel"
 )
 
@@ -59,7 +57,7 @@ func cancelMobileRunnerLifecycleMonitor(app core.App) {
 }
 
 func runMobileRunnerLifecycleMonitor(ctx context.Context, app core.App) {
-	ticker := time.NewTicker(mobileRunnerLifecycleMonitorInterval)
+	ticker := time.NewTicker(mobilerunnerlifecycle.MonitorInterval())
 	defer ticker.Stop()
 
 	for {
@@ -75,7 +73,7 @@ func runMobileRunnerLifecycleMonitor(ctx context.Context, app core.App) {
 }
 
 func markStaleRunnersOfflineAndPauseSemaphores(ctx context.Context, app core.App) error {
-	cutoff := mobileRunnerLifecycleMonitorNow().Add(-mobileRunnerLifecycleHeartbeatTimeout)
+	cutoff := mobileRunnerLifecycleMonitorNow().Add(-mobilerunnerlifecycle.HeartbeatTimeout())
 	records, err := app.FindRecordsByFilter("mobile_runners", "online = true", "", -1, 0)
 	if err != nil {
 		return fmt.Errorf("list online mobile runners: %w", err)
@@ -89,13 +87,15 @@ func markStaleRunnersOfflineAndPauseSemaphores(ctx context.Context, app core.App
 
 		runnerID, err := mobileRunnerRecordIdentifier(app, record)
 		if err != nil {
-			app.Logger().Error("build stale runner identifier failed", "record_id", record.Id, "error", err)
+			app.Logger().
+				Error("build stale runner identifier failed", "record_id", record.Id, "error", err)
 			continue
 		}
 
 		shouldPause, err := markRunnerOfflineIfStillStale(app, record.Id, cutoff)
 		if err != nil {
-			app.Logger().Error("mark stale runner offline failed", "runner_id", runnerID, "error", err)
+			app.Logger().
+				Error("mark stale runner offline failed", "runner_id", runnerID, "error", err)
 			continue
 		}
 		if !shouldPause {
@@ -103,7 +103,8 @@ func markStaleRunnersOfflineAndPauseSemaphores(ctx context.Context, app core.App
 		}
 
 		if err := pauseStaleRunnerSemaphore(ctx, runnerID, cutoff); err != nil {
-			app.Logger().Error("pause stale runner semaphore failed", "runner_id", runnerID, "error", err)
+			app.Logger().
+				Error("pause stale runner semaphore failed", "runner_id", runnerID, "error", err)
 		}
 	}
 
@@ -143,7 +144,9 @@ func markRunnerOfflineIfStillStale(app core.App, recordID string, cutoff time.Ti
 }
 
 func pauseStaleRunnerSemaphore(ctx context.Context, runnerID string, cutoff time.Time) error {
-	client, err := mobileRunnerLifecycleMonitorTemporalClient(workflowengine.MobileRunnerSemaphoreDefaultNamespace)
+	client, err := mobileRunnerLifecycleMonitorTemporalClient(
+		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+	)
 	if err != nil {
 		return err
 	}
@@ -155,7 +158,7 @@ func pauseStaleRunnerSemaphore(ctx context.Context, runnerID string, cutoff time
 		Args: []any{workflows.MobileRunnerSemaphorePauseRunnerRequest{
 			Reason:               "heartbeat timeout",
 			CancelRunning:        true,
-			ShutdownAfterSeconds: int(mobileRunnerLifecycleShutdownAfter / time.Second),
+			ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 		}},
 		WaitForStage: tclient.WorkflowUpdateStageAccepted,
 	})
