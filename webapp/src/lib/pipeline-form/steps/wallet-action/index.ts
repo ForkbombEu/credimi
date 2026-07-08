@@ -14,6 +14,7 @@ import {
 	type PipelineStepType
 } from '$lib/pipeline/types.js';
 import { getPath } from '$lib/utils';
+import { isError } from 'effect/Predicate';
 
 import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase';
@@ -154,9 +155,3 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		return { wallet, version, action, runner };
 	}
 };
-
-//
-
-function isError(value: unknown): value is Error {
-	return value instanceof Error;
-}
