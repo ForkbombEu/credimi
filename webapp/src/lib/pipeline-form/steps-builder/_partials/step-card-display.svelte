@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { showPipelineFormError } from '../../errors.js';
 	import { type EnrichedStep, Enrich404Error } from '../types';
-	import { getStepConfig, getStepData } from './utils';
+	import { getStepData, getStepError } from './utils';
 
 	//
 
@@ -43,7 +43,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
-	const config = $derived(getStepConfig(step));
+	const config = $derived(steps.getConfigByType(step[0].use));
+	const stepError = $derived(getStepError(step));
 	const stepData = $derived(getStepData(step));
 	const cardData = $derived.by(() => {
 		if (!stepData) return undefined;
@@ -79,14 +80,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="space-y-4 p-3 pt-2">
 			<div>
-				{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
+				{#if stepError}
 					<div class="rounded-md bg-red-700 p-3 text-white">
 						<div class="flex items-center gap-2">
 							<TriangleAlert size={12} />
-							<p class="text-xs">{step[1].message}</p>
+							<p class="text-xs">{stepError.message}</p>
 						</div>
-						{#if step[1] instanceof Enrich404Error}
-							<p class="pt-2 text-xs opacity-60">{step[1].description}</p>
+						{#if stepError instanceof Enrich404Error}
+							<p class="pt-2 text-xs opacity-60">{stepError.description}</p>
 						{/if}
 					</div>
 				{:else if cardData instanceof Error}

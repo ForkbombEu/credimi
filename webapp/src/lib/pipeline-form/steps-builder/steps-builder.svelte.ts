@@ -24,7 +24,7 @@ import { ExecutionTarget } from '../execution-target/index.js';
 import * as pipelinestep from '../steps';
 import { walletActionStepConfig } from '../steps/wallet-action/index.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
-import { getStepConfig, getStepData, isStepEditable } from './_partials/utils.js';
+import { getStepData, isStepEditable } from './_partials/utils.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
 
@@ -118,7 +118,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (this.state.mode.id === 'form') {
 			this.exitFormState();
 		}
-		const config = pipelinestep.configs.find((c) => c.use === type);
+		const config = pipelinestep.getConfigByType(type as PipelineStep['use']);
 		if (!config) return;
 		this.openForm('add', config, {});
 	}
@@ -129,7 +129,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		}
 		const step = this.state.steps[index];
 		if (!step || !isStepEditable(step)) return;
-		const config = getStepConfig(step);
+		const config = pipelinestep.getConfigByType(step[0].use);
 		const data = getStepData(step);
 		if (!config || !data) return;
 		this.openForm('edit', config, { initial: data, stepIndex: index });
@@ -253,7 +253,9 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (editor.isDirty) {
 			const confirmed = await confirm({
 				message:
-					m.discard_manual_yaml_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form(),
+					m.discard_manual_yaml_changes() +
+					'\n' +
+					m.Are_you_sure_you_want_to_exit_the_form(),
 				destructive: true
 			});
 			if (!confirmed) return false;

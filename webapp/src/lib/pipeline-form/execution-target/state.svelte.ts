@@ -33,6 +33,10 @@ export function hasUndefinedRunner() {
 	return state.current?.runner === undefined;
 }
 
+export function shouldDefaultToGlobalRunner() {
+	return hasGlobalRunner() || hasUndefinedRunner();
+}
+
 export function loadFromPipeline(pipeline: EnrichedPipeline) {
 	const steps = pipeline.steps.filter((step) => step[0].use === 'mobile-automation');
 

@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import { getHubItemData } from '$lib/hub';
+	import { resource } from 'runed';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 
@@ -55,47 +56,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	let walletVersionDialogOpen = $state(false);
-	let foundVersions = $state<WalletVersionsResponse[]>([]);
-	let versionsLoading = $state(false);
-	let versionsLoadError = $state<string | null>(null);
 
-	$effect(() => {
-		const ctx = bulkContext;
-		if (!walletVersionDialogOpen || !ctx) {
-			if (!walletVersionDialogOpen) {
-				foundVersions = [];
-				versionsLoadError = null;
-				versionsLoading = false;
-			}
-			return;
-		}
+	const walletVersions = resource(
+		() => (walletVersionDialogOpen && bulkContext ? bulkContext.wallet.id : null),
+		async (walletId) => {
+			if (!walletId) return null;
 
-		versionsLoading = true;
-		versionsLoadError = null;
-
-		let cancelled = false;
-		pb.collection('wallet_versions')
-			.getFullList({
-				filter: `wallet = "${ctx.wallet.id}"`,
+			return pb.collection('wallet_versions').getFullList<WalletVersionsResponse>({
+				filter: pb.filter('wallet = {:wallet}', { wallet: walletId }),
 				requestKey: null
-			})
-			.then((list) => {
-				if (!cancelled) {
-					foundVersions = list;
-					versionsLoading = false;
-				}
-			})
-			.catch((e: unknown) => {
-				if (!cancelled) {
-					versionsLoadError = e instanceof Error ? e.message : String(e);
-					versionsLoading = false;
-				}
 			});
-
-		return () => {
-			cancelled = true;
-		};
-	});
+		},
+		{}
+	);
 
 	function applyVersionAndClose(
 		version: SelectedVersion,
@@ -151,10 +124,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</WithLabel>
 				</div>
 
-				{#if versionsLoading}
+				{#if walletVersions.loading}
 					<p class="text-sm text-muted-foreground">{m.Loading()}</p>
-				{:else if versionsLoadError}
-					<p class="text-sm text-destructive">{versionsLoadError}</p>
+				{:else if walletVersions.error}
+					<p class="text-sm text-destructive">{walletVersions.error.message}</p>
 				{:else}
 					<WithLabel label={m.Version()} />
 
@@ -177,7 +150,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</ItemCard>
 
 					<WithEmptyState
-						items={foundVersions}
+						items={walletVersions.current ?? []}
 						emptyText={m.No_wallet_versions_found()}
 						containerClass="[&>div>div]:p-0!"
 					>

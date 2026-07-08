@@ -17,7 +17,7 @@ import { getExceptionMessage } from '@/utils/errors.js';
 import type { RuntimeOptions } from './runtime-options-form/runtime-options-form.svelte.js';
 
 import { type Pipeline, type PipelineStep } from '../pipeline/types';
-import { getConfigByType } from './steps';
+import { getConfigByTypeOrThrow } from './steps';
 import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 
 /* Fetching pipeline */
@@ -43,7 +43,7 @@ export async function getEnrichedPipeline(
 			enrichedSteps.push([step, {}]);
 		} else {
 			try {
-				const config = getConfigByType(step.use);
+				const config = getConfigByTypeOrThrow(step.use);
 				const data = await config.deserialize(step.with);
 				enrichedSteps.push([step, data]);
 			} catch (e) {
@@ -85,7 +85,7 @@ export function createPipelineYaml(
 		if (step.use === 'debug') {
 			return step;
 		}
-		const config = getConfigByType(step.use);
+		const config = getConfigByTypeOrThrow(step.use);
 		if ('id' in step) {
 			step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;
 		}

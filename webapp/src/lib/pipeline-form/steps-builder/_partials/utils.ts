@@ -2,25 +2,26 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import * as steps from '$lib/pipeline-form/steps';
+import { getConfigByType } from '$lib/pipeline-form/steps';
+import { isError } from 'effect/Predicate';
 
 import type { GenericRecord } from '@/utils/types';
 
-import { Enrich404Error, type EnrichedStep } from '../types';
+import type { EnrichedStep } from '../types';
 
 //
 
-export function getStepData(step: EnrichedStep): GenericRecord | undefined {
-	if (step[0].use === 'debug') return undefined;
-	if (step[1] instanceof Enrich404Error || step[1] instanceof Error) return undefined;
-	return step[1];
+export function getStepError(step: EnrichedStep): Error | undefined {
+	return isError(step[1]) ? step[1] : undefined;
 }
 
-export function getStepConfig(step: EnrichedStep): steps.AnyConfig | undefined {
-	return steps.configs.find((c) => c.use === step[0].use);
+export function getStepData(step: EnrichedStep): GenericRecord | undefined {
+	if (step[0].use === 'debug') return undefined;
+	if (getStepError(step)) return undefined;
+	return step[1] as GenericRecord;
 }
 
 export function isStepEditable(step: EnrichedStep): boolean {
 	if (step[0].use === 'debug') return false;
-	return getStepData(step) !== undefined && getStepConfig(step) !== undefined;
+	return getStepData(step) !== undefined && getConfigByType(step[0].use) !== undefined;
 }

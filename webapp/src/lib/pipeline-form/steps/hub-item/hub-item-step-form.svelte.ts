@@ -40,9 +40,7 @@ export class HubItemStepForm extends BaseForm<HubItem, HubItemStepForm> {
 
 	selectItem(item: HubItem) {
 		this.selectedItem = item;
-		if (this.intent === 'add') {
-			this.commit(item);
-		}
+		this.commitIfAdding(item);
 	}
 
 	discardSelection() {

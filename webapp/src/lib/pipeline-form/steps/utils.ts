@@ -3,24 +3,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
-import type { PipelineStep } from '$lib/pipeline/types';
+import type { PipelineStep, PipelineStepType } from '$lib/pipeline/types';
 
 import BugIcon from '@lucide/svelte/icons/bug';
 
 import { m } from '@/i18n';
 
-import { configs } from '.';
+import { getConfigByTypeOrThrow } from '.';
 
 //
 
 export function getDisplayData(type: string): EntityData {
 	if (type === 'debug') {
 		return debugEntityData;
-	} else {
-		const config = configs.find((c) => c.use === type);
-		if (!config) throw new Error(m.Pipeline_form_unknown_step_type({ type }));
-		return config.display;
 	}
+	return getConfigByTypeOrThrow(type as PipelineStepType).display;
 }
 
 export function formatLinkedId(step: PipelineStep) {
