@@ -5,9 +5,10 @@
 import type { HubItem } from '$lib/hub';
 import type { PipelineStepByType } from '$lib/pipeline/types';
 
-import type { WalletActionStepData } from '../../steps/wallet-action/wallet-action-step-form.svelte.js';
+import { isError } from 'effect/Predicate';
 
-import { Enrich404Error, type EnrichedStep } from '../types';
+import type { WalletActionStepData } from '../../steps/wallet-action/wallet-action-step-form.svelte.js';
+import type { EnrichedStep } from '../types';
 
 //
 
@@ -57,7 +58,7 @@ export function getBulkWalletVersionContext(
 	for (const i of mobileIndices) {
 		const tuple = steps[i]!;
 		const [, data] = tuple;
-		if (data instanceof Enrich404Error || data instanceof Error) return null;
+		if (isError(data)) return null;
 		if (!isWalletActionData(data)) return null;
 
 		const w = mobileWith(tuple[0]);
