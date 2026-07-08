@@ -14,7 +14,7 @@ import type { TypedConfig } from '../types';
 import { getLastPathSegment } from '../_partials/misc';
 import { formatLinkedId } from '../utils.js';
 import { ConformanceCheckStepForm, type FormData } from './conformance-check-step-form.svelte.js';
-import { getTestName } from './utils';
+import { getTestName, isOpenIdWalletConformanceSuiteTest } from './utils';
 
 //
 
@@ -30,10 +30,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		const _with: StepData = { check_id: test };
 		if (test.startsWith('openid4vci_issuer') || test.startsWith('openid4vp_verifier')) {
 			_with.parameters = { deeplink: '<placeholder>' };
-		} else if (
-			test.startsWith('openid4vci_wallet/1.0/openid_conformance_suite') ||
-			test.startsWith('openid4vp_wallet/1.0/openid_conformance_suite')
-		) {
+		} else if (isOpenIdWalletConformanceSuiteTest(test)) {
 			if (!action_id) {
 				throw new Error(m.Pipeline_form_missing_wallet_action_openid4vci_wallet_check());
 			}

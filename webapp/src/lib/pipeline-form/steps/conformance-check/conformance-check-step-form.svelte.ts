@@ -16,7 +16,7 @@ import { WalletActionsCategoryOptions, type WalletActionsResponse } from '@/pock
 import { ExecutionTarget } from '../../execution-target';
 import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
-import { getTestName } from './utils';
+import { getTestName, isOpenIdWalletTest } from './utils';
 
 //
 
@@ -320,10 +320,6 @@ export type WalletActionSelection =
 	| { kind: 'blocked' }
 	| { kind: 'auto'; action: WalletActionsResponse }
 	| { kind: 'picker' };
-
-export function isOpenIdWalletTest(test: string) {
-	return test.startsWith('openid4vci_wallet') || test.startsWith('openid4vp_wallet');
-}
 
 export function resolveWalletActionSelection(
 	actions: WalletActionsResponse[]
