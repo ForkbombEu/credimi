@@ -86,21 +86,21 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	selectWallet(wallet: HubItem) {
 		this.data.wallet = wallet;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
-			this.data.runner = 'global';
-		}
+		this.defaultRunnerIfNeeded();
 	}
 
 	selectVersion(version: WalletVersionsResponse) {
 		this.data.version = version;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
-			this.data.runner = 'global';
-		}
+		this.defaultRunnerIfNeeded();
 	}
 
 	selectExternalVersion() {
 		this.data.version = EXTERNAL_VERSION;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+		this.defaultRunnerIfNeeded();
+	}
+
+	private defaultRunnerIfNeeded() {
+		if (ExecutionTarget.shouldDefaultToGlobalRunner()) {
 			this.data.runner = 'global';
 		}
 	}
@@ -124,9 +124,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 			runner: this.data.runner!
 		};
 		this.data.action = action;
-		if (this.intent === 'add') {
-			this.commit({ ...this.data, action } as WalletActionStepData);
-		}
+		this.commitIfAdding({ ...this.data, action } as WalletActionStepData);
 	}
 
 	removeAction() {
