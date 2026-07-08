@@ -14,6 +14,7 @@ import type { TypedConfig } from '../types';
 import { getLastPathSegment } from '../_partials/misc';
 import { formatLinkedId } from '../utils.js';
 import { ConformanceCheckStepForm, type FormData } from './conformance-check-step-form.svelte.js';
+import { getTestName } from './utils';
 
 //
 
@@ -98,7 +99,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 			throw new Error(m.Pipeline_form_conformance_check_path_not_found());
 		}
 		return {
-			title: test.split('/').at(-1) ?? '',
+			title: getTestName(test),
 			copyText: test,
 			avatar: suite.logo,
 			meta: {

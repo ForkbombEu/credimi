@@ -16,6 +16,7 @@ import { WalletActionsCategoryOptions, type WalletActionsResponse } from '@/pock
 import { ExecutionTarget } from '../../execution-target';
 import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
+import { getTestName } from './utils';
 
 //
 
@@ -131,6 +132,8 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		return { kind: 'none' };
 	});
 
+	selectedTestName = $derived(this.data.test ? getTestName(this.data.test) : '');
+
 	testOptions: TestOption[] = $derived.by(() => {
 		const wallet = ExecutionTarget.state.current?.wallet;
 		const walletTestsBlocked =
@@ -140,7 +143,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 				getWalletTestBlockReason(wallet, this.walletActions));
 
 		return this.availableTests.map((test) => {
-			const testName = test.split('/').at(-1) ?? test;
+			const testName = getTestName(test);
 
 			if (!isOpenIdWalletTest(test)) {
 				return { test, testName, enabled: true };

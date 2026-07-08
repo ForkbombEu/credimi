@@ -90,7 +90,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if form.data.test}
 					<WithLabel label={m.Test()}>
 						<ItemCard
-							title={form.data.test.split('/').at(-1) ?? form.data.test}
+							title={form.selectedTestName}
 							onDiscard={() => form.discardTest()}
 						/>
 					</WithLabel>
