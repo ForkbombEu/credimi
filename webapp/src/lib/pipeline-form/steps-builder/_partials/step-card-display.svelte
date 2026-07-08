@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { showPipelineFormError } from '../../errors.js';
 	import { type EnrichedStep, Enrich404Error } from '../types';
-	import { getStepConfig, getStepData } from './utils';
+	import { getStepData } from './utils';
 
 	//
 
@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
-	const config = $derived(getStepConfig(step));
+	const config = $derived(steps.getConfigByType(step[0].use));
 	const stepData = $derived(getStepData(step));
 	const cardData = $derived.by(() => {
 		if (!stepData) return undefined;

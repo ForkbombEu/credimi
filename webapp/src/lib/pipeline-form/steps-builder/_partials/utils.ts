@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import * as steps from '$lib/pipeline-form/steps';
+import { getConfigByType } from '$lib/pipeline-form/steps';
 
 import type { GenericRecord } from '@/utils/types';
 
@@ -16,11 +16,7 @@ export function getStepData(step: EnrichedStep): GenericRecord | undefined {
 	return step[1];
 }
 
-export function getStepConfig(step: EnrichedStep): steps.AnyConfig | undefined {
-	return steps.configs.find((c) => c.use === step[0].use);
-}
-
 export function isStepEditable(step: EnrichedStep): boolean {
 	if (step[0].use === 'debug') return false;
-	return getStepData(step) !== undefined && getStepConfig(step) !== undefined;
+	return getStepData(step) !== undefined && getConfigByType(step[0].use) !== undefined;
 }
