@@ -188,22 +188,18 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 		if (!isOpenIdWalletTest(option.test)) {
 			this.data.action_id = undefined;
-			if (this.intent === 'add') {
-				this.commit({ ...this.data, test: option.test } as FormData);
-			}
+			this.commitIfAdding({ ...this.data, test: option.test } as FormData);
 			return;
 		}
 
 		const selection = resolveWalletActionSelection(this.genericCredentialActions);
 		if (selection.kind === 'auto') {
 			this.data.action_id = getPath(selection.action);
-			if (this.intent === 'add') {
-				this.commit({
-					...this.data,
-					test: option.test,
-					action_id: this.data.action_id
-				} as FormData);
-			}
+			this.commitIfAdding({
+				...this.data,
+				test: option.test,
+				action_id: this.data.action_id
+			} as FormData);
 		} else {
 			this.data.action_id = undefined;
 		}
@@ -211,9 +207,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	selectWalletAction(action: WalletActionsResponse) {
 		this.data.action_id = getPath(action);
-		if (this.intent === 'add') {
-			this.commit({ ...this.data, action_id: this.data.action_id } as FormData);
-		}
+		this.commitIfAdding({ ...this.data, action_id: this.data.action_id } as FormData);
 	}
 
 	discardTest() {

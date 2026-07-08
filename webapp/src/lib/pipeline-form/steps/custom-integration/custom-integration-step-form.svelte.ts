@@ -86,9 +86,8 @@ export class CustomIntegrationStepForm extends BaseForm<
 		this.data.integration = integration;
 		this.data.parameters = undefined;
 		this.initJsonSchemaForm(integration);
-		if (this.intent === 'add' && !this.hasSchema) {
-			const payload = this.getSubmitData();
-			if (payload) this.commit(payload);
+		if (!this.hasSchema) {
+			this.commitIfAdding();
 		}
 	}
 

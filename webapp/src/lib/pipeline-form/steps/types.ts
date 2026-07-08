@@ -93,6 +93,12 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 		}
 	}
 
+	protected commitIfAdding(data?: Deserialized) {
+		if (this.intent === 'add') {
+			this.commit(data);
+		}
+	}
+
 	abstract canSave(): boolean;
 	abstract getSubmitData(): Deserialized | undefined;
 }
