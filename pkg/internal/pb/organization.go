@@ -166,11 +166,6 @@ func registerOrganizationPublicationHooks(app core.App) {
 	})
 }
 
-// registerOrganizationProtectedFieldsHooks prevents regular users from changing
-// the max_pipelines_in_queue quota on an existing organization. The field is
-// reverted to its stored value so a crafted update request cannot raise the
-// pipeline queue quota. Superuser requests are left untouched so admins can
-// still set the quota, and internal server saves never reach this request hook.
 func registerOrganizationProtectedFieldsHooks(app core.App) {
 	app.OnRecordUpdateRequest("organizations").BindFunc(func(e *core.RecordRequestEvent) error {
 		if e.HasSuperuserAuth() {
