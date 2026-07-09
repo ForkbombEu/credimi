@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 import { pipe, String } from 'effect';
 import * as _ from 'lodash';
 import { ClientResponseError } from 'pocketbase';
@@ -18,7 +19,6 @@ import type { RuntimeOptions } from './runtime-options-form/runtime-options-form
 
 import { type Pipeline, type PipelineStep } from '../pipeline/types';
 import { getConfigByTypeOrThrow } from './steps';
-import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 
 /* Fetching pipeline */
 

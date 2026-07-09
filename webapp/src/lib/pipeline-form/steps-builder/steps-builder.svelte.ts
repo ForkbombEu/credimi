@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Renderable } from '$lib/renderable';
+import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
 import { StateManager } from '$lib/state-manager/state-manager';
@@ -16,7 +17,6 @@ import { m } from '@/i18n';
 import type { PipelineStep, PipelineStepByType } from '../../pipeline/types';
 import type { SelectedVersion } from '../execution-target/types.js';
 import type { WalletActionStepData } from '../steps/wallet-action/types.js';
-import type { EnrichedStep } from './types';
 
 import { showPipelineFormError } from '../errors.js';
 import { resolveExecutionTarget } from '../execution-target/index.js';
