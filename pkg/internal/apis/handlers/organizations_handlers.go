@@ -7,6 +7,7 @@ package handlers
 import (
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
@@ -16,6 +17,10 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
+
+type OrganizationHasPublishedResponse struct {
+	HasPublished bool `json:"has_published"`
+}
 
 var OrganizationRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/organizations",
@@ -35,6 +40,13 @@ var OrganizationRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/visible-namespaces",
 			Handler:     HandleGetVisibleOrganizationNamespaces,
 			Description: "Get the caller organization namespace plus all published organization namespaces",
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/{canonified_name}/has-published",
+			Handler:        HandleGetOrganizationHasPublished,
+			ResponseSchema: OrganizationHasPublishedResponse{},
+			Description:    "Report whether the organization owns any published records",
 		},
 	},
 }
@@ -103,6 +115,53 @@ func HandleGetAllNamespaces() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
 			"namespaces": namespaces,
+		})
+	}
+}
+
+func HandleGetOrganizationHasPublished() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		canonifiedName := strings.TrimSpace(e.Request.PathValue("canonified_name"))
+		if canonifiedName == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"organizations",
+				"canonified_name is required",
+				"missing organization canonified name",
+			)
+		}
+
+		userOrg, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organizations",
+				"unable to get user organization",
+				err.Error(),
+			)
+		}
+
+		if userOrg.GetString("canonified_name") != canonifiedName {
+			return apierror.New(
+				http.StatusForbidden,
+				"authorization",
+				"forbidden",
+				"organization does not belong to the authenticated user",
+			)
+		}
+
+		hasPublished, err := pbutils.OrganizationHasPublicEntities(e.App, userOrg.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organizations",
+				"failed to check organization published records",
+				err.Error(),
+			)
+		}
+
+		return e.JSON(http.StatusOK, OrganizationHasPublishedResponse{
+			HasPublished: hasPublished,
 		})
 	}
 }

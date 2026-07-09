@@ -36,7 +36,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Form.Control>
 		{#snippet children({ props })}
 			<div class="flex items-center gap-2">
-				<Switch {...props} checked={$value} onCheckedChange={(v) => ($value = v)} />
+				<Switch
+					{...props}
+					disabled={options.disabled}
+					checked={$value}
+					onCheckedChange={(v) => ($value = v)}
+				/>
 				<Form.Label>{options.label ?? capitalize(name)}</Form.Label>
 			</div>
 		{/snippet}

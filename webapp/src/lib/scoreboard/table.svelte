@@ -26,10 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="space-y-4">
-	<HorizontalScrollArea
-		class="overflow-hidden rounded-md bg-background"
-		refresh={scrollRefresh}
-	>
+	<HorizontalScrollArea class="overflow-hidden rounded-md bg-background" refresh={scrollRefresh}>
 		<table class="w-full caption-bottom text-sm">
 			<Table.Header>
 				{#each scoreboard.table.getHeaderGroups() as headerGroup (headerGroup.id)}

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -133,11 +134,104 @@ func TestOrganizationHandlers(t *testing.T) {
 			},
 			TestAppFactory: setupOrganizationApp,
 		},
+		{
+			Name:   "get organization has published (none)",
+			Method: http.MethodGet,
+			URL:    "/api/organizations/usera-s-organization/has-published",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"has_published":false`,
+			},
+			TestAppFactory: setupOrganizationApp,
+		},
+		{
+			Name:   "get organization has published (forbidden for other org)",
+			Method: http.MethodGet,
+			URL:    "/api/organizations/userb-s-organization/has-published",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			ExpectedStatus: 403,
+			ExpectedContent: []string{
+				"forbidden",
+			},
+			TestAppFactory: setupOrganizationApp,
+		},
+		{
+			Name:           "get organization has published (unauthenticated)",
+			Method:         http.MethodGet,
+			URL:            "/api/organizations/usera-s-organization/has-published",
+			ExpectedStatus: 401,
+			ExpectedContent: []string{
+				"authentication_required",
+			},
+			TestAppFactory: setupOrganizationApp,
+		},
 	}
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
 }
+
+func TestGetOrganizationHasPublished_WithPublishedEntity(t *testing.T) {
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:   "get organization has published (true)",
+			Method: http.MethodGet,
+			URL:    "/api/organizations/usera-s-organization/has-published",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"has_published":true`,
+			},
+			TestAppFactory: setupOrganizationAppWithPublishedWallet,
+		},
+	}
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+
+func setupOrganizationAppWithPublishedWallet(t testing.TB) *tests.TestApp {
+	app := setupOrganizationApp(t)
+
+	orgID, err := getOrgIDfromNameForTest(app, "userA's organization")
+	require.NoError(t, err)
+
+	walletsColl, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+
+	wallet := core.NewRecord(walletsColl)
+	wallet.Set("owner", orgID)
+	wallet.Set("name", "published-wallet")
+	wallet.Set("published", true)
+	require.NoError(t, app.Save(wallet))
+
+	return app
+}
+
+func getOrgIDfromNameForTest(app *tests.TestApp, name string) (string, error) {
+	record, err := app.FindFirstRecordByFilter(
+		"organizations",
+		`name={:name}`,
+		dbx.Params{"name": name},
+	)
+	if err != nil {
+		return "", err
+	}
+	return record.Id, nil
+}
+
 func TestGetAllNamespaces(t *testing.T) {
 	scenarios := []tests.ApiScenario{
 		{

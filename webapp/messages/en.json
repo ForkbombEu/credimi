@@ -764,6 +764,7 @@
 	"Dashboard": "Dashboard",
 	"Change_Organization_Name": "Change Organization Name?",
 	"Rename_organization_warning": "If you rename your organization, you will lose visibility of all your previous test runs (because the organization's internal namespace will be changed). Are you sure you want to proceed?",
+	"organization_published_locked_info": "This organization is published because it owns public records. Unpublish all of them first to unpublish the organization.",
 	"Continue": "Continue",
 	"forgot_password_description": "Please enter here your email to recover your password.",
 	"Recover_password": "Recover password",

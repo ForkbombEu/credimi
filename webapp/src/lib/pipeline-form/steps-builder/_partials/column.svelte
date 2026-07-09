@@ -44,13 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 </script>
 
-<Resizable.Pane
-	bind:this={pane}
-	class={classes}
-	{defaultSize}
-	{minSize}
-	{order}
->
+<Resizable.Pane bind:this={pane} class={classes} {defaultSize} {minSize} {order}>
 	<div class="flex items-center justify-between border-b bg-slate-100 px-4 py-2">
 		<T class="font-semibold">{title}</T>
 		{@render titleRight?.()}

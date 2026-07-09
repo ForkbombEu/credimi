@@ -6,15 +6,14 @@ package pb
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -24,11 +23,11 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-type organizationPublicationCollection struct {
-	Collection  string
-	OwnerField  string
-	PublicField string
-}
+type organizationPublicationCollection = pbutils.OrganizationPublicationCollection
+
+var organizationPublicationCollections = pbutils.OrganizationPublicationCollections()
+
+const defaultMaxPipelinesInQueue = 1
 
 var (
 	newNamespaceClient          = client.NewNamespaceClient
@@ -39,20 +38,11 @@ var (
 	adminRunnerURLsFn           = hooks.WorkerManagerAdminRunnerURLs
 )
 
-var organizationPublicationCollections = []organizationPublicationCollection{
-	{Collection: "wallets", OwnerField: "owner", PublicField: "published"},
-	{Collection: "credential_issuers", OwnerField: "owner", PublicField: "published"},
-	{Collection: "verifiers", OwnerField: "owner", PublicField: "published"},
-	{Collection: "custom_checks", OwnerField: "owner", PublicField: "published"},
-	{Collection: "pipelines", OwnerField: "owner", PublicField: "published"},
-}
-
-const defaultMaxPipelinesInQueue = 1
-
 func HookOrganizations(app core.App) {
 	registerOrganizationNamespaceHooks(app)
 	registerOrganizationPublicationHooks(app)
 	registerOrganizationWorkerManagerPublicationHooks(app)
+	registerOrganizationProtectedFieldsHooks(app)
 }
 
 // HookNamespaceOrgs is kept as a compatibility wrapper for tests and existing call sites.
@@ -144,7 +134,7 @@ func registerOrganizationPublicationHooks(app core.App) {
 			return e.Next()
 		}
 
-		hasPublicEntities, err := organizationHasPublicEntities(e.App, e.Record.Id)
+		hasPublicEntities, err := pbutils.OrganizationHasPublicEntities(e.App, e.Record.Id)
 		if err != nil {
 			return err
 		}
@@ -162,6 +152,37 @@ func registerOrganizationPublicationHooks(app core.App) {
 				),
 			},
 		)
+	})
+}
+
+// registerOrganizationProtectedFieldsHooks prevents regular users from changing
+// admin- or system-controlled fields on an existing organization: the
+// max_pipelines_in_queue quota and the derived published flag. Each field is
+// reverted to its stored value so a crafted update request cannot raise the
+// pipeline queue quota or manually toggle publication (which is derived from the
+// organization's owned public records). Superuser requests are left untouched so
+// admins can still set these fields, and internal server saves never reach this
+// request hook.
+func registerOrganizationProtectedFieldsHooks(app core.App) {
+	app.OnRecordUpdateRequest("organizations").BindFunc(func(e *core.RecordRequestEvent) error {
+		if e.HasSuperuserAuth() {
+			return e.Next()
+		}
+
+		original := e.Record.Original()
+		if original == nil {
+			return e.Next()
+		}
+
+		if e.Record.GetInt("max_pipelines_in_queue") != original.GetInt("max_pipelines_in_queue") {
+			e.Record.Set("max_pipelines_in_queue", original.GetInt("max_pipelines_in_queue"))
+		}
+
+		if e.Record.GetBool("published") != original.GetBool("published") {
+			e.Record.Set("published", original.GetBool("published"))
+		}
+
+		return e.Next()
 	})
 }
 
@@ -187,7 +208,7 @@ func registerOrganizationWorkerManagerPublicationHooks(app core.App) {
 }
 
 func syncOrganizationPublishedForRecord(app core.App, record *core.Record) error {
-	collection := organizationPublicationCollectionByName(record.Collection())
+	collection := pbutils.OrganizationPublicationCollectionByName(record.Collection())
 	if collection == nil {
 		return nil
 	}
@@ -218,7 +239,7 @@ func syncOrganizationPublished(app core.App, ownerID string) error {
 		return err
 	}
 
-	hasPublicEntities, err := organizationHasPublicEntities(app, ownerID)
+	hasPublicEntities, err := pbutils.OrganizationHasPublicEntities(app, ownerID)
 	if err != nil {
 		return err
 	}
@@ -229,42 +250,6 @@ func syncOrganizationPublished(app core.App, ownerID string) error {
 
 	org.Set("published", hasPublicEntities)
 	return app.Save(org)
-}
-
-func organizationHasPublicEntities(app core.App, ownerID string) (bool, error) {
-	for _, collection := range organizationPublicationCollections {
-		_, err := app.FindFirstRecordByFilter(
-			collection.Collection,
-			collection.OwnerField+"={:owner} && "+collection.PublicField+"=true",
-			dbx.Params{"owner": ownerID},
-		)
-		if err == nil {
-			return true, nil
-		}
-		if errors.Is(err, sql.ErrNoRows) {
-			continue
-		}
-
-		return false, err
-	}
-
-	return false, nil
-}
-
-func organizationPublicationCollectionByName(
-	collection *core.Collection,
-) *organizationPublicationCollection {
-	if collection == nil {
-		return nil
-	}
-
-	for i := range organizationPublicationCollections {
-		if organizationPublicationCollections[i].Collection == collection.Name {
-			return &organizationPublicationCollections[i]
-		}
-	}
-
-	return nil
 }
 
 // ensureNamespaceAndWorkers ensures the given namespace exists in Temporal.

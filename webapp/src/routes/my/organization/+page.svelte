@@ -7,13 +7,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ArrowUpRight, CheckIcon, CopyIcon, InfoIcon, XIcon } from '@lucide/svelte';
 
+	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
+
 	import { CollectionForm } from '@/collections-components/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import CopyButton from '@/components/ui-custom/copyButton.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { SubmitButton } from '@/forms';
+	import { SwitchField } from '@/forms/fields';
 	import { m } from '@/i18n/index.js';
+	import { pb } from '@/pocketbase';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
 
@@ -21,6 +27,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	let { organization, isOrganizationNotEdited } = $derived(data);
+
+	const hasPublishedRequest = $derived(
+		pb.send<{ has_published: boolean }>(
+			`/api/organizations/${organization.canonified_name}/has-published`,
+			{}
+		)
+	);
 
 	setDashboardNavbar({
 		title: m.Organization(),
@@ -42,6 +55,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 {/snippet}
 
+{#snippet publishedField({ form }: FieldSnippetOptions<'organizations'>)}
+	<div class="flex items-center justify-end">
+		<div
+			class="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-2 px-4 pt-4"
+		>
+			{#await hasPublishedRequest}
+				<SwitchField
+					{form}
+					name="published"
+					options={{ label: m.Publish_to_hub(), disabled: true }}
+				/>
+			{:then result}
+				<SwitchField
+					{form}
+					name="published"
+					options={{ label: m.Publish_to_hub(), disabled: result.has_published }}
+				/>
+				{#if result.has_published}
+					<Tooltip>
+						{#snippet child({ props })}
+							<IconButton icon={InfoIcon} {...props} variant="ghost" size="sm" />
+						{/snippet}
+						{#snippet content()}
+							<T class="text-xs text-muted-foreground">
+								{m.organization_published_locked_info()}
+							</T>
+						{/snippet}
+					</Tooltip>
+				{/if}
+			{:catch}
+				<SwitchField {form} name="published" options={{ label: m.Publish_to_hub() }} />
+			{/await}
+		</div>
+	</div>
+{/snippet}
+
 {#if isOrganizationNotEdited}
 	<Alert variant="info" icon={InfoIcon}>
 		<T>
@@ -59,7 +108,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			organization = org;
 		}}
 		fieldsOptions={{
-			exclude: ['canonified_name']
+			exclude: ['canonified_name', 'max_pipelines_in_queue'],
+			order: ['published'],
+			snippets: { published: publishedField }
 		}}
 	>
 		{#snippet submitButton()}
