@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MobileTargetFields } from '../shared/mobile-target.js';
+import type { ExecutionTarget } from '../execution-target/types.js';
 import type { FormIntent } from './types.js';
 
 export type ExecutionTargetFormContext = {
-	getExecutionTarget: () => MobileTargetFields | undefined;
+	getExecutionTarget: () => ExecutionTarget | undefined;
 	isExecutionTargetLocked: () => boolean;
 };
 

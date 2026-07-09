@@ -4,8 +4,14 @@
 
 import type { WalletActionsResponse } from '@/pocketbase/types';
 
-import type { MobileTargetFields } from '../../shared/mobile-target.js';
+import { isExecutionTarget, type ExecutionTarget } from '../../execution-target/types.js';
 
-export type WalletActionStepData = MobileTargetFields & { action: WalletActionsResponse };
-export type { SelectedRunner, SelectedVersion } from '../../shared/mobile-target.js';
-export { GLOBAL_RUNNER, EXTERNAL_VERSION } from '../../shared/mobile-target.js';
+export type WalletActionStepData = ExecutionTarget & { action: WalletActionsResponse };
+
+export function isWalletActionStepData(value: unknown): value is WalletActionStepData {
+	if (!isExecutionTarget(value) || !('action' in value)) return false;
+	const action = (value as WalletActionStepData).action;
+	return (
+		!!action && typeof action === 'object' && 'id' in action && typeof action.id === 'string'
+	);
+}

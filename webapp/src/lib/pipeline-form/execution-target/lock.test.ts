@@ -6,9 +6,9 @@ import { describe, expect, it } from 'vitest';
 
 import type { EnrichedStep } from '../steps-builder/types.js';
 import type { FormIntent } from '../steps/types.js';
-import type { ExecutionTargetConfig } from './types.js';
+import type { ExecutionTarget } from './types.js';
 
-import { GLOBAL_RUNNER } from '../shared/mobile-target.js';
+import { GLOBAL_RUNNER } from './types.js';
 import { isExecutionTargetLocked } from './lock.js';
 
 function mobileSteps(count: number): EnrichedStep[] {
@@ -25,7 +25,7 @@ const specificRunner = {
 	isOnline: true
 };
 
-function target(runner: ExecutionTargetConfig['runner']): ExecutionTargetConfig {
+function target(runner: ExecutionTarget['runner']): ExecutionTarget {
 	return { wallet, version, runner };
 }
 

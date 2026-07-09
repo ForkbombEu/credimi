@@ -25,11 +25,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ItemCard from '../../steps/_partials/item-card.svelte';
 	import WithEmptyState from '../../steps/_partials/with-empty-state.svelte';
 	import WithLabel from '../../steps/_partials/with-label.svelte';
-	import {
-		EXTERNAL_VERSION,
-		type SelectedVersion,
-		type WalletActionStepData
-	} from '../../steps/wallet-action/types.js';
+	import { EXTERNAL_VERSION, type SelectedVersion } from '../../execution-target/types.js';
+	import type { WalletActionStepData } from '../../steps/wallet-action/types.js';
 	import { getBulkWalletVersionContext } from './bulk-wallet-version-context.js';
 
 	type Props = {

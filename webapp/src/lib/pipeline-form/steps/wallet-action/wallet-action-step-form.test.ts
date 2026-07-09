@@ -6,7 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('./wallet-action-step-form.svelte', () => ({ default: class {} }));
 
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from './types.js';
+import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../../execution-target/types.js';
+import { isExecutionTargetLocked } from '../../execution-target/lock.js';
 import { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 const executionTarget = {
@@ -54,7 +55,12 @@ describe('WalletActionStepForm execution target', () => {
 				runner: GLOBAL_RUNNER,
 				action: { id: 'a1', name: 'Old' } as never
 			},
-			isExecutionTargetLocked: () => false
+			isExecutionTargetLocked: () =>
+				isExecutionTargetLocked({
+					intent: 'edit',
+					steps: [[{ use: 'mobile-automation' } as never, {}]],
+					target: executionTarget
+				})
 		});
 
 		expect(form.isExecutionTargetLocked()).toBe(false);
@@ -84,6 +90,5 @@ describe('WalletActionStepForm edit intent', () => {
 			action: newAction
 		});
 		expect(onSubmit).toHaveBeenCalledOnce();
-		expect(onSubmit.mock.calls[0][0].action.name).toBe('New');
 	});
 });

@@ -29,22 +29,17 @@ import {
 	EXTERNAL_VERSION,
 	GLOBAL_RUNNER,
 	type SelectedRunner,
-	type SelectedVersion,
-	type WalletActionStepData
-} from './types.js';
+	type SelectedVersion
+} from '../../execution-target/types.js';
+import type { WalletActionStepData } from './types.js';
 import {
 	getRunnerLabel,
 	getVersionLabel,
 	WalletActionStepForm
 } from './wallet-action-step-form.svelte.js';
 
-export {
-	EXTERNAL_VERSION,
-	GLOBAL_RUNNER,
-	type SelectedRunner,
-	type SelectedVersion,
-	type WalletActionStepData
-} from './types.js';
+export type { WalletActionStepData } from './types.js';
+export { isWalletActionStepData } from './types.js';
 
 //
 

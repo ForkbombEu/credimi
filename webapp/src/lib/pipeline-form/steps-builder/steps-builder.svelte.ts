@@ -7,19 +7,21 @@ import type { Renderable } from '$lib/renderable';
 import { confirm } from '$lib/layout/global-confirm.svelte';
 import { StateManager } from '$lib/state-manager/state-manager';
 import { cloneDeep } from 'lodash';
+import { isError } from 'effect/Predicate';
 
 import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
 
-import type { PipelineStep } from '../../pipeline/types';
-import type { SelectedVersion } from '../steps/wallet-action/types.js';
+import type { PipelineStep, PipelineStepByType } from '../../pipeline/types';
+import type { SelectedVersion } from '../execution-target/types.js';
+import type { WalletActionStepData } from '../steps/wallet-action/types.js';
 import type { EnrichedStep } from './types';
 
 import { showPipelineFormError } from '../errors.js';
 import { isExecutionTargetLocked, resolveExecutionTarget } from '../execution-target/index.js';
-import { syncMobileStepVersionsIfSameWallet } from '../execution-target/sync-mobile-versions.js';
 import * as pipelinestep from '../steps';
+import { walletActionStepConfig } from '../steps/wallet-action/index.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
 import { getStepData, isStepEditable } from './_partials/utils.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
@@ -313,7 +315,30 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const ctx = getBulkWalletVersionContext(this.state.steps);
 		if (!ctx) return;
 		this.stateManager.run((state) => {
-			state.steps = syncMobileStepVersionsIfSameWallet(state.steps, ctx.wallet.id, version);
+			state.steps = this.syncMobileStepVersions(state.steps, ctx.wallet.id, version);
+		});
+	}
+
+	private syncMobileStepVersions(
+		steps: EnrichedStep[],
+		walletId: string,
+		version: SelectedVersion
+	): EnrichedStep[] {
+		return steps.map((tuple) => {
+			const [raw, data] = tuple;
+			if (raw.use !== 'mobile-automation') return tuple;
+			if (isError(data)) return tuple;
+
+			const stepData = data as unknown as WalletActionStepData;
+			if (stepData.wallet.id !== walletId) return tuple;
+
+			const updated: WalletActionStepData = { ...stepData, version };
+			const nextRaw = {
+				...raw,
+				with: walletActionStepConfig.serialize(updated)
+			} as PipelineStepByType<'mobile-automation'>;
+
+			return [nextRaw, updated as GenericRecord] as EnrichedStep;
 		});
 	}
 }

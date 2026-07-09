@@ -8,7 +8,7 @@ import type { PipelineStepByType } from '../../pipeline/types.js';
 import type { EnrichedStep } from '../shared/enriched-step.js';
 import type { WalletActionStepData } from '../steps/wallet-action/types.js';
 
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../shared/mobile-target.js';
+import { EXTERNAL_VERSION, GLOBAL_RUNNER } from './types.js';
 import { resolveExecutionTarget } from './resolve.js';
 
 function mobileStep(data: WalletActionStepData): EnrichedStep {

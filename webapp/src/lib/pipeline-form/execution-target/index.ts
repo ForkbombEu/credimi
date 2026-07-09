@@ -2,7 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export type { ExecutionTargetConfig } from './types.js';
+export {
+	EXTERNAL_VERSION,
+	GLOBAL_RUNNER,
+	isExecutionTarget,
+	type ExecutionTarget,
+	type SelectedRunner,
+	type SelectedVersion
+} from './types.js';
 export { resolveExecutionTarget } from './resolve.js';
 export { isExecutionTargetLocked } from './lock.js';
-export { syncMobileStepVersionsIfSameWallet } from './sync-mobile-versions.js';
