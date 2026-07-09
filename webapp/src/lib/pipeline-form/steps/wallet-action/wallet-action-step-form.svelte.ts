@@ -138,6 +138,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		this.data.wallet = undefined;
 		this.data.version = undefined;
 		this.data.runner = undefined;
+		this.data.action = undefined;
 	}
 
 	removeVersion() {

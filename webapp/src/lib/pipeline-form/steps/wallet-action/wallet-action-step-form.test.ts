@@ -45,11 +45,13 @@ describe('WalletActionStepForm execution target', () => {
 		);
 
 		expect(form.state).toBe('select-action');
+		form.selectAction({ id: 'a1', name: 'Action' } as never);
 
 		form.removeWallet();
 
 		expect(form.state).toBe('select-wallet');
 		expect(form.data.wallet).toBeUndefined();
+		expect(form.data.action).toBeUndefined();
 	});
 
 	it('edit sole step with global runner is not locked', () => {
