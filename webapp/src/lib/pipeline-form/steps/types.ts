@@ -10,12 +10,11 @@ import type {
 	PipelineStepType
 } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
+import type { ExecutionTarget } from '$pipeline-form/execution-target/types.js';
 import type { Component } from 'svelte';
 import type { Simplify } from 'type-fest';
 
-import type { ExecutionTarget } from '../execution-target/types.js';
-
-import { showPipelineFormError } from '../errors.js';
+import { showPipelineFormError } from '$pipeline-form/errors.js';
 
 // Pipeline Step Config
 

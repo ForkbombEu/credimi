@@ -3,16 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { HubItem } from '$lib/hub/types.js';
+import type { TypedConfig } from '$pipeline-form/steps/types';
 
 import { entities } from '$lib/global/entities.js';
 import { getHubItemByPath, getHubItemLogo, getHubItemUrl } from '$lib/hub/utils.js';
 import { getPath } from '$lib/utils';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
 
 import { m } from '@/i18n/index.js';
 
-import type { TypedConfig } from '../types';
-
-import { getLastPathSegment } from '../_partials/misc';
 import { HubItemStepForm } from './hub-item-step-form.svelte.js';
 
 //

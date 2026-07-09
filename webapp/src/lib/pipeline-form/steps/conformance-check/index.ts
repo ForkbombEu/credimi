@@ -3,16 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/index.js';
+import type { TypedConfig } from '$pipeline-form/steps/types';
 
 import { Conformance } from '$lib';
 import { entities } from '$lib/global/entities.js';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
+import { formatLinkedId } from '$pipeline-form/steps/utils.js';
 
 import { localizeHref, m } from '@/i18n/index.js';
 
-import type { TypedConfig } from '../types';
-
-import { getLastPathSegment } from '../_partials/misc';
-import { formatLinkedId } from '../utils.js';
 import { ConformanceCheckStepForm, type FormData } from './conformance-check-step-form.svelte.js';
 import { getTestName, isOpenIdWalletConformanceSuiteTest } from './utils';
 

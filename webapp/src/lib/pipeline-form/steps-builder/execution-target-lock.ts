@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 import type { FormIntent } from '$pipeline-form/steps/index.js';
 
-import type { EnrichedStep } from '../shared/enriched-step.js';
-
-import { GLOBAL_RUNNER, type ExecutionTarget } from '../execution-target/types.js';
+import { GLOBAL_RUNNER, type ExecutionTarget } from '$pipeline-form/execution-target/types.js';
 
 export function isExecutionTargetLocked(ctx: {
 	intent: FormIntent;

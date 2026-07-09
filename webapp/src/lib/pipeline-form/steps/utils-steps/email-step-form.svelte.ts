@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
+
 import { appName } from '@/brand';
 
-import { BaseForm, type InitFormOptions } from '../types';
 import Component from './email-step-form.svelte';
 import { formatPlaceholder as fmt, Placeholder } from './placeholders/utils';
 

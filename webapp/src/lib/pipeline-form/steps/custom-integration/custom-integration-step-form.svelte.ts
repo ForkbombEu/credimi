@@ -4,12 +4,12 @@
 
 import { getValueSnapshot, validate } from '@sjsf/form';
 import { getPath } from '$lib/utils';
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 
 import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
 
-import { BaseForm, type InitFormOptions } from '../types';
 import { resolveInitialConfig, setStoredConfig } from './config-storage.js';
 import Component from './custom-integration-step-form.svelte';
 

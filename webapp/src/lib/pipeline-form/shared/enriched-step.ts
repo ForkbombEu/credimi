@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { PipelineStep } from '$lib/pipeline/types';
+
 import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
-
-import type { PipelineStep } from '../../pipeline/types';
 
 //
 

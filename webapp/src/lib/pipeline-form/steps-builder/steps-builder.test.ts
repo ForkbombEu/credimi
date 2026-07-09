@@ -26,13 +26,13 @@ vi.mock('../steps/wallet-action/index.js', () => ({
 	}
 }));
 
+import type { PipelineStepByType } from '$lib/pipeline/types.js';
+import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
+
 import { confirm } from '$lib/layout/global-confirm.svelte';
+import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '$pipeline-form/execution-target/types.js';
 
-import type { PipelineStepByType } from '../../pipeline/types.js';
-import type { EnrichedStep } from '../shared/enriched-step.js';
-import type { WalletActionStepData } from '../steps/wallet-action/types.js';
-
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../execution-target/types.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
 import { StepsBuilder } from './steps-builder.svelte.js';
 

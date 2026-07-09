@@ -6,9 +6,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('./wallet-action-step-form.svelte', () => ({ default: class {} }));
 
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../../execution-target/types.js';
-import { isExecutionTargetLocked } from '../../steps-builder/execution-target-lock.js';
-import { createInitFormOptions } from '../init-form-options.test-utils.js';
+import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '$pipeline-form/execution-target/types.js';
+import { isExecutionTargetLocked } from '$pipeline-form/steps-builder/execution-target-lock.js';
+import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
+
 import { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 const executionTarget = {

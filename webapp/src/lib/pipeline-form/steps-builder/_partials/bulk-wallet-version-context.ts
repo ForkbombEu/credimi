@@ -6,9 +6,8 @@ import type { HubItem } from '$lib/hub';
 import type { PipelineStepByType } from '$lib/pipeline/types';
 import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 
+import { isWalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 import { isError } from 'effect/Predicate';
-
-import { isWalletActionStepData } from '../../steps/wallet-action/types.js';
 
 //
 

@@ -2,11 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { PipelineStep, PipelineStepByType } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
+import type { SelectedVersion } from '$pipeline-form/execution-target/types.js';
 import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
 import { StateManager } from '$lib/state-manager/state-manager';
+import { showPipelineFormError } from '$pipeline-form/errors.js';
+import { resolveExecutionTarget } from '$pipeline-form/execution-target/index.js';
+import * as pipelinestep from '$pipeline-form/steps';
+import { walletActionStepConfig } from '$pipeline-form/steps/wallet-action/index.js';
 import { isError } from 'effect/Predicate';
 import { cloneDeep } from 'lodash';
 
@@ -14,14 +21,6 @@ import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
 
-import type { PipelineStep, PipelineStepByType } from '../../pipeline/types';
-import type { SelectedVersion } from '../execution-target/types.js';
-import type { WalletActionStepData } from '../steps/wallet-action/types.js';
-
-import { showPipelineFormError } from '../errors.js';
-import { resolveExecutionTarget } from '../execution-target/index.js';
-import * as pipelinestep from '../steps';
-import { walletActionStepConfig } from '../steps/wallet-action/index.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
 import { getStepData, isStepEditable } from './_partials/utils.js';
 import { isExecutionTargetLocked } from './execution-target-lock.js';

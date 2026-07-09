@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Record } from '$lib/pipeline/runner';
+import type { TypedConfig } from '$pipeline-form/steps/types';
 
 import { Pipeline, Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
@@ -14,23 +15,22 @@ import {
 	type PipelineStepType
 } from '$lib/pipeline/types.js';
 import { getPath } from '$lib/utils';
+import {
+	EXTERNAL_VERSION,
+	GLOBAL_RUNNER,
+	type SelectedRunner,
+	type SelectedVersion
+} from '$pipeline-form/execution-target/types.js';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
+import { formatLinkedId } from '$pipeline-form/steps/utils.js';
 import { isError } from 'effect/Predicate';
 
 import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase';
 import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
-import type { TypedConfig } from '../types';
 import type { WalletActionStepData } from './types.js';
 
-import { getLastPathSegment } from '../_partials/misc';
-import {
-	EXTERNAL_VERSION,
-	GLOBAL_RUNNER,
-	type SelectedRunner,
-	type SelectedVersion
-} from '../../execution-target/types.js';
-import { formatLinkedId } from '../utils.js';
 import CardDetailsComponent from './card-details.svelte';
 import {
 	getRunnerLabel,

@@ -5,10 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
+	import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
+
 	import { EllipsisIcon, ExternalLinkIcon, RefreshCcwIcon } from '@lucide/svelte';
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import { getHubItemData } from '$lib/hub';
+	import {
+		EXTERNAL_VERSION,
+		type SelectedVersion
+	} from '$pipeline-form/execution-target/types.js';
+	import ItemCard from '$pipeline-form/steps/_partials/item-card.svelte';
+	import WithEmptyState from '$pipeline-form/steps/_partials/with-empty-state.svelte';
+	import WithLabel from '$pipeline-form/steps/_partials/with-label.svelte';
 	import { resource } from 'runed';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
@@ -20,13 +30,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
 
-	import type { WalletActionStepData } from '../../steps/wallet-action/types.js';
-	import type { StepsBuilder } from '../steps-builder.svelte.js';
-
-	import { EXTERNAL_VERSION, type SelectedVersion } from '../../execution-target/types.js';
-	import ItemCard from '../../steps/_partials/item-card.svelte';
-	import WithEmptyState from '../../steps/_partials/with-empty-state.svelte';
-	import WithLabel from '../../steps/_partials/with-label.svelte';
 	import { getBulkWalletVersionContext } from './bulk-wallet-version-context.js';
 
 	type Props = {

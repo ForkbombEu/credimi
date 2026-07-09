@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SelfProp } from '$lib/renderable';
 
+	import WithLabel from '$pipeline-form/steps/_partials/with-label.svelte';
+
 	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
 	import Select from '@/components/ui-custom/select.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -16,7 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { HttpRequestStepForm } from './http-request-step-form.svelte.js';
 
-	import WithLabel from '../_partials/with-label.svelte';
 	import PlaceholderButtons from './placeholders/placeholder-buttons.svelte';
 
 	//

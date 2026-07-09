@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { isError } from 'effect/Predicate';
+import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 
-import type { EnrichedStep } from '../shared/enriched-step.js';
+import { isError } from 'effect/Predicate';
 
 import { isExecutionTarget, type ExecutionTarget } from './types.js';
 

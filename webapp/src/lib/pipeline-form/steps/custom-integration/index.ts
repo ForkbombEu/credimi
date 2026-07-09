@@ -2,19 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { TypedConfig } from '$pipeline-form/steps/types';
+
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities.js';
 import { getCustomCheckPublicUrl } from '$lib/hub/utils.js';
 import { getPath } from '$lib/utils';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 
 import { localizeHref, m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase';
 
-import type { TypedConfig } from '../types';
-
-import { getLastPathSegment } from '../_partials/misc';
 import {
 	CustomIntegrationStepForm,
 	type CustomIntegrationStepFormData

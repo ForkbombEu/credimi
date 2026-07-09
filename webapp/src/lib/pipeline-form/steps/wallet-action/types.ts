@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { WalletActionsResponse } from '@/pocketbase/types';
+import { isExecutionTarget, type ExecutionTarget } from '$pipeline-form/execution-target/types.js';
 
-import { isExecutionTarget, type ExecutionTarget } from '../../execution-target/types.js';
+import type { WalletActionsResponse } from '@/pocketbase/types';
 
 export type WalletActionStepData = ExecutionTarget & { action: WalletActionsResponse };
 

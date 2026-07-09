@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, it } from 'vitest';
+import type { PipelineStepByType } from '$lib/pipeline/types.js';
+import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
-import type { PipelineStepByType } from '../../pipeline/types.js';
-import type { EnrichedStep } from '../shared/enriched-step.js';
-import type { WalletActionStepData } from '../steps/wallet-action/types.js';
+import { describe, expect, it } from 'vitest';
 
 import { resolveExecutionTarget } from './resolve.js';
 import { EXTERNAL_VERSION, GLOBAL_RUNNER } from './types.js';

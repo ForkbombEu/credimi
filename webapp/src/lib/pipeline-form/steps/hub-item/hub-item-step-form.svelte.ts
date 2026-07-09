@@ -5,7 +5,8 @@
 import type { EntityData } from '$lib/global';
 import type { HubItem, HubItemType } from '$lib/hub';
 
-import { BaseForm, type InitFormOptions } from '../types';
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
+
 import Component from './hub-item-step-form.svelte';
 
 type HubStepCollection = Extract<HubItemType, 'credentials' | 'use_cases_verifications'>;

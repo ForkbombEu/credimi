@@ -9,12 +9,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { SelfProp } from '$lib/renderable';
 
 	import { getHubItemLogo, getHubItemTypeFilter } from '$lib/hub/utils.js';
+	import ItemCard from '$pipeline-form/steps/_partials/item-card.svelte';
+	import StepCollectionPicker from '$pipeline-form/steps/_partials/step-collection-picker.svelte';
+	import WithLabel from '$pipeline-form/steps/_partials/with-label.svelte';
 
 	import type { HubItemStepForm } from './hub-item-step-form.svelte.js';
-
-	import ItemCard from '../_partials/item-card.svelte';
-	import StepCollectionPicker from '../_partials/step-collection-picker.svelte';
-	import WithLabel from '../_partials/with-label.svelte';
 
 	let { self: form }: SelfProp<HubItemStepForm> = $props();
 

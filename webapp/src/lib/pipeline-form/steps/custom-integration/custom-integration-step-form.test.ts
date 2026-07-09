@@ -33,10 +33,10 @@ vi.mock('./config-storage.js', () => ({
 }));
 
 import { validate } from '@sjsf/form';
+import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
 
 import { createJsonSchemaForm } from '@/components/json-schema-form';
 
-import { createInitFormOptions } from '../init-form-options.test-utils.js';
 import { resolveInitialConfig, setStoredConfig } from './config-storage.js';
 import { CustomIntegrationStepForm } from './custom-integration-step-form.svelte.js';
 

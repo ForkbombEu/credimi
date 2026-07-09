@@ -8,7 +8,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('./hub-item-step-form.svelte', () => ({ default: class {} }));
 
-import { createInitFormOptions } from '../init-form-options.test-utils.js';
+import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
+
 import { HubItemStepForm } from './hub-item-step-form.svelte.js';
 
 const hubItem = {

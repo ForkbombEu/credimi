@@ -41,7 +41,8 @@ vi.mock('@/i18n', () => ({
 	})
 }));
 
-import { createInitFormOptions } from '../init-form-options.test-utils.js';
+import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
+
 import {
 	ConformanceCheckStepForm,
 	getWalletTestBlockReason,

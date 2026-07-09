@@ -4,19 +4,20 @@
 
 import type { HubItem } from '$lib/hub';
 
-import { m } from '@/i18n/index.js';
-import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
-
-import type { WalletActionStepData } from './types.js';
-
-import { Search } from '../_partials/search.svelte.js';
 import {
 	EXTERNAL_VERSION,
 	GLOBAL_RUNNER,
 	type SelectedRunner,
 	type SelectedVersion
-} from '../../execution-target/types.js';
-import { BaseForm, type InitFormOptions } from '../types.js';
+} from '$pipeline-form/execution-target/types.js';
+import { Search } from '$pipeline-form/steps/_partials/search.svelte.js';
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types.js';
+
+import { m } from '@/i18n/index.js';
+import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
+
+import type { WalletActionStepData } from './types.js';
+
 import Component from './wallet-action-step-form.svelte';
 
 //

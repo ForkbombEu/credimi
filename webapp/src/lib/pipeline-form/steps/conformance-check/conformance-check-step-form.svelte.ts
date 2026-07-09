@@ -6,6 +6,7 @@ import type { HubItem } from '$lib/hub';
 
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { getPath } from '$lib/utils';
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
@@ -13,7 +14,6 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { WalletActionsCategoryOptions, type WalletActionsResponse } from '@/pocketbase/types';
 
-import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
 import { getTestName, isOpenIdWalletTest } from './utils';
 

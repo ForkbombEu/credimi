@@ -6,13 +6,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
 
 	import { ArrowDownIcon, ArrowUpIcon, CopyPlus, PencilIcon, TrashIcon } from '@lucide/svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
-
-	import type { StepsBuilder } from '../steps-builder.svelte.js';
 
 	import StepCardDisplay from './step-card-display.svelte';
 	import { isStepEditable } from './utils.js';

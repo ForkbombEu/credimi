@@ -16,15 +16,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { getHubItemTypeFilter } from '$lib/hub/utils.js';
 	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
 	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
+	import ItemCard from '$pipeline-form/steps/_partials/item-card.svelte';
+	import SearchInput from '$pipeline-form/steps/_partials/search-input.svelte';
+	import StepCollectionPicker from '$pipeline-form/steps/_partials/step-collection-picker.svelte';
+	import WithLabel from '$pipeline-form/steps/_partials/with-label.svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import ItemCard from '../_partials/item-card.svelte';
-	import SearchInput from '../_partials/search-input.svelte';
-	import StepCollectionPicker from '../_partials/step-collection-picker.svelte';
-	import WithLabel from '../_partials/with-label.svelte';
 	import WalletActionForm from './wallet-action-form.svelte';
 	import {
 		getRunnerLabel,

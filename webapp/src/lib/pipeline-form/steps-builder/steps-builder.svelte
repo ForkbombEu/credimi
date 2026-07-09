@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { BlocksIcon, HelpCircle, PencilIcon, XIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
+	import * as steps from '$pipeline-form/steps';
 	import { String } from 'effect';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -22,7 +23,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
-	import * as steps from '../steps';
 	import BulkWalletVersionChange from './_partials/bulk-wallet-version-change.svelte';
 	import Column from './_partials/column.svelte';
 	import EmptyState from './_partials/empty-state.svelte';
