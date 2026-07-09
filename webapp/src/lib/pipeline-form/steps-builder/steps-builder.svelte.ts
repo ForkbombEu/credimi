@@ -307,17 +307,11 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		return { index, newIndex };
 	}
 
-	// Wallet version update (bulk)
-
 	applyBulkWalletVersion(version: SelectedVersion) {
 		const ctx = getBulkWalletVersionContext(this.state.steps);
 		if (!ctx) return;
-
 		this.stateManager.run((state) => {
-			const live = getBulkWalletVersionContext(state.steps);
-			if (!live) return;
-
-			state.steps = syncMobileStepVersionsIfSameWallet(state.steps, live.wallet.id, version);
+			state.steps = syncMobileStepVersionsIfSameWallet(state.steps, ctx.wallet.id, version);
 		});
 	}
 }
