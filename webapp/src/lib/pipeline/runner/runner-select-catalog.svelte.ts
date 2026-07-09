@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Pipeline } from '$lib';
-import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte.js';
+import { Search } from '$lib/pipeline-form/steps/_partials/index.js';
 
 import type { RunnerRecord } from './types';
 

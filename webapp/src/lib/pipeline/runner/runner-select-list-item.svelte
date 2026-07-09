@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Pipeline } from '$lib';
-	import ItemCard from '$lib/pipeline-form/steps/_partials/item-card.svelte';
+	import { ItemCard } from '$lib/pipeline-form/steps/_partials/index.js';
 
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';

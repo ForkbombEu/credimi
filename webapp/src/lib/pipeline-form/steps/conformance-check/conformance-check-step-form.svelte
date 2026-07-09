@@ -10,9 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { TriangleAlert } from '@lucide/svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import * as Wallet from '$lib/wallet';
-	import EmptyState from '$pipeline-form/steps/_partials/empty-state.svelte';
-	import ItemCard from '$pipeline-form/steps/_partials/item-card.svelte';
-	import WithLabel from '$pipeline-form/steps/_partials/with-label.svelte';
+	import { EmptyState, ItemCard, WithLabel } from '$pipeline-form/steps/_partials/index.js';
 
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';

@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import SearchInput from '$lib/pipeline-form/steps/_partials/search-input.svelte';
+	import { SearchInput } from '$lib/pipeline-form/steps/_partials/index.js';
 	import { fly } from 'svelte/transition';
 
 	import Label from '@/components/ui/label/label.svelte';

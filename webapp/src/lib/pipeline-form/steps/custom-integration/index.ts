@@ -8,7 +8,7 @@ import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities.js';
 import { getCustomCheckPublicUrl } from '$lib/hub/utils.js';
 import { getPath } from '$lib/utils';
-import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 

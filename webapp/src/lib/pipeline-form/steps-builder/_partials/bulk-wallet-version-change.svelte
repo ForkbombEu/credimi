@@ -16,9 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		EXTERNAL_VERSION,
 		type SelectedVersion
 	} from '$pipeline-form/execution-target/types.js';
-	import ItemCard from '$pipeline-form/steps/_partials/item-card.svelte';
-	import WithEmptyState from '$pipeline-form/steps/_partials/with-empty-state.svelte';
-	import WithLabel from '$pipeline-form/steps/_partials/with-label.svelte';
+	import { ItemCard, WithEmptyState, WithLabel } from '$pipeline-form/steps/_partials/index.js';
 	import { resource } from 'runed';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';

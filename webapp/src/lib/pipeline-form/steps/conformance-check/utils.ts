@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
 
 const OPENID_WALLET_CONFORMANCE_SUITE_PREFIXES = [
 	'openid4vci_wallet/1.0/openid_conformance_suite',

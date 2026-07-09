@@ -7,7 +7,7 @@ import type { TypedConfig } from '$pipeline-form/steps/types';
 
 import { Conformance } from '$lib';
 import { entities } from '$lib/global/entities.js';
-import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
 import { formatLinkedId } from '$pipeline-form/steps/utils.js';
 
 import { localizeHref, m } from '@/i18n/index.js';

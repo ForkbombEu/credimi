@@ -21,7 +21,7 @@ import {
 	type SelectedRunner,
 	type SelectedVersion
 } from '$pipeline-form/execution-target/types.js';
-import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
 import { formatLinkedId } from '$pipeline-form/steps/utils.js';
 import { isError } from 'effect/Predicate';
 

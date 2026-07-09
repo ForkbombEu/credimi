@@ -10,7 +10,7 @@ import {
 	type SelectedRunner,
 	type SelectedVersion
 } from '$pipeline-form/execution-target/types.js';
-import { Search } from '$pipeline-form/steps/_partials/search.svelte.js';
+import { Search } from '$pipeline-form/steps/_partials/index.js';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types.js';
 
 import { m } from '@/i18n/index.js';

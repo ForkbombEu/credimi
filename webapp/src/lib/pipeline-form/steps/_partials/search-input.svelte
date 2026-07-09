@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Input } from '@/components/ui/input/index.js';
 
-	import { Search } from './search.svelte.js';
+	import { Search } from './index.js';
 
 	//
 

@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { ScrollArea } from '@/components/ui/scroll-area';
 
-	import EmptyState from './empty-state.svelte';
+	import { EmptyState } from './index.js';
 
 	//
 

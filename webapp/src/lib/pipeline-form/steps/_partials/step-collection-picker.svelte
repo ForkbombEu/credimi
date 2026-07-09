@@ -24,9 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ScrollArea } from '@/components/ui/scroll-area';
 	import { m } from '@/i18n';
 
-	import ItemCard from './item-card.svelte';
-	import StepCollectionPickerPagination from './step-collection-picker-pagination.svelte';
-	import WithLabel from './with-label.svelte';
+	import { ItemCard, StepCollectionPickerPagination, WithLabel } from './index.js';
 
 	type Props = {
 		collection: C;

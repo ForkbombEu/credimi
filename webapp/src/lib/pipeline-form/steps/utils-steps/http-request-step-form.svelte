@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SelfProp } from '$lib/renderable';
 
-	import WithLabel from '$pipeline-form/steps/_partials/with-label.svelte';
+	import { WithLabel } from '$pipeline-form/steps/_partials/index.js';
 
 	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
 	import Select from '@/components/ui-custom/select.svelte';

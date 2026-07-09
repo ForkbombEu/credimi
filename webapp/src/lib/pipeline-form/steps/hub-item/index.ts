@@ -8,7 +8,7 @@ import type { TypedConfig } from '$pipeline-form/steps/types';
 import { entities } from '$lib/global/entities.js';
 import { getHubItemByPath, getHubItemLogo, getHubItemUrl } from '$lib/hub/utils.js';
 import { getPath } from '$lib/utils';
-import { getLastPathSegment } from '$pipeline-form/steps/_partials/misc';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
 
 import { m } from '@/i18n/index.js';
 
