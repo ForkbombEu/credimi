@@ -9,9 +9,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		item: { published: boolean } | { public: boolean };
 		class?: string;
 		size?: 'sm' | 'md';
+		privateDisplay?: 'muted' | 'warning';
 	};
 
-	let { item, class: className, size = 'md' }: Props = $props();
+	let { item, class: className, size = 'md', privateDisplay = 'muted' }: Props = $props();
 
 	const published = $derived(
 		('published' in item && item.published) || ('public' in item && item.public)
@@ -20,10 +21,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <span
 	class={[
-		'inline-block shrink-0 rounded-full',
+		'inline-block shrink-0 rounded-full border',
 		{
 			'border-emerald-500 bg-emerald-400': published,
-			'border bg-inherit/50': !published,
+			'border-border bg-border/20': !published && privateDisplay === 'muted',
+			'border-yellow-500 bg-yellow-400': !published && privateDisplay === 'warning',
 			'size-1.5': size === 'sm',
 			'size-2': size === 'md'
 		},
