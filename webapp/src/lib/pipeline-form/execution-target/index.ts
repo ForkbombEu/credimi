@@ -11,4 +11,3 @@ export {
 	type SelectedVersion
 } from './types.js';
 export { resolveExecutionTarget } from './resolve.js';
-export { isExecutionTargetLocked } from './lock.js';

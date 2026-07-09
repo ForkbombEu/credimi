@@ -19,11 +19,12 @@ import type { WalletActionStepData } from '../steps/wallet-action/types.js';
 import type { EnrichedStep } from './types';
 
 import { showPipelineFormError } from '../errors.js';
-import { isExecutionTargetLocked, resolveExecutionTarget } from '../execution-target/index.js';
+import { resolveExecutionTarget } from '../execution-target/index.js';
 import * as pipelinestep from '../steps';
 import { walletActionStepConfig } from '../steps/wallet-action/index.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
 import { getStepData, isStepEditable } from './_partials/utils.js';
+import { isExecutionTargetLocked } from './execution-target-lock.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
 

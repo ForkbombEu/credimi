@@ -4,12 +4,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { EnrichedStep } from '../steps-builder/types.js';
-import type { FormIntent } from '../steps/types.js';
-import type { ExecutionTarget } from './types.js';
+import type { ExecutionTarget } from '../execution-target/types.js';
+import type { EnrichedStep } from '../shared/enriched-step.js';
+import type { FormIntent } from '../steps/form-intent.js';
 
-import { isExecutionTargetLocked } from './lock.js';
-import { GLOBAL_RUNNER } from './types.js';
+import { GLOBAL_RUNNER } from '../execution-target/types.js';
+import { isExecutionTargetLocked } from './execution-target-lock.js';
 
 function mobileSteps(count: number): EnrichedStep[] {
 	return Array.from({ length: count }, () => [{ use: 'mobile-automation' } as never, {}]);

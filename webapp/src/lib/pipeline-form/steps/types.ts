@@ -13,15 +13,15 @@ import type { Renderable } from '$lib/renderable';
 import type { Component } from 'svelte';
 import type { Simplify } from 'type-fest';
 
-import type { InitFormOptions } from './form-context.js';
+import type { FormIntent } from './form-intent.js';
+import type { InitFormOptions } from './step-form-init.js';
 
 import { showPipelineFormError } from '../errors.js';
 
 // Pipeline Step Config
 
-export type FormIntent = 'add' | 'edit';
-
-export type { ExecutionTargetFormContext, InitFormOptions } from './form-context.js';
+export type { FormIntent } from './form-intent.js';
+export type { ExecutionTargetFormContext, InitFormOptions } from './step-form-init.js';
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
 	use: ID;
