@@ -8,6 +8,7 @@ vi.mock('./wallet-action-step-form.svelte', () => ({ default: class {} }));
 
 import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../../execution-target/types.js';
 import { isExecutionTargetLocked } from '../../steps-builder/execution-target-lock.js';
+import { createInitFormOptions } from '../init-form-options.test-utils.js';
 import { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 const executionTarget = {
@@ -18,11 +19,13 @@ const executionTarget = {
 
 describe('WalletActionStepForm execution target', () => {
 	it('locked add with target starts at select-action', () => {
-		const form = new WalletActionStepForm({
-			intent: 'add',
-			getExecutionTarget: () => executionTarget,
-			isExecutionTargetLocked: () => true
-		});
+		const form = new WalletActionStepForm(
+			createInitFormOptions({
+				intent: 'add',
+				getExecutionTarget: () => executionTarget,
+				isExecutionTargetLocked: () => true
+			})
+		);
 
 		expect(form.state).toBe('select-action');
 		expect(form.data.wallet).toEqual(executionTarget.wallet);
@@ -32,11 +35,13 @@ describe('WalletActionStepForm execution target', () => {
 	});
 
 	it('unlocked add with target can return to select-wallet after removeWallet', () => {
-		const form = new WalletActionStepForm({
-			intent: 'add',
-			getExecutionTarget: () => executionTarget,
-			isExecutionTargetLocked: () => false
-		});
+		const form = new WalletActionStepForm(
+			createInitFormOptions({
+				intent: 'add',
+				getExecutionTarget: () => executionTarget,
+				isExecutionTargetLocked: () => false
+			})
+		);
 
 		expect(form.state).toBe('select-action');
 
@@ -47,21 +52,24 @@ describe('WalletActionStepForm execution target', () => {
 	});
 
 	it('edit sole step with global runner is not locked', () => {
-		const form = new WalletActionStepForm({
-			intent: 'edit',
-			initial: {
-				wallet: { id: 'w1', name: 'W' } as never,
-				version: EXTERNAL_VERSION,
-				runner: GLOBAL_RUNNER,
-				action: { id: 'a1', name: 'Old' } as never
-			},
-			isExecutionTargetLocked: () =>
-				isExecutionTargetLocked({
-					intent: 'edit',
-					steps: [[{ use: 'mobile-automation' } as never, {}]],
-					target: executionTarget
-				})
-		});
+		const form = new WalletActionStepForm(
+			createInitFormOptions({
+				intent: 'edit',
+				initial: {
+					wallet: { id: 'w1', name: 'W' } as never,
+					version: EXTERNAL_VERSION,
+					runner: GLOBAL_RUNNER,
+					action: { id: 'a1', name: 'Old' } as never
+				},
+				getExecutionTarget: () => executionTarget,
+				isExecutionTargetLocked: () =>
+					isExecutionTargetLocked({
+						intent: 'edit',
+						steps: [[{ use: 'mobile-automation' } as never, {}]],
+						target: executionTarget
+					})
+			})
+		);
 
 		expect(form.isExecutionTargetLocked()).toBe(false);
 	});
@@ -70,15 +78,17 @@ describe('WalletActionStepForm execution target', () => {
 describe('WalletActionStepForm edit intent', () => {
 	it('selectAction does not commit until commit()', () => {
 		const onSubmit = vi.fn();
-		const form = new WalletActionStepForm({
-			intent: 'edit',
-			initial: {
-				wallet: { id: 'w1', name: 'W' } as never,
-				version: EXTERNAL_VERSION,
-				runner: GLOBAL_RUNNER,
-				action: { id: 'a1', name: 'Old' } as never
-			}
-		});
+		const form = new WalletActionStepForm(
+			createInitFormOptions({
+				intent: 'edit',
+				initial: {
+					wallet: { id: 'w1', name: 'W' } as never,
+					version: EXTERNAL_VERSION,
+					runner: GLOBAL_RUNNER,
+					action: { id: 'a1', name: 'Old' } as never
+				}
+			})
+		);
 		form.onSubmit(onSubmit);
 		const newAction = { id: 'a2', name: 'New' } as never;
 		form.selectAction(newAction);

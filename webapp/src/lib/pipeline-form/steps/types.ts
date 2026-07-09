@@ -27,9 +27,9 @@ export type ExecutionTargetFormContext = {
 };
 
 export type InitFormOptions<T> = {
-	intent?: FormIntent;
+	intent: FormIntent;
 	initial?: T;
-} & Partial<ExecutionTargetFormContext>;
+} & ExecutionTargetFormContext;
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
 	use: ID;
