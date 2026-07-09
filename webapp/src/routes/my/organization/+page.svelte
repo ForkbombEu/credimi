@@ -35,12 +35,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let updateLocked = $state(true);
 
 	const publishLabel = $derived(
-		organization.published ? m.organization_is_public() : m.organization_is_not_published()
+		organization.published ? m.organization_is_public() : m.organization_is_not_public()
 	);
 	const publishReason = $derived(
 		organization.published
 			? m.organization_is_public_reason()
-			: m.organization_is_not_published_reason()
+			: m.organization_is_not_public_reason()
 	);
 </script>
 
