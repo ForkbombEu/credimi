@@ -50,10 +50,6 @@ type State = {
 	manualLocked: boolean;
 };
 
-function countMobileAutomationSteps(steps: EnrichedStep[]): number {
-	return steps.filter(([raw]) => raw.use === 'mobile-automation').length;
-}
-
 export class StepsBuilder implements Renderable<StepsBuilder> {
 	readonly Component = Component;
 
@@ -147,7 +143,6 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		config: pipelinestep.AnyConfig,
 		opts: { initial?: GenericRecord; stepIndex?: number }
 	) {
-		const mobileStepCount = countMobileAutomationSteps(this.state.steps);
 		this.stateManager.run((state) => {
 			const effectCleanup = $effect.root(() => {
 				let form: pipelinestep.Form;
@@ -159,7 +154,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 						isExecutionTargetLocked: () =>
 							isExecutionTargetLocked({
 								intent,
-								mobileStepCount,
+								steps: this.state.steps,
 								target: this.executionTarget
 							})
 					});

@@ -4,11 +4,16 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { EnrichedStep } from '../steps-builder/types.js';
 import type { FormIntent } from '../steps/types.js';
 import type { ExecutionTargetConfig } from './types.js';
 
 import { GLOBAL_RUNNER } from '../shared/mobile-target.js';
 import { isExecutionTargetLocked } from './lock.js';
+
+function mobileSteps(count: number): EnrichedStep[] {
+	return Array.from({ length: count }, () => [{ use: 'mobile-automation' } as never, {}]);
+}
 
 const wallet = { id: 'w1', name: 'Wallet' } as never;
 const version = 'installed_from_external_source' as const;
@@ -53,7 +58,7 @@ describe('isExecutionTargetLocked', () => {
 			expect(
 				isExecutionTargetLocked({
 					intent,
-					mobileStepCount,
+					steps: mobileSteps(mobileStepCount),
 					target: runner === undefined ? undefined : target(runner)
 				})
 			).toBe(expected);
