@@ -6,12 +6,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { ArrowUpRight, CheckIcon, CopyIcon, InfoIcon, XIcon } from '@lucide/svelte';
+	import PublishedStatus from '$lib/layout/published-status.svelte';
 
 	import { CollectionForm } from '@/collections-components/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import CopyButton from '@/components/ui-custom/copyButton.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { SubmitButton } from '@/forms';
 	import { m } from '@/i18n/index.js';
 
@@ -30,15 +33,40 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let updateLocked = $state(true);
+
+	const publishLabel = $derived(
+		organization.published ? m.organization_is_public() : m.organization_is_not_public()
+	);
+	const publishReason = $derived(
+		organization.published
+			? m.organization_is_public_reason()
+			: m.organization_is_not_public_reason()
+	);
 </script>
 
 {#snippet navbarRight()}
 	<div class="flex items-center gap-2">
 		<CopyButton textToCopy={organization.canonified_name} icon={CopyIcon}></CopyButton>
-		<Button variant="outline" href="/organizations/{organization.canonified_name}">
-			{m.Page_preview()}
-			<ArrowUpRight />
-		</Button>
+
+		<div class="flex items-center gap-1 pl-2">
+			<PublishedStatus item={organization} privateDisplay="warning" />
+			<p class="text-sm font-medium">{publishLabel}</p>
+			<Tooltip contentClass="max-w-xs">
+				{#snippet child({ props })}
+					<IconButton icon={InfoIcon} {...props} variant="ghost" size="xs" />
+				{/snippet}
+				{#snippet content()}
+					<p>{publishReason}</p>
+				{/snippet}
+			</Tooltip>
+		</div>
+
+		{#if organization.published}
+			<Button variant="outline" href="/organizations/{organization.canonified_name}">
+				{m.Page_preview()}
+				<ArrowUpRight />
+			</Button>
+		{/if}
 	</div>
 {/snippet}
 
@@ -59,7 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			organization = org;
 		}}
 		fieldsOptions={{
-			exclude: ['canonified_name', 'max_pipelines_in_queue']
+			exclude: ['canonified_name', 'max_pipelines_in_queue', 'published']
 		}}
 	>
 		{#snippet submitButton()}

@@ -276,6 +276,67 @@ func TestOrganizationProtectedFieldsHooks_AllowsMaxPipelinesInQueueForSuperuser(
 	require.Equal(t, 99, event.Record.GetInt("max_pipelines_in_queue"))
 }
 
+func TestOrganizationProtectedFieldsHooks_RevertsPublishedForUser(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	ensureOrganizationPublicationFields(t, app)
+	registerOrganizationProtectedFieldsHooks(app)
+
+	org := loadOrgWithPublished(t, app, false)
+
+	userAuth := core.NewRecord(mustFindCollection(t, app, "users"))
+	event := newOrganizationUpdateRequestEvent(app, org, userAuth)
+	event.Record.Set("published", true)
+
+	err = app.OnRecordUpdateRequest("organizations").Trigger(
+		event,
+		func(_ *core.RecordRequestEvent) error { return nil },
+	)
+	require.NoError(t, err)
+	require.False(t, event.Record.GetBool("published"))
+}
+
+func TestOrganizationProtectedFieldsHooks_AllowsPublishedForSuperuser(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	ensureOrganizationPublicationFields(t, app)
+	registerOrganizationProtectedFieldsHooks(app)
+
+	org := loadOrgWithPublished(t, app, false)
+
+	superuserAuth := core.NewRecord(mustFindCollection(t, app, core.CollectionNameSuperusers))
+	event := newOrganizationUpdateRequestEvent(app, org, superuserAuth)
+	event.Record.Set("published", true)
+
+	err = app.OnRecordUpdateRequest("organizations").Trigger(
+		event,
+		func(_ *core.RecordRequestEvent) error { return nil },
+	)
+	require.NoError(t, err)
+	require.True(t, event.Record.GetBool("published"))
+}
+
+func loadOrgWithPublished(t testing.TB, app core.App, value bool) *core.Record {
+	t.Helper()
+
+	orgID, err := getOrgIDfromName(app)
+	require.NoError(t, err)
+
+	org, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	org.Set("published", value)
+	require.NoError(t, app.Save(org))
+
+	org, err = app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	require.Equal(t, value, org.GetBool("published"))
+	return org
+}
+
 func loadOrgWithMaxPipelines(t testing.TB, app core.App, value int) *core.Record {
 	t.Helper()
 

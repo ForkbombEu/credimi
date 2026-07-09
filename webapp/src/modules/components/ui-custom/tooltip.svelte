@@ -15,9 +15,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		content?: Snippet;
 		delayDuration?: number;
 		disabled?: boolean;
+		contentClass?: string;
 	};
 
-	let { children, child, content, delayDuration = 500, disabled = false }: Props = $props();
+	let {
+		children,
+		child,
+		content,
+		delayDuration = 500,
+		disabled = false,
+		contentClass
+	}: Props = $props();
 </script>
 
 {#if disabled}
@@ -32,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Tooltip.Trigger>{@render children()}</Tooltip.Trigger>
 			{/if}
 
-			<Tooltip.Content>
+			<Tooltip.Content class={contentClass}>
 				{@render content?.()}
 			</Tooltip.Content>
 		</Tooltip.Root>
