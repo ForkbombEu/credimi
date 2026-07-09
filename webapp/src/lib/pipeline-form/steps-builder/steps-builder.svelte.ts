@@ -307,6 +307,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		return { index, newIndex };
 	}
 
+	//
+
 	applyBulkWalletVersion(version: SelectedVersion) {
 		const ctx = getBulkWalletVersionContext(this.state.steps);
 		if (!ctx) return;
