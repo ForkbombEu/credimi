@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		EXTERNAL_VERSION,
 		type SelectedVersion,
 		type WalletActionStepData
-	} from '../../steps/wallet-action/wallet-action-step-form.svelte.js';
+	} from '../../steps/wallet-action/types.js';
 	import { getBulkWalletVersionContext } from './bulk-wallet-version-context.js';
 
 	type Props = {

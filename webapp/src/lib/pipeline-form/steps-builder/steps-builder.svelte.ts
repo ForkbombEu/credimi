@@ -12,17 +12,14 @@ import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
 
-import type { PipelineStep, PipelineStepByType } from '../../pipeline/types';
-import type {
-	SelectedVersion,
-	WalletActionStepData
-} from '../steps/wallet-action/wallet-action-step-form.svelte.js';
+import type { PipelineStep } from '../../pipeline/types';
+import type { SelectedVersion } from '../steps/wallet-action/types.js';
 import type { EnrichedStep } from './types';
 
 import { showPipelineFormError } from '../errors.js';
-import { ExecutionTarget } from '../execution-target/index.js';
+import { isExecutionTargetLocked, resolveExecutionTarget } from '../execution-target/index.js';
+import { syncMobileStepVersionsIfSameWallet } from '../execution-target/sync-mobile-versions.js';
 import * as pipelinestep from '../steps';
-import { walletActionStepConfig } from '../steps/wallet-action/index.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
 import { getStepData, isStepEditable } from './_partials/utils.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
@@ -53,6 +50,10 @@ type State = {
 	manualLocked: boolean;
 };
 
+function countMobileAutomationSteps(steps: EnrichedStep[]): number {
+	return steps.filter(([raw]) => raw.use === 'mobile-automation').length;
+}
+
 export class StepsBuilder implements Renderable<StepsBuilder> {
 	readonly Component = Component;
 
@@ -82,6 +83,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	get steps() {
 		return this.state.steps;
 	}
+
+	executionTarget = $derived(resolveExecutionTarget(this.state.steps));
 
 	readonly yamlPreview = $derived.by(() => {
 		try {
@@ -140,13 +143,21 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		config: pipelinestep.AnyConfig,
 		opts: { initial?: GenericRecord; stepIndex?: number }
 	) {
+		const mobileStepCount = countMobileAutomationSteps(this.state.steps);
 		this.stateManager.run((state) => {
 			const effectCleanup = $effect.root(() => {
 				let form: pipelinestep.Form;
 				try {
 					form = config.initForm({
 						intent,
-						initial: opts.initial as never
+						initial: opts.initial as never,
+						getExecutionTarget: () => this.executionTarget,
+						isExecutionTargetLocked: () =>
+							isExecutionTargetLocked({
+								intent,
+								mobileStepCount,
+								target: this.executionTarget
+							})
 					});
 				} catch (e) {
 					showPipelineFormError(e);
@@ -304,17 +315,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			const live = getBulkWalletVersionContext(state.steps);
 			if (!live) return;
 
-			for (const i of live.mobileIndices) {
-				const tuple = state.steps[i];
-				if (!tuple || tuple[0].use !== 'mobile-automation') continue;
-				const data = tuple[1] as unknown as WalletActionStepData;
-				const updated: WalletActionStepData = { ...data, version };
-				const raw = tuple[0] as PipelineStepByType<'mobile-automation'>;
-				raw.with = walletActionStepConfig.serialize(updated);
-				tuple[1] = updated as unknown as GenericRecord;
-			}
+			state.steps = syncMobileStepVersionsIfSameWallet(state.steps, live.wallet.id, version);
 		});
-
-		ExecutionTarget.syncVersionIfSameWallet(ctx.wallet.id, version);
 	}
 }

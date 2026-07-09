@@ -13,7 +13,8 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { WalletActionsCategoryOptions, type WalletActionsResponse } from '@/pocketbase/types';
 
-import { ExecutionTarget } from '../../execution-target';
+import type { MobileTargetFields } from '../../shared/mobile-target.js';
+
 import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
 import { getTestName, isOpenIdWalletTest } from './utils';
@@ -24,6 +25,8 @@ const OPENID4VCI_WALLET_ACTION_CATEGORY = WalletActionsCategoryOptions['get-cred
 
 export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceCheckStepForm> {
 	readonly Component = Component;
+
+	private getExecutionTarget: () => MobileTargetFields | undefined;
 
 	standardsWithTestSuites = resource(
 		() => {},
@@ -36,7 +39,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	);
 
 	walletActions = resource(
-		() => ExecutionTarget.state.current?.wallet?.id,
+		() => this.getExecutionTarget()?.wallet?.id,
 		async (walletId) => {
 			if (!walletId) return null;
 
@@ -55,6 +58,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	constructor(opts?: InitFormOptions<FormData>) {
 		super(opts);
+		this.getExecutionTarget = opts?.getExecutionTarget ?? (() => undefined);
 		if (opts?.initial) {
 			this.data = { ...opts.initial };
 		}
@@ -118,7 +122,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 			return { kind: 'none' };
 		}
 
-		const wallet = ExecutionTarget.state.current?.wallet;
+		const wallet = this.getExecutionTarget()?.wallet;
 
 		if (wallet && this.walletActions.loading) {
 			return { kind: 'loading' };
@@ -135,7 +139,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	selectedTestName = $derived(this.data.test ? getTestName(this.data.test) : '');
 
 	testOptions: TestOption[] = $derived.by(() => {
-		const wallet = ExecutionTarget.state.current?.wallet;
+		const wallet = this.getExecutionTarget()?.wallet;
 		const walletTestsBlocked =
 			this.hasWalletTests &&
 			(!wallet ||

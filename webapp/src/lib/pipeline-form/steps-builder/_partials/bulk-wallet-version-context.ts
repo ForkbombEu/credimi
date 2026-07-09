@@ -7,7 +7,7 @@ import type { PipelineStepByType } from '$lib/pipeline/types';
 
 import { isError } from 'effect/Predicate';
 
-import type { WalletActionStepData } from '../../steps/wallet-action/wallet-action-step-form.svelte.js';
+import type { WalletActionStepData } from '../../steps/wallet-action/types.js';
 import type { EnrichedStep } from '../types';
 
 //

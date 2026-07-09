@@ -27,14 +27,24 @@ import { formatLinkedId } from '../utils.js';
 import CardDetailsComponent from './card-details.svelte';
 import {
 	EXTERNAL_VERSION,
-	getRunnerLabel,
-	getVersionLabel,
 	GLOBAL_RUNNER,
-	WalletActionStepForm,
 	type SelectedRunner,
 	type SelectedVersion,
 	type WalletActionStepData
+} from './types.js';
+import {
+	getRunnerLabel,
+	getVersionLabel,
+	WalletActionStepForm
 } from './wallet-action-step-form.svelte.js';
+
+export {
+	EXTERNAL_VERSION,
+	GLOBAL_RUNNER,
+	type SelectedRunner,
+	type SelectedVersion,
+	type WalletActionStepData
+} from './types.js';
 
 //
 
