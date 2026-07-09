@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { HubItem } from '$lib/hub';
-import type { MobileTargetFields } from '$lib/pipeline-form/shared/mobile-target.js';
 
 import { m } from '@/i18n/index.js';
 import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
@@ -34,16 +33,13 @@ export function getRunnerLabel(runner: SelectedRunner) {
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
-	private getExecutionTarget: () => MobileTargetFields | undefined;
-	isExecutionTargetLocked = false;
-
 	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
 		const { wallet, version, action, runner } = this.data;
 		if (
 			this.intent === 'add' &&
-			this.isExecutionTargetLocked &&
+			this.isExecutionTargetLocked() &&
 			wallet &&
 			version &&
 			runner &&
@@ -68,16 +64,12 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	constructor(opts?: InitFormOptions<WalletActionStepData>) {
 		super(opts);
-		this.getExecutionTarget = opts?.getExecutionTarget ?? (() => undefined);
-		this.isExecutionTargetLocked = opts?.isExecutionTargetLocked?.() ?? false;
 
 		if (opts?.initial) {
 			this.data = { ...opts.initial };
 		} else {
 			const target = this.getExecutionTarget();
-			if (target) {
-				this.data = { ...target, action: undefined };
-			}
+			if (target) this.data = { ...target, action: undefined };
 		}
 	}
 
@@ -108,7 +100,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	}
 
 	private defaultRunnerIfNeeded() {
-		if (this.isExecutionTargetLocked) {
+		if (this.isExecutionTargetLocked()) {
 			return;
 		}
 		const target = this.getExecutionTarget();

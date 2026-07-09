@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
-	import { type HubItem, getHubItemData } from '$lib/hub';
+	import { getHubItemData, type HubItem } from '$lib/hub';
 	import { getHubItemTypeFilter } from '$lib/hub/utils.js';
 	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
 	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
@@ -58,14 +58,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				avatar={data.logo}
 				title={form.data.wallet.name}
 				subtitle={form.data.wallet.organization_name}
-				onDiscard={form.isExecutionTargetLocked ? undefined : () => form.removeWallet()}
+				onDiscard={form.isExecutionTargetLocked() ? undefined : () => form.removeWallet()}
 			/>
 		</WithLabel>
 		{#if form.data.version}
 			<WithLabel label={m.Version()}>
 				<ItemCard
 					title={getVersionLabel(form.data.version)}
-					onDiscard={form.isExecutionTargetLocked
+					onDiscard={form.isExecutionTargetLocked()
 						? undefined
 						: () => form.removeVersion()}
 				/>
@@ -75,7 +75,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<WithLabel label={m.Runner()}>
 				<ItemCard
 					title={getRunnerLabel(form.data.runner)}
-					onDiscard={form.isExecutionTargetLocked ? undefined : () => form.removeRunner()}
+					onDiscard={form.isExecutionTargetLocked()
+						? undefined
+						: () => form.removeRunner()}
 				/>
 			</WithLabel>
 		{/if}

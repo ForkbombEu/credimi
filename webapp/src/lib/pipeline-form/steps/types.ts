@@ -73,7 +73,7 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 	readonly intent: FormIntent;
 	protected handleSubmit: (step: Deserialized) => void = () => {};
 
-	constructor(opts?: InitFormOptions<Deserialized>) {
+	constructor(private readonly opts?: InitFormOptions<Deserialized>) {
 		this.intent = opts?.intent ?? 'add';
 	}
 
@@ -100,4 +100,12 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 
 	abstract canSave(): boolean;
 	abstract getSubmitData(): Deserialized | undefined;
+
+	getExecutionTarget() {
+		return this.opts?.getExecutionTarget?.();
+	}
+
+	isExecutionTargetLocked() {
+		return this.opts?.isExecutionTargetLocked?.();
+	}
 }

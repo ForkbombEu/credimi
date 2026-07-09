@@ -13,8 +13,6 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { WalletActionsCategoryOptions, type WalletActionsResponse } from '@/pocketbase/types';
 
-import type { MobileTargetFields } from '../../shared/mobile-target.js';
-
 import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
 import { getTestName, isOpenIdWalletTest } from './utils';
@@ -25,8 +23,6 @@ const OPENID4VCI_WALLET_ACTION_CATEGORY = WalletActionsCategoryOptions['get-cred
 
 export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceCheckStepForm> {
 	readonly Component = Component;
-
-	private getExecutionTarget: () => MobileTargetFields | undefined;
 
 	standardsWithTestSuites = resource(
 		() => {},
@@ -58,10 +54,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	constructor(opts?: InitFormOptions<FormData>) {
 		super(opts);
-		this.getExecutionTarget = opts?.getExecutionTarget ?? (() => undefined);
-		if (opts?.initial) {
-			this.data = { ...opts.initial };
-		}
+		if (opts?.initial) this.data = { ...opts.initial };
 	}
 
 	canSave() {
