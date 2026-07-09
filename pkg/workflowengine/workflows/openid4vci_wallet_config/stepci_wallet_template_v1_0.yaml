@@ -170,7 +170,7 @@ tests:
           params:
             test: ${{ env.test_name }}
             plan: ${{ captures.plan_id }}
-            variant: "{}"
+            variant: '{"fapi_client_type":"plain_oauth","fapi_response_mode":"plain_response"}'
           body: ""
           check:
             status: 201
