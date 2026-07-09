@@ -224,8 +224,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet baseStepButton(displayData: EntityData, onClick: () => void)}
-	<Button variant="outline" class="!justify-start" onclick={onClick}>
+	<Button variant="outline" class="justify-start!" onclick={onClick}>
 		<Icon src={displayData.icon} class={displayData.classes.text} />
-		{displayData.labels.singular}
+		<span class="truncate">
+			{displayData.labels.singular}
+		</span>
 	</Button>
 {/snippet}
