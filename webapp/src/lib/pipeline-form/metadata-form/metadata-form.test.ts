@@ -48,15 +48,17 @@ describe('MetadataForm mountForm freshness', () => {
 			published: true
 		};
 
-		const onSubmit = createForm.mock.calls.at(-1)?.[0]?.onSubmit;
+		const onSubmit = vi.mocked(createForm).mock.calls.at(-1)?.[0]?.onSubmit as
+			| ((event: { form: { data: typeof saved } }) => void | Promise<void>)
+			| undefined;
 		expect(onSubmit).toBeTypeOf('function');
 
-		await onSubmit?.({ form: { data: saved, valid: true } });
+		await onSubmit?.({ form: { data: saved } });
 
 		form.isOpen = true;
 		form.mountForm();
 
-		const lastCall = createForm.mock.calls.at(-1)?.[0];
+		const lastCall = vi.mocked(createForm).mock.calls.at(-1)?.[0];
 		expect(lastCall?.initialData).toEqual(saved);
 		expect(form.value).toEqual(saved);
 	});
