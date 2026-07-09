@@ -87,9 +87,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<AlertDialog.Content>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{view.title}</AlertDialog.Title>
-			<AlertDialog.Description class="whitespace-pre-line"
-				>{view.message}</AlertDialog.Description
-			>
+			<AlertDialog.Description class="whitespace-pre-line">
+				{view.message}
+			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
 			<div class="flex justify-center gap-2">
