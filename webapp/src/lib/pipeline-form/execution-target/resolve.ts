@@ -5,6 +5,7 @@
 import { isError } from 'effect/Predicate';
 
 import type { EnrichedStep } from '../shared/enriched-step.js';
+
 import { isExecutionTarget, type ExecutionTarget } from './types.js';
 
 export function resolveExecutionTarget(steps: EnrichedStep[]): ExecutionTarget | undefined {

@@ -30,11 +30,11 @@ import { confirm } from '$lib/layout/global-confirm.svelte';
 
 import type { PipelineStepByType } from '../../pipeline/types.js';
 import type { EnrichedStep } from '../shared/enriched-step.js';
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../execution-target/types.js';
 import type { WalletActionStepData } from '../steps/wallet-action/types.js';
 
-import { StepsBuilder } from './steps-builder.svelte.js';
+import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../execution-target/types.js';
 import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
+import { StepsBuilder } from './steps-builder.svelte.js';
 
 const VALID_YAML = `name: test
 

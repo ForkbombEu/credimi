@@ -21,17 +21,17 @@ import { pb } from '@/pocketbase';
 import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
 import type { TypedConfig } from '../types';
+import type { WalletActionStepData } from './types.js';
 
 import { getLastPathSegment } from '../_partials/misc';
-import { formatLinkedId } from '../utils.js';
-import CardDetailsComponent from './card-details.svelte';
 import {
 	EXTERNAL_VERSION,
 	GLOBAL_RUNNER,
 	type SelectedRunner,
 	type SelectedVersion
 } from '../../execution-target/types.js';
-import type { WalletActionStepData } from './types.js';
+import { formatLinkedId } from '../utils.js';
+import CardDetailsComponent from './card-details.svelte';
 import {
 	getRunnerLabel,
 	getVersionLabel,

@@ -6,8 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('./wallet-action-step-form.svelte', () => ({ default: class {} }));
 
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../../execution-target/types.js';
 import { isExecutionTargetLocked } from '../../execution-target/lock.js';
+import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '../../execution-target/types.js';
 import { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 const executionTarget = {

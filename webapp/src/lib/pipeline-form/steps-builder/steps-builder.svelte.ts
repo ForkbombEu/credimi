@@ -6,8 +6,8 @@ import type { Renderable } from '$lib/renderable';
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
 import { StateManager } from '$lib/state-manager/state-manager';
-import { cloneDeep } from 'lodash';
 import { isError } from 'effect/Predicate';
+import { cloneDeep } from 'lodash';
 
 import type { GenericRecord } from '@/utils/types';
 
