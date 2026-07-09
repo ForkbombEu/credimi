@@ -234,6 +234,89 @@ func TestHookNamespaceOrgsCreateDefaults(t *testing.T) {
 	require.Equal(t, defaultMaxPipelinesInQueue, record.GetInt("max_pipelines_in_queue"))
 }
 
+func TestOrganizationProtectedFieldsHooks_RevertsMaxPipelinesInQueueForUser(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	registerOrganizationProtectedFieldsHooks(app)
+
+	org := loadOrgWithMaxPipelines(t, app, 3)
+
+	userAuth := core.NewRecord(mustFindCollection(t, app, "users"))
+	event := newOrganizationUpdateRequestEvent(app, org, userAuth)
+	event.Record.Set("max_pipelines_in_queue", 99)
+
+	err = app.OnRecordUpdateRequest("organizations").Trigger(
+		event,
+		func(_ *core.RecordRequestEvent) error { return nil },
+	)
+	require.NoError(t, err)
+	require.Equal(t, 3, event.Record.GetInt("max_pipelines_in_queue"))
+}
+
+func TestOrganizationProtectedFieldsHooks_AllowsMaxPipelinesInQueueForSuperuser(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	registerOrganizationProtectedFieldsHooks(app)
+
+	org := loadOrgWithMaxPipelines(t, app, 3)
+
+	superuserAuth := core.NewRecord(mustFindCollection(t, app, core.CollectionNameSuperusers))
+	event := newOrganizationUpdateRequestEvent(app, org, superuserAuth)
+	event.Record.Set("max_pipelines_in_queue", 99)
+
+	err = app.OnRecordUpdateRequest("organizations").Trigger(
+		event,
+		func(_ *core.RecordRequestEvent) error { return nil },
+	)
+	require.NoError(t, err)
+	require.Equal(t, 99, event.Record.GetInt("max_pipelines_in_queue"))
+}
+
+func loadOrgWithMaxPipelines(t testing.TB, app core.App, value int) *core.Record {
+	t.Helper()
+
+	orgID, err := getOrgIDfromName(app)
+	require.NoError(t, err)
+
+	org, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	org.Set("max_pipelines_in_queue", value)
+	require.NoError(t, app.Save(org))
+
+	org, err = app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	require.Equal(t, value, org.GetInt("max_pipelines_in_queue"))
+	return org
+}
+
+func mustFindCollection(t testing.TB, app core.App, name string) *core.Collection {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId(name)
+	require.NoError(t, err)
+	return collection
+}
+
+func newOrganizationUpdateRequestEvent(
+	app core.App,
+	org *core.Record,
+	auth *core.Record,
+) *core.RecordRequestEvent {
+	requestEvent := &core.RequestEvent{App: app}
+	requestEvent.Auth = auth
+
+	event := &core.RecordRequestEvent{
+		RequestEvent: requestEvent,
+		Record:       org,
+	}
+	event.Collection = org.Collection()
+	return event
+}
+
 func TestOrganizationPublicationHooks_PublishesOrgWhenWalletPublished(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)

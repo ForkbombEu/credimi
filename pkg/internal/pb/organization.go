@@ -53,6 +53,7 @@ func HookOrganizations(app core.App) {
 	registerOrganizationNamespaceHooks(app)
 	registerOrganizationPublicationHooks(app)
 	registerOrganizationWorkerManagerPublicationHooks(app)
+	registerOrganizationProtectedFieldsHooks(app)
 }
 
 // HookNamespaceOrgs is kept as a compatibility wrapper for tests and existing call sites.
@@ -162,6 +163,30 @@ func registerOrganizationPublicationHooks(app core.App) {
 				),
 			},
 		)
+	})
+}
+
+// registerOrganizationProtectedFieldsHooks prevents regular users from changing
+// the max_pipelines_in_queue quota on an existing organization. The field is
+// reverted to its stored value so a crafted update request cannot raise the
+// pipeline queue quota. Superuser requests are left untouched so admins can
+// still set the quota, and internal server saves never reach this request hook.
+func registerOrganizationProtectedFieldsHooks(app core.App) {
+	app.OnRecordUpdateRequest("organizations").BindFunc(func(e *core.RecordRequestEvent) error {
+		if e.HasSuperuserAuth() {
+			return e.Next()
+		}
+
+		original := e.Record.Original()
+		if original == nil {
+			return e.Next()
+		}
+
+		if e.Record.GetInt("max_pipelines_in_queue") != original.GetInt("max_pipelines_in_queue") {
+			e.Record.Set("max_pipelines_in_queue", original.GetInt("max_pipelines_in_queue"))
+		}
+
+		return e.Next()
 	})
 }
 
