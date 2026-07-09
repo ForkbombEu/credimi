@@ -153,3 +153,39 @@ describe('StepsBuilder manual mode', () => {
 		expect(builder.mode.id).toBe('idle');
 	});
 });
+
+describe('StepsBuilder form mode', () => {
+	function setFormMode(builder: StepsBuilder) {
+		(builder as unknown as BuilderInternal).state.mode = {
+			id: 'form',
+			intent: 'add',
+			config: {} as never,
+			form: { onSubmit: vi.fn() } as never
+		};
+	}
+
+	it('exposes isFormMode when form panel is open', () => {
+		const builder = createBuilder();
+
+		expect(builder.isFormMode).toBe(false);
+
+		setFormMode(builder);
+
+		expect(builder.isFormMode).toBe(true);
+	});
+
+	it('blocks clone, delete, and reorder while in form mode', () => {
+		const builder = createBuilder();
+		builder.addDebugStep();
+		builder.addDebugStep();
+		const initialLength = builder.steps.length;
+
+		setFormMode(builder);
+
+		builder.deleteStep(0);
+		builder.cloneStep(0);
+		builder.shiftStep(0, 1);
+
+		expect(builder.steps).toHaveLength(initialLength);
+	});
+});

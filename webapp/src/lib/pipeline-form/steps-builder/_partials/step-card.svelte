@@ -28,6 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { builder, step, index, editing = false }: Props = $props();
 
 	const editable = $derived(isStepEditable(step));
+	const actionsDisabled = $derived(builder.isFormMode);
 </script>
 
 <StepCardDisplay
@@ -37,7 +38,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	{#snippet topRight()}
 		<div
-			class="flex items-center gap-1 pr-1 opacity-30 transition-opacity group-hover:opacity-100"
+			class={[
+				'flex items-center gap-1 pr-1 transition-opacity',
+				actionsDisabled ? 'opacity-30' : 'opacity-30 group-hover:opacity-100'
+			]}
 		>
 			{#if editable}
 				<IconButton
@@ -52,12 +56,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				variant="ghost"
 				size="xs"
 				tooltip={m.Clone()}
+				disabled={actionsDisabled}
 				onclick={() => builder.cloneStep(index)}
 			/>
 			<IconButton
 				icon={TrashIcon}
 				variant="ghost"
 				size="xs"
+				disabled={actionsDisabled}
 				onclick={() => builder.deleteStep(index)}
 			/>
 			<IconButton
@@ -65,14 +71,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				variant="ghost"
 				size="xs"
 				onclick={() => builder.shiftStep(index, -1)}
-				disabled={!builder.canShiftStep(index, -1)}
+				disabled={actionsDisabled || !builder.canShiftStep(index, -1)}
 			/>
 			<IconButton
 				icon={ArrowDownIcon}
 				variant="ghost"
 				size="xs"
 				onclick={() => builder.shiftStep(index, 1)}
-				disabled={!builder.canShiftStep(index, 1)}
+				disabled={actionsDisabled || !builder.canShiftStep(index, 1)}
 			/>
 		</div>
 	{/snippet}

@@ -99,6 +99,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		return this.state.mode.id === 'manual';
 	}
 
+	get isFormMode() {
+		return this.state.mode.id === 'form';
+	}
+
 	get isManualLocked() {
 		return this.state.manualLocked;
 	}
@@ -211,12 +215,14 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	}
 
 	deleteStep(index: number) {
+		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			state.steps.splice(index, 1);
 		});
 	}
 
 	cloneStep(index: number) {
+		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			const source = state.steps[index];
 			if (!source) return;
@@ -287,6 +293,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// Ordering
 
 	shiftStep(index: number, change: number) {
+		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			const indices = this.calculateShiftIndices(state, index, change);
 			if (!indices) return;
