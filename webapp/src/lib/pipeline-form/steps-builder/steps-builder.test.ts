@@ -33,7 +33,7 @@ import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/ty
 import { confirm } from '$lib/layout/global-confirm.svelte';
 import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '$pipeline-form/execution-target/types.js';
 
-import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
+import { getBulkWalletVersionContext } from './_partials/index.js';
 import { StepsBuilder } from './steps-builder.svelte.js';
 
 const VALID_YAML = `name: test

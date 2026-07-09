@@ -21,8 +21,7 @@ import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
 
-import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
-import { getStepData, isStepEditable } from './_partials/utils.js';
+import { getBulkWalletVersionContext, getStepData, isStepEditable } from './_partials/index.js';
 import { isExecutionTargetLocked } from './execution-target-lock.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';

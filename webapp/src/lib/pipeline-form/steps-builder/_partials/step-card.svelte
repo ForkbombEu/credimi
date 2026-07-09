@@ -13,8 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import StepCardDisplay from './step-card-display.svelte';
-	import { isStepEditable } from './utils.js';
+	import { isStepEditable, StepCardDisplay } from './index.js';
 
 	//
 

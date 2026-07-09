@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import { getStepData, getStepError } from './utils';
+	import { getStepData, getStepError } from './index.js';
 
 	//
 
