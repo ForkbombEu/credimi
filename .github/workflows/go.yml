@@ -99,38 +99,27 @@ jobs:
           echo "Full govulncheck report:"
           cat govulncheck.txt
 
-          REACHABLE_FINDINGS="$(jq -r '
-            select(.finding != null)
-            | select((.finding.trace // []) | length > 0)
-            | .finding.osv
-          ' govulncheck.json | sort -u)"
-
-          MODULE_ONLY_FINDINGS="$(jq -r '
-            select(.finding != null)
-            | select(((.finding.trace // []) | length) == 0)
-            | .finding.osv
-          ' govulncheck.json | sort -u)"
+          AFFECTED_COUNT="$(
+            grep -Eo 'Your code is affected by [0-9]+ vulnerabilities?' govulncheck.txt \
+              | grep -Eo '[0-9]+' \
+              | head -n1
+          )"
+          AFFECTED_COUNT="${AFFECTED_COUNT:-0}"
 
           echo
-          echo "Reachable finding IDs:"
-          if [ -n "${REACHABLE_FINDINGS}" ]; then
-            printf '%s\n' "${REACHABLE_FINDINGS}"
-          else
-            echo "None"
-          fi
+          echo "Affected vulnerabilities:"
+          echo "${AFFECTED_COUNT}"
 
           echo
-          echo "Module-only finding IDs:"
-          if [ -n "${MODULE_ONLY_FINDINGS}" ]; then
-            printf '%s\n' "${MODULE_ONLY_FINDINGS}"
-          else
-            echo "None"
-          fi
+          echo "All finding IDs from JSON:"
+          jq -r '
+            select(.finding != null)
+            | .finding.osv
+          ' govulncheck.json | sort -u || true
 
-          if [ -n "${REACHABLE_FINDINGS}" ]; then
+          if [ "${AFFECTED_COUNT}" -gt 0 ]; then
             echo
-            echo "❌ Reachable vulnerabilities found:"
-            printf '%s\n' "${REACHABLE_FINDINGS}"
+            echo "❌ Reachable vulnerabilities found"
             exit 1
           fi
 
