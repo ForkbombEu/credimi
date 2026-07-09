@@ -181,6 +181,10 @@ func registerOrganizationProtectedFieldsHooks(app core.App) {
 			e.Record.Set("max_pipelines_in_queue", original.GetInt("max_pipelines_in_queue"))
 		}
 
+		if e.Record.GetBool("published") != original.GetBool("published") {
+			e.Record.Set("published", original.GetBool("published"))
+		}
+
 		return e.Next()
 	})
 }
