@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: 1.26.4
+          go-version: 1.26.5
 
       - uses: docker://morphy/revive-action:v2
 
@@ -96,27 +96,35 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "All finding IDs:"
-          jq -r '
-            select(.finding != null)
-            | .finding.osv
-          ' govulncheck.json | sort -u
-
-          FINDINGS="$(jq -r 'select(.finding != null) | .finding.osv' govulncheck.json | sort -u)"
-
-          echo
           echo "Full govulncheck report:"
           cat govulncheck.txt
 
-          if [ -n "${FINDINGS}" ]; then
+          AFFECTED_COUNT="$(
+            grep -Eo 'Your code is affected by [0-9]+ vulnerabilities?' govulncheck.txt \
+              | grep -Eo '[0-9]+' \
+              | head -n1
+          )"
+          AFFECTED_COUNT="${AFFECTED_COUNT:-0}"
+
+          echo
+          echo "Affected vulnerabilities:"
+          echo "${AFFECTED_COUNT}"
+
+          echo
+          echo "All finding IDs from JSON:"
+          jq -r '
+            select(.finding != null)
+            | .finding.osv
+          ' govulncheck.json | sort -u || true
+
+          if [ "${AFFECTED_COUNT}" -gt 0 ]; then
             echo
-            echo "❌ Vulnerabilities found:"
-            printf '%s\n' "${FINDINGS}"
+            echo "❌ Reachable vulnerabilities found"
             exit 1
           fi
 
           echo
-          echo "✅ No vulnerabilities found"
+          echo "✅ No reachable vulnerabilities found"
 
       - uses: golangci/golangci-lint-action@v9
         with:

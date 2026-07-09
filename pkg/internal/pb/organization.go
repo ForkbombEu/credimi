@@ -53,6 +53,7 @@ func HookOrganizations(app core.App) {
 	registerOrganizationNamespaceHooks(app)
 	registerOrganizationPublicationHooks(app)
 	registerOrganizationWorkerManagerPublicationHooks(app)
+	registerOrganizationProtectedFieldsHooks(app)
 }
 
 // HookNamespaceOrgs is kept as a compatibility wrapper for tests and existing call sites.
@@ -162,6 +163,25 @@ func registerOrganizationPublicationHooks(app core.App) {
 				),
 			},
 		)
+	})
+}
+
+func registerOrganizationProtectedFieldsHooks(app core.App) {
+	app.OnRecordUpdateRequest("organizations").BindFunc(func(e *core.RecordRequestEvent) error {
+		if e.HasSuperuserAuth() {
+			return e.Next()
+		}
+
+		original := e.Record.Original()
+		if original == nil {
+			return e.Next()
+		}
+
+		if e.Record.GetInt("max_pipelines_in_queue") != original.GetInt("max_pipelines_in_queue") {
+			e.Record.Set("max_pipelines_in_queue", original.GetInt("max_pipelines_in_queue"))
+		}
+
+		return e.Next()
 	})
 }
 

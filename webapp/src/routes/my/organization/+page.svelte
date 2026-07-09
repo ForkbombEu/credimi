@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			organization = org;
 		}}
 		fieldsOptions={{
-			exclude: ['canonified_name']
+			exclude: ['canonified_name', 'max_pipelines_in_queue']
 		}}
 	>
 		{#snippet submitButton()}
