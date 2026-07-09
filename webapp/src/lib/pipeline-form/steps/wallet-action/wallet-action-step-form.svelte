@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#snippet chooseRunnerLater()}
-	{#if !form.isExecutionTargetLocked && !form.data.runner}
+	{#if !form.isExecutionTargetLocked() && !form.data.runner}
 		<div class="px-4">
 			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
 		</div>

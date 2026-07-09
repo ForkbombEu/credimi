@@ -57,7 +57,7 @@ describe('WalletActionStepForm execution target', () => {
 			isExecutionTargetLocked: () => false
 		});
 
-		expect(form.isExecutionTargetLocked).toBe(false);
+		expect(form.isExecutionTargetLocked()).toBe(false);
 	});
 });
 
