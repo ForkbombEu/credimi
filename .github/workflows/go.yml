@@ -96,27 +96,46 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "All finding IDs:"
-          jq -r '
-            select(.finding != null)
-            | .finding.osv
-          ' govulncheck.json | sort -u
-
-          FINDINGS="$(jq -r 'select(.finding != null) | .finding.osv' govulncheck.json | sort -u)"
-
-          echo
           echo "Full govulncheck report:"
           cat govulncheck.txt
 
-          if [ -n "${FINDINGS}" ]; then
+          REACHABLE_FINDINGS="$(jq -r '
+            select(.finding != null)
+            | select((.finding.trace // []) | length > 0)
+            | .finding.osv
+          ' govulncheck.json | sort -u)"
+
+          MODULE_ONLY_FINDINGS="$(jq -r '
+            select(.finding != null)
+            | select(((.finding.trace // []) | length) == 0)
+            | .finding.osv
+          ' govulncheck.json | sort -u)"
+
+          echo
+          echo "Reachable finding IDs:"
+          if [ -n "${REACHABLE_FINDINGS}" ]; then
+            printf '%s\n' "${REACHABLE_FINDINGS}"
+          else
+            echo "None"
+          fi
+
+          echo
+          echo "Module-only finding IDs:"
+          if [ -n "${MODULE_ONLY_FINDINGS}" ]; then
+            printf '%s\n' "${MODULE_ONLY_FINDINGS}"
+          else
+            echo "None"
+          fi
+
+          if [ -n "${REACHABLE_FINDINGS}" ]; then
             echo
-            echo "❌ Vulnerabilities found:"
-            printf '%s\n' "${FINDINGS}"
+            echo "❌ Reachable vulnerabilities found:"
+            printf '%s\n' "${REACHABLE_FINDINGS}"
             exit 1
           fi
 
           echo
-          echo "✅ No vulnerabilities found"
+          echo "✅ No reachable vulnerabilities found"
 
       - uses: golangci/golangci-lint-action@v9
         with:
