@@ -2,14 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { FormIntent } from '$pipeline-form/steps/types.js';
+
 import { describe, expect, it } from 'vitest';
 
 import type { ExecutionTarget } from '../execution-target/types.js';
 import type { EnrichedStep } from '../shared/enriched-step.js';
-import type { FormIntent } from '../steps/form-intent.js';
 
 import { GLOBAL_RUNNER } from '../execution-target/types.js';
 import { isExecutionTargetLocked } from './execution-target-lock.js';
+
+//
 
 function mobileSteps(count: number): EnrichedStep[] {
 	return Array.from({ length: count }, () => [{ use: 'mobile-automation' } as never, {}]);
