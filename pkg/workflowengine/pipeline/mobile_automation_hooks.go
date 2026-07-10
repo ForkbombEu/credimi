@@ -683,6 +683,13 @@ func processStep(
 	if err := validateRunnerURL(runnerURL, input.step.ID, deviceMap); err != nil {
 		return err
 	}
+	SetConfigValue(&input.step.With.Config, "runner_url", runnerURL)
+	SetConfigValue(&input.step.With.Config, "step_id", input.step.ID)
+	SetConfigValue(
+		&input.step.With.Config,
+		"run_identifier",
+		workflowengine.AsString((*input.runData)["run_identifier"]),
+	)
 
 	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
 

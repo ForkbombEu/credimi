@@ -922,7 +922,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 					},
 				},
 			}
-			runData := map[string]any{}
+			runData := map[string]any{"run_identifier": "tenant/workflow-run"}
 			settedDevices := map[string]any{}
 
 			err := processStep(processStepInput{
@@ -1638,7 +1638,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 					},
 				},
 			}
-			runData := map[string]any{}
+			runData := map[string]any{"run_identifier": "tenant/workflow-run"}
 			wfDef := &pipeline.WorkflowDefinition{Steps: steps}
 
 			err := MobileAutomationSetupHook(
@@ -1659,15 +1659,18 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 
 			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1"].(map[string]any)
 			return map[string]any{
-				"runner_id":     steps[0].With.Payload["runner_id"],
-				"serial":        steps[0].With.Payload["serial"],
-				"type":          steps[0].With.Payload["type"],
-				"action_code":   steps[0].With.Payload["action_code"],
-				"taskqueue":     steps[0].With.Config["taskqueue"],
-				"recording":     deviceMap["recording"],
-				"video_path":    deviceMap["video_path"],
-				"log_path":      deviceMap["log_path"],
-				"recording_pid": deviceMap["recording_process_pid"],
+				"runner_id":      steps[0].With.Payload["runner_id"],
+				"serial":         steps[0].With.Payload["serial"],
+				"type":           steps[0].With.Payload["type"],
+				"action_code":    steps[0].With.Payload["action_code"],
+				"taskqueue":      steps[0].With.Config["taskqueue"],
+				"runner_url":     steps[0].With.Config["runner_url"],
+				"step_id":        steps[0].With.Config["step_id"],
+				"run_identifier": steps[0].With.Config["run_identifier"],
+				"recording":      deviceMap["recording"],
+				"video_path":     deviceMap["video_path"],
+				"log_path":       deviceMap["log_path"],
+				"recording_pid":  deviceMap["recording_process_pid"],
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-mobile-automation-setup-success"},
@@ -1742,6 +1745,9 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "code-1", result["action_code"])
 	require.Equal(t, "tenant/runner-1-TaskQueue", result["taskqueue"])
+	require.Equal(t, "https://runner.example", result["runner_url"])
+	require.Equal(t, "step-1", result["step_id"])
+	require.Equal(t, "tenant/workflow-run", result["run_identifier"])
 	require.Equal(t, true, result["recording"])
 	require.Equal(t, "/tmp/video.mp4", result["video_path"])
 	require.Equal(t, "/tmp/log.txt", result["log_path"])

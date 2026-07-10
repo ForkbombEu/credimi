@@ -37,6 +37,7 @@ func setupPipelineRetentionApp(t testing.TB) *tests.TestApp {
 	PipelineTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 	ensurePipelineRetentionEvidenceFields(t, app)
+	ensureStepScreenshotField(t, app)
 
 	return app
 }
@@ -233,15 +234,33 @@ func TestPipelineRetentionEvidenceHelpers(t *testing.T) {
 
 	reloaded, err := app.FindRecordById("pipeline_results", record.Id)
 	require.NoError(t, err)
+	reloaded.Set("maestro_screenshots", []string{"maestro-1.png", "maestro-2.png"})
 	require.True(t, hasPipelineResultEvidence(reloaded))
 	require.False(t, hasPipelineResultEvidence(nil))
 
 	clearPipelineResultFiles(reloaded)
 	require.Empty(t, reloaded.GetStringSlice("video_results"))
 	require.Empty(t, reloaded.GetStringSlice("screenshots"))
+	require.Empty(t, reloaded.GetStringSlice("maestro_screenshots"))
 	require.Empty(t, reloaded.GetStringSlice("logcats"))
 	require.Empty(t, reloaded.GetStringSlice("ios_logstreams"))
 	requirePipelineResultEvidence(t, reloaded, false)
+}
+
+func TestCountPipelineResultFilesIncludesMaestroScreenshots(t *testing.T) {
+	app := setupPipelineRetentionApp(t)
+	defer app.Cleanup()
+
+	record := createPipelineRetentionRecord(t, app)
+	record.Set("video_results", []string{"video.mp4"})
+	record.Set("screenshots", []string{"final.png"})
+	record.Set("maestro_screenshots", []string{"step-1.png", "step-2.png"})
+
+	counts := countPipelineResultFiles(record)
+	require.Equal(t, 1, counts.VideoResults)
+	require.Equal(t, 1, counts.Screenshots)
+	require.Equal(t, 2, counts.MaestroScreenshots)
+	require.Equal(t, 4, counts.Total)
 }
 
 func TestDeletePipelineResultFilesValidatesRequest(t *testing.T) {
