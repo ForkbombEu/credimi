@@ -13,9 +13,6 @@ vi.mock('./pipeline-form.svelte', () => ({ default: class {} }));
 vi.mock('./steps-builder/steps-builder.svelte', () => ({ default: class {} }));
 vi.mock('./metadata-form/metadata-form.svelte', () => ({ default: class {} }));
 vi.mock('./runtime-options-form/runtime-options-form.svelte', () => ({ default: class {} }));
-vi.mock('./execution-target/index.js', () => ({
-	ExecutionTarget: { loadFromPipeline: vi.fn(), clear: vi.fn() }
-}));
 vi.mock('@/pocketbase/index.js', () => ({
 	pb: {
 		collection: vi.fn(() => ({
@@ -42,6 +39,7 @@ vi.mock('$lib/layout/global-confirm.svelte', () => ({
 }));
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
+
 import { goto } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 

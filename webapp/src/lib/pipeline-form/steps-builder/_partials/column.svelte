@@ -5,13 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { PaneHandle } from '$pipeline-form/steps-builder/pane-layout.js';
 	import type { Snippet } from 'svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Resizable from '@/components/ui/resizable/index.js';
 	import { cn } from '@/components/ui/utils';
-
-	import type { PaneHandle } from '../pane-layout.js';
 
 	type Props = {
 		children?: Snippet;
@@ -44,13 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 </script>
 
-<Resizable.Pane
-	bind:this={pane}
-	class={classes}
-	{defaultSize}
-	{minSize}
-	{order}
->
+<Resizable.Pane bind:this={pane} class={classes} {defaultSize} {minSize} {order}>
 	<div class="flex items-center justify-between border-b bg-slate-100 px-4 py-2">
 		<T class="font-semibold">{title}</T>
 		{@render titleRight?.()}

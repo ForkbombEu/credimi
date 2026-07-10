@@ -2,29 +2,27 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { PipelineStep, PipelineStepByType } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
+import type { SelectedVersion } from '$pipeline-form/execution-target/types.js';
+import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
 import { StateManager } from '$lib/state-manager/state-manager';
+import { showPipelineFormError } from '$pipeline-form/errors.js';
+import { resolveExecutionTarget } from '$pipeline-form/execution-target/index.js';
+import * as pipelinestep from '$pipeline-form/steps';
+import { walletActionStepConfig } from '$pipeline-form/steps/wallet-action/index.js';
+import { isError } from 'effect/Predicate';
 import { cloneDeep } from 'lodash';
 
 import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
 
-import type { PipelineStep, PipelineStepByType } from '../../pipeline/types';
-import type {
-	SelectedVersion,
-	WalletActionStepData
-} from '../steps/wallet-action/wallet-action-step-form.svelte.js';
-import type { EnrichedStep } from './types';
-
-import { showPipelineFormError } from '../errors.js';
-import { ExecutionTarget } from '../execution-target/index.js';
-import * as pipelinestep from '../steps';
-import { walletActionStepConfig } from '../steps/wallet-action/index.js';
-import { getBulkWalletVersionContext } from './_partials/bulk-wallet-version-context.js';
-import { getStepConfig, getStepData, isStepEditable } from './_partials/utils.js';
+import { getBulkWalletVersionContext, getStepData, isStepEditable } from './_partials/index.js';
+import { isExecutionTargetLocked } from './execution-target-lock.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
 
@@ -83,6 +81,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		return this.state.steps;
 	}
 
+	executionTarget = $derived(resolveExecutionTarget(this.state.steps));
+
 	readonly yamlPreview = $derived.by(() => {
 		try {
 			return this.props.yamlPreview();
@@ -94,6 +94,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	get isManualMode() {
 		return this.state.mode.id === 'manual';
+	}
+
+	get isFormMode() {
+		return this.state.mode.id === 'form';
 	}
 
 	get isManualLocked() {
@@ -118,7 +122,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (this.state.mode.id === 'form') {
 			this.exitFormState();
 		}
-		const config = pipelinestep.configs.find((c) => c.use === type);
+		const config = pipelinestep.getConfigByType(type as PipelineStep['use']);
 		if (!config) return;
 		this.openForm('add', config, {});
 	}
@@ -129,7 +133,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		}
 		const step = this.state.steps[index];
 		if (!step || !isStepEditable(step)) return;
-		const config = getStepConfig(step);
+		const config = pipelinestep.getConfigByType(step[0].use);
 		const data = getStepData(step);
 		if (!config || !data) return;
 		this.openForm('edit', config, { initial: data, stepIndex: index });
@@ -146,7 +150,14 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				try {
 					form = config.initForm({
 						intent,
-						initial: opts.initial as never
+						initial: opts.initial as never,
+						getExecutionTarget: () => this.executionTarget,
+						isExecutionTargetLocked: () =>
+							isExecutionTargetLocked({
+								intent,
+								steps: this.state.steps,
+								target: this.executionTarget
+							})
 					});
 				} catch (e) {
 					showPipelineFormError(e);
@@ -200,12 +211,14 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	}
 
 	deleteStep(index: number) {
+		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			state.steps.splice(index, 1);
 		});
 	}
 
 	cloneStep(index: number) {
+		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			const source = state.steps[index];
 			if (!source) return;
@@ -253,7 +266,9 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (editor.isDirty) {
 			const confirmed = await confirm({
 				message:
-					m.discard_manual_yaml_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form(),
+					m.discard_manual_yaml_changes() +
+					'\n' +
+					m.Are_you_sure_you_want_to_exit_the_form(),
 				destructive: true
 			});
 			if (!confirmed) return false;
@@ -274,6 +289,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// Ordering
 
 	shiftStep(index: number, change: number) {
+		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			const indices = this.calculateShiftIndices(state, index, change);
 			if (!indices) return;
@@ -292,27 +308,36 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		return { index, newIndex };
 	}
 
-	// Wallet version update (bulk)
+	//
 
 	applyBulkWalletVersion(version: SelectedVersion) {
 		const ctx = getBulkWalletVersionContext(this.state.steps);
 		if (!ctx) return;
-
 		this.stateManager.run((state) => {
-			const live = getBulkWalletVersionContext(state.steps);
-			if (!live) return;
-
-			for (const i of live.mobileIndices) {
-				const tuple = state.steps[i];
-				if (!tuple || tuple[0].use !== 'mobile-automation') continue;
-				const data = tuple[1] as unknown as WalletActionStepData;
-				const updated: WalletActionStepData = { ...data, version };
-				const raw = tuple[0] as PipelineStepByType<'mobile-automation'>;
-				raw.with = walletActionStepConfig.serialize(updated);
-				tuple[1] = updated as unknown as GenericRecord;
-			}
+			state.steps = this.syncMobileStepVersions(state.steps, ctx.wallet.id, version);
 		});
+	}
 
-		ExecutionTarget.syncVersionIfSameWallet(ctx.wallet.id, version);
+	private syncMobileStepVersions(
+		steps: EnrichedStep[],
+		walletId: string,
+		version: SelectedVersion
+	): EnrichedStep[] {
+		return steps.map((tuple) => {
+			const [raw, data] = tuple;
+			if (raw.use !== 'mobile-automation') return tuple;
+			if (isError(data)) return tuple;
+
+			const stepData = data as unknown as WalletActionStepData;
+			if (stepData.wallet.id !== walletId) return tuple;
+
+			const updated: WalletActionStepData = { ...stepData, version };
+			const nextRaw = {
+				...raw,
+				with: walletActionStepConfig.serialize(updated)
+			} as PipelineStepByType<'mobile-automation'>;
+
+			return [nextRaw, updated as GenericRecord] as EnrichedStep;
+		});
 	}
 }

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { type Pipeline, type PipelineStep } from '$lib/pipeline/types';
+import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 import { pipe, String } from 'effect';
 import * as _ from 'lodash';
 import { ClientResponseError } from 'pocketbase';
@@ -16,9 +18,7 @@ import { getExceptionMessage } from '@/utils/errors.js';
 
 import type { RuntimeOptions } from './runtime-options-form/runtime-options-form.svelte.js';
 
-import { type Pipeline, type PipelineStep } from '../pipeline/types';
-import { getConfigByType } from './steps';
-import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
+import { getConfigByTypeOrThrow } from './steps';
 
 /* Fetching pipeline */
 
@@ -43,7 +43,7 @@ export async function getEnrichedPipeline(
 			enrichedSteps.push([step, {}]);
 		} else {
 			try {
-				const config = getConfigByType(step.use);
+				const config = getConfigByTypeOrThrow(step.use);
 				const data = await config.deserialize(step.with);
 				enrichedSteps.push([step, data]);
 			} catch (e) {
@@ -85,7 +85,7 @@ export function createPipelineYaml(
 		if (step.use === 'debug') {
 			return step;
 		}
-		const config = getConfigByType(step.use);
+		const config = getConfigByTypeOrThrow(step.use);
 		if ('id' in step) {
 			step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;
 		}

@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
+	import type { InlineManualEditor } from '$pipeline-form/steps-builder/inline-manual-editor.svelte.js';
 
-	import type { InlineManualEditor } from '../inline-manual-editor.svelte.js';
+	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
 
 	type Props = {
 		editor: InlineManualEditor;

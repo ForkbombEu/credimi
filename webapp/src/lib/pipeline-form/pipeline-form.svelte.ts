@@ -18,7 +18,6 @@ import { pb } from '@/pocketbase/index.js';
 import { getExceptionMessage } from '@/utils/errors.js';
 
 import { showPipelineFormError } from './errors.js';
-import { ExecutionTarget } from './execution-target/index.js';
 import { createPipelineYaml, type EnrichedPipeline } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
@@ -41,12 +40,6 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	readonly metadataForm: MetadataForm;
 
 	constructor(private props: Props) {
-		if (props.pipeline) {
-			ExecutionTarget.loadFromPipeline(props.pipeline);
-		} else {
-			ExecutionTarget.clear();
-		}
-
 		this.stepsBuilder = new StepsBuilder({
 			steps: props.pipeline?.steps ?? [],
 			yamlPreview: () => this.yamlString,

@@ -31,8 +31,12 @@ export const coreConfigs: AnyConfig[] = [
 
 export const configs: AnyConfig[] = [...coreConfigs, ...utilsConfigs];
 
-export function getConfigByType(type: PipelineStepType): AnyConfig {
-	const config = configs.find((c) => c.use === type);
+export function getConfigByType(type: PipelineStepType): AnyConfig | undefined {
+	return configs.find((c) => c.use === type);
+}
+
+export function getConfigByTypeOrThrow(type: PipelineStepType): AnyConfig {
+	const config = getConfigByType(type);
 	if (!config) throw new Error(m.Pipeline_form_unknown_step_type({ type }));
 	return config;
 }

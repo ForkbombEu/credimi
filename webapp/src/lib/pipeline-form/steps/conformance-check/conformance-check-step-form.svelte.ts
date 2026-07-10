@@ -6,6 +6,7 @@ import type { HubItem } from '$lib/hub';
 
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { getPath } from '$lib/utils';
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
@@ -13,9 +14,8 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { WalletActionsCategoryOptions, type WalletActionsResponse } from '@/pocketbase/types';
 
-import { ExecutionTarget } from '../../execution-target';
-import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
+import { getTestName, isOpenIdWalletTest } from './utils';
 
 //
 
@@ -35,7 +35,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	);
 
 	walletActions = resource(
-		() => ExecutionTarget.state.current?.wallet?.id,
+		() => this.getExecutionTarget()?.wallet?.id,
 		async (walletId) => {
 			if (!walletId) return null;
 
@@ -54,9 +54,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	constructor(opts?: InitFormOptions<FormData>) {
 		super(opts);
-		if (opts?.initial) {
-			this.data = { ...opts.initial };
-		}
+		if (opts?.initial) this.data = { ...opts.initial };
 	}
 
 	canSave() {
@@ -117,7 +115,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 			return { kind: 'none' };
 		}
 
-		const wallet = ExecutionTarget.state.current?.wallet;
+		const wallet = this.getExecutionTarget()?.wallet;
 
 		if (wallet && this.walletActions.loading) {
 			return { kind: 'loading' };
@@ -131,8 +129,10 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		return { kind: 'none' };
 	});
 
+	selectedTestName = $derived(this.data.test ? getTestName(this.data.test) : '');
+
 	testOptions: TestOption[] = $derived.by(() => {
-		const wallet = ExecutionTarget.state.current?.wallet;
+		const wallet = this.getExecutionTarget()?.wallet;
 		const walletTestsBlocked =
 			this.hasWalletTests &&
 			(!wallet ||
@@ -140,7 +140,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 				getWalletTestBlockReason(wallet, this.walletActions));
 
 		return this.availableTests.map((test) => {
-			const testName = test.split('/').at(-1) ?? test;
+			const testName = getTestName(test);
 
 			if (!isOpenIdWalletTest(test)) {
 				return { test, testName, enabled: true };
@@ -188,22 +188,18 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 		if (!isOpenIdWalletTest(option.test)) {
 			this.data.action_id = undefined;
-			if (this.intent === 'add') {
-				this.commit({ ...this.data, test: option.test } as FormData);
-			}
+			this.commitIfAdding({ ...this.data, test: option.test } as FormData);
 			return;
 		}
 
 		const selection = resolveWalletActionSelection(this.genericCredentialActions);
 		if (selection.kind === 'auto') {
 			this.data.action_id = getPath(selection.action);
-			if (this.intent === 'add') {
-				this.commit({
-					...this.data,
-					test: option.test,
-					action_id: this.data.action_id
-				} as FormData);
-			}
+			this.commitIfAdding({
+				...this.data,
+				test: option.test,
+				action_id: this.data.action_id
+			} as FormData);
 		} else {
 			this.data.action_id = undefined;
 		}
@@ -211,9 +207,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	selectWalletAction(action: WalletActionsResponse) {
 		this.data.action_id = getPath(action);
-		if (this.intent === 'add') {
-			this.commit({ ...this.data, action_id: this.data.action_id } as FormData);
-		}
+		this.commitIfAdding({ ...this.data, action_id: this.data.action_id } as FormData);
 	}
 
 	discardTest() {
@@ -323,10 +317,6 @@ export type WalletActionSelection =
 	| { kind: 'blocked' }
 	| { kind: 'auto'; action: WalletActionsResponse }
 	| { kind: 'picker' };
-
-export function isOpenIdWalletTest(test: string) {
-	return test.startsWith('openid4vci_wallet') || test.startsWith('openid4vp_wallet');
-}
 
 export function resolveWalletActionSelection(
 	actions: WalletActionsResponse[]

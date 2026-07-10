@@ -3,31 +3,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { HubItem } from '$lib/hub';
-import type { Record } from '$lib/pipeline/runner';
 
-import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
+import {
+	EXTERNAL_VERSION,
+	GLOBAL_RUNNER,
+	type SelectedRunner,
+	type SelectedVersion
+} from '$pipeline-form/execution-target/types.js';
+import { Search } from '$pipeline-form/steps/_partials/index.js';
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types.js';
 
 import { m } from '@/i18n/index.js';
 import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
-import { Search } from '../_partials/search.svelte.js';
-import { BaseForm, type InitFormOptions } from '../types.js';
+import type { WalletActionStepData } from './types.js';
+
 import Component from './wallet-action-step-form.svelte';
 
 //
-
-export const GLOBAL_RUNNER = 'global';
-export const EXTERNAL_VERSION = 'installed_from_external_source';
-
-export type SelectedRunner = Record | typeof GLOBAL_RUNNER;
-export type SelectedVersion = WalletVersionsResponse | typeof EXTERNAL_VERSION;
-
-export interface WalletActionStepData {
-	wallet: HubItem;
-	version: SelectedVersion;
-	runner: SelectedRunner;
-	action: WalletActionsResponse;
-}
 
 export function getVersionLabel(version: SelectedVersion) {
 	return version === EXTERNAL_VERSION ? m.Installed_from_external_source() : `v. ${version.tag}`;
@@ -46,6 +39,16 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	state = $derived.by(() => {
 		const { wallet, version, action, runner } = this.data;
+		if (
+			this.intent === 'add' &&
+			this.isExecutionTargetLocked() &&
+			wallet &&
+			version &&
+			runner &&
+			!action
+		) {
+			return 'select-action';
+		}
 		if (!wallet) {
 			return 'select-wallet';
 		} else if (wallet && !version) {
@@ -63,13 +66,12 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	constructor(opts?: InitFormOptions<WalletActionStepData>) {
 		super(opts);
+
 		if (opts?.initial) {
 			this.data = { ...opts.initial };
-		} else if (ExecutionTarget.state.current) {
-			this.data = {
-				...ExecutionTarget.state.current,
-				action: undefined
-			};
+		} else {
+			const target = this.getExecutionTarget();
+			if (target) this.data = { ...target, action: undefined };
 		}
 	}
 
@@ -86,22 +88,26 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	selectWallet(wallet: HubItem) {
 		this.data.wallet = wallet;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
-			this.data.runner = 'global';
-		}
+		this.defaultRunnerIfNeeded();
 	}
 
 	selectVersion(version: WalletVersionsResponse) {
 		this.data.version = version;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
-			this.data.runner = 'global';
-		}
+		this.defaultRunnerIfNeeded();
 	}
 
 	selectExternalVersion() {
 		this.data.version = EXTERNAL_VERSION;
-		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
-			this.data.runner = 'global';
+		this.defaultRunnerIfNeeded();
+	}
+
+	private defaultRunnerIfNeeded() {
+		if (this.isExecutionTargetLocked()) {
+			return;
+		}
+		const target = this.getExecutionTarget();
+		if (!target || target.runner === GLOBAL_RUNNER || target.runner === undefined) {
+			this.data.runner = GLOBAL_RUNNER;
 		}
 	}
 
@@ -111,22 +117,15 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		onSearch: () => {}
 	});
 
-	selectRunner(runner: ExecutionTarget.Config['runner']) {
+	selectRunner(runner: SelectedRunner) {
 		this.data.runner = runner;
 	}
 
 	//
 
 	selectAction(action: WalletActionsResponse) {
-		ExecutionTarget.state.current = {
-			wallet: this.data.wallet!,
-			version: this.data.version!,
-			runner: this.data.runner!
-		};
 		this.data.action = action;
-		if (this.intent === 'add') {
-			this.commit({ ...this.data, action } as WalletActionStepData);
-		}
+		this.commitIfAdding({ ...this.data, action } as WalletActionStepData);
 	}
 
 	removeAction() {
@@ -139,6 +138,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		this.data.wallet = undefined;
 		this.data.version = undefined;
 		this.data.runner = undefined;
+		this.data.action = undefined;
 	}
 
 	removeVersion() {

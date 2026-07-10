@@ -8,8 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
 
-	import EmptyState from '$lib/pipeline-form/steps/_partials/empty-state.svelte';
-	import WithEmptyState from '$lib/pipeline-form/steps/_partials/with-empty-state.svelte';
+	import { EmptyState, WithEmptyState } from '$lib/pipeline-form/steps/_partials/index.js';
 	import { fly } from 'svelte/transition';
 
 	import Spinner from '@/components/ui-custom/spinner.svelte';

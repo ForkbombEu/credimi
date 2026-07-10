@@ -3,17 +3,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/index.js';
+import type { TypedConfig } from '$pipeline-form/steps/types';
 
 import { Conformance } from '$lib';
 import { entities } from '$lib/global/entities.js';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
+import { formatLinkedId } from '$pipeline-form/steps/utils.js';
 
 import { localizeHref, m } from '@/i18n/index.js';
 
-import type { TypedConfig } from '../types';
-
-import { getLastPathSegment } from '../_partials/misc';
-import { formatLinkedId } from '../utils.js';
 import { ConformanceCheckStepForm, type FormData } from './conformance-check-step-form.svelte.js';
+import { getTestName, isOpenIdWalletConformanceSuiteTest } from './utils';
 
 //
 
@@ -29,10 +29,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		const _with: StepData = { check_id: test };
 		if (test.startsWith('openid4vci_issuer') || test.startsWith('openid4vp_verifier')) {
 			_with.parameters = { deeplink: '<placeholder>' };
-		} else if (
-			test.startsWith('openid4vci_wallet/1.0/openid_conformance_suite') ||
-			test.startsWith('openid4vp_wallet/1.0/openid_conformance_suite')
-		) {
+		} else if (isOpenIdWalletConformanceSuiteTest(test)) {
 			if (!action_id) {
 				throw new Error(m.Pipeline_form_missing_wallet_action_openid4vci_wallet_check());
 			}
@@ -98,7 +95,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 			throw new Error(m.Pipeline_form_conformance_check_path_not_found());
 		}
 		return {
-			title: test.split('/').at(-1) ?? '',
+			title: getTestName(test),
 			copyText: test,
 			avatar: suite.logo,
 			meta: {
