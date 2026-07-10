@@ -2974,7 +2974,10 @@ func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
 	return err
 }
 
-func testStopRecordingSuccessWorkflow(ctx workflow.Context, ao workflow.ActivityOptions) (string, error) {
+func testStopRecordingSuccessWorkflow(
+	ctx workflow.Context,
+	ao workflow.ActivityOptions,
+) (string, error) {
 	ctx = workflow.WithActivityOptions(
 		ctx,
 		ao,
@@ -2990,7 +2993,9 @@ func testStopRecordingSuccessWorkflow(ctx workflow.Context, ao workflow.Activity
 	return stopRecording(ctx, info, workflow.GetLogger(ctx))
 }
 
-func testStopRecordingUsesCleanupFallbackWorkflow(ctx workflow.Context) (workflow.ActivityOptions, error) {
+func testStopRecordingUsesCleanupFallbackWorkflow(
+	ctx workflow.Context,
+) (workflow.ActivityOptions, error) {
 	ctx = workflow.WithActivityOptions(
 		ctx,
 		workflow.ActivityOptions{

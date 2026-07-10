@@ -1,0 +1,32 @@
+summary:
+  implemented_catalog_preconditions: 5
+  migrated_tests_using_new_ref_shape: 3
+  remaining_legacy_test_files: 556
+
+implemented_preconditions:
+  - id: pipeline.pid.presentation.sdjwt.all-ics-claims
+    status: implemented
+  - id: assertion.pid.presentation.sdjwt.required-mandatory-claims-presented
+    status: implemented
+  - id: assertion.pid.presentation.sdjwt.vct-pid
+    status: implemented
+  - id: pipeline.pid.presentation.mdoc.all-ics-elements
+    status: implemented
+  - id: assertion.pid.presentation.mdoc.required-ics-elements-presented
+    status: implemented
+  - id: pipeline.wallet.rp.presentation.interaction
+    status: implemented
+
+legacy_precondition_ids_still_used_by_unmigrated_tests:
+  - id: pid.presentation.sdjwt.all-ics-claims
+    replacement:
+      - pipeline.pid.presentation.sdjwt.all-ics-claims
+      - assertion.pid.presentation.sdjwt.vct-pid
+      - assertion.pid.presentation.sdjwt.required-mandatory-claims-presented
+  - id: pid.presentation.mdoc.all-ics-elements
+    replacement:
+      - pipeline.pid.presentation.mdoc.all-ics-elements
+      - assertion.pid.presentation.mdoc.required-ics-elements-presented
+  - id: wallet.rp.presentation.interaction
+    replacement:
+      - pipeline.wallet.rp.presentation.interaction

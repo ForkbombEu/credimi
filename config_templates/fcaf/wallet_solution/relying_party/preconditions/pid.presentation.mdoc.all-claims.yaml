@@ -1,0 +1,15 @@
+id: pipeline.pid.presentation.mdoc.all-claims-elements
+kind: pipeline
+description: Request and receive a PID presentation in ISO mdoc format with all mandatory and ICS-present elements.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-pid-presentations
+required_steps:
+  - capture-issuer-pid-mdoc-all-claims-0004
+  - getcredential-pid-mdoc-all-claims-0005
+  - fake-verifier-pid-mdoc-credentials-all-claims-0009
+  - verifycredential-pid-formeu-issuer-eudiw-dev-0010
+  - http-get-verifier-backend.eudiw.dev-0011
+outputs:
+  pid_mdoc:
+    path: $.output.http-get-verifier-backend.eudiw.dev-0011.outputs.body.observed.wallet_response.value.vp_token
+    decoder: mdoc.vp_token_json
+failure_policy: fail_dependent_preconditions_and_tests

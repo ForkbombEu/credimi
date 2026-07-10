@@ -574,3 +574,44 @@ func TestParseQueuedWorkflowDefinitionError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "parse workflow definition")
 }
+
+func TestValidateQueuedWorkflowDefinitionReferencesRequiresStepIDs(t *testing.T) {
+	err := validateQueuedWorkflowDefinitionReferences(`name: test
+steps:
+  - use: credential-offer
+  - use: mobile-automation
+    with:
+      parameters:
+        deeplink: ${{issuer-step.outputs}}
+`)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "pipeline uses inter-step references")
+	require.Contains(t, err.Error(), "steps[0]")
+	require.Contains(t, err.Error(), "steps[1]")
+}
+
+func TestValidateQueuedWorkflowDefinitionReferencesAllowsIDs(t *testing.T) {
+	err := validateQueuedWorkflowDefinitionReferences(`name: test
+steps:
+  - id: issuer-step
+    use: credential-offer
+  - id: present-step
+    use: mobile-automation
+    with:
+      parameters:
+        deeplink: ${{issuer-step.outputs}}
+`)
+	require.NoError(t, err)
+}
+
+func TestValidateQueuedWorkflowDefinitionReferencesAllowsMissingIDsWithoutRefs(t *testing.T) {
+	err := validateQueuedWorkflowDefinitionReferences(`name: test
+steps:
+  - use: credential-offer
+  - use: mobile-automation
+    with:
+      parameters:
+        deeplink: static-value
+`)
+	require.NoError(t, err)
+}

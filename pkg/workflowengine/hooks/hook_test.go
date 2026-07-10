@@ -269,7 +269,11 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 			t.Fatal("timeout waiting for start worker manager call")
 		}
 	}
-	require.Equal(t, []string{"https://admin.runner", "https://published.runner"}, gotManagers["default"])
+	require.Equal(
+		t,
+		[]string{"https://admin.runner", "https://published.runner"},
+		gotManagers["default"],
+	)
 	require.Equal(t, []string{"https://admin.runner"}, gotManagers["org-1"])
 
 	terminateErr := app.OnTerminate().Trigger(
@@ -362,10 +366,12 @@ func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
 
 	StartAllWorkersByNamespace("acme-org")
 
+	gotWorkers := map[string]struct{}{}
 	for i := 0; i < len(OrgWorkers); i++ {
-		<-workerCh
+		gotWorkers[<-workerCh] = struct{}{}
 	}
 	<-pipelineCh
+	require.Contains(t, gotWorkers, workflows.FCAFAssessmentTaskQueue)
 
 	_, ok := workerCancels.Load("acme-org")
 	require.True(t, ok)

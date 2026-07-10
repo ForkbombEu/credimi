@@ -120,7 +120,9 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 
 				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](input.Payload)
+						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+							input.Payload,
+						)
 						require.NoError(t, err)
 						require.Equal(t, http.MethodPost, payload.Method)
 						require.Contains(t, []string{

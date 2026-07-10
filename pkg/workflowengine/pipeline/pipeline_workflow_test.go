@@ -370,6 +370,69 @@ func TestPipelineWorkflowContinueOnError(t *testing.T) {
 	require.Equal(t, "step-1", errorsList[0]["details"].(map[string]any)["step_id"])
 }
 
+func TestPipelineWorkflowCollectsContinueOnErrorFailuresAsResult(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	jsonAct := activities.NewJSONActivity(map[string]reflect.Type{
+		"map": reflect.TypeOf(map[string]any{}),
+	})
+	env.RegisterActivityWithOptions(
+		jsonAct.Execute,
+		activity.RegisterOptions{Name: jsonAct.Name()},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "collect-continue-on-error",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "failed-test-step",
+							Use: "json-parse",
+							With: pipeline.StepInputs{Payload: map[string]any{
+								"struct_type": "map",
+							}},
+						},
+						ContinueOnError: true,
+					},
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "passed-test-step",
+							Use: "json-parse",
+							With: pipeline.StepInputs{Payload: map[string]any{
+								"struct_type": "map",
+								"rawJSON":     `{"ok":true}`,
+							}},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+					workflowengine.CollectPipelineStepFailuresConfigKey: true,
+				},
+				ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			},
+		},
+	)
+
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.NotNil(t, result.Errors)
+	output, ok := result.Output.(map[string]any)
+	require.True(t, ok)
+	require.Contains(t, output, "passed-test-step")
+}
+
 func TestPipelineWorkflowContinueOnErrorIncludesOnErrorStepFailures(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

@@ -1,0 +1,58 @@
+summary:
+  implemented_validators_in_registry: 11
+  remaining_legacy_placeholder_assertions: 458
+
+implemented_validators:
+  - id: evidence.present
+  - id: json.field_required
+  - id: mdoc.namespace_element_present
+  - id: jose.jwe_encrypted_response
+  - id: oid4vp.device_binding
+  - id: oid4vp.nonce_state_binding
+  - id: sdjwt.claim_present
+  - id: sdjwt.claim_type
+  - id: sdjwt.claim_utf8_string
+  - id: sdjwt.claim_rfc5322_email
+  - id: pid.request_or_presentation_contains_required_ics_elements
+
+legacy_usage_counts_in_test_yaml:
+  - id: evidence.present
+    draft_count: 458
+    status: placeholder_still_referenced
+  - id: mdoc.namespace_element_present
+    draft_count: 40
+    status: implemented
+  - id: sdjwt.claim_present
+    draft_count: 26
+    status: implemented
+  - id: jose.jwe_encrypted_response
+    draft_count: 19
+    status: implemented
+  - id: oid4vp.device_binding
+    draft_count: 11
+    status: implemented
+  - id: oid4vp.nonce_state_binding
+    draft_count: 3
+    status: implemented
+  - id: sdjwt.claim_utf8_string
+    draft_count: 1
+    status: implemented
+  - id: sdjwt.claim_rfc5322_email
+    draft_count: 1
+    status: implemented
+
+still_missing_from_registry_for_full_suite:
+  - sdjwt.claim_date_format
+  - sdjwt.claim_country_code
+  - sdjwt.claim_enum
+  - sdjwt.disclosure_digest_valid
+  - sdjwt.required_claims_disclosed
+  - mdoc.issuer_auth_valid
+  - mdoc.device_signature_valid
+  - oid4vp.request_structure_valid
+  - oid4vp.presentation_submission_valid
+  - jose.jws_signature_valid
+  - jose.header_field_equals
+  - x509.chain_trusted
+  - x509.key_usage_valid
+  - crypto.hash_matches

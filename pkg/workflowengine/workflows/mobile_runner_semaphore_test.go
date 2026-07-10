@@ -1930,7 +1930,11 @@ func TestMobileRunnerSemaphoreWorkflowCancellationTriggersShutdownCleanup(t *tes
 			require.Equal(t, pipelineinternal.PipelineCancellationPolicySignal, payload.SignalName)
 			policy := workflowengine.AsMap(payload.Payload)
 			require.True(t, workflowengine.AsBool(policy["skip_runner_cleanup"]))
-			require.Equal(t, []string{"runner-1"}, workflowengine.AsSliceOfStrings(policy["skip_runner_cleanup_ids"]))
+			require.Equal(
+				t,
+				[]string{"runner-1"},
+				workflowengine.AsSliceOfStrings(policy["skip_runner_cleanup_ids"]),
+			)
 			return workflowengine.ActivityResult{
 				Output: activities.SignalWorkflowActivityOutput{Signaled: true, Status: "SIGNALED"},
 			}, nil

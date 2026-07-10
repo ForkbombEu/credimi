@@ -1,0 +1,35 @@
+id: WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_003
+title: This test case verifies that the DataElementValue of data element `resident_country` contains a valid country code. Note that `resident_country` is the Attribute Identifier in ISO-mdoc for the Data Identifier resident_country.
+source:
+    path: DataModel/AddressData/WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_003.md
+suite:
+    sut: wallet_solution
+    role: relying_party
+    section: data_model.address_data
+applicability:
+    credential_format: iso_mdoc
+    document_type: pid
+normative_references:
+    - title: European Digital Identity Wallet, ARF 2.0, Annex 3.01 pid rulebook
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_residentcountry_pid_iso-mdoc_003
+    - title: '"ANNEXES to the COMMISSION IMPLEMENTING REGULATION amending Implementing Regulation (EU) 2024/2977, (EU) 2024/2979, (EU) 2024/2980 and (EU) 2024/2982 as regards applicable standards and specifications and correcting Implementing Regulation (EU) 2024/2980" section 4.1 (Table 6).'
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_residentcountry_pid_iso-mdoc_003
+    - title: ISO 3166-1:2020, 6.1 ISO 3166-1:2020, 8.3
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_residentcountry_pid_iso-mdoc_003
+preconditions:
+    - ref: pipeline.pid.presentation.mdoc.all-claims-elements
+    - ref: assertion.pid.presentation.mdoc.doc-type-pid
+    - ref: assertion.pid.presentation.mdoc.required-mandatory-elements-presented
+    - ref: test.WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_001
+evidence:
+    pid_mdoc:
+        from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
+assertions:
+    - id: resident_country_semantic
+      validator: mdoc.element_country_code
+      input: evidence.pid_mdoc
+      params:
+        element: resident_country
+        namespace: eu.europa.ec.eudi.pid.1
+verdict:
+    pass_when: all_assertions_pass

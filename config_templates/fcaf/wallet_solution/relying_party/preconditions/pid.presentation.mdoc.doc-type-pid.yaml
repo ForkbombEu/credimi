@@ -1,0 +1,9 @@
+id: assertion.pid.presentation.mdoc.doc-type-pid
+kind: assertion
+description: Verify that the presented mdoc uses the PID document type.
+depends_on:
+  - pipeline.pid.presentation.mdoc.all-claims-elements
+input:
+  from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
+validator: pid.mdoc_doc_type
+failure_policy: fail_dependent_tests

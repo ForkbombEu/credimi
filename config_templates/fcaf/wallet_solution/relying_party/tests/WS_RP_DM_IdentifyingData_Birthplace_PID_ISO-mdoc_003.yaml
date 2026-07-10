@@ -1,0 +1,41 @@
+id: WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_003
+title: This test case verifies that the correct key-value pairs are present in each data element present in `place_of_birth`. Note that `place_of_birth` is the Attribute Identifier in ISO-mdoc for the Data Identifier birth_place.
+source:
+    path: DataModel/IdentifyingData/WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_003.md
+suite:
+    sut: wallet_solution
+    role: relying_party
+    section: data_model.identifying_data
+applicability:
+    credential_format: iso_mdoc
+    document_type: pid
+normative_references:
+    - title: European Digital Identity Wallet, ARF 2.0, Annex 3.01 pid rulebook, paragraph 3.1.5
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_birthplace_pid_iso-mdoc_003
+    - title: '"ANNEXES to the COMMISSION IMPLEMENTING REGULATION amending Implementing Regulation (EU) 2024/2977, (EU) 2024/2979, (EU) 2024/2980 and (EU) 2024/2982 as regards applicable standards and specifications and correcting Implementing Regulation (EU) 2024/2980" section 4.1 (Table 6).'
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_birthplace_pid_iso-mdoc_003
+    - title: RFC 7049 section 2.1
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_birthplace_pid_iso-mdoc_003
+preconditions:
+    - ref: pipeline.pid.presentation.mdoc.all-claims-elements
+    - ref: assertion.pid.presentation.mdoc.doc-type-pid
+    - ref: assertion.pid.presentation.mdoc.required-mandatory-elements-presented
+    - ref: test.WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_001
+evidence:
+    pid_mdoc:
+        from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
+assertions:
+    - id: place_of_birth_shape
+      validator: mdoc.element_map_shape
+      input: evidence.pid_mdoc
+      params:
+        allowed_keys:
+            - country
+            - region
+            - locality
+        element: place_of_birth
+        max_properties: 3
+        min_properties: 1
+        namespace: eu.europa.ec.eudi.pid.1
+verdict:
+    pass_when: all_assertions_pass

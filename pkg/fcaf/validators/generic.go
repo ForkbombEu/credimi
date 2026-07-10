@@ -1,0 +1,179 @@
+// SPDX-FileCopyrightText: 2026 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package validators
+
+import (
+	"context"
+	"fmt"
+	"strings"
+)
+
+type EvidencePresentValidator struct{}
+
+func (EvidencePresentValidator) ID() string {
+	return "evidence.present"
+}
+
+func (EvidencePresentValidator) Validate(_ context.Context, input Input) Result {
+	if input.Value == nil {
+		return Result{Status: StatusFail, Message: "evidence value is missing"}
+	}
+	return Result{Status: StatusPass, Message: "evidence value is present"}
+}
+
+type JSONFieldRequiredValidator struct{}
+
+func (JSONFieldRequiredValidator) ID() string {
+	return "json.field_required"
+}
+
+func (JSONFieldRequiredValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Field string `json:"field"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Field == "" {
+		return Result{Status: StatusError, Message: "field param is required"}
+	}
+	obj, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected object", input.Value),
+		}
+	}
+	if _, ok := obj[params.Field]; !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("required field %q is missing", params.Field),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("required field %q is present", params.Field),
+	}
+}
+
+type MDocNamespaceElementPresentValidator struct{}
+
+func (MDocNamespaceElementPresentValidator) ID() string {
+	return "mdoc.namespace_element_present"
+}
+
+func (MDocNamespaceElementPresentValidator) Validate(_ context.Context, input Input) Result {
+	params, err := decodeMDocElementParams(input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	presentation, ok := mdocPresentation(input.Value)
+	if !ok {
+		return wrongMDocInput(input.Value)
+	}
+	if document, exists := presentation.Document(pidMDocType); exists {
+		if code, hasError := document.Errors[params.Namespace][params.Element]; hasError {
+			return invalidMDocElement(
+				params,
+				fmt.Errorf("document contains ErrorItem code %d", code),
+			)
+		}
+	}
+	if _, exists := presentation.Element(params.Namespace, params.Element); !exists {
+		return invalidMDocElement(params, fmt.Errorf("element is missing"))
+	}
+	return validMDocElement(params, "is present without an ErrorItem")
+}
+
+type JOSEJWEEncryptedResponseValidator struct{}
+
+func (JOSEJWEEncryptedResponseValidator) ID() string {
+	return "jose.jwe_encrypted_response"
+}
+
+func (JOSEJWEEncryptedResponseValidator) Validate(_ context.Context, input Input) Result {
+	switch typed := input.Value.(type) {
+	case string:
+		if len(strings.Split(typed, ".")) == 5 {
+			return Result{Status: StatusPass, Message: "compact JWE response is present"}
+		}
+		return Result{Status: StatusFail, Message: "response is not a compact JWE"}
+	case map[string]any:
+		if _, ok := typed["ciphertext"]; ok {
+			return Result{Status: StatusPass, Message: "JSON JWE response is present"}
+		}
+		return Result{Status: StatusFail, Message: "response does not contain JWE ciphertext"}
+	default:
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected string or object", input.Value),
+		}
+	}
+}
+
+type OID4VPDeviceBindingValidator struct{}
+
+func (OID4VPDeviceBindingValidator) ID() string {
+	return "oid4vp.device_binding"
+}
+
+func (OID4VPDeviceBindingValidator) Validate(_ context.Context, input Input) Result {
+	if input.Value == nil {
+		return Result{Status: StatusFail, Message: "device binding evidence is missing"}
+	}
+	switch typed := input.Value.(type) {
+	case map[string]any:
+		if hasAnyKey(
+			typed,
+			"key_binding",
+			"keyBinding",
+			"_kb_header",
+			"device_signature",
+			"deviceSignature",
+		) {
+			return Result{Status: StatusPass, Message: "device binding evidence is present"}
+		}
+		return Result{Status: StatusFail, Message: "device binding evidence is missing"}
+	default:
+		return Result{Status: StatusPass, Message: "device binding evidence is present"}
+	}
+}
+
+type OID4VPNonceStateBindingValidator struct{}
+
+func (OID4VPNonceStateBindingValidator) ID() string {
+	return "oid4vp.nonce_state_binding"
+}
+
+func (OID4VPNonceStateBindingValidator) Validate(_ context.Context, input Input) Result {
+	payload, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected object", input.Value),
+		}
+	}
+	requestNonce, _ := payload["request_nonce"].(string)
+	responseNonce, _ := payload["response_nonce"].(string)
+	requestState, _ := payload["request_state"].(string)
+	responseState, _ := payload["response_state"].(string)
+
+	if requestNonce != "" && responseNonce != "" && requestNonce != responseNonce {
+		return Result{Status: StatusFail, Message: "nonce binding failed"}
+	}
+	if requestState != "" && responseState != "" && requestState != responseState {
+		return Result{Status: StatusFail, Message: "state binding failed"}
+	}
+	return Result{Status: StatusPass, Message: "nonce and state bindings match"}
+}
+
+func hasAnyKey(object map[string]any, keys ...string) bool {
+	for _, key := range keys {
+		if _, ok := object[key]; ok {
+			return true
+		}
+	}
+	return false
+}

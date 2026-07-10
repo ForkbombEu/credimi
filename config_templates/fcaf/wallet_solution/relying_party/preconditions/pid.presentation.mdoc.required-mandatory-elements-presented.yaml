@@ -1,0 +1,19 @@
+id: assertion.pid.presentation.mdoc.required-mandatory-elements-presented
+kind: assertion
+description: Verify that all mandatory PID mdoc elements are present in the presented document.
+depends_on:
+  - pipeline.pid.presentation.mdoc.all-claims-elements
+  - assertion.pid.presentation.mdoc.doc-type-pid
+input:
+  from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
+validator: pid.mdoc_required_mandatory_elements_present
+params:
+  namespace: eu.europa.ec.eudi.pid.1
+  required_elements:
+    - family_name
+    - given_name
+    - birth_date
+    - expiry_date
+    - issuing_authority
+    - issuing_country
+failure_policy: fail_dependent_tests

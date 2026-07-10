@@ -48,9 +48,9 @@ func getTemporalClient(args ...string) (client.Client, error) {
 	return c, nil
 }
 
-// GetTemporalClientWithNamespace creates a new Temporal client with the specified namespace.
-// It uses the TEMPORAL_ADDRESS environment variable to determine the host and port.
-// If TEMPORAL_ADDRESS is not set, it defaults to client.DefaultHostPort.
+// GetTemporalClientWithNamespace returns the shared cached Temporal client for the namespace.
+// Callers must not close the returned client; its lifecycle is managed by this package and
+// ShutdownClients.
 func GetTemporalClientWithNamespace(namespace string) (client.Client, error) {
 	return getTemporalClient(namespace)
 }
