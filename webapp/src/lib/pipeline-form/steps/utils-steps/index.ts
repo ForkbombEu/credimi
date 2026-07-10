@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { TypedConfig } from '$pipeline-form/steps/types';
+
 import { Globe, Mail } from '@lucide/svelte';
 import config from '$config';
 
 import { m } from '@/i18n';
-
-import type { TypedConfig } from '../types';
 
 import { EmailStepForm, type EmailFormData } from './email-step-form.svelte.js';
 import { HttpRequestStepForm, type HttpRequestFormData } from './http-request-step-form.svelte.js';

@@ -8,7 +8,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { TriangleAlert } from '@lucide/svelte';
-	import * as steps from '$lib/pipeline-form/steps';
+	import { showPipelineFormError } from '$pipeline-form/errors.js';
+	import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+	import * as steps from '$pipeline-form/steps';
 
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
@@ -19,9 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import { showPipelineFormError } from '../../errors.js';
-	import { type EnrichedStep, Enrich404Error } from '../types';
-	import { getStepData, getStepError } from './utils';
+	import { getStepData, getStepError } from './index.js';
 
 	//
 

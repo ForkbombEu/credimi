@@ -9,14 +9,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ClassValue } from 'svelte/elements';
 
 	import { ArrowRightIcon, XIcon } from '@lucide/svelte';
+	import { showPipelineFormError } from '$pipeline-form/errors.js';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { cn } from '@/components/ui/utils';
-
-	import { showPipelineFormError } from '../../errors.js';
 
 	type Props = {
 		avatar?: string;

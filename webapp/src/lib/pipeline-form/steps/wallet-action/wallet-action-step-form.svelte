@@ -12,20 +12,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
-	import { type HubItem, getHubItemData } from '$lib/hub';
+	import { getHubItemData, type HubItem } from '$lib/hub';
 	import { getHubItemTypeFilter } from '$lib/hub/utils.js';
-	import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
 	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
+	import {
+		ItemCard,
+		SearchInput,
+		StepCollectionPicker,
+		WithLabel
+	} from '$pipeline-form/steps/_partials/index.js';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import ItemCard from '../_partials/item-card.svelte';
-	import SearchInput from '../_partials/search-input.svelte';
-	import StepCollectionPicker from '../_partials/step-collection-picker.svelte';
-	import WithLabel from '../_partials/with-label.svelte';
 	import WalletActionForm from './wallet-action-form.svelte';
 	import {
 		getRunnerLabel,
@@ -37,15 +38,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 
-	const isRunnerGlobal = $derived(ExecutionTarget.hasGlobalRunner());
-
 	const runnerCatalog = bindRunnerCatalogSearch({
 		search: form.runnerSearch
 	});
 </script>
 
 {#snippet chooseRunnerLater()}
-	{#if ExecutionTarget.hasUndefinedRunner()}
+	{#if !form.isExecutionTargetLocked() && !form.data.runner}
 		<div class="px-4">
 			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
 		</div>
@@ -61,14 +60,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				avatar={data.logo}
 				title={form.data.wallet.name}
 				subtitle={form.data.wallet.organization_name}
-				onDiscard={isRunnerGlobal ? undefined : () => form.removeWallet()}
+				onDiscard={form.isExecutionTargetLocked() ? undefined : () => form.removeWallet()}
 			/>
 		</WithLabel>
 		{#if form.data.version}
 			<WithLabel label={m.Version()}>
 				<ItemCard
 					title={getVersionLabel(form.data.version)}
-					onDiscard={isRunnerGlobal ? undefined : () => form.removeVersion()}
+					onDiscard={form.isExecutionTargetLocked()
+						? undefined
+						: () => form.removeVersion()}
 				/>
 			</WithLabel>
 		{/if}
@@ -76,7 +77,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<WithLabel label={m.Runner()}>
 				<ItemCard
 					title={getRunnerLabel(form.data.runner)}
-					onDiscard={isRunnerGlobal ? undefined : () => form.removeRunner()}
+					onDiscard={form.isExecutionTargetLocked()
+						? undefined
+						: () => form.removeRunner()}
 				/>
 			</WithLabel>
 		{/if}

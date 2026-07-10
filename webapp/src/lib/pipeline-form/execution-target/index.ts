@@ -2,4 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export * as ExecutionTarget from './state.svelte';
+export {
+	EXTERNAL_VERSION,
+	GLOBAL_RUNNER,
+	isExecutionTarget,
+	type ExecutionTarget,
+	type SelectedRunner,
+	type SelectedVersion
+} from './types.js';
+export { resolveExecutionTarget } from './resolve.js';

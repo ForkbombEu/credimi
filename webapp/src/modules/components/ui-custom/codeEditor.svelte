@@ -86,17 +86,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const styles = $derived.by(() => {
-		const baseStyles = {
-			'&': { minHeight: 'none', maxHeight: 'none' },
-			'.cm-scroller': { overflow: 'auto' }
+		const rootStyles: { minHeight: string; maxHeight: string; height?: string } = {
+			minHeight: 'none',
+			maxHeight: 'none'
 		};
 		if (minHeight) {
-			baseStyles['&'].minHeight = `${minHeight}px`;
+			rootStyles.minHeight = `${minHeight}px`;
 		} else {
-			baseStyles['&'].height = '100%';
+			rootStyles.height = '100%';
 		}
-		if (maxHeight) baseStyles['&'].maxHeight = `${maxHeight}px`;
-		return baseStyles;
+		if (maxHeight) rootStyles.maxHeight = `${maxHeight}px`;
+		return {
+			'&': rootStyles,
+			'.cm-scroller': { overflow: 'auto' as const }
+		};
 	});
 
 	/* Extensions with copy/paste buttons */

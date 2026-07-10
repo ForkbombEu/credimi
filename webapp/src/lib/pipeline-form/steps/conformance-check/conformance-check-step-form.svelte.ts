@@ -6,6 +6,7 @@ import type { HubItem } from '$lib/hub';
 
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { getPath } from '$lib/utils';
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
@@ -13,8 +14,6 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { WalletActionsCategoryOptions, type WalletActionsResponse } from '@/pocketbase/types';
 
-import { ExecutionTarget } from '../../execution-target';
-import { BaseForm, type InitFormOptions } from '../types';
 import Component from './conformance-check-step-form.svelte';
 import { getTestName, isOpenIdWalletTest } from './utils';
 
@@ -36,7 +35,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	);
 
 	walletActions = resource(
-		() => ExecutionTarget.state.current?.wallet?.id,
+		() => this.getExecutionTarget()?.wallet?.id,
 		async (walletId) => {
 			if (!walletId) return null;
 
@@ -55,9 +54,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	constructor(opts?: InitFormOptions<FormData>) {
 		super(opts);
-		if (opts?.initial) {
-			this.data = { ...opts.initial };
-		}
+		if (opts?.initial) this.data = { ...opts.initial };
 	}
 
 	canSave() {
@@ -118,7 +115,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 			return { kind: 'none' };
 		}
 
-		const wallet = ExecutionTarget.state.current?.wallet;
+		const wallet = this.getExecutionTarget()?.wallet;
 
 		if (wallet && this.walletActions.loading) {
 			return { kind: 'loading' };
@@ -135,7 +132,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	selectedTestName = $derived(this.data.test ? getTestName(this.data.test) : '');
 
 	testOptions: TestOption[] = $derived.by(() => {
-		const wallet = ExecutionTarget.state.current?.wallet;
+		const wallet = this.getExecutionTarget()?.wallet;
 		const walletTestsBlocked =
 			this.hasWalletTests &&
 			(!wallet ||

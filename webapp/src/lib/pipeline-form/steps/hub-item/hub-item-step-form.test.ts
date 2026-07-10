@@ -8,6 +8,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('./hub-item-step-form.svelte', () => ({ default: class {} }));
 
+import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
+
 import { HubItemStepForm } from './hub-item-step-form.svelte.js';
 
 const hubItem = {
@@ -25,7 +27,7 @@ describe('HubItemStepForm', () => {
 				collection: 'credentials',
 				entityData: { labels: { singular: 'Credential' } } as never
 			},
-			{ intent: 'add' }
+			createInitFormOptions({ intent: 'add' })
 		);
 		form.onSubmit(onSubmit);
 		form.selectItem(hubItem);
@@ -40,7 +42,7 @@ describe('HubItemStepForm', () => {
 				collection: 'credentials',
 				entityData: { labels: { singular: 'Credential' } } as never
 			},
-			{ intent: 'edit', initial: hubItem }
+			createInitFormOptions({ intent: 'edit', initial: hubItem })
 		);
 		form.onSubmit(onSubmit);
 		form.selectItem({ ...hubItem, id: 'h2', name: 'Other' });
@@ -54,7 +56,7 @@ describe('HubItemStepForm', () => {
 				collection: 'credentials',
 				entityData: { labels: { singular: 'Credential' } } as never
 			},
-			{ intent: 'edit', initial: hubItem }
+			createInitFormOptions({ intent: 'edit', initial: hubItem })
 		);
 		form.discardSelection();
 		expect(form.selectedItem).toBeUndefined();

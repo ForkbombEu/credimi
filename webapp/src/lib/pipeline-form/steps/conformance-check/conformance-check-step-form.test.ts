@@ -41,6 +41,8 @@ vi.mock('@/i18n', () => ({
 	})
 }));
 
+import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
+
 import {
 	ConformanceCheckStepForm,
 	getWalletTestBlockReason,
@@ -109,15 +111,18 @@ describe('getWalletTestBlockReason', () => {
 
 describe('ConformanceCheckStepForm discard cascade', () => {
 	it('discardSuite clears test and action_id', () => {
-		const form = new ConformanceCheckStepForm({
-			initial: {
-				standard: { uid: 's', name: 'S', versions: [] } as never,
-				version: { uid: 'v', name: 'V', suites: [] } as never,
-				suite: { uid: 'su', name: 'Su', paths: [] } as never,
-				test: 'openid4vci_wallet/foo',
-				action_id: 'owners/w/actions/a1'
-			}
-		});
+		const form = new ConformanceCheckStepForm(
+			createInitFormOptions({
+				intent: 'edit',
+				initial: {
+					standard: { uid: 's', name: 'S', versions: [] } as never,
+					version: { uid: 'v', name: 'V', suites: [] } as never,
+					suite: { uid: 'su', name: 'Su', paths: [] } as never,
+					test: 'openid4vci_wallet/foo',
+					action_id: 'owners/w/actions/a1'
+				}
+			})
+		);
 
 		form.discardSuite();
 
@@ -130,16 +135,18 @@ describe('ConformanceCheckStepForm discard cascade', () => {
 describe('ConformanceCheckStepForm edit intent', () => {
 	it('selectWalletAction does not commit until commit()', () => {
 		const onSubmit = vi.fn();
-		const form = new ConformanceCheckStepForm({
-			intent: 'edit',
-			initial: {
-				standard: { uid: 's', name: 'S', versions: [] } as never,
-				version: { uid: 'v', name: 'V', suites: [] } as never,
-				suite: { uid: 'su', name: 'Su', paths: [] } as never,
-				test: 'openid4vci_wallet/foo',
-				action_id: 'old/action/path'
-			}
-		});
+		const form = new ConformanceCheckStepForm(
+			createInitFormOptions({
+				intent: 'edit',
+				initial: {
+					standard: { uid: 's', name: 'S', versions: [] } as never,
+					version: { uid: 'v', name: 'V', suites: [] } as never,
+					suite: { uid: 'su', name: 'Su', paths: [] } as never,
+					test: 'openid4vci_wallet/foo',
+					action_id: 'old/action/path'
+				}
+			})
+		);
 		form.onSubmit(onSubmit);
 		const newAction = { __canonified_path__: 'new/action/path' } as never;
 		form.selectWalletAction(newAction);

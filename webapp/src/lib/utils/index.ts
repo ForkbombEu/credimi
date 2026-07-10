@@ -114,7 +114,9 @@ export async function fetchRecordDeeplink(record: DeeplinkRecord) {
 	const response = await fetch(url, { method: 'GET' });
 
 	if (!response.ok) {
-		const errorBody = recordDeeplinkErrorSchema.safeParse(await response.json().catch(() => null));
+		const errorBody = recordDeeplinkErrorSchema.safeParse(
+			await response.json().catch(() => null)
+		);
 		throw new ClientResponseError({
 			url: response.url,
 			status: response.status,
@@ -122,7 +124,10 @@ export async function fetchRecordDeeplink(record: DeeplinkRecord) {
 		});
 	}
 
-	const deeplink = z.string().min(1).parse((await response.text()).trim());
+	const deeplink = z
+		.string()
+		.min(1)
+		.parse((await response.text()).trim());
 	return { deeplink };
 }
 

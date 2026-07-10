@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { type Pipeline, type PipelineStep } from '$lib/pipeline/types';
+import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 import { pipe, String } from 'effect';
 import * as _ from 'lodash';
 import { ClientResponseError } from 'pocketbase';
@@ -16,9 +18,7 @@ import { getExceptionMessage } from '@/utils/errors.js';
 
 import type { RuntimeOptions } from './runtime-options-form/runtime-options-form.svelte.js';
 
-import { type Pipeline, type PipelineStep } from '../pipeline/types';
 import { getConfigByTypeOrThrow } from './steps';
-import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 
 /* Fetching pipeline */
 

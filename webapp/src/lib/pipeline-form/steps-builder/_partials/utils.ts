@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getConfigByType } from '$lib/pipeline-form/steps';
+import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+
+import { getConfigByType } from '$pipeline-form/steps';
 import { isError } from 'effect/Predicate';
 
 import type { GenericRecord } from '@/utils/types';
-
-import type { EnrichedStep } from '../types';
 
 //
 

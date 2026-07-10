@@ -10,19 +10,25 @@ import type {
 	PipelineStepType
 } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
+import type { ExecutionTarget } from '$pipeline-form/execution-target/types.js';
 import type { Component } from 'svelte';
 import type { Simplify } from 'type-fest';
 
-import { showPipelineFormError } from '../errors.js';
+import { showPipelineFormError } from '$pipeline-form/errors.js';
 
 // Pipeline Step Config
 
 export type FormIntent = 'add' | 'edit';
 
-export type InitFormOptions<Deserialized = unknown> = {
-	intent?: FormIntent;
-	initial?: Deserialized;
+export type ExecutionTargetFormContext = {
+	getExecutionTarget: () => ExecutionTarget | undefined;
+	isExecutionTargetLocked: () => boolean;
 };
+
+export type InitFormOptions<T> = {
+	intent: FormIntent;
+	initial?: T;
+} & ExecutionTargetFormContext;
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
 	use: ID;
@@ -74,7 +80,7 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 	readonly intent: FormIntent;
 	protected handleSubmit: (step: Deserialized) => void = () => {};
 
-	constructor(opts?: InitFormOptions<Deserialized>) {
+	constructor(private readonly opts?: InitFormOptions<Deserialized>) {
 		this.intent = opts?.intent ?? 'add';
 	}
 
@@ -101,4 +107,12 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 
 	abstract canSave(): boolean;
 	abstract getSubmitData(): Deserialized | undefined;
+
+	getExecutionTarget() {
+		return this.opts?.getExecutionTarget?.();
+	}
+
+	isExecutionTargetLocked() {
+		return this.opts?.isExecutionTargetLocked?.();
+	}
 }

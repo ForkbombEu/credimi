@@ -4,11 +4,10 @@
 
 import type { HubItem } from '$lib/hub';
 import type { PipelineStepByType } from '$lib/pipeline/types';
+import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 
+import { isWalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 import { isError } from 'effect/Predicate';
-
-import type { WalletActionStepData } from '../../steps/wallet-action/wallet-action-step-form.svelte.js';
-import type { EnrichedStep } from '../types';
 
 //
 
@@ -17,20 +16,6 @@ export type BulkWalletVersionContext = {
 	versionId: string;
 	mobileIndices: number[];
 };
-
-function isWalletActionData(value: unknown): value is WalletActionStepData {
-	if (!value || typeof value !== 'object') return false;
-	const o = value as Record<string, unknown>;
-	return (
-		typeof o.wallet === 'object' &&
-		o.wallet !== null &&
-		'id' in o.wallet &&
-		typeof (o.wallet as { id: unknown }).id === 'string' &&
-		'version' in o &&
-		'runner' in o &&
-		'action' in o
-	);
-}
 
 function mobileWith(step: EnrichedStep[0]): PipelineStepByType<'mobile-automation'>['with'] | null {
 	if (step.use !== 'mobile-automation' || !('with' in step)) return null;
@@ -59,7 +44,7 @@ export function getBulkWalletVersionContext(
 		const tuple = steps[i]!;
 		const [, data] = tuple;
 		if (isError(data)) return null;
-		if (!isWalletActionData(data)) return null;
+		if (!isWalletActionStepData(data)) return null;
 
 		const w = mobileWith(tuple[0]);
 		if (!w || !('version_id' in w) || typeof w.version_id !== 'string') return null;
