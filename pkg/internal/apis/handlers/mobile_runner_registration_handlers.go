@@ -65,8 +65,8 @@ type PreviewMobileRunnerIDResponse struct {
 type UpsertMobileRunnerRequest struct {
 	RunnerID     string `json:"runner_id,omitempty"`
 	Organization string `json:"organization,omitempty"`
-	Name         string `json:"name" validate:"required"`
-	IP           string `json:"ip" validate:"required"`
+	Name         string `json:"name"                   validate:"required"`
+	IP           string `json:"ip"                     validate:"required"`
 	Description  string `json:"description,omitempty"`
 	Type         string `json:"type,omitempty"`
 	Port         string `json:"port,omitempty"`

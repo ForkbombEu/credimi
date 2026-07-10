@@ -113,7 +113,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			mobileWorkflow.Name(),
 			workflowengine.WorkflowInput{
 				Config: map[string]any{
-					"app_url": e.App.Settings().Meta.AppURL,
+					"app_url":   e.App.Settings().Meta.AppURL,
 					"taskqueue": fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID)),
 				},
 				Payload: workflows.MobileAutomationWorkflowPayload{

@@ -61,7 +61,6 @@ func ensureMobileRunnerAccessFields(t testing.TB, app *tests.TestApp) {
 		runners.Fields.Add(&core.BoolField{Name: "admin_managed"})
 	}
 	require.NoError(t, app.Save(runners))
- 
 }
 
 func ensureMobileRunnerLifecycleFields(t testing.TB, app *tests.TestApp) {
@@ -144,15 +143,17 @@ func TestCheckMobileRunnerHealthHTTP(t *testing.T) {
 		origClient := http.DefaultClient
 		t.Cleanup(func() { http.DefaultClient = origClient })
 
-		http.DefaultClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			require.Equal(t, "/health", req.URL.Path)
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body: io.NopCloser(strings.NewReader(
-					`{"devices":[{"serial":"ABC123","state":"device","model":"Pixel 8"}]}`,
-				)),
-			}, nil
-		})}
+		http.DefaultClient = &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				require.Equal(t, "/health", req.URL.Path)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(
+						`{"devices":[{"serial":"ABC123","state":"device","model":"Pixel 8"}]}`,
+					)),
+				}, nil
+			}),
+		}
 
 		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), "https://runner.example")
 		require.NoError(t, err)
@@ -304,112 +305,174 @@ func TestListMobileRunners(t *testing.T) {
 		})
 	})
 
-	t.Run("normal user visibility depends only on ownership and published state", func(t *testing.T) {
-		app := setupMobileRunnerApp(t)
-		defer app.Cleanup()
+	t.Run(
+		"normal user visibility depends only on ownership and published state",
+		func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
 
-		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-		require.NoError(t, err)
-		userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
-		require.NoError(t, err)
-		setOrganizationPublished(t, app, userOrgID, true)
-		otherOrg := createOtherWalletAPKOrganization(t, app)
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+			userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+			require.NoError(t, err)
+			setOrganizationPublished(t, app, userOrgID, true)
+			otherOrg := createOtherWalletAPKOrganization(t, app)
 
-		createMobileRunnerRecord(t, app, userOrgID, "owned-private", "http://127.0.0.1:1", false)
-		createMobileRunnerRecord(t, app, otherOrg.Id, "other-published", "http://127.0.0.1:1", true)
-		createMobileRunnerRecord(t, app, otherOrg.Id, "other-private", "http://127.0.0.1:1", false)
-		createMobileRunnerRecord(t, app, otherOrg.Id, "admin-published", "http://127.0.0.1:1", true)
-		createMobileRunnerRecord(t, app, otherOrg.Id, "admin-private", "http://127.0.0.1:1", false)
+			createMobileRunnerRecord(
+				t,
+				app,
+				userOrgID,
+				"owned-private",
+				"http://127.0.0.1:1",
+				false,
+			)
+			createMobileRunnerRecord(
+				t,
+				app,
+				otherOrg.Id,
+				"other-published",
+				"http://127.0.0.1:1",
+				true,
+			)
+			createMobileRunnerRecord(
+				t,
+				app,
+				otherOrg.Id,
+				"other-private",
+				"http://127.0.0.1:1",
+				false,
+			)
+			createMobileRunnerRecord(
+				t,
+				app,
+				otherOrg.Id,
+				"admin-published",
+				"http://127.0.0.1:1",
+				true,
+			)
+			createMobileRunnerRecord(
+				t,
+				app,
+				otherOrg.Id,
+				"admin-private",
+				"http://127.0.0.1:1",
+				false,
+			)
 
-		setMobileRunnerAdminManaged(t, app, "other-org/admin-published", true)
-		setMobileRunnerAdminManaged(t, app, "other-org/admin-private", true)
+			setMobileRunnerAdminManaged(t, app, "other-org/admin-published", true)
+			setMobileRunnerAdminManaged(t, app, "other-org/admin-private", true)
 
-		originalHealth := checkMobileRunnerHealth
-		checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
-			return false, nil, nil
-		}
-		t.Cleanup(func() {
-			checkMobileRunnerHealth = originalHealth
-		})
+			originalHealth := checkMobileRunnerHealth
+			checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+				return false, nil, nil
+			}
+			t.Cleanup(func() {
+				checkMobileRunnerHealth = originalHealth
+			})
 
-		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
-		rec := httptest.NewRecorder()
-		event := &core.RequestEvent{
-			App:  app,
-			Auth: user,
-			Event: router.Event{
-				Request:  req,
-				Response: rec,
-			},
-		}
+			req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
+			rec := httptest.NewRecorder()
+			event := &core.RequestEvent{
+				App:  app,
+				Auth: user,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			}
 
-		err = HandleListMobileRunners()(event)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
+			err = HandleListMobileRunners()(event)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code)
 
-		var response ListMobileRunnersPublicResponseSchema
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-		require.ElementsMatch(t, []string{
-			"usera-s-organization/owned-private",
-			"other-org/other-published",
-			"other-org/admin-published",
-		}, []string{
-			response.Runners[0].Path,
-			response.Runners[1].Path,
-			response.Runners[2].Path,
-		})
-	})
+			var response ListMobileRunnersPublicResponseSchema
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+			require.ElementsMatch(t, []string{
+				"usera-s-organization/owned-private",
+				"other-org/other-published",
+				"other-org/admin-published",
+			}, []string{
+				response.Runners[0].Path,
+				response.Runners[1].Path,
+				response.Runners[2].Path,
+			})
+		},
+	)
 
-	t.Run("unpublished normal user organization sees owned and published admin-managed runners", func(t *testing.T) {
-		app := setupMobileRunnerApp(t)
-		defer app.Cleanup()
+	t.Run(
+		"unpublished normal user organization sees owned and published admin-managed runners",
+		func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
 
-		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-		require.NoError(t, err)
-		userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
-		require.NoError(t, err)
-		setOrganizationPublished(t, app, userOrgID, false)
-		otherOrg := createOtherWalletAPKOrganization(t, app)
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+			userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+			require.NoError(t, err)
+			setOrganizationPublished(t, app, userOrgID, false)
+			otherOrg := createOtherWalletAPKOrganization(t, app)
 
-		createMobileRunnerRecord(t, app, userOrgID, "owned-private", "http://127.0.0.1:1", false)
-		createMobileRunnerRecord(t, app, otherOrg.Id, "other-published", "http://127.0.0.1:1", true)
-		createMobileRunnerRecord(t, app, otherOrg.Id, "admin-published", "http://127.0.0.1:1", true)
-		setMobileRunnerAdminManaged(t, app, "other-org/admin-published", true)
+			createMobileRunnerRecord(
+				t,
+				app,
+				userOrgID,
+				"owned-private",
+				"http://127.0.0.1:1",
+				false,
+			)
+			createMobileRunnerRecord(
+				t,
+				app,
+				otherOrg.Id,
+				"other-published",
+				"http://127.0.0.1:1",
+				true,
+			)
+			createMobileRunnerRecord(
+				t,
+				app,
+				otherOrg.Id,
+				"admin-published",
+				"http://127.0.0.1:1",
+				true,
+			)
+			setMobileRunnerAdminManaged(t, app, "other-org/admin-published", true)
 
-		originalHealth := checkMobileRunnerHealth
-		checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
-			return false, nil, nil
-		}
-		t.Cleanup(func() {
-			checkMobileRunnerHealth = originalHealth
-		})
+			originalHealth := checkMobileRunnerHealth
+			checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+				return false, nil, nil
+			}
+			t.Cleanup(func() {
+				checkMobileRunnerHealth = originalHealth
+			})
 
-		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
-		rec := httptest.NewRecorder()
-		event := &core.RequestEvent{
-			App:  app,
-			Auth: user,
-			Event: router.Event{
-				Request:  req,
-				Response: rec,
-			},
-		}
+			req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
+			rec := httptest.NewRecorder()
+			event := &core.RequestEvent{
+				App:  app,
+				Auth: user,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			}
 
-		err = HandleListMobileRunners()(event)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
+			err = HandleListMobileRunners()(event)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code)
 
-		var response ListMobileRunnersPublicResponseSchema
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-		require.Len(t, response.Runners, 2)
-		require.ElementsMatch(t, []string{
-			"usera-s-organization/owned-private",
-			"other-org/admin-published",
-		}, []string{
-			response.Runners[0].Path,
-			response.Runners[1].Path,
-		})
-	})
+			var response ListMobileRunnersPublicResponseSchema
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+			require.Len(t, response.Runners, 2)
+			require.ElementsMatch(t, []string{
+				"usera-s-organization/owned-private",
+				"other-org/admin-published",
+			}, []string{
+				response.Runners[0].Path,
+				response.Runners[1].Path,
+			})
+		},
+	)
 
 	t.Run("selector view skips queue details and sensitive runner fields", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)

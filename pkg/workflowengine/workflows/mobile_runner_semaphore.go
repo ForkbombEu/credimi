@@ -1559,14 +1559,22 @@ func (r *mobileRunnerSemaphoreRuntime) cancelTrackedWorkflow(
 	if signalErr != nil {
 		response.PipelineCancelFailures = append(
 			response.PipelineCancelFailures,
-			fmt.Sprintf("ticket %s pipeline cancellation policy signal failed: %v", ticketID, signalErr),
+			fmt.Sprintf(
+				"ticket %s pipeline cancellation policy signal failed: %v",
+				ticketID,
+				signalErr,
+			),
 		)
 	} else {
 		signalOutput, decodeErr := decodeSignalWorkflowOutput(signalResult.Output)
 		if decodeErr != nil {
 			response.PipelineCancelFailures = append(
 				response.PipelineCancelFailures,
-				fmt.Sprintf("ticket %s pipeline cancellation policy signal decode failed: %v", ticketID, decodeErr),
+				fmt.Sprintf(
+					"ticket %s pipeline cancellation policy signal decode failed: %v",
+					ticketID,
+					decodeErr,
+				),
 			)
 		} else if signalOutput.Status != "SIGNALED" && signalOutput.Status != "NOT_FOUND" {
 			response.PipelineCancelFailures = append(
