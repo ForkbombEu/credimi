@@ -590,7 +590,7 @@ func (a *RunMobileFlowActivity) Execute(
 	}
 
 	return workflowengine.ActivityResult{
-		Output: res["output"],
+		Output: res,
 	}, nil
 }
 
