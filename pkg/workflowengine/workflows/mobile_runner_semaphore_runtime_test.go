@@ -296,13 +296,19 @@ func TestHandlePauseRunnerCancelsRunningTicket(t *testing.T) {
 	signalAct := activities.NewSignalWorkflowActivity()
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-			payload, err := workflowengine.DecodePayload[activities.SignalWorkflowActivityInput](input.Payload)
+			payload, err := workflowengine.DecodePayload[activities.SignalWorkflowActivityInput](
+				input.Payload,
+			)
 			require.NoError(t, err)
 			require.Equal(t, "wf-1", payload.WorkflowID)
 			require.Equal(t, pipelineinternal.PipelineCancellationPolicySignal, payload.SignalName)
 			policy := workflowengine.AsMap(payload.Payload)
 			require.True(t, workflowengine.AsBool(policy["skip_runner_cleanup"]))
-			require.Equal(t, []string{"runner-1"}, workflowengine.AsSliceOfStrings(policy["skip_runner_cleanup_ids"]))
+			require.Equal(
+				t,
+				[]string{"runner-1"},
+				workflowengine.AsSliceOfStrings(policy["skip_runner_cleanup_ids"]),
+			)
 			return workflowengine.ActivityResult{
 				Output: activities.SignalWorkflowActivityOutput{Signaled: true, Status: "SIGNALED"},
 			}, nil
@@ -311,7 +317,9 @@ func TestHandlePauseRunnerCancelsRunningTicket(t *testing.T) {
 	)
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-			payload, err := workflowengine.DecodePayload[activities.CancelWorkflowActivityInput](input.Payload)
+			payload, err := workflowengine.DecodePayload[activities.CancelWorkflowActivityInput](
+				input.Payload,
+			)
 			require.NoError(t, err)
 			require.Equal(t, "wf-1", payload.WorkflowID)
 			return workflowengine.ActivityResult{
@@ -924,7 +932,9 @@ func TestShutdownRunnerCancelsRunningPipelineAndSignalsPeers(t *testing.T) {
 	signalAct := activities.NewSignalWorkflowActivity()
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-			payload, err := workflowengine.DecodePayload[activities.SignalWorkflowActivityInput](input.Payload)
+			payload, err := workflowengine.DecodePayload[activities.SignalWorkflowActivityInput](
+				input.Payload,
+			)
 			require.NoError(t, err)
 			require.Equal(t, "wf-1", payload.WorkflowID)
 			require.Equal(t, pipelineinternal.PipelineCancellationPolicySignal, payload.SignalName)

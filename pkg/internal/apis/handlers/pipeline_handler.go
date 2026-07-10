@@ -113,6 +113,16 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 	Routes: []routing.RouteDefinition{
 		{
+			Method:      http.MethodPost,
+			Path:        "/store-step-screenshots",
+			Handler:     HandleStorePipelineStepScreenshots,
+			Description: "Store Maestro screenshots produced by one pipeline step",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminOrAuth(),
+				apis.BodyLimit(500 << 20),
+			},
+		},
+		{
 			Method:      http.MethodGet,
 			Path:        "/get-yaml",
 			Handler:     HandleGetPipelineYAML,

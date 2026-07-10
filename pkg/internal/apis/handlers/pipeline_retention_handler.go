@@ -32,6 +32,7 @@ const (
 var pipelineRetentionFileFields = []string{
 	"video_results",
 	"screenshots",
+	"maestro_screenshots",
 	"logcats",
 	"ios_logstreams",
 	"report",
@@ -53,12 +54,13 @@ type DeletePipelineResultFilesRequest struct {
 }
 
 type PipelineResultFileCounts struct {
-	VideoResults  int `json:"video_results"`
-	Screenshots   int `json:"screenshots"`
-	Logcats       int `json:"logcats"`
-	IOSLogstreams int `json:"ios_logstreams"`
-	Report        int `json:"report"`
-	Total         int `json:"total"`
+	VideoResults       int `json:"video_results"`
+	Screenshots        int `json:"screenshots"`
+	MaestroScreenshots int `json:"maestro_screenshots"`
+	Logcats            int `json:"logcats"`
+	IOSLogstreams      int `json:"ios_logstreams"`
+	Report             int `json:"report"`
+	Total              int `json:"total"`
 }
 
 type DeletePipelineResultFilesResponse struct {
@@ -448,13 +450,15 @@ func countPipelineResultFiles(record *core.Record) PipelineResultFileCounts {
 	}
 
 	counts := PipelineResultFileCounts{
-		VideoResults:  len(record.GetStringSlice("video_results")),
-		Screenshots:   len(record.GetStringSlice("screenshots")),
-		Logcats:       len(record.GetStringSlice("logcats")),
-		IOSLogstreams: len(record.GetStringSlice("ios_logstreams")),
-		Report:        len(record.GetStringSlice("report")),
+		VideoResults:       len(record.GetStringSlice("video_results")),
+		Screenshots:        len(record.GetStringSlice("screenshots")),
+		MaestroScreenshots: len(record.GetStringSlice("maestro_screenshots")),
+		Logcats:            len(record.GetStringSlice("logcats")),
+		IOSLogstreams:      len(record.GetStringSlice("ios_logstreams")),
+		Report:             len(record.GetStringSlice("report")),
 	}
-	counts.Total = counts.VideoResults + counts.Screenshots + counts.Logcats + counts.IOSLogstreams + counts.Report
+	counts.Total = counts.VideoResults + counts.Screenshots + counts.MaestroScreenshots +
+		counts.Logcats + counts.IOSLogstreams + counts.Report
 
 	return counts
 }
@@ -465,6 +469,7 @@ func addPipelineResultFileCounts(
 ) PipelineResultFileCounts {
 	left.VideoResults += right.VideoResults
 	left.Screenshots += right.Screenshots
+	left.MaestroScreenshots += right.MaestroScreenshots
 	left.Logcats += right.Logcats
 	left.IOSLogstreams += right.IOSLogstreams
 	left.Report += right.Report

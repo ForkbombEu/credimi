@@ -116,7 +116,10 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		var resp workflowengine.ActivityResult
 		err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), listReq).Get(ctx, &resp)
 		if err != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
@@ -132,7 +135,10 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 					},
 				)
 
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 
 		runnerURLs, ok = parseRunnerURLs(body["runners"])
@@ -147,7 +153,10 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 					},
 				)
 
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 		runnerURLs = normalizeWorkerManagerRunnerURLs(runnerURLs)
 	}

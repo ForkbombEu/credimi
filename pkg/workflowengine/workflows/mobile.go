@@ -7,6 +7,7 @@ package workflows
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 )
 
 const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
+
+const pipelineTaskQueue = "PipelineTaskQueue"
 
 const (
 	externalInstallAppDetectionTimeout   = 20 * time.Second
@@ -168,7 +171,6 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	}
 	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
 		Get(runnerCtx, &mobileResponse)
-	output.FlowOutput = mobileResponse.Output
 
 	if executeErr != nil {
 		if temporal.IsCanceledError(executeErr) {
@@ -183,6 +185,20 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			},
 		)
 	}
+	flowOutput, err := storeMobileFlowScreenshots(
+		ctx,
+		input,
+		payload,
+		mobileResponse.Output,
+	)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
+			err,
+			input.RunMetadata,
+			map[string]any{"output": output},
+		)
+	}
+	output.FlowOutput = flowOutput
 
 	return workflowengine.WorkflowResult{
 		Output: output,
@@ -253,9 +269,6 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	}
 	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
 		Get(runnerCtx, &mobileResponse)
-	output.FlowOutput = map[string]any{
-		"mobile_flow": mobileResponse.Output,
-	}
 
 	if executeErr != nil {
 		if temporal.IsCanceledError(executeErr) {
@@ -270,6 +283,20 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 			},
 		)
 	}
+	flowOutput, err := storeMobileFlowScreenshots(
+		ctx,
+		input,
+		payload,
+		mobileResponse.Output,
+	)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
+			err,
+			input.RunMetadata,
+			map[string]any{"output": output},
+		)
+	}
+	output.FlowOutput = map[string]any{"mobile_flow": flowOutput}
 
 	addedApps, afterApps, attempts, err := waitForAddedInstalledApps(
 		runnerCtx,
@@ -333,6 +360,72 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	return workflowengine.WorkflowResult{
 		Output: output,
 	}, nil
+}
+
+func storeMobileFlowScreenshots(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+	payload MobileAutomationWorkflowPayload,
+	rawFlowOutput any,
+) (map[string]any, error) {
+	flowOutput := workflowengine.AsMap(rawFlowOutput)
+	screenshotPaths := workflowengine.AsSliceOfStrings(flowOutput["maestro_screenshot_paths"])
+	if len(screenshotPaths) == 0 {
+		return flowOutput, nil
+	}
+
+	runnerURL := workflowengine.AsString(input.Config["runner_url"])
+	stepID := workflowengine.AsString(input.Config["step_id"])
+	runIdentifier := workflowengine.AsString(input.Config["run_identifier"])
+	if runnerURL == "" || stepID == "" || runIdentifier == "" || payload.RunnerID == "" {
+		return nil, workflowengine.NewMissingConfigError(
+			"runner_url, step_id, run_identifier, or runner_id",
+			input.RunMetadata,
+		)
+	}
+
+	activityOptions := mobileActivityOptions(input.ActivityOptions, pipelineTaskQueue)
+	storageCtx := workflow.WithActivityOptions(ctx, activityOptions)
+	httpActivity := activities.NewInternalHTTPActivity()
+	var storeResult workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		storageCtx,
+		httpActivity.Name(),
+		workflowengine.ActivityInput{Payload: activities.InternalHTTPActivityPayload{
+			Method: http.MethodPost,
+			URL: utils.JoinURL(
+				runnerURL,
+				"credimi",
+				"execution-screenshots",
+			),
+			Headers: map[string]string{
+				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
+			},
+			Body: map[string]any{
+				"run_identifier":    runIdentifier,
+				"runner_identifier": payload.RunnerID,
+				"step_id":           stepID,
+				"screenshot_paths":  screenshotPaths,
+			},
+			Timeout:        "300",
+			ExpectedStatus: http.StatusOK,
+		}},
+	).Get(storageCtx, &storeResult); err != nil {
+		return nil, err
+	}
+
+	responseBody := workflowengine.AsMap(workflowengine.AsMap(storeResult.Output)["body"])
+	screenshotURLs := workflowengine.AsSliceOfStrings(responseBody["screenshot_urls"])
+	if len(screenshotURLs) == 0 {
+		return nil, workflowengine.NewMissingOrInvalidPayloadError(
+			fmt.Errorf("runner response is missing screenshot_urls"),
+			input.RunMetadata,
+		)
+	}
+
+	delete(flowOutput, "maestro_screenshot_paths")
+	flowOutput["maestro_screenshot_urls"] = screenshotURLs
+	return flowOutput, nil
 }
 
 func mobileActivityOptions(
