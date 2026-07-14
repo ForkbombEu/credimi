@@ -82,6 +82,7 @@ Maestro-backed preconditions:
 - `pipeline.dcql.claims-omitted`: `dcql-claims-omitted.yaml`
 - `pipeline.dcql.claims-empty`: `dcql-claims-empty.yaml`
 - `pipeline.dcql.claims-non-array`: `dcql-claims-non-array.yaml`
+- `pipeline.dcql.claim-sets-empty`: `dcql-claim-sets-empty.yaml`
 - `pipeline.wallet.engagement.haip-vp`: `engagement-haip-vp.yaml`
 - `pipeline.wallet.metadata.direct-post-jwt`: `metadata-direct-post-jwt.yaml`
 - `pipeline.wallet.protocol.request-uri-method-post`: `protocol-request-uri-method-post.yaml`

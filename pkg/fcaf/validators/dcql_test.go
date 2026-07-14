@@ -159,6 +159,40 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name:     "empty claim sets rejected",
+			mode:     "empty_array",
+			property: "claim_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{"claim_sets": []any{}}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:     "non-empty claim sets do not satisfy empty array case",
+			mode:     "empty_array",
+			property: "claim_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{"claim_sets": []any{[]any{"given_name"}}}},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:     "empty claim sets incorrectly returns credential",
+			mode:     "empty_array",
+			property: "claim_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{"claim_sets": []any{}}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "omitted multiple returns one credential",
 			mode: "multiple_default_false",
 			evidence: map[string]any{
@@ -373,8 +407,10 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			params := map[string]any{"mode": test.mode}
-			if test.mode == "property_type" {
+			if test.property != "" {
 				params["property"] = test.property
+			}
+			if test.mode == "property_type" {
 				params["expected_type"] = test.expectedType
 				params["valid"] = test.valid
 			}

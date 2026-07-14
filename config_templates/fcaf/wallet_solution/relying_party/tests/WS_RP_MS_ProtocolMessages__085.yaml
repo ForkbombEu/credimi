@@ -1,0 +1,19 @@
+id: WS_RP_MS_ProtocolMessages__085
+title: Reject a DCQL credential query with empty claim_sets.
+source: { path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__085.md }
+suite: { sut: wallet_solution, role: relying_party, section: message_structure.protocol_messages }
+applicability: { profile: EUDI_generic, presentation_flow: redirects }
+normative_references:
+  - { title: OpenID for Verifiable Presentations 1.0, section: "6.1, 8.5", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+preconditions:
+  - { ref: pipeline.dcql.claim-sets-empty }
+evidence:
+  dcql_exchange: { from: pipeline.dcql.claim-sets-empty.outputs.dcql_exchange }
+  visual_evidence: { from: pipeline.dcql.claim-sets-empty.outputs.visual_evidence }
+assertions:
+  - id: empty_claim_sets_is_rejected_without_a_credential
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params: { mode: empty_array, property: claim_sets }
+  - { id: wallet_rejection_visual_evidence_is_stored, validator: evidence.non_empty, input: evidence.visual_evidence }
+verdict: { pass_when: all_assertions_pass }

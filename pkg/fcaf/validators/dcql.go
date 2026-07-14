@@ -36,6 +36,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"without_trusted_authorities",
 		"without_claims",
 		"empty_claims",
+		"empty_array",
 		"property_type",
 		"multiple_default_false",
 		"multiple_true",
@@ -44,7 +45,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, property_type, multiple_default_false, multiple_true, no_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, multiple_default_false, multiple_true, no_match, or claim_sets",
 		}
 	}
 
@@ -188,7 +189,14 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				}
 			}
 		}
-	case "empty_claims":
+	case "empty_claims", "empty_array":
+		property := "claims"
+		if params.Mode == "empty_array" {
+			property = params.Property
+			if property == "" {
+				return Result{Status: StatusError, Message: "property is required for empty_array mode"}
+			}
+		}
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
 			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
@@ -201,25 +209,25 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					Message: fmt.Sprintf("credentials[%d] is not an object", index),
 				}
 			}
-			claims, exists := credential["claims"]
+			value, exists := credential[property]
 			if !exists {
 				return Result{
 					Status:  StatusFail,
-					Message: fmt.Sprintf("credentials[%d] does not contain claims", index),
+					Message: fmt.Sprintf("credentials[%d] does not contain %s", index, property),
 				}
 			}
-			items, ok := claims.([]any)
+			items, ok := value.([]any)
 			if !ok || len(items) != 0 {
 				return Result{
 					Status:  StatusFail,
-					Message: fmt.Sprintf("credentials[%d].claims is not an empty array", index),
+					Message: fmt.Sprintf("credentials[%d].%s is not an empty array", index, property),
 				}
 			}
 		}
 		if !isEmptyDCQLValue(responseValue) {
 			return Result{
 				Status:  StatusFail,
-				Message: "wallet returned a credential for a query with empty claims",
+				Message: fmt.Sprintf("wallet returned a credential for a query with empty %s", property),
 			}
 		}
 	case "no_match":
