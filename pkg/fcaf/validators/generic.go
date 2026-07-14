@@ -19,6 +19,30 @@ func (EvidencePresentValidator) ID() string {
 	return "evidence.present"
 }
 
+type EvidenceNonEmptyValidator struct{}
+
+func (EvidenceNonEmptyValidator) ID() string {
+	return "evidence.non_empty"
+}
+
+func (EvidenceNonEmptyValidator) Validate(_ context.Context, input Input) Result {
+	nonEmpty := false
+	switch value := input.Value.(type) {
+	case string:
+		nonEmpty = value != ""
+	case []any:
+		nonEmpty = len(value) > 0
+	case []string:
+		nonEmpty = len(value) > 0
+	case map[string]any:
+		nonEmpty = len(value) > 0
+	}
+	if !nonEmpty {
+		return Result{Status: StatusFail, Message: "evidence value is empty"}
+	}
+	return Result{Status: StatusPass, Message: "evidence value is non-empty"}
+}
+
 func (EvidencePresentValidator) Validate(_ context.Context, input Input) Result {
 	if input.Value == nil {
 		return Result{Status: StatusFail, Message: "evidence value is missing"}

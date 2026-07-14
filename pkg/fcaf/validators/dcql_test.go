@@ -93,6 +93,39 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name: "multiple true returns multiple credentials",
+			mode: "multiple_true",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithMultiple("pid", true)},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation-1", "presentation-2"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "multiple true returns one credential",
+			mode: "multiple_true",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithMultiple("pid", true)},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "multiple false cannot satisfy multiple true mode",
+			mode: "multiple_true",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithMultiple("pid", false)},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation-1", "presentation-2"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "credential sets unexpectedly present",
 			mode: "without_credential_sets",
 			evidence: map[string]any{
@@ -202,4 +235,10 @@ func validSDJWTCredentialQuery(id string) map[string]any {
 			map[string]any{"path": []any{"given_name"}},
 		},
 	}
+}
+
+func credentialQueryWithMultiple(id string, multiple bool) map[string]any {
+	credential := validSDJWTCredentialQuery(id)
+	credential["multiple"] = multiple
+	return credential
 }

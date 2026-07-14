@@ -23,6 +23,7 @@ func NewRegistry(validators ...Validator) (*Registry, error) {
 func DefaultRegistry() (*Registry, error) {
 	return NewRegistry(
 		EvidencePresentValidator{},
+		EvidenceNonEmptyValidator{},
 		JSONFieldRequiredValidator{},
 		JSONFieldEqualsValidator{},
 		JSONFieldPresenceValidator{},

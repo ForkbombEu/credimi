@@ -1,0 +1,15 @@
+id: pipeline.dcql.multiple-true
+kind: pipeline
+description: Execute a DCQL presentation with multiple=true and multiple matching credentials.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-multiple-true
+required_steps:
+  - present-with-reference-implementation
+  - get-presentation-result
+outputs:
+  dcql_exchange:
+    path: $.output.get-presentation-result.outputs.body
+    decoder: raw
+  visual_evidence:
+    path: $.output.present-with-reference-implementation.outputs.screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests
