@@ -1,0 +1,80 @@
+name: FCAF wallet relying-party DCQL claims non-array
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+  - { id: evidence-null, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":null}]}}', struct_type: map } }
+  - { id: evidence-true, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":true}]}}', struct_type: map } }
+  - { id: evidence-false, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":false}]}}', struct_type: map } }
+  - { id: evidence-zero, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":0}]}}', struct_type: map } }
+  - { id: evidence-number, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":73}]}}', struct_type: map } }
+  - { id: evidence-string, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":"not-an-array"}]}}', struct_type: map } }
+  - { id: evidence-object, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":{"path":["given_name"]}}]}}', struct_type: map } }
+  - id: exercise-non-array-claims
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
+        - evalScript: ${output.claimsValue = null}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:output.claimsValue}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-084-null&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-084-null
+        - back
+        - waitForAnimationToEnd: { timeout: 2000 }
+        - evalScript: ${output.claimsValue = true}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:output.claimsValue}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-084-true&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-084-true
+        - back
+        - waitForAnimationToEnd: { timeout: 2000 }
+        - evalScript: ${output.claimsValue = false}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:output.claimsValue}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-084-false&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-084-false
+        - back
+        - waitForAnimationToEnd: { timeout: 2000 }
+        - evalScript: ${output.claimsValue = 0}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:output.claimsValue}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-084-zero&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-084-zero
+        - back
+        - waitForAnimationToEnd: { timeout: 2000 }
+        - evalScript: ${output.claimsValue = 73}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:output.claimsValue}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-084-number&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-084-number
+        - back
+        - waitForAnimationToEnd: { timeout: 2000 }
+        - evalScript: ${output.claimsValue = 'not-an-array'}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:output.claimsValue}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-084-string&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-084-string
+        - back
+        - waitForAnimationToEnd: { timeout: 2000 }
+        - evalScript: ${output.claimsValue = ({path:['given_name']})}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:output.claimsValue}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-084-object&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-084-object
+        - back
+        - waitForAnimationToEnd: { timeout: 2000 }
