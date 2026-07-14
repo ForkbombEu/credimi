@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Sparkle } from '@lucide/svelte';
+	import { ArrowRight, Sparkle } from '@lucide/svelte';
 	import { entities } from '$lib/global/index.js';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
@@ -34,32 +34,51 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 <PageTop>
-	<div class="space-y-2">
-		<T tag="h1" class="text-balance">
-			{m.EUDIW_Conformance_Interoperability_and_Hub()}
-		</T>
-		<div class="flex flex-col gap-2 py-2">
-			<T tag="h3" class="font-normal! text-balance">
-				{m.Explore_the_hub_and_try_credentials_wallets_and_services()}
+	<div class="space-y-6">
+		<div class="space-y-2">
+			<T tag="h1" class="text-balance">
+				{m.EUDIW_Conformance_Interoperability_and_Hub()}
 			</T>
-			<T tag="h3" class="font-normal! text-balance">
-				{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}
-			</T>
+			<div class="flex flex-col gap-2 py-2">
+				<T tag="h3" class="font-normal! text-balance">
+					{m.Explore_the_hub_and_try_credentials_wallets_and_services()}
+				</T>
+				<T tag="h3" class="font-normal! text-balance">
+					{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}
+				</T>
+			</div>
+		</div>
+		<div class="flex flex-col items-start gap-x-4 gap-y-2 lg:flex-row lg:flex-wrap">
+			<Button variant="default" href="/hub" class="w-fit max-w-full">
+				<entities.hub.icon />
+				{m.Explore_Hub()}
+			</Button>
+			<Button
+				variant="secondary"
+				href={$currentUser ? '/my/pipelines' : '/login'}
+				class=" w-fit max-w-full border border-primary whitespace-normal"
+			>
+				<Sparkle />
+				{m.automated_conformance_interop()}
+				<Badge variant="outline" class="border-primary text-xs text-primary">
+					{m.Beta()}
+				</Badge>
+			</Button>
 		</div>
 	</div>
-	<div class="flex flex-col gap-4 md:flex-row">
-		<Button variant="default" href="/hub">
-			{m.Explore_Hub()}
-		</Button>
-		<Button variant="secondary" href={$currentUser ? '/my/pipelines' : '/login'}>
-			<Icon src={Sparkle} />
-			{m.automated_conformance_interop()}
-			<Badge variant="outline" class="border-primary text-xs text-primary">
-				{m.Beta()}
-			</Badge>
-		</Button>
-	</div>
 </PageTop>
+
+<a
+	href="https://forkbomb.solutions/webinars/"
+	target="_blank"
+	rel="noopener noreferrer"
+	class="group flex items-center justify-center gap-4 border-b-2 border-primary bg-linear-to-l from-primary via-[oklch(0.36_0.17_268)] to-[oklch(0.48_0.18_248)] px-4 py-4 text-primary-foreground"
+>
+	<span class="-translate-x-2 font-semibold tracking-wide group-hover:underline">
+		<ArrowRight class="inline-flex translate-x-px -translate-y-px" size={16} strokeWidth={3} />
+		{m.Join_the_webinars()}
+	</span>
+</a>
 
 <PageContent class="bg-secondary" contentClass="space-y-12">
 	<div class="space-y-6">
