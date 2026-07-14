@@ -16,7 +16,7 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 - Detached HEAD: `54373c673c4d2e65118df2f77d32642dfba16e97`
 - Shared push target: `origin HEAD:feat/fcaf-test`
 - Worktree was clean before adding this memory and skill.
-- Catalog count: 181 tests after the uncommitted case 093 implementation.
+- Catalog count: 182 tests after the uncommitted case 094 implementation.
 
 Recent commits:
 
@@ -86,9 +86,15 @@ The matrix covers `null`, `true`, `false`, `0`, a non-zero number, string, and o
 
 The matrix covers null, booleans, zero, a non-zero number, nested array, and object items. A clean Maestro run after clearing Chrome completed all seven variants and produced seven screenshots.
 
+## Case 094
+
+`WS_RP_MS_ProtocolMessages__094` rejects a normative `trusted_authorities.values` array containing an empty string. The dedicated `trusted_authority_empty_string_item` validator requires a valid non-empty string `type`, a non-empty array containing only strings, and at least one empty item; non-string items remain case 093 evidence.
+
+The implementation covers a single empty string and a mixed valid-plus-empty array. A clean Maestro run after clearing Chrome completed both variants and produced two screenshots.
+
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__094`: reject `trusted_authorities.values` when it contains an empty string item. This should use a dedicated non-empty-string item validator rather than treating empty strings as a JSON type error.
+`WS_RP_MS_ProtocolMessages__095` is optional ETSI Trust List support (`type: etsi_tl`). It is outside the current mandatory-only scope and should remain skipped unless the user explicitly includes optional tests.
 
 ## Parallel ownership
 

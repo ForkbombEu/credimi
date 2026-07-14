@@ -40,6 +40,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"property_type",
 		"trusted_authority_property_type",
 		"trusted_authority_array_item_type",
+		"trusted_authority_empty_string_item",
 		"multiple_default_false",
 		"multiple_true",
 		"no_match",
@@ -48,7 +49,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, trusted_authority_property_type, trusted_authority_array_item_type, multiple_default_false, multiple_true, no_match, request_rejected, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, or claim_sets",
 		}
 	}
 
@@ -507,6 +508,53 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					params.Property,
 				),
 			}
+		}
+	case "trusted_authority_empty_string_item":
+		if params.Property == "" {
+			return Result{Status: StatusError, Message: "property is required for trusted_authority_empty_string_item mode"}
+		}
+		credentials, ok := query["credentials"].([]any)
+		if !ok || len(credentials) == 0 {
+			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+		}
+		if err := validateDCQLCredentialQueries(credentials); err != nil {
+			return Result{Status: StatusFail, Message: err.Error()}
+		}
+		for credentialIndex, rawCredential := range credentials {
+			credential, _ := normalizeJSONObject(rawCredential)
+			authorities, ok := credential["trusted_authorities"].([]any)
+			if !ok || len(authorities) == 0 {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities is not a non-empty array", credentialIndex)}
+			}
+			for authorityIndex, rawAuthority := range authorities {
+				authority, ok := normalizeJSONObject(rawAuthority)
+				if !ok {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d] is not an object", credentialIndex, authorityIndex)}
+				}
+				if authorityType, ok := authority["type"].(string); !ok || authorityType == "" {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d].type is not a non-empty string", credentialIndex, authorityIndex)}
+				}
+				values, ok := authority[params.Property].([]any)
+				if !ok || len(values) == 0 {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d].%s is not a non-empty array", credentialIndex, authorityIndex, params.Property)}
+				}
+				foundEmpty := false
+				for itemIndex, item := range values {
+					itemString, ok := item.(string)
+					if !ok {
+						return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d].%s[%d] is not a string", credentialIndex, authorityIndex, params.Property, itemIndex)}
+					}
+					if itemString == "" {
+						foundEmpty = true
+					}
+				}
+				if !foundEmpty {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d].%s contains no empty string item", credentialIndex, authorityIndex, params.Property)}
+				}
+			}
+		}
+		if !isEmptyDCQLValue(responseValue) {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("wallet returned a credential for trusted authority %s containing an empty string", params.Property)}
 		}
 	case "claim_sets":
 		credentials, ok := query["credentials"].([]any)

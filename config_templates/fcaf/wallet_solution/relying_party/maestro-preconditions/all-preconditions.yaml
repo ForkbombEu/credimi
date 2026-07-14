@@ -44,6 +44,8 @@ tags:
 - runFlow:
     file: dcql-trusted-authorities-values-item-non-string.yaml
 - runFlow:
+    file: dcql-trusted-authorities-values-empty-string.yaml
+- runFlow:
     file: engagement-haip-vp.yaml
 - runFlow:
     file: metadata-direct-post-jwt.yaml

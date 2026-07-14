@@ -597,6 +597,60 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name:     "empty trusted authority value item is rejected",
+			mode:     "trusted_authority_empty_string_item",
+			property: "values",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{""},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:     "non-empty trusted authority value items are not malformed",
+			mode:     "trusted_authority_empty_string_item",
+			property: "values",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{"authority-key-id"},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:     "non-string value item is not the empty-string case",
+			mode:     "trusted_authority_empty_string_item",
+			property: "values",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{true},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "claim sets",
 			mode: "claim_sets",
 			evidence: map[string]any{

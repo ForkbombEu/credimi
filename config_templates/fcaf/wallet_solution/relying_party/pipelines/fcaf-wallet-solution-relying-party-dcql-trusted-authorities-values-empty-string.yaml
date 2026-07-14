@@ -1,0 +1,62 @@
+name: FCAF wallet relying-party DCQL trusted authorities values empty string
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+  - { id: evidence-single, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":"aki","values":[""]}]}]}}', struct_type: map } }
+  - { id: evidence-mixed, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":"aki","values":["authority-key-id",""]}]}]}}', struct_type: map } }
+  - id: exercise-trusted-authorities-values-empty-string
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - stopApp
+        - launchApp: { clearState: false }
+        - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - inputText: "123456"
+              - hideKeyboard
+        - evalScript: ${output.valuesValue = ['']}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:'aki',values:output.valuesValue}]}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-094-single&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - tapOn: { text: "EUDI Wallet", optional: true }
+        - tapOn: { text: "Just once", optional: true }
+        - tapOn: { text: "Always", optional: true }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - inputText: "123456"
+              - hideKeyboard
+        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
+        - takeScreenshot: fcaf-094-single
+        - evalScript: ${output.valuesValue = ['authority-key-id','']}
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:'aki',values:output.valuesValue}]}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-094-mixed&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - tapOn: { text: "EUDI Wallet", optional: true }
+        - tapOn: { text: "Just once", optional: true }
+        - tapOn: { text: "Always", optional: true }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - inputText: "123456"
+              - hideKeyboard
+        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
+        - takeScreenshot: fcaf-094-mixed
+outputs:
+  single_value: { path: $.output.evidence-single.outputs, decoder: raw }
+  mixed_value: { path: $.output.evidence-mixed.outputs, decoder: raw }
+  visual_evidence: { path: $.output.exercise-trusted-authorities-values-empty-string.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests
