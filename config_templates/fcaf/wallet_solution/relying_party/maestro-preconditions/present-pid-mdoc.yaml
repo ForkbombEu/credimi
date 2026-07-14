@@ -1,0 +1,69 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - present PID mdoc
+tags:
+  - fcaf
+  - precondition
+  - pid
+  - mdoc
+  - presentation
+---
+- stopApp
+- launchApp:
+    clearState: false
+    permissions:
+      camera: allow
+      notifications: allow
+      all: unset
+- runFlow:
+    file: unlock-wallet.yaml
+- openLink:
+    link: "${PID_MDOC_PRESENTATION_URL}"
+    autoVerify: false
+    browser: false
+- runFlow:
+    file: choose-eudi-wallet.yaml
+- extendedWaitUntil:
+    visible: "Welcome back|Share"
+    timeout: 100000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
+- extendedWaitUntil:
+    visible: "Share"
+    timeout: 30000
+- takeScreenshot: fcaf-pid-mdoc-presentation-request
+- tapOn: "View details"
+- assertVisible: "Birth Date"
+- takeScreenshot: fcaf-pid-mdoc-presentation-details-upper
+- scrollUntilVisible:
+    element: "Family Name\\(s\\)"
+    direction: DOWN
+    speed: 10
+- assertVisible: "Given Name\\(s\\)"
+- takeScreenshot: fcaf-pid-mdoc-presentation-details-middle
+- scroll
+- takeScreenshot: fcaf-pid-mdoc-presentation-details-lower
+- scrollUntilVisible:
+    element: "View details"
+    direction: UP
+    speed: 10
+- tapOn: "View details"
+- tapOn: "Share"
+- extendedWaitUntil:
+    visible: "Welcome back|To approve the transaction you need to verify your identity."
+    timeout: 100000
+- tapOn:
+    point: "11%,40%"
+- inputText: "123456"
+- hideKeyboard
+- assertNotVisible:
+    text: "Oups! Something went wrong"
+- extendedWaitUntil:
+    visible: "Close"
+    timeout: 30000
+- takeScreenshot: fcaf-pid-mdoc-presented
+- tapOn: "Close"

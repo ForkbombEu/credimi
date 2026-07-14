@@ -1,0 +1,27 @@
+appId: eu.europa.ec.euidi
+name: FCAF helper - choose EUDI Wallet from Android resolver
+tags:
+  - fcaf
+  - helper
+---
+- runFlow:
+    when:
+      visible: "EUDI Wallet"
+    commands:
+      - tapOn:
+          text: "EUDI Wallet"
+          optional: true
+- runFlow:
+    when:
+      visible: "Just once"
+    commands:
+      - tapOn:
+          text: "Just once"
+          optional: true
+- runFlow:
+    when:
+      visible: "Always"
+    commands:
+      - tapOn:
+          text: "Always"
+          optional: true

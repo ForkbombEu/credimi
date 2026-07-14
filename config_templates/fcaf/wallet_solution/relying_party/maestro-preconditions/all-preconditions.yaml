@@ -1,0 +1,19 @@
+appId: eu.europa.ec.euidi
+name: FCAF wallet relying-party preconditions
+tags:
+  - fcaf
+  - precondition
+  - all
+---
+- runFlow:
+    file: pipeline-pid-presentation-sdjwt-all-claims.yaml
+- runFlow:
+    file: pipeline-pid-presentation-mdoc-all-claims-elements.yaml
+- runFlow:
+    file: dcql-credential-sets.yaml
+- runFlow:
+    file: dcql-credentials-match.yaml
+- runFlow:
+    file: dcql-no-matching-credentials.yaml
+- runFlow:
+    file: dcql-claim-sets.yaml

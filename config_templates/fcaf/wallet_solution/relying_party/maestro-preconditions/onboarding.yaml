@@ -1,0 +1,36 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - EUDIW onboarding
+tags:
+  - fcaf
+  - precondition
+  - onboarding
+---
+- launchApp:
+    clearState: true
+    permissions:
+      camera: allow
+      notifications: allow
+      all: unset
+- extendedWaitUntil:
+    visible: "Welcome to your Wallet"
+    timeout: 30000
+- tapOn:
+    point: "11%,42%"
+- inputText: "123456"
+- extendedWaitUntil:
+    visible: "Confirm PIN"
+    timeout: 15000
+- tapOn:
+    point: "11%,42%"
+- inputText: "123456"
+- extendedWaitUntil:
+    visible: "GO TO HOME|Home|Documents|Add document"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "GO TO HOME"
+    commands:
+      - tapOn: "GO TO HOME"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: fcaf-onboarding-complete

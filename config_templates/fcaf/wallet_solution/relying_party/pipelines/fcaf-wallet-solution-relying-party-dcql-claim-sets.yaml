@@ -1,0 +1,85 @@
+name: FCAF wallet relying-party DCQL claim sets
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: https://verifier-backend.eudiw.dev/ui/presentations
+      expected_status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        type: vp_token
+        nonce: fcaf-dcql-claim-sets
+        dcql_query:
+          credentials:
+            - id: pid
+              format: dc+sd-jwt
+              meta:
+                vct_values:
+                  - urn:eu.europa.ec.eudi:pid:1
+              claims:
+                - id: identity_name
+                  path:
+                    - given_name
+                - id: identity_family_name
+                  path:
+                    - family_name
+                - id: postal_code
+                  path:
+                    - resident_postal_code
+              claim_sets:
+                - - identity_name
+                  - identity_family_name
+                - - postal_code
+
+  - id: present-with-reference-implementation
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
+        REQUEST_URI: ${{ create-presentation.outputs.body.request_uri }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - launchApp:
+            stopApp: false
+            clearState: false
+            permissions:
+              camera: allow
+              notifications: allow
+              all: unset
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
+        - openLink:
+            link: ${output.authorizationRequest}
+            autoVerify: false
+            browser: false
+        - waitForAnimationToEnd:
+            timeout: 5000
+        - tapOn:
+            text: "(?i)(continue|accept|authorize|share|present)"
+            optional: true
+        - waitForAnimationToEnd:
+            timeout: 5000
+        - tapOn:
+            text: "(?i)(continue|accept|authorize|share|present)"
+            optional: true
+        - waitForAnimationToEnd:
+            timeout: 5000
+
+  - id: http-get-verifier-backend.eudiw.dev-0006
+    use: http-request
+    with:
+      method: GET
+      url: https://verifier-backend.eudiw.dev/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      expected_status: 200

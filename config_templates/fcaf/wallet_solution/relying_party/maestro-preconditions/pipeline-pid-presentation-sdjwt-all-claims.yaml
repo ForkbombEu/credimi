@@ -1,0 +1,15 @@
+appId: eu.europa.ec.euidi
+name: FCAF pipeline.pid.presentation.sdjwt.all-claims
+tags:
+  - fcaf
+  - precondition
+  - pipeline
+  - pid
+  - sd-jwt-vc
+---
+- runFlow:
+    file: onboarding.yaml
+- runFlow:
+    file: obtain-pid-sdjwt.yaml
+- runFlow:
+    file: present-pid-sdjwt.yaml

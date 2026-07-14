@@ -1,0 +1,20 @@
+appId: eu.europa.ec.euidi
+name: FCAF helper - unlock EUDI Wallet
+tags:
+  - fcaf
+  - helper
+---
+- extendedWaitUntil:
+    visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
+      - hideKeyboard
+- extendedWaitUntil:
+    visible: "Home|Documents|Add document|Welcome, .*"
+    timeout: 30000

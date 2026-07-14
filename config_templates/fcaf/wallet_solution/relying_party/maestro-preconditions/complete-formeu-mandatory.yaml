@@ -1,0 +1,94 @@
+appId: eu.europa.ec.euidi
+name: FCAF helper - complete FormEU mandatory information
+tags:
+  - fcaf
+  - helper
+  - formeu
+---
+- runFlow:
+    when:
+      visible: "FormEU"
+    commands:
+      - tapOn: "FormEU"
+- runFlow:
+    when:
+      visible: "Submit"
+    commands:
+      - tapOn: "Submit"
+- runFlow:
+    when:
+      visible:
+        id: selectCountryForm
+    commands:
+      - tapOn:
+          below: "Birth Date"
+          above: "Family Name"
+          childOf:
+            id: selectCountryForm
+      - tapOn:
+          id: date_picker_header_year
+      - scrollUntilVisible:
+          element: "2001"
+          direction: UP
+          speed: 10
+      - tapOn: "2001"
+      - tapOn: "Set"
+      - scrollUntilVisible:
+          element: "Family Name"
+          speed: 5
+          centerElement: true
+      - tapOn:
+          below: "Family Name"
+          childOf:
+            id: selectCountryForm
+      - inputText: "F"
+      - hideKeyboard
+      - scrollUntilVisible:
+          element: "Given Name"
+          speed: 5
+          centerElement: true
+      - tapOn:
+          below: "Given Name"
+          childOf:
+            id: selectCountryForm
+      - inputText: "N"
+      - hideKeyboard
+      - scrollUntilVisible:
+          element: "Country Code"
+          speed: 10
+          centerElement: true
+      - tapOn:
+          below: "Country Code"
+          childOf:
+            id: selectCountryForm
+      - inputText: "IT"
+      - hideKeyboard
+      - scrollUntilVisible:
+          element: "Country"
+          speed: 10
+          centerElement: true
+      - tapOn:
+          below: "Country"
+          above: "Locality"
+          childOf:
+            id: selectCountryForm
+      - inputText: "IT"
+      - hideKeyboard
+      - tapOn:
+          below: "Locality"
+          above: "Region"
+          childOf:
+            id: selectCountryForm
+      - inputText: "Rome"
+      - hideKeyboard
+      - tapOn:
+          below: "Region"
+          childOf:
+            id: selectCountryForm
+      - inputText: "Lazio"
+      - hideKeyboard
+      - scrollUntilVisible:
+          element: "Confirm"
+          direction: DOWN
+          speed: 10
+      - tapOn: "Confirm"
