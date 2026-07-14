@@ -72,6 +72,22 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status:   StatusPass,
 		},
 		{
+			name: "required true match", mode: "credential_sets_required_true_match",
+			evidence: map[string]any{"dcql_query": map[string]any{"credential_sets": []any{map[string]any{"required": true}}}, "vp_token": map[string]any{"pid": []any{"presentation"}}}, status: StatusPass,
+		},
+		{
+			name: "required true no match", mode: "credential_sets_required_true_no_match",
+			evidence: map[string]any{"dcql_query": map[string]any{"credential_sets": []any{map[string]any{"required": true}}}}, status: StatusPass,
+		},
+		{
+			name: "required omitted", mode: "credential_sets_required_omitted",
+			evidence: map[string]any{"dcql_query": map[string]any{"credential_sets": []any{map[string]any{}}}, "vp_token": map[string]any{"pid": []any{"presentation"}}}, status: StatusPass,
+		},
+		{
+			name: "required false with match", mode: "credential_sets_required_false_with_match",
+			evidence: map[string]any{"dcql_query": map[string]any{"credential_sets": []any{map[string]any{"required": false}}}, "vp_token": map[string]any{"pid": []any{"presentation"}}}, status: StatusPass,
+		},
+		{
 			name: "credentials matched",
 			mode: "credentials_match",
 			evidence: map[string]any{

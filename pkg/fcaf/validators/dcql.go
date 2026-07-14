@@ -36,6 +36,10 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_options_non_array",
 		"credential_sets_options_valid_references",
 		"credential_sets_options_invalid_references",
+		"credential_sets_required_true_match",
+		"credential_sets_required_true_no_match",
+		"credential_sets_required_omitted",
+		"credential_sets_required_false_with_match",
 		"credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
@@ -115,6 +119,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return Result{Status: StatusPass, Message: "wallet rejected credential_sets without options"}
 	case "credential_sets_options_empty", "credential_sets_options_non_array", "credential_sets_options_valid_references", "credential_sets_options_invalid_references":
 		return validateCredentialSetsOptions(query, responseValue, params.Mode)
+	case "credential_sets_required_true_match", "credential_sets_required_true_no_match", "credential_sets_required_omitted", "credential_sets_required_false_with_match":
+		return validateCredentialSetsRequired(query, responseValue, params.Mode)
 	case "credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
@@ -874,4 +880,41 @@ func validateCredentialSetsOptions(query map[string]any, responseValue any, mode
 		return Result{Status: StatusFail, Message: "wallet returned no vp_token for valid credential_sets.options references"}
 	}
 	return Result{Status: StatusPass, Message: "wallet processed valid credential_sets.options references"}
+}
+
+func validateCredentialSetsRequired(query map[string]any, responseValue any, mode string) Result {
+	sets, ok := query["credential_sets"].([]any)
+	if !ok || len(sets) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credential_sets"}
+	}
+	response, responseOK := normalizeJSONObject(responseValue)
+	for index, rawSet := range sets {
+		set, ok := normalizeJSONObject(rawSet)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credential_sets[%d] is not an object", index)}
+		}
+		required, exists := set["required"]
+		if mode == "credential_sets_required_true_match" && (!exists || required != true) {
+			return Result{Status: StatusFail, Message: "required is not true"}
+		}
+		if mode == "credential_sets_required_true_no_match" && (!exists || required != true) {
+			return Result{Status: StatusFail, Message: "required is not true"}
+		}
+		if mode == "credential_sets_required_omitted" && exists {
+			return Result{Status: StatusFail, Message: "required is present"}
+		}
+		if mode == "credential_sets_required_false_with_match" && required != false {
+			return Result{Status: StatusFail, Message: "required is not false"}
+		}
+	}
+	if mode == "credential_sets_required_true_match" || mode == "credential_sets_required_omitted" || mode == "credential_sets_required_false_with_match" {
+		if !responseOK || isEmptyDCQLValue(response) {
+			return Result{Status: StatusFail, Message: "wallet returned no vp_token for a satisfiable credential set"}
+		}
+		return Result{Status: StatusPass, Message: "wallet presented the credential set"}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a presentation for a missing required credential set"}
+	}
+	return Result{Status: StatusPass, Message: "wallet stopped without presenting a missing required credential set"}
 }
