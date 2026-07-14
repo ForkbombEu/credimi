@@ -212,6 +212,31 @@ func mdocValidatorPresentation(
 	}
 }
 
+func TestMDocDigestAlgorithmValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		algorithm  string
+		wantStatus Status
+	}{
+		{name: "SHA-256", algorithm: "SHA-256", wantStatus: StatusPass},
+		{name: "SHA-384", algorithm: "SHA-384", wantStatus: StatusFail},
+		{name: "missing", algorithm: "", wantStatus: StatusFail},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			presentation := mdocValidatorPresentation(nil)
+			presentation.Documents[0].DigestAlgorithm = tt.algorithm
+			got := MDocDigestAlgorithmValidator{}.Validate(context.Background(), Input{
+				Value:  presentation,
+				Params: map[string]any{"algorithm": "SHA-256"},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func mdocParams(element string) map[string]any {
 	return map[string]any{
 		"namespace": pidMDocType,

@@ -27,6 +27,7 @@ func TestParseMDocPresentationPreservesElementTypesAndTags(t *testing.T) {
 	require.Equal(t, raw, presentation.Raw)
 	require.Len(t, presentation.Documents, 1)
 	require.Equal(t, pidMDocTestDocType, presentation.Documents[0].DocType)
+	require.Equal(t, "SHA-256", presentation.Documents[0].DigestAlgorithm)
 
 	familyName, found := presentation.Element(pidMDocTestDocType, "family_name")
 	require.True(t, found)
@@ -95,6 +96,10 @@ func testIssuerSignedItem(t *testing.T, identifier string, value any) cbor.Tag {
 
 func testMDocResponseWithItems(t *testing.T, items []any) []byte {
 	t.Helper()
+	mso, err := cbor.Marshal(map[string]any{"digestAlgorithm": "SHA-256"})
+	require.NoError(t, err)
+	msoBytes, err := cbor.Marshal(mso)
+	require.NoError(t, err)
 	raw, err := cbor.Marshal(map[string]any{
 		"version": "1.0",
 		"documents": []any{
@@ -104,6 +109,9 @@ func testMDocResponseWithItems(t *testing.T, items []any) []byte {
 					"nameSpaces": map[string]any{
 						pidMDocTestDocType: items,
 					},
+					"issuerAuth": cbor.Tag{Number: 18, Content: []any{
+						[]byte{}, map[string]any{}, msoBytes, []byte("signature"),
+					}},
 				},
 			},
 		},

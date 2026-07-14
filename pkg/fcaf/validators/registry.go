@@ -30,6 +30,7 @@ func DefaultRegistry() (*Registry, error) {
 		MDocNamespaceElementPresentValidator{},
 		PIDMDocTypeValidator{},
 		PIDMDocMandatoryElementsValidator{},
+		MDocDigestAlgorithmValidator{},
 		MDocElementCBORTypeValidator{},
 		MDocElementUTF8StringValidator{},
 		MDocElementDateEncodingValidator{},

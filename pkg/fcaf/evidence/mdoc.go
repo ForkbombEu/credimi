@@ -23,9 +23,10 @@ type MDocPresentation struct {
 }
 
 type MDocDocument struct {
-	DocType    string                            `json:"doc_type"`
-	Namespaces map[string]map[string]MDocElement `json:"namespaces"`
-	Errors     map[string]map[string]int64       `json:"errors,omitempty"`
+	DocType         string                            `json:"doc_type"`
+	DigestAlgorithm string                            `json:"digest_algorithm,omitempty"`
+	Namespaces      map[string]map[string]MDocElement `json:"namespaces"`
+	Errors          map[string]map[string]int64       `json:"errors,omitempty"`
 }
 
 type MDocElement struct {
@@ -52,6 +53,7 @@ type rawDocument struct {
 
 type rawIssuerSigned struct {
 	NameSpaces map[string][]cbor.RawMessage `cbor:"nameSpaces"`
+	IssuerAuth cbor.RawMessage              `cbor:"issuerAuth"`
 }
 
 type rawIssuerSignedItem struct {
@@ -104,10 +106,15 @@ func ParseMDocPresentation(encoded any) (*MDocPresentation, error) {
 		if err != nil {
 			return nil, fmt.Errorf("decode mdoc document %d: %w", index, err)
 		}
+		digestAlgorithm, err := parseMDocDigestAlgorithm(document.IssuerSigned.IssuerAuth)
+		if err != nil {
+			return nil, fmt.Errorf("decode mdoc document %d issuerAuth: %w", index, err)
+		}
 		documents = append(documents, MDocDocument{
-			DocType:    document.DocType,
-			Namespaces: namespaces,
-			Errors:     document.Errors,
+			DocType:         document.DocType,
+			DigestAlgorithm: digestAlgorithm,
+			Namespaces:      namespaces,
+			Errors:          document.Errors,
 		})
 	}
 
@@ -122,6 +129,43 @@ func ParseMDocPresentation(encoded any) (*MDocPresentation, error) {
 		SelectedDocument: 0,
 		Namespaces:       documents[0].Namespaces,
 	}, nil
+}
+
+func parseMDocDigestAlgorithm(raw cbor.RawMessage) (string, error) {
+	if len(raw) == 0 {
+		return "", nil
+	}
+	sign1Raw := raw
+	var tagged cbor.RawTag
+	if err := mdocDecMode.Unmarshal(raw, &tagged); err == nil && tagged.Number == 18 {
+		sign1Raw = tagged.Content
+	}
+	var sign1 []cbor.RawMessage
+	if err := mdocDecMode.Unmarshal(sign1Raw, &sign1); err != nil {
+		return "", fmt.Errorf("decode COSE_Sign1: %w", err)
+	}
+	if len(sign1) != 4 {
+		return "", fmt.Errorf("COSE_Sign1 has %d entries, expected 4", len(sign1))
+	}
+	var payload []byte
+	if err := mdocDecMode.Unmarshal(sign1[2], &payload); err != nil {
+		return "", fmt.Errorf("decode COSE_Sign1 payload: %w", err)
+	}
+	var mso struct {
+		DigestAlgorithm string `cbor:"digestAlgorithm"`
+	}
+	msoBytes := payload
+	var wrapped []byte
+	if err := mdocDecMode.Unmarshal(payload, &wrapped); err == nil {
+		msoBytes = wrapped
+	}
+	if err := mdocDecMode.Unmarshal(msoBytes, &mso); err != nil {
+		return "", fmt.Errorf("decode Mobile Security Object: %w", err)
+	}
+	if mso.DigestAlgorithm == "" {
+		return "", fmt.Errorf("mobile security object has no digestAlgorithm")
+	}
+	return mso.DigestAlgorithm, nil
 }
 
 func (p *MDocPresentation) Document(docType string) (*MDocDocument, bool) {

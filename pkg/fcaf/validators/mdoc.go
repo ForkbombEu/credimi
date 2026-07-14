@@ -46,6 +46,45 @@ func (PIDMDocMandatoryElementsValidator) ID() string {
 	return "pid.mdoc_required_mandatory_elements_present"
 }
 
+type MDocDigestAlgorithmValidator struct{}
+
+func (MDocDigestAlgorithmValidator) ID() string { return "mdoc.digest_algorithm" }
+
+func (MDocDigestAlgorithmValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Algorithm string `json:"algorithm"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Algorithm == "" {
+		return Result{Status: StatusError, Message: "algorithm param is required"}
+	}
+	presentation, ok := mdocPresentation(input.Value)
+	if !ok {
+		return wrongMDocInput(input.Value)
+	}
+	if presentation.SelectedDocument < 0 ||
+		presentation.SelectedDocument >= len(presentation.Documents) {
+		return Result{Status: StatusFail, Message: "selected mdoc document is missing"}
+	}
+	actual := presentation.Documents[presentation.SelectedDocument].DigestAlgorithm
+	if actual != params.Algorithm {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"mdoc digest algorithm is %q, expected %q",
+				actual,
+				params.Algorithm,
+			),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("mdoc digest algorithm is %q", actual),
+	}
+}
+
 func (PIDMDocMandatoryElementsValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
 		Namespace        string   `json:"namespace"`
