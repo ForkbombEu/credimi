@@ -41,11 +41,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"multiple_default_false",
 		"multiple_true",
 		"no_match",
+		"request_rejected",
 		"claim_sets":
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, multiple_default_false, multiple_true, no_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, multiple_default_false, multiple_true, no_match, request_rejected, or claim_sets",
 		}
 	}
 
@@ -230,7 +231,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: fmt.Sprintf("wallet returned a credential for a query with empty %s", property),
 			}
 		}
-	case "no_match":
+	case "no_match", "request_rejected":
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
 			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}

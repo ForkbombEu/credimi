@@ -34,6 +34,8 @@ tags:
 - runFlow:
     file: dcql-trusted-authorities-unsupported-type.yaml
 - runFlow:
+    file: dcql-trusted-authorities-missing-type.yaml
+- runFlow:
     file: engagement-haip-vp.yaml
 - runFlow:
     file: metadata-direct-post-jwt.yaml

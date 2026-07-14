@@ -1,0 +1,9 @@
+id: pipeline.dcql.trusted-authorities-missing-type
+kind: pipeline
+description: Reject a DCQL request with trusted_authorities missing type.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trusted-authorities-missing-type
+required_steps: [reject-missing-trusted-authorities-type]
+outputs:
+  dcql_exchange: { path: $.output.evidence-missing-trusted-authorities-type.outputs, decoder: raw }
+  visual_evidence: { path: $.output.reject-missing-trusted-authorities-type.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests
