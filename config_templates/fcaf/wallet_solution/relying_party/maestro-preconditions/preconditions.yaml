@@ -77,3 +77,10 @@ preconditions:
     prepares:
       - wallet_engagement
     notes: Verifies that the reference wallet is invoked through the haip-vp custom URL scheme.
+
+  - id: pipeline.wallet.metadata.direct-post-jwt
+    kind: maestro
+    flow: metadata-direct-post-jwt.yaml
+    prepares:
+      - wallet_response
+    notes: Submits a PID mdoc response using direct_post.jwt and verifies the wallet success screen.

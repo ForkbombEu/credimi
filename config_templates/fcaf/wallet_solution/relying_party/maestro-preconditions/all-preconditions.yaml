@@ -19,3 +19,5 @@ tags:
     file: dcql-claim-sets.yaml
 - runFlow:
     file: engagement-haip-vp.yaml
+- runFlow:
+    file: metadata-direct-post-jwt.yaml
