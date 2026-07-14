@@ -1,0 +1,40 @@
+id: WS_RP_MS_ProtocolMessages__093
+title: Reject trusted_authorities values containing non-string items.
+source:
+  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__093.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "6.1.1, 8.5"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.dcql.trusted-authorities-values-item-non-string
+evidence:
+  null_value: { from: pipeline.dcql.trusted-authorities-values-item-non-string.outputs.null_value }
+  true_value: { from: pipeline.dcql.trusted-authorities-values-item-non-string.outputs.true_value }
+  false_value: { from: pipeline.dcql.trusted-authorities-values-item-non-string.outputs.false_value }
+  zero_value: { from: pipeline.dcql.trusted-authorities-values-item-non-string.outputs.zero_value }
+  random_number: { from: pipeline.dcql.trusted-authorities-values-item-non-string.outputs.random_number }
+  array_value: { from: pipeline.dcql.trusted-authorities-values-item-non-string.outputs.array_value }
+  object_value: { from: pipeline.dcql.trusted-authorities-values-item-non-string.outputs.object_value }
+  visual_evidence: { from: pipeline.dcql.trusted-authorities-values-item-non-string.outputs.visual_evidence }
+assertions:
+  - { id: null_item_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.null_value, params: { mode: trusted_authority_array_item_type, property: values, expected_type: array, valid: false, item_expected_type: string, item_valid: false } }
+  - { id: true_item_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.true_value, params: { mode: trusted_authority_array_item_type, property: values, expected_type: array, valid: false, item_expected_type: string, item_valid: false } }
+  - { id: false_item_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.false_value, params: { mode: trusted_authority_array_item_type, property: values, expected_type: array, valid: false, item_expected_type: string, item_valid: false } }
+  - { id: zero_item_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.zero_value, params: { mode: trusted_authority_array_item_type, property: values, expected_type: array, valid: false, item_expected_type: string, item_valid: false } }
+  - { id: random_number_item_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.random_number, params: { mode: trusted_authority_array_item_type, property: values, expected_type: array, valid: false, item_expected_type: string, item_valid: false } }
+  - { id: array_item_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.array_value, params: { mode: trusted_authority_array_item_type, property: values, expected_type: array, valid: false, item_expected_type: string, item_valid: false } }
+  - { id: object_item_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.object_value, params: { mode: trusted_authority_array_item_type, property: values, expected_type: array, valid: false, item_expected_type: string, item_valid: false } }
+  - id: every_invalid_item_variant_has_visual_evidence
+    validator: evidence.minimum_items
+    input: evidence.visual_evidence
+    params: { min_items: 7 }
+verdict:
+  pass_when: all_assertions_pass

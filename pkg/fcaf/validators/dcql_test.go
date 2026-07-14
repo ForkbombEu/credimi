@@ -540,6 +540,63 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name:         "non-string trusted authority value item is rejected",
+			mode:         "trusted_authority_array_item_type",
+			property:     "values",
+			expectedType: "array",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{true},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:         "all-string trusted authority value items are not malformed",
+			mode:         "trusted_authority_array_item_type",
+			property:     "values",
+			expectedType: "array",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{"authority-key-id"},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:         "mixed trusted authority value items expose the invalid item",
+			mode:         "trusted_authority_array_item_type",
+			property:     "values",
+			expectedType: "array",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{"authority-key-id", 1},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusPass,
+		},
+		{
 			name: "claim sets",
 			mode: "claim_sets",
 			evidence: map[string]any{
@@ -564,6 +621,12 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			if test.mode == "property_type" || test.mode == "trusted_authority_property_type" {
 				params["expected_type"] = test.expectedType
 				params["valid"] = test.valid
+			}
+			if test.mode == "trusted_authority_array_item_type" {
+				params["expected_type"] = test.expectedType
+				params["valid"] = test.valid
+				params["item_expected_type"] = "string"
+				params["item_valid"] = false
 			}
 			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
 				Value:  test.evidence,

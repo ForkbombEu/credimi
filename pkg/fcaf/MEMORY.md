@@ -16,7 +16,7 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 - Detached HEAD: `54373c673c4d2e65118df2f77d32642dfba16e97`
 - Shared push target: `origin HEAD:feat/fcaf-test`
 - Worktree was clean before adding this memory and skill.
-- Catalog count: 180 tests after the uncommitted case 092 implementation.
+- Catalog count: 181 tests after the uncommitted case 093 implementation.
 
 Recent commits:
 
@@ -80,9 +80,15 @@ The dedicated `trusted_authority_property_type` validator proves the nested prop
 
 The matrix covers `null`, `true`, `false`, `0`, a non-zero number, string, and object while preserving `type: aki`. The nested validator requires `values` to be present, verifies its JSON type, requires `type` to remain a non-empty string, and fails if a malformed request returns a credential. A clean Maestro run after clearing Chrome completed all seven variants and produced seven screenshots.
 
+## Case 093
+
+`WS_RP_MS_ProtocolMessages__093` rejects an array-valued `trusted_authorities.values` property when any array item is not a JSON string. The dedicated `trusted_authority_array_item_type` validator requires a non-empty outer array, a valid non-empty string `type`, and at least one item with the invalid type; an all-string array fails the malformed-item assertion. Unit coverage also includes a mixed string plus non-string array.
+
+The matrix covers null, booleans, zero, a non-zero number, nested array, and object items. A clean Maestro run after clearing Chrome completed all seven variants and produced seven screenshots.
+
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__093`: reject an array-valued `trusted_authorities.values` property when any array item is not a JSON string. Keep `type` valid and distinguish item validation from case 092's container-type validation.
+`WS_RP_MS_ProtocolMessages__094`: reject `trusted_authorities.values` when it contains an empty string item. This should use a dedicated non-empty-string item validator rather than treating empty strings as a JSON type error.
 
 ## Parallel ownership
 
