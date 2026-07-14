@@ -6,7 +6,14 @@ package validators
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/base64"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 	"github.com/stretchr/testify/require"
@@ -70,6 +77,61 @@ func TestPIDSDJWTVCTValidator(t *testing.T) {
 	})
 
 	require.Equal(t, StatusPass, got.Status)
+}
+
+func TestSDJWTIssuerX509HeaderValidator(t *testing.T) {
+	certificate := testX509Certificate(t)
+	tests := []struct {
+		name       string
+		headers    map[string]any
+		wantStatus Status
+	}{
+		{
+			name:       "valid x5c chain",
+			headers:    map[string]any{"x5c": []any{certificate}},
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "missing x5c chain",
+			headers:    map[string]any{},
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "invalid certificate",
+			headers:    map[string]any{"x5c": []any{"not-base64"}},
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SDJWTIssuerX509HeaderValidator{}.Validate(context.Background(), Input{
+				Value: &evidence.SDJWTPresentation{ProtectedHeaders: tt.headers},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
+func testX509Certificate(t *testing.T) string {
+	t.Helper()
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Unix(0, 0),
+		NotAfter:     time.Unix(3600, 0),
+	}
+	der, err := x509.CreateCertificate(
+		rand.Reader,
+		template,
+		template,
+		&privateKey.PublicKey,
+		privateKey,
+	)
+	require.NoError(t, err)
+	return base64.StdEncoding.EncodeToString(der)
 }
 
 func TestPIDSDJWTMandatoryClaimsValidator(t *testing.T) {

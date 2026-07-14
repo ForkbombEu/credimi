@@ -6,6 +6,8 @@ package validators
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"net/mail"
 	"reflect"
@@ -180,6 +182,64 @@ func (SDJWTClaimRFC5322EmailValidator) Validate(_ context.Context, input Input) 
 }
 
 type PIDSDJWTVCTValidator struct{}
+
+type SDJWTIssuerX509HeaderValidator struct{}
+
+func (SDJWTIssuerX509HeaderValidator) ID() string { return "sdjwt.issuer_x509_header" }
+
+func (SDJWTIssuerX509HeaderValidator) Validate(_ context.Context, input Input) Result {
+	headers, ok := sdjwtProtectedHeaders(input.Value)
+	if !ok {
+		return Result{Status: StatusFail, Message: "SD-JWT issuer protected headers are missing"}
+	}
+	rawChain, ok := headers["x5c"].([]any)
+	if !ok || len(rawChain) == 0 {
+		return Result{Status: StatusFail, Message: "SD-JWT issuer x5c chain is missing"}
+	}
+	for index, rawCertificate := range rawChain {
+		encoded, ok := rawCertificate.(string)
+		if !ok || encoded == "" {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("SD-JWT issuer x5c certificate %d is not a string", index),
+			}
+		}
+		der, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"SD-JWT issuer x5c certificate %d is not base64 encoded",
+					index,
+				),
+			}
+		}
+		if _, err := x509.ParseCertificate(der); err != nil {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("SD-JWT issuer x5c certificate %d is not valid DER", index),
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("SD-JWT issuer x5c chain contains %d certificate(s)", len(rawChain)),
+	}
+}
+
+func sdjwtProtectedHeaders(value any) (map[string]any, bool) {
+	switch typed := value.(type) {
+	case *evidence.SDJWTPresentation:
+		if typed == nil {
+			return nil, false
+		}
+		return typed.ProtectedHeaders, true
+	case evidence.SDJWTPresentation:
+		return typed.ProtectedHeaders, true
+	default:
+		return nil, false
+	}
+}
 
 const pidSDJWTVCTPrefix = "urn:eudi:pid:"
 

@@ -73,6 +73,7 @@ func DefaultRegistry() (*Registry, error) {
 		SDJWTClaimJPEGDataURLValidator{},
 		SDJWTClaimCountrySubdivisionValidator{},
 		SDJWTDomesticNamespaceValidator{},
+		SDJWTIssuerX509HeaderValidator{},
 		PIDSDJWTVCTValidator{},
 		PIDSDJWTMandatoryClaimsValidator{},
 	)
