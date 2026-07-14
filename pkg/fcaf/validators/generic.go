@@ -38,6 +38,54 @@ func (JSONFieldEqualsValidator) ID() string {
 	return "json.field_equals"
 }
 
+type JSONFieldPresenceValidator struct{}
+
+func (JSONFieldPresenceValidator) ID() string {
+	return "json.field_presence"
+}
+
+func (JSONFieldPresenceValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Field   string `json:"field"`
+		Present bool   `json:"present"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Field == "" {
+		return Result{Status: StatusError, Message: "field param is required"}
+	}
+	if _, ok := input.Params["present"]; !ok {
+		return Result{Status: StatusError, Message: "present param is required"}
+	}
+	obj, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected object", input.Value),
+		}
+	}
+	_, exists := obj[params.Field]
+	if exists != params.Present {
+		expectation := "absent"
+		if params.Present {
+			expectation = "present"
+		}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("field %q is not %s", params.Field, expectation),
+		}
+	}
+	expectation := "absent"
+	if params.Present {
+		expectation = "present"
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("field %q is %s", params.Field, expectation),
+	}
+}
+
 type JWTHeaderFieldEqualsValidator struct{}
 
 func (JWTHeaderFieldEqualsValidator) ID() string {

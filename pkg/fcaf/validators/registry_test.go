@@ -269,6 +269,66 @@ func TestJSONFieldEqualsValidator(t *testing.T) {
 	}
 }
 
+func TestJSONFieldPresenceValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		value      any
+		field      string
+		present    bool
+		wantStatus Status
+	}{
+		{
+			name:       "required field present",
+			value:      map[string]any{"vp_token": map[string]any{}},
+			field:      "vp_token",
+			present:    true,
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "forbidden field absent",
+			value:      map[string]any{"vp_token": map[string]any{}},
+			field:      "access_token",
+			present:    false,
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "required field absent",
+			value:      map[string]any{},
+			field:      "vp_token",
+			present:    true,
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "forbidden field present",
+			value:      map[string]any{"access_token": "token"},
+			field:      "access_token",
+			present:    false,
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "non-object evidence",
+			value:      "vp_token=value",
+			field:      "vp_token",
+			present:    true,
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := JSONFieldPresenceValidator{}.Validate(context.Background(), Input{
+				Value: tt.value,
+				Params: map[string]any{
+					"field":   tt.field,
+					"present": tt.present,
+				},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func TestJWTHeaderFieldEqualsValidator(t *testing.T) {
 	tests := []struct {
 		name       string
