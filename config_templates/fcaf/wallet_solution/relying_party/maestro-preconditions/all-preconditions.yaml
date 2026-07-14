@@ -23,3 +23,5 @@ tags:
     file: metadata-direct-post-jwt.yaml
 - runFlow:
     file: protocol-request-uri-method-post.yaml
+- runFlow:
+    file: supportive-redirect-uri.yaml
