@@ -88,6 +88,7 @@ Maestro-backed preconditions:
 - `pipeline.dcql.trusted-authorities-unsupported-type`: `dcql-trusted-authorities-unsupported-type.yaml`
 - `pipeline.dcql.trusted-authorities-missing-type`: `dcql-trusted-authorities-missing-type.yaml`
 - `pipeline.dcql.trusted-authorities-missing-values`: `dcql-trusted-authorities-missing-values.yaml`
+- `pipeline.dcql.trusted-authorities-type-non-string`: `dcql-trusted-authorities-type-non-string.yaml`
 - `pipeline.wallet.engagement.haip-vp`: `engagement-haip-vp.yaml`
 - `pipeline.wallet.metadata.direct-post-jwt`: `metadata-direct-post-jwt.yaml`
 - `pipeline.wallet.protocol.request-uri-method-post`: `protocol-request-uri-method-post.yaml`

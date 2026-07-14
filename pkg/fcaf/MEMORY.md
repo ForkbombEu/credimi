@@ -16,7 +16,7 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 - Detached HEAD: `54373c673c4d2e65118df2f77d32642dfba16e97`
 - Shared push target: `origin HEAD:feat/fcaf-test`
 - Worktree was clean before adding this memory and skill.
-- Catalog count: 177 tests.
+- Catalog count: 179 tests after the uncommitted case 091 implementation.
 
 Recent commits:
 
@@ -68,9 +68,15 @@ OID4VP 6.1.1 defines the required property as plural `values`; the FCAF prose us
 
 Assertions independently prove that `type` is present, `values` is absent, the request is rejected/discontinued, and visual evidence exists. A clean Maestro run after clearing Chrome returned the wallet to Home without consent or success, satisfying the allowed discontinuation outcome.
 
+## Case 091
+
+`WS_RP_MS_ProtocolMessages__091` rejects `trusted_authorities.type` when it is not a JSON string. The implemented matrix covers `null`, `true`, `false`, `0`, a non-zero number, array, and object. Every request keeps `values` as a valid non-empty string array.
+
+The dedicated `trusted_authority_property_type` validator proves the nested property is present and has the wrong JSON type, rejects evidence for a missing `type`, requires valid `values` while testing `type`, and fails if the wallet returns a credential. A clean Maestro run after clearing Chrome completed all seven variants. The final UI hierarchy showed Home, so the observed wallet behavior is allowed interaction discontinuation, not a captured `invalid_request` response.
+
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__091`: reject `trusted_authorities.type` when it is not a JSON string. Cover representative invalid JSON types as separate observable cases.
+`WS_RP_MS_ProtocolMessages__092`: reject `trusted_authorities.values` when it is not a JSON array. Reuse the nested trusted-authority property validator, keep `type` as a valid string, and cover representative non-array JSON types independently.
 
 ## Parallel ownership
 

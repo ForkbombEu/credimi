@@ -389,6 +389,82 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name:         "non-string trusted authority type is rejected",
+			mode:         "trusted_authority_property_type",
+			property:     "type",
+			expectedType: "string",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   true,
+							"values": []any{"authority-key-id"},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:         "string trusted authority type is not malformed",
+			mode:         "trusted_authority_property_type",
+			property:     "type",
+			expectedType: "string",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{"authority-key-id"},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:         "missing trusted authority type is not a format test",
+			mode:         "trusted_authority_property_type",
+			property:     "type",
+			expectedType: "string",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"values": []any{"authority-key-id"},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:         "malformed trusted authority returning a credential fails",
+			mode:         "trusted_authority_property_type",
+			property:     "type",
+			expectedType: "string",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   true,
+							"values": []any{"authority-key-id"},
+						}}
+						return credential
+					}()},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "claim sets",
 			mode: "claim_sets",
 			evidence: map[string]any{
@@ -410,7 +486,7 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			if test.property != "" {
 				params["property"] = test.property
 			}
-			if test.mode == "property_type" {
+			if test.mode == "property_type" || test.mode == "trusted_authority_property_type" {
 				params["expected_type"] = test.expectedType
 				params["valid"] = test.valid
 			}

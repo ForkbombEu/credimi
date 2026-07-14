@@ -38,6 +38,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"empty_claims",
 		"empty_array",
 		"property_type",
+		"trusted_authority_property_type",
 		"multiple_default_false",
 		"multiple_true",
 		"no_match",
@@ -46,7 +47,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, multiple_default_false, multiple_true, no_match, request_rejected, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, trusted_authority_property_type, multiple_default_false, multiple_true, no_match, request_rejected, or claim_sets",
 		}
 	}
 
@@ -322,6 +323,112 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Status: StatusFail,
 				Message: fmt.Sprintf(
 					"wallet returned a credential for invalid %s type",
+					params.Property,
+				),
+			}
+		}
+	case "trusted_authority_property_type":
+		if params.Property == "" {
+			return Result{
+				Status:  StatusError,
+				Message: "property is required for trusted_authority_property_type mode",
+			}
+		}
+		if _, exists := input.Params["valid"]; !exists {
+			return Result{
+				Status:  StatusError,
+				Message: "valid is required for trusted_authority_property_type mode",
+			}
+		}
+		if !supportedJSONType(params.ExpectedType) {
+			return Result{
+				Status:  StatusError,
+				Message: "expected_type must be boolean, string, number, integer, array, object, or null",
+			}
+		}
+		credentials, ok := query["credentials"].([]any)
+		if !ok || len(credentials) == 0 {
+			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+		}
+		if err := validateDCQLCredentialQueries(credentials); err != nil {
+			return Result{Status: StatusFail, Message: err.Error()}
+		}
+		for credentialIndex, rawCredential := range credentials {
+			credential, _ := normalizeJSONObject(rawCredential)
+			authorities, ok := credential["trusted_authorities"].([]any)
+			if !ok || len(authorities) == 0 {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"credentials[%d].trusted_authorities is not a non-empty array",
+						credentialIndex,
+					),
+				}
+			}
+			for authorityIndex, rawAuthority := range authorities {
+				authority, ok := normalizeJSONObject(rawAuthority)
+				if !ok {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"credentials[%d].trusted_authorities[%d] is not an object",
+							credentialIndex,
+							authorityIndex,
+						),
+					}
+				}
+				value, exists := authority[params.Property]
+				if !exists {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"credentials[%d].trusted_authorities[%d] does not contain %s",
+							credentialIndex,
+							authorityIndex,
+							params.Property,
+						),
+					}
+				}
+				if params.Property == "type" && !nonEmptyStringArray(authority["values"]) {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"credentials[%d].trusted_authorities[%d].values is not a non-empty string array",
+							credentialIndex,
+							authorityIndex,
+						),
+					}
+				}
+				matches := matchesJSONType(value, params.ExpectedType)
+				if matches != params.Valid {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"credentials[%d].trusted_authorities[%d].%s type validity is %t, expected %t",
+							credentialIndex,
+							authorityIndex,
+							params.Property,
+							matches,
+							params.Valid,
+						),
+					}
+				}
+			}
+		}
+		if params.Valid && isEmptyDCQLValue(responseValue) {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"wallet returned no credential for valid trusted authority %s",
+					params.Property,
+				),
+			}
+		}
+		if !params.Valid && !isEmptyDCQLValue(responseValue) {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"wallet returned a credential for invalid trusted authority %s type",
 					params.Property,
 				),
 			}
