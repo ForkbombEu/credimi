@@ -45,6 +45,29 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name: "credentials matched without credential sets",
+			mode: "without_credential_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "credential sets unexpectedly present",
+			mode: "without_credential_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"pid"}}}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "credential entry missing format",
 			mode: "credentials_match",
 			evidence: map[string]any{
