@@ -27,11 +27,11 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	switch params.Mode {
-	case "credential_sets", "credentials_match", "without_credential_sets", "multiple_default_false", "multiple_true", "no_match", "claim_sets":
+	case "credential_sets", "credentials_match", "without_credential_sets", "without_trusted_authorities", "multiple_default_false", "multiple_true", "no_match", "claim_sets":
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, multiple_default_false, multiple_true, no_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, multiple_default_false, multiple_true, no_match, or claim_sets",
 		}
 	}
 
@@ -68,7 +68,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: "wallet response contains no vp_token for credential_sets",
 			}
 		}
-	case "credentials_match", "without_credential_sets", "multiple_default_false", "multiple_true":
+	case "credentials_match", "without_credential_sets", "without_trusted_authorities", "multiple_default_false", "multiple_true":
 		if params.Mode == "without_credential_sets" {
 			if _, exists := query["credential_sets"]; exists {
 				return Result{
@@ -97,6 +97,14 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				return Result{
 					Status:  StatusFail,
 					Message: fmt.Sprintf("credentials[%d] is not an object", index),
+				}
+			}
+			if params.Mode == "without_trusted_authorities" {
+				if _, exists := credential["trusted_authorities"]; exists {
+					return Result{
+						Status:  StatusFail,
+						Message: fmt.Sprintf("credentials[%d] contains trusted_authorities", index),
+					}
 				}
 			}
 			id, _ := credential["id"].(string)
