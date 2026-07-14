@@ -30,6 +30,8 @@ tags:
 - runFlow:
     file: dcql-claim-sets-non-array.yaml
 - runFlow:
+    file: dcql-same-credential-multiple-queries.yaml
+- runFlow:
     file: engagement-haip-vp.yaml
 - runFlow:
     file: metadata-direct-post-jwt.yaml
