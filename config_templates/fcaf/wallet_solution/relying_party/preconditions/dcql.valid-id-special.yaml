@@ -1,0 +1,11 @@
+id: pipeline.dcql.valid-id-special
+kind: pipeline
+description: Execute a successful DCQL presentation using allowed underscore and hyphen characters.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-valid-id-special
+required_steps:
+  - get-presentation-result
+outputs:
+  dcql_exchange:
+    path: $.output.get-presentation-result.outputs.body
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests
