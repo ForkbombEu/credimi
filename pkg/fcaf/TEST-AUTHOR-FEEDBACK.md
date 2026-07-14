@@ -356,4 +356,46 @@ A single source-quality job could prevent several findings above:
 - referenced protocol property names belong to a checked vocabulary
 - no editorial TODO/Need to check text remains in published test scenarios
 - generated inventory contains one row per canonical source test
+
+### Issue 13: Provide a mock verifier for malformed DCQL requests
+
+Suggested title:
+
+```text
+test(fcaf): provide raw mock-verifier support for malformed DCQL cases
+```
+
+Suggested issue body:
+
+```markdown
+FCAF cases WS_RP_MS_ProtocolMessages__096 through __098 require the Wallet to
+receive malformed `credential_sets.options` values:
+
+- 096: `options` is missing
+- 097: `options` is an empty array
+- 098: `options` is not an array
+
+The public `https://verifier-backend.eudiw.dev/ui/presentations` endpoint cannot
+exercise these cases. Its typed request decoder rejects them before a signed
+request reaches the Wallet:
+
+- 096 fails because `CredentialSetQuery.options` is required.
+- 097 and 098 fail during the same DCQL deserialization/validation boundary.
+
+Please provide a mock verifier or raw request generator that can serve a validly
+signed Authorization Request containing deliberately malformed DCQL. It should
+expose the request URI/deep link needed by the Wallet and record the resulting
+error or privacy-preserving interaction discontinuation.
+
+The mock service should support:
+
+- request-object signing compatible with the reference Wallet;
+- arbitrary DCQL JSON without deserializing it into a stricter server model;
+- request URI and/or open-link delivery;
+- captured Wallet response/error evidence;
+- transaction correlation for Maestro and Credimi pipelines.
+
+Without this service, 096–098 can only be statically validated and cannot be
+claimed as device-level Wallet conformance tests through the public verifier.
+```
 ```
