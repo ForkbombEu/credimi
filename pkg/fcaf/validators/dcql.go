@@ -30,11 +30,20 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	switch params.Mode {
-	case "credential_sets", "credentials_match", "without_credential_sets", "without_trusted_authorities", "property_type", "multiple_default_false", "multiple_true", "no_match", "claim_sets":
+	case "credential_sets",
+		"credentials_match",
+		"without_credential_sets",
+		"without_trusted_authorities",
+		"without_claims",
+		"property_type",
+		"multiple_default_false",
+		"multiple_true",
+		"no_match",
+		"claim_sets":
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, property_type, multiple_default_false, multiple_true, no_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, property_type, multiple_default_false, multiple_true, no_match, or claim_sets",
 		}
 	}
 
@@ -71,7 +80,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: "wallet response contains no vp_token for credential_sets",
 			}
 		}
-	case "credentials_match", "without_credential_sets", "without_trusted_authorities", "multiple_default_false", "multiple_true":
+	case "credentials_match",
+		"without_credential_sets",
+		"without_trusted_authorities",
+		"without_claims",
+		"multiple_default_false",
+		"multiple_true":
 		if params.Mode == "without_credential_sets" {
 			if _, exists := query["credential_sets"]; exists {
 				return Result{
@@ -107,6 +121,14 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					return Result{
 						Status:  StatusFail,
 						Message: fmt.Sprintf("credentials[%d] contains trusted_authorities", index),
+					}
+				}
+			}
+			if params.Mode == "without_claims" {
+				if _, exists := credential["claims"]; exists {
+					return Result{
+						Status:  StatusFail,
+						Message: fmt.Sprintf("credentials[%d] contains claims", index),
 					}
 				}
 			}
@@ -184,13 +206,19 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		}
 	case "property_type":
 		if params.Property == "" {
-			return Result{Status: StatusError, Message: "property is required for property_type mode"}
+			return Result{
+				Status:  StatusError,
+				Message: "property is required for property_type mode",
+			}
 		}
 		if _, exists := input.Params["valid"]; !exists {
 			return Result{Status: StatusError, Message: "valid is required for property_type mode"}
 		}
 		if !supportedJSONType(params.ExpectedType) {
-			return Result{Status: StatusError, Message: "expected_type must be boolean, string, number, integer, array, object, or null"}
+			return Result{
+				Status:  StatusError,
+				Message: "expected_type must be boolean, string, number, integer, array, object, or null",
+			}
 		}
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
@@ -207,8 +235,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 			value, exists := credential[params.Property]
 			if !exists {
 				return Result{
-					Status:  StatusFail,
-					Message: fmt.Sprintf("credentials[%d] does not contain %s", index, params.Property),
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"credentials[%d] does not contain %s",
+						index,
+						params.Property,
+					),
 				}
 			}
 			matches := matchesJSONType(value, params.ExpectedType)
@@ -233,8 +265,11 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		}
 		if !params.Valid && !isEmptyDCQLValue(responseValue) {
 			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("wallet returned a credential for invalid %s type", params.Property),
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"wallet returned a credential for invalid %s type",
+					params.Property,
+				),
 			}
 		}
 	case "claim_sets":
@@ -333,7 +368,10 @@ func validateDCQLCredentialQueries(credentials []any) error {
 		switch format {
 		case "dc+sd-jwt":
 			if !nonEmptyStringArray(meta["vct_values"]) {
-				return fmt.Errorf("credentials[%d].meta.vct_values is not a non-empty string array", index)
+				return fmt.Errorf(
+					"credentials[%d].meta.vct_values is not a non-empty string array",
+					index,
+				)
 			}
 		case "mso_mdoc":
 			docType, _ := meta["doctype_value"].(string)
@@ -351,7 +389,11 @@ func validateDCQLCredentialQueries(credentials []any) error {
 			for claimIndex, rawClaim := range items {
 				claim, ok := normalizeJSONObject(rawClaim)
 				if !ok || !nonEmptyStringArray(claim["path"]) {
-					return fmt.Errorf("credentials[%d].claims[%d].path is invalid", index, claimIndex)
+					return fmt.Errorf(
+						"credentials[%d].claims[%d].path is invalid",
+						index,
+						claimIndex,
+					)
 				}
 			}
 		}

@@ -20,6 +20,8 @@ tags:
 - runFlow:
     file: dcql-holder-binding-type-boundary.yaml
 - runFlow:
+    file: dcql-claims-omitted.yaml
+- runFlow:
     file: engagement-haip-vp.yaml
 - runFlow:
     file: metadata-direct-post-jwt.yaml
