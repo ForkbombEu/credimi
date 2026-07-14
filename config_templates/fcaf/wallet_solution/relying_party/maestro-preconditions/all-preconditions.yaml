@@ -28,6 +28,8 @@ tags:
 - runFlow:
     file: dcql-claim-sets-empty.yaml
 - runFlow:
+    file: dcql-claim-sets-non-array.yaml
+- runFlow:
     file: engagement-haip-vp.yaml
 - runFlow:
     file: metadata-direct-post-jwt.yaml
