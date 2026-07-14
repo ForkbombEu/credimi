@@ -37,6 +37,41 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name: "credential sets options missing is rejected",
+			mode: "credential_sets_options_missing",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{map[string]any{"required": true}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:     "credential sets options empty is rejected",
+			mode:     "credential_sets_options_empty",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": []any{}}}}},
+			status:   StatusPass,
+		},
+		{
+			name:     "credential sets options non array is rejected",
+			mode:     "credential_sets_options_non_array",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": "pid"}}}},
+			status:   StatusPass,
+		},
+		{
+			name:     "credential sets options valid references",
+			mode:     "credential_sets_options_valid_references",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": []any{[]any{"pid"}}}}}, "vp_token": map[string]any{"pid": []any{"presentation"}}},
+			status:   StatusPass,
+		},
+		{
+			name:     "credential sets options invalid references are rejected",
+			mode:     "credential_sets_options_invalid_references",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": []any{[]any{"unknown"}}}}}},
+			status:   StatusPass,
+		},
+		{
 			name: "credentials matched",
 			mode: "credentials_match",
 			evidence: map[string]any{

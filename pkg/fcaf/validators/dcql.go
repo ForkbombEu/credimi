@@ -31,6 +31,11 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	}
 	switch params.Mode {
 	case "credential_sets",
+		"credential_sets_options_missing",
+		"credential_sets_options_empty",
+		"credential_sets_options_non_array",
+		"credential_sets_options_valid_references",
+		"credential_sets_options_invalid_references",
 		"credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
@@ -86,6 +91,30 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: "wallet response contains no vp_token for credential_sets",
 			}
 		}
+	case "credential_sets_options_missing":
+		credentials, ok := query["credentials"].([]any)
+		if !ok || len(credentials) == 0 {
+			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+		}
+		sets, ok := query["credential_sets"].([]any)
+		if !ok || len(sets) == 0 {
+			return Result{Status: StatusFail, Message: "dcql_query does not contain non-empty credential_sets"}
+		}
+		for index, rawSet := range sets {
+			set, ok := normalizeJSONObject(rawSet)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credential_sets[%d] is not an object", index)}
+			}
+			if _, exists := set["options"]; exists {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credential_sets[%d].options is present", index)}
+			}
+		}
+		if !isEmptyDCQLValue(responseValue) {
+			return Result{Status: StatusFail, Message: "wallet returned a vp_token for a query missing credential_sets.options"}
+		}
+		return Result{Status: StatusPass, Message: "wallet rejected credential_sets without options"}
+	case "credential_sets_options_empty", "credential_sets_options_non_array", "credential_sets_options_valid_references", "credential_sets_options_invalid_references":
+		return validateCredentialSetsOptions(query, responseValue, params.Mode)
 	case "credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
@@ -764,4 +793,85 @@ func isEmptyDCQLValue(value any) bool {
 	default:
 		return false
 	}
+}
+
+func validateCredentialSetsOptions(query map[string]any, responseValue any, mode string) Result {
+	credentials, ok := query["credentials"].([]any)
+	sets, setsOK := query["credential_sets"].([]any)
+	if !ok || len(credentials) == 0 || !setsOK || len(sets) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query must contain credentials and credential_sets"}
+	}
+	ids := make(map[string]struct{}, len(credentials))
+	for _, raw := range credentials {
+		credential, ok := normalizeJSONObject(raw)
+		if !ok {
+			return Result{Status: StatusFail, Message: "dcql credential is not an object"}
+		}
+		id, ok := credential["id"].(string)
+		if !ok || id == "" {
+			return Result{Status: StatusFail, Message: "dcql credential id is invalid"}
+		}
+		ids[id] = struct{}{}
+	}
+	invalid := false
+	for _, raw := range sets {
+		set, ok := normalizeJSONObject(raw)
+		if !ok {
+			invalid = true
+			continue
+		}
+		options, exists := set["options"]
+		if !exists {
+			invalid = true
+			continue
+		}
+		groups, ok := options.([]any)
+		if mode == "credential_sets_options_non_array" {
+			if ok {
+				return Result{Status: StatusFail, Message: "credential_sets.options is an array"}
+			}
+			invalid = true
+			continue
+		}
+		if !ok || len(groups) == 0 {
+			invalid = true
+			continue
+		}
+		for _, rawGroup := range groups {
+			group, ok := rawGroup.([]any)
+			if !ok || len(group) == 0 {
+				invalid = true
+				continue
+			}
+			for _, rawID := range group {
+				id, ok := rawID.(string)
+				if !ok {
+					invalid = true
+					continue
+				}
+				if _, found := ids[id]; !found {
+					invalid = true
+				}
+			}
+		}
+	}
+	if mode == "credential_sets_options_valid_references" && invalid {
+		return Result{Status: StatusFail, Message: "credential_sets.options contains invalid references"}
+	}
+	if mode == "credential_sets_options_invalid_references" && !invalid {
+		return Result{Status: StatusFail, Message: "credential_sets.options contains no invalid references"}
+	}
+	if mode == "credential_sets_options_empty" && !invalid {
+		return Result{Status: StatusFail, Message: "credential_sets.options is non-empty"}
+	}
+	if mode == "credential_sets_options_non_array" || mode == "credential_sets_options_empty" || mode == "credential_sets_options_invalid_references" {
+		if !isEmptyDCQLValue(responseValue) {
+			return Result{Status: StatusFail, Message: "wallet returned a vp_token for an invalid credential_sets.options query"}
+		}
+		return Result{Status: StatusPass, Message: "wallet rejected invalid credential_sets.options"}
+	}
+	if isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned no vp_token for valid credential_sets.options references"}
+	}
+	return Result{Status: StatusPass, Message: "wallet processed valid credential_sets.options references"}
 }

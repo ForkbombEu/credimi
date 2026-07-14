@@ -57,6 +57,21 @@ preconditions:
       - dcql_exchange
     notes: Exercises a DCQL request containing multiple credentials entries.
 
+  - id: pipeline.dcql.credential-sets-options-missing
+    kind: pipeline
+    description: Reject a DCQL credential_sets request without its required options property.
+    pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-credential-sets-options-missing
+    required_steps:
+      - reject-missing-credential-sets-options
+      - fetch-result
+    outputs:
+      dcql_exchange:
+        path: $.output.fetch-result.outputs.body
+        decoder: raw
+      visual_evidence:
+        path: $.output.reject-missing-credential-sets-options.outputs.screenshot_urls
+        decoder: raw
+
   - id: pipeline.dcql.no-matching-credentials
     kind: maestro
     flow: dcql-no-matching-credentials.yaml
