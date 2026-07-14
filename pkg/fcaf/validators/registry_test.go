@@ -363,6 +363,40 @@ func TestJWTPayloadObjectKeysAllowedValidator(t *testing.T) {
 	}
 }
 
+func TestJWTPayloadFieldPresenceValidator(t *testing.T) {
+	token := "e30.eyJjbGllbnRfaWQiOiJjbGllbnQtMSJ9.signature"
+	tests := []struct {
+		name       string
+		field      string
+		present    bool
+		wantStatus Status
+	}{
+		{name: "required field present", field: "client_id", present: true, wantStatus: StatusPass},
+		{name: "forbidden field absent", field: "iss", present: false, wantStatus: StatusPass},
+		{name: "required field absent", field: "iss", present: true, wantStatus: StatusFail},
+		{
+			name:       "forbidden field present",
+			field:      "client_id",
+			present:    false,
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := JWTPayloadFieldPresenceValidator{}.Validate(context.Background(), Input{
+				Value: token,
+				Params: map[string]any{
+					"field":   tt.field,
+					"present": tt.present,
+				},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func TestSDJWTClaimPresentValidator(t *testing.T) {
 	got := SDJWTClaimPresentValidator{}.Validate(context.Background(), Input{
 		Value: map[string]any{"email": "person@example.test"},

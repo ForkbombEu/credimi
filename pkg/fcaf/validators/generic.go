@@ -89,6 +89,51 @@ func (JWTPayloadObjectKeysAllowedValidator) ID() string {
 	return "jwt.payload_object_keys_allowed"
 }
 
+type JWTPayloadFieldPresenceValidator struct{}
+
+func (JWTPayloadFieldPresenceValidator) ID() string {
+	return "jwt.payload_field_presence"
+}
+
+func (JWTPayloadFieldPresenceValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Field   string `json:"field"`
+		Present bool   `json:"present"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Field == "" {
+		return Result{Status: StatusError, Message: "field param is required"}
+	}
+	if _, ok := input.Params["present"]; !ok {
+		return Result{Status: StatusError, Message: "present param is required"}
+	}
+	payload, err := compactJWTPart(input.Value, 1)
+	if err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+	_, exists := payload[params.Field]
+	if exists != params.Present {
+		expectation := "absent"
+		if params.Present {
+			expectation = "present"
+		}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("JWT payload field %q is not %s", params.Field, expectation),
+		}
+	}
+	expectation := "absent"
+	if params.Present {
+		expectation = "present"
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("JWT payload field %q is %s", params.Field, expectation),
+	}
+}
+
 func (JWTPayloadObjectKeysAllowedValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
 		Field       string   `json:"field"`

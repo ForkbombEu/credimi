@@ -27,6 +27,7 @@ func DefaultRegistry() (*Registry, error) {
 		JSONFieldEqualsValidator{},
 		JWTHeaderFieldEqualsValidator{},
 		JWTPayloadObjectKeysAllowedValidator{},
+		JWTPayloadFieldPresenceValidator{},
 		MDocNamespaceElementPresentValidator{},
 		PIDMDocTypeValidator{},
 		PIDMDocMandatoryElementsValidator{},
