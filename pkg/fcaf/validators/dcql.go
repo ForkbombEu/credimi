@@ -27,11 +27,11 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	switch params.Mode {
-	case "credential_sets", "credentials_match", "without_credential_sets", "no_match", "claim_sets":
+	case "credential_sets", "credentials_match", "without_credential_sets", "multiple_default_false", "no_match", "claim_sets":
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, no_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, multiple_default_false, no_match, or claim_sets",
 		}
 	}
 
@@ -68,7 +68,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: "wallet response contains no vp_token for credential_sets",
 			}
 		}
-	case "credentials_match", "without_credential_sets":
+	case "credentials_match", "without_credential_sets", "multiple_default_false":
 		if params.Mode == "without_credential_sets" {
 			if _, exists := query["credential_sets"]; exists {
 				return Result{
@@ -106,13 +106,32 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					Message: fmt.Sprintf("credentials[%d] has no id", index),
 				}
 			}
-			if isEmptyDCQLValue(response[id]) {
+			presentation := response[id]
+			if isEmptyDCQLValue(presentation) {
 				return Result{
 					Status: StatusFail,
 					Message: fmt.Sprintf(
 						"vp_token has no presentation for credential query %q",
 						id,
 					),
+				}
+			}
+			if params.Mode == "multiple_default_false" {
+				if _, exists := credential["multiple"]; exists {
+					return Result{
+						Status:  StatusFail,
+						Message: fmt.Sprintf("credentials[%d] contains multiple", index),
+					}
+				}
+				presentations, ok := presentation.([]any)
+				if !ok || len(presentations) != 1 {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"vp_token must contain exactly one presentation for credential query %q",
+							id,
+						),
+					}
 				}
 			}
 		}

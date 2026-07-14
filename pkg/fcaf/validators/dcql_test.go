@@ -56,6 +56,43 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name: "omitted multiple returns one credential",
+			mode: "multiple_default_false",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "omitted multiple returns more than one credential",
+			mode: "multiple_default_false",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation-1", "presentation-2"}},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "multiple is present instead of omitted",
+			mode: "multiple_default_false",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["multiple"] = false
+						return credential
+					}()},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "credential sets unexpectedly present",
 			mode: "without_credential_sets",
 			evidence: map[string]any{
