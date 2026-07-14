@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegisterMobileRunnerWorkerManagerHooks_RunnerPublishDispatchesToPublishedOrgs(t *testing.T) {
+func TestRegisterMobileRunnerWorkerManagerHooks_RunnerPublishDispatchesToPublishedOrgs(
+	t *testing.T,
+) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()

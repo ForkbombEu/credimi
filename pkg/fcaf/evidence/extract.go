@@ -179,7 +179,10 @@ func extractPresentationTokenFromVPTokenJSON(raw string, preferredKey string) (s
 	}
 
 	if key == "" {
-		return "", fmt.Errorf("vp_token json must contain %q or exactly one credential entry", preferredKey)
+		return "", fmt.Errorf(
+			"vp_token json must contain %q or exactly one credential entry",
+			preferredKey,
+		)
 	}
 	rawQuery, ok := parsed[key]
 	if !ok {

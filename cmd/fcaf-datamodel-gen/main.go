@@ -143,7 +143,11 @@ func buildDefinition(
 	}
 	assertion, ok := spec.assertions[variant]
 	if !ok {
-		return dsl.TestDefinition{}, fmt.Errorf("%s has no reviewed assertion mapping for variant %s", id, variant)
+		return dsl.TestDefinition{}, fmt.Errorf(
+			"%s has no reviewed assertion mapping for variant %s",
+			id,
+			variant,
+		)
 	}
 	relative, err := filepath.Rel(sourceRoot, path)
 	if err != nil {
@@ -151,7 +155,9 @@ func buildDefinition(
 	}
 	references := make([]dsl.NormativeReference, 0, len(sections["References"]))
 	sourceURL := "https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#" +
-		strings.ToLower(id)
+		strings.ToLower(
+			id,
+		)
 	for _, reference := range sections["References"] {
 		reference = cleanMarkdownLine(reference)
 		if reference == "" {
@@ -228,19 +234,28 @@ func buildMDocDefinition(
 	}
 	assertion, ok := spec.assertions[variant]
 	if !ok {
-		return dsl.TestDefinition{}, fmt.Errorf("%s has no reviewed assertion mapping for variant %s", id, variant)
+		return dsl.TestDefinition{}, fmt.Errorf(
+			"%s has no reviewed assertion mapping for variant %s",
+			id,
+			variant,
+		)
 	}
 	relative, err := filepath.Rel(sourceRoot, path)
 	if err != nil {
 		return dsl.TestDefinition{}, fmt.Errorf("relative source path: %w", err)
 	}
 	sourceURL := "https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#" +
-		strings.ToLower(id)
+		strings.ToLower(
+			id,
+		)
 	references := make([]dsl.NormativeReference, 0, len(sections["References"]))
 	for _, reference := range sections["References"] {
 		reference = cleanMarkdownLine(reference)
 		if reference != "" {
-			references = append(references, dsl.NormativeReference{Title: reference, URL: sourceURL})
+			references = append(
+				references,
+				dsl.NormativeReference{Title: reference, URL: sourceURL},
+			)
 		}
 	}
 	if len(references) == 0 {
@@ -326,10 +341,20 @@ func sdjwtFamilySpecs() []familySpec {
 
 	specs := []familySpec{
 		semantic("AddressData_Emailaddress_", "email", "sdjwt.claim_rfc5322_email", nil),
-		semantic("AddressData_Mobilephonenumber_", "phone_number", "sdjwt.claim_international_phone", map[string]any{"min_length": 8}),
+		semantic(
+			"AddressData_Mobilephonenumber_",
+			"phone_number",
+			"sdjwt.claim_international_phone",
+			map[string]any{"min_length": 8},
+		),
 		standard("AddressData_Residentaddress_", "address.formatted"),
 		standard("AddressData_Residentcity_", "address.locality"),
-		semantic("AddressData_Residentcountry_", "address.country", "sdjwt.claim_country_code", nil),
+		semantic(
+			"AddressData_Residentcountry_",
+			"address.country",
+			"sdjwt.claim_country_code",
+			nil,
+		),
 		standard("AddressData_Residenthousenumber_", "address.house_number"),
 		standard("AddressData_Residentpostalcode_", "address.postal_code"),
 		standard("AddressData_Residentstate_", "address.region"),
@@ -338,10 +363,20 @@ func sdjwtFamilySpecs() []familySpec {
 		date("Credentialmetadata_Expirydate_", "date_of_expiry"),
 		date("Credentialmetadata_Issuancedate_", "date_of_issuance"),
 		standard("Credentialmetadata_Issuingauthority_", "issuing_authority"),
-		semantic("Credentialmetadata_Issuingcountry_", "issuing_country", "sdjwt.claim_country_code", nil),
-		semantic("Credentialmetadata_Issuingjurisdiction_", "issuing_jurisdiction", "sdjwt.claim_country_subdivision", map[string]any{
-			"country_claim": "issuing_country",
-		}),
+		semantic(
+			"Credentialmetadata_Issuingcountry_",
+			"issuing_country",
+			"sdjwt.claim_country_code",
+			nil,
+		),
+		semantic(
+			"Credentialmetadata_Issuingjurisdiction_",
+			"issuing_jurisdiction",
+			"sdjwt.claim_country_subdivision",
+			map[string]any{
+				"country_claim": "issuing_country",
+			},
+		),
 		date("IdentifyingData_Birthdate_", "birthdate"),
 		standard("IdentifyingData_Familyname_", "family_name"),
 		standard("IdentifyingData_Familynamebirth_", "birth_family_name"),
@@ -370,8 +405,18 @@ func sdjwtFamilySpecs() []familySpec {
 			claim:  "nationalities",
 			assertions: map[string]assertionSpec{
 				"001": claimAssertion("nationalities", "present", "sdjwt.claim_present", nil),
-				"002": claimAssertion("nationalities", "strings", "sdjwt.claim_string_array", map[string]any{"min_items": 1}),
-				"003": claimAssertion("nationalities", "countries", "sdjwt.claim_country_code_array", map[string]any{"min_items": 1}),
+				"002": claimAssertion(
+					"nationalities",
+					"strings",
+					"sdjwt.claim_string_array",
+					map[string]any{"min_items": 1},
+				),
+				"003": claimAssertion(
+					"nationalities",
+					"countries",
+					"sdjwt.claim_country_code_array",
+					map[string]any{"min_items": 1},
+				),
 			},
 		},
 		familySpec{
@@ -379,7 +424,12 @@ func sdjwtFamilySpecs() []familySpec {
 			claim:  "picture",
 			assertions: map[string]assertionSpec{
 				"001": claimAssertion("picture", "present", "sdjwt.claim_present", nil),
-				"002": claimAssertion("picture", "string", "sdjwt.claim_type", map[string]any{"type": "string"}),
+				"002": claimAssertion(
+					"picture",
+					"string",
+					"sdjwt.claim_type",
+					map[string]any{"type": "string"},
+				),
 				"003": claimAssertion("picture", "jpeg", "sdjwt.claim_jpeg_data_url", nil),
 			},
 		},
@@ -388,10 +438,20 @@ func sdjwtFamilySpecs() []familySpec {
 			claim:  "sex",
 			assertions: map[string]assertionSpec{
 				"001": claimAssertion("sex", "present", "sdjwt.claim_present", nil),
-				"002": claimAssertion("sex", "number", "sdjwt.claim_type", map[string]any{"type": "number"}),
-				"003": claimAssertion("sex", "allowed", "sdjwt.claim_integer_allowed", map[string]any{
-					"allowed": []int{0, 1, 2, 3, 4, 5, 6, 9},
-				}),
+				"002": claimAssertion(
+					"sex",
+					"number",
+					"sdjwt.claim_type",
+					map[string]any{"type": "number"},
+				),
+				"003": claimAssertion(
+					"sex",
+					"allowed",
+					"sdjwt.claim_integer_allowed",
+					map[string]any{
+						"allowed": []int{0, 1, 2, 3, 4, 5, 6, 9},
+					},
+				),
 			},
 		},
 	)
@@ -420,9 +480,14 @@ func mdocFamilySpecs() []familySpec {
 			claim:  element,
 			assertions: map[string]assertionSpec{
 				"001": elementAssertion(element, "present", "mdoc.namespace_element_present", nil),
-				"002": elementAssertion(element, "encoding", "mdoc.element_date_encoding", map[string]any{
-					"allowed_tags": allowedTags,
-				}),
+				"002": elementAssertion(
+					element,
+					"encoding",
+					"mdoc.element_date_encoding",
+					map[string]any{
+						"allowed_tags": allowedTags,
+					},
+				),
 				"003": elementAssertion(element, "format", "mdoc.element_date_format", nil),
 				"004": elementAssertion(element, "valid", "mdoc.element_valid_date", nil),
 			},
@@ -431,10 +496,20 @@ func mdocFamilySpecs() []familySpec {
 
 	specs := []familySpec{
 		semantic("AddressData_Emailaddress_", "email_address", "mdoc.element_rfc5322_email", nil),
-		semantic("AddressData_Mobilephonenumber_", "mobile_phone_number", "mdoc.element_international_phone", map[string]any{"min_length": 8}),
+		semantic(
+			"AddressData_Mobilephonenumber_",
+			"mobile_phone_number",
+			"mdoc.element_international_phone",
+			map[string]any{"min_length": 8},
+		),
 		standard("AddressData_Residentaddress_", "resident_address"),
 		standard("AddressData_Residentcity_", "resident_city"),
-		semantic("AddressData_Residentcountry_", "resident_country", "mdoc.element_country_code", nil),
+		semantic(
+			"AddressData_Residentcountry_",
+			"resident_country",
+			"mdoc.element_country_code",
+			nil,
+		),
 		standard("AddressData_Residenthousenumber_", "resident_house_number"),
 		standard("AddressData_Residentpostalcode_", "resident_postal_code"),
 		standard("AddressData_Residentstate_", "resident_state"),
@@ -443,10 +518,20 @@ func mdocFamilySpecs() []familySpec {
 		date("Credentialmetadata_Expirydate_", "expiry_date", []int{0, 1004}),
 		date("Credentialmetadata_Issuancedate_", "issuance_date", []int{0, 1004}),
 		standard("Credentialmetadata_Issuingauthority_", "issuing_authority"),
-		semantic("Credentialmetadata_Issuingcountry_", "issuing_country", "mdoc.element_country_code", nil),
-		semantic("Credentialmetadata_Issuingjurisdiction_", "issuing_jurisdiction", "mdoc.element_country_subdivision", map[string]any{
-			"country_element": "issuing_country",
-		}),
+		semantic(
+			"Credentialmetadata_Issuingcountry_",
+			"issuing_country",
+			"mdoc.element_country_code",
+			nil,
+		),
+		semantic(
+			"Credentialmetadata_Issuingjurisdiction_",
+			"issuing_jurisdiction",
+			"mdoc.element_country_subdivision",
+			map[string]any{
+				"country_element": "issuing_country",
+			},
+		),
 		date("IdentifyingData_Birthdate_", "birth_date", []int{1004}),
 		standard("IdentifyingData_Familyname_", "family_name"),
 		standard("IdentifyingData_Familynamebirth_", "family_name_birth"),
@@ -466,39 +551,110 @@ func mdocFamilySpecs() []familySpec {
 			marker: "IdentifyingData_Birthplace_",
 			claim:  "place_of_birth",
 			assertions: map[string]assertionSpec{
-				"001": elementAssertion("place_of_birth", "present", "mdoc.namespace_element_present", nil),
-				"002": elementAssertion("place_of_birth", "map", "mdoc.element_cbor_type", map[string]any{"major_type": 5}),
-				"003": elementAssertion("place_of_birth", "shape", "mdoc.element_map_shape", map[string]any{
-					"allowed_keys": []string{"country", "region", "locality"}, "min_properties": 1, "max_properties": 3,
-				}),
-				"004": elementAssertion("place_of_birth", "text_values", "mdoc.element_map_text_values", map[string]any{
-					"keys": []string{"country", "region", "locality"},
-				}),
-				"005": elementAssertion("place_of_birth", "country", "mdoc.element_map_member_country_code", map[string]any{"member": "country"}),
-				"006": elementAssertion("place_of_birth", "region", "mdoc.element_map_member_utf8_max_length", map[string]any{
-					"member": "region", "max_length": 150,
-				}),
-				"007": elementAssertion("place_of_birth", "locality", "mdoc.element_map_member_utf8_max_length", map[string]any{
-					"member": "locality", "max_length": 150,
-				}),
+				"001": elementAssertion(
+					"place_of_birth",
+					"present",
+					"mdoc.namespace_element_present",
+					nil,
+				),
+				"002": elementAssertion(
+					"place_of_birth",
+					"map",
+					"mdoc.element_cbor_type",
+					map[string]any{"major_type": 5},
+				),
+				"003": elementAssertion(
+					"place_of_birth",
+					"shape",
+					"mdoc.element_map_shape",
+					map[string]any{
+						"allowed_keys": []string{
+							"country",
+							"region",
+							"locality",
+						},
+						"min_properties": 1,
+						"max_properties": 3,
+					},
+				),
+				"004": elementAssertion(
+					"place_of_birth",
+					"text_values",
+					"mdoc.element_map_text_values",
+					map[string]any{
+						"keys": []string{"country", "region", "locality"},
+					},
+				),
+				"005": elementAssertion(
+					"place_of_birth",
+					"country",
+					"mdoc.element_map_member_country_code",
+					map[string]any{"member": "country"},
+				),
+				"006": elementAssertion(
+					"place_of_birth",
+					"region",
+					"mdoc.element_map_member_utf8_max_length",
+					map[string]any{
+						"member": "region", "max_length": 150,
+					},
+				),
+				"007": elementAssertion(
+					"place_of_birth",
+					"locality",
+					"mdoc.element_map_member_utf8_max_length",
+					map[string]any{
+						"member": "locality", "max_length": 150,
+					},
+				),
 			},
 		},
 		familySpec{
 			marker: "IdentifyingData_Nationality_",
 			claim:  "nationality",
 			assertions: map[string]assertionSpec{
-				"001": elementAssertion("nationality", "present", "mdoc.namespace_element_present", nil),
-				"002": elementAssertion("nationality", "strings", "mdoc.element_string_array", map[string]any{"min_items": 1}),
-				"003": elementAssertion("nationality", "country", "mdoc.element_country_code_array", map[string]any{"min_items": 1}),
-				"004": elementAssertion("nationality", "countries", "mdoc.element_country_code_array", map[string]any{"min_items": 1}),
+				"001": elementAssertion(
+					"nationality",
+					"present",
+					"mdoc.namespace_element_present",
+					nil,
+				),
+				"002": elementAssertion(
+					"nationality",
+					"strings",
+					"mdoc.element_string_array",
+					map[string]any{"min_items": 1},
+				),
+				"003": elementAssertion(
+					"nationality",
+					"country",
+					"mdoc.element_country_code_array",
+					map[string]any{"min_items": 1},
+				),
+				"004": elementAssertion(
+					"nationality",
+					"countries",
+					"mdoc.element_country_code_array",
+					map[string]any{"min_items": 1},
+				),
 			},
 		},
 		familySpec{
 			marker: "IdentifyingData_Portrait_",
 			claim:  "portrait",
 			assertions: map[string]assertionSpec{
-				"001": elementAssertion("portrait", "present", "mdoc.namespace_element_present", nil),
-				"002": elementAssertion("portrait", "bytes", "mdoc.element_cbor_type", map[string]any{"major_type": 2}),
+				"001": elementAssertion(
+					"portrait",
+					"present",
+					"mdoc.namespace_element_present",
+					nil,
+				),
+				"002": elementAssertion(
+					"portrait",
+					"bytes",
+					"mdoc.element_cbor_type",
+					map[string]any{"major_type": 2},
+				),
 				"003": elementAssertion("portrait", "jpeg", "mdoc.element_jpeg", nil),
 			},
 		},
@@ -507,17 +663,32 @@ func mdocFamilySpecs() []familySpec {
 			claim:  "sex",
 			assertions: map[string]assertionSpec{
 				"001": elementAssertion("sex", "present", "mdoc.namespace_element_present", nil),
-				"002": elementAssertion("sex", "unsigned", "mdoc.element_cbor_type", map[string]any{"major_type": 0}),
-				"003": elementAssertion("sex", "allowed", "mdoc.element_unsigned_integer_allowed", map[string]any{
-					"allowed": []int{0, 1, 2, 3, 4, 5, 6, 9},
-				}),
+				"002": elementAssertion(
+					"sex",
+					"unsigned",
+					"mdoc.element_cbor_type",
+					map[string]any{"major_type": 0},
+				),
+				"003": elementAssertion(
+					"sex",
+					"allowed",
+					"mdoc.element_unsigned_integer_allowed",
+					map[string]any{
+						"allowed": []int{0, 1, 2, 3, 4, 5, 6, 9},
+					},
+				),
 			},
 		},
 	)
 	return specs
 }
 
-func claimAssertion(claim string, suffix string, validator string, extra map[string]any) assertionSpec {
+func claimAssertion(
+	claim string,
+	suffix string,
+	validator string,
+	extra map[string]any,
+) assertionSpec {
 	params := map[string]any{"claim": claim}
 	for key, value := range extra {
 		params[key] = value
@@ -529,7 +700,12 @@ func claimAssertion(claim string, suffix string, validator string, extra map[str
 	}
 }
 
-func elementAssertion(element string, suffix string, validator string, extra map[string]any) assertionSpec {
+func elementAssertion(
+	element string,
+	suffix string,
+	validator string,
+	extra map[string]any,
+) assertionSpec {
 	params := map[string]any{
 		"namespace": "eu.europa.ec.eudi.pid.1",
 		"element":   element,

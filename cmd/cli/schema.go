@@ -401,7 +401,7 @@ func childPipelineStepSchema() map[string]any {
 }
 
 func extractXOneOfGroups(t reflect.Type) map[string][]string {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 

@@ -96,7 +96,8 @@ func HandleRunFCAF() func(*core.RequestEvent) error {
 			runtime = map[string]any{}
 		}
 		if req.RunnerID != "" {
-			if existing, ok := runtime["runner_id"].(string); ok && existing != "" && existing != req.RunnerID {
+			if existing, ok := runtime["runner_id"].(string); ok && existing != "" &&
+				existing != req.RunnerID {
 				return apierror.New(
 					http.StatusBadRequest,
 					"runner_id",

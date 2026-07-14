@@ -111,29 +111,32 @@ func registerOrganizationNamespaceHooks(app core.App) {
 
 func registerOrganizationPublicationHooks(app core.App) {
 	for _, collection := range organizationPublicationCollections {
-		app.OnRecordAfterCreateSuccess(collection.Collection).BindFunc(func(e *core.RecordEvent) error {
-			if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
-				return err
-			}
+		app.OnRecordAfterCreateSuccess(collection.Collection).
+			BindFunc(func(e *core.RecordEvent) error {
+				if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
+					return err
+				}
 
-			return e.Next()
-		})
+				return e.Next()
+			})
 
-		app.OnRecordAfterUpdateSuccess(collection.Collection).BindFunc(func(e *core.RecordEvent) error {
-			if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
-				return err
-			}
+		app.OnRecordAfterUpdateSuccess(collection.Collection).
+			BindFunc(func(e *core.RecordEvent) error {
+				if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
+					return err
+				}
 
-			return e.Next()
-		})
+				return e.Next()
+			})
 
-		app.OnRecordAfterDeleteSuccess(collection.Collection).BindFunc(func(e *core.RecordEvent) error {
-			if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
-				return err
-			}
+		app.OnRecordAfterDeleteSuccess(collection.Collection).
+			BindFunc(func(e *core.RecordEvent) error {
+				if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
+					return err
+				}
 
-			return e.Next()
-		})
+				return e.Next()
+			})
 	}
 
 	app.OnRecordUpdate("organizations").BindFunc(func(e *core.RecordEvent) error {

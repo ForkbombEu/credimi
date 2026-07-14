@@ -63,11 +63,13 @@ func TestHandleRunFCAFStartsWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/fcaf/run", bytes.NewBuffer(body))
-	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, RunFCAFInput{
-		TestIDs:  []string{"WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001"},
-		Runtime:  map[string]any{"credential_format": "sd-jwt-vc"},
-		RunnerID: "org-owner/runner-1",
-	}))
+	req = req.WithContext(
+		context.WithValue(req.Context(), middlewares.ValidatedInputKey, RunFCAFInput{
+			TestIDs:  []string{"WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001"},
+			Runtime:  map[string]any{"credential_format": "sd-jwt-vc"},
+			RunnerID: "org-owner/runner-1",
+		}),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleRunFCAF()(&core.RequestEvent{
@@ -81,9 +83,21 @@ func TestHandleRunFCAFStartsWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "usera-s-organization", capturedNamespace)
-	require.Equal(t, "wallet_solution/relying_party", capturedInput.Payload.(workflows.FCAFAssessmentWorkflowPayload).Suite)
-	require.Equal(t, "org-owner/runner-1", capturedInput.Payload.(workflows.FCAFAssessmentWorkflowPayload).RunnerID)
-	require.Equal(t, "org-owner/runner-1", capturedInput.Payload.(workflows.FCAFAssessmentWorkflowPayload).Runtime["runner_id"])
+	require.Equal(
+		t,
+		"wallet_solution/relying_party",
+		capturedInput.Payload.(workflows.FCAFAssessmentWorkflowPayload).Suite,
+	)
+	require.Equal(
+		t,
+		"org-owner/runner-1",
+		capturedInput.Payload.(workflows.FCAFAssessmentWorkflowPayload).RunnerID,
+	)
+	require.Equal(
+		t,
+		"org-owner/runner-1",
+		capturedInput.Payload.(workflows.FCAFAssessmentWorkflowPayload).Runtime["runner_id"],
+	)
 	require.Equal(t, "https://credimi.test", capturedInput.Config["app_url"])
 	require.Contains(t, rec.Body.String(), `"workflow_id":"wf-1"`)
 }
@@ -145,10 +159,12 @@ func TestHandleRunFCAFWaitForCompletionReturnsReport(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/fcaf/run", bytes.NewBuffer(body))
-	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, RunFCAFInput{
-		TestIDs:           []string{"WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001"},
-		WaitForCompletion: true,
-	}))
+	req = req.WithContext(
+		context.WithValue(req.Context(), middlewares.ValidatedInputKey, RunFCAFInput{
+			TestIDs:           []string{"WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001"},
+			WaitForCompletion: true,
+		}),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleRunFCAF()(&core.RequestEvent{
@@ -260,10 +276,12 @@ func TestHandleRunFCAFWaitForCompletionReturnsFailureReport(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/fcaf/run", bytes.NewBuffer(body))
-	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, RunFCAFInput{
-		TestIDs:           []string{"WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001"},
-		WaitForCompletion: true,
-	}))
+	req = req.WithContext(
+		context.WithValue(req.Context(), middlewares.ValidatedInputKey, RunFCAFInput{
+			TestIDs:           []string{"WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001"},
+			WaitForCompletion: true,
+		}),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleRunFCAF()(&core.RequestEvent{
