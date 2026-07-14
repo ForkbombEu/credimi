@@ -155,6 +155,13 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 			}
 		}
 	case "no_match":
+		credentials, ok := query["credentials"].([]any)
+		if !ok || len(credentials) == 0 {
+			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+		}
+		if err := validateDCQLCredentialQueries(credentials); err != nil {
+			return Result{Status: StatusFail, Message: err.Error()}
+		}
 		if errorText, _ := errorValue.(string); errorText == "invalid_request" {
 			break
 		}

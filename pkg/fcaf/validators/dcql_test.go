@@ -192,8 +192,10 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			name: "no match error",
 			mode: "no_match",
 			evidence: map[string]any{
-				"dcql_query": map[string]any{"credentials": []any{map[string]any{"id": "unknown"}}},
-				"error":      "invalid_request",
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("unknown")},
+				},
+				"error": "invalid_request",
 			},
 			status: StatusPass,
 		},
