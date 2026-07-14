@@ -118,6 +118,47 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name: "empty claims rejected",
+			mode: "empty_claims",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"vct_values": []any{"urn:eudi:pid:1"}},
+						"claims": []any{},
+					}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "empty claims incorrectly returns credential",
+			mode: "empty_claims",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"vct_values": []any{"urn:eudi:pid:1"}},
+						"claims": []any{},
+					}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "non-empty claims do not satisfy empty claims case",
+			mode: "empty_claims",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "omitted multiple returns one credential",
 			mode: "multiple_default_false",
 			evidence: map[string]any{

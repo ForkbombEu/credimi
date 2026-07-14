@@ -35,6 +35,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"without_credential_sets",
 		"without_trusted_authorities",
 		"without_claims",
+		"empty_claims",
 		"property_type",
 		"multiple_default_false",
 		"multiple_true",
@@ -43,7 +44,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, property_type, multiple_default_false, multiple_true, no_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, property_type, multiple_default_false, multiple_true, no_match, or claim_sets",
 		}
 	}
 
@@ -185,6 +186,40 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 						),
 					}
 				}
+			}
+		}
+	case "empty_claims":
+		credentials, ok := query["credentials"].([]any)
+		if !ok || len(credentials) == 0 {
+			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+		}
+		for index, rawCredential := range credentials {
+			credential, ok := normalizeJSONObject(rawCredential)
+			if !ok {
+				return Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("credentials[%d] is not an object", index),
+				}
+			}
+			claims, exists := credential["claims"]
+			if !exists {
+				return Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("credentials[%d] does not contain claims", index),
+				}
+			}
+			items, ok := claims.([]any)
+			if !ok || len(items) != 0 {
+				return Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("credentials[%d].claims is not an empty array", index),
+				}
+			}
+		}
+		if !isEmptyDCQLValue(responseValue) {
+			return Result{
+				Status:  StatusFail,
+				Message: "wallet returned a credential for a query with empty claims",
 			}
 		}
 	case "no_match":
