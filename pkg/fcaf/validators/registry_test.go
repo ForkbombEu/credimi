@@ -317,6 +317,49 @@ func TestJWTHeaderFieldEqualsValidator(t *testing.T) {
 	}
 }
 
+func TestJWTPayloadFieldEqualsValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		value      any
+		wantStatus Status
+	}{
+		{
+			name:       "matching response type",
+			value:      "e30.eyJyZXNwb25zZV90eXBlIjoidnBfdG9rZW4ifQ.signature",
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "different response type",
+			value:      "e30.eyJyZXNwb25zZV90eXBlIjoiY29kZSJ9.signature",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "missing response type",
+			value:      "e30.e30.signature",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "not compact JWT",
+			value:      "invalid",
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := JWTPayloadFieldEqualsValidator{}.Validate(context.Background(), Input{
+				Value: tt.value,
+				Params: map[string]any{
+					"field": "response_type",
+					"value": "vp_token",
+				},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func TestJWTPayloadObjectKeysAllowedValidator(t *testing.T) {
 	tests := []struct {
 		name       string

@@ -83,6 +83,51 @@ func (JWTHeaderFieldEqualsValidator) Validate(_ context.Context, input Input) Re
 	}
 }
 
+type JWTPayloadFieldEqualsValidator struct{}
+
+func (JWTPayloadFieldEqualsValidator) ID() string {
+	return "jwt.payload_field_equals"
+}
+
+func (JWTPayloadFieldEqualsValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Field string `json:"field"`
+		Value any    `json:"value"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Field == "" {
+		return Result{Status: StatusError, Message: "field param is required"}
+	}
+	payload, err := compactJWTPart(input.Value, 1)
+	if err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+	actual, exists := payload[params.Field]
+	if !exists {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("JWT payload field %q is missing", params.Field),
+		}
+	}
+	if !reflect.DeepEqual(actual, params.Value) {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWT payload field %q is %v, expected %v",
+				params.Field,
+				actual,
+				params.Value,
+			),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("JWT payload field %q equals %v", params.Field, params.Value),
+	}
+}
+
 type JWTPayloadObjectKeysAllowedValidator struct{}
 
 func (JWTPayloadObjectKeysAllowedValidator) ID() string {
