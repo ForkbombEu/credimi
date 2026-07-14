@@ -10,6 +10,6 @@ required_steps:
   - http-get-verifier-backend.eudiw.dev-0008
 outputs:
   pid_sdjwt:
-    path: $.output.http-get-verifier-backend.eudiw.dev-0008.outputs.body.observed.wallet_response.value.vp_token
-    decoder: sdjwt.vp_token_json
+    path: $.output.http-get-verifier-backend.eudiw.dev-0008.outputs.body.raw.presentation_response_decrypted.vp_token.query_0[0]
+    decoder: sdjwt.presentation
 failure_policy: fail_dependent_preconditions_and_tests
