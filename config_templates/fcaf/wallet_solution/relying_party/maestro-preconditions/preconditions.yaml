@@ -93,6 +93,14 @@ preconditions:
       - wallet_response
     notes: Fetches the signed Request Object using HTTP POST and completes the PID mdoc presentation.
 
+  - id: pipeline.wallet.protocol.request-uri-method-get
+    kind: maestro
+    flow: protocol-request-uri-method-get.yaml
+    prepares:
+      - presentation_request
+      - wallet_response
+    notes: Fetches the signed Request Object using HTTP GET and completes the PID mdoc presentation.
+
   - id: pipeline.wallet.supportive.redirect-uri
     kind: maestro
     flow: supportive-redirect-uri.yaml

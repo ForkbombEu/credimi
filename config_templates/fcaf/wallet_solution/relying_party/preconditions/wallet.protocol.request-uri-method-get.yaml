@@ -1,0 +1,15 @@
+id: pipeline.wallet.protocol.request-uri-method-get
+kind: pipeline
+description: Fetch a signed Request Object using request_uri_method=get and complete the presentation.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-request-uri-method-get
+required_steps:
+  - submit-request-uri-method-get
+  - get-presentation-result
+outputs:
+  presentation_request:
+    path: $.output.create-presentation.outputs.body
+    decoder: raw
+  wallet_response:
+    path: $.output.get-presentation-result.outputs.body
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests
