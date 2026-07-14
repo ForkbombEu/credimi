@@ -21,17 +21,20 @@ func (DCQLResponseConstraintsValidator) ID() string {
 
 func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
-		Mode string `json:"mode"`
+		Mode         string `json:"mode"`
+		Property     string `json:"property"`
+		ExpectedType string `json:"expected_type"`
+		Valid        bool   `json:"valid"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	switch params.Mode {
-	case "credential_sets", "credentials_match", "without_credential_sets", "without_trusted_authorities", "multiple_default_false", "multiple_true", "no_match", "claim_sets":
+	case "credential_sets", "credentials_match", "without_credential_sets", "without_trusted_authorities", "property_type", "multiple_default_false", "multiple_true", "no_match", "claim_sets":
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, multiple_default_false, multiple_true, no_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, property_type, multiple_default_false, multiple_true, no_match, or claim_sets",
 		}
 	}
 
@@ -179,6 +182,61 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: "wallet returned a credential for a no-match DCQL query",
 			}
 		}
+	case "property_type":
+		if params.Property == "" {
+			return Result{Status: StatusError, Message: "property is required for property_type mode"}
+		}
+		if _, exists := input.Params["valid"]; !exists {
+			return Result{Status: StatusError, Message: "valid is required for property_type mode"}
+		}
+		if !supportedJSONType(params.ExpectedType) {
+			return Result{Status: StatusError, Message: "expected_type must be boolean, string, number, integer, array, object, or null"}
+		}
+		credentials, ok := query["credentials"].([]any)
+		if !ok || len(credentials) == 0 {
+			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+		}
+		for index, rawCredential := range credentials {
+			credential, ok := normalizeJSONObject(rawCredential)
+			if !ok {
+				return Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("credentials[%d] is not an object", index),
+				}
+			}
+			value, exists := credential[params.Property]
+			if !exists {
+				return Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("credentials[%d] does not contain %s", index, params.Property),
+				}
+			}
+			matches := matchesJSONType(value, params.ExpectedType)
+			if matches != params.Valid {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"credentials[%d].%s type validity is %t, expected %t",
+						index,
+						params.Property,
+						matches,
+						params.Valid,
+					),
+				}
+			}
+		}
+		if params.Valid && isEmptyDCQLValue(responseValue) {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("wallet returned no credential for valid %s", params.Property),
+			}
+		}
+		if !params.Valid && !isEmptyDCQLValue(responseValue) {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("wallet returned a credential for invalid %s type", params.Property),
+			}
+		}
 	case "claim_sets":
 		credentials, ok := query["credentials"].([]any)
 		if !ok || !containsClaimSets(credentials) {
@@ -197,6 +255,54 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	return Result{
 		Status:  StatusPass,
 		Message: fmt.Sprintf("wallet response satisfies DCQL %s constraints", params.Mode),
+	}
+}
+
+func supportedJSONType(expected string) bool {
+	switch expected {
+	case "boolean", "string", "number", "integer", "array", "object", "null":
+		return true
+	default:
+		return false
+	}
+}
+
+func matchesJSONType(value any, expected string) bool {
+	switch expected {
+	case "boolean":
+		_, ok := value.(bool)
+		return ok
+	case "string":
+		_, ok := value.(string)
+		return ok
+	case "number":
+		switch value.(type) {
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+			return true
+		default:
+			return false
+		}
+	case "integer":
+		switch typed := value.(type) {
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			return true
+		case float32:
+			return typed == float32(int64(typed))
+		case float64:
+			return typed == float64(int64(typed))
+		default:
+			return false
+		}
+	case "array":
+		_, ok := value.([]any)
+		return ok
+	case "object":
+		_, ok := normalizeJSONObject(value)
+		return ok
+	case "null":
+		return value == nil
+	default:
+		return false
 	}
 }
 

@@ -1,0 +1,370 @@
+name: FCAF wallet relying-party DCQL holder binding type boundary
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+
+steps:
+  - id: create-valid-true
+    use: http-request
+    with:
+      method: POST
+      url: https://verifier-backend.eudiw.dev/ui/presentations
+      expected_status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        type: vp_token
+        nonce: fcaf-081-valid-true
+        dcql_query:
+          credentials:
+            - id: pididentity01
+              format: dc+sd-jwt
+              meta:
+                vct_values:
+                  - urn:eudi:pid:1
+              require_cryptographic_holder_binding: true
+              claims:
+                - path:
+                    - given_name
+                - path:
+                    - family_name
+
+  - id: create-valid-false
+    use: http-request
+    with:
+      method: POST
+      url: https://verifier-backend.eudiw.dev/ui/presentations
+      expected_status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        type: vp_token
+        nonce: fcaf-081-valid-false
+        dcql_query:
+          credentials:
+            - id: pididentity01
+              format: dc+sd-jwt
+              meta:
+                vct_values:
+                  - urn:eudi:pid:1
+              require_cryptographic_holder_binding: false
+              claims:
+                - path:
+                    - given_name
+                - path:
+                    - family_name
+
+  - id: evidence-number-zero
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":0,"claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-number-one
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":1,"claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-number-random
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":73,"claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-true
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"true","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-false
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"false","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-uppercase-true
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"TRUE","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-uppercase-false
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"FALSE","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-yes
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"yes","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-no
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"no","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-y
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"Y","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-n
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"N","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-zero
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"0","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-one
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"1","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: evidence-string-random
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"require_cryptographic_holder_binding":"not-a-boolean","claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}'
+      struct_type: map
+
+  - id: exercise-holder-binding-variants
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        CLIENT_ID_VALID_TRUE: ${{ create-valid-true.outputs.body.client_id }}
+        REQUEST_URI_VALID_TRUE: ${{ create-valid-true.outputs.body.request_uri }}
+        CLIENT_ID_VALID_FALSE: ${{ create-valid-false.outputs.body.client_id }}
+        REQUEST_URI_VALID_FALSE: ${{ create-valid-false.outputs.body.request_uri }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - extendedWaitUntil:
+            visible: "Home|Documents|Welcome, .*"
+            timeout: 30000
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID_VALID_TRUE) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI_VALID_TRUE)}
+        - openLink:
+            link: ${output.authorizationRequest}
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "DATA SHARING REQUEST"
+            timeout: 100000
+        - tapOn: "Share"
+        - extendedWaitUntil:
+            visible: "PIN"
+            timeout: 30000
+        - tapOn:
+            point: "11%,39%"
+        - inputText: "123456"
+        - hideKeyboard
+        - extendedWaitUntil:
+            visible: ".*successfully shared.*"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-valid-true
+        - tapOn: "Close"
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID_VALID_FALSE) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI_VALID_FALSE)}
+        - openLink:
+            link: ${output.authorizationRequest}
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "DATA SHARING REQUEST"
+            timeout: 100000
+        - tapOn: "Share"
+        - extendedWaitUntil:
+            visible: "PIN"
+            timeout: 30000
+        - tapOn:
+            point: "11%,39%"
+        - inputText: "123456"
+        - hideKeyboard
+        - extendedWaitUntil:
+            visible: ".*successfully shared.*"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-valid-false
+        - tapOn: "Close"
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-number-zero&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A0%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-number-zero
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-number-one&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A1%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-number-one
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-number-random&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A73%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-number-random
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-true&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22true%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-true
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-false&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22false%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-false
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-uppercase-true&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22TRUE%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-uppercase-true
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-uppercase-false&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22FALSE%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-uppercase-false
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-yes&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22yes%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-yes
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-no&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22no%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-no
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-y&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22Y%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-y
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-n&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22N%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-n
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-zero&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%220%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-zero
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-one&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%221%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-one
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+        - openLink:
+            link: "eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-081-string-random&dcql_query=%7B%22credentials%22%3A%5B%7B%22id%22%3A%22pididentity01%22%2C%22format%22%3A%22dc%2Bsd-jwt%22%2C%22meta%22%3A%7B%22vct_values%22%3A%5B%22urn%3Aeudi%3Apid%3A1%22%5D%7D%2C%22require_cryptographic_holder_binding%22%3A%22not-a-boolean%22%2C%22claims%22%3A%5B%7B%22path%22%3A%5B%22given_name%22%5D%7D%2C%7B%22path%22%3A%5B%22family_name%22%5D%7D%5D%7D%5D%7D"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: fcaf-081-string-random
+        - back
+        - waitForAnimationToEnd:
+            timeout: 2000
+
+  - id: get-valid-true
+    use: http-request
+    with:
+      method: GET
+      url: https://verifier-backend.eudiw.dev/ui/presentations/${{ create-valid-true.outputs.body.transaction_id }}
+      expected_status: 200
+
+  - id: get-valid-false
+    use: http-request
+    with:
+      method: GET
+      url: https://verifier-backend.eudiw.dev/ui/presentations/${{ create-valid-false.outputs.body.transaction_id }}
+      expected_status: 200

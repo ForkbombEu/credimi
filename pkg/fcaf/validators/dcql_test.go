@@ -13,10 +13,13 @@ import (
 
 func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	tests := []struct {
-		name     string
-		mode     string
-		evidence map[string]any
-		status   Status
+		name         string
+		mode         string
+		property     string
+		expectedType string
+		valid        bool
+		evidence     map[string]any
+		status       Status
 	}{
 		{
 			name: "credential sets",
@@ -229,6 +232,58 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name:         "non-boolean property is rejected",
+			mode:         "property_type",
+			property:     "require_cryptographic_holder_binding",
+			expectedType: "boolean",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = "true"
+						return credential
+					}()},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusPass,
+		},
+		{
+			name:         "boolean holder binding returns a credential",
+			mode:         "property_type",
+			property:     "require_cryptographic_holder_binding",
+			expectedType: "boolean",
+			valid:        true,
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = true
+						return credential
+					}()},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name:         "malformed holder binding returning a credential fails",
+			mode:         "property_type",
+			property:     "require_cryptographic_holder_binding",
+			expectedType: "boolean",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = "true"
+						return credential
+					}()},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "claim sets",
 			mode: "claim_sets",
 			evidence: map[string]any{
@@ -246,9 +301,15 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			params := map[string]any{"mode": test.mode}
+			if test.mode == "property_type" {
+				params["property"] = test.property
+				params["expected_type"] = test.expectedType
+				params["valid"] = test.valid
+			}
 			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
 				Value:  test.evidence,
-				Params: map[string]any{"mode": test.mode},
+				Params: params,
 			})
 			require.Equal(t, test.status, result.Status, result.Message)
 		})
@@ -272,4 +333,30 @@ func credentialQueryWithMultiple(id string, multiple bool) map[string]any {
 	credential := validSDJWTCredentialQuery(id)
 	credential["multiple"] = multiple
 	return credential
+}
+
+func TestMatchesJSONType(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    any
+		expected string
+		matches  bool
+	}{
+		{name: "boolean", value: true, expected: "boolean", matches: true},
+		{name: "boolean string", value: "true", expected: "boolean", matches: false},
+		{name: "string", value: "value", expected: "string", matches: true},
+		{name: "number integer", value: float64(1), expected: "number", matches: true},
+		{name: "number decimal", value: 1.5, expected: "number", matches: true},
+		{name: "integer", value: float64(1), expected: "integer", matches: true},
+		{name: "decimal is not integer", value: 1.5, expected: "integer", matches: false},
+		{name: "array", value: []any{"value"}, expected: "array", matches: true},
+		{name: "object", value: map[string]any{"key": "value"}, expected: "object", matches: true},
+		{name: "null", value: nil, expected: "null", matches: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.matches, matchesJSONType(test.value, test.expected))
+		})
+	}
 }

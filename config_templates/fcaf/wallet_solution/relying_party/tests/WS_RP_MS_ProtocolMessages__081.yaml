@@ -1,0 +1,188 @@
+id: WS_RP_MS_ProtocolMessages__081
+title: Enforce the DCQL require_cryptographic_holder_binding boolean type.
+source:
+  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__081.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "6.1, 8.5"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.dcql.holder-binding-type-boundary
+evidence:
+  exchange_valid_true:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_valid_true
+  exchange_valid_false:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_valid_false
+  exchange_number_zero:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_zero
+  exchange_number_one:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_one
+  exchange_number_random:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_random
+  exchange_string_true:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_true
+  exchange_string_false:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_false
+  exchange_string_uppercase_true:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_uppercase_true
+  exchange_string_uppercase_false:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_uppercase_false
+  exchange_string_yes:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_yes
+  exchange_string_no:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_no
+  exchange_string_y:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_y
+  exchange_string_n:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_n
+  exchange_string_zero:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_zero
+  exchange_string_one:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_one
+  exchange_string_random:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_random
+  visual_evidence:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence
+assertions:
+  - id: holder_binding_valid_true_is_accepted
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_valid_true
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: true
+  - id: holder_binding_valid_false_is_accepted
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_valid_false
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: true
+  - id: holder_binding_number_zero_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_number_zero
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_number_one_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_number_one
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_number_random_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_number_random
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_true_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_true
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_false_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_false
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_uppercase_true_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_uppercase_true
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_uppercase_false_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_uppercase_false
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_yes_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_yes
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_no_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_no
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_y_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_y
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_n_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_n
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_zero_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_zero
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_one_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_one
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: holder_binding_string_random_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.exchange_string_random
+    params:
+      mode: property_type
+      property: require_cryptographic_holder_binding
+      expected_type: boolean
+      valid: false
+  - id: every_holder_binding_variant_has_visual_evidence
+    validator: evidence.minimum_items
+    input: evidence.visual_evidence
+    params:
+      min_items: 16
+verdict:
+  pass_when: all_assertions_pass

@@ -24,6 +24,7 @@ func DefaultRegistry() (*Registry, error) {
 	return NewRegistry(
 		EvidencePresentValidator{},
 		EvidenceNonEmptyValidator{},
+		EvidenceMinimumItemsValidator{},
 		JSONFieldRequiredValidator{},
 		JSONFieldEqualsValidator{},
 		JSONFieldPresenceValidator{},

@@ -288,6 +288,30 @@ func TestEvidenceNonEmptyValidator(t *testing.T) {
 	}
 }
 
+func TestEvidenceMinimumItemsValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		value      any
+		minItems   int
+		wantStatus Status
+	}{
+		{name: "enough items", value: []any{"one", "two"}, minItems: 2, wantStatus: StatusPass},
+		{name: "too few items", value: []any{"one"}, minItems: 2, wantStatus: StatusFail},
+		{name: "not an array", value: "one", minItems: 1, wantStatus: StatusFail},
+		{name: "invalid minimum", value: []any{"one"}, minItems: 0, wantStatus: StatusError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EvidenceMinimumItemsValidator{}.Validate(context.Background(), Input{
+				Value:  tt.value,
+				Params: map[string]any{"min_items": tt.minItems},
+			})
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func TestJSONFieldPresenceValidator(t *testing.T) {
 	tests := []struct {
 		name       string

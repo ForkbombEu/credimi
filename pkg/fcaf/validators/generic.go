@@ -25,6 +25,51 @@ func (EvidenceNonEmptyValidator) ID() string {
 	return "evidence.non_empty"
 }
 
+type EvidenceMinimumItemsValidator struct{}
+
+func (EvidenceMinimumItemsValidator) ID() string {
+	return "evidence.minimum_items"
+}
+
+func (EvidenceMinimumItemsValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		MinItems int `json:"min_items"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.MinItems < 1 {
+		return Result{Status: StatusError, Message: "min_items must be greater than zero"}
+	}
+
+	itemCount := 0
+	switch value := input.Value.(type) {
+	case []any:
+		itemCount = len(value)
+	case []string:
+		itemCount = len(value)
+	default:
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("evidence value is %T, expected array", input.Value),
+		}
+	}
+	if itemCount < params.MinItems {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"evidence contains %d item(s), expected at least %d",
+				itemCount,
+				params.MinItems,
+			),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("evidence contains at least %d item(s)", params.MinItems),
+	}
+}
+
 func (EvidenceNonEmptyValidator) Validate(_ context.Context, input Input) Result {
 	nonEmpty := false
 	switch value := input.Value.(type) {
