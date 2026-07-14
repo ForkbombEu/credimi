@@ -79,6 +79,21 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name: "credential entry has unsupported format",
+			mode: "credentials_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "jwt_vc_json",
+						"meta":   map[string]any{},
+					}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "credential entries have duplicate ids",
 			mode: "credentials_match",
 			evidence: map[string]any{

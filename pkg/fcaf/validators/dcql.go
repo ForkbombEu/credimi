@@ -181,6 +181,8 @@ func validateDCQLCredentialQueries(credentials []any) error {
 			if docType == "" {
 				return fmt.Errorf("credentials[%d].meta.doctype_value is missing", index)
 			}
+		default:
+			return fmt.Errorf("credentials[%d].format %q is not supported", index, format)
 		}
 		if claims, exists := credential["claims"]; exists {
 			items, ok := claims.([]any)
