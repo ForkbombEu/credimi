@@ -195,7 +195,10 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		if params.Mode == "empty_array" {
 			property = params.Property
 			if property == "" {
-				return Result{Status: StatusError, Message: "property is required for empty_array mode"}
+				return Result{
+					Status:  StatusError,
+					Message: "property is required for empty_array mode",
+				}
 			}
 		}
 		credentials, ok := query["credentials"].([]any)
@@ -220,15 +223,22 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 			items, ok := value.([]any)
 			if !ok || len(items) != 0 {
 				return Result{
-					Status:  StatusFail,
-					Message: fmt.Sprintf("credentials[%d].%s is not an empty array", index, property),
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"credentials[%d].%s is not an empty array",
+						index,
+						property,
+					),
 				}
 			}
 		}
 		if !isEmptyDCQLValue(responseValue) {
 			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("wallet returned a credential for a query with empty %s", property),
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"wallet returned a credential for a query with empty %s",
+					property,
+				),
 			}
 		}
 	case "no_match", "request_rejected":

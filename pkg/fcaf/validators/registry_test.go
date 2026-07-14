@@ -275,14 +275,21 @@ func TestEvidenceNonEmptyValidator(t *testing.T) {
 		value      any
 		wantStatus Status
 	}{
-		{name: "screenshot URLs", value: []any{"https://example.test/selection.png"}, wantStatus: StatusPass},
+		{
+			name:       "screenshot URLs",
+			value:      []any{"https://example.test/selection.png"},
+			wantStatus: StatusPass,
+		},
 		{name: "empty screenshot URLs", value: []any{}, wantStatus: StatusFail},
 		{name: "missing evidence", value: nil, wantStatus: StatusFail},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := EvidenceNonEmptyValidator{}.Validate(context.Background(), Input{Value: tt.value})
+			got := EvidenceNonEmptyValidator{}.Validate(
+				context.Background(),
+				Input{Value: tt.value},
+			)
 			require.Equal(t, tt.wantStatus, got.Status)
 		})
 	}
