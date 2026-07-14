@@ -207,6 +207,54 @@ func TestJSONFieldEqualsValidator(t *testing.T) {
 	}
 }
 
+func TestJWTHeaderFieldEqualsValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		value      any
+		wantStatus Status
+	}{
+		{
+			name:       "matching typ",
+			value:      "eyJ0eXAiOiJvYXV0aC1hdXRoei1yZXErand0IiwiYWxnIjoiRVMyNTYifQ.e30.signature",
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "different typ",
+			value:      "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.e30.signature",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "missing typ",
+			value:      "eyJhbGciOiJFUzI1NiJ9.e30.signature",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "not compact JWT",
+			value:      "invalid",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "not string",
+			value:      map[string]any{},
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := JWTHeaderFieldEqualsValidator{}.Validate(context.Background(), Input{
+				Value: tt.value,
+				Params: map[string]any{
+					"field": "typ",
+					"value": "oauth-authz-req+jwt",
+				},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func TestSDJWTClaimPresentValidator(t *testing.T) {
 	got := SDJWTClaimPresentValidator{}.Validate(context.Background(), Input{
 		Value: map[string]any{"email": "person@example.test"},

@@ -106,3 +106,11 @@ preconditions:
     prepares:
       - wallet_response
     notes: Completes a PID mdoc presentation from an Authorization Request containing a valid nonce.
+
+  - id: pipeline.wallet.protocol.request-object-by-value
+    kind: maestro
+    flow: protocol-request-object-by-value.yaml
+    prepares:
+      - request_object
+      - wallet_response
+    notes: Processes a signed Request Object embedded by value and completes the PID mdoc presentation.

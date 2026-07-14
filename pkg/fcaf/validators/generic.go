@@ -6,6 +6,8 @@ package validators
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -34,6 +36,66 @@ type JSONFieldEqualsValidator struct{}
 
 func (JSONFieldEqualsValidator) ID() string {
 	return "json.field_equals"
+}
+
+type JWTHeaderFieldEqualsValidator struct{}
+
+func (JWTHeaderFieldEqualsValidator) ID() string {
+	return "jwt.header_field_equals"
+}
+
+func (JWTHeaderFieldEqualsValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Field string `json:"field"`
+		Value any    `json:"value"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Field == "" {
+		return Result{Status: StatusError, Message: "field param is required"}
+	}
+	token, ok := input.Value.(string)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected compact JWT", input.Value),
+		}
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return Result{Status: StatusFail, Message: "input is not a compact JWT"}
+	}
+	headerJSON, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return Result{Status: StatusFail, Message: "JWT header is not base64url encoded"}
+	}
+	var header map[string]any
+	if err := json.Unmarshal(headerJSON, &header); err != nil {
+		return Result{Status: StatusFail, Message: "JWT header is not a JSON object"}
+	}
+	actual, exists := header[params.Field]
+	if !exists {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("JWT header field %q is missing", params.Field),
+		}
+	}
+	if !reflect.DeepEqual(actual, params.Value) {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWT header field %q is %v, expected %v",
+				params.Field,
+				actual,
+				params.Value,
+			),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("JWT header field %q equals %v", params.Field, params.Value),
+	}
 }
 
 func (JSONFieldEqualsValidator) Validate(_ context.Context, input Input) Result {
