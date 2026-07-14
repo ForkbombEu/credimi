@@ -8,7 +8,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 )
+
+var dcqlIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 type DCQLResponseConstraintsValidator struct{}
 
@@ -69,6 +72,9 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
 			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+		}
+		if err := validateDCQLCredentialQueries(credentials); err != nil {
+			return Result{Status: StatusFail, Message: err.Error()}
 		}
 		response, ok := normalizeJSONObject(responseValue)
 		if !ok {
@@ -131,6 +137,71 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		Status:  StatusPass,
 		Message: fmt.Sprintf("wallet response satisfies DCQL %s constraints", params.Mode),
 	}
+}
+
+func validateDCQLCredentialQueries(credentials []any) error {
+	ids := make(map[string]struct{}, len(credentials))
+	for index, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return fmt.Errorf("credentials[%d] is not an object", index)
+		}
+		id, _ := credential["id"].(string)
+		if !dcqlIDPattern.MatchString(id) {
+			return fmt.Errorf("credentials[%d].id is not a valid DCQL identifier", index)
+		}
+		if _, duplicate := ids[id]; duplicate {
+			return fmt.Errorf("credentials[%d].id %q is duplicated", index, id)
+		}
+		ids[id] = struct{}{}
+
+		format, _ := credential["format"].(string)
+		if format == "" {
+			return fmt.Errorf("credentials[%d].format is missing", index)
+		}
+		meta, ok := normalizeJSONObject(credential["meta"])
+		if !ok {
+			return fmt.Errorf("credentials[%d].meta is not an object", index)
+		}
+		switch format {
+		case "dc+sd-jwt":
+			if !nonEmptyStringArray(meta["vct_values"]) {
+				return fmt.Errorf("credentials[%d].meta.vct_values is not a non-empty string array", index)
+			}
+		case "mso_mdoc":
+			docType, _ := meta["doctype_value"].(string)
+			if docType == "" {
+				return fmt.Errorf("credentials[%d].meta.doctype_value is missing", index)
+			}
+		}
+		if claims, exists := credential["claims"]; exists {
+			items, ok := claims.([]any)
+			if !ok || len(items) == 0 {
+				return fmt.Errorf("credentials[%d].claims is not a non-empty array", index)
+			}
+			for claimIndex, rawClaim := range items {
+				claim, ok := normalizeJSONObject(rawClaim)
+				if !ok || !nonEmptyStringArray(claim["path"]) {
+					return fmt.Errorf("credentials[%d].claims[%d].path is invalid", index, claimIndex)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func nonEmptyStringArray(value any) bool {
+	items, ok := value.([]any)
+	if !ok || len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok || text == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeJSONObject(value any) (map[string]any, bool) {

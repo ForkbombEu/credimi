@@ -38,18 +38,43 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			mode: "credentials_match",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credentials": []any{map[string]any{"id": "pid"}},
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
 				},
 				"vp_token": map[string]any{"pid": []any{"presentation"}},
 			},
 			status: StatusPass,
 		},
 		{
+			name: "credential entry missing format",
+			mode: "credentials_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{"id": "pid", "meta": map[string]any{}}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "credential entries have duplicate ids",
+			mode: "credentials_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("pid"),
+						validSDJWTCredentialQuery("pid"),
+					},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "credential missing",
 			mode: "credentials_match",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credentials": []any{map[string]any{"id": "pid"}},
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
 				},
 				"vp_token": map[string]any{},
 			},
@@ -88,5 +113,18 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			})
 			require.Equal(t, test.status, result.Status, result.Message)
 		})
+	}
+}
+
+func validSDJWTCredentialQuery(id string) map[string]any {
+	return map[string]any{
+		"id":     id,
+		"format": "dc+sd-jwt",
+		"meta": map[string]any{
+			"vct_values": []any{"urn:eu.europa.ec.eudi:pid:1"},
+		},
+		"claims": []any{
+			map[string]any{"path": []any{"given_name"}},
+		},
 	}
 }
