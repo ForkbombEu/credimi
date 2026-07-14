@@ -1,0 +1,30 @@
+id: WS_RP_MS_ProtocolMessages__088
+title: Reject a DCQL query with an unsupported trusted_authorities type.
+source:
+  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__088.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "6.1.1, 8.5"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.dcql.trusted-authorities-unsupported-type
+evidence:
+  dcql_exchange: { from: pipeline.dcql.trusted-authorities-unsupported-type.outputs.dcql_exchange }
+  visual_evidence: { from: pipeline.dcql.trusted-authorities-unsupported-type.outputs.visual_evidence }
+assertions:
+  - id: unsupported_trusted_authorities_type_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params: { mode: no_match }
+  - id: wallet_rejection_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass
