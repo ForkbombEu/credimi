@@ -70,3 +70,10 @@ preconditions:
     prepares:
       - dcql_exchange
     notes: Exercises a DCQL claim_sets presentation request.
+
+  - id: pipeline.wallet.engagement.haip-vp
+    kind: maestro
+    flow: engagement-haip-vp.yaml
+    prepares:
+      - wallet_engagement
+    notes: Verifies that the reference wallet is invoked through the haip-vp custom URL scheme.

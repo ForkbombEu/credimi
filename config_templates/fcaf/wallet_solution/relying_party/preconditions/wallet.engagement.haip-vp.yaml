@@ -1,0 +1,11 @@
+id: pipeline.wallet.engagement.haip-vp
+kind: pipeline
+description: Invoke the wallet through the haip-vp custom URL scheme and reach the data-sharing request screen.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-engagement-haip-vp
+required_steps:
+  - invoke-wallet-with-haip-vp
+outputs:
+  wallet_engagement:
+    path: $.output.create-presentation.outputs.body
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

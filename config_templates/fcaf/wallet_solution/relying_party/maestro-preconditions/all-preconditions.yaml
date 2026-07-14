@@ -17,3 +17,5 @@ tags:
     file: dcql-no-matching-credentials.yaml
 - runFlow:
     file: dcql-claim-sets.yaml
+- runFlow:
+    file: engagement-haip-vp.yaml
