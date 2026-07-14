@@ -255,6 +255,52 @@ func TestJWTHeaderFieldEqualsValidator(t *testing.T) {
 	}
 }
 
+func TestJWTPayloadObjectKeysAllowedValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		value      string
+		wantStatus Status
+	}{
+		{
+			name: "defined metadata keys",
+			value: "e30." +
+				"eyJjbGllbnRfbWV0YWRhdGEiOnsiandrcyI6e30sInZwX2Zvcm1hdHNfc3VwcG9ydGVkIjp7fX19." +
+				"signature",
+			wantStatus: StatusPass,
+		},
+		{
+			name: "undefined metadata key",
+			value: "e30." +
+				"eyJjbGllbnRfbWV0YWRhdGEiOnsiandrcyI6e30sInVua25vd24iOnRydWV9fQ." +
+				"signature",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "missing metadata",
+			value:      "e30.e30.signature",
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := JWTPayloadObjectKeysAllowedValidator{}.Validate(context.Background(), Input{
+				Value: tt.value,
+				Params: map[string]any{
+					"field": "client_metadata",
+					"allowed_keys": []string{
+						"jwks",
+						"vp_formats_supported",
+						"encrypted_response_enc_values_supported",
+					},
+				},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func TestSDJWTClaimPresentValidator(t *testing.T) {
 	got := SDJWTClaimPresentValidator{}.Validate(context.Background(), Input{
 		Value: map[string]any{"email": "person@example.test"},

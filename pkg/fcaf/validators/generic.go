@@ -55,24 +55,9 @@ func (JWTHeaderFieldEqualsValidator) Validate(_ context.Context, input Input) Re
 	if params.Field == "" {
 		return Result{Status: StatusError, Message: "field param is required"}
 	}
-	token, ok := input.Value.(string)
-	if !ok {
-		return Result{
-			Status:  StatusFail,
-			Message: fmt.Sprintf("input is %T, expected compact JWT", input.Value),
-		}
-	}
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return Result{Status: StatusFail, Message: "input is not a compact JWT"}
-	}
-	headerJSON, err := base64.RawURLEncoding.DecodeString(parts[0])
+	header, err := compactJWTPart(input.Value, 0)
 	if err != nil {
-		return Result{Status: StatusFail, Message: "JWT header is not base64url encoded"}
-	}
-	var header map[string]any
-	if err := json.Unmarshal(headerJSON, &header); err != nil {
-		return Result{Status: StatusFail, Message: "JWT header is not a JSON object"}
+		return Result{Status: StatusFail, Message: err.Error()}
 	}
 	actual, exists := header[params.Field]
 	if !exists {
@@ -96,6 +81,86 @@ func (JWTHeaderFieldEqualsValidator) Validate(_ context.Context, input Input) Re
 		Status:  StatusPass,
 		Message: fmt.Sprintf("JWT header field %q equals %v", params.Field, params.Value),
 	}
+}
+
+type JWTPayloadObjectKeysAllowedValidator struct{}
+
+func (JWTPayloadObjectKeysAllowedValidator) ID() string {
+	return "jwt.payload_object_keys_allowed"
+}
+
+func (JWTPayloadObjectKeysAllowedValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Field       string   `json:"field"`
+		AllowedKeys []string `json:"allowed_keys"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Field == "" {
+		return Result{Status: StatusError, Message: "field param is required"}
+	}
+	if len(params.AllowedKeys) == 0 {
+		return Result{Status: StatusError, Message: "allowed_keys param is required"}
+	}
+	payload, err := compactJWTPart(input.Value, 1)
+	if err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+	value, exists := payload[params.Field]
+	if !exists {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("JWT payload field %q is missing", params.Field),
+		}
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("JWT payload field %q is not an object", params.Field),
+		}
+	}
+	allowed := make(map[string]struct{}, len(params.AllowedKeys))
+	for _, key := range params.AllowedKeys {
+		allowed[key] = struct{}{}
+	}
+	for key := range object {
+		if _, ok := allowed[key]; !ok {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"JWT payload field %q contains undefined key %q",
+					params.Field,
+					key,
+				),
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("JWT payload field %q contains only allowed keys", params.Field),
+	}
+}
+
+func compactJWTPart(value any, index int) (map[string]any, error) {
+	token, ok := value.(string)
+	if !ok {
+		return nil, fmt.Errorf("input is %T, expected compact JWT", value)
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("input is not a compact JWT")
+	}
+	partJSON, err := base64.RawURLEncoding.DecodeString(parts[index])
+	if err != nil {
+		return nil, fmt.Errorf("JWT part %d is not base64url encoded", index)
+	}
+	var part map[string]any
+	if err := json.Unmarshal(partJSON, &part); err != nil {
+		return nil, fmt.Errorf("JWT part %d is not a JSON object", index)
+	}
+	return part, nil
 }
 
 func (JSONFieldEqualsValidator) Validate(_ context.Context, input Input) Result {
