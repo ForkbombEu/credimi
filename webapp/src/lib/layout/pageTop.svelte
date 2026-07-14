@@ -32,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<div
 		class={[
-			'mx-auto max-w-screen-xl space-y-6 px-4 py-6 pt-8 sm:space-y-8 md:px-8 md:py-12 md:pt-20',
+			'mx-auto max-w-screen-xl space-y-6 px-4 py-8 pt-10 sm:space-y-8 md:px-8 md:py-12 md:pt-20',
 			contentClass
 		]}
 	>
