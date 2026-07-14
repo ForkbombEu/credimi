@@ -22,6 +22,8 @@ evidence:
     from: pipeline.wallet.protocol.request-uri-method-get.outputs.presentation_request
   wallet_response:
     from: pipeline.wallet.protocol.request-uri-method-get.outputs.wallet_response
+  visual_evidence:
+    from: pipeline.wallet.protocol.request-uri-method-get.outputs.visual_evidence
 assertions:
   - id: request_uri_method_is_get
     validator: json.field_equals
@@ -34,5 +36,8 @@ assertions:
     input: evidence.wallet_response
     params:
       field: vp_token
+  - id: wallet_interaction_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

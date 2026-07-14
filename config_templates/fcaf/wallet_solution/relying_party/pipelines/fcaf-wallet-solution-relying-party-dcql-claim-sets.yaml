@@ -76,6 +76,7 @@ steps:
             optional: true
         - waitForAnimationToEnd:
             timeout: 5000
+        - takeScreenshot: fcaf-dcql-claim-sets
 
   - id: http-get-verifier-backend.eudiw.dev-0006
     use: http-request

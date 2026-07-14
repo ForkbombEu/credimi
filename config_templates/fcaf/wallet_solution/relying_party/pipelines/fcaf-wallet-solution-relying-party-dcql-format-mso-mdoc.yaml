@@ -68,6 +68,7 @@ steps:
             optional: true
         - waitForAnimationToEnd:
             timeout: 5000
+        - takeScreenshot: fcaf-dcql-format-mso-mdoc
 
   - id: get-presentation-result
     use: http-request

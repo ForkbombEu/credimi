@@ -67,6 +67,7 @@ steps:
             optional: true
         - waitForAnimationToEnd:
             timeout: 5000
+        - takeScreenshot: fcaf-dcql-valid-id-alphanumeric
 
   - id: get-presentation-result
     use: http-request

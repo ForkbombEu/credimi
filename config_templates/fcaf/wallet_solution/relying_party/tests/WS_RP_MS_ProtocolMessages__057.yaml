@@ -18,11 +18,16 @@ preconditions:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.credentials-match.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.credentials-match.outputs.visual_evidence
 assertions:
   - id: query_without_credential_sets_is_processed
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange
     params:
       mode: without_credential_sets
+  - id: wallet_interaction_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

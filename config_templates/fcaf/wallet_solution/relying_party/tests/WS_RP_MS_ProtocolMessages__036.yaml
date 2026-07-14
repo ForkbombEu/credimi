@@ -29,6 +29,14 @@ evidence:
     from: pipeline.dcql.credential-sets.outputs.dcql_exchange
   claim_sets_exchange:
     from: pipeline.dcql.claim-sets.outputs.dcql_exchange
+  by_value_visual_evidence:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.visual_evidence
+  multiple_credentials_visual_evidence:
+    from: pipeline.dcql.credentials-match.outputs.visual_evidence
+  credential_sets_visual_evidence:
+    from: pipeline.dcql.credential-sets.outputs.visual_evidence
+  claim_sets_visual_evidence:
+    from: pipeline.dcql.claim-sets.outputs.visual_evidence
 assertions:
   - id: response_type_is_vp_token
     validator: jwt.payload_field_equals
@@ -56,5 +64,17 @@ assertions:
     input: evidence.claim_sets_exchange
     params:
       mode: claim_sets
+  - id: by_value_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.by_value_visual_evidence
+  - id: multiple_credentials_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.multiple_credentials_visual_evidence
+  - id: credential_sets_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.credential_sets_visual_evidence
+  - id: claim_sets_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.claim_sets_visual_evidence
 verdict:
   pass_when: all_assertions_pass

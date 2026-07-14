@@ -3,9 +3,13 @@ kind: pipeline
 description: Execute a successful DCQL presentation using allowed underscore and hyphen characters.
 pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-valid-id-special
 required_steps:
+  - present-with-reference-implementation
   - get-presentation-result
 outputs:
   dcql_exchange:
     path: $.output.get-presentation-result.outputs.body
+    decoder: raw
+  visual_evidence:
+    path: $.output.present-with-reference-implementation.outputs.screenshot_urls
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

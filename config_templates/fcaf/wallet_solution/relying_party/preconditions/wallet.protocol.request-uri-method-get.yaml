@@ -12,4 +12,7 @@ outputs:
   wallet_response:
     path: $.output.get-presentation-result.outputs.body
     decoder: raw
+  visual_evidence:
+    path: $.output.submit-request-uri-method-get.outputs.screenshot_urls
+    decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests
