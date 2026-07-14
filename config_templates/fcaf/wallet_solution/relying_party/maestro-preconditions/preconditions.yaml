@@ -84,3 +84,11 @@ preconditions:
     prepares:
       - wallet_response
     notes: Submits a PID mdoc response using direct_post.jwt and verifies the wallet success screen.
+
+  - id: pipeline.wallet.protocol.request-uri-method-post
+    kind: maestro
+    flow: protocol-request-uri-method-post.yaml
+    prepares:
+      - presentation_request
+      - wallet_response
+    notes: Fetches the signed Request Object using HTTP POST and completes the PID mdoc presentation.

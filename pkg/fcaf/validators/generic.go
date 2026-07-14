@@ -7,6 +7,7 @@ package validators
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -27,6 +28,54 @@ type JSONFieldRequiredValidator struct{}
 
 func (JSONFieldRequiredValidator) ID() string {
 	return "json.field_required"
+}
+
+type JSONFieldEqualsValidator struct{}
+
+func (JSONFieldEqualsValidator) ID() string {
+	return "json.field_equals"
+}
+
+func (JSONFieldEqualsValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Field string `json:"field"`
+		Value any    `json:"value"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Field == "" {
+		return Result{Status: StatusError, Message: "field param is required"}
+	}
+	obj, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected object", input.Value),
+		}
+	}
+	actual, exists := obj[params.Field]
+	if !exists {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("field %q is missing", params.Field),
+		}
+	}
+	if !reflect.DeepEqual(actual, params.Value) {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"field %q is %v, expected %v",
+				params.Field,
+				actual,
+				params.Value,
+			),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("field %q equals %v", params.Field, params.Value),
+	}
 }
 
 func (JSONFieldRequiredValidator) Validate(_ context.Context, input Input) Result {

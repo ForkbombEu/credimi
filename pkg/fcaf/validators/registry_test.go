@@ -159,6 +159,54 @@ func TestJSONFieldRequiredValidator(t *testing.T) {
 	require.Equal(t, StatusPass, got.Status)
 }
 
+func TestJSONFieldEqualsValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		value      map[string]any
+		expected   any
+		wantStatus Status
+	}{
+		{
+			name:       "matching value",
+			value:      map[string]any{"request_uri_method": "post"},
+			expected:   "post",
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "different value",
+			value:      map[string]any{"request_uri_method": "get"},
+			expected:   "post",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "missing field",
+			value:      map[string]any{},
+			expected:   "post",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "different type",
+			value:      map[string]any{"request_uri_method": 1},
+			expected:   "1",
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := JSONFieldEqualsValidator{}.Validate(context.Background(), Input{
+				Value: tt.value,
+				Params: map[string]any{
+					"field": "request_uri_method",
+					"value": tt.expected,
+				},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func TestSDJWTClaimPresentValidator(t *testing.T) {
 	got := SDJWTClaimPresentValidator{}.Validate(context.Background(), Input{
 		Value: map[string]any{"email": "person@example.test"},

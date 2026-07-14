@@ -21,3 +21,5 @@ tags:
     file: engagement-haip-vp.yaml
 - runFlow:
     file: metadata-direct-post-jwt.yaml
+- runFlow:
+    file: protocol-request-uri-method-post.yaml
