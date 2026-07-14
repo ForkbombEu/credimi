@@ -50,7 +50,8 @@ maestro --device emulator-5580 test all-preconditions.yaml \
   -e HAIP_VP_PRESENTATION_URL='<fresh haip-vp presentation request>' \
   -e DIRECT_POST_JWT_PRESENTATION_URL='<fresh direct_post.jwt PID mdoc request>' \
   -e REQUEST_URI_METHOD_POST_PRESENTATION_URL='<fresh request_uri_method=post PID mdoc request>' \
-  -e SUPPORTIVE_REDIRECT_PRESENTATION_URL='<fresh direct_post PID mdoc request with a redirect URI>'
+  -e SUPPORTIVE_REDIRECT_PRESENTATION_URL='<fresh direct_post PID mdoc request with a redirect URI>' \
+  -e SESSION_BINDING_VALID_NONCE_PRESENTATION_URL='<fresh PID mdoc request containing a valid nonce>'
 ```
 
 The issuer credentials are intentionally not stored in these files. Supply them
@@ -80,6 +81,7 @@ Maestro-backed preconditions:
 - `pipeline.wallet.metadata.direct-post-jwt`: `metadata-direct-post-jwt.yaml`
 - `pipeline.wallet.protocol.request-uri-method-post`: `protocol-request-uri-method-post.yaml`
 - `pipeline.wallet.supportive.redirect-uri`: `supportive-redirect-uri.yaml`
+- `pipeline.wallet.session-binding.valid-nonce`: `session-binding-valid-nonce.yaml`
 
 Evidence-only preconditions:
 

@@ -25,3 +25,5 @@ tags:
     file: protocol-request-uri-method-post.yaml
 - runFlow:
     file: supportive-redirect-uri.yaml
+- runFlow:
+    file: session-binding-valid-nonce.yaml

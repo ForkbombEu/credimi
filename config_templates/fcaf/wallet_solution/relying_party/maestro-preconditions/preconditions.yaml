@@ -99,3 +99,10 @@ preconditions:
     prepares:
       - wallet_response
     notes: Completes a direct_post PID mdoc presentation and opens the verifier-provided redirect URI.
+
+  - id: pipeline.wallet.session-binding.valid-nonce
+    kind: maestro
+    flow: session-binding-valid-nonce.yaml
+    prepares:
+      - wallet_response
+    notes: Completes a PID mdoc presentation from an Authorization Request containing a valid nonce.

@@ -1,0 +1,40 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - Valid nonce session binding
+tags:
+  - fcaf
+  - precondition
+  - session-binding
+  - nonce
+---
+- stopApp
+- openLink:
+    link: "${SESSION_BINDING_VALID_NONCE_PRESENTATION_URL}"
+    autoVerify: false
+    browser: false
+- runFlow:
+    file: choose-eudi-wallet.yaml
+- extendedWaitUntil:
+    visible: "Welcome back|Share|Cancel|Close"
+    timeout: 100000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
+- extendedWaitUntil:
+    visible: "Share"
+    timeout: 30000
+- tapOn:
+    text: "Share"
+    enabled: true
+- extendedWaitUntil:
+    visible: "verify your identity|PIN"
+    timeout: 30000
+- inputText: "123456"
+- extendedWaitUntil:
+    visible: "Close"
+    timeout: 30000
+- assertVisible: "Close"
+- takeScreenshot: fcaf-session-binding-valid-nonce-accepted
