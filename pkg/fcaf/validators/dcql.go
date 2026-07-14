@@ -399,6 +399,19 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 						),
 					}
 				}
+				if params.Property == "values" {
+					authorityType, ok := authority["type"].(string)
+					if !ok || authorityType == "" {
+						return Result{
+							Status: StatusFail,
+							Message: fmt.Sprintf(
+								"credentials[%d].trusted_authorities[%d].type is not a non-empty string",
+								credentialIndex,
+								authorityIndex,
+							),
+						}
+					}
+				}
 				matches := matchesJSONType(value, params.ExpectedType)
 				if matches != params.Valid {
 					return Result{

@@ -1,0 +1,15 @@
+id: pipeline.dcql.trusted-authorities-values-non-array
+kind: pipeline
+description: Reject every non-array JSON type for trusted_authorities.values.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trusted-authorities-values-non-array
+required_steps: [exercise-trusted-authorities-values-non-array]
+outputs:
+  null_value: { path: $.output.evidence-null.outputs, decoder: raw }
+  true_value: { path: $.output.evidence-true.outputs, decoder: raw }
+  false_value: { path: $.output.evidence-false.outputs, decoder: raw }
+  zero_value: { path: $.output.evidence-zero.outputs, decoder: raw }
+  random_number: { path: $.output.evidence-number.outputs, decoder: raw }
+  string_value: { path: $.output.evidence-string.outputs, decoder: raw }
+  object_value: { path: $.output.evidence-object.outputs, decoder: raw }
+  visual_evidence: { path: $.output.exercise-trusted-authorities-values-non-array.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests

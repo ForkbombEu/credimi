@@ -16,7 +16,7 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 - Detached HEAD: `54373c673c4d2e65118df2f77d32642dfba16e97`
 - Shared push target: `origin HEAD:feat/fcaf-test`
 - Worktree was clean before adding this memory and skill.
-- Catalog count: 179 tests after the uncommitted case 091 implementation.
+- Catalog count: 180 tests after the uncommitted case 092 implementation.
 
 Recent commits:
 
@@ -74,9 +74,15 @@ Assertions independently prove that `type` is present, `values` is absent, the r
 
 The dedicated `trusted_authority_property_type` validator proves the nested property is present and has the wrong JSON type, rejects evidence for a missing `type`, requires valid `values` while testing `type`, and fails if the wallet returns a credential. A clean Maestro run after clearing Chrome completed all seven variants. The final UI hierarchy showed Home, so the observed wallet behavior is allowed interaction discontinuation, not a captured `invalid_request` response.
 
+## Case 092
+
+`WS_RP_MS_ProtocolMessages__092` rejects `trusted_authorities.values` when it is not a JSON array. The implementation uses the normative plural property despite the FCAF source's singular `value` wording; that discrepancy is already documented in `TEST-AUTHOR-FEEDBACK.md`.
+
+The matrix covers `null`, `true`, `false`, `0`, a non-zero number, string, and object while preserving `type: aki`. The nested validator requires `values` to be present, verifies its JSON type, requires `type` to remain a non-empty string, and fails if a malformed request returns a credential. A clean Maestro run after clearing Chrome completed all seven variants and produced seven screenshots.
+
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__092`: reject `trusted_authorities.values` when it is not a JSON array. Reuse the nested trusted-authority property validator, keep `type` as a valid string, and cover representative non-array JSON types independently.
+`WS_RP_MS_ProtocolMessages__093`: reject an array-valued `trusted_authorities.values` property when any array item is not a JSON string. Keep `type` valid and distinguish item validation from case 092's container-type validation.
 
 ## Parallel ownership
 

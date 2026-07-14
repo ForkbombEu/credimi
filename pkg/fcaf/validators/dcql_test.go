@@ -465,6 +465,81 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name:         "non-array trusted authority values are rejected",
+			mode:         "trusted_authority_property_type",
+			property:     "values",
+			expectedType: "array",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": "authority-key-id",
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:         "array trusted authority values are not malformed",
+			mode:         "trusted_authority_property_type",
+			property:     "values",
+			expectedType: "array",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{"authority-key-id"},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:         "missing trusted authority values is not a format test",
+			mode:         "trusted_authority_property_type",
+			property:     "values",
+			expectedType: "array",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type": "aki",
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:         "non-array values with malformed type do not isolate values",
+			mode:         "trusted_authority_property_type",
+			property:     "values",
+			expectedType: "array",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   true,
+							"values": "authority-key-id",
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "claim sets",
 			mode: "claim_sets",
 			evidence: map[string]any{

@@ -1,0 +1,11 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - trusted authorities values non-array
+tags: [fcaf, precondition, dcql, trusted-authorities]
+---
+- runFlow: { file: dcql-trusted-authorities-values-non-array-variant.yaml, env: { VALUES_VALUE: "null", VARIANT: "null" } }
+- runFlow: { file: dcql-trusted-authorities-values-non-array-variant.yaml, env: { VALUES_VALUE: "true", VARIANT: "true" } }
+- runFlow: { file: dcql-trusted-authorities-values-non-array-variant.yaml, env: { VALUES_VALUE: "false", VARIANT: "false" } }
+- runFlow: { file: dcql-trusted-authorities-values-non-array-variant.yaml, env: { VALUES_VALUE: "0", VARIANT: "zero" } }
+- runFlow: { file: dcql-trusted-authorities-values-non-array-variant.yaml, env: { VALUES_VALUE: "73", VARIANT: "number" } }
+- runFlow: { file: dcql-trusted-authorities-values-non-array-variant.yaml, env: { VALUES_VALUE: "'not-an-array'", VARIANT: "string" } }
+- runFlow: { file: dcql-trusted-authorities-values-non-array-variant.yaml, env: { VALUES_VALUE: "({key:'value'})", VARIANT: "object" } }

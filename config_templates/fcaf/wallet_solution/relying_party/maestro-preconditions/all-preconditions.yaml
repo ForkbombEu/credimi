@@ -40,6 +40,8 @@ tags:
 - runFlow:
     file: dcql-trusted-authorities-type-non-string.yaml
 - runFlow:
+    file: dcql-trusted-authorities-values-non-array.yaml
+- runFlow:
     file: engagement-haip-vp.yaml
 - runFlow:
     file: metadata-direct-post-jwt.yaml
