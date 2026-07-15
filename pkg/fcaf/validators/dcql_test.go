@@ -18,13 +18,14 @@ import (
 
 func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	tests := []struct {
-		name         string
-		mode         string
-		property     string
-		expectedType string
-		valid        bool
-		evidence     map[string]any
-		status       Status
+		name          string
+		mode          string
+		property      string
+		expectedType  string
+		expectedValue any
+		valid         bool
+		evidence      map[string]any
+		status        Status
 	}{
 		{
 			name: "credential sets",
@@ -600,6 +601,40 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name:          "holder binding must be true",
+			mode:          "property_equals",
+			property:      "require_cryptographic_holder_binding",
+			expectedValue: true,
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = true
+						return credential
+					}()},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name:          "holder binding false does not satisfy true requirement",
+			mode:          "property_equals",
+			property:      "require_cryptographic_holder_binding",
+			expectedValue: true,
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = false
+						return credential
+					}()},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name:         "non-boolean property is rejected",
 			mode:         "property_type",
 			property:     "require_cryptographic_holder_binding",
@@ -938,6 +973,9 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			if test.mode == "property_type" || test.mode == "trusted_authority_property_type" {
 				params["expected_type"] = test.expectedType
 				params["valid"] = test.valid
+			}
+			if test.mode == "property_equals" {
+				params["expected_value"] = test.expectedValue
 			}
 			if test.mode == "trusted_authority_array_item_type" {
 				params["expected_type"] = test.expectedType

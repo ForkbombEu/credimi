@@ -13,6 +13,9 @@ outputs:
   exchange_valid_false:
     path: $.output.get-valid-false.outputs.body
     decoder: raw
+  pid_sdjwt_presentations_valid_true:
+    path: $.output.get-valid-true.outputs.body.vp_token.pididentity01
+    decoder: sdjwt.presentations
   exchange_number_zero:
     path: $.output.evidence-number-zero.outputs
     decoder: raw

@@ -1,0 +1,46 @@
+id: WS_RP_SM_DeviceBinding__008
+title: Require cryptographic holder binding for SD-JWT VC presentation.
+source:
+  path: SecurityMechanisms/DeviceBinding/WS_RP_SM_DeviceBinding__008.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: security_mechanisms.device_binding
+applicability:
+  profile: EUDI_generic
+  credential_format: ietf_sd_jwt_vc
+normative_references:
+  - title: OpenID4VC High Assurance Interoperability Profile
+    section: "6.1"
+    url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+  - title: Proof-of-Possession Key Semantics for JSON Web Tokens
+    section: "3"
+    url: https://www.rfc-editor.org/rfc/rfc7800.html
+  - title: SD-JWT-based Verifiable Credentials
+    section: "3.2.2.2"
+    url: https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc
+preconditions:
+  - ref: pipeline.dcql.holder-binding-type-boundary
+evidence:
+  holder_binding_exchange:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_valid_true
+  pid_sdjwt_presentations:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.pid_sdjwt_presentations_valid_true
+  visual_evidence:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence
+assertions:
+  - id: cryptographic_holder_binding_is_explicitly_required
+    validator: dcql.response_satisfies_constraints
+    input: evidence.holder_binding_exchange
+    params:
+      mode: property_equals
+      property: require_cryptographic_holder_binding
+      expected_value: true
+  - id: every_presented_sdjwt_uses_cnf
+    validator: sdjwt.cnf_conforms
+    input: evidence.pid_sdjwt_presentations
+  - id: holder_binding_presentation_has_visual_evidence
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

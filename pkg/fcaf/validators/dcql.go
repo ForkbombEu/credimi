@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
@@ -23,10 +24,11 @@ func (DCQLResponseConstraintsValidator) ID() string {
 
 func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
-		Mode         string `json:"mode"`
-		Property     string `json:"property"`
-		ExpectedType string `json:"expected_type"`
-		Valid        bool   `json:"valid"`
+		Mode          string `json:"mode"`
+		Property      string `json:"property"`
+		ExpectedType  string `json:"expected_type"`
+		Valid         bool   `json:"valid"`
+		ExpectedValue any    `json:"expected_value"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -62,6 +64,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"empty_claims",
 		"empty_array",
 		"property_type",
+		"property_equals",
 		"trusted_authority_property_type",
 		"trusted_authority_array_item_type",
 		"trusted_authority_empty_string_item",
@@ -73,7 +76,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, or claim_sets",
 		}
 	}
 
@@ -398,6 +401,30 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					params.Property,
 				),
 			}
+		}
+	case "property_equals":
+		if params.Property == "" {
+			return Result{Status: StatusError, Message: "property is required for property_equals mode"}
+		}
+		if _, exists := input.Params["expected_value"]; !exists {
+			return Result{Status: StatusError, Message: "expected_value is required for property_equals mode"}
+		}
+		credentials, ok := query["credentials"].([]any)
+		if !ok || len(credentials) == 0 {
+			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+		}
+		for index, rawCredential := range credentials {
+			credential, ok := normalizeJSONObject(rawCredential)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", index)}
+			}
+			value, exists := credential[params.Property]
+			if !exists || !reflect.DeepEqual(value, params.ExpectedValue) {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].%s does not equal the expected value", index, params.Property)}
+			}
+		}
+		if isEmptyDCQLValue(responseValue) {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("wallet returned no credential for %s", params.Property)}
 		}
 	case "trusted_authority_array_item_type":
 		if params.Property == "" {

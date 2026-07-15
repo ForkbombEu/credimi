@@ -292,6 +292,24 @@ verifier response was decoded as a two-member collection; each presentation
 contained a distinct EC P-256 `cnf.jwk`, and both passed the structural check,
 KB-JWT signature verification, and RFC 9901 `sd_hash` recomputation.
 
+## DeviceBinding case 008
+
+008 reuses the live `pipeline.dcql.holder-binding-type-boundary` valid-true
+execution. Its test asserts the requested credential property
+`require_cryptographic_holder_binding` equals the boolean `true` exactly, not
+merely that it has boolean JSON type. The generic DCQL validator gained
+`property_equals` with positive and false-value regression cases for this
+purpose. The precondition decodes every returned SD-JWT from
+`vp_token.pididentity01`, and 008 applies `sdjwt.cnf_conforms` to all of them.
+
+On 15/07/2026 the public-verifier request with that exact property completed
+through Maestro consent and success on `emulator-5554`. The verifier returned
+two PID presentations under `pididentity01`; each had a valid `cnf.jwk`, and
+the existing cryptographic checker also passed both KB-JWT signatures and
+RFC 9901 `sd_hash` values. The reusable pipeline currently stores its visual
+evidence as the holder-binding variant screenshot collection; 008 requires it
+to be non-empty.
+
 ## Case 118
 
 118 uses `claim_path_allowed_components` over one PID credential query with
