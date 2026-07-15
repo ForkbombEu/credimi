@@ -94,7 +94,13 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__116` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__117` is the next mandatory protocol-message candidate.
+
+## Case 116
+
+116 uses `claims_without_values` to require every claim to omit `values`, retain a valid non-empty string path, and produce a matching `vp_token` under the credential query ID. A parsed request or absence of an error cannot pass. The public verifier accepted the request shape and issued a request URI; the Maestro flow requires consent, PIN confirmation, and visible successful sharing.
+
+The exact reusable Maestro flow failed because the reference Wallet did not show `DATA SHARING REQUEST`; the verifier transaction then returned HTTP 400 with an empty body. This is a failed case 116 result, not acceptance. Keep the strict presentation and successful-sharing assertions. The missing transaction diagnostics are tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 14.
 
 ## Case 115
 

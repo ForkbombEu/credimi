@@ -268,6 +268,9 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 		{name: "empty array claim path is still an array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, []any{}, true), status: StatusFail},
 		{name: "valid claim path is an array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, []any{"given_name"}, true), status: StatusFail},
 		{name: "non-array claim path requires invalid request", mode: "claim_path_non_array", evidence: claimPathEvidence(true, "given_name", false), status: StatusFail},
+		{name: "claim without values is accepted", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(false, true), status: StatusPass},
+		{name: "claim with values is not the omitted case", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(true, true), status: StatusFail},
+		{name: "claim without values requires a presentation", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(false, false), status: StatusFail},
 		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",
@@ -965,6 +968,19 @@ func claimPathEvidence(pathPresent bool, path any, withError bool) map[string]an
 	}
 	if withError {
 		evidence["error"] = "invalid_request"
+	}
+	return evidence
+}
+
+func claimWithoutValuesEvidence(valuesPresent bool, withPresentation bool) map[string]any {
+	credential := credentialQueryWithClaimIDs("pid", "given_name")
+	claim := credential["claims"].([]any)[0].(map[string]any)
+	if valuesPresent {
+		claim["values"] = []any{"Filippo"}
+	}
+	evidence := map[string]any{"dcql_query": map[string]any{"credentials": []any{credential}}}
+	if withPresentation {
+		evidence["vp_token"] = map[string]any{"pid": []any{"presentation"}}
 	}
 	return evidence
 }
