@@ -30,6 +30,8 @@ tags:
 - runFlow:
     file: dcql-duplicate-claim-ids.yaml
 - runFlow:
+    file: dcql-empty-claim-id.yaml
+- runFlow:
     file: dcql-claim-sets-empty.yaml
 - runFlow:
     file: dcql-claim-sets-non-array.yaml

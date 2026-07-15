@@ -1,0 +1,18 @@
+appId: eu.europa.ec.euidi
+name: Reject an empty DCQL claim id
+tags: [fcaf, precondition, dcql]
+---
+- clearState: com.android.chrome
+- launchApp: { stopApp: true, clearState: false }
+- runFlow: { file: unlock-wallet.yaml }
+- openLink: { link: "${DCQL_EMPTY_CLAIM_ID_PRESENTATION_URL}", autoVerify: false, browser: false }
+- runFlow: { file: choose-eudi-wallet.yaml }
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,40%" }
+      - inputText: "123456"
+      - hideKeyboard
+- waitForAnimationToEnd: { timeout: 5000 }
+- extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request", timeout: 30000 }
+- takeScreenshot: fcaf-111-empty-claim-id-rejected

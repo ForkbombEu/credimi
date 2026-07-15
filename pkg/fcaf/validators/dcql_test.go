@@ -216,6 +216,30 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status:   StatusFail,
 		},
 		{
+			name:     "empty claim id is rejected",
+			mode:     "empty_claim_id",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "")}}, "error": "invalid_request"},
+			status:   StatusPass,
+		},
+		{
+			name:     "missing claim id is not the empty id case",
+			mode:     "empty_claim_id",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}}, "error": "invalid_request"},
+			status:   StatusFail,
+		},
+		{
+			name:     "non-empty claim id is not malformed",
+			mode:     "empty_claim_id",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "name")}}, "error": "invalid_request"},
+			status:   StatusFail,
+		},
+		{
+			name:     "empty claim id requires invalid request",
+			mode:     "empty_claim_id",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "")}}},
+			status:   StatusFail,
+		},
+		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",
 			evidence: map[string]any{

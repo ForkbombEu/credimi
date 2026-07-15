@@ -37,6 +37,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"claim_id_missing_with_claim_sets",
 		"claims_without_id_without_claim_sets",
 		"duplicate_claim_ids",
+		"empty_claim_id",
 		"credential_sets_options_missing",
 		"credential_sets_options_empty",
 		"credential_sets_options_non_array",
@@ -107,6 +108,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateClaimsWithoutIDWithoutClaimSets(query, responseValue)
 	case "duplicate_claim_ids":
 		return validateDuplicateClaimIDs(query, responseValue, errorValue)
+	case "empty_claim_id":
+		return validateEmptyClaimID(query, responseValue, errorValue)
 	case "credential_sets_options_missing":
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
@@ -1170,4 +1173,49 @@ func validateDuplicateClaimIDs(query map[string]any, responseValue any, errorVal
 		return Result{Status: StatusFail, Message: "wallet did not return invalid_request for duplicate claim ids"}
 	}
 	return Result{Status: StatusPass, Message: "wallet rejected duplicate claim ids with invalid_request"}
+}
+
+func validateEmptyClaimID(query map[string]any, responseValue any, errorValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	foundEmpty := false
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		for claimIndex, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", credentialIndex, claimIndex)}
+			}
+			idValue, exists := claim["id"]
+			if !exists {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].id is missing", credentialIndex, claimIndex)}
+			}
+			id, ok := idValue.(string)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].id is not a string", credentialIndex, claimIndex)}
+			}
+			if id == "" {
+				foundEmpty = true
+			}
+		}
+	}
+	if !foundEmpty {
+		return Result{Status: StatusFail, Message: "no claim id is empty"}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a credential for an empty claim id"}
+	}
+	if errorText, _ := errorValue.(string); errorText != "invalid_request" {
+		return Result{Status: StatusFail, Message: "wallet did not return invalid_request for an empty claim id"}
+	}
+	return Result{Status: StatusPass, Message: "wallet rejected an empty claim id with invalid_request"}
 }

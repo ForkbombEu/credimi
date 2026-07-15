@@ -94,7 +94,13 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__111` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__112` is the next mandatory protocol-message candidate.
+
+## Case 111
+
+111 uses `empty_claim_id` to prove the claim `id` property is present and exactly the empty string, distinguishing it from a missing ID and from non-empty IDs. Passing evidence requires no `vp_token` and an actual `error: invalid_request`; returning Home is not sufficient.
+
+The public verifier rejected request creation with HTTP 400 in `ClaimId` validation (`Value cannot be be empty`), before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
 
 ## Case 110
 
