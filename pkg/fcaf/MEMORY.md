@@ -94,7 +94,7 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__108` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__109` is the next mandatory protocol-message candidate.
 
 ## Case 105
 
@@ -113,6 +113,10 @@ Emulator evidence is incomplete: the verifier accepted the request, the Wallet a
 107 uses the valid `given_name` path with a deliberately mismatched `values` constraint. The dedicated `claims_values_no_match` validator requires non-empty `path` and `values` arrays and proves that no `vp_token` is returned.
 
 The emulator accepted the request and PIN, then returned Home without consent or presentation. The verifier transaction endpoint returned HTTP 400 with an empty body. As with 106, this proves no credential was returned but does not prove the source-required `access_denied` response or description.
+
+## Case 108
+
+108 proves the request contains non-empty `claims` and `claim_sets`, at least one claim omits `id`, and no `vp_token` is returned. The public verifier rejected request creation with HTTP 400 `Unknown claim ids` from `ClaimSet.ensureKnownClaimIds`, so the request never reached the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
 
 ## Parallel ownership
 

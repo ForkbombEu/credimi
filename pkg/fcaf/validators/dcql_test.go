@@ -145,6 +145,14 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name: "missing claim id with claim sets is rejected",
+			mode: "claim_id_missing_with_claim_sets",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{map[string]any{
+				"claims": []any{map[string]any{"path": []any{"given_name"}}}, "claim_sets": []any{[]any{"missing_id"}},
+			}}}},
+			status: StatusPass,
+		},
+		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",
 			evidence: map[string]any{

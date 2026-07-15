@@ -356,6 +356,7 @@ A single source-quality job could prevent several findings above:
 - referenced protocol property names belong to a checked vocabulary
 - no editorial TODO/Need to check text remains in published test scenarios
 - generated inventory contains one row per canonical source test
+```
 
 ### Issue 13: Provide a mock verifier for malformed DCQL requests
 
@@ -368,12 +369,14 @@ test(fcaf): provide raw mock-verifier support for malformed DCQL cases
 Suggested issue body:
 
 ```markdown
-FCAF cases WS_RP_MS_ProtocolMessages__096 through __098 require the Wallet to
-receive malformed `credential_sets.options` values:
+FCAF cases 096–098, 100, and 108 require the Wallet to receive DCQL that the
+public verifier rejects before producing a signed request:
 
 - 096: `options` is missing
 - 097: `options` is an empty array
 - 098: `options` is not an array
+- 100: `options` references an unknown credential query ID
+- 108: `claim_sets` references a claim whose `id` is missing
 
 The public `https://verifier-backend.eudiw.dev/ui/presentations` endpoint cannot
 exercise these cases. Its typed request decoder rejects them before a signed
@@ -381,6 +384,8 @@ request reaches the Wallet:
 
 - 096 fails because `CredentialSetQuery.options` is required.
 - 097 and 098 fail during the same DCQL deserialization/validation boundary.
+- 100 fails with `Unknown credential query ids`.
+- 108 fails with `Unknown claim ids` in `ClaimSet.ensureKnownClaimIds`.
 
 Please provide a mock verifier or raw request generator that can serve a validly
 signed Authorization Request containing deliberately malformed DCQL. It should
@@ -395,7 +400,7 @@ The mock service should support:
 - captured Wallet response/error evidence;
 - transaction correlation for Maestro and Credimi pipelines.
 
-Without this service, 096–098 can only be statically validated and cannot be
+Without this service, these cases can only be statically validated and cannot be
 claimed as device-level Wallet conformance tests through the public verifier.
 ```
 
@@ -420,5 +425,4 @@ Please expose structured transaction diagnostics including the Wallet response,
 error code, error description, and lifecycle state. This is needed to distinguish
 an invalid request, no matching credential, user cancellation, and transport or
 callback failure in automated conformance evidence.
-```
 ```

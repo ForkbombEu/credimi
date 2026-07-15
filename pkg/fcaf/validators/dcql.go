@@ -34,6 +34,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"claims_present",
 		"claims_path_no_match",
 		"claims_values_no_match",
+		"claim_id_missing_with_claim_sets",
 		"credential_sets_options_missing",
 		"credential_sets_options_empty",
 		"credential_sets_options_non_array",
@@ -98,6 +99,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateClaimsPathNoMatch(query, responseValue)
 	case "claims_values_no_match":
 		return validateClaimsValuesNoMatch(query, responseValue)
+	case "claim_id_missing_with_claim_sets":
+		return validateMissingClaimIDWithClaimSets(query, responseValue)
 		if isEmptyDCQLValue(responseValue) {
 			return Result{
 				Status:  StatusFail,
@@ -1036,4 +1039,42 @@ func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result
 		return Result{Status: StatusFail, Message: "wallet returned a credential for mismatched claim values"}
 	}
 	return Result{Status: StatusPass, Message: "wallet returned no credential for mismatched claim values"}
+}
+
+func validateMissingClaimIDWithClaimSets(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	foundMissingID := false
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		claimSets, ok := credential["claim_sets"].([]any)
+		if !ok || len(claimSets) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claim_sets is not a non-empty array", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		for _, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				continue
+			}
+			if _, exists := claim["id"]; !exists {
+				foundMissingID = true
+			}
+		}
+	}
+	if !foundMissingID {
+		return Result{Status: StatusFail, Message: "claims contain no missing id"}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a credential for claims missing id with claim_sets"}
+	}
+	return Result{Status: StatusPass, Message: "wallet rejected claims missing id with claim_sets"}
 }
