@@ -94,7 +94,13 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__115` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__116` is the next mandatory protocol-message candidate.
+
+## Case 115
+
+115 uses `claim_path_non_array` with unit evidence for `null`, booleans, zero, a non-zero number, string, and object values. Missing paths, empty arrays, and valid non-empty arrays are explicitly excluded from this mode. Passing evidence requires no `vp_token` and a real `error: invalid_request`.
+
+The public verifier rejected the representative string request with HTTP 400 because `ClaimPath` decoding expected an array, before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
 
 ## Case 114
 

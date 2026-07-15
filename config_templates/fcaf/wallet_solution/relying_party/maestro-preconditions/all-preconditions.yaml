@@ -38,6 +38,8 @@ tags:
 - runFlow:
     file: dcql-empty-claim-path.yaml
 - runFlow:
+    file: dcql-non-array-claim-path.yaml
+- runFlow:
     file: dcql-claim-sets-empty.yaml
 - runFlow:
     file: dcql-claim-sets-non-array.yaml

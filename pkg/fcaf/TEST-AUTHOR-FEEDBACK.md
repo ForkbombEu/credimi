@@ -369,7 +369,7 @@ test(fcaf): provide raw mock-verifier support for malformed DCQL cases
 Suggested issue body:
 
 ```markdown
-FCAF cases 096–098, 100, 108, and 110–114 require the Wallet to receive DCQL that the
+FCAF cases 096–098, 100, 108, and 110–115 require the Wallet to receive DCQL that the
 public verifier rejects before producing a signed request:
 
 - 096: `options` is missing
@@ -382,6 +382,7 @@ public verifier rejects before producing a signed request:
 - 112: a claim `id` contains a forbidden character
 - 113: a claim object omits the required `path`
 - 114: a claim `path` is an empty array
+- 115: a claim `path` is not an array
 
 The public `https://verifier-backend.eudiw.dev/ui/presentations` endpoint cannot
 exercise these cases. Its typed request decoder rejects them before a signed
@@ -396,6 +397,7 @@ request reaches the Wallet:
 - 112 fails in `DCQLId.ensureValid` because the claim `id` contains a character outside the allowed alphabet.
 - 113 fails during `ClaimsQuery` decoding because the required `path` field is missing.
 - 114 fails in `ClaimPath` deserialization because the path is empty.
+- 115 fails during `ClaimPath` decoding because an array was expected.
 
 A direct by-value case 110 emulator probe reached the reference Wallet but
 silently returned to Home without showing `invalid_request` or an error page.
