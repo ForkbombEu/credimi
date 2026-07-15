@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 )
 
@@ -718,4 +719,117 @@ func TestSDJWTClaimPresentValidator(t *testing.T) {
 	})
 
 	require.Equal(t, StatusPass, got.Status)
+}
+
+func TestSDJWTKBJWTPresentValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		options    keyBindingFixtureOptions
+		mutate     func(*evidence.SDJWTPresentation)
+		wantStatus Status
+	}{
+		{name: "valid P-256 KB-JWT", wantStatus: StatusPass},
+		{
+			name: "missing KB-JWT",
+			mutate: func(p *evidence.SDJWTPresentation) {
+				p.KeyBindingJWT = ""
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "not a compact JWT",
+			mutate: func(p *evidence.SDJWTPresentation) {
+				p.KeyBindingJWT = "not-a-jwt"
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "wrong typ header",
+			options:    keyBindingFixtureOptions{typ: "JWT"},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "missing iat claim",
+			options: keyBindingFixtureOptions{mutateClaims: func(claims jwt.MapClaims) {
+				delete(claims, "iat")
+			}},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "aud claim is not a string",
+			options: keyBindingFixtureOptions{mutateClaims: func(claims jwt.MapClaims) {
+				claims["aud"] = []string{"verifier.example"}
+			}},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "missing nonce claim",
+			options: keyBindingFixtureOptions{mutateClaims: func(claims jwt.MapClaims) {
+				delete(claims, "nonce")
+			}},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "sd_hash is not base64url",
+			options: keyBindingFixtureOptions{mutateClaims: func(claims jwt.MapClaims) {
+				claims["sd_hash"] = "not+base64url"
+			}},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "sd_hash is empty string",
+			options: keyBindingFixtureOptions{mutateClaims: func(claims jwt.MapClaims) {
+				claims["sd_hash"] = ""
+			}},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "missing sd_hash claim",
+			options: keyBindingFixtureOptions{mutateClaims: func(claims jwt.MapClaims) {
+				delete(claims, "sd_hash")
+			}},
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			presentation := newKeyBindingPresentation(t, tt.options)
+			if tt.mutate != nil {
+				tt.mutate(presentation)
+			}
+
+			result := SDJWTKBJWTPresentValidator{}.Validate(
+				context.Background(),
+				Input{Value: presentation},
+			)
+
+			require.Equal(t, tt.wantStatus, result.Status, result.Message)
+		})
+	}
+}
+
+func TestSDJWTKBJWTPresentValidatorChecksEveryPresentation(t *testing.T) {
+	first := newKeyBindingPresentation(t, keyBindingFixtureOptions{})
+	second := newKeyBindingPresentation(t, keyBindingFixtureOptions{})
+
+	result := SDJWTKBJWTPresentValidator{}.Validate(context.Background(), Input{
+		Value: []*evidence.SDJWTPresentation{first, second},
+	})
+
+	require.Equal(t, StatusPass, result.Status, result.Message)
+	require.Equal(t, 2, result.Details["presentation_count"])
+}
+
+func TestSDJWTKBJWTPresentValidatorRejectsInvalidSecondPresentation(t *testing.T) {
+	first := newKeyBindingPresentation(t, keyBindingFixtureOptions{})
+	second := newKeyBindingPresentation(t, keyBindingFixtureOptions{})
+	second.KeyBindingJWT = ""
+
+	result := SDJWTKBJWTPresentValidator{}.Validate(context.Background(), Input{
+		Value: []*evidence.SDJWTPresentation{first, second},
+	})
+
+	require.Equal(t, StatusFail, result.Status)
+	require.Contains(t, result.Message, "presentation[1]")
 }

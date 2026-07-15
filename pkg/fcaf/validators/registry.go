@@ -81,6 +81,7 @@ func DefaultRegistry() (*Registry, error) {
 		SDJWTIssuerX509HeaderValidator{},
 		SDJWTCNFConformsValidator{},
 		SDJWTKeyBindingMatchesCNFValidator{},
+		SDJWTKBJWTPresentValidator{},
 		PIDSDJWTVCTValidator{},
 		PIDSDJWTMandatoryClaimsValidator{},
 	)

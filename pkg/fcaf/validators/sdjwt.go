@@ -339,6 +339,136 @@ type SDJWTKeyBindingMatchesCNFValidator struct{}
 
 func (SDJWTKeyBindingMatchesCNFValidator) ID() string { return "sdjwt.key_binding_matches_cnf" }
 
+type SDJWTKBJWTPresentValidator struct{}
+
+func (SDJWTKBJWTPresentValidator) ID() string { return "sdjwt.kb_jwt_present" }
+
+func (SDJWTKBJWTPresentValidator) Validate(_ context.Context, input Input) Result {
+	presentations, ok := sdjwtPresentations(input.Value)
+	if !ok || len(presentations) == 0 {
+		return Result{Status: StatusFail, Message: "SD-JWT presentation evidence is missing"}
+	}
+	algorithms := make([]string, 0, len(presentations))
+	for index, presentation := range presentations {
+		result := validateSDJWTKBJWTStructure(presentation)
+		if result.Status != StatusPass {
+			result.Message = fmt.Sprintf("presentation[%d]: %s", index, result.Message)
+			return result
+		}
+		algorithm, _ := result.Details["alg"].(string)
+		algorithms = append(algorithms, algorithm)
+	}
+	return Result{
+		Status: StatusPass,
+		Message: fmt.Sprintf(
+			"all %d presentations contain a structurally valid KB-JWT",
+			len(presentations),
+		),
+		Details: map[string]any{
+			"algorithms":         algorithms,
+			"presentation_count": len(presentations),
+		},
+	}
+}
+
+func validateSDJWTKBJWTStructure(presentation *evidence.SDJWTPresentation) Result {
+	if presentation.KeyBindingJWT == "" {
+		return Result{Status: StatusFail, Message: "SD-JWT presentation does not contain a KB-JWT"}
+	}
+	parts := strings.Split(presentation.KeyBindingJWT, ".")
+	if len(parts) != 3 {
+		return Result{Status: StatusFail, Message: "KB-JWT is not a compact JWT"}
+	}
+
+	headerBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return Result{Status: StatusFail, Message: "KB-JWT header is not valid base64url"}
+	}
+	var header map[string]any
+	if err := json.Unmarshal(headerBytes, &header); err != nil {
+		return Result{Status: StatusFail, Message: "KB-JWT header is not valid JSON"}
+	}
+	typ, ok := header["typ"].(string)
+	if !ok || typ != "kb+jwt" {
+		return Result{
+			Status:  StatusFail,
+			Message: `KB-JWT protected header "typ" must equal "kb+jwt"`,
+		}
+	}
+	alg, ok := header["alg"].(string)
+	if !ok || alg == "" {
+		return Result{
+			Status:  StatusFail,
+			Message: `KB-JWT protected header "alg" must be a non-empty string`,
+		}
+	}
+	if alg == "none" {
+		return Result{
+			Status:  StatusFail,
+			Message: `KB-JWT protected header "alg" must not be "none"`,
+		}
+	}
+
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return Result{Status: StatusFail, Message: "KB-JWT payload is not valid base64url"}
+	}
+	var claims jwt.MapClaims
+	decoder := json.NewDecoder(strings.NewReader(string(payloadBytes)))
+	decoder.UseNumber()
+	if err := decoder.Decode(&claims); err != nil {
+		return Result{Status: StatusFail, Message: "KB-JWT payload is not valid JSON"}
+	}
+	if decoder.More() {
+		return Result{Status: StatusFail, Message: "KB-JWT payload contains trailing bytes after the JSON value"}
+	}
+
+	if !validNumericDate(claims["iat"]) {
+		return Result{Status: StatusFail, Message: `KB-JWT claim "iat" must be a valid NumericDate`}
+	}
+	if err := requireNonEmptyMapClaim(claims, "aud"); err != nil {
+		return Result{Status: StatusFail, Message: `KB-JWT claim "aud" must be a non-empty string`}
+	}
+	if err := requireNonEmptyMapClaim(claims, "nonce"); err != nil {
+		return Result{Status: StatusFail, Message: `KB-JWT claim "nonce" must be a non-empty string`}
+	}
+	rawSDHash, ok := claims["sd_hash"].(string)
+	if !ok || rawSDHash == "" {
+		return Result{
+			Status:  StatusFail,
+			Message: `KB-JWT claim "sd_hash" must be a non-empty string`,
+		}
+	}
+	providedSDHash, err := base64.RawURLEncoding.DecodeString(rawSDHash)
+	if err != nil || len(providedSDHash) != sha256.Size {
+		return Result{
+			Status:  StatusFail,
+			Message: `KB-JWT claim "sd_hash" must be an unpadded base64url SHA-256 digest`,
+		}
+	}
+	computedSDHash := sha256.Sum256([]byte(presentation.SDJWT))
+	if subtle.ConstantTimeCompare(providedSDHash, computedSDHash[:]) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "KB-JWT sd_hash does not bind the presented SD-JWT",
+		}
+	}
+
+	sigBytes, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || len(sigBytes) == 0 {
+		return Result{
+			Status:  StatusFail,
+			Message: "KB-JWT signature segment must be a non-empty base64url value",
+		}
+	}
+
+	return Result{
+		Status:  StatusPass,
+		Message: "KB-JWT is structurally valid",
+		Details: map[string]any{"alg": alg},
+	}
+}
+
 func (SDJWTKeyBindingMatchesCNFValidator) Validate(_ context.Context, input Input) Result {
 	presentations, ok := sdjwtPresentations(input.Value)
 	if !ok || len(presentations) == 0 {
