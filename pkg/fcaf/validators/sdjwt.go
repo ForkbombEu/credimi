@@ -17,6 +17,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"net/mail"
@@ -420,6 +421,10 @@ func validateSDJWTKBJWTStructure(presentation *evidence.SDJWTPresentation) Resul
 		return Result{Status: StatusFail, Message: "KB-JWT payload is not valid JSON"}
 	}
 	if decoder.More() {
+		return Result{Status: StatusFail, Message: "KB-JWT payload contains trailing bytes after the JSON value"}
+	}
+	var extra json.RawMessage
+	if err := decoder.Decode(&extra); err != io.EOF {
 		return Result{Status: StatusFail, Message: "KB-JWT payload contains trailing bytes after the JSON value"}
 	}
 

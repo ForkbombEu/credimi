@@ -6,6 +6,8 @@ package validators
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -72,11 +74,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"multiple_true",
 		"no_match",
 		"request_rejected",
+		"trusted_authorities_match",
 		"claim_sets":
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, or claim_sets",
 		}
 	}
 
@@ -334,6 +337,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: "wallet returned a credential for a no-match DCQL query",
 			}
 		}
+	case "trusted_authorities_match":
+		return validateTrustedAuthoritiesMatch(query, responseValue)
 	case "property_type":
 		if params.Property == "" {
 			return Result{
@@ -1653,4 +1658,138 @@ func validateClaimsWithoutValues(query map[string]any, responseValue any) Result
 		}
 	}
 	return Result{Status: StatusPass, Message: "wallet matched claims without values"}
+}
+
+func validateTrustedAuthoritiesMatch(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	if err := validateDCQLCredentialQueries(credentials); err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{Status: StatusFail, Message: "wallet vp_token is not an object keyed by credential query ID"}
+	}
+	for credentialIndex, rawCredential := range credentials {
+		credential, _ := normalizeJSONObject(rawCredential)
+		id, _ := credential["id"].(string)
+		presentations, ok := response[id].([]any)
+		if !ok || len(presentations) == 0 {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("vp_token has no presentation for credential query %q", id),
+			}
+		}
+		authorities, hasTA := credential["trusted_authorities"].([]any)
+		if !hasTA || len(authorities) == 0 {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] does not contain trusted_authorities", credentialIndex),
+			}
+		}
+		for presentationIndex, rawPresentation := range presentations {
+			token, ok := rawPresentation.(string)
+			if !ok || token == "" {
+				return Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("vp_token[%q][%d] is not an SD-JWT presentation", id, presentationIndex),
+				}
+			}
+			presentation, err := evidence.ParseSDJWTPresentation(token)
+			if err != nil {
+				return Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("vp_token[%q][%d] is not a valid SD-JWT: %v", id, presentationIndex, err),
+				}
+			}
+			if !credentialMatchesTrustedAuthorities(presentation, authorities) {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] issuer does not match any trusted_authority",
+						id,
+						presentationIndex,
+					),
+				}
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "every returned credential issuer matches at least one trusted_authority",
+	}
+}
+
+func credentialMatchesTrustedAuthorities(presentation *evidence.SDJWTPresentation, authorities []any) bool {
+	for _, rawAuthority := range authorities {
+		authority, ok := normalizeJSONObject(rawAuthority)
+		if !ok {
+			continue
+		}
+		authType, _ := authority["type"].(string)
+		if authType == "" {
+			continue
+		}
+		values, _ := authority["values"].([]any)
+		if len(values) == 0 {
+			continue
+		}
+		switch authType {
+		case "aki":
+			if sdjwtMatchesAKI(presentation, values) {
+				return true
+			}
+		default:
+			if sdjwtMatchesIssuerClaim(presentation, values) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func sdjwtMatchesAKI(presentation *evidence.SDJWTPresentation, values []any) bool {
+	rawChain, ok := presentation.ProtectedHeaders["x5c"].([]any)
+	if !ok || len(rawChain) == 0 {
+		return false
+	}
+	encoded, ok := rawChain[0].(string)
+	if !ok || encoded == "" {
+		return false
+	}
+	der, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return false
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		return false
+	}
+	if len(cert.AuthorityKeyId) == 0 {
+		return false
+	}
+	encodedAKI := base64.RawURLEncoding.EncodeToString(cert.AuthorityKeyId)
+	for _, rawValue := range values {
+		value, ok := rawValue.(string)
+		if ok && value == encodedAKI {
+			return true
+		}
+	}
+	return false
+}
+
+func sdjwtMatchesIssuerClaim(presentation *evidence.SDJWTPresentation, values []any) bool {
+	iss, _ := presentation.IssuerPayload["iss"].(string)
+	if iss == "" {
+		return false
+	}
+	for _, rawValue := range values {
+		value, ok := rawValue.(string)
+		if ok && value == iss {
+			return true
+		}
+	}
+	return false
 }

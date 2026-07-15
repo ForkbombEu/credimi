@@ -79,6 +79,13 @@ preconditions:
       - dcql_exchange
     notes: Exercises a DCQL request that should produce no matching wallet credential.
 
+  - id: pipeline.dcql.trusted-authorities-match
+    kind: maestro
+    flow: dcql-trusted-authorities-match.yaml
+    prepares:
+      - dcql_exchange
+    notes: Exercises a DCQL trusted_authorities match presentation request. Upstream requires the wallet holds more than one credential from the issuer specified in trusted_authorities; the assertion decodes each returned SD-JWT and verifies its issuer (x5c+AKI or iss) matches at least one trusted_authority condition.
+
   - id: pipeline.dcql.claim-sets
     kind: maestro
     flow: dcql-claim-sets.yaml

@@ -146,9 +146,3 @@ func testJSONBytes(t *testing.T, v map[string]any) []byte {
 	require.NoError(t, err)
 	return raw
 }
-
-func sha256Hash(t *testing.T, input string) []byte {
-	t.Helper()
-	digest := sha256.Sum256([]byte(input))
-	return digest[:]
-}
