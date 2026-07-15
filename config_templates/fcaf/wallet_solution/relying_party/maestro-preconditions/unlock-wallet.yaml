@@ -14,7 +14,7 @@ tags:
       - tapOn:
           point: "11%,40%"
       - inputText: "123456"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
 - extendedWaitUntil:
     visible: "Home|Documents|Add document|Welcome, .*"
     timeout: 30000

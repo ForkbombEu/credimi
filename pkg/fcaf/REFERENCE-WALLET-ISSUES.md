@@ -62,3 +62,24 @@ response class.
 - Test: `WS_RP_MS_ProtocolMessages__097`
 - The Credimi test requires both the exact protocol error and a strict error
   page; the reference wallet currently fails the protocol assertion.
+
+## MOCK-VERIFIER-001: Beta capture verifier rejects valid PID response on certificate SAN
+
+For `WS_RP_MS_ProtocolMessages__099`, the reference wallet reaches the request,
+shares the PID, and submits a `vp_token`. The beta capture verifier marks the
+presentation invalid because the PID `iss` URI does not match a SAN-URI or
+SAN-DNS entry in the issuer certificate.
+
+Observed verifier event:
+
+```text
+pid[0]: The 'iss' claim in the payload does not match a 'SAN-URI' name and the
+domain extracted from the HTTPS URI does not match a 'SAN-DNS' name in the x5c
+certificate.
+error: invalid_request
+error_description: One or more presentations failed verification.
+```
+
+The wallet-side positive flow is evidenced through `Share`, PIN approval, and
+the submitted `vp_token`. Verifier acceptance is blocked by certificate/SAN
+validation and must not be reported as a wallet failure.
