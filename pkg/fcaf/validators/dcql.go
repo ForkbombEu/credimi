@@ -163,7 +163,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		}
 		return Result{Status: StatusPass, Message: "wallet returned invalid_request for credential_sets without options"}
 	case "credential_sets_options_empty", "credential_sets_options_non_array", "credential_sets_options_valid_references", "credential_sets_options_invalid_references":
-		return validateCredentialSetsOptions(query, responseValue, params.Mode)
+		return validateCredentialSetsOptions(query, responseValue, errorValue, params.Mode)
 	case "credential_sets_required_true_match", "credential_sets_required_true_no_match", "credential_sets_required_omitted", "credential_sets_required_false_with_match":
 		return validateCredentialSetsRequired(query, responseValue, params.Mode)
 	case "credentials_match",
@@ -874,7 +874,7 @@ func isEmptyDCQLValue(value any) bool {
 	}
 }
 
-func validateCredentialSetsOptions(query map[string]any, responseValue any, mode string) Result {
+func validateCredentialSetsOptions(query map[string]any, responseValue, errorValue any, mode string) Result {
 	credentials, ok := query["credentials"].([]any)
 	sets, setsOK := query["credential_sets"].([]any)
 	if !ok || len(credentials) == 0 || !setsOK || len(sets) == 0 {
@@ -946,6 +946,9 @@ func validateCredentialSetsOptions(query map[string]any, responseValue any, mode
 	if mode == "credential_sets_options_non_array" || mode == "credential_sets_options_empty" || mode == "credential_sets_options_invalid_references" {
 		if !isEmptyDCQLValue(responseValue) {
 			return Result{Status: StatusFail, Message: "wallet returned a vp_token for an invalid credential_sets.options query"}
+		}
+		if mode == "credential_sets_options_empty" && errorValue != "invalid_request" {
+			return Result{Status: StatusFail, Message: "wallet did not return invalid_request for an invalid credential_sets.options query"}
 		}
 		return Result{Status: StatusPass, Message: "wallet rejected invalid credential_sets.options"}
 	}

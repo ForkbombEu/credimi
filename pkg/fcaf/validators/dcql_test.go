@@ -63,7 +63,7 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 		{
 			name:     "credential sets options empty is rejected",
 			mode:     "credential_sets_options_empty",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": []any{}}}}},
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": []any{}}}}, "error": "invalid_request"},
 			status:   StatusPass,
 		},
 		{
