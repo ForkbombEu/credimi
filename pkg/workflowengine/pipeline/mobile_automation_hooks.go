@@ -61,7 +61,7 @@ type platformActivities struct {
 
 var (
 	androidPlatformActivities = platformActivities{
-		Start:             activities.NewStartEmulatorActivity().Name(),
+		Start:             activities.NewSetupMobileDeviceActivity().Name(),
 		Install:           activities.NewApkInstallActivity().Name(),
 		PostInstall:       activities.NewApkPostInstallChecksActivity().Name(),
 		StartRecording:    activities.NewStartRecordingActivity().Name(),
@@ -692,6 +692,17 @@ func processStep(
 	)
 
 	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
+	if deviceType == deviceTypeAndroidPhone {
+		if err := preparePhysicalAndroidDeviceIfNeeded(
+			input.ctx,
+			mobileCtx,
+			payload.RunnerID,
+			serial,
+			deviceMap,
+		); err != nil {
+			return err
+		}
+	}
 
 	if err := fetchAndInstallAPK(fetchAndInstallAPKInput{
 		ctx:             input.ctx,
@@ -713,6 +724,61 @@ func processStep(
 	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
 
 	return nil
+}
+
+func preparePhysicalAndroidDeviceIfNeeded(
+	ctx workflow.Context,
+	mobileCtx workflow.Context,
+	runnerID string,
+	serial string,
+	deviceMap map[string]any,
+) error {
+	if workflowengine.AsBool(deviceMap["screen_prepared"]) {
+		return nil
+	}
+
+	setupActivity := activities.NewSetupMobileDeviceActivity()
+	var setupResult workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		mobileCtx,
+		setupActivity.Name(),
+		workflowengine.ActivityInput{
+			Payload: map[string]any{
+				"device_name": runnerID,
+				"type":        deviceTypeAndroidPhone.String(),
+				"serial":      serial,
+			},
+			Config: workflowengine.ActivityTelemetryConfig(mobileCtx, nil),
+		},
+	).Get(ctx, &setupResult); err != nil {
+		return err
+	}
+
+	output, ok := setupResult.Output.(map[string]any)
+	if !ok {
+		return unexpectedPhysicalDeviceSetupOutput(runnerID, setupResult.Output)
+	}
+	originalStayAwake, ok := output["original_stay_awake"].(string)
+	if !ok || strings.TrimSpace(originalStayAwake) == "" ||
+		!workflowengine.AsBool(output["screen_prepared"]) {
+		return unexpectedPhysicalDeviceSetupOutput(runnerID, setupResult.Output)
+	}
+
+	deviceMap["screen_prepared"] = true
+	deviceMap["original_stay_awake"] = originalStayAwake
+	return nil
+}
+
+func unexpectedPhysicalDeviceSetupOutput(runnerID string, output any) error {
+	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+	return workflowengine.NewAppError(
+		workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: fmt.Sprintf("invalid physical device setup response for runner %s", runnerID),
+			Details: map[string]any{"payload": output},
+		},
+	)
 }
 
 func isSpecialMobileInstallStep(step *pipeline.StepDefinition) bool {
@@ -1785,6 +1851,8 @@ func cleanupDevice(
 		"apk_packages":           packages,
 		"initial_installed_apps": initialInstalledApps,
 		"reenable_play_store":    reenablePlayStore,
+		"manage_screen":          workflowengine.AsBool(deviceMap["screen_prepared"]),
+		"original_stay_awake":    workflowengine.AsString(deviceMap["original_stay_awake"]),
 	}
 
 	if err := workflow.ExecuteActivity(
@@ -1968,6 +2036,9 @@ func shouldRunDeviceCleanup(
 		return true
 	}
 	if reenablePlayStore || len(packages) > 0 || len(initialInstalledApps) > 0 {
+		return true
+	}
+	if workflowengine.AsBool(deviceMap["screen_prepared"]) {
 		return true
 	}
 	return workflowengine.AsBool(deviceMap["recording"])

@@ -23,23 +23,23 @@ func mobileAutomationDisabledError() workflowengine.ActivityError {
 	}
 }
 
-type StartEmulatorActivity struct {
+type SetupMobileDeviceActivity struct {
 	workflowengine.BaseActivity
 }
 
-func NewStartEmulatorActivity() *StartEmulatorActivity {
-	return &StartEmulatorActivity{
+func NewSetupMobileDeviceActivity() *SetupMobileDeviceActivity {
+	return &SetupMobileDeviceActivity{
 		BaseActivity: workflowengine.BaseActivity{
 			Name: "Setup mobile device",
 		},
 	}
 }
 
-func (a *StartEmulatorActivity) Name() string {
+func (a *SetupMobileDeviceActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
-func (a *StartEmulatorActivity) Execute(
+func (a *SetupMobileDeviceActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {

@@ -17,7 +17,7 @@ import (
 
 func TestMobileFlowStubActivities(t *testing.T) {
 	tests := []workflowengine.ExecutableActivity{
-		NewStartEmulatorActivity(),
+		NewSetupMobileDeviceActivity(),
 		NewApkInstallActivity(),
 		NewApkPostInstallChecksActivity(),
 		NewUnlockEmulatorActivity(),
