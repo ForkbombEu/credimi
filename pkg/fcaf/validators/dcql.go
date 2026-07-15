@@ -158,7 +158,10 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		if !isEmptyDCQLValue(responseValue) {
 			return Result{Status: StatusFail, Message: "wallet returned a vp_token for a query missing credential_sets.options"}
 		}
-		return Result{Status: StatusPass, Message: "wallet rejected credential_sets without options"}
+		if errorValue != "invalid_request" {
+			return Result{Status: StatusFail, Message: "wallet did not return invalid_request for a query missing credential_sets.options"}
+		}
+		return Result{Status: StatusPass, Message: "wallet returned invalid_request for credential_sets without options"}
 	case "credential_sets_options_empty", "credential_sets_options_non_array", "credential_sets_options_valid_references", "credential_sets_options_invalid_references":
 		return validateCredentialSetsOptions(query, responseValue, params.Mode)
 	case "credential_sets_required_true_match", "credential_sets_required_true_no_match", "credential_sets_required_omitted", "credential_sets_required_false_with_match":

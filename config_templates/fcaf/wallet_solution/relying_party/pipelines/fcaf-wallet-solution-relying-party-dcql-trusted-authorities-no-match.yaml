@@ -39,7 +39,7 @@ steps:
         - clearState: com.android.chrome
         - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
         - runFlow: { file: unlock-wallet.yaml }
-        - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
         - runFlow: { file: choose-eudi-wallet.yaml }
         - extendedWaitUntil: { visible: "Welcome back|The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 100000 }
         - runFlow:

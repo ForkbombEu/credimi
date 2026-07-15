@@ -63,10 +63,10 @@ preconditions:
     pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-credential-sets-options-missing
     required_steps:
       - reject-missing-credential-sets-options
-      - fetch-result
+      - fetch-capture-session
     outputs:
       dcql_exchange:
-        path: $.output.fetch-result.outputs.body
+        path: $.output.fetch-capture-session.outputs.body
         decoder: raw
       visual_evidence:
         path: $.output.reject-missing-credential-sets-options.outputs.screenshot_urls
