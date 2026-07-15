@@ -660,3 +660,37 @@ implementation artifacts.
 Proposed change: merge the tests and choose one normative outcome, or explain
 the distinct protocol context that makes their expected results differ.
 ```
+
+### Issue 21: Define terminal authentication failure for protocol test 149
+
+Suggested title:
+
+```text
+clarify(wallet-rp): define authentication failure in protocol test 149
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages__149` requires the Wallet to return
+`error=access_denied` when end-user authentication fails, but it does not define
+which authentication event is terminal. A single invalid PIN, exhausting the
+PIN attempt limit, biometric mismatch, biometric lockout, and user cancellation
+have different lifecycle and security semantics. Expected-result step 4 is
+only `True.` and provides no observable requirement.
+
+The reference Android Wallet permits three consecutive invalid PIN attempts
+before a timed lockout. One invalid PIN displays `Invalid pin` and keeps the
+authorization interaction active; it does not submit an error response to the
+Verifier. Therefore a test that injects only one invalid attempt cannot both
+observe the defined authentication failure and require immediate
+`access_denied` without an explicit terminal-failure rule.
+
+Please define the authentication mechanism or fixture, number and type of
+failed attempts, terminal UI state, whether lockout must be reached, and the
+exact point at which the Wallet must terminate the authorization request and
+submit `access_denied`. The suite also needs a verifier web form or equivalent
+manual diagnostic surface that displays the submitted authorization error when
+this terminal state is exercised. Replace expected-result step 4 with those
+observable criteria.
+```

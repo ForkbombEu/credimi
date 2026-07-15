@@ -1,0 +1,36 @@
+appId: eu.europa.ec.euidi
+name: Fail authentication for an available DCQL credential
+tags: [fcaf, precondition, dcql, access-denied, authentication]
+---
+- clearState: com.android.chrome
+- launchApp: { stopApp: true, clearState: false }
+- runFlow: { file: unlock-wallet.yaml }
+- openLink: { link: "${DCQL_USER_AUTHENTICATION_FAILED_PRESENTATION_URL}", autoVerify: false, browser: false }
+- runFlow: { file: choose-eudi-wallet.yaml }
+- extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,40%" }
+      - tapOn: { text: "1", retryTapIfNoChange: false }
+      - tapOn: { text: "2", retryTapIfNoChange: false }
+      - tapOn: { text: "3", retryTapIfNoChange: false }
+      - tapOn: { text: "4", retryTapIfNoChange: false }
+      - tapOn: { text: "5", retryTapIfNoChange: false }
+      - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+- extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+- assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+- tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false }
+- assertVisible: "Given Name(s)"
+- takeScreenshot: fcaf-149-consent-screen-before-authentication
+- tapOn: "Share"
+- extendedWaitUntil: { visible: "PIN|To approve the transaction you need to verify your identity.", timeout: 30000 }
+- tapOn: { point: "11%,39%" }
+- inputText: "111111"
+- extendedWaitUntil: { visible: "Invalid pin", timeout: 30000 }
+- assertNotVisible: ".*successfully shared.*"
+- takeScreenshot: fcaf-149-user-authentication-failed
+- tapOn: "Go Back"
+- extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 30000 }
+- tapOn: "Go Back"
+- extendedWaitUntil: { visible: "Home|Welcome, .*", timeout: 30000 }

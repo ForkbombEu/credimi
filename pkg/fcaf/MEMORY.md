@@ -94,7 +94,7 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__149` is the next runnable mandatory
+`WS_RP_MS_ProtocolMessages__150` is the next runnable mandatory
 protocol-message candidate. Case 119 duplicates case 114, and cases 120-146
 are intentionally skipped where the required raw request or configurable
 verifier response cannot be produced by the public service.
@@ -177,6 +177,27 @@ Name(s)`, and `Go Back` returned the Wallet to Home. The Wallet sent no error
 response. Polling that exact verifier transaction returned HTTP 400 with an
 empty body. The reference Wallet therefore fails case 148; keep the strict
 protocol assertions.
+
+## Case 149
+
+149 uses a dedicated valid PID request, selects `Share`, and submits one known
+invalid PIN (`111111`) at the transaction-authentication screen. The flow
+requires the wallet's explicit `Invalid pin` state and captures it before any
+cleanup. It then returns through the request screen to Home so later pipelines
+start deterministically. Protocol evidence must omit `vp_token` and contain
+`error` exactly equal to `access_denied`.
+
+The 15/07/2026 reusable Maestro flow passed the UI portion on `emulator-5554`: the
+Wallet displayed the requested PID and `Given Name(s)`, reached the PIN screen
+after `Share`, and displayed `Invalid pin` after one failed attempt. It sent no
+error response; polling the same verifier transaction returned HTTP 400 with
+an empty body. This is partial evidence, not a conclusive case 149 execution:
+one invalid PIN is a failed attempt while the authentication interaction still
+allows retries. Completion needs a verifier web-form/manual flow that reaches a
+defined terminal authentication failure and exposes the submitted authorization
+error. The upstream scenario does not define whether one invalid attempt, terminal lockout,
+biometric failure, or cancellation constitutes failed authentication; this is
+tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 21.
 
 ## Case 118
 

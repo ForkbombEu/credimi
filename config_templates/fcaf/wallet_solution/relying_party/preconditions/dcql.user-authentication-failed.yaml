@@ -1,0 +1,9 @@
+id: pipeline.dcql.user-authentication-failed
+kind: pipeline
+description: Request an available PID credential and fail transaction authentication with an invalid PIN.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-user-authentication-failed
+required_steps: [fail-user-authentication, fetch-result]
+outputs:
+  wallet_response: { path: $.output.fetch-result.outputs.body, decoder: raw }
+  visual_evidence: { path: $.output.fail-user-authentication.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests
