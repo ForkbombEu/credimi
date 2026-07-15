@@ -42,7 +42,7 @@ tags:
           childOf:
             id: selectCountryForm
       - inputText: "F"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
       - scrollUntilVisible:
           element: "Given Name"
           speed: 5
@@ -52,7 +52,7 @@ tags:
           childOf:
             id: selectCountryForm
       - inputText: "N"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
       - scrollUntilVisible:
           element: "Country Code"
           speed: 10
@@ -62,7 +62,7 @@ tags:
           childOf:
             id: selectCountryForm
       - inputText: "IT"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
       - scrollUntilVisible:
           element: "Country"
           speed: 10
@@ -73,20 +73,20 @@ tags:
           childOf:
             id: selectCountryForm
       - inputText: "IT"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
       - tapOn:
           below: "Locality"
           above: "Region"
           childOf:
             id: selectCountryForm
       - inputText: "Rome"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
       - tapOn:
           below: "Region"
           childOf:
             id: selectCountryForm
       - inputText: "Lazio"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
       - scrollUntilVisible:
           element: "Confirm"
           direction: DOWN

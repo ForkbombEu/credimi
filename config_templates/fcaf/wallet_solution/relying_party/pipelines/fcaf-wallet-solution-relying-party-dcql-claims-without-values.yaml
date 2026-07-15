@@ -25,7 +25,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
         - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
         - openLink: { link: ${output.authorizationRequest}, autoVerify: false, browser: false }
@@ -43,13 +43,13 @@ steps:
             commands:
               - tapOn: { point: "11%,39%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
         - tapOn: "Share"
         - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
         - tapOn: { point: "11%,39%" }
         - inputText: "123456"
-        - hideKeyboard
+        - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
         - takeScreenshot: fcaf-116-claims-without-values
         - tapOn: "Close"

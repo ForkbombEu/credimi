@@ -44,11 +44,11 @@ tags:
       - tapOn:
           id: username
       - inputText: "${ISSUER_USERNAME}"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
       - tapOn:
           id: password
       - inputText: "${ISSUER_PASSWORD}"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
       - tapOn: "Sign In"
 - extendedWaitUntil:
     visible: "Non-Trusted Issuer|FormEU|Login|Get credentials|Review & Send|Close|Oups! Something went wrong|KeyError.*"

@@ -29,7 +29,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - evalScript: ${output.valuesValue = null}
         - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:'aki',values:output.valuesValue}]}]})}
         - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-092-null&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
@@ -42,7 +42,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-092-null
         - evalScript: ${output.valuesValue = true}
@@ -57,7 +57,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-092-true
         - evalScript: ${output.valuesValue = false}
@@ -72,7 +72,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-092-false
         - evalScript: ${output.valuesValue = 0}
@@ -87,7 +87,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-092-zero
         - evalScript: ${output.valuesValue = 73}
@@ -102,7 +102,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-092-number
         - evalScript: ${output.valuesValue = 'not-an-array'}
@@ -117,7 +117,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-092-string
         - evalScript: ${output.valuesValue = ({key:'value'})}
@@ -132,7 +132,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-092-object
 outputs:

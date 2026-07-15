@@ -12,7 +12,7 @@ tags: [fcaf, precondition, dcql]
     commands:
       - tapOn: { point: "11%,40%" }
       - inputText: "123456"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
 - waitForAnimationToEnd: { timeout: 5000 }
 - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request", timeout: 30000 }
 - takeScreenshot: fcaf-111-empty-claim-id-rejected

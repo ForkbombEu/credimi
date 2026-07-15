@@ -47,7 +47,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
-              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 30000 }
         - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
         - takeScreenshot: fcaf-dcql-trusted-authorities-no-match

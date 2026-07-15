@@ -18,7 +18,7 @@ tags: [fcaf, precondition, dcql, trusted-authorities]
     commands:
       - tapOn: { point: "11%,40%" }
       - inputText: "123456"
-      - hideKeyboard
+      - tapOn: { point: "50%,10%" }
 - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
 - takeScreenshot: fcaf-090-trusted-authorities-missing-values-rejected
 - back

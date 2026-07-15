@@ -173,7 +173,7 @@ steps:
         - tapOn:
             point: "11%,39%"
         - inputText: "123456"
-        - hideKeyboard
+        - tapOn: { point: "50%,10%" }
         - extendedWaitUntil:
             visible: ".*successfully shared.*"
             timeout: 30000
@@ -194,7 +194,7 @@ steps:
         - tapOn:
             point: "11%,39%"
         - inputText: "123456"
-        - hideKeyboard
+        - tapOn: { point: "50%,10%" }
         - extendedWaitUntil:
             visible: ".*successfully shared.*"
             timeout: 30000

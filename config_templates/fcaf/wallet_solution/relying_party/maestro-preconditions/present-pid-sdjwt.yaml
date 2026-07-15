@@ -59,7 +59,7 @@ tags:
 - tapOn:
     point: "11%,40%"
 - inputText: "123456"
-- hideKeyboard
+- tapOn: { point: "50%,10%" }
 - assertNotVisible:
     text: "Oups! Something went wrong"
 - extendedWaitUntil:
