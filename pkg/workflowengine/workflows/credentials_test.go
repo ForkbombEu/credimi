@@ -461,6 +461,69 @@ func TestCredentialsIssuersWorkflowStart(t *testing.T) {
 	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
 }
 
+func TestExtractSchemaValidationIssues(t *testing.T) {
+	workflowError := func(details map[string]any) error {
+		return workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errorcodes.Codes[errorcodes.SchemaValidationFailed].Code,
+			Summary: errorcodes.Codes[errorcodes.SchemaValidationFailed].Description,
+			Details: details,
+		})
+	}
+
+	t.Run("typed issues are enriched", func(t *testing.T) {
+		issues, err := extractSchemaValidationIssues(workflowError(map[string]any{
+			"issues": []activities.SchemaValidationIssue{
+				{Path: []string{"credential_configurations_supported", "cred-1"}},
+				{Path: []string{"credential_endpoint"}},
+			},
+		}), nil)
+		require.NoError(t, err)
+		require.Equal(t, "credential", issues[0].Scope)
+		require.Equal(t, "cred-1", issues[0].CredentialID)
+		require.Equal(t, "issuer", issues[1].Scope)
+	})
+
+	t.Run("map issues are normalized", func(t *testing.T) {
+		issues, err := extractSchemaValidationIssues(workflowError(map[string]any{
+			"issues": []any{
+				map[string]any{
+					"scope":         "ignored",
+					"credential_id": "ignored",
+					"field":         "format",
+					"path":          []any{"credential_configurations_supported", "cred-2"},
+					"message":       "invalid format",
+				},
+			},
+		}), nil)
+		require.NoError(t, err)
+		require.Equal(t, []activities.SchemaValidationIssue{{
+			Scope:        "credential",
+			CredentialID: "cred-2",
+			Field:        "format",
+			Path:         []string{"credential_configurations_supported", "cred-2"},
+			Message:      "invalid format",
+		}}, issues)
+	})
+
+	for _, test := range []struct {
+		name    string
+		details map[string]any
+		message string
+	}{
+		{name: "empty details", message: "schema validation details are empty"},
+		{name: "missing issues", details: map[string]any{"other": true}, message: "should contain normalized issues"},
+		{name: "issues are not a list", details: map[string]any{"issues": "invalid"}, message: "issues should be a list"},
+		{name: "issue is not a map", details: map[string]any{"issues": []any{"invalid"}}, message: "issue should be a map"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			issues, err := extractSchemaValidationIssues(workflowError(test.details), nil)
+			require.Error(t, err)
+			require.Nil(t, issues)
+			require.Contains(t, err.Error(), test.message)
+		})
+	}
+}
+
 func TestInvalidCredentialsFromSchemaValidationIssues(t *testing.T) {
 	issues := []activities.SchemaValidationIssue{
 		{

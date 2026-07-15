@@ -60,6 +60,56 @@ func (f fakeWorkflow) GetOptions() workflow.ActivityOptions {
 	return workflow.ActivityOptions{}
 }
 
+func TestSleepWithContext(t *testing.T) {
+	require.True(t, sleepWithContext(context.Background(), time.Millisecond))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.False(t, sleepWithContext(ctx, time.Hour))
+}
+
+func TestWorkerManagerRecordQueries(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	organizations, err := workerManagerAllOrganizationRecords(app)
+	require.NoError(t, err)
+	require.NotEmpty(t, organizations)
+
+	collection, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+	if collection.Fields.GetByName("admin_managed") == nil {
+		collection.Fields.Add(&core.BoolField{Name: "admin_managed"})
+		require.NoError(t, app.Save(collection))
+	}
+	newRunner := func(name, ip, port string, published, adminManaged bool) {
+		record := core.NewRecord(collection)
+		record.Set("owner", organizations[0].Id)
+		record.Set("name", name)
+		record.Set("canonified_name", name)
+		record.Set("type", "android_emulator")
+		record.Set("ip", ip)
+		record.Set("port", port)
+		record.Set("published", published)
+		record.Set("admin_managed", adminManaged)
+		require.NoError(t, app.Save(record))
+	}
+
+	newRunner("admin-runner", "https://admin.test/", "8080", false, true)
+	newRunner("published-runner", "https://published.test", "", true, false)
+	newRunner("empty-runner", " ", "", true, false)
+
+	adminURLs, err := WorkerManagerAdminRunnerURLs(app)
+	require.NoError(t, err)
+	require.Contains(t, adminURLs, "https://admin.test:8080")
+
+	publishedURLs, err := WorkerManagerPublishedNonAdminRunnerURLs(app)
+	require.NoError(t, err)
+	require.Contains(t, publishedURLs, "https://published.test")
+	require.NotContains(t, publishedURLs, "")
+}
+
 type fakeActivity struct {
 	name string
 }
@@ -269,7 +319,11 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 			t.Fatal("timeout waiting for start worker manager call")
 		}
 	}
-	require.Equal(t, []string{"https://admin.runner", "https://published.runner"}, gotManagers["default"])
+	require.Equal(
+		t,
+		[]string{"https://admin.runner", "https://published.runner"},
+		gotManagers["default"],
+	)
 	require.Equal(t, []string{"https://admin.runner"}, gotManagers["org-1"])
 
 	terminateErr := app.OnTerminate().Trigger(
