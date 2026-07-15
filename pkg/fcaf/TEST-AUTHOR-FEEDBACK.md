@@ -369,7 +369,7 @@ test(fcaf): provide raw mock-verifier support for malformed DCQL cases
 Suggested issue body:
 
 ```markdown
-FCAF cases 096–098, 100, 108, and 110–115 require the Wallet to receive DCQL that the
+FCAF cases 096–098, 100, 108, 110–115, and 120–123 require the Wallet to receive DCQL that the
 public verifier rejects before producing a signed request:
 
 - 096: `options` is missing
@@ -383,6 +383,10 @@ public verifier rejects before producing a signed request:
 - 113: a claim object omits the required `path`
 - 114: a claim `path` is an empty array
 - 115: a claim `path` is not an array
+- 120: a claim `path` array contains a Boolean
+- 121: a claim `path` array contains a negative integer
+- 122: a claim `path` is not an array; this duplicates case 115
+- 123: a claim `path` array contains an unsupported element such as Boolean
 
 The public `https://verifier-backend.eudiw.dev/ui/presentations` endpoint cannot
 exercise these cases. Its typed request decoder rejects them before a signed
@@ -398,6 +402,8 @@ request reaches the Wallet:
 - 113 fails during `ClaimsQuery` decoding because the required `path` field is missing.
 - 114 fails in `ClaimPath` deserialization because the path is empty.
 - 115 fails during `ClaimPath` decoding because an array was expected.
+- 120, 121, and 123 fail `ClaimPath` member validation before request creation.
+- 122 fails during `ClaimPath` decoding for the same reason as case 115.
 
 A direct by-value case 110 emulator probe reached the reference Wallet but
 silently returned to Home without showing `invalid_request` or an error page.
@@ -422,6 +428,81 @@ Without this service, these cases can only be statically validated and cannot be
 claimed as device-level Wallet conformance tests through the public verifier.
 ```
 
+### Issue 19: Provide controllable verifier response and error behavior
+
+Suggested title:
+
+```text
+test(fcaf): add configurable verifier response harness
+```
+
+Suggested issue body:
+
+```markdown
+FCAF cases 124-134, 136-145 cannot be implemented against
+the public reference verifier because they require behavior that its normal
+presentation endpoint does not expose:
+
+- 124: preserve an unknown parameter in the signed Authorization Request. A
+  live probe showed the public endpoint silently strips the submitted field.
+- 125: return HTTP 200 with a plain-text, non-JSON body after Wallet submission.
+- 126: return HTTP 400 with a JSON body after Wallet submission.
+- 127: return HTTP 200 JSON containing an unknown response parameter.
+- 128: combine an unknown signed request parameter with an unknown response
+  parameter.
+- 129-132: retain the raw compact JWE so its protected `kid`, `enc`, and payload
+  structure can be validated. The public poll endpoint returns only the
+  decrypted Wallet response transfer object.
+- 133-134: record the Wallet's HTTP method, content type, and exact form body at
+  the response_uri.
+- 136: send unsupported transaction_data and capture the Wallet error without
+  entering credential selection.
+- 137-139: send unknown, malformed, and empty scope values and capture an exact
+  invalid_scope response.
+- 140: repeat the empty-scope error and additionally prove the Wallet terminates
+  the session without further communication.
+- 141-145: serve each conflicting or invalid Authorization Request and capture
+  the exact invalid_request or invalid_client response.
+
+Please provide a transaction-correlated mock verifier that can create and sign
+custom Authorization Requests, configure response_uri HTTP status, content
+type, and body, capture Wallet protocol responses, and expose session-lifecycle
+events. UI return to Home is not sufficient evidence for these cases because
+their expected results require exact errors or response-processing behavior.
+
+Until that harness exists, these cases are intentionally marked missing in the
+Credimi implementation inventory. They are skipped implementations, not passing
+tests and not accepted interaction discontinuations.
+```
+
+### Issue 20: Define the supported transaction-data fixture for test 135
+
+Suggested title:
+
+```text
+clarify(wallet-rp): specify transaction data fixture for protocol test 135
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages_135` requires the Wallet to display and approve
+transaction data, then bind it through `transaction_data_hashes`, but the test
+does not identify a transaction-data `type`, required fields, or credential
+fixture that the Wallet is expected to support.
+
+This omission changes the semantics materially: an unsupported type belongs to
+negative case 136. The current Android wallet core 0.28.1 explicitly rejects
+all non-empty transaction_data before credential selection, so an arbitrary
+test object cannot exercise the positive case.
+
+Please define a normative or suite-local supported transaction-data object,
+the matching requested credential, the UI values that must be displayed, and
+the canonical bytes/hash algorithm used to verify transaction_data_hashes.
+Until then, case 135 is not portable and is marked missing rather than being
+implemented with an invented vendor-specific type.
+```
+
 ### Issue 14: Expose transaction diagnostics for successful request shapes
 
 Suggested title:
@@ -433,7 +514,7 @@ test(verifier): expose transaction diagnostics when Wallet returns no presentati
 Suggested issue body:
 
 ```markdown
-For valid claims-bearing DCQL requests in FCAF cases 105, 109, and 116, the reference
+For valid DCQL requests in FCAF cases 105, 109, 116, and 147, the reference
 Wallet accepts the request and PIN, then returns to Home without showing the
 consent or share screen. Case 109 specifically omits each claim `id` while also
 omitting `claim_sets`, as permitted by OID4VP section 6.3. The public verifier
@@ -444,7 +525,11 @@ Case 116 requests a claim with a valid `path` while omitting the optional
 `values` property. The public verifier also accepts this shape, but the Wallet
 does not display consent or produce a presentation.
 
-After the case 109 and 116 emulator attempts, the verifier transaction endpoint
+Case 147 requests a credential type absent from the Wallet. The Wallet displays
+its local unavailable-document screen, but `Go Back` does not submit the
+required `access_denied` error to the verifier.
+
+After the case 109, 116, and 147 emulator attempts, the verifier transaction endpoint
 returned HTTP 400 with an empty body. The failures therefore cannot be classified
 as request rejection, credential mismatch, Wallet discontinuation, or a
 request-routing failure.

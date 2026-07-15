@@ -94,9 +94,72 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__119` is the next mandatory protocol-message candidate,
-but it duplicates case 114's empty claim path scenario. See
-`TEST-AUTHOR-FEEDBACK.md` Issue 18 before implementing it.
+`WS_RP_MS_ProtocolMessages__148` is the next runnable mandatory
+protocol-message candidate. Case 119 duplicates case 114, and cases 120-146
+are intentionally skipped where the required raw request or configurable
+verifier response cannot be produced by the public service.
+
+## Mock-verifier skip queue
+
+Do not implement the following negative cases with the public reference
+verifier. Keep their inventory status at `missing` until a mock service can
+deliver the required request and capture the Wallet's actual protocol result:
+
+- 096-098, 100, 108, and 110-115: validators and YAML exist, but the public
+  verifier rejects each malformed DCQL shape before creating a signed request.
+  Keep them marked missing until their device-level execution can run.
+- 120-123: malformed claim-path members or shape. The public verifier's typed
+  request model rejects these before it can create a signed request. Case 122
+  also duplicates the partially implemented non-array path case 115.
+- 124: the public endpoint accepts an unknown field in its presentation-create
+  JSON but strips it from the signed Authorization Request. A live probe on
+  15/07/2026 confirmed `fcaf_unknown_parameter` was absent from the JWT.
+- 125-126: the verifier response endpoint must deliberately return either HTTP
+  200 with a non-JSON body or HTTP 400 with JSON after receiving the Wallet's
+  response.
+- 127-128: the response endpoint must return JSON containing an unknown
+  parameter, and case 128 also needs an unknown signed request parameter.
+- 129-132: the public result API returns only the decrypted Wallet response and
+  does not expose the compact JWE. Therefore `kid`, explicit/default `enc`, and
+  the original JWT payload structure cannot be asserted.
+- 133-134: proving the HTTP method, content type, and exact form body requires
+  capture at the Wallet-facing `response_uri`, which the public result API does
+  not expose.
+- 135: the source does not define a transaction-data type/fixture the Wallet is
+  expected to support. Wallet core 0.28.1 explicitly rejects every non-empty
+  `transaction_data`, so inventing a type would test case 136 instead.
+- 136: the verifier must issue unsupported `transaction_data` and capture the
+  Wallet error without opening credential selection.
+- 137-140: the verifier must send unknown, malformed, or empty scopes and
+  capture the exact `invalid_scope` response; case 140 must additionally prove
+  session termination.
+- 141-145: conflicting query/scope, missing query instructions, unsupported or
+  insecure client identifiers, and conflicting stored client metadata all need
+  custom signed requests plus exact Wallet error capture.
+- 146: the trusted-registry and locally stored verifier metadata state needed
+  to trigger `invalid_client` requires a stateful mock verifier/registry.
+
+These are implementation skips, not conformance passes or accepted
+discontinuations. See `TEST-AUTHOR-FEEDBACK.md` Issues 13 and 19.
+
+## Case 147
+
+147 reuses `pipeline.dcql.no-matching-credentials`, which requests the
+deliberately unavailable VCT `urn:credimi:fcaf:no-matching-test-credential`.
+The tightened mobile flow clears Chrome, unlocks before opening the request,
+requires the Wallet's unavailable-document screen, proves no requested-document
+row exists, captures visual evidence, and only then selects `Go Back`. The protocol
+assertions require no returned credential and an error value exactly equal to
+`access_denied`; Home or a screenshot alone cannot pass the case.
+
+The 15/07/2026 emulator run passed the UI portion: the reference Wallet showed
+`The requested document is not available in your EUDI Wallet`, rendered no
+credential row, left the Share control disabled, and allowed `Go Back`. It did
+not submit an error response. The public
+verifier poll returned HTTP 400 with an empty body because the transaction was
+not in Submitted state. The reference Wallet therefore fails case 147; do not
+weaken the exact `access_denied` assertion or treat the local error screen as a
+protocol response.
 
 ## Case 118
 
