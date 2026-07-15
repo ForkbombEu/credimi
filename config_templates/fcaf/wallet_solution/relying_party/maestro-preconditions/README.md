@@ -50,6 +50,7 @@ maestro --device emulator-5580 test all-preconditions.yaml \
   -e DCQL_CLAIMS_WITHOUT_ID_PRESENTATION_URL='<fresh claims-without-id request without claim_sets>' \
   -e DCQL_DUPLICATE_CLAIM_IDS_PRESENTATION_URL='<fresh signed request containing duplicate claim ids>' \
   -e DCQL_EMPTY_CLAIM_ID_PRESENTATION_URL='<fresh signed request containing an empty claim id>' \
+  -e DCQL_INVALID_CLAIM_ID_PRESENTATION_URL='<fresh signed request containing a forbidden claim id character>' \
   -e HAIP_VP_PRESENTATION_URL='<fresh haip-vp presentation request>' \
   -e DIRECT_POST_JWT_PRESENTATION_URL='<fresh direct_post.jwt PID mdoc request>' \
   -e REQUEST_URI_METHOD_POST_PRESENTATION_URL='<fresh request_uri_method=post PID mdoc request>' \
@@ -88,6 +89,7 @@ Maestro-backed preconditions:
 - `pipeline.dcql.claims-without-id-without-claim-sets`: `dcql-claims-without-id-without-claim-sets.yaml`
 - `pipeline.dcql.duplicate-claim-ids`: `dcql-duplicate-claim-ids.yaml`
 - `pipeline.dcql.empty-claim-id`: `dcql-empty-claim-id.yaml`
+- `pipeline.dcql.invalid-claim-id-characters`: `dcql-invalid-claim-id-characters.yaml`
 - `pipeline.dcql.claim-sets-empty`: `dcql-claim-sets-empty.yaml`
 - `pipeline.dcql.claim-sets-non-array`: `dcql-claim-sets-non-array.yaml`
 - `pipeline.dcql.same-credential-multiple-queries`: `dcql-same-credential-multiple-queries.yaml`

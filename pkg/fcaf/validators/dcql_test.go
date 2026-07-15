@@ -239,6 +239,14 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "")}}},
 			status:   StatusFail,
 		},
+		{name: "claim id containing dot is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given.name"), status: StatusPass},
+		{name: "claim id containing space is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given name"), status: StatusPass},
+		{name: "claim id containing colon is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given:name"), status: StatusPass},
+		{name: "claim id containing slash is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given/name"), status: StatusPass},
+		{name: "claim id containing non ASCII is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given_\u00e9"), status: StatusPass},
+		{name: "alphanumeric underscore and hyphen claim id is valid", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("Name_01-test"), status: StatusFail},
+		{name: "empty claim id is not the invalid character case", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence(""), status: StatusFail},
+		{name: "malformed claim id requires invalid request", mode: "invalid_claim_id_characters", evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "given.name")}}}, status: StatusFail},
 		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",
@@ -913,6 +921,13 @@ func credentialQueryWithClaimIDs(id string, claimIDs ...string) map[string]any {
 	}
 	credential["claims"] = claims
 	return credential
+}
+
+func malformedClaimIDEvidence(claimID string) map[string]any {
+	return map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", claimID)}},
+		"error":      "invalid_request",
+	}
 }
 
 func TestMatchesJSONType(t *testing.T) {

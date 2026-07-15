@@ -94,7 +94,13 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__112` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__113` is the next mandatory protocol-message candidate.
+
+## Case 112
+
+112 uses `invalid_claim_id_characters` to require a present non-empty claim `id` containing at least one character outside ASCII alphanumeric, underscore, and hyphen. Unit evidence covers dot, space, colon, slash, and non-ASCII input, plus the valid boundary `Name_01-test`. Passing evidence requires no `vp_token` and a real `error: invalid_request`.
+
+The public verifier rejected request creation with HTTP 400 in `DCQLId.ensureValid`, before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
 
 ## Case 111
 

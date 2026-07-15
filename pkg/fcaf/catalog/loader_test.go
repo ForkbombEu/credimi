@@ -65,7 +65,7 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 	cat, err := Load("../../../config_templates/fcaf/wallet_solution/relying_party")
 
 	require.NoError(t, err)
-	require.Len(t, cat.Tests, 198)
+	require.Len(t, cat.Tests, 199)
 	require.Contains(t, cat.Preconditions, "pipeline.pid.presentation.sdjwt.all-claims")
 	require.Contains(t, cat.Preconditions, "pipeline.pid.presentation.mdoc.all-claims-elements")
 	require.Contains(
@@ -92,7 +92,7 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 
 	selected, err := cat.ResolveSelectedTests(nil, "wallet_solution/relying_party", nil)
 	require.NoError(t, err)
-	require.Len(t, selected, 198)
+	require.Len(t, selected, 199)
 }
 
 func writeTestFile(t *testing.T, path string, content string) {
