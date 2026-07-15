@@ -102,6 +102,12 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 TODO: finish 105 emulator diagnosis with runner-accessible wallet logcat and verifier transaction evidence. Direct ADB logcat is currently blocked because the sandbox cannot start the ADB smartsocket daemon; Maestro MCP can still inspect and drive the emulator. The verifier transaction endpoint returned HTTP 400 with an empty body after the wallet interaction.
 
+## Case 106
+
+106 uses a dedicated PID claim path, `claim_that_does_not_exist`, and the `claims_path_no_match` validator proves that the request contains a non-empty claim path and returns no `vp_token`.
+
+Emulator evidence is incomplete: the verifier accepted the request, the Wallet accepted PIN `123456`, and then returned Home without consent or presentation. The verifier transaction endpoint returned HTTP 400 with an empty body. The source expects an observable `access_denied` response describing that no credentials match; current evidence proves only absence of a credential response. Keep this residual gap explicit until verifier diagnostics or protocol evidence are available.
+
 ## Parallel ownership
 
 Reserve one test ID per agent. Avoid simultaneous edits to:

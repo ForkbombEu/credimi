@@ -121,6 +121,18 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name: "unmatched claim path returns no credential",
+			mode: "claims_path_no_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
+					credential := validSDJWTCredentialQuery("pid")
+					credential["claims"] = []any{map[string]any{"path": []any{"claim_that_does_not_exist"}}}
+					return credential
+				}()}},
+			},
+			status: StatusPass,
+		},
+		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",
 			evidence: map[string]any{
