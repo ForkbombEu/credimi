@@ -247,6 +247,11 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 		{name: "alphanumeric underscore and hyphen claim id is valid", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("Name_01-test"), status: StatusFail},
 		{name: "empty claim id is not the invalid character case", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence(""), status: StatusFail},
 		{name: "malformed claim id requires invalid request", mode: "invalid_claim_id_characters", evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "given.name")}}}, status: StatusFail},
+		{name: "missing claim path is rejected", mode: "claim_path_missing", evidence: claimPathEvidence(false, nil, true), status: StatusPass},
+		{name: "null claim path is present", mode: "claim_path_missing", evidence: claimPathEvidence(true, nil, true), status: StatusFail},
+		{name: "empty claim path is present", mode: "claim_path_missing", evidence: claimPathEvidence(true, []any{}, true), status: StatusFail},
+		{name: "valid claim path is present", mode: "claim_path_missing", evidence: claimPathEvidence(true, []any{"given_name"}, true), status: StatusFail},
+		{name: "missing claim path requires invalid request", mode: "claim_path_missing", evidence: claimPathEvidence(false, nil, false), status: StatusFail},
 		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",
@@ -928,6 +933,24 @@ func malformedClaimIDEvidence(claimID string) map[string]any {
 		"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", claimID)}},
 		"error":      "invalid_request",
 	}
+}
+
+func claimPathEvidence(pathPresent bool, path any, withError bool) map[string]any {
+	claim := map[string]any{"id": "given_name"}
+	if pathPresent {
+		claim["path"] = path
+	}
+	evidence := map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
+			credential := validSDJWTCredentialQuery("pid")
+			credential["claims"] = []any{claim}
+			return credential
+		}()}},
+	}
+	if withError {
+		evidence["error"] = "invalid_request"
+	}
+	return evidence
 }
 
 func TestMatchesJSONType(t *testing.T) {

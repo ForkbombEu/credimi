@@ -34,6 +34,8 @@ tags:
 - runFlow:
     file: dcql-invalid-claim-id-characters.yaml
 - runFlow:
+    file: dcql-missing-claim-path.yaml
+- runFlow:
     file: dcql-claim-sets-empty.yaml
 - runFlow:
     file: dcql-claim-sets-non-array.yaml

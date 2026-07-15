@@ -39,6 +39,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"duplicate_claim_ids",
 		"empty_claim_id",
 		"invalid_claim_id_characters",
+		"claim_path_missing",
 		"credential_sets_options_missing",
 		"credential_sets_options_empty",
 		"credential_sets_options_non_array",
@@ -113,6 +114,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateEmptyClaimID(query, responseValue, errorValue)
 	case "invalid_claim_id_characters":
 		return validateInvalidClaimIDCharacters(query, responseValue, errorValue)
+	case "claim_path_missing":
+		return validateMissingClaimPath(query, responseValue, errorValue)
 	case "credential_sets_options_missing":
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
@@ -1266,4 +1269,41 @@ func validateInvalidClaimIDCharacters(query map[string]any, responseValue any, e
 		return Result{Status: StatusFail, Message: "wallet did not return invalid_request for a malformed claim id"}
 	}
 	return Result{Status: StatusPass, Message: "wallet rejected a malformed claim id with invalid_request"}
+}
+
+func validateMissingClaimPath(query map[string]any, responseValue any, errorValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	foundMissing := false
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		for claimIndex, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", credentialIndex, claimIndex)}
+			}
+			if _, exists := claim["path"]; !exists {
+				foundMissing = true
+			}
+		}
+	}
+	if !foundMissing {
+		return Result{Status: StatusFail, Message: "no claim is missing path"}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a credential for a claim missing path"}
+	}
+	if errorText, _ := errorValue.(string); errorText != "invalid_request" {
+		return Result{Status: StatusFail, Message: "wallet did not return invalid_request for a claim missing path"}
+	}
+	return Result{Status: StatusPass, Message: "wallet rejected a claim missing path with invalid_request"}
 }

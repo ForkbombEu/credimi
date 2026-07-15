@@ -94,7 +94,13 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__113` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__114` is the next mandatory protocol-message candidate.
+
+## Case 113
+
+113 uses `claim_path_missing` to prove a claim object omits the `path` property. It explicitly distinguishes absence from present `null`, empty-array, and valid path values. Passing evidence requires no `vp_token` and a real `error: invalid_request`.
+
+The public verifier rejected request creation with HTTP 400 while decoding `ClaimsQuery` because `path` is required, before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
 
 ## Case 112
 

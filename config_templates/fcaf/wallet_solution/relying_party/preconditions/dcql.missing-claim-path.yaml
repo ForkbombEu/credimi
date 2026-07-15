@@ -1,0 +1,5 @@
+id: pipeline.dcql.missing-claim-path
+kind: pipeline
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-missing-claim-path
+required_steps: [reject-missing-claim-path, fetch-result]
+outputs: { dcql_exchange: { path: $.output.fetch-result.outputs.body, decoder: raw }, visual_evidence: { path: $.output.reject-missing-claim-path.outputs.screenshot_urls, decoder: raw } }
