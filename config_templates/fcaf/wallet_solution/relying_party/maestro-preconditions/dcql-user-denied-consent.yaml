@@ -1,0 +1,32 @@
+appId: eu.europa.ec.euidi
+name: Deny consent for an available DCQL credential
+tags: [fcaf, precondition, dcql, access-denied]
+---
+- clearState: com.android.chrome
+- launchApp: { stopApp: true, clearState: false }
+- runFlow: { file: unlock-wallet.yaml }
+- openLink: { link: "${DCQL_USER_DENIED_CONSENT_PRESENTATION_URL}", autoVerify: false, browser: false }
+- runFlow: { file: choose-eudi-wallet.yaml }
+- extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,40%" }
+      - tapOn: { text: "1", retryTapIfNoChange: false }
+      - tapOn: { text: "2", retryTapIfNoChange: false }
+      - tapOn: { text: "3", retryTapIfNoChange: false }
+      - tapOn: { text: "4", retryTapIfNoChange: false }
+      - tapOn: { text: "5", retryTapIfNoChange: false }
+      - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+- extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+- assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+- tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false }
+- assertVisible: "Given Name(s)"
+- takeScreenshot: fcaf-148-consent-screen-before-denial
+- tapOn: "Go Back"
+- runFlow:
+    when: { visible: "Cancel the process|Are you sure" }
+    commands:
+      - tapOn: { text: "Cancel|Yes|Confirm", index: 1 }
+- extendedWaitUntil: { visible: "Home|Welcome, .*|Oups! Something went wrong", timeout: 30000 }
+- takeScreenshot: fcaf-148-after-consent-denial

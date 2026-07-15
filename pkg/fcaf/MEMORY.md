@@ -94,7 +94,7 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__148` is the next runnable mandatory
+`WS_RP_MS_ProtocolMessages__149` is the next runnable mandatory
 protocol-message candidate. Case 119 duplicates case 114, and cases 120-146
 are intentionally skipped where the required raw request or configurable
 verifier response cannot be produced by the public service.
@@ -160,6 +160,23 @@ verifier poll returned HTTP 400 with an empty body because the transaction was
 not in Submitted state. The reference Wallet therefore fails case 147; do not
 weaken the exact `access_denied` assertion or treat the local error screen as a
 protocol response.
+
+## Case 148
+
+148 uses a dedicated valid PID request and requires the Wallet to reach the
+consent screen before the user explicitly denies consent. In wallet version
+2026.06.38, the denial control has accessibility label `Go Back`; there is no
+visible `Cancel` label and no confirmation dialog. Visual evidence is captured
+both before and after denial. Protocol evidence must omit `vp_token` and contain
+`error` exactly equal to `access_denied`; returning Home without a submitted
+verifier response cannot pass.
+
+The 15/07/2026 Maestro run passed the UI portion on `emulator-5554`: a valid PID
+request reached `DATA SHARING REQUEST`, the first PID accordion exposed `Given
+Name(s)`, and `Go Back` returned the Wallet to Home. The Wallet sent no error
+response. Polling that exact verifier transaction returned HTTP 400 with an
+empty body. The reference Wallet therefore fails case 148; keep the strict
+protocol assertions.
 
 ## Case 118
 

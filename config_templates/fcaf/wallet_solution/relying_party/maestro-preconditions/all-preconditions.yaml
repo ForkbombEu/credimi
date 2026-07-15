@@ -16,6 +16,8 @@ tags:
 - runFlow:
     file: dcql-no-matching-credentials.yaml
 - runFlow:
+    file: dcql-user-denied-consent.yaml
+- runFlow:
     file: dcql-claim-sets.yaml
 - runFlow:
     file: dcql-holder-binding-type-boundary.yaml

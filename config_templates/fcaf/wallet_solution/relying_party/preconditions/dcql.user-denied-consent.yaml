@@ -1,0 +1,9 @@
+id: pipeline.dcql.user-denied-consent
+kind: pipeline
+description: Request an available PID credential and explicitly deny consent.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-user-denied-consent
+required_steps: [deny-consent, fetch-result]
+outputs:
+  wallet_response: { path: $.output.fetch-result.outputs.body, decoder: raw }
+  visual_evidence: { path: $.output.deny-consent.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests
