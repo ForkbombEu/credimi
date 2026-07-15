@@ -36,6 +36,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"claims_values_no_match",
 		"claim_id_missing_with_claim_sets",
 		"claims_without_id_without_claim_sets",
+		"duplicate_claim_ids",
 		"credential_sets_options_missing",
 		"credential_sets_options_empty",
 		"credential_sets_options_non_array",
@@ -104,6 +105,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateMissingClaimIDWithClaimSets(query, responseValue)
 	case "claims_without_id_without_claim_sets":
 		return validateClaimsWithoutIDWithoutClaimSets(query, responseValue)
+	case "duplicate_claim_ids":
+		return validateDuplicateClaimIDs(query, responseValue, errorValue)
 	case "credential_sets_options_missing":
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
@@ -1124,4 +1127,47 @@ func validateClaimsWithoutIDWithoutClaimSets(query map[string]any, responseValue
 		}
 	}
 	return Result{Status: StatusPass, Message: "wallet matched claims without ids when claim_sets was absent"}
+}
+
+func validateDuplicateClaimIDs(query map[string]any, responseValue any, errorValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	foundDuplicate := false
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		seen := make(map[string]struct{}, len(claims))
+		for claimIndex, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", credentialIndex, claimIndex)}
+			}
+			id, ok := claim["id"].(string)
+			if !ok || id == "" {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].id is not a non-empty string", credentialIndex, claimIndex)}
+			}
+			if _, exists := seen[id]; exists {
+				foundDuplicate = true
+			}
+			seen[id] = struct{}{}
+		}
+	}
+	if !foundDuplicate {
+		return Result{Status: StatusFail, Message: "no credential claims array contains a duplicate id"}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a credential for duplicate claim ids"}
+	}
+	if errorText, _ := errorValue.(string); errorText != "invalid_request" {
+		return Result{Status: StatusFail, Message: "wallet did not return invalid_request for duplicate claim ids"}
+	}
+	return Result{Status: StatusPass, Message: "wallet rejected duplicate claim ids with invalid_request"}
 }

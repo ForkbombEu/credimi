@@ -1,0 +1,11 @@
+id: WS_RP_MS_ProtocolMessages__110
+title: Reject duplicate claim ids within one claims array.
+source: { path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__110.md }
+suite: { sut: wallet_solution, role: relying_party, section: message_structure.protocol_messages }
+normative_references: [{ title: OpenID for Verifiable Presentations 1.0, section: "6.3, 8.5", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }]
+preconditions: [{ ref: pipeline.dcql.duplicate-claim-ids }]
+evidence: { dcql_exchange: { from: pipeline.dcql.duplicate-claim-ids.outputs.dcql_exchange }, visual_evidence: { from: pipeline.dcql.duplicate-claim-ids.outputs.visual_evidence } }
+assertions:
+  - { id: duplicate_claim_ids_are_rejected, validator: dcql.response_satisfies_constraints, input: evidence.dcql_exchange, params: { mode: duplicate_claim_ids } }
+  - { id: rejection_is_visible, validator: evidence.non_empty, input: evidence.visual_evidence }
+verdict: { pass_when: all_assertions_pass }

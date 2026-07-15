@@ -94,7 +94,15 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__110` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__111` is the next mandatory protocol-message candidate.
+
+## Case 110
+
+110 uses `duplicate_claim_ids` to require two claims in the same credential query to repeat a non-empty `id`, no `vp_token`, and a real `invalid_request` response. A duplicated ID across separate credential queries is explicitly not treated as this malformed case.
+
+The public verifier rejected the probe with HTTP 400 before request creation: `CredentialQuery.ensureUniqueIds` reported that the same claims ID must not occur more than once. Device-level execution therefore requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13. The reusable Maestro flow accepts a signed mock-verifier deep link through `DCQL_DUPLICATE_CLAIM_IDS_PRESENTATION_URL`.
+
+The direct by-value emulator probe reached the reference Wallet but displayed no error page; after processing, the Wallet was on Home. This is a failed case 110 result because the source explicitly requires `invalid_request`; discontinuation is not an accepted alternative. The Maestro flow therefore requires an error UI and fails on Home, while the validator independently requires the mock verifier to capture an actual `error: invalid_request` response and rejects evidence that only lacks a `vp_token`.
 
 ## Case 109
 

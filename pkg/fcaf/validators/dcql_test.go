@@ -6,6 +6,7 @@ package validators
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -182,6 +183,36 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			name:     "accepted request must return a presentation",
 			mode:     "claims_without_id_without_claim_sets",
 			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}}},
+			status:   StatusFail,
+		},
+		{
+			name:     "duplicate claim ids are rejected",
+			mode:     "duplicate_claim_ids",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "name")}}, "error": "invalid_request"},
+			status:   StatusPass,
+		},
+		{
+			name:     "unrelated singleton claims array remains valid evidence",
+			mode:     "duplicate_claim_ids",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid-a", "name", "name"), credentialQueryWithClaimIDs("pid-b", "birth_date")}}, "error": "invalid_request"},
+			status:   StatusPass,
+		},
+		{
+			name:     "claim ids are scoped to one claims array",
+			mode:     "duplicate_claim_ids",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid-a", "name", "family_name"), credentialQueryWithClaimIDs("pid-b", "name", "birth_date")}}, "error": "invalid_request"},
+			status:   StatusFail,
+		},
+		{
+			name:     "unique claim ids are not the malformed case",
+			mode:     "duplicate_claim_ids",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "family_name")}}, "error": "invalid_request"},
+			status:   StatusFail,
+		},
+		{
+			name:     "duplicate claim ids require invalid request",
+			mode:     "duplicate_claim_ids",
+			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "name")}}},
 			status:   StatusFail,
 		},
 		{
@@ -844,6 +875,19 @@ func validSDJWTCredentialQuery(id string) map[string]any {
 func credentialQueryWithMultiple(id string, multiple bool) map[string]any {
 	credential := validSDJWTCredentialQuery(id)
 	credential["multiple"] = multiple
+	return credential
+}
+
+func credentialQueryWithClaimIDs(id string, claimIDs ...string) map[string]any {
+	credential := validSDJWTCredentialQuery(id)
+	claims := make([]any, 0, len(claimIDs))
+	for index, claimID := range claimIDs {
+		claims = append(claims, map[string]any{
+			"id":   claimID,
+			"path": []any{fmt.Sprintf("claim_%d", index)},
+		})
+	}
+	credential["claims"] = claims
 	return credential
 }
 
