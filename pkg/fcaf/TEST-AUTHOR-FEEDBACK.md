@@ -473,3 +473,40 @@ and required by this scenario is `invalid_request`.
 Proposed change: replace `invalid request_error` with `invalid_request` and
 format it as a protocol literal.
 ```
+
+### Issue 16: Clarify the distinction between protocol tests 087 and 117
+
+Suggested title:
+
+```text
+clarify(wallet-rp): distinguish multi-query tests 087 and 117
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages__087` and `WS_RP_MS_ProtocolMessages__117` can be
+implemented with the same DCQL request: two credential query objects, both
+matching one stored PID, with `credential_sets` omitted.
+
+Test 087 focuses on whether two separate queries may be satisfied by the same
+stored credential. Test 117 focuses on the default AND semantics when
+`credential_sets` is absent: every credential query is mandatory. The current
+scenarios do not state what evidence distinguishes these obligations.
+
+Proposed changes:
+
+- In 087, explicitly require both response entries to be derived from the same
+  stored credential and define how that fact can be evidenced.
+- In 117, explicitly require two distinct query IDs, omission of
+  `credential_sets`, both query IDs in the `vp_token`, and one consent bundle
+  that includes both requested entries.
+- State whether 117 requires two distinct stored credentials or only two
+  credential query objects. The current wording alternates between
+  "credentials" as query objects and Credentials stored in the Wallet.
+
+Observed reference-wallet behavior for 117 was one consent screen containing
+two PID rows for two distinct query IDs. Expanding one row expanded both rows,
+and each exposed the requested `Given Name(s)` claim. One Share/PIN interaction
+produced a successful response containing both query IDs.
+```

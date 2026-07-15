@@ -94,7 +94,36 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__117` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__118` is the next mandatory protocol-message candidate.
+
+## Case 117
+
+117 uses two distinct credential query IDs and omits `credential_sets`. The
+existing `without_credential_sets` validator checks that the property is absent
+and that the Wallet returns a non-empty presentation for every query ID; focused
+unit cases prove that omitting either response entry fails. Maestro requires two
+requested-document entries in one consent screen, expands both before sharing,
+and expands both result entries after one Share/PIN interaction.
+
+The request uses two distinct query IDs with the same PID `given_name` claim
+constraint, and both may be satisfied by the same stored PID. Whether the upstream scenario instead
+requires two distinct stored Credentials is ambiguous and is tracked in
+`TEST-AUTHOR-FEEDBACK.md` Issue 16.
+
+The reference-wallet Maestro run passed end to end on `emulator-5554`. The
+post-link PIN must be entered digit by digit with zero settle time on the sixth
+digit; otherwise Maestro waits through the short-lived request-screen
+transition and observes Home. The Wallet displayed two PID request rows. One
+tap on the first document expands both rows because their accordion state is
+shared; both exposed `Given Name(s)` with value `Filippo`. After one Share/PIN
+interaction, the success screen contained two document rows, both expanded by
+one tap and both exposing `Given Name(s)`. The verifier returned HTTP 200 with
+non-empty `pid-given-name` and `pid-given-name-copy` entries in `vp_token`.
+
+The Wallet contains multiple matching PID instances and returned multiple
+presentations under each query ID. Case 117 establishes the missing
+`credential_sets` all-query requirement; cardinality when `multiple` is omitted
+remains covered separately by case 071.
 
 ## Case 116
 

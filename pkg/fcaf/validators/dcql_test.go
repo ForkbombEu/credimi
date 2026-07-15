@@ -283,6 +283,31 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name: "all credential queries matched without credential sets",
+			mode: "without_credential_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid-given-name"), validSDJWTCredentialQuery("pid-given-name-copy")},
+				},
+				"vp_token": map[string]any{
+					"pid-given-name":      []any{"given-name-presentation"},
+					"pid-given-name-copy": []any{"given-name-copy-presentation"},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "missing one credential query presentation without credential sets",
+			mode: "without_credential_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid-given-name"), validSDJWTCredentialQuery("pid-given-name-copy")},
+				},
+				"vp_token": map[string]any{"pid-given-name": []any{"given-name-presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "credentials matched without trusted authorities",
 			mode: "without_trusted_authorities",
 			evidence: map[string]any{

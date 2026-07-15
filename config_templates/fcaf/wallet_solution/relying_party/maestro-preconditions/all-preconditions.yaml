@@ -42,6 +42,8 @@ tags:
 - runFlow:
     file: dcql-claims-without-values.yaml
 - runFlow:
+    file: dcql-all-credentials-without-credential-sets.yaml
+- runFlow:
     file: dcql-claim-sets-empty.yaml
 - runFlow:
     file: dcql-claim-sets-non-array.yaml
