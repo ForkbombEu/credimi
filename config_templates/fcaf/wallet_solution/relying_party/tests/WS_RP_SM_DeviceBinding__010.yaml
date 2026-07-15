@@ -1,0 +1,38 @@
+id: WS_RP_SM_DeviceBinding__010
+title: Identify the proof-of-possession key through the SD-JWT VC cnf claim.
+source:
+  path: SecurityMechanisms/DeviceBinding/WS_RP_SM_DeviceBinding__010.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: security_mechanisms.device_binding
+applicability:
+  profile: EUDI_generic
+  credential_format: ietf_sd_jwt_vc
+normative_references:
+  - title: OpenID4VC High Assurance Interoperability Profile
+    section: "6.1"
+    url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+  - title: Proof-of-Possession Key Semantics for JSON Web Tokens
+    section: "3"
+    url: https://www.rfc-editor.org/rfc/rfc7800.html
+  - title: SD-JWT-based Verifiable Credentials
+    section: "3.2.2.2"
+    url: https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc
+preconditions:
+  - ref: pipeline.pid.presentation.sdjwt.all-claims
+  - ref: assertion.pid.presentation.sdjwt.vct-pid
+evidence:
+  pid_sdjwt_presentations:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt_presentations
+  visual_evidence:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.visual_evidence
+assertions:
+  - id: every_cnf_identifies_exactly_one_proof_of_possession_key
+    validator: sdjwt.cnf_conforms
+    input: evidence.pid_sdjwt_presentations
+  - id: presentation_has_visual_evidence
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass
