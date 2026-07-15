@@ -30,26 +30,25 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
-	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestParsePaginationParamsPipelineResults(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/?limit=5&offset=2", nil)
-	limit, offset := parsePaginationParams(&core.RequestEvent{
+func TestParsePageParamsPipelineResults(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/?limit=5&page=2&offset=9", nil)
+	limit, page := parsePageParams(&core.RequestEvent{
 		Event: router.Event{Request: req},
 	}, 20, 0)
 	require.Equal(t, 5, limit)
-	require.Equal(t, 2, offset)
+	require.Equal(t, 2, page)
 
 	req = httptest.NewRequest(http.MethodGet, "/?limit=-1&offset=bad", nil)
-	limit, offset = parsePaginationParams(&core.RequestEvent{
+	limit, page = parsePageParams(&core.RequestEvent{
 		Event: router.Event{Request: req},
 	}, 20, 0)
 	require.Equal(t, 20, limit)
-	require.Equal(t, 0, offset)
+	require.Equal(t, 0, page)
 }
 
 func TestEscapeTemporalQueryValue(t *testing.T) {
@@ -236,7 +235,7 @@ func TestBuildWorkflowExecutionSummaryDuration(t *testing.T) {
 		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	}
 
-	summary := buildWorkflowExecutionSummary(exec, nil)
+	summary := buildWorkflowExecutionSummary(context.Background(), exec, nil)
 	require.NotNil(t, summary)
 	require.Equal(t, "Completed", summary.Status)
 	require.Equal(t, "1h 2m 3s", summary.Duration)
@@ -278,64 +277,102 @@ func TestBuildWorkflowExecutionSummaryFailureReason(t *testing.T) {
 		Status:    "WORKFLOW_EXECUTION_STATUS_FAILED",
 	}
 
-	summary := buildWorkflowExecutionSummary(exec, mockClient)
+	summary := buildWorkflowExecutionSummary(context.Background(), exec, mockClient)
 	require.NotNil(t, summary)
 	require.NotNil(t, summary.FailureReason)
 	require.Equal(t, "boom", *summary.FailureReason)
 }
 
-func TestFetchCompletedWorkflowsWithPaginationLimitZero(t *testing.T) {
+func TestListPipelineExecutionHistoryLimitZero(t *testing.T) {
 	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
-	pipelineMap := map[string]*core.Record{pipelineRecord.Id: pipelineRecord}
-
-	summaries, apiErr := fetchCompletedWorkflowsWithPagination(
-		&core.RequestEvent{App: app, Auth: authRecord},
-		pipelineMap,
-		"ns-1",
-		authRecord,
-		pipelineRecord.GetString("owner"),
-		"",
-		"",
-		0,
-		0,
-		nil,
+	summaries, err := listPipelineExecutionHistory(
+		context.Background(),
+		pipelineExecutionHistoryRequest{
+			App:            app,
+			Namespace:      "ns-1",
+			OwnerID:        pipelineRecord.GetString("owner"),
+			UserTimezone:   authRecord.GetString("Timezone"),
+			PipelineRecord: pipelineRecord,
+			Limit:          0,
+		},
 	)
-	require.Nil(t, apiErr)
+	require.NoError(t, err)
 	require.Empty(t, summaries)
 }
 
-func TestFetchCompletedWorkflowsWithPaginationClientError(t *testing.T) {
+func TestListPipelineExecutionHistoryTemporalError(t *testing.T) {
 	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
-	restore := installPipelineResultsSeams(t)
-	t.Cleanup(restore)
-
-	pipelineResultsTemporalClient = func(string) (client.Client, error) {
-		return nil, errors.New("no client")
-	}
-
-	pipelineMap := map[string]*core.Record{pipelineRecord.Id: pipelineRecord}
-
-	_, apiErr := fetchCompletedWorkflowsWithPagination(
-		&core.RequestEvent{App: app, Auth: authRecord},
-		pipelineMap,
-		"ns-1",
-		authRecord,
-		pipelineRecord.GetString("owner"),
-		"",
-		"",
-		1,
-		0,
-		nil,
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ListWorkflow", mock.Anything, mock.Anything).Return(
+		(*workflowservice.ListWorkflowExecutionsResponse)(nil),
+		errors.New("list failed"),
 	)
-	require.NotNil(t, apiErr)
-	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+
+	_, err := listPipelineExecutionHistory(
+		context.Background(),
+		pipelineExecutionHistoryRequest{
+			App:            app,
+			TemporalClient: mockClient,
+			Namespace:      "ns-1",
+			OwnerID:        pipelineRecord.GetString("owner"),
+			UserTimezone:   authRecord.GetString("Timezone"),
+			PipelineRecord: pipelineRecord,
+			Limit:          1,
+		},
+	)
+	require.ErrorContains(t, err, "list pipeline workflows")
 }
 
-func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
+func TestListPipelineExecutionHistoryReturnsChildQueryError(t *testing.T) {
+	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	defer app.Cleanup()
+	pipelineIdentifier := pipelineIdentifierForTest(t, app, pipelineRecord)
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.On(
+		"ListWorkflow",
+		mock.Anything,
+		mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+			return !strings.Contains(req.GetQuery(), "ParentWorkflowId")
+		}),
+	).Return(&workflowservice.ListWorkflowExecutionsResponse{
+		Executions: []*workflow.WorkflowExecutionInfo{
+			buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier),
+		},
+	}, nil).Once()
+	mockClient.On(
+		"ListWorkflow",
+		mock.Anything,
+		mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+			return strings.Contains(req.GetQuery(), "ParentWorkflowId")
+		}),
+	).Return(
+		(*workflowservice.ListWorkflowExecutionsResponse)(nil),
+		errors.New("children unavailable"),
+	).Once()
+
+	_, err := listPipelineExecutionHistory(
+		context.Background(),
+		pipelineExecutionHistoryRequest{
+			App:                app,
+			TemporalClient:     mockClient,
+			Namespace:          "ns-1",
+			OwnerID:            pipelineRecord.GetString("owner"),
+			UserTimezone:       authRecord.GetString("Timezone"),
+			PipelineRecord:     pipelineRecord,
+			PipelineIdentifier: pipelineIdentifier,
+			Limit:              1,
+		},
+	)
+	require.ErrorContains(t, err, "list child workflows")
+	mockClient.AssertExpectations(t)
+}
+
+func TestListPipelineExecutionHistoryFilters(t *testing.T) {
 	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
@@ -402,25 +439,21 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 		Return(&fakeHistoryIterator{events: []*historypb.HistoryEvent{}}).
 		Maybe()
 
-	pipelineResultsTemporalClient = func(string) (client.Client, error) {
-		return mockClient, nil
-	}
-
-	pipelineMap := map[string]*core.Record{pipelineRecord.Id: pipelineRecord}
-
-	summaries, apiErr := fetchCompletedWorkflowsWithPagination(
-		&core.RequestEvent{App: app, Auth: authRecord},
-		pipelineMap,
-		"ns-1",
-		authRecord,
-		orgID,
-		"",
-		"Completed",
-		2,
-		0,
-		nil,
+	summaries, err := listPipelineExecutionHistory(
+		context.Background(),
+		pipelineExecutionHistoryRequest{
+			App:                app,
+			TemporalClient:     mockClient,
+			Namespace:          "ns-1",
+			OwnerID:            orgID,
+			UserTimezone:       authRecord.GetString("Timezone"),
+			PipelineRecord:     pipelineRecord,
+			PipelineIdentifier: pipelineIdentifier,
+			StatusFilter:       "Completed",
+			Limit:              2,
+		},
 	)
-	require.Nil(t, apiErr)
+	require.NoError(t, err)
 	require.Len(t, summaries, 2)
 	for _, summary := range summaries {
 		require.Equal(t, pipelineIdentifier, summary.PipelineIdentifier)
@@ -428,7 +461,7 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 	}
 }
 
-func TestFetchCompletedWorkflowsWithPaginationSortsByParsedStartTime(t *testing.T) {
+func TestListPipelineExecutionHistorySortsByParsedStartTime(t *testing.T) {
 	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
@@ -497,31 +530,27 @@ func TestFetchCompletedWorkflowsWithPaginationSortsByParsedStartTime(t *testing.
 		Return(&fakeHistoryIterator{events: []*historypb.HistoryEvent{}}).
 		Maybe()
 
-	pipelineResultsTemporalClient = func(string) (client.Client, error) {
-		return mockClient, nil
-	}
-
-	pipelineMap := map[string]*core.Record{pipelineRecord.Id: pipelineRecord}
-
-	summaries, apiErr := fetchCompletedWorkflowsWithPagination(
-		&core.RequestEvent{App: app, Auth: authRecord},
-		pipelineMap,
-		"ns-1",
-		authRecord,
-		orgID,
-		"",
-		"Completed",
-		2,
-		0,
-		nil,
+	summaries, err := listPipelineExecutionHistory(
+		context.Background(),
+		pipelineExecutionHistoryRequest{
+			App:                app,
+			TemporalClient:     mockClient,
+			Namespace:          "ns-1",
+			OwnerID:            orgID,
+			UserTimezone:       authRecord.GetString("Timezone"),
+			PipelineRecord:     pipelineRecord,
+			PipelineIdentifier: pipelineIdentifier,
+			StatusFilter:       "Completed",
+			Limit:              2,
+		},
 	)
-	require.Nil(t, apiErr)
+	require.NoError(t, err)
 	require.Len(t, summaries, 2)
 	require.Equal(t, "wf-new", summaries[0].Execution.WorkflowID)
 	require.Equal(t, "wf-old", summaries[1].Execution.WorkflowID)
 }
 
-func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
+func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -554,16 +583,17 @@ func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
 		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	}
 
-	summaries := buildPipelineExecutionHierarchyFromResult(
-		app,
-		record,
+	builder := newPipelineExecutionSummaryBuilder(app, nil, "UTC")
+	rootSummary, err := builder.Build(
+		context.Background(),
+		nil,
+		"default/pipeline",
 		root,
 		[]*WorkflowExecution{child},
-		"default",
-		nil,
+		record,
 	)
-	require.Len(t, summaries, 1)
-	rootSummary := summaries[0]
+	require.NoError(t, err)
+	require.NotNil(t, rootSummary)
 	require.Len(t, rootSummary.Results, 1)
 	require.Contains(t, rootSummary.Results[0].Log, "sample_logfile_1.zip")
 	require.Contains(t, rootSummary.Report, "run_report.md")
@@ -619,26 +649,7 @@ func TestMapQueuedRunsToPipelinesPipelineResults(t *testing.T) {
 	require.Len(t, result[pipelineRecord.Id], 2)
 }
 
-func TestAttachPipelineRunnerInfoPipelineResults(t *testing.T) {
-	app, _, _ := setupPipelineResultsApp(t)
-	defer app.Cleanup()
-
-	execs := []*WorkflowExecutionSummary{
-		{
-			Execution: &WorkflowIdentifier{WorkflowID: "wf-1", RunID: "run-1"},
-			Type:      WorkflowType{Name: "Pipeline"},
-			Status:    "COMPLETED",
-		},
-	}
-
-	info := pipeline.PipelineRunnerInfo{NeedsGlobalRunner: true}
-	out := attachPipelineRunnerInfo(app, execs, "runner-1", info, map[string]map[string]any{})
-	require.Len(t, out, 1)
-	require.Equal(t, "runner-1", out[0].GlobalRunnerID)
-	require.Equal(t, []string{"runner-1"}, out[0].RunnerIDs)
-}
-
-func TestAttachRunnerInfoFromTemporalStartInputPipelineResults(t *testing.T) {
+func TestPipelineExecutionSummaryBuilderReadsGlobalRunner(t *testing.T) {
 	payloads, err := converter.GetDefaultDataConverter().ToPayloads(
 		pipeline.PipelineWorkflowInput{
 			WorkflowInput: workflowengine.WorkflowInput{
@@ -673,29 +684,35 @@ func TestAttachRunnerInfoFromTemporalStartInputPipelineResults(t *testing.T) {
 		).
 		Return(iter, nil)
 
-	execs := []*WorkflowExecutionSummary{
-		{
-			Execution: &WorkflowIdentifier{WorkflowID: "wf-1", RunID: "run-1"},
-			Type:      WorkflowType{Name: "Pipeline"},
-			Status:    "COMPLETED",
-		},
+	root := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "wf-1", RunID: "run-1"},
+		Type:      WorkflowType{Name: pipeline.NewPipelineWorkflow().Name()},
+		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	}
 
-	app, _, _ := setupPipelineResultsApp(t)
+	app, _, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
+	pipelineRecord.Set("yaml", `
+name: pipeline123
+steps:
+  - id: mobile
+    use: mobile-automation
+    with:
+      action_id: missing-runner-id
+`)
 
-	out, err := attachRunnerInfoFromTemporalStartInput(attachRunnerInfoFromTemporalInputArgs{
-		App:         app,
-		Ctx:         context.Background(),
-		Client:      mockClient,
-		Executions:  execs,
-		Info:        pipeline.PipelineRunnerInfo{NeedsGlobalRunner: true},
-		RunnerCache: map[string]map[string]any{},
-	})
+	builder := newPipelineExecutionSummaryBuilder(app, mockClient, "UTC")
+	out, err := builder.Build(
+		context.Background(),
+		pipelineRecord,
+		"default/pipeline123",
+		root,
+		nil,
+		nil,
+	)
 	require.NoError(t, err)
-	require.Len(t, out, 1)
-	require.Equal(t, "runner-1", out[0].GlobalRunnerID)
-	require.Equal(t, []string{"runner-1"}, out[0].RunnerIDs)
+	require.Equal(t, "runner-1", out.GlobalRunnerID)
+	require.Equal(t, []string{"runner-1"}, out.RunnerIDs)
 }
 
 func TestDescribeWorkflowExecutionErrors(t *testing.T) {
@@ -704,7 +721,7 @@ func TestDescribeWorkflowExecutionErrors(t *testing.T) {
 		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
 		Return(nil, &serviceerror.NotFound{Message: "missing"})
 
-	_, apiErr := describeWorkflowExecution(mockClient, "wf-1", "run-1")
+	_, apiErr := describeWorkflowExecution(context.Background(), mockClient, "wf-1", "run-1")
 	require.NotNil(t, apiErr)
 	require.Equal(t, http.StatusNotFound, apiErr.Code)
 
@@ -712,7 +729,7 @@ func TestDescribeWorkflowExecutionErrors(t *testing.T) {
 	mockClient.
 		On("DescribeWorkflowExecution", mock.Anything, "wf-2", "run-2").
 		Return(nil, &serviceerror.InvalidArgument{Message: "bad"})
-	_, apiErr = describeWorkflowExecution(mockClient, "wf-2", "run-2")
+	_, apiErr = describeWorkflowExecution(context.Background(), mockClient, "wf-2", "run-2")
 	require.NotNil(t, apiErr)
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
 }
@@ -732,7 +749,7 @@ func TestDescribeWorkflowExecutionWithParent(t *testing.T) {
 			},
 		}, nil)
 
-	exec, apiErr := describeWorkflowExecution(mockClient, "wf-3", "run-3")
+	exec, apiErr := describeWorkflowExecution(context.Background(), mockClient, "wf-3", "run-3")
 	require.Nil(t, apiErr)
 	require.NotNil(t, exec.ParentExecution)
 	require.Equal(t, "parent", exec.ParentExecution.WorkflowID)

@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ALL_WORKFLOW_STATUSES,
 		isExtendedWorkflowStatus,
 		parseLimit,
-		parseOffset
+		parsePage
 	} from '../../tests/runs/_partials/index.js';
 	import PaginationArrows from '../../tests/runs/_partials/pagination-arrows.svelte';
 
@@ -50,9 +50,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			encode: (value) => value,
 			decode: parseLimit
 		},
-		offset: {
+		page: {
 			encode: (value) => value,
-			decode: parseOffset
+			decode: parsePage
 		}
 	});
 
@@ -69,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			Pipeline.Workflows.list(pipeline.id, {
 				status: params.status,
 				limit: params.limit ?? undefined,
-				offset: params.offset ?? undefined
+				page: params.page ?? undefined
 			}),
 		{
 			initialValue: () => data.workflows,
@@ -117,25 +117,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder={m.Status()}
 			onValueChange={(value) => {
 				params.status = value;
-				params.offset = 0;
+				params.page = 0;
 			}}
 		/>
 
 		<PaginationArrows
 			pagination={{
 				limit: params.limit ?? pagination.limit,
-				offset: params.offset ?? pagination.offset
+				page: params.page ?? pagination.page
 			}}
 			{currentItemCount}
 			onPrevious={() => {
-				params.offset = Math.max((params.offset ?? 0) - 1, 0);
+				params.page = Math.max((params.page ?? 0) - 1, 0);
 			}}
 			onNext={() => {
-				params.offset = (params.offset ?? 0) + 1;
+				params.page = (params.page ?? 0) + 1;
 			}}
 			onLimitChange={(limit) => {
 				params.limit = limit;
-				params.offset = 0;
+				params.page = 0;
 			}}
 		/>
 	</div>

@@ -36,207 +36,107 @@ import (
 // pipelineResultsTemporalClient resolves Temporal clients for pipeline results handlers.
 var pipelineResultsTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
-func fetchCompletedWorkflowsWithPagination(
-	e *core.RequestEvent,
-	pipelineMap map[string]*core.Record,
-	namespace string,
-	authRecord *core.Record,
-	organizationId string,
-	pipelineIdentifier string,
-	statusFilter string,
-	limit int,
-	skip int,
-	temporalClient client.Client,
-) ([]*pipelineWorkflowSummary, *apierror.APIError) {
-	if limit <= 0 {
+type pipelineExecutionHistoryRequest struct {
+	App                core.App
+	TemporalClient     client.Client
+	Namespace          string
+	OwnerID            string
+	UserTimezone       string
+	PipelineRecord     *core.Record
+	PipelineIdentifier string
+	StatusFilter       string
+	Limit              int
+	Skip               int
+}
+
+func listPipelineExecutionHistory(
+	ctx context.Context,
+	request pipelineExecutionHistoryRequest,
+) ([]*pipelineWorkflowSummary, error) {
+	if request.Limit <= 0 {
 		return []*pipelineWorkflowSummary{}, nil
 	}
 
-	var err error
-	if temporalClient == nil {
-		temporalClient, err = pipelineResultsTemporalClient(namespace)
-		if err != nil {
-			return nil, apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create temporal client",
-				err.Error(),
-			)
-		}
-	}
-
-	statusFilters, statusOk := parseWorkflowStatusFilters(statusFilter)
-	if statusFilter != "" && !statusOk {
+	statusFilters, statusOK := parseWorkflowStatusFilters(request.StatusFilter)
+	if request.StatusFilter != "" && !statusOK {
 		return []*pipelineWorkflowSummary{}, nil
 	}
 
 	executions, err := listPipelineWorkflowExecutions(
-		context.Background(),
-		temporalClient,
-		namespace,
+		ctx,
+		request.TemporalClient,
+		request.Namespace,
 		statusFilters,
-		pipelineIdentifier,
-		limit,
-		skip,
+		request.PipelineIdentifier,
+		request.Limit,
+		request.Skip,
 	)
 	if err != nil {
-		return nil, apierror.New(
-			http.StatusInternalServerError,
-			"workflow",
-			"failed to list workflows",
-			err.Error(),
-		)
+		return nil, fmt.Errorf("list pipeline workflows: %w", err)
 	}
-	if len(executions) == 0 {
-		return []*pipelineWorkflowSummary{}, nil
-	}
-
-	pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
-
-	pipelineIdentifierIndex := buildPipelineIdentifierIndex(e.App, pipelineMap)
-	filteredExecutions := make([]*WorkflowExecution, 0, len(executions))
-	executionRefs := make([]workflowExecutionRef, 0, len(executions))
-	pipelineByExecution := make(map[workflowExecutionRef]*core.Record, len(executions))
-	pipelineIdentifierByExecution := make(map[workflowExecutionRef]string, len(executions))
-
-	for _, exec := range executions {
-		if exec == nil || exec.Execution == nil {
-			continue
-		}
-		ref := workflowExecutionRef{
-			WorkflowID: exec.Execution.WorkflowID,
-			RunID:      exec.Execution.RunID,
-		}
-		if ref.WorkflowID == "" || ref.RunID == "" {
-			continue
-		}
-		pipelineIdentifier := pipelineIdentifiers[ref]
-		if pipelineIdentifier == "" {
-			continue
-		}
-		pipelineRecord := pipelineIdentifierIndex[pipelineIdentifier]
-		if pipelineRecord == nil {
-			continue
-		}
-
-		filteredExecutions = append(filteredExecutions, exec)
-		executionRefs = append(executionRefs, ref)
-		pipelineByExecution[ref] = pipelineRecord
-		pipelineIdentifierByExecution[ref] = pipelineIdentifier
-	}
-
-	if len(filteredExecutions) == 0 {
-		return []*pipelineWorkflowSummary{}, nil
-	}
-
-	childWorkflowsByParent, err := getChildWorkflowsByParents(
-		context.Background(),
-		temporalClient,
-		namespace,
-		executionRefs,
-	)
-	if err != nil {
-		e.App.Logger().Warn(fmt.Sprintf("failed to batch list child workflows: %v", err))
-	}
-
-	resultRecordsByExecution, err := fetchPipelineResultRecords(
-		e.App,
-		organizationId,
-		executionRefs,
-	)
-	if err != nil {
-		return nil, apierror.New(
-			http.StatusInternalServerError,
-			"database",
-			"failed to fetch pipeline results",
-			err.Error(),
-		)
-	}
-
-	var allSummaries []*pipelineWorkflowSummary
-	runnerCache := map[string]map[string]any{}
-	runnerInfoByPipelineID := map[string]pipelineRunnerInfo{}
-
-	for _, exec := range filteredExecutions {
-		ref := workflowExecutionRef{
-			WorkflowID: exec.Execution.WorkflowID,
-			RunID:      exec.Execution.RunID,
-		}
-		pipelineRecord := pipelineByExecution[ref]
-		if pipelineRecord == nil {
-			continue
-		}
-
-		runnerInfo, ok := runnerInfoByPipelineID[pipelineRecord.Id]
-		if !ok {
-			runnerInfo, _ = pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
-			runnerInfoByPipelineID[pipelineRecord.Id] = runnerInfo
-		}
-
-		hierarchy := buildPipelineExecutionHierarchyFromResult(
-			e.App,
-			resultRecordsByExecution[ref],
-			exec,
-			childWorkflowsByParent[ref],
-			namespace,
-			temporalClient,
-		)
-
-		if len(hierarchy) == 0 {
-			continue
-		}
-
-		pipelineName := resolvePipelineNameFromRecord(
-			pipelineRecord,
-			pipelineIdentifierByExecution[ref],
-		)
-
-		annotated, _ := attachRunnerInfoFromTemporalStartInput(
-			attachRunnerInfoFromTemporalInputArgs{
-				App:         e.App,
-				Ctx:         context.Background(),
-				Client:      temporalClient,
-				Executions:  hierarchy,
-				Info:        runnerInfo,
-				RunnerCache: runnerCache,
-			},
-		)
-
-		for _, summary := range annotated {
-			if summary == nil || summary.Execution == nil {
-				continue
-			}
-			summaryRef := workflowExecutionRef{
-				WorkflowID: summary.Execution.WorkflowID,
-				RunID:      summary.Execution.RunID,
-			}
-			summary.PipelineIdentifier = pipelineIdentifierByExecution[summaryRef]
-			summary.PipelineName = pipelineName
-		}
-
-		allSummaries = append(allSummaries, annotated...)
-	}
-
-	sort.Slice(allSummaries, func(i, j int) bool {
-		return utils.TimeStringAfter(allSummaries[i].StartTime, allSummaries[j].StartTime)
+	sort.Slice(executions, func(i, j int) bool {
+		return utils.TimeStringAfter(executions[i].StartTime, executions[j].StartTime)
 	})
 
-	loc, err := time.LoadLocation(authRecord.GetString("Timezone"))
+	executionRefs := workflowExecutionRefs(executions)
+	if len(executionRefs) == 0 {
+		return []*pipelineWorkflowSummary{}, nil
+	}
+
+	childrenByParent, err := getChildWorkflowsByParents(
+		ctx,
+		request.TemporalClient,
+		request.Namespace,
+		executionRefs,
+	)
 	if err != nil {
-		loc = time.Local
-	}
-	localizePipelineWorkflowSummaries(allSummaries, loc)
-
-	if allSummaries == nil {
-		allSummaries = []*pipelineWorkflowSummary{}
+		return nil, fmt.Errorf("list child workflows: %w", err)
 	}
 
-	return allSummaries, nil
+	resultRecords, err := fetchPipelineResultRecords(
+		request.App,
+		request.OwnerID,
+		executionRefs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("fetch pipeline results: %w", err)
+	}
+
+	builder := newPipelineExecutionSummaryBuilder(
+		request.App,
+		request.TemporalClient,
+		request.UserTimezone,
+	)
+	summaries := make([]*pipelineWorkflowSummary, 0, len(executions))
+	for _, execution := range executions {
+		ref, ok := workflowExecutionReference(execution)
+		if !ok {
+			continue
+		}
+
+		summary, err := builder.Build(
+			ctx,
+			request.PipelineRecord,
+			request.PipelineIdentifier,
+			execution,
+			childrenByParent[ref],
+			resultRecords[ref],
+		)
+		if err != nil {
+			return nil, err
+		}
+		if summary != nil {
+			summaries = append(summaries, summary)
+		}
+	}
+
+	return summaries, nil
 }
-func parsePaginationParams(
+
+func parsePageParams(
 	e *core.RequestEvent,
-	defaultLimit, defaultOffset int,
-) (limit, offset int) {
+	defaultLimit, defaultPage int,
+) (limit, page int) {
 	query := e.Request.URL.Query()
 
 	limitStr := query.Get("limit")
@@ -250,18 +150,21 @@ func parsePaginationParams(
 		}
 	}
 
-	offsetStr := query.Get("offset")
-	if offsetStr == "" {
-		offset = defaultOffset
+	pageValue := query.Get("page")
+	if pageValue == "" {
+		pageValue = query.Get("offset") // Legacy alias.
+	}
+	if pageValue == "" {
+		page = defaultPage
 	} else {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-			offset = o
+		if parsed, err := strconv.Atoi(pageValue); err == nil && parsed >= 0 {
+			page = parsed
 		} else {
-			offset = defaultOffset
+			page = defaultPage
 		}
 	}
 
-	return limit, offset
+	return limit, page
 }
 
 // parseWorkflowStatusFilters converts status filters into Temporal enum filters.
@@ -472,35 +375,9 @@ func fetchPipelineResultRecords(
 	executions []workflowExecutionRef,
 ) (map[workflowExecutionRef]*core.Record, error) {
 	resultRecords := map[workflowExecutionRef]*core.Record{}
-	records, err := findPipelineResultRecordsByExecutions(app, ownerID, executions)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, record := range records {
-		ref := workflowExecutionRef{
-			WorkflowID: record.GetString("workflow_id"),
-			RunID:      record.GetString("run_id"),
-		}
-		if ref.WorkflowID == "" || ref.RunID == "" {
-			continue
-		}
-		resultRecords[ref] = record
-	}
-
-	return resultRecords, nil
-}
-
-func findPipelineResultRecordsByExecutions(
-	app core.App,
-	ownerID string,
-	executions []workflowExecutionRef,
-) ([]*core.Record, error) {
 	if app == nil || len(executions) == 0 {
-		return []*core.Record{}, nil
+		return resultRecords, nil
 	}
-
-	records := make([]*core.Record, 0, len(executions))
 
 	for i := 0; i < len(executions); i += workflowExecutionFilterChunkSize {
 		chunkEnd := i + workflowExecutionFilterChunkSize
@@ -529,10 +406,19 @@ func findPipelineResultRecordsByExecutions(
 			return nil, err
 		}
 
-		records = append(records, chunkRecords...)
+		for _, record := range chunkRecords {
+			ref := workflowExecutionRef{
+				WorkflowID: record.GetString("workflow_id"),
+				RunID:      record.GetString("run_id"),
+			}
+			if ref.WorkflowID == "" || ref.RunID == "" {
+				continue
+			}
+			resultRecords[ref] = record
+		}
 	}
 
-	return records, nil
+	return resultRecords, nil
 }
 
 // decodeWorkflowSearchAttributes converts Temporal payloads into native search attribute values.
@@ -653,21 +539,64 @@ type workflowExecutionRef struct {
 	RunID      string
 }
 
-func buildPipelineExecutionHierarchyFromResult(
+func workflowExecutionReference(execution *WorkflowExecution) (workflowExecutionRef, bool) {
+	if execution == nil || execution.Execution == nil {
+		return workflowExecutionRef{}, false
+	}
+	ref := workflowExecutionRef{
+		WorkflowID: execution.Execution.WorkflowID,
+		RunID:      execution.Execution.RunID,
+	}
+	return ref, ref.WorkflowID != "" && ref.RunID != ""
+}
+
+func workflowExecutionRefs(executions []*WorkflowExecution) []workflowExecutionRef {
+	refs := make([]workflowExecutionRef, 0, len(executions))
+	for _, execution := range executions {
+		if ref, ok := workflowExecutionReference(execution); ok {
+			refs = append(refs, ref)
+		}
+	}
+	return refs
+}
+
+type pipelineExecutionSummaryBuilder struct {
+	app         core.App
+	client      client.Client
+	location    *time.Location
+	runnerCache map[string]map[string]any
+	runnerInfo  map[string]pipeline.PipelineRunnerInfo
+}
+
+func newPipelineExecutionSummaryBuilder(
 	app core.App,
-	resultRecord *core.Record,
+	temporalClient client.Client,
+	userTimezone string,
+) *pipelineExecutionSummaryBuilder {
+	location, err := time.LoadLocation(userTimezone)
+	if err != nil {
+		location = time.Local
+	}
+	return &pipelineExecutionSummaryBuilder{
+		app:         app,
+		client:      temporalClient,
+		location:    location,
+		runnerCache: map[string]map[string]any{},
+		runnerInfo:  map[string]pipeline.PipelineRunnerInfo{},
+	}
+}
+
+func (b *pipelineExecutionSummaryBuilder) Build(
+	ctx context.Context,
+	pipelineRecord *core.Record,
+	pipelineIdentifier string,
 	rootExecution *WorkflowExecution,
 	childExecutions []*WorkflowExecution,
-	namespace string,
-	c client.Client,
-) []*WorkflowExecutionSummary {
-	if rootExecution == nil || rootExecution.Execution == nil {
-		return nil
-	}
-
-	rootSummary := buildWorkflowExecutionSummary(rootExecution, c)
+	resultRecord *core.Record,
+) (*pipelineWorkflowSummary, error) {
+	rootSummary := buildWorkflowExecutionSummary(ctx, rootExecution, b.client)
 	if rootSummary == nil {
-		return nil
+		return nil, nil
 	}
 
 	if rootExecution.Memo != nil {
@@ -676,39 +605,64 @@ func buildPipelineExecutionHierarchyFromResult(
 		}
 	}
 
-	w := pipeline.PipelineWorkflow{}
-	if rootSummary.Type.Name == w.Name() {
-		if resultRecord != nil {
-			attachPipelineArtifactsToSummary(rootSummary, app, resultRecord)
-		}
-		if len(rootSummary.Results) == 0 || rootSummary.Report == "" {
-			artifacts := pipelineresults.ResolvePipelineExecutionArtifacts(
-				app,
-				namespace,
-				rootExecution.Execution.WorkflowID,
-				rootExecution.Execution.RunID,
-			)
-			if len(rootSummary.Results) == 0 {
-				rootSummary.Results = artifacts.Results
-			}
-			if rootSummary.Report == "" {
-				rootSummary.Report = artifacts.Report
-			}
-		}
+	if resultRecord != nil {
+		attachPipelineArtifactsToSummary(rootSummary, b.app, resultRecord)
 	}
 
 	for _, childExecution := range childExecutions {
-		childSummary := buildWorkflowExecutionSummary(childExecution, c)
+		childSummary := buildWorkflowExecutionSummary(ctx, childExecution, b.client)
 		if childSummary == nil || childExecution.Execution == nil {
 			continue
 		}
 		childSummary.DisplayName = computeChildDisplayName(childExecution.Execution.WorkflowID)
 		rootSummary.Children = append(rootSummary.Children, childSummary)
 	}
+	sortWorkflowExecutionSummaries(rootSummary.Children, false)
 
-	roots := []*WorkflowExecutionSummary{rootSummary}
-	sortWorkflowExecutionSummaries(roots, false)
-	return roots
+	runnerInfo := b.pipelineRunnerInfo(pipelineRecord)
+	globalRunnerID := ""
+	if b.client != nil && runnerInfo.NeedsGlobalRunner {
+		var err error
+		globalRunnerID, err = readGlobalRunnerIDFromTemporalHistory(
+			ctx,
+			b.client,
+			rootSummary.Execution.WorkflowID,
+			rootSummary.Execution.RunID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("read pipeline workflow start input: %w", err)
+		}
+	}
+
+	runnerIDs := pipeline.RunnerIDsWithGlobal(runnerInfo, globalRunnerID)
+	summary := &pipelineWorkflowSummary{
+		WorkflowExecutionSummary: *rootSummary,
+		GlobalRunnerID:           globalRunnerID,
+		RunnerIDs:                runnerIDs,
+		RunnerRecords: pipeline.ResolveRunnerRecords(
+			b.app,
+			runnerIDs,
+			b.runnerCache,
+		),
+	}
+	summary.PipelineIdentifier = pipelineIdentifier
+	summary.PipelineName = resolvePipelineNameFromRecord(pipelineRecord, pipelineIdentifier)
+	localizePipelineWorkflowSummaries([]*pipelineWorkflowSummary{summary}, b.location)
+	return summary, nil
+}
+
+func (b *pipelineExecutionSummaryBuilder) pipelineRunnerInfo(
+	pipelineRecord *core.Record,
+) pipeline.PipelineRunnerInfo {
+	if pipelineRecord == nil {
+		return pipeline.PipelineRunnerInfo{}
+	}
+	if info, ok := b.runnerInfo[pipelineRecord.Id]; ok {
+		return info
+	}
+	info, _ := pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+	b.runnerInfo[pipelineRecord.Id] = info
+	return info
 }
 
 func localizePipelineWorkflowSummaries(list []*pipelineWorkflowSummary, loc *time.Location) {
@@ -730,6 +684,7 @@ func localizePipelineWorkflowSummaries(list []*pipelineWorkflowSummary, loc *tim
 }
 
 func buildWorkflowExecutionSummary(
+	ctx context.Context,
 	exec *WorkflowExecution,
 	c client.Client,
 ) *WorkflowExecutionSummary {
@@ -748,7 +703,7 @@ func buildWorkflowExecutionSummary(
 
 	if c != nil && summary.Status == string(WorkflowStatusFailed) {
 		if failure := fetchWorkflowFailure(
-			context.Background(),
+			ctx,
 			c,
 			exec.Execution.WorkflowID,
 			exec.Execution.RunID,
@@ -771,63 +726,6 @@ func attachPipelineArtifactsToSummary(
 	artifacts := pipelineresults.BuildPipelineExecutionArtifacts(app, record)
 	summary.Results = artifacts.Results
 	summary.Report = artifacts.Report
-}
-
-func flattenWorkflowExecutionSummaryMap(
-	groupedSummaries map[string][]*WorkflowExecutionSummary,
-) []*WorkflowExecutionSummary {
-	flatSummaries := make([]*WorkflowExecutionSummary, 0)
-	for _, summaries := range groupedSummaries {
-		flatSummaries = append(flatSummaries, summaries...)
-	}
-
-	return flatSummaries
-}
-
-func attachPipelineArtifactsToSummaries(
-	app core.App,
-	ownerID string,
-	groupedSummaries map[string][]*WorkflowExecutionSummary,
-) error {
-	if app == nil || len(groupedSummaries) == 0 {
-		return nil
-	}
-
-	summaries := flattenWorkflowExecutionSummaryMap(groupedSummaries)
-	if len(summaries) == 0 {
-		return nil
-	}
-
-	refs := make([]workflowExecutionRef, 0, len(summaries))
-	for _, summary := range summaries {
-		if summary == nil || summary.Execution == nil {
-			continue
-		}
-		refs = append(refs, workflowExecutionRef{
-			WorkflowID: summary.Execution.WorkflowID,
-			RunID:      summary.Execution.RunID,
-		})
-	}
-
-	resultRecords, err := fetchPipelineResultRecords(app, ownerID, refs)
-	if err != nil {
-		return err
-	}
-
-	for _, summary := range summaries {
-		if summary == nil || summary.Execution == nil {
-			continue
-		}
-		ref := workflowExecutionRef{
-			WorkflowID: summary.Execution.WorkflowID,
-			RunID:      summary.Execution.RunID,
-		}
-		if record, ok := resultRecords[ref]; ok {
-			attachPipelineArtifactsToSummary(summary, app, record)
-		}
-	}
-
-	return nil
 }
 
 func getChildWorkflowsByParents(
@@ -957,12 +855,13 @@ func escapeTemporalQueryValue(value string) string {
 }
 
 func describeWorkflowExecution(
+	ctx context.Context,
 	temporalClient client.Client,
 	workflowID string,
 	runID string,
 ) (*WorkflowExecution, *apierror.APIError) {
 	workflowExecution, err := temporalClient.DescribeWorkflowExecution(
-		context.Background(),
+		ctx,
 		workflowID,
 		runID,
 	)
@@ -1022,11 +921,23 @@ func describeWorkflowExecution(
 		_ = json.Unmarshal(parentJSON, &parentInfo)
 		execInfo.ParentExecution = &parentInfo
 	}
+	decodedSearchAttributes, err := decodeWorkflowSearchAttributes(
+		workflowExecution.GetWorkflowExecutionInfo().GetSearchAttributes(),
+	)
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to decode workflow search attributes",
+			err.Error(),
+		)
+	}
+	if len(decodedSearchAttributes) > 0 {
+		execInfo.SearchAttributes = &decodedSearchAttributes
+	}
 
 	return &execInfo, nil
 }
-
-type pipelineRunnerInfo = pipeline.PipelineRunnerInfo
 
 type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
@@ -1222,92 +1133,6 @@ func mapQueuedRunsToPipelines(
 	}
 
 	return queuedByPipeline
-}
-
-func attachPipelineRunnerInfo(
-	app core.App,
-	executions []*WorkflowExecutionSummary,
-	globalRunnerID string,
-	info pipelineRunnerInfo,
-	runnerCache map[string]map[string]any,
-) []*pipelineWorkflowSummary {
-	if len(executions) == 0 {
-		return []*pipelineWorkflowSummary{}
-	}
-
-	runnerIDs := pipeline.RunnerIDsWithGlobal(info, globalRunnerID)
-	runnerRecords := pipeline.ResolveRunnerRecords(app, runnerIDs, runnerCache)
-
-	annotated := make([]*pipelineWorkflowSummary, 0, len(executions))
-	for _, exec := range executions {
-		if exec == nil {
-			continue
-		}
-		annotated = append(annotated, &pipelineWorkflowSummary{
-			WorkflowExecutionSummary: *exec,
-			GlobalRunnerID:           globalRunnerID,
-			RunnerIDs:                runnerIDs,
-			RunnerRecords:            runnerRecords,
-		})
-	}
-	return annotated
-}
-
-type attachRunnerInfoFromTemporalInputArgs struct {
-	App         core.App
-	Ctx         context.Context
-	Client      client.Client
-	Executions  []*WorkflowExecutionSummary
-	Info        pipelineRunnerInfo
-	RunnerCache map[string]map[string]any
-}
-
-func attachRunnerInfoFromTemporalStartInput(
-	args attachRunnerInfoFromTemporalInputArgs,
-) ([]*pipelineWorkflowSummary, error) {
-	if len(args.Executions) == 0 {
-		return []*pipelineWorkflowSummary{}, nil
-	}
-
-	if args.RunnerCache == nil {
-		args.RunnerCache = map[string]map[string]any{}
-	}
-
-	cache := map[string]string{}
-	out := make([]*pipelineWorkflowSummary, 0, len(args.Executions))
-
-	for _, exec := range args.Executions {
-		if exec == nil {
-			continue
-		}
-
-		key := exec.Execution.WorkflowID + ":" + exec.Execution.RunID
-
-		globalRunnerID, ok := cache[key]
-		if !ok {
-			gr, err := readGlobalRunnerIDFromTemporalHistory(
-				args.Ctx,
-				args.Client,
-				exec.Execution.WorkflowID,
-				exec.Execution.RunID,
-			)
-			if err != nil {
-				return nil, err
-			}
-			globalRunnerID = gr
-			cache[key] = globalRunnerID
-		}
-
-		out = append(out, attachPipelineRunnerInfo(
-			args.App,
-			[]*WorkflowExecutionSummary{exec},
-			globalRunnerID,
-			args.Info,
-			args.RunnerCache,
-		)...)
-	}
-
-	return out, nil
 }
 
 func readGlobalRunnerIDFromTemporalHistory(

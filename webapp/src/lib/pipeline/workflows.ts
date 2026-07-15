@@ -57,7 +57,7 @@ export async function list(
 		fetch?: typeof fetch;
 		status?: string | null;
 		limit?: number;
-		offset?: number;
+		page?: number;
 	} = {}
 ) {
 	const params = new URLSearchParams();
@@ -67,8 +67,8 @@ export async function list(
 	if (options.limit !== undefined) {
 		params.set(LIMIT_PARAM, String(options.limit));
 	}
-	if (options.offset !== undefined) {
-		params.set(OFFSET_PARAM, String(options.offset));
+	if (options.page !== undefined) {
+		params.set(PAGE_PARAM, String(options.page));
 	}
 	const query = params.toString() ? `?${params.toString()}` : '';
 
@@ -82,13 +82,13 @@ export async function list(
 //
 
 export const LIMIT_PARAM = 'limit';
-export const OFFSET_PARAM = 'offset';
+export const PAGE_PARAM = 'page';
 
 export async function listAll(options: {
 	fetch?: typeof fetch;
 	status?: string | null;
 	limit?: number;
-	offset?: number;
+	page?: number;
 }) {
 	const grouped = await listAllGroupedByPipelineId({ fetch: options.fetch });
 	const flattened = Object.values(grouped)
@@ -96,9 +96,9 @@ export async function listAll(options: {
 		.filter((execution) => !options.status || execution.status === options.status)
 		.sort((left, right) => parseExecutionTime(right) - parseExecutionTime(left));
 
-	const offset = options.offset ?? 0;
 	const limit = options.limit ?? flattened.length;
-	return flattened.slice(offset, offset + limit);
+	const itemOffset = (options.page ?? 0) * limit;
+	return flattened.slice(itemOffset, itemOffset + limit);
 }
 
 function parseExecutionTime(execution: ExecutionSummary): number {
