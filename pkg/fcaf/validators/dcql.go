@@ -33,6 +33,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "credential_sets",
 		"claims_present",
 		"claims_path_no_match",
+		"claims_values_no_match",
 		"credential_sets_options_missing",
 		"credential_sets_options_empty",
 		"credential_sets_options_non_array",
@@ -95,6 +96,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateClaimsPresent(query, responseValue)
 	case "claims_path_no_match":
 		return validateClaimsPathNoMatch(query, responseValue)
+	case "claims_values_no_match":
+		return validateClaimsValuesNoMatch(query, responseValue)
 		if isEmptyDCQLValue(responseValue) {
 			return Result{
 				Status:  StatusFail,
@@ -998,4 +1001,39 @@ func validateClaimsPathNoMatch(query map[string]any, responseValue any) Result {
 		return Result{Status: StatusFail, Message: "wallet returned a credential for an unmatched claim path"}
 	}
 	return Result{Status: StatusPass, Message: "wallet returned no credential for the unmatched claim path"}
+}
+
+func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		for claimIndex, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", credentialIndex, claimIndex)}
+			}
+			path, pathOK := claim["path"].([]any)
+			values, valuesOK := claim["values"].([]any)
+			if !pathOK || len(path) == 0 {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path is not a non-empty array", credentialIndex, claimIndex)}
+			}
+			if !valuesOK || len(values) == 0 {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].values is not a non-empty array", credentialIndex, claimIndex)}
+			}
+		}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a credential for mismatched claim values"}
+	}
+	return Result{Status: StatusPass, Message: "wallet returned no credential for mismatched claim values"}
 }
