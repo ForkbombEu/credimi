@@ -6,7 +6,11 @@ package validators
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -268,6 +272,16 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 		{name: "empty array claim path is still an array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, []any{}, true), status: StatusFail},
 		{name: "valid claim path is an array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, []any{"given_name"}, true), status: StatusFail},
 		{name: "non-array claim path requires invalid request", mode: "claim_path_non_array", evidence: claimPathEvidence(true, "given_name", false), status: StatusFail},
+		{name: "allowed claim path components resolve", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", float64(0)}, true), status: StatusPass},
+		{name: "allowed claim path components require every path to resolve", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsWithClaims([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", float64(0)}, map[string]any{"given_name": "Filippo"}), status: StatusFail},
+		{name: "allowed claim path components require string", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{nil}, []any{float64(0)}, nil, true), status: StatusFail},
+		{name: "allowed claim path components require null", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", float64(0)}, nil, true), status: StatusFail},
+		{name: "allowed claim path components require integer", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, nil, true), status: StatusFail},
+		{name: "allowed claim path rejects empty path", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{}, []any{"nationality", nil}, []any{"nationality", float64(0)}, true), status: StatusFail},
+		{name: "allowed claim path rejects boolean", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", true}, true), status: StatusFail},
+		{name: "allowed claim path rejects negative integer", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", float64(-1)}, true), status: StatusFail},
+		{name: "allowed claim path rejects fractional number", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", 1.5}, true), status: StatusFail},
+		{name: "allowed claim path requires presentation", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", float64(0)}, false), status: StatusFail},
 		{name: "claim without values is accepted", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(false, true), status: StatusPass},
 		{name: "claim with values is not the omitted case", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(true, true), status: StatusFail},
 		{name: "claim without values requires a presentation", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(false, false), status: StatusFail},
@@ -1008,6 +1022,43 @@ func claimWithoutValuesEvidence(valuesPresent bool, withPresentation bool) map[s
 		evidence["vp_token"] = map[string]any{"pid": []any{"presentation"}}
 	}
 	return evidence
+}
+
+func allowedClaimPathComponentsEvidence(first []any, second []any, third []any, withPresentation bool) map[string]any {
+	claims := map[string]any{"given_name": "Filippo", "nationality": []any{"IT"}}
+	if !withPresentation {
+		claims = nil
+	}
+	return allowedClaimPathComponentsWithClaims(first, second, third, claims)
+}
+
+func allowedClaimPathComponentsWithClaims(first []any, second []any, third []any, disclosedClaims map[string]any) map[string]any {
+	claims := []any{map[string]any{"path": first}, map[string]any{"path": second}}
+	if third != nil {
+		claims = append(claims, map[string]any{"path": third})
+	}
+	credential := validSDJWTCredentialQuery("pid")
+	credential["claims"] = claims
+	evidence := map[string]any{"dcql_query": map[string]any{"credentials": []any{credential}}}
+	if disclosedClaims != nil {
+		evidence["vp_token"] = map[string]any{"pid": []any{testSDJWTPresentation(disclosedClaims)}}
+	}
+	return evidence
+}
+
+func testSDJWTPresentation(claims map[string]any) string {
+	disclosures := make([]string, 0, len(claims))
+	digests := make([]any, 0, len(claims))
+	for name, value := range claims {
+		raw, _ := json.Marshal([]any{"salt-" + name, name, value})
+		disclosure := base64.RawURLEncoding.EncodeToString(raw)
+		digest := sha256.Sum256([]byte(disclosure))
+		disclosures = append(disclosures, disclosure)
+		digests = append(digests, base64.RawURLEncoding.EncodeToString(digest[:]))
+	}
+	header, _ := json.Marshal(map[string]any{"alg": "none"})
+	payload, _ := json.Marshal(map[string]any{"_sd_alg": "sha-256", "_sd": digests})
+	return base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(payload) + ".signature~" + strings.Join(disclosures, "~") + "~"
 }
 
 func TestMatchesJSONType(t *testing.T) {

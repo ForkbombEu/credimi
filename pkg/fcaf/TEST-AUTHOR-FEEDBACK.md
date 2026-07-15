@@ -510,3 +510,68 @@ two PID rows for two distinct query IDs. Expanding one row expanded both rows,
 and each exposed the requested `Given Name(s)` claim. One Share/PIN interaction
 produced a successful response containing both query IDs.
 ```
+
+### Issue 17: Provide a resolvable fixture for all claim path component types in test 118
+
+Suggested title:
+
+```text
+clarify(wallet-rp): define resolvable claim paths for protocol test 118
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages__118` says a claims path pointer is a non-empty
+array whose members include strings, nulls, and non-negative integers. It is
+unclear whether one path must contain all three types or whether the test must
+cover the three allowed member types across separate resolvable paths.
+
+A normal PID does not expose a natural nested claim for which one sequential
+path containing all three types resolves successfully. For example,
+`["nationality", null]` and `["nationality", 0]` are independently valid, but
+combining both selectors in one path would attempt to apply the final selector
+to a scalar nationality value.
+
+Proposed change: provide an explicit credential fixture and exact path, or state
+that separate resolvable paths may collectively cover string, null, and
+non-negative integer components. The Credimi implementation uses
+`["given_name"]`, `["nationality", null]`, and `["nationality", 0]` in one DCQL
+credential query.
+
+Observed with the reference Android Wallet: the public verifier accepted this
+request, the Wallet reached consent, and sharing completed. A fresh PID was
+issued for a dedicated Keycloak user whose realm profile was verified to
+contain `nationality: ["IT"]`, birth date, and structured birthplace. The
+Wallet offered both that PID and an older PID, but expanding both consent rows
+showed only `Given Name(s)`. The HTTP 200 verifier response contained two
+presentations whose only disclosures were `given_name: FCAF` and
+`given_name: Filippo`; neither disclosed `nationality`. This provides evidence
+of a Wallet path-resolution limitation, while an explicit fixture is still
+needed to remove ambiguity about whether all component types belong in one
+path or may be covered across separate paths.
+```
+
+### Issue 18: Deduplicate empty claim path tests 114 and 119
+
+Suggested title:
+
+```text
+test(wallet-rp): deduplicate protocol tests 114 and 119
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages__114` and `WS_RP_MS_ProtocolMessages__119` both send
+a DCQL claim object whose `path` is an empty array and require rejection. Test
+114 specifically expects `invalid_request`; test 119 permits `invalid_request`,
+an unspecified error, or interaction discontinuation.
+
+The request shape is identical, while the accepted outcomes differ. This can
+produce contradictory verdicts for the same Wallet behavior and duplicate
+implementation artifacts.
+
+Proposed change: merge the tests and choose one normative outcome, or explain
+the distinct protocol context that makes their expected results differ.
+```

@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+
+	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 )
 
 var dcqlIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -42,6 +44,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"claim_path_missing",
 		"claim_path_empty",
 		"claim_path_non_array",
+		"claim_path_allowed_components",
 		"claims_without_values",
 		"credential_sets_options_missing",
 		"credential_sets_options_empty",
@@ -123,6 +126,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateEmptyClaimPath(query, responseValue, errorValue)
 	case "claim_path_non_array":
 		return validateNonArrayClaimPath(query, responseValue, errorValue)
+	case "claim_path_allowed_components":
+		return validateAllowedClaimPathComponents(query, responseValue)
 	case "claims_without_values":
 		return validateClaimsWithoutValues(query, responseValue)
 	case "credential_sets_options_missing":
@@ -1401,6 +1406,185 @@ func validateNonArrayClaimPath(query map[string]any, responseValue any, errorVal
 		return Result{Status: StatusFail, Message: "wallet did not return invalid_request for a non-array claim path"}
 	}
 	return Result{Status: StatusPass, Message: "wallet rejected a non-array claim path with invalid_request"}
+}
+
+func validateAllowedClaimPathComponents(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{Status: StatusFail, Message: "wallet vp_token is not an object keyed by credential query ID"}
+	}
+	seenString := false
+	seenNull := false
+	seenNonNegativeInteger := false
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		id, ok := credential["id"].(string)
+		if !ok || id == "" {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].id is not a non-empty string", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		paths := make([][]any, 0, len(claims))
+		for claimIndex, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", credentialIndex, claimIndex)}
+			}
+			path, ok := claim["path"].([]any)
+			if !ok || len(path) == 0 {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path is not a non-empty array", credentialIndex, claimIndex)}
+			}
+			paths = append(paths, path)
+			for componentIndex, component := range path {
+				switch typed := component.(type) {
+				case string:
+					if typed == "" {
+						return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path[%d] is an empty string", credentialIndex, claimIndex, componentIndex)}
+					}
+					seenString = true
+				case nil:
+					seenNull = true
+				default:
+					if !isNonNegativeInteger(component) {
+						return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path[%d] is not a string, null, or non-negative integer", credentialIndex, claimIndex, componentIndex)}
+					}
+					seenNonNegativeInteger = true
+				}
+			}
+		}
+		presentations, ok := response[id].([]any)
+		if !ok || len(presentations) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token has no presentation for credential query %q", id)}
+		}
+		for presentationIndex, rawPresentation := range presentations {
+			token, ok := rawPresentation.(string)
+			if !ok || token == "" {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] is not an SD-JWT presentation", id, presentationIndex)}
+			}
+			presentation, err := evidence.ParseSDJWTPresentation(token)
+			if err != nil {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] is not a valid SD-JWT presentation: %v", id, presentationIndex, err)}
+			}
+			for pathIndex, path := range paths {
+				if !claimPathResolves(presentation.Claims, path) {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] does not disclose a value resolved by claims[%d].path", id, presentationIndex, pathIndex)}
+				}
+			}
+		}
+	}
+	if !seenString || !seenNull || !seenNonNegativeInteger {
+		return Result{Status: StatusFail, Message: "claim paths do not cover string, null, and non-negative integer components"}
+	}
+	return Result{Status: StatusPass, Message: "wallet resolved claim paths with all allowed component types"}
+}
+
+func claimPathResolves(root any, path []any) bool {
+	values := []any{root}
+	for _, component := range path {
+		next := make([]any, 0)
+		for _, value := range values {
+			switch typed := component.(type) {
+			case string:
+				object, ok := value.(map[string]any)
+				if !ok {
+					continue
+				}
+				if resolved, exists := object[typed]; exists {
+					next = append(next, resolved)
+				}
+			case nil:
+				array, ok := value.([]any)
+				if ok {
+					next = append(next, array...)
+				}
+			default:
+				array, ok := value.([]any)
+				if !ok {
+					continue
+				}
+				index, ok := claimPathArrayIndex(typed, len(array))
+				if ok {
+					next = append(next, array[index])
+				}
+			}
+		}
+		if len(next) == 0 {
+			return false
+		}
+		values = next
+	}
+	return len(values) > 0
+}
+
+func claimPathArrayIndex(value any, length int) (int, bool) {
+	if !isNonNegativeInteger(value) {
+		return 0, false
+	}
+	var index uint64
+	switch typed := value.(type) {
+	case int:
+		index = uint64(typed)
+	case int8:
+		index = uint64(typed)
+	case int16:
+		index = uint64(typed)
+	case int32:
+		index = uint64(typed)
+	case int64:
+		index = uint64(typed)
+	case uint:
+		index = uint64(typed)
+	case uint8:
+		index = uint64(typed)
+	case uint16:
+		index = uint64(typed)
+	case uint32:
+		index = uint64(typed)
+	case uint64:
+		index = typed
+	case float32:
+		index = uint64(typed)
+	case float64:
+		index = uint64(typed)
+	default:
+		return 0, false
+	}
+	if index >= uint64(length) {
+		return 0, false
+	}
+	return int(index), true
+}
+
+func isNonNegativeInteger(value any) bool {
+	switch typed := value.(type) {
+	case int:
+		return typed >= 0
+	case int8:
+		return typed >= 0
+	case int16:
+		return typed >= 0
+	case int32:
+		return typed >= 0
+	case int64:
+		return typed >= 0
+	case uint, uint8, uint16, uint32, uint64:
+		return true
+	case float32:
+		return typed >= 0 && typed == float32(int64(typed))
+	case float64:
+		return typed >= 0 && typed == float64(int64(typed))
+	default:
+		return false
+	}
 }
 
 func validateClaimsWithoutValues(query map[string]any, responseValue any) Result {

@@ -1,0 +1,6 @@
+id: pipeline.dcql.allowed-claim-path-components
+kind: pipeline
+description: Resolve non-empty claim paths containing string, null, and non-negative integer components.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-allowed-claim-path-components
+required_steps: [evidence-request, present-allowed-path-components, fetch-result]
+outputs: { dcql_exchange: { path: $.output, decoder: raw }, visual_evidence: { path: $.output.present-allowed-path-components.outputs.screenshot_urls, decoder: raw } }

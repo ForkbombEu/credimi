@@ -94,7 +94,34 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__118` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__119` is the next mandatory protocol-message candidate,
+but it duplicates case 114's empty claim path scenario. See
+`TEST-AUTHOR-FEEDBACK.md` Issue 18 before implementing it.
+
+## Case 118
+
+118 uses `claim_path_allowed_components` over one PID credential query with
+three intended resolvable paths: `["given_name"]`,
+`["nationality", null]`, and `["nationality", 0]`. The validator requires
+non-empty path arrays, allows only strings, nulls, and non-negative integers,
+requires evidence of all three categories, parses every returned SD-JWT, and
+resolves every requested path against its disclosed claims. Unit evidence
+rejects empty arrays, booleans, negative integers, fractional numbers, missing
+component categories, missing presentations, and presentations that omit one
+of the requested paths.
+
+The public verifier accepted the combined request shape. A dedicated
+`fcaf-test` Keycloak user was issued a fresh PID after its realm profile was
+verified with `nationality: ["IT"]`, birth date, and structured birthplace.
+On `emulator-5554`, the reference Wallet offered both the old Filippo PID and
+the new FCAF PID. Expanding both consent rows showed only `Given Name(s)`;
+`Nationality` was absent. Sharing completed and the verifier returned HTTP 200
+with two presentations, but their only disclosures were respectively
+`[salt, "given_name", "Filippo"]` and `[salt, "given_name", "FCAF"]`.
+The strict Maestro flow therefore fails at the pre-share `Nationality`
+assertion, and the protocol validator fails because neither nationality path
+resolves. Keep both assertions strict; the observed Wallet behavior does not
+satisfy case 118.
 
 ## Case 117
 
