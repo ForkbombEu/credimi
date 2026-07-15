@@ -398,4 +398,27 @@ The mock service should support:
 Without this service, 096–098 can only be statically validated and cannot be
 claimed as device-level Wallet conformance tests through the public verifier.
 ```
+
+### Issue 14: Expose transaction diagnostics for successful request shapes
+
+Suggested title:
+
+```text
+test(verifier): expose transaction diagnostics when Wallet returns no presentation
+```
+
+Suggested issue body:
+
+```markdown
+For a valid claims-bearing DCQL request (FCAF case 105), the reference Wallet
+accepts the request and PIN, then returns to Home without showing the consent or
+share screen. The verifier transaction endpoint subsequently returns HTTP 400
+with an empty body, so the failure cannot be classified as request rejection,
+credential mismatch, or Wallet discontinuation.
+
+Please expose structured transaction diagnostics including the Wallet response,
+error code, error description, and lifecycle state. This is needed to distinguish
+an invalid request, no matching credential, user cancellation, and transport or
+callback failure in automated conformance evidence.
+```
 ```

@@ -99,6 +99,28 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name: "claims are present and matched",
+			mode: "claims_present",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}},
+				"vp_token":   map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "claims are required",
+			mode: "claims_present",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
+					credential := validSDJWTCredentialQuery("pid")
+					delete(credential, "claims")
+					return credential
+				}()}},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",
 			evidence: map[string]any{

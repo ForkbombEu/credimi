@@ -1,0 +1,18 @@
+id: WS_RP_MS_ProtocolMessages__105
+title: Process a DCQL credential query with claims.
+source: { path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__105.md }
+suite: { sut: wallet_solution, role: relying_party, section: message_structure.protocol_messages }
+normative_references: [{ title: OpenID for Verifiable Presentations 1.0, section: "6.3", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }]
+preconditions: [{ ref: pipeline.dcql.credentials-match }]
+evidence:
+  dcql_exchange: { from: pipeline.dcql.credentials-match.outputs.dcql_exchange }
+  visual_evidence: { from: pipeline.dcql.credentials-match.outputs.visual_evidence }
+assertions:
+  - id: claims_query_is_processed
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params: { mode: claims_present }
+  - id: visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict: { pass_when: all_assertions_pass }

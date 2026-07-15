@@ -94,7 +94,13 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__095` is optional ETSI Trust List support (`type: etsi_tl`). It is outside the current mandatory-only scope and should remain skipped unless the user explicitly includes optional tests.
+`WS_RP_MS_ProtocolMessages__106` is the next mandatory protocol-message candidate.
+
+## Case 105
+
+105 now has a dedicated `claims_present` validator requiring every credential query to contain a non-empty `claims` array, valid non-empty string paths, and a matching `vp_token`. The verifier accepted a fresh claims-bearing request and Maestro drove the wallet through PIN entry, but the wallet returned Home without showing the consent/share screen. Restarting the wallet process and retrying produced the same result.
+
+TODO: finish 105 emulator diagnosis with runner-accessible wallet logcat and verifier transaction evidence. Direct ADB logcat is currently blocked because the sandbox cannot start the ADB smartsocket daemon; Maestro MCP can still inspect and drive the emulator. The verifier transaction endpoint returned HTTP 400 with an empty body after the wallet interaction.
 
 ## Parallel ownership
 
