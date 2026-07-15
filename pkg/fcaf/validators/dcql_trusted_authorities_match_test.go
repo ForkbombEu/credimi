@@ -129,6 +129,28 @@ func TestTrustedAuthoritiesMatchRejectsMissingTA(t *testing.T) {
 	require.Contains(t, result.Message, "does not contain trusted_authorities")
 }
 
+func TestTrustedAuthoritiesNoMatchMode(t *testing.T) {
+	query := map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{map[string]any{
+			"id": "pid-query", "format": "dc+sd-jwt",
+			"meta": map[string]any{"vct_values": []any{"urn:eudi:pid:1"}},
+			"trusted_authorities": []any{map[string]any{
+				"type": "aki", "values": []any{"AAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+			}},
+		}}},
+	}
+	result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+		Value: query, Params: map[string]any{"mode": "trusted_authorities_no_match"},
+	})
+	require.Equal(t, StatusPass, result.Status, result.Message)
+
+	query["vp_token"] = map[string]any{"pid-query": []any{"presentation"}}
+	result = DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+		Value: query, Params: map[string]any{"mode": "trusted_authorities_no_match"},
+	})
+	require.Equal(t, StatusFail, result.Status, result.Message)
+}
+
 func testX509CertWithAKI(t *testing.T) (der []byte, aki string) {
 	t.Helper()
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

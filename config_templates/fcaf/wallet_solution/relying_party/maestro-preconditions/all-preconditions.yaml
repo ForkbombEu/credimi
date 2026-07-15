@@ -16,6 +16,8 @@ tags:
 - runFlow:
     file: dcql-no-matching-credentials.yaml
 - runFlow:
+    file: dcql-trusted-authorities-no-match.yaml
+- runFlow:
     file: dcql-user-denied-consent.yaml
 - runFlow:
     file: dcql-user-authentication-failed.yaml

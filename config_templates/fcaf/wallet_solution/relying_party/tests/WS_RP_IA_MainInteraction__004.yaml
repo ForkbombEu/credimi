@@ -1,0 +1,15 @@
+id: WS_RP_IA_MainInteraction__004
+title: Handle valid trusted_authorities with no matching credential.
+source: { path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__004.md }
+suite: { sut: wallet_solution, role: relying_party, section: interaction.main_interaction }
+applicability: { profile: EUDI_generic }
+normative_references:
+  - { title: OpenID for Verifiable Presentations, section: "6.1", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+preconditions: [{ ref: pipeline.dcql.trusted-authorities-no-match }]
+evidence:
+  dcql_exchange: { from: pipeline.dcql.trusted-authorities-no-match.outputs.dcql_exchange }
+  visual_evidence: { from: pipeline.dcql.trusted-authorities-no-match.outputs.visual_evidence }
+assertions:
+  - { id: unmatched_trusted_authority_returns_no_credential, validator: dcql.response_satisfies_constraints, input: evidence.dcql_exchange, params: { mode: trusted_authorities_no_match } }
+  - { id: no_matching_credential_is_visible, validator: evidence.non_empty, input: evidence.visual_evidence }
+verdict: { pass_when: all_assertions_pass }

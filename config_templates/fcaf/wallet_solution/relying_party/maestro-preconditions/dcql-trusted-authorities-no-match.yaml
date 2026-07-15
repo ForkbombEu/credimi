@@ -1,0 +1,35 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - trusted_authorities DCQL no match
+tags: [fcaf, precondition, dcql, trusted-authorities]
+---
+- clearState: com.android.chrome
+- stopApp
+- launchApp:
+    clearState: false
+    permissions: { camera: allow, notifications: allow, all: unset }
+- runFlow: { file: unlock-wallet.yaml }
+- openLink: { link: "${DCQL_TRUSTED_AUTHORITIES_NO_MATCH_DEEPLINK_URL}", autoVerify: false, browser: false }
+- runFlow: { file: choose-eudi-wallet.yaml }
+- extendedWaitUntil:
+    visible: "Welcome back|The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*"
+    timeout: 100000
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,40%" }
+      - inputText: "123456"
+      - hideKeyboard
+- extendedWaitUntil:
+    visible: "The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*"
+    timeout: 30000
+- assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+- takeScreenshot: fcaf-dcql-trusted-authorities-no-match
+- runFlow:
+    when: { visible: "The requested document is not available in your EUDI Wallet.*" }
+    commands: [{ tapOn: "Go Back" }]
+- runFlow:
+    when: { visible: "Cancel" }
+    commands: [{ tapOn: "Cancel" }]
+- runFlow:
+    when: { visible: "Close" }
+    commands: [{ tapOn: "Close" }]

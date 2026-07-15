@@ -75,11 +75,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"no_match",
 		"request_rejected",
 		"trusted_authorities_match",
+		"trusted_authorities_no_match",
 		"claim_sets":
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, or claim_sets",
 		}
 	}
 
@@ -339,6 +340,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		}
 	case "trusted_authorities_match":
 		return validateTrustedAuthoritiesMatch(query, responseValue)
+	case "trusted_authorities_no_match":
+		return validateTrustedAuthoritiesNoMatch(query, responseValue)
 	case "property_type":
 		if params.Property == "" {
 			return Result{
@@ -1720,6 +1723,47 @@ func validateTrustedAuthoritiesMatch(query map[string]any, responseValue any) Re
 		Status:  StatusPass,
 		Message: "every returned credential issuer matches at least one trusted_authority",
 	}
+}
+
+func validateTrustedAuthoritiesNoMatch(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	if err := validateDCQLCredentialQueries(credentials); err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+	for index, rawCredential := range credentials {
+		credential, _ := normalizeJSONObject(rawCredential)
+		authorities, ok := credential["trusted_authorities"].([]any)
+		if !ok || len(authorities) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] does not contain trusted_authorities", index)}
+		}
+		for authorityIndex, rawAuthority := range authorities {
+			authority, ok := normalizeJSONObject(rawAuthority)
+			if !ok || authority["type"] != "aki" {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d] is not a valid aki authority", index, authorityIndex)}
+			}
+			values, ok := authority["values"].([]any)
+			if !ok || len(values) == 0 {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d].values is empty", index, authorityIndex)}
+			}
+			for valueIndex, rawValue := range values {
+				value, ok := rawValue.(string)
+				if !ok || value == "" {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d].values[%d] is not a string", index, authorityIndex, valueIndex)}
+				}
+				decoded, err := base64.RawURLEncoding.DecodeString(value)
+				if err != nil || len(decoded) == 0 {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].trusted_authorities[%d].values[%d] is not base64url", index, authorityIndex, valueIndex)}
+				}
+			}
+		}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a credential for an unmatched trusted_authorities query"}
+	}
+	return Result{Status: StatusPass, Message: "wallet returned no credential for valid unmatched trusted_authorities"}
 }
 
 func credentialMatchesTrustedAuthorities(presentation *evidence.SDJWTPresentation, authorities []any) bool {

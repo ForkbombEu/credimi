@@ -87,6 +87,7 @@ Maestro-backed preconditions:
 - `pipeline.dcql.credential-sets`: `dcql-credential-sets.yaml`
 - `pipeline.dcql.credentials-match`: `dcql-credentials-match.yaml`
 - `pipeline.dcql.no-matching-credentials`: `dcql-no-matching-credentials.yaml`
+- `pipeline.dcql.trusted-authorities-no-match`: `dcql-trusted-authorities-no-match.yaml`
 - `pipeline.dcql.user-denied-consent`: `dcql-user-denied-consent.yaml`
 - `pipeline.dcql.user-authentication-failed`: `dcql-user-authentication-failed.yaml`
 - `pipeline.oid4vp.invalid-request-uri-method`: `invalid-request-uri-method.yaml`
