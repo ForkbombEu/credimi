@@ -54,6 +54,35 @@ func TestExtractOutputPathAndDecodeSDJWT(t *testing.T) {
 	require.Equal(t, "person@example.test", presentation.Claims["email"])
 }
 
+func TestExtractAndDecodeAllSDJWTPresentations(t *testing.T) {
+	token := "eyJhbGciOiJub25lIn0.eyJfc2QiOlsiTmRUemVld0RjZVRJOXNQVGdRdjBRUG1oU1JZaVQ5cnJwOTB3OE5TY2ZCYyJdLCJ2Y3QiOiJ1cm46ZXVkaTpwaWQ6MSIsImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUifQ~WyJzYWx0IiwiZW1haWwiLCJwZXJzb25AZXhhbXBsZS50ZXN0Il0~"
+	root := map[string]any{"query_0": []any{token, token}}
+
+	value, err := Extract(root, "$.query_0", "sdjwt.presentations")
+
+	require.NoError(t, err)
+	presentations, ok := value.([]*SDJWTPresentation)
+	require.True(t, ok)
+	require.Len(t, presentations, 2)
+	require.Equal(t, "person@example.test", presentations[0].Claims["email"])
+	require.Equal(t, "person@example.test", presentations[1].Claims["email"])
+}
+
+func TestExtractSDJWTPresentationsRejectsInvalidMembers(t *testing.T) {
+	_, err := Extract(
+		map[string]any{"query_0": []any{"invalid"}},
+		"$.query_0",
+		"sdjwt.presentations",
+	)
+	require.ErrorContains(t, err, "sdjwt.presentations[0]")
+
+	_, err = Extract(map[string]any{"query_0": []any{}}, "$.query_0", "sdjwt.presentations")
+	require.ErrorContains(t, err, "input is empty")
+
+	_, err = Extract(map[string]any{"query_0": []any{42}}, "$.query_0", "sdjwt.presentations")
+	require.ErrorContains(t, err, "must be a string")
+}
+
 func TestExtractVPTokenJSONAndDecodeSDJWT(t *testing.T) {
 	root := map[string]any{
 		"output": map[string]any{

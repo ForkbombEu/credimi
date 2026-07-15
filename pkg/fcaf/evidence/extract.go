@@ -15,6 +15,8 @@ import (
 
 type SDJWTPresentation struct {
 	Raw              string         `json:"raw,omitempty"`
+	SDJWT            string         `json:"sd_jwt,omitempty"`
+	KeyBindingJWT    string         `json:"key_binding_jwt,omitempty"`
 	Claims           map[string]any `json:"claims"`
 	ProtectedHeaders map[string]any `json:"protected_headers"`
 	IssuerPayload    map[string]any `json:"issuer_payload"`
@@ -138,6 +140,31 @@ func decode(raw any, decoder string) (any, error) {
 			return nil, fmt.Errorf("wrong decoder sdjwt.presentation for %T", raw)
 		}
 		return ParseSDJWTPresentation(value)
+	case "sdjwt.presentations":
+		values, ok := raw.([]any)
+		if !ok {
+			return nil, fmt.Errorf("wrong decoder sdjwt.presentations for %T", raw)
+		}
+		if len(values) == 0 {
+			return nil, fmt.Errorf("sdjwt.presentations input is empty")
+		}
+		presentations := make([]*SDJWTPresentation, len(values))
+		for index, rawValue := range values {
+			value, ok := rawValue.(string)
+			if !ok {
+				return nil, fmt.Errorf(
+					"sdjwt.presentations[%d] must be a string, got %T",
+					index,
+					rawValue,
+				)
+			}
+			presentation, err := ParseSDJWTPresentation(value)
+			if err != nil {
+				return nil, fmt.Errorf("decode sdjwt.presentations[%d]: %w", index, err)
+			}
+			presentations[index] = presentation
+		}
+		return presentations, nil
 	case "sdjwt.vp_token_json":
 		value, ok := raw.(string)
 		if !ok {
@@ -230,20 +257,28 @@ func ParseSDJWTPresentation(token string) (*SDJWTPresentation, error) {
 
 	disclosures := map[string]disclosureValue{}
 	var keyBinding map[string]any
-
-	for _, segment := range segments[1:] {
-		if strings.TrimSpace(segment) == "" {
-			continue
+	var keyBindingJWT string
+	disclosureSegments := segments[1:]
+	if candidate := strings.TrimSpace(segments[len(segments)-1]); candidate != "" {
+		if strings.Count(candidate, ".") != 2 {
+			return nil, fmt.Errorf("SD-JWT presentation does not end with a KB-JWT or tilde")
 		}
+		kbHeader, kbPayload, err := decodeJWT(candidate)
+		if err != nil {
+			return nil, fmt.Errorf("decode key binding jwt: %w", err)
+		}
+		kbPayload["_protected_header"] = kbHeader
+		keyBinding = kbPayload
+		keyBindingJWT = candidate
+		disclosureSegments = segments[1 : len(segments)-1]
+	}
 
-		if strings.Count(segment, ".") == 2 {
-			kbHeader, kbPayload, err := decodeJWT(segment)
-			if err != nil {
-				return nil, fmt.Errorf("decode key binding jwt: %w", err)
+	for index, segment := range disclosureSegments {
+		if strings.TrimSpace(segment) == "" {
+			if index == len(disclosureSegments)-1 && keyBindingJWT == "" {
+				continue
 			}
-			kbPayload["_protected_header"] = kbHeader
-			keyBinding = kbPayload
-			continue
+			return nil, fmt.Errorf("empty SD-JWT disclosure segment")
 		}
 
 		disclosure, digest, err := parseDisclosure(segment)
@@ -274,6 +309,8 @@ func ParseSDJWTPresentation(token string) (*SDJWTPresentation, error) {
 
 	return &SDJWTPresentation{
 		Raw:              token,
+		SDJWT:            strings.TrimSuffix(token, keyBindingJWT),
+		KeyBindingJWT:    keyBindingJWT,
 		Claims:           claims,
 		ProtectedHeaders: header,
 		IssuerPayload:    payload,

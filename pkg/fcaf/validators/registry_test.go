@@ -114,6 +114,165 @@ func TestSDJWTIssuerX509HeaderValidator(t *testing.T) {
 	}
 }
 
+func TestSDJWTCNFConformsValidator(t *testing.T) {
+	p256 := elliptic.P256().Params()
+	p256X := base64.RawURLEncoding.EncodeToString(p256.Gx.FillBytes(make([]byte, 32)))
+	p256Y := base64.RawURLEncoding.EncodeToString(p256.Gy.FillBytes(make([]byte, 32)))
+	tests := []struct {
+		name       string
+		issuerCNF  any
+		omitCNF    bool
+		wantStatus Status
+	}{
+		{
+			name: "valid EC public JWK",
+			issuerCNF: map[string]any{
+				"jwk": map[string]any{
+					"kty": "EC",
+					"crv": "P-256",
+					"x":   p256X,
+					"y":   p256Y,
+				},
+			},
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "valid key identifier",
+			issuerCNF:  map[string]any{"kid": "holder-key-1"},
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "valid HTTPS JWK set reference",
+			issuerCNF:  map[string]any{"jku": "https://holder.example/keys.json"},
+			wantStatus: StatusPass,
+		},
+		{
+			name: "valid HTTPS JWK set reference with key identifier",
+			issuerCNF: map[string]any{
+				"jku": "https://holder.example/keys.json",
+				"kid": "holder-key-1",
+			},
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "valid compact JWE",
+			issuerCNF:  map[string]any{"jwe": "header.key.iv.ciphertext.tag"},
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "missing cnf",
+			omitCNF:    true,
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "cnf is not an object",
+			issuerCNF:  "holder-key-1",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "empty cnf",
+			issuerCNF:  map[string]any{},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "JWK contains private key material",
+			issuerCNF: map[string]any{
+				"jwk": map[string]any{
+					"kty": "EC",
+					"crv": "P-256",
+					"x":   p256X,
+					"y":   p256Y,
+					"d":   "private",
+				},
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "EC JWK is missing a coordinate",
+			issuerCNF: map[string]any{
+				"jwk": map[string]any{
+					"kty": "EC",
+					"crv": "P-256",
+					"x":   p256X,
+				},
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "EC JWK coordinate is not base64url",
+			issuerCNF: map[string]any{
+				"jwk": map[string]any{
+					"kty": "EC",
+					"crv": "P-256",
+					"x":   "not+base64url",
+					"y":   p256Y,
+				},
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "EC JWK coordinate has wrong length",
+			issuerCNF: map[string]any{
+				"jwk": map[string]any{
+					"kty": "EC",
+					"crv": "P-256",
+					"x":   base64.RawURLEncoding.EncodeToString(make([]byte, 31)),
+					"y":   p256Y,
+				},
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "JWK set URL is not HTTPS",
+			issuerCNF:  map[string]any{"jku": "http://holder.example/keys.json", "kid": "key-1"},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "EC JWK coordinates are not on the declared curve",
+			issuerCNF: map[string]any{
+				"jwk": map[string]any{
+					"kty": "EC",
+					"crv": "P-256",
+					"x":   base64.RawURLEncoding.EncodeToString(make([]byte, 32)),
+					"y":   base64.RawURLEncoding.EncodeToString(make([]byte, 32)),
+				},
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "multiple proof keys",
+			issuerCNF: map[string]any{
+				"jwk": map[string]any{
+					"kty": "OKP",
+					"crv": "Ed25519",
+					"x":   base64.RawURLEncoding.EncodeToString(make([]byte, 32)),
+				},
+				"jwe": "header.key.iv.ciphertext.tag",
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "unknown confirmation method only",
+			issuerCNF:  map[string]any{"custom": "key"},
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload := map[string]any{}
+			if !tt.omitCNF {
+				payload["cnf"] = tt.issuerCNF
+			}
+			got := SDJWTCNFConformsValidator{}.Validate(context.Background(), Input{
+				Value: &evidence.SDJWTPresentation{IssuerPayload: payload},
+			})
+
+			require.Equal(t, tt.wantStatus, got.Status)
+		})
+	}
+}
+
 func testX509Certificate(t *testing.T) string {
 	t.Helper()
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

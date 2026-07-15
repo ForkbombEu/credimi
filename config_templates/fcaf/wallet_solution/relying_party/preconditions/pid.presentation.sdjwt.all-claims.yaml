@@ -12,4 +12,10 @@ outputs:
   pid_sdjwt:
     path: $.output.http-get-verifier-backend.eudiw.dev-0008.outputs.body.raw.presentation_response_decrypted.vp_token.query_0[0]
     decoder: sdjwt.presentation
+  pid_sdjwt_presentations:
+    path: $.output.http-get-verifier-backend.eudiw.dev-0008.outputs.body.raw.presentation_response_decrypted.vp_token.query_0
+    decoder: sdjwt.presentations
+  visual_evidence:
+    path: $.output.fake-verifier-pid-sd-jwt-credentials-all-claims-0006.outputs.screenshot_urls
+    decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

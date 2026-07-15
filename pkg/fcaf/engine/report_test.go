@@ -7,9 +7,42 @@ package engine
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 	"github.com/forkbombeu/credimi/pkg/fcaf/validators"
 	"github.com/stretchr/testify/require"
 )
+
+func TestEvidenceValuePreservesSDJWTKeyBindingMaterial(t *testing.T) {
+	value := evidenceValue(&evidence.SDJWTPresentation{
+		Raw:           "issuer~disclosure~kb-jwt",
+		SDJWT:         "issuer~disclosure~",
+		KeyBindingJWT: "kb-jwt",
+	})
+
+	serialized, ok := value.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "issuer~disclosure~kb-jwt", serialized["raw"])
+	require.Equal(t, "issuer~disclosure~", serialized["sd_jwt"])
+	require.Equal(t, "kb-jwt", serialized["key_binding_jwt"])
+}
+
+func TestEvidenceValuePreservesAllSDJWTPresentations(t *testing.T) {
+	value := evidenceValue([]*evidence.SDJWTPresentation{
+		{Raw: "first~kb-1", SDJWT: "first~", KeyBindingJWT: "kb-1"},
+		{Raw: "second~kb-2", SDJWT: "second~", KeyBindingJWT: "kb-2"},
+	})
+
+	serialized, ok := value.([]any)
+	require.True(t, ok)
+	require.Len(t, serialized, 2)
+	first, ok := serialized[0].(map[string]any)
+	require.True(t, ok)
+	second, ok := serialized[1].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "first~kb-1", first["raw"])
+	require.Equal(t, "second~kb-2", second["raw"])
+	require.Equal(t, "sdjwt.presentations", evidenceType([]*evidence.SDJWTPresentation{}))
+}
 
 func TestPopulateExecutedTestsPassesWithPreconditionsAndAssertions(t *testing.T) {
 	report := Report{

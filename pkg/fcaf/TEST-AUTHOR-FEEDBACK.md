@@ -718,3 +718,28 @@ with the stated capability set, or revise the prerequisite and expected
 format. The applicability metadata should let runners skip the test when the
 SUT supports `mso_mdoc` rather than report an implementation failure.
 ```
+
+### Issue 23: Provide Verifier Info attestation fixtures for device-binding tests
+
+Suggested title:
+
+```text
+test(wallet-rp): provide verifier-info attestation generator
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_SM_DeviceBinding__002` through `__006` require Authorization Requests
+containing controlled key-bound Verifier Info attestations: valid bindings,
+missing nonce or client_id, valid and invalid proofs, and an unknown attestation
+type.
+
+The public EUDI verifier currently emits a normal x5c-signed Authorization
+Request without a `verifier_info` attestation. The test inputs cannot be added
+after request creation because doing so would invalidate the signed request
+object. Please provide a suite-owned attestation signer/generator or mock
+verifier that can issue every required variant and capture the Wallet's
+protocol response. Include canonical fixtures and expected validation outcomes
+so implementations do not invent incompatible attestation profiles.
+```

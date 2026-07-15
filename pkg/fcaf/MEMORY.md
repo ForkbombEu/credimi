@@ -94,9 +94,9 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__153` is the next runnable mandatory
-protocol-message candidate. Case 119 duplicates case 114, and cases 120-146
-are intentionally skipped where the required raw request or configurable
+`WS_RP_SM_DeviceBinding__008` is the next runnable mandatory candidate. Case
+119 duplicates case 114; cases 120-146 and 153-159 are intentionally skipped
+where the required raw request, transaction-data fixture, or configurable
 verifier response cannot be produced by the public service.
 
 ## Mock-verifier skip queue
@@ -140,6 +140,12 @@ deliver the required request and capture the Wallet's actual protocol result:
   to trigger `invalid_client` requires a stateful mock verifier/registry.
 - 150: the public verifier rejects `format: vc+sd-jwt` during request creation
   with HTTP 400 `UnsupportedFormat`, before a signed request reaches the Wallet.
+- 153-159: all require signed requests containing unsupported or malformed
+  `transaction_data` and exact Wallet error capture. Cases 154-157 also require
+  a supported transaction-data schema that the suite does not define.
+- DeviceBinding 002-006: the public verifier request object contains no
+  `verifier_info` attestation. These cases require a generator for valid,
+  malformed, invalid-proof, and unknown-type Verifier Info attestations.
 
 These are implementation skips, not conformance passes or accepted
 discontinuations. See `TEST-AUTHOR-FEEDBACK.md` Issues 13 and 19.
@@ -226,6 +232,65 @@ The 15/07/2026 reusable Maestro flow passed and reached the generic `Oups!
 Something went wrong` page, but the Wallet sent no error response. Polling the same verifier
 transaction returned HTTP 400 with an empty body. The reference Wallet fails
 case 152; do not treat the local generic error page as protocol evidence.
+
+## Cases 153-159
+
+These seven `invalid_transaction_data` cases are not runnable with the public
+verifier. They require controlled signed request objects and exact Wallet error
+capture. 153 is the exact-error specialization of blocked case 136. Cases
+154-157 additionally require a known supported transaction-data type, schema,
+field types, ranges, and mandatory fields; no such fixture is defined. Cases
+158-159 require controlled `credential_ids` references. Keep them missing until
+the mock verifier and transaction-data fixture tracked in Issues 13 and 20 are
+available.
+
+## DeviceBinding cases 002-006
+
+A live public-verifier request-object probe on 15/07/2026 contained the normal
+x5c-signed authorization request but no `verifier_info` attestation. Cases
+002-006 need a controllable Verifier Info attestation generator and cannot be
+adapted from that request without changing the signed object. They are tracked
+as mock-verifier skips and in `TEST-AUTHOR-FEEDBACK.md` Issue 23.
+
+## DeviceBinding case 007
+
+007 reuses the successful PID SD-JWT all-claims presentation and validates the
+issuer-signed `cnf` claim with `sdjwt.cnf_conforms`. The structural validator requires a
+non-empty object in the issuer payload, exactly one RFC 7800 proof-of-possession
+key representation, valid public EC/RSA/OKP JWK members without private key
+material, unpadded base64url key values with curve-specific lengths, a compact
+JWE, a non-empty key identifier, or an HTTPS JWK Set URL. Unknown members are
+ignored only when a supported confirmation method remains present.
+
+The mandatory `sdjwt.key_binding_matches_cnf` assertion preserves the exact
+SD-JWT and compact KB-JWT bytes, verifies the KB-JWT signature with `cnf.jwk`,
+enforces `typ: kb+jwt`, rejects unsecured or key-incompatible algorithms,
+requires valid `iat`, `aud`, `nonce`, and `sd_hash` claims, and recomputes the
+RFC 9901 `sd_hash` over the presented SD-JWT and selected disclosures. Wrong
+keys, altered signatures, malformed mandatory claims, algorithm confusion, and
+mismatched presentation hashes are covered by focused negative tests.
+
+The shared precondition exposes both the existing singular `pid_sdjwt` output
+for older tests and a `pid_sdjwt_presentations` collection for 007. Both 007
+validators iterate the full collection and pass only when every returned
+credential presentation passes; a failure or unresolved confirmation method is
+reported with its presentation index. This prevents the first `query_0` member
+from hiding a bad later credential.
+
+Resolver note: `kid`, `jku`, and `jwe` remain valid structural RFC 7800
+confirmation methods, but their cryptographic verification needs trusted
+external key-resolution or decryption evidence. The cryptographic validator
+returns `blocked`, never `pass`, when `cnf.jwk` is absent. A future resolver must
+provide the resolved Holder key as evidence; network access must not be hidden
+inside the pure validator.
+
+Visual presentation evidence is exposed from the shared PID precondition. A
+live reference-wallet run on 15/07/2026 left both stored PID credentials selected
+(Filippo and the FCAF test user), displayed their requested claims, and sent two
+SD-JWT presentations. Maestro completed the consent and success flow. The exact
+verifier response was decoded as a two-member collection; each presentation
+contained a distinct EC P-256 `cnf.jwk`, and both passed the structural check,
+KB-JWT signature verification, and RFC 9901 `sd_hash` recomputation.
 
 ## Case 118
 

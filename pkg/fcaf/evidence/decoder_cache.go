@@ -60,7 +60,11 @@ func (c *DecoderCache) Extract(root any, path string, decoder string) (any, erro
 
 func isReusableCredentialDecoder(decoder string) bool {
 	switch decoder {
-	case "sdjwt.presentation", "sdjwt.vp_token_json", "mdoc.presentation", "mdoc.vp_token_json":
+	case "sdjwt.presentation",
+		"sdjwt.presentations",
+		"sdjwt.vp_token_json",
+		"mdoc.presentation",
+		"mdoc.vp_token_json":
 		return true
 	default:
 		return false

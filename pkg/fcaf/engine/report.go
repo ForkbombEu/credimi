@@ -388,6 +388,8 @@ func evidenceValue(value any) any {
 	case *evidence.SDJWTPresentation:
 		return map[string]any{
 			"raw":               typed.Raw,
+			"sd_jwt":            typed.SDJWT,
+			"key_binding_jwt":   typed.KeyBindingJWT,
 			"claims":            typed.Claims,
 			"protected_headers": typed.ProtectedHeaders,
 			"issuer_payload":    typed.IssuerPayload,
@@ -396,11 +398,19 @@ func evidenceValue(value any) any {
 	case evidence.SDJWTPresentation:
 		return map[string]any{
 			"raw":               typed.Raw,
+			"sd_jwt":            typed.SDJWT,
+			"key_binding_jwt":   typed.KeyBindingJWT,
 			"claims":            typed.Claims,
 			"protected_headers": typed.ProtectedHeaders,
 			"issuer_payload":    typed.IssuerPayload,
 			"key_binding":       typed.KeyBinding,
 		}
+	case []*evidence.SDJWTPresentation:
+		presentations := make([]any, len(typed))
+		for index, presentation := range typed {
+			presentations[index] = evidenceValue(presentation)
+		}
+		return presentations
 	case *evidence.MDocPresentation:
 		return typed
 	case evidence.MDocPresentation:
@@ -414,6 +424,8 @@ func evidenceType(value any) string {
 	switch value.(type) {
 	case *evidence.SDJWTPresentation, evidence.SDJWTPresentation:
 		return "sdjwt.presentation"
+	case []*evidence.SDJWTPresentation:
+		return "sdjwt.presentations"
 	case *evidence.MDocPresentation, evidence.MDocPresentation:
 		return "mdoc.presentation"
 	case map[string]any:

@@ -79,6 +79,8 @@ func DefaultRegistry() (*Registry, error) {
 		SDJWTClaimCountrySubdivisionValidator{},
 		SDJWTDomesticNamespaceValidator{},
 		SDJWTIssuerX509HeaderValidator{},
+		SDJWTCNFConformsValidator{},
+		SDJWTKeyBindingMatchesCNFValidator{},
 		PIDSDJWTVCTValidator{},
 		PIDSDJWTMandatoryClaimsValidator{},
 	)
