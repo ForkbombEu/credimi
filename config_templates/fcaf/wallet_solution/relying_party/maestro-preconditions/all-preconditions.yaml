@@ -20,6 +20,8 @@ tags:
 - runFlow:
     file: dcql-user-authentication-failed.yaml
 - runFlow:
+    file: invalid-request-uri-method.yaml
+- runFlow:
     file: dcql-claim-sets.yaml
 - runFlow:
     file: dcql-holder-binding-type-boundary.yaml

@@ -1,0 +1,26 @@
+appId: eu.europa.ec.euidi
+name: Reject an invalid request_uri_method
+tags: [fcaf, precondition, oid4vp, request-uri-method]
+---
+- clearState: com.android.chrome
+- launchApp: { stopApp: true, clearState: false }
+- runFlow: { file: unlock-wallet.yaml }
+- openLink: { link: "${INVALID_REQUEST_URI_METHOD_PRESENTATION_URL}", autoVerify: false, browser: false }
+- runFlow: { file: choose-eudi-wallet.yaml }
+- extendedWaitUntil: { visible: "Welcome back|Oups! Something went wrong", timeout: 100000 }
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,40%" }
+      - tapOn: { text: "1", retryTapIfNoChange: false }
+      - tapOn: { text: "2", retryTapIfNoChange: false }
+      - tapOn: { text: "3", retryTapIfNoChange: false }
+      - tapOn: { text: "4", retryTapIfNoChange: false }
+      - tapOn: { text: "5", retryTapIfNoChange: false }
+      - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+- extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+- assertNotVisible: "DATA SHARING REQUEST"
+- assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+- takeScreenshot: fcaf-152-invalid-request-uri-method
+- tapOn: "Close"
+- extendedWaitUntil: { visible: "Home|Welcome, .*", timeout: 30000 }

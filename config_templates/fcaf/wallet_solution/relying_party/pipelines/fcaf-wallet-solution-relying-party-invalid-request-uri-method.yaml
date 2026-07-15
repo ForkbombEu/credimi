@@ -1,0 +1,61 @@
+name: FCAF invalid request_uri_method
+runtime: { global_runner_id: "" }
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: https://verifier-backend.eudiw.dev/ui/presentations
+      expected_status: 200
+      headers: { Content-Type: application/json }
+      body:
+        type: vp_token
+        nonce: fcaf-152-invalid-request-uri-method
+        dcql_query:
+          credentials:
+            - id: pid-invalid-request-uri-method
+              format: dc+sd-jwt
+              meta: { vct_values: [urn:eudi:pid:1] }
+              claims:
+                - { path: [given_name] }
+
+  - id: reject-invalid-request-uri-method
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
+        REQUEST_URI: ${{ create-presentation.outputs.body.request_uri }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - clearState: com.android.chrome
+        - launchApp: { stopApp: true, clearState: false }
+        - runFlow: { file: unlock-wallet.yaml }
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI) + '&request_uri_method=DELETE'}
+        - openLink: { link: ${output.authorizationRequest}, autoVerify: false, browser: false }
+        - runFlow: { file: choose-eudi-wallet.yaml }
+        - extendedWaitUntil: { visible: "Welcome back|Oups! Something went wrong", timeout: 100000 }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - tapOn: { text: "1", retryTapIfNoChange: false }
+              - tapOn: { text: "2", retryTapIfNoChange: false }
+              - tapOn: { text: "3", retryTapIfNoChange: false }
+              - tapOn: { text: "4", retryTapIfNoChange: false }
+              - tapOn: { text: "5", retryTapIfNoChange: false }
+              - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - assertNotVisible: "DATA SHARING REQUEST"
+        - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+        - takeScreenshot: fcaf-152-invalid-request-uri-method
+        - tapOn: "Close"
+        - extendedWaitUntil: { visible: "Home|Welcome, .*", timeout: 30000 }
+
+  - id: fetch-result
+    use: http-request
+    with:
+      method: GET
+      url: https://verifier-backend.eudiw.dev/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      expected_status: 200

@@ -94,7 +94,7 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__150` is the next runnable mandatory
+`WS_RP_MS_ProtocolMessages__153` is the next runnable mandatory
 protocol-message candidate. Case 119 duplicates case 114, and cases 120-146
 are intentionally skipped where the required raw request or configurable
 verifier response cannot be produced by the public service.
@@ -138,6 +138,8 @@ deliver the required request and capture the Wallet's actual protocol result:
   custom signed requests plus exact Wallet error capture.
 - 146: the trusted-registry and locally stored verifier metadata state needed
   to trigger `invalid_client` requires a stateful mock verifier/registry.
+- 150: the public verifier rejects `format: vc+sd-jwt` during request creation
+  with HTTP 400 `UnsupportedFormat`, before a signed request reaches the Wallet.
 
 These are implementation skips, not conformance passes or accepted
 discontinuations. See `TEST-AUTHOR-FEEDBACK.md` Issues 13 and 19.
@@ -198,6 +200,32 @@ defined terminal authentication failure and exposes the submitted authorization
 error. The upstream scenario does not define whether one invalid attempt, terminal lockout,
 biometric failure, or cancellation constitutes failed authentication; this is
 tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 21.
+
+## Cases 150 and 151
+
+150 is mock-verifier blocked. A live public-verifier probe on 15/07/2026
+rejected `format: vc+sd-jwt` during presentation creation with HTTP 400 and
+`{"error":"UnsupportedFormat"}`; the Wallet cannot produce the required
+`vp_formats_not_supported` response without receiving a signed request.
+
+151 is not executable against the reference Wallet because its prerequisite
+requires a Wallet that supports `vc+sd-jwt` but does not support `mso_mdoc`.
+The reference Wallet supports `mso_mdoc`, so changing the requested document
+type would test credential availability rather than format support.
+
+## Case 152
+
+152 starts from a valid public-verifier request URI and adds the deliberately
+invalid `request_uri_method=DELETE` authorization parameter. The Maestro flow
+requires the Wallet's generic error page, proves that neither `DATA SHARING
+REQUEST` nor a requested-document row appears, captures visual evidence, and
+returns to Home. Protocol assertions require no `vp_token` and error exactly
+equal to `invalid_request_uri_method`.
+
+The 15/07/2026 reusable Maestro flow passed and reached the generic `Oups!
+Something went wrong` page, but the Wallet sent no error response. Polling the same verifier
+transaction returned HTTP 400 with an empty body. The reference Wallet fails
+case 152; do not treat the local generic error page as protocol evidence.
 
 ## Case 118
 

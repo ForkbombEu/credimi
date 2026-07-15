@@ -694,3 +694,27 @@ manual diagnostic surface that displays the submitted authorization error when
 this terminal state is exercised. Replace expected-result step 4 with those
 observable criteria.
 ```
+
+### Issue 22: Reconcile protocol test 151 with EUDI wallet capabilities
+
+Suggested title:
+
+```text
+clarify(wallet-rp): fix applicability of protocol test 151
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages__151` is classified as `EUDI_required`, but its
+precondition requires a Wallet that supports `vc+sd-jwt` and does not support
+`mso_mdoc`. The reference EUDI Wallet supports `mso_mdoc`, so it cannot satisfy
+the stated prerequisite. Requesting an unavailable mdoc document type would
+test credential matching, not whether the `mso_mdoc` format is unsupported.
+
+Please clarify whether this is a conditional capability-profile test rather
+than an unconditional EUDI-required test, provide a dedicated Wallet fixture
+with the stated capability set, or revise the prerequisite and expected
+format. The applicability metadata should let runners skip the test when the
+SUT supports `mso_mdoc` rather than report an implementation failure.
+```
