@@ -369,7 +369,7 @@ test(fcaf): provide raw mock-verifier support for malformed DCQL cases
 Suggested issue body:
 
 ```markdown
-FCAF cases 096–098, 100, 108, and 110–113 require the Wallet to receive DCQL that the
+FCAF cases 096–098, 100, 108, and 110–114 require the Wallet to receive DCQL that the
 public verifier rejects before producing a signed request:
 
 - 096: `options` is missing
@@ -381,6 +381,7 @@ public verifier rejects before producing a signed request:
 - 111: a claim has a present but empty `id`
 - 112: a claim `id` contains a forbidden character
 - 113: a claim object omits the required `path`
+- 114: a claim `path` is an empty array
 
 The public `https://verifier-backend.eudiw.dev/ui/presentations` endpoint cannot
 exercise these cases. Its typed request decoder rejects them before a signed
@@ -394,6 +395,7 @@ request reaches the Wallet:
 - 111 fails in `ClaimId` validation with `Value cannot be be empty`.
 - 112 fails in `DCQLId.ensureValid` because the claim `id` contains a character outside the allowed alphabet.
 - 113 fails during `ClaimsQuery` decoding because the required `path` field is missing.
+- 114 fails in `ClaimPath` deserialization because the path is empty.
 
 A direct by-value case 110 emulator probe reached the reference Wallet but
 silently returned to Home without showing `invalid_request` or an error page.
@@ -445,4 +447,23 @@ Please expose structured transaction diagnostics including the Wallet response,
 error code, error description, and lifecycle state. This is needed to distinguish
 an invalid request, no matching credential, user cancellation, and transport or
 callback failure in automated conformance evidence.
+```
+
+### Issue 15: Correct the expected error name in protocol test 114
+
+Suggested title:
+
+```text
+fix(wallet-rp): correct invalid_request typo in protocol test 114
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages__114.md` says the Wallet returns an
+`invalid request_error`. The OpenID4VP error value used by the neighboring tests
+and required by this scenario is `invalid_request`.
+
+Proposed change: replace `invalid request_error` with `invalid_request` and
+format it as a protocol literal.
 ```

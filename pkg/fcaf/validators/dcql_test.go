@@ -252,6 +252,11 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 		{name: "empty claim path is present", mode: "claim_path_missing", evidence: claimPathEvidence(true, []any{}, true), status: StatusFail},
 		{name: "valid claim path is present", mode: "claim_path_missing", evidence: claimPathEvidence(true, []any{"given_name"}, true), status: StatusFail},
 		{name: "missing claim path requires invalid request", mode: "claim_path_missing", evidence: claimPathEvidence(false, nil, false), status: StatusFail},
+		{name: "empty claim path is rejected", mode: "claim_path_empty", evidence: claimPathEvidence(true, []any{}, true), status: StatusPass},
+		{name: "missing claim path is not the empty path case", mode: "claim_path_empty", evidence: claimPathEvidence(false, nil, true), status: StatusFail},
+		{name: "null claim path is not the empty array case", mode: "claim_path_empty", evidence: claimPathEvidence(true, nil, true), status: StatusFail},
+		{name: "valid claim path is not empty", mode: "claim_path_empty", evidence: claimPathEvidence(true, []any{"given_name"}, true), status: StatusFail},
+		{name: "empty claim path requires invalid request", mode: "claim_path_empty", evidence: claimPathEvidence(true, []any{}, false), status: StatusFail},
 		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",

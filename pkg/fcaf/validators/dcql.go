@@ -40,6 +40,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"empty_claim_id",
 		"invalid_claim_id_characters",
 		"claim_path_missing",
+		"claim_path_empty",
 		"credential_sets_options_missing",
 		"credential_sets_options_empty",
 		"credential_sets_options_non_array",
@@ -116,6 +117,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateInvalidClaimIDCharacters(query, responseValue, errorValue)
 	case "claim_path_missing":
 		return validateMissingClaimPath(query, responseValue, errorValue)
+	case "claim_path_empty":
+		return validateEmptyClaimPath(query, responseValue, errorValue)
 	case "credential_sets_options_missing":
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
@@ -1306,4 +1309,49 @@ func validateMissingClaimPath(query map[string]any, responseValue any, errorValu
 		return Result{Status: StatusFail, Message: "wallet did not return invalid_request for a claim missing path"}
 	}
 	return Result{Status: StatusPass, Message: "wallet rejected a claim missing path with invalid_request"}
+}
+
+func validateEmptyClaimPath(query map[string]any, responseValue any, errorValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	foundEmpty := false
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		for claimIndex, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", credentialIndex, claimIndex)}
+			}
+			pathValue, exists := claim["path"]
+			if !exists {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path is missing", credentialIndex, claimIndex)}
+			}
+			path, ok := pathValue.([]any)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path is not an array", credentialIndex, claimIndex)}
+			}
+			if len(path) == 0 {
+				foundEmpty = true
+			}
+		}
+	}
+	if !foundEmpty {
+		return Result{Status: StatusFail, Message: "no claim path is empty"}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a credential for an empty claim path"}
+	}
+	if errorText, _ := errorValue.(string); errorText != "invalid_request" {
+		return Result{Status: StatusFail, Message: "wallet did not return invalid_request for an empty claim path"}
+	}
+	return Result{Status: StatusPass, Message: "wallet rejected an empty claim path with invalid_request"}
 }

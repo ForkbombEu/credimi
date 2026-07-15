@@ -94,7 +94,13 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__114` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__115` is the next mandatory protocol-message candidate.
+
+## Case 114
+
+114 uses `claim_path_empty` to prove the `path` property is present as an empty array. It distinguishes this from a missing path, `null`, non-array values, and a valid non-empty path. Passing evidence requires no `vp_token` and a real `error: invalid_request`.
+
+The public verifier rejected request creation with HTTP 400 while deserializing `ClaimPath` (`ClaimPath must not be empty`), before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13. The source expected result contains the typo `invalid request_error`; Issue 15 records the upstream correction to `invalid_request`.
 
 ## Case 113
 
