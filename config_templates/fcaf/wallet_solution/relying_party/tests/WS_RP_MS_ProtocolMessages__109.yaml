@@ -1,0 +1,11 @@
+id: WS_RP_MS_ProtocolMessages__109
+title: Accept claims without id when claim_sets is absent.
+source: { path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__109.md }
+suite: { sut: wallet_solution, role: relying_party, section: message_structure.protocol_messages }
+normative_references: [{ title: OpenID for Verifiable Presentations 1.0, section: "6.3", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }]
+preconditions: [{ ref: pipeline.dcql.claims-without-id-without-claim-sets }]
+evidence: { dcql_exchange: { from: pipeline.dcql.claims-without-id-without-claim-sets.outputs.dcql_exchange }, visual_evidence: { from: pipeline.dcql.claims-without-id-without-claim-sets.outputs.visual_evidence } }
+assertions:
+  - { id: claims_without_id_are_accepted, validator: dcql.response_satisfies_constraints, input: evidence.dcql_exchange, params: { mode: claims_without_id_without_claim_sets } }
+  - { id: visual_evidence, validator: evidence.non_empty, input: evidence.visual_evidence }
+verdict: { pass_when: all_assertions_pass }

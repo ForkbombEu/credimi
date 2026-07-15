@@ -26,6 +26,8 @@ tags:
 - runFlow:
     file: dcql-claims-non-array.yaml
 - runFlow:
+    file: dcql-claims-without-id-without-claim-sets.yaml
+- runFlow:
     file: dcql-claim-sets-empty.yaml
 - runFlow:
     file: dcql-claim-sets-non-array.yaml

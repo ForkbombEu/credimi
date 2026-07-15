@@ -47,6 +47,7 @@ maestro --device emulator-5580 test all-preconditions.yaml \
   -e DCQL_CREDENTIALS_MATCH_DEEPLINK_URL='<fresh credentials-match request>' \
   -e DCQL_NO_MATCHING_CREDENTIALS_DEEPLINK_URL='<fresh no-match request>' \
   -e DCQL_CLAIM_SETS_DEEPLINK_URL='<fresh claim_sets request>' \
+  -e DCQL_CLAIMS_WITHOUT_ID_PRESENTATION_URL='<fresh claims-without-id request without claim_sets>' \
   -e HAIP_VP_PRESENTATION_URL='<fresh haip-vp presentation request>' \
   -e DIRECT_POST_JWT_PRESENTATION_URL='<fresh direct_post.jwt PID mdoc request>' \
   -e REQUEST_URI_METHOD_POST_PRESENTATION_URL='<fresh request_uri_method=post PID mdoc request>' \
@@ -82,6 +83,7 @@ Maestro-backed preconditions:
 - `pipeline.dcql.claims-omitted`: `dcql-claims-omitted.yaml`
 - `pipeline.dcql.claims-empty`: `dcql-claims-empty.yaml`
 - `pipeline.dcql.claims-non-array`: `dcql-claims-non-array.yaml`
+- `pipeline.dcql.claims-without-id-without-claim-sets`: `dcql-claims-without-id-without-claim-sets.yaml`
 - `pipeline.dcql.claim-sets-empty`: `dcql-claim-sets-empty.yaml`
 - `pipeline.dcql.claim-sets-non-array`: `dcql-claim-sets-non-array.yaml`
 - `pipeline.dcql.same-credential-multiple-queries`: `dcql-same-credential-multiple-queries.yaml`

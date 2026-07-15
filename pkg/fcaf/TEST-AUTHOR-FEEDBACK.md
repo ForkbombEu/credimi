@@ -415,11 +415,17 @@ test(verifier): expose transaction diagnostics when Wallet returns no presentati
 Suggested issue body:
 
 ```markdown
-For a valid claims-bearing DCQL request (FCAF case 105), the reference Wallet
-accepts the request and PIN, then returns to Home without showing the consent or
-share screen. The verifier transaction endpoint subsequently returns HTTP 400
-with an empty body, so the failure cannot be classified as request rejection,
-credential mismatch, or Wallet discontinuation.
+For valid claims-bearing DCQL requests in FCAF cases 105 and 109, the reference
+Wallet accepts the request and PIN, then returns to Home without showing the
+consent or share screen. Case 109 specifically omits each claim `id` while also
+omitting `claim_sets`, as permitted by OID4VP section 6.3. The public verifier
+accepts this request shape, so it is not blocked by the malformed-request
+limitation affecting cases 096-098, 100, and 108.
+
+After both case 109 emulator attempts, the verifier transaction endpoint
+returned HTTP 400 with an empty body. The failure therefore cannot be classified
+as request rejection, credential mismatch, Wallet discontinuation, or a
+request-routing failure.
 
 Please expose structured transaction diagnostics including the Wallet response,
 error code, error description, and lifecycle state. This is needed to distinguish

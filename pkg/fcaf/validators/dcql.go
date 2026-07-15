@@ -35,6 +35,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"claims_path_no_match",
 		"claims_values_no_match",
 		"claim_id_missing_with_claim_sets",
+		"claims_without_id_without_claim_sets",
 		"credential_sets_options_missing",
 		"credential_sets_options_empty",
 		"credential_sets_options_non_array",
@@ -101,12 +102,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateClaimsValuesNoMatch(query, responseValue)
 	case "claim_id_missing_with_claim_sets":
 		return validateMissingClaimIDWithClaimSets(query, responseValue)
-		if isEmptyDCQLValue(responseValue) {
-			return Result{
-				Status:  StatusFail,
-				Message: "wallet response contains no vp_token for credential_sets",
-			}
-		}
+	case "claims_without_id_without_claim_sets":
+		return validateClaimsWithoutIDWithoutClaimSets(query, responseValue)
 	case "credential_sets_options_missing":
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
@@ -1077,4 +1074,54 @@ func validateMissingClaimIDWithClaimSets(query map[string]any, responseValue any
 		return Result{Status: StatusFail, Message: "wallet returned a credential for claims missing id with claim_sets"}
 	}
 	return Result{Status: StatusPass, Message: "wallet rejected claims missing id with claim_sets"}
+}
+
+func validateClaimsWithoutIDWithoutClaimSets(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{Status: StatusFail, Message: "wallet vp_token is not an object keyed by credential query ID"}
+	}
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		if _, exists := credential["claim_sets"]; exists {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] contains claim_sets", credentialIndex)}
+		}
+		id, ok := credential["id"].(string)
+		if !ok || id == "" {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].id is not a non-empty string", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		for claimIndex, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", credentialIndex, claimIndex)}
+			}
+			if _, exists := claim["id"]; exists {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] contains id", credentialIndex, claimIndex)}
+			}
+			path, ok := claim["path"].([]any)
+			if !ok || len(path) == 0 {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path is not a non-empty array", credentialIndex, claimIndex)}
+			}
+			for pathIndex, segment := range path {
+				if value, ok := segment.(string); !ok || value == "" {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path[%d] is not a non-empty string", credentialIndex, claimIndex, pathIndex)}
+				}
+			}
+		}
+		if isEmptyDCQLValue(response[id]) {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token has no presentation for credential query %q", id)}
+		}
+	}
+	return Result{Status: StatusPass, Message: "wallet matched claims without ids when claim_sets was absent"}
 }

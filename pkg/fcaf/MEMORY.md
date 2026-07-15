@@ -94,7 +94,13 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_MS_ProtocolMessages__109` is the next mandatory protocol-message candidate.
+`WS_RP_MS_ProtocolMessages__110` is the next mandatory protocol-message candidate.
+
+## Case 109
+
+109 uses a dedicated `claims_without_id_without_claim_sets` validator. It proves every requested claim omits `id`, the credential query omits `claim_sets`, claim paths are valid, and the Wallet returns a presentation under the credential query ID. The pipeline and standalone Maestro flow require the visible successful-sharing state; a parsed request or absence of an error is insufficient.
+
+Reference-wallet verification did not pass. The public verifier accepted two fresh requests with a claim path and no claim `id` or `claim_sets`. On the first run, the post-link `Welcome back` gate discarded the pending interaction; the flow was corrected to unlock before opening the link and to handle the resolver plus any second unlock. On the clean rerun, the Wallet still returned Home without showing `DATA SHARING REQUEST`, and the verifier transaction returned HTTP 400 with an empty body. Keep the strict positive assertions: this is a Wallet failure or an unresolved wallet-core interoperability issue, not grounds to treat discontinuation as acceptance.
 
 ## Case 105
 

@@ -1,0 +1,30 @@
+appId: eu.europa.ec.euidi
+name: Accept DCQL claims without id when claim_sets is absent
+tags: [fcaf, precondition, dcql]
+---
+- clearState: com.android.chrome
+- launchApp: { stopApp: true, clearState: false }
+- runFlow:
+    file: unlock-wallet.yaml
+- openLink:
+    link: "${DCQL_CLAIMS_WITHOUT_ID_PRESENTATION_URL}"
+    autoVerify: false
+    browser: false
+- runFlow:
+    file: choose-eudi-wallet.yaml
+- extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,39%" }
+      - inputText: "123456"
+      - hideKeyboard
+- extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+- tapOn: "Share"
+- extendedWaitUntil: { visible: "PIN", timeout: 30000 }
+- tapOn: { point: "11%,39%" }
+- inputText: "123456"
+- hideKeyboard
+- extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
+- takeScreenshot: fcaf-109-claims-without-id
+- tapOn: "Close"
