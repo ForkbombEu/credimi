@@ -865,6 +865,9 @@ func (w *PipelineWorkflow) Start(
 	if err != nil {
 		return result, err
 	}
+	if err := pipeline.ApplyFixture(wfDef); err != nil {
+		return result, err
+	}
 
 	memo["test"] = wfDef.Name
 	options := PrepareWorkflowOptions(wfDef.Runtime)

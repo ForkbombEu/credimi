@@ -267,6 +267,7 @@ func reusablePreconditionCacheKey(
 	}
 	scope := lookupString(bundle.Runtime, "namespace") + "\x00" +
 		lookupString(bundle.Runtime, "app_url") + "\x00" +
+		lookupString(bundle.Runtime, "fixture") + "\x00" +
 		strings.Join(executions, "\x01")
 	sum := sha256.Sum256(append(definition, []byte(scope)...))
 	return fmt.Sprintf("%x", sum)
@@ -286,12 +287,18 @@ func (e *Engine) evaluatePrecondition(
 
 	switch precondition.Kind {
 	case "pipeline":
+		pipelineID := precondition.PipelineID
+		if fixture := lookupString(state.runtime, "fixture"); fixture != "" {
+			if selected, ok := precondition.Fixtures[fixture]; ok {
+				pipelineID = selected
+			}
+		}
 		raw, ok := state.bundle.PipelineOutputs[precondition.ID]
 		if !ok {
 			raw, ok = state.bundle.PipelineOutputs[strings.TrimPrefix(precondition.ID, "pipeline.")]
 		}
-		if !ok && strings.TrimSpace(precondition.PipelineID) != "" {
-			raw, ok = state.bundle.PipelineOutputs[precondition.PipelineID]
+		if !ok && strings.TrimSpace(pipelineID) != "" {
+			raw, ok = state.bundle.PipelineOutputs[pipelineID]
 		}
 		if !ok {
 			node.Status = validators.StatusBlocked

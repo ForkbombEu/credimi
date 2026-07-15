@@ -57,6 +57,7 @@ type PreconditionDefinition struct {
 	Kind          string                      `json:"kind"                     yaml:"kind"`
 	Description   string                      `json:"description,omitempty"    yaml:"description,omitempty"`
 	PipelineID    string                      `json:"pipeline_id,omitempty"    yaml:"pipeline_id,omitempty"`
+	Fixtures      map[string]string           `json:"fixtures,omitempty"       yaml:"fixtures,omitempty"`
 	RequiredSteps []string                    `json:"required_steps,omitempty" yaml:"required_steps,omitempty"`
 	DependsOn     []string                    `json:"depends_on,omitempty"     yaml:"depends_on,omitempty"`
 	Input         *InputBinding               `json:"input,omitempty"          yaml:"input,omitempty"`

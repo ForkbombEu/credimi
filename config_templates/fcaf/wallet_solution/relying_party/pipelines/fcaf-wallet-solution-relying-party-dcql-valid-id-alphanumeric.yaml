@@ -13,7 +13,7 @@ steps:
     use: http-request
     with:
       method: POST
-      url: https://verifier-backend.eudiw.dev/ui/presentations
+      url: ${fixture.verifier_url}/ui/presentations
       expected_status: 200
       headers:
         Content-Type: application/json
@@ -73,5 +73,5 @@ steps:
     use: http-request
     with:
       method: GET
-      url: https://verifier-backend.eudiw.dev/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
       expected_status: 200

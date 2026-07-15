@@ -5,7 +5,7 @@ steps:
     use: http-request
     with:
       method: POST
-      url: https://verifier-backend.eudiw.dev/ui/presentations
+      url: ${fixture.verifier_url}/ui/presentations
       expected_status: 200
       headers: { Content-Type: application/json }
       body: { type: vp_token, nonce: fcaf-116, dcql_query: { credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: [urn:eu.europa.ec.eudi:pid:1] }, claims: [{ id: given_name, path: [given_name] }] }] } }
@@ -55,4 +55,4 @@ steps:
         - tapOn: "Close"
   - id: fetch-result
     use: http-request
-    with: { method: GET, url: "https://verifier-backend.eudiw.dev/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}", expected_status: 200 }
+    with: { method: GET, url: "${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}", expected_status: 200 }

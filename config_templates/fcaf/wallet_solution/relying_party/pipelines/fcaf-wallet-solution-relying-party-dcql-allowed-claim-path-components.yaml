@@ -10,7 +10,7 @@ steps:
     use: http-request
     with:
       method: POST
-      url: https://verifier-backend.eudiw.dev/ui/presentations
+      url: ${fixture.verifier_url}/ui/presentations
       expected_status: 200
       headers: { Content-Type: application/json }
       body:
@@ -93,4 +93,4 @@ steps:
         - tapOn: "Close"
   - id: fetch-result
     use: http-request
-    with: { method: GET, url: "https://verifier-backend.eudiw.dev/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}", expected_status: 200 }
+    with: { method: GET, url: "${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}", expected_status: 200 }

@@ -117,6 +117,12 @@
     "runtime": {
       "additionalProperties": false,
       "properties": {
+        "fixture": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
         "debug": {
           "type": "boolean"
         },
