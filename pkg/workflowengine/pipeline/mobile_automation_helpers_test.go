@@ -323,16 +323,64 @@ func TestGetOrCreateDeviceMapExisting(t *testing.T) {
 	require.Equal(t, "serial-1", device["serial"])
 }
 
+func TestPreparePhysicalAndroidDeviceOnlyOnce(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	setupActivity := activities.NewSetupMobileDeviceActivity()
+	env.RegisterActivityWithOptions(
+		setupActivity.Execute,
+		activity.RegisterOptions{Name: setupActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			deviceMap := map[string]any{}
+			for range 2 {
+				if err := preparePhysicalAndroidDeviceIfNeeded(
+					ctx,
+					ctx,
+					"tenant/runner-1",
+					"serial-1",
+					deviceMap,
+				); err != nil {
+					return nil, err
+				}
+			}
+			return deviceMap, nil
+		},
+		workflow.RegisterOptions{Name: "prepare-physical-device-once"},
+	)
+
+	env.OnActivity(
+		setupActivity.Name(),
+		mock.Anything,
+		mock.Anything,
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"screen_prepared":     true,
+		"original_stay_awake": "2",
+	}}, nil).Once()
+
+	env.ExecuteWorkflow("prepare-physical-device-once")
+	require.NoError(t, env.GetWorkflowError())
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, true, result["screen_prepared"])
+	require.Equal(t, "2", result["original_stay_awake"])
+	env.AssertExpectations(t)
+}
+
 func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
 	internalHTTPActivity := registerInternalHTTPActivity(env)
-	startEmuActivity := activities.NewStartEmulatorActivity()
+	setupMobileDeviceActivity := activities.NewSetupMobileDeviceActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
-		startEmuActivity.Execute,
-		activity.RegisterOptions{Name: startEmuActivity.Name()},
+		setupMobileDeviceActivity.Execute,
+		activity.RegisterOptions{Name: setupMobileDeviceActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
 		listAppsActivity.Execute,
@@ -388,11 +436,11 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	internalHTTPActivity := registerInternalHTTPActivity(env)
-	startEmuActivity := activities.NewStartEmulatorActivity()
+	setupMobileDeviceActivity := activities.NewSetupMobileDeviceActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
-		startEmuActivity.Execute,
-		activity.RegisterOptions{Name: startEmuActivity.Name()},
+		setupMobileDeviceActivity.Execute,
+		activity.RegisterOptions{Name: setupMobileDeviceActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
 		listAppsActivity.Execute,
@@ -431,7 +479,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	}}, nil)
 
 	env.OnActivity(
-		startEmuActivity.Name(),
+		setupMobileDeviceActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -690,10 +738,10 @@ func TestStartManagedDeviceAndroid(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	startEmuActivity := activities.NewStartEmulatorActivity()
+	setupMobileDeviceActivity := activities.NewSetupMobileDeviceActivity()
 	env.RegisterActivityWithOptions(
-		startEmuActivity.Execute,
-		activity.RegisterOptions{Name: startEmuActivity.Name()},
+		setupMobileDeviceActivity.Execute,
+		activity.RegisterOptions{Name: setupMobileDeviceActivity.Name()},
 	)
 
 	workflowName := "start-emulator"
@@ -719,7 +767,7 @@ func TestStartManagedDeviceAndroid(t *testing.T) {
 	)
 
 	env.OnActivity(
-		startEmuActivity.Name(),
+		setupMobileDeviceActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -804,10 +852,10 @@ func TestStartManagedDeviceMissingSerialDefaultsToEmptyString(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	startEmuActivity := activities.NewStartEmulatorActivity()
+	setupMobileDeviceActivity := activities.NewSetupMobileDeviceActivity()
 	env.RegisterActivityWithOptions(
-		startEmuActivity.Execute,
-		activity.RegisterOptions{Name: startEmuActivity.Name()},
+		setupMobileDeviceActivity.Execute,
+		activity.RegisterOptions{Name: setupMobileDeviceActivity.Name()},
 	)
 
 	workflowName := "start-emulator-missing-serial"
@@ -833,7 +881,7 @@ func TestStartManagedDeviceMissingSerialDefaultsToEmptyString(t *testing.T) {
 	)
 
 	env.OnActivity(
-		startEmuActivity.Name(),
+		setupMobileDeviceActivity.Name(),
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -868,10 +916,10 @@ func TestStartManagedDeviceErrors(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
 
-			startEmuActivity := activities.NewStartEmulatorActivity()
+			setupMobileDeviceActivity := activities.NewSetupMobileDeviceActivity()
 			env.RegisterActivityWithOptions(
-				startEmuActivity.Execute,
-				activity.RegisterOptions{Name: startEmuActivity.Name()},
+				setupMobileDeviceActivity.Execute,
+				activity.RegisterOptions{Name: setupMobileDeviceActivity.Name()},
 			)
 
 			workflowName := "start-emulator-error"
@@ -896,7 +944,7 @@ func TestStartManagedDeviceErrors(t *testing.T) {
 			)
 
 			env.OnActivity(
-				startEmuActivity.Name(),
+				setupMobileDeviceActivity.Name(),
 				mock.Anything,
 				mock.Anything,
 			).Return(workflowengine.ActivityResult{Output: tc.output}, nil)
