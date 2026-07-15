@@ -947,7 +947,7 @@ func validateCredentialSetsOptions(query map[string]any, responseValue, errorVal
 		if !isEmptyDCQLValue(responseValue) {
 			return Result{Status: StatusFail, Message: "wallet returned a vp_token for an invalid credential_sets.options query"}
 		}
-		if mode == "credential_sets_options_empty" && errorValue != "invalid_request" {
+		if (mode == "credential_sets_options_empty" || mode == "credential_sets_options_non_array") && errorValue != "invalid_request" {
 			return Result{Status: StatusFail, Message: "wallet did not return invalid_request for an invalid credential_sets.options query"}
 		}
 		return Result{Status: StatusPass, Message: "wallet rejected invalid credential_sets.options"}
