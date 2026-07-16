@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fetchWorkflows,
 		isExtendedWorkflowStatus,
 		parseLimit,
-		parseOffset
+		parsePage
 	} from './_partials/index.js';
 
 	//
@@ -54,9 +54,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			encode: (value) => value,
 			decode: parseLimit
 		},
-		offset: {
+		page: {
 			encode: (value) => value,
-			decode: parseOffset
+			decode: parsePage
 		}
 	});
 

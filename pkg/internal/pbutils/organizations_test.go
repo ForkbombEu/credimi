@@ -43,6 +43,23 @@ func TestGetUserOrganizationIDMissingUser(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestGetUserOrganization(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	organization, err := GetUserOrganization(app, user.Id)
+	require.NoError(t, err)
+	require.NotEmpty(t, organization.Id)
+	require.Equal(t, "userA's organization", organization.GetString("name"))
+
+	_, err = GetUserOrganization(app, "missing-user")
+	require.Error(t, err)
+}
+
 func TestGetUserOrganizationCanonifiedName(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)

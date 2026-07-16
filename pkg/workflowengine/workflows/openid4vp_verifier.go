@@ -62,6 +62,10 @@ func (w *OpenID4VPVerifierWorkflow) ExecuteWorkflow(
 func (w *OpenID4VPVerifierWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
+	input = workflowengine.WithCredimiCapabilities(
+		input,
+		workflowengine.CredimiCapabilities{Logs: true},
+	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       "OpenID4VPVerifierCheckWorkflow" + uuid.NewString(),
 		TaskQueue:                OpenID4VPVerifierTaskQueue,

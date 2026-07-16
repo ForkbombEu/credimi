@@ -80,25 +80,28 @@ func TestHookTurnstileVerification(t *testing.T) {
 		require.True(t, called)
 	})
 
-	t.Run("accepts OAuth2 registration with captcha when secret is not configured", func(t *testing.T) {
-		t.Setenv("TURNSTILE_SECRET_KEY", "")
+	t.Run(
+		"accepts OAuth2 registration with captcha when secret is not configured",
+		func(t *testing.T) {
+			t.Setenv("TURNSTILE_SECRET_KEY", "")
 
-		app := pocketbase.New()
-		HookTurnstileVerification(app)
+			app := pocketbase.New()
+			HookTurnstileVerification(app)
 
-		called := false
-		event := newOAuth2AuthRequestEvent(t, app)
-		event.IsNewRecord = true
-		event.Request.Header.Set("X-Turnstile-Token", "test-token")
-		err := app.OnRecordAuthWithOAuth2Request("users").
-			Trigger(event, func(e *core.RecordAuthWithOAuth2RequestEvent) error {
-				called = true
-				return nil
-			})
+			called := false
+			event := newOAuth2AuthRequestEvent(t, app)
+			event.IsNewRecord = true
+			event.Request.Header.Set("X-Turnstile-Token", "test-token")
+			err := app.OnRecordAuthWithOAuth2Request("users").
+				Trigger(event, func(e *core.RecordAuthWithOAuth2RequestEvent) error {
+					called = true
+					return nil
+				})
 
-		require.NoError(t, err)
-		require.True(t, called)
-	})
+			require.NoError(t, err)
+			require.True(t, called)
+		},
+	)
 }
 
 func TestIsOAuth2RecordCreateRequest(t *testing.T) {

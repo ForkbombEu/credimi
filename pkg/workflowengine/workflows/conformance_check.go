@@ -202,6 +202,18 @@ func isOpenIDAutomatedConformanceStandard(standard string) bool {
 		standard == OpenID4VCIIssuerStandard
 }
 
+// ConformanceSuiteHasLogs reports whether a conformance suite exposes UI logs.
+func ConformanceSuiteHasLogs(suite string) bool {
+	switch suite {
+	case EWCSuite, WebuildSuite:
+		return true
+	case OpenIDConformanceSuite:
+		return true
+	default:
+		return false
+	}
+}
+
 func conformanceCheckSessionID(payload StartCheckWorkflowPayload, captures map[string]any) string {
 	if sessionID, ok := captures["session_id"].(string); ok && sessionID != "" {
 		return sessionID
@@ -514,6 +526,14 @@ func (w *StartCheckWorkflow) Start(
 	namespace string,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
+	memo, _ := input.Config["memo"].(map[string]any)
+	suite, _ := memo["author"].(string)
+	input = workflowengine.WithCredimiCapabilities(
+		input,
+		workflowengine.CredimiCapabilities{
+			Logs: ConformanceSuiteHasLogs(suite),
+		},
+	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "conformance-check" + "-" + uuid.NewString(),
 		TaskQueue: ConformanceCheckTaskQueue,

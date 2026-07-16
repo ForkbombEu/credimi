@@ -1241,6 +1241,8 @@ components:
         failure_reason:
           nullable: true
           type: string
+        has_logs:
+          type: boolean
         queue:
           $ref: '#/components/schemas/HandlersWorkflowQueueSummary'
         report:

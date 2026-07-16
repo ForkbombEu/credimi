@@ -69,6 +69,34 @@ func TestHandlePipelineResultsEnrichSetsArtifacts(t *testing.T) {
 	require.Contains(t, artifacts["report"], "run_report.md")
 }
 
+func TestResolvePipelineExecutionArtifacts(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	app.Settings().Meta.AppURL = "https://app.test"
+	ensurePipelineResultReportField(t, app)
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	record := createPipelineResultRecord(t, app, coll)
+	record.Set("workflow_id", "workflow-resolve")
+	record.Set("run_id", "run-resolve")
+	require.NoError(t, app.Save(record))
+
+	owner, err := app.FindRecordById("organizations", record.GetString("owner"))
+	require.NoError(t, err)
+	artifacts := ResolvePipelineExecutionArtifacts(
+		app,
+		owner.GetString("canonified_name"),
+		"workflow-resolve",
+		"run-resolve",
+	)
+	require.NotNil(t, artifacts.Results)
+
+	missing := ResolvePipelineExecutionArtifacts(app, "missing", "workflow", "run")
+	require.Empty(t, missing.Results)
+}
+
 func ensurePipelineResultReportField(t testing.TB, app *tests.TestApp) {
 	t.Helper()
 

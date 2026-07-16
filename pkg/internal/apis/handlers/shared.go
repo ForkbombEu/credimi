@@ -85,6 +85,7 @@ type WorkflowExecutionSummary struct {
 	Results       []pipelineresults.PipelineResults `json:"results,omitempty"`
 	Report        string                            `json:"report,omitempty"`
 	FailureReason *string                           `json:"failure_reason,omitempty"`
+	HasLogs       bool                              `json:"has_logs,omitempty"`
 }
 
 type WorkflowQueueSummary struct {

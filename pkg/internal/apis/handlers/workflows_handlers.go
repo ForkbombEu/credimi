@@ -179,8 +179,8 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 			)
 		}
 
-		limit, pageNum := parsePaginationParams(e, 20, 0)
-		offset := pageNum * limit
+		limit, page := parsePageParams(e, 20, 0)
+		itemOffset := page * limit
 
 		c, err := listWorkflowsTemporalClient(namespace)
 		if err != nil {
@@ -231,16 +231,6 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		owner, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organizations",
-				"unable to get user organization ca",
-				err.Error(),
-			)
-		}
-
 		filteredExecutions, err := filterNonPipelineExecutions(
 			e.Request.Context(),
 			c,
@@ -255,14 +245,15 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 			)
 		}
 
-		hierarchy := buildExecutionHierarchy(
+		hierarchy := buildWorkflowExecutionHierarchy(
+			e.Request.Context(),
 			e.App,
 			filteredExecutions,
-			owner,
+			namespace,
 			authRecord.GetString("Timezone"),
 			c,
 		)
-		hierarchy = paginateWorkflowExecutionSummaries(hierarchy, limit, offset)
+		hierarchy = paginateWorkflowExecutionSummaries(hierarchy, limit, itemOffset)
 
 		resp := ListMyWorkflowsResponse{}
 		resp.Executions = hierarchy
@@ -697,19 +688,11 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 			)
 		}
 
-		owner, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organizations",
-				"unable to get user organization canonified name",
-				err.Error(),
-			)
-		}
-		hierarchy := buildExecutionHierarchy(
+		hierarchy := buildWorkflowExecutionHierarchy(
+			e.Request.Context(),
 			e.App,
 			execs.Executions,
-			owner,
+			namespace,
 			authRecord.GetString("Timezone"),
 			c,
 		)
@@ -1296,10 +1279,11 @@ func computeChildDisplayName(workflowID string) string {
 	}
 }
 
-func buildExecutionHierarchy(
+func buildWorkflowExecutionHierarchy(
+	ctx context.Context,
 	app core.App,
 	executions []*WorkflowExecution,
-	owner string,
+	namespace string,
 	userTimezone string,
 	c client.Client,
 ) []*WorkflowExecutionSummary {
@@ -1307,49 +1291,25 @@ func buildExecutionHierarchy(
 	if err != nil {
 		loc = time.Local
 	}
-	roots := buildExecutionHierarchyRaw(app, executions, owner, c)
-	localizeWorkflowExecutionSummaries(roots, loc)
-
-	return roots
-}
-
-func buildExecutionHierarchyRaw(
-	app core.App,
-	executions []*WorkflowExecution,
-	owner string,
-	c client.Client,
-) []*WorkflowExecutionSummary {
 	summaryMap := make(map[string]*WorkflowExecutionSummary)
 	for _, exec := range executions {
-		summary := &WorkflowExecutionSummary{
-			Execution: exec.Execution,
-			Type:      exec.Type,
-			StartTime: exec.StartTime,
-			EndTime:   exec.CloseTime,
-			Duration:  calculateDuration(exec.StartTime, exec.CloseTime),
-			Status:    normalizeTemporalStatus(exec.Status),
+		summary := buildWorkflowExecutionSummary(ctx, exec, c)
+		if summary == nil {
+			continue
 		}
-
-		if enums.WorkflowExecutionStatus(
-			enums.WorkflowExecutionStatus_value[exec.Status],
-		) == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
-			if failure := fetchWorkflowFailure(
-				context.Background(),
-				c,
-				exec.Execution.WorkflowID,
-				exec.Execution.RunID,
-			); failure != nil {
-				summary.FailureReason = failure
-			}
-		}
-
 		summaryMap[exec.Execution.RunID] = summary
 	}
 
 	roots := make([]*WorkflowExecutionSummary, 0, len(executions))
 
 	for _, exec := range executions {
+		if exec == nil || exec.Execution == nil {
+			continue
+		}
 		current := summaryMap[exec.Execution.RunID]
+		if current == nil {
+			continue
+		}
 
 		if exec.ParentExecution != nil {
 			if parent, ok := summaryMap[exec.ParentExecution.RunID]; ok {
@@ -1361,7 +1321,7 @@ func buildExecutionHierarchyRaw(
 
 		var parentDisplay string
 		if exec.Memo != nil {
-			if field, ok := exec.Memo.Fields["test"]; ok {
+			if field, ok := exec.Memo.Fields["test"]; ok && field != nil && field.Data != nil {
 				parentDisplay = DecodeFromTemporalPayload(*field.Data)
 			}
 		}
@@ -1370,7 +1330,7 @@ func buildExecutionHierarchyRaw(
 		if current.Type.Name == w.Name() {
 			artifacts := pipelineresults.ResolvePipelineExecutionArtifacts(
 				app,
-				owner,
+				namespace,
 				exec.Execution.WorkflowID,
 				exec.Execution.RunID,
 			)
@@ -1382,6 +1342,7 @@ func buildExecutionHierarchyRaw(
 	}
 
 	sortWorkflowExecutionSummaries(roots, false)
+	localizeWorkflowExecutionSummaries(roots, loc)
 
 	return roots
 }

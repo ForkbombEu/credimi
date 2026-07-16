@@ -40,12 +40,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		size="icon"
 		variant="outline"
 		onclick={onPrevious}
-		disabled={pagination.offset === 0 || pagination.offset === undefined}
+		disabled={pagination.page === 0 || pagination.page === undefined}
 	>
 		<ArrowLeftIcon />
 	</Button>
 	<Button size="icon" variant="outline" disabled>
-		{(pagination.offset ?? 0) + 1}
+		{(pagination.page ?? 0) + 1}
 	</Button>
 	<Button
 		size="icon"

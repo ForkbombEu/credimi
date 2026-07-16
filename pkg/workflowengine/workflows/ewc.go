@@ -159,6 +159,10 @@ func startEWCLikeWorkflow(
 	workflowPrefix string,
 	startFn ewcStartWithOptionsFn,
 ) (result workflowengine.WorkflowResult, err error) {
+	input = workflowengine.WithCredimiCapabilities(
+		input,
+		workflowengine.CredimiCapabilities{Logs: true},
+	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       workflowPrefix + uuid.NewString(),
 		TaskQueue:                EWCTaskQueue,

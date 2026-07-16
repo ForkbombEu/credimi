@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -475,7 +476,7 @@ func TestSanitizePipelineReportFilename(t *testing.T) {
 	require.Equal(t, "pipeline-report.md", sanitizePipelineReportFilename("///"))
 }
 
-func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
+func TestHandleListPipelineExecutionOverviewReturnsResults(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -577,7 +578,7 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionOverview()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -598,9 +599,10 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 	require.NotEmpty(t, summary.Results[0].Video)
 	require.NotEmpty(t, summary.Results[0].Log)
 	require.Contains(t, summary.Report, "run_report.md")
+	require.Empty(t, summary.Children)
 }
 
-func TestHandleGetPipelineDetailsListError(t *testing.T) {
+func TestHandleListPipelineExecutionOverviewListError(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -657,7 +659,7 @@ func TestHandleGetPipelineDetailsListError(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionOverview()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -669,7 +671,7 @@ func TestHandleGetPipelineDetailsListError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestHandleGetPipelineDetailsTemporalClientError(t *testing.T) {
+func TestHandleListPipelineExecutionOverviewTemporalClientError(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -716,7 +718,7 @@ func TestHandleGetPipelineDetailsTemporalClientError(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionOverview()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -728,7 +730,7 @@ func TestHandleGetPipelineDetailsTemporalClientError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestHandleGetPipelineDetailsQueuedRunsError(t *testing.T) {
+func TestHandleListPipelineExecutionOverviewQueuedRunsError(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -760,7 +762,7 @@ func TestHandleGetPipelineDetailsQueuedRunsError(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionOverview()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -772,7 +774,7 @@ func TestHandleGetPipelineDetailsQueuedRunsError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
+func TestHandleListPipelineExecutionHistoryFiltersAndPaginates(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -894,6 +896,7 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 						RunId:      "child-run-1",
 					},
 					Type:      &common.WorkflowType{Name: "ChildWorkflow"},
+					Memo:      temporalMemoWithLogsCapability(t, true),
 					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 					StartTime: timestamppb.New(time.Now().Add(-30 * time.Second)),
 					CloseTime: timestamppb.New(time.Now().Add(-20 * time.Second)),
@@ -922,13 +925,13 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/pipeline/list-executions/"+pipelineRecord.Id+"?status=completed&limit=1&offset=1",
+		"/api/pipeline/list-executions/"+pipelineRecord.Id+"?status=completed&limit=1&page=1",
 		nil,
 	)
 	req.SetPathValue("id", pipelineRecord.Id)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -951,9 +954,12 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 	children, ok := response[0]["children"].([]any)
 	require.True(t, ok)
 	require.Len(t, children, 1)
+	childResponse, ok := children[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, true, childResponse["has_logs"])
 }
 
-func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
+func TestHandleListPipelineExecutionHistoryQueuedOnly(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -1005,7 +1011,7 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 	req.SetPathValue("id", pipelineRecord.Id)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1027,7 +1033,7 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 	require.Equal(t, "usera-s-organization/pipeline123", response[0].PipelineIdentifier)
 }
 
-func TestHandleGetPipelineSpecificDetailsIncludesQueuedInPagination(t *testing.T) {
+func TestHandleListPipelineExecutionHistoryIncludesQueuedInPagination(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -1140,7 +1146,7 @@ func TestHandleGetPipelineSpecificDetailsIncludesQueuedInPagination(t *testing.T
 	req.SetPathValue("id", pipelineRecord.Id)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1160,7 +1166,7 @@ func TestHandleGetPipelineSpecificDetailsIncludesQueuedInPagination(t *testing.T
 	require.Equal(t, pipelineIdentifier, response[0].PipelineIdentifier)
 }
 
-func TestHandleGetPipelineSpecificDetailsMissingAuth(t *testing.T) {
+func TestHandleListPipelineExecutionHistoryMissingAuth(t *testing.T) {
 	app := setupPipelineStartApp(t)
 	defer app.Cleanup()
 
@@ -1168,7 +1174,7 @@ func TestHandleGetPipelineSpecificDetailsMissingAuth(t *testing.T) {
 	req.SetPathValue("id", "any")
 	rec := httptest.NewRecorder()
 
-	err := HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+	err := HandleListPipelineExecutionHistory()(&core.RequestEvent{
 		App: app,
 		Event: router.Event{
 			Request:  req,
@@ -1179,7 +1185,7 @@ func TestHandleGetPipelineSpecificDetailsMissingAuth(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-func TestHandleGetPipelineSpecificDetailsMissingID(t *testing.T) {
+func TestHandleListPipelineExecutionHistoryMissingID(t *testing.T) {
 	app := setupPipelineStartApp(t)
 	defer app.Cleanup()
 
@@ -1189,7 +1195,7 @@ func TestHandleGetPipelineSpecificDetailsMissingID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1201,7 +1207,7 @@ func TestHandleGetPipelineSpecificDetailsMissingID(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func TestHandleGetPipelineSpecificDetailsNoPipelines(t *testing.T) {
+func TestHandleListPipelineExecutionHistoryNoPipelines(t *testing.T) {
 	app := setupPipelineStartApp(t)
 	defer app.Cleanup()
 
@@ -1212,7 +1218,7 @@ func TestHandleGetPipelineSpecificDetailsNoPipelines(t *testing.T) {
 	req.SetPathValue("id", "missing")
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1230,7 +1236,7 @@ func TestHandleGetPipelineSpecificDetailsNoPipelines(t *testing.T) {
 	require.Empty(t, response)
 }
 
-func TestHandleGetPipelineSpecificDetailsPublishedPipelineShowsOnlyMyRuns(t *testing.T) {
+func TestHandleListPipelineExecutionHistoryPublishedPipelineShowsOnlyMyRuns(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -1340,7 +1346,7 @@ func TestHandleGetPipelineSpecificDetailsPublishedPipelineShowsOnlyMyRuns(t *tes
 	req.SetPathValue("id", pipelineRecord.Id)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1358,7 +1364,7 @@ func TestHandleGetPipelineSpecificDetailsPublishedPipelineShowsOnlyMyRuns(t *tes
 	require.Equal(t, pipelineIdentifier, response[0].PipelineIdentifier)
 }
 
-func TestHandleGetPipelineSpecificDetailsListError(t *testing.T) {
+func TestHandleListPipelineExecutionHistoryListError(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -1404,7 +1410,7 @@ func TestHandleGetPipelineSpecificDetailsListError(t *testing.T) {
 	req.SetPathValue("id", pipelineRecord.Id)
 	rec := httptest.NewRecorder()
 
-	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+	err = HandleListPipelineExecutionHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1416,65 +1422,200 @@ func TestHandleGetPipelineSpecificDetailsListError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestSelectTopExecutionsByPipeline(t *testing.T) {
-	executions := []struct {
-		pipelineID string
-		execution  *WorkflowExecutionSummary
-	}{
-		{
-			pipelineID: "pipeline-1",
-			execution: &WorkflowExecutionSummary{
-				Status:    string(WorkflowStatusCompleted),
+func TestHandleGetPipelineExecutionReturnsOneRunWithChildren(t *testing.T) {
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	organization, err := pbutils.GetUserOrganization(app, authRecord.Id)
+	require.NoError(t, err)
+	pipelineRecord := createPipelineExecutionTestPipeline(t, app, organization.Id)
+	pipelineIdentifier := pipelineIdentifierForTest(t, app, pipelineRecord)
+
+	root := buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier)
+	child := &workflow.WorkflowExecutionInfo{
+		Execution: &common.WorkflowExecution{WorkflowId: "child-1", RunId: "child-run-1"},
+		ParentExecution: &common.WorkflowExecution{
+			WorkflowId: "wf-1",
+			RunId:      "run-1",
+		},
+		Type:      &common.WorkflowType{Name: "ChildWorkflow"},
+		Memo:      temporalMemoWithLogsCapability(t, true),
+		Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+		StartTime: timestamppb.New(time.Now().Add(-time.Minute)),
+		CloseTime: timestamppb.New(time.Now()),
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: root,
+		}, nil).
+		Once()
+	mockClient.On(
+		"ListWorkflow",
+		mock.Anything,
+		mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+			return strings.Contains(req.GetQuery(), `ParentWorkflowId="wf-1"`) &&
+				strings.Contains(req.GetQuery(), `ParentRunId="run-1"`)
+		}),
+	).Return(&workflowservice.ListWorkflowExecutionsResponse{
+		Executions: []*workflow.WorkflowExecutionInfo{child},
+	}, nil).Once()
+	originalTemporalClient := pipelineTemporalClient
+	t.Cleanup(func() { pipelineTemporalClient = originalTemporalClient })
+	pipelineTemporalClient = func(string) (client.Client, error) { return mockClient, nil }
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.SetPathValue("id", pipelineRecord.Id)
+	req.SetPathValue("workflow_id", "wf-1")
+	req.SetPathValue("run_id", "run-1")
+	rec := httptest.NewRecorder()
+	err = HandleGetPipelineExecution()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response pipelineWorkflowSummary
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Equal(t, "wf-1", response.Execution.WorkflowID)
+	require.Equal(t, pipelineIdentifier, response.PipelineIdentifier)
+	require.Len(t, response.Children, 1)
+	require.Equal(t, "child-1", response.Children[0].Execution.WorkflowID)
+	require.True(t, response.Children[0].HasLogs)
+	mockClient.AssertExpectations(t)
+}
+
+func TestHandleGetPipelineExecutionReturnsChildQueryError(t *testing.T) {
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	organization, err := pbutils.GetUserOrganization(app, authRecord.Id)
+	require.NoError(t, err)
+	pipelineRecord := createPipelineExecutionTestPipeline(t, app, organization.Id)
+	pipelineIdentifier := pipelineIdentifierForTest(t, app, pipelineRecord)
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: buildPipelineExecutionInfo(
+				"wf-1",
+				"run-1",
+				pipelineIdentifier,
+			),
+		}, nil).
+		Once()
+	mockClient.On("ListWorkflow", mock.Anything, mock.Anything).
+		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), errors.New("children unavailable")).
+		Once()
+
+	originalTemporalClient := pipelineTemporalClient
+	t.Cleanup(func() { pipelineTemporalClient = originalTemporalClient })
+	pipelineTemporalClient = func(string) (client.Client, error) { return mockClient, nil }
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.SetPathValue("id", pipelineRecord.Id)
+	req.SetPathValue("workflow_id", "wf-1")
+	req.SetPathValue("run_id", "run-1")
+	rec := httptest.NewRecorder()
+	err = HandleGetPipelineExecution()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	requireHandlerErrorHandled(t, rec, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	mockClient.AssertExpectations(t)
+}
+
+func createPipelineExecutionTestPipeline(
+	t testing.TB,
+	app core.App,
+	ownerID string,
+) *core.Record {
+	t.Helper()
+	collection, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	record := core.NewRecord(collection)
+	record.Set("owner", ownerID)
+	record.Set("name", "Pipeline execution test")
+	record.Set("canonified_name", "pipeline-execution-test")
+	record.Set("description", "Pipeline execution handler test")
+	record.Set("yaml", "name: Pipeline execution test")
+	require.NoError(t, app.Save(record))
+	return record
+}
+
+func pipelineIdentifierForTest(
+	t testing.TB,
+	app core.App,
+	pipelineRecord *core.Record,
+) string {
+	t.Helper()
+	path, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	return strings.Trim(path, "/")
+}
+
+func TestSelectPipelineExecutionOverview(t *testing.T) {
+	executions := map[string][]*WorkflowExecution{
+		"pipeline-1": {
+			{
+				Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 				StartTime: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
 			},
-		},
-		{
-			pipelineID: "pipeline-1",
-			execution: &WorkflowExecutionSummary{
-				Status:    string(WorkflowStatusRunning),
+			{
+				Status:    "WORKFLOW_EXECUTION_STATUS_RUNNING",
 				StartTime: time.Now().Add(-30 * time.Minute).Format(time.RFC3339),
 			},
-		},
-		{
-			pipelineID: "pipeline-1",
-			execution: &WorkflowExecutionSummary{
-				Status:    string(WorkflowStatusCompleted),
+			{
+				Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 				StartTime: time.Now().Add(-10 * time.Minute).Format(time.RFC3339),
 			},
 		},
 	}
 
-	selected := selectTopExecutionsByPipeline(executions, 2)
+	selected := selectPipelineExecutionOverview(executions, 2)
 	require.Len(t, selected["pipeline-1"], 2)
 	require.ElementsMatch(
 		t,
-		[]string{string(WorkflowStatusRunning), string(WorkflowStatusCompleted)},
+		[]string{"WORKFLOW_EXECUTION_STATUS_RUNNING", "WORKFLOW_EXECUTION_STATUS_COMPLETED"},
 		[]string{selected["pipeline-1"][0].Status, selected["pipeline-1"][1].Status},
 	)
 }
 
-func TestSelectTopExecutionsByPipelineOrdersMixedTimestampPrecision(t *testing.T) {
-	executions := []struct {
-		pipelineID string
-		execution  *WorkflowExecutionSummary
-	}{
-		{
-			pipelineID: "pipeline-1",
-			execution: &WorkflowExecutionSummary{
-				Status:    string(WorkflowStatusCompleted),
+func TestSelectPipelineExecutionOverviewOrdersMixedTimestampPrecision(t *testing.T) {
+	executions := map[string][]*WorkflowExecution{
+		"pipeline-1": {
+			{
+				Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 				StartTime: "2026-04-21T10:00:00Z",
 			},
-		},
-		{
-			pipelineID: "pipeline-1",
-			execution: &WorkflowExecutionSummary{
-				Status:    string(WorkflowStatusCompleted),
+			{
+				Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 				StartTime: "2026-04-21T10:00:00.1Z",
 			},
 		},
 	}
 
-	selected := selectTopExecutionsByPipeline(executions, 1)
+	selected := selectPipelineExecutionOverview(executions, 1)
 
 	require.Len(t, selected["pipeline-1"], 1)
 	require.Equal(t, "2026-04-21T10:00:00.1Z", selected["pipeline-1"][0].StartTime)

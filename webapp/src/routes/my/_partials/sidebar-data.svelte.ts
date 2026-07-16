@@ -100,7 +100,7 @@ const data: SidebarGroup[] = $derived([
 							page.url.searchParams.forEach((value, key) => {
 								const excludeKeys = [
 									Pipeline.Workflows.LIMIT_PARAM,
-									Pipeline.Workflows.OFFSET_PARAM
+									Pipeline.Workflows.PAGE_PARAM
 								];
 								if (excludeKeys.includes(key)) return;
 								url.searchParams.set(key, value);

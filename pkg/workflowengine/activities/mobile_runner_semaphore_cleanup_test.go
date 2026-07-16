@@ -41,12 +41,16 @@ func TestCleanupMobileRunnerSemaphoreResourcesActivitySuccess(t *testing.T) {
 			AppURL: server.URL,
 			Cleanup: &mobilerunnersemaphore.MobileRunnerSemaphoreCleanupMetadata{
 				TempWalletVersionID: "wallet-1",
-				TempCredentials: []mobilerunnersemaphore.MobileRunnerSemaphoreTempCredentialCleanupMetadata{{
-					RecordID: "cred-1",
-				}},
-				TempUseCaseVerifications: []mobilerunnersemaphore.MobileRunnerSemaphoreTempCredentialCleanupMetadata{{
-					RecordID: "usecase-1",
-				}},
+				TempCredentials: []mobilerunnersemaphore.MobileRunnerSemaphoreTempCredentialCleanupMetadata{
+					{
+						RecordID: "cred-1",
+					},
+				},
+				TempUseCaseVerifications: []mobilerunnersemaphore.MobileRunnerSemaphoreTempCredentialCleanupMetadata{
+					{
+						RecordID: "usecase-1",
+					},
+				},
 			},
 		},
 	})
@@ -68,7 +72,11 @@ func TestCleanupMobileRunnerSemaphoreResourcesActivityMissingAppURL(t *testing.T
 	require.NoError(t, err)
 
 	output := result.Output.(CleanupMobileRunnerSemaphoreResourcesActivityOutput)
-	require.Equal(t, []string{"app_url missing for queued resource cleanup"}, output.CleanupFailures)
+	require.Equal(
+		t,
+		[]string{"app_url missing for queued resource cleanup"},
+		output.CleanupFailures,
+	)
 }
 
 func TestCleanupMobileRunnerSemaphoreResourcesActivityFailureStatus(t *testing.T) {

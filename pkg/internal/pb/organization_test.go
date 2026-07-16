@@ -506,8 +506,24 @@ func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) 
 	org.Set("published", false)
 	require.NoError(t, app.Save(org))
 
-	createWorkerManagerRunnerRecord(t, app, orgID, "private-admin", "https://admin.example", false, true)
-	createWorkerManagerRunnerRecord(t, app, orgID, "public-user", "https://public.example", true, false)
+	createWorkerManagerRunnerRecord(
+		t,
+		app,
+		orgID,
+		"private-admin",
+		"https://admin.example",
+		false,
+		true,
+	)
+	createWorkerManagerRunnerRecord(
+		t,
+		app,
+		orgID,
+		"public-user",
+		"https://public.example",
+		true,
+		false,
+	)
 
 	origStartManager := startWorkerManagerFn
 	t.Cleanup(func() {

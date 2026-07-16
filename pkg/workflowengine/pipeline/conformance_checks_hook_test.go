@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -156,6 +157,9 @@ test: "alpha"
 		require.Equal(t, "openid_conformance_suite", memo["author"])
 		require.Equal(t, "oid4vci", memo["standard"])
 		require.Equal(t, "check1", memo["test"])
+		capabilities, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, true, capabilities["logs"])
 		require.Equal(t, "openid template", result.Config["template"])
 	})
 
@@ -333,6 +337,9 @@ test: "issuer-test"`
 		require.Equal(t, workflows.OpenIDConformanceSuite, memo["author"])
 		require.Equal(t, "openid4vci_issuer", memo["standard"])
 		require.Equal(t, "issuer-check", memo["test"])
+		capabilities, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, true, capabilities["logs"])
 	})
 
 	t.Run("openid4vp verifier suite uses verifier StepCI template", func(t *testing.T) {
