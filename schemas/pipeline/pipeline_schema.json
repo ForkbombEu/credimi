@@ -117,17 +117,17 @@
     "runtime": {
       "additionalProperties": false,
       "properties": {
-        "fixture": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
-        },
         "debug": {
           "type": "boolean"
         },
         "disable_android_play_store": {
           "type": "boolean"
+        },
+        "fixture": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
         },
         "global_runner_id": {
           "type": "string"

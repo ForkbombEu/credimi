@@ -122,8 +122,7 @@ test.all: ## 🧪 run all tests, including long tests skipped by test
 	TEST_SHORT=0 bash ./scripts/test-summary.sh
 
 fcaf-run: ## Run FCAF wallet pipelines sequentially and write an HTML evidence report
-	@test -n "$(API_KEY)" || (echo "API_KEY is required" >&2; exit 1)
-	$(GOCMD) run . fcaf run --api-key "$(API_KEY)" --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" --output "$(or $(FCAF_OUTPUT),fcaf-report)" $(if $(FCAF_FILTER),--filter "$(FCAF_FILTER)",)
+	$(GOCMD) run . fcaf run $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" --output "$(or $(FCAF_OUTPUT),fcaf-report)" $(if $(FCAF_FILTER),--filter "$(FCAF_FILTER)",)
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
