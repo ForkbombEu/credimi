@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -615,9 +616,10 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 			continue
 		}
 		childSummary.DisplayName = computeChildDisplayName(childExecution.Execution.WorkflowID)
+		childSummary.HasLogs = workflowExecutionHasLogs(childExecution)
 		rootSummary.Children = append(rootSummary.Children, childSummary)
 	}
-	sortWorkflowExecutionSummaries(rootSummary.Children, false)
+	sortWorkflowExecutionSummaries(rootSummary.Children, true)
 
 	runnerInfo := b.pipelineRunnerInfo(pipelineRecord)
 	globalRunnerID := ""
@@ -649,6 +651,25 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	summary.PipelineName = resolvePipelineNameFromRecord(pipelineRecord, pipelineIdentifier)
 	localizePipelineWorkflowSummaries([]*pipelineWorkflowSummary{summary}, b.location)
 	return summary, nil
+}
+
+func workflowExecutionHasLogs(exec *WorkflowExecution) bool {
+	if exec == nil || exec.Memo == nil {
+		return false
+	}
+	payload := exec.Memo.Fields[workflowengine.CredimiCapabilitiesMemoKey]
+	if payload == nil || payload.Data == nil {
+		return false
+	}
+	data, err := base64.StdEncoding.DecodeString(*payload.Data)
+	if err != nil {
+		return false
+	}
+	var capabilities workflowengine.CredimiCapabilities
+	if err := json.Unmarshal(data, &capabilities); err != nil {
+		return false
+	}
+	return capabilities.Logs
 }
 
 func (b *pipelineExecutionSummaryBuilder) pipelineRunnerInfo(

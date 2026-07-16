@@ -896,6 +896,7 @@ func TestHandleListPipelineExecutionHistoryFiltersAndPaginates(t *testing.T) {
 						RunId:      "child-run-1",
 					},
 					Type:      &common.WorkflowType{Name: "ChildWorkflow"},
+					Memo:      temporalMemoWithLogsCapability(t, true),
 					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 					StartTime: timestamppb.New(time.Now().Add(-30 * time.Second)),
 					CloseTime: timestamppb.New(time.Now().Add(-20 * time.Second)),
@@ -953,6 +954,9 @@ func TestHandleListPipelineExecutionHistoryFiltersAndPaginates(t *testing.T) {
 	children, ok := response[0]["children"].([]any)
 	require.True(t, ok)
 	require.Len(t, children, 1)
+	childResponse, ok := children[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, true, childResponse["has_logs"])
 }
 
 func TestHandleListPipelineExecutionHistoryQueuedOnly(t *testing.T) {
@@ -1437,6 +1441,7 @@ func TestHandleGetPipelineExecutionReturnsOneRunWithChildren(t *testing.T) {
 			RunId:      "run-1",
 		},
 		Type:      &common.WorkflowType{Name: "ChildWorkflow"},
+		Memo:      temporalMemoWithLogsCapability(t, true),
 		Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 		StartTime: timestamppb.New(time.Now().Add(-time.Minute)),
 		CloseTime: timestamppb.New(time.Now()),
@@ -1484,6 +1489,7 @@ func TestHandleGetPipelineExecutionReturnsOneRunWithChildren(t *testing.T) {
 	require.Equal(t, pipelineIdentifier, response.PipelineIdentifier)
 	require.Len(t, response.Children, 1)
 	require.Equal(t, "child-1", response.Children[0].Execution.WorkflowID)
+	require.True(t, response.Children[0].HasLogs)
 	mockClient.AssertExpectations(t)
 }
 

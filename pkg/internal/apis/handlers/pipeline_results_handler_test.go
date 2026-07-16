@@ -578,8 +578,16 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 	child := &WorkflowExecution{
 		Execution: &WorkflowIdentifier{WorkflowID: "child-1", RunID: "run-2"},
 		Type:      WorkflowType{Name: "ChildWorkflow"},
+		Memo:      localMemoWithLogsCapability(t, true),
 		StartTime: "2025-01-01T00:02:00Z",
 		CloseTime: "2025-01-01T00:03:00Z",
+		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+	}
+	newerChild := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "child-2", RunID: "run-3"},
+		Type:      WorkflowType{Name: "ChildWorkflow"},
+		StartTime: "2025-01-01T00:04:00Z",
+		CloseTime: "2025-01-01T00:05:00Z",
 		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	}
 
@@ -589,7 +597,7 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 		nil,
 		"default/pipeline",
 		root,
-		[]*WorkflowExecution{child},
+		[]*WorkflowExecution{newerChild, child},
 		record,
 	)
 	require.NoError(t, err)
@@ -597,7 +605,10 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 	require.Len(t, rootSummary.Results, 1)
 	require.Contains(t, rootSummary.Results[0].Log, "sample_logfile_1.zip")
 	require.Contains(t, rootSummary.Report, "run_report.md")
-	require.Len(t, rootSummary.Children, 1)
+	require.Len(t, rootSummary.Children, 2)
+	require.Equal(t, "child-1", rootSummary.Children[0].Execution.WorkflowID)
+	require.Equal(t, "child-2", rootSummary.Children[1].Execution.WorkflowID)
+	require.True(t, rootSummary.Children[0].HasLogs)
 }
 
 func TestBuildChildWorkflowParentQueryPipelineResults(t *testing.T) {
