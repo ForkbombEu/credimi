@@ -39,14 +39,21 @@ func RegisterMobileRunnerHooks(app core.App) {
 			return fmt.Errorf("create semaphore temporal client: %w", err)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), mobileRunnerShutdownAcceptedTimeout)
+		ctx, cancel := context.WithTimeout(
+			context.Background(),
+			mobileRunnerShutdownAcceptedTimeout,
+		)
 		defer cancel()
 
 		_, err = temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
-			WorkflowID:   workflows.MobileRunnerSemaphoreWorkflowID(runnerID),
-			UpdateName:   workflows.MobileRunnerSemaphoreShutdownRunnerUpdate,
-			UpdateID:     "shutdown/" + runnerID,
-			Args:         []interface{}{workflows.MobileRunnerSemaphoreShutdownRunnerRequest{Reason: "mobile runner deleted"}},
+			WorkflowID: workflows.MobileRunnerSemaphoreWorkflowID(runnerID),
+			UpdateName: workflows.MobileRunnerSemaphoreShutdownRunnerUpdate,
+			UpdateID:   "shutdown/" + runnerID,
+			Args: []interface{}{
+				workflows.MobileRunnerSemaphoreShutdownRunnerRequest{
+					Reason: "mobile runner deleted",
+				},
+			},
 			WaitForStage: tclient.WorkflowUpdateStageAccepted,
 		})
 		if err != nil {

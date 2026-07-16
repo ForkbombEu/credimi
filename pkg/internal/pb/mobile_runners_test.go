@@ -29,7 +29,9 @@ func TestRegisterMobileRunnerHooksDeletesRunnerByShuttingDownSemaphore(t *testin
 		mock.Anything,
 		mock.MatchedBy(func(options tclient.UpdateWorkflowOptions) bool {
 			req, ok := options.Args[0].(workflows.MobileRunnerSemaphoreShutdownRunnerRequest)
-			return options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID("usera-s-organization/runner-delete") &&
+			return options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
+				"usera-s-organization/runner-delete",
+			) &&
 				options.UpdateName == workflows.MobileRunnerSemaphoreShutdownRunnerUpdate &&
 				options.UpdateID == "shutdown/usera-s-organization/runner-delete" &&
 				options.WaitForStage == tclient.WorkflowUpdateStageAccepted &&

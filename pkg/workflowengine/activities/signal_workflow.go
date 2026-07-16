@@ -16,7 +16,13 @@ import (
 )
 
 type temporalWorkflowSignaler interface {
-	SignalWorkflow(ctx context.Context, workflowID string, runID string, signalName string, arg interface{}) error
+	SignalWorkflow(
+		ctx context.Context,
+		workflowID string,
+		runID string,
+		signalName string,
+		arg interface{},
+	) error
 }
 
 type SignalWorkflowActivity struct {
