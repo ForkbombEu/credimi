@@ -1468,7 +1468,7 @@ func TestHandleGetPipelineExecutionReturnsOneRunWithChildren(t *testing.T) {
 	pipelineTemporalClient = func(string) (client.Client, error) { return mockClient, nil }
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.SetPathValue("pipeline_id", pipelineRecord.Id)
+	req.SetPathValue("id", pipelineRecord.Id)
 	req.SetPathValue("workflow_id", "wf-1")
 	req.SetPathValue("run_id", "run-1")
 	rec := httptest.NewRecorder()
@@ -1523,7 +1523,7 @@ func TestHandleGetPipelineExecutionReturnsChildQueryError(t *testing.T) {
 	pipelineTemporalClient = func(string) (client.Client, error) { return mockClient, nil }
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.SetPathValue("pipeline_id", pipelineRecord.Id)
+	req.SetPathValue("id", pipelineRecord.Id)
 	req.SetPathValue("workflow_id", "wf-1")
 	req.SetPathValue("run_id", "run-1")
 	rec := httptest.NewRecorder()

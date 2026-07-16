@@ -91,7 +91,7 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/executions/{pipeline_id}/{workflow_id}/{run_id}",
+			Path:        "/executions/{id}/{workflow_id}/{run_id}",
 			Handler:     HandleGetPipelineExecution,
 			Description: "Get one pipeline execution with its child workflows",
 		},
@@ -793,7 +793,7 @@ func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		scope, apiErr := resolvePipelineExecutionScope(
 			e,
-			e.Request.PathValue("pipeline_id"),
+			e.Request.PathValue("id"),
 		)
 		if apiErr != nil {
 			return apiErr
