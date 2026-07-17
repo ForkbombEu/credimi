@@ -26,11 +26,12 @@ func (DCQLResponseConstraintsValidator) ID() string {
 
 func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
-		Mode          string `json:"mode"`
-		Property      string `json:"property"`
-		ExpectedType  string `json:"expected_type"`
-		Valid         bool   `json:"valid"`
-		ExpectedValue any    `json:"expected_value"`
+		Mode           string  `json:"mode"`
+		ForbiddenPaths [][]any `json:"forbidden_paths"`
+		Property       string  `json:"property"`
+		ExpectedType   string  `json:"expected_type"`
+		Valid          bool    `json:"valid"`
+		ExpectedValue  any     `json:"expected_value"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -38,6 +39,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	switch params.Mode {
 	case "credential_sets",
 		"claims_present",
+		"claims_subset",
 		"claims_path_no_match",
 		"claims_values_no_match",
 		"claim_id_missing_with_claim_sets",
@@ -113,6 +115,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		}
 	case "claims_present":
 		return validateClaimsPresent(query, responseValue)
+	case "claims_subset":
+		return validateClaimsSubset(query, responseValue, params.ForbiddenPaths)
 	case "claims_path_no_match":
 		return validateClaimsPathNoMatch(query, responseValue)
 	case "claims_values_no_match":
@@ -1037,6 +1041,69 @@ func validateClaimsPresent(query map[string]any, responseValue any) Result {
 		}
 	}
 	return Result{Status: StatusPass, Message: "wallet processed credential queries with claims"}
+}
+
+// validateClaimsSubset proves both sides of a user-controlled claim selection:
+// requested claims are disclosed, while explicitly unchecked paths are absent.
+func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	if len(forbiddenPaths) == 0 {
+		return Result{Status: StatusFail, Message: "claims_subset requires forbidden_paths"}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{Status: StatusFail, Message: "wallet vp_token is not an object keyed by credential query ID"}
+	}
+	for credentialIndex, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", credentialIndex)}
+		}
+		id, ok := credential["id"].(string)
+		if !ok || id == "" {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].id is not a non-empty string", credentialIndex)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", credentialIndex)}
+		}
+		presentations, ok := response[id].([]any)
+		if !ok || len(presentations) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token has no presentation for credential query %q", id)}
+		}
+		for presentationIndex, rawPresentation := range presentations {
+			token, ok := rawPresentation.(string)
+			if !ok || token == "" {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] is not an SD-JWT presentation", id, presentationIndex)}
+			}
+			presentation, err := evidence.ParseSDJWTPresentation(token)
+			if err != nil {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] is not a valid SD-JWT presentation: %v", id, presentationIndex, err)}
+			}
+			for claimIndex, rawClaim := range claims {
+				claim, ok := normalizeJSONObject(rawClaim)
+				if !ok {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", credentialIndex, claimIndex)}
+				}
+				path, ok := claim["path"].([]any)
+				if !ok || len(path) == 0 || !claimPathResolves(presentation.Claims, path) {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] does not disclose requested claims[%d].path", id, presentationIndex, claimIndex)}
+				}
+			}
+			for pathIndex, path := range forbiddenPaths {
+				if len(path) == 0 {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("forbidden_paths[%d] is empty", pathIndex)}
+				}
+				if claimPathResolves(presentation.Claims, path) {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] discloses unchecked forbidden_paths[%d]", id, presentationIndex, pathIndex)}
+				}
+			}
+		}
+	}
+	return Result{Status: StatusPass, Message: "wallet disclosed requested claims and omitted unchecked claims"}
 }
 
 func validateClaimsPathNoMatch(query map[string]any, responseValue any) Result {

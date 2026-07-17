@@ -1,0 +1,19 @@
+id: WS_RP_IA_MainInteraction__013
+title: Exclude a claim unchecked in the wallet UI.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__013.md
+suite: { sut: wallet_solution, role: relying_party, section: interaction.main_interaction }
+applicability: { profile: EUDI_generic, credential_format: ietf_sd_jwt_vc }
+normative_references:
+  - { title: OpenID for Verifiable Presentations, section: "6.4", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+preconditions: [{ ref: pipeline.dcql.unchecked-claim }]
+evidence:
+  dcql_exchange: { from: pipeline.dcql.unchecked-claim.outputs.dcql_exchange }
+  visual_evidence: { from: pipeline.dcql.unchecked-claim.outputs.visual_evidence }
+assertions:
+  - id: unchecked_address_is_absent_from_vp_token
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params: { mode: claims_subset, forbidden_paths: [[address]] }
+  - { id: consent_ui_proves_unchecked_claim_action, validator: evidence.non_empty, input: evidence.visual_evidence }
+verdict: { pass_when: all_assertions_pass }
