@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
 	import { onMount } from 'svelte';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
@@ -107,20 +108,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/* UI */
 
 	const testNameChunks = $derived(memo?.test.split('+') ?? []);
-	const isDedicatedOpenID4VCIIssuerWorkflow = $derived(
-		memo?.standard === 'openid4vci_issuer' &&
-			execution.name ===
-				'OID4VCI Issuer conformance check on https://www.certification.openid.net'
-	);
-	const isDedicatedOpenID4VPVerifierWorkflow = $derived(
-		memo?.standard === 'openid4vp_verifier' &&
-			execution.name ===
-				'OID4VP Verifier conformance check on https://www.certification.openid.net'
-	);
-	const shouldShowOpenIDNetTop = $derived(
-		memo?.standard !== 'openid4vci_issuer' && memo?.standard !== 'openid4vp_verifier'
-			? true
-			: isDedicatedOpenID4VCIIssuerWorkflow || isDedicatedOpenID4VPVerifierWorkflow
+	const openIDConformanceStandard = $derived(
+		memo?.author === 'openid_conformance_suite' && isOpenIDConformanceStandard(memo.standard)
+			? memo.standard
+			: undefined
 	);
 
 	const failureMessage = $derived(
@@ -239,12 +230,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{:else}
 		<div class="bg-temporal padding-x space-y-8 pt-4">
 			{#if memo.author == 'openid_conformance_suite'}
-				{#if shouldShowOpenIDNetTop}
+				{#if openIDConformanceStandard}
 					<OpenidnetTop
 						{workflowId}
 						namespace={organization.canonified_name}
-						isIssuerWorkflow={isDedicatedOpenID4VCIIssuerWorkflow}
-						isVerifierWorkflow={isDedicatedOpenID4VPVerifierWorkflow}
+						standard={openIDConformanceStandard}
 					/>
 				{/if}
 			{:else if memo.author == 'eudiw'}
