@@ -25,6 +25,8 @@ path = [
     "go.sum",
     "mocked_templates/**/*",
     "pb_migrations/*",
+    "pkg/fcaf/implementation-inventory.csv",
+    "pkg/fcaf/implementation-inventory.xlsx",
     "pkg/credential_issuer/openid-credential-issuer.schema.go",
     "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "schemas/**/*",

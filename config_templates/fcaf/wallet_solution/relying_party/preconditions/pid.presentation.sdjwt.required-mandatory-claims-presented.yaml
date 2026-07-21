@@ -1,0 +1,20 @@
+id: assertion.pid.presentation.sdjwt.required-mandatory-claims-presented
+kind: assertion
+description: Verify that all mandatory PID SD-JWT VC claims are present in the presented credential.
+depends_on:
+  - pipeline.pid.presentation.sdjwt.all-claims
+  - assertion.pid.presentation.sdjwt.vct-pid
+input:
+  from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
+validator: pid.sdjwt_required_mandatory_claims_present
+params:
+  required_elements:
+    - family_name
+    - given_name
+    - birthdate
+    - place_of_birth
+    - nationalities
+    - date_of_expiry
+    - issuing_authority
+    - issuing_country
+failure_policy: fail_dependent_tests

@@ -1,0 +1,457 @@
+<!--
+SPDX-FileCopyrightText: 2026 Forkbomb BV
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+# FCAF parallel-work memory
+
+Temporary coordination state for agents implementing FCAF definitions. Read `.agents/skills/fcaf-definitions/SKILL.md` for the durable workflow. Update this file as work advances; do not put credentials or secrets here.
+
+Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
+
+## Git state at handoff
+
+- Repository: `/home/puria/src/github.com/ForkbombEu/credimi/PR/1295`
+- Detached HEAD: `54373c673c4d2e65118df2f77d32642dfba16e97`
+- Shared push target: `origin HEAD:feat/fcaf-test`
+- Worktree was clean before adding this memory and skill.
+- Catalog count: 182 tests after the uncommitted case 094 implementation.
+
+Recent commits:
+
+- `54373c67` case 089, missing trusted-authority type, plus `request_rejected` validator mode
+- `016077d6` case 088, unsupported trusted-authority type
+- `b9978313` case 087, repeated queries matching the same PID
+- `49822612` case 086
+- `031de948` case 085
+- `6c9d1fb9` case 084
+- `5e80ac16` case 083
+- `5821662d` case 082
+- `12c466dc` case 081
+- `d5c029ac` case 080
+
+## Current scope
+
+Implement mandatory wallet-solution/relying-party tests one at a time. Skip TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests. Keep reusable YAML in the repository, not SQLite.
+
+## Case 087
+
+The request uses two IDs, `pid-query-one` and `pid-query-two`, both matching PID SD-JWT VC `urn:eudi:pid:1` and requesting `given_name`.
+
+Verified evidence:
+
+- Two PID cards appeared in one consent screen.
+- Both request accordions exposed `Given Name(s)`.
+- Manual sharing succeeded to `EUDI Remote Verifier`.
+- Both result accordions exposed the same expected given-name value.
+- A fresh verifier transaction returned VP-token entries for both query IDs.
+
+Follow-up: inventory row 087 still describes an earlier `Credential not found` failure. Reconcile it with the later successful evidence and run the final committed Maestro flow completely green after clearing Chrome.
+
+## Cases 088 and 089
+
+- 088: `trusted_authorities` contains `type: unsupported`.
+- 089: `trusted_authorities` omits `type`.
+- Both now use `mode: request_rejected`; do not revert to `no_match`.
+- Emulator 089 returned Home after the malformed request, which is the allowed discontinuation outcome.
+
+Follow-ups:
+
+- Synchronize the emulator-tested 089 leaf flow with the pipeline's inline `action_code`; verify unlock before and after `openLink`.
+- Rerun 088 on the emulator after the validator change.
+- Review synthetic `json-parse` evidence containing `error: invalid_request`. The observed 089 behavior was discontinuation, not a displayed or captured `invalid_request` response.
+
+## Case 090
+
+OID4VP 6.1.1 defines the required property as plural `values`; the FCAF prose uses singular “value” descriptively. The implemented request keeps valid `type: aki` and omits `values`.
+
+Assertions independently prove that `type` is present, `values` is absent, the request is rejected/discontinued, and visual evidence exists. A clean Maestro run after clearing Chrome returned the wallet to Home without consent or success, satisfying the allowed discontinuation outcome.
+
+## Case 091
+
+`WS_RP_MS_ProtocolMessages__091` rejects `trusted_authorities.type` when it is not a JSON string. The implemented matrix covers `null`, `true`, `false`, `0`, a non-zero number, array, and object. Every request keeps `values` as a valid non-empty string array.
+
+The dedicated `trusted_authority_property_type` validator proves the nested property is present and has the wrong JSON type, rejects evidence for a missing `type`, requires valid `values` while testing `type`, and fails if the wallet returns a credential. A clean Maestro run after clearing Chrome completed all seven variants. The final UI hierarchy showed Home, so the observed wallet behavior is allowed interaction discontinuation, not a captured `invalid_request` response.
+
+## Case 092
+
+`WS_RP_MS_ProtocolMessages__092` rejects `trusted_authorities.values` when it is not a JSON array. The implementation uses the normative plural property despite the FCAF source's singular `value` wording; that discrepancy is already documented in `TEST-AUTHOR-FEEDBACK.md`.
+
+The matrix covers `null`, `true`, `false`, `0`, a non-zero number, string, and object while preserving `type: aki`. The nested validator requires `values` to be present, verifies its JSON type, requires `type` to remain a non-empty string, and fails if a malformed request returns a credential. A clean Maestro run after clearing Chrome completed all seven variants and produced seven screenshots.
+
+## Case 093
+
+`WS_RP_MS_ProtocolMessages__093` rejects an array-valued `trusted_authorities.values` property when any array item is not a JSON string. The dedicated `trusted_authority_array_item_type` validator requires a non-empty outer array, a valid non-empty string `type`, and at least one item with the invalid type; an all-string array fails the malformed-item assertion. Unit coverage also includes a mixed string plus non-string array.
+
+The matrix covers null, booleans, zero, a non-zero number, nested array, and object items. A clean Maestro run after clearing Chrome completed all seven variants and produced seven screenshots.
+
+## Case 094
+
+`WS_RP_MS_ProtocolMessages__094` rejects a normative `trusted_authorities.values` array containing an empty string. The dedicated `trusted_authority_empty_string_item` validator requires a valid non-empty string `type`, a non-empty array containing only strings, and at least one empty item; non-string items remain case 093 evidence.
+
+The implementation covers a single empty string and a mixed valid-plus-empty array. A clean Maestro run after clearing Chrome completed both variants and produced two screenshots.
+
+## Next candidate
+
+`WS_RP_SM_DeviceBinding__008` is the next runnable mandatory candidate. Case
+119 duplicates case 114; cases 120-146 and 153-159 are intentionally skipped
+where the required raw request, transaction-data fixture, or configurable
+verifier response cannot be produced by the public service.
+
+## Mock-verifier skip queue
+
+Do not implement the following negative cases with the public reference
+verifier. Keep their inventory status at `missing` until a mock service can
+deliver the required request and capture the Wallet's actual protocol result:
+
+- 096-098, 100, 108, and 110-115: validators and YAML exist, but the public
+  verifier rejects each malformed DCQL shape before creating a signed request.
+  Keep them marked missing until their device-level execution can run.
+- 120-123: malformed claim-path members or shape. The public verifier's typed
+  request model rejects these before it can create a signed request. Case 122
+  also duplicates the partially implemented non-array path case 115.
+- 124: the public endpoint accepts an unknown field in its presentation-create
+  JSON but strips it from the signed Authorization Request. A live probe on
+  15/07/2026 confirmed `fcaf_unknown_parameter` was absent from the JWT.
+- 125-126: the verifier response endpoint must deliberately return either HTTP
+  200 with a non-JSON body or HTTP 400 with JSON after receiving the Wallet's
+  response.
+- 127-128: the response endpoint must return JSON containing an unknown
+  parameter, and case 128 also needs an unknown signed request parameter.
+- 129-132: the public result API returns only the decrypted Wallet response and
+  does not expose the compact JWE. Therefore `kid`, explicit/default `enc`, and
+  the original JWT payload structure cannot be asserted.
+- 133-134: proving the HTTP method, content type, and exact form body requires
+  capture at the Wallet-facing `response_uri`, which the public result API does
+  not expose.
+- 135: the source does not define a transaction-data type/fixture the Wallet is
+  expected to support. Wallet core 0.28.1 explicitly rejects every non-empty
+  `transaction_data`, so inventing a type would test case 136 instead.
+- 136: the verifier must issue unsupported `transaction_data` and capture the
+  Wallet error without opening credential selection.
+- 137-140: the verifier must send unknown, malformed, or empty scopes and
+  capture the exact `invalid_scope` response; case 140 must additionally prove
+  session termination.
+- 141-145: conflicting query/scope, missing query instructions, unsupported or
+  insecure client identifiers, and conflicting stored client metadata all need
+  custom signed requests plus exact Wallet error capture.
+- 146: the trusted-registry and locally stored verifier metadata state needed
+  to trigger `invalid_client` requires a stateful mock verifier/registry.
+- 150: the public verifier rejects `format: vc+sd-jwt` during request creation
+  with HTTP 400 `UnsupportedFormat`, before a signed request reaches the Wallet.
+- 153-159: all require signed requests containing unsupported or malformed
+  `transaction_data` and exact Wallet error capture. Cases 154-157 also require
+  a supported transaction-data schema that the suite does not define.
+- DeviceBinding 002-006: the public verifier request object contains no
+  `verifier_info` attestation. These cases require a generator for valid,
+  malformed, invalid-proof, and unknown-type Verifier Info attestations.
+
+These are implementation skips, not conformance passes or accepted
+discontinuations. See `TEST-AUTHOR-FEEDBACK.md` Issues 13 and 19.
+
+## Case 147
+
+147 reuses `pipeline.dcql.no-matching-credentials`, which requests the
+deliberately unavailable VCT `urn:credimi:fcaf:no-matching-test-credential`.
+The tightened mobile flow clears Chrome, unlocks before opening the request,
+requires the Wallet's unavailable-document screen, proves no requested-document
+row exists, captures visual evidence, and only then selects `Go Back`. The protocol
+assertions require no returned credential and an error value exactly equal to
+`access_denied`; Home or a screenshot alone cannot pass the case.
+
+The 15/07/2026 emulator run passed the UI portion: the reference Wallet showed
+`The requested document is not available in your EUDI Wallet`, rendered no
+credential row, left the Share control disabled, and allowed `Go Back`. It did
+not submit an error response. The public
+verifier poll returned HTTP 400 with an empty body because the transaction was
+not in Submitted state. The reference Wallet therefore fails case 147; do not
+weaken the exact `access_denied` assertion or treat the local error screen as a
+protocol response.
+
+## Case 148
+
+148 uses a dedicated valid PID request and requires the Wallet to reach the
+consent screen before the user explicitly denies consent. In wallet version
+2026.06.38, the denial control has accessibility label `Go Back`; there is no
+visible `Cancel` label and no confirmation dialog. Visual evidence is captured
+both before and after denial. Protocol evidence must omit `vp_token` and contain
+`error` exactly equal to `access_denied`; returning Home without a submitted
+verifier response cannot pass.
+
+The 15/07/2026 Maestro run passed the UI portion on `emulator-5554`: a valid PID
+request reached `DATA SHARING REQUEST`, the first PID accordion exposed `Given
+Name(s)`, and `Go Back` returned the Wallet to Home. The Wallet sent no error
+response. Polling that exact verifier transaction returned HTTP 400 with an
+empty body. The reference Wallet therefore fails case 148; keep the strict
+protocol assertions.
+
+## Case 149
+
+149 uses a dedicated valid PID request, selects `Share`, and submits one known
+invalid PIN (`111111`) at the transaction-authentication screen. The flow
+requires the wallet's explicit `Invalid pin` state and captures it before any
+cleanup. It then returns through the request screen to Home so later pipelines
+start deterministically. Protocol evidence must omit `vp_token` and contain
+`error` exactly equal to `access_denied`.
+
+The 15/07/2026 reusable Maestro flow passed the UI portion on `emulator-5554`: the
+Wallet displayed the requested PID and `Given Name(s)`, reached the PIN screen
+after `Share`, and displayed `Invalid pin` after one failed attempt. It sent no
+error response; polling the same verifier transaction returned HTTP 400 with
+an empty body. This is partial evidence, not a conclusive case 149 execution:
+one invalid PIN is a failed attempt while the authentication interaction still
+allows retries. Completion needs a verifier web-form/manual flow that reaches a
+defined terminal authentication failure and exposes the submitted authorization
+error. The upstream scenario does not define whether one invalid attempt, terminal lockout,
+biometric failure, or cancellation constitutes failed authentication; this is
+tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 21.
+
+## Cases 150 and 151
+
+150 is mock-verifier blocked. A live public-verifier probe on 15/07/2026
+rejected `format: vc+sd-jwt` during presentation creation with HTTP 400 and
+`{"error":"UnsupportedFormat"}`; the Wallet cannot produce the required
+`vp_formats_not_supported` response without receiving a signed request.
+
+151 is not executable against the reference Wallet because its prerequisite
+requires a Wallet that supports `vc+sd-jwt` but does not support `mso_mdoc`.
+The reference Wallet supports `mso_mdoc`, so changing the requested document
+type would test credential availability rather than format support.
+
+## Case 152
+
+152 starts from a valid public-verifier request URI and adds the deliberately
+invalid `request_uri_method=DELETE` authorization parameter. The Maestro flow
+requires the Wallet's generic error page, proves that neither `DATA SHARING
+REQUEST` nor a requested-document row appears, captures visual evidence, and
+returns to Home. Protocol assertions require no `vp_token` and error exactly
+equal to `invalid_request_uri_method`.
+
+The 15/07/2026 reusable Maestro flow passed and reached the generic `Oups!
+Something went wrong` page, but the Wallet sent no error response. Polling the same verifier
+transaction returned HTTP 400 with an empty body. The reference Wallet fails
+case 152; do not treat the local generic error page as protocol evidence.
+
+## Cases 153-159
+
+These seven `invalid_transaction_data` cases are not runnable with the public
+verifier. They require controlled signed request objects and exact Wallet error
+capture. 153 is the exact-error specialization of blocked case 136. Cases
+154-157 additionally require a known supported transaction-data type, schema,
+field types, ranges, and mandatory fields; no such fixture is defined. Cases
+158-159 require controlled `credential_ids` references. Keep them missing until
+the mock verifier and transaction-data fixture tracked in Issues 13 and 20 are
+available.
+
+## DeviceBinding cases 002-006
+
+A live public-verifier request-object probe on 15/07/2026 contained the normal
+x5c-signed authorization request but no `verifier_info` attestation. Cases
+002-006 need a controllable Verifier Info attestation generator and cannot be
+adapted from that request without changing the signed object. They are tracked
+as mock-verifier skips and in `TEST-AUTHOR-FEEDBACK.md` Issue 23.
+
+## DeviceBinding case 007
+
+007 reuses the successful PID SD-JWT all-claims presentation and validates the
+issuer-signed `cnf` claim with `sdjwt.cnf_conforms`. The structural validator requires a
+non-empty object in the issuer payload, exactly one RFC 7800 proof-of-possession
+key representation, valid public EC/RSA/OKP JWK members without private key
+material, unpadded base64url key values with curve-specific lengths, a compact
+JWE, a non-empty key identifier, or an HTTPS JWK Set URL. Unknown members are
+ignored only when a supported confirmation method remains present.
+
+The mandatory `sdjwt.key_binding_matches_cnf` assertion preserves the exact
+SD-JWT and compact KB-JWT bytes, verifies the KB-JWT signature with `cnf.jwk`,
+enforces `typ: kb+jwt`, rejects unsecured or key-incompatible algorithms,
+requires valid `iat`, `aud`, `nonce`, and `sd_hash` claims, and recomputes the
+RFC 9901 `sd_hash` over the presented SD-JWT and selected disclosures. Wrong
+keys, altered signatures, malformed mandatory claims, algorithm confusion, and
+mismatched presentation hashes are covered by focused negative tests.
+
+The shared precondition exposes both the existing singular `pid_sdjwt` output
+for older tests and a `pid_sdjwt_presentations` collection for 007. Both 007
+validators iterate the full collection and pass only when every returned
+credential presentation passes; a failure or unresolved confirmation method is
+reported with its presentation index. This prevents the first `query_0` member
+from hiding a bad later credential.
+
+Resolver note: `kid`, `jku`, and `jwe` remain valid structural RFC 7800
+confirmation methods, but their cryptographic verification needs trusted
+external key-resolution or decryption evidence. The cryptographic validator
+returns `blocked`, never `pass`, when `cnf.jwk` is absent. A future resolver must
+provide the resolved Holder key as evidence; network access must not be hidden
+inside the pure validator.
+
+Visual presentation evidence is exposed from the shared PID precondition. A
+live reference-wallet run on 15/07/2026 left both stored PID credentials selected
+(Filippo and the FCAF test user), displayed their requested claims, and sent two
+SD-JWT presentations. Maestro completed the consent and success flow. The exact
+verifier response was decoded as a two-member collection; each presentation
+contained a distinct EC P-256 `cnf.jwk`, and both passed the structural check,
+KB-JWT signature verification, and RFC 9901 `sd_hash` recomputation.
+
+## DeviceBinding case 008
+
+008 reuses the live `pipeline.dcql.holder-binding-type-boundary` valid-true
+execution. Its test asserts the requested credential property
+`require_cryptographic_holder_binding` equals the boolean `true` exactly, not
+merely that it has boolean JSON type. The generic DCQL validator gained
+`property_equals` with positive and false-value regression cases for this
+purpose. The precondition decodes every returned SD-JWT from
+`vp_token.pididentity01`, and 008 applies `sdjwt.cnf_conforms` to all of them.
+
+On 15/07/2026 the public-verifier request with that exact property completed
+through Maestro consent and success on `emulator-5554`. The verifier returned
+two PID presentations under `pididentity01`; each had a valid `cnf.jwk`, and
+the existing cryptographic checker also passed both KB-JWT signatures and
+RFC 9901 `sd_hash` values. The reusable pipeline currently stores its visual
+evidence as the holder-binding variant screenshot collection; 008 requires it
+to be non-empty.
+
+## Case 118
+
+118 uses `claim_path_allowed_components` over one PID credential query with
+three intended resolvable paths: `["given_name"]`,
+`["nationality", null]`, and `["nationality", 0]`. The validator requires
+non-empty path arrays, allows only strings, nulls, and non-negative integers,
+requires evidence of all three categories, parses every returned SD-JWT, and
+resolves every requested path against its disclosed claims. Unit evidence
+rejects empty arrays, booleans, negative integers, fractional numbers, missing
+component categories, missing presentations, and presentations that omit one
+of the requested paths.
+
+The public verifier accepted the combined request shape. A dedicated
+`fcaf-test` Keycloak user was issued a fresh PID after its realm profile was
+verified with `nationality: ["IT"]`, birth date, and structured birthplace.
+On `emulator-5554`, the reference Wallet offered both the old Filippo PID and
+the new FCAF PID. Expanding both consent rows showed only `Given Name(s)`;
+`Nationality` was absent. Sharing completed and the verifier returned HTTP 200
+with two presentations, but their only disclosures were respectively
+`[salt, "given_name", "Filippo"]` and `[salt, "given_name", "FCAF"]`.
+The strict Maestro flow therefore fails at the pre-share `Nationality`
+assertion, and the protocol validator fails because neither nationality path
+resolves. Keep both assertions strict; the observed Wallet behavior does not
+satisfy case 118.
+
+## Case 117
+
+117 uses two distinct credential query IDs and omits `credential_sets`. The
+existing `without_credential_sets` validator checks that the property is absent
+and that the Wallet returns a non-empty presentation for every query ID; focused
+unit cases prove that omitting either response entry fails. Maestro requires two
+requested-document entries in one consent screen, expands both before sharing,
+and expands both result entries after one Share/PIN interaction.
+
+The request uses two distinct query IDs with the same PID `given_name` claim
+constraint, and both may be satisfied by the same stored PID. Whether the upstream scenario instead
+requires two distinct stored Credentials is ambiguous and is tracked in
+`TEST-AUTHOR-FEEDBACK.md` Issue 16.
+
+The reference-wallet Maestro run passed end to end on `emulator-5554`. The
+post-link PIN must be entered digit by digit with zero settle time on the sixth
+digit; otherwise Maestro waits through the short-lived request-screen
+transition and observes Home. The Wallet displayed two PID request rows. One
+tap on the first document expands both rows because their accordion state is
+shared; both exposed `Given Name(s)` with value `Filippo`. After one Share/PIN
+interaction, the success screen contained two document rows, both expanded by
+one tap and both exposing `Given Name(s)`. The verifier returned HTTP 200 with
+non-empty `pid-given-name` and `pid-given-name-copy` entries in `vp_token`.
+
+The Wallet contains multiple matching PID instances and returned multiple
+presentations under each query ID. Case 117 establishes the missing
+`credential_sets` all-query requirement; cardinality when `multiple` is omitted
+remains covered separately by case 071.
+
+## Case 116
+
+116 uses `claims_without_values` to require every claim to omit `values`, retain a valid non-empty string path, and produce a matching `vp_token` under the credential query ID. A parsed request or absence of an error cannot pass. The public verifier accepted the request shape and issued a request URI; the Maestro flow requires consent, PIN confirmation, and visible successful sharing.
+
+The exact reusable Maestro flow failed because the reference Wallet did not show `DATA SHARING REQUEST`; the verifier transaction then returned HTTP 400 with an empty body. This is a failed case 116 result, not acceptance. Keep the strict presentation and successful-sharing assertions. The missing transaction diagnostics are tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 14.
+
+## Case 115
+
+115 uses `claim_path_non_array` with unit evidence for `null`, booleans, zero, a non-zero number, string, and object values. Missing paths, empty arrays, and valid non-empty arrays are explicitly excluded from this mode. Passing evidence requires no `vp_token` and a real `error: invalid_request`.
+
+The public verifier rejected the representative string request with HTTP 400 because `ClaimPath` decoding expected an array, before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
+
+## Case 114
+
+114 uses `claim_path_empty` to prove the `path` property is present as an empty array. It distinguishes this from a missing path, `null`, non-array values, and a valid non-empty path. Passing evidence requires no `vp_token` and a real `error: invalid_request`.
+
+The public verifier rejected request creation with HTTP 400 while deserializing `ClaimPath` (`ClaimPath must not be empty`), before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13. The source expected result contains the typo `invalid request_error`; Issue 15 records the upstream correction to `invalid_request`.
+
+## Case 113
+
+113 uses `claim_path_missing` to prove a claim object omits the `path` property. It explicitly distinguishes absence from present `null`, empty-array, and valid path values. Passing evidence requires no `vp_token` and a real `error: invalid_request`.
+
+The public verifier rejected request creation with HTTP 400 while decoding `ClaimsQuery` because `path` is required, before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
+
+## Case 112
+
+112 uses `invalid_claim_id_characters` to require a present non-empty claim `id` containing at least one character outside ASCII alphanumeric, underscore, and hyphen. Unit evidence covers dot, space, colon, slash, and non-ASCII input, plus the valid boundary `Name_01-test`. Passing evidence requires no `vp_token` and a real `error: invalid_request`.
+
+The public verifier rejected request creation with HTTP 400 in `DCQLId.ensureValid`, before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
+
+## Case 111
+
+111 uses `empty_claim_id` to prove the claim `id` property is present and exactly the empty string, distinguishing it from a missing ID and from non-empty IDs. Passing evidence requires no `vp_token` and an actual `error: invalid_request`; returning Home is not sufficient.
+
+The public verifier rejected request creation with HTTP 400 in `ClaimId` validation (`Value cannot be be empty`), before the request could reach the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
+
+## Case 110
+
+110 uses `duplicate_claim_ids` to require two claims in the same credential query to repeat a non-empty `id`, no `vp_token`, and a real `invalid_request` response. A duplicated ID across separate credential queries is explicitly not treated as this malformed case.
+
+The public verifier rejected the probe with HTTP 400 before request creation: `CredentialQuery.ensureUniqueIds` reported that the same claims ID must not occur more than once. Device-level execution therefore requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13. The reusable Maestro flow accepts a signed mock-verifier deep link through `DCQL_DUPLICATE_CLAIM_IDS_PRESENTATION_URL`.
+
+The direct by-value emulator probe reached the reference Wallet but displayed no error page; after processing, the Wallet was on Home. This is a failed case 110 result because the source explicitly requires `invalid_request`; discontinuation is not an accepted alternative. The Maestro flow therefore requires an error UI and fails on Home, while the validator independently requires the mock verifier to capture an actual `error: invalid_request` response and rejects evidence that only lacks a `vp_token`.
+
+## Case 109
+
+109 uses a dedicated `claims_without_id_without_claim_sets` validator. It proves every requested claim omits `id`, the credential query omits `claim_sets`, claim paths are valid, and the Wallet returns a presentation under the credential query ID. The pipeline and standalone Maestro flow require the visible successful-sharing state; a parsed request or absence of an error is insufficient.
+
+Reference-wallet verification did not pass. The public verifier accepted two fresh requests with a claim path and no claim `id` or `claim_sets`. On the first run, the post-link `Welcome back` gate discarded the pending interaction; the flow was corrected to unlock before opening the link and to handle the resolver plus any second unlock. On the clean rerun, the Wallet still returned Home without showing `DATA SHARING REQUEST`, and the verifier transaction returned HTTP 400 with an empty body. Keep the strict positive assertions: this is a Wallet failure or an unresolved wallet-core interoperability issue, not grounds to treat discontinuation as acceptance.
+
+## Case 105
+
+105 now has a dedicated `claims_present` validator requiring every credential query to contain a non-empty `claims` array, valid non-empty string paths, and a matching `vp_token`. The verifier accepted a fresh claims-bearing request and Maestro drove the wallet through PIN entry, but the wallet returned Home without showing the consent/share screen. Restarting the wallet process and retrying produced the same result.
+
+TODO: finish 105 emulator diagnosis with runner-accessible wallet logcat and verifier transaction evidence. Direct ADB logcat is currently blocked because the sandbox cannot start the ADB smartsocket daemon; Maestro MCP can still inspect and drive the emulator. The verifier transaction endpoint returned HTTP 400 with an empty body after the wallet interaction.
+
+## Case 106
+
+106 uses a dedicated PID claim path, `claim_that_does_not_exist`, and the `claims_path_no_match` validator proves that the request contains a non-empty claim path and returns no `vp_token`.
+
+Emulator evidence is incomplete: the verifier accepted the request, the Wallet accepted PIN `123456`, and then returned Home without consent or presentation. The verifier transaction endpoint returned HTTP 400 with an empty body. The source expects an observable `access_denied` response describing that no credentials match; current evidence proves only absence of a credential response. Keep this residual gap explicit until verifier diagnostics or protocol evidence are available.
+
+## Case 107
+
+107 uses the valid `given_name` path with a deliberately mismatched `values` constraint. The dedicated `claims_values_no_match` validator requires non-empty `path` and `values` arrays and proves that no `vp_token` is returned.
+
+The emulator accepted the request and PIN, then returned Home without consent or presentation. The verifier transaction endpoint returned HTTP 400 with an empty body. As with 106, this proves no credential was returned but does not prove the source-required `access_denied` response or description.
+
+## Case 108
+
+108 proves the request contains non-empty `claims` and `claim_sets`, at least one claim omits `id`, and no `vp_token` is returned. The public verifier rejected request creation with HTTP 400 `Unknown claim ids` from `ClaimSet.ensureKnownClaimIds`, so the request never reached the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
+
+## Parallel ownership
+
+Reserve one test ID per agent. Avoid simultaneous edits to:
+
+- `maestro-preconditions/all-preconditions.yaml`
+- `maestro-preconditions/README.md`
+- `pkg/fcaf/catalog/loader_test.go`
+- `pkg/fcaf/implementation-inventory.csv`
+
+Validate with `go test ./pkg/fcaf/...` and `git diff --check`. Run Maestro on `emulator-5580` with Chrome cleared before claiming conformance behavior.
+
+Active worktrees prepared from `54373c67`:
+
+- 090: `/tmp/credimi-fcaf-090`, branch `test/fcaf-090-missing-authority-value`
+- 091: `/tmp/credimi-fcaf-091`, branch `test/fcaf-091-authority-type-format`
+- 092: `/tmp/credimi-fcaf-092`, branch `test/fcaf-092-authority-value-format`
+- 093: `/tmp/credimi-fcaf-093`, branch `test/fcaf-093-authority-value-items`
+
+Each worktree contains an untracked `AGENT_TASK.md`. Agents own only test-specific artifacts. Shared integration files remain owned by the main worktree and must be updated after the four branches are reviewed/cherry-picked. Code work can run concurrently; emulator/Maestro runs cannot because all agents share `emulator-5580`.

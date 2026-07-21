@@ -1,0 +1,35 @@
+name: FCAF DCQL missing claim path
+runtime: { global_runner_id: "" }
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/ui/presentations
+      expected_status: 200
+      headers: { Content-Type: application/json }
+      body: { type: vp_token, nonce: fcaf-113, dcql_query: { credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: [urn:eu.europa.ec.eudi:pid:1] }, claims: [{ id: given_name }] }] } }
+  - id: reject-missing-claim-path
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters: { CLIENT_ID: "${{ create-presentation.outputs.body.client_id }}", REQUEST_URI: "${{ create-presentation.outputs.body.request_uri }}" }
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - clearState: com.android.chrome
+        - launchApp: { stopApp: true, clearState: false }
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
+        - openLink: { link: ${output.authorizationRequest}, autoVerify: false, browser: false }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - inputText: "123456"
+              - tapOn: { point: "50%,10%" }
+        - waitForAnimationToEnd: { timeout: 5000 }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request", timeout: 30000 }
+        - takeScreenshot: fcaf-113-missing-claim-path-rejected
+  - id: fetch-result
+    use: http-request
+    with: { method: GET, url: "${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}", expected_status: 200 }

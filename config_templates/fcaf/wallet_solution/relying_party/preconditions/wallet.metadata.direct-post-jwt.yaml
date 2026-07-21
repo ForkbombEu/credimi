@@ -1,0 +1,12 @@
+id: pipeline.wallet.metadata.direct-post-jwt
+kind: pipeline
+description: Submit a PID mdoc response to an HTTPS response_uri using direct_post.jwt.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-metadata-direct-post-jwt
+required_steps:
+  - submit-direct-post-jwt
+  - get-presentation-result
+outputs:
+  wallet_response:
+    path: $.output.get-presentation-result.outputs.body
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

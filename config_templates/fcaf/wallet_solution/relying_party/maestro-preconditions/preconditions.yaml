@@ -1,0 +1,168 @@
+preconditions:
+  - id: pipeline.pid.presentation.sdjwt.all-claims
+    kind: maestro
+    flow: pipeline-pid-presentation-sdjwt-all-claims.yaml
+    prepares:
+      - pid_sdjwt
+    notes: Obtains a PID SD-JWT VC and presents it to the EUDIW PID SD-JWT verifier.
+
+  - id: assertion.pid.presentation.sdjwt.vct-pid
+    kind: evidence-assertion
+    depends_on:
+      - pipeline.pid.presentation.sdjwt.all-claims
+    validator: pid.sdjwt_vct_pid
+    notes: Runs in the FCAF evidence engine against decoded pid_sdjwt evidence, not on the device.
+
+  - id: assertion.pid.presentation.sdjwt.required-mandatory-claims-presented
+    kind: evidence-assertion
+    depends_on:
+      - pipeline.pid.presentation.sdjwt.all-claims
+      - assertion.pid.presentation.sdjwt.vct-pid
+    validator: pid.sdjwt_required_mandatory_claims_present
+    notes: Runs in the FCAF evidence engine against decoded pid_sdjwt evidence, not on the device.
+
+  - id: pipeline.pid.presentation.mdoc.all-claims-elements
+    kind: maestro
+    flow: pipeline-pid-presentation-mdoc-all-claims-elements.yaml
+    prepares:
+      - pid_mdoc
+    notes: Obtains a PID mdoc and presents it to the EUDIW PID mdoc verifier.
+
+  - id: assertion.pid.presentation.mdoc.doc-type-pid
+    kind: evidence-assertion
+    depends_on:
+      - pipeline.pid.presentation.mdoc.all-claims-elements
+    validator: pid.mdoc_doc_type
+    notes: Runs in the FCAF evidence engine against decoded pid_mdoc evidence, not on the device.
+
+  - id: assertion.pid.presentation.mdoc.required-mandatory-elements-presented
+    kind: evidence-assertion
+    depends_on:
+      - pipeline.pid.presentation.mdoc.all-claims-elements
+      - assertion.pid.presentation.mdoc.doc-type-pid
+    validator: pid.mdoc_required_mandatory_elements_present
+    notes: Runs in the FCAF evidence engine against decoded pid_mdoc evidence, not on the device.
+
+  - id: pipeline.dcql.credential-sets
+    kind: maestro
+    flow: dcql-credential-sets.yaml
+    prepares:
+      - dcql_exchange
+    notes: Exercises a DCQL credential_sets presentation request.
+
+  - id: pipeline.dcql.credentials-match
+    kind: maestro
+    flow: dcql-credentials-match.yaml
+    prepares:
+      - dcql_exchange
+    notes: Exercises a DCQL request containing multiple credentials entries.
+
+  - id: pipeline.dcql.unchecked-claim
+    kind: pipeline
+    description: Prove a claim unchecked in the Wallet UI is absent from the returned presentation.
+    pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-unchecked-claim
+    required_steps:
+      - present-with-unchecked-address
+      - fetch-result
+    outputs:
+      dcql_exchange:
+        path: $.output.fetch-result.outputs.body
+        decoder: raw
+      visual_evidence:
+        path: $.output.present-with-unchecked-address.outputs.screenshot_urls
+        decoder: raw
+
+  - id: pipeline.dcql.credential-sets-options-missing
+    kind: pipeline
+    description: Reject a DCQL credential_sets request without its required options property.
+    pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-credential-sets-options-missing
+    required_steps:
+      - reject-missing-credential-sets-options
+      - fetch-capture-session
+    outputs:
+      dcql_exchange:
+        path: $.output.fetch-capture-session.outputs.body
+        decoder: raw
+      visual_evidence:
+        path: $.output.reject-missing-credential-sets-options.outputs.screenshot_urls
+        decoder: raw
+
+  - id: pipeline.dcql.no-matching-credentials
+    kind: maestro
+    flow: dcql-no-matching-credentials.yaml
+    prepares:
+      - dcql_exchange
+    notes: Exercises a DCQL request that should produce no matching wallet credential.
+
+  - id: pipeline.dcql.trusted-authorities-match
+    kind: maestro
+    flow: dcql-trusted-authorities-match.yaml
+    prepares:
+      - dcql_exchange
+    notes: Exercises a DCQL trusted_authorities match presentation request. Upstream requires the wallet holds more than one credential from the issuer specified in trusted_authorities; the assertion decodes each returned SD-JWT and verifies its issuer (x5c+AKI or iss) matches at least one trusted_authority condition.
+
+  - id: pipeline.dcql.trusted-authorities-no-match
+    kind: maestro
+    flow: dcql-trusted-authorities-no-match.yaml
+    prepares:
+      - dcql_exchange
+    notes: Exercises a valid trusted_authorities query that has no matching wallet credential.
+
+  - id: pipeline.dcql.claim-sets
+    kind: maestro
+    flow: dcql-claim-sets.yaml
+    prepares:
+      - dcql_exchange
+    notes: Exercises a DCQL claim_sets presentation request.
+
+  - id: pipeline.wallet.engagement.haip-vp
+    kind: maestro
+    flow: engagement-haip-vp.yaml
+    prepares:
+      - wallet_engagement
+    notes: Verifies that the reference wallet is invoked through the haip-vp custom URL scheme.
+
+  - id: pipeline.wallet.metadata.direct-post-jwt
+    kind: maestro
+    flow: metadata-direct-post-jwt.yaml
+    prepares:
+      - wallet_response
+    notes: Submits a PID mdoc response using direct_post.jwt and verifies the wallet success screen.
+
+  - id: pipeline.wallet.protocol.request-uri-method-post
+    kind: maestro
+    flow: protocol-request-uri-method-post.yaml
+    prepares:
+      - presentation_request
+      - wallet_response
+    notes: Fetches the signed Request Object using HTTP POST and completes the PID mdoc presentation.
+
+  - id: pipeline.wallet.protocol.request-uri-method-get
+    kind: maestro
+    flow: protocol-request-uri-method-get.yaml
+    prepares:
+      - presentation_request
+      - wallet_response
+    notes: Fetches the signed Request Object using HTTP GET and completes the PID mdoc presentation.
+
+  - id: pipeline.wallet.supportive.redirect-uri
+    kind: maestro
+    flow: supportive-redirect-uri.yaml
+    prepares:
+      - wallet_response
+    notes: Completes a direct_post PID mdoc presentation and opens the verifier-provided redirect URI.
+
+  - id: pipeline.wallet.session-binding.valid-nonce
+    kind: maestro
+    flow: session-binding-valid-nonce.yaml
+    prepares:
+      - wallet_response
+    notes: Completes a PID mdoc presentation from an Authorization Request containing a valid nonce.
+
+  - id: pipeline.wallet.protocol.request-object-by-value
+    kind: maestro
+    flow: protocol-request-object-by-value.yaml
+    prepares:
+      - request_object
+      - wallet_response
+    notes: Processes a signed Request Object embedded by value and completes the PID mdoc presentation.

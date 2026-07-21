@@ -1,0 +1,36 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - obtain beta fake issuer PID SD-JWT VC
+tags:
+  - fcaf
+  - precondition
+  - pid
+  - sd-jwt-vc
+  - beta-capture
+---
+- clearState: com.android.chrome
+- launchApp: { appId: com.android.chrome, stopApp: true, clearState: false }
+- tapOn: { text: "Use without an account", optional: true }
+- launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
+- runFlow: { file: unlock-wallet.yaml }
+- openLink: { link: "${BETA_PID_OFFER_DEEPLINK}", autoVerify: false, browser: false }
+- runFlow: { file: choose-eudi-wallet.yaml }
+- extendedWaitUntil: { visible: "Add|Welcome back", timeout: 60000 }
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,40%" }
+      - inputText: "123456"
+      - tapOn: { point: "50%,10%" }
+- extendedWaitUntil: { visible: "Add", timeout: 60000 }
+- takeScreenshot: fcaf-beta-pid-offer
+- tapOn: "Add"
+- extendedWaitUntil: { visible: "Review|Authorize|Close|Something went wrong|Error", timeout: 60000 }
+- runFlow:
+    when: { visible: "Authorize" }
+    commands:
+      - tapOn: "Authorize"
+- extendedWaitUntil: { visible: "Close|Something went wrong|Error", timeout: 60000 }
+- assertNotVisible: { text: "Something went wrong" }
+- assertNotVisible: { text: "Error" }
+- takeScreenshot: fcaf-beta-pid-issued
+- tapOn: { text: "Close", optional: true }

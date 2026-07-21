@@ -1,0 +1,33 @@
+id: WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_003
+title: This test case verifies that the value of the claim `phone_number` is formatted as an international phone number. Note that `phone_number` is the Attribute Identifier in IETF SD-JWT VC for the Data Identifier mobile_phone_number.
+source:
+    path: DataModel/AddressData/WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_003.md
+suite:
+    sut: wallet_solution
+    role: relying_party
+    section: data_model.address_data
+applicability:
+    credential_format: ietf_sd_jwt_vc
+    document_type: pid
+normative_references:
+    - title: European Digital Identity Wallet, ARF 2.0, Annex 3.01 pid rulebook
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_mobilephonenumber_pid_ietf-sd-jwt-vc_003
+    - title: '"ANNEXES to the COMMISSION IMPLEMENTING REGULATION amending Implementing Regulation (EU) 2024/2977, (EU) 2024/2979, (EU) 2024/2980 and (EU) 2024/2982 as regards applicable standards and specifications and correcting Implementing Regulation (EU) 2024/2980" section 4.2 (Table 2).'
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_mobilephonenumber_pid_ietf-sd-jwt-vc_003
+preconditions:
+    - ref: pipeline.pid.presentation.sdjwt.all-claims
+    - ref: assertion.pid.presentation.sdjwt.vct-pid
+    - ref: assertion.pid.presentation.sdjwt.required-mandatory-claims-presented
+    - ref: test.WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_001
+evidence:
+    pid_sdjwt:
+        from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
+assertions:
+    - id: phone_number_semantic
+      validator: sdjwt.claim_international_phone
+      input: evidence.pid_sdjwt
+      params:
+        claim: phone_number
+        min_length: 8
+verdict:
+    pass_when: all_assertions_pass

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -214,6 +215,16 @@ func (a *StartQueuedPipelineActivity) Execute(
 			},
 		)
 	}
+	if err := validateQueuedWorkflowDefinitionReferences(payload.YAML); err != nil {
+		errCode := errorcodes.Codes[errorcodes.PipelineParsingError]
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
+	}
 
 	for key, value := range workflowDef.Config {
 		if isReservedQueuedWorkflowConfigKey(key) {
@@ -359,7 +370,8 @@ func isReservedQueuedWorkflowConfigKey(key string) bool {
 	return key == queuedTempWalletVersionConfigKey ||
 		key == queuedTempCredentialsConfigKey ||
 		key == queuedTempUseCaseVerificationsConfigKey ||
-		key == queuedGitHubPRCommentConfigKey
+		key == queuedGitHubPRCommentConfigKey ||
+		key == workflowengine.CollectPipelineStepFailuresConfigKey
 }
 
 func parseQueuedWorkflowDefinition(
@@ -374,6 +386,142 @@ func parseQueuedWorkflowDefinition(
 		return queuedWorkflowDefinition{}, nil, fmt.Errorf("parse workflow definition map: %w", err)
 	}
 	return definition, workflowMap, nil
+}
+
+var queuedWorkflowRefRegexp = regexp.MustCompile(`\${{\s*([a-zA-Z0-9_\-\.\[\]\|\s\(\):,]+?)\s*}}`)
+
+func validateQueuedWorkflowDefinitionReferences(yamlInput string) error {
+	definition, err := pipeline.ParseWorkflow(yamlInput)
+	if err != nil {
+		return fmt.Errorf("parse workflow definition: %w", err)
+	}
+
+	if !workflowDefinitionUsesStepOutputReferences(definition) {
+		return nil
+	}
+
+	missingIDs := workflowDefinitionMissingStepIDs(definition)
+	if len(missingIDs) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"pipeline uses inter-step references but steps are missing id: %s",
+		strings.Join(missingIDs, ", "),
+	)
+}
+
+func workflowDefinitionUsesStepOutputReferences(definition *pipeline.WorkflowDefinition) bool {
+	if definition == nil {
+		return false
+	}
+	for _, step := range definition.Steps {
+		if stepDefinitionUsesStepOutputReferences(step) {
+			return true
+		}
+	}
+	for _, step := range definition.Finally.AllSteps() {
+		if stepSpecUsesStepOutputReferences(step.StepSpec) {
+			return true
+		}
+	}
+	return false
+}
+
+func stepDefinitionUsesStepOutputReferences(step pipeline.StepDefinition) bool {
+	if stepSpecUsesStepOutputReferences(step.StepSpec) {
+		return true
+	}
+	for _, child := range step.OnError {
+		if child != nil && stepSpecUsesStepOutputReferences(child.StepSpec) {
+			return true
+		}
+	}
+	for _, child := range step.OnSuccess {
+		if child != nil && stepSpecUsesStepOutputReferences(child.StepSpec) {
+			return true
+		}
+	}
+	return false
+}
+
+func stepSpecUsesStepOutputReferences(spec pipeline.StepSpec) bool {
+	if valueUsesStepOutputReference(spec.With.Config) ||
+		valueUsesStepOutputReference(spec.With.Payload) {
+		return true
+	}
+	return valueUsesStepOutputReference(spec.Metadata)
+}
+
+func valueUsesStepOutputReference(value any) bool {
+	switch typed := value.(type) {
+	case string:
+		matches := queuedWorkflowRefRegexp.FindAllStringSubmatch(typed, -1)
+		for _, match := range matches {
+			if len(match) < 2 {
+				continue
+			}
+			if strings.Contains(strings.TrimSpace(match[1]), ".outputs") {
+				return true
+			}
+		}
+		return false
+	case []any:
+		for _, item := range typed {
+			if valueUsesStepOutputReference(item) {
+				return true
+			}
+		}
+		return false
+	case map[string]any:
+		for _, item := range typed {
+			if valueUsesStepOutputReference(item) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+func workflowDefinitionMissingStepIDs(definition *pipeline.WorkflowDefinition) []string {
+	if definition == nil {
+		return nil
+	}
+
+	missing := make([]string, 0)
+	for i, step := range definition.Steps {
+		if strings.TrimSpace(step.ID) == "" {
+			missing = append(missing, fmt.Sprintf("steps[%d]", i))
+		}
+		for j, child := range step.OnError {
+			if child != nil && strings.TrimSpace(child.ID) == "" {
+				missing = append(missing, fmt.Sprintf("steps[%d].on_error[%d]", i, j))
+			}
+		}
+		for j, child := range step.OnSuccess {
+			if child != nil && strings.TrimSpace(child.ID) == "" {
+				missing = append(missing, fmt.Sprintf("steps[%d].on_success[%d]", i, j))
+			}
+		}
+	}
+	for i, step := range definition.Finally.Always {
+		if strings.TrimSpace(step.ID) == "" {
+			missing = append(missing, fmt.Sprintf("finally.always[%d]", i))
+		}
+	}
+	for i, step := range definition.Finally.OnSuccess {
+		if strings.TrimSpace(step.ID) == "" {
+			missing = append(missing, fmt.Sprintf("finally.on_success[%d]", i))
+		}
+	}
+	for i, step := range definition.Finally.OnFailure {
+		if strings.TrimSpace(step.ID) == "" {
+			missing = append(missing, fmt.Sprintf("finally.on_failure[%d]", i))
+		}
+	}
+	return missing
 }
 
 func prepareQueuedWorkflowOptions(rc queuedRuntime) queuedWorkflowOptions {

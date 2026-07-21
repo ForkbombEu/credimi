@@ -1,0 +1,54 @@
+id: WS_RP_MS_ProtocolMessages__019
+title: Verify an Authorization Request containing only dcql_query is processed.
+source:
+  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__019.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+  query_sources:
+    supported:
+      - dcql_query
+    scope_query:
+      supported: false
+      values: []
+      assessment: EUDIW wallet core 0.28.1 leaves knownDCQLQueriesPerScope empty.
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "5.1"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.wallet.protocol.request-object-by-value
+evidence:
+  request_object:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.request_object
+  wallet_response:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.wallet_response
+  visual_evidence:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.visual_evidence
+assertions:
+  - id: dcql_query_is_present
+    validator: jwt.payload_field_presence
+    input: evidence.request_object
+    params:
+      field: dcql_query
+      present: true
+  - id: request_does_not_use_an_unsupported_scope_query
+    validator: jwt.payload_field_presence
+    input: evidence.request_object
+    params:
+      field: scope
+      present: false
+  - id: dcql_query_request_is_accepted
+    validator: json.field_required
+    input: evidence.wallet_response
+    params:
+      field: vp_token
+  - id: wallet_interaction_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

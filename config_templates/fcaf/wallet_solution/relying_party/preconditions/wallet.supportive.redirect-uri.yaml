@@ -1,0 +1,12 @@
+id: pipeline.wallet.supportive.redirect-uri
+kind: pipeline
+description: Complete a direct_post presentation and open the verifier-provided redirect URI.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-supportive-redirect-uri
+required_steps:
+  - submit-and-follow-redirect
+  - get-presentation-result
+outputs:
+  wallet_response:
+    path: $.output.get-presentation-result.outputs.body
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

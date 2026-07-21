@@ -1,0 +1,29 @@
+id: WS_RP_SH_Cryptography_CryptographicHash_002
+title: Verify an ISO mdoc presentation uses SHA-256 digests.
+source:
+  path: Shared/Cryptography/WS_RP_SH_Cryptography_CryptographicHash_002.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: shared.cryptography
+applicability:
+  profile: EUDI_generic
+  credential_format: iso_mdoc
+normative_references:
+  - title: OpenID4VC High Assurance Interoperability Profile
+    section: "9"
+    url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+preconditions:
+  - ref: pipeline.pid.presentation.mdoc.all-claims-elements
+  - ref: assertion.pid.presentation.mdoc.doc-type-pid
+evidence:
+  pid_mdoc:
+    from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
+assertions:
+  - id: mdoc_uses_sha_256_digests
+    validator: mdoc.digest_algorithm
+    input: evidence.pid_mdoc
+    params:
+      algorithm: SHA-256
+verdict:
+  pass_when: all_assertions_pass

@@ -1,0 +1,10 @@
+appId: eu.europa.ec.euidi
+---
+- evalScript: ${output.claimsValue = eval(CLAIMS_VALUE)}
+- evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claim_sets:output.claimsValue}]})}
+- evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-086-' + VARIANT + '&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+- openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+- extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+- takeScreenshot: fcaf-086-${VARIANT}
+- back
+- waitForAnimationToEnd: { timeout: 2000 }

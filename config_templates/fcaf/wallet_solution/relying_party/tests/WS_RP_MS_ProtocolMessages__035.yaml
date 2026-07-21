@@ -1,0 +1,41 @@
+id: WS_RP_MS_ProtocolMessages__035
+title: Verify response_type=vp_token is accepted.
+source:
+  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__035.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "5.6"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.wallet.protocol.request-object-by-value
+evidence:
+  request_object:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.request_object
+  wallet_response:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.wallet_response
+  visual_evidence:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.visual_evidence
+assertions:
+  - id: response_type_is_vp_token
+    validator: jwt.payload_field_equals
+    input: evidence.request_object
+    params:
+      field: response_type
+      value: vp_token
+  - id: vp_token_request_is_accepted
+    validator: json.field_required
+    input: evidence.wallet_response
+    params:
+      field: vp_token
+  - id: wallet_interaction_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

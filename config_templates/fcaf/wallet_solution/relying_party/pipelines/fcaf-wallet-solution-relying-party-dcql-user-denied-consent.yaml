@@ -1,0 +1,67 @@
+name: FCAF DCQL user-denied consent
+runtime: { global_runner_id: "" }
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/ui/presentations
+      expected_status: 200
+      headers: { Content-Type: application/json }
+      body:
+        type: vp_token
+        nonce: fcaf-148-user-denied-consent
+        dcql_query:
+          credentials:
+            - id: pid-consent-denied
+              format: dc+sd-jwt
+              meta: { vct_values: [urn:eudi:pid:1] }
+              claims:
+                - { path: [given_name] }
+
+  - id: deny-consent
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
+        REQUEST_URI: ${{ create-presentation.outputs.body.request_uri }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - clearState: com.android.chrome
+        - launchApp: { stopApp: true, clearState: false }
+        - runFlow: { file: unlock-wallet.yaml }
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
+        - openLink: { link: ${output.authorizationRequest}, autoVerify: false, browser: false }
+        - runFlow: { file: choose-eudi-wallet.yaml }
+        - extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - tapOn: { text: "1", retryTapIfNoChange: false }
+              - tapOn: { text: "2", retryTapIfNoChange: false }
+              - tapOn: { text: "3", retryTapIfNoChange: false }
+              - tapOn: { text: "4", retryTapIfNoChange: false }
+              - tapOn: { text: "5", retryTapIfNoChange: false }
+              - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+        - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+        - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+        - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false }
+        - assertVisible: "Given Name(s)"
+        - takeScreenshot: fcaf-148-consent-screen-before-denial
+        - tapOn: "Go Back"
+        - runFlow:
+            when: { visible: "Cancel the process|Are you sure" }
+            commands:
+              - tapOn: { text: "Cancel|Yes|Confirm", index: 1 }
+        - extendedWaitUntil: { visible: "Home|Welcome, .*|Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-148-after-consent-denial
+
+  - id: fetch-result
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      expected_status: 200

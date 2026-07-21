@@ -1,0 +1,78 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - obtain PID SD-JWT VC
+tags:
+  - fcaf
+  - precondition
+  - pid
+  - sd-jwt-vc
+---
+- stopApp
+- launchApp:
+    clearState: false
+    permissions:
+      camera: allow
+      notifications: allow
+      all: unset
+- openLink:
+    link: "${PID_SDJWT_DEEPLINK_URL}"
+    autoVerify: false
+    browser: false
+- runFlow:
+    file: choose-eudi-wallet.yaml
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 30000
+- tapOn:
+    point: "11%,40%"
+- inputText: "123456"
+- extendedWaitUntil:
+    visible: "Add"
+    timeout: 60000
+- takeScreenshot: fcaf-pid-sdjwt-offer
+- tapOn: "Add"
+- runFlow:
+    when:
+      visible: "Sign in to your account"
+    commands:
+      - tapOn:
+          id: username
+      - inputText: "${ISSUER_USERNAME}"
+      - tapOn: { point: "50%,10%" }
+      - tapOn:
+          id: password
+      - inputText: "${ISSUER_PASSWORD}"
+      - tapOn: { point: "50%,10%" }
+      - tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Non-Trusted Issuer|FormEU|Submit|Mandatory Information|Review & Send|Close|Oups! Something went wrong|KeyError.*"
+    timeout: 60000
+- runFlow:
+    file: complete-formeu-mandatory.yaml
+- takeScreenshot: fcaf-pid-sdjwt-form-entered
+- assertNotVisible:
+    text: "Oups! Something went wrong"
+- assertNotVisible:
+    text: "KeyError.*"
+- extendedWaitUntil:
+    visible: "Review & Send|Close|Oups! Something went wrong|KeyError.*"
+    timeout: 30000
+- assertNotVisible:
+    text: "Oups! Something went wrong"
+- assertNotVisible:
+    text: "KeyError.*"
+- runFlow:
+    when:
+      visible: "Review & Send"
+    commands:
+      - scrollUntilVisible:
+          element: "Authorize"
+      - tapOn: "Authorize"
+- assertNotVisible:
+    text: "Oups! Something went wrong"
+- extendedWaitUntil:
+    visible: "Close"
+    timeout: 30000
+- takeScreenshot: fcaf-pid-sdjwt-issued
+- tapOn: "Close"

@@ -1,0 +1,10 @@
+id: pipeline.dcql.trusted-authorities-values-empty-string
+kind: pipeline
+description: Reject trusted_authorities.values arrays containing an empty string.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trusted-authorities-values-empty-string
+required_steps: [exercise-trusted-authorities-values-empty-string]
+outputs:
+  single_value: { path: $.output.evidence-single.outputs, decoder: raw }
+  mixed_value: { path: $.output.evidence-mixed.outputs, decoder: raw }
+  visual_evidence: { path: $.output.exercise-trusted-authorities-values-empty-string.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests

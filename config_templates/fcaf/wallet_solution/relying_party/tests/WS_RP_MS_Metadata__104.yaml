@@ -1,0 +1,39 @@
+id: WS_RP_MS_Metadata__104
+title: Verify client_metadata contains only defined metadata parameters.
+source:
+  path: MessageStructure/Metadata/WS_RP_MS_Metadata__104.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: message_structure.metadata
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "5.1"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.wallet.protocol.request-object-by-value
+evidence:
+  request_object:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.request_object
+  wallet_response:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.wallet_response
+assertions:
+  - id: client_metadata_contains_only_defined_parameters
+    validator: jwt.payload_object_keys_allowed
+    input: evidence.request_object
+    params:
+      field: client_metadata
+      allowed_keys:
+        - jwks
+        - vp_formats_supported
+        - encrypted_response_enc_values_supported
+  - id: request_with_client_metadata_accepted
+    validator: json.field_required
+    input: evidence.wallet_response
+    params:
+      field: vp_token
+verdict:
+  pass_when: all_assertions_pass

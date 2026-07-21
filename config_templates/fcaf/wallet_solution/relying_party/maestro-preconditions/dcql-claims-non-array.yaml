@@ -1,0 +1,12 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - DCQL claims non-array
+tags: [fcaf, precondition, dcql, claims-non-array]
+---
+- extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
+- runFlow: { file: dcql-claims-non-array-variants.yaml, env: { CLAIMS_VALUE: "null", VARIANT: "null" } }
+- runFlow: { file: dcql-claims-non-array-variants.yaml, env: { CLAIMS_VALUE: "true", VARIANT: "true" } }
+- runFlow: { file: dcql-claims-non-array-variants.yaml, env: { CLAIMS_VALUE: "false", VARIANT: "false" } }
+- runFlow: { file: dcql-claims-non-array-variants.yaml, env: { CLAIMS_VALUE: "0", VARIANT: "zero" } }
+- runFlow: { file: dcql-claims-non-array-variants.yaml, env: { CLAIMS_VALUE: "73", VARIANT: "number" } }
+- runFlow: { file: dcql-claims-non-array-variants.yaml, env: { CLAIMS_VALUE: "'not-an-array'", VARIANT: "string" } }
+- runFlow: { file: dcql-claims-non-array-variants.yaml, env: { CLAIMS_VALUE: "({path:['given_name']})", VARIANT: "object" } }

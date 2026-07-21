@@ -223,6 +223,24 @@ var OrgWorkers = []workerConfig{
 		},
 	},
 	{
+		TaskQueue: workflows.FCAFAssessmentTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewFCAFAssessmentWorkflow(),
+			workflows.NewFCAFPreconditionPipelineWorkflow(),
+			workflows.NewFCAFTestWorkflow(),
+			workflows.NewFCAFSingleTestWorkflow(),
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewFCAFResolveExecutionPlanActivity(),
+			activities.NewFCAFAssessmentActivity(),
+			activities.NewInternalHTTPActivity(),
+			activities.NewEnqueuePipelineRunTicketActivity(),
+			activities.NewQueryMobileRunnerSemaphoreRunStatusActivity(),
+			activities.NewCheckWorkflowClosedActivity(),
+			activities.NewGetWorkflowResultActivity(),
+		},
+	},
+	{
 		TaskQueue: workflows.FidesCredentialIssuersTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			workflows.NewFidesCredentialIssuersWorkflow(),

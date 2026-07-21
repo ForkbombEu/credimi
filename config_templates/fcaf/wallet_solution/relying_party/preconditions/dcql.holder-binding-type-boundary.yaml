@@ -1,0 +1,67 @@
+id: pipeline.dcql.holder-binding-type-boundary
+kind: pipeline
+description: Exercise boolean controls and malformed require_cryptographic_holder_binding representations.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-holder-binding-type-boundary
+required_steps:
+  - exercise-holder-binding-variants
+  - get-valid-true
+  - get-valid-false
+outputs:
+  exchange_valid_true:
+    path: $.output.get-valid-true.outputs.body
+    decoder: raw
+  exchange_valid_false:
+    path: $.output.get-valid-false.outputs.body
+    decoder: raw
+  pid_sdjwt_presentations_valid_true:
+    path: $.output.get-valid-true.outputs.body.vp_token.pididentity01
+    decoder: sdjwt.presentations
+  pid_sdjwt_presentations_valid_false:
+    path: $.output.get-valid-false.outputs.body.vp_token.pididentity01
+    decoder: sdjwt.presentations
+  exchange_number_zero:
+    path: $.output.evidence-number-zero.outputs
+    decoder: raw
+  exchange_number_one:
+    path: $.output.evidence-number-one.outputs
+    decoder: raw
+  exchange_number_random:
+    path: $.output.evidence-number-random.outputs
+    decoder: raw
+  exchange_string_true:
+    path: $.output.evidence-string-true.outputs
+    decoder: raw
+  exchange_string_false:
+    path: $.output.evidence-string-false.outputs
+    decoder: raw
+  exchange_string_uppercase_true:
+    path: $.output.evidence-string-uppercase-true.outputs
+    decoder: raw
+  exchange_string_uppercase_false:
+    path: $.output.evidence-string-uppercase-false.outputs
+    decoder: raw
+  exchange_string_yes:
+    path: $.output.evidence-string-yes.outputs
+    decoder: raw
+  exchange_string_no:
+    path: $.output.evidence-string-no.outputs
+    decoder: raw
+  exchange_string_y:
+    path: $.output.evidence-string-y.outputs
+    decoder: raw
+  exchange_string_n:
+    path: $.output.evidence-string-n.outputs
+    decoder: raw
+  exchange_string_zero:
+    path: $.output.evidence-string-zero.outputs
+    decoder: raw
+  exchange_string_one:
+    path: $.output.evidence-string-one.outputs
+    decoder: raw
+  exchange_string_random:
+    path: $.output.evidence-string-random.outputs
+    decoder: raw
+  visual_evidence:
+    path: $.output.exercise-holder-binding-variants.outputs.screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

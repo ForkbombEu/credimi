@@ -238,6 +238,15 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	if len(state.failures) > 0 {
+		if collectFailures, _ := config[workflowengine.CollectPipelineStepFailuresConfigKey].(bool); collectFailures {
+			result = workflowengine.WorkflowResult{
+				WorkflowID:    workflowID,
+				WorkflowRunID: runID,
+				Errors:        buildPipelineFailureErrors(state.failures),
+				Output:        state.finalOutput,
+			}
+			return result, nil
+		}
 		finalErr = newPipelineExecutionError(state.failures, state.finalOutput, runMetadata)
 		result = workflowengine.WorkflowResult{}
 		return result, finalErr
@@ -843,6 +852,9 @@ func (w *PipelineWorkflow) Start(
 	if err != nil {
 		return result, err
 	}
+	if err := pipeline.ApplyFixture(wfDef); err != nil {
+		return result, err
+	}
 
 	memo["test"] = wfDef.Name
 	options := PrepareWorkflowOptions(wfDef.Runtime)
@@ -975,7 +987,8 @@ func isReservedWorkflowInputConfigKey(key string) bool {
 	return key == tempWalletVersionConfigKey ||
 		key == tempCredentialsConfigKey ||
 		key == tempUseCaseVerificationsConfigKey ||
-		key == GitHubPRCommentConfigKey
+		key == GitHubPRCommentConfigKey ||
+		key == workflowengine.CollectPipelineStepFailuresConfigKey
 }
 
 func ExecuteEventStepsOnError(

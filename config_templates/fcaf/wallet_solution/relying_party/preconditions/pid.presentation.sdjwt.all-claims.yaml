@@ -1,0 +1,21 @@
+id: pipeline.pid.presentation.sdjwt.all-claims
+kind: pipeline
+description: Request and receive a PID presentation in SD-JWT VC format with all mandatory and ICS-present claims.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-pid-presentations
+required_steps:
+  - capture-issuer-pid-dc-sd-jwt-0002
+  - getcredential-pid-sdjwt-all-claims-0003
+  - fake-verifier-pid-sd-jwt-credentials-all-claims-0006
+  - verifycredential-pid-formeu-issuer-eudiw-dev-0007
+  - http-get-verifier-backend.eudiw.dev-0008
+outputs:
+  pid_sdjwt:
+    path: $.output.http-get-verifier-backend.eudiw.dev-0008.outputs.body.raw.presentation_response_decrypted.vp_token.query_0[0]
+    decoder: sdjwt.presentation
+  pid_sdjwt_presentations:
+    path: $.output.http-get-verifier-backend.eudiw.dev-0008.outputs.body.raw.presentation_response_decrypted.vp_token.query_0
+    decoder: sdjwt.presentations
+  visual_evidence:
+    path: $.output.fake-verifier-pid-sd-jwt-credentials-all-claims-0006.outputs.screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

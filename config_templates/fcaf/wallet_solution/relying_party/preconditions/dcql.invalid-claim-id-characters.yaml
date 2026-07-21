@@ -1,0 +1,5 @@
+id: pipeline.dcql.invalid-claim-id-characters
+kind: pipeline
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-invalid-claim-id-characters
+required_steps: [reject-invalid-claim-id, fetch-result]
+outputs: { dcql_exchange: { path: $.output.fetch-result.outputs.body, decoder: raw }, visual_evidence: { path: $.output.reject-invalid-claim-id.outputs.screenshot_urls, decoder: raw } }

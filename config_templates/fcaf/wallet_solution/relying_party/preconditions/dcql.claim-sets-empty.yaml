@@ -1,0 +1,9 @@
+id: pipeline.dcql.claim-sets-empty
+kind: pipeline
+description: Send a DCQL PID credential query with claim_sets present as an empty array and capture rejection.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claim-sets-empty
+required_steps: [evidence-empty-claim-sets-request, reject-empty-claim-sets]
+outputs:
+  dcql_exchange: { path: $.output.evidence-empty-claim-sets-request.outputs, decoder: raw }
+  visual_evidence: { path: $.output.reject-empty-claim-sets.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests

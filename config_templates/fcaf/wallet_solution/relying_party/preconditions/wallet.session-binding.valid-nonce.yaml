@@ -1,0 +1,12 @@
+id: pipeline.wallet.session-binding.valid-nonce
+kind: pipeline
+description: Complete a presentation from an Authorization Request containing a valid nonce.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-session-binding-valid-nonce
+required_steps:
+  - submit-valid-nonce-presentation
+  - get-presentation-result
+outputs:
+  wallet_response:
+    path: $.output.get-presentation-result.outputs.body
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

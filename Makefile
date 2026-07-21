@@ -72,7 +72,7 @@ define write_compose_dev_override
 endef
 
 all: help
-.PHONY: submodules version dev test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check
+.PHONY: submodules version dev test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run
 
 $(BIN):
 	@mkdir -p $@
@@ -120,6 +120,9 @@ test: ## 🧪 run tests
 test.all: ## 🧪 run all tests, including long tests skipped by test
 	$(call require_tools,$(TEST_DEPS))
 	TEST_SHORT=0 bash ./scripts/test-summary.sh
+
+fcaf-run: ## Run FCAF wallet pipelines sequentially and write an HTML evidence report
+	$(GOCMD) run . fcaf run $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" --output "$(or $(FCAF_OUTPUT),fcaf-report)" $(if $(FCAF_FILTER),--filter "$(FCAF_FILTER)",)
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)

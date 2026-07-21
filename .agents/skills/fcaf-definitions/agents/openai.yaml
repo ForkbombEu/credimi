@@ -1,0 +1,4 @@
+interface:
+  display_name: "FCAF definitions"
+  short_description: "Implement and verify Credimi FCAF tests"
+  default_prompt: "Use $fcaf-definitions to implement and verify the next eligible FCAF test."

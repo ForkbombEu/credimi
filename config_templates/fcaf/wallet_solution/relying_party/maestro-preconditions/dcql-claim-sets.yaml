@@ -1,0 +1,56 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - DCQL claim sets
+tags:
+  - fcaf
+  - precondition
+  - dcql
+  - claim-sets
+---
+- stopApp
+- launchApp:
+    clearState: false
+    permissions:
+      camera: allow
+      notifications: allow
+      all: unset
+- runFlow:
+    file: unlock-wallet.yaml
+- openLink:
+    link: "${DCQL_CLAIM_SETS_DEEPLINK_URL}"
+    autoVerify: false
+    browser: false
+- runFlow:
+    file: choose-eudi-wallet.yaml
+- extendedWaitUntil:
+    visible: "Welcome back|Share|Cancel|Close"
+    timeout: 100000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
+- extendedWaitUntil:
+    visible: "Share|Cancel|Close"
+    timeout: 30000
+- takeScreenshot: fcaf-dcql-claim-sets-request
+- runFlow:
+    when:
+      visible: "Share"
+    commands:
+      - tapOn: "Share"
+      - extendedWaitUntil:
+          visible: "Welcome back|To approve the transaction you need to verify your identity."
+          timeout: 100000
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
+      - tapOn: { point: "50%,10%" }
+- assertNotVisible:
+    text: "Oups! Something went wrong"
+- extendedWaitUntil:
+    visible: "Close"
+    timeout: 30000
+- takeScreenshot: fcaf-dcql-claim-sets-complete
+- tapOn: "Close"

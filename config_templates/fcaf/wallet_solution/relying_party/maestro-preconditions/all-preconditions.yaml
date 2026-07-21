@@ -1,0 +1,89 @@
+appId: eu.europa.ec.euidi
+name: FCAF wallet relying-party preconditions
+tags:
+  - fcaf
+  - precondition
+  - all
+---
+- runFlow:
+    file: pipeline-pid-presentation-sdjwt-all-claims.yaml
+- runFlow:
+    file: pipeline-pid-presentation-mdoc-all-claims-elements.yaml
+- runFlow:
+    file: dcql-credential-sets.yaml
+- runFlow:
+    file: dcql-credentials-match.yaml
+- runFlow:
+    file: dcql-no-matching-credentials.yaml
+- runFlow:
+    file: dcql-trusted-authorities-no-match.yaml
+- runFlow:
+    file: dcql-user-denied-consent.yaml
+- runFlow:
+    file: dcql-user-authentication-failed.yaml
+- runFlow:
+    file: invalid-request-uri-method.yaml
+- runFlow:
+    file: dcql-claim-sets.yaml
+- runFlow:
+    file: dcql-holder-binding-type-boundary.yaml
+- runFlow:
+    file: dcql-claims-omitted.yaml
+- runFlow:
+    file: dcql-claims-empty.yaml
+- runFlow:
+    file: dcql-claims-non-array.yaml
+- runFlow:
+    file: dcql-claims-without-id-without-claim-sets.yaml
+- runFlow:
+    file: dcql-duplicate-claim-ids.yaml
+- runFlow:
+    file: dcql-empty-claim-id.yaml
+- runFlow:
+    file: dcql-invalid-claim-id-characters.yaml
+- runFlow:
+    file: dcql-missing-claim-path.yaml
+- runFlow:
+    file: dcql-empty-claim-path.yaml
+- runFlow:
+    file: dcql-non-array-claim-path.yaml
+- runFlow:
+    file: dcql-claims-without-values.yaml
+- runFlow:
+    file: dcql-all-credentials-without-credential-sets.yaml
+- runFlow:
+    file: dcql-allowed-claim-path-components.yaml
+- runFlow:
+    file: dcql-claim-sets-empty.yaml
+- runFlow:
+    file: dcql-claim-sets-non-array.yaml
+- runFlow:
+    file: dcql-same-credential-multiple-queries.yaml
+- runFlow:
+    file: dcql-trusted-authorities-unsupported-type.yaml
+- runFlow:
+    file: dcql-trusted-authorities-missing-type.yaml
+- runFlow:
+    file: dcql-trusted-authorities-missing-values.yaml
+- runFlow:
+    file: dcql-trusted-authorities-type-non-string.yaml
+- runFlow:
+    file: dcql-trusted-authorities-values-non-array.yaml
+- runFlow:
+    file: dcql-trusted-authorities-values-item-non-string.yaml
+- runFlow:
+    file: dcql-trusted-authorities-values-empty-string.yaml
+- runFlow:
+    file: engagement-haip-vp.yaml
+- runFlow:
+    file: metadata-direct-post-jwt.yaml
+- runFlow:
+    file: protocol-request-uri-method-post.yaml
+- runFlow:
+    file: protocol-request-uri-method-get.yaml
+- runFlow:
+    file: supportive-redirect-uri.yaml
+- runFlow:
+    file: session-binding-valid-nonce.yaml
+- runFlow:
+    file: protocol-request-object-by-value.yaml

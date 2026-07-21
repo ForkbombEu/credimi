@@ -1,0 +1,18 @@
+id: pipeline.wallet.protocol.request-object-by-value
+kind: pipeline
+description: Process a signed Authorization Request Object embedded directly by value.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-request-object-by-value
+required_steps:
+  - submit-request-object-by-value
+  - get-presentation-result
+outputs:
+  request_object:
+    path: $.output.create-presentation.outputs.body.request
+    decoder: raw
+  wallet_response:
+    path: $.output.get-presentation-result.outputs.body
+    decoder: raw
+  visual_evidence:
+    path: $.output.submit-request-object-by-value.outputs.screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

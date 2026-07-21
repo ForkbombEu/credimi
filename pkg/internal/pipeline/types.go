@@ -74,6 +74,7 @@ type StepInputs struct {
 }
 
 type RuntimeConfig struct {
+	Fixture  map[string]string `yaml:"fixture,omitempty" json:"fixture,omitempty"`
 	Schedule struct {
 		Interval *time.Duration `yaml:"interval,omitempty" json:"interval,omitempty"`
 	} `yaml:"schedule,omitempty"                   json:"schedule,omitempty"`

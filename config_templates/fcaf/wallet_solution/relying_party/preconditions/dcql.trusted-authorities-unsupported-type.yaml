@@ -1,0 +1,9 @@
+id: pipeline.dcql.trusted-authorities-unsupported-type
+kind: pipeline
+description: Reject a DCQL request with an unsupported trusted_authorities type.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trusted-authorities-unsupported-type
+required_steps: [reject-unsupported-trusted-authorities-type]
+outputs:
+  dcql_exchange: { path: $.output.evidence-unsupported-trusted-authorities-type.outputs, decoder: raw }
+  visual_evidence: { path: $.output.reject-unsupported-trusted-authorities-type.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests

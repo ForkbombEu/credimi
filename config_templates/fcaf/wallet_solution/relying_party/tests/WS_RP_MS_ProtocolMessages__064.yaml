@@ -1,0 +1,46 @@
+id: WS_RP_MS_ProtocolMessages__064
+title: Verify valid DCQL credential identifiers are accepted.
+source:
+  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__064.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "6.1"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.dcql.valid-id-alphanumeric
+  - ref: pipeline.dcql.valid-id-special
+evidence:
+  alphanumeric_id_exchange:
+    from: pipeline.dcql.valid-id-alphanumeric.outputs.dcql_exchange
+  special_character_id_exchange:
+    from: pipeline.dcql.valid-id-special.outputs.dcql_exchange
+  alphanumeric_id_visual_evidence:
+    from: pipeline.dcql.valid-id-alphanumeric.outputs.visual_evidence
+  special_character_id_visual_evidence:
+    from: pipeline.dcql.valid-id-special.outputs.visual_evidence
+assertions:
+  - id: alphanumeric_credential_id_is_processed
+    validator: dcql.response_satisfies_constraints
+    input: evidence.alphanumeric_id_exchange
+    params:
+      mode: credentials_match
+  - id: allowed_special_character_id_is_processed
+    validator: dcql.response_satisfies_constraints
+    input: evidence.special_character_id_exchange
+    params:
+      mode: credentials_match
+  - id: alphanumeric_id_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.alphanumeric_id_visual_evidence
+  - id: special_character_id_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.special_character_id_visual_evidence
+verdict:
+  pass_when: all_assertions_pass

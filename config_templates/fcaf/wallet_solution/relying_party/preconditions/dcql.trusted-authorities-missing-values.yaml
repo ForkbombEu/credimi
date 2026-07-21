@@ -1,0 +1,10 @@
+id: pipeline.dcql.trusted-authorities-missing-values
+kind: pipeline
+description: Reject a DCQL request whose trusted_authorities entry omits required values.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trusted-authorities-missing-values
+required_steps: [evidence-missing-trusted-authorities-values, reject-missing-trusted-authorities-values]
+outputs:
+  trusted_authority: { path: $.output.evidence-missing-trusted-authorities-values.outputs.trusted_authority, decoder: raw }
+  dcql_exchange: { path: $.output.evidence-missing-trusted-authorities-values.outputs, decoder: raw }
+  visual_evidence: { path: $.output.reject-missing-trusted-authorities-values.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests

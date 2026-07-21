@@ -1,0 +1,5 @@
+id: pipeline.dcql.empty-claim-id
+kind: pipeline
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-empty-claim-id
+required_steps: [reject-empty-claim-id, fetch-result]
+outputs: { dcql_exchange: { path: $.output.fetch-result.outputs.body, decoder: raw }, visual_evidence: { path: $.output.reject-empty-claim-id.outputs.screenshot_urls, decoder: raw } }

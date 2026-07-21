@@ -1,0 +1,33 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - DCQL claims omitted
+tags:
+  - fcaf
+  - precondition
+  - dcql
+  - claims-omitted
+---
+- extendedWaitUntil:
+    visible: "Home|Documents|Welcome, .*"
+    timeout: 30000
+- openLink:
+    link: "${DCQL_CLAIMS_OMITTED_DEEPLINK_URL}"
+    autoVerify: false
+    browser: false
+- runFlow:
+    file: choose-eudi-wallet.yaml
+- extendedWaitUntil:
+    visible: "DATA SHARING REQUEST"
+    timeout: 100000
+- tapOn: "Share"
+- extendedWaitUntil:
+    visible: "PIN"
+    timeout: 30000
+- tapOn:
+    point: "11%,39%"
+- inputText: "123456"
+- tapOn: { point: "50%,10%" }
+- extendedWaitUntil:
+    visible: ".*successfully shared.*"
+    timeout: 30000
+- takeScreenshot: fcaf-082-claims-omitted
+- tapOn: "Close"

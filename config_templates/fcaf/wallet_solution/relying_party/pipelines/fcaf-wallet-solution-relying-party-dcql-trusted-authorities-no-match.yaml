@@ -1,0 +1,68 @@
+name: FCAF wallet relying-party DCQL trusted authorities no match
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+  - id: create-capture-session
+    use: http-request
+    with:
+      method: POST
+      url: https://beta-capture-wallet.credimi.io/openid4vp/sessions
+      expected_status: 201
+      headers: { Content-Type: application/json }
+      body:
+        response_mode: direct_post
+        presentation_request:
+          nonce: fcaf-dcql-trusted-authorities-no-match
+          dcql_query:
+            credentials:
+              - id: pid_identity
+                format: dc+sd-jwt
+                meta: { vct_values: [urn:eudi:pid:1] }
+                claims: [{ path: [given_name] }]
+                trusted_authorities:
+                  # Valid base64url AuthorityKeyIdentifier that differs from the reference PID issuer.
+                  - { type: aki, values: [AAAAAAAAAAAAAAAAAAAAAAAAAAA] }
+  - id: present-with-reference-implementation
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        DEEPLINK: ${{ create-capture-session.outputs.body.deeplink }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - clearState: com.android.chrome
+        - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
+        - runFlow: { file: unlock-wallet.yaml }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+        - runFlow: { file: choose-eudi-wallet.yaml }
+        - extendedWaitUntil: { visible: "Welcome back|The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 100000 }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - inputText: "123456"
+              - tapOn: { point: "50%,10%" }
+        - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 30000 }
+        - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+        - takeScreenshot: fcaf-dcql-trusted-authorities-no-match
+        - runFlow:
+            when: { visible: "The requested document is not available in your EUDI Wallet.*" }
+            commands: [{ tapOn: "Go Back" }]
+        - runFlow:
+            when: { visible: "Cancel" }
+            commands: [{ tapOn: "Cancel" }]
+        - runFlow:
+            when: { visible: "Close" }
+            commands: [{ tapOn: "Close" }]
+  - id: get-capture-session
+    use: http-request
+    with:
+      method: GET
+      url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+      expected_status: 200

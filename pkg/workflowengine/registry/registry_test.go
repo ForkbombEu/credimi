@@ -20,6 +20,7 @@ func TestRegistryContainsCoreTasks(t *testing.T) {
 	require.Contains(t, Registry, "http-request")
 	require.Contains(t, Registry, "mobile-automation")
 	require.Contains(t, Registry, "conformance-check")
+	require.Contains(t, Registry, "fcaf-assessment")
 
 	httpTask := Registry["http-request"]
 	require.Equal(t, TaskActivity, httpTask.Kind)
@@ -106,6 +107,10 @@ func TestRegistryExpectedTaskTypeMappings(t *testing.T) {
 			key:              "conformance-check",
 			expectedPayload:  reflect.TypeOf(workflows.StartCheckWorkflowPayload{}),
 			expectedPipeline: reflect.TypeOf(workflows.StartCheckWorkflowPipelinePayload{}),
+		},
+		{
+			key:             "fcaf-assessment",
+			expectedPayload: reflect.TypeOf(workflows.FCAFAssessmentWorkflowPayload{}),
 		},
 	}
 

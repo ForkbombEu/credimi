@@ -1,0 +1,9 @@
+id: assertion.pid.presentation.sdjwt.vct-pid
+kind: assertion
+description: Verify that the presented SD-JWT VC uses a PID verifiable credential type in the urn:eudi:pid namespace.
+depends_on:
+  - pipeline.pid.presentation.sdjwt.all-claims
+input:
+  from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
+validator: pid.sdjwt_vct_pid
+failure_policy: fail_dependent_tests

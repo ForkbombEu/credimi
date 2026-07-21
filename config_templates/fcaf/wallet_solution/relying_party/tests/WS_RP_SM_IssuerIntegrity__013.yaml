@@ -1,0 +1,27 @@
+id: WS_RP_SM_IssuerIntegrity__013
+title: Verify X.509 certificate-based issuer key resolution for an SD-JWT VC.
+source:
+  path: SecurityMechanisms/IssuerIntegrity/WS_RP_SM_IssuerIntegrity__013.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: security_mechanisms.issuer_integrity
+applicability:
+  profile: EUDI_generic
+  credential_format: ietf_sd_jwt_vc
+normative_references:
+  - title: OpenID4VC High Assurance Interoperability Profile
+    section: "6.1.1"
+    url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+preconditions:
+  - ref: pipeline.pid.presentation.sdjwt.all-claims
+  - ref: assertion.pid.presentation.sdjwt.vct-pid
+evidence:
+  pid_sdjwt:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
+assertions:
+  - id: issuer_header_contains_x509_chain
+    validator: sdjwt.issuer_x509_header
+    input: evidence.pid_sdjwt
+verdict:
+  pass_when: all_assertions_pass

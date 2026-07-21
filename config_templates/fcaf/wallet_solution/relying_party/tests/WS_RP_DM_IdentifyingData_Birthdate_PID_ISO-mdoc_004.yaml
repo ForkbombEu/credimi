@@ -1,0 +1,35 @@
+id: WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_004
+title: This test case verifies that the DataElementValue of data element `birth_date` contains a valid date. Note that `birth_date` is the Attribute Identifier in ISO-mdoc for the Data Identifier birth_date.
+source:
+    path: DataModel/IdentifyingData/WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_004.md
+suite:
+    sut: wallet_solution
+    role: relying_party
+    section: data_model.identifying_data
+applicability:
+    credential_format: iso_mdoc
+    document_type: pid
+normative_references:
+    - title: European Digital Identity Wallet, ARF 2.0, Annex 3.01 pid rulebook, paragraph 3.1.4
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_birthdate_pid_iso-mdoc_004
+    - title: '"ANNEXES to the COMMISSION IMPLEMENTING REGULATION amending Implementing Regulation (EU) 2024/2977, (EU) 2024/2979, (EU) 2024/2980 and (EU) 2024/2982 as regards applicable standards and specifications and correcting Implementing Regulation (EU) 2024/2980" section 4.1 (Table 6). ISO 8601-1:2019, 4.2.1, 4.3.2'
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_birthdate_pid_iso-mdoc_004
+    - title: RFC 3339 section 5.6, 5.7
+      url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_birthdate_pid_iso-mdoc_004
+preconditions:
+    - ref: pipeline.pid.presentation.mdoc.all-claims-elements
+    - ref: assertion.pid.presentation.mdoc.doc-type-pid
+    - ref: assertion.pid.presentation.mdoc.required-mandatory-elements-presented
+    - ref: test.WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_001
+evidence:
+    pid_mdoc:
+        from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
+assertions:
+    - id: birth_date_valid
+      validator: mdoc.element_valid_date
+      input: evidence.pid_mdoc
+      params:
+        element: birth_date
+        namespace: eu.europa.ec.eudi.pid.1
+verdict:
+    pass_when: all_assertions_pass

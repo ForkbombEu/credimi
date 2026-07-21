@@ -1,0 +1,18 @@
+appId: eu.europa.ec.euidi
+name: Reject a non-array DCQL claim path
+tags: [fcaf, precondition, dcql]
+---
+- clearState: com.android.chrome
+- launchApp: { stopApp: true, clearState: false }
+- runFlow: { file: unlock-wallet.yaml }
+- openLink: { link: "${DCQL_NON_ARRAY_CLAIM_PATH_PRESENTATION_URL}", autoVerify: false, browser: false }
+- runFlow: { file: choose-eudi-wallet.yaml }
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,40%" }
+      - inputText: "123456"
+      - tapOn: { point: "50%,10%" }
+- waitForAnimationToEnd: { timeout: 5000 }
+- extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request", timeout: 30000 }
+- takeScreenshot: fcaf-115-non-array-claim-path-rejected

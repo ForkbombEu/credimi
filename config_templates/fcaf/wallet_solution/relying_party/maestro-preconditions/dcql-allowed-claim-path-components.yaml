@@ -1,0 +1,47 @@
+appId: eu.europa.ec.euidi
+name: Resolve allowed DCQL claim path component types
+tags: [fcaf, precondition, dcql]
+---
+- clearState: com.android.chrome
+- launchApp: { stopApp: true, clearState: false }
+- runFlow: { file: unlock-wallet.yaml }
+- openLink: { link: "${DCQL_ALLOWED_CLAIM_PATH_COMPONENTS_PRESENTATION_URL}", autoVerify: false, browser: false }
+- runFlow: { file: choose-eudi-wallet.yaml }
+- extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
+- runFlow:
+    when: { visible: "Welcome back" }
+    commands:
+      - tapOn: { point: "11%,40%" }
+      - tapOn: { text: "1", retryTapIfNoChange: false }
+      - tapOn: { text: "2", retryTapIfNoChange: false }
+      - tapOn: { text: "3", retryTapIfNoChange: false }
+      - tapOn: { text: "4", retryTapIfNoChange: false }
+      - tapOn: { text: "5", retryTapIfNoChange: false }
+      - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+- extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+- assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+- tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+- runFlow:
+    when: { visible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 } }
+    commands:
+      - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1, retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+- assertVisible: "Given Name(s)"
+- takeScreenshot: fcaf-118-allowed-claim-path-components
+- assertVisible: "Nationality"
+- tapOn: "Share"
+- extendedWaitUntil: { visible: "PIN", timeout: 30000 }
+- tapOn: { point: "11%,39%" }
+- inputText: "123456"
+- tapOn: { point: "50%,10%" }
+- extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
+- assertVisible: "EUDI Remote Verifier"
+- assertVisible: { id: eu.europa.ec.euidi:id/document_success_screen_document_0 }
+- tapOn: { id: eu.europa.ec.euidi:id/document_success_screen_document_0 }
+- runFlow:
+    when: { visible: { id: eu.europa.ec.euidi:id/document_success_screen_document_1 } }
+    commands:
+      - tapOn: { id: eu.europa.ec.euidi:id/document_success_screen_document_1 }
+- assertVisible: "Given Name(s)"
+- takeScreenshot: fcaf-118-allowed-claim-path-components-shared
+- assertVisible: "Nationality"
+- tapOn: "Close"

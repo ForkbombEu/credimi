@@ -1,0 +1,9 @@
+id: pipeline.oid4vp.invalid-request-uri-method
+kind: pipeline
+description: Send a valid request URI with request_uri_method set to the invalid value DELETE.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-invalid-request-uri-method
+required_steps: [reject-invalid-request-uri-method, fetch-result]
+outputs:
+  wallet_response: { path: $.output.fetch-result.outputs.body, decoder: raw }
+  visual_evidence: { path: $.output.reject-invalid-request-uri-method.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests

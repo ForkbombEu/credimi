@@ -1,0 +1,18 @@
+id: WS_RP_MS_ProtocolMessages__098
+title: Reject non-array credential_sets options.
+source: { path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__098.md }
+suite: { sut: wallet_solution, role: relying_party, section: message_structure.protocol_messages }
+normative_references: [{ title: OpenID for Verifiable Presentations 1.0, section: "6.2, 8.5", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }]
+preconditions: [{ ref: pipeline.dcql.credential-sets-options-non-array }]
+evidence:
+  dcql_exchange: { from: pipeline.dcql.credential-sets-options-non-array.outputs.dcql_exchange }
+  visual_evidence: { from: pipeline.dcql.credential-sets-options-non-array.outputs.visual_evidence }
+assertions:
+  - id: non_array_options_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params: { mode: credential_sets_options_non_array }
+  - id: visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict: { pass_when: all_assertions_pass }

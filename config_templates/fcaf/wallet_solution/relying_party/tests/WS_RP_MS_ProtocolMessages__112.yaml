@@ -1,0 +1,11 @@
+id: WS_RP_MS_ProtocolMessages__112
+title: Reject forbidden characters in a claim id.
+source: { path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__112.md }
+suite: { sut: wallet_solution, role: relying_party, section: message_structure.protocol_messages }
+normative_references: [{ title: OpenID for Verifiable Presentations 1.0, section: "6.3, 8.5", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }]
+preconditions: [{ ref: pipeline.dcql.invalid-claim-id-characters }]
+evidence: { dcql_exchange: { from: pipeline.dcql.invalid-claim-id-characters.outputs.dcql_exchange }, visual_evidence: { from: pipeline.dcql.invalid-claim-id-characters.outputs.visual_evidence } }
+assertions:
+  - { id: invalid_claim_id_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.dcql_exchange, params: { mode: invalid_claim_id_characters } }
+  - { id: rejection_is_visible, validator: evidence.non_empty, input: evidence.visual_evidence }
+verdict: { pass_when: all_assertions_pass }

@@ -123,6 +123,12 @@
         "disable_android_play_store": {
           "type": "boolean"
         },
+        "fixture": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
         "global_runner_id": {
           "type": "string"
         },
@@ -766,6 +772,125 @@
                 },
                 "required": [
                   "recipient"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "fcaf-assessment",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "catalog_root": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "evidence": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "artifacts": {
+                        "type": "object"
+                      },
+                      "authorization_server_metadata": {
+                        "type": "object"
+                      },
+                      "certificates": {
+                        "type": "object"
+                      },
+                      "decoded_presentation_response": {
+                        "type": "object"
+                      },
+                      "decoded_request_object": {
+                        "type": "object"
+                      },
+                      "decoded_sdjwt": {
+                        "type": "object"
+                      },
+                      "extra": {
+                        "type": "object"
+                      },
+                      "issuer_metadata": {
+                        "type": "object"
+                      },
+                      "jwks": {
+                        "type": "object"
+                      },
+                      "mdoc": {
+                        "type": "object"
+                      },
+                      "pipeline_outputs": {
+                        "type": "object"
+                      },
+                      "preconditions": {
+                        "type": "object"
+                      },
+                      "presentation_submission": {
+                        "type": "object"
+                      },
+                      "raw_presentation_response": {
+                        "type": "object"
+                      },
+                      "raw_request_object": {
+                        "type": "object"
+                      },
+                      "runner": {
+                        "type": "object"
+                      },
+                      "runtime": {
+                        "type": "object"
+                      },
+                      "verifier_metadata": {
+                        "type": "object"
+                      },
+                      "vp_token": true
+                    },
+                    "type": "object"
+                  },
+                  "runner_id": {
+                    "type": "string"
+                  },
+                  "runtime": {
+                    "type": "object"
+                  },
+                  "suite": {
+                    "type": "string"
+                  },
+                  "test_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "test_ids"
                 ],
                 "type": "object"
               }

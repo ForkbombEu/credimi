@@ -1,0 +1,29 @@
+name: FCAF wallet relying-party DCQL claim_sets empty
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+  - id: evidence-empty-claim-sets-request
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"claim_sets":[]}]}}'
+      struct_type: map
+  - id: reject-empty-claim-sets
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],claim_sets:[]}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-085-claim-sets-empty&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
+        - takeScreenshot: fcaf-085-claim-sets-empty-rejected
+        - back
+        - waitForAnimationToEnd: { timeout: 2000 }

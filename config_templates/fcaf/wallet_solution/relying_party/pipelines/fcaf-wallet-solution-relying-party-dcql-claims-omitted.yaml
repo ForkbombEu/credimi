@@ -1,0 +1,77 @@
+name: FCAF wallet relying-party DCQL claims omitted
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+
+steps:
+  - id: evidence-request
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]}}]}}'
+      struct_type: map
+
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/ui/presentations
+      expected_status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        type: vp_token
+        nonce: fcaf-082-claims-omitted
+        dcql_query:
+          credentials:
+            - id: pididentity01
+              format: dc+sd-jwt
+              meta:
+                vct_values:
+                  - urn:eudi:pid:1
+
+  - id: present-without-claims
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
+        REQUEST_URI: ${{ create-presentation.outputs.body.request_uri }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - extendedWaitUntil:
+            visible: "Home|Documents|Welcome, .*"
+            timeout: 30000
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
+        - openLink:
+            link: ${output.authorizationRequest}
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "DATA SHARING REQUEST"
+            timeout: 100000
+        - tapOn: "Share"
+        - extendedWaitUntil:
+            visible: "PIN"
+            timeout: 30000
+        - tapOn:
+            point: "11%,39%"
+        - inputText: "123456"
+        - tapOn: { point: "50%,10%" }
+        - extendedWaitUntil:
+            visible: ".*successfully shared.*"
+            timeout: 30000
+        - takeScreenshot: fcaf-082-claims-omitted
+        - tapOn: "Close"
+
+  - id: get-presentation-result
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      expected_status: 200

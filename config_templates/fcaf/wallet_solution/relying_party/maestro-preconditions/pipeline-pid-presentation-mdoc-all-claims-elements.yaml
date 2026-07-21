@@ -1,0 +1,15 @@
+appId: eu.europa.ec.euidi
+name: FCAF pipeline.pid.presentation.mdoc.all-claims-elements
+tags:
+  - fcaf
+  - precondition
+  - pipeline
+  - pid
+  - mdoc
+---
+- runFlow:
+    file: onboarding.yaml
+- runFlow:
+    file: obtain-pid-mdoc.yaml
+- runFlow:
+    file: present-pid-mdoc.yaml

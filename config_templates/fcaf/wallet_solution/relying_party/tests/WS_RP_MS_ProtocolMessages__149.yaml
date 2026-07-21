@@ -1,0 +1,16 @@
+id: WS_RP_MS_ProtocolMessages__149
+title: Return access_denied when user authentication fails.
+source: { path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__149.md }
+suite: { sut: wallet_solution, role: relying_party, section: message_structure.protocol_messages }
+applicability: { profile: EUDI_generic, presentation_flow: redirects }
+normative_references:
+  - { title: OpenID for Verifiable Presentations 1.0, section: "8.5", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+preconditions: [{ ref: pipeline.dcql.user-authentication-failed }]
+evidence:
+  wallet_response: { from: pipeline.dcql.user-authentication-failed.outputs.wallet_response }
+  visual_evidence: { from: pipeline.dcql.user-authentication-failed.outputs.visual_evidence }
+assertions:
+  - { id: vp_token_is_not_returned, validator: json.field_presence, input: evidence.wallet_response, params: { field: vp_token, present: false } }
+  - { id: error_is_exactly_access_denied, validator: json.field_equals, input: evidence.wallet_response, params: { field: error, value: access_denied } }
+  - { id: failed_authentication_has_visual_evidence, validator: evidence.non_empty, input: evidence.visual_evidence }
+verdict: { pass_when: all_assertions_pass }

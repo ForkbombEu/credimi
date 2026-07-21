@@ -1,0 +1,11 @@
+appId: eu.europa.ec.euidi
+name: FCAF precondition - trusted authorities values item non-string
+tags: [fcaf, precondition, dcql, trusted-authorities]
+---
+- runFlow: { file: dcql-trusted-authorities-values-item-non-string-variant.yaml, env: { ITEM_VALUE: "null", VARIANT: "null" } }
+- runFlow: { file: dcql-trusted-authorities-values-item-non-string-variant.yaml, env: { ITEM_VALUE: "true", VARIANT: "true" } }
+- runFlow: { file: dcql-trusted-authorities-values-item-non-string-variant.yaml, env: { ITEM_VALUE: "false", VARIANT: "false" } }
+- runFlow: { file: dcql-trusted-authorities-values-item-non-string-variant.yaml, env: { ITEM_VALUE: "0", VARIANT: "zero" } }
+- runFlow: { file: dcql-trusted-authorities-values-item-non-string-variant.yaml, env: { ITEM_VALUE: "73", VARIANT: "number" } }
+- runFlow: { file: dcql-trusted-authorities-values-item-non-string-variant.yaml, env: { ITEM_VALUE: "[]", VARIANT: "array" } }
+- runFlow: { file: dcql-trusted-authorities-values-item-non-string-variant.yaml, env: { ITEM_VALUE: "({key:'value'})", VARIANT: "object" } }

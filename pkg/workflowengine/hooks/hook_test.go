@@ -416,10 +416,12 @@ func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
 
 	StartAllWorkersByNamespace("acme-org")
 
+	gotWorkers := map[string]struct{}{}
 	for i := 0; i < len(OrgWorkers); i++ {
-		<-workerCh
+		gotWorkers[<-workerCh] = struct{}{}
 	}
 	<-pipelineCh
+	require.Contains(t, gotWorkers, workflows.FCAFAssessmentTaskQueue)
 
 	_, ok := workerCancels.Load("acme-org")
 	require.True(t, ok)
