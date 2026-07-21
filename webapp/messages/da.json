@@ -1,5 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"Wallet_action_market_link_requires_install_app": "Handlinger, der åbner en Play Butik-appside, skal bruge kategorien install-app.",
 	"accept_invite": "Accepter invitation",
 	"Accept": "Acceptere",
 	"accepted_files": "Accepterede filer",
