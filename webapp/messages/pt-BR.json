@@ -1,5 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"Wallet_action_market_link_requires_install_app": "As ações que abrem uma página de app da Play Store devem usar a categoria install-app.",
 	"accept_invite": "Aceitar convite",
 	"Accept": "Aceitar",
 	"accepted_files": "Arquivos aceitos",

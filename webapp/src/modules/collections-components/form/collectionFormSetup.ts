@@ -153,11 +153,12 @@ export function setupCollectionForm<C extends CollectionName>({
 					>;
 
 					Record.toEntries(details).forEach(([path, data]) => {
-						if (path in form.data) setError(form, path, data.message);
-						else setError(form, `${path} - ${data.message}`);
+						const message = localizePocketBaseError(data.message);
+						if (path in form.data) setError(form, path, message);
+						else setError(form, `${path} - ${message}`);
 					});
 
-					setError(form, e.message);
+					setError(form, localizePocketBaseError(e.message));
 				} else {
 					setError(form, getExceptionMessage(e));
 				}
@@ -168,6 +169,14 @@ export function setupCollectionForm<C extends CollectionName>({
 	//
 
 	return form as unknown as SuperForm<CollectionFormData[C]>;
+}
+
+function localizePocketBaseError(message: string): string {
+	if (message === 'validation_wallet_action_market_link_requires_install_app') {
+		return m.Wallet_action_market_link_requires_install_app();
+	}
+
+	return message;
 }
 
 //
