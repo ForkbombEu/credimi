@@ -32,6 +32,8 @@ const (
 	mobilePlatformAndroid                  = "android"
 	mobilePlatformIOS                      = "ios"
 	mobileExternalSourceVersionID          = "installed_from_external_source"
+	mobileExternalInstallConfigKey         = "detect_external_install"
+	walletActionCategoryInstallApp         = "install-app"
 )
 
 type mobileDeviceType string
@@ -217,6 +219,9 @@ func MobileAutomationSetupHook(
 		return err
 	}
 	semaphoreManaged := isSemaphoreManagedRun(config)
+	if err := markExternalInstallSteps(ctx, steps, config); err != nil {
+		return err
+	}
 
 	runnerIDs, err := collectMobileRunnerIDs(*steps, globalRunnerID)
 	if err != nil {
@@ -277,6 +282,68 @@ func MobileAutomationSetupHook(
 	SetRunDataValue(runData, "setted_devices", settedDevices)
 
 	return nil
+}
+
+func markExternalInstallSteps(
+	ctx workflow.Context,
+	steps *[]pipeline.StepDefinition,
+	config map[string]any,
+) error {
+	appURL, _ := config["app_url"].(string)
+	if appURL == "" {
+		return nil
+	}
+
+	for i := range *steps {
+		step := &(*steps)[i]
+		if step.Use != mobileAutomationStepUse ||
+			workflowengine.AsString(
+				step.With.Payload["version_id"],
+			) != mobileExternalSourceVersionID {
+			continue
+		}
+
+		category, err := fetchMobileActionCategory(
+			ctx,
+			appURL,
+			workflowengine.AsString(step.With.Payload["action_id"]),
+		)
+		if err != nil {
+			return err
+		}
+		if category == walletActionCategoryInstallApp {
+			SetConfigValue(&step.With.Config, mobileExternalInstallConfigKey, true)
+		}
+	}
+
+	return nil
+}
+
+func fetchMobileActionCategory(
+	ctx workflow.Context,
+	appURL, actionID string,
+) (string, error) {
+	if strings.TrimSpace(actionID) == "" {
+		return "", nil
+	}
+
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
+	var result workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), workflowengine.ActivityInput{
+		Payload: activities.InternalHTTPActivityPayload{
+			Method:         http.MethodPost,
+			URL:            utils.JoinURL(appURL, "api", "canonify", "identifier", "validate"),
+			ExpectedStatus: http.StatusOK,
+			Body:           map[string]any{"canonified_name": actionID},
+		},
+	}).
+		Get(ctx, &result); err != nil {
+		return "", err
+	}
+
+	body := workflowengine.AsMap(workflowengine.AsMap(result.Output)["body"])
+	record := workflowengine.AsMap(body["record"])
+	return strings.TrimSpace(workflowengine.AsString(record["category"])), nil
 }
 
 // validateRunnerIDConfiguration checks that either:
