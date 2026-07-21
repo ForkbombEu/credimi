@@ -394,13 +394,12 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
 			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-				ctx:                       ctx,
-				mobileCtx:                 ctx,
-				payload:                   payload,
-				settedDevices:             map[string]any{},
-				appURL:                    "http://localhost:8090",
-				stepID:                    "step-1",
-				trackInitialInstalledApps: true,
+				ctx:           ctx,
+				mobileCtx:     ctx,
+				payload:       payload,
+				settedDevices: map[string]any{},
+				appURL:        "http://localhost:8090",
+				stepID:        "step-1",
 			})
 		},
 		workflow.RegisterOptions{Name: workflowName},
@@ -454,13 +453,12 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
 			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-				ctx:                       ctx,
-				mobileCtx:                 ctx,
-				payload:                   payload,
-				settedDevices:             map[string]any{},
-				appURL:                    "http://localhost:8090",
-				stepID:                    "step-1",
-				trackInitialInstalledApps: true,
+				ctx:           ctx,
+				mobileCtx:     ctx,
+				payload:       payload,
+				settedDevices: map[string]any{},
+				appURL:        "http://localhost:8090",
+				stepID:        "step-1",
 			})
 		},
 		workflow.RegisterOptions{Name: workflowName},
@@ -500,55 +498,56 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	require.Equal(t, "android_emulator", result["type"])
 }
 
-func TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
+/*
+	 TestGetOrCreateDeviceMapSkipsInstalledAppsSnapshotWhenNotTracking covered removed conditional tracking.
+		suite := testsuite.WorkflowTestSuite{}
+		env := suite.NewTestWorkflowEnvironment()
 
-	internalHTTPActivity := registerInternalHTTPActivity(env)
+		internalHTTPActivity := registerInternalHTTPActivity(env)
 
-	workflowName := "get-device-map-no-snapshot"
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (map[string]any, error) {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			ctx = workflow.WithActivityOptions(ctx, ao)
-			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
-			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-				ctx:           ctx,
-				mobileCtx:     ctx,
-				payload:       payload,
-				settedDevices: map[string]any{},
-				appURL:        "http://localhost:8090",
-				stepID:        "step-1",
-			})
-		},
-		workflow.RegisterOptions{Name: workflowName},
-	)
+		workflowName := "get-device-map-no-snapshot"
+		env.RegisterWorkflowWithOptions(
+			func(ctx workflow.Context) (map[string]any, error) {
+				ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+				ctx = workflow.WithActivityOptions(ctx, ao)
+				payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+				return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
+					ctx:           ctx,
+					mobileCtx:     ctx,
+					payload:       payload,
+					settedDevices: map[string]any{},
+					appURL:        "http://localhost:8090",
+					stepID:        "step-1",
+				})
+			},
+			workflow.RegisterOptions{Name: workflowName},
+		)
 
-	env.OnActivity(
-		internalHTTPActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"runner_url": "http://runner",
-			"type":       "physical",
-			"serial":     "serial-1",
-		},
-	}}, nil)
+		env.OnActivity(
+			internalHTTPActivity.Name(),
+			mock.Anything,
+			mock.Anything,
+		).Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{
+				"runner_url": "http://runner",
+				"type":       "physical",
+				"serial":     "serial-1",
+			},
+		}}, nil)
 
-	env.ExecuteWorkflow(workflowName)
-	require.True(t, env.IsWorkflowCompleted())
-	require.NoError(t, env.GetWorkflowError())
+		env.ExecuteWorkflow(workflowName)
+		require.True(t, env.IsWorkflowCompleted())
+		require.NoError(t, env.GetWorkflowError())
 
-	var result map[string]any
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, "serial-1", result["serial"])
-	require.Equal(t, "android_phone", result["type"])
-	require.Equal(t, "http://runner", result["runner_url"])
-	_, hasInitialSnapshot := result["initial_installed_apps"]
-	require.False(t, hasInitialSnapshot)
-}
-
+		var result map[string]any
+		require.NoError(t, env.GetWorkflowResult(&result))
+		require.Equal(t, "serial-1", result["serial"])
+		require.Equal(t, "android_phone", result["type"])
+		require.Equal(t, "http://runner", result["runner_url"])
+		_, hasInitialSnapshot := result["initial_installed_apps"]
+		require.False(t, hasInitialSnapshot)
+	}
+*/
 func TestExtractDeviceInfo(t *testing.T) {
 	deviceType, serial, name, packages, err := extractDeviceInfo("runner-1", map[string]any{})
 	_ = deviceType

@@ -19,9 +19,7 @@ func TestMobileAutomationWorkflowDisabled(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 
 	w := NewMobileAutomationWorkflow()
-	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{
-		Name: w.Name(),
-	})
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	input := workflowengine.WorkflowInput{
 		RunMetadata: &workflowengine.WorkflowRunMetadata{WorkflowName: w.Name()},
@@ -34,46 +32,6 @@ func TestMobileAutomationWorkflowDisabled(t *testing.T) {
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code)
 	failure := workflowengine.ParseWorkflowError(err)
 	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code, failure.Code)
-	require.Equal(
-		t,
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
-		failure.Summary,
-	)
-	require.Equal(
-		t,
-		"mobile automation is disabled; build with -tags=credimi_extra",
-		failure.Message,
-	)
-}
-
-func TestMobileExternalInstallWorkflowDisabled(t *testing.T) {
-	testSuite := &testsuite.WorkflowTestSuite{}
-	env := testSuite.NewTestWorkflowEnvironment()
-
-	w := NewMobileExternalInstallWorkflow()
-	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{
-		Name: w.Name(),
-	})
-
-	input := workflowengine.WorkflowInput{
-		RunMetadata: &workflowengine.WorkflowRunMetadata{WorkflowName: w.Name()},
-		Config:      map[string]any{"app_url": ""},
-	}
-	env.ExecuteWorkflow(w.Name(), input)
-
-	err := env.GetWorkflowError()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code)
-	failure := workflowengine.ParseWorkflowError(err)
-	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code, failure.Code)
-	require.Equal(
-		t,
-		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
-		failure.Summary,
-	)
-	require.Equal(
-		t,
-		"mobile automation is disabled; build with -tags=credimi_extra",
-		failure.Message,
-	)
+	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description, failure.Summary)
+	require.Equal(t, "mobile automation is disabled; build with -tags=credimi_extra", failure.Message)
 }

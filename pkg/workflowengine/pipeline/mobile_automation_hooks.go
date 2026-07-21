@@ -25,19 +25,13 @@ import (
 )
 
 const (
-	mobileAutomationStepUse                 = "mobile-automation"
-	mobileExternalInstallStepUse            = "mobile-external-install"
-	mobileRunnerSemaphoreTicketIDConfigKey  = "mobile_runner_semaphore_ticket_id"
-	mobileDisableAndroidPlayStoreConfigKey  = "disable_android_play_store"
-	mobilePendingPlayStoreDisableRunDataKey = "mobile_pending_play_store_disable"
-	mobileSpecialInstallMetadataKey         = "mobile_special_install"
-	mobileAppInstallCleanupKey              = "mobile_app_install_cleanup"
-	mobileExternalInstallCleanupKey         = "mobile_external_install_cleanup"
-	mobileSkipInstallerRequestKey           = "skip_installer"
-	mobilePlatformAndroid                   = "android"
-	mobilePlatformIOS                       = "ios"
-	mobileExternalSourceVersionID           = "installed_from_external_source"
-	walletActionCategoryInstallApp          = "install-app"
+	mobileAutomationStepUse                = "mobile-automation"
+	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_runner_semaphore_ticket_id"
+	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
+	mobileSkipInstallerRequestKey          = "skip_installer"
+	mobilePlatformAndroid                  = "android"
+	mobilePlatformIOS                      = "ios"
+	mobileExternalSourceVersionID          = "installed_from_external_source"
 )
 
 type mobileDeviceType string
@@ -90,38 +84,35 @@ type processStepInput struct {
 }
 
 type fetchAndInstallAPKInput struct {
-	ctx             workflow.Context
-	mobileCtx       workflow.Context
-	step            *pipeline.StepDefinition
-	payload         *workflows.MobileAutomationWorkflowPipelinePayload
-	deviceMap       map[string]any
-	deviceType      mobileDeviceType
-	activities      platformActivities
-	appURL          string
-	runnerURL       string
-	serial          string
-	skipInstaller   bool
-	externalInstall bool
+	ctx           workflow.Context
+	mobileCtx     workflow.Context
+	step          *pipeline.StepDefinition
+	payload       *workflows.MobileAutomationWorkflowPipelinePayload
+	deviceMap     map[string]any
+	deviceType    mobileDeviceType
+	activities    platformActivities
+	appURL        string
+	runnerURL     string
+	serial        string
+	skipInstaller bool
 }
 
 type getOrCreateDeviceMapInput struct {
-	ctx                       workflow.Context
-	mobileCtx                 workflow.Context
-	payload                   *workflows.MobileAutomationWorkflowPipelinePayload
-	settedDevices             map[string]any
-	appURL                    string
-	stepID                    string
-	trackInitialInstalledApps bool
+	ctx           workflow.Context
+	mobileCtx     workflow.Context
+	payload       *workflows.MobileAutomationWorkflowPipelinePayload
+	settedDevices map[string]any
+	appURL        string
+	stepID        string
 }
 
 type setupNewDeviceInput struct {
-	ctx                       workflow.Context
-	mobileCtx                 workflow.Context
-	payload                   *workflows.MobileAutomationWorkflowPipelinePayload
-	deviceMap                 map[string]any
-	appURL                    string
-	stepID                    string
-	trackInitialInstalledApps bool
+	ctx       workflow.Context
+	mobileCtx workflow.Context
+	payload   *workflows.MobileAutomationWorkflowPipelinePayload
+	deviceMap map[string]any
+	appURL    string
+	stepID    string
 }
 
 type fetchRunnerInfoInput struct {
@@ -227,24 +218,6 @@ func MobileAutomationSetupHook(
 	}
 	semaphoreManaged := isSemaphoreManagedRun(config)
 
-	if hasExternalSourceMobileSteps(*steps) {
-		appURL, ok := config["app_url"].(string)
-		if !ok || appURL == "" {
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: "missing or invalid app_url in workflow input config",
-				},
-			)
-		}
-
-		if err := prepareMobileAutomationSteps(ctx, steps, appURL); err != nil {
-			return err
-		}
-	}
-
 	runnerIDs, err := collectMobileRunnerIDs(*steps, globalRunnerID)
 	if err != nil {
 		return err
@@ -283,12 +256,7 @@ func MobileAutomationSetupHook(
 		}
 	}
 
-	shouldDisablePlayStore := workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey])
-	if shouldDisablePlayStore && hasExternalInstallWorkflowSteps(*steps) {
-		SetRunDataValue(runData, mobilePendingPlayStoreDisableRunDataKey, true)
-	}
-
-	if shouldDisablePlayStore && !hasPendingPlayStoreDisable(*runData) {
+	if workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
 		if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
 			ctx:           ctx,
 			settedDevices: settedDevices,
@@ -397,206 +365,6 @@ func collectMobileRunnerIDs(steps []pipeline.StepDefinition, globalID string) ([
 	return runnerIDs, nil
 }
 
-func prepareMobileAutomationSteps(
-	ctx workflow.Context,
-	steps *[]pipeline.StepDefinition,
-	appURL string,
-) error {
-	specialSteps := make([]pipeline.StepDefinition, 0)
-	remainingSteps := make([]pipeline.StepDefinition, 0, len(*steps))
-
-	for i := range *steps {
-		step := (*steps)[i]
-		if step.Use != mobileAutomationStepUse {
-			remainingSteps = append(remainingSteps, step)
-			continue
-		}
-
-		payload, err := decodeAndValidatePayload(&step)
-		if err != nil {
-			return err
-		}
-
-		if payload.VersionID != mobileExternalSourceVersionID {
-			remainingSteps = append(remainingSteps, step)
-			continue
-		}
-
-		category, err := fetchMobileActionCategory(
-			ctx,
-			appURL,
-			payload.ActionID,
-			step.ID,
-		)
-		if err != nil {
-			return err
-		}
-		if category != walletActionCategoryInstallApp {
-			remainingSteps = append(remainingSteps, step)
-			continue
-		}
-
-		if step.Metadata == nil {
-			step.Metadata = map[string]any{}
-		}
-		step.Metadata[mobileSpecialInstallMetadataKey] = true
-		specialSteps = append(specialSteps, step)
-	}
-
-	if len(specialSteps) == 0 {
-		return nil
-	}
-
-	reordered := make([]pipeline.StepDefinition, 0, len(*steps))
-	reordered = append(reordered, specialSteps...)
-	reordered = append(reordered, remainingSteps...)
-	*steps = reordered
-
-	return nil
-}
-
-func fetchMobileActionCategory(
-	ctx workflow.Context,
-	appURL string,
-	actionID string,
-	stepID string,
-) (string, error) {
-	if strings.TrimSpace(actionID) == "" {
-		return "", nil
-	}
-
-	validatePayload := map[string]any{
-		"canonified_name": actionID,
-	}
-	validateURL := utils.JoinURL(appURL, "api", "canonify", "identifier", "validate")
-
-	internalReq := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodPost,
-			URL:            validateURL,
-			ExpectedStatus: 200,
-			Body:           validatePayload,
-		},
-	}
-
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	var result workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), internalReq).
-		Get(ctx, &result); err != nil {
-		return "", err
-	}
-
-	body, ok := result.Output.(map[string]any)["body"].(map[string]any)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		return "", workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("invalid action validation response for step %s", stepID),
-				Details: map[string]any{"payload": result.Output},
-			},
-		)
-	}
-
-	record, ok := body["record"].(map[string]any)
-	if !ok {
-		return "", nil
-	}
-
-	category, ok := record["category"].(string)
-	if !ok || strings.TrimSpace(category) == "" {
-		return "", nil
-	}
-
-	return strings.TrimSpace(category), nil
-}
-
-func hasExternalSourceMobileSteps(steps []pipeline.StepDefinition) bool {
-	for i := range steps {
-		if steps[i].Use != mobileAutomationStepUse {
-			continue
-		}
-		if workflowengine.AsString(
-			steps[i].With.Payload["version_id"],
-		) == mobileExternalSourceVersionID {
-			return true
-		}
-	}
-
-	return false
-}
-
-func hasExternalInstallWorkflowSteps(steps []pipeline.StepDefinition) bool {
-	for i := range steps {
-		if steps[i].Use == mobileExternalInstallStepUse {
-			return true
-		}
-	}
-
-	return false
-}
-
-func hasPendingPlayStoreDisable(runData map[string]any) bool {
-	return workflowengine.AsBool(runData[mobilePendingPlayStoreDisableRunDataKey])
-}
-
-func runPendingPlayStoreDisableIfNeeded(
-	ctx workflow.Context,
-	step pipeline.StepDefinition,
-	ao *workflow.ActivityOptions,
-	config map[string]any,
-	runData *map[string]any,
-) error {
-	if !workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
-		return nil
-	}
-	if !hasPendingPlayStoreDisable(*runData) {
-		return nil
-	}
-	if step.Use == mobileExternalInstallStepUse {
-		return nil
-	}
-
-	if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
-		ctx:           ctx,
-		settedDevices: getOrCreateSettedDevices(runData),
-		ao:            ao,
-	}); err != nil {
-		return err
-	}
-
-	SetRunDataValue(runData, mobilePendingPlayStoreDisableRunDataKey, false)
-
-	return nil
-}
-
-func runPendingPlayStoreDisableAfterSteps(
-	ctx workflow.Context,
-	ao *workflow.ActivityOptions,
-	config map[string]any,
-	runData *map[string]any,
-) error {
-	if !workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
-		return nil
-	}
-	if !hasPendingPlayStoreDisable(*runData) {
-		return nil
-	}
-
-	if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
-		ctx:           ctx,
-		settedDevices: getOrCreateSettedDevices(runData),
-		ao:            ao,
-	}); err != nil {
-		return err
-	}
-
-	SetRunDataValue(runData, mobilePendingPlayStoreDisableRunDataKey, false)
-
-	return nil
-}
-
 func processStep(
 	input processStepInput,
 ) error {
@@ -634,13 +402,12 @@ func processStep(
 	}
 
 	deviceMap, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-		ctx:                       input.ctx,
-		mobileCtx:                 mobileCtx,
-		payload:                   payload,
-		settedDevices:             input.settedDevices,
-		appURL:                    appURL,
-		stepID:                    input.step.ID,
-		trackInitialInstalledApps: shouldTrackInitialInstalledApps(input.step, payload),
+		ctx:           input.ctx,
+		mobileCtx:     mobileCtx,
+		payload:       payload,
+		settedDevices: input.settedDevices,
+		appURL:        appURL,
+		stepID:        input.step.ID,
 	})
 	if err != nil {
 		return err
@@ -653,15 +420,13 @@ func processStep(
 	if !ok {
 		serial = ""
 	}
-	if shouldTrackInitialInstalledApps(input.step, payload) {
-		if err := ensureInitialInstalledAppsTracked(
-			mobileCtx,
-			deviceMap,
-			serial,
-			deviceType,
-		); err != nil {
-			return err
-		}
+	if err := ensureInitialInstalledAppsTracked(
+		mobileCtx,
+		deviceMap,
+		serial,
+		deviceType,
+	); err != nil {
+		return err
 	}
 	SetPayloadValue(&input.step.With.Payload, "serial", serial)
 	if deviceType != "" {
@@ -705,18 +470,17 @@ func processStep(
 	}
 
 	if err := fetchAndInstallAPK(fetchAndInstallAPKInput{
-		ctx:             input.ctx,
-		mobileCtx:       mobileCtx,
-		step:            input.step,
-		payload:         payload,
-		deviceMap:       deviceMap,
-		deviceType:      deviceType,
-		activities:      deviceActivities,
-		appURL:          appURL,
-		runnerURL:       runnerURL,
-		serial:          serial,
-		skipInstaller:   payload.VersionID == mobileExternalSourceVersionID,
-		externalInstall: isSpecialMobileInstallStep(input.step),
+		ctx:           input.ctx,
+		mobileCtx:     mobileCtx,
+		step:          input.step,
+		payload:       payload,
+		deviceMap:     deviceMap,
+		deviceType:    deviceType,
+		activities:    deviceActivities,
+		appURL:        appURL,
+		runnerURL:     runnerURL,
+		serial:        serial,
+		skipInstaller: payload.VersionID == mobileExternalSourceVersionID,
 	}); err != nil {
 		return err
 	}
@@ -779,28 +543,6 @@ func unexpectedPhysicalDeviceSetupOutput(runnerID string, output any) error {
 			Details: map[string]any{"payload": output},
 		},
 	)
-}
-
-func isSpecialMobileInstallStep(step *pipeline.StepDefinition) bool {
-	if step == nil || step.Metadata == nil {
-		return false
-	}
-
-	special, ok := step.Metadata[mobileSpecialInstallMetadataKey].(bool)
-	return ok && special
-}
-
-func shouldTrackInitialInstalledApps(
-	step *pipeline.StepDefinition,
-	payload *workflows.MobileAutomationWorkflowPipelinePayload,
-) bool {
-	if isSpecialMobileInstallStep(step) {
-		return true
-	}
-	if payload == nil {
-		return false
-	}
-	return payload.VersionID != "" && payload.VersionID != mobileExternalSourceVersionID
 }
 
 func decodeAndValidatePayload(
@@ -897,13 +639,12 @@ func getOrCreateDeviceMap(
 	input.settedDevices[input.payload.RunnerID] = deviceMap
 
 	if err := setupNewDevice(setupNewDeviceInput{
-		ctx:                       input.ctx,
-		mobileCtx:                 input.mobileCtx,
-		payload:                   input.payload,
-		deviceMap:                 deviceMap,
-		appURL:                    input.appURL,
-		stepID:                    input.stepID,
-		trackInitialInstalledApps: input.trackInitialInstalledApps,
+		ctx:       input.ctx,
+		mobileCtx: input.mobileCtx,
+		payload:   input.payload,
+		deviceMap: deviceMap,
+		appURL:    input.appURL,
+		stepID:    input.stepID,
 	}); err != nil {
 		return nil, err
 	}
@@ -947,17 +688,15 @@ func setupNewDevice(
 	input.deviceMap["runner_url"] = runnerURL
 	input.deviceMap["serial"] = serial
 
-	if input.trackInitialInstalledApps {
-		initialInstalledApps, err := listInstalledAppsOnRunner(
-			input.mobileCtx,
-			serial,
-			deviceType.String(),
-		)
-		if err != nil {
-			return err
-		}
-		input.deviceMap["initial_installed_apps"] = initialInstalledApps
+	initialInstalledApps, err := listInstalledAppsOnRunner(
+		input.mobileCtx,
+		serial,
+		deviceType.String(),
+	)
+	if err != nil {
+		return err
 	}
+	input.deviceMap["initial_installed_apps"] = initialInstalledApps
 
 	return nil
 }
@@ -1237,11 +976,6 @@ func fetchAndInstallAPK(
 		SetPayloadValue(&input.step.With.Payload, "action_code", actionCode)
 		SetPayloadValue(&input.step.With.Payload, "stored_action_code", true)
 	}
-	if input.externalInstall {
-		input.deviceMap[mobileExternalInstallCleanupKey] = true
-		input.step.Use = mobileExternalInstallStepUse
-		return nil
-	}
 	if input.skipInstaller {
 		return nil
 	}
@@ -1403,8 +1137,6 @@ func installAppIfNeeded(
 			Get(input.mobileCtx, &installOutput); err != nil {
 			return err
 		}
-		input.deviceMap[mobileAppInstallCleanupKey] = true
-
 		finalOutput := installOutput
 		if input.activities.PostInstall != "" {
 			postInstallOutput := workflowengine.ActivityResult{}
@@ -1816,12 +1548,13 @@ func cleanupDevice(
 	if err != nil {
 		*input.cleanupErrs = append(*input.cleanupErrs, err)
 	}
-	initialInstalledApps := extractInitialInstalledApps(deviceMap)
+	initialInstalledApps, trackInstalledApps := extractInitialInstalledApps(deviceMap)
 	reenablePlayStore := wasPlayStoreDisabled(deviceMap)
 	if !shouldRunDeviceCleanup(
 		deviceType,
 		packages,
 		initialInstalledApps,
+		trackInstalledApps,
 		reenablePlayStore,
 		deviceMap,
 	) {
@@ -1850,6 +1583,7 @@ func cleanupDevice(
 		"name":                   name,
 		"apk_packages":           packages,
 		"initial_installed_apps": initialInstalledApps,
+		"track_installed_apps":   trackInstalledApps,
 		"reenable_play_store":    reenablePlayStore,
 		"manage_screen":          workflowengine.AsBool(deviceMap["screen_prepared"]),
 		"original_stay_awake":    workflowengine.AsString(deviceMap["original_stay_awake"]),
@@ -2013,12 +1747,12 @@ func extractDeviceInfo(
 	return deviceType, serial, name, packages, nil
 }
 
-func extractInitialInstalledApps(deviceMap map[string]any) []string {
-	if !workflowengine.AsBool(deviceMap[mobileExternalInstallCleanupKey]) &&
-		!workflowengine.AsBool(deviceMap[mobileAppInstallCleanupKey]) {
-		return nil
+func extractInitialInstalledApps(deviceMap map[string]any) ([]string, bool) {
+	raw, ok := deviceMap["initial_installed_apps"]
+	if !ok {
+		return nil, false
 	}
-	return workflowengine.AsSliceOfStrings(deviceMap["initial_installed_apps"])
+	return workflowengine.AsSliceOfStrings(raw), true
 }
 
 func wasPlayStoreDisabled(deviceMap map[string]any) bool {
@@ -2029,13 +1763,15 @@ func shouldRunDeviceCleanup(
 	deviceType string,
 	packages []string,
 	initialInstalledApps []string,
+	trackInstalledApps bool,
 	reenablePlayStore bool,
 	deviceMap map[string]any,
 ) bool {
 	if normalizeDeviceType(deviceType).IsManagedEmulator() {
 		return true
 	}
-	if reenablePlayStore || len(packages) > 0 || len(initialInstalledApps) > 0 {
+	if reenablePlayStore || len(packages) > 0 || trackInstalledApps ||
+		len(initialInstalledApps) > 0 {
 		return true
 	}
 	if workflowengine.AsBool(deviceMap["screen_prepared"]) {
