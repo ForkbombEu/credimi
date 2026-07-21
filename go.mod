@@ -11,7 +11,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/forkbombeu/credimi-conformance-assessment v1.3.1
-	github.com/forkbombeu/credimi-extra v1.13.1
+	github.com/forkbombeu/credimi-extra v1.14.0
 	github.com/forkbombeu/eudi-conformance-evidence v1.0.2
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/go-playground/validator/v10 v10.26.0
