@@ -135,6 +135,9 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	if externalInstall {
 		beforeApps, err = executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
 		if err != nil {
+			if temporal.IsCanceledError(err) {
+				return workflowengine.WorkflowResult{}, err
+			}
 			return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 				err,
 				input.RunMetadata,
@@ -217,6 +220,9 @@ func runExternalInstallPostChecks(
 ) (any, error) {
 	addedApps, afterApps, attempts, err := waitForAddedInstalledApps(ctx, payload.Serial, payload.Type, beforeApps)
 	if err != nil {
+		if temporal.IsCanceledError(err) {
+			return nil, err
+		}
 		return nil, newMobileWorkflowError(err, runMetadata, map[string]any{
 			"before_apps": beforeApps,
 			"output":      output,
@@ -245,6 +251,9 @@ func runExternalInstallPostChecks(
 
 	var result workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(ctx, activityName, workflowengine.ActivityInput{Payload: payloadMap}).Get(ctx, &result); err != nil {
+		if temporal.IsCanceledError(err) {
+			return nil, err
+		}
 		return nil, newMobileWorkflowError(err, runMetadata, map[string]any{"output": output})
 	}
 	return result.Output, nil
