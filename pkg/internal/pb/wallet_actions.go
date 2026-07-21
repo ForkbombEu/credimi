@@ -5,9 +5,10 @@
 package pb
 
 import (
-	"errors"
 	"regexp"
 
+	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -31,5 +32,13 @@ func validateWalletActionCategory(e *core.RecordEvent) error {
 		return e.Next()
 	}
 
-	return errors.New(validationWalletActionMarketLinkRequiresInstallApp)
+	return apis.NewBadRequestError(
+		validationWalletActionMarketLinkRequiresInstallApp,
+		validation.Errors{
+			"category": validation.NewError(
+				validationWalletActionMarketLinkRequiresInstallApp,
+				validationWalletActionMarketLinkRequiresInstallApp,
+			),
+		},
+	)
 }

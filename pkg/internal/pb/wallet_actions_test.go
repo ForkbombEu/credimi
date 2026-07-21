@@ -5,10 +5,12 @@
 package pb
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +31,11 @@ func TestWalletActionHooksRequireInstallCategoryForPlayStoreLink(t *testing.T) {
 		event,
 		func(_ *core.RecordEvent) error { return nil },
 	)
-	require.EqualError(t, err, validationWalletActionMarketLinkRequiresInstallApp)
+	apiErr := &router.ApiError{}
+	ok := errors.As(err, &apiErr)
+	require.True(t, ok)
+	category := apiErr.Data["category"].(map[string]any)
+	require.Equal(t, validationWalletActionMarketLinkRequiresInstallApp, category["code"])
 }
 
 func TestWalletActionHooksAllowInstallCategoryForPlayStoreLink(t *testing.T) {
