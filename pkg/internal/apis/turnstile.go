@@ -27,15 +27,20 @@ type turnstileVerifyResponse struct {
 	Hostname   string   `json:"hostname"`
 }
 
-// HookTurnstileVerification validates Cloudflare Turnstile tokens on user registration.
+// HookTurnstileVerification validates Cloudflare Turnstile tokens on user registration and login.
 // It reads the token from the X-Turnstile-Token HTTP header and verifies it with Cloudflare.
 func HookTurnstileVerification(app *pocketbase.PocketBase) {
+	app.OnRecordAuthWithPasswordRequest("users").BindFunc(
+		func(e *core.RecordAuthWithPasswordRequestEvent) error {
+			if err := requireTurnstile(e.RequestEvent); err != nil {
+				return err
+			}
+			return e.Next()
+		},
+	)
+
 	app.OnRecordAuthWithOAuth2Request("users").BindFunc(
 		func(e *core.RecordAuthWithOAuth2RequestEvent) error {
-			if !e.IsNewRecord {
-				return e.Next()
-			}
-
 			if err := requireTurnstile(e.RequestEvent); err != nil {
 				return err
 			}

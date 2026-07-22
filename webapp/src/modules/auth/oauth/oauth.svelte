@@ -26,9 +26,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		hideOr?: boolean;
 		requireCaptcha?: boolean;
+		captchaToken?: string;
 	};
 
-	const { hideOr = false, requireCaptcha = false }: Props = $props();
+	const { hideOr = false, requireCaptcha = false, captchaToken: providedCaptchaToken }: Props = $props();
 
 	//
 
@@ -39,6 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let turnstileContainer = $state<HTMLDivElement>();
 	let turnstileWidgetId = $state('');
 	let turnstileScriptLoaded = $state(false);
+	let turnstileToken = $derived(providedCaptchaToken || captchaToken);
+	let needsCaptcha = $derived(requireCaptcha || providedCaptchaToken !== undefined);
 
 	const authMethods = pb
 		.collection('users')
@@ -49,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					displayName: provider.displayName,
 					image: `${PUBLIC_POCKETBASE_URL}/_/images/oauth2/${provider.name}.svg`, // TODO - This won't work with `oidc2` for example
 					initializer: async () => {
-						if (requireCaptcha && !captchaToken) {
+						if (needsCaptcha && !turnstileToken) {
 							captchaError = m.Please_complete_the_captcha();
 							return;
 						}
@@ -60,8 +63,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							const authData = await pb.collection('users').authWithOAuth2({
 								provider: provider.name,
 								createData,
-								headers: requireCaptcha
-									? { 'X-Turnstile-Token': captchaToken }
+								headers: needsCaptcha
+									? { 'X-Turnstile-Token': turnstileToken }
 									: undefined
 							});
 							$currentUser = authData.record;
