@@ -37,7 +37,7 @@ const SPECIFIC_MOBILE_YAML = `steps:
   - use: mobile-automation
     id: ma1
     with:
-      runner_id: org-a/my-runner`;
+      device_id: org-a/host-a/device-a`;
 
 describe('getExecutionRunnerPath', () => {
 	beforeEach(() => {
@@ -69,9 +69,9 @@ describe('getExecutionRunnerPath', () => {
 		expect(Binding.getExecutionRunnerPath(p)).toBe(r.path);
 	});
 
-	it('returns runner_id from first mobile-automation step for specific pipeline', () => {
+	it('returns device_id from first mobile-automation step for specific pipeline', () => {
 		expect(Binding.getExecutionRunnerPath(pipeline('p4', SPECIFIC_MOBILE_YAML))).toBe(
-			'org-a/my-runner'
+			'org-a/host-a/device-a'
 		);
 	});
 });

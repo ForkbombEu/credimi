@@ -23,10 +23,10 @@ export function getType(pipeline: PipelinesResponse): 'global' | 'specific' | 'n
 
 	if (steps.length === 0) return 'not-needed';
 
-	const areAllStepsSpecific = steps.every((step) => step.with.runner_id);
+	const areAllStepsSpecific = steps.every((step) => step.with.device_id);
 	if (areAllStepsSpecific) return 'specific';
 
-	const areSomeStepsSpecific = steps.some((step) => step.with.runner_id);
+	const areSomeStepsSpecific = steps.some((step) => step.with.device_id);
 	if (areSomeStepsSpecific) throw new Error('Mixed runner types');
 
 	return 'global';
@@ -39,8 +39,8 @@ export function getExecutionRunnerPath(pipeline: PipelinesResponse): string | un
 	if (type === 'specific') {
 		const yaml = parseYaml(pipeline.yaml);
 		const step = (yaml?.steps ?? []).find((s) => s.use === 'mobile-automation');
-		const runnerId = step && 'with' in step ? step.with?.runner_id : undefined;
-		return typeof runnerId === 'string' ? runnerId : undefined;
+		const deviceId = step && 'with' in step ? step.with?.device_id : undefined;
+		return typeof deviceId === 'string' ? deviceId : undefined;
 	}
 	return undefined;
 }

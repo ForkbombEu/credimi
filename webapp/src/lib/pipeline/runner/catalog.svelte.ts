@@ -84,7 +84,7 @@ export function init() {
 			let cancelled = false;
 
 			void pb
-				.collection('mobile_runners')
+				.collection('mobile_devices')
 				.subscribe('*', () => {
 					void refresh(gen);
 				})

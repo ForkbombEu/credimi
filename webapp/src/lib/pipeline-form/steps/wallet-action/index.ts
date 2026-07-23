@@ -84,7 +84,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			version_id: version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(version)
 		};
 		if (runner !== GLOBAL_RUNNER) {
-			_with.runner_id = runner.path;
+			_with.device_id = runner.path;
 		}
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
@@ -135,8 +135,8 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		}
 
 		let runner: SelectedRunner = GLOBAL_RUNNER;
-		if (data.runner_id !== GLOBAL_RUNNER && data.runner_id) {
-			const path = data.runner_id;
+		if (data.device_id !== GLOBAL_RUNNER && data.device_id) {
+			const path = data.device_id;
 			const fallbackRunner = {
 				name: getLastPathSegment(path),
 				path,

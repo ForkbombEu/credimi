@@ -21,15 +21,15 @@ export type Status = Workflow.WorkflowStatus | typeof QUEUED_STATUS;
 export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	pipeline_identifier?: string;
 	pipeline_name?: string;
-	global_runner_id?: string;
-	runner_ids?: string[];
+	global_device_id?: string;
+	device_ids?: string[];
 	enqueuedAt?: string;
 	runner_records?: Array<MobileRunnersResponse>;
 	queue?: {
 		ticket_id: string;
 		position: number;
 		line_len: number;
-		runner_ids: string[];
+		device_ids: string[];
 	};
 	report?: string;
 	results?: Array<{

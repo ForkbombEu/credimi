@@ -564,6 +564,57 @@ func TestListMobileRunners(t *testing.T) {
 	})
 }
 
+func TestListMobileDevices(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	ownerID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, ownerID, "device-host", "https://runner.example", false)
+
+	runner, err := canonify.Resolve(app, "/usera-s-organization/device-host")
+	require.NoError(t, err)
+	devices, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(devices)
+	device.Set("owner", ownerID)
+	device.Set("runner", runner.Id)
+	device.Set("name", "pixel-8")
+	device.Set("type", "android_phone")
+	device.Set("serial", "ABC123")
+	device.Set("online", true)
+	require.NoError(t, app.Save(device))
+
+	originalQuery := queryMobileRunnerSemaphoreState
+	queryMobileRunnerSemaphoreState = func(_ context.Context, deviceID string) (workflows.MobileRunnerSemaphoreStateView, error) {
+		require.Equal(t, "usera-s-organization/device-host/pixel-8", deviceID)
+		return workflows.MobileRunnerSemaphoreStateView{RunnerID: deviceID, QueueLen: 2}, nil
+	}
+	t.Cleanup(func() { queryMobileRunnerSemaphoreState = originalQuery })
+
+	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
+	rec := httptest.NewRecorder()
+	event := &core.RequestEvent{App: app, Auth: user, Event: router.Event{Request: req, Response: rec}}
+	require.NoError(t, HandleListMobileDevices()(event))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response ListMobileDevicesPublicResponseSchema
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Len(t, response.Devices, 1)
+	item := response.Devices[0]
+	require.Equal(t, "usera-s-organization/device-host/pixel-8", item.Path)
+	require.Equal(t, "usera-s-organization/device-host", item.RunnerID)
+	require.Equal(t, "device-host", item.RunnerName)
+	require.Equal(t, "android_phone", item.Type)
+	require.Equal(t, "ABC123", item.Serial)
+	require.True(t, item.IsOwned)
+	require.True(t, item.IsOnline)
+	require.NotNil(t, item.QueueLength)
+	require.Equal(t, 2, *item.QueueLength)
+}
+
 func createMobileRunnerRecord(
 	t testing.TB,
 	app *tests.TestApp,

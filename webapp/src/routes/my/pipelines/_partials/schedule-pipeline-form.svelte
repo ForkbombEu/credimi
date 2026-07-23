@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	if (isGlobalRunner) {
 		schema.extend({
-			global_runner_id: z.string()
+			global_device_id: z.string()
 		});
 	}
 
@@ -77,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function onRunnerSelect(runner: Record) {
 		formData.update((v) => ({
 			...v,
-			global_runner_id: runner.path
+			global_device_id: runner.path
 		}));
 	}
 </script>
@@ -126,7 +126,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if isGlobalRunner}
 				<Pipeline.Runner.SelectInput
 					onSelect={onRunnerSelect}
-					selectedRunner={($formData as { global_runner_id?: string }).global_runner_id}
+					selectedRunner={($formData as { global_device_id?: string }).global_device_id}
 					required
 				/>
 			{/if}

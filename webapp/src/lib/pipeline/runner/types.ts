@@ -5,6 +5,8 @@
 export type RunnerRecord = {
 	name: string;
 	path: string;
+	runnerId?: string;
+	runnerName?: string;
 	description?: string;
 	isOwned: boolean;
 	isPublished: boolean;

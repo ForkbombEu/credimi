@@ -13,6 +13,8 @@ import type { RunnerRecord } from './types';
 const runnerWireSchema = z.object({
 	name: z.string(),
 	path: z.string(),
+	runner_id: z.string(),
+	runner_name: z.string(),
 	description: z.string().optional(),
 	is_owned: z.boolean(),
 	is_published: z.boolean(),
@@ -23,13 +25,15 @@ const runnerWireSchema = z.object({
 });
 
 const listResponseSchema = z.object({
-	runners: z.array(runnerWireSchema)
+	devices: z.array(runnerWireSchema)
 });
 
 function mapWireToRecord(wire: z.infer<typeof runnerWireSchema>): RunnerRecord {
 	return {
 		name: wire.name,
 		path: wire.path,
+		runnerId: wire.runner_id,
+		runnerName: wire.runner_name,
 		description: wire.description,
 		isOwned: wire.is_owned,
 		isPublished: wire.is_published,
@@ -42,7 +46,7 @@ function mapWireToRecord(wire: z.infer<typeof runnerWireSchema>): RunnerRecord {
 
 export function parseSelectorResponse(body: unknown): RunnerRecord[] {
 	const parsed = listResponseSchema.parse(body);
-	return parsed.runners.map(mapWireToRecord);
+	return parsed.devices.map(mapWireToRecord);
 }
 
 export function fetchRecords(
@@ -53,7 +57,7 @@ export function fetchRecords(
 	return Task.tryOrElse(
 		(err) => err as ClientResponseError,
 		() =>
-			pb.send('/api/mobile-runners?view=selector', {
+			pb.send('/api/mobile-devices', {
 				method: 'GET',
 				fetch: fetchFn,
 				requestKey: null

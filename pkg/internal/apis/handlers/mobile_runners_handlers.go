@@ -62,6 +62,27 @@ type ListMobileRunnersPublicResponseSchema struct {
 	Runners []MobileRunnerListItem `json:"runners"`
 }
 
+type ListMobileDevicesPublicResponseSchema struct {
+	Devices []MobileDeviceListItem `json:"devices"`
+}
+
+// MobileDeviceListItem is the public execution-target catalog entry. Runner
+// fields are deliberately limited to host context; all scheduling state belongs
+// to the device itself.
+type MobileDeviceListItem struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	RunnerID    string `json:"runner_id"`
+	RunnerName  string `json:"runner_name"`
+	Description string `json:"description,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Serial      string `json:"serial,omitempty"`
+	IsPublished bool   `json:"is_published"`
+	IsOwned     bool   `json:"is_owned"`
+	IsOnline    bool   `json:"is_online"`
+	QueueLength *int   `json:"queue_length,omitempty"`
+}
+
 type MobileRunnerListItem struct {
 	Name        string                     `json:"name"`
 	Path        string                     `json:"path"`
@@ -111,6 +132,28 @@ var MobileRunnersPublicRoutes routing.RouteGroup = routing.RouteGroup{
 					Description: "Optional response view. Use \"selector\" to return the lightweight runner selector shape and skip queue/device details.",
 				},
 			},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminOrAuth(),
+			},
+		},
+	},
+}
+
+var MobileDevicesPublicRoutes = routing.RouteGroup{
+	BaseURL:                "/api/mobile-devices",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:         http.MethodGet,
+			Path:           "",
+			OperationID:    "listMobileDevices",
+			Handler:        HandleListMobileDevices,
+			ResponseSchema: ListMobileDevicesPublicResponseSchema{},
+			Summary:        "List available mobile devices",
+			Description:    "Lists independently schedulable mobile devices visible to the caller, grouped by their hosting runner through runner context fields.",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
@@ -248,6 +291,98 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+func HandleListMobileDevices() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		callerOrgID, callerOrgPublished, apiErr := mobileRunnerCatalogCaller(e)
+		if apiErr != nil {
+			return apiErr
+		}
+
+		runners, err := listMobileRunnerRecords(e.App, callerOrgID, callerOrgPublished)
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "mobile_runners", "failed_to_list_mobile_runners", err.Error())
+		}
+
+		response := ListMobileDevicesPublicResponseSchema{Devices: make([]MobileDeviceListItem, 0)}
+		for _, runner := range runners {
+			devices, err := e.App.FindRecordsByFilter("mobile_devices", "runner = {:runner}", "name", -1, 0, dbx.Params{"runner": runner.Id})
+			if err != nil {
+				return apierror.New(http.StatusInternalServerError, "mobile_devices", "failed_to_list_mobile_devices", err.Error())
+			}
+			for _, device := range devices {
+				item, itemErr := mobileDeviceListItem(e.Request.Context(), e.App, device, runner, callerOrgID)
+				if itemErr != nil {
+					return itemErr
+				}
+				response.Devices = append(response.Devices, item)
+			}
+		}
+
+		sort.SliceStable(response.Devices, func(i, j int) bool {
+			left, right := response.Devices[i], response.Devices[j]
+			if left.IsOwned != right.IsOwned {
+				return left.IsOwned
+			}
+			if left.IsOnline != right.IsOnline {
+				return left.IsOnline
+			}
+			return left.Path < right.Path
+		})
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func mobileRunnerCatalogCaller(e *core.RequestEvent) (string, bool, *apierror.APIError) {
+	if e.Auth == nil {
+		return "", false, apierror.New(http.StatusUnauthorized, "auth", "authentication_required", "authentication is required")
+	}
+	if isSuperuserAuth(e.Auth) {
+		return "", false, nil
+	}
+	orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
+	if err != nil {
+		return "", false, apierror.New(http.StatusInternalServerError, "organization", "failed_to_find_user_organization", err.Error())
+	}
+	return orgRecord.Id, orgRecord.GetBool("published"), nil
+}
+
+func mobileDeviceListItem(
+	ctx context.Context,
+	app core.App,
+	device, runner *core.Record,
+	callerOrgID string,
+) (MobileDeviceListItem, *apierror.APIError) {
+	deviceID, err := mobileDeviceIdentifier(app, device)
+	if err != nil {
+		return MobileDeviceListItem{}, apierror.New(http.StatusInternalServerError, "device_id", "failed_to_build_device_id", err.Error())
+	}
+	runnerID, err := mobileRunnerIdentifier(app, runner)
+	if err != nil {
+		return MobileDeviceListItem{}, apierror.New(http.StatusInternalServerError, "runner_id", "failed_to_build_runner_id", err.Error())
+	}
+
+	item := MobileDeviceListItem{
+		Name:        device.GetString("name"),
+		Path:        deviceID,
+		RunnerID:    runnerID,
+		RunnerName:  runner.GetString("name"),
+		Description: device.GetString("description"),
+		Type:        device.GetString("type"),
+		Serial:      device.GetString("serial"),
+		IsPublished: runner.GetBool("published"),
+		IsOwned:     callerOrgID != "" && device.GetString("owner") == callerOrgID,
+		IsOnline:    device.GetBool("online"),
+	}
+	if item.IsOnline {
+		queueLen, apiErr := mobileRunnerQueueLen(ctx, deviceID)
+		if apiErr != nil {
+			return MobileDeviceListItem{}, apiErr
+		}
+		item.QueueLength = &queueLen
+	}
+	return item, nil
 }
 
 func listMobileRunnerRecords(

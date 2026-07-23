@@ -9,10 +9,12 @@ import { parseSelectorResponse } from './query';
 describe('parseSelectorResponse', () => {
 	it('maps snake_case API body to RunnerRecord', () => {
 		const records = parseSelectorResponse({
-			runners: [
+			devices: [
 				{
 					name: 'Online owned',
-					path: 'usera-s-organization/owned-online',
+					path: 'usera-s-organization/owned-host/device-a',
+					runner_id: 'usera-s-organization/owned-host',
+					runner_name: 'Owned host',
 					description: 'desc',
 					is_owned: true,
 					is_published: false,
@@ -24,7 +26,9 @@ describe('parseSelectorResponse', () => {
 		expect(records).toEqual([
 			{
 				name: 'Online owned',
-				path: 'usera-s-organization/owned-online',
+				path: 'usera-s-organization/owned-host/device-a',
+				runnerId: 'usera-s-organization/owned-host',
+				runnerName: 'Owned host',
 				description: 'desc',
 				isOwned: true,
 				isPublished: false,

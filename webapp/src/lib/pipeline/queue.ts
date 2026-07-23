@@ -23,7 +23,7 @@ export type Status = 'queued' | 'starting' | 'running' | 'failed' | 'canceled' |
 type APIResponseBase = {
 	ticket_id?: string;
 	enqueued_at?: string;
-	runner_ids?: string[];
+	device_ids?: string[];
 	position?: number;
 	line_len?: number;
 	workflow_id?: string;
@@ -49,8 +49,8 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 		if (runnerType === 'global') {
 			const runner = Runner.Binding.get(pipeline.id);
 			if (!runner) throw new Error('No runner found');
-			if (parsedYaml.runtime) parsedYaml.runtime.global_runner_id = runner;
-			else parsedYaml.runtime = { global_runner_id: runner };
+			if (parsedYaml.runtime) parsedYaml.runtime.global_device_id = runner;
+			else parsedYaml.runtime = { global_device_id: runner };
 		}
 
 		const res = await pb.send<APIResponse>('/api/pipeline/queue', {
@@ -61,9 +61,9 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 			}
 		});
 
-		const assignedRunnerIds = res.runner_ids ?? [];
+		const assignedDeviceIds = res.device_ids ?? [];
 		if (Runner.Binding.isRequired(pipeline)) {
-			if (assignedRunnerIds.length === 0 || !res.ticket_id) {
+			if (assignedDeviceIds.length === 0 || !res.ticket_id) {
 				return err(m.Failed_to_enqueue_pipeline());
 			}
 		}
@@ -80,11 +80,11 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 
 export async function cancel(
 	ticketId: string,
-	runnerIds: string[]
+	deviceIds: string[]
 ): Promise<Result<APIResponse, string>> {
 	try {
 		const params = new URLSearchParams();
-		params.set('runner_ids', runnerIds.join(','));
+		params.set('device_ids', deviceIds.join(','));
 		const url = `/api/pipeline/queue/${ticketId}?${params.toString()}`;
 		const res = await pb.send<APIResponse>(url, { method: 'DELETE' });
 		if (res.status === 'canceled') {
