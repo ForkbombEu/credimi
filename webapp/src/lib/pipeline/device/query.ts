@@ -13,8 +13,8 @@ import type { DeviceRecord } from './types';
 const deviceWireSchema = z.object({
 	name: z.string(),
 	path: z.string(),
-	device_id: z.string(),
-	device_name: z.string(),
+	runner_id: z.string(),
+	runner_name: z.string(),
 	description: z.string().optional(),
 	is_owned: z.boolean(),
 	is_published: z.boolean(),

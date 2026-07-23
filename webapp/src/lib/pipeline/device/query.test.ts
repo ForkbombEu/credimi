@@ -13,8 +13,8 @@ describe('parseSelectorResponse', () => {
 				{
 					name: 'Online owned',
 					path: 'usera-s-organization/owned-host/device-a',
-					device_id: 'usera-s-organization/owned-host',
-					device_name: 'Owned host',
+					runner_id: 'usera-s-organization/owned-host',
+					runner_name: 'Owned host',
 					description: 'desc',
 					is_owned: true,
 					is_published: false,
