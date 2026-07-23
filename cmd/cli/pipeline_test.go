@@ -350,7 +350,7 @@ func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 				"status":               "queued",
 				"ticket_id":            "ticket-1",
 				"enqueued_at":          "2026-05-20T12:00:00Z",
-				"runner_ids":           []string{"runner-1"},
+				"device_ids":           []string{"device-1"},
 				"position":             0,
 				"line_len":             2,
 				pipelineURLResponseKey: "https://credimi.test/my/pipelines/org/pipeline123",

@@ -1127,7 +1127,7 @@ components:
       type: object
     HandlersStartScheduleRequest:
       properties:
-        global_runner_id:
+        global_device_id:
           type: string
         pipeline_id:
           type: string
@@ -1303,7 +1303,7 @@ components:
           type: integer
         position:
           type: integer
-        runner_ids:
+        device_ids:
           items:
             type: string
           type: array
