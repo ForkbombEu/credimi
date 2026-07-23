@@ -218,7 +218,7 @@ func findOrCreatePipeline(
 	orgID string,
 	input *PipelineCLIInput,
 ) (map[string]any, error) {
-	if err := pipeline.ValidateRunnerIDYAML(input.YAML); err != nil {
+	if err := pipeline.ValidateDeviceIDYAML(input.YAML); err != nil {
 		return nil, err
 	}
 
@@ -319,7 +319,7 @@ func createPipeline(
 	orgID string,
 	input *PipelineCLIInput,
 ) (map[string]any, error) {
-	if err := pipeline.ValidateRunnerIDYAML(input.YAML); err != nil {
+	if err := pipeline.ValidateDeviceIDYAML(input.YAML); err != nil {
 		return nil, err
 	}
 
