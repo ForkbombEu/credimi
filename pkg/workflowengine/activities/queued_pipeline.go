@@ -36,8 +36,8 @@ type StartQueuedPipelineActivity struct {
 type StartQueuedPipelineActivityInput struct {
 	TicketID           string         `json:"ticket_id"`
 	OwnerNamespace     string         `json:"owner_namespace"`
-	RequiredRunnerIDs  []string       `json:"required_runner_ids,omitempty"`
-	LeaderRunnerID     string         `json:"leader_runner_id,omitempty"`
+	RequiredRunnerIDs  []string       `json:"required_device_ids,omitempty"`
+	LeaderRunnerID     string         `json:"leader_device_id,omitempty"`
 	PipelineIdentifier string         `json:"pipeline_identifier"`
 	YAML               string         `json:"yaml"`
 	PipelineConfig     map[string]any `json:"pipeline_config,omitempty"`
@@ -64,10 +64,10 @@ const (
 	defaultRetryMaxInterval        = "1m"
 	defaultRetryBackoffCoefficient = 2.0
 
-	mobileRunnerSemaphoreTicketIDConfigKey       = "mobile_runner_semaphore_ticket_id"
-	mobileRunnerSemaphoreRunnerIDsConfigKey      = "mobile_runner_semaphore_runner_ids"
-	mobileRunnerSemaphoreLeaderRunnerIDConfigKey = "mobile_runner_semaphore_leader_runner_id"
-	mobileRunnerSemaphoreOwnerNamespaceConfigKey = "mobile_runner_semaphore_owner_namespace"
+	mobileRunnerSemaphoreTicketIDConfigKey       = "mobile_device_semaphore_ticket_id"
+	mobileRunnerSemaphoreRunnerIDsConfigKey      = "mobile_device_semaphore_device_ids"
+	mobileRunnerSemaphoreLeaderRunnerIDConfigKey = "mobile_device_semaphore_leader_device_id"
+	mobileRunnerSemaphoreOwnerNamespaceConfigKey = "mobile_device_semaphore_owner_namespace"
 	queuedTempWalletVersionConfigKey             = "temp_wallet_version"
 	queuedTempCredentialsConfigKey               = "temp_credentials"
 	queuedTempUseCaseVerificationsConfigKey      = "temp_use_case_verifications"
@@ -82,7 +82,7 @@ type queuedWorkflowDefinition struct {
 
 type queuedRuntime struct {
 	Debug                   bool   `yaml:"debug,omitempty"`
-	GlobalRunnerID          string `yaml:"global_runner_id,omitempty"`
+	GlobalRunnerID          string `yaml:"global_device_id,omitempty"`
 	DisableAndroidPlayStore bool   `yaml:"disable_android_play_store,omitempty"`
 	Temporal                struct {
 		ExecutionTimeout string                `yaml:"execution_timeout,omitempty"`
@@ -225,7 +225,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 	}
 
 	if workflowDef.Runtime.GlobalRunnerID != "" {
-		config["global_runner_id"] = workflowDef.Runtime.GlobalRunnerID
+		config["global_device_id"] = workflowDef.Runtime.GlobalRunnerID
 	}
 	config["disable_android_play_store"] = workflowDef.Runtime.DisableAndroidPlayStore
 	applySemaphoreTicketMetadata(config, payload)
@@ -325,6 +325,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 		workflowID,
 		runID,
 		pipelineRunTypeFromMemo(memo),
+		payload.RequiredRunnerIDs,
 	); err != nil {
 		if activity.IsActivity(ctx) {
 			logger := activity.GetLogger(ctx)
@@ -463,6 +464,7 @@ func createPipelineExecutionResultWithRetry(
 	workflowID string,
 	runID string,
 	runType string,
+	deviceIDs []string,
 ) error {
 	backoffs := []time.Duration{
 		250 * time.Millisecond,
@@ -481,6 +483,7 @@ func createPipelineExecutionResultWithRetry(
 			workflowID,
 			runID,
 			runType,
+			deviceIDs,
 		)
 		if err == nil {
 			return nil
@@ -507,6 +510,7 @@ func postPipelineExecutionResult(
 	workflowID string,
 	runID string,
 	runType string,
+	deviceIDs []string,
 ) (int, error) {
 	payload := map[string]any{
 		"owner":       ownerNamespace,
@@ -514,6 +518,7 @@ func postPipelineExecutionResult(
 		"workflow_id": workflowID,
 		"run_id":      runID,
 		"type":        runType,
+		"device_ids":  copyStringSlice(deviceIDs),
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

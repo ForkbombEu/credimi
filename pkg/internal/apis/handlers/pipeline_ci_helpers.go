@@ -918,15 +918,10 @@ func selectPipelineCIRunnerByType(
 	ownerID string,
 	runnerType string,
 ) (string, *apierror.APIError) {
-	filter := "type = {:type} && published = true"
+	filter := "type = {:type}"
 	params := dbx.Params{"type": runnerType}
-	if strings.TrimSpace(ownerID) != "" {
-		filter = "type = {:type} && (published = true || owner = {:owner})"
-		params["owner"] = ownerID
-	}
-
-	records, err := app.FindRecordsByFilter(
-		"mobile_runners",
+	devices, err := app.FindRecordsByFilter(
+		"mobile_devices",
 		filter,
 		"",
 		-1,
@@ -937,45 +932,47 @@ func selectPipelineCIRunnerByType(
 		return "", apierror.New(
 			http.StatusInternalServerError,
 			"runner_type",
-			"failed to list published runners",
+			"failed to list mobile devices",
 			err.Error(),
 		)
 	}
 
-	ownedPrivateRecords, publishedRecords := partitionPipelineCIRunnerCandidates(records, ownerID)
-	if len(ownedPrivateRecords) == 0 && len(publishedRecords) == 0 {
-		return "", apierror.New(
-			http.StatusNotFound,
-			"runner_type",
-			"no published runner found for runner_type",
-			"no published mobile runner matches "+runnerType,
-		)
+	selectedDeviceID := ""
+	selectedBacklog := 0
+	for _, device := range devices {
+		runner, runnerErr := app.FindRecordById("mobile_runners", device.GetString("runner"))
+		if runnerErr != nil || (runner.GetString("owner") != ownerID && !runner.GetBool("published")) {
+			continue
+		}
+		online, apiErr := pipelineCIRunnerOnline(ctx, runner)
+		if apiErr != nil {
+			return "", apiErr
+		}
+		if !online {
+			continue
+		}
+		deviceID, deviceErr := mobileDeviceIdentifier(app, device)
+		if deviceErr != nil {
+			return "", apierror.New(http.StatusInternalServerError, "device_id", "failed_to_build_device_id", deviceErr.Error())
+		}
+		backlog, apiErr := pipelineCIRunnerBacklog(ctx, deviceID)
+		if apiErr != nil {
+			return "", apiErr
+		}
+		if selectedDeviceID == "" || backlog < selectedBacklog || (backlog == selectedBacklog && deviceID < selectedDeviceID) {
+			selectedDeviceID = deviceID
+			selectedBacklog = backlog
+		}
 	}
-
-	if selectedRunnerID, apiErr := selectOnlinePipelineCIRunner(
-		ctx,
-		app,
-		ownedPrivateRecords,
-	); apiErr != nil {
-		return "", apiErr
-	} else if selectedRunnerID != "" {
-		return selectedRunnerID, nil
-	}
-
-	selectedRunnerID, apiErr := selectOnlinePipelineCIRunner(ctx, app, publishedRecords)
-	if apiErr != nil {
-		return "", apiErr
-	}
-	if selectedRunnerID == "" {
+	if selectedDeviceID == "" {
 		return "", apierror.New(
 			http.StatusServiceUnavailable,
 			"runner_type",
-			"no online published runner found for runner_type",
-			"no online published mobile runner matches "+runnerType,
+			"no online device found for runner_type",
+			"no online mobile device matches "+runnerType,
 		)
 	}
-
-	return selectedRunnerID, nil
+	return selectedDeviceID, nil
 }
 
 func partitionPipelineCIRunnerCandidates(

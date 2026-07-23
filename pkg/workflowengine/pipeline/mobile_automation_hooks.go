@@ -26,7 +26,7 @@ import (
 
 const (
 	mobileAutomationStepUse                = "mobile-automation"
-	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_runner_semaphore_ticket_id"
+	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_device_semaphore_ticket_id"
 	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
 	mobileSkipInstallerRequestKey          = "skip_installer"
 	mobilePlatformAndroid                  = "android"
@@ -213,9 +213,9 @@ func MobileAutomationSetupHook(
 	ao := PrepareWorkflowOptions(wfDef.Runtime).ActivityOptions
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
-	// Validate runner_id configuration
-	globalRunnerID, _ := config["global_runner_id"].(string)
-	if err := validateRunnerIDConfiguration(steps, globalRunnerID); err != nil {
+	// Validate device_id configuration.
+	globalRunnerID, _ := config["global_device_id"].(string)
+	if err := validateDeviceIDConfiguration(steps, globalRunnerID); err != nil {
 		return err
 	}
 	semaphoreManaged := isSemaphoreManagedRun(config)
@@ -223,7 +223,7 @@ func MobileAutomationSetupHook(
 		return err
 	}
 
-	runnerIDs, err := collectMobileRunnerIDs(*steps, globalRunnerID)
+	runnerIDs, err := collectMobileDeviceIDs(*steps, globalRunnerID)
 	if err != nil {
 		return err
 	}
@@ -346,10 +346,9 @@ func fetchMobileActionCategory(
 	return strings.TrimSpace(workflowengine.AsString(record["category"])), nil
 }
 
-// validateRunnerIDConfiguration checks that either:
-// - all mobile-automation steps have a defined runner_id, OR
-// - there is a global_runner_id set
-func validateRunnerIDConfiguration(steps *[]pipeline.StepDefinition, globalRunnerID string) error {
+// validateDeviceIDConfiguration checks that either all mobile-automation steps
+// have a device_id or the workflow has a global_device_id.
+func validateDeviceIDConfiguration(steps *[]pipeline.StepDefinition, globalDeviceID string) error {
 	var mobileAutomationSteps []*pipeline.StepDefinition
 	for i := range *steps {
 		if (*steps)[i].Use == mobileAutomationStepUse {
@@ -362,24 +361,22 @@ func validateRunnerIDConfiguration(steps *[]pipeline.StepDefinition, globalRunne
 		return nil
 	}
 
-	// Check if all mobile-automation steps have runner_id
-	allStepsHaveRunnerID := true
+	allStepsHaveDeviceID := true
 	for _, step := range mobileAutomationSteps {
-		runnerID, ok := step.With.Payload["runner_id"].(string)
-		if !ok || canonify.NormalizePath(runnerID) == "" {
-			allStepsHaveRunnerID = false
+		deviceID, ok := step.With.Payload["device_id"].(string)
+		if !ok || canonify.NormalizePath(deviceID) == "" {
+			allStepsHaveDeviceID = false
 			break
 		}
 	}
 
-	// Valid if either all steps have runner_id OR there's a global_runner_id
-	if !allStepsHaveRunnerID && globalRunnerID == "" {
+	if !allStepsHaveDeviceID && globalDeviceID == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 		return workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: "mobile-automation steps require either a runner_id or a global_runner_id in the pipeline configuration",
+				Message: "mobile-automation steps require either a device_id or a global_device_id in the pipeline configuration",
 			},
 		)
 	}
@@ -395,12 +392,12 @@ func getOrCreateSettedDevices(runData *map[string]any) map[string]any {
 	return settedDevices
 }
 
-func collectMobileRunnerIDs(steps []pipeline.StepDefinition, globalID string) ([]string, error) {
-	uniqueRunnerIDs := make(map[string]struct{})
+func collectMobileDeviceIDs(steps []pipeline.StepDefinition, globalID string) ([]string, error) {
+	uniqueDeviceIDs := make(map[string]struct{})
 
 	globalID = canonify.NormalizePath(globalID)
 	if globalID != "" {
-		uniqueRunnerIDs[globalID] = struct{}{}
+		uniqueDeviceIDs[globalID] = struct{}{}
 	}
 	for i := range steps {
 		step := &steps[i]
@@ -416,20 +413,20 @@ func collectMobileRunnerIDs(steps []pipeline.StepDefinition, globalID string) ([
 		if payload.RunnerID == "" {
 			continue
 		}
-		uniqueRunnerIDs[payload.RunnerID] = struct{}{}
+		uniqueDeviceIDs[payload.RunnerID] = struct{}{}
 	}
 
-	if len(uniqueRunnerIDs) == 0 {
+	if len(uniqueDeviceIDs) == 0 {
 		return nil, nil
 	}
 
-	runnerIDs := make([]string, 0, len(uniqueRunnerIDs))
-	for runnerID := range uniqueRunnerIDs {
-		runnerIDs = append(runnerIDs, runnerID)
+	deviceIDs := make([]string, 0, len(uniqueDeviceIDs))
+	for deviceID := range uniqueDeviceIDs {
+		deviceIDs = append(deviceIDs, deviceID)
 	}
-	sort.Strings(runnerIDs)
+	sort.Strings(deviceIDs)
 
-	return runnerIDs, nil
+	return deviceIDs, nil
 }
 
 func processStep(
@@ -448,13 +445,10 @@ func processStep(
 	if payload.RunnerID == "" && input.globalRunnerID != "" {
 		payload.RunnerID = input.globalRunnerID
 		// Update the step payload with the global runner_id for consistency
-		SetPayloadValue(&input.step.With.Payload, "runner_id", input.globalRunnerID)
+		SetPayloadValue(&input.step.With.Payload, "device_id", input.globalRunnerID)
 	}
 
-	taskqueue := mobileRunnerTaskQueue(payload.RunnerID)
-	SetConfigValue(&input.step.With.Config, "taskqueue", taskqueue)
-	mobileAo := mobileRunnerActivityOptions(input.ao, payload.RunnerID)
-	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAo)
+	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.ao)
 
 	appURL, ok := input.config["app_url"].(string)
 	if !ok {
@@ -479,6 +473,22 @@ func processStep(
 	if err != nil {
 		return err
 	}
+	runnerID, ok := deviceMap["runner_id"].(string)
+	if !ok || canonify.NormalizePath(runnerID) == "" {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		return workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing or invalid host runner_id for step %s", input.step.ID),
+				Details: map[string]any{"payload": deviceMap},
+			},
+		)
+	}
+	taskqueue := mobileRunnerTaskQueue(runnerID)
+	SetConfigValue(&input.step.With.Config, "taskqueue", taskqueue)
+	mobileAo := mobileRunnerActivityOptions(input.ao, runnerID)
+	mobileCtx = workflow.WithActivityOptions(input.ctx, mobileAo)
 
 	deviceType := deviceTypeFromMap(deviceMap)
 	deviceActivities := activitiesForDeviceType(deviceType)
@@ -722,7 +732,7 @@ func getOrCreateDeviceMap(
 func setupNewDevice(
 	input setupNewDeviceInput,
 ) error {
-	runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
+	runnerID, runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
 		ctx:     input.ctx,
 		payload: input.payload,
 		appURL:  input.appURL,
@@ -731,12 +741,16 @@ func setupNewDevice(
 	if err != nil {
 		return err
 	}
+	mobileCtx := workflow.WithActivityOptions(
+		input.ctx,
+		mobileRunnerActivityOptions(nil, runnerID),
+	)
 
 	deviceActivities := activitiesForDeviceType(deviceType)
 	if deviceType.IsManagedEmulator() {
 		name, newSerial, err := startManagedDevice(startManagedDeviceInput{
 			ctx:        input.ctx,
-			mobileCtx:  input.mobileCtx,
+			mobileCtx:  mobileCtx,
 			deviceType: deviceType,
 			activities: deviceActivities,
 			payload:    input.payload,
@@ -752,11 +766,12 @@ func setupNewDevice(
 	}
 
 	input.deviceMap["type"] = deviceType.String()
+	input.deviceMap["runner_id"] = runnerID
 	input.deviceMap["runner_url"] = runnerURL
 	input.deviceMap["serial"] = serial
 
 	initialInstalledApps, err := listInstalledAppsOnRunner(
-		input.mobileCtx,
+		mobileCtx,
 		serial,
 		deviceType.String(),
 	)
@@ -770,16 +785,16 @@ func setupNewDevice(
 
 func fetchRunnerInfo(
 	input fetchRunnerInfoInput,
-) (string, mobileDeviceType, string, error) {
+) (string, string, mobileDeviceType, string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
 	runnerReq := workflowengine.ActivityInput{
 		Payload: activities.InternalHTTPActivityPayload{
 			Method:         http.MethodGet,
-			URL:            utils.JoinURL(input.appURL, "api", "mobile-runner"),
+			URL:            utils.JoinURL(input.appURL, "api", "mobile-device"),
 			ExpectedStatus: 200,
 			QueryParams: map[string]string{
-				"runner_identifier": input.payload.RunnerID,
+				"device_identifier": input.payload.RunnerID,
 			},
 		},
 	}
@@ -788,12 +803,12 @@ func fetchRunnerInfo(
 	var runnerRes workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(input.ctx, internalHTTPActivity.Name(), runnerReq).
 		Get(input.ctx, &runnerRes); err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
 	body, ok := runnerRes.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
-		return "", "", "", workflowengine.NewAppError(
+		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -805,7 +820,7 @@ func fetchRunnerInfo(
 
 	runnerURL, ok := body["runner_url"].(string)
 	if !ok || runnerURL == "" {
-		return "", "", "", workflowengine.NewAppError(
+		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -815,12 +830,12 @@ func fetchRunnerInfo(
 		)
 	}
 	if err := validateRunnerURL(runnerURL, input.stepID, body); err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
 	rawDeviceType, ok := body["type"].(string)
 	if !ok {
-		return "", "", "", workflowengine.NewAppError(
+		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -831,7 +846,7 @@ func fetchRunnerInfo(
 	}
 	deviceType := normalizeDeviceType(rawDeviceType)
 	if deviceType == "" {
-		return "", "", "", workflowengine.NewAppError(
+		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -843,7 +858,7 @@ func fetchRunnerInfo(
 
 	serial, ok := body["serial"].(string)
 	if !ok {
-		return "", "", "", workflowengine.NewAppError(
+		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -853,7 +868,20 @@ func fetchRunnerInfo(
 		)
 	}
 
-	return runnerURL, deviceType, serial, nil
+	runnerID, ok := body["runner_id"].(string)
+	runnerID = canonify.NormalizePath(runnerID)
+	if !ok || runnerID == "" {
+		return "", "", "", "", workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing or invalid host runner_id for step %s", input.stepID),
+				Details: map[string]any{"payload": body},
+			},
+		)
+	}
+
+	return runnerID, runnerURL, deviceType, serial, nil
 }
 
 func validateRunnerURL(runnerURL string, stepID string, details any) error {
@@ -1571,6 +1599,9 @@ func mobileRunnerActivityOptions(
 	}
 	if options.HeartbeatTimeout == 0 {
 		options.HeartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
+	}
+	if options.StartToCloseTimeout == 0 && options.ScheduleToCloseTimeout == 0 {
+		options.StartToCloseTimeout = parseDurationOrDefault("", DefaultActivityStartTimeout)
 	}
 	if options.ScheduleToStartTimeout == 0 {
 		options.ScheduleToStartTimeout = 30 * time.Second

@@ -13,8 +13,8 @@ import (
 const (
 	// PipelineIdentifierSearchAttribute is the Temporal visibility field storing pipeline identifiers.
 	PipelineIdentifierSearchAttribute = "PipelineIdentifier"
-	// RunnerIdentifierSearchAttribute is the Temporal visibility field storing runner identifiers.
-	RunnerIdentifiersSearchAttribute = "RunnerIdentifiers"
+	// DeviceIdentifiersSearchAttribute is the Temporal visibility field storing device identifiers.
+	DeviceIdentifiersSearchAttribute = "DeviceIdentifiers"
 	ActionsSearchAttribute           = "ActionsID"
 	VersionsSearchAttribute          = "VersionsID"
 	CredentialsSearchAttribute       = "CredentialsID"
@@ -50,7 +50,7 @@ func PipelineTypedSearchAttributes(
 		attrs = append(attrs, keyPipeline.ValueSet(normalized))
 	}
 	if len(runnerIDs) > 0 {
-		runnerKey := temporal.NewSearchAttributeKeyKeywordList(RunnerIdentifiersSearchAttribute)
+		runnerKey := temporal.NewSearchAttributeKeyKeywordList(DeviceIdentifiersSearchAttribute)
 		attrs = append(attrs, runnerKey.ValueSet(runnerIDs))
 	}
 	if len(entityIDs.Actions) > 0 {
@@ -100,7 +100,7 @@ func ApplyPipelineSearchAttributes(
 		updates = append(updates, pipelineKey.ValueSet(normalized))
 	}
 	if len(runnerIDs) > 0 {
-		runnerKey := temporal.NewSearchAttributeKeyKeywordList(RunnerIdentifiersSearchAttribute)
+		runnerKey := temporal.NewSearchAttributeKeyKeywordList(DeviceIdentifiersSearchAttribute)
 		updates = append(updates, runnerKey.ValueSet(runnerIDs))
 	}
 	if len(entityIDs.Actions) > 0 {

@@ -50,7 +50,7 @@ type pipelineQueueRunnerStatus struct {
 type PipelineQueueResponse struct {
 	TicketID     string                                   `json:"ticket_id,omitempty"`
 	EnqueuedAt   *time.Time                               `json:"enqueued_at,omitempty"`
-	RunnerIDs    []string                                 `json:"runner_ids,omitempty"`
+	RunnerIDs    []string                                 `json:"device_ids,omitempty"`
 	Status       workflows.MobileRunnerSemaphoreRunStatus `json:"status,omitempty"`
 	Position     *int                                     `json:"position,omitempty"`
 	LineLen      *int                                     `json:"line_len,omitempty"`
@@ -251,8 +251,8 @@ func enqueuePipelineRun(
 	if len(runnerIDs) == 0 {
 		return PipelineQueueResponse{}, apierror.New(
 			http.StatusBadRequest,
-			"runner_ids",
-			"runner_ids are required",
+			"device_ids",
+			"device_ids are required",
 			"no runner ids resolved from yaml",
 		)
 	}
@@ -681,34 +681,38 @@ func validatePipelineRunnerAccess(
 			if errors.Is(err, sql.ErrNoRows) {
 				return apierror.New(
 					http.StatusNotFound,
-					"runner_id",
+					"device_id",
 					"runner not found",
 					"mobile runner "+runnerID+" was not found",
 				)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
-				"runner_id",
-				"failed to resolve runner_id",
+				"device_id",
+				"failed to resolve device_id",
 				err.Error(),
 			)
 		}
-		if record.Collection() == nil || record.Collection().Name != "mobile_runners" {
+		if record.Collection() == nil || record.Collection().Name != "mobile_devices" {
 			return apierror.New(
 				http.StatusNotFound,
-				"runner_id",
-				"runner not found",
-				"mobile runner "+runnerID+" was not found",
+				"device_id",
+				"device not found",
+				"mobile device "+runnerID+" was not found",
 			)
 		}
-		if record.GetString("owner") == ownerID || record.GetBool("published") {
+		runner, runnerErr := app.FindRecordById("mobile_runners", record.GetString("runner"))
+		if runnerErr != nil {
+			return apierror.New(http.StatusNotFound, "device_id", "device runner not found", runnerErr.Error())
+		}
+		if record.GetString("owner") == ownerID || runner.GetBool("published") {
 			continue
 		}
 		return apierror.New(
 			http.StatusForbidden,
-			"runner_id",
-			"runner_id is not accessible",
-			"mobile runner "+runnerID+" is private and does not belong to the caller organization",
+			"device_id",
+			"device_id is not accessible",
+			"mobile device "+runnerID+" is private and does not belong to the caller organization",
 		)
 	}
 	return nil
@@ -738,9 +742,9 @@ func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apie
 	if len(runnerIDs) == 0 {
 		return nil, apierror.New(
 			http.StatusBadRequest,
-			"runner_ids",
-			"runner_ids are required",
-			"missing runner_ids query parameter",
+			"device_ids",
+			"device_ids are required",
+			"missing device_ids query parameter",
 		)
 	}
 
@@ -863,9 +867,9 @@ func runTicketNotFoundView(ticketID string) workflows.MobileRunnerSemaphoreRunSt
 }
 
 func parseRunnerIDs(req *http.Request) []string {
-	values := req.URL.Query()["runner_ids[]"]
+	values := req.URL.Query()["device_ids[]"]
 	if len(values) == 0 {
-		values = req.URL.Query()["runner_ids"]
+		values = req.URL.Query()["device_ids"]
 	}
 	return values
 }

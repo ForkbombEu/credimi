@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/api/serviceerror"
@@ -35,7 +37,14 @@ var mobileRunnerLifecycleNow = func() time.Time {
 var mobileRunnerLifecycleTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type MobileRunnerLifecycleRequest struct {
-	RunnerID string `json:"runner_id"        validate:"required"`
+	RunnerID string                       `json:"runner_id"        validate:"required"`
+	Reason   string                       `json:"reason,omitempty"`
+	Devices  []MobileDeviceLifecycleState `json:"devices,omitempty"`
+}
+
+type MobileDeviceLifecycleState struct {
+	DeviceID string `json:"device_id" validate:"required"`
+	Online   bool   `json:"online"`
 	Reason   string `json:"reason,omitempty"`
 }
 
@@ -115,37 +124,6 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			)
 		}
 
-		if err := ensureRunQueueSemaphoreWorkflowTemporal(
-			e.Request.Context(),
-			runnerID,
-		); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"mobile_runner",
-				"failed_to_ensure_runner_semaphore",
-				err.Error(),
-			)
-		}
-
-		_, err = updateRunnerSemaphore(
-			e.Request.Context(),
-			runnerID,
-			workflows.MobileRunnerSemaphoreResumeRunnerUpdate,
-			workflows.MobileRunnerSemaphoreResumeRunnerRequest{
-				Reason: lifecycleReason(input.Reason, "runner_startup"),
-			},
-			nil,
-			lifecycleUpdateID("resume", runnerID),
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"mobile_runner",
-				"failed_to_resume_runner_semaphore",
-				err.Error(),
-			)
-		}
-
 		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, true))
 	}
 }
@@ -167,27 +145,83 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		setRunnerHeartbeat(record, true, mobileRunnerLifecycleNow())
-		if err := e.App.Save(record); err != nil {
+		deviceStates, err := applyRunnerHeartbeatDevices(e.App, record, input.Devices, mobileRunnerLifecycleNow())
+		if err != nil {
 			return apierror.New(
-				http.StatusInternalServerError,
+				http.StatusBadRequest,
 				"mobile_runner",
-				"failed_to_save_mobile_runner",
+				"failed_to_apply_device_heartbeat",
 				err.Error(),
 			)
 		}
-
-		if err := resumeHeartbeatPausedRunnerSemaphore(e.Request.Context(), runnerID); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"mobile_runner",
-				"failed_to_resume_runner_semaphore",
-				err.Error(),
-			)
+		for deviceID, online := range deviceStates {
+			if online {
+				if err := ensureRunQueueSemaphoreWorkflowTemporal(e.Request.Context(), deviceID); err != nil {
+					return apierror.New(http.StatusInternalServerError, "mobile_device", "failed_to_ensure_device_semaphore", err.Error())
+				}
+				if err := resumeHeartbeatPausedRunnerSemaphore(e.Request.Context(), deviceID); err != nil {
+					return apierror.New(http.StatusInternalServerError, "mobile_device", "failed_to_resume_device_semaphore", err.Error())
+				}
+				continue
+			}
+			_, err := updateRunnerSemaphore(e.Request.Context(), deviceID, workflows.MobileRunnerSemaphorePauseRunnerUpdate, workflows.MobileRunnerSemaphorePauseRunnerRequest{Reason: "device offline", CancelRunning: true, ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second)}, nil, lifecycleUpdateID("pause", deviceID))
+			if err != nil && !errors.Is(err, errSemaphoreNotFound) {
+				return apierror.New(http.StatusInternalServerError, "mobile_device", "failed_to_pause_device_semaphore", err.Error())
+			}
 		}
 
 		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, true))
 	}
+}
+
+func applyRunnerHeartbeatDevices(app core.App, runner *core.Record, reported []MobileDeviceLifecycleState, now time.Time) (map[string]bool, error) {
+	states := map[string]bool{}
+	err := app.RunInTransaction(func(txApp core.App) error {
+		currentRunner, err := txApp.FindRecordById("mobile_runners", runner.Id)
+		if err != nil {
+			return err
+		}
+		setRunnerHeartbeat(currentRunner, true, now)
+		if err := txApp.Save(currentRunner); err != nil {
+			return err
+		}
+		devices, err := txApp.FindRecordsByFilter("mobile_devices", "runner = {:runner}", "", -1, 0, dbx.Params{"runner": runner.Id})
+		if err != nil {
+			return err
+		}
+		byID := map[string]*core.Record{}
+		for _, device := range devices {
+			identifier, err := mobileDeviceIdentifier(txApp, device)
+			if err != nil {
+				return err
+			}
+			byID[identifier] = device
+		}
+		for _, report := range reported {
+			identifier := canonify.NormalizePath(report.DeviceID)
+			device, ok := byID[identifier]
+			if !ok {
+				return fmt.Errorf("device_id %q does not belong to runner", report.DeviceID)
+			}
+			device.Set("online", report.Online)
+			if err := txApp.Save(device); err != nil {
+				return err
+			}
+			states[identifier] = report.Online
+		}
+		for identifier, device := range byID {
+			if _, ok := states[identifier]; ok {
+				continue
+			}
+			device.Set("online", false)
+			if err := txApp.Save(device); err != nil {
+				return err
+			}
+			states[identifier] = false
+		}
+		return nil
+	})
+	return states, err
 }
 
 func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
@@ -207,39 +241,67 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		record.Set("online", false)
-		if err := e.App.Save(record); err != nil {
+		deviceIDs, err := markRunnerAndDevicesOffline(e.App, record)
+		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"mobile_runner",
-				"failed_to_save_mobile_runner",
+				"failed_to_pause_runner_devices",
 				err.Error(),
 			)
 		}
-
-		_, err = updateRunnerSemaphore(
-			e.Request.Context(),
-			runnerID,
-			workflows.MobileRunnerSemaphorePauseRunnerUpdate,
-			workflows.MobileRunnerSemaphorePauseRunnerRequest{
-				Reason:               lifecycleReason(input.Reason, "runner_shutdown"),
-				CancelRunning:        true,
-				ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
-			},
-			nil,
-			lifecycleUpdateID("pause", runnerID),
-		)
-		if err != nil && !errors.Is(err, errSemaphoreNotFound) {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"mobile_runner",
-				"failed_to_pause_runner_semaphore",
-				err.Error(),
+		for _, deviceID := range deviceIDs {
+			_, updateErr := updateRunnerSemaphore(
+				e.Request.Context(),
+				deviceID,
+				workflows.MobileRunnerSemaphorePauseRunnerUpdate,
+				workflows.MobileRunnerSemaphorePauseRunnerRequest{
+					Reason:               lifecycleReason(input.Reason, "runner_shutdown"),
+					CancelRunning:        true,
+					ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
+				},
+				nil,
+				lifecycleUpdateID("pause", deviceID),
 			)
+			if updateErr != nil && !errors.Is(updateErr, errSemaphoreNotFound) {
+				return apierror.New(http.StatusInternalServerError, "mobile_device", "failed_to_pause_device_semaphore", updateErr.Error())
+			}
 		}
 
 		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, false))
 	}
+}
+
+func markRunnerAndDevicesOffline(app core.App, runner *core.Record) ([]string, error) {
+	deviceIDs := []string{}
+	err := app.RunInTransaction(func(txApp core.App) error {
+		currentRunner, err := txApp.FindRecordById("mobile_runners", runner.Id)
+		if err != nil {
+			return err
+		}
+		currentRunner.Set("online", false)
+		if err := txApp.Save(currentRunner); err != nil {
+			return err
+		}
+		devices, err := txApp.FindRecordsByFilter("mobile_devices", "runner = {:runner}", "", -1, 0, dbx.Params{"runner": runner.Id})
+		if err != nil {
+			return err
+		}
+		for _, device := range devices {
+			device.Set("online", false)
+			if err := txApp.Save(device); err != nil {
+				return err
+			}
+			deviceID, err := mobileDeviceIdentifier(txApp, device)
+			if err != nil {
+				return err
+			}
+			deviceIDs = append(deviceIDs, deviceID)
+		}
+		sort.Strings(deviceIDs)
+		return nil
+	})
+	return deviceIDs, err
 }
 
 func resolveLifecycleRunner(

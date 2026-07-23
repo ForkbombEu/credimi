@@ -247,13 +247,13 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		}
 		if globalRunnerID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-				"global_runner_id",
+				"global_device_id",
 				input.RunMetadata,
 			)
 		}
 	}
 	if globalRunnerID != "" {
-		config["global_runner_id"] = globalRunnerID
+		config["global_device_id"] = globalRunnerID
 	}
 
 	runnerIDs := runnerIDsWithGlobal(runnerInfo, globalRunnerID)
@@ -394,7 +394,7 @@ type scheduledPipelineDefinition struct {
 
 // scheduledPipelineRuntime stores global runner configuration from YAML.
 type scheduledPipelineRuntime struct {
-	GlobalRunnerID string `yaml:"global_runner_id,omitempty"`
+	GlobalRunnerID string `yaml:"global_device_id,omitempty"`
 }
 
 // scheduledPipelineStep is a minimal step definition for runner lookup.
@@ -458,7 +458,7 @@ func collectRunnerIDs(
 	for _, step := range steps {
 		runnerID := ""
 		if step.With != nil {
-			if rawRunnerID, ok := step.With["runner_id"]; ok {
+			if rawRunnerID, ok := step.With["device_id"]; ok {
 				if id, ok := rawRunnerID.(string); ok {
 					runnerID = strings.TrimSpace(id)
 				}

@@ -34,12 +34,13 @@ steps:
   - id: step-1
     use: mobile-automation
     with:
-      runner_id: runner-b
+      payload:
+        device_id: tenant-a/runner-b/device-b
   - id: step-2
     use: mobile-automation
     with:
       payload:
-        runner_id: runner-a
+        device_id: tenant-a/runner-a/device-a
   - id: step-3
     use: echo
     with:
@@ -48,13 +49,14 @@ steps:
       - id: err-step
         use: mobile-automation
         with:
-          runner_id: runner-c
+          payload:
+            device_id: tenant-a/runner-c/device-c
     on_success:
       - id: success-step
         use: mobile-automation
         with:
           payload:
-            runner_id: runner-a
+            device_id: tenant-a/runner-a/device-a
   - id: step-4
     use: mobile-automation
     with:
@@ -64,7 +66,7 @@ steps:
 		got, err := ParsePipelineRunnerInfo(yamlStr)
 		require.NoError(t, err)
 		require.True(t, got.NeedsGlobalRunner)
-		require.Equal(t, []string{"runner-a", "runner-b", "runner-c"}, got.RunnerIDs)
+		require.Equal(t, []string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b", "tenant-a/runner-c/device-c"}, got.RunnerIDs)
 	})
 
 	t.Run("normalizes leading slash runner ids", func(t *testing.T) {
@@ -75,12 +77,12 @@ steps:
     use: mobile-automation
     with:
       payload:
-        runner_id: /tenant-a/runner-a
+        device_id: /tenant-a/runner-a/device-a
 `
 
 		got, err := ParsePipelineRunnerInfo(yamlStr)
 		require.NoError(t, err)
-		require.Equal(t, []string{"tenant-a/runner-a"}, got.RunnerIDs)
+		require.Equal(t, []string{"tenant-a/runner-a/device-a"}, got.RunnerIDs)
 	})
 }
 
@@ -124,16 +126,16 @@ func TestRunnerIDsWithGlobal(t *testing.T) {
 
 func TestGlobalRunnerIDFromConfig(t *testing.T) {
 	require.Equal(t, "", GlobalRunnerIDFromConfig(nil))
-	require.Equal(t, "", GlobalRunnerIDFromConfig(map[string]any{"global_runner_id": 12}))
+	require.Equal(t, "", GlobalRunnerIDFromConfig(map[string]any{"global_device_id": 12}))
 	require.Equal(
 		t,
 		"runner-a",
-		GlobalRunnerIDFromConfig(map[string]any{"global_runner_id": " runner-a "}),
+		GlobalRunnerIDFromConfig(map[string]any{"global_device_id": " runner-a "}),
 	)
 	require.Equal(
 		t,
 		"tenant-a/runner-a",
-		GlobalRunnerIDFromConfig(map[string]any{"global_runner_id": " /tenant-a/runner-a "}),
+		GlobalRunnerIDFromConfig(map[string]any{"global_device_id": " /tenant-a/runner-a "}),
 	)
 }
 

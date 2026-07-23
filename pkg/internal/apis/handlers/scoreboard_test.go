@@ -807,7 +807,7 @@ func buildPipelineExecutionInfoWithRunner(
 	if len(runnerIDs) > 0 {
 		payload, err := converter.GetDefaultDataConverter().ToPayload(runnerIDs)
 		require.NoError(t, err)
-		indexedFields[workflowengine.RunnerIdentifiersSearchAttribute] = payload
+		indexedFields[workflowengine.DeviceIdentifiersSearchAttribute] = payload
 	}
 
 	if len(indexedFields) > 0 {

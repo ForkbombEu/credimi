@@ -964,9 +964,9 @@ type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
 	PipelineIdentifier string           `json:"pipeline_identifier,omitempty"`
 	PipelineName       string           `json:"pipeline_name,omitempty"`
-	GlobalRunnerID     string           `json:"global_runner_id,omitempty"`
-	RunnerIDs          []string         `json:"runner_ids,omitempty"`
-	RunnerRecords      []map[string]any `json:"runner_records,omitempty"`
+	GlobalRunnerID     string           `json:"global_device_id,omitempty"`
+	RunnerIDs          []string         `json:"device_ids,omitempty"`
+	RunnerRecords      []map[string]any `json:"device_records,omitempty"`
 }
 
 func appendQueuedPipelineSummaries(

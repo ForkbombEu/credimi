@@ -825,15 +825,15 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 				settedDevices:  settedDevices,
 				runData:        &runData,
 				logger:         workflow.GetLogger(ctx),
-				globalRunnerID: "tenant/runner-1",
+				globalRunnerID: "tenant/runner-1/device-1",
 			})
 			if err != nil {
 				return nil, err
 			}
 
-			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1"].(map[string]any)
+			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any)
 			return map[string]any{
-				"runner_id":    step.With.Payload["runner_id"],
+				"device_id":    step.With.Payload["device_id"],
 				"serial":       step.With.Payload["serial"],
 				"type":         step.With.Payload["type"],
 				"action_code":  step.With.Payload["action_code"],
@@ -859,10 +859,11 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 			}
 			return workflowengine.AsString(
 				payload["url"],
-			) == "https://app.example/api/mobile-runner"
+			) == "https://app.example/api/mobile-device"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
+			"runner_id":  "tenant/runner-1",
 			"runner_url": "https://runner.example",
 			"type":       "physical",
 			"serial":     "serial-1",
@@ -874,7 +875,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
 			return ok &&
-				payload["device_name"] == "tenant/runner-1" &&
+				payload["device_name"] == "tenant/runner-1/device-1" &&
 				payload["type"] == "android_phone" &&
 				payload["serial"] == "serial-1"
 		}),
@@ -940,7 +941,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, "tenant/runner-1", result["runner_id"])
+	require.Equal(t, "tenant/runner-1/device-1", result["device_id"])
 	require.Equal(t, "serial-1", result["serial"])
 	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "code-1", result["action_code"])
@@ -1617,7 +1618,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 				wfDef,
 				map[string]any{
 					"app_url":                              "https://app.example",
-					"global_runner_id":                     "tenant/runner-1",
+					"global_device_id":                     "tenant/runner-1/device-1",
 					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
 				},
 				&runData,
@@ -1628,9 +1629,9 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 				return nil, err
 			}
 
-			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1"].(map[string]any)
+			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any)
 			return map[string]any{
-				"runner_id":      steps[0].With.Payload["runner_id"],
+				"device_id":      steps[0].With.Payload["device_id"],
 				"serial":         steps[0].With.Payload["serial"],
 				"type":           steps[0].With.Payload["type"],
 				"action_code":    steps[0].With.Payload["action_code"],
@@ -1653,10 +1654,11 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
 			return ok &&
-				workflowengine.AsString(payload["url"]) == "https://app.example/api/mobile-runner"
+				workflowengine.AsString(payload["url"]) == "https://app.example/api/mobile-device"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
+			"runner_id":  "tenant/runner-1",
 			"runner_url": "https://runner.example",
 			"type":       "physical",
 			"serial":     "serial-1",
@@ -1716,7 +1718,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, "tenant/runner-1", result["runner_id"])
+	require.Equal(t, "tenant/runner-1/device-1", result["device_id"])
 	require.Equal(t, "serial-1", result["serial"])
 	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "code-1", result["action_code"])
@@ -1792,7 +1794,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 				wfDef,
 				map[string]any{
 					"app_url":                              "https://app.example",
-					"global_runner_id":                     "tenant/runner-1",
+					"global_device_id":                     "tenant/runner-1/device-1",
 					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
 					mobileDisableAndroidPlayStoreConfigKey: true,
 				},
@@ -1804,7 +1806,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 				return nil, err
 			}
 
-			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1"].(map[string]any)
+			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any)
 			return map[string]any{
 				"play_store_disabled": deviceMap["play_store_disabled"],
 				"recording":           deviceMap["recording"],
@@ -1819,10 +1821,11 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
 			return ok &&
-				workflowengine.AsString(payload["url"]) == "https://app.example/api/mobile-runner"
+				workflowengine.AsString(payload["url"]) == "https://app.example/api/mobile-device"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
+			"runner_id":  "tenant/runner-1",
 			"runner_url": "https://runner.example",
 			"type":       "physical",
 			"serial":     "serial-1",
@@ -2422,7 +2425,7 @@ func TestMobileAutomationSetupHookCollectRunnerIDsError(t *testing.T) {
 						With: pipeline.StepInputs{
 							Payload: map[string]any{
 								"action_code": "code-without-version",
-								"runner_id":   "runner-1",
+								"device_id":   "runner-1/device-1",
 							},
 						},
 					},
@@ -2460,7 +2463,7 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 						Use: mobileAutomationStepUse,
 						With: pipeline.StepInputs{
 							Payload: map[string]any{
-								"runner_id": "runner-1",
+								"device_id": "runner-1/device-1",
 							},
 						},
 					},
@@ -2508,7 +2511,7 @@ func TestProcessStepMissingRunnerURL(t *testing.T) {
 					With: pipeline.StepInputs{
 						Payload: map[string]any{
 							"action_id": "action-1",
-							"runner_id": "runner-1",
+							"device_id": "runner-1/device-1",
 						},
 					},
 				},
@@ -2523,9 +2526,10 @@ func TestProcessStepMissingRunnerURL(t *testing.T) {
 				},
 				ao: &ao,
 				settedDevices: map[string]any{
-					"runner-1": map[string]any{
-						"type":   "android_phone",
-						"serial": "serial-1",
+					"runner-1/device-1": map[string]any{
+						"runner_id": "runner-1",
+						"type":      "android_phone",
+						"serial":    "serial-1",
 					},
 				},
 				runData:        &runData,
@@ -2556,7 +2560,7 @@ func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 				ctx,
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
-			_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
+			_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx: ctx,
 				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
 					RunnerID: "runner-1",
@@ -2596,7 +2600,7 @@ func TestFetchRunnerInfoRejectsMalformedRunnerURL(t *testing.T) {
 				ctx,
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
-			_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
+			_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx: ctx,
 				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
 					RunnerID: "runner-1",
@@ -2871,7 +2875,7 @@ func testSetupHookWorkflow(
 ) error {
 	config := map[string]any{"app_url": "https://example.test"}
 	if semaphoreManaged {
-		config["mobile_runner_semaphore_ticket_id"] = "ticket-1"
+		config["mobile_device_semaphore_ticket_id"] = "ticket-1"
 	}
 	runData := map[string]any{}
 
@@ -3037,7 +3041,7 @@ func mobileAutomationSetupSteps() []pipeline.StepDefinition {
 				Use: "mobile-automation",
 				With: pipeline.StepInputs{
 					Payload: map[string]any{
-						"runner_id": "runner-1",
+						"device_id": "runner-1/device-1",
 						"action_id": "action-1",
 					},
 				},

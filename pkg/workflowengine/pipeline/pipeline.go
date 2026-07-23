@@ -873,9 +873,9 @@ func (w *PipelineWorkflow) Start(
 	}
 
 	runnerInfo, _ := ParsePipelineRunnerInfo(inputYaml)
-	// Add global_runner_id to config if specified
+	// Add global_device_id to config if specified.
 	if wfDef.Runtime.GlobalRunnerID != "" {
-		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
+		config["global_device_id"] = wfDef.Runtime.GlobalRunnerID
 	}
 	globalRunnerID := GlobalRunnerIDFromConfig(config)
 	runnerIDs := RunnerIDsWithGlobal(runnerInfo, globalRunnerID)

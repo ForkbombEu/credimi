@@ -33,6 +33,7 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	ensureMobileRunnerLifecycleFields(t, app)
+	ensureMobileDevicesCollection(t, app)
 
 	ensureMobileRunnerAccessFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
@@ -43,6 +44,26 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	seedInternalAdminKey(t, app)
 
 	return app
+}
+
+func ensureMobileDevicesCollection(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+	collection, err := app.FindCollectionByNameOrId("mobile_devices")
+	if err != nil {
+		collection = core.NewBaseCollection("mobile_devices")
+		collection.Fields.Add(&core.RelationField{Name: "owner", CollectionId: "aako88kt3br4npt", MaxSelect: 1, Required: true})
+		collection.Fields.Add(&core.RelationField{Name: "runner", CollectionId: "pbc_500646217", MaxSelect: 1, Required: true, CascadeDelete: true})
+		collection.Fields.Add(&core.TextField{Name: "name", Required: true})
+		collection.Fields.Add(&core.TextField{Name: "canonified_name", Required: true})
+		collection.Fields.Add(&core.BoolField{Name: "online"})
+	}
+	if collection.Fields.GetByName("type") == nil {
+		collection.Fields.Add(&core.TextField{Name: "type"})
+	}
+	if collection.Fields.GetByName("serial") == nil {
+		collection.Fields.Add(&core.TextField{Name: "serial"})
+	}
+	require.NoError(t, app.Save(collection))
 }
 
 func ensureMobileRunnerAccessFields(t testing.TB, app *tests.TestApp) {

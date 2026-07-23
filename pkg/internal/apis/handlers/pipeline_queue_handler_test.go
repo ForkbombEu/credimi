@@ -37,6 +37,7 @@ func setupPipelineQueueApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 
+	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	PipelineRoutes.Add(app)
 
@@ -82,6 +83,16 @@ func createPipelineQueueMobileRunner(
 	record.Set("type", "android_phone")
 	record.Set("published", published)
 	require.NoError(t, app.Save(record))
+
+	deviceColl, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(deviceColl)
+	device.Set("owner", orgID)
+	device.Set("runner", record.Id)
+	device.Set("name", "device-1")
+	device.Set("canonified_name", "device-1")
+	device.Set("type", "android_phone")
+	require.NoError(t, app.Save(device))
 }
 
 func ensureOrganizationsQueueLimitField(t testing.TB, app *tests.TestApp) {
@@ -174,9 +185,9 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 	installQueueStubs(t, stub)
 
 	missingRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n"
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n"
-	unknownRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/missing-runner\n"
-	foreignPrivateRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: other-org/private-runner\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n"
+	unknownRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/missing-runner/device-1\n"
+	foreignPrivateRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: other-org/private-runner/device-1\n"
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -208,8 +219,8 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			}),
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
-				"runner_ids",
-				"runner_ids are required",
+				"device_ids",
+				"device_ids are required",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				return setupPipelineQueueAppWithPipeline(t, orgID, missingRunnerYaml)
@@ -229,7 +240,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				"\"status\":\"queued\"",
-				"\"runner_ids\":[\"usera-s-organization/runner-1\"]",
+				"\"device_ids\":[\"usera-s-organization/runner-1/device-1\"]",
 				"\"pipeline_url\":\"https://credimi.test/my/pipelines/usera-s-organization/pipeline123\"",
 			},
 			NotExpectedContent: []string{
@@ -254,7 +265,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			}),
 			ExpectedStatus: http.StatusForbidden,
 			ExpectedContent: []string{
-				"runner_id is not accessible",
+				"device_id is not accessible",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineQueueAppWithPipeline(t, orgID, foreignPrivateRunnerYaml)
@@ -290,7 +301,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 		{
 			Name:   "poll returns not found",
 			Method: http.MethodGet,
-			URL:    "/api/pipeline/queue/missing-ticket?runner_ids[]=runner-1",
+			URL:    "/api/pipeline/queue/missing-ticket?device_ids[]=runner-1/device-1",
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
 			},
@@ -325,7 +336,7 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 	stub := &queueStub{}
 	installQueueStubs(t, stub)
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue passes org queue limit",
@@ -489,7 +500,7 @@ func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {
 	scenario := tests.ApiScenario{
 		Name:   "poll returns run url",
 		Method: http.MethodGet,
-		URL:    "/api/pipeline/queue/ticket-1?runner_ids[]=runner-1",
+		URL:    "/api/pipeline/queue/ticket-1?device_ids[]=runner-1/device-1",
 		Headers: map[string]string{
 			"Authorization": "Bearer " + token,
 		},
@@ -523,7 +534,7 @@ func TestPipelineQueueCancel(t *testing.T) {
 		{
 			Name:   "cancel queued ticket",
 			Method: http.MethodDelete,
-			URL:    "/api/pipeline/queue/ticket-cancel?runner_ids[]=runner-1",
+			URL:    "/api/pipeline/queue/ticket-cancel?device_ids[]=runner-1/device-1",
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
 			},
@@ -544,7 +555,7 @@ func TestPipelineQueueCancel(t *testing.T) {
 		{
 			Name:   "poll after cancel returns not found",
 			Method: http.MethodGet,
-			URL:    "/api/pipeline/queue/ticket-cancel?runner_ids[]=runner-1",
+			URL:    "/api/pipeline/queue/ticket-cancel?device_ids[]=runner-1/device-1",
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
 			},
@@ -608,7 +619,7 @@ func TestPipelineQueueCancelDeletesQueuedTempWalletVersion(t *testing.T) {
 
 		req := httptest.NewRequest(
 			http.MethodDelete,
-			"/api/pipeline/queue/ticket-temp?runner_ids[]=runner-1",
+			"/api/pipeline/queue/ticket-temp?device_ids[]=runner-1/device-1",
 			nil,
 		)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -667,7 +678,7 @@ func TestPipelineQueueCancelKeepsTempWalletVersionForRunningRun(t *testing.T) {
 
 		req := httptest.NewRequest(
 			http.MethodDelete,
-			"/api/pipeline/queue/ticket-temp?runner_ids[]=runner-1",
+			"/api/pipeline/queue/ticket-temp?device_ids[]=runner-1/device-1",
 			nil,
 		)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -715,7 +726,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		if ticketID == "" {
 			ticketID = req.TicketID
 		}
-		if runnerID == "usera-s-organization/runner-2" {
+		if runnerID == "usera-s-organization/runner-2/device-1" {
 			return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, errors.New("enqueue failed")
 		}
 		return workflows.MobileRunnerSemaphoreEnqueueRunResponse{
@@ -746,7 +757,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		}, nil
 	}
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-2\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n  - name: step2\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-2/device-1\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue rollback on partial failure",
@@ -774,7 +785,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 	require.Len(t, cancelCalls, 2)
 	require.ElementsMatch(
 		t,
-		[]string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"},
+		[]string{"usera-s-organization/runner-1/device-1", "usera-s-organization/runner-2/device-1"},
 		[]string{
 			cancelCalls[0].runnerID,
 			cancelCalls[1].runnerID,
@@ -810,19 +821,19 @@ func createQueueTempWalletVersion(
 }
 
 func TestPipelineQueueHelpers(t *testing.T) {
-	t.Run("parseRunnerIDs prefers array param", func(t *testing.T) {
+	t.Run("parseDeviceIDs prefers array param", func(t *testing.T) {
 		req := httptest.NewRequest(
 			http.MethodGet,
-			"/?runner_ids[]=runner-1&runner_ids[]=runner-2",
+			"/?device_ids[]=runner-1/device-1&device_ids[]=runner-2/device-1",
 			nil,
 		)
-		req.URL.RawQuery = "runner_ids[]=runner-1&runner_ids[]=runner-2&runner_ids=runner-3"
-		require.Equal(t, []string{"runner-1", "runner-2"}, parseRunnerIDs(req))
+		req.URL.RawQuery = "device_ids[]=runner-1/device-1&device_ids[]=runner-2/device-1&device_ids=runner-3/device-1"
+		require.Equal(t, []string{"runner-1/device-1", "runner-2/device-1"}, parseRunnerIDs(req))
 	})
 
-	t.Run("parseRunnerIDs falls back to singular param", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/?runner_ids=runner-3", nil)
-		require.Equal(t, []string{"runner-3"}, parseRunnerIDs(req))
+	t.Run("parseDeviceIDs falls back to singular param", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/?device_ids=runner-3/device-1", nil)
+		require.Equal(t, []string{"runner-3/device-1"}, parseRunnerIDs(req))
 	})
 
 	t.Run("normalizeRunnerIDs dedupes and trims", func(t *testing.T) {
@@ -1016,7 +1027,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		if ticketID == "" {
 			ticketID = req.TicketID
 		}
-		if runnerID == "usera-s-organization/runner-2" {
+		if runnerID == "usera-s-organization/runner-2/device-1" {
 			return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
 				"queue limit exceeded for runner runner-2: 1 of 1",
 				workflows.MobileRunnerSemaphoreErrQueueLimitExceeded,
@@ -1050,7 +1061,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		}, nil
 	}
 
-	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-2\n"
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n  - name: step2\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-2/device-1\n"
 
 	scenario := tests.ApiScenario{
 		Name:   "enqueue queue limit rollback",
@@ -1079,7 +1090,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 	require.Len(t, cancelCalls, 2)
 	require.ElementsMatch(
 		t,
-		[]string{"usera-s-organization/runner-1", "usera-s-organization/runner-2"},
+		[]string{"usera-s-organization/runner-1/device-1", "usera-s-organization/runner-2/device-1"},
 		[]string{
 			cancelCalls[0].runnerID,
 			cancelCalls[1].runnerID,
@@ -1107,7 +1118,7 @@ func TestPipelineQueueStatus_MultiRunnerDoesNot404WhenAnyRunnerFound(t *testing.
 		ownerNamespace string,
 		ticketID string,
 	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
-		if runnerID == "runner-1" {
+		if runnerID == "runner-1/device-1" {
 			return workflows.MobileRunnerSemaphoreRunStatusView{
 				TicketID:          ticketID,
 				Status:            workflowengine.MobileRunnerSemaphoreRunFailed,
@@ -1125,7 +1136,7 @@ func TestPipelineQueueStatus_MultiRunnerDoesNot404WhenAnyRunnerFound(t *testing.
 	scenario := tests.ApiScenario{
 		Name:   "multi-runner status returns failure when any runner found",
 		Method: http.MethodGet,
-		URL:    "/api/pipeline/queue/ticket-1?runner_ids[]=runner-1&runner_ids[]=runner-2",
+		URL:    "/api/pipeline/queue/ticket-1?device_ids[]=runner-1/device-1&device_ids[]=runner-2/device-1",
 		Headers: map[string]string{
 			"Authorization": "Bearer " + token,
 		},
@@ -1163,7 +1174,7 @@ func TestPipelineQueueStatus_MultiRunnerIgnoresMissingRunnerWorkflow(t *testing.
 		ownerNamespace string,
 		ticketID string,
 	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
-		if runnerID == "runner-2" {
+		if runnerID == "runner-2/device-1" {
 			return workflows.MobileRunnerSemaphoreRunStatusView{}, errRunTicketNotFound
 		}
 		return workflows.MobileRunnerSemaphoreRunStatusView{
@@ -1179,7 +1190,7 @@ func TestPipelineQueueStatus_MultiRunnerIgnoresMissingRunnerWorkflow(t *testing.
 	scenario := tests.ApiScenario{
 		Name:   "multi-runner status ignores missing workflow",
 		Method: http.MethodGet,
-		URL:    "/api/pipeline/queue/ticket-2?runner_ids[]=runner-1&runner_ids[]=runner-2",
+		URL:    "/api/pipeline/queue/ticket-2?device_ids[]=runner-1/device-1&device_ids[]=runner-2/device-1",
 		Headers: map[string]string{
 			"Authorization": "Bearer " + token,
 		},
@@ -1226,7 +1237,7 @@ func TestPipelineQueueStatus_MultiRunnerAllMissingReturnsNotFound(t *testing.T) 
 	scenario := tests.ApiScenario{
 		Name:   "multi-runner status returns not found when all missing",
 		Method: http.MethodGet,
-		URL:    "/api/pipeline/queue/ticket-3?runner_ids[]=runner-1&runner_ids[]=runner-2",
+		URL:    "/api/pipeline/queue/ticket-3?device_ids[]=runner-1/device-1&device_ids[]=runner-2/device-1",
 		Headers: map[string]string{
 			"Authorization": "Bearer " + token,
 		},

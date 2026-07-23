@@ -810,7 +810,7 @@ func extractCompletionStatus(exec *WorkflowExecution) bool {
 }
 
 func extractRunnerIDsFromExec(exec *WorkflowExecution) []string {
-	if runnerVal, ok := (*exec.SearchAttributes)[workflowengine.RunnerIdentifiersSearchAttribute]; ok {
+	if runnerVal, ok := (*exec.SearchAttributes)[workflowengine.DeviceIdentifiersSearchAttribute]; ok {
 		switch v := runnerVal.(type) {
 		case []string:
 			return v
@@ -1164,7 +1164,7 @@ func setMobileRunnersRelation(record *core.Record, app core.App, runners []strin
 
 	runnerIDs, skipped := findExistingRecords(app, runners)
 	if len(runnerIDs) > 0 {
-		record.Set("mobile_runners", runnerIDs)
+		record.Set("mobile_devices", runnerIDs)
 	}
 	if len(skipped) > 0 {
 		return fmt.Errorf("skipped missing runners: %s", strings.Join(skipped, ", "))

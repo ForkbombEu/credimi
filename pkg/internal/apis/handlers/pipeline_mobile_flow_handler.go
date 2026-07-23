@@ -221,7 +221,7 @@ func pipelineMobileFlowDevice(
 			err.Error(),
 		)
 	}
-	runnerIDs := stringSlice(attributes[workflowengine.RunnerIdentifiersSearchAttribute])
+	runnerIDs := stringSlice(attributes[workflowengine.DeviceIdentifiersSearchAttribute])
 	if len(runnerIDs) != 1 {
 		return "", nil, apierror.New(
 			http.StatusUnprocessableEntity,

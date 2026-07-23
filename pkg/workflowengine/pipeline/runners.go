@@ -46,7 +46,7 @@ func ValidateRunnerIDYAML(yamlStr string) error {
 
 		foundMobileStep = true
 
-		runnerID, _ := step.With.Payload["runner_id"].(string)
+		runnerID, _ := step.With.Payload["device_id"].(string)
 		runnerSet := strings.TrimSpace(runnerID) != ""
 
 		if runnerSet {
@@ -71,7 +71,7 @@ func ValidateRunnerIDYAML(yamlStr string) error {
 	if globalSet {
 		if anyStepRunnerSet {
 			return fmt.Errorf(
-				"global_runner_id is set, but step %q defines runner_id; use only global_runner_id or set runner_id for all mobile-automation steps",
+				"global_device_id is set, but step %q defines device_id; use only global_device_id or set device_id for all mobile-automation steps",
 				firstConflictStepID,
 			)
 		}
@@ -81,7 +81,7 @@ func ValidateRunnerIDYAML(yamlStr string) error {
 	// If global is not set, all mobile steps must set runner_id.
 	if anyStepRunnerMissing {
 		return fmt.Errorf(
-			"global_runner_id is not set and step %q is missing runner_id; set runner_id on all mobile-automation steps or set global_runner_id",
+			"global_device_id is not set and step %q is missing device_id; set device_id on all mobile-automation steps or set global_device_id",
 			firstMissingStepID,
 		)
 	}
@@ -105,7 +105,7 @@ func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
 	collectRunner := func(step pipeline.StepSpec) {
 		runnerID := ""
 		if step.With.Payload != nil {
-			if rawRunnerID, ok := step.With.Payload["runner_id"]; ok {
+			if rawRunnerID, ok := step.With.Payload["device_id"]; ok {
 				if id, ok := rawRunnerID.(string); ok {
 					runnerID = canonify.NormalizePath(id)
 				}
@@ -180,7 +180,7 @@ func GlobalRunnerIDFromConfig(config map[string]any) string {
 	if config == nil {
 		return ""
 	}
-	if v, ok := config["global_runner_id"]; ok {
+	if v, ok := config["global_device_id"]; ok {
 		if s, ok := v.(string); ok {
 			return canonify.NormalizePath(s)
 		}

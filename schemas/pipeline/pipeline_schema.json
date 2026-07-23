@@ -123,7 +123,7 @@
         "disable_android_play_store": {
           "type": "boolean"
         },
-        "global_runner_id": {
+        "global_device_id": {
           "type": "string"
         },
         "schedule": {
@@ -995,7 +995,7 @@
                         },
                         "type": "object"
                       },
-                      "runner_id": {
+                      "device_id": {
                         "type": "string"
                       }
                     },
@@ -1020,7 +1020,7 @@
                         },
                         "type": "object"
                       },
-                      "runner_id": {
+                      "device_id": {
                         "type": "string"
                       },
                       "version_id": {
@@ -1049,7 +1049,7 @@
                         },
                         "type": "object"
                       },
-                      "runner_id": {
+                      "device_id": {
                         "type": "string"
                       },
                       "version_id": {

@@ -177,7 +177,7 @@ func pipelineMobileFlowDescription(
 			Status: status,
 			SearchAttributes: &commonpb.SearchAttributes{
 				IndexedFields: map[string]*commonpb.Payload{
-					workflowengine.RunnerIdentifiersSearchAttribute: runnerPayload,
+					workflowengine.DeviceIdentifiersSearchAttribute: runnerPayload,
 				},
 			},
 		},

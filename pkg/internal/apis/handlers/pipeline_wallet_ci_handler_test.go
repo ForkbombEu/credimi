@@ -42,6 +42,7 @@ func setupPipelineWalletAPKApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 
+	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	PipelineRoutes.Add(app)
 
@@ -139,6 +140,16 @@ func createWalletAPKMobileRunner(
 	record.Set("type", runnerType)
 	record.Set("published", published)
 	require.NoError(t, app.Save(record))
+
+	deviceColl, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(deviceColl)
+	device.Set("owner", orgID)
+	device.Set("runner", record.Id)
+	device.Set("name", "device-1")
+	device.Set("canonified_name", "device-1")
+	device.Set("type", runnerType)
+	require.NoError(t, app.Save(device))
 }
 
 func createWalletAPKWallet(

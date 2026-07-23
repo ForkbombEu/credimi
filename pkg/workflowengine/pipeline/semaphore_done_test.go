@@ -96,7 +96,7 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 			}
 			return payload.TicketID == "ticket-1" &&
 				payload.OwnerNamespace == "tenant-1" &&
-				payload.LeaderRunnerID == "runner-1" &&
+				payload.LeaderRunnerID == "runner-1/device-1" &&
 				payload.WorkflowID == "default-test-workflow-id" &&
 				payload.RunID == "default-test-run-id" &&
 				payload.WorkflowResult == resultSuccess
@@ -116,9 +116,9 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 		WorkflowInput: workflowengine.WorkflowInput{
 			Config: map[string]any{
 				"app_url":                                  "https://example.test",
-				"mobile_runner_semaphore_ticket_id":        "ticket-1",
-				"mobile_runner_semaphore_leader_runner_id": "runner-1",
-				"mobile_runner_semaphore_owner_namespace":  "tenant-1",
+				"mobile_device_semaphore_ticket_id":        "ticket-1",
+				"mobile_device_semaphore_leader_device_id": "runner-1/device-1",
+				"mobile_device_semaphore_owner_namespace":  "tenant-1",
 			},
 			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 		},

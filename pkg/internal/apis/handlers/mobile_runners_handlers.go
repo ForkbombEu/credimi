@@ -50,6 +50,14 @@ type MobileRunnerSemaphoreResponseSchema struct {
 	QueueLen  int    `json:"queue_len"`
 }
 
+type MobileDeviceSemaphoreResponseSchema struct {
+	DeviceID  string `json:"device_id"`
+	Capacity  int    `json:"capacity"`
+	SlotsUsed int    `json:"slots_used"`
+	InUse     bool   `json:"in_use"`
+	QueueLen  int    `json:"queue_len"`
+}
+
 type ListMobileRunnersPublicResponseSchema struct {
 	Runners []MobileRunnerListItem `json:"runners"`
 }
@@ -115,6 +123,11 @@ type ValidateMobileRunnerAccessRequest struct {
 	RunnerIDs      []string `json:"runner_ids"`
 }
 
+type ValidateMobileDeviceAccessRequest struct {
+	OwnerNamespace string   `json:"owner_namespace"`
+	DeviceIDs      []string `json:"device_ids"`
+}
+
 var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/mobile-runner",
 	AuthenticationRequired: false,
@@ -160,6 +173,8 @@ var MobileDevicesTemporalInternalRoutes = routing.RouteGroup{
 	},
 	Routes: []routing.RouteDefinition{
 		{Method: http.MethodGet, Path: "", Handler: HandleGetMobileDevice, ResponseSchema: GetMobileDeviceResponseSchema{}},
+		{Method: http.MethodGet, Path: "/semaphore", Handler: HandleGetMobileDeviceSemaphore, ResponseSchema: MobileDeviceSemaphoreResponseSchema{}},
+		{Method: http.MethodPost, Path: "/validate-access", Handler: HandleValidateMobileDeviceAccess, RequestSchema: ValidateMobileDeviceAccessRequest{}, Description: "Validate that device IDs are accessible to an owner namespace"},
 	},
 }
 
@@ -427,6 +442,27 @@ func HandleGetMobileDevice() func(*core.RequestEvent) error {
 	}
 }
 
+func HandleGetMobileDeviceSemaphore() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		deviceID := canonify.NormalizePath(e.Request.URL.Query().Get("device_identifier"))
+		if deviceID == "" {
+			return apierror.New(http.StatusBadRequest, "device_identifier", "device_identifier_required", "missing device_identifier")
+		}
+		record, err := canonify.Resolve(e.App, deviceID)
+		if err != nil || record.Collection() == nil || record.Collection().Name != "mobile_devices" {
+			return apierror.New(http.StatusNotFound, "device_identifier", "mobile_device_not_found", "mobile device not found")
+		}
+		state, err := queryMobileRunnerSemaphoreState(e.Request.Context(), deviceID)
+		if errors.Is(err, errSemaphoreNotFound) {
+			return apierror.New(http.StatusNotFound, "semaphore", "device_semaphore_not_found", err.Error())
+		}
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "semaphore", "failed_to_query_device_semaphore", err.Error())
+		}
+		return e.JSON(http.StatusOK, MobileDeviceSemaphoreResponseSchema{DeviceID: deviceID, Capacity: state.Capacity, SlotsUsed: state.SlotsUsed, InUse: state.SlotsUsed > 0, QueueLen: state.QueueLen})
+	}
+}
+
 func HandleValidateMobileRunnerAccess() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[ValidateMobileRunnerAccessRequest](e)
@@ -464,6 +500,31 @@ func HandleValidateMobileRunnerAccess() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
+		return e.JSON(http.StatusOK, map[string]any{"valid": true})
+	}
+}
+
+func HandleValidateMobileDeviceAccess() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[ValidateMobileDeviceAccessRequest](e)
+		if err != nil {
+			return err
+		}
+		ownerNamespace := strings.TrimSpace(input.OwnerNamespace)
+		if ownerNamespace == "" {
+			return apierror.New(http.StatusBadRequest, "owner_namespace", "owner_namespace_required", "missing owner_namespace")
+		}
+		ownerRecord, err := e.App.FindFirstRecordByFilter(
+			"organizations",
+			"canonified_name = {:namespace}",
+			map[string]any{"namespace": ownerNamespace},
+		)
+		if err != nil {
+			return apierror.New(http.StatusNotFound, "owner_namespace", "owner_namespace_not_found", err.Error())
+		}
+		if apiErr := validatePipelineRunnerAccess(e.App, ownerRecord.Id, input.DeviceIDs); apiErr != nil {
+			return apiErr
+		}
 		return e.JSON(http.StatusOK, map[string]any{"valid": true})
 	}
 }

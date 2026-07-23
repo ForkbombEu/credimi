@@ -396,6 +396,7 @@ func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 		"wf-1",
 		"run-1",
 		pipelineinternal.RunTypeManual,
+		nil,
 	)
 
 	require.Error(t, err)
@@ -415,6 +416,7 @@ func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
 		"wf-1",
 		"run-1",
 		pipelineinternal.RunTypeManual,
+		nil,
 	)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, status)
@@ -435,6 +437,7 @@ func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {
 		"wf-1",
 		"run-1",
 		pipelineinternal.RunTypeManual,
+		nil,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")

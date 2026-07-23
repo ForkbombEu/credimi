@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -32,7 +33,7 @@ func HandleStorePipelineStepScreenshots() func(*core.RequestEvent) error {
 		}
 
 		runIdentifier := e.Request.FormValue("run_identifier")
-		runnerIdentifier := e.Request.FormValue("runner_identifier")
+		deviceIdentifier := canonify.NormalizePath(e.Request.FormValue("device_identifier"))
 		stepID := canonify.CanonifyPlain(e.Request.FormValue("step_id"))
 		if stepID == "" {
 			return apierror.New(
@@ -55,9 +56,13 @@ func HandleStorePipelineStepScreenshots() func(*core.RequestEvent) error {
 		if apiErr := authorizePipelineResultStoreAccess(
 			e,
 			resultRecord.GetString("owner"),
-			runnerIdentifier,
+			deviceIdentifier,
 		); apiErr != nil {
 			return apiErr
+		}
+		device, err := canonify.Resolve(e.App, deviceIdentifier)
+		if err != nil || device.Collection() == nil || device.Collection().Name != "mobile_devices" || !slices.Contains(resultRecord.GetStringSlice("devices"), device.Id) {
+			return apierror.New(http.StatusForbidden, "device_identifier", "device_not_reserved", "device is not reserved for this pipeline run")
 		}
 
 		filenames, urls, apiErr := storePipelineStepScreenshotFiles(

@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	mobileRunnerSemaphoreOwnerNamespaceKey = "mobile_runner_semaphore_owner_namespace"
-	mobileRunnerSemaphoreLeaderRunnerIDKey = "mobile_runner_semaphore_leader_runner_id"
+	mobileRunnerSemaphoreOwnerNamespaceKey = "mobile_device_semaphore_owner_namespace"
+	mobileRunnerSemaphoreLeaderRunnerIDKey = "mobile_device_semaphore_leader_device_id"
 )
 
 func reportMobileRunnerSemaphoreDone(
@@ -52,7 +52,7 @@ func reportMobileRunnerSemaphoreDone(
 			"failed to report mobile runner semaphore done",
 			"ticket_id",
 			ticketID,
-			"leader_runner_id",
+			"leader_device_id",
 			leaderRunnerID,
 			"error",
 			err,

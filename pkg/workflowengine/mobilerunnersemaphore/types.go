@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	TaskQueue    = "mobile-runner-semaphore-task-queue"
-	WorkflowName = "mobile-runner-semaphore"
+	TaskQueue    = "mobile-device-semaphore-task-queue"
+	WorkflowName = "mobile-device-semaphore"
 	StateQuery   = "GetState"
 
-	ErrInvalidRequest     = "mobile-runner-semaphore-invalid-request"
-	ErrQueueLimitExceeded = "mobile-runner-semaphore-queue-limit-exceeded"
+	ErrInvalidRequest     = "mobile-device-semaphore-invalid-request"
+	ErrQueueLimitExceeded = "mobile-device-semaphore-queue-limit-exceeded"
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 )
 
 type MobileRunnerSemaphoreWorkflowInput struct {
-	RunnerID string                              `json:"runner_id"`
+	RunnerID string                              `json:"device_id"`
 	Capacity int                                 `json:"capacity"`
 	State    *MobileRunnerSemaphoreWorkflowState `json:"state,omitempty"`
 }
@@ -53,7 +53,7 @@ type MobileRunnerSemaphoreWorkflowState struct {
 }
 
 type MobileRunnerSemaphoreStateView struct {
-	RunnerID             string    `json:"runner_id"`
+	RunnerID             string    `json:"device_id"`
 	Capacity             int       `json:"capacity"`
 	SlotsUsed            int       `json:"slots_used"`
 	QueueLen             int       `json:"queue_len"`
@@ -79,9 +79,9 @@ type MobileRunnerSemaphoreEnqueueRunRequest struct {
 	TicketID            string                                `json:"ticket_id"`
 	OwnerNamespace      string                                `json:"owner_namespace"`
 	EnqueuedAt          time.Time                             `json:"enqueued_at"`
-	RunnerID            string                                `json:"runner_id"`
-	RequiredRunnerIDs   []string                              `json:"required_runner_ids"`
-	LeaderRunnerID      string                                `json:"leader_runner_id"`
+	RunnerID            string                                `json:"device_id"`
+	RequiredRunnerIDs   []string                              `json:"required_device_ids"`
+	LeaderRunnerID      string                                `json:"leader_device_id"`
 	MaxPipelinesInQueue int                                   `json:"max_pipelines_in_queue,omitempty"`
 	PipelineIdentifier  string                                `json:"pipeline_identifier,omitempty"`
 	YAML                string                                `json:"yaml,omitempty"`
@@ -195,7 +195,7 @@ type MobileRunnerSemaphoreResumeRunnerRequest struct {
 }
 
 type MobileRunnerSemaphoreResumeRunnerResponse struct {
-	RunnerID string `json:"runner_id"`
+	RunnerID string `json:"device_id"`
 	Paused   bool   `json:"paused"`
 	QueueLen int    `json:"queue_len"`
 }
@@ -238,12 +238,12 @@ type MobileRunnerSemaphoreRunTicketState struct {
 	WorkflowNamespace string                                 `json:"workflow_namespace,omitempty"`
 	ErrorMessage      string                                 `json:"error_message,omitempty"`
 	CancelRequested   bool                                   `json:"cancel_requested,omitempty"`
-	GrantedRunnerIDs  map[string]bool                        `json:"granted_runner_ids,omitempty"`
+	GrantedRunnerIDs  map[string]bool                        `json:"granted_device_ids,omitempty"`
 	StartedAt         *time.Time                             `json:"started_at,omitempty"`
 	DoneAt            *time.Time                             `json:"done_at,omitempty"`
 }
 
-func WorkflowID(runnerID string) string {
-	runnerID = canonify.NormalizePath(runnerID)
-	return fmt.Sprintf("mobile-runner-semaphore/%s", runnerID)
+func WorkflowID(deviceID string) string {
+	deviceID = canonify.NormalizePath(deviceID)
+	return fmt.Sprintf("mobile-device-semaphore/%s", deviceID)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
 	tclient "go.temporal.io/sdk/client"
@@ -85,26 +86,28 @@ func markStaleRunnersOfflineAndPauseSemaphores(ctx context.Context, app core.App
 			continue
 		}
 
-		runnerID, err := mobileRunnerRecordIdentifier(app, record)
-		if err != nil {
-			app.Logger().
-				Error("build stale runner identifier failed", "record_id", record.Id, "error", err)
-			continue
-		}
-
 		shouldPause, err := markRunnerOfflineIfStillStale(app, record.Id, cutoff)
 		if err != nil {
 			app.Logger().
-				Error("mark stale runner offline failed", "runner_id", runnerID, "error", err)
+				Error("mark stale runner offline failed", "record_id", record.Id, "error", err)
 			continue
 		}
 		if !shouldPause {
 			continue
 		}
 
-		if err := pauseStaleRunnerSemaphore(ctx, runnerID, cutoff); err != nil {
-			app.Logger().
-				Error("pause stale runner semaphore failed", "runner_id", runnerID, "error", err)
+		devices, err := app.FindRecordsByFilter("mobile_devices", "runner = {:runner}", "", -1, 0, dbx.Params{"runner": record.Id})
+		if err != nil {
+			return fmt.Errorf("list stale runner devices: %w", err)
+		}
+		for _, device := range devices {
+			deviceID, err := mobileDeviceRecordIdentifier(app, device)
+			if err != nil {
+				return fmt.Errorf("build stale device identifier: %w", err)
+			}
+			if err := pauseStaleRunnerSemaphore(ctx, deviceID, cutoff); err != nil {
+				app.Logger().Error("pause stale device semaphore failed", "device_id", deviceID, "error", err)
+			}
 		}
 	}
 

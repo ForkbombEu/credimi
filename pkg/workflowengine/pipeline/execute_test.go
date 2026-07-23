@@ -78,17 +78,18 @@ steps:
 		yamlContent := `
 name: Test Pipeline
 runtime:
-  global_runner_id: global-runner
+  global_device_id: global-device
 steps:
   - id: step1
     use: mobile-automation
     with:
-      runner_id: step-runner
+      payload:
+        device_id: step-device
 `
 		err := ValidateRunnerIDYAML(yamlContent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), `step "step1"`)
-		require.Contains(t, err.Error(), "global_runner_id is set")
+		require.Contains(t, err.Error(), "global_device_id is set")
 	})
 
 	t.Run("missing step runner without global", func(t *testing.T) {
@@ -98,30 +99,33 @@ steps:
   - id: step1
     use: mobile-automation
     with:
-      runner_id: step-runner
+      payload:
+        device_id: step-device
   - id: step2
     use: mobile-automation
 `
 		err := ValidateRunnerIDYAML(yamlContent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), `step "step2"`)
-		require.Contains(t, err.Error(), "missing runner_id")
+		require.Contains(t, err.Error(), "missing device_id")
 	})
 
 	t.Run("first conflict step is deterministic", func(t *testing.T) {
 		yamlContent := `
 name: Test Pipeline
 runtime:
-  global_runner_id: global-runner
+  global_device_id: global-device
 steps:
   - id: stepA
     use: mobile-automation
     with:
-      runner_id: step-runner-a
+      payload:
+        device_id: step-device-a
   - id: stepB
     use: mobile-automation
     with:
-      runner_id: step-runner-b
+      payload:
+        device_id: step-device-b
 `
 		err := ValidateRunnerIDYAML(yamlContent)
 		require.Error(t, err)

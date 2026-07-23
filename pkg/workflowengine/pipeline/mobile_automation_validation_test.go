@@ -26,7 +26,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name: "all steps have runner_id - should pass",
+			name: "all steps have device_id - should pass",
 			steps: []pipeline.StepDefinition{
 				{
 					StepSpec: pipeline.StepSpec{
@@ -34,7 +34,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 						Use: "mobile-automation",
 						With: pipeline.StepInputs{
 							Payload: map[string]any{
-								"runner_id": "runner1",
+								"device_id": "runner1/device1",
 								"action_id": "action1",
 							},
 						},
@@ -46,7 +46,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 						Use: "mobile-automation",
 						With: pipeline.StepInputs{
 							Payload: map[string]any{
-								"runner_id": "runner2",
+								"device_id": "runner2/device2",
 								"action_id": "action2",
 							},
 						},
@@ -57,7 +57,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name: "no step-level runner_id but global_runner_id is set - should pass",
+			name: "no step-level device_id but global_device_id is set - should pass",
 			steps: []pipeline.StepDefinition{
 				{
 					StepSpec: pipeline.StepSpec{
@@ -82,11 +82,11 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "global-runner",
+			globalRunnerID: "global-runner/device",
 			expectError:    false,
 		},
 		{
-			name: "some steps missing runner_id and no global_runner_id - should fail",
+			name: "some steps missing device_id and no global_device_id - should fail",
 			steps: []pipeline.StepDefinition{
 				{
 					StepSpec: pipeline.StepSpec{
@@ -94,7 +94,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 						Use: "mobile-automation",
 						With: pipeline.StepInputs{
 							Payload: map[string]any{
-								"runner_id": "runner1",
+								"device_id": "runner1/device1",
 								"action_id": "action1",
 							},
 						},
@@ -114,10 +114,10 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 			},
 			globalRunnerID: "",
 			expectError:    true,
-			errorContains:  "runner_id",
+			errorContains:  "device_id",
 		},
 		{
-			name: "no runner_id anywhere - should fail",
+			name: "no device_id anywhere - should fail",
 			steps: []pipeline.StepDefinition{
 				{
 					StepSpec: pipeline.StepSpec{
@@ -133,10 +133,10 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 			},
 			globalRunnerID: "",
 			expectError:    true,
-			errorContains:  "runner_id",
+			errorContains:  "device_id",
 		},
 		{
-			name: "mixed step types - mobile-automation without runner_id but has global - should pass",
+			name: "mixed step types - mobile-automation without device_id but has global - should pass",
 			steps: []pipeline.StepDefinition{
 				{
 					StepSpec: pipeline.StepSpec{
@@ -161,11 +161,11 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "global-runner",
+			globalRunnerID: "global-runner/device",
 			expectError:    false,
 		},
 		{
-			name: "some steps with runner_id, some without, with global_runner_id - should pass",
+			name: "some steps with device_id, some without, with global_device_id - should pass",
 			steps: []pipeline.StepDefinition{
 				{
 					StepSpec: pipeline.StepSpec{
@@ -173,7 +173,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 						Use: "mobile-automation",
 						With: pipeline.StepInputs{
 							Payload: map[string]any{
-								"runner_id": "specific-runner",
+								"device_id": "specific-runner/device",
 								"action_id": "action1",
 							},
 						},
@@ -191,14 +191,14 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "global-runner",
+			globalRunnerID: "global-runner/device",
 			expectError:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateRunnerIDConfiguration(&tt.steps, tt.globalRunnerID)
+			err := validateDeviceIDConfiguration(&tt.steps, tt.globalRunnerID)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -212,12 +212,12 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 	}
 }
 
-func TestWorkflowDefinition_GlobalRunnerID(t *testing.T) {
-	t.Run("parse workflow with global_runner_id", func(t *testing.T) {
+func TestWorkflowDefinition_GlobalDeviceID(t *testing.T) {
+	t.Run("parse workflow with global_device_id", func(t *testing.T) {
 		yamlContent := `
 name: Test Pipeline
 runtime:
-  global_runner_id: my-global-runner
+  global_device_id: my-global-runner/device
 steps:
   - id: step1
     use: mobile-automation
@@ -226,18 +226,18 @@ steps:
 `
 		wfDef, err := pipeline.ParseWorkflow(yamlContent)
 		require.NoError(t, err)
-		require.Equal(t, "my-global-runner", wfDef.Runtime.GlobalRunnerID)
+		require.Equal(t, "my-global-runner/device", wfDef.Runtime.GlobalRunnerID)
 		require.Equal(t, "Test Pipeline", wfDef.Name)
 	})
 
-	t.Run("parse workflow without global_runner_id", func(t *testing.T) {
+	t.Run("parse workflow without global_device_id", func(t *testing.T) {
 		yamlContent := `
 name: Test Pipeline
 steps:
   - id: step1
     use: mobile-automation
     with:
-      runner_id: step-runner
+      device_id: step-runner/device
       action_id: action1
 `
 		wfDef, err := pipeline.ParseWorkflow(yamlContent)
@@ -255,7 +255,7 @@ steps:
   - id: step1
     use: mobile-automation
     with:
-      runner_id: step-runner
+      device_id: step-runner/device
       action_id: action1
 `
 		wfDef, err := pipeline.ParseWorkflow(yamlContent)

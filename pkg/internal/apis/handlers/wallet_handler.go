@@ -620,16 +620,20 @@ func publishedRunnerCanStoreForPublishedOrganization(
 		return false, nil
 	}
 
-	runner, err := canonify.Resolve(app, runnerIdentifier)
+	device, err := canonify.Resolve(app, runnerIdentifier)
 	if err != nil {
 		return false, apierror.New(
 			http.StatusBadRequest,
-			"runner_identifier",
-			"failed_to_resolve_runner_identifier",
+			"device_identifier",
+			"failed_to_resolve_device_identifier",
 			err.Error(),
 		)
 	}
-	if runner.Collection() == nil || runner.Collection().Name != "mobile_runners" {
+	if device.Collection() == nil || device.Collection().Name != "mobile_devices" {
+		return false, nil
+	}
+	runner, err := app.FindRecordById("mobile_runners", device.GetString("runner"))
+	if err != nil {
 		return false, nil
 	}
 	if runner.GetString("owner") != runnerOwnerID {

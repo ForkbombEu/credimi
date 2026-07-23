@@ -285,11 +285,12 @@ func HandleGetPipelineYAML() func(*core.RequestEvent) error {
 }
 
 type PipelineResultInput struct {
-	Owner      string `json:"owner"`
-	PipelineID string `json:"pipeline_id"`
-	WorkflowID string `json:"workflow_id"`
-	RunID      string `json:"run_id"`
-	Type       string `json:"type,omitempty"`
+	Owner      string   `json:"owner"`
+	PipelineID string   `json:"pipeline_id"`
+	WorkflowID string   `json:"workflow_id"`
+	RunID      string   `json:"run_id"`
+	Type       string   `json:"type,omitempty"`
+	DeviceIDs  []string `json:"device_ids,omitempty"`
 }
 
 type PipelineResultEvidenceInput struct {
@@ -516,6 +517,12 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				),
 			)
 		}
+		deviceIDs := normalizeRunnerIDs(input.DeviceIDs)
+		if len(deviceIDs) > 0 {
+			if apiErr := validatePipelineRunnerAccess(e.App, owner.Id, deviceIDs); apiErr != nil {
+				return apiErr
+			}
+		}
 
 		existing, err := e.App.FindFirstRecordByFilter(
 			coll,
@@ -551,6 +558,17 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 		record.Set("pipeline", pipeline.Id)
 		record.Set("workflow_id", input.WorkflowID)
 		record.Set("run_id", input.RunID)
+		if len(deviceIDs) > 0 {
+			deviceRecordIDs := make([]string, 0, len(deviceIDs))
+			for _, deviceID := range deviceIDs {
+				device, resolveErr := canonify.Resolve(e.App, deviceID)
+				if resolveErr != nil {
+					return apierror.New(http.StatusNotFound, "device_id", "device not found", resolveErr.Error())
+				}
+				deviceRecordIDs = append(deviceRecordIDs, device.Id)
+			}
+			record.Set("devices", deviceRecordIDs)
+		}
 		setPipelineRunType(record, coll, runType)
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(

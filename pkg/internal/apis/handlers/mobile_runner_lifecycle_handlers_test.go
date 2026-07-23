@@ -14,12 +14,28 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
 )
+
+func createMobileDeviceForLifecycleTest(t *testing.T, app core.App, runner *core.Record, name string) string {
+	t.Helper()
+	collection, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(collection)
+	device.Set("owner", runner.GetString("owner"))
+	device.Set("runner", runner.Id)
+	device.Set("name", name)
+	device.Set("canonified_name", name)
+	require.NoError(t, app.Save(device))
+	identifier, err := mobileDeviceIdentifier(app, device)
+	require.NoError(t, err)
+	return identifier
+}
 
 func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 	app := setupMobileRunnerApp(t)
@@ -31,51 +47,13 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 	require.NoError(t, err)
 	createMobileRunnerRecord(t, app, orgID, "resume-runner", "https://runner.example", false)
 
-	origQueueClient := queueTemporalClient
-	origLifecycleClient := mobileRunnerLifecycleTemporalClient
 	origNow := mobileRunnerLifecycleNow
 	t.Cleanup(func() {
-		queueTemporalClient = origQueueClient
-		mobileRunnerLifecycleTemporalClient = origLifecycleClient
 		mobileRunnerLifecycleNow = origNow
 	})
 
 	fixedNow := time.Date(2026, 6, 23, 12, 30, 0, 0, time.UTC)
 	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
-
-	mockClient := temporalmocks.NewClient(t)
-	mockClient.
-		On(
-			"ExecuteWorkflow",
-			mock.Anything,
-			mock.Anything,
-			workflows.MobileRunnerSemaphoreWorkflowName,
-			mock.Anything,
-		).
-		Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
-
-	updateHandle := temporalmocks.NewWorkflowUpdateHandle(t)
-	mockClient.
-		On(
-			"UpdateWorkflow",
-			mock.Anything,
-			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
-				req, ok := options.Args[0].(workflows.MobileRunnerSemaphoreResumeRunnerRequest)
-				return ok &&
-					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
-						"usera-s-organization/resume-runner",
-					) &&
-					options.UpdateName == workflows.MobileRunnerSemaphoreResumeRunnerUpdate &&
-					req.Reason == "runner_startup"
-			}),
-		).
-		Return(updateHandle, nil).
-		Once()
-
-	queueTemporalClient = func(_ string) (client.Client, error) { return mockClient, nil }
-	mobileRunnerLifecycleTemporalClient = func(_ string) (client.Client, error) {
-		return mockClient, nil
-	}
 
 	event := performMobileRunnerRequest(
 		t,
@@ -173,20 +151,25 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 		"https://runner.example",
 		false,
 	)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/heartbeat-resume-runner")
+	require.NoError(t, err)
+	deviceID := createMobileDeviceForLifecycleTest(t, app, runner, "device-a")
 
 	origNow := mobileRunnerLifecycleNow
 	origQuerySemaphore := queryMobileRunnerSemaphoreState
 	origLifecycleClient := mobileRunnerLifecycleTemporalClient
+	origQueueClient := queueTemporalClient
 	t.Cleanup(func() {
 		mobileRunnerLifecycleNow = origNow
 		queryMobileRunnerSemaphoreState = origQuerySemaphore
 		mobileRunnerLifecycleTemporalClient = origLifecycleClient
+		queueTemporalClient = origQueueClient
 	})
 
 	fixedNow := time.Date(2026, 6, 24, 10, 20, 30, 0, time.UTC)
 	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
 	queryMobileRunnerSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileRunnerSemaphoreStateView, error) {
-		require.Equal(t, "usera-s-organization/heartbeat-resume-runner", runnerID)
+		require.Equal(t, deviceID, runnerID)
 		return workflows.MobileRunnerSemaphoreStateView{
 			RunnerID:    runnerID,
 			Paused:      true,
@@ -195,6 +178,7 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 	}
 
 	mockClient := temporalmocks.NewClient(t)
+	mockClient.On("ExecuteWorkflow", mock.Anything, mock.Anything, workflows.MobileRunnerSemaphoreWorkflowName, mock.Anything).Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
 	handle := temporalmocks.NewWorkflowUpdateHandle(t)
 	mockClient.
 		On(
@@ -204,7 +188,7 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 				req, ok := options.Args[0].(workflows.MobileRunnerSemaphoreResumeRunnerRequest)
 				return ok &&
 					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
-						"usera-s-organization/heartbeat-resume-runner",
+						deviceID,
 					) &&
 					options.UpdateName == workflows.MobileRunnerSemaphoreResumeRunnerUpdate &&
 					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
@@ -216,13 +200,14 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 	mobileRunnerLifecycleTemporalClient = func(_ string) (client.Client, error) {
 		return mockClient, nil
 	}
+	queueTemporalClient = func(_ string) (client.Client, error) { return mockClient, nil }
 
 	event := performMobileRunnerRequest(
 		t,
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/heartbeat",
-		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/heartbeat-resume-runner"},
+		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/heartbeat-resume-runner", Devices: []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}}},
 	)
 
 	err = HandleMobileRunnerLifecycleHeartbeat()(event)
@@ -260,6 +245,9 @@ func TestHandleMobileRunnerLifecyclePauseMissingSemaphoreSucceeds(t *testing.T) 
 	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 	require.NoError(t, err)
 	createMobileRunnerRecord(t, app, orgID, "pause-runner", "https://runner.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/pause-runner")
+	require.NoError(t, err)
+	createMobileDeviceForLifecycleTest(t, app, runner, "device-1")
 
 	record, err := canonify.Resolve(app, "/usera-s-organization/pause-runner")
 	require.NoError(t, err)
@@ -401,6 +389,9 @@ func TestHandleMobileRunnerLifecyclePauseSendsPauseUpdate(t *testing.T) {
 	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 	require.NoError(t, err)
 	createMobileRunnerRecord(t, app, orgID, "pause-update-runner", "https://runner.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/pause-update-runner")
+	require.NoError(t, err)
+	deviceID := createMobileDeviceForLifecycleTest(t, app, runner, "device-1")
 
 	origLifecycleClient := mobileRunnerLifecycleTemporalClient
 	t.Cleanup(func() { mobileRunnerLifecycleTemporalClient = origLifecycleClient })
@@ -414,9 +405,7 @@ func TestHandleMobileRunnerLifecyclePauseSendsPauseUpdate(t *testing.T) {
 			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
 				req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
 				return ok &&
-					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
-						"usera-s-organization/pause-update-runner",
-					) &&
+					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(deviceID) &&
 					options.UpdateName == workflows.MobileRunnerSemaphorePauseRunnerUpdate &&
 					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
 					req.CancelRunning &&

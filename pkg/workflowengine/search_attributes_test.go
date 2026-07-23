@@ -36,7 +36,7 @@ func TestPipelineTypedSearchAttributes(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "tenant/pipeline", pipelineIdentifier)
 
-	runnerKey := temporal.NewSearchAttributeKeyKeywordList(RunnerIdentifiersSearchAttribute)
+	runnerKey := temporal.NewSearchAttributeKeyKeywordList(DeviceIdentifiersSearchAttribute)
 	runnerIDs, ok := attrs.GetKeywordList(runnerKey)
 	require.True(t, ok)
 	require.Equal(t, []string{"runner-1"}, runnerIDs)

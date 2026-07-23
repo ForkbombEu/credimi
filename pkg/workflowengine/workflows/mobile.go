@@ -45,7 +45,7 @@ type MobileAutomationWorkflowPayload struct {
 	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
 	Serial           string            `json:"serial,omitempty"             yaml:"serial,omitempty"`
 	Type             string            `json:"type,omitempty"               yaml:"type,omitempty"`
-	RunnerID         string            `json:"runner_id,omitempty"          yaml:"runner_id,omitempty"`
+	RunnerID         string            `json:"device_id,omitempty"          yaml:"device_id,omitempty"`
 	Parameters       map[string]string `json:"parameters,omitempty"         yaml:"parameters,omitempty"`
 }
 
@@ -54,7 +54,7 @@ type MobileAutomationWorkflowPipelinePayload struct {
 	VersionID  string            `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
 	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
 	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
-	RunnerID   string            `json:"runner_id,omitempty"   yaml:"runner_id,omitempty"`
+	RunnerID   string            `json:"device_id,omitempty"   yaml:"device_id,omitempty"`
 }
 
 func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {
