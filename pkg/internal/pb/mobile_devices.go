@@ -21,7 +21,10 @@ import (
 // only the deleted device's scheduling resource.
 func RegisterMobileDeviceHooks(app core.App) {
 	app.OnRecordCreate("mobile_devices").BindFunc(func(e *core.RecordEvent) error {
-		return validateMobileDeviceOwner(app, e.Record)
+		if err := validateMobileDeviceOwner(app, e.Record); err != nil {
+			return err
+		}
+		return e.Next()
 	})
 	app.OnRecordUpdate("mobile_devices").BindFunc(func(e *core.RecordEvent) error {
 		original := e.Record.Original()
@@ -32,7 +35,10 @@ func RegisterMobileDeviceHooks(app core.App) {
 				}
 			}
 		}
-		return validateMobileDeviceOwner(app, e.Record)
+		if err := validateMobileDeviceOwner(app, e.Record); err != nil {
+			return err
+		}
+		return e.Next()
 	})
 	app.OnRecordAfterDeleteSuccess("mobile_devices").BindFunc(func(e *core.RecordEvent) error {
 		if err := shutdownMobileDeviceSemaphore(

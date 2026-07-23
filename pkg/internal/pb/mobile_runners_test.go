@@ -79,6 +79,25 @@ func TestRegisterMobileRunnerHooksIgnoresMissingSemaphore(t *testing.T) {
 	require.NoError(t, app.Delete(record))
 }
 
+func TestRegisterMobileDeviceHooksContinuesToCanonifyCreate(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	ensureMobileDevicesCollection(t, app)
+	canonify.RegisterCanonifyHooks(app)
+	RegisterMobileDeviceHooks(app)
+
+	runner := createMobileRunnerRecordForDeleteTest(t, app, "runner-device-create")
+	collection, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(collection)
+	device.Set("owner", runner.GetString("owner"))
+	device.Set("runner", runner.Id)
+	device.Set("name", "Android Emulator")
+	require.NoError(t, app.Save(device))
+	require.Equal(t, "android-emulator", device.GetString("canonified_name"))
+}
+
 func ensureMobileDevicesCollection(t *testing.T, app core.App) {
 	t.Helper()
 	if _, err := app.FindCollectionByNameOrId("mobile_devices"); err == nil {

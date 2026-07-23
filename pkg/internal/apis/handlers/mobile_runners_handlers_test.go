@@ -773,7 +773,7 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 		require.Equal(t, "usera-s-organization/test-runner/test-device", body["device_id"])
 	})
 
-	t.Run("admin preview requires an explicit organization", func(t *testing.T) {
+	t.Run("admin preview rejects an unknown runner without an organization", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)
 		defer app.Cleanup()
 
@@ -792,8 +792,8 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 
 		recorder := responseRecorder(t, event)
 		requireHandlerErrorHandled(t, recorder, err)
-		require.Equal(t, http.StatusBadRequest, recorder.Code)
-		require.Contains(t, recorder.Body.String(), "organization is required")
+		require.Equal(t, http.StatusNotFound, recorder.Code)
+		require.Contains(t, recorder.Body.String(), "runner_id does not reference a mobile runner")
 	})
 
 	t.Run("admin preview can target another organization", func(t *testing.T) {
@@ -837,6 +837,16 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 		body := decodeJSONBody(t, recorder)
 		require.Equal(t, "userb-s-organization/runner-b", body["runner_id"])
 		require.Equal(t, "userb-s-organization/runner-b/runner-b", body["device_id"])
+
+		derivedOwnerEvent := performMobileRunnerRequest(
+			t,
+			app,
+			superuser,
+			"/api/mobile-device/preview-id",
+			PreviewMobileDeviceIDRequest{RunnerID: "userb-s-organization/runner-b", Name: "Derived Owner Device"},
+		)
+		require.NoError(t, HandlePreviewMobileDeviceID()(derivedOwnerEvent))
+		require.Equal(t, http.StatusOK, responseRecorder(t, derivedOwnerEvent).Code)
 	})
 }
 

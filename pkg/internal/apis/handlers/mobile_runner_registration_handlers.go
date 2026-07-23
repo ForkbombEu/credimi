@@ -110,7 +110,7 @@ func HandlePreviewMobileDeviceID() func(*core.RequestEvent) error {
 		if err != nil {
 			return apierror.New(http.StatusBadRequest, "mobile_device", "invalid_request", err.Error())
 		}
-		owner, apiErr := resolveMobileRunnerOwner(e.App, e.Auth, input.Organization)
+		owner, apiErr := resolveMobileDeviceOwner(e.App, e.Auth, input.Organization, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -135,7 +135,7 @@ func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
 		if err != nil {
 			return apierror.New(http.StatusBadRequest, "mobile_device", "invalid_request", err.Error())
 		}
-		owner, apiErr := resolveMobileRunnerOwner(e.App, e.Auth, input.Organization)
+		owner, apiErr := resolveMobileDeviceOwner(e.App, e.Auth, input.Organization, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -420,6 +420,30 @@ func resolveMobileRunnerOwner(
 	}
 
 	return record, nil
+}
+
+// resolveMobileDeviceOwner derives the organization from a canonical runner
+// identity for superuser device registration. The runner is the device's
+// immutable parent, so accepting a conflicting organization would be unsafe.
+func resolveMobileDeviceOwner(
+	app core.App,
+	auth *core.Record,
+	requestedOrganization string,
+	runnerID string,
+) (*core.Record, *apierror.APIError) {
+	if !isSuperuserAuth(auth) || strings.TrimSpace(requestedOrganization) != "" {
+		return resolveMobileRunnerOwner(app, auth, requestedOrganization)
+	}
+
+	runner, err := canonify.Resolve(app, canonify.NormalizePath(runnerID))
+	if err != nil || runner.Collection() == nil || runner.Collection().Name != "mobile_runners" {
+		return nil, apierror.New(http.StatusNotFound, "runner_id", "runner_not_found", "runner_id does not reference a mobile runner")
+	}
+	owner, err := app.FindRecordById("organizations", runner.GetString("owner"))
+	if err != nil {
+		return nil, apierror.New(http.StatusInternalServerError, "organization", "failed_to_find_organization", err.Error())
+	}
+	return owner, nil
 }
 
 func isSuperuserAuth(auth *core.Record) bool {
