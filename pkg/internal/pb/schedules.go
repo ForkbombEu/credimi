@@ -133,18 +133,18 @@ func resolveScheduleRunnerRecords(
 		}
 	}
 
-	info, err := pipeline.ParsePipelineRunnerInfo(pipelineRec.GetString("yaml"))
+	info, err := pipeline.ParsePipelineDeviceInfo(pipelineRec.GetString("yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pipeline yaml: %w", err)
 	}
 
-	globalRunnerID := readGlobalRunnerIDFromScheduleDescription(desc)
-	runnerIDs := pipeline.RunnerIDsWithGlobal(info, globalRunnerID)
+	globalDeviceID := readGlobalDeviceIDFromScheduleDescription(desc)
+	deviceIDs := pipeline.DeviceIDsWithGlobal(info, globalDeviceID)
 
-	return pipeline.ResolveRunnerRecords(app, runnerIDs, nil), nil
+	return pipeline.ResolveDeviceRecords(app, deviceIDs, nil), nil
 }
 
-func readGlobalRunnerIDFromScheduleDescription(
+func readGlobalDeviceIDFromScheduleDescription(
 	desc *client.ScheduleDescription,
 ) string {
 	if desc == nil || desc.Schedule.Action == nil {
@@ -158,36 +158,36 @@ func readGlobalRunnerIDFromScheduleDescription(
 
 	switch arg := action.Args[0].(type) {
 	case workflows.ScheduledPipelineEnqueueWorkflowInput:
-		return globalRunnerIDFromScheduledInput(arg, nil)
+		return globalDeviceIDFromScheduledInput(arg, nil)
 	case *workflows.ScheduledPipelineEnqueueWorkflowInput:
 		if arg == nil {
 			return ""
 		}
-		return globalRunnerIDFromScheduledInput(*arg, nil)
+		return globalDeviceIDFromScheduledInput(*arg, nil)
 	case workflowengine.WorkflowInput:
-		return globalRunnerIDFromWorkflowInput(arg)
+		return globalDeviceIDFromWorkflowInput(arg)
 	case *workflowengine.WorkflowInput:
 		if arg == nil {
 			return ""
 		}
-		return globalRunnerIDFromWorkflowInput(*arg)
+		return globalDeviceIDFromWorkflowInput(*arg)
 	case pipeline.PipelineWorkflowInput:
-		return pipeline.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
+		return pipeline.GlobalDeviceIDFromConfig(arg.WorkflowInput.Config)
 	case *pipeline.PipelineWorkflowInput:
 		if arg == nil {
 			return ""
 		}
-		return pipeline.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
+		return pipeline.GlobalDeviceIDFromConfig(arg.WorkflowInput.Config)
 	case *commonpb.Payload:
-		return globalRunnerIDFromPayload(arg)
+		return globalDeviceIDFromPayload(arg)
 	case commonpb.Payload:
-		return globalRunnerIDFromPayload(&arg)
+		return globalDeviceIDFromPayload(&arg)
 	default:
 		return ""
 	}
 }
 
-func globalRunnerIDFromPayload(payload *commonpb.Payload) string {
+func globalDeviceIDFromPayload(payload *commonpb.Payload) string {
 	if payload == nil {
 		return ""
 	}
@@ -195,18 +195,18 @@ func globalRunnerIDFromPayload(payload *commonpb.Payload) string {
 	dc := temporalcrypto.DataConverter()
 	var scheduledInput workflows.ScheduledPipelineEnqueueWorkflowInput
 	if err := dc.FromPayload(payload, &scheduledInput); err == nil {
-		if globalRunnerID := globalRunnerIDFromScheduledInput(
+		if globalDeviceID := globalDeviceIDFromScheduledInput(
 			scheduledInput,
 			nil,
-		); globalRunnerID != "" {
-			return globalRunnerID
+		); globalDeviceID != "" {
+			return globalDeviceID
 		}
 	}
 
 	var workflowInput workflowengine.WorkflowInput
 	if err := dc.FromPayload(payload, &workflowInput); err == nil {
-		if globalRunnerID := globalRunnerIDFromWorkflowInput(workflowInput); globalRunnerID != "" {
-			return globalRunnerID
+		if globalDeviceID := globalDeviceIDFromWorkflowInput(workflowInput); globalDeviceID != "" {
+			return globalDeviceID
 		}
 	}
 
@@ -215,27 +215,27 @@ func globalRunnerIDFromPayload(payload *commonpb.Payload) string {
 		return ""
 	}
 
-	return pipeline.GlobalRunnerIDFromConfig(input.WorkflowInput.Config)
+	return pipeline.GlobalDeviceIDFromConfig(input.WorkflowInput.Config)
 }
 
-// globalRunnerIDFromWorkflowInput extracts a global runner ID from a workflow wrapper input.
-func globalRunnerIDFromWorkflowInput(input workflowengine.WorkflowInput) string {
+// globalDeviceIDFromWorkflowInput extracts a global runner ID from a workflow wrapper input.
+func globalDeviceIDFromWorkflowInput(input workflowengine.WorkflowInput) string {
 	switch payload := input.Payload.(type) {
 	case workflows.ScheduledPipelineEnqueueWorkflowInput:
-		return globalRunnerIDFromScheduledInput(payload, input.Config)
+		return globalDeviceIDFromScheduledInput(payload, input.Config)
 	case *workflows.ScheduledPipelineEnqueueWorkflowInput:
 		if payload == nil {
 			return ""
 		}
-		return globalRunnerIDFromScheduledInput(*payload, input.Config)
+		return globalDeviceIDFromScheduledInput(*payload, input.Config)
 	case map[string]any:
 		if scheduledInput, err := decodeScheduledEnqueueInput(payload); err == nil {
-			return globalRunnerIDFromScheduledInput(scheduledInput, input.Config)
+			return globalDeviceIDFromScheduledInput(scheduledInput, input.Config)
 		}
 	default:
-		return pipeline.GlobalRunnerIDFromConfig(input.Config)
+		return pipeline.GlobalDeviceIDFromConfig(input.Config)
 	}
-	return pipeline.GlobalRunnerIDFromConfig(input.Config)
+	return pipeline.GlobalDeviceIDFromConfig(input.Config)
 }
 
 // decodeScheduledEnqueueInput converts a generic payload map into a scheduled enqueue input.
@@ -253,18 +253,18 @@ func decodeScheduledEnqueueInput(
 	return scheduledInput, nil
 }
 
-// globalRunnerIDFromScheduledInput extracts a global runner ID from scheduled enqueue inputs.
-func globalRunnerIDFromScheduledInput(
+// globalDeviceIDFromScheduledInput extracts a global runner ID from scheduled enqueue inputs.
+func globalDeviceIDFromScheduledInput(
 	input workflows.ScheduledPipelineEnqueueWorkflowInput,
 	config map[string]any,
 ) string {
-	if input.GlobalRunnerID != "" {
-		return input.GlobalRunnerID
+	if input.GlobalDeviceID != "" {
+		return input.GlobalDeviceID
 	}
 	if config != nil {
-		if globalRunnerID := pipeline.GlobalRunnerIDFromConfig(config); globalRunnerID != "" {
-			return globalRunnerID
+		if globalDeviceID := pipeline.GlobalDeviceIDFromConfig(config); globalDeviceID != "" {
+			return globalDeviceID
 		}
 	}
-	return pipeline.GlobalRunnerIDFromConfig(input.PipelineConfig)
+	return pipeline.GlobalDeviceIDFromConfig(input.PipelineConfig)
 }

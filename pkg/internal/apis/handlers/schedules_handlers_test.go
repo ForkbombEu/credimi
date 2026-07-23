@@ -387,7 +387,7 @@ func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "pipeline-slug", payload.PipelineIdentifier)
 	require.Equal(t, "acme", payload.OwnerNamespace)
-	require.Equal(t, "runner-1", payload.GlobalRunnerID)
+	require.Equal(t, "runner-1", payload.GlobalDeviceID)
 	require.Equal(t, 7, payload.MaxPipelinesInQueue)
 
 	mockClient.AssertExpectations(t)

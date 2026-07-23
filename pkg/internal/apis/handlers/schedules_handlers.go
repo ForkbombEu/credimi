@@ -92,7 +92,7 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 type StartScheduleRequest struct {
 	PipelineID     string                      `json:"pipeline_id"`
 	ScheduleMode   workflowengine.ScheduleMode `json:"schedule_mode"`
-	GlobalRunnerID string                      `json:"global_runner_id,omitempty"`
+	GlobalDeviceID string                      `json:"global_device_id,omitempty"`
 }
 
 type StartScheduleResponse struct {
@@ -162,7 +162,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			config,
 			req.ScheduleMode,
 			timeZone,
-			req.GlobalRunnerID,
+			req.GlobalDeviceID,
 			maxPipelinesInQueue,
 		)
 		if err != nil {
@@ -513,7 +513,7 @@ func startScheduledPipelineWithOptions(
 	config map[string]any,
 	scheduleMode workflowengine.ScheduleMode,
 	timeZone string,
-	globalRunnerID string,
+	globalDeviceID string,
 	maxPipelinesInQueue int,
 ) (SchedulePipelineStartInfo, error) {
 	appURL, ok := config["app_url"].(string)
@@ -553,7 +553,7 @@ func startScheduledPipelineWithOptions(
 					Payload: workflows.ScheduledPipelineEnqueueWorkflowInput{
 						PipelineIdentifier:  pipelineID,
 						OwnerNamespace:      namespace,
-						GlobalRunnerID:      globalRunnerID,
+						GlobalDeviceID:      globalDeviceID,
 						MaxPipelinesInQueue: maxPipelinesInQueue,
 					},
 					Config: config,
