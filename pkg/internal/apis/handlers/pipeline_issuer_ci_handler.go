@@ -107,7 +107,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			hasStepRunner,
 			needsGlobalRunner,
 		)
-		manipulatedYAML, apiErr := injectPipelineCIGlobalRunnerID(
+		manipulatedYAML, apiErr := injectPipelineCIGlobalDeviceID(
 			rewrittenYAML,
 			workflowDefinition,
 			runnerID,

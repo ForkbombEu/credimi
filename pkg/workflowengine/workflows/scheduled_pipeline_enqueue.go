@@ -37,7 +37,7 @@ type ScheduledPipelineEnqueueWorkflowInput struct {
 	PipelineIdentifier  string         `json:"pipeline_identifier"`
 	OwnerNamespace      string         `json:"owner_namespace"`
 	PipelineConfig      map[string]any `json:"pipeline_config,omitempty"`
-	GlobalRunnerID      string         `json:"global_runner_id,omitempty"`
+	GlobalDeviceID      string         `json:"global_device_id,omitempty"`
 	MaxPipelinesInQueue int            `json:"max_pipelines_in_queue,omitempty"`
 }
 
@@ -239,24 +239,24 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	globalRunnerID := ""
+	globalDeviceID := ""
 	if runnerInfo.NeedsGlobalRunner {
-		globalRunnerID = strings.TrimSpace(parsedPipeline.Runtime.GlobalRunnerID)
-		if globalRunnerID == "" {
-			globalRunnerID = strings.TrimSpace(payload.GlobalRunnerID)
+		globalDeviceID = strings.TrimSpace(parsedPipeline.Runtime.GlobalDeviceID)
+		if globalDeviceID == "" {
+			globalDeviceID = strings.TrimSpace(payload.GlobalDeviceID)
 		}
-		if globalRunnerID == "" {
+		if globalDeviceID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 				"global_device_id",
 				input.RunMetadata,
 			)
 		}
 	}
-	if globalRunnerID != "" {
-		config["global_device_id"] = globalRunnerID
+	if globalDeviceID != "" {
+		config["global_device_id"] = globalDeviceID
 	}
 
-	runnerIDs := runnerIDsWithGlobal(runnerInfo, globalRunnerID)
+	runnerIDs := runnerIDsWithGlobal(runnerInfo, globalDeviceID)
 	sort.Strings(runnerIDs)
 	if len(runnerIDs) == 0 {
 		configErr := workflowengine.NewAppError(
@@ -394,7 +394,7 @@ type scheduledPipelineDefinition struct {
 
 // scheduledPipelineRuntime stores global runner configuration from YAML.
 type scheduledPipelineRuntime struct {
-	GlobalRunnerID string `yaml:"global_device_id,omitempty"`
+	GlobalDeviceID string `yaml:"global_device_id,omitempty"`
 }
 
 // scheduledPipelineStep is a minimal step definition for runner lookup.
@@ -481,19 +481,19 @@ func collectRunnerIDs(
 }
 
 // runnerIDsWithGlobal combines explicit runner IDs with a global runner override when needed.
-func runnerIDsWithGlobal(info scheduledPipelineRunnerInfo, globalRunnerID string) []string {
+func runnerIDsWithGlobal(info scheduledPipelineRunnerInfo, globalDeviceID string) []string {
 	runnerIDs := append([]string{}, info.RunnerIDs...)
-	globalRunnerID = strings.TrimSpace(globalRunnerID)
-	if info.NeedsGlobalRunner && globalRunnerID != "" {
+	globalDeviceID = strings.TrimSpace(globalDeviceID)
+	if info.NeedsGlobalRunner && globalDeviceID != "" {
 		found := false
 		for _, id := range runnerIDs {
-			if id == globalRunnerID {
+			if id == globalDeviceID {
 				found = true
 				break
 			}
 		}
 		if !found {
-			runnerIDs = append(runnerIDs, globalRunnerID)
+			runnerIDs = append(runnerIDs, globalDeviceID)
 			sort.Strings(runnerIDs)
 		}
 	}

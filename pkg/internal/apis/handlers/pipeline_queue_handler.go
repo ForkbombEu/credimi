@@ -199,7 +199,7 @@ func enqueuePipelineRun(
 	config := buildPipelineQueueConfig(e, namespace, runContext.userName, runContext.userEmail)
 	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
 
-	runnerInfo, err := pipeline.ParsePipelineRunnerInfo(runContext.yaml)
+	deviceInfo, err := pipeline.ParsePipelineDeviceInfo(runContext.yaml)
 	if err != nil {
 		return PipelineQueueResponse{}, apierror.New(
 			http.StatusBadRequest,
@@ -208,7 +208,7 @@ func enqueuePipelineRun(
 			err.Error(),
 		)
 	}
-	runnerIDs, err := resolvePipelineRunnerIDs(runContext.yaml, runnerInfo)
+	deviceIDs, err := resolvePipelineDeviceIDs(runContext.yaml, deviceInfo)
 	if err != nil {
 		return PipelineQueueResponse{}, apierror.New(
 			http.StatusBadRequest,
@@ -217,7 +217,7 @@ func enqueuePipelineRun(
 			err.Error(),
 		)
 	}
-	if len(runnerIDs) == 0 && !runnerInfo.NeedsGlobalRunner {
+	if len(deviceIDs) == 0 && !deviceInfo.NeedsGlobalDevice {
 		if githubPRConfig := buildPipelineGitHubPRCommentConfig(
 			runContext.notification,
 		); githubPRConfig != nil {
@@ -248,27 +248,27 @@ func enqueuePipelineRun(
 		)
 		return response, nil
 	}
-	if len(runnerIDs) == 0 {
+	if len(deviceIDs) == 0 {
 		return PipelineQueueResponse{}, apierror.New(
 			http.StatusBadRequest,
 			"device_ids",
 			"device_ids are required",
-			"no runner ids resolved from yaml",
+			"no device ids resolved from yaml",
 		)
 	}
 	if apiErr := validatePipelineRunnerAccess(
 		e.App,
 		runContext.organizationRecord.Id,
-		runnerIDs,
+		deviceIDs,
 	); apiErr != nil {
 		return PipelineQueueResponse{}, apiErr
 	}
 
-	leaderRunnerID := runnerIDs[0]
+	leaderRunnerID := deviceIDs[0]
 	if runContext.notification != nil && runContext.notification.GitHubPR != nil {
 		runContext.notification.GitHubPR.RunnerTypes = buildGitHubPRRunnerTypes(
 			e.App,
-			runnerIDs,
+			deviceIDs,
 			runContext.notification.GitHubPR.RunnerTypes,
 		)
 		if strings.TrimSpace(runContext.notification.GitHubPR.RunnerID) == "" {
@@ -281,7 +281,7 @@ func enqueuePipelineRun(
 	now := time.Now().UTC()
 	ticketID := uuid.NewString()
 
-	for _, runnerID := range runnerIDs {
+	for _, runnerID := range deviceIDs {
 		if err := ensureRunQueueSemaphoreWorkflow(e.Request.Context(), runnerID); err != nil {
 			return PipelineQueueResponse{}, apierror.New(
 				http.StatusInternalServerError,
@@ -323,9 +323,9 @@ func enqueuePipelineRun(
 		}
 	}
 
-	rollbackRunnerIDs := make([]string, 0, len(runnerIDs))
-	runnerStatuses := make([]pipelineQueueRunnerStatus, 0, len(runnerIDs))
-	for _, runnerID := range runnerIDs {
+	rollbackRunnerIDs := make([]string, 0, len(deviceIDs))
+	runnerStatuses := make([]pipelineQueueRunnerStatus, 0, len(deviceIDs))
+	for _, runnerID := range deviceIDs {
 		// Roll back every attempted runner because enqueue failures can be ambiguous (e.g. timeouts).
 		rollbackRunnerIDs = append(rollbackRunnerIDs, runnerID)
 		req := workflows.MobileRunnerSemaphoreEnqueueRunRequest{
@@ -333,7 +333,7 @@ func enqueuePipelineRun(
 			OwnerNamespace:      namespace,
 			EnqueuedAt:          now,
 			RunnerID:            runnerID,
-			RequiredRunnerIDs:   runnerIDs,
+			RequiredRunnerIDs:   deviceIDs,
 			LeaderRunnerID:      leaderRunnerID,
 			MaxPipelinesInQueue: maxPipelinesInQueue,
 			PipelineIdentifier:  runContext.pipelineIdentifier,
@@ -374,7 +374,7 @@ func enqueuePipelineRun(
 	response := buildQueueEnqueueResponse(
 		ticketID,
 		now,
-		runnerIDs,
+		deviceIDs,
 		status,
 		position,
 		lineLen,
@@ -656,18 +656,18 @@ func startPipelineFromQueue(
 	return result, nil
 }
 
-func resolvePipelineRunnerIDs(yaml string, info pipeline.PipelineRunnerInfo) ([]string, error) {
-	globalRunnerID := ""
-	if info.NeedsGlobalRunner {
+func resolvePipelineDeviceIDs(yaml string, info pipeline.PipelineDeviceInfo) ([]string, error) {
+	globalDeviceID := ""
+	if info.NeedsGlobalDevice {
 		wfDef, err := pipelineinternal.ParseWorkflow(yaml)
 		if err != nil {
 			return nil, err
 		}
-		globalRunnerID = strings.TrimSpace(wfDef.Runtime.GlobalRunnerID)
+		globalDeviceID = strings.TrimSpace(wfDef.Runtime.GlobalDeviceID)
 	}
-	runnerIDs := pipeline.RunnerIDsWithGlobal(info, globalRunnerID)
-	sort.Strings(runnerIDs)
-	return runnerIDs, nil
+	deviceIDs := pipeline.DeviceIDsWithGlobal(info, globalDeviceID)
+	sort.Strings(deviceIDs)
+	return deviceIDs, nil
 }
 
 func validatePipelineRunnerAccess(

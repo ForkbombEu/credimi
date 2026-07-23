@@ -14,20 +14,20 @@ import (
 
 const testDataDir = "../../../test_pb_data"
 
-func TestParsePipelineRunnerInfo(t *testing.T) {
+func TestParsePipelineDeviceInfo(t *testing.T) {
 	t.Run("empty yaml returns zero value", func(t *testing.T) {
-		got, err := ParsePipelineRunnerInfo("   ")
+		got, err := ParsePipelineDeviceInfo("   ")
 		require.NoError(t, err)
-		require.False(t, got.NeedsGlobalRunner)
-		require.Empty(t, got.RunnerIDs)
+		require.False(t, got.NeedsGlobalDevice)
+		require.Empty(t, got.DeviceIDs)
 	})
 
 	t.Run("invalid yaml returns error", func(t *testing.T) {
-		_, err := ParsePipelineRunnerInfo("[")
+		_, err := ParsePipelineDeviceInfo("[")
 		require.Error(t, err)
 	})
 
-	t.Run("collects and deduplicates runner ids from steps and branches", func(t *testing.T) {
+	t.Run("collects and deduplicates device ids from steps and branches", func(t *testing.T) {
 		yamlStr := `
 name: test
 steps:
@@ -63,13 +63,13 @@ steps:
       action_id: missing-runner-id
 `
 
-		got, err := ParsePipelineRunnerInfo(yamlStr)
+		got, err := ParsePipelineDeviceInfo(yamlStr)
 		require.NoError(t, err)
-		require.True(t, got.NeedsGlobalRunner)
-		require.Equal(t, []string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b", "tenant-a/runner-c/device-c"}, got.RunnerIDs)
+		require.True(t, got.NeedsGlobalDevice)
+		require.Equal(t, []string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b", "tenant-a/runner-c/device-c"}, got.DeviceIDs)
 	})
 
-	t.Run("normalizes leading slash runner ids", func(t *testing.T) {
+	t.Run("normalizes leading slash device ids", func(t *testing.T) {
 		yamlStr := `
 name: test
 steps:
@@ -80,62 +80,62 @@ steps:
         device_id: /tenant-a/runner-a/device-a
 `
 
-		got, err := ParsePipelineRunnerInfo(yamlStr)
+		got, err := ParsePipelineDeviceInfo(yamlStr)
 		require.NoError(t, err)
-		require.Equal(t, []string{"tenant-a/runner-a/device-a"}, got.RunnerIDs)
+		require.Equal(t, []string{"tenant-a/runner-a/device-a"}, got.DeviceIDs)
 	})
 }
 
-func TestRunnerIDsWithGlobal(t *testing.T) {
-	t.Run("adds global runner if needed and missing", func(t *testing.T) {
-		info := PipelineRunnerInfo{
-			RunnerIDs:         []string{"runner-b"},
-			NeedsGlobalRunner: true,
+func TestDeviceIDsWithGlobal(t *testing.T) {
+	t.Run("adds global device if needed and missing", func(t *testing.T) {
+		info := PipelineDeviceInfo{
+			DeviceIDs:         []string{"device-b"},
+			NeedsGlobalDevice: true,
 		}
-		got := RunnerIDsWithGlobal(info, " runner-a ")
-		require.Equal(t, []string{"runner-a", "runner-b"}, got)
+		got := DeviceIDsWithGlobal(info, " device-a ")
+		require.Equal(t, []string{"device-a", "device-b"}, got)
 	})
 
 	t.Run("normalizes global runner leading slash", func(t *testing.T) {
-		info := PipelineRunnerInfo{
-			RunnerIDs:         []string{"tenant-a/runner-b"},
-			NeedsGlobalRunner: true,
+		info := PipelineDeviceInfo{
+			DeviceIDs:         []string{"tenant-a/runner-b/device-b"},
+			NeedsGlobalDevice: true,
 		}
-		got := RunnerIDsWithGlobal(info, " /tenant-a/runner-a ")
-		require.Equal(t, []string{"tenant-a/runner-a", "tenant-a/runner-b"}, got)
+		got := DeviceIDsWithGlobal(info, " /tenant-a/runner-a/device-a ")
+		require.Equal(t, []string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b"}, got)
 	})
 
 	t.Run("does not duplicate global runner", func(t *testing.T) {
-		info := PipelineRunnerInfo{
-			RunnerIDs:         []string{"runner-a", "runner-b"},
-			NeedsGlobalRunner: true,
+		info := PipelineDeviceInfo{
+			DeviceIDs:         []string{"device-a", "device-b"},
+			NeedsGlobalDevice: true,
 		}
-		got := RunnerIDsWithGlobal(info, "runner-a")
-		require.Equal(t, []string{"runner-a", "runner-b"}, got)
+		got := DeviceIDsWithGlobal(info, "device-a")
+		require.Equal(t, []string{"device-a", "device-b"}, got)
 	})
 
 	t.Run("ignores global runner when not needed", func(t *testing.T) {
-		info := PipelineRunnerInfo{
-			RunnerIDs:         []string{"runner-a"},
-			NeedsGlobalRunner: false,
+		info := PipelineDeviceInfo{
+			DeviceIDs:         []string{"device-a"},
+			NeedsGlobalDevice: false,
 		}
-		got := RunnerIDsWithGlobal(info, "runner-b")
-		require.Equal(t, []string{"runner-a"}, got)
+		got := DeviceIDsWithGlobal(info, "device-b")
+		require.Equal(t, []string{"device-a"}, got)
 	})
 }
 
-func TestGlobalRunnerIDFromConfig(t *testing.T) {
-	require.Equal(t, "", GlobalRunnerIDFromConfig(nil))
-	require.Equal(t, "", GlobalRunnerIDFromConfig(map[string]any{"global_device_id": 12}))
+func TestGlobalDeviceIDFromConfig(t *testing.T) {
+	require.Equal(t, "", GlobalDeviceIDFromConfig(nil))
+	require.Equal(t, "", GlobalDeviceIDFromConfig(map[string]any{"global_device_id": 12}))
 	require.Equal(
 		t,
 		"runner-a",
-		GlobalRunnerIDFromConfig(map[string]any{"global_device_id": " runner-a "}),
+		GlobalDeviceIDFromConfig(map[string]any{"global_device_id": " runner-a "}),
 	)
 	require.Equal(
 		t,
 		"tenant-a/runner-a",
-		GlobalRunnerIDFromConfig(map[string]any{"global_device_id": " /tenant-a/runner-a "}),
+		GlobalDeviceIDFromConfig(map[string]any{"global_device_id": " /tenant-a/runner-a "}),
 	)
 }
 

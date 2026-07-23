@@ -872,13 +872,13 @@ func (w *PipelineWorkflow) Start(
 		}
 	}
 
-	runnerInfo, _ := ParsePipelineRunnerInfo(inputYaml)
+	deviceInfo, _ := ParsePipelineDeviceInfo(inputYaml)
 	// Add global_device_id to config if specified.
-	if wfDef.Runtime.GlobalRunnerID != "" {
-		config["global_device_id"] = wfDef.Runtime.GlobalRunnerID
+	if wfDef.Runtime.GlobalDeviceID != "" {
+		config["global_device_id"] = wfDef.Runtime.GlobalDeviceID
 	}
-	globalRunnerID := GlobalRunnerIDFromConfig(config)
-	runnerIDs := RunnerIDsWithGlobal(runnerInfo, globalRunnerID)
+	globalDeviceID := GlobalDeviceIDFromConfig(config)
+	deviceIDs := DeviceIDsWithGlobal(deviceInfo, globalDeviceID)
 	config["disable_android_play_store"] = wfDef.Runtime.DisableAndroidPlayStore
 	entityIDs, err := pipeline.ParseEntityIDs(inputYaml)
 	if err != nil {
@@ -888,7 +888,7 @@ func (w *PipelineWorkflow) Start(
 	workflowengine.ApplyPipelineSearchAttributes(
 		&options.Options,
 		pipelineIdentifier,
-		runnerIDs,
+		deviceIDs,
 		entityIDs,
 	)
 
@@ -904,7 +904,7 @@ func (w *PipelineWorkflow) Start(
 	if wfDef.Runtime.Schedule.Interval != nil {
 		searchAttributes := workflowengine.PipelineTypedSearchAttributes(
 			pipelineIdentifier,
-			runnerIDs,
+			deviceIDs,
 			entityIDs,
 		)
 		ctx := context.Background()

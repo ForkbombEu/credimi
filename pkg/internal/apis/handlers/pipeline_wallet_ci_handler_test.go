@@ -773,7 +773,7 @@ func TestPipelineRunWalletAPKCreatesGitHubPRQueuedComment(t *testing.T) {
 	)
 }
 
-func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
+func TestPipelineRunWalletAPKInjectsGlobalDeviceID(t *testing.T) {
 	installWalletAPKURLDownloaderStub(t)
 	queueStub := &queueStub{}
 	installQueueStubs(t, queueStub)
@@ -782,7 +782,7 @@ func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
 	require.NoError(t, err)
 
 	scenario := tests.ApiScenario{
-		Name:   "injects runner_id as global_runner_id",
+		Name:   "injects runner_id as global_device_id",
 		Method: http.MethodPost,
 		URL:    "/api/pipeline/run-wallet-apk",
 		Headers: map[string]string{
@@ -818,7 +818,7 @@ func TestPipelineRunWalletAPKInjectsGlobalRunnerID(t *testing.T) {
 	require.Len(t, queueStub.enqueueRequests, 1)
 	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
 	require.NoError(t, err)
-	require.Equal(t, "usera-s-organization/runner-global", workflow.Runtime.GlobalRunnerID)
+	require.Equal(t, "usera-s-organization/runner-global", workflow.Runtime.GlobalDeviceID)
 	require.Equal(
 		t,
 		"usera-s-organization/wallet-global-runner/abc123",
@@ -909,7 +909,7 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	require.Len(t, queueStub.enqueueRequests, 1)
 	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
 	require.NoError(t, err)
-	require.Equal(t, "usera-s-organization/hidden-runner", workflow.Runtime.GlobalRunnerID)
+	require.Equal(t, "usera-s-organization/hidden-runner", workflow.Runtime.GlobalDeviceID)
 }
 
 func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T) {
@@ -940,7 +940,7 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 	require.Equal(t, "no online published runner found for runner_type", apiErr.Reason)
 }
 
-func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
+func TestInjectPipelineRunWalletAPKGlobalDeviceID(t *testing.T) {
 	t.Run("rejects step runner ids", func(t *testing.T) {
 		workflowDefinition, apiErr := parsePipelineCIWorkflow(
 			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n",
@@ -948,7 +948,7 @@ func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 		require.Nil(t, apiErr)
 		hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
 
-		_, apiErr = injectPipelineCIGlobalRunnerID(
+		_, apiErr = injectPipelineCIGlobalDeviceID(
 			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n",
 			workflowDefinition,
 			"runner-global",
@@ -967,7 +967,7 @@ func TestInjectPipelineRunWalletAPKGlobalRunnerID(t *testing.T) {
 		require.Nil(t, apiErr)
 		hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
 
-		got, apiErr := injectPipelineCIGlobalRunnerID(
+		got, apiErr := injectPipelineCIGlobalDeviceID(
 			inputYAML,
 			workflowDefinition,
 			"",

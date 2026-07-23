@@ -797,7 +797,7 @@ func rewritePipelineCIStepRef(
 	step.With.Payload[payloadKey] = tempIdentifier
 }
 
-func injectPipelineCIGlobalRunnerID(
+func injectPipelineCIGlobalDeviceID(
 	pipelineYAML string,
 	workflowDefinition *pipelineinternal.WorkflowDefinition,
 	runnerID string,
@@ -821,7 +821,7 @@ func injectPipelineCIGlobalRunnerID(
 		return pipelineYAML, nil
 	}
 
-	workflowDefinition.Runtime.GlobalRunnerID = runnerID
+	workflowDefinition.Runtime.GlobalDeviceID = runnerID
 	rewrittenYAML, err := yaml.Marshal(workflowDefinition)
 	if err != nil {
 		return "", apierror.New(

@@ -14,30 +14,30 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-type PipelineRunnerInfo struct {
-	RunnerIDs         []string
-	NeedsGlobalRunner bool
+type PipelineDeviceInfo struct {
+	DeviceIDs         []string
+	NeedsGlobalDevice bool
 }
 
-// ValidateRunnerIDYAML enforces runner_id configuration rules for mobile-automation steps:
-// - If global_runner_id is set, no step may define runner_id.
-// - If global_runner_id is not set, every mobile-automation step must define runner_id.
-func ValidateRunnerIDYAML(yamlStr string) error {
+// ValidateDeviceIDYAML enforces device_id configuration rules for mobile-automation steps:
+// - If global_device_id is set, no step may define device_id.
+// - If global_device_id is not set, every mobile-automation step must define device_id.
+func ValidateDeviceIDYAML(yamlStr string) error {
 	wfDef, err := pipeline.ParseWorkflow(yamlStr)
 	if err != nil {
 		return err
 	}
 
-	globalRunnerID := strings.TrimSpace(wfDef.Runtime.GlobalRunnerID)
-	globalSet := globalRunnerID != ""
+	globalDeviceID := strings.TrimSpace(wfDef.Runtime.GlobalDeviceID)
+	globalSet := globalDeviceID != ""
 
 	foundMobileStep := false
 
 	firstConflictStepID := ""
 	firstMissingStepID := ""
 
-	anyStepRunnerSet := false
-	anyStepRunnerMissing := false
+	anyStepDeviceSet := false
+	anyStepDeviceMissing := false
 
 	for _, step := range wfDef.Steps {
 		if step.Use != mobileAutomationStepUse {
@@ -46,16 +46,16 @@ func ValidateRunnerIDYAML(yamlStr string) error {
 
 		foundMobileStep = true
 
-		runnerID, _ := step.With.Payload["device_id"].(string)
-		runnerSet := strings.TrimSpace(runnerID) != ""
+		deviceID, _ := step.With.Payload["device_id"].(string)
+		deviceSet := strings.TrimSpace(deviceID) != ""
 
-		if runnerSet {
-			anyStepRunnerSet = true
+		if deviceSet {
+			anyStepDeviceSet = true
 			if globalSet && firstConflictStepID == "" {
 				firstConflictStepID = step.ID
 			}
 		} else {
-			anyStepRunnerMissing = true
+			anyStepDeviceMissing = true
 			if !globalSet && firstMissingStepID == "" {
 				firstMissingStepID = step.ID
 			}
@@ -69,7 +69,7 @@ func ValidateRunnerIDYAML(yamlStr string) error {
 
 	// If global is set, no mobile step may set runner_id.
 	if globalSet {
-		if anyStepRunnerSet {
+		if anyStepDeviceSet {
 			return fmt.Errorf(
 				"global_device_id is set, but step %q defines device_id; use only global_device_id or set device_id for all mobile-automation steps",
 				firstConflictStepID,
@@ -79,7 +79,7 @@ func ValidateRunnerIDYAML(yamlStr string) error {
 	}
 
 	// If global is not set, all mobile steps must set runner_id.
-	if anyStepRunnerMissing {
+	if anyStepDeviceMissing {
 		return fmt.Errorf(
 			"global_device_id is not set and step %q is missing device_id; set device_id on all mobile-automation steps or set global_device_id",
 			firstMissingStepID,
@@ -89,94 +89,94 @@ func ValidateRunnerIDYAML(yamlStr string) error {
 	return nil
 }
 
-func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
+func ParsePipelineDeviceInfo(yamlStr string) (PipelineDeviceInfo, error) {
 	if strings.TrimSpace(yamlStr) == "" {
-		return PipelineRunnerInfo{}, nil
+		return PipelineDeviceInfo{}, nil
 	}
 
 	wfDef, err := pipeline.ParseWorkflow(yamlStr)
 	if err != nil {
-		return PipelineRunnerInfo{}, err
+		return PipelineDeviceInfo{}, err
 	}
 
-	runnerIDs := make(map[string]struct{})
-	missingRunnerID := false
+	deviceIDs := make(map[string]struct{})
+	missingDeviceID := false
 
-	collectRunner := func(step pipeline.StepSpec) {
-		runnerID := ""
+	collectDevice := func(step pipeline.StepSpec) {
+		deviceID := ""
 		if step.With.Payload != nil {
-			if rawRunnerID, ok := step.With.Payload["device_id"]; ok {
-				if id, ok := rawRunnerID.(string); ok {
-					runnerID = canonify.NormalizePath(id)
+			if rawDeviceID, ok := step.With.Payload["device_id"]; ok {
+				if id, ok := rawDeviceID.(string); ok {
+					deviceID = canonify.NormalizePath(id)
 				}
 			}
 		}
 
-		if runnerID != "" {
-			runnerIDs[runnerID] = struct{}{}
+		if deviceID != "" {
+			deviceIDs[deviceID] = struct{}{}
 			return
 		}
 
 		if step.Use == mobileAutomationStepUse {
-			missingRunnerID = true
+			missingDeviceID = true
 		}
 	}
 
 	for _, step := range wfDef.Steps {
-		collectRunner(step.StepSpec)
+		collectDevice(step.StepSpec)
 		for _, onErr := range step.OnError {
-			collectRunner(onErr.StepSpec)
+			collectDevice(onErr.StepSpec)
 		}
 		for _, onSuccess := range step.OnSuccess {
-			collectRunner(onSuccess.StepSpec)
+			collectDevice(onSuccess.StepSpec)
 		}
 	}
 
-	info := PipelineRunnerInfo{
-		NeedsGlobalRunner: missingRunnerID,
+	info := PipelineDeviceInfo{
+		NeedsGlobalDevice: missingDeviceID,
 	}
 
-	if len(runnerIDs) == 0 {
+	if len(deviceIDs) == 0 {
 		return info, nil
 	}
 
-	info.RunnerIDs = make([]string, 0, len(runnerIDs))
-	for runnerID := range runnerIDs {
-		info.RunnerIDs = append(info.RunnerIDs, runnerID)
+	info.DeviceIDs = make([]string, 0, len(deviceIDs))
+	for deviceID := range deviceIDs {
+		info.DeviceIDs = append(info.DeviceIDs, deviceID)
 	}
-	sort.Strings(info.RunnerIDs)
+	sort.Strings(info.DeviceIDs)
 
 	return info, nil
 }
 
-func RunnerIDsWithGlobal(info PipelineRunnerInfo, globalRunnerID string) []string {
-	runnerIDs := make([]string, 0, len(info.RunnerIDs))
-	for _, runnerID := range info.RunnerIDs {
-		runnerID = canonify.NormalizePath(runnerID)
-		if runnerID == "" {
+func DeviceIDsWithGlobal(info PipelineDeviceInfo, globalDeviceID string) []string {
+	deviceIDs := make([]string, 0, len(info.DeviceIDs))
+	for _, deviceID := range info.DeviceIDs {
+		deviceID = canonify.NormalizePath(deviceID)
+		if deviceID == "" {
 			continue
 		}
-		runnerIDs = append(runnerIDs, runnerID)
+		deviceIDs = append(deviceIDs, deviceID)
 	}
-	globalRunnerID = canonify.NormalizePath(globalRunnerID)
-	if info.NeedsGlobalRunner && globalRunnerID != "" {
+	globalDeviceID = canonify.NormalizePath(globalDeviceID)
+	if info.NeedsGlobalDevice && globalDeviceID != "" {
 		found := false
-		for _, id := range runnerIDs {
-			if id == globalRunnerID {
+		for _, id := range deviceIDs {
+			if id == globalDeviceID {
 				found = true
 				break
 			}
 		}
 		if !found {
-			runnerIDs = append(runnerIDs, globalRunnerID)
-			sort.Strings(runnerIDs)
+			deviceIDs = append(deviceIDs, globalDeviceID)
+			sort.Strings(deviceIDs)
 		}
 	}
 
-	return runnerIDs
+	return deviceIDs
 }
 
-func GlobalRunnerIDFromConfig(config map[string]any) string {
+func GlobalDeviceIDFromConfig(config map[string]any) string {
 	if config == nil {
 		return ""
 	}
@@ -188,52 +188,74 @@ func GlobalRunnerIDFromConfig(config map[string]any) string {
 	return ""
 }
 
-func ResolveRunnerRecord(
+func ResolveDeviceRecord(
 	app core.App,
-	runnerID string,
-	runnerCache map[string]map[string]any,
+	deviceID string,
+	deviceCache map[string]map[string]any,
 ) map[string]any {
-	if runnerCache == nil {
-		runnerCache = map[string]map[string]any{}
+	if deviceCache == nil {
+		deviceCache = map[string]map[string]any{}
 	}
 
-	runnerID = canonify.NormalizePath(runnerID)
-	if runnerID == "" {
+	deviceID = canonify.NormalizePath(deviceID)
+	if deviceID == "" {
 		return nil
 	}
 
-	if cached, ok := runnerCache[runnerID]; ok {
+	if cached, ok := deviceCache[deviceID]; ok {
 		return cached
 	}
 
-	record, err := canonify.Resolve(app, runnerID)
+	record, err := canonify.Resolve(app, deviceID)
 	if err != nil {
-		runnerCache[runnerID] = nil
+		deviceCache[deviceID] = nil
 		return nil
 	}
 
 	fields := record.PublicExport()
 	fields[core.FieldNameId] = record.Id
-	runnerCache[runnerID] = fields
+	deviceCache[deviceID] = fields
 	return fields
 }
 
-func ResolveRunnerRecords(
+func ResolveDeviceRecords(
 	app core.App,
-	runnerIDs []string,
-	runnerCache map[string]map[string]any,
+	deviceIDs []string,
+	deviceCache map[string]map[string]any,
 ) []map[string]any {
-	if len(runnerIDs) == 0 {
+	if len(deviceIDs) == 0 {
 		return []map[string]any{}
 	}
 
-	records := make([]map[string]any, 0, len(runnerIDs))
-	for _, runnerID := range runnerIDs {
-		record := ResolveRunnerRecord(app, runnerID, runnerCache)
+	records := make([]map[string]any, 0, len(deviceIDs))
+	for _, deviceID := range deviceIDs {
+		record := ResolveDeviceRecord(app, deviceID, deviceCache)
 		if record == nil {
 			continue
 		}
 		records = append(records, record)
 	}
 	return records
+}
+
+// Deprecated compatibility aliases are kept only while internal callers are
+// migrated in this implementation slice. They are not serialized contracts.
+type PipelineRunnerInfo = PipelineDeviceInfo
+
+func ValidateRunnerIDYAML(yamlStr string) error { return ValidateDeviceIDYAML(yamlStr) }
+
+func ParsePipelineRunnerInfo(yamlStr string) (PipelineDeviceInfo, error) {
+	return ParsePipelineDeviceInfo(yamlStr)
+}
+
+func RunnerIDsWithGlobal(info PipelineDeviceInfo, globalDeviceID string) []string {
+	return DeviceIDsWithGlobal(info, globalDeviceID)
+}
+
+func ResolveRunnerRecord(app core.App, deviceID string, cache map[string]map[string]any) map[string]any {
+	return ResolveDeviceRecord(app, deviceID, cache)
+}
+
+func ResolveRunnerRecords(app core.App, deviceIDs []string, cache map[string]map[string]any) []map[string]any {
+	return ResolveDeviceRecords(app, deviceIDs, cache)
 }

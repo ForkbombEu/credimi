@@ -15,14 +15,14 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 	tests := []struct {
 		name           string
 		steps          []pipeline.StepDefinition
-		globalRunnerID string
+		globalDeviceID string
 		expectError    bool
 		errorContains  string
 	}{
 		{
 			name:           "no mobile-automation steps - should pass",
 			steps:          []pipeline.StepDefinition{},
-			globalRunnerID: "",
+			globalDeviceID: "",
 			expectError:    false,
 		},
 		{
@@ -53,7 +53,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "",
+			globalDeviceID: "",
 			expectError:    false,
 		},
 		{
@@ -82,7 +82,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "global-runner/device",
+			globalDeviceID: "global-runner/device",
 			expectError:    false,
 		},
 		{
@@ -112,7 +112,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "",
+			globalDeviceID: "",
 			expectError:    true,
 			errorContains:  "device_id",
 		},
@@ -131,7 +131,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "",
+			globalDeviceID: "",
 			expectError:    true,
 			errorContains:  "device_id",
 		},
@@ -161,7 +161,7 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "global-runner/device",
+			globalDeviceID: "global-runner/device",
 			expectError:    false,
 		},
 		{
@@ -191,14 +191,14 @@ func TestValidateRunnerIDConfiguration(t *testing.T) {
 					},
 				},
 			},
-			globalRunnerID: "global-runner/device",
+			globalDeviceID: "global-runner/device",
 			expectError:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateDeviceIDConfiguration(&tt.steps, tt.globalRunnerID)
+			err := validateDeviceIDConfiguration(&tt.steps, tt.globalDeviceID)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -226,7 +226,7 @@ steps:
 `
 		wfDef, err := pipeline.ParseWorkflow(yamlContent)
 		require.NoError(t, err)
-		require.Equal(t, "my-global-runner/device", wfDef.Runtime.GlobalRunnerID)
+		require.Equal(t, "my-global-runner/device", wfDef.Runtime.GlobalDeviceID)
 		require.Equal(t, "Test Pipeline", wfDef.Name)
 	})
 
@@ -242,7 +242,7 @@ steps:
 `
 		wfDef, err := pipeline.ParseWorkflow(yamlContent)
 		require.NoError(t, err)
-		require.Equal(t, "", wfDef.Runtime.GlobalRunnerID)
+		require.Equal(t, "", wfDef.Runtime.GlobalDeviceID)
 		require.Equal(t, "Test Pipeline", wfDef.Name)
 	})
 

@@ -825,7 +825,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 				settedDevices:  settedDevices,
 				runData:        &runData,
 				logger:         workflow.GetLogger(ctx),
-				globalRunnerID: "tenant/runner-1/device-1",
+				globalDeviceID: "tenant/runner-1/device-1",
 			})
 			if err != nil {
 				return nil, err
@@ -1947,7 +1947,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 					wfDef,
 					map[string]any{
 						"app_url":                              "https://app.example",
-						"global_runner_id":                     "tenant/runner-1",
+						"global_device_id":                     "tenant/runner-1",
 						mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
 						mobileDisableAndroidPlayStoreConfigKey: true,
 					},
@@ -2534,7 +2534,7 @@ func TestProcessStepMissingRunnerURL(t *testing.T) {
 				},
 				runData:        &runData,
 				logger:         workflow.GetLogger(ctx),
-				globalRunnerID: "",
+				globalDeviceID: "",
 			})
 		},
 		workflow.RegisterOptions{Name: "test-process-step-missing-runner-url"},

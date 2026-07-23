@@ -82,7 +82,7 @@ type processStepInput struct {
 	settedDevices  map[string]any
 	runData        *map[string]any
 	logger         log.Logger
-	globalRunnerID string
+	globalDeviceID string
 }
 
 type fetchAndInstallAPKInput struct {
@@ -214,8 +214,8 @@ func MobileAutomationSetupHook(
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
 	// Validate device_id configuration.
-	globalRunnerID, _ := config["global_device_id"].(string)
-	if err := validateDeviceIDConfiguration(steps, globalRunnerID); err != nil {
+	globalDeviceID, _ := config["global_device_id"].(string)
+	if err := validateDeviceIDConfiguration(steps, globalDeviceID); err != nil {
 		return err
 	}
 	semaphoreManaged := isSemaphoreManagedRun(config)
@@ -223,7 +223,7 @@ func MobileAutomationSetupHook(
 		return err
 	}
 
-	runnerIDs, err := collectMobileDeviceIDs(*steps, globalRunnerID)
+	runnerIDs, err := collectMobileDeviceIDs(*steps, globalDeviceID)
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func MobileAutomationSetupHook(
 			settedDevices:  settedDevices,
 			runData:        runData,
 			logger:         logger,
-			globalRunnerID: globalRunnerID,
+			globalDeviceID: globalDeviceID,
 		}); err != nil {
 			return err
 		}
@@ -440,12 +440,12 @@ func processStep(
 		return err
 	}
 
-	// Use global_runner_id if step-level runner_id is not set
+	// Use global_device_id if step-level runner_id is not set
 	payload.RunnerID = canonify.NormalizePath(payload.RunnerID)
-	if payload.RunnerID == "" && input.globalRunnerID != "" {
-		payload.RunnerID = input.globalRunnerID
+	if payload.RunnerID == "" && input.globalDeviceID != "" {
+		payload.RunnerID = input.globalDeviceID
 		// Update the step payload with the global runner_id for consistency
-		SetPayloadValue(&input.step.With.Payload, "device_id", input.globalRunnerID)
+		SetPayloadValue(&input.step.With.Payload, "device_id", input.globalDeviceID)
 	}
 
 	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.ao)

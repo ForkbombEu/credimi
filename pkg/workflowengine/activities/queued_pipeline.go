@@ -82,7 +82,7 @@ type queuedWorkflowDefinition struct {
 
 type queuedRuntime struct {
 	Debug                   bool   `yaml:"debug,omitempty"`
-	GlobalRunnerID          string `yaml:"global_device_id,omitempty"`
+	GlobalDeviceID          string `yaml:"global_device_id,omitempty"`
 	DisableAndroidPlayStore bool   `yaml:"disable_android_play_store,omitempty"`
 	Temporal                struct {
 		ExecutionTimeout string                `yaml:"execution_timeout,omitempty"`
@@ -224,8 +224,8 @@ func (a *StartQueuedPipelineActivity) Execute(
 		}
 	}
 
-	if workflowDef.Runtime.GlobalRunnerID != "" {
-		config["global_device_id"] = workflowDef.Runtime.GlobalRunnerID
+	if workflowDef.Runtime.GlobalDeviceID != "" {
+		config["global_device_id"] = workflowDef.Runtime.GlobalDeviceID
 	}
 	config["disable_android_play_store"] = workflowDef.Runtime.DisableAndroidPlayStore
 	applySemaphoreTicketMetadata(config, payload)
