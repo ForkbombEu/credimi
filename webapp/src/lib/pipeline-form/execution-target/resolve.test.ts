@@ -9,7 +9,7 @@ import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/ty
 import { describe, expect, it } from 'vitest';
 
 import { resolveExecutionTarget } from './resolve.js';
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from './types.js';
+import { EXTERNAL_VERSION, GLOBAL_DEVICE } from './types.js';
 
 function mobileStep(data: WalletActionStepData): EnrichedStep {
 	return [
@@ -40,14 +40,14 @@ describe('resolveExecutionTarget', () => {
 		const data: WalletActionStepData = {
 			wallet: walletA,
 			version: EXTERNAL_VERSION,
-			runner: GLOBAL_RUNNER,
+			device: GLOBAL_DEVICE,
 			action
 		};
 		const result = resolveExecutionTarget([mobileStep(data)]);
 		expect(result).toEqual({
 			wallet: walletA,
 			version: EXTERNAL_VERSION,
-			runner: GLOBAL_RUNNER
+			device: GLOBAL_DEVICE
 		});
 	});
 
@@ -55,15 +55,15 @@ describe('resolveExecutionTarget', () => {
 		const first: WalletActionStepData = {
 			wallet: walletA,
 			version: EXTERNAL_VERSION,
-			runner: GLOBAL_RUNNER,
+			device: GLOBAL_DEVICE,
 			action
 		};
 		const last: WalletActionStepData = {
 			wallet: walletB,
 			version: EXTERNAL_VERSION,
-			runner: {
-				name: 'Runner',
-				path: 'org/runner',
+			device: {
+				name: 'Device',
+				path: 'org/device',
 				isOwned: true,
 				isPublished: true,
 				isOnline: true
@@ -77,14 +77,14 @@ describe('resolveExecutionTarget', () => {
 		];
 		const result = resolveExecutionTarget(steps);
 		expect(result?.wallet).toEqual(walletB);
-		expect(result?.runner).toEqual(last.runner);
+		expect(result?.device).toEqual(last.device);
 	});
 
 	it('returns undefined when the latest mobile step is error-enriched', () => {
 		const valid: WalletActionStepData = {
 			wallet: walletA,
 			version: EXTERNAL_VERSION,
-			runner: GLOBAL_RUNNER,
+			device: GLOBAL_DEVICE,
 			action
 		};
 		const steps: EnrichedStep[] = [

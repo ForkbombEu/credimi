@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { children } = $props();
 
 	onMount(() => {
-		return Pipeline.Runner.Catalog.startLiveRefresh();
+		return Pipeline.Device.Catalog.startLiveRefresh();
 	});
 </script>
 

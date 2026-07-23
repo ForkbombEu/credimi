@@ -45,7 +45,7 @@ type MobileAutomationWorkflowPayload struct {
 	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
 	Serial           string            `json:"serial,omitempty"             yaml:"serial,omitempty"`
 	Type             string            `json:"type,omitempty"               yaml:"type,omitempty"`
-	RunnerID         string            `json:"device_id,omitempty"          yaml:"device_id,omitempty"`
+	DeviceID         string            `json:"device_id,omitempty"          yaml:"device_id,omitempty"`
 	Parameters       map[string]string `json:"parameters,omitempty"         yaml:"parameters,omitempty"`
 }
 
@@ -54,7 +54,7 @@ type MobileAutomationWorkflowPipelinePayload struct {
 	VersionID  string            `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
 	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
 	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
-	RunnerID   string            `json:"device_id,omitempty"   yaml:"device_id,omitempty"`
+	DeviceID   string            `json:"device_id,omitempty"   yaml:"device_id,omitempty"`
 }
 
 func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {
@@ -274,9 +274,9 @@ func storeMobileFlowScreenshots(
 	runnerURL := workflowengine.AsString(input.Config["runner_url"])
 	stepID := workflowengine.AsString(input.Config["step_id"])
 	runIdentifier := workflowengine.AsString(input.Config["run_identifier"])
-	if runnerURL == "" || stepID == "" || runIdentifier == "" || payload.RunnerID == "" {
+	if runnerURL == "" || stepID == "" || runIdentifier == "" || payload.DeviceID == "" {
 		return nil, workflowengine.NewMissingConfigError(
-			"runner_url, step_id, run_identifier, or runner_id",
+			"runner_url, step_id, run_identifier, or device_id",
 			input.RunMetadata,
 		)
 	}
@@ -300,7 +300,7 @@ func storeMobileFlowScreenshots(
 			},
 			Body: map[string]any{
 				"run_identifier":    runIdentifier,
-				"runner_identifier": payload.RunnerID,
+				"device_identifier": payload.DeviceID,
 				"step_id":           stepID,
 				"screenshot_paths":  screenshotPaths,
 			},

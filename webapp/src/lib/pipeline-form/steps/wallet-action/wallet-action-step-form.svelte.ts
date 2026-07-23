@@ -6,8 +6,8 @@ import type { HubItem } from '$lib/hub';
 
 import {
 	EXTERNAL_VERSION,
-	GLOBAL_RUNNER,
-	type SelectedRunner,
+	GLOBAL_DEVICE,
+	type SelectedDevice,
 	type SelectedVersion
 } from '$pipeline-form/execution-target/types.js';
 import { Search } from '$pipeline-form/steps/_partials/index.js';
@@ -26,8 +26,8 @@ export function getVersionLabel(version: SelectedVersion) {
 	return version === EXTERNAL_VERSION ? m.Installed_from_external_source() : `v. ${version.tag}`;
 }
 
-export function getRunnerLabel(runner: SelectedRunner) {
-	return runner === GLOBAL_RUNNER ? m.Choose_later() : runner.name;
+export function getDeviceLabel(device: SelectedDevice) {
+	return device === GLOBAL_DEVICE ? m.Choose_later() : device.name;
 }
 
 //
@@ -38,13 +38,13 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
-		const { wallet, version, action, runner } = this.data;
+		const { wallet, version, action, device } = this.data;
 		if (
 			this.intent === 'add' &&
 			this.isExecutionTargetLocked() &&
 			wallet &&
 			version &&
-			runner &&
+			device &&
 			!action
 		) {
 			return 'select-action';
@@ -53,11 +53,11 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 			return 'select-wallet';
 		} else if (wallet && !version) {
 			return 'select-version';
-		} else if (wallet && version && !runner) {
-			return 'select-runner';
-		} else if (wallet && version && runner && !action) {
+		} else if (wallet && version && !device) {
+			return 'select-device';
+		} else if (wallet && version && device && !action) {
 			return 'select-action';
-		} else if (wallet && version && runner && action) {
+		} else if (wallet && version && device && action) {
 			return 'ready';
 		} else {
 			throw new Error(m.Pipeline_form_invalid_state());
@@ -88,37 +88,37 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	selectWallet(wallet: HubItem) {
 		this.data.wallet = wallet;
-		this.defaultRunnerIfNeeded();
+		this.defaultDeviceIfNeeded();
 	}
 
 	selectVersion(version: WalletVersionsResponse) {
 		this.data.version = version;
-		this.defaultRunnerIfNeeded();
+		this.defaultDeviceIfNeeded();
 	}
 
 	selectExternalVersion() {
 		this.data.version = EXTERNAL_VERSION;
-		this.defaultRunnerIfNeeded();
+		this.defaultDeviceIfNeeded();
 	}
 
-	private defaultRunnerIfNeeded() {
+	private defaultDeviceIfNeeded() {
 		if (this.isExecutionTargetLocked()) {
 			return;
 		}
 		const target = this.getExecutionTarget();
-		if (!target || target.runner === GLOBAL_RUNNER || target.runner === undefined) {
-			this.data.runner = GLOBAL_RUNNER;
+		if (!target || target.device === GLOBAL_DEVICE || target.device === undefined) {
+			this.data.device = GLOBAL_DEVICE;
 		}
 	}
 
 	//
 
-	runnerSearch = new Search({
+	deviceSearch = new Search({
 		onSearch: () => {}
 	});
 
-	selectRunner(runner: SelectedRunner) {
-		this.data.runner = runner;
+	selectDevice(device: SelectedDevice) {
+		this.data.device = device;
 	}
 
 	//
@@ -137,16 +137,16 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	removeWallet() {
 		this.data.wallet = undefined;
 		this.data.version = undefined;
-		this.data.runner = undefined;
+		this.data.device = undefined;
 		this.data.action = undefined;
 	}
 
 	removeVersion() {
 		this.data.version = undefined;
-		this.data.runner = undefined;
+		this.data.device = undefined;
 	}
 
-	removeRunner() {
-		this.data.runner = undefined;
+	removeDevice() {
+		this.data.device = undefined;
 	}
 }

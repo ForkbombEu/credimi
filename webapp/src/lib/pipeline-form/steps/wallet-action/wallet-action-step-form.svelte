@@ -14,8 +14,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import { getHubItemData, type HubItem } from '$lib/hub';
 	import { getHubItemTypeFilter } from '$lib/hub/utils.js';
-	import { bindRunnerCatalogSearch } from '$lib/pipeline/runner/runner-select-catalog.svelte.js';
-	import RunnerSelectList from '$lib/pipeline/runner/runner-select-list.svelte';
+	import { bindDeviceCatalogSearch } from '$lib/pipeline/device/device-select-catalog.svelte.js';
+	import DeviceSelectList from '$lib/pipeline/device/device-select-list.svelte';
 	import {
 		ItemCard,
 		SearchInput,
@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import WalletActionForm from './wallet-action-form.svelte';
 	import {
-		getRunnerLabel,
+		getDeviceLabel,
 		getVersionLabel,
 		type WalletActionStepForm
 	} from './wallet-action-step-form.svelte.js';
@@ -38,15 +38,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 
-	const runnerCatalog = bindRunnerCatalogSearch({
-		search: form.runnerSearch
+	const deviceCatalog = bindDeviceCatalogSearch({
+		search: form.deviceSearch
 	});
 </script>
 
-{#snippet chooseRunnerLater()}
-	{#if !form.isExecutionTargetLocked() && !form.data.runner}
+{#snippet chooseDeviceLater()}
+	{#if !form.isExecutionTargetLocked() && !form.data.device}
 		<div class="px-4">
-			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
+			<ItemCard title={m.Choose_later()} onClick={() => form.selectDevice('global')} />
 		</div>
 	{/if}
 {/snippet}
@@ -73,13 +73,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				/>
 			</WithLabel>
 		{/if}
-		{#if form.data.runner}
-			<WithLabel label={m.Runner()}>
+		{#if form.data.device}
+			<WithLabel label={'Device'}>
 				<ItemCard
-					title={getRunnerLabel(form.data.runner)}
+					title={getDeviceLabel(form.data.device)}
 					onDiscard={form.isExecutionTargetLocked()
 						? undefined
-						: () => form.removeRunner()}
+						: () => form.removeDevice()}
 				/>
 			</WithLabel>
 		{/if}
@@ -155,18 +155,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</ItemCard>
 		{/snippet}
 	</StepCollectionPicker>
-{:else if form.state === 'select-runner'}
-	<WithLabel label={m.Runner()} class="p-4">
-		<SearchInput search={form.runnerSearch} />
+{:else if form.state === 'select-device'}
+	<WithLabel label={'Device'} class="p-4">
+		<SearchInput search={form.deviceSearch} />
 	</WithLabel>
 
-	<RunnerSelectList
+	<DeviceSelectList
 		presentation="minimal"
-		foundRunners={runnerCatalog.foundRunners}
-		catalogLoading={runnerCatalog.catalogLoading}
+		foundDevices={deviceCatalog.foundDevices}
+		catalogLoading={deviceCatalog.catalogLoading}
 		scrollable
-		prepend={chooseRunnerLater}
-		onSelect={(item) => form.selectRunner(item)}
+		prepend={chooseDeviceLater}
+		onSelect={(item) => form.selectDevice(item)}
 	/>
 {:else if form.state === 'select-action'}
 	<StepCollectionPicker

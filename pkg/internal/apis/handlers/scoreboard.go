@@ -678,8 +678,8 @@ func calculateStatsFromExecutions(
 			stats.ManualExecutions++
 		}
 
-		runnerIDs := extractRunnerIDsFromExec(exec)
-		for _, id := range runnerIDs {
+		deviceIDs := extractDeviceIDsFromExec(exec)
+		for _, id := range deviceIDs {
 			runnerSet[id] = struct{}{}
 		}
 
@@ -809,19 +809,19 @@ func extractCompletionStatus(exec *WorkflowExecution) bool {
 	return normalizeTemporalStatus(exec.Status) == string(WorkflowStatusCompleted)
 }
 
-func extractRunnerIDsFromExec(exec *WorkflowExecution) []string {
+func extractDeviceIDsFromExec(exec *WorkflowExecution) []string {
 	if runnerVal, ok := (*exec.SearchAttributes)[workflowengine.DeviceIdentifiersSearchAttribute]; ok {
 		switch v := runnerVal.(type) {
 		case []string:
 			return v
 		case []interface{}:
-			runnerIDs := make([]string, 0, len(v))
+			deviceIDs := make([]string, 0, len(v))
 			for _, item := range v {
 				if s, ok := item.(string); ok {
-					runnerIDs = append(runnerIDs, s)
+					deviceIDs = append(deviceIDs, s)
 				}
 			}
-			return runnerIDs
+			return deviceIDs
 		}
 	}
 	return nil
@@ -866,13 +866,13 @@ func mapKeysToSlice(m map[string]struct{}) []string {
 
 func resolveRunnerTypes(
 	app core.App,
-	runnerIDs []string,
+	deviceIDs []string,
 	runnerCache map[string]map[string]any,
 ) []string {
-	if len(runnerIDs) == 0 || app == nil {
+	if len(deviceIDs) == 0 || app == nil {
 		return []string{}
 	}
-	runnerRecords := pipeline.ResolveDeviceRecords(app, runnerIDs, runnerCache)
+	runnerRecords := pipeline.ResolveDeviceRecords(app, deviceIDs, runnerCache)
 	types := make([]string, 0, len(runnerRecords))
 	for _, record := range runnerRecords {
 		if runnerType, ok := record["type"].(string); ok && runnerType != "" {
@@ -1162,9 +1162,9 @@ func setMobileRunnersRelation(record *core.Record, app core.App, runners []strin
 		return nil
 	}
 
-	runnerIDs, skipped := findExistingRecords(app, runners)
-	if len(runnerIDs) > 0 {
-		record.Set("mobile_devices", runnerIDs)
+	deviceIDs, skipped := findExistingRecords(app, runners)
+	if len(deviceIDs) > 0 {
+		record.Set("mobile_devices", deviceIDs)
 	}
 	if len(skipped) > 0 {
 		return fmt.Errorf("skipped missing runners: %s", strings.Join(skipped, ", "))

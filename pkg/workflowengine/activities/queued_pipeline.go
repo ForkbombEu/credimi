@@ -36,8 +36,8 @@ type StartQueuedPipelineActivity struct {
 type StartQueuedPipelineActivityInput struct {
 	TicketID           string         `json:"ticket_id"`
 	OwnerNamespace     string         `json:"owner_namespace"`
-	RequiredRunnerIDs  []string       `json:"required_device_ids,omitempty"`
-	LeaderRunnerID     string         `json:"leader_device_id,omitempty"`
+	RequiredDeviceIDs  []string       `json:"required_device_ids,omitempty"`
+	LeaderDeviceID     string         `json:"leader_device_id,omitempty"`
 	PipelineIdentifier string         `json:"pipeline_identifier"`
 	YAML               string         `json:"yaml"`
 	PipelineConfig     map[string]any `json:"pipeline_config,omitempty"`
@@ -64,10 +64,10 @@ const (
 	defaultRetryMaxInterval        = "1m"
 	defaultRetryBackoffCoefficient = 2.0
 
-	mobileRunnerSemaphoreTicketIDConfigKey       = "mobile_device_semaphore_ticket_id"
-	mobileRunnerSemaphoreRunnerIDsConfigKey      = "mobile_device_semaphore_device_ids"
-	mobileRunnerSemaphoreLeaderRunnerIDConfigKey = "mobile_device_semaphore_leader_device_id"
-	mobileRunnerSemaphoreOwnerNamespaceConfigKey = "mobile_device_semaphore_owner_namespace"
+	mobileDeviceSemaphoreTicketIDConfigKey       = "mobile_device_semaphore_ticket_id"
+	mobileDeviceSemaphoreDeviceIDsConfigKey      = "mobile_device_semaphore_device_ids"
+	mobileDeviceSemaphoreLeaderDeviceIDConfigKey = "mobile_device_semaphore_leader_device_id"
+	mobileDeviceSemaphoreOwnerNamespaceConfigKey = "mobile_device_semaphore_owner_namespace"
 	queuedTempWalletVersionConfigKey             = "temp_wallet_version"
 	queuedTempCredentialsConfigKey               = "temp_credentials"
 	queuedTempUseCaseVerificationsConfigKey      = "temp_use_case_verifications"
@@ -251,7 +251,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 	workflowengine.ApplyPipelineSearchAttributes(
 		&options.Options,
 		payload.PipelineIdentifier,
-		payload.RequiredRunnerIDs,
+		payload.RequiredDeviceIDs,
 		entityIDs,
 	)
 
@@ -325,7 +325,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 		workflowID,
 		runID,
 		pipelineRunTypeFromMemo(memo),
-		payload.RequiredRunnerIDs,
+		payload.RequiredDeviceIDs,
 	); err != nil {
 		if activity.IsActivity(ctx) {
 			logger := activity.GetLogger(ctx)
@@ -429,10 +429,10 @@ func applySemaphoreTicketMetadata(
 	if config == nil {
 		return
 	}
-	config[mobileRunnerSemaphoreTicketIDConfigKey] = payload.TicketID
-	config[mobileRunnerSemaphoreRunnerIDsConfigKey] = copyStringSlice(payload.RequiredRunnerIDs)
-	config[mobileRunnerSemaphoreLeaderRunnerIDConfigKey] = payload.LeaderRunnerID
-	config[mobileRunnerSemaphoreOwnerNamespaceConfigKey] = payload.OwnerNamespace
+	config[mobileDeviceSemaphoreTicketIDConfigKey] = payload.TicketID
+	config[mobileDeviceSemaphoreDeviceIDsConfigKey] = copyStringSlice(payload.RequiredDeviceIDs)
+	config[mobileDeviceSemaphoreLeaderDeviceIDConfigKey] = payload.LeaderDeviceID
+	config[mobileDeviceSemaphoreOwnerNamespaceConfigKey] = payload.OwnerNamespace
 }
 
 func copyStringSlice(values []string) []string {

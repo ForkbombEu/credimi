@@ -34,14 +34,14 @@ func TestBuildGitHubPRCommentDocumentGroupsRunsUnderCommitTitle(t *testing.T) {
 			"abc1234::org/pipeline::org/runner-1": {
 				CommitSHA:  "abc123456789",
 				PipelineID: "org/pipeline",
-				RunnerID:   "org/runner-1",
+				DeviceID:   "org/runner-1",
 				RunnerType: "android_phone",
 				Status:     "running",
 			},
 			"abc1234::org/pipeline-2::org/runner-2": {
 				CommitSHA:    "abc123456789",
 				PipelineID:   "org/pipeline-2",
-				RunnerID:     "org/runner-2",
+				DeviceID:     "org/runner-2",
 				RunnerType:   "android_emulator",
 				Status:       "queued",
 				SectionTitle: activities.GitHubPRCommentSectionIssuer,
@@ -68,25 +68,25 @@ func TestApplyGitHubPRCommentUpdateKeepsLatestCommitOnly(t *testing.T) {
 	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "oldcommit",
 		PipelineID: "pipeline-a",
-		RunnerID:   "runner-1",
+		DeviceID:   "runner-1",
 		Status:     "queued",
 	})
 	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "newcommit",
 		PipelineID: "pipeline-a",
-		RunnerID:   "runner-1",
+		DeviceID:   "runner-1",
 		Status:     "queued",
 	})
 	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "oldcommit",
 		PipelineID: "pipeline-a",
-		RunnerID:   "runner-1",
+		DeviceID:   "runner-1",
 		Status:     "running",
 	})
 	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "newcommit",
 		PipelineID: "pipeline-b",
-		RunnerID:   "runner-2",
+		DeviceID:   "runner-2",
 		Status:     "queued",
 	})
 
@@ -117,14 +117,14 @@ func TestApplyGitHubPRCommentUpdateAcceptsRunningNewCommitAfterTerminalCommit(t 
 	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:      "oldcommit",
 		PipelineID:     "pipeline-a",
-		RunnerID:       "runner-1",
+		DeviceID:       "runner-1",
 		Status:         "running",
 		WorkflowStatus: "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	})
 	applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "newcommit",
 		PipelineID: "pipeline-a",
-		RunnerID:   "runner-1",
+		DeviceID:   "runner-1",
 		Status:     "running",
 	})
 
@@ -152,7 +152,7 @@ func TestApplyGitHubPRCommentUpdateIgnoresDifferentRunningCommitWhileCurrentComm
 	changed := applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "current",
 		PipelineID: "pipeline-a",
-		RunnerID:   "runner-1",
+		DeviceID:   "runner-1",
 		Status:     "running",
 	})
 	require.True(t, changed)
@@ -160,7 +160,7 @@ func TestApplyGitHubPRCommentUpdateIgnoresDifferentRunningCommitWhileCurrentComm
 	changed = applyGitHubPRCommentUpdate(&state, activities.UpdateGitHubPRCommentInput{
 		CommitSHA:  "different",
 		PipelineID: "pipeline-a",
-		RunnerID:   "runner-1",
+		DeviceID:   "runner-1",
 		Status:     "running",
 	})
 	require.False(t, changed)
@@ -188,7 +188,7 @@ func TestApplyGitHubPRCommentUpdateUsesCurrentHeadSHA(t *testing.T) {
 		CommitSHA:      "oldcommit",
 		CurrentHeadSHA: "newcommit",
 		PipelineID:     "pipeline-a",
-		RunnerID:       "runner-1",
+		DeviceID:       "runner-1",
 		Status:         "queued",
 	})
 	require.False(t, changed)
@@ -198,7 +198,7 @@ func TestApplyGitHubPRCommentUpdateUsesCurrentHeadSHA(t *testing.T) {
 		CommitSHA:      "newcommit",
 		CurrentHeadSHA: "newcommit",
 		PipelineID:     "pipeline-a",
-		RunnerID:       "runner-1",
+		DeviceID:       "runner-1",
 		Status:         "running",
 	})
 	require.True(t, changed)
@@ -221,7 +221,7 @@ func TestApplyGitHubPRCommentUpdateDoesNotPatchRejectedFirstUpdate(t *testing.T)
 		CommitSHA:         "oldcommit",
 		CurrentHeadSHA:    "newcommit",
 		PipelineID:        "pipeline-a",
-		RunnerID:          "runner-1",
+		DeviceID:          "runner-1",
 		Status:            "queued",
 	})
 

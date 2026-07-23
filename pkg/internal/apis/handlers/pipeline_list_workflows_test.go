@@ -97,13 +97,13 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 		require.Equal(t, "ticket-queued", summaries[0].Queue.TicketID)
 		require.Equal(t, 2, summaries[0].Queue.Position)
 		require.Equal(t, 3, summaries[0].Queue.LineLen)
-		require.Equal(t, []string{"runner-1"}, summaries[0].Queue.RunnerIDs)
+		require.Equal(t, []string{"runner-1"}, summaries[0].Queue.DeviceIDs)
 		require.Equal(t, "Queued", summaries[0].Status)
 		require.Equal(t, "queued-pipeline", summaries[0].DisplayName)
 		require.NotNil(t, summaries[0].Execution)
 		require.Equal(t, "queue/ticket-queued", summaries[0].Execution.WorkflowID)
 		require.Equal(t, "ticket-queued", summaries[0].Execution.RunID)
-		require.Equal(t, []string{"runner-1"}, summaries[0].RunnerIDs)
+		require.Equal(t, []string{"runner-1"}, summaries[0].DeviceIDs)
 		require.Equal(t, pipelineIdentifier, summaries[0].PipelineIdentifier)
 
 		return nil
@@ -112,33 +112,33 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 }
 
 func stubQueuedRuns(t *testing.T, pipelineID string) {
-	originalList := listMobileRunnerSemaphoreWorkflows
-	originalQuery := queryMobileRunnerSemaphoreQueuedRuns
+	originalList := listMobileDeviceSemaphoreWorkflows
+	originalQuery := queryMobileDeviceSemaphoreQueuedRuns
 
 	t.Cleanup(func() {
-		listMobileRunnerSemaphoreWorkflows = originalList
-		queryMobileRunnerSemaphoreQueuedRuns = originalQuery
+		listMobileDeviceSemaphoreWorkflows = originalList
+		queryMobileDeviceSemaphoreQueuedRuns = originalQuery
 	})
 
-	listMobileRunnerSemaphoreWorkflows = func(_ context.Context) ([]string, error) {
+	listMobileDeviceSemaphoreWorkflows = func(_ context.Context) ([]string, error) {
 		return []string{"runner-1"}, nil
 	}
 
 	enqueuedAt := time.Date(2026, 2, 5, 9, 0, 0, 0, time.UTC)
-	queryMobileRunnerSemaphoreQueuedRuns = func(
+	queryMobileDeviceSemaphoreQueuedRuns = func(
 		_ context.Context,
 		_ string,
 		_ string,
-	) ([]workflows.MobileRunnerSemaphoreQueuedRunView, error) {
-		return []workflows.MobileRunnerSemaphoreQueuedRunView{
+	) ([]workflows.MobileDeviceSemaphoreQueuedRunView, error) {
+		return []workflows.MobileDeviceSemaphoreQueuedRunView{
 			{
 				TicketID:           "ticket-queued",
 				OwnerNamespace:     "usera-s-organization",
 				PipelineIdentifier: pipelineID,
 				EnqueuedAt:         enqueuedAt,
-				LeaderRunnerID:     "runner-1",
-				RequiredRunnerIDs:  []string{"runner-1"},
-				Status:             workflowengine.MobileRunnerSemaphoreRunQueued,
+				LeaderDeviceID:     "runner-1",
+				RequiredDeviceIDs:  []string{"runner-1"},
+				Status:             workflowengine.MobileDeviceSemaphoreRunQueued,
 				Position:           1,
 				LineLen:            3,
 			},

@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	mobileRunnerSemaphoreOwnerNamespaceKey = "mobile_device_semaphore_owner_namespace"
-	mobileRunnerSemaphoreLeaderRunnerIDKey = "mobile_device_semaphore_leader_device_id"
+	mobileDeviceSemaphoreOwnerNamespaceKey = "mobile_device_semaphore_owner_namespace"
+	mobileDeviceSemaphoreLeaderDeviceIDKey = "mobile_device_semaphore_leader_device_id"
 )
 
-func reportMobileRunnerSemaphoreDone(
+func reportMobileDeviceSemaphoreDone(
 	ctx workflow.Context,
 	logger log.Logger,
 	config map[string]any,
@@ -26,17 +26,17 @@ func reportMobileRunnerSemaphoreDone(
 	if config == nil {
 		return
 	}
-	ticketID, _ := config[mobileRunnerSemaphoreTicketIDConfigKey].(string)
-	ownerNamespace, _ := config[mobileRunnerSemaphoreOwnerNamespaceKey].(string)
-	leaderRunnerID, _ := config[mobileRunnerSemaphoreLeaderRunnerIDKey].(string)
-	if ticketID == "" || ownerNamespace == "" || leaderRunnerID == "" {
+	ticketID, _ := config[mobileDeviceSemaphoreTicketIDConfigKey].(string)
+	ownerNamespace, _ := config[mobileDeviceSemaphoreOwnerNamespaceKey].(string)
+	leaderDeviceID, _ := config[mobileDeviceSemaphoreLeaderDeviceIDKey].(string)
+	if ticketID == "" || ownerNamespace == "" || leaderDeviceID == "" {
 		return
 	}
 
-	reportActivity := activities.NewReportMobileRunnerSemaphoreDoneActivity()
-	payload := activities.ReportMobileRunnerSemaphoreDoneInput{
+	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity()
+	payload := activities.ReportMobileDeviceSemaphoreDoneInput{
 		OwnerNamespace: ownerNamespace,
-		LeaderRunnerID: leaderRunnerID,
+		LeaderDeviceID: leaderDeviceID,
 		TicketID:       ticketID,
 		WorkflowID:     workflowID,
 		RunID:          runID,
@@ -49,11 +49,11 @@ func reportMobileRunnerSemaphoreDone(
 		workflowengine.ActivityInput{Payload: payload},
 	).Get(ctx, nil); err != nil {
 		logger.Error(
-			"failed to report mobile runner semaphore done",
+			"failed to report mobile device semaphore done",
 			"ticket_id",
 			ticketID,
 			"leader_device_id",
-			leaderRunnerID,
+			leaderDeviceID,
 			"error",
 			err,
 		)

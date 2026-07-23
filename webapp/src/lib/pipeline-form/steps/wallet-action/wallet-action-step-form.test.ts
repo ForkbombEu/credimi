@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('./wallet-action-step-form.svelte', () => ({ default: class {} }));
 
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '$pipeline-form/execution-target/types.js';
+import { EXTERNAL_VERSION, GLOBAL_DEVICE } from '$pipeline-form/execution-target/types.js';
 import { isExecutionTargetLocked } from '$pipeline-form/steps-builder/execution-target-lock.js';
 import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
 
@@ -15,7 +15,7 @@ import { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 const executionTarget = {
 	wallet: { id: 'w1', name: 'W' } as never,
 	version: EXTERNAL_VERSION,
-	runner: GLOBAL_RUNNER
+	device: GLOBAL_DEVICE
 };
 
 describe('WalletActionStepForm execution target', () => {
@@ -31,7 +31,7 @@ describe('WalletActionStepForm execution target', () => {
 		expect(form.state).toBe('select-action');
 		expect(form.data.wallet).toEqual(executionTarget.wallet);
 		expect(form.data.version).toBe(EXTERNAL_VERSION);
-		expect(form.data.runner).toBe(GLOBAL_RUNNER);
+		expect(form.data.device).toBe(GLOBAL_DEVICE);
 		expect(form.data.action).toBeUndefined();
 	});
 
@@ -54,14 +54,14 @@ describe('WalletActionStepForm execution target', () => {
 		expect(form.data.action).toBeUndefined();
 	});
 
-	it('edit sole step with global runner is not locked', () => {
+	it('edit sole step with global device is not locked', () => {
 		const form = new WalletActionStepForm(
 			createInitFormOptions({
 				intent: 'edit',
 				initial: {
 					wallet: { id: 'w1', name: 'W' } as never,
 					version: EXTERNAL_VERSION,
-					runner: GLOBAL_RUNNER,
+					device: GLOBAL_DEVICE,
 					action: { id: 'a1', name: 'Old' } as never
 				},
 				getExecutionTarget: () => executionTarget,
@@ -87,7 +87,7 @@ describe('WalletActionStepForm edit intent', () => {
 				initial: {
 					wallet: { id: 'w1', name: 'W' } as never,
 					version: EXTERNAL_VERSION,
-					runner: GLOBAL_RUNNER,
+					device: GLOBAL_DEVICE,
 					action: { id: 'a1', name: 'Old' } as never
 				}
 			})
@@ -99,7 +99,7 @@ describe('WalletActionStepForm edit intent', () => {
 		form.commit({
 			wallet: { id: 'w1', name: 'W' } as never,
 			version: EXTERNAL_VERSION,
-			runner: GLOBAL_RUNNER,
+			device: GLOBAL_DEVICE,
 			action: newAction
 		});
 		expect(onSubmit).toHaveBeenCalledOnce();

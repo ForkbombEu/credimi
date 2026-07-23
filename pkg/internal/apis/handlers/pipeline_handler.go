@@ -517,7 +517,7 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				),
 			)
 		}
-		deviceIDs := normalizeRunnerIDs(input.DeviceIDs)
+		deviceIDs := normalizeDeviceIDs(input.DeviceIDs)
 		if len(deviceIDs) > 0 {
 			if apiErr := validatePipelineRunnerAccess(e.App, owner.Id, deviceIDs); apiErr != nil {
 				return apiErr

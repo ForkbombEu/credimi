@@ -137,7 +137,7 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 			return request.URL == "https://runner.example/credimi/execution-screenshots" &&
 				workflowengine.AsString(body["step_id"]) == "scan-credential" &&
 				workflowengine.AsString(body["run_identifier"]) == "org/workflow-run" &&
-				workflowengine.AsString(body["runner_identifier"]) == "org/runner" &&
+				workflowengine.AsString(body["device_identifier"]) == "org/runner" &&
 				requireScreenshotPaths(body["screenshot_paths"], "/tmp/checkout.png")
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -185,7 +185,7 @@ func mobileScreenshotWorkflowInput() workflowengine.WorkflowInput {
 		Payload: MobileAutomationWorkflowPayload{
 			Serial:     "emulator-5554",
 			ActionCode: "steps: []",
-			RunnerID:   "org/runner",
+			DeviceID:   "org/runner",
 		},
 		Config: map[string]any{
 			"app_url":        "https://app.example",

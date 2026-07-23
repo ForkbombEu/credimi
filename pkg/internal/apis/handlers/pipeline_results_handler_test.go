@@ -723,7 +723,7 @@ steps:
 	)
 	require.NoError(t, err)
 	require.Equal(t, "runner-1", out.GlobalDeviceID)
-	require.Equal(t, []string{"runner-1"}, out.RunnerIDs)
+	require.Equal(t, []string{"runner-1"}, out.DeviceIDs)
 }
 
 func TestDescribeWorkflowExecutionErrors(t *testing.T) {

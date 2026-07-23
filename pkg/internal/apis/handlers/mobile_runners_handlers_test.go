@@ -216,18 +216,18 @@ func TestListMobileRunners(t *testing.T) {
 			checkMobileRunnerHealth = originalHealth
 		})
 
-		originalQuery := queryMobileRunnerSemaphoreState
-		queryMobileRunnerSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileRunnerSemaphoreStateView, error) {
+		originalQuery := queryMobileDeviceSemaphoreState
+		queryMobileDeviceSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileDeviceSemaphoreStateView, error) {
 			if runnerID == "usera-s-organization/owned-online" {
-				return workflows.MobileRunnerSemaphoreStateView{
-					RunnerID: runnerID,
+				return workflows.MobileDeviceSemaphoreStateView{
+					DeviceID: runnerID,
 					QueueLen: 3,
 				}, nil
 			}
-			return workflows.MobileRunnerSemaphoreStateView{RunnerID: runnerID, QueueLen: 1}, nil
+			return workflows.MobileDeviceSemaphoreStateView{DeviceID: runnerID, QueueLen: 1}, nil
 		}
 		t.Cleanup(func() {
-			queryMobileRunnerSemaphoreState = originalQuery
+			queryMobileDeviceSemaphoreState = originalQuery
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
@@ -517,13 +517,13 @@ func TestListMobileRunners(t *testing.T) {
 		})
 
 		queryCalled := false
-		originalQuery := queryMobileRunnerSemaphoreState
-		queryMobileRunnerSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileRunnerSemaphoreStateView, error) {
+		originalQuery := queryMobileDeviceSemaphoreState
+		queryMobileDeviceSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileDeviceSemaphoreStateView, error) {
 			queryCalled = true
-			return workflows.MobileRunnerSemaphoreStateView{RunnerID: runnerID, QueueLen: 3}, nil
+			return workflows.MobileDeviceSemaphoreStateView{DeviceID: runnerID, QueueLen: 3}, nil
 		}
 		t.Cleanup(func() {
-			queryMobileRunnerSemaphoreState = originalQuery
+			queryMobileDeviceSemaphoreState = originalQuery
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners?view=selector", nil)
@@ -587,12 +587,12 @@ func TestListMobileDevices(t *testing.T) {
 	device.Set("online", true)
 	require.NoError(t, app.Save(device))
 
-	originalQuery := queryMobileRunnerSemaphoreState
-	queryMobileRunnerSemaphoreState = func(_ context.Context, deviceID string) (workflows.MobileRunnerSemaphoreStateView, error) {
+	originalQuery := queryMobileDeviceSemaphoreState
+	queryMobileDeviceSemaphoreState = func(_ context.Context, deviceID string) (workflows.MobileDeviceSemaphoreStateView, error) {
 		require.Equal(t, "usera-s-organization/device-host/pixel-8", deviceID)
-		return workflows.MobileRunnerSemaphoreStateView{RunnerID: deviceID, QueueLen: 2}, nil
+		return workflows.MobileDeviceSemaphoreStateView{DeviceID: deviceID, QueueLen: 2}, nil
 	}
-	t.Cleanup(func() { queryMobileRunnerSemaphoreState = originalQuery })
+	t.Cleanup(func() { queryMobileDeviceSemaphoreState = originalQuery })
 
 	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
 	rec := httptest.NewRecorder()
@@ -830,7 +830,7 @@ func TestListMobileRunnerURLs(t *testing.T) {
 	}
 }
 
-func TestGetMobileRunnerSemaphore(t *testing.T) {
+func TestGetMobileDeviceSemaphore(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -879,12 +879,12 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 				record.Set("name", "runner-without-semaphore")
 				require.NoError(t, app.Save(record))
 
-				originalQuery := queryMobileRunnerSemaphoreState
-				queryMobileRunnerSemaphoreState = func(_ context.Context, _ string) (workflows.MobileRunnerSemaphoreStateView, error) {
-					return workflows.MobileRunnerSemaphoreStateView{}, errSemaphoreNotFound
+				originalQuery := queryMobileDeviceSemaphoreState
+				queryMobileDeviceSemaphoreState = func(_ context.Context, _ string) (workflows.MobileDeviceSemaphoreStateView, error) {
+					return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
 				}
 				t.Cleanup(func() {
-					queryMobileRunnerSemaphoreState = originalQuery
+					queryMobileDeviceSemaphoreState = originalQuery
 				})
 
 				return app
@@ -917,17 +917,17 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 				record.Set("name", "test-semaphore-runner")
 				require.NoError(t, app.Save(record))
 
-				originalQuery := queryMobileRunnerSemaphoreState
-				queryMobileRunnerSemaphoreState = func(_ context.Context, _ string) (workflows.MobileRunnerSemaphoreStateView, error) {
-					return workflows.MobileRunnerSemaphoreStateView{
-						RunnerID:  "test-semaphore-runner",
+				originalQuery := queryMobileDeviceSemaphoreState
+				queryMobileDeviceSemaphoreState = func(_ context.Context, _ string) (workflows.MobileDeviceSemaphoreStateView, error) {
+					return workflows.MobileDeviceSemaphoreStateView{
+						DeviceID:  "test-semaphore-runner",
 						Capacity:  1,
 						SlotsUsed: 1,
 						QueueLen:  2,
 					}, nil
 				}
 				t.Cleanup(func() {
-					queryMobileRunnerSemaphoreState = originalQuery
+					queryMobileDeviceSemaphoreState = originalQuery
 				})
 
 				return app
@@ -944,7 +944,7 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 	}
 }
 
-func TestPreviewMobileRunnerID(t *testing.T) {
+func TestPreviewMobileDeviceID(t *testing.T) {
 	t.Run("user preview uses user organization and increments canonified name", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)
 		defer app.Cleanup()
@@ -969,10 +969,10 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 			app,
 			user,
 			"/api/mobile-runner/preview-id",
-			PreviewMobileRunnerIDRequest{Name: "Test Runner"},
+			PreviewMobileDeviceIDRequest{Name: "Test Runner"},
 		)
 
-		err = HandlePreviewMobileRunnerID()(event)
+		err = HandlePreviewMobileDeviceID()(event)
 		require.NoError(t, err)
 
 		recorder := responseRecorder(t, event)
@@ -996,10 +996,10 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 			app,
 			superuser,
 			"/api/mobile-runner/preview-id",
-			PreviewMobileRunnerIDRequest{Name: "Runner One"},
+			PreviewMobileDeviceIDRequest{Name: "Runner One"},
 		)
 
-		err = HandlePreviewMobileRunnerID()(event)
+		err = HandlePreviewMobileDeviceID()(event)
 
 		recorder := responseRecorder(t, event)
 		requireHandlerErrorHandled(t, recorder, err)
@@ -1019,13 +1019,13 @@ func TestPreviewMobileRunnerID(t *testing.T) {
 			app,
 			superuser,
 			"/api/mobile-runner/preview-id",
-			PreviewMobileRunnerIDRequest{
+			PreviewMobileDeviceIDRequest{
 				Organization: "userb-s-organization",
 				Name:         "Runner B",
 			},
 		)
 
-		err = HandlePreviewMobileRunnerID()(event)
+		err = HandlePreviewMobileDeviceID()(event)
 		require.NoError(t, err)
 
 		recorder := responseRecorder(t, event)

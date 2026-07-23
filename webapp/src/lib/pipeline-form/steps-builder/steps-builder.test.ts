@@ -31,7 +31,7 @@ import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
-import { EXTERNAL_VERSION, GLOBAL_RUNNER } from '$pipeline-form/execution-target/types.js';
+import { EXTERNAL_VERSION, GLOBAL_DEVICE } from '$pipeline-form/execution-target/types.js';
 
 import { getBulkWalletVersionContext } from './_partials/index.js';
 import { StepsBuilder } from './steps-builder.svelte.js';
@@ -238,7 +238,7 @@ describe('StepsBuilder bulk wallet version sync', () => {
 		wallet: typeof walletA,
 		version: WalletActionStepData['version']
 	): WalletActionStepData {
-		return { wallet, version, runner: GLOBAL_RUNNER, action };
+		return { wallet, version, device: GLOBAL_DEVICE, action };
 	}
 
 	it('updates all mobile-automation steps with the same wallet and re-serializes with', () => {

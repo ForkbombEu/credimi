@@ -278,9 +278,9 @@ var DefaultWorkers = []workerConfig{
 		},
 	},
 	{
-		TaskQueue: workflows.MobileRunnerSemaphoreTaskQueue,
+		TaskQueue: workflows.MobileDeviceSemaphoreTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			workflows.NewMobileRunnerSemaphoreWorkflow(),
+			workflows.NewMobileDeviceSemaphoreWorkflow(),
 			workflows.NewGitHubPRCommentWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
@@ -288,8 +288,8 @@ var DefaultWorkers = []workerConfig{
 			activities.NewCheckWorkflowClosedActivity(),
 			activities.NewSignalWorkflowActivity(),
 			activities.NewCancelWorkflowActivity(),
-			activities.NewCleanupMobileRunnerSemaphoreResourcesActivity(),
-			activities.NewQueryMobileRunnerSemaphoreRunStatusActivity(),
+			activities.NewCleanupMobileDeviceSemaphoreResourcesActivity(),
+			activities.NewQueryMobileDeviceSemaphoreRunStatusActivity(),
 			activities.NewUpdateGitHubPRCommentActivity(),
 			activities.NewPatchGitHubPRCommentActivity(),
 		},

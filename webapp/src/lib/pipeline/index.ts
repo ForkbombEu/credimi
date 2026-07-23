@@ -4,7 +4,7 @@
 
 export { cancel, run } from './actions';
 export * as Queue from './queue';
-export * as Runner from './runner/index.js';
+export * as Device from './device/index.js';
 export * from './types';
 export * from './utils';
 export { validateYaml, type PipelineYamlValidation } from './validate-yaml';

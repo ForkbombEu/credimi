@@ -439,7 +439,7 @@ func resolvePipelineCIRunContext(
 	}, nil
 }
 
-func resolvePipelineCIRunnerID(
+func resolvePipelineCIDeviceID(
 	ctx context.Context,
 	app core.App,
 	ownerID string,
@@ -1001,7 +1001,7 @@ func selectOnlinePipelineCIRunner(
 	app core.App,
 	records []*core.Record,
 ) (string, *apierror.APIError) {
-	selectedRunnerID := ""
+	selectedDeviceID := ""
 	selectedBacklog := 0
 	for _, record := range records {
 		online, apiErr := pipelineCIRunnerOnline(ctx, record)
@@ -1012,7 +1012,7 @@ func selectOnlinePipelineCIRunner(
 			continue
 		}
 
-		runnerID, apiErr := pipelineCIRunnerID(record, app)
+		runnerID, apiErr := pipelineCIDeviceID(record, app)
 		if apiErr != nil {
 			return "", apiErr
 		}
@@ -1020,18 +1020,18 @@ func selectOnlinePipelineCIRunner(
 		if apiErr != nil {
 			return "", apiErr
 		}
-		if selectedRunnerID == "" ||
+		if selectedDeviceID == "" ||
 			backlog < selectedBacklog ||
-			(backlog == selectedBacklog && runnerID < selectedRunnerID) {
-			selectedRunnerID = runnerID
+			(backlog == selectedBacklog && runnerID < selectedDeviceID) {
+			selectedDeviceID = runnerID
 			selectedBacklog = backlog
 		}
 	}
 
-	return selectedRunnerID, nil
+	return selectedDeviceID, nil
 }
 
-func pipelineCIRunnerID(record *core.Record, app core.App) (string, *apierror.APIError) {
+func pipelineCIDeviceID(record *core.Record, app core.App) (string, *apierror.APIError) {
 	runnerID, err := mobileRunnerIdentifier(app, record)
 	if err != nil {
 		return "", apierror.New(
@@ -1096,7 +1096,7 @@ func checkPipelineCIRunnerHealth(ctx context.Context, runnerURL string) (bool, e
 }
 
 func pipelineCIRunnerBacklog(ctx context.Context, runnerID string) (int, *apierror.APIError) {
-	state, err := queryMobileRunnerSemaphoreState(ctx, runnerID)
+	state, err := queryMobileDeviceSemaphoreState(ctx, runnerID)
 	if err != nil {
 		if errors.Is(err, errSemaphoreNotFound) {
 			return 0, nil

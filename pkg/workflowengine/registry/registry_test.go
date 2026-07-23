@@ -128,7 +128,7 @@ func TestPipelineInternalRegistryContainsTasks(t *testing.T) {
 	t.Parallel()
 
 	require.Contains(t, PipelineInternalRegistry, "scheduled-pipeline-enqueue")
-	require.Contains(t, PipelineInternalRegistry, "mobile-runner-semaphore-done")
+	require.Contains(t, PipelineInternalRegistry, "mobile-device-semaphore-done")
 	require.Contains(t, PipelineInternalRegistry, "internal-http-request")
 
 	task := PipelineInternalRegistry["scheduled-pipeline-enqueue"]

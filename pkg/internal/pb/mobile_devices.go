@@ -71,7 +71,7 @@ func shutdownMobileDeviceSemaphore(app core.App, device *core.Record, reason str
 		return fmt.Errorf("build mobile device identifier: %w", err)
 	}
 	temporalClient, err := mobileRunnerShutdownTemporalClient(
-		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 	)
 	if err != nil {
 		return fmt.Errorf("create semaphore temporal client: %w", err)
@@ -79,11 +79,11 @@ func shutdownMobileDeviceSemaphore(app core.App, device *core.Record, reason str
 	ctx, cancel := context.WithTimeout(context.Background(), mobileRunnerShutdownAcceptedTimeout)
 	defer cancel()
 	_, err = temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
-		WorkflowID: workflows.MobileRunnerSemaphoreWorkflowID(deviceID),
-		UpdateName: workflows.MobileRunnerSemaphoreShutdownRunnerUpdate,
+		WorkflowID: workflows.MobileDeviceSemaphoreWorkflowID(deviceID),
+		UpdateName: workflows.MobileDeviceSemaphoreShutdownDeviceUpdate,
 		UpdateID:   "shutdown/" + deviceID,
 		Args: []interface{}{
-			workflows.MobileRunnerSemaphoreShutdownRunnerRequest{Reason: reason},
+			workflows.MobileDeviceSemaphoreShutdownDeviceRequest{Reason: reason},
 		},
 		WaitForStage: tclient.WorkflowUpdateStageAccepted,
 	})

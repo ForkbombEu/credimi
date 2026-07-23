@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Record } from '$lib/pipeline/runner';
+import type { Record } from '$lib/pipeline/device';
 import type { TypedConfig } from '$pipeline-form/steps/types';
 
 import { Pipeline, Wallet } from '$lib';
@@ -17,8 +17,8 @@ import {
 import { getPath } from '$lib/utils';
 import {
 	EXTERNAL_VERSION,
-	GLOBAL_RUNNER,
-	type SelectedRunner,
+	GLOBAL_DEVICE,
+	type SelectedDevice,
 	type SelectedVersion
 } from '$pipeline-form/execution-target/types.js';
 import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
@@ -33,7 +33,7 @@ import type { WalletActionStepData } from './types.js';
 
 import CardDetailsComponent from './card-details.svelte';
 import {
-	getRunnerLabel,
+	getDeviceLabel,
 	getVersionLabel,
 	WalletActionStepForm
 } from './wallet-action-step-form.svelte.js';
@@ -50,7 +50,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	CardDetailsComponent,
 
-	cardData: ({ action, wallet, version, runner }) => {
+	cardData: ({ action, wallet, version, device }) => {
 		let publicUrl = getHubItemUrl(wallet);
 		publicUrl += `#${action.canonified_name}`;
 
@@ -62,7 +62,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			beforeTitle: Wallet.Action.getCategoryLabel(action),
 			meta: {
 				[m.Wallet()]: wallet.name,
-				[m.Runner()]: getRunnerLabel(runner),
+				['Device']: getDeviceLabel(device),
 				[m.Version()]: getVersionLabel(version)
 			}
 		};
@@ -77,14 +77,14 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	initForm: (opts) => new WalletActionStepForm(opts),
 
-	serialize: ({ action, version, runner }) => {
+	serialize: ({ action, version, device }) => {
 		type StepData = PipelineStepData<PipelineStepByType<'mobile-automation'>>;
 		const _with: StepData = {
 			action_id: getPath(action),
 			version_id: version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(version)
 		};
-		if (runner !== GLOBAL_RUNNER) {
-			_with.device_id = runner.path;
+		if (device !== GLOBAL_DEVICE) {
+			_with.device_id = device.path;
 		}
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
@@ -134,10 +134,10 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			}
 		}
 
-		let runner: SelectedRunner = GLOBAL_RUNNER;
-		if (data.device_id !== GLOBAL_RUNNER && data.device_id) {
+		let device: SelectedDevice = GLOBAL_DEVICE;
+		if (data.device_id !== GLOBAL_DEVICE && data.device_id) {
 			const path = data.device_id;
-			const fallbackRunner = {
+			const fallbackDevice = {
 				name: getLastPathSegment(path),
 				path,
 				isOwned: false,
@@ -145,18 +145,18 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 				isOnline: false
 			} satisfies Record;
 
-			await Pipeline.Runner.fetchRecords().match({
+			await Pipeline.Device.fetchRecords().match({
 				Rejected: () => {
-					runner = fallbackRunner;
+					device = fallbackDevice;
 				},
-				Resolved: (runners) => {
-					runner = runners.find((item) => item.path === path) ?? fallbackRunner;
+				Resolved: (devices) => {
+					device = devices.find((item) => item.path === path) ?? fallbackDevice;
 				}
 			});
 		}
 
 		const wallet: HubItem = await pb.collection('hub_items').getOne(action.wallet);
 
-		return { wallet, version, action, runner };
+		return { wallet, version, action, device };
 	}
 };

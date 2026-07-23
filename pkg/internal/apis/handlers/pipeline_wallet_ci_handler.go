@@ -139,7 +139,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr
 		}
-		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKRunnerID(
+		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKDeviceID(
 			e.Request.Context(),
 			e.App,
 			runContext.organizationRecord.Id,
@@ -235,11 +235,11 @@ func resolveWalletAPKGitHubPRRunnerType(
 
 func buildPipelineRunWalletAPKCleanupMetadata(
 	tempVersion tempWalletVersion,
-) *workflows.MobileRunnerSemaphoreCleanupMetadata {
+) *workflows.MobileDeviceSemaphoreCleanupMetadata {
 	if tempVersion.Record == nil || tempVersion.Record.Id == "" {
 		return nil
 	}
-	return &workflows.MobileRunnerSemaphoreCleanupMetadata{
+	return &workflows.MobileDeviceSemaphoreCleanupMetadata{
 		TempWalletVersionID:         tempVersion.Record.Id,
 		TempWalletVersionOwnerID:    tempVersion.Record.GetString("owner"),
 		TempWalletVersionIdentifier: tempVersion.Identifier,
@@ -721,7 +721,7 @@ func rewriteWalletAPKStepVersion(
 	return 1
 }
 
-func resolvePipelineRunWalletAPKRunnerID(
+func resolvePipelineRunWalletAPKDeviceID(
 	ctx context.Context,
 	app core.App,
 	ownerID string,

@@ -26,7 +26,7 @@ import (
 
 const (
 	mobileAutomationStepUse                = "mobile-automation"
-	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_device_semaphore_ticket_id"
+	mobileDeviceSemaphoreTicketIDConfigKey = "mobile_device_semaphore_ticket_id"
 	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
 	mobileSkipInstallerRequestKey          = "skip_installer"
 	mobilePlatformAndroid                  = "android"
@@ -409,11 +409,11 @@ func collectMobileDeviceIDs(steps []pipeline.StepDefinition, globalID string) ([
 		if err != nil {
 			return nil, err
 		}
-		payload.RunnerID = canonify.NormalizePath(payload.RunnerID)
-		if payload.RunnerID == "" {
+		payload.DeviceID = canonify.NormalizePath(payload.DeviceID)
+		if payload.DeviceID == "" {
 			continue
 		}
-		uniqueDeviceIDs[payload.RunnerID] = struct{}{}
+		uniqueDeviceIDs[payload.DeviceID] = struct{}{}
 	}
 
 	if len(uniqueDeviceIDs) == 0 {
@@ -441,9 +441,9 @@ func processStep(
 	}
 
 	// Use global_device_id if step-level runner_id is not set
-	payload.RunnerID = canonify.NormalizePath(payload.RunnerID)
-	if payload.RunnerID == "" && input.globalDeviceID != "" {
-		payload.RunnerID = input.globalDeviceID
+	payload.DeviceID = canonify.NormalizePath(payload.DeviceID)
+	if payload.DeviceID == "" && input.globalDeviceID != "" {
+		payload.DeviceID = input.globalDeviceID
 		// Update the step payload with the global runner_id for consistency
 		SetPayloadValue(&input.step.With.Payload, "device_id", input.globalDeviceID)
 	}
@@ -538,7 +538,7 @@ func processStep(
 		if err := preparePhysicalAndroidDeviceIfNeeded(
 			input.ctx,
 			mobileCtx,
-			payload.RunnerID,
+			payload.DeviceID,
 			serial,
 			deviceMap,
 		); err != nil {
@@ -702,7 +702,7 @@ func normalizeMobileAutomationPayloadIDs(
 func getOrCreateDeviceMap(
 	input getOrCreateDeviceMapInput,
 ) (map[string]any, error) {
-	deviceInfo, exists := input.settedDevices[input.payload.RunnerID]
+	deviceInfo, exists := input.settedDevices[input.payload.DeviceID]
 	var deviceMap map[string]any
 	if exists {
 		deviceMap = deviceInfo.(map[string]any)
@@ -713,7 +713,7 @@ func getOrCreateDeviceMap(
 		"installed": make(map[string]string),
 		"recording": false,
 	}
-	input.settedDevices[input.payload.RunnerID] = deviceMap
+	input.settedDevices[input.payload.DeviceID] = deviceMap
 
 	if err := setupNewDevice(setupNewDeviceInput{
 		ctx:       input.ctx,
@@ -794,7 +794,7 @@ func fetchRunnerInfo(
 			URL:            utils.JoinURL(input.appURL, "api", "mobile-device"),
 			ExpectedStatus: 200,
 			QueryParams: map[string]string{
-				"device_identifier": input.payload.RunnerID,
+				"device_identifier": input.payload.DeviceID,
 			},
 		},
 	}
@@ -911,7 +911,7 @@ func startManagedDevice(
 	startResult := workflowengine.ActivityResult{}
 	startInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"device_name": input.payload.RunnerID,
+			"device_name": input.payload.DeviceID,
 			"type":        input.deviceType.String(),
 		},
 		Config: workflowengine.ActivityTelemetryConfig(input.mobileCtx, nil),
@@ -1585,7 +1585,7 @@ func isSemaphoreManagedRun(config map[string]any) bool {
 	if config == nil {
 		return false
 	}
-	ticketID, ok := config[mobileRunnerSemaphoreTicketIDConfigKey].(string)
+	ticketID, ok := config[mobileDeviceSemaphoreTicketIDConfigKey].(string)
 	return ok && ticketID != ""
 }
 
@@ -1625,8 +1625,8 @@ func shouldSkipRunnerCleanup(runData map[string]any, runnerID string) bool {
 		return true
 	}
 
-	for _, skipRunnerID := range policy.SkipRunnerCleanupIDs {
-		if skipRunnerID == runnerID {
+	for _, skipDeviceID := range policy.SkipRunnerCleanupIDs {
+		if skipDeviceID == runnerID {
 			return true
 		}
 	}

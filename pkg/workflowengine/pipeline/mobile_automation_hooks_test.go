@@ -481,7 +481,7 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 			}
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 				ActionID: "action-1",
-				RunnerID: "runner-1",
+				DeviceID: "runner-1",
 			}
 			deviceMap := map[string]any{
 				"installed": map[string]string{},
@@ -606,7 +606,7 @@ func TestFetchAndInstallAPKExternalSourceSkipsInstaller(t *testing.T) {
 			}
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 				ActionID:  "action-1",
-				RunnerID:  "runner-1",
+				DeviceID:  "runner-1",
 				VersionID: mobileExternalSourceVersionID,
 			}
 			deviceMap := map[string]any{
@@ -705,7 +705,7 @@ func TestFetchAndInstallAPKExternalSourceNonInstallStepSkipsInstallerWithoutMuta
 			}
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 				ActionID:  "action-1",
-				RunnerID:  "runner-1",
+				DeviceID:  "runner-1",
 				VersionID: mobileExternalSourceVersionID,
 			}
 			deviceMap := map[string]any{
@@ -1223,7 +1223,7 @@ func TestFetchAndInstallAPKKeepsExistingActionCode(t *testing.T) {
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 				ActionID:   "action-1",
 				ActionCode: "preset-code",
-				RunnerID:   "runner-1",
+				DeviceID:   "runner-1",
 			}
 			deviceMap := map[string]any{}
 
@@ -1619,7 +1619,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 				map[string]any{
 					"app_url":                              "https://app.example",
 					"global_device_id":                     "tenant/runner-1/device-1",
-					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
+					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
 				},
 				&runData,
 				&map[string]any{},
@@ -1795,7 +1795,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 				map[string]any{
 					"app_url":                              "https://app.example",
 					"global_device_id":                     "tenant/runner-1/device-1",
-					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
+					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
 					mobileDisableAndroidPlayStoreConfigKey: true,
 				},
 				&runData,
@@ -1948,7 +1948,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 					map[string]any{
 						"app_url":                              "https://app.example",
 						"global_device_id":                     "tenant/runner-1",
-						mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
+						mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
 						mobileDisableAndroidPlayStoreConfigKey: true,
 					},
 					&runData,
@@ -2411,7 +2411,7 @@ func TestMobileAutomationCleanupHookRunsRunnerCleanupWithoutPolicy(t *testing.T)
 	require.ElementsMatch(t, []string{"serial-a", "serial-b"}, calledSerials)
 }
 
-func TestMobileAutomationSetupHookCollectRunnerIDsError(t *testing.T) {
+func TestMobileAutomationSetupHookCollectDeviceIDsError(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -2435,7 +2435,7 @@ func TestMobileAutomationSetupHookCollectRunnerIDsError(t *testing.T) {
 			return MobileAutomationSetupHook(
 				ctx,
 				&pipeline.WorkflowDefinition{Steps: steps},
-				map[string]any{mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1"},
+				map[string]any{mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1"},
 				&runData,
 				&map[string]any{},
 				log.Logger(noopLogger{}),
@@ -2475,7 +2475,7 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 				&pipeline.WorkflowDefinition{Steps: steps},
 				map[string]any{
 					"app_url":                              "https://app.example",
-					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
+					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
 				},
 				&runData,
 				&map[string]any{},
@@ -2563,7 +2563,7 @@ func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 			_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx: ctx,
 				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
-					RunnerID: "runner-1",
+					DeviceID: "runner-1",
 				},
 				appURL: "https://app.example",
 				stepID: "step-1",
@@ -2603,7 +2603,7 @@ func TestFetchRunnerInfoRejectsMalformedRunnerURL(t *testing.T) {
 			_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx: ctx,
 				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
-					RunnerID: "runner-1",
+					DeviceID: "runner-1",
 				},
 				appURL: "https://app.example",
 				stepID: "step-1",

@@ -989,14 +989,14 @@
                         "additionalProperties": true,
                         "type": "object"
                       },
+                      "device_id": {
+                        "type": "string"
+                      },
                       "parameters": {
                         "additionalProperties": {
                           "type": "string"
                         },
                         "type": "object"
-                      },
-                      "device_id": {
-                        "type": "string"
                       }
                     },
                     "required": [
@@ -1014,14 +1014,14 @@
                         "additionalProperties": true,
                         "type": "object"
                       },
+                      "device_id": {
+                        "type": "string"
+                      },
                       "parameters": {
                         "additionalProperties": {
                           "type": "string"
                         },
                         "type": "object"
-                      },
-                      "device_id": {
-                        "type": "string"
                       },
                       "version_id": {
                         "type": "string"
@@ -1043,14 +1043,14 @@
                         "additionalProperties": true,
                         "type": "object"
                       },
+                      "device_id": {
+                        "type": "string"
+                      },
                       "parameters": {
                         "additionalProperties": {
                           "type": "string"
                         },
                         "type": "object"
-                      },
-                      "device_id": {
-                        "type": "string"
                       },
                       "version_id": {
                         "type": "string"

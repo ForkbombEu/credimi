@@ -14,7 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"go.temporal.io/sdk/client"
 )
 
@@ -36,7 +36,7 @@ type UpdateGitHubPRCommentInput struct {
 	Status            string `json:"status"`
 	Position          *int   `json:"position,omitempty"`
 	PipelineID        string `json:"pipeline_id,omitempty"`
-	RunnerID          string `json:"runner_id,omitempty"`
+	DeviceID          string `json:"runner_id,omitempty"`
 	RunnerType        string `json:"runner_type,omitempty"`
 	PipelineURL       string `json:"pipeline_url,omitempty"`
 	AppURL            string `json:"app_url,omitempty"`
@@ -150,7 +150,7 @@ func SignalGitHubPRCommentUpdate(ctx context.Context, input UpdateGitHubPRCommen
 		input.CurrentHeadSHA = headSHA
 	}
 	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(
-		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 	)
 	if err != nil {
 		return err
@@ -163,7 +163,7 @@ func SignalGitHubPRCommentUpdate(ctx context.Context, input UpdateGitHubPRCommen
 		input,
 		client.StartWorkflowOptions{
 			ID:        workflowID,
-			TaskQueue: mobilerunnersemaphore.TaskQueue,
+			TaskQueue: mobiledevicesemaphore.TaskQueue,
 		},
 		GitHubPRCommentWorkflowName,
 		workflowengine.WorkflowInput{},
@@ -210,7 +210,7 @@ func buildGitHubPRCommentBody(input UpdateGitHubPRCommentInput) string {
 			[2]string{"Pipeline ID", fmt.Sprintf("`%s`", markdownTableCell(input.PipelineID))},
 		)
 	}
-	if runner := formatPRCommentRunner(input.RunnerID, input.RunnerType); runner != "" {
+	if runner := formatPRCommentRunner(input.DeviceID, input.RunnerType); runner != "" {
 		tableRows = append(
 			tableRows,
 			[2]string{"Runner", fmt.Sprintf("`%s`", markdownTableCell(runner))},

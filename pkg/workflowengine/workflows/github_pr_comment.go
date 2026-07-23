@@ -333,8 +333,8 @@ func githubPRCommentSectionKey(update activities.UpdateGitHubPRCommentInput) str
 	if pipelineID := strings.TrimSpace(update.PipelineID); pipelineID != "" {
 		parts = append(parts, githubPRCommentMarkerPart(pipelineID))
 	}
-	if runnerID := strings.TrimSpace(update.RunnerID); runnerID != "" {
-		parts = append(parts, githubPRCommentMarkerPart(runnerID))
+	if deviceID := strings.TrimSpace(update.DeviceID); deviceID != "" {
+		parts = append(parts, githubPRCommentMarkerPart(deviceID))
 	}
 	if len(parts) > 0 {
 		return strings.Join(parts, "::")

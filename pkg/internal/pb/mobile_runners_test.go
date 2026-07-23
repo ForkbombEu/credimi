@@ -28,11 +28,11 @@ func TestRegisterMobileRunnerHooksDeletesRunnerByShuttingDownSemaphore(t *testin
 		"UpdateWorkflow",
 		mock.Anything,
 		mock.MatchedBy(func(options tclient.UpdateWorkflowOptions) bool {
-			req, ok := options.Args[0].(workflows.MobileRunnerSemaphoreShutdownRunnerRequest)
-			return options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
+			req, ok := options.Args[0].(workflows.MobileDeviceSemaphoreShutdownDeviceRequest)
+			return options.WorkflowID == workflows.MobileDeviceSemaphoreWorkflowID(
 				"usera-s-organization/runner-delete/device-a",
 			) &&
-				options.UpdateName == workflows.MobileRunnerSemaphoreShutdownRunnerUpdate &&
+				options.UpdateName == workflows.MobileDeviceSemaphoreShutdownDeviceUpdate &&
 				options.UpdateID == "shutdown/usera-s-organization/runner-delete/device-a" &&
 				options.WaitForStage == tclient.WorkflowUpdateStageAccepted &&
 				ok &&
@@ -40,7 +40,7 @@ func TestRegisterMobileRunnerHooksDeletesRunnerByShuttingDownSemaphore(t *testin
 		}),
 	).Return(temporalmocks.NewWorkflowUpdateHandle(t), nil).Once()
 	mobileRunnerShutdownTemporalClient = func(namespace string) (tclient.Client, error) {
-		require.Equal(t, workflowengine.MobileRunnerSemaphoreDefaultNamespace, namespace)
+		require.Equal(t, workflowengine.MobileDeviceSemaphoreDefaultNamespace, namespace)
 		return mockClient, nil
 	}
 

@@ -8,7 +8,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
@@ -16,7 +16,7 @@ import (
 )
 
 type helperUpdateHandle struct {
-	status mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView
+	status mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView
 	err    error
 }
 
@@ -24,7 +24,7 @@ func (h *helperUpdateHandle) Get(_ context.Context, valuePtr interface{}) error 
 	if h.err != nil {
 		return h.err
 	}
-	if out, ok := valuePtr.(*mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView); ok {
+	if out, ok := valuePtr.(*mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView); ok {
 		*out = h.status
 	}
 	return nil
@@ -61,10 +61,10 @@ func (f *fakeUpdater) UpdateWorkflow(
 	return f.handle, nil
 }
 
-func TestNormalizeRunnerIDs(t *testing.T) {
-	out := normalizeRunnerIDs([]string{" /tenant/runner-1 ", "", "tenant/runner-2"})
+func TestNormalizeDeviceIDs(t *testing.T) {
+	out := normalizeDeviceIDs([]string{" /tenant/runner-1 ", "", "tenant/runner-2"})
 	require.Equal(t, []string{"tenant/runner-1", "tenant/runner-2"}, out)
-	require.Nil(t, normalizeRunnerIDs(nil))
+	require.Nil(t, normalizeDeviceIDs(nil))
 }
 
 func TestRunQueueUpdateID(t *testing.T) {
@@ -76,7 +76,7 @@ func TestRunQueueUpdateID(t *testing.T) {
 }
 
 func TestIsQueueLimitExceeded(t *testing.T) {
-	err := temporal.NewApplicationError("limit", mobilerunnersemaphore.ErrQueueLimitExceeded)
+	err := temporal.NewApplicationError("limit", mobiledevicesemaphore.ErrQueueLimitExceeded)
 	require.True(t, isQueueLimitExceeded(err))
 	require.False(t, isQueueLimitExceeded(nil))
 }
@@ -92,16 +92,16 @@ func TestCancelRunTicketNotFound(t *testing.T) {
 		context.Background(),
 		updater,
 		"runner-1",
-		mobilerunnersemaphore.MobileRunnerSemaphoreRunCancelRequest{TicketID: "ticket-1"},
+		mobiledevicesemaphore.MobileDeviceSemaphoreRunCancelRequest{TicketID: "ticket-1"},
 	)
 	require.ErrorIs(t, err, errRunTicketNotFound)
 }
 
 func TestCancelRunTicketSuccess(t *testing.T) {
 	handle := &helperUpdateHandle{
-		status: mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView{
+		status: mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView{
 			TicketID: "ticket-1",
-			Status:   mobilerunnersemaphore.MobileRunnerSemaphoreRunCanceled,
+			Status:   mobiledevicesemaphore.MobileDeviceSemaphoreRunCanceled,
 		},
 	}
 	updater := &fakeUpdater{handle: handle}
@@ -109,9 +109,9 @@ func TestCancelRunTicketSuccess(t *testing.T) {
 		context.Background(),
 		updater,
 		"runner-1",
-		mobilerunnersemaphore.MobileRunnerSemaphoreRunCancelRequest{TicketID: "ticket-1"},
+		mobiledevicesemaphore.MobileDeviceSemaphoreRunCancelRequest{TicketID: "ticket-1"},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "ticket-1", status.TicketID)
-	require.Equal(t, mobilerunnersemaphore.MobileRunnerSemaphoreRunCanceled, status.Status)
+	require.Equal(t, mobiledevicesemaphore.MobileDeviceSemaphoreRunCanceled, status.Status)
 }

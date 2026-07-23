@@ -129,6 +129,38 @@ paths:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Run a custom integration
+  /api/mobile-devices:
+    get:
+      description: Lists independently schedulable mobile devices visible to the caller,
+        grouped by their hosting runner through runner context fields.
+      operationId: listMobileDevices
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersListMobileDevicesPublicResponseSchema'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: List available mobile devices
   /api/mobile-runners:
     get:
       description: Lists mobile runners visible to the caller, including health, devices,
@@ -890,6 +922,14 @@ components:
         workflowExecutionInfo:
           $ref: '#/components/schemas/HandlersWorkflowExecutionInfo'
       type: object
+    HandlersListMobileDevicesPublicResponseSchema:
+      properties:
+        devices:
+          items:
+            $ref: '#/components/schemas/HandlersMobileDeviceListItem'
+          nullable: true
+          type: array
+      type: object
     HandlersListMobileRunnersPublicResponseSchema:
       properties:
         runners:
@@ -919,6 +959,32 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/HandlersPayload'
           type: object
+      type: object
+    HandlersMobileDeviceListItem:
+      properties:
+        description:
+          type: string
+        is_online:
+          type: boolean
+        is_owned:
+          type: boolean
+        is_published:
+          type: boolean
+        name:
+          type: string
+        path:
+          type: string
+        queue_length:
+          nullable: true
+          type: integer
+        runner_id:
+          type: string
+        runner_name:
+          type: string
+        serial:
+          type: string
+        type:
+          type: string
       type: object
     HandlersMobileRunnerHealthDevice:
       properties:
@@ -1299,14 +1365,14 @@ components:
       type: object
     HandlersWorkflowQueueSummary:
       properties:
-        line_len:
-          type: integer
-        position:
-          type: integer
         device_ids:
           items:
             type: string
           type: array
+        line_len:
+          type: integer
+        position:
+          type: integer
         ticket_id:
           type: string
       type: object

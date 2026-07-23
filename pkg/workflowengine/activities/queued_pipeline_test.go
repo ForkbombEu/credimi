@@ -557,8 +557,8 @@ func TestPrepareQueuedWorkflowOptionsOverrides(t *testing.T) {
 func TestApplySemaphoreTicketMetadata(t *testing.T) {
 	payload := StartQueuedPipelineActivityInput{
 		TicketID:          "ticket-1",
-		RequiredRunnerIDs: []string{"runner-1"},
-		LeaderRunnerID:    "runner-1",
+		RequiredDeviceIDs: []string{"runner-1"},
+		LeaderDeviceID:    "runner-1",
 		OwnerNamespace:    "ns-1",
 	}
 
@@ -566,10 +566,10 @@ func TestApplySemaphoreTicketMetadata(t *testing.T) {
 
 	config := map[string]any{}
 	applySemaphoreTicketMetadata(config, payload)
-	require.Equal(t, "ticket-1", config[mobileRunnerSemaphoreTicketIDConfigKey])
-	require.Equal(t, []string{"runner-1"}, config[mobileRunnerSemaphoreRunnerIDsConfigKey])
-	require.Equal(t, "runner-1", config[mobileRunnerSemaphoreLeaderRunnerIDConfigKey])
-	require.Equal(t, "ns-1", config[mobileRunnerSemaphoreOwnerNamespaceConfigKey])
+	require.Equal(t, "ticket-1", config[mobileDeviceSemaphoreTicketIDConfigKey])
+	require.Equal(t, []string{"runner-1"}, config[mobileDeviceSemaphoreDeviceIDsConfigKey])
+	require.Equal(t, "runner-1", config[mobileDeviceSemaphoreLeaderDeviceIDConfigKey])
+	require.Equal(t, "ns-1", config[mobileDeviceSemaphoreOwnerNamespaceConfigKey])
 }
 
 func TestParseQueuedWorkflowDefinitionError(t *testing.T) {

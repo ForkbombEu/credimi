@@ -22,7 +22,7 @@ func buildWalletAPKGitHubPRNotification(
 	pipelineIdentifier string,
 	runnerID string,
 	runnerType string,
-) *workflows.MobileRunnerSemaphoreNotification {
+) *workflows.MobileDeviceSemaphoreNotification {
 	return buildPipelineGitHubPRNotification(
 		metadata,
 		appURL,
@@ -40,15 +40,15 @@ func buildPipelineGitHubPRNotification(
 	runnerID string,
 	runnerType string,
 	sectionTitle string,
-) *workflows.MobileRunnerSemaphoreNotification {
+) *workflows.MobileDeviceSemaphoreNotification {
 	repository := metadataString(metadata, "repository")
 	prNumber := pullRequestNumberFromMetadata(metadata)
 	if repository == "" || prNumber <= 0 {
 		return nil
 	}
 
-	return &workflows.MobileRunnerSemaphoreNotification{
-		GitHubPR: &workflows.MobileRunnerSemaphoreGitHubPRNotification{
+	return &workflows.MobileDeviceSemaphoreNotification{
+		GitHubPR: &workflows.MobileDeviceSemaphoreGitHubPRNotification{
 			Repository:        repository,
 			PullRequestNumber: prNumber,
 			CommitSHA: firstNonEmpty(
@@ -56,7 +56,7 @@ func buildPipelineGitHubPRNotification(
 				metadataSHA(metadata),
 			),
 			PipelineIdentifier: pipelineIdentifier,
-			RunnerID:           runnerID,
+			DeviceID:           runnerID,
 			RunnerType:         runnerType,
 			RunnerTypes:        buildInitialGitHubPRRunnerTypes(runnerID, runnerType),
 			PipelineURL:        buildPipelinePageURL(appURL, pipelineIdentifier),
@@ -77,7 +77,7 @@ func buildInitialGitHubPRRunnerTypes(runnerID string, runnerType string) map[str
 
 func maybeCreateWalletAPKQueuedPRComment(
 	ctx context.Context,
-	notification *workflows.MobileRunnerSemaphoreNotification,
+	notification *workflows.MobileDeviceSemaphoreNotification,
 	response PipelineRunWalletAPKResponse,
 ) error {
 	return maybeCreatePipelineGitHubPRComment(ctx, notification, response.PipelineQueueResponse)
@@ -85,7 +85,7 @@ func maybeCreateWalletAPKQueuedPRComment(
 
 func maybeCreatePipelineGitHubPRComment(
 	ctx context.Context,
-	notification *workflows.MobileRunnerSemaphoreNotification,
+	notification *workflows.MobileDeviceSemaphoreNotification,
 	response PipelineQueueResponse,
 ) error {
 	if notification == nil || notification.GitHubPR == nil {
@@ -98,11 +98,11 @@ func maybeCreatePipelineGitHubPRComment(
 		Status:            string(response.Status),
 		Position:          response.Position,
 		PipelineID:        notification.GitHubPR.PipelineIdentifier,
-		RunnerID: githubPRCommentRunnerID(
-			notification.GitHubPR.RunnerID,
-			response.RunnerIDs,
+		DeviceID: githubPRCommentDeviceID(
+			notification.GitHubPR.DeviceID,
+			response.DeviceIDs,
 		),
-		RunnerType:   githubPRCommentRunnerType(notification.GitHubPR, response.RunnerIDs),
+		RunnerType:   githubPRCommentRunnerType(notification.GitHubPR, response.DeviceIDs),
 		PipelineURL:  notification.GitHubPR.PipelineURL,
 		AppURL:       notification.GitHubPR.AppURL,
 		WorkflowID:   response.WorkflowID,
@@ -114,7 +114,7 @@ func maybeCreatePipelineGitHubPRComment(
 }
 
 func buildPipelineGitHubPRCommentConfig(
-	notification *workflows.MobileRunnerSemaphoreNotification,
+	notification *workflows.MobileDeviceSemaphoreNotification,
 ) map[string]any {
 	if notification == nil || notification.GitHubPR == nil {
 		return nil
@@ -131,13 +131,13 @@ func buildPipelineGitHubPRCommentConfig(
 }
 
 func githubPRCommentRunnerType(
-	notification *workflows.MobileRunnerSemaphoreGitHubPRNotification,
+	notification *workflows.MobileDeviceSemaphoreGitHubPRNotification,
 	runnerIDs []string,
 ) string {
 	if notification == nil {
 		return ""
 	}
-	runnerID := githubPRCommentRunnerID(notification.RunnerID, runnerIDs)
+	runnerID := githubPRCommentDeviceID(notification.DeviceID, runnerIDs)
 	if runnerType := strings.TrimSpace(notification.RunnerTypes[runnerID]); runnerType != "" {
 		return runnerType
 	}
@@ -170,7 +170,7 @@ func buildGitHubPRRunnerTypes(
 	return runnerTypes
 }
 
-func githubPRCommentRunnerID(runnerID string, runnerIDs []string) string {
+func githubPRCommentDeviceID(runnerID string, runnerIDs []string) string {
 	if strings.TrimSpace(runnerID) != "" {
 		return runnerID
 	}

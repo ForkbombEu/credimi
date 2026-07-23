@@ -831,36 +831,36 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	queueStub := &queueStub{}
 	installQueueStubs(t, queueStub)
 
-	origQueueState := queryMobileRunnerSemaphoreState
-	t.Cleanup(func() { queryMobileRunnerSemaphoreState = origQueueState })
+	origQueueState := queryMobileDeviceSemaphoreState
+	t.Cleanup(func() { queryMobileDeviceSemaphoreState = origQueueState })
 	origHealthCheck := pipelineCIRunnerHealthCheck
 	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
 	pipelineCIRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
 		return !strings.Contains(runnerURL, "offline-runner"), nil
 	}
-	queryMobileRunnerSemaphoreState = func(
+	queryMobileDeviceSemaphoreState = func(
 		_ context.Context,
 		deviceID string,
-	) (workflows.MobileRunnerSemaphoreStateView, error) {
+	) (workflows.MobileDeviceSemaphoreStateView, error) {
 		switch deviceID {
 		case "usera-s-organization/busy-runner/device-1":
-			return workflows.MobileRunnerSemaphoreStateView{
-				RunnerID:  deviceID,
+			return workflows.MobileDeviceSemaphoreStateView{
+				DeviceID:  deviceID,
 				QueueLen:  2,
 				SlotsUsed: 1,
 			}, nil
 		case "usera-s-organization/free-runner/device-1":
-			return workflows.MobileRunnerSemaphoreStateView{
-				RunnerID: deviceID,
+			return workflows.MobileDeviceSemaphoreStateView{
+				DeviceID: deviceID,
 				QueueLen: 1,
 			}, nil
 		case "usera-s-organization/hidden-runner/device-1":
-			return workflows.MobileRunnerSemaphoreStateView{
-				RunnerID: deviceID,
+			return workflows.MobileDeviceSemaphoreStateView{
+				DeviceID: deviceID,
 				QueueLen: 10,
 			}, nil
 		default:
-			return workflows.MobileRunnerSemaphoreStateView{}, errSemaphoreNotFound
+			return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
 		}
 	}
 
@@ -1000,7 +1000,7 @@ func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
 	workflowDefinition, apiErr := parsePipelineCIWorkflow("name: test\nsteps: []\n")
 	require.Nil(t, apiErr)
 
-	runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKRunnerID(
+	runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKDeviceID(
 		context.Background(),
 		nil,
 		"",
@@ -1025,7 +1025,7 @@ func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
 		),
 	)
 
-	runnerID, hasStepRunner, needsGlobalRunner, apiErr = resolvePipelineCIRunnerID(
+	runnerID, hasStepRunner, needsGlobalRunner, apiErr = resolvePipelineCIDeviceID(
 		context.Background(),
 		nil,
 		"",
@@ -1061,9 +1061,9 @@ func TestPipelineRunWalletAPKRollsBackTempVersionOnQueueFailure(t *testing.T) {
 	enqueueRunTicket = func(
 		ctx context.Context,
 		runnerID string,
-		req workflows.MobileRunnerSemaphoreEnqueueRunRequest,
-	) (workflows.MobileRunnerSemaphoreEnqueueRunResponse, error) {
-		return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, errors.New("queue unavailable")
+		req workflows.MobileDeviceSemaphoreEnqueueRunRequest,
+	) (workflows.MobileDeviceSemaphoreEnqueueRunResponse, error) {
+		return workflows.MobileDeviceSemaphoreEnqueueRunResponse{}, errors.New("queue unavailable")
 	}
 
 	orgID, err := getOrgIDfromName("userA's organization")
@@ -1495,9 +1495,9 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 	t.Run("queued response keeps queue fields and returns one based position", func(t *testing.T) {
 		response := buildPipelineRunWalletAPKResponse(
 			PipelineQueueResponse{
-				Status:     workflowengine.MobileRunnerSemaphoreRunQueued,
+				Status:     workflowengine.MobileDeviceSemaphoreRunQueued,
 				TicketID:   "ticket-1",
-				RunnerIDs:  []string{"runner-1"},
+				DeviceIDs:  []string{"runner-1"},
 				EnqueuedAt: &enqueuedAt,
 				Position:   &queuePosition,
 				LineLen:    &lineLen,
@@ -1508,9 +1508,9 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 			"runner_id and runner_type are ignored because pipeline has no mobile-automation steps",
 		)
 
-		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunQueued, response.Status)
+		require.Equal(t, workflowengine.MobileDeviceSemaphoreRunQueued, response.Status)
 		require.Equal(t, "ticket-1", response.TicketID)
-		require.Equal(t, []string{"runner-1"}, response.RunnerIDs)
+		require.Equal(t, []string{"runner-1"}, response.DeviceIDs)
 		require.Equal(t, &apiPosition, response.Position)
 		require.Equal(t, &lineLen, response.LineLen)
 		require.Equal(t, "version-record-1", response.TempWalletVersionID)
@@ -1526,7 +1526,7 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 	t.Run("running response keeps workflow identifiers", func(t *testing.T) {
 		response := buildPipelineRunWalletAPKResponse(
 			PipelineQueueResponse{
-				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				Status:     workflowengine.MobileDeviceSemaphoreRunRunning,
 				WorkflowID: "workflow-1",
 				RunID:      "run-1",
 			},
@@ -1536,7 +1536,7 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 			"",
 		)
 
-		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, response.Status)
+		require.Equal(t, workflowengine.MobileDeviceSemaphoreRunRunning, response.Status)
 		require.Equal(t, "workflow-1", response.WorkflowID)
 		require.Equal(t, "run-1", response.RunID)
 		require.Equal(t, "version-record-1", response.TempWalletVersionID)

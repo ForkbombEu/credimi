@@ -92,7 +92,7 @@ type WorkflowQueueSummary struct {
 	TicketID  string   `json:"ticket_id"`
 	Position  int      `json:"position"`
 	LineLen   int      `json:"line_len"`
-	RunnerIDs []string `json:"runner_ids,omitempty"`
+	DeviceIDs []string `json:"device_ids,omitempty"`
 }
 
 type WorkflowDescriptionInfoSummary struct {

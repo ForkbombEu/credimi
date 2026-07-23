@@ -117,10 +117,10 @@ func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 			"UpdateWorkflow",
 			mock.Anything,
 			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
-				req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
+				req, ok := options.Args[0].(workflows.MobileDeviceSemaphorePauseDeviceRequest)
 				return ok &&
 					strings.HasPrefix(options.WorkflowID, "mobile-device-semaphore/usera-s-organization/stale-runner/stale-device-") &&
-					options.UpdateName == workflows.MobileRunnerSemaphorePauseRunnerUpdate &&
+					options.UpdateName == workflows.MobileDeviceSemaphorePauseDeviceUpdate &&
 					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
 					req.Reason == "heartbeat timeout" &&
 					req.CancelRunning &&
@@ -179,9 +179,9 @@ func TestMarkStaleRunnersOfflineUsesHeartbeatTimeoutEnv(t *testing.T) {
 			"UpdateWorkflow",
 			mock.Anything,
 			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
-				req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
+				req, ok := options.Args[0].(workflows.MobileDeviceSemaphorePauseDeviceRequest)
 				return ok &&
-					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
+					options.WorkflowID == workflows.MobileDeviceSemaphoreWorkflowID(
 						"usera-s-organization/env-stale-runner/env-stale-device",
 					) &&
 					req.ShutdownAfterSeconds == int((10*time.Minute)/time.Second)

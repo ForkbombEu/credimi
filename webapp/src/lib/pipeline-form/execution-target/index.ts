@@ -4,10 +4,10 @@
 
 export {
 	EXTERNAL_VERSION,
-	GLOBAL_RUNNER,
+	GLOBAL_DEVICE,
 	isExecutionTarget,
 	type ExecutionTarget,
-	type SelectedRunner,
+	type SelectedDevice,
 	type SelectedVersion
 } from './types.js';
 export { resolveExecutionTarget } from './resolve.js';

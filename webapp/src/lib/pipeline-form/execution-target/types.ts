@@ -3,22 +3,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { HubItem } from '$lib/hub';
-import type { Record as RunnerRecord } from '$lib/pipeline/runner';
+import type { Record as DeviceRecord } from '$lib/pipeline/device';
 
 import type { WalletVersionsResponse } from '@/pocketbase/types';
 
 //
 
-export const GLOBAL_RUNNER = 'global' as const;
+export const GLOBAL_DEVICE = 'global' as const;
 export const EXTERNAL_VERSION = 'installed_from_external_source' as const;
 
-export type SelectedRunner = RunnerRecord | typeof GLOBAL_RUNNER;
+export type SelectedDevice = DeviceRecord | typeof GLOBAL_DEVICE;
 export type SelectedVersion = WalletVersionsResponse | typeof EXTERNAL_VERSION;
 
 export type ExecutionTarget = {
 	wallet: HubItem;
 	version: SelectedVersion;
-	runner: SelectedRunner;
+	device: SelectedDevice;
 };
 
 function isHubItemLike(value: unknown): value is HubItem {
@@ -34,8 +34,8 @@ function isSelectedVersion(value: unknown): value is SelectedVersion {
 	return typeof obj.id === 'string' && typeof obj.tag === 'string';
 }
 
-function isSelectedRunner(value: unknown): value is SelectedRunner {
-	if (value === GLOBAL_RUNNER) return true;
+function isSelectedDevice(value: unknown): value is SelectedDevice {
+	if (value === GLOBAL_DEVICE) return true;
 	if (!value || typeof value !== 'object') return false;
 	const obj = value as { name?: unknown; path?: unknown };
 	return typeof obj.name === 'string' && typeof obj.path === 'string';
@@ -46,14 +46,14 @@ export function isExecutionTarget(value: unknown): value is ExecutionTarget {
 	const obj = value as {
 		wallet?: unknown;
 		version?: unknown;
-		runner?: unknown;
+		device?: unknown;
 	};
 	return (
 		'wallet' in obj &&
 		isHubItemLike(obj.wallet) &&
 		'version' in obj &&
 		isSelectedVersion(obj.version) &&
-		'runner' in obj &&
-		isSelectedRunner(obj.runner)
+		'device' in obj &&
+		isSelectedDevice(obj.device)
 	);
 }

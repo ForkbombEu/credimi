@@ -24,4 +24,4 @@ After completing the code, ask the user if they want a playground link. Only cal
 
 ## Architecture
 
-See root `AGENTS.md` for system architecture, Temporal/PocketBase, pipelines, and the mobile runner semaphore queue.
+See root `AGENTS.md` for system architecture, Temporal/PocketBase, pipelines, and the mobile device semaphore queue.

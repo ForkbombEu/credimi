@@ -7,14 +7,14 @@ package runqueue
 import (
 	"testing"
 
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/stretchr/testify/require"
 )
 
-func TestAggregateRunnerStatuses_Empty(t *testing.T) {
-	got := AggregateRunnerStatuses(nil)
+func TestAggregateDeviceStatuses_Empty(t *testing.T) {
+	got := AggregateDeviceStatuses(nil)
 
-	require.Equal(t, mobilerunnersemaphore.MobileRunnerSemaphoreRunNotFound, got.Status)
+	require.Equal(t, mobiledevicesemaphore.MobileDeviceSemaphoreRunNotFound, got.Status)
 	require.Equal(t, 0, got.Position)
 	require.Equal(t, 0, got.LineLen)
 	require.Equal(t, "", got.WorkflowID)
@@ -23,11 +23,11 @@ func TestAggregateRunnerStatuses_Empty(t *testing.T) {
 	require.Equal(t, "", got.ErrorMessage)
 }
 
-func TestAggregateRunnerStatuses_PriorityAndMetadata(t *testing.T) {
-	statuses := []RunnerStatus{
+func TestAggregateDeviceStatuses_PriorityAndMetadata(t *testing.T) {
+	statuses := []DeviceStatus{
 		{
-			RunnerID:          "runner-a",
-			Status:            mobilerunnersemaphore.MobileRunnerSemaphoreRunQueued,
+			DeviceID:          "runner-a",
+			Status:            mobiledevicesemaphore.MobileDeviceSemaphoreRunQueued,
 			Position:          1,
 			LineLen:           2,
 			WorkflowID:        "wf-queued",
@@ -35,8 +35,8 @@ func TestAggregateRunnerStatuses_PriorityAndMetadata(t *testing.T) {
 			WorkflowNamespace: "org-a",
 		},
 		{
-			RunnerID:          "runner-b",
-			Status:            mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning,
+			DeviceID:          "runner-b",
+			Status:            mobiledevicesemaphore.MobileDeviceSemaphoreRunRunning,
 			Position:          3,
 			LineLen:           5,
 			WorkflowID:        "wf-running",
@@ -44,17 +44,17 @@ func TestAggregateRunnerStatuses_PriorityAndMetadata(t *testing.T) {
 			WorkflowNamespace: "org-b",
 		},
 		{
-			RunnerID:     "runner-c",
-			Status:       mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed,
+			DeviceID:     "runner-c",
+			Status:       mobiledevicesemaphore.MobileDeviceSemaphoreRunFailed,
 			Position:     2,
 			LineLen:      4,
 			ErrorMessage: "runner failed",
 		},
 	}
 
-	got := AggregateRunnerStatuses(statuses)
+	got := AggregateDeviceStatuses(statuses)
 
-	require.Equal(t, mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed, got.Status)
+	require.Equal(t, mobiledevicesemaphore.MobileDeviceSemaphoreRunFailed, got.Status)
 	require.Equal(t, 3, got.Position)
 	require.Equal(t, 5, got.LineLen)
 	require.Equal(t, "wf-running", got.WorkflowID)
@@ -63,35 +63,35 @@ func TestAggregateRunnerStatuses_PriorityAndMetadata(t *testing.T) {
 	require.Equal(t, "runner failed", got.ErrorMessage)
 }
 
-func TestAggregateRunnerStatuses_UsesFirstRunningAndFirstFailureMessage(t *testing.T) {
-	statuses := []RunnerStatus{
+func TestAggregateDeviceStatuses_UsesFirstRunningAndFirstFailureMessage(t *testing.T) {
+	statuses := []DeviceStatus{
 		{
-			RunnerID:          "runner-a",
-			Status:            mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning,
+			DeviceID:          "runner-a",
+			Status:            mobiledevicesemaphore.MobileDeviceSemaphoreRunRunning,
 			WorkflowID:        "wf-first",
 			RunID:             "run-first",
 			WorkflowNamespace: "ns-first",
 		},
 		{
-			RunnerID:          "runner-b",
-			Status:            mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning,
+			DeviceID:          "runner-b",
+			Status:            mobiledevicesemaphore.MobileDeviceSemaphoreRunRunning,
 			WorkflowID:        "wf-second",
 			RunID:             "run-second",
 			WorkflowNamespace: "ns-second",
 		},
 		{
-			RunnerID:     "runner-c",
-			Status:       mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed,
+			DeviceID:     "runner-c",
+			Status:       mobiledevicesemaphore.MobileDeviceSemaphoreRunFailed,
 			ErrorMessage: "first error",
 		},
 		{
-			RunnerID:     "runner-d",
-			Status:       mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed,
+			DeviceID:     "runner-d",
+			Status:       mobiledevicesemaphore.MobileDeviceSemaphoreRunFailed,
 			ErrorMessage: "second error",
 		},
 	}
 
-	got := AggregateRunnerStatuses(statuses)
+	got := AggregateDeviceStatuses(statuses)
 
 	require.Equal(t, "wf-first", got.WorkflowID)
 	require.Equal(t, "run-first", got.RunID)
@@ -101,16 +101,16 @@ func TestAggregateRunnerStatuses_UsesFirstRunningAndFirstFailureMessage(t *testi
 
 func TestRunStatusPriority(t *testing.T) {
 	tests := []struct {
-		status mobilerunnersemaphore.MobileRunnerSemaphoreRunStatus
+		status mobiledevicesemaphore.MobileDeviceSemaphoreRunStatus
 		want   int
 	}{
-		{status: mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed, want: 4},
-		{status: mobilerunnersemaphore.MobileRunnerSemaphoreRunCanceled, want: 4},
-		{status: mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning, want: 3},
-		{status: mobilerunnersemaphore.MobileRunnerSemaphoreRunStarting, want: 2},
-		{status: mobilerunnersemaphore.MobileRunnerSemaphoreRunQueued, want: 1},
-		{status: mobilerunnersemaphore.MobileRunnerSemaphoreRunNotFound, want: 0},
-		{status: mobilerunnersemaphore.MobileRunnerSemaphoreRunStatus("unknown"), want: 0},
+		{status: mobiledevicesemaphore.MobileDeviceSemaphoreRunFailed, want: 4},
+		{status: mobiledevicesemaphore.MobileDeviceSemaphoreRunCanceled, want: 4},
+		{status: mobiledevicesemaphore.MobileDeviceSemaphoreRunRunning, want: 3},
+		{status: mobiledevicesemaphore.MobileDeviceSemaphoreRunStarting, want: 2},
+		{status: mobiledevicesemaphore.MobileDeviceSemaphoreRunQueued, want: 1},
+		{status: mobiledevicesemaphore.MobileDeviceSemaphoreRunNotFound, want: 0},
+		{status: mobiledevicesemaphore.MobileDeviceSemaphoreRunStatus("unknown"), want: 0},
 	}
 
 	for _, tt := range tests {

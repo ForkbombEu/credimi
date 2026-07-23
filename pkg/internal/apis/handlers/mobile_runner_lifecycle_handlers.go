@@ -37,7 +37,7 @@ var mobileRunnerLifecycleNow = func() time.Time {
 var mobileRunnerLifecycleTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type MobileRunnerLifecycleRequest struct {
-	RunnerID string                       `json:"runner_id"        validate:"required"`
+	DeviceID string                       `json:"runner_id"        validate:"required"`
 	Reason   string                       `json:"reason,omitempty"`
 	Devices  []MobileDeviceLifecycleState `json:"devices,omitempty"`
 }
@@ -49,7 +49,7 @@ type MobileDeviceLifecycleState struct {
 }
 
 type MobileRunnerLifecycleResponse struct {
-	RunnerID                string `json:"runner_id"`
+	DeviceID                string `json:"runner_id"`
 	Online                  bool   `json:"online"`
 	SemaphoreWorkflowID     string `json:"semaphore_workflow_id"`
 	HeartbeatTimeoutSeconds int    `json:"heartbeat_timeout_seconds"`
@@ -108,7 +108,7 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			)
 		}
 
-		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
+		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.DeviceID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -140,7 +140,7 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 			)
 		}
 
-		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
+		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.DeviceID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -164,7 +164,7 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 				}
 				continue
 			}
-			_, err := updateRunnerSemaphore(e.Request.Context(), deviceID, workflows.MobileRunnerSemaphorePauseRunnerUpdate, workflows.MobileRunnerSemaphorePauseRunnerRequest{Reason: "device offline", CancelRunning: true, ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second)}, nil, lifecycleUpdateID("pause", deviceID))
+			_, err := updateRunnerSemaphore(e.Request.Context(), deviceID, workflows.MobileDeviceSemaphorePauseDeviceUpdate, workflows.MobileDeviceSemaphorePauseDeviceRequest{Reason: "device offline", CancelRunning: true, ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second)}, nil, lifecycleUpdateID("pause", deviceID))
 			if err != nil && !errors.Is(err, errSemaphoreNotFound) {
 				return apierror.New(http.StatusInternalServerError, "mobile_device", "failed_to_pause_device_semaphore", err.Error())
 			}
@@ -236,7 +236,7 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 			)
 		}
 
-		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
+		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.DeviceID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -254,8 +254,8 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 			_, updateErr := updateRunnerSemaphore(
 				e.Request.Context(),
 				deviceID,
-				workflows.MobileRunnerSemaphorePauseRunnerUpdate,
-				workflows.MobileRunnerSemaphorePauseRunnerRequest{
+				workflows.MobileDeviceSemaphorePauseDeviceUpdate,
+				workflows.MobileDeviceSemaphorePauseDeviceRequest{
 					Reason:               lifecycleReason(input.Reason, "runner_shutdown"),
 					CancelRunning:        true,
 					ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
@@ -309,8 +309,8 @@ func resolveLifecycleRunner(
 	auth *core.Record,
 	runnerID string,
 ) (*core.Record, string, *apierror.APIError) {
-	normalizedRunnerID := canonify.NormalizePath(runnerID)
-	if normalizedRunnerID == "" {
+	normalizedDeviceID := canonify.NormalizePath(runnerID)
+	if normalizedDeviceID == "" {
 		return nil, "", apierror.New(
 			http.StatusBadRequest,
 			"runner_id",
@@ -319,7 +319,7 @@ func resolveLifecycleRunner(
 		)
 	}
 
-	record, err := canonify.Resolve(app, normalizedRunnerID)
+	record, err := canonify.Resolve(app, normalizedDeviceID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", apierror.New(
@@ -365,7 +365,7 @@ func resolveLifecycleRunner(
 		}
 	}
 
-	canonicalRunnerID, err := mobileRunnerIdentifier(app, record)
+	canonicalDeviceID, err := mobileRunnerIdentifier(app, record)
 	if err != nil {
 		return nil, "", apierror.New(
 			http.StatusInternalServerError,
@@ -375,11 +375,11 @@ func resolveLifecycleRunner(
 		)
 	}
 
-	return record, canonicalRunnerID, nil
+	return record, canonicalDeviceID, nil
 }
 
 func resumeHeartbeatPausedRunnerSemaphore(ctx context.Context, runnerID string) error {
-	state, err := queryMobileRunnerSemaphoreState(ctx, runnerID)
+	state, err := queryMobileDeviceSemaphoreState(ctx, runnerID)
 	if err != nil {
 		if errors.Is(err, errSemaphoreNotFound) {
 			return nil
@@ -393,8 +393,8 @@ func resumeHeartbeatPausedRunnerSemaphore(ctx context.Context, runnerID string) 
 	_, err = updateRunnerSemaphore(
 		ctx,
 		runnerID,
-		workflows.MobileRunnerSemaphoreResumeRunnerUpdate,
-		workflows.MobileRunnerSemaphoreResumeRunnerRequest{Reason: "heartbeat_recovered"},
+		workflows.MobileDeviceSemaphoreResumeDeviceUpdate,
+		workflows.MobileDeviceSemaphoreResumeDeviceRequest{Reason: "heartbeat_recovered"},
 		nil,
 		lifecycleUpdateID("heartbeat-resume", runnerID),
 	)
@@ -413,14 +413,14 @@ func updateRunnerSemaphore(
 	updateID string,
 ) (bool, error) {
 	client, err := mobileRunnerLifecycleTemporalClient(
-		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 	)
 	if err != nil {
 		return false, err
 	}
 
 	handle, err := client.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
-		WorkflowID:   workflows.MobileRunnerSemaphoreWorkflowID(runnerID),
+		WorkflowID:   workflows.MobileDeviceSemaphoreWorkflowID(runnerID),
 		UpdateName:   updateName,
 		UpdateID:     updateID,
 		Args:         []any{req},
@@ -452,9 +452,9 @@ func lifecycleResponse(
 	online bool,
 ) MobileRunnerLifecycleResponse {
 	return MobileRunnerLifecycleResponse{
-		RunnerID:                runnerID,
+		DeviceID:                runnerID,
 		Online:                  online,
-		SemaphoreWorkflowID:     workflows.MobileRunnerSemaphoreWorkflowID(runnerID),
+		SemaphoreWorkflowID:     workflows.MobileDeviceSemaphoreWorkflowID(runnerID),
 		HeartbeatTimeoutSeconds: int(mobilerunnerlifecycle.HeartbeatTimeout() / time.Second),
 		ShutdownAfterSeconds:    int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 	}

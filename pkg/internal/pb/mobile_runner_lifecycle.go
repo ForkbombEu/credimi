@@ -148,17 +148,17 @@ func markRunnerOfflineIfStillStale(app core.App, recordID string, cutoff time.Ti
 
 func pauseStaleRunnerSemaphore(ctx context.Context, runnerID string, cutoff time.Time) error {
 	client, err := mobileRunnerLifecycleMonitorTemporalClient(
-		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 	)
 	if err != nil {
 		return err
 	}
 
 	_, err = client.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
-		WorkflowID: workflows.MobileRunnerSemaphoreWorkflowID(runnerID),
-		UpdateName: workflows.MobileRunnerSemaphorePauseRunnerUpdate,
+		WorkflowID: workflows.MobileDeviceSemaphoreWorkflowID(runnerID),
+		UpdateName: workflows.MobileDeviceSemaphorePauseDeviceUpdate,
 		UpdateID:   heartbeatPauseUpdateID(runnerID, cutoff),
-		Args: []any{workflows.MobileRunnerSemaphorePauseRunnerRequest{
+		Args: []any{workflows.MobileDeviceSemaphorePauseDeviceRequest{
 			Reason:               "heartbeat timeout",
 			CancelRunning:        true,
 			ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),

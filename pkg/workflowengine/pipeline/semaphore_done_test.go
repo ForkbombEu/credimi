@@ -28,7 +28,7 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
 	)
 
-	reportActivity := activities.NewReportMobileRunnerSemaphoreDoneActivity()
+	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity()
 	env.RegisterActivityWithOptions(
 		reportActivity.Execute,
 		activity.RegisterOptions{Name: reportActivity.Name()},
@@ -84,9 +84,9 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 		reportActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(activities.ReportMobileRunnerSemaphoreDoneInput)
+			payload, ok := input.Payload.(activities.ReportMobileDeviceSemaphoreDoneInput)
 			if !ok {
-				decoded, err := workflowengine.DecodePayload[activities.ReportMobileRunnerSemaphoreDoneInput](
+				decoded, err := workflowengine.DecodePayload[activities.ReportMobileDeviceSemaphoreDoneInput](
 					input.Payload,
 				)
 				if err != nil {
@@ -96,7 +96,7 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 			}
 			return payload.TicketID == "ticket-1" &&
 				payload.OwnerNamespace == "tenant-1" &&
-				payload.LeaderRunnerID == "runner-1/device-1" &&
+				payload.LeaderDeviceID == "runner-1/device-1" &&
 				payload.WorkflowID == "default-test-workflow-id" &&
 				payload.RunID == "default-test-run-id" &&
 				payload.WorkflowResult == resultSuccess

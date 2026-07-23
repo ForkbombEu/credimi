@@ -42,14 +42,6 @@ type GetMobileDeviceResponseSchema struct {
 	RunnerURL string `json:"runner_url"`
 }
 
-type MobileRunnerSemaphoreResponseSchema struct {
-	RunnerID  string `json:"runner_id"`
-	Capacity  int    `json:"capacity"`
-	SlotsUsed int    `json:"slots_used"`
-	InUse     bool   `json:"in_use"`
-	QueueLen  int    `json:"queue_len"`
-}
-
 type MobileDeviceSemaphoreResponseSchema struct {
 	DeviceID  string `json:"device_id"`
 	Capacity  int    `json:"capacity"`
@@ -163,7 +155,7 @@ var MobileDevicesPublicRoutes = routing.RouteGroup{
 
 type ValidateMobileRunnerAccessRequest struct {
 	OwnerNamespace string   `json:"owner_namespace"`
-	RunnerIDs      []string `json:"runner_ids"`
+	DeviceIDs      []string `json:"device_ids"`
 }
 
 type ValidateMobileDeviceAccessRequest struct {
@@ -188,8 +180,8 @@ var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodGet,
 			Path:           "/semaphore",
-			Handler:        HandleGetMobileRunnerSemaphore,
-			ResponseSchema: MobileRunnerSemaphoreResponseSchema{},
+			Handler:        HandleGetMobileDeviceSemaphore,
+			ResponseSchema: MobileDeviceSemaphoreResponseSchema{},
 		},
 		{
 			Method:         http.MethodGet,
@@ -360,7 +352,7 @@ func mobileDeviceListItem(
 	}
 	runnerID, err := mobileRunnerIdentifier(app, runner)
 	if err != nil {
-		return MobileDeviceListItem{}, apierror.New(http.StatusInternalServerError, "runner_id", "failed_to_build_runner_id", err.Error())
+		return MobileDeviceListItem{}, apierror.New(http.StatusInternalServerError, "device_id", "failed_to_build_device_id", err.Error())
 	}
 
 	item := MobileDeviceListItem{
@@ -376,7 +368,7 @@ func mobileDeviceListItem(
 		IsOnline:    device.GetBool("online"),
 	}
 	if item.IsOnline {
-		queueLen, apiErr := mobileRunnerQueueLen(ctx, deviceID)
+		queueLen, apiErr := mobileDeviceQueueLen(ctx, deviceID)
 		if apiErr != nil {
 			return MobileDeviceListItem{}, apiErr
 		}
@@ -426,8 +418,8 @@ func mobileRunnerListItem(
 	if err != nil {
 		return MobileRunnerListItem{}, apierror.New(
 			http.StatusInternalServerError,
-			"runner_id",
-			"failed_to_build_runner_id",
+			"device_id",
+			"failed_to_build_device_id",
 			err.Error(),
 		)
 	}
@@ -459,7 +451,7 @@ func mobileRunnerListItem(
 	}
 
 	if includeDetails && online {
-		queueLen, apiErr := mobileRunnerQueueLen(ctx, runnerID)
+		queueLen, apiErr := mobileDeviceQueueLen(ctx, runnerID)
 		if apiErr != nil {
 			return MobileRunnerListItem{}, apiErr
 		}
@@ -508,16 +500,16 @@ func checkMobileRunnerHealthHTTP(
 	return true, health.Devices, nil
 }
 
-func mobileRunnerQueueLen(ctx context.Context, runnerID string) (int, *apierror.APIError) {
-	state, err := queryMobileRunnerSemaphoreState(ctx, runnerID)
+func mobileDeviceQueueLen(ctx context.Context, deviceID string) (int, *apierror.APIError) {
+	state, err := queryMobileDeviceSemaphoreState(ctx, deviceID)
 	if err != nil {
 		if errors.Is(err, errSemaphoreNotFound) {
 			return 0, nil
 		}
 		return 0, apierror.New(
 			http.StatusInternalServerError,
-			"mobile_runner",
-			"failed_to_query_runner_queue",
+			"mobile_device",
+			"failed_to_query_device_queue",
 			err.Error(),
 		)
 	}
@@ -525,22 +517,26 @@ func mobileRunnerQueueLen(ctx context.Context, runnerID string) (int, *apierror.
 	return state.QueueLen, nil
 }
 
+var errSemaphoreNotFound = errors.New("semaphore not found")
+
+var queryMobileDeviceSemaphoreState = queryMobileDeviceSemaphoreStateTemporal
+
 func HandleGetMobileRunner() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		runnerIdentifier := e.Request.URL.Query().Get("runner_identifier")
+		runnerIdentifier := e.Request.URL.Query().Get("device_identifier")
 		if runnerIdentifier == "" {
 			return apierror.New(
 				http.StatusBadRequest,
-				"runner_identifier",
-				"runner_identifier is required",
-				"missing runner_identifier",
+				"device_identifier",
+				"device_identifier is required",
+				"missing device_identifier",
 			)
 		}
 		record, err := canonify.Resolve(e.App, runnerIdentifier)
 		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
-				"runner_identifier",
+				"device_identifier",
 				"mobile runner not found",
 				err.Error(),
 			)
@@ -587,7 +583,7 @@ func HandleGetMobileDeviceSemaphore() func(*core.RequestEvent) error {
 		if err != nil || record.Collection() == nil || record.Collection().Name != "mobile_devices" {
 			return apierror.New(http.StatusNotFound, "device_identifier", "mobile_device_not_found", "mobile device not found")
 		}
-		state, err := queryMobileRunnerSemaphoreState(e.Request.Context(), deviceID)
+		state, err := queryMobileDeviceSemaphoreState(e.Request.Context(), deviceID)
 		if errors.Is(err, errSemaphoreNotFound) {
 			return apierror.New(http.StatusNotFound, "semaphore", "device_semaphore_not_found", err.Error())
 		}
@@ -630,7 +626,7 @@ func HandleValidateMobileRunnerAccess() func(*core.RequestEvent) error {
 		if apiErr := validatePipelineRunnerAccess(
 			e.App,
 			ownerRecord.Id,
-			input.RunnerIDs,
+			input.DeviceIDs,
 		); apiErr != nil {
 			return apiErr
 		}
@@ -664,101 +660,35 @@ func HandleValidateMobileDeviceAccess() func(*core.RequestEvent) error {
 	}
 }
 
-var errSemaphoreNotFound = errors.New("semaphore not found")
-
-var queryMobileRunnerSemaphoreState = queryMobileRunnerSemaphoreStateTemporal
-
-func HandleGetMobileRunnerSemaphore() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		runnerIdentifier := e.Request.URL.Query().Get("runner_identifier")
-		if runnerIdentifier == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"runner_identifier",
-				"runner_identifier is required",
-				"missing runner_identifier",
-			)
-		}
-
-		record, err := canonify.Resolve(e.App, runnerIdentifier)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"runner_identifier",
-				"mobile runner not found",
-				err.Error(),
-			)
-		}
-
-		runnerID := record.GetString("name")
-		if runnerID == "" {
-			return apierror.New(
-				http.StatusNotFound,
-				"runner_identifier",
-				"mobile runner not found",
-				"runner name missing",
-			)
-		}
-
-		state, err := queryMobileRunnerSemaphoreState(e.Request.Context(), runnerID)
-		if err != nil {
-			if errors.Is(err, errSemaphoreNotFound) {
-				return apierror.New(
-					http.StatusNotFound,
-					"semaphore",
-					"runner semaphore not found",
-					err.Error(),
-				)
-			}
-			return apierror.New(
-				http.StatusInternalServerError,
-				"semaphore",
-				"failed to query runner semaphore",
-				err.Error(),
-			)
-		}
-
-		response := MobileRunnerSemaphoreResponseSchema{
-			RunnerID:  state.RunnerID,
-			Capacity:  state.Capacity,
-			SlotsUsed: state.SlotsUsed,
-			InUse:     state.SlotsUsed > 0,
-			QueueLen:  state.QueueLen,
-		}
-
-		return e.JSON(http.StatusOK, response)
-	}
-}
-
-func queryMobileRunnerSemaphoreStateTemporal(
+func queryMobileDeviceSemaphoreStateTemporal(
 	ctx context.Context,
 	runnerID string,
-) (workflows.MobileRunnerSemaphoreStateView, error) {
+) (workflows.MobileDeviceSemaphoreStateView, error) {
 	client, err := temporalclient.GetTemporalClientWithNamespace(
-		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 	)
 	if err != nil {
-		return workflows.MobileRunnerSemaphoreStateView{}, err
+		return workflows.MobileDeviceSemaphoreStateView{}, err
 	}
 
-	workflowID := workflows.MobileRunnerSemaphoreWorkflowID(runnerID)
+	workflowID := workflows.MobileDeviceSemaphoreWorkflowID(runnerID)
 	encoded, err := client.QueryWorkflow(
 		ctx,
 		workflowID,
 		"",
-		workflows.MobileRunnerSemaphoreStateQuery,
+		workflows.MobileDeviceSemaphoreStateQuery,
 	)
 	if err != nil {
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {
-			return workflows.MobileRunnerSemaphoreStateView{}, errSemaphoreNotFound
+			return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
 		}
-		return workflows.MobileRunnerSemaphoreStateView{}, err
+		return workflows.MobileDeviceSemaphoreStateView{}, err
 	}
 
-	var state workflows.MobileRunnerSemaphoreStateView
+	var state workflows.MobileDeviceSemaphoreStateView
 	if err := encoded.Get(&state); err != nil {
-		return workflows.MobileRunnerSemaphoreStateView{}, err
+		return workflows.MobileDeviceSemaphoreStateView{}, err
 	}
 
 	return state, nil
