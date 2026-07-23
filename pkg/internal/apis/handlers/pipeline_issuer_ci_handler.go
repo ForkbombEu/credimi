@@ -101,7 +101,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
 			return apiErr
 		}
-		warning := pipelineCIIgnoredRunnerWarning(
+		warning := pipelineCIIgnoredDeviceWarning(
 			input.DeviceID,
 			input.DeviceType,
 			hasStepRunner,

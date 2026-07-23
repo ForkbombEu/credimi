@@ -55,7 +55,7 @@ type PipelineStatsResponse struct {
 	PipelineName        string             `json:"pipeline_name"`
 	PipelineIdentifier  string             `json:"pipeline_identifier"`
 	DeviceTypes         []string           `json:"device_types"`
-	Runners             []string           `json:"runners"`
+	DeviceIDs           []string           `json:"device_ids"`
 	TotalRuns           int                `json:"total_runs"`
 	TotalSuccesses      int                `json:"total_successes"`
 	SuccessRate         float64            `json:"success_rate"`
@@ -76,7 +76,7 @@ type LastSuccessfulRun struct {
 
 type PipelineStats struct {
 	PipelineName        string
-	Runners             []string
+	DeviceIDs           []string
 	DeviceTypes         []string
 	TotalRuns           int
 	TotalSuccesses      int
@@ -479,7 +479,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 					pipelineRecord.GetString("canonified_name"),
 				),
 				DeviceTypes:         stats.DeviceTypes,
-				Runners:             stats.Runners,
+				DeviceIDs:           stats.DeviceIDs,
 				TotalRuns:           stats.TotalRuns,
 				TotalSuccesses:      stats.TotalSuccesses,
 				SuccessRate:         stats.SuccessRate,
@@ -635,7 +635,7 @@ func calculateStatsFromExecutions(
 	runnerCache map[string]map[string]any,
 ) (*PipelineStats, *LastSuccessfulRun) {
 	stats := &PipelineStats{
-		Runners:     []string{},
+		DeviceIDs:   []string{},
 		DeviceTypes: []string{},
 	}
 
@@ -643,7 +643,7 @@ func calculateStatsFromExecutions(
 		return stats, nil
 	}
 
-	runnerSet := make(map[string]struct{})
+	deviceSet := make(map[string]struct{})
 	var minDuration time.Duration
 	var firstTime, lastTime string
 	minDurationSet := false
@@ -680,7 +680,7 @@ func calculateStatsFromExecutions(
 
 		deviceIDs := extractDeviceIDsFromExec(exec)
 		for _, id := range deviceIDs {
-			runnerSet[id] = struct{}{}
+			deviceSet[id] = struct{}{}
 		}
 
 		updateDateRange(exec.StartTime, &firstTime, &lastTime)
@@ -690,8 +690,8 @@ func calculateStatsFromExecutions(
 		}
 	}
 
-	stats.Runners = mapKeysToSlice(runnerSet)
-	stats.DeviceTypes = resolveDeviceTypes(app, stats.Runners, runnerCache)
+	stats.DeviceIDs = mapKeysToSlice(deviceSet)
+	stats.DeviceTypes = resolveDeviceTypes(app, stats.DeviceIDs, runnerCache)
 
 	if stats.TotalRuns > 0 {
 		stats.SuccessRate = math.Round(
@@ -1090,11 +1090,11 @@ func insertAggregatedResults(
 			saveErrors = append(saveErrors, fmt.Errorf("pipeline %s: %w", stats.PipelineID, err))
 			continue
 		}
-		if err := setMobileRunnersRelation(record, app, stats.Runners); err != nil {
+		if err := setMobileDevicesRelation(record, app, stats.DeviceIDs); err != nil {
 			saveErrors = append(
 				saveErrors,
 				fmt.Errorf(
-					"%w: runners for pipeline %s: %w",
+					"%w: devices for pipeline %s: %w",
 					errScoreboardRelationSkipped,
 					stats.PipelineID,
 					err,
@@ -1157,17 +1157,17 @@ func setPipelineRelation(record *core.Record, app core.App, pipelineID string) e
 	return nil
 }
 
-func setMobileRunnersRelation(record *core.Record, app core.App, runners []string) error {
-	if len(runners) == 0 {
+func setMobileDevicesRelation(record *core.Record, app core.App, deviceIdentifiers []string) error {
+	if len(deviceIdentifiers) == 0 {
 		return nil
 	}
 
-	deviceIDs, skipped := findExistingRecords(app, runners)
+	deviceIDs, skipped := findExistingRecords(app, deviceIdentifiers)
 	if len(deviceIDs) > 0 {
 		record.Set("mobile_devices", deviceIDs)
 	}
 	if len(skipped) > 0 {
-		return fmt.Errorf("skipped missing runners: %s", strings.Join(skipped, ", "))
+		return fmt.Errorf("skipped missing devices: %s", strings.Join(skipped, ", "))
 	}
 	return nil
 }

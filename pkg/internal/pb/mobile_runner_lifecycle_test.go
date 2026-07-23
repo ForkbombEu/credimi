@@ -233,7 +233,7 @@ func TestPauseStaleRunnerSemaphoreIgnoresMissingWorkflow(t *testing.T) {
 		return mockClient, nil
 	}
 
-	err := pauseStaleRunnerSemaphore(
+	err := pauseStaleDeviceSemaphore(
 		context.Background(),
 		"runner-1",
 		time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC),

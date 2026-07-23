@@ -44,7 +44,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"pipeline_name":        "Pipeline 1",
 						"pipeline_identifier":  "namespace-1/pipe-1",
 						"device_types":         []any{"android", "ios"},
-						"runners":              []any{"runner-1", "runner-2"},
+						"device_ids":           []any{"runner-1", "runner-2"},
 						"total_runs":           10.0,
 						"total_successes":      8.0,
 						"manual_executions":    3.0,
@@ -66,7 +66,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"pipeline_name":        "Pipeline 1",
 						"pipeline_identifier":  "namespace-2/pipe-1",
 						"device_types":         []any{"android"},
-						"runners":              []any{"runner-3"},
+						"device_ids":           []any{"runner-3"},
 						"total_runs":           5.0,
 						"total_successes":      5.0,
 						"manual_executions":    1.0,
@@ -86,7 +86,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"pipeline_name":        "Pipeline 2",
 						"pipeline_identifier":  "namespace-2/pipe-2",
 						"device_types":         []any{"android"},
-						"runners":              []any{"runner-3"},
+						"device_ids":           []any{"runner-3"},
 						"total_runs":           5.0,
 						"total_successes":      5.0,
 						"manual_executions":    1.0,
@@ -166,7 +166,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.ElementsMatch(
 					t,
 					[]string{"runner-1", "runner-2", "runner-3"},
-					pipeline1.Runners,
+					pipeline1.DeviceIDs,
 				)
 				require.ElementsMatch(t, []string{"android", "ios"}, pipeline1.DeviceTypes)
 				require.NotNil(t, pipeline1.LastExecution)
@@ -178,7 +178,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.Equal(t, 5, pipeline2.TotalRuns)
 				require.Equal(t, 5, pipeline2.TotalSuccesses)
 				require.Equal(t, 5, pipeline2.CIExecutions)
-				require.ElementsMatch(t, []string{"runner-3"}, pipeline2.Runners)
+				require.ElementsMatch(t, []string{"runner-3"}, pipeline2.DeviceIDs)
 				require.NotNil(t, pipeline2.LastExecution)
 				require.Equal(t, "Pipeline 2", pipeline2.LastExecution.PipelineName)
 			},
@@ -198,7 +198,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"pipeline_name":        "Pipeline 1",
 						"pipeline_identifier":  "namespace-1/pipe-1",
 						"device_types":         []any{"android"},
-						"runners":              []any{"runner-1"},
+						"device_ids":           []any{"runner-1"},
 						"total_runs":           4.0,
 						"total_successes":      3.0,
 						"manual_executions":    1.0,

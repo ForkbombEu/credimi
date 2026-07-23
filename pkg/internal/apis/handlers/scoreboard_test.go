@@ -428,7 +428,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.ElementsMatch(
 		t,
 		[]string{"usera-s-organization/runner-android", "usera-s-organization/runner-ios"},
-		stats1.Runners,
+		stats1.DeviceIDs,
 	)
 	require.Equal(t, "1m45s", stats1.MinExecutionTime)
 	expectedFirstTime := exec1.Info.GetStartTime().AsTime()
@@ -455,7 +455,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.ElementsMatch(
 		t,
 		[]string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"},
-		stats2.Runners,
+		stats2.DeviceIDs,
 	)
 	require.Equal(t, "4m10s", stats2.MinExecutionTime)
 	expectedTime2 := exec4.Info.GetStartTime().AsTime()
@@ -778,7 +778,7 @@ type ExecutionInfo struct {
 func buildPipelineExecutionInfoWithRunner(
 	t testing.TB,
 	workflowID, runID, pipelineIdentifier, status string,
-	runnerIDs []string,
+	deviceIDs []string,
 	startTime, closeTime time.Time,
 ) ExecutionInfo {
 	info := &workflow.WorkflowExecutionInfo{
@@ -804,8 +804,8 @@ func buildPipelineExecutionInfoWithRunner(
 		indexedFields[workflowengine.PipelineIdentifierSearchAttribute] = payload
 	}
 
-	if len(runnerIDs) > 0 {
-		payload, err := converter.GetDefaultDataConverter().ToPayload(runnerIDs)
+	if len(deviceIDs) > 0 {
+		payload, err := converter.GetDefaultDataConverter().ToPayload(deviceIDs)
 		require.NoError(t, err)
 		indexedFields[workflowengine.DeviceIdentifiersSearchAttribute] = payload
 	}
@@ -923,7 +923,7 @@ func TestCalculateStatsFromExecutionsOrdersMixedTimestampPrecision(t *testing.T)
 	require.Equal(t, "fractional-second", lastSuccessfulRun.WorkflowID)
 }
 
-func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
+func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name string) *core.Record {
 	runnersColl, err := app.FindCollectionByNameOrId("mobile_runners")
 	require.NoError(t, err)
 
@@ -933,6 +933,31 @@ func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	runner.Set("ip", "my_ip")
 	runner.Set("type", "android_emulator")
 	require.NoError(t, app.Save(runner))
+	return runner
+}
+
+func createDeviceRecord(t testing.TB, app *tests.TestApp, orgID, runnerID, name string) {
+	devicesColl, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(devicesColl)
+	device.Set("name", name)
+	device.Set("owner", orgID)
+	device.Set("runner", runnerID)
+	device.Set("type", "android_emulator")
+	device.Set("serial", name+"-serial")
+	require.NoError(t, app.Save(device))
+}
+
+func ensureScoreboardDeviceRelation(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+	cache, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+	if cache.Fields.GetByName("mobile_devices") == nil {
+		devices, err := app.FindCollectionByNameOrId("mobile_devices")
+		require.NoError(t, err)
+		cache.Fields.Add(&core.RelationField{Name: "mobile_devices", CollectionId: devices.Id, MaxSelect: 999})
+		require.NoError(t, app.Save(cache))
+	}
 }
 
 func createWalletRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
@@ -1027,6 +1052,8 @@ func createCustomCheckRecord(t testing.TB, app *tests.TestApp, orgID, name strin
 func TestSaveScoreboardResults(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
+	ensureMobileDevicesCollection(t, app)
+	ensureScoreboardDeviceRelation(t, app)
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -1034,7 +1061,8 @@ func TestSaveScoreboardResults(t *testing.T) {
 	pipeline.Set("published", true)
 	require.NoError(t, app.Save(pipeline))
 
-	createRunnerRecord(t, app, orgID, "test-runner")
+	runner := createRunnerRecord(t, app, orgID, "test-runner")
+	createDeviceRecord(t, app, orgID, runner.Id, "test-device")
 	createPipelineResult(t, app, orgID, pipeline.Id, "wf-new", "run-new")
 	createWalletRecord(t, app, orgID, "my-wallet")
 	createVerifierRecord(t, app, orgID, "my-verifier")
@@ -1048,7 +1076,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 				PipelineID:          pipeline.Id,
 				PipelineName:        "Test Pipeline",
 				DeviceTypes:         []string{},
-				Runners:             []string{"usera-s-organization/test-runner"},
+				DeviceIDs:           []string{"usera-s-organization/test-runner/test-device"},
 				TotalRuns:           10,
 				TotalSuccesses:      8,
 				SuccessRate:         80.0,
@@ -1126,12 +1154,12 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.Equal(t, 2, record.GetInt("CI_runs"))
 		require.Equal(t, "1m30s", record.GetString("minimum_running_time"))
 
-		runnerIDs := record.GetStringSlice("mobile_runners")
-		require.Len(t, runnerIDs, 1)
+		deviceIDs := record.GetStringSlice("mobile_devices")
+		require.Len(t, deviceIDs, 1)
 
-		runnerRecord, err := app.FindRecordById("mobile_runners", runnerIDs[0])
+		deviceRecord, err := app.FindRecordById("mobile_devices", deviceIDs[0])
 		require.NoError(t, err)
-		require.Equal(t, "test-runner", runnerRecord.GetString("name"))
+		require.Equal(t, "test-device", deviceRecord.GetString("name"))
 
 		latestExecutionID := record.GetString("latest_successful_execution")
 		require.NotEmpty(t, latestExecutionID, "latest_successful_execution should not be empty")
@@ -1284,9 +1312,9 @@ func TestSaveScoreboardResults(t *testing.T) {
 			{
 				PipelineID:   pipeline.Id,
 				PipelineName: "Test Pipeline",
-				Runners: []string{
-					"usera-s-organization/test-runner",
-					"usera-s-organization/missing-runner",
+				DeviceIDs: []string{
+					"usera-s-organization/test-runner/test-device",
+					"usera-s-organization/test-runner/missing-device",
 				},
 				TotalRuns:          10,
 				FirstExecutionDate: "2024-01-01T00:00:00Z",
@@ -1323,7 +1351,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
 		require.True(t, response.Success)
 		require.Equal(t, 1, response.RecordsCount)
-		require.Contains(t, response.Error, "missing-runner")
+		require.Contains(t, response.Error, "missing-device")
 
 		collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
 		require.NoError(t, err)
@@ -1332,11 +1360,11 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, records, 1)
 
-		runnerIDs := records[0].GetStringSlice("mobile_runners")
-		require.Len(t, runnerIDs, 1)
-		runnerRecord, err := app.FindRecordById("mobile_runners", runnerIDs[0])
+		deviceIDs := records[0].GetStringSlice("mobile_devices")
+		require.Len(t, deviceIDs, 1)
+		deviceRecord, err := app.FindRecordById("mobile_devices", deviceIDs[0])
 		require.NoError(t, err)
-		require.Equal(t, "test-runner", runnerRecord.GetString("name"))
+		require.Equal(t, "test-device", deviceRecord.GetString("name"))
 	})
 
 	t.Run("partial - missing last execution relations are skipped", func(t *testing.T) {

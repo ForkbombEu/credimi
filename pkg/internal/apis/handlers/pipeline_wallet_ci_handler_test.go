@@ -981,19 +981,19 @@ func TestInjectPipelineRunWalletAPKGlobalDeviceID(t *testing.T) {
 }
 
 func TestValidatePipelineCIGlobalRunnerRequest(t *testing.T) {
-	apiErr := validatePipelineCIGlobalRunnerRequest("", false, true)
+	apiErr := validatePipelineCIGlobalDeviceRequest("", false, true)
 	require.NotNil(t, apiErr)
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Equal(t, "runner_id", apiErr.Domain)
-	require.Equal(t, "runner_id or device_type is required", apiErr.Reason)
+	require.Equal(t, "device_id", apiErr.Domain)
+	require.Equal(t, "device_id or device_type is required", apiErr.Reason)
 
-	apiErr = validatePipelineCIGlobalRunnerRequest("", true, true)
+	apiErr = validatePipelineCIGlobalDeviceRequest("", true, true)
 	require.NotNil(t, apiErr)
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Equal(t, "mobile-automation runner_id configuration is incomplete", apiErr.Reason)
+	require.Equal(t, "mobile-automation device_id configuration is incomplete", apiErr.Reason)
 
-	require.Nil(t, validatePipelineCIGlobalRunnerRequest("", false, false))
-	require.Nil(t, validatePipelineCIGlobalRunnerRequest("runner-1", false, true))
+	require.Nil(t, validatePipelineCIGlobalDeviceRequest("", false, false))
+	require.Nil(t, validatePipelineCIGlobalDeviceRequest("runner-1", false, true))
 }
 
 func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
@@ -1016,8 +1016,8 @@ func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
 	require.False(t, needsGlobalRunner)
 	require.Equal(
 		t,
-		"runner_id and device_type are ignored because pipeline has no mobile-automation steps",
-		pipelineCIIgnoredRunnerWarning(
+		"device_id and device_type are ignored because pipeline has no mobile-automation steps",
+		pipelineCIIgnoredDeviceWarning(
 			"runner-1",
 			"android_phone",
 			hasStepRunner,
@@ -1505,7 +1505,7 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 			"version-record-1",
 			"usera-s-organization/wallet/abc123",
 			"usera-s-organization/pipeline123",
-			"runner_id and device_type are ignored because pipeline has no mobile-automation steps",
+			"device_id and device_type are ignored because pipeline has no mobile-automation steps",
 		)
 
 		require.Equal(t, workflowengine.MobileDeviceSemaphoreRunQueued, response.Status)
@@ -1518,7 +1518,7 @@ func TestBuildPipelineRunWalletAPKResponse(t *testing.T) {
 		require.Equal(t, "usera-s-organization/pipeline123", response.PipelineIdentifier)
 		require.Equal(
 			t,
-			"runner_id and device_type are ignored because pipeline has no mobile-automation steps",
+			"device_id and device_type are ignored because pipeline has no mobile-automation steps",
 			response.Warning,
 		)
 	})

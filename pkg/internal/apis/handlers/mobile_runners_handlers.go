@@ -523,23 +523,26 @@ var queryMobileDeviceSemaphoreState = queryMobileDeviceSemaphoreStateTemporal
 
 func HandleGetMobileRunner() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		runnerIdentifier := e.Request.URL.Query().Get("device_identifier")
+		runnerIdentifier := e.Request.URL.Query().Get("runner_identifier")
 		if runnerIdentifier == "" {
 			return apierror.New(
 				http.StatusBadRequest,
-				"device_identifier",
-				"device_identifier is required",
-				"missing device_identifier",
+				"runner_identifier",
+				"runner_identifier is required",
+				"missing runner_identifier",
 			)
 		}
 		record, err := canonify.Resolve(e.App, runnerIdentifier)
 		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
-				"device_identifier",
+				"runner_identifier",
 				"mobile runner not found",
 				err.Error(),
 			)
+		}
+		if record.Collection() == nil || record.Collection().Name != "mobile_runners" {
+			return apierror.New(http.StatusBadRequest, "runner_identifier", "invalid_runner_identifier", "runner_identifier does not reference a mobile runner")
 		}
 
 		var response GetMobileRunnerResponseSchema

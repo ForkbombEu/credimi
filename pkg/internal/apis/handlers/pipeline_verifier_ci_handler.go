@@ -99,7 +99,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
 			return apiErr
 		}
-		warning := pipelineCIIgnoredRunnerWarning(
+		warning := pipelineCIIgnoredDeviceWarning(
 			input.DeviceID,
 			input.DeviceType,
 			hasStepRunner,

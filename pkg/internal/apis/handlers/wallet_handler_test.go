@@ -587,7 +587,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 
 	// add form fields
 	_ = successWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = successWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
+	_ = successWriter.WriteField("device_identifier", "usera-s-organization/test-runner")
 	_ = successWriter.WriteField("platform", "android")
 
 	partHeader := textproto.MIMEHeader{}
@@ -619,7 +619,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	var crossOrgRunnerBody bytes.Buffer
 	crossOrgRunnerWriter := multipart.NewWriter(&crossOrgRunnerBody)
 	_ = crossOrgRunnerWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = crossOrgRunnerWriter.WriteField("runner_identifier", "userb-s-organization/public-runner")
+	_ = crossOrgRunnerWriter.WriteField("device_identifier", "userb-s-organization/public-runner")
 	_ = crossOrgRunnerWriter.WriteField("platform", "android")
 
 	crossOrgVideoWriter, err := crossOrgRunnerWriter.CreatePart(partHeader)
@@ -642,7 +642,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	var iosBody bytes.Buffer
 	iosWriter := multipart.NewWriter(&iosBody)
 	_ = iosWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = iosWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
+	_ = iosWriter.WriteField("device_identifier", "usera-s-organization/test-runner")
 	_ = iosWriter.WriteField("platform", "ios")
 
 	iosVideoWriter, err := iosWriter.CreatePart(partHeader)
@@ -666,7 +666,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	var missingBody bytes.Buffer
 	missingWriter := multipart.NewWriter(&missingBody)
 	_ = missingWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = missingWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
+	_ = missingWriter.WriteField("device_identifier", "usera-s-organization/test-runner")
 	_ = missingWriter.WriteField("platform", "android")
 	require.NoError(t, missingWriter.Close())
 
@@ -676,7 +676,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 		"run_identifier",
 		"usera-s-organization/workflow123-run123",
 	)
-	_ = invalidPlatformWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
+	_ = invalidPlatformWriter.WriteField("device_identifier", "usera-s-organization/test-runner")
 	_ = invalidPlatformWriter.WriteField("platform", "desktop")
 	require.NoError(t, invalidPlatformWriter.Close())
 

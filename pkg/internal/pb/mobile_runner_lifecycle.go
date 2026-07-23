@@ -105,7 +105,7 @@ func markStaleRunnersOfflineAndPauseSemaphores(ctx context.Context, app core.App
 			if err != nil {
 				return fmt.Errorf("build stale device identifier: %w", err)
 			}
-			if err := pauseStaleRunnerSemaphore(ctx, deviceID, cutoff); err != nil {
+			if err := pauseStaleDeviceSemaphore(ctx, deviceID, cutoff); err != nil {
 				app.Logger().Error("pause stale device semaphore failed", "device_id", deviceID, "error", err)
 			}
 		}
@@ -146,7 +146,7 @@ func markRunnerOfflineIfStillStale(app core.App, recordID string, cutoff time.Ti
 	return shouldPause, nil
 }
 
-func pauseStaleRunnerSemaphore(ctx context.Context, runnerID string, cutoff time.Time) error {
+func pauseStaleDeviceSemaphore(ctx context.Context, deviceID string, cutoff time.Time) error {
 	client, err := mobileRunnerLifecycleMonitorTemporalClient(
 		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 	)
@@ -155,9 +155,9 @@ func pauseStaleRunnerSemaphore(ctx context.Context, runnerID string, cutoff time
 	}
 
 	_, err = client.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
-		WorkflowID: workflows.MobileDeviceSemaphoreWorkflowID(runnerID),
+		WorkflowID: workflows.MobileDeviceSemaphoreWorkflowID(deviceID),
 		UpdateName: workflows.MobileDeviceSemaphorePauseDeviceUpdate,
-		UpdateID:   heartbeatPauseUpdateID(runnerID, cutoff),
+		UpdateID:   heartbeatPauseUpdateID(deviceID, cutoff),
 		Args: []any{workflows.MobileDeviceSemaphorePauseDeviceRequest{
 			Reason:               "heartbeat timeout",
 			CancelRunning:        true,
@@ -176,6 +176,6 @@ func pauseStaleRunnerSemaphore(ctx context.Context, runnerID string, cutoff time
 	return nil
 }
 
-func heartbeatPauseUpdateID(runnerID string, cutoff time.Time) string {
-	return fmt.Sprintf("pause-heartbeat-timeout/%s/%d", runnerID, cutoff.Unix())
+func heartbeatPauseUpdateID(deviceID string, cutoff time.Time) string {
+	return fmt.Sprintf("pause-heartbeat-timeout/%s/%d", deviceID, cutoff.Unix())
 }

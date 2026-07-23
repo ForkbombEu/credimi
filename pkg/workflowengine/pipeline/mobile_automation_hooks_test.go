@@ -971,6 +971,7 @@ func TestCleanupDeviceMarksDeviceCleaned(t *testing.T) {
 
 			deviceMap := map[string]any{
 				"type":       "android_phone",
+				"runner_id":  "tenant/runner-1",
 				"serial":     "serial-1",
 				"runner_url": "https://runner.example",
 				"recording":  false,
@@ -983,7 +984,7 @@ func TestCleanupDeviceMarksDeviceCleaned(t *testing.T) {
 
 			err := cleanupDevice(cleanupDeviceInput{
 				ctx:           ctx,
-				runnerID:      "tenant/runner-1",
+				deviceID:      "tenant/runner-1",
 				raw:           deviceMap,
 				mobileAo:      &ao,
 				runIdentifier: "run-1",
@@ -1049,6 +1050,7 @@ func TestCleanupDeviceSkipsPhysicalDeviceWithoutCleanupWork(t *testing.T) {
 
 			deviceMap := map[string]any{
 				"type":       "android_phone",
+				"runner_id":  "tenant/runner-1",
 				"serial":     "serial-1",
 				"runner_url": "https://runner.example",
 				"recording":  false,
@@ -1059,7 +1061,7 @@ func TestCleanupDeviceSkipsPhysicalDeviceWithoutCleanupWork(t *testing.T) {
 
 			err := cleanupDevice(cleanupDeviceInput{
 				ctx:           ctx,
-				runnerID:      "tenant/runner-1",
+				deviceID:      "tenant/runner-1",
 				raw:           deviceMap,
 				mobileAo:      &ao,
 				runIdentifier: "run-1",
@@ -1120,7 +1122,7 @@ func TestCleanupDeviceRunsForPreparedPhysicalDevice(t *testing.T) {
 			cleanupErrs := []error{}
 			return cleanupDevice(cleanupDeviceInput{
 				ctx:           ctx,
-				runnerID:      "tenant/runner-1",
+				deviceID:      "tenant/runner-1",
 				raw:           deviceMap,
 				mobileAo:      &ao,
 				runIdentifier: "run-1",
@@ -1308,7 +1310,7 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 				logPath:    "/tmp/log.txt",
 				deviceType: deviceTypeAndroidPhone,
 				runID:      "run-1",
-				runnerID:   "runner-1",
+				deviceID:   "runner-1",
 				appURL:     "https://app.example",
 				output:     &output,
 				logger:     workflow.GetLogger(ctx),
@@ -1383,7 +1385,7 @@ func TestStoreRecordingResultsInitializesMissingOutputSlices(t *testing.T) {
 				logPath:    "/tmp/log.txt",
 				deviceType: deviceTypeAndroidPhone,
 				runID:      "run-1",
-				runnerID:   "runner-1",
+				deviceID:   "runner-1",
 				appURL:     "https://app.example",
 				output:     &output,
 				logger:     workflow.GetLogger(ctx),
@@ -1443,7 +1445,7 @@ func TestStoreRecordingResultsIOSSendsLogPath(t *testing.T) {
 				logPath:    "/tmp/log.txt",
 				deviceType: deviceTypeIOSSimulator,
 				runID:      "run-1",
-				runnerID:   "runner-1",
+				deviceID:   "runner-1",
 				appURL:     "https://app.example",
 				output:     &output,
 				logger:     workflow.GetLogger(ctx),
@@ -1498,6 +1500,7 @@ func TestMobileAutomationCleanupHookSuccess(t *testing.T) {
 
 			deviceMap := map[string]any{
 				"type":       "android_phone",
+				"runner_id":  "tenant/runner-1",
 				"serial":     "serial-1",
 				"runner_url": "https://runner.example",
 				"recording":  false,
@@ -2102,7 +2105,7 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 
 			err := cleanupDevice(cleanupDeviceInput{
 				ctx:           ctx,
-				runnerID:      "tenant/runner-1",
+				deviceID:      "tenant/runner-1",
 				raw:           deviceMap,
 				mobileAo:      &ao,
 				runIdentifier: "run-1",
@@ -2221,7 +2224,7 @@ func TestStoreRecordingResultsReturnsActivityError(t *testing.T) {
 				logPath:    "/tmp/log.txt",
 				deviceType: deviceTypeAndroidPhone,
 				runID:      "run-1",
-				runnerID:   "runner-1",
+				deviceID:   "runner-1",
 				appURL:     "https://app.example",
 				output:     &output,
 				logger:     workflow.GetLogger(ctx),
@@ -2310,6 +2313,7 @@ func TestMobileAutomationCleanupHookSkipsOnlyPolicyRunnerCleanup(t *testing.T) {
 				"setted_devices": map[string]any{
 					"tenant/runner-a": map[string]any{
 						"type":       "android_phone",
+						"runner_id":  "tenant/runner-a-host",
 						"serial":     "serial-a",
 						"runner_url": "https://runner-a.example",
 						"recording":  false,
@@ -2317,6 +2321,7 @@ func TestMobileAutomationCleanupHookSkipsOnlyPolicyRunnerCleanup(t *testing.T) {
 					},
 					"tenant/runner-b": map[string]any{
 						"type":       "android_phone",
+						"runner_id":  "tenant/runner-b-host",
 						"serial":     "serial-b",
 						"runner_url": "https://runner-b.example",
 						"recording":  false,
@@ -2352,7 +2357,7 @@ func TestMobileAutomationCleanupHookSkipsOnlyPolicyRunnerCleanup(t *testing.T) {
 	require.Contains(
 		t,
 		workflowengine.AsSliceOfStrings(output["cleanup_warnings"]),
-		"runner cleanup skipped for tenant/runner-a because pipeline cancellation policy requested it",
+		"device cleanup skipped for tenant/runner-a because pipeline cancellation policy requested it",
 	)
 }
 
@@ -2386,6 +2391,7 @@ func TestMobileAutomationCleanupHookRunsRunnerCleanupWithoutPolicy(t *testing.T)
 					"setted_devices": map[string]any{
 						"tenant/runner-a": map[string]any{
 							"type":       "android_phone",
+							"runner_id":  "tenant/runner-a-host",
 							"serial":     "serial-a",
 							"runner_url": "https://runner-a.example",
 							"recording":  false,
@@ -2393,6 +2399,7 @@ func TestMobileAutomationCleanupHookRunsRunnerCleanupWithoutPolicy(t *testing.T)
 						},
 						"tenant/runner-b": map[string]any{
 							"type":       "android_phone",
+							"runner_id":  "tenant/runner-b-host",
 							"serial":     "serial-b",
 							"runner_url": "https://runner-b.example",
 							"recording":  false,
@@ -2840,7 +2847,7 @@ func TestCleanupDeviceReturnsCleanupActivityError(t *testing.T) {
 
 			return cleanupDevice(cleanupDeviceInput{
 				ctx:      ctx,
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				raw: map[string]any{
 					"type":       "android_phone",
 					"serial":     "serial-1",
@@ -2894,7 +2901,7 @@ func testStartRecordingMissingSerialWorkflow(ctx workflow.Context) error {
 	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 	return startRecordingForDevice(startRecordingForDeviceInput{
 		ctx:       ctx,
-		runnerID:  "runner-1",
+		deviceID:  "runner-1",
 		deviceMap: map[string]any{},
 		ao:        &activityOptions,
 	})
@@ -2918,11 +2925,12 @@ func testStartRecordingSkipWorkflow(ctx workflow.Context) error {
 func testStartRecordingSuccessWorkflow(ctx workflow.Context) (map[string]any, error) {
 	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 	device := map[string]any{
-		"serial": "serial-1",
+		"serial":    "serial-1",
+		"runner_id": "tenant/runner-host",
 	}
 	err := startRecordingForDevice(startRecordingForDeviceInput{
 		ctx:       ctx,
-		runnerID:  "runner-1",
+		deviceID:  "runner-1",
 		deviceMap: device,
 		ao:        &activityOptions,
 	})
@@ -2951,7 +2959,7 @@ func testCleanupRecordingWorkflow(ctx workflow.Context) (map[string]any, error) 
 	cleanupRecording(cleanupRecordingInput{
 		mobileCtx:   ctx,
 		ctx:         ctx,
-		runnerID:    "runner-1",
+		deviceID:    "runner-1",
 		deviceInfo:  deviceInfo,
 		runID:       "run-1",
 		output:      &output,
@@ -2975,7 +2983,7 @@ func testCleanupRecordingMissingRunnerWorkflow(ctx workflow.Context) (int, error
 	}
 	cleanupRecording(cleanupRecordingInput{
 		ctx:         ctx,
-		runnerID:    "runner-1",
+		deviceID:    "runner-1",
 		deviceInfo:  deviceInfo,
 		runID:       "run-1",
 		output:      &output,

@@ -150,7 +150,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr
 		}
-		warning := pipelineCIIgnoredRunnerWarning(
+		warning := pipelineCIIgnoredDeviceWarning(
 			input.DeviceID,
 			input.DeviceType,
 			hasStepRunner,
@@ -738,7 +738,7 @@ func resolvePipelineRunWalletAPKDeviceID(
 
 	deviceType := strings.TrimSpace(input.DeviceType)
 	if deviceType == "" {
-		if apiErr := validatePipelineCIGlobalRunnerRequest(
+		if apiErr := validatePipelineCIGlobalDeviceRequest(
 			"",
 			hasStepRunner,
 			needsGlobalRunner,

@@ -311,16 +311,16 @@ func prCommentBadgeColor(status string) string {
 	}
 }
 
-func formatPRCommentDevice(runnerID string, runnerType string) string {
-	runnerID = strings.TrimSpace(runnerID)
-	runnerType = strings.TrimSpace(runnerType)
-	if runnerID == "" {
+func formatPRCommentDevice(deviceID string, deviceType string) string {
+	deviceID = strings.TrimSpace(deviceID)
+	deviceType = strings.TrimSpace(deviceType)
+	if deviceID == "" {
 		return ""
 	}
-	if runnerType == "" {
-		return runnerID
+	if deviceType == "" {
+		return deviceID
 	}
-	return fmt.Sprintf("%s(%s)", runnerID, runnerType)
+	return fmt.Sprintf("%s(%s)", deviceID, deviceType)
 }
 
 func formatWorkflowResult(status string) string {
