@@ -5,7 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { ArrowUpRight } from '@lucide/svelte';
+
 	import A from '@/components/ui-custom/a.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 
 	import type { ChildLink, Item, Layout } from './types';
@@ -27,7 +30,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if layout === 'avatar-only'}
-	<EntityAvatar {item} link />
+	<IconButton
+		href={item.href}
+		icon={ArrowUpRight}
+		size="sm"
+		variant="ghost"
+		class="text-primary"
+		tooltip={item.name}
+		aria-label={item.name}
+	/>
 {:else if layout === 'links-only'}
 	<A href={item.href} class="block max-w-[30ch] truncate text-xs">
 		{item.name}
