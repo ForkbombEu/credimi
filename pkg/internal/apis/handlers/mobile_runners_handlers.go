@@ -34,6 +34,14 @@ type GetMobileRunnerResponseSchema struct {
 	Serial    string `json:"serial"`
 }
 
+type GetMobileDeviceResponseSchema struct {
+	DeviceID  string `json:"device_id"`
+	RunnerID  string `json:"runner_id"`
+	Type      string `json:"type"`
+	Serial    string `json:"serial"`
+	RunnerURL string `json:"runner_url"`
+}
+
 type MobileRunnerSemaphoreResponseSchema struct {
 	RunnerID  string `json:"runner_id"`
 	Capacity  int    `json:"capacity"`
@@ -140,6 +148,18 @@ var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			RequestSchema: ValidateMobileRunnerAccessRequest{},
 			Description:   "Validate that runner IDs are accessible to an owner namespace",
 		},
+	},
+}
+
+var MobileDevicesTemporalInternalRoutes = routing.RouteGroup{
+	BaseURL:                "/api/mobile-device",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		middlewares.RequireInternalAdminAPIKey(),
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{Method: http.MethodGet, Path: "", Handler: HandleGetMobileDevice, ResponseSchema: GetMobileDeviceResponseSchema{}},
 	},
 }
 
@@ -382,6 +402,28 @@ func HandleGetMobileRunner() func(*core.RequestEvent) error {
 		response.RunnerURL = mobileRunnerURL(record)
 
 		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func HandleGetMobileDevice() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		deviceIdentifier := canonify.NormalizePath(e.Request.URL.Query().Get("device_identifier"))
+		if deviceIdentifier == "" {
+			return apierror.New(http.StatusBadRequest, "device_identifier", "device_identifier_required", "missing device_identifier")
+		}
+		device, err := canonify.Resolve(e.App, deviceIdentifier)
+		if err != nil || device.Collection() == nil || device.Collection().Name != "mobile_devices" {
+			return apierror.New(http.StatusNotFound, "device_identifier", "mobile_device_not_found", "mobile device not found")
+		}
+		runner, err := e.App.FindRecordById("mobile_runners", device.GetString("runner"))
+		if err != nil {
+			return apierror.New(http.StatusNotFound, "runner", "mobile_runner_not_found", "mobile device runner not found")
+		}
+		return e.JSON(http.StatusOK, GetMobileDeviceResponseSchema{
+			DeviceID: deviceIdentifier,
+			RunnerID: func() string { id, _ := mobileRunnerIdentifier(e.App, runner); return id }(),
+			Type:     device.GetString("type"), Serial: device.GetString("serial"), RunnerURL: mobileRunnerURL(runner),
+		})
 	}
 }
 

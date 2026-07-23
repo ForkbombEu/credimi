@@ -51,6 +51,139 @@ var MobileRunnerRegistrationRoutes = routing.RouteGroup{
 	},
 }
 
+var MobileDeviceRegistrationRoutes = routing.RouteGroup{
+	BaseURL:                "/api/mobile-device",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method: http.MethodPost, Path: "/preview-id", Handler: HandlePreviewMobileDeviceID,
+			RequestSchema: PreviewMobileDeviceIDRequest{}, ResponseSchema: PreviewMobileDeviceIDResponse{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{middlewares.RequireInternalAdminOrAuth()},
+		},
+		{
+			Method: http.MethodPost, Path: "", Handler: HandleUpsertMobileDevice,
+			RequestSchema: UpsertMobileDeviceRequest{}, ResponseSchema: UpsertMobileDeviceResponse{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{middlewares.RequireInternalAdminOrAuth()},
+		},
+	},
+}
+
+type PreviewMobileDeviceIDRequest struct {
+	Organization string `json:"organization,omitempty"`
+	RunnerID     string `json:"runner_id"              validate:"required"`
+	Name         string `json:"name"                   validate:"required"`
+}
+
+type PreviewMobileDeviceIDResponse struct {
+	RunnerID       string `json:"runner_id"`
+	DeviceID       string `json:"device_id"`
+	CanonifiedName string `json:"canonified_name"`
+}
+
+type UpsertMobileDeviceRequest struct {
+	Organization string `json:"organization,omitempty"`
+	DeviceID     string `json:"device_id,omitempty"`
+	RunnerID     string `json:"runner_id"              validate:"required"`
+	Name         string `json:"name"                   validate:"required"`
+	Description  string `json:"description,omitempty"`
+	Type         string `json:"type"                   validate:"required"`
+	Serial       string `json:"serial,omitempty"`
+}
+
+type UpsertMobileDeviceResponse struct {
+	ID             string `json:"id"`
+	RunnerID       string `json:"runner_id"`
+	DeviceID       string `json:"device_id"`
+	Name           string `json:"name"`
+	CanonifiedName string `json:"canonified_name"`
+	Description    string `json:"description,omitempty"`
+	Type           string `json:"type"`
+	Serial         string `json:"serial,omitempty"`
+}
+
+func HandlePreviewMobileDeviceID() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[PreviewMobileDeviceIDRequest](e)
+		if err != nil {
+			return apierror.New(http.StatusBadRequest, "mobile_device", "invalid_request", err.Error())
+		}
+		owner, apiErr := resolveMobileRunnerOwner(e.App, e.Auth, input.Organization)
+		if apiErr != nil {
+			return apiErr
+		}
+		runner, apiErr := resolveExistingMobileRunner(e.App, owner, canonify.NormalizePath(input.RunnerID))
+		if apiErr != nil {
+			return apiErr
+		}
+		if runner == nil {
+			return apierror.New(http.StatusNotFound, "runner_id", "runner_not_found", "runner_id does not reference a mobile runner")
+		}
+		preview, apiErr := previewMobileDeviceIdentifier(e.App, runner, input.Name)
+		if apiErr != nil {
+			return apiErr
+		}
+		return e.JSON(http.StatusOK, preview)
+	}
+}
+
+func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[UpsertMobileDeviceRequest](e)
+		if err != nil {
+			return apierror.New(http.StatusBadRequest, "mobile_device", "invalid_request", err.Error())
+		}
+		owner, apiErr := resolveMobileRunnerOwner(e.App, e.Auth, input.Organization)
+		if apiErr != nil {
+			return apiErr
+		}
+		runner, apiErr := resolveExistingMobileRunner(e.App, owner, canonify.NormalizePath(input.RunnerID))
+		if apiErr != nil {
+			return apiErr
+		}
+		if runner == nil {
+			return apierror.New(http.StatusNotFound, "runner_id", "runner_not_found", "runner_id does not reference a mobile runner")
+		}
+		deviceID := canonify.NormalizePath(input.DeviceID)
+		record, apiErr := resolveExistingMobileDevice(e.App, owner, deviceID)
+		if apiErr != nil {
+			return apiErr
+		}
+		if record == nil {
+			preview, previewErr := previewMobileDeviceIdentifier(e.App, runner, input.Name)
+			if previewErr != nil {
+				return previewErr
+			}
+			if deviceID != "" && deviceID != preview.DeviceID {
+				return apierror.New(http.StatusConflict, "device_id", "device_id_conflict", "device_id does not match the next available id")
+			}
+			collection, err := e.App.FindCollectionByNameOrId("mobile_devices")
+			if err != nil {
+				return apierror.New(http.StatusInternalServerError, "collection", "mobile_devices_not_found", err.Error())
+			}
+			record = core.NewRecord(collection)
+			record.Set("owner", owner.Id)
+			record.Set("runner", runner.Id)
+		} else if record.GetString("runner") != runner.Id || strings.TrimSpace(record.GetString("name")) != strings.TrimSpace(input.Name) {
+			return apierror.New(http.StatusConflict, "device_id", "device_identity_immutable", "device_id cannot be moved or renamed")
+		}
+		record.Set("name", strings.TrimSpace(input.Name))
+		record.Set("description", strings.TrimSpace(input.Description))
+		record.Set("type", strings.TrimSpace(input.Type))
+		record.Set("serial", strings.TrimSpace(input.Serial))
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(http.StatusInternalServerError, "mobile_device", "failed_to_save_mobile_device", err.Error())
+		}
+		resolvedID, err := mobileDeviceIdentifier(e.App, record)
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "device_id", "failed_to_build_device_id", err.Error())
+		}
+		return e.JSON(http.StatusOK, UpsertMobileDeviceResponse{ID: record.Id, RunnerID: input.RunnerID, DeviceID: resolvedID, Name: record.GetString("name"), CanonifiedName: record.GetString("canonified_name"), Description: record.GetString("description"), Type: record.GetString("type"), Serial: record.GetString("serial")})
+	}
+}
+
 type PreviewMobileRunnerIDRequest struct {
 	Organization string `json:"organization,omitempty"`
 	Name         string `json:"name"                   validate:"required"`
@@ -389,4 +522,53 @@ func resolveExistingMobileRunner(
 	}
 
 	return record, nil
+}
+
+func previewMobileDeviceIdentifier(app core.App, runner *core.Record, name string) (PreviewMobileDeviceIDResponse, *apierror.APIError) {
+	collection, err := app.FindCollectionByNameOrId("mobile_devices")
+	if err != nil {
+		return PreviewMobileDeviceIDResponse{}, apierror.New(http.StatusInternalServerError, "collection", "mobile_devices_not_found", err.Error())
+	}
+	record := core.NewRecord(collection)
+	record.Set("runner", runner.Id)
+	record.Set("name", strings.TrimSpace(name))
+	canonifiedName, err := canonify.Canonify(record.GetString("name"), canonify.MakeExistsFunc(app, "mobile_devices", record, ""))
+	if err != nil {
+		return PreviewMobileDeviceIDResponse{}, apierror.New(http.StatusConflict, "name", "failed_to_canonify_device_name", err.Error())
+	}
+	record.Set("canonified_name", canonifiedName)
+	deviceID, err := mobileDeviceIdentifier(app, record)
+	if err != nil {
+		return PreviewMobileDeviceIDResponse{}, apierror.New(http.StatusInternalServerError, "device_id", "failed_to_build_device_id", err.Error())
+	}
+	runnerID, _ := mobileRunnerIdentifier(app, runner)
+	return PreviewMobileDeviceIDResponse{RunnerID: runnerID, DeviceID: deviceID, CanonifiedName: canonifiedName}, nil
+}
+
+func resolveExistingMobileDevice(app core.App, owner *core.Record, deviceID string) (*core.Record, *apierror.APIError) {
+	if deviceID == "" {
+		return nil, nil
+	}
+	record, err := canonify.Resolve(app, deviceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, apierror.New(http.StatusInternalServerError, "device_id", "failed_to_resolve_device_id", err.Error())
+	}
+	if record.Collection() == nil || record.Collection().Name != "mobile_devices" {
+		return nil, apierror.New(http.StatusBadRequest, "device_id", "invalid_device_id", "device_id does not reference a mobile device")
+	}
+	if record.GetString("owner") != owner.Id {
+		return nil, apierror.New(http.StatusForbidden, "device_id", "device_id_owner_mismatch", "device_id does not belong to the resolved organization")
+	}
+	return record, nil
+}
+
+func mobileDeviceIdentifier(app core.App, record *core.Record) (string, error) {
+	deviceID, err := canonify.BuildPath(app, record, canonify.CanonifyPaths["mobile_devices"], "")
+	if err != nil {
+		return "", err
+	}
+	return canonify.NormalizePath(deviceID), nil
 }
