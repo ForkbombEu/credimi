@@ -61,6 +61,7 @@ func Setup(app *pocketbase.PocketBase) {
 	pb.RegisterMobileRunnerWorkerManagerHooks(app)
 	pb.HookNamespaceOrgs(app)
 	pb.RegisterMobileRunnerHooks(app)
+	pb.RegisterMobileDeviceHooks(app)
 	pb.RegisterPipelineHooks(app)
 	pb.RegisterWalletActionHooks(app)
 	pb.RegisterSchedulesHooks(app)
