@@ -136,8 +136,8 @@ type MobileRunnerSemaphoreRunStatusView struct {
 	Status            MobileRunnerSemaphoreRunStatus        `json:"status"`
 	Position          int                                   `json:"position"`
 	LineLen           int                                   `json:"line_len"`
-	LeaderRunnerID    string                                `json:"leader_runner_id,omitempty"`
-	RequiredRunnerIDs []string                              `json:"required_runner_ids,omitempty"`
+	LeaderRunnerID    string                                `json:"leader_device_id,omitempty"`
+	RequiredRunnerIDs []string                              `json:"required_device_ids,omitempty"`
 	WorkflowID        string                                `json:"workflow_id,omitempty"`
 	RunID             string                                `json:"run_id,omitempty"`
 	WorkflowNamespace string                                `json:"workflow_namespace,omitempty"`
@@ -150,8 +150,8 @@ type MobileRunnerSemaphoreQueuedRunView struct {
 	OwnerNamespace     string                                `json:"owner_namespace"`
 	PipelineIdentifier string                                `json:"pipeline_identifier,omitempty"`
 	EnqueuedAt         time.Time                             `json:"enqueued_at"`
-	LeaderRunnerID     string                                `json:"leader_runner_id,omitempty"`
-	RequiredRunnerIDs  []string                              `json:"required_runner_ids,omitempty"`
+	LeaderRunnerID     string                                `json:"leader_device_id,omitempty"`
+	RequiredRunnerIDs  []string                              `json:"required_device_ids,omitempty"`
 	Status             MobileRunnerSemaphoreRunStatus        `json:"status"`
 	Position           int                                   `json:"position"`
 	LineLen            int                                   `json:"line_len"`
@@ -183,7 +183,7 @@ type MobileRunnerSemaphorePauseRunnerRequest struct {
 }
 
 type MobileRunnerSemaphorePauseRunnerResponse struct {
-	RunnerID                 string   `json:"runner_id"`
+	RunnerID                 string   `json:"device_id"`
 	Paused                   bool     `json:"paused"`
 	RunningPipelinesCanceled int      `json:"running_pipelines_canceled"`
 	PipelineCancelFailures   []string `json:"pipeline_cancel_failures,omitempty"`
@@ -201,7 +201,7 @@ type MobileRunnerSemaphoreResumeRunnerResponse struct {
 }
 
 type MobileRunnerSemaphoreShutdownRunnerResponse struct {
-	RunnerID                 string   `json:"runner_id"`
+	RunnerID                 string   `json:"device_id"`
 	QueuedCanceled           int      `json:"queued_canceled"`
 	StartingCanceled         int      `json:"starting_canceled"`
 	RunningPipelinesCanceled int      `json:"running_pipelines_canceled"`
@@ -213,7 +213,7 @@ type MobileRunnerSemaphoreShutdownRunnerResponse struct {
 
 type MobileRunnerSemaphoreRunGrantedSignal struct {
 	TicketID string `json:"ticket_id"`
-	RunnerID string `json:"runner_id"`
+	RunnerID string `json:"device_id"`
 }
 
 type MobileRunnerSemaphoreRunStartedSignal struct {

@@ -263,7 +263,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			workflowengine.WorkflowError{
 				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
 				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
-				Message: "runner_ids",
+				Message: "device_ids",
 				Details: map[string]any{"payload": "no runner ids resolved from yaml"},
 			},
 		)
@@ -359,7 +359,7 @@ func validateScheduledPipelineRunnerAccess(
 			),
 			Body: map[string]any{
 				"owner_namespace": ownerNamespace,
-				"runner_ids":      runnerIDs,
+				"device_ids":      runnerIDs,
 			},
 			ExpectedStatus: http.StatusOK,
 		},
