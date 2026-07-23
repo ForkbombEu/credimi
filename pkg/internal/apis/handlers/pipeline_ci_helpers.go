@@ -812,9 +812,9 @@ func injectPipelineCIGlobalDeviceID(
 	if hasStepRunner {
 		return "", apierror.New(
 			http.StatusBadRequest,
-			"runner_id",
-			"runner_id cannot be combined with step runner_id",
-			"remove step runner_id values or omit runner_id",
+			"device_id",
+			"device_id cannot be combined with step device_id",
+			"remove step device_id values or omit device_id",
 		)
 	}
 	if !needsGlobalRunner {

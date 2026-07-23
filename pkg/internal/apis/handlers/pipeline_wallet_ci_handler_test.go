@@ -840,23 +840,23 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	}
 	queryMobileRunnerSemaphoreState = func(
 		_ context.Context,
-		runnerID string,
+		deviceID string,
 	) (workflows.MobileRunnerSemaphoreStateView, error) {
-		switch runnerID {
-		case "usera-s-organization/busy-runner":
+		switch deviceID {
+		case "usera-s-organization/busy-runner/device-1":
 			return workflows.MobileRunnerSemaphoreStateView{
-				RunnerID:  runnerID,
+				RunnerID:  deviceID,
 				QueueLen:  2,
 				SlotsUsed: 1,
 			}, nil
-		case "usera-s-organization/free-runner":
+		case "usera-s-organization/free-runner/device-1":
 			return workflows.MobileRunnerSemaphoreStateView{
-				RunnerID: runnerID,
+				RunnerID: deviceID,
 				QueueLen: 1,
 			}, nil
-		case "usera-s-organization/hidden-runner":
+		case "usera-s-organization/hidden-runner/device-1":
 			return workflows.MobileRunnerSemaphoreStateView{
-				RunnerID: runnerID,
+				RunnerID: deviceID,
 				QueueLen: 10,
 			}, nil
 		default:
@@ -868,7 +868,7 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	require.NoError(t, err)
 
 	scenario := tests.ApiScenario{
-		Name:   "selects owned private runner before published runner for runner_type",
+		Name:   "selects the least-loaded eligible device for runner_type",
 		Method: http.MethodPost,
 		URL:    "/api/pipeline/run-wallet-apk",
 		Headers: map[string]string{
@@ -884,7 +884,7 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
 			`"status":"queued"`,
-			`"runner_ids":["usera-s-organization/hidden-runner"]`,
+			`"device_ids":["usera-s-organization/free-runner/device-1"]`,
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineWalletAPKApp(t)
@@ -909,7 +909,7 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	require.Len(t, queueStub.enqueueRequests, 1)
 	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
 	require.NoError(t, err)
-	require.Equal(t, "usera-s-organization/hidden-runner", workflow.Runtime.GlobalDeviceID)
+	require.Equal(t, "usera-s-organization/free-runner/device-1", workflow.Runtime.GlobalDeviceID)
 }
 
 func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T) {
@@ -927,29 +927,29 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 	createWalletAPKMobileRunner(t, app, orgID, "Offline One", "android_phone", true)
 	createWalletAPKMobileRunner(t, app, orgID, "Offline Two", "android_phone", true)
 
-	runnerID, apiErr := selectPipelineCIRunnerByType(
+	deviceID, apiErr := selectPipelineCIRunnerByType(
 		context.Background(),
 		app,
 		orgID,
 		"android_phone",
 	)
 
-	require.Empty(t, runnerID)
+	require.Empty(t, deviceID)
 	require.NotNil(t, apiErr)
 	require.Equal(t, http.StatusServiceUnavailable, apiErr.Code)
-	require.Equal(t, "no online published runner found for runner_type", apiErr.Reason)
+	require.Equal(t, "no online device found for runner_type", apiErr.Reason)
 }
 
 func TestInjectPipelineRunWalletAPKGlobalDeviceID(t *testing.T) {
-	t.Run("rejects step runner ids", func(t *testing.T) {
+	t.Run("rejects step device ids", func(t *testing.T) {
 		workflowDefinition, apiErr := parsePipelineCIWorkflow(
-			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n",
+			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n",
 		)
 		require.Nil(t, apiErr)
 		hasStepRunner, needsGlobalRunner := pipelineCIMobileRunnerSelectionState(workflowDefinition)
 
 		_, apiErr = injectPipelineCIGlobalDeviceID(
-			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: usera-s-organization/runner-1\n",
+			"name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n",
 			workflowDefinition,
 			"runner-global",
 			hasStepRunner,
@@ -958,7 +958,7 @@ func TestInjectPipelineRunWalletAPKGlobalDeviceID(t *testing.T) {
 
 		require.NotNil(t, apiErr)
 		require.Equal(t, http.StatusBadRequest, apiErr.Code)
-		require.Equal(t, "runner_id cannot be combined with step runner_id", apiErr.Reason)
+		require.Equal(t, "device_id cannot be combined with step device_id", apiErr.Reason)
 	})
 
 	t.Run("leaves yaml unchanged when runner id is empty", func(t *testing.T) {
