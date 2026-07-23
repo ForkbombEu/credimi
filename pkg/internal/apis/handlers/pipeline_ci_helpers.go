@@ -58,8 +58,8 @@ type pipelineCIBaseRequest struct {
 	CommitSHA          string
 	Metadata           map[string]any
 	IDs                []string
-	RunnerID           string
-	RunnerType         string
+	DeviceID           string
+	DeviceType         string
 	HostURL            string
 }
 
@@ -269,8 +269,8 @@ func parsePipelineCIBaseRequest(
 			CommitSHA:          strings.TrimSpace(commitSHA),
 			Metadata:           ensureMetadataSHA(metadata, commitSHA),
 			IDs:                normalizePipelineCIIdentifiers(stringsFromJSONRaw(raw[idsKey])),
-			RunnerID:           strings.TrimSpace(stringFromJSONRaw(raw["runner_id"])),
-			RunnerType:         strings.TrimSpace(stringFromJSONRaw(raw["runner_type"])),
+			DeviceID:           strings.TrimSpace(stringFromJSONRaw(raw["device_id"])),
+			DeviceType:         strings.TrimSpace(stringFromJSONRaw(raw["device_type"])),
 			HostURL:            strings.TrimSpace(stringFromJSONRaw(raw[hostURLKey])),
 		}, nil
 	}
@@ -293,8 +293,8 @@ func parsePipelineCIBaseRequest(
 		CommitSHA:          strings.TrimSpace(commitSHA),
 		Metadata:           ensureMetadataSHA(metadata, commitSHA),
 		IDs:                normalizePipelineCIIdentifiers(e.Request.Form[idsKey]),
-		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
-		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
+		DeviceID:           strings.TrimSpace(e.Request.FormValue("device_id")),
+		DeviceType:         strings.TrimSpace(e.Request.FormValue("device_type")),
 		HostURL:            strings.TrimSpace(e.Request.FormValue(hostURLKey)),
 	}, nil
 }
@@ -369,13 +369,13 @@ func validatePipelineCIBaseRequest(
 			hostURLKey+" must be an http or https URL",
 		)
 	}
-	if runnerType := strings.TrimSpace(input.RunnerType); runnerType != "" {
-		if _, ok := walletAPKAllowedRunnerTypes[runnerType]; !ok {
+	if deviceType := strings.TrimSpace(input.DeviceType); deviceType != "" {
+		if _, ok := walletAPKAllowedRunnerTypes[deviceType]; !ok {
 			return apierror.New(
 				http.StatusBadRequest,
-				"runner_type",
-				"runner_type is invalid",
-				"runner_type must be one of android_emulator, redroid, android_phone, ios_simulator, ios_phone",
+				"device_type",
+				"device_type is invalid",
+				"device_type must be one of android_emulator, redroid, android_phone, ios_simulator, ios_phone",
 			)
 		}
 	}
@@ -450,10 +450,10 @@ func resolvePipelineCIRunnerID(
 	if !hasStepRunner && !needsGlobalRunner {
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
-	if strings.TrimSpace(input.RunnerID) != "" {
-		return input.RunnerID, hasStepRunner, needsGlobalRunner, nil
+	if strings.TrimSpace(input.DeviceID) != "" {
+		return input.DeviceID, hasStepRunner, needsGlobalRunner, nil
 	}
-	if strings.TrimSpace(input.RunnerType) == "" {
+	if strings.TrimSpace(input.DeviceType) == "" {
 		if apiErr := validatePipelineCIGlobalRunnerRequest(
 			"",
 			hasStepRunner,
@@ -463,7 +463,7 @@ func resolvePipelineCIRunnerID(
 		}
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
-	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, ownerID, input.RunnerType)
+	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, ownerID, input.DeviceType)
 	return runnerID, hasStepRunner, needsGlobalRunner, apiErr
 }
 
@@ -887,8 +887,8 @@ func pipelineCIMobileRunnerSelectionState(
 		if step.Use != pipelineCIMobileAutomationStepUse {
 			return
 		}
-		runnerID, _ := step.With.Payload["runner_id"].(string)
-		if strings.TrimSpace(runnerID) == "" {
+		deviceID, _ := step.With.Payload["device_id"].(string)
+		if strings.TrimSpace(deviceID) == "" {
 			needsGlobalRunner = true
 			return
 		}

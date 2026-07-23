@@ -491,7 +491,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				`"status":"queued"`,
-				`"runner_ids":["usera-s-organization/runner-1"]`,
+				`"device_ids":["usera-s-organization/runner-1/device-1"]`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
@@ -580,7 +580,7 @@ func TestPipelineRunWalletAPKContextResolution(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				`"status":"queued"`,
-				`"runner_ids":["usera-s-organization/runner-1"]`,
+				`"device_ids":["usera-s-organization/runner-1/device-1"]`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineWalletAPKApp(t)
@@ -782,7 +782,7 @@ func TestPipelineRunWalletAPKInjectsGlobalDeviceID(t *testing.T) {
 	require.NoError(t, err)
 
 	scenario := tests.ApiScenario{
-		Name:   "injects runner_id as global_device_id",
+		Name:   "injects device_id as global_device_id",
 		Method: http.MethodPost,
 		URL:    "/api/pipeline/run-wallet-apk",
 		Headers: map[string]string{
@@ -792,13 +792,13 @@ func TestPipelineRunWalletAPKInjectsGlobalDeviceID(t *testing.T) {
 		Body: jsonBody(map[string]any{
 			"pipeline_identifier": "usera-s-organization/pipeline123",
 			"metadata":            walletAPKMetadata(),
-			"runner_id":           "usera-s-organization/runner-global",
+			"device_id":           "usera-s-organization/runner-global/device-1",
 			"apk_url":             "http://ci.example.test/wallet.apk",
 		}),
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
 			`"status":"queued"`,
-			`"runner_ids":["usera-s-organization/runner-global"]`,
+			`"device_ids":["usera-s-organization/runner-global/device-1"]`,
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineWalletAPKApp(t)
@@ -818,7 +818,7 @@ func TestPipelineRunWalletAPKInjectsGlobalDeviceID(t *testing.T) {
 	require.Len(t, queueStub.enqueueRequests, 1)
 	workflow, err := pipelineinternal.ParseWorkflow(queueStub.enqueueRequests[0].YAML)
 	require.NoError(t, err)
-	require.Equal(t, "usera-s-organization/runner-global", workflow.Runtime.GlobalDeviceID)
+	require.Equal(t, "usera-s-organization/runner-global/device-1", workflow.Runtime.GlobalDeviceID)
 	require.Equal(
 		t,
 		"usera-s-organization/wallet-global-runner/abc123",
@@ -1006,7 +1006,7 @@ func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
 		"",
 		workflowDefinition,
 		pipelineRunWalletAPKRequest{
-			RunnerID:   "runner-1",
+			DeviceID:   "runner-1/device-1",
 			RunnerType: "android_phone",
 		},
 	)
@@ -1031,8 +1031,8 @@ func TestPipelineCIIgnoresRunnerHintsWithoutMobileAutomation(t *testing.T) {
 		"",
 		workflowDefinition,
 		pipelineCIBaseRequest{
-			RunnerID:   "runner-1",
-			RunnerType: "android_phone",
+			DeviceID:   "runner-1/device-1",
+			DeviceType: "android_phone",
 		},
 	)
 	require.Nil(t, apiErr)
@@ -1406,7 +1406,7 @@ func TestRewritePipelineRunWalletAPKYAML(t *testing.T) {
 }
 
 func walletAPKPipelineYAML(versionID string) string {
-	return "name: test\nsteps:\n  - id: install-wallet\n    use: mobile-automation\n    with:\n      action_id: usera-s-organization/wallet123/install\n      version_id: " + versionID + "\n      runner_id: usera-s-organization/runner-1\n"
+	return "name: test\nsteps:\n  - id: install-wallet\n    use: mobile-automation\n    with:\n      payload:\n        action_id: usera-s-organization/wallet123/install\n        version_id: " + versionID + "\n        device_id: usera-s-organization/runner-1/device-1\n"
 }
 
 func walletAPKPipelineYAMLWithoutRunner(versionID string) string {

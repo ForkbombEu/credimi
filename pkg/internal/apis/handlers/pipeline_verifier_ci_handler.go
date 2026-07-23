@@ -100,8 +100,8 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			return apiErr
 		}
 		warning := pipelineCIIgnoredRunnerWarning(
-			input.RunnerID,
-			input.RunnerType,
+			input.DeviceID,
+			input.DeviceType,
 			hasStepRunner,
 			needsGlobalRunner,
 		)
@@ -121,7 +121,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			e.App.Settings().Meta.AppURL,
 			input.PipelineIdentifier,
 			runnerID,
-			resolveWalletAPKGitHubPRRunnerType(e.App, runnerID, input.RunnerType),
+			resolveWalletAPKGitHubPRRunnerType(e.App, runnerID, input.DeviceType),
 			activities.GitHubPRCommentSectionVerifier,
 		)
 

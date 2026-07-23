@@ -47,7 +47,7 @@ type pipelineRunWalletAPKRequest struct {
 	PipelineIdentifier string                `json:"pipeline_identifier"`
 	CommitSHA          string                `json:"commit_sha"`
 	Metadata           map[string]any        `json:"metadata"`
-	RunnerID           string                `json:"runner_id"`
+	DeviceID           string                `json:"device_id"`
 	RunnerType         string                `json:"runner_type"`
 	APKURL             string                `json:"apk_url"`
 	APKFile            *multipart.FileHeader `json:"-"`
@@ -151,7 +151,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			return apiErr
 		}
 		warning := pipelineCIIgnoredRunnerWarning(
-			input.RunnerID,
+			input.DeviceID,
 			input.RunnerType,
 			hasStepRunner,
 			needsGlobalRunner,
@@ -732,8 +732,8 @@ func resolvePipelineRunWalletAPKRunnerID(
 	if !hasStepRunner && !needsGlobalRunner {
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
-	if strings.TrimSpace(input.RunnerID) != "" {
-		return input.RunnerID, hasStepRunner, needsGlobalRunner, nil
+	if strings.TrimSpace(input.DeviceID) != "" {
+		return input.DeviceID, hasStepRunner, needsGlobalRunner, nil
 	}
 
 	runnerType := strings.TrimSpace(input.RunnerType)
@@ -819,7 +819,7 @@ func parsePipelineRunWalletAPKRequest(
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
 		CommitSHA:          strings.TrimSpace(metadataSHA(metadata)),
 		Metadata:           metadata,
-		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
+		DeviceID:           strings.TrimSpace(e.Request.FormValue("device_id")),
 		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 	}, nil
@@ -853,7 +853,7 @@ func parsePipelineRunWalletAPKMultipartRequest(
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
 		CommitSHA:          strings.TrimSpace(metadataSHA(metadata)),
 		Metadata:           metadata,
-		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
+		DeviceID:           strings.TrimSpace(e.Request.FormValue("device_id")),
 		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 		APKFile:            apkFile,
@@ -874,7 +874,7 @@ func parsePipelineRunWalletAPKJSONRequest(
 	}
 	input.PipelineIdentifier = strings.TrimSpace(input.PipelineIdentifier)
 	input.CommitSHA = strings.TrimSpace(metadataSHA(input.Metadata))
-	input.RunnerID = strings.TrimSpace(input.RunnerID)
+	input.DeviceID = strings.TrimSpace(input.DeviceID)
 	input.RunnerType = strings.TrimSpace(input.RunnerType)
 	input.APKURL = strings.TrimSpace(input.APKURL)
 	return input, nil
