@@ -5,13 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { ArrowUpRight } from '@lucide/svelte';
+
 	import A from '@/components/ui-custom/a.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 
-	import type { Item, Layout } from './types';
+	import type { ChildLink, Item, Layout } from './types';
 
 	import EntityAvatar from './avatar.svelte';
 	import EntityChildren from './children.svelte';
+	import StackedItems from './stacked-items.svelte';
 
 	//
 
@@ -21,17 +25,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { item, layout }: Props = $props();
+
+	const stackableChildren = $derived(item.children?.filter((child) => child.avatar) ?? []);
 </script>
 
 {#if layout === 'avatar-only'}
-	<EntityAvatar {item} link />
+	<IconButton
+		href={item.href}
+		icon={ArrowUpRight}
+		size="sm"
+		variant="ghost"
+		class="text-primary"
+		tooltip={item.name}
+		aria-label={item.name}
+	/>
 {:else if layout === 'links-only'}
 	<A href={item.href} class="block max-w-[30ch] truncate text-xs">
 		{item.name}
 	</A>
 {:else if layout === 'compact'}
 	<div class="flex items-center gap-2">
-		{#if item.avatar}
+		{#if stackableChildren.length}
+			{#snippet stackedChild({ item: child }: { item: ChildLink })}
+				<EntityAvatar
+					item={{
+						key: child.href,
+						name: child.label,
+						href: child.href,
+						avatar: child.avatar
+					}}
+					link
+				/>
+			{/snippet}
+			<StackedItems
+				items={stackableChildren}
+				getKey={(child) => child.href}
+				item={stackedChild}
+			/>
+		{:else if item.avatar}
 			<EntityAvatar {item} link />
 		{/if}
 		<div class="flex flex-col text-xs">

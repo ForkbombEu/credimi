@@ -33,4 +33,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<EntityDisplay.List items={value} layout="links-only" />
+<EntityDisplay.LeadingAvatarList items={value} />
