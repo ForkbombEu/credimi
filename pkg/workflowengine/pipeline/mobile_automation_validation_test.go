@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateRunnerIDConfiguration(t *testing.T) {
+func TestValidateDeviceIDConfiguration(t *testing.T) {
 	tests := []struct {
 		name           string
 		steps          []pipeline.StepDefinition

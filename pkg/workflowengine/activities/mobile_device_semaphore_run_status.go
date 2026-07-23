@@ -15,7 +15,7 @@ import (
 )
 
 type QueryMobileDeviceSemaphoreRunStatusInput struct {
-	DeviceID       string `json:"runner_id"`
+	DeviceID       string `json:"device_id"`
 	OwnerNamespace string `json:"owner_namespace"`
 	TicketID       string `json:"ticket_id"`
 }
@@ -54,7 +54,7 @@ func (a *QueryMobileDeviceSemaphoreRunStatusActivity) Execute(
 			workflowengine.ActivityError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: "runner_id, owner_namespace, and ticket_id are required",
+				Message: "device_id, owner_namespace, and ticket_id are required",
 			},
 		)
 	}

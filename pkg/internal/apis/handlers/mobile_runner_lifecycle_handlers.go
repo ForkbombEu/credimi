@@ -37,7 +37,7 @@ var mobileRunnerLifecycleNow = func() time.Time {
 var mobileRunnerLifecycleTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type MobileRunnerLifecycleRequest struct {
-	DeviceID string                       `json:"runner_id"        validate:"required"`
+	RunnerID string                       `json:"runner_id"        validate:"required"`
 	Reason   string                       `json:"reason,omitempty"`
 	Devices  []MobileDeviceLifecycleState `json:"devices,omitempty"`
 }
@@ -49,7 +49,7 @@ type MobileDeviceLifecycleState struct {
 }
 
 type MobileRunnerLifecycleResponse struct {
-	DeviceID                string `json:"runner_id"`
+	RunnerID                string `json:"runner_id"`
 	Online                  bool   `json:"online"`
 	SemaphoreWorkflowID     string `json:"semaphore_workflow_id"`
 	HeartbeatTimeoutSeconds int    `json:"heartbeat_timeout_seconds"`
@@ -108,7 +108,7 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			)
 		}
 
-		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.DeviceID)
+		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -140,7 +140,7 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 			)
 		}
 
-		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.DeviceID)
+		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -236,7 +236,7 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 			)
 		}
 
-		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.DeviceID)
+		record, runnerID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -452,7 +452,7 @@ func lifecycleResponse(
 	online bool,
 ) MobileRunnerLifecycleResponse {
 	return MobileRunnerLifecycleResponse{
-		DeviceID:                runnerID,
+		RunnerID:                runnerID,
 		Online:                  online,
 		SemaphoreWorkflowID:     workflows.MobileDeviceSemaphoreWorkflowID(runnerID),
 		HeartbeatTimeoutSeconds: int(mobilerunnerlifecycle.HeartbeatTimeout() / time.Second),

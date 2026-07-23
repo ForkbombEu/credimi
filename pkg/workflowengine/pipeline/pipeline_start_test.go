@@ -93,10 +93,10 @@ steps:
 	require.Equal(t, "schedule-123", result.WorkflowID)
 	require.Contains(t, result.Message, "scheduled successfully")
 
-	expectedRunnerIDs := []string{"runner-android/device-1", "runner-ios/device-1"}
+	expectedDeviceIDs := []string{"runner-android/device-1", "runner-ios/device-1"}
 	expectedSearchAttrs := workflowengine.PipelineTypedSearchAttributes(
 		"tenant-1/scheduled-pipeline",
-		expectedRunnerIDs,
+		expectedDeviceIDs,
 		workflowengine.EntityIDs{},
 	)
 	require.Equal(

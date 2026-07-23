@@ -440,11 +440,11 @@ func processStep(
 		return err
 	}
 
-	// Use global_device_id if step-level runner_id is not set
+	// Use global_device_id if step-level device_id is not set
 	payload.DeviceID = canonify.NormalizePath(payload.DeviceID)
 	if payload.DeviceID == "" && input.globalDeviceID != "" {
 		payload.DeviceID = input.globalDeviceID
-		// Update the step payload with the global runner_id for consistency
+		// Update the step payload with the global device_id for consistency
 		SetPayloadValue(&input.step.With.Payload, "device_id", input.globalDeviceID)
 	}
 

@@ -225,11 +225,11 @@ func TestResolveDeviceRecords(t *testing.T) {
 		require.NoError(t, app.Save(newRunner))
 
 		cache := map[string]map[string]any{}
-		resolvableRunnerID := orgCanon + "/queue-runner"
+		resolvableDeviceID := orgCanon + "/queue-runner"
 		got := ResolveDeviceRecords(
 			app,
 			[]string{
-				resolvableRunnerID,
+				resolvableDeviceID,
 				"missing-org/missing-runner",
 			},
 			cache,

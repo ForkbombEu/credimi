@@ -60,7 +60,7 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/resume",
-		MobileRunnerLifecycleRequest{DeviceID: "/usera-s-organization/resume-runner"},
+		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/resume-runner"},
 	)
 
 	err = HandleMobileRunnerLifecycleResume()(event)
@@ -107,7 +107,7 @@ func TestHandleMobileRunnerLifecycleHeartbeat(t *testing.T) {
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/heartbeat",
-		MobileRunnerLifecycleRequest{DeviceID: "/usera-s-organization/heartbeat-runner"},
+		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/heartbeat-runner"},
 	)
 
 	err = HandleMobileRunnerLifecycleHeartbeat()(event)
@@ -207,7 +207,7 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/heartbeat",
-		MobileRunnerLifecycleRequest{DeviceID: "/usera-s-organization/heartbeat-resume-runner", Devices: []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}}},
+		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/heartbeat-resume-runner", Devices: []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}}},
 	)
 
 	err = HandleMobileRunnerLifecycleHeartbeat()(event)
@@ -227,7 +227,7 @@ func TestHandleMobileRunnerLifecycleHeartbeatRejectsEmptyDeviceID(t *testing.T) 
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/heartbeat",
-		MobileRunnerLifecycleRequest{DeviceID: " "},
+		MobileRunnerLifecycleRequest{RunnerID: " "},
 	)
 
 	err = HandleMobileRunnerLifecycleHeartbeat()(event)
@@ -269,7 +269,7 @@ func TestHandleMobileRunnerLifecyclePauseMissingSemaphoreSucceeds(t *testing.T) 
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/pause",
-		MobileRunnerLifecycleRequest{DeviceID: "/usera-s-organization/pause-runner"},
+		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/pause-runner"},
 	)
 
 	err = HandleMobileRunnerLifecyclePause()(event)
@@ -297,7 +297,7 @@ func TestHandleMobileRunnerLifecyclePauseRejectsOtherOwner(t *testing.T) {
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/pause",
-		MobileRunnerLifecycleRequest{DeviceID: "/other-org/foreign-runner"},
+		MobileRunnerLifecycleRequest{RunnerID: "/other-org/foreign-runner"},
 	)
 
 	err = HandleMobileRunnerLifecyclePause()(event)
@@ -426,7 +426,7 @@ func TestHandleMobileRunnerLifecyclePauseSendsPauseUpdate(t *testing.T) {
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/pause",
-		MobileRunnerLifecycleRequest{DeviceID: "/usera-s-organization/pause-update-runner"},
+		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/pause-update-runner"},
 	)
 
 	err = HandleMobileRunnerLifecyclePause()(event)

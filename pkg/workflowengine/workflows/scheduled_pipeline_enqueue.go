@@ -458,8 +458,8 @@ func collectDeviceIDs(
 	for _, step := range steps {
 		deviceID := ""
 		if step.With != nil {
-			if rawRunnerID, ok := step.With["device_id"]; ok {
-				if id, ok := rawRunnerID.(string); ok {
+			if rawDeviceID, ok := step.With["device_id"]; ok {
+				if id, ok := rawDeviceID.(string); ok {
 					deviceID = strings.TrimSpace(id)
 				}
 			}

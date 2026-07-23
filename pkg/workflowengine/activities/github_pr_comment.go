@@ -36,7 +36,7 @@ type UpdateGitHubPRCommentInput struct {
 	Status            string `json:"status"`
 	Position          *int   `json:"position,omitempty"`
 	PipelineID        string `json:"pipeline_id,omitempty"`
-	DeviceID          string `json:"runner_id,omitempty"`
+	DeviceID          string `json:"device_id,omitempty"`
 	RunnerType        string `json:"runner_type,omitempty"`
 	PipelineURL       string `json:"pipeline_url,omitempty"`
 	AppURL            string `json:"app_url,omitempty"`
