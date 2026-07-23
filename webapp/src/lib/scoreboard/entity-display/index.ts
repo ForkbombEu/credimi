@@ -15,5 +15,6 @@ export { buildPipelineSummaryItems } from './from-pipeline-summary';
 export { fromWalletRows } from './from-wallets';
 export type { WalletRow } from './from-wallets';
 
+export { default as LeadingAvatarList } from './leading-avatar-list.svelte';
 export { default as List } from './list.svelte';
 export { default as Na } from './na.svelte';

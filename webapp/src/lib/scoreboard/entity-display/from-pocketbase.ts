@@ -16,19 +16,27 @@ export function getPocketbaseEntityHref(entity: PocketbaseEntity): string {
 	return `/hub/${entity.collectionName}/${getPath(entity)}`;
 }
 
+function avatarSrc(entity: PocketbaseEntity): string | undefined {
+	if ('logo' in entity && entity.logo) {
+		return pb.files.getURL(entity, entity.logo);
+	}
+	if ('logo_url' in entity && entity.logo_url) {
+		return entity.logo_url;
+	}
+	return undefined;
+}
+
 export function fromPocketbaseEntity(entity: PocketbaseEntity, kind?: EntityData): Item {
+	const name = entity.name ?? '';
 	return {
 		key: entity.id,
-		name: entity.name,
+		name,
 		href: getPocketbaseEntityHref(entity),
-		avatar:
-			'logo' in entity && entity.logo
-				? {
-						src: pb.files.getURL(entity, entity.logo),
-						fallback: entity.name.slice(0, 2),
-						alt: entity.name
-					}
-				: undefined,
+		avatar: {
+			src: avatarSrc(entity),
+			fallback: name.slice(0, 2),
+			alt: name
+		},
 		kind
 	};
 }
