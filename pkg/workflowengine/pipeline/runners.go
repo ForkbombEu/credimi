@@ -207,7 +207,7 @@ func ResolveDeviceRecord(
 	}
 
 	record, err := canonify.Resolve(app, deviceID)
-	if err != nil {
+	if err != nil || record.Collection() == nil || record.Collection().Name != "mobile_devices" {
 		deviceCache[deviceID] = nil
 		return nil
 	}
@@ -236,26 +236,4 @@ func ResolveDeviceRecords(
 		records = append(records, record)
 	}
 	return records
-}
-
-// Deprecated compatibility aliases are kept only while internal callers are
-// migrated in this implementation slice. They are not serialized contracts.
-type PipelineRunnerInfo = PipelineDeviceInfo
-
-func ValidateRunnerIDYAML(yamlStr string) error { return ValidateDeviceIDYAML(yamlStr) }
-
-func ParsePipelineRunnerInfo(yamlStr string) (PipelineDeviceInfo, error) {
-	return ParsePipelineDeviceInfo(yamlStr)
-}
-
-func RunnerIDsWithGlobal(info PipelineDeviceInfo, globalDeviceID string) []string {
-	return DeviceIDsWithGlobal(info, globalDeviceID)
-}
-
-func ResolveRunnerRecord(app core.App, deviceID string, cache map[string]map[string]any) map[string]any {
-	return ResolveDeviceRecord(app, deviceID, cache)
-}
-
-func ResolveRunnerRecords(app core.App, deviceIDs []string, cache map[string]map[string]any) []map[string]any {
-	return ResolveDeviceRecords(app, deviceIDs, cache)
 }

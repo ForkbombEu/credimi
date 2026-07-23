@@ -636,14 +636,14 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 		}
 	}
 
-	runnerIDs := pipeline.RunnerIDsWithGlobal(runnerInfo, globalDeviceID)
+	deviceIDs := pipeline.DeviceIDsWithGlobal(runnerInfo, globalDeviceID)
 	summary := &pipelineWorkflowSummary{
 		WorkflowExecutionSummary: *rootSummary,
 		GlobalDeviceID:           globalDeviceID,
-		RunnerIDs:                runnerIDs,
-		RunnerRecords: pipeline.ResolveRunnerRecords(
+		RunnerIDs:                deviceIDs,
+		RunnerRecords: pipeline.ResolveDeviceRecords(
 			b.app,
-			runnerIDs,
+			deviceIDs,
 			b.runnerCache,
 		),
 	}
@@ -1067,7 +1067,7 @@ func buildQueuedPipelineSummary(
 		),
 		PipelineName:  displayName,
 		RunnerIDs:     runnerIDs,
-		RunnerRecords: pipeline.ResolveRunnerRecords(app, runnerIDs, runnerCache),
+		RunnerRecords: pipeline.ResolveDeviceRecords(app, runnerIDs, runnerCache),
 	}
 }
 

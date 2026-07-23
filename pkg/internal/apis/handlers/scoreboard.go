@@ -872,7 +872,7 @@ func resolveRunnerTypes(
 	if len(runnerIDs) == 0 || app == nil {
 		return []string{}
 	}
-	runnerRecords := pipeline.ResolveRunnerRecords(app, runnerIDs, runnerCache)
+	runnerRecords := pipeline.ResolveDeviceRecords(app, runnerIDs, runnerCache)
 	types := make([]string, 0, len(runnerRecords))
 	for _, record := range runnerRecords {
 		if runnerType, ok := record["type"].(string); ok && runnerType != "" {

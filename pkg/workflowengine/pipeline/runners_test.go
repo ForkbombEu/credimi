@@ -139,9 +139,9 @@ func TestGlobalDeviceIDFromConfig(t *testing.T) {
 	)
 }
 
-func TestResolveRunnerRecord(t *testing.T) {
+func TestResolveDeviceRecord(t *testing.T) {
 	t.Run("empty runner id returns nil", func(t *testing.T) {
-		got := ResolveRunnerRecord(nil, " ", nil)
+		got := ResolveDeviceRecord(nil, " ", nil)
 		require.Nil(t, got)
 	})
 
@@ -149,7 +149,7 @@ func TestResolveRunnerRecord(t *testing.T) {
 		cache := map[string]map[string]any{
 			"tenant/runner-a": {"id": "cached-id"},
 		}
-		got := ResolveRunnerRecord(nil, "/tenant/runner-a", cache)
+		got := ResolveDeviceRecord(nil, "/tenant/runner-a", cache)
 		require.Equal(t, map[string]any{"id": "cached-id"}, got)
 	})
 
@@ -161,14 +161,14 @@ func TestResolveRunnerRecord(t *testing.T) {
 		cache := map[string]map[string]any{}
 		runnerID := "missing-org/missing-runner"
 
-		got := ResolveRunnerRecord(app, runnerID, cache)
+		got := ResolveDeviceRecord(app, runnerID, cache)
 		require.Nil(t, got)
 		_, ok := cache[runnerID]
 		require.True(t, ok)
 		require.Nil(t, cache[runnerID])
 	})
 
-	t.Run("resolves known runner from fixtures", func(t *testing.T) {
+	t.Run("rejects a runner identifier", func(t *testing.T) {
 		app, err := tests.NewTestApp(testDataDir)
 		require.NoError(t, err)
 		defer app.Cleanup()
@@ -190,21 +190,21 @@ func TestResolveRunnerRecord(t *testing.T) {
 
 		cache := map[string]map[string]any{}
 		runnerID := "/" + orgCanon + "/test-runner"
-		got := ResolveRunnerRecord(app, runnerID, cache)
+		got := ResolveDeviceRecord(app, runnerID, cache)
 
-		require.NotNil(t, got)
-		require.NotEmpty(t, got[core.FieldNameId])
-		require.Equal(t, got, cache[orgCanon+"/test-runner"])
+		require.Nil(t, got)
+		require.Contains(t, cache, orgCanon+"/test-runner")
+		require.Nil(t, cache[orgCanon+"/test-runner"])
 	})
 }
 
-func TestResolveRunnerRecords(t *testing.T) {
+func TestResolveDeviceRecords(t *testing.T) {
 	t.Run("empty input returns empty slice", func(t *testing.T) {
-		got := ResolveRunnerRecords(nil, nil, nil)
+		got := ResolveDeviceRecords(nil, nil, nil)
 		require.Empty(t, got)
 	})
 
-	t.Run("returns only resolvable runner records", func(t *testing.T) {
+	t.Run("rejects non-device records", func(t *testing.T) {
 		app, err := tests.NewTestApp(testDataDir)
 		require.NoError(t, err)
 		defer app.Cleanup()
@@ -226,7 +226,7 @@ func TestResolveRunnerRecords(t *testing.T) {
 
 		cache := map[string]map[string]any{}
 		resolvableRunnerID := orgCanon + "/queue-runner"
-		got := ResolveRunnerRecords(
+		got := ResolveDeviceRecords(
 			app,
 			[]string{
 				resolvableRunnerID,
@@ -235,7 +235,6 @@ func TestResolveRunnerRecords(t *testing.T) {
 			cache,
 		)
 
-		require.Len(t, got, 1)
-		require.NotEmpty(t, got[0][core.FieldNameId])
+		require.Empty(t, got)
 	})
 }

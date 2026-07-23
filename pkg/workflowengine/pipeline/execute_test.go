@@ -63,7 +63,7 @@ func (f *fakeConfigActivity) Configure(*workflowengine.ActivityInput) error {
 	return f.configErr
 }
 
-func TestValidateRunnerIDYAML(t *testing.T) {
+func TestValidateDeviceIDYAML(t *testing.T) {
 	t.Run("no mobile-automation steps", func(t *testing.T) {
 		yamlContent := `
 name: Test Pipeline
@@ -71,7 +71,7 @@ steps:
   - id: step1
     use: rest
 `
-		require.NoError(t, ValidateRunnerIDYAML(yamlContent))
+		require.NoError(t, ValidateDeviceIDYAML(yamlContent))
 	})
 
 	t.Run("global runner conflicts with step runner", func(t *testing.T) {
@@ -86,7 +86,7 @@ steps:
       payload:
         device_id: step-device
 `
-		err := ValidateRunnerIDYAML(yamlContent)
+		err := ValidateDeviceIDYAML(yamlContent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), `step "step1"`)
 		require.Contains(t, err.Error(), "global_device_id is set")
@@ -104,7 +104,7 @@ steps:
   - id: step2
     use: mobile-automation
 `
-		err := ValidateRunnerIDYAML(yamlContent)
+		err := ValidateDeviceIDYAML(yamlContent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), `step "step2"`)
 		require.Contains(t, err.Error(), "missing device_id")
@@ -127,7 +127,7 @@ steps:
       payload:
         device_id: step-device-b
 `
-		err := ValidateRunnerIDYAML(yamlContent)
+		err := ValidateDeviceIDYAML(yamlContent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), `step "stepA"`)
 	})
