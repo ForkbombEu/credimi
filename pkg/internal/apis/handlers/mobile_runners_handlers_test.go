@@ -665,106 +665,6 @@ func setMobileRunnerAdminManaged(
 	require.NoError(t, app.Save(record))
 }
 
-func TestGetMobileRunner(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	scenarios := []tests.ApiScenario{
-		{
-			Name:           "missing runner_identifier parameter",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner",
-			ExpectedStatus: 400,
-			ExpectedContent: []string{
-				`"runner_identifier"`,
-				`"runner_identifier is required"`,
-			},
-			TestAppFactory: setupMobileRunnerApp,
-		},
-		{
-			Name:           "nonexistent runner identifier",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner?runner_identifier=does-not-exist",
-			ExpectedStatus: 404,
-			ExpectedContent: []string{
-				`"mobile runner not found"`,
-			},
-			TestAppFactory: setupMobileRunnerApp,
-		},
-		{
-			Name:           "valid runner identifier",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner?runner_identifier=usera-s-organization/test-runner",
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"type"`,
-				`"runner_url"`,
-				`"serial"`,
-				`android_phone`,
-				`https://192.168.1.10:8050`,
-				`SERIAL123`,
-			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupMobileRunnerApp(t)
-
-				coll, err := app.FindCollectionByNameOrId("mobile_runners")
-				require.NoError(t, err)
-
-				record := core.NewRecord(coll)
-				record.Set("owner", orgID)
-				record.Set("type", "android_phone")
-				record.Set("serial", "SERIAL123")
-				record.Set("ip", "https://192.168.1.10")
-				record.Set("port", "8050")
-				record.Set("name", "test-runner")
-
-				require.NoError(t, app.Save(record))
-
-				return app
-			},
-		},
-		{
-			Name:           "valid runner identifier with no port",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner?runner_identifier=usera-s-organization/no-port-runner",
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"type"`,
-				`"runner_url"`,
-				`"serial"`,
-				`android_emulator`,
-				`http://192.168.1.20`,
-				`SERIAL999`,
-			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupMobileRunnerApp(t)
-
-				coll, err := app.FindCollectionByNameOrId("mobile_runners")
-				require.NoError(t, err)
-
-				record := core.NewRecord(coll)
-				record.Set("owner", orgID)
-				record.Set("type", "android_emulator")
-				record.Set("serial", "SERIAL999")
-				record.Set("ip", "http://192.168.1.20")
-				record.Set("name", "no-port-runner")
-
-				require.NoError(t, app.Save(record))
-
-				return app
-			},
-		},
-	}
-
-	for _, scenario := range scenarios {
-		if scenario.Headers == nil {
-			scenario.Headers = map[string]string{}
-		}
-		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
-		scenario.Test(t)
-	}
-}
-
 func TestListMobileRunnerURLs(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
@@ -830,120 +730,6 @@ func TestListMobileRunnerURLs(t *testing.T) {
 	}
 }
 
-func TestGetMobileDeviceSemaphore(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	scenarios := []tests.ApiScenario{
-		{
-			Name:           "missing runner_identifier parameter",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner/semaphore",
-			ExpectedStatus: 400,
-			ExpectedContent: []string{
-				`"runner_identifier"`,
-				`"runner_identifier is required"`,
-			},
-			TestAppFactory: setupMobileRunnerApp,
-		},
-		{
-			Name:           "nonexistent runner identifier",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner/semaphore?runner_identifier=does-not-exist",
-			ExpectedStatus: 404,
-			ExpectedContent: []string{
-				`"mobile runner not found"`,
-			},
-			TestAppFactory: setupMobileRunnerApp,
-		},
-		{
-			Name:           "semaphore not found for runner",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner/semaphore?runner_identifier=usera-s-organization/runner-without-semaphore",
-			ExpectedStatus: 404,
-			ExpectedContent: []string{
-				`"runner semaphore not found"`,
-			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupMobileRunnerApp(t)
-
-				coll, err := app.FindCollectionByNameOrId("mobile_runners")
-				require.NoError(t, err)
-
-				record := core.NewRecord(coll)
-				record.Set("owner", orgID)
-				record.Set("serial", "SERIAL123")
-				record.Set("ip", "https://192.168.1.10")
-				record.Set("type", "android_emulator")
-				record.Set("port", "8050")
-				record.Set("name", "runner-without-semaphore")
-				require.NoError(t, app.Save(record))
-
-				originalQuery := queryMobileDeviceSemaphoreState
-				queryMobileDeviceSemaphoreState = func(_ context.Context, _ string) (workflows.MobileDeviceSemaphoreStateView, error) {
-					return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
-				}
-				t.Cleanup(func() {
-					queryMobileDeviceSemaphoreState = originalQuery
-				})
-
-				return app
-			},
-		},
-		{
-			Name:           "semaphore state returned",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner/semaphore?runner_identifier=usera-s-organization/test-semaphore-runner",
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"runner_id":"test-semaphore-runner"`,
-				`"capacity":1`,
-				`"slots_used":1`,
-				`"queue_len":2`,
-				`"in_use":true`,
-			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupMobileRunnerApp(t)
-
-				coll, err := app.FindCollectionByNameOrId("mobile_runners")
-				require.NoError(t, err)
-
-				record := core.NewRecord(coll)
-				record.Set("owner", orgID)
-				record.Set("serial", "SERIAL321")
-				record.Set("ip", "https://192.168.1.99")
-				record.Set("type", "android_emulator")
-				record.Set("port", "9000")
-				record.Set("name", "test-semaphore-runner")
-				require.NoError(t, app.Save(record))
-
-				originalQuery := queryMobileDeviceSemaphoreState
-				queryMobileDeviceSemaphoreState = func(_ context.Context, _ string) (workflows.MobileDeviceSemaphoreStateView, error) {
-					return workflows.MobileDeviceSemaphoreStateView{
-						DeviceID:  "test-semaphore-runner",
-						Capacity:  1,
-						SlotsUsed: 1,
-						QueueLen:  2,
-					}, nil
-				}
-				t.Cleanup(func() {
-					queryMobileDeviceSemaphoreState = originalQuery
-				})
-
-				return app
-			},
-		},
-	}
-
-	for _, scenario := range scenarios {
-		if scenario.Headers == nil {
-			scenario.Headers = map[string]string{}
-		}
-		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
-		scenario.Test(t)
-	}
-}
-
 func TestPreviewMobileDeviceID(t *testing.T) {
 	t.Run("user preview uses user organization and increments canonified name", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)
@@ -969,7 +755,10 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 			app,
 			user,
 			"/api/mobile-runner/preview-id",
-			PreviewMobileDeviceIDRequest{Name: "Test Runner"},
+			PreviewMobileDeviceIDRequest{
+				RunnerID: "usera-s-organization/test-runner",
+				Name:     "Test Device",
+			},
 		)
 
 		err = HandlePreviewMobileDeviceID()(event)
@@ -979,9 +768,9 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 		require.Equal(t, http.StatusOK, recorder.Code)
 
 		body := decodeJSONBody(t, recorder)
-		require.Equal(t, "usera-s-organization", body["organization"])
-		require.Equal(t, "test-runner-1", body["canonified_name"])
-		require.Equal(t, "usera-s-organization/test-runner-1", body["runner_id"])
+		require.Equal(t, "usera-s-organization/test-runner", body["runner_id"])
+		require.Equal(t, "test-device", body["canonified_name"])
+		require.Equal(t, "usera-s-organization/test-runner/test-device", body["device_id"])
 	})
 
 	t.Run("admin preview requires an explicit organization", func(t *testing.T) {
@@ -996,7 +785,7 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 			app,
 			superuser,
 			"/api/mobile-runner/preview-id",
-			PreviewMobileDeviceIDRequest{Name: "Runner One"},
+			PreviewMobileDeviceIDRequest{RunnerID: "runner-one", Name: "Runner One"},
 		)
 
 		err = HandlePreviewMobileDeviceID()(event)
@@ -1013,6 +802,19 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 
 		superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
 		require.NoError(t, err)
+		createRunnerEvent := performMobileRunnerRequest(
+			t,
+			app,
+			superuser,
+			"/api/mobile-runner",
+			UpsertMobileRunnerRequest{
+				Organization: "userb-s-organization",
+				Name:         "Runner B",
+				IP:           "https://runner-b.example",
+				Type:         "android_emulator",
+			},
+		)
+		require.NoError(t, HandleUpsertMobileRunner()(createRunnerEvent))
 
 		event := performMobileRunnerRequest(
 			t,
@@ -1021,6 +823,7 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 			"/api/mobile-runner/preview-id",
 			PreviewMobileDeviceIDRequest{
 				Organization: "userb-s-organization",
+				RunnerID:     "userb-s-organization/runner-b",
 				Name:         "Runner B",
 			},
 		)
@@ -1033,6 +836,7 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 
 		body := decodeJSONBody(t, recorder)
 		require.Equal(t, "userb-s-organization/runner-b", body["runner_id"])
+		require.Equal(t, "userb-s-organization/runner-b/runner-b", body["device_id"])
 	})
 }
 

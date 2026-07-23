@@ -28,12 +28,6 @@ import (
 	"go.temporal.io/api/serviceerror"
 )
 
-type GetMobileRunnerResponseSchema struct {
-	Type      string `json:"type"`
-	RunnerURL string `json:"runner_url"`
-	Serial    string `json:"serial"`
-}
-
 type GetMobileDeviceResponseSchema struct {
 	DeviceID  string `json:"device_id"`
 	RunnerID  string `json:"runner_id"`
@@ -153,11 +147,6 @@ var MobileDevicesPublicRoutes = routing.RouteGroup{
 	},
 }
 
-type ValidateMobileRunnerAccessRequest struct {
-	OwnerNamespace string   `json:"owner_namespace"`
-	DeviceIDs      []string `json:"device_ids"`
-}
-
 type ValidateMobileDeviceAccessRequest struct {
 	OwnerNamespace string   `json:"owner_namespace"`
 	DeviceIDs      []string `json:"device_ids"`
@@ -173,28 +162,9 @@ var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:         http.MethodGet,
-			Path:           "",
-			Handler:        HandleGetMobileRunner,
-			ResponseSchema: GetMobileRunnerResponseSchema{},
-		},
-		{
-			Method:         http.MethodGet,
-			Path:           "/semaphore",
-			Handler:        HandleGetMobileDeviceSemaphore,
-			ResponseSchema: MobileDeviceSemaphoreResponseSchema{},
-		},
-		{
-			Method:         http.MethodGet,
 			Path:           "/list-urls",
 			Handler:        HandleListMobileRunnerURLs,
 			ResponseSchema: ListMobileRunnersResponseSchema{},
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/validate-access",
-			Handler:       HandleValidateMobileRunnerAccess,
-			RequestSchema: ValidateMobileRunnerAccessRequest{},
-			Description:   "Validate that runner IDs are accessible to an owner namespace",
 		},
 	},
 }
@@ -521,39 +491,6 @@ var errSemaphoreNotFound = errors.New("semaphore not found")
 
 var queryMobileDeviceSemaphoreState = queryMobileDeviceSemaphoreStateTemporal
 
-func HandleGetMobileRunner() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		runnerIdentifier := e.Request.URL.Query().Get("runner_identifier")
-		if runnerIdentifier == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"runner_identifier",
-				"runner_identifier is required",
-				"missing runner_identifier",
-			)
-		}
-		record, err := canonify.Resolve(e.App, runnerIdentifier)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"runner_identifier",
-				"mobile runner not found",
-				err.Error(),
-			)
-		}
-		if record.Collection() == nil || record.Collection().Name != "mobile_runners" {
-			return apierror.New(http.StatusBadRequest, "runner_identifier", "invalid_runner_identifier", "runner_identifier does not reference a mobile runner")
-		}
-
-		var response GetMobileRunnerResponseSchema
-		response.Type = record.GetString("type")
-		response.Serial = record.GetString("serial")
-		response.RunnerURL = mobileRunnerURL(record)
-
-		return e.JSON(http.StatusOK, response)
-	}
-}
-
 func HandleGetMobileDevice() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		deviceIdentifier := canonify.NormalizePath(e.Request.URL.Query().Get("device_identifier"))
@@ -594,47 +531,6 @@ func HandleGetMobileDeviceSemaphore() func(*core.RequestEvent) error {
 			return apierror.New(http.StatusInternalServerError, "semaphore", "failed_to_query_device_semaphore", err.Error())
 		}
 		return e.JSON(http.StatusOK, MobileDeviceSemaphoreResponseSchema{DeviceID: deviceID, Capacity: state.Capacity, SlotsUsed: state.SlotsUsed, InUse: state.SlotsUsed > 0, QueueLen: state.QueueLen})
-	}
-}
-
-func HandleValidateMobileRunnerAccess() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		input, err := routing.GetValidatedInput[ValidateMobileRunnerAccessRequest](e)
-		if err != nil {
-			return err
-		}
-		ownerNamespace := strings.TrimSpace(input.OwnerNamespace)
-		if ownerNamespace == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"owner_namespace",
-				"owner_namespace is required",
-				"missing owner_namespace",
-			)
-		}
-
-		ownerRecord, err := e.App.FindFirstRecordByFilter(
-			"organizations",
-			"canonified_name = {:namespace}",
-			map[string]any{"namespace": ownerNamespace},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"owner_namespace",
-				"owner namespace not found",
-				err.Error(),
-			)
-		}
-		if apiErr := validatePipelineRunnerAccess(
-			e.App,
-			ownerRecord.Id,
-			input.DeviceIDs,
-		); apiErr != nil {
-			return apiErr
-		}
-
-		return e.JSON(http.StatusOK, map[string]any{"valid": true})
 	}
 }
 
