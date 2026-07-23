@@ -370,7 +370,7 @@ func validatePipelineCIBaseRequest(
 		)
 	}
 	if deviceType := strings.TrimSpace(input.DeviceType); deviceType != "" {
-		if _, ok := walletAPKAllowedRunnerTypes[deviceType]; !ok {
+		if _, ok := walletAPKAllowedDeviceTypes[deviceType]; !ok {
 			return apierror.New(
 				http.StatusBadRequest,
 				"device_type",
@@ -463,8 +463,8 @@ func resolvePipelineCIDeviceID(
 		}
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
-	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, ownerID, input.DeviceType)
-	return runnerID, hasStepRunner, needsGlobalRunner, apiErr
+	deviceID, apiErr := selectPipelineCIDeviceByType(ctx, app, ownerID, input.DeviceType)
+	return deviceID, hasStepRunner, needsGlobalRunner, apiErr
 }
 
 func parsePipelineCIWorkflow(
@@ -800,12 +800,12 @@ func rewritePipelineCIStepRef(
 func injectPipelineCIGlobalDeviceID(
 	pipelineYAML string,
 	workflowDefinition *pipelineinternal.WorkflowDefinition,
-	runnerID string,
+	deviceID string,
 	hasStepRunner bool,
 	needsGlobalRunner bool,
 ) (string, *apierror.APIError) {
-	runnerID = canonify.NormalizePath(runnerID)
-	if runnerID == "" {
+	deviceID = canonify.NormalizePath(deviceID)
+	if deviceID == "" {
 		return pipelineYAML, nil
 	}
 
@@ -821,7 +821,7 @@ func injectPipelineCIGlobalDeviceID(
 		return pipelineYAML, nil
 	}
 
-	workflowDefinition.Runtime.GlobalDeviceID = runnerID
+	workflowDefinition.Runtime.GlobalDeviceID = deviceID
 	rewrittenYAML, err := yaml.Marshal(workflowDefinition)
 	if err != nil {
 		return "", apierror.New(
@@ -836,11 +836,11 @@ func injectPipelineCIGlobalDeviceID(
 }
 
 func validatePipelineCIGlobalRunnerRequest(
-	runnerID string,
+	deviceID string,
 	hasStepRunner bool,
 	needsGlobalRunner bool,
 ) *apierror.APIError {
-	if !needsGlobalRunner || strings.TrimSpace(runnerID) != "" {
+	if !needsGlobalRunner || strings.TrimSpace(deviceID) != "" {
 		return nil
 	}
 	if hasStepRunner {
@@ -848,19 +848,19 @@ func validatePipelineCIGlobalRunnerRequest(
 			http.StatusBadRequest,
 			"runner_id",
 			"mobile-automation runner_id configuration is incomplete",
-			"pipeline mixes mobile-automation steps with runner_id and steps without runner_id; set runner_id on every mobile-automation step or remove step runner_id values and pass runner_id or runner_type",
+			"pipeline mixes mobile-automation steps with runner_id and steps without runner_id; set runner_id on every mobile-automation step or remove step runner_id values and pass runner_id or device_type",
 		)
 	}
 	return apierror.New(
 		http.StatusBadRequest,
 		"runner_id",
-		"runner_id or runner_type is required",
-		"pipeline has mobile-automation steps without runner_id; pass runner_id or runner_type",
+		"runner_id or device_type is required",
+		"pipeline has mobile-automation steps without runner_id; pass runner_id or device_type",
 	)
 }
 
 func pipelineCIIgnoredRunnerWarning(
-	runnerID string,
+	deviceID string,
 	runnerType string,
 	hasStepRunner bool,
 	needsGlobalRunner bool,
@@ -868,10 +868,10 @@ func pipelineCIIgnoredRunnerWarning(
 	if hasStepRunner || needsGlobalRunner {
 		return ""
 	}
-	if strings.TrimSpace(runnerID) == "" && strings.TrimSpace(runnerType) == "" {
+	if strings.TrimSpace(deviceID) == "" && strings.TrimSpace(runnerType) == "" {
 		return ""
 	}
-	return "runner_id and runner_type are ignored because pipeline has no mobile-automation steps"
+	return "runner_id and device_type are ignored because pipeline has no mobile-automation steps"
 }
 
 func pipelineCIMobileRunnerSelectionState(
@@ -912,7 +912,7 @@ func pipelineCIMobileRunnerSelectionState(
 	return hasStepRunner, needsGlobalRunner
 }
 
-func selectPipelineCIRunnerByType(
+func selectPipelineCIDeviceByType(
 	ctx context.Context,
 	app core.App,
 	ownerID string,
@@ -931,7 +931,7 @@ func selectPipelineCIRunnerByType(
 	if err != nil {
 		return "", apierror.New(
 			http.StatusInternalServerError,
-			"runner_type",
+			"device_type",
 			"failed to list mobile devices",
 			err.Error(),
 		)
@@ -955,7 +955,7 @@ func selectPipelineCIRunnerByType(
 		if deviceErr != nil {
 			return "", apierror.New(http.StatusInternalServerError, "device_id", "failed_to_build_device_id", deviceErr.Error())
 		}
-		backlog, apiErr := pipelineCIRunnerBacklog(ctx, deviceID)
+		backlog, apiErr := pipelineCIDeviceBacklog(ctx, deviceID)
 		if apiErr != nil {
 			return "", apiErr
 		}
@@ -967,8 +967,8 @@ func selectPipelineCIRunnerByType(
 	if selectedDeviceID == "" {
 		return "", apierror.New(
 			http.StatusServiceUnavailable,
-			"runner_type",
-			"no online device found for runner_type",
+			"device_type",
+			"no online device found for device_type",
 			"no online mobile device matches "+runnerType,
 		)
 	}
@@ -1012,18 +1012,18 @@ func selectOnlinePipelineCIRunner(
 			continue
 		}
 
-		runnerID, apiErr := pipelineCIDeviceID(record, app)
+		deviceID, apiErr := pipelineCIDeviceID(record, app)
 		if apiErr != nil {
 			return "", apiErr
 		}
-		backlog, apiErr := pipelineCIRunnerBacklog(ctx, runnerID)
+		backlog, apiErr := pipelineCIDeviceBacklog(ctx, deviceID)
 		if apiErr != nil {
 			return "", apiErr
 		}
 		if selectedDeviceID == "" ||
 			backlog < selectedBacklog ||
-			(backlog == selectedBacklog && runnerID < selectedDeviceID) {
-			selectedDeviceID = runnerID
+			(backlog == selectedBacklog && deviceID < selectedDeviceID) {
+			selectedDeviceID = deviceID
 			selectedBacklog = backlog
 		}
 	}
@@ -1032,7 +1032,7 @@ func selectOnlinePipelineCIRunner(
 }
 
 func pipelineCIDeviceID(record *core.Record, app core.App) (string, *apierror.APIError) {
-	runnerID, err := mobileRunnerIdentifier(app, record)
+	deviceID, err := mobileRunnerIdentifier(app, record)
 	if err != nil {
 		return "", apierror.New(
 			http.StatusInternalServerError,
@@ -1041,7 +1041,7 @@ func pipelineCIDeviceID(record *core.Record, app core.App) (string, *apierror.AP
 			err.Error(),
 		)
 	}
-	if runnerID == "" {
+	if deviceID == "" {
 		return "", apierror.New(
 			http.StatusInternalServerError,
 			"runner_id",
@@ -1050,7 +1050,7 @@ func pipelineCIDeviceID(record *core.Record, app core.App) (string, *apierror.AP
 		)
 	}
 
-	return runnerID, nil
+	return deviceID, nil
 }
 
 func pipelineCIRunnerOnline(ctx context.Context, record *core.Record) (bool, *apierror.APIError) {
@@ -1063,7 +1063,7 @@ func pipelineCIRunnerOnline(ctx context.Context, record *core.Record) (bool, *ap
 	if err != nil {
 		return false, apierror.New(
 			http.StatusInternalServerError,
-			"runner_type",
+			"device_type",
 			"failed to check runner health",
 			err.Error(),
 		)
@@ -1095,15 +1095,15 @@ func checkPipelineCIRunnerHealth(ctx context.Context, runnerURL string) (bool, e
 	return resp.StatusCode == http.StatusOK, nil
 }
 
-func pipelineCIRunnerBacklog(ctx context.Context, runnerID string) (int, *apierror.APIError) {
-	state, err := queryMobileDeviceSemaphoreState(ctx, runnerID)
+func pipelineCIDeviceBacklog(ctx context.Context, deviceID string) (int, *apierror.APIError) {
+	state, err := queryMobileDeviceSemaphoreState(ctx, deviceID)
 	if err != nil {
 		if errors.Is(err, errSemaphoreNotFound) {
 			return 0, nil
 		}
 		return 0, apierror.New(
 			http.StatusInternalServerError,
-			"runner_type",
+			"device_type",
 			"failed to query runner queue",
 			err.Error(),
 		)

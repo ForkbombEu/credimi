@@ -73,6 +73,6 @@ type MobileDeviceSemaphoreRunDoneSignal = mobiledevicesemaphore.MobileDeviceSema
 
 type MobileDeviceSemaphoreRunTicketState = mobiledevicesemaphore.MobileDeviceSemaphoreRunTicketState
 
-func MobileDeviceSemaphoreWorkflowID(runnerID string) string {
-	return mobiledevicesemaphore.WorkflowID(runnerID)
+func MobileDeviceSemaphoreWorkflowID(deviceID string) string {
+	return mobiledevicesemaphore.WorkflowID(deviceID)
 }

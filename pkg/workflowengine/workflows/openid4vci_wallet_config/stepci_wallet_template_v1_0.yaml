@@ -175,12 +175,12 @@ tests:
           check:
             status: 201
           captures:
-            runner_id:
+            device_id:
               jsonpath: $.id
       - name: Start Test
         http:
           method: GET
-          url: https://www.certification.openid.net/api/runner/${{captures.runner_id}}
+          url: https://www.certification.openid.net/api/runner/${{captures.device_id}}
           auth:
             $ref: "#/components/token"
           captures:

@@ -1541,7 +1541,7 @@ func MobileAutomationCleanupHook(
 	}
 
 	for runnerID, raw := range devices {
-		if shouldSkipRunnerCleanup(runData, runnerID) {
+		if shouldSkipDeviceCleanup(runData, runnerID) {
 			appendCleanupWarning(
 				output,
 				fmt.Sprintf(
@@ -1610,22 +1610,22 @@ func mobileRunnerActivityOptions(
 	return options
 }
 
-func shouldSkipRunnerCleanup(runData map[string]any, runnerID string) bool {
+func shouldSkipDeviceCleanup(runData map[string]any, runnerID string) bool {
 	rawPolicy, ok := runData[pipelineCancellationPolicyRunDataKey]
 	if !ok {
 		return false
 	}
 
 	policy, ok := rawPolicy.(pipeline.PipelineCancellationPolicy)
-	if !ok || !policy.SkipRunnerCleanup {
+	if !ok || !policy.SkipDeviceCleanup {
 		return false
 	}
 
-	if len(policy.SkipRunnerCleanupIDs) == 0 {
+	if len(policy.SkipDeviceCleanupIDs) == 0 {
 		return true
 	}
 
-	for _, skipDeviceID := range policy.SkipRunnerCleanupIDs {
+	for _, skipDeviceID := range policy.SkipDeviceCleanupIDs {
 		if skipDeviceID == runnerID {
 			return true
 		}

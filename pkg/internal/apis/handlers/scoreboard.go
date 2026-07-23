@@ -54,7 +54,7 @@ type PipelineStatsResponse struct {
 	PipelineID          string             `json:"pipeline_id"`
 	PipelineName        string             `json:"pipeline_name"`
 	PipelineIdentifier  string             `json:"pipeline_identifier"`
-	RunnerTypes         []string           `json:"runner_types"`
+	DeviceTypes         []string           `json:"device_types"`
 	Runners             []string           `json:"runners"`
 	TotalRuns           int                `json:"total_runs"`
 	TotalSuccesses      int                `json:"total_successes"`
@@ -77,7 +77,7 @@ type LastSuccessfulRun struct {
 type PipelineStats struct {
 	PipelineName        string
 	Runners             []string
-	RunnerTypes         []string
+	DeviceTypes         []string
 	TotalRuns           int
 	TotalSuccesses      int
 	SuccessRate         float64
@@ -478,7 +478,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 					namespace,
 					pipelineRecord.GetString("canonified_name"),
 				),
-				RunnerTypes:         stats.RunnerTypes,
+				DeviceTypes:         stats.DeviceTypes,
 				Runners:             stats.Runners,
 				TotalRuns:           stats.TotalRuns,
 				TotalSuccesses:      stats.TotalSuccesses,
@@ -636,7 +636,7 @@ func calculateStatsFromExecutions(
 ) (*PipelineStats, *LastSuccessfulRun) {
 	stats := &PipelineStats{
 		Runners:     []string{},
-		RunnerTypes: []string{},
+		DeviceTypes: []string{},
 	}
 
 	if len(executions) == 0 {
@@ -691,7 +691,7 @@ func calculateStatsFromExecutions(
 	}
 
 	stats.Runners = mapKeysToSlice(runnerSet)
-	stats.RunnerTypes = resolveRunnerTypes(app, stats.Runners, runnerCache)
+	stats.DeviceTypes = resolveDeviceTypes(app, stats.Runners, runnerCache)
 
 	if stats.TotalRuns > 0 {
 		stats.SuccessRate = math.Round(
@@ -864,7 +864,7 @@ func mapKeysToSlice(m map[string]struct{}) []string {
 	return keys
 }
 
-func resolveRunnerTypes(
+func resolveDeviceTypes(
 	app core.App,
 	deviceIDs []string,
 	runnerCache map[string]map[string]any,

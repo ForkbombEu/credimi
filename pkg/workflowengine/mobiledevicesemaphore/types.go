@@ -117,8 +117,8 @@ type MobileDeviceSemaphoreGitHubPRNotification struct {
 	CommitSHA          string            `json:"commit_sha,omitempty"`
 	PipelineIdentifier string            `json:"pipeline_identifier,omitempty"`
 	DeviceID           string            `json:"device_id,omitempty"`
-	RunnerType         string            `json:"runner_type,omitempty"` // Deprecated: use RunnerTypes for per-runner display metadata.
-	RunnerTypes        map[string]string `json:"runner_types,omitempty"`
+	DeviceType         string            `json:"device_type,omitempty"` // Deprecated: use DeviceTypes for per-runner display metadata.
+	DeviceTypes        map[string]string `json:"device_types,omitempty"`
 	PipelineURL        string            `json:"pipeline_url,omitempty"`
 	AppURL             string            `json:"app_url,omitempty"`
 	SectionTitle       string            `json:"section_title,omitempty"`

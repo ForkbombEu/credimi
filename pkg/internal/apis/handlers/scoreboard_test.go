@@ -1047,7 +1047,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 			{
 				PipelineID:          pipeline.Id,
 				PipelineName:        "Test Pipeline",
-				RunnerTypes:         []string{},
+				DeviceTypes:         []string{},
 				Runners:             []string{"usera-s-organization/test-runner"},
 				TotalRuns:           10,
 				TotalSuccesses:      8,

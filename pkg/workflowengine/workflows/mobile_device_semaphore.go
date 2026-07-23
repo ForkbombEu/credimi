@@ -143,7 +143,7 @@ func (w *MobileDeviceSemaphoreWorkflow) ExecuteWorkflow(
 
 type mobileDeviceSemaphoreRuntime struct {
 	ctx                  workflow.Context
-	runnerID             string
+	deviceID             string
 	capacity             int
 	runQueue             []string
 	runTickets           map[string]MobileDeviceSemaphoreRunTicketState
@@ -174,7 +174,7 @@ func newMobileDeviceSemaphoreRuntime(
 
 	runtime := &mobileDeviceSemaphoreRuntime{
 		ctx:        ctx,
-		runnerID:   payload.DeviceID,
+		deviceID:   payload.DeviceID,
 		capacity:   payload.Capacity,
 		runQueue:   []string{},
 		runTickets: map[string]MobileDeviceSemaphoreRunTicketState{},
@@ -231,7 +231,7 @@ func (r *mobileDeviceSemaphoreRuntime) registerQueryHandler() error {
 		MobileDeviceSemaphoreStateQuery,
 		func() (MobileDeviceSemaphoreStateView, error) {
 			return MobileDeviceSemaphoreStateView{
-				DeviceID:             r.runnerID,
+				DeviceID:             r.deviceID,
 				Capacity:             r.capacity,
 				SlotsUsed:            r.runSlotsUsed(),
 				QueueLen:             len(r.runQueue),
@@ -330,7 +330,7 @@ func (r *mobileDeviceSemaphoreRuntime) registerResumeDeviceHandler() error {
 			r.requestRunStart()
 
 			return MobileDeviceSemaphoreResumeDeviceResponse{
-				DeviceID: r.runnerID,
+				DeviceID: r.deviceID,
 				Paused:   false,
 				QueueLen: len(r.runQueue),
 			}, nil
@@ -496,7 +496,7 @@ func (r *mobileDeviceSemaphoreRuntime) handleEnqueueRun(
 			MobileDeviceSemaphoreErrInvalidRequest,
 		)
 	}
-	if req.DeviceID == "" || req.DeviceID != r.runnerID {
+	if req.DeviceID == "" || req.DeviceID != r.deviceID {
 		return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 			"device_id must match semaphore runner",
 			MobileDeviceSemaphoreErrInvalidRequest,
@@ -548,7 +548,7 @@ func (r *mobileDeviceSemaphoreRuntime) handleEnqueueRun(
 			return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
 				fmt.Sprintf(
 					"queue limit exceeded for runner %s: %d of %d",
-					r.runnerID,
+					r.deviceID,
 					inFlight,
 					req.MaxPipelinesInQueue,
 				),
@@ -585,7 +585,7 @@ func (r *mobileDeviceSemaphoreRuntime) handlePauseDevice(
 	req MobileDeviceSemaphorePauseDeviceRequest,
 ) (MobileDeviceSemaphorePauseDeviceResponse, error) {
 	resp := MobileDeviceSemaphorePauseDeviceResponse{
-		DeviceID:             r.runnerID,
+		DeviceID:             r.deviceID,
 		Paused:               true,
 		ShutdownAfterSeconds: req.ShutdownAfterSeconds,
 	}
@@ -639,7 +639,7 @@ func (r *mobileDeviceSemaphoreRuntime) handlePauseDevice(
 				shutdownResp.PipelineCancelFailures...,
 			)
 
-			if state.Request.LeaderDeviceID == r.runnerID {
+			if state.Request.LeaderDeviceID == r.deviceID {
 				signalResp := &MobileDeviceSemaphoreShutdownDeviceResponse{}
 				r.signalRunCanceledForShutdown(ctx, ticketID, state, signalResp)
 			}
@@ -725,7 +725,7 @@ func (r *mobileDeviceSemaphoreRuntime) handleRunDone(
 	if runID == "" {
 		runID = state.RunID
 	}
-	signalFollowers := state.Request.LeaderDeviceID == r.runnerID
+	signalFollowers := state.Request.LeaderDeviceID == r.deviceID
 	workflowResult := strings.TrimSpace(req.WorkflowResult)
 	if workflowResult == "" {
 		workflowResult = "completed"
@@ -829,7 +829,7 @@ func (r *mobileDeviceSemaphoreRuntime) maybeScheduleContinue() {
 
 	r.continueInput = workflowengine.WorkflowInput{
 		Payload: MobileDeviceSemaphoreWorkflowInput{
-			DeviceID: r.runnerID,
+			DeviceID: r.deviceID,
 			Capacity: r.capacity,
 			State:    &stateCopy,
 		},
@@ -884,7 +884,7 @@ func (r *mobileDeviceSemaphoreRuntime) startReadyRuns(ctx workflow.Context) {
 		if !ok || state.Status != mobileDeviceSemaphoreRunStarting {
 			continue
 		}
-		if state.Request.LeaderDeviceID != r.runnerID {
+		if state.Request.LeaderDeviceID != r.deviceID {
 			continue
 		}
 		if state.WorkflowID != "" {
@@ -917,13 +917,13 @@ func (r *mobileDeviceSemaphoreRuntime) grantRunTicket(
 	if state.GrantedDeviceIDs == nil {
 		state.GrantedDeviceIDs = map[string]bool{}
 	}
-	state.GrantedDeviceIDs[r.runnerID] = true
+	state.GrantedDeviceIDs[r.deviceID] = true
 	r.runTickets[ticketID] = state
 	r.updateCount++
 	r.maybeScheduleContinue()
 	r.markQueuePositionsDirty()
 
-	if state.Request.LeaderDeviceID != r.runnerID {
+	if state.Request.LeaderDeviceID != r.deviceID {
 		if err := r.signalRunGranted(ctx, state.Request.LeaderDeviceID, ticketID); err != nil {
 			r.markRunTicketFailed(ticketID, state, err)
 		}
@@ -1060,7 +1060,7 @@ func (r *mobileDeviceSemaphoreRuntime) checkRunCompletion(ctx workflow.Context) 
 			continue
 		}
 
-		signalFollowers := state.Request.LeaderDeviceID == r.runnerID
+		signalFollowers := state.Request.LeaderDeviceID == r.deviceID
 		r.finalizeRunTicket(
 			ctx,
 			ticketID,
@@ -1081,7 +1081,7 @@ func (r *mobileDeviceSemaphoreRuntime) reconcileStartingTickets(ctx workflow.Con
 		if !ok || state.Status != mobileDeviceSemaphoreRunStarting {
 			continue
 		}
-		if state.Request.LeaderDeviceID == r.runnerID {
+		if state.Request.LeaderDeviceID == r.deviceID {
 			continue
 		}
 
@@ -1195,7 +1195,7 @@ func (r *mobileDeviceSemaphoreRuntime) signalRunGranted(
 		MobileDeviceSemaphoreRunGrantedSignalName,
 		MobileDeviceSemaphoreRunGrantedSignal{
 			TicketID: ticketID,
-			DeviceID: r.runnerID,
+			DeviceID: r.deviceID,
 		},
 	)
 	return future.Get(ctx, nil)
@@ -1208,13 +1208,13 @@ func (r *mobileDeviceSemaphoreRuntime) signalRunStarted(
 	output activities.StartQueuedPipelineActivityOutput,
 ) {
 	logger := workflow.GetLogger(ctx)
-	for _, runnerID := range requiredDeviceIDs {
-		if runnerID == r.runnerID {
+	for _, deviceID := range requiredDeviceIDs {
+		if deviceID == r.deviceID {
 			continue
 		}
 		future := workflow.SignalExternalWorkflow(
 			ctx,
-			MobileDeviceSemaphoreWorkflowID(runnerID),
+			MobileDeviceSemaphoreWorkflowID(deviceID),
 			"",
 			MobileDeviceSemaphoreRunStartedSignalName,
 			MobileDeviceSemaphoreRunStartedSignal{
@@ -1230,7 +1230,7 @@ func (r *mobileDeviceSemaphoreRuntime) signalRunStarted(
 				"ticket_id",
 				ticketID,
 				"target_device_id",
-				runnerID,
+				deviceID,
 				"signal",
 				MobileDeviceSemaphoreRunStartedSignalName,
 				"error",
@@ -1249,13 +1249,13 @@ func (r *mobileDeviceSemaphoreRuntime) signalRunDone(
 	workflowResult string,
 ) {
 	logger := workflow.GetLogger(ctx)
-	for _, runnerID := range requiredDeviceIDs {
-		if runnerID == r.runnerID {
+	for _, deviceID := range requiredDeviceIDs {
+		if deviceID == r.deviceID {
 			continue
 		}
 		future := workflow.SignalExternalWorkflow(
 			ctx,
-			MobileDeviceSemaphoreWorkflowID(runnerID),
+			MobileDeviceSemaphoreWorkflowID(deviceID),
 			"",
 			MobileDeviceSemaphoreRunDoneSignalName,
 			MobileDeviceSemaphoreRunDoneSignal{
@@ -1271,7 +1271,7 @@ func (r *mobileDeviceSemaphoreRuntime) signalRunDone(
 				"ticket_id",
 				ticketID,
 				"target_device_id",
-				runnerID,
+				deviceID,
 				"signal",
 				MobileDeviceSemaphoreRunDoneSignalName,
 				"error",
@@ -1372,7 +1372,7 @@ func (r *mobileDeviceSemaphoreRuntime) shutdownRunnerWithOptions(
 	signalRunningPeers bool,
 ) (MobileDeviceSemaphoreShutdownDeviceResponse, error) {
 	response := MobileDeviceSemaphoreShutdownDeviceResponse{
-		DeviceID: r.runnerID,
+		DeviceID: r.deviceID,
 	}
 	if r.shutdownCompleted {
 		return response, nil
@@ -1550,8 +1550,8 @@ func (r *mobileDeviceSemaphoreRuntime) cancelTrackedWorkflow(
 			SignalName:        pipelineinternal.PipelineCancellationPolicySignal,
 			Payload: pipelineinternal.PipelineCancellationPolicy{
 				Reason:               reason,
-				SkipRunnerCleanup:    true,
-				SkipRunnerCleanupIDs: []string{r.runnerID},
+				SkipDeviceCleanup:    true,
+				SkipDeviceCleanupIDs: []string{r.deviceID},
 			},
 		},
 	}).
@@ -1624,18 +1624,18 @@ func (r *mobileDeviceSemaphoreRuntime) signalRunCanceledForShutdown(
 	state MobileDeviceSemaphoreRunTicketState,
 	response *MobileDeviceSemaphoreShutdownDeviceResponse,
 ) int {
-	if len(state.Request.RequiredDeviceIDs) == 0 || state.Request.LeaderDeviceID != r.runnerID {
+	if len(state.Request.RequiredDeviceIDs) == 0 || state.Request.LeaderDeviceID != r.deviceID {
 		return 0
 	}
 
 	count := 0
-	for _, runnerID := range sortedDeviceIDs(state.Request.RequiredDeviceIDs) {
-		if runnerID == r.runnerID {
+	for _, deviceID := range sortedDeviceIDs(state.Request.RequiredDeviceIDs) {
+		if deviceID == r.deviceID {
 			continue
 		}
 		future := workflow.SignalExternalWorkflow(
 			ctx,
-			MobileDeviceSemaphoreWorkflowID(runnerID),
+			MobileDeviceSemaphoreWorkflowID(deviceID),
 			"",
 			MobileDeviceSemaphoreRunDoneSignalName,
 			MobileDeviceSemaphoreRunDoneSignal{
@@ -1648,7 +1648,7 @@ func (r *mobileDeviceSemaphoreRuntime) signalRunCanceledForShutdown(
 		if err := future.Get(ctx, nil); err != nil {
 			response.FollowerSignalFailures = append(
 				response.FollowerSignalFailures,
-				fmt.Sprintf("ticket %s signal to %s failed: %v", ticketID, runnerID, err),
+				fmt.Sprintf("ticket %s signal to %s failed: %v", ticketID, deviceID, err),
 			)
 			continue
 		}
@@ -1673,10 +1673,10 @@ func (r *mobileDeviceSemaphoreRuntime) notifyGitHubPRComment(
 	updateActivity := activities.NewUpdateGitHubPRCommentActivity()
 	activityOptions := DefaultActivityOptions
 	runnerType := ""
-	if value := strings.TrimSpace(notification.GitHubPR.RunnerTypes[r.runnerID]); value != "" {
+	if value := strings.TrimSpace(notification.GitHubPR.DeviceTypes[r.deviceID]); value != "" {
 		runnerType = value
-	} else if notification.GitHubPR.DeviceID == r.runnerID {
-		runnerType = notification.GitHubPR.RunnerType
+	} else if notification.GitHubPR.DeviceID == r.deviceID {
+		runnerType = notification.GitHubPR.DeviceType
 	}
 	input := workflowengine.ActivityInput{
 		Payload: activities.UpdateGitHubPRCommentInput{
@@ -1687,8 +1687,8 @@ func (r *mobileDeviceSemaphoreRuntime) notifyGitHubPRComment(
 			Status:            string(status),
 			Position:          position,
 			PipelineID:        notification.GitHubPR.PipelineIdentifier,
-			DeviceID:          r.runnerID,
-			RunnerType:        runnerType,
+			DeviceID:          r.deviceID,
+			DeviceType:        runnerType,
 			PipelineURL:       notification.GitHubPR.PipelineURL,
 			AppURL:            notification.GitHubPR.AppURL,
 			WorkflowID:        state.WorkflowID,
@@ -1736,8 +1736,8 @@ func (r *mobileDeviceSemaphoreRuntime) allGrantsReceived(
 	if len(state.Request.RequiredDeviceIDs) == 0 {
 		return true
 	}
-	for _, runnerID := range state.Request.RequiredDeviceIDs {
-		if !state.GrantedDeviceIDs[runnerID] {
+	for _, deviceID := range state.Request.RequiredDeviceIDs {
+		if !state.GrantedDeviceIDs[deviceID] {
 			return false
 		}
 	}
@@ -1793,7 +1793,7 @@ func (r *mobileDeviceSemaphoreRuntime) hasRunningTickets() bool {
 func (r *mobileDeviceSemaphoreRuntime) hasFollowerStartingTickets() bool {
 	for _, state := range r.runTickets {
 		if state.Status == mobileDeviceSemaphoreRunStarting &&
-			state.Request.LeaderDeviceID != r.runnerID {
+			state.Request.LeaderDeviceID != r.deviceID {
 			return true
 		}
 	}

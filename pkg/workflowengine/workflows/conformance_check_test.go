@@ -742,7 +742,7 @@ func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
 	).Return(workflowengine.ActivityResult{
 		Output: map[string]any{
 			"captures": map[string]any{
-				"runner_id": "runner-456",
+				"device_id": "runner-456",
 			},
 		},
 	}, nil).Once()
@@ -844,7 +844,7 @@ func TestStartCheckWorkflowOpenID4VCIWallet(t *testing.T) {
 		Output: map[string]any{
 			"captures": map[string]any{
 				"deeplink":  "openid-credential-offer://wallet-test",
-				"runner_id": "runner-wallet-789",
+				"device_id": "runner-wallet-789",
 			},
 		},
 	}, nil).Once()

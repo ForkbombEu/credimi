@@ -2325,8 +2325,8 @@ func TestMobileAutomationCleanupHookSkipsOnlyPolicyRunnerCleanup(t *testing.T) {
 				},
 				pipelineCancellationPolicyRunDataKey: pipeline.PipelineCancellationPolicy{
 					Reason:               "runner paused",
-					SkipRunnerCleanup:    true,
-					SkipRunnerCleanupIDs: []string{"tenant/runner-a"},
+					SkipDeviceCleanup:    true,
+					SkipDeviceCleanupIDs: []string{"tenant/runner-a"},
 				},
 			}
 

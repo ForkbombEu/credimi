@@ -322,7 +322,7 @@ func TestContainsString(t *testing.T) {
 
 func TestRuntimeFlagsAndCounts(t *testing.T) {
 	runtime := &mobileDeviceSemaphoreRuntime{
-		runnerID: "runner-1",
+		deviceID: "runner-1",
 		capacity: 0,
 		runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 			"t1": {Status: mobileDeviceSemaphoreRunRunning},
@@ -369,7 +369,7 @@ func TestInFlightRunCount(t *testing.T) {
 
 func TestMaybeScheduleContinue(t *testing.T) {
 	runtime := &mobileDeviceSemaphoreRuntime{
-		runnerID:    "runner-1",
+		deviceID:    "runner-1",
 		capacity:    1,
 		updateCount: mobileDeviceSemaphoreMaxUpdateBatches,
 		runTickets:  map[string]MobileDeviceSemaphoreRunTicketState{},

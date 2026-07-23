@@ -22,7 +22,7 @@ import (
 
 func newRuntimeForTests() *mobileDeviceSemaphoreRuntime {
 	return &mobileDeviceSemaphoreRuntime{
-		runnerID:   "runner-1",
+		deviceID:   "runner-1",
 		runQueue:   []string{},
 		runTickets: map[string]MobileDeviceSemaphoreRunTicketState{},
 	}
@@ -249,7 +249,7 @@ func TestHandlePauseDevicePreservesQueuedTickets(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (pauseState, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runQueue: []string{"ticket-1"},
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-1": {
@@ -338,7 +338,7 @@ func TestHandlePauseDeviceCancelsRunningTicket(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (pauseState, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runQueue: []string{"ticket-queued"},
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-running": {
@@ -404,7 +404,7 @@ func TestHandlePauseDeviceAlreadyPausedReturnsCurrentState(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (MobileDeviceSemaphorePauseDeviceResponse, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID:             "runner-1",
+				deviceID:             "runner-1",
 				paused:               true,
 				pauseGeneration:      2,
 				shutdownAfterSeconds: 120,
@@ -508,7 +508,7 @@ func TestHandleCancelRunPaths(t *testing.T) {
 
 func TestHandleRunDoneRemovesTicket(t *testing.T) {
 	rt := newRuntimeForTests()
-	rt.runnerID = "runner-2"
+	rt.deviceID = "runner-2"
 	rt.runTickets["ticket-1"] = MobileDeviceSemaphoreRunTicketState{
 		Request: MobileDeviceSemaphoreEnqueueRunRequest{
 			TicketID:       "ticket-1",
@@ -621,7 +621,7 @@ func TestHandleRunStartedSignalUpdatesState(t *testing.T) {
 			UpdateCount int
 		}, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-1": {
 						Request: MobileDeviceSemaphoreEnqueueRunRequest{TicketID: "ticket-1"},
@@ -677,7 +677,7 @@ func TestHandleRunDoneSignalRemovesTicket(t *testing.T) {
 			RunStarterRequested bool
 		}, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-1": {
 						Request: MobileDeviceSemaphoreEnqueueRunRequest{TicketID: "ticket-1"},
@@ -731,7 +731,7 @@ func TestAwaitContinueTriggersContinueAsNew(t *testing.T) {
 		func(ctx workflow.Context) error {
 			rt := &mobileDeviceSemaphoreRuntime{
 				ctx:            ctx,
-				runnerID:       "runner-1",
+				deviceID:       "runner-1",
 				shouldContinue: true,
 				continueInput: workflowengine.WorkflowInput{
 					Payload: MobileDeviceSemaphoreWorkflowInput{DeviceID: "runner-1"},
@@ -768,7 +768,7 @@ func TestCheckRunCompletionFinalizesClosedRun(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (int, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-1": {
 						Request: MobileDeviceSemaphoreEnqueueRunRequest{
@@ -822,7 +822,7 @@ func TestReconcileStartingTicketsUpdatesRunning(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (MobileDeviceSemaphoreRunTicketState, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-1": {
 						Request: MobileDeviceSemaphoreEnqueueRunRequest{
@@ -894,7 +894,7 @@ func TestShutdownDeviceRemovesQueuedTicketAndRunsCleanup(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (MobileDeviceSemaphoreShutdownDeviceResponse, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runQueue: []string{"ticket-1"},
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-1": {
@@ -961,7 +961,7 @@ func TestShutdownDeviceCancelsRunningPipelineAndSignalsPeers(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (MobileDeviceSemaphoreShutdownDeviceResponse, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-1": {
 						Request: MobileDeviceSemaphoreEnqueueRunRequest{
@@ -1007,7 +1007,7 @@ func TestShutdownDeviceIsIdempotent(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) ([]MobileDeviceSemaphoreShutdownDeviceResponse, error) {
 			rt := &mobileDeviceSemaphoreRuntime{
-				runnerID: "runner-1",
+				deviceID: "runner-1",
 				runQueue: []string{"ticket-1"},
 				runTickets: map[string]MobileDeviceSemaphoreRunTicketState{
 					"ticket-1": {

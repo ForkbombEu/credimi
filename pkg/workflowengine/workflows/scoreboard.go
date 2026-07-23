@@ -26,7 +26,7 @@ var aggregateScoreboardStartWorkflowWithOptions = workflowengine.StartWorkflowWi
 type AggregatedPipelineStats struct {
 	PipelineID          string                  `json:"pipeline_id"`
 	PipelineName        string                  `json:"pipeline_name"`
-	RunnerTypes         []string                `json:"runner_types"`
+	DeviceTypes         []string                `json:"device_types"`
 	Runners             []string                `json:"runners"`
 	TotalRuns           int                     `json:"total_runs"`
 	TotalSuccesses      int                     `json:"total_successes"`
@@ -166,7 +166,7 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 			) / 100
 		}
 		sort.Strings(stats.Runners)
-		sort.Strings(stats.RunnerTypes)
+		sort.Strings(stats.DeviceTypes)
 	}
 
 	// 4. Fetch last execution details
@@ -346,7 +346,7 @@ func (w *AggregateScoreboardWorkflow) aggregateSinglePipeline(
 		stats = &AggregatedPipelineStats{
 			PipelineID:   pipelineID,
 			PipelineName: getString(pipeline, "pipeline_name"),
-			RunnerTypes:  []string{},
+			DeviceTypes:  []string{},
 			Runners:      []string{},
 		}
 		aggregatedMap[pipelineID] = stats
@@ -357,7 +357,7 @@ func (w *AggregateScoreboardWorkflow) aggregateSinglePipeline(
 
 	// Aggregate runners and types
 	w.aggregateRunners(stats, pipeline)
-	w.aggregateRunnerTypes(stats, pipeline)
+	w.aggregateDeviceTypes(stats, pipeline)
 
 	// Update dates
 	w.updateDates(stats, pipeline)
@@ -400,14 +400,14 @@ func (w *AggregateScoreboardWorkflow) aggregateRunners(
 	}
 }
 
-func (w *AggregateScoreboardWorkflow) aggregateRunnerTypes(
+func (w *AggregateScoreboardWorkflow) aggregateDeviceTypes(
 	stats *AggregatedPipelineStats,
 	pipeline map[string]any,
 ) {
-	if runnerTypes, ok := pipeline["runner_types"].([]any); ok {
-		for _, runnerType := range runnerTypes {
+	if deviceTypes, ok := pipeline["device_types"].([]any); ok {
+		for _, runnerType := range deviceTypes {
 			if runnerTypeValue, ok := runnerType.(string); ok {
-				stats.RunnerTypes = appendUnique(stats.RunnerTypes, runnerTypeValue)
+				stats.DeviceTypes = appendUnique(stats.DeviceTypes, runnerTypeValue)
 			}
 		}
 	}

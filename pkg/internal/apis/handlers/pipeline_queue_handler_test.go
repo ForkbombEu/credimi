@@ -123,12 +123,12 @@ func installQueueStubs(t *testing.T, stub *queueStub) {
 		cancelRunTicket = origCancel
 	})
 
-	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, runnerID string) error {
+	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
 	}
 	enqueueRunTicket = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		req workflows.MobileDeviceSemaphoreEnqueueRunRequest,
 	) (workflows.MobileDeviceSemaphoreEnqueueRunResponse, error) {
 		stub.enqueueRequests = append(stub.enqueueRequests, req)
@@ -141,7 +141,7 @@ func installQueueStubs(t *testing.T, stub *queueStub) {
 	}
 	queryRunTicketStatus = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		ownerNamespace string,
 		ticketID string,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
@@ -156,13 +156,13 @@ func installQueueStubs(t *testing.T, stub *queueStub) {
 			Status:            workflowengine.MobileDeviceSemaphoreRunQueued,
 			Position:          0,
 			LineLen:           1,
-			LeaderDeviceID:    runnerID,
-			RequiredDeviceIDs: []string{runnerID},
+			LeaderDeviceID:    deviceID,
+			RequiredDeviceIDs: []string{deviceID},
 		}, nil
 	}
 	cancelRunTicket = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		req workflows.MobileDeviceSemaphoreRunCancelRequest,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
 		stub.cancelled = true
@@ -481,7 +481,7 @@ func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {
 
 	queryRunTicketStatus = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		ownerNamespace string,
 		ticketID string,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
@@ -492,8 +492,8 @@ func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {
 			RunID:             "run-456",
 			Position:          0,
 			LineLen:           1,
-			LeaderDeviceID:    runnerID,
-			RequiredDeviceIDs: []string{runnerID},
+			LeaderDeviceID:    deviceID,
+			RequiredDeviceIDs: []string{deviceID},
 		}, nil
 	}
 
@@ -597,7 +597,7 @@ func TestPipelineQueueCancelDeletesQueuedTempWalletVersion(t *testing.T) {
 
 	cancelRunTicket = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		req workflows.MobileDeviceSemaphoreRunCancelRequest,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
 		return workflows.MobileDeviceSemaphoreRunStatusView{
@@ -654,7 +654,7 @@ func TestPipelineQueueCancelKeepsTempWalletVersionForRunningRun(t *testing.T) {
 
 	cancelRunTicket = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		req workflows.MobileDeviceSemaphoreRunCancelRequest,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
 		return workflows.MobileDeviceSemaphoreRunStatusView{
@@ -713,20 +713,20 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		cancelRunTicket = origCancel
 	})
 
-	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, runnerID string) error {
+	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
 	}
 
 	var ticketID string
 	enqueueRunTicket = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		req workflows.MobileDeviceSemaphoreEnqueueRunRequest,
 	) (workflows.MobileDeviceSemaphoreEnqueueRunResponse, error) {
 		if ticketID == "" {
 			ticketID = req.TicketID
 		}
-		if runnerID == "usera-s-organization/runner-2/device-1" {
+		if deviceID == "usera-s-organization/runner-2/device-1" {
 			return workflows.MobileDeviceSemaphoreEnqueueRunResponse{}, errors.New("enqueue failed")
 		}
 		return workflows.MobileDeviceSemaphoreEnqueueRunResponse{
@@ -738,17 +738,17 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 	}
 
 	type cancelCall struct {
-		runnerID string
+		deviceID string
 		ticketID string
 	}
 	cancelCalls := []cancelCall{}
 	cancelRunTicket = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		req workflows.MobileDeviceSemaphoreRunCancelRequest,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
 		cancelCalls = append(cancelCalls, cancelCall{
-			runnerID: runnerID,
+			deviceID: deviceID,
 			ticketID: req.TicketID,
 		})
 		return workflows.MobileDeviceSemaphoreRunStatusView{
@@ -787,8 +787,8 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		t,
 		[]string{"usera-s-organization/runner-1/device-1", "usera-s-organization/runner-2/device-1"},
 		[]string{
-			cancelCalls[0].runnerID,
-			cancelCalls[1].runnerID,
+			cancelCalls[0].deviceID,
+			cancelCalls[1].deviceID,
 		},
 	)
 	for _, call := range cancelCalls {
@@ -1014,20 +1014,20 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		cancelRunTicket = origCancel
 	})
 
-	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, runnerID string) error {
+	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
 	}
 
 	var ticketID string
 	enqueueRunTicket = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		req workflows.MobileDeviceSemaphoreEnqueueRunRequest,
 	) (workflows.MobileDeviceSemaphoreEnqueueRunResponse, error) {
 		if ticketID == "" {
 			ticketID = req.TicketID
 		}
-		if runnerID == "usera-s-organization/runner-2/device-1" {
+		if deviceID == "usera-s-organization/runner-2/device-1" {
 			return workflows.MobileDeviceSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
 				"queue limit exceeded for runner runner-2: 1 of 1",
 				workflows.MobileDeviceSemaphoreErrQueueLimitExceeded,
@@ -1042,17 +1042,17 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 	}
 
 	type cancelCall struct {
-		runnerID string
+		deviceID string
 		ticketID string
 	}
 	cancelCalls := []cancelCall{}
 	cancelRunTicket = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		req workflows.MobileDeviceSemaphoreRunCancelRequest,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
 		cancelCalls = append(cancelCalls, cancelCall{
-			runnerID: runnerID,
+			deviceID: deviceID,
 			ticketID: req.TicketID,
 		})
 		return workflows.MobileDeviceSemaphoreRunStatusView{
@@ -1092,8 +1092,8 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		t,
 		[]string{"usera-s-organization/runner-1/device-1", "usera-s-organization/runner-2/device-1"},
 		[]string{
-			cancelCalls[0].runnerID,
-			cancelCalls[1].runnerID,
+			cancelCalls[0].deviceID,
+			cancelCalls[1].deviceID,
 		},
 	)
 	for _, call := range cancelCalls {
@@ -1114,11 +1114,11 @@ func TestPipelineQueueStatus_MultiRunnerDoesNot404WhenAnyRunnerFound(t *testing.
 
 	queryRunTicketStatus = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		ownerNamespace string,
 		ticketID string,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
-		if runnerID == "runner-1/device-1" {
+		if deviceID == "runner-1/device-1" {
 			return workflows.MobileDeviceSemaphoreRunStatusView{
 				TicketID:          ticketID,
 				Status:            workflowengine.MobileDeviceSemaphoreRunFailed,
@@ -1170,11 +1170,11 @@ func TestPipelineQueueStatus_MultiRunnerIgnoresMissingRunnerWorkflow(t *testing.
 
 	queryRunTicketStatus = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		ownerNamespace string,
 		ticketID string,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
-		if runnerID == "runner-2/device-1" {
+		if deviceID == "runner-2/device-1" {
 			return workflows.MobileDeviceSemaphoreRunStatusView{}, errRunTicketNotFound
 		}
 		return workflows.MobileDeviceSemaphoreRunStatusView{
@@ -1224,7 +1224,7 @@ func TestPipelineQueueStatus_MultiRunnerAllMissingReturnsNotFound(t *testing.T) 
 
 	queryRunTicketStatus = func(
 		ctx context.Context,
-		runnerID string,
+		deviceID string,
 		ownerNamespace string,
 		ticketID string,
 	) (workflows.MobileDeviceSemaphoreRunStatusView, error) {

@@ -37,7 +37,7 @@ type UpdateGitHubPRCommentInput struct {
 	Position          *int   `json:"position,omitempty"`
 	PipelineID        string `json:"pipeline_id,omitempty"`
 	DeviceID          string `json:"device_id,omitempty"`
-	RunnerType        string `json:"runner_type,omitempty"`
+	DeviceType        string `json:"device_type,omitempty"`
 	PipelineURL       string `json:"pipeline_url,omitempty"`
 	AppURL            string `json:"app_url,omitempty"`
 	WorkflowID        string `json:"workflow_id,omitempty"`
@@ -210,7 +210,7 @@ func buildGitHubPRCommentBody(input UpdateGitHubPRCommentInput) string {
 			[2]string{"Pipeline ID", fmt.Sprintf("`%s`", markdownTableCell(input.PipelineID))},
 		)
 	}
-	if runner := formatPRCommentRunner(input.DeviceID, input.RunnerType); runner != "" {
+	if runner := formatPRCommentDevice(input.DeviceID, input.DeviceType); runner != "" {
 		tableRows = append(
 			tableRows,
 			[2]string{"Runner", fmt.Sprintf("`%s`", markdownTableCell(runner))},
@@ -311,7 +311,7 @@ func prCommentBadgeColor(status string) string {
 	}
 }
 
-func formatPRCommentRunner(runnerID string, runnerType string) string {
+func formatPRCommentDevice(runnerID string, runnerType string) string {
 	runnerID = strings.TrimSpace(runnerID)
 	runnerType = strings.TrimSpace(runnerType)
 	if runnerID == "" {

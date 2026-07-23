@@ -39,12 +39,12 @@ func TestListQueuedPipelineRunsAggregatesTickets(t *testing.T) {
 
 	queryMobileDeviceSemaphoreQueuedRuns = func(
 		_ context.Context,
-		runnerID string,
+		deviceID string,
 		ownerNamespace string,
 	) ([]workflows.MobileDeviceSemaphoreQueuedRunView, error) {
 		require.Equal(t, orgNamespace, ownerNamespace)
 
-		switch runnerID {
+		switch deviceID {
 		case "runner-1":
 			return []workflows.MobileDeviceSemaphoreQueuedRunView{
 				{
@@ -171,9 +171,9 @@ func TestListMobileDeviceSemaphoreWorkflowsTemporal(t *testing.T) {
 		return mockClient, nil
 	}
 
-	runnerIDs, err := listMobileDeviceSemaphoreWorkflowsTemporal(context.Background())
+	deviceIDs, err := listMobileDeviceSemaphoreWorkflowsTemporal(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, []string{"runner-1", "runner-2"}, runnerIDs)
+	require.Equal(t, []string{"runner-1", "runner-2"}, deviceIDs)
 }
 
 func TestQueryMobileDeviceSemaphoreQueuedRunsTemporal(t *testing.T) {

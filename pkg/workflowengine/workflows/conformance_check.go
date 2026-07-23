@@ -325,7 +325,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	var childID string
 	switch payload.Suite {
 	case OpenIDConformanceSuite:
-		rid := openIDConformanceRunnerID(setupResult.Captures)
+		rid := openIDConformanceDeviceID(setupResult.Captures)
 		if rid == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"rid",

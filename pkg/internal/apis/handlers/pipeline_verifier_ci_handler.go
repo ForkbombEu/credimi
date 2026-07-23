@@ -88,7 +88,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
 			return apiErr
 		}
-		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIDeviceID(
+		deviceID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIDeviceID(
 			e.Request.Context(),
 			e.App,
 			runContext.OrganizationRecord.Id,
@@ -108,7 +108,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 		manipulatedYAML, apiErr := injectPipelineCIGlobalDeviceID(
 			rewrittenYAML,
 			workflowDefinition,
-			runnerID,
+			deviceID,
 			hasStepRunner,
 			needsGlobalRunner,
 		)
@@ -120,8 +120,8 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			input.Metadata,
 			e.App.Settings().Meta.AppURL,
 			input.PipelineIdentifier,
-			runnerID,
-			resolveWalletAPKGitHubPRRunnerType(e.App, runnerID, input.DeviceType),
+			deviceID,
+			resolveWalletAPKGitHubPRDeviceType(e.App, deviceID, input.DeviceType),
 			activities.GitHubPRCommentSectionVerifier,
 		)
 
