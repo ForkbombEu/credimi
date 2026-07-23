@@ -12,7 +12,7 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { getExceptionMessage } from '@/utils/errors';
 
-import * as Runner from './runner';
+import * as Device from './device';
 import { parseYaml } from './utils';
 
 //
@@ -44,13 +44,13 @@ export type APIResponse =
 export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIResponse, string>> {
 	try {
 		const parsedYaml = parseYaml(pipeline.yaml);
-		const runnerType = Runner.Binding.getType(pipeline);
+		const deviceType = Device.Binding.getType(pipeline);
 
-		if (runnerType === 'global') {
-			const runner = Runner.Binding.get(pipeline.id);
-			if (!runner) throw new Error('No runner found');
-			if (parsedYaml.runtime) parsedYaml.runtime.global_device_id = runner;
-			else parsedYaml.runtime = { global_device_id: runner };
+		if (deviceType === 'global') {
+			const device = Device.Binding.get(pipeline.id);
+			if (!device) throw new Error('No device found');
+			if (parsedYaml.runtime) parsedYaml.runtime.global_device_id = device;
+			else parsedYaml.runtime = { global_device_id: device };
 		}
 
 		const res = await pb.send<APIResponse>('/api/pipeline/queue', {
@@ -62,7 +62,7 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 		});
 
 		const assignedDeviceIds = res.device_ids ?? [];
-		if (Runner.Binding.isRequired(pipeline)) {
+		if (Device.Binding.isRequired(pipeline)) {
 			if (assignedDeviceIds.length === 0 || !res.ticket_id) {
 				return err(m.Failed_to_enqueue_pipeline());
 			}
