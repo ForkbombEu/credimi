@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export type { Align, ChildLink, Item, Layout, PocketbaseEntity } from './types';
+export type { Align, AvatarData, ChildLink, Item, Layout, PocketbaseEntity } from './types';
 
 export {
 	fromPocketbaseEntities,
@@ -18,3 +18,4 @@ export type { WalletRow } from './from-wallets';
 export { default as LeadingAvatarList } from './leading-avatar-list.svelte';
 export { default as List } from './list.svelte';
 export { default as Na } from './na.svelte';
+export { default as StackedItems } from './stacked-items.svelte';
