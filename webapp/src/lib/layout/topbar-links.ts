@@ -33,6 +33,11 @@ export const extras: ExtraLink[] = [
 		description: m.extra_issuer_verifier_metadata_extractor_description()
 	},
 	{
+		href: 'https://trust-inspector.credimi.io/',
+		title: m.extra_trust_inspector(),
+		description: m.extra_trust_inspector_description()
+	},
+	{
 		href: 'https://atlas.credimi.io/',
 		title: m.extra_eudi_atlas(),
 		description: m.extra_eudi_atlas_description()

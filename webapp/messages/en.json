@@ -1016,9 +1016,11 @@
 	"pipeline_artifact_log_tooltip": "View logs",
 	"pipeline_artifact_report_tooltip": "View report",
 	"extra_wallet_metadata_extractor": "Wallet Metadata Extractor",
-	"extra_wallet_metadata_extractor_description": "Fake Issuer: extract Wallet Metadata (via GUI or REST)",
+	"extra_wallet_metadata_extractor_description": "Fake Issuer and Verifier: extract Wallet Metadata (via GUI or REST)",
 	"extra_issuer_verifier_metadata_extractor": "Issuer/Verifier Metadata Extractor",
 	"extra_issuer_verifier_metadata_extractor_description": "Extract Issuer Metadata (from credential offer) and Verifier's DC-QL (from presentation request)",
+	"extra_trust_inspector": "Trust Inspector",
+	"extra_trust_inspector_description": "Extract TLs/LoTL metadata and verify conformance with ETSI 119 602 and 119 612",
 	"extra_eudi_atlas": "EUDI Atlas",
 	"extra_eudi_atlas_description": "Comprehensive EUDI documents map (organized per role) with conformance test guide",
 	"Extras": "Extras"

@@ -1000,9 +1000,11 @@
 	"Wallet_version_current": "Actual",
 	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run.",
 	"extra_wallet_metadata_extractor": "Extractor de metadatos de Wallet",
-	"extra_wallet_metadata_extractor_description": "Fake Issuer: extraer metadatos de Wallet (vía GUI o REST)",
+	"extra_wallet_metadata_extractor_description": "Fake Issuer y Verifier: extraer metadatos de Wallet (vía GUI o REST)",
 	"extra_issuer_verifier_metadata_extractor": "Extractor de metadatos Issuer/Verifier",
 	"extra_issuer_verifier_metadata_extractor_description": "Extraer metadatos del Issuer (de la oferta de credencial) y DC-QL del Verifier (de la solicitud de presentación)",
+	"extra_trust_inspector": "Trust Inspector",
+	"extra_trust_inspector_description": "Extraer metadatos de TLs/LoTL y verificar la conformidad con ETSI 119 602 y 119 612",
 	"extra_eudi_atlas": "EUDI Atlas",
 	"extra_eudi_atlas_description": "Mapa completo de documentos EUDI (organizado por rol) con guía de pruebas de conformidad"
 }
