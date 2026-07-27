@@ -4,12 +4,12 @@ description: Reject every JSON type family that is invalid for the DCQL claim_se
 pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claim-sets-non-array
 required_steps: [exercise-non-array-claim-sets]
 outputs:
-  null_value: { path: $.output.evidence-null.outputs, decoder: raw }
-  true_value: { path: $.output.evidence-true.outputs, decoder: raw }
-  false_value: { path: $.output.evidence-false.outputs, decoder: raw }
-  zero_value: { path: $.output.evidence-zero.outputs, decoder: raw }
-  random_number: { path: $.output.evidence-number.outputs, decoder: raw }
-  string_value: { path: $.output.evidence-string.outputs, decoder: raw }
-  object_value: { path: $.output.evidence-object.outputs, decoder: raw }
-  visual_evidence: { path: $.output.exercise-non-array-claim-sets.outputs.screenshot_urls, decoder: raw }
+  null_value: { path: $1, decoder: raw }
+  true_value: { path: $1, decoder: raw }
+  false_value: { path: $1, decoder: raw }
+  zero_value: { path: $1, decoder: raw }
+  random_number: { path: $1, decoder: raw }
+  string_value: { path: $1, decoder: raw }
+  object_value: { path: $1, decoder: raw }
+  visual_evidence: { path: $.output.exercise-non-array-claim-sets.flow_output.maestro_screenshot_urls, decoder: raw }
 failure_policy: fail_dependent_preconditions_and_tests

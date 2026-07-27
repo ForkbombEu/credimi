@@ -72,6 +72,15 @@ preconditions:
         path: $.output.present-with-unchecked-address.outputs.screenshot_urls
         decoder: raw
 
+  - id: pipeline.dcql.claims-union
+    kind: pipeline
+    description: Prove that multiple DCQL queries produce the union of their requested claims.
+    pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claims-union
+    required_steps: [present-union, fetch-result]
+    outputs:
+      dcql_exchange: { path: $.output.fetch-result.outputs.body, decoder: raw }
+      visual_evidence: { path: $.output.present-union.outputs.screenshot_urls, decoder: raw }
+
   - id: pipeline.dcql.credential-sets-options-missing
     kind: pipeline
     description: Reject a DCQL credential_sets request without its required options property.

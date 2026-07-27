@@ -7,12 +7,12 @@ required_steps:
   - get-presentation-result
 outputs:
   presentation_request:
-    path: $.output.create-presentation.outputs.body
+    path: $.output.create-presentation.body
     decoder: raw
   wallet_response:
-    path: $.output.get-presentation-result.outputs.body
+    path: $.output.get-presentation-result.body
     decoder: raw
   visual_evidence:
-    path: $.output.submit-request-uri-method-get.outputs.screenshot_urls
+    path: $.output.submit-request-uri-method-get.flow_output.maestro_screenshot_urls
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

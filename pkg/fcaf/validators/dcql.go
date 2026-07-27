@@ -40,6 +40,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "credential_sets",
 		"claims_present",
 		"claims_subset",
+		"claims_union",
 		"claims_path_no_match",
 		"claims_values_no_match",
 		"claim_id_missing_with_claim_sets",
@@ -117,6 +118,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateClaimsPresent(query, responseValue)
 	case "claims_subset":
 		return validateClaimsSubset(query, responseValue, params.ForbiddenPaths)
+	case "claims_union":
+		return validateClaimsUnion(query, responseValue, params.ForbiddenPaths)
 	case "claims_path_no_match":
 		return validateClaimsPathNoMatch(query, responseValue)
 	case "claims_values_no_match":
@@ -1104,6 +1107,79 @@ func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPath
 		}
 	}
 	return Result{Status: StatusPass, Message: "wallet disclosed requested claims and omitted unchecked claims"}
+}
+
+func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) < 2 {
+		return Result{Status: StatusFail, Message: "claims_union requires at least two credential queries"}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{Status: StatusFail, Message: "wallet vp_token is not an object keyed by credential query ID"}
+	}
+	requested := make([][]any, 0)
+	presentations := make([]*evidence.SDJWTPresentation, 0)
+	for index, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", index)}
+		}
+		id, ok := credential["id"].(string)
+		if !ok || id == "" {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].id is not a non-empty string", index)}
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok || len(claims) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims is not a non-empty array", index)}
+		}
+		for claimIndex, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d] is not an object", index, claimIndex)}
+			}
+			path, ok := claim["path"].([]any)
+			if !ok || len(path) == 0 {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d].claims[%d].path is not a non-empty array", index, claimIndex)}
+			}
+			requested = append(requested, path)
+		}
+		values, ok := response[id].([]any)
+		if !ok || len(values) == 0 {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token has no presentation for credential query %q", id)}
+		}
+		for presentationIndex, raw := range values {
+			token, ok := raw.(string)
+			if !ok || token == "" {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] is not an SD-JWT presentation", id, presentationIndex)}
+			}
+			parsed, err := evidence.ParseSDJWTPresentation(token)
+			if err != nil {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] is not a valid SD-JWT presentation: %v", id, presentationIndex, err)}
+			}
+			presentations = append(presentations, parsed)
+		}
+	}
+	for pathIndex, path := range requested {
+		found := false
+		for _, presentation := range presentations {
+			if claimPathResolves(presentation.Claims, path) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("union response does not disclose requested claims[%d].path", pathIndex)}
+		}
+	}
+	for pathIndex, path := range forbiddenPaths {
+		for _, presentation := range presentations {
+			if claimPathResolves(presentation.Claims, path) {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("union response discloses forbidden_paths[%d]", pathIndex)}
+			}
+		}
+	}
+	return Result{Status: StatusPass, Message: "wallet returned the union of claims requested by multiple queries"}
 }
 
 func validateClaimsPathNoMatch(query map[string]any, responseValue any) Result {

@@ -1,0 +1,43 @@
+appId: eu.europa.ec.euidi
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "1"
+- tapOn: 1
+- tapOn: 2
+- tapOn: 3
+- tapOn: 4
+- tapOn: 5
+- tapOn: 6
+# - runFlow:
+#     when:
+#       visible: 'NEXT'
+#     commands:
+#         - tapOn: 'NEXT'
+- extendedWaitUntil:
+    visible: "NEXT"
+    timeout: 15000
+- tapOn:
+    text: "NEXT"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "1"
+- tapOn: 1
+- tapOn: 2
+- tapOn: 3
+- tapOn: 4
+- tapOn: 5
+- tapOn: 6
+# - runFlow:
+#     when:
+#       visible: 'CONFIRM'
+#     commands:
+#         - tapOn: 'CONFIRM'
+- extendedWaitUntil:
+    visible: "CONFIRM"
+    timeout: 10000
+
+- tapOn:
+    text: "CONFIRM"
+    retryTapIfNoChange: true

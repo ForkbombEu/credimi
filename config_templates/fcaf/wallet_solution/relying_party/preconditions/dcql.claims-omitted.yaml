@@ -11,6 +11,6 @@ outputs:
     path: $.output
     decoder: raw
   visual_evidence:
-    path: $.output.present-without-claims.outputs.screenshot_urls
+    path: $.output.present-without-claims.flow_output.maestro_screenshot_urls
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

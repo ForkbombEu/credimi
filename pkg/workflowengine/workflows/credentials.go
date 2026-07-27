@@ -392,7 +392,8 @@ func storeCredentialIssuerCredentials(
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					params.AppURL,
-					"api", "credentials_issuers", "store-or-update-extracted-credentials"),
+					"api", "credentials_issuers", "store-or-update-extracted-credentials",
+				),
 				Body: map[string]any{
 					"issuerID":   params.IssuerID,
 					"credKey":    credKey,
@@ -476,6 +477,7 @@ func NewGetCredentialOfferWorkflow() *GetCredentialOfferWorkflow {
 	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
 	return w
 }
+
 func (w *GetCredentialOfferWorkflow) Name() string {
 	return "Get a credential offer"
 }

@@ -1,0 +1,34 @@
+name: FCAF wallet relying-party DCQL trusted authorities unsupported type
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+  - id: evidence-unsupported-trusted-authorities-type
+    use: json-parse
+    with:
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":"unsupported","values":["https://example.com/authority"]}]}]},"error":"invalid_request"}'
+      struct_type: map
+  - id: reject-unsupported-trusted-authorities-type
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - stopApp
+        - launchApp: { clearState: false }
+        - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
+        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:'unsupported',values:['https://example.com/authority']}]}]})}
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-088-trusted-authorities-unsupported-type&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
+        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
+        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back", timeout: 30000 }
+        - takeScreenshot: fcaf-088-trusted-authorities-unsupported-type-rejected
+        - back
+outputs:
+  dcql_exchange: { path: $.output.evidence-unsupported-trusted-authorities-type.outputs, decoder: raw }
+  visual_evidence: { path: $.output.reject-unsupported-trusted-authorities-type.outputs.screenshot_urls, decoder: raw }
+failure_policy: fail_dependent_preconditions_and_tests

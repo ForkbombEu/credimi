@@ -7,9 +7,9 @@ required_steps:
   - reject-empty-claims
 outputs:
   dcql_exchange:
-    path: $.output.evidence-empty-claims-request.outputs
+    path: $1
     decoder: raw
   visual_evidence:
-    path: $.output.reject-empty-claims.outputs.screenshot_urls
+    path: $.output.reject-empty-claims.flow_output.maestro_screenshot_urls
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

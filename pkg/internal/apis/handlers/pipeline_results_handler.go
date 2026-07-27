@@ -695,6 +695,8 @@ func buildPipelineExecutionHierarchyFromResult(
 				rootSummary.Report = artifacts.Report
 			}
 		}
+		rootSummary.FCAFReport = pipelineresults.BuildPipelineExecutionArtifacts(app, resultRecord).FCAFReport
+		rootSummary.MaestroScreenshots = pipelineresults.BuildPipelineExecutionArtifacts(app, resultRecord).MaestroScreenshots
 	}
 
 	for _, childExecution := range childExecutions {
@@ -770,7 +772,9 @@ func attachPipelineArtifactsToSummary(
 	}
 	artifacts := pipelineresults.BuildPipelineExecutionArtifacts(app, record)
 	summary.Results = artifacts.Results
+	summary.MaestroScreenshots = artifacts.MaestroScreenshots
 	summary.Report = artifacts.Report
+	summary.FCAFReport = artifacts.FCAFReport
 }
 
 func flattenWorkflowExecutionSummaryMap(

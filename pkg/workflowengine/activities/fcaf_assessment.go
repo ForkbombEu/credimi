@@ -43,6 +43,37 @@ type FCAFAssessmentActivityOutput struct {
 	Report engine.Report `json:"report"`
 }
 
+// FCAFValidationActivityInput runs one FCAF test against outputs produced by
+// the same dynamic pipeline. Keeping this as an activity lets validation be a
+// terminal pipeline step instead of a separate assessment workflow.
+type FCAFValidationActivityInput struct {
+	TestID      string         `json:"test_id,omitempty" yaml:"test_id,omitempty"`
+	TestIDs     []string       `json:"test_ids,omitempty" yaml:"test_ids,omitempty"`
+	Suite       string         `json:"suite,omitempty" yaml:"suite,omitempty"`
+	CatalogRoot string         `json:"catalog_root,omitempty" yaml:"catalog_root,omitempty"`
+	Pipeline    map[string]any `json:"pipeline_outputs,omitempty" yaml:"pipeline_outputs,omitempty"`
+	Runtime     map[string]any `json:"runtime,omitempty" yaml:"runtime,omitempty"`
+}
+
+type FCAFValidationActivity struct {
+	FCAFAssessmentActivity
+}
+
+func NewFCAFValidationActivity() *FCAFValidationActivity {
+	return &FCAFValidationActivity{FCAFAssessmentActivity: *NewFCAFAssessmentActivity()}
+}
+
+func (a *FCAFValidationActivity) Name() string {
+	return "Run FCAF validation"
+}
+
+func (a *FCAFValidationActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return a.ExecuteValidation(ctx, input)
+}
+
 func NewFCAFAssessmentActivity() *FCAFAssessmentActivity {
 	return &FCAFAssessmentActivity{
 		BaseActivity:  workflowengine.BaseActivity{Name: FCAFAssessmentActivityName},
@@ -54,6 +85,48 @@ func NewFCAFAssessmentActivity() *FCAFAssessmentActivity {
 
 func (a *FCAFAssessmentActivity) Name() string {
 	return a.BaseActivity.Name
+}
+
+func (a *FCAFAssessmentActivity) ExecuteValidation(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	payload, err := workflowengine.DecodePayload[FCAFValidationActivityInput](input.Payload)
+	if err != nil {
+		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(err)
+	}
+	testIDs := normalizeValidationTestIDs(payload)
+	if len(testIDs) == 0 {
+		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(fmt.Errorf("test_id or test_ids is required"))
+	}
+	return a.Execute(ctx, workflowengine.ActivityInput{Payload: FCAFAssessmentActivityInput{
+		TestIDs:     testIDs,
+		Suite:       payload.Suite,
+		CatalogRoot: payload.CatalogRoot,
+		Runtime:     payload.Runtime,
+		Evidence:    evidence.Bundle{PipelineOutputs: payload.Pipeline},
+	}})
+}
+
+func normalizeValidationTestIDs(payload FCAFValidationActivityInput) []string {
+	ids := make([]string, 0, len(payload.TestIDs)+1)
+	seen := make(map[string]struct{}, cap(ids))
+	add := func(id string) {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return
+		}
+		if _, exists := seen[id]; exists {
+			return
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	for _, id := range payload.TestIDs {
+		add(id)
+	}
+	add(payload.TestID)
+	return ids
 }
 
 func (a *FCAFAssessmentActivity) Execute(

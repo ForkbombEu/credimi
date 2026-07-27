@@ -7,6 +7,6 @@ required_steps:
   - get-presentation-result
 outputs:
   wallet_response:
-    path: $.output.get-presentation-result.outputs.body
+    path: $.output.get-presentation-result.body
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

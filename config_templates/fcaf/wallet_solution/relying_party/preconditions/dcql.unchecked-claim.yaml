@@ -4,5 +4,5 @@ description: Request given_name and address, then prove the user-unchecked addre
 pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-unchecked-claim
 required_steps: [present-with-unchecked-address, fetch-result]
 outputs:
-  dcql_exchange: { path: $.output.fetch-result.outputs.body, decoder: raw }
-  visual_evidence: { path: $.output.present-with-unchecked-address.outputs.screenshot_urls, decoder: raw }
+  dcql_exchange: { path: $.output.fetch-result.body, decoder: raw }
+  visual_evidence: { path: $.output.present-with-unchecked-address.flow_output.maestro_screenshot_urls, decoder: raw }

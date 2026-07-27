@@ -223,9 +223,10 @@ func findOrCreatePipeline(
 	}
 
 	filter := fmt.Sprintf(
-		`owner="%s" && name="%s"`,
+		`owner="%s" && name="%s" && canonified_name="%s"`,
 		pocketBaseFilterString(orgID),
 		pocketBaseFilterString(input.Name),
+		pocketBaseFilterString(canonifiedPipelineName(input.Name)),
 	)
 
 	query := url.Values{}
@@ -264,6 +265,31 @@ func findOrCreatePipeline(
 	for _, item := range list.Items {
 		if item["yaml"] == input.YAML {
 			return item, nil
+		}
+		if item["name"] != input.Name {
+			continue
+		}
+		if id, ok := item["id"].(string); ok && id != "" {
+			payload := map[string]any{"yaml": input.YAML, "name": input.Name}
+			body, _ := json.Marshal(payload)
+			updateURL := utils.JoinURL(instanceURL, "api", "collections", "pipelines", "records", id)
+			updateReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, updateURL, bytes.NewReader(body))
+			if err != nil {
+				return nil, err
+			}
+			updateReq.Header.Set("Content-Type", "application/json")
+			updateReq.Header.Set("Authorization", "Bearer "+token)
+			updateResp, err := http.DefaultClient.Do(updateReq)
+			if err != nil {
+				return nil, err
+			}
+			defer updateResp.Body.Close()
+			if updateResp.StatusCode != http.StatusOK {
+				b, _ := io.ReadAll(updateResp.Body)
+				return nil, fmt.Errorf("update failed: %s", b)
+			}
+			var updated map[string]any
+			return updated, json.NewDecoder(updateResp.Body).Decode(&updated)
 		}
 	}
 
@@ -306,6 +332,23 @@ func findOrCreatePipeline(
 
 	var created map[string]any
 	return created, json.NewDecoder(createResp.Body).Decode(&created)
+}
+
+func canonifiedPipelineName(name string) string {
+	var b strings.Builder
+	separator := true
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			separator = false
+			continue
+		}
+		if !separator {
+			b.WriteByte('-')
+			separator = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
 }
 
 func pocketBaseFilterString(value string) string {

@@ -8,60 +8,60 @@ required_steps:
   - get-valid-false
 outputs:
   exchange_valid_true:
-    path: $.output.get-valid-true.outputs.body
+    path: $.output.get-valid-true.body
     decoder: raw
   exchange_valid_false:
-    path: $.output.get-valid-false.outputs.body
+    path: $.output.get-valid-false.body
     decoder: raw
   pid_sdjwt_presentations_valid_true:
-    path: $.output.get-valid-true.outputs.body.vp_token.pididentity01
+    path: $.output.get-valid-true.body.vp_token.pididentity01
     decoder: sdjwt.presentations
   pid_sdjwt_presentations_valid_false:
-    path: $.output.get-valid-false.outputs.body.vp_token.pididentity01
+    path: $.output.get-valid-false.body.vp_token.pididentity01
     decoder: sdjwt.presentations
   exchange_number_zero:
-    path: $.output.evidence-number-zero.outputs
+    path: $1
     decoder: raw
   exchange_number_one:
-    path: $.output.evidence-number-one.outputs
+    path: $1
     decoder: raw
   exchange_number_random:
-    path: $.output.evidence-number-random.outputs
+    path: $1
     decoder: raw
   exchange_string_true:
-    path: $.output.evidence-string-true.outputs
+    path: $1
     decoder: raw
   exchange_string_false:
-    path: $.output.evidence-string-false.outputs
+    path: $1
     decoder: raw
   exchange_string_uppercase_true:
-    path: $.output.evidence-string-uppercase-true.outputs
+    path: $1
     decoder: raw
   exchange_string_uppercase_false:
-    path: $.output.evidence-string-uppercase-false.outputs
+    path: $1
     decoder: raw
   exchange_string_yes:
-    path: $.output.evidence-string-yes.outputs
+    path: $1
     decoder: raw
   exchange_string_no:
-    path: $.output.evidence-string-no.outputs
+    path: $1
     decoder: raw
   exchange_string_y:
-    path: $.output.evidence-string-y.outputs
+    path: $1
     decoder: raw
   exchange_string_n:
-    path: $.output.evidence-string-n.outputs
+    path: $1
     decoder: raw
   exchange_string_zero:
-    path: $.output.evidence-string-zero.outputs
+    path: $1
     decoder: raw
   exchange_string_one:
-    path: $.output.evidence-string-one.outputs
+    path: $1
     decoder: raw
   exchange_string_random:
-    path: $.output.evidence-string-random.outputs
+    path: $1
     decoder: raw
   visual_evidence:
-    path: $.output.exercise-holder-binding-variants.outputs.screenshot_urls
+    path: $.output.exercise-holder-binding-variants.flow_output.maestro_screenshot_urls
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

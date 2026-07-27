@@ -1,0 +1,8 @@
+id: pipeline.dcql.claims-union
+kind: pipeline
+description: Request Name and Address through separate DCQL queries and prove their union is returned without Age.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claims-union
+required_steps: [present-union, fetch-result]
+outputs:
+  dcql_exchange: { path: $.output.fetch-result.body, decoder: raw }
+  visual_evidence: { path: $.output.present-union.flow_output.maestro_screenshot_urls, decoder: raw }

@@ -135,7 +135,64 @@ func PipelineReportCleanupHook(
 		appendCleanupWarning(finalOutput, fmt.Sprintf("pipeline report storage failed: %v", err))
 	}
 
+	if fcafReport, ok := findFCAFReport(*finalOutput); ok {
+		data, err := json.MarshalIndent(fcafReport, "", "  ")
+		if err != nil {
+			appendCleanupWarning(finalOutput, fmt.Sprintf("FCAF report encoding failed: %v", err))
+			return nil
+		}
+		fcafReq := workflowengine.ActivityInput{
+			Payload: activities.InternalHTTPActivityPayload{
+				Method: http.MethodPost,
+				URL: utils.JoinURL(
+					appURL,
+					"api",
+					"pipeline",
+					"pipeline-execution-results",
+					"fcaf-report",
+				),
+				ExpectedStatus: http.StatusOK,
+				Timeout:        "30",
+				Body: map[string]any{
+					"workflow_id": workflowID,
+					"run_id":      runID,
+					"json":        string(data),
+				},
+			},
+		}
+		if err := workflow.ExecuteActivity(updateCtx, internalHTTPActivity.Name(), fcafReq).
+			Get(updateCtx, &updateResult); err != nil {
+			if temporal.IsCanceledError(err) {
+				return err
+			}
+			appendCleanupWarning(finalOutput, fmt.Sprintf("FCAF report storage failed: %v", err))
+		}
+	}
+
 	return nil
+}
+
+func findFCAFReport(value any) (map[string]any, bool) {
+	switch value := value.(type) {
+	case map[string]any:
+		if _, hasTests := value["executed_tests"]; hasTests {
+			if _, hasSummary := value["summary"]; hasSummary {
+				return value, true
+			}
+		}
+		for _, child := range value {
+			if report, ok := findFCAFReport(child); ok {
+				return report, true
+			}
+		}
+	case []any:
+		for _, child := range value {
+			if report, ok := findFCAFReport(child); ok {
+				return report, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func pipelineEvidenceFromRunData(raw any) (activities.PipelineEvidenceExtractionOutput, bool) {

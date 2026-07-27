@@ -39,6 +39,44 @@ func TestBuildPipelineFailureSummary(t *testing.T) {
 	)
 }
 
+func TestBuildPipelineFailureSummaryIncludesPipelineInputContext(t *testing.T) {
+	summary := buildPipelineFailureSummary([]pipelineStepFailure{
+		{
+			StepID: "run-fcaf-validators",
+			Failure: workflowengine.WorkflowError{
+				Code:    errorcodes.PipelineInputError,
+				Summary: "Failed to resolve pipeline inputs",
+				Message: `error resolving payload key "pipeline_outputs": ref not found: present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls`,
+			},
+		},
+	})
+
+	require.Equal(
+		t,
+		`Pipeline failed: 1 step failed; run-fcaf-validators failed with CRE228 Failed to resolve pipeline inputs: error resolving payload key "pipeline_outputs": ref not found: present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls`,
+		summary,
+	)
+}
+
+func TestBuildPipelineFailureSummaryIncludesChildWorkflowContext(t *testing.T) {
+	summary := buildPipelineFailureSummary([]pipelineStepFailure{
+		{
+			StepID: "obtain-pid-sdjwt",
+			Failure: workflowengine.WorkflowError{
+				Code:    errorcodes.ChildWorkflowExecutionError,
+				Summary: "Failed to execute child workflow",
+				Message: "Maestro flow failed while opening the credential offer",
+			},
+		},
+	})
+
+	require.Equal(
+		t,
+		"Pipeline failed: 1 step failed; obtain-pid-sdjwt failed with CRE230 Failed to execute child workflow: Maestro flow failed while opening the credential offer",
+		summary,
+	)
+}
+
 func TestBuildPipelineFailureSummaryLimitsDisplayedCauses(t *testing.T) {
 	summary := buildPipelineFailureSummary([]pipelineStepFailure{
 		{StepID: "step-1", Failure: workflowengine.WorkflowError{Code: "CRE-1", Summary: "err-1"}},

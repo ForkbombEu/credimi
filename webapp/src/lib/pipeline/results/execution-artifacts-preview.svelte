@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { PipelineExecutionArtifacts } from '$lib/pipeline/execution-artifacts';
 	import type { Snippet } from 'svelte';
 
-	import { FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { BadgeCheckIcon, FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 	import MediaPreview from '$lib/components/media-preview.svelte';
 	import { mergeProps } from 'bits-ui';
 
@@ -19,8 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import PipelineReportSheet from './pipeline-report-sheet.svelte';
+	import FCAFReportSheet from './fcaf-report-sheet.svelte';
 
-	type PreviewIcon = 'image' | 'video' | 'file' | 'document';
+	type PreviewIcon = 'image' | 'video' | 'file' | 'document' | 'fcaf';
 
 	type ArtifactButtonArgs = {
 		tooltip: string;
@@ -48,7 +49,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		emptyState
 	}: Props = $props();
 
-	const hasContent = $derived(artifacts.results.length > 0 || Boolean(artifacts.report));
+	const hasContent = $derived(
+		artifacts.results.length > 0 ||
+		(artifacts.maestro_screenshots?.length ?? 0) > 0 ||
+		Boolean(artifacts.report) ||
+		Boolean(artifacts.fcafReport)
+	);
 
 	const containerClass = $derived(
 		variant === 'compact' ? 'flex flex-wrap items-center gap-1' : 'flex items-center gap-2'
@@ -96,6 +102,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				})}
 			{/snippet}
 		</PipelineReportSheet>
+		<FCAFReportSheet
+			reportUrl={artifacts.fcafReport}
+			maestroScreenshotUrls={artifacts.maestro_screenshots ?? []}
+		>
+			{#snippet sheetTrigger({ props })}
+				{@render artifactButton({
+					tooltip: 'FCAF assessment report',
+					previewIcon: 'fcaf',
+					compactIcon: BadgeCheckIcon,
+					extraProps: props
+				})}
+			{/snippet}
+		</FCAFReportSheet>
 	</div>
 {:else if emptyState}
 	{@render emptyState()}

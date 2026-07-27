@@ -96,6 +96,19 @@ func TestFCAFAssessmentActivityAllowsAllApplicableTests(t *testing.T) {
 	require.NotNil(t, result.Output)
 }
 
+func TestNormalizeValidationTestIDsSupportsBatchAndLegacyInputs(t *testing.T) {
+	ids := normalizeValidationTestIDs(FCAFValidationActivityInput{
+		TestID:  " test-legacy ",
+		TestIDs: []string{"test-one", "test-one", " ", "test-two"},
+	})
+
+	require.Equal(t, []string{"test-one", "test-two", "test-legacy"}, ids)
+}
+
+func TestNormalizeValidationTestIDsRejectsEmptyInputs(t *testing.T) {
+	require.Empty(t, normalizeValidationTestIDs(FCAFValidationActivityInput{}))
+}
+
 func testPIDSDJWTPresentation(t *testing.T) string {
 	t.Helper()
 

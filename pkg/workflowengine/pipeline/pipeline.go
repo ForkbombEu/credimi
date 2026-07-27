@@ -81,6 +81,9 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	wfDef := input.WorkflowDefinition
+	if err := pipeline.ApplyFixture(wfDef); err != nil {
+		return result, err
+	}
 	config := input.WorkflowInput.Config
 	if config == nil {
 		config = map[string]any{}
