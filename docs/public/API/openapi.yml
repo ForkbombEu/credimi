@@ -1241,6 +1241,12 @@ components:
         failure_reason:
           nullable: true
           type: string
+        fcaf_report:
+          type: string
+        maestro_screenshots:
+          items:
+            type: string
+          type: array
         queue:
           $ref: '#/components/schemas/HandlersWorkflowQueueSummary'
         report:
