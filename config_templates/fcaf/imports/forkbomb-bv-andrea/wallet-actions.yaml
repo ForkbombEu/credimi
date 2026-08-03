@@ -10,6 +10,10 @@ actions:
     category: get-credential-specific
     tags: fcaf, pid, formeu
     file: wallet/getcredential-pid-formeu-issuer-eudiw-dev.yaml
+  - name: getcredential-generic-credential-without-authentication
+    category: get-credential-generic
+    tags: fcaf, credential, generic
+    file: wallet/getcredential-generic-credential-without-authentication.yaml
   - name: verifycredential-pid-formeu-issuer-eudiw-dev
     category: verify-credential
     tags: fcaf, pid, formeu

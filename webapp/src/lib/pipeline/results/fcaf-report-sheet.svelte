@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import { activeSheet } from '$lib/utils/sheet-state.svelte';
 	import type { GenericRecord } from '@/utils/types';
 
 	type Props = {
@@ -73,6 +74,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			.trim();
 	}
 
+	function uniqueScreenshots(screenshots: Screenshot[]): Screenshot[] {
+		const seen = new Set<string>();
+		return screenshots.filter((screenshot) => {
+			const key = screenshot.label.toLowerCase();
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+	}
+
 	function screenshotsForTest(screenshots: Screenshot[], test: TestResult): Screenshot[] {
 		if (screenshots.length === 0) return [];
 		if (screenshots.length === 1) return screenshots;
@@ -123,13 +134,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	function icsFromTestId(testId: string | undefined): string {
-			if (!testId) return 'Other';
-			const match = testId.match(/^(.+)__\d+$/);
-			return match ? match[1] : testId;
-		}
+		if (!testId) return 'Other';
+		const match = testId.match(/^(.+)__\d+$/);
+		return match ? match[1] : testId;
+	}
 
-		let { reportUrl, maestroScreenshotUrls, sheetTrigger }: Props = $props();
+	let { reportUrl, maestroScreenshotUrls, sheetTrigger }: Props = $props();
 	let selectedFilter = $state<string>('all');
+	let sheetOpen = $state(false);
+
+	$effect(() => {
+		if (sheetOpen) {
+			activeSheet.open();
+		} else {
+			activeSheet.close();
+		}
+	});
 	const reportPromise = $derived(
 		reportUrl
 			? fetch(reportUrl).then(async (response) => {
@@ -148,7 +168,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if reportUrl}
-	<Sheet title="FCAF assessment" class="sm:max-w-3xl">
+	<Sheet title="FCAF assessment" class="sm:max-w-3xl" bind:open={sheetOpen}>
 		{#snippet trigger({ sheetTriggerAttributes: props, openSheet })}
 			{@render sheetTrigger({ props, openSheet })}
 		{/snippet}
@@ -157,9 +177,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="space-y-6 pb-6">
 					{#if report}
 						{@const evidenceScreenshots = evidenceScreenshotUrls(report)}
-						{@const allScreenshots: Screenshot[] = [...new Set([...maestroScreenshotUrls, ...evidenceScreenshots])].map(
-								(url) => ({ url, label: screenshotLabel(url) })
-							)}
+						{@const allScreenshots = uniqueScreenshots(
+							[...new Set([...maestroScreenshotUrls, ...evidenceScreenshots])].map((url) => ({
+								url,
+								label: screenshotLabel(url)
+							}))
+						)}
 						{@const unassignedScreenshots = screenshotsWithoutTest(
 							allScreenshots,
 							report.executed_tests ?? []

@@ -32,6 +32,17 @@ func TestEvidencePresentValidator(t *testing.T) {
 	require.Equal(t, StatusPass, got.Status)
 }
 
+func TestJSONFieldStringPrefixValidator(t *testing.T) {
+	v := JSONFieldStringPrefixValidator{}
+	input := Input{Value: map[string]any{"deeplink": "haip-vp://example"}, Params: map[string]any{"field": "deeplink", "prefix": "haip-vp://"}}
+	require.Equal(t, StatusPass, v.Validate(context.Background(), input).Status)
+
+	input.Value = map[string]any{"deeplink": "openid4vp://example"}
+	result := v.Validate(context.Background(), input)
+	require.Equal(t, StatusFail, result.Status)
+	require.Contains(t, result.Message, "does not start")
+}
+
 func TestSDJWTClaimUTF8StringValidator(t *testing.T) {
 	got := SDJWTClaimUTF8StringValidator{}.Validate(context.Background(), Input{
 		Value: &evidence.SDJWTPresentation{Claims: map[string]any{"email": "person@example.test"}},

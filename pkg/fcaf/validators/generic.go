@@ -113,6 +113,44 @@ func (JSONFieldPresenceValidator) ID() string {
 	return "json.field_presence"
 }
 
+type JSONFieldStringPrefixValidator struct{}
+
+func (JSONFieldStringPrefixValidator) ID() string {
+	return "json.field_string_prefix"
+}
+
+func (JSONFieldStringPrefixValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Field  string `json:"field"`
+		Prefix string `json:"prefix"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Field == "" {
+		return Result{Status: StatusError, Message: "field param is required"}
+	}
+	if params.Prefix == "" {
+		return Result{Status: StatusError, Message: "prefix param is required"}
+	}
+	obj, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{Status: StatusFail, Message: fmt.Sprintf("input is %T, expected object", input.Value)}
+	}
+	value, ok := obj[params.Field]
+	if !ok {
+		return Result{Status: StatusFail, Message: fmt.Sprintf("required field %q is missing", params.Field)}
+	}
+	actual, ok := value.(string)
+	if !ok {
+		return Result{Status: StatusFail, Message: fmt.Sprintf("field %q is %T, expected string", params.Field, value)}
+	}
+	if !strings.HasPrefix(actual, params.Prefix) {
+		return Result{Status: StatusFail, Message: fmt.Sprintf("field %q does not start with %q", params.Field, params.Prefix)}
+	}
+	return Result{Status: StatusPass, Message: fmt.Sprintf("field %q starts with %q", params.Field, params.Prefix)}
+}
+
 func (JSONFieldPresenceValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
 		Field   string `json:"field"`

@@ -100,6 +100,7 @@ steps:
         - WS_RP_IA_ProtocolFlow__001
         - WS_RP_MS_ProtocolMessages__005
         - WS_RP_MS_ProtocolMessages__023
+        - WS_RP_MS_ProtocolMessages__031
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.protocol.request-uri-method-post:

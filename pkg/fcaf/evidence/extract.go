@@ -175,6 +175,12 @@ func decode(raw any, decoder string) (any, error) {
 			return nil, err
 		}
 		return ParseSDJWTPresentation(token)
+	case "sdjwt.vp_token_presentations_json":
+		value, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("wrong decoder sdjwt.vp_token_presentations_json for %T", raw)
+		}
+		return parseVPTokenJSONPresentations(value)
 	case "mdoc.presentation":
 		return ParseMDocPresentation(raw)
 	case "mdoc.vp_token_json":
@@ -193,9 +199,33 @@ func decode(raw any, decoder string) (any, error) {
 }
 
 func extractPresentationTokenFromVPTokenJSON(raw string, preferredKey string) (string, error) {
+	presentations, err := extractPresentationTokensFromVPTokenJSON(raw, preferredKey)
+	if err != nil {
+		return "", err
+	}
+	return presentations[0], nil
+}
+
+func parseVPTokenJSONPresentations(raw string) ([]*SDJWTPresentation, error) {
+	tokens, err := extractPresentationTokensFromVPTokenJSON(raw, "query_0")
+	if err != nil {
+		return nil, err
+	}
+	presentations := make([]*SDJWTPresentation, len(tokens))
+	for index, token := range tokens {
+		presentation, parseErr := ParseSDJWTPresentation(token)
+		if parseErr != nil {
+			return nil, fmt.Errorf("decode sdjwt.vp_token_presentations_json[%d]: %w", index, parseErr)
+		}
+		presentations[index] = presentation
+	}
+	return presentations, nil
+}
+
+func extractPresentationTokensFromVPTokenJSON(raw string, preferredKey string) ([]string, error) {
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
-		return "", fmt.Errorf("decode vp_token json: %w", err)
+		return nil, fmt.Errorf("decode vp_token json: %w", err)
 	}
 
 	key := preferredKey
@@ -206,28 +236,32 @@ func extractPresentationTokenFromVPTokenJSON(raw string, preferredKey string) (s
 	}
 
 	if key == "" {
-		return "", fmt.Errorf(
+		return nil, fmt.Errorf(
 			"vp_token json must contain %q or exactly one credential entry",
 			preferredKey,
 		)
 	}
 	rawQuery, ok := parsed[key]
 	if !ok {
-		return "", fmt.Errorf("vp_token json missing %q", key)
+		return nil, fmt.Errorf("vp_token json missing %q", key)
 	}
 
 	query, ok := rawQuery.([]any)
 	if !ok {
-		return "", fmt.Errorf("vp_token %q must be an array", key)
+		return nil, fmt.Errorf("vp_token %q must be an array", key)
 	}
 	if len(query) == 0 {
-		return "", fmt.Errorf("vp_token %q is empty", key)
+		return nil, fmt.Errorf("vp_token %q is empty", key)
 	}
-	token, ok := query[0].(string)
-	if !ok {
-		return "", fmt.Errorf("vp_token %q[0] must be a string", key)
+	tokens := make([]string, len(query))
+	for index, rawToken := range query {
+		token, ok := rawToken.(string)
+		if !ok {
+			return nil, fmt.Errorf("vp_token %q[%d] must be a string", key, index)
+		}
+		tokens[index] = token
 	}
-	return token, nil
+	return tokens, nil
 }
 
 func onlyVPTokenCredentialKey(parsed map[string]any) string {

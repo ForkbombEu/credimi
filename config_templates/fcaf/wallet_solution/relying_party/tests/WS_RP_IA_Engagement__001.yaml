@@ -24,5 +24,11 @@ assertions:
     input: evidence.wallet_engagement
     params:
       field: deeplink
+  - id: haip_vp_scheme
+    validator: json.field_string_prefix
+    input: evidence.wallet_engagement
+    params:
+      field: deeplink
+      prefix: haip-vp://
 verdict:
   pass_when: all_assertions_pass

@@ -752,12 +752,17 @@ func collectFCAFImages(ctx context.Context, token, detailsURL, output, runName s
 	urls := make([]string, 0)
 	collectStrings(value, &urls)
 	result := make([]string, 0)
+	seenURLs := make(map[string]struct{}, len(urls))
 	imageNumber := 0
 	for _, imageURL := range urls {
 		lower := strings.ToLower(imageURL)
 		if !strings.Contains(lower, ".png") && !strings.Contains(lower, ".jpg") && !strings.Contains(lower, ".jpeg") {
 			continue
 		}
+		if _, seen := seenURLs[imageURL]; seen {
+			continue
+		}
+		seenURLs[imageURL] = struct{}{}
 		status, data, err := getAbsolute(ctx, token, imageURL)
 		if err != nil || status < 200 || status >= 300 {
 			continue

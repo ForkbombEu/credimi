@@ -12,17 +12,28 @@ tags:
       notifications: allow
       all: unset
 - extendedWaitUntil:
-    visible: "Welcome to your Wallet"
+    visible: "Welcome to your Wallet|Welcome back|Home|Documents|Add document"
     timeout: 30000
-- tapOn:
-    point: "11%,42%"
-- inputText: "123456"
-- extendedWaitUntil:
-    visible: "Confirm PIN"
-    timeout: 15000
-- tapOn:
-    point: "11%,42%"
-- inputText: "123456"
+- runFlow:
+    when:
+      visible: "Welcome to your Wallet"
+    commands:
+      - tapOn:
+          point: "11%,42%"
+      - inputText: "123456"
+      - extendedWaitUntil:
+          visible: "Confirm PIN"
+          timeout: 15000
+      - tapOn:
+          point: "11%,42%"
+      - inputText: "123456"
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
 - extendedWaitUntil:
     visible: "GO TO HOME|Home|Documents|Add document"
     timeout: 30000

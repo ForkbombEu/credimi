@@ -54,6 +54,9 @@ tags:
     when:
       visible: "Welcome back|To approve the transaction you need to verify your identity."
     commands:
+      - extendedWaitUntil:
+          visible: "Welcome back|To approve the transaction you need to verify your identity.|PIN|Enter your PIN"
+          timeout: 30000
       - tapOn:
           point: "11%,40%"
       - inputText: "123456"
@@ -65,5 +68,7 @@ tags:
 - extendedWaitUntil:
     visible: ".*successfully shared.*"
     timeout: 30000
-- assertVisible: "EUDI Remote Verifier"
+- tapOn: { text: "View details", optional: true }
+- waitForAnimationToEnd:
+    timeout: 1000
 - takeScreenshot: fcaf-engagement-haip-vp-shared

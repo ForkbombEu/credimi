@@ -300,6 +300,15 @@ func (e *Engine) evaluatePrecondition(
 		if !ok && strings.TrimSpace(pipelineID) != "" {
 			raw, ok = state.bundle.PipelineOutputs[pipelineID]
 		}
+		if !ok && len(state.bundle.PipelineOutputs) == 1 {
+			// Grouped validation pipelines may publish one execution under a
+			// human-readable alias while tests refer to its reusable precondition.
+			// A sole execution is unambiguous; retain strict keyed lookup when
+			// multiple pipeline executions are supplied.
+			for _, candidate := range state.bundle.PipelineOutputs {
+				raw, ok = candidate, true
+			}
+		}
 		if !ok {
 			node.Status = validators.StatusBlocked
 			node.Message = "pipeline output was not provided"
