@@ -80,6 +80,15 @@ var MobileDeviceRegistrationRoutes = routing.RouteGroup{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
 		},
+		{
+			Method:        http.MethodDelete,
+			Path:          "",
+			Handler:       HandleDeleteMobileDevice,
+			RequestSchema: DeleteMobileDeviceRequest{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminOrAuth(),
+			},
+		},
 	},
 }
 
@@ -103,6 +112,36 @@ type UpsertMobileDeviceRequest struct {
 	Description  string `json:"description,omitempty"`
 	Type         string `json:"type"                   validate:"required"`
 	Serial       string `json:"serial,omitempty"`
+}
+
+type DeleteMobileDeviceRequest struct {
+	Organization string `json:"organization,omitempty"`
+	RunnerID     string `json:"runner_id" validate:"required"`
+	DeviceID     string `json:"device_id" validate:"required"`
+}
+
+func HandleDeleteMobileDevice() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[DeleteMobileDeviceRequest](e)
+		if err != nil {
+			return apierror.New(http.StatusBadRequest, "mobile_device", "invalid_request", err.Error())
+		}
+		owner, apiErr := resolveMobileDeviceOwner(e.App, e.Auth, input.Organization, input.RunnerID)
+		if apiErr != nil {
+			return apiErr
+		}
+		record, apiErr := resolveExistingMobileDevice(e.App, owner, canonify.NormalizePath(input.DeviceID))
+		if apiErr != nil {
+			return apiErr
+		}
+		if record == nil {
+			return apierror.New(http.StatusNotFound, "device_id", "device_not_found", "device_id does not reference a mobile device")
+		}
+		if err := e.App.Delete(record); err != nil {
+			return apierror.New(http.StatusInternalServerError, "mobile_device", "failed_to_delete_mobile_device", err.Error())
+		}
+		return e.JSON(http.StatusOK, map[string]string{"device_id": canonify.NormalizePath(input.DeviceID)})
+	}
 }
 
 type UpsertMobileDeviceResponse struct {
