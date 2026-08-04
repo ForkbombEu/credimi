@@ -1023,5 +1023,7 @@
 	"extra_trust_inspector_description": "Extract TLs/LoTL metadata and verify conformance with ETSI 119 602 and 119 612",
 	"extra_eudi_atlas": "EUDI Atlas",
 	"extra_eudi_atlas_description": "Comprehensive EUDI documents map (organized per role) with conformance test guide",
+	"extra_tl_lote_onboarding_catalogue": "TL/LoTE Onboarding/Catalogue",
+	"extra_tl_lote_onboarding_catalogue_description": "Onboard EUDI components on TL/LoTE(s) for testing and debugging only; not for production use",
 	"Extras": "Extras"
 }

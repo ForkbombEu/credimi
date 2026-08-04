@@ -41,5 +41,10 @@ export const extras: ExtraLink[] = [
 		href: 'https://atlas.credimi.io/',
 		title: m.extra_eudi_atlas(),
 		description: m.extra_eudi_atlas_description()
+	},
+	{
+		href: 'https://lote.credimi.io/',
+		title: m.extra_tl_lote_onboarding_catalogue(),
+		description: m.extra_tl_lote_onboarding_catalogue_description()
 	}
 ];
