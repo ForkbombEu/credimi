@@ -601,6 +601,12 @@ func TestListMobileDevices(t *testing.T) {
 	device.Set("serial", "ABC123")
 	device.Set("online", true)
 	require.NoError(t, app.Save(device))
+	originalHealth := checkMobileRunnerHealth
+	checkMobileRunnerHealth = func(_ context.Context, runnerURL string) (bool, []MobileRunnerHealthDevice, error) {
+		require.Equal(t, "https://runner.example", runnerURL)
+		return true, nil, nil
+	}
+	t.Cleanup(func() { checkMobileRunnerHealth = originalHealth })
 
 	originalQuery := queryMobileDeviceSemaphoreState
 	queryMobileDeviceSemaphoreState = func(_ context.Context, deviceID string) (workflows.MobileDeviceSemaphoreStateView, error) {
@@ -632,6 +638,45 @@ func TestListMobileDevices(t *testing.T) {
 	require.True(t, item.IsOnline)
 	require.NotNil(t, item.QueueLength)
 	require.Equal(t, 2, *item.QueueLength)
+}
+
+func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	ownerID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, ownerID, "offline-host", "https://offline.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/offline-host")
+	require.NoError(t, err)
+	devices, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(devices)
+	device.Set("owner", ownerID)
+	device.Set("runner", runner.Id)
+	device.Set("name", "pixel")
+	device.Set("type", "android_phone")
+	device.Set("online", true)
+	require.NoError(t, app.Save(device))
+
+	originalHealth := checkMobileRunnerHealth
+	checkMobileRunnerHealth = func(context.Context, string) (bool, []MobileRunnerHealthDevice, error) {
+		return false, nil, nil
+	}
+	t.Cleanup(func() { checkMobileRunnerHealth = originalHealth })
+
+	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
+	rec := httptest.NewRecorder()
+	event := &core.RequestEvent{App: app, Auth: user, Event: router.Event{Request: req, Response: rec}}
+	require.NoError(t, HandleListMobileDevices()(event))
+
+	var response ListMobileDevicesPublicResponseSchema
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Len(t, response.Devices, 1)
+	require.False(t, response.Devices[0].IsOnline)
+	require.Nil(t, response.Devices[0].QueueLength)
 }
 
 func createMobileRunnerRecord(

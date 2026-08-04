@@ -290,6 +290,18 @@ func HandleListMobileDevices() func(*core.RequestEvent) error {
 
 		response := ListMobileDevicesPublicResponseSchema{Devices: make([]MobileDeviceListItem, 0)}
 		for _, runner := range runners {
+			runnerOnline, _, healthErr := checkMobileRunnerHealth(
+				e.Request.Context(),
+				mobileRunnerURL(runner),
+			)
+			if healthErr != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"mobile_runner",
+					"failed_to_check_runner_health",
+					healthErr.Error(),
+				)
+			}
 			devices, err := e.App.FindRecordsByFilter(
 				"mobile_devices",
 				"runner = {:runner}",
@@ -312,6 +324,7 @@ func HandleListMobileDevices() func(*core.RequestEvent) error {
 					e.App,
 					device,
 					runner,
+					runnerOnline,
 					callerOrgID,
 				)
 				if itemErr != nil {
@@ -363,6 +376,7 @@ func mobileDeviceListItem(
 	ctx context.Context,
 	app core.App,
 	device, runner *core.Record,
+	runnerOnline bool,
 	callerOrgID string,
 ) (MobileDeviceListItem, *apierror.APIError) {
 	deviceID, err := mobileDeviceIdentifier(app, device)
@@ -394,7 +408,7 @@ func mobileDeviceListItem(
 		Serial:      device.GetString("serial"),
 		IsPublished: runner.GetBool("published"),
 		IsOwned:     callerOrgID != "" && device.GetString("owner") == callerOrgID,
-		IsOnline:    device.GetBool("online"),
+		IsOnline:    runnerOnline && device.GetBool("online"),
 	}
 	if item.IsOnline {
 		queueLen, apiErr := mobileDeviceQueueLen(ctx, deviceID)
