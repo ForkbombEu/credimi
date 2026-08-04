@@ -71,7 +71,7 @@ func TestPipelineMobileFlowDevice(t *testing.T) {
 	require.Equal(t, "emulator-5554", device["serial"])
 }
 
-func TestPipelineMobileFlowDeviceRejectsMultipleRunners(t *testing.T) {
+func TestPipelineMobileFlowDeviceRejectsMultipleDevices(t *testing.T) {
 	client := temporalmocks.NewClient(t)
 	client.On(
 		"DescribeWorkflowExecution",
@@ -85,7 +85,7 @@ func TestPipelineMobileFlowDeviceRejectsMultipleRunners(t *testing.T) {
 
 	_, _, apiErr := pipelineMobileFlowDevice(context.Background(), client, "pipeline-1", "run-1")
 	require.NotNil(t, apiErr)
-	require.Contains(t, apiErr.Error(), "pipeline must have exactly one reserved runner")
+	require.Contains(t, apiErr.Error(), "pipeline must have exactly one reserved device")
 }
 
 func TestPipelineMobileFlowDeviceRequiresInitializedDevice(t *testing.T) {
