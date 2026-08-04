@@ -135,6 +135,7 @@ type startManagedDeviceInput struct {
 
 type installAppIfNeededInput struct {
 	mobileCtx  workflow.Context
+	deviceID   string
 	deviceMap  map[string]any
 	appPath    string
 	versionID  string
@@ -502,6 +503,7 @@ func processStep(
 	}
 	if err := ensureInitialInstalledAppsTracked(
 		mobileCtx,
+		payload.DeviceID,
 		deviceMap,
 		serial,
 		deviceType,
@@ -573,7 +575,7 @@ func processStep(
 func preparePhysicalAndroidDeviceIfNeeded(
 	ctx workflow.Context,
 	mobileCtx workflow.Context,
-	runnerID string,
+	deviceID string,
 	serial string,
 	deviceMap map[string]any,
 ) error {
@@ -588,7 +590,8 @@ func preparePhysicalAndroidDeviceIfNeeded(
 		setupActivity.Name(),
 		workflowengine.ActivityInput{
 			Payload: map[string]any{
-				"device_name": runnerID,
+				"device_id":   deviceID,
+				"device_name": deviceID,
 				"type":        deviceTypeAndroidPhone.String(),
 				"serial":      serial,
 			},
@@ -600,12 +603,12 @@ func preparePhysicalAndroidDeviceIfNeeded(
 
 	output, ok := setupResult.Output.(map[string]any)
 	if !ok {
-		return unexpectedPhysicalDeviceSetupOutput(runnerID, setupResult.Output)
+		return unexpectedPhysicalDeviceSetupOutput(deviceID, setupResult.Output)
 	}
 	originalStayAwake, ok := output["original_stay_awake"].(string)
 	if !ok || strings.TrimSpace(originalStayAwake) == "" ||
 		!workflowengine.AsBool(output["screen_prepared"]) {
-		return unexpectedPhysicalDeviceSetupOutput(runnerID, setupResult.Output)
+		return unexpectedPhysicalDeviceSetupOutput(deviceID, setupResult.Output)
 	}
 
 	deviceMap["screen_prepared"] = true
@@ -775,6 +778,7 @@ func setupNewDevice(
 
 	initialInstalledApps, err := listInstalledAppsOnRunner(
 		mobileCtx,
+		input.payload.DeviceID,
 		serial,
 		deviceType.String(),
 	)
@@ -914,6 +918,7 @@ func startManagedDevice(
 	startResult := workflowengine.ActivityResult{}
 	startInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
+			"device_id":   input.payload.DeviceID,
 			"device_name": input.payload.DeviceID,
 			"type":        input.deviceType.String(),
 		},
@@ -982,6 +987,7 @@ func startManagedDevice(
 
 func listInstalledAppsOnRunner(
 	mobileCtx workflow.Context,
+	deviceID string,
 	serial string,
 	deviceType string,
 ) ([]string, error) {
@@ -991,8 +997,9 @@ func listInstalledAppsOnRunner(
 		activities.NewListInstalledAppsActivity().Name(),
 		workflowengine.ActivityInput{
 			Payload: map[string]any{
-				"serial": serial,
-				"type":   deviceType,
+				"device_id": deviceID,
+				"serial":    serial,
+				"type":      deviceType,
 			},
 		},
 	).Get(mobileCtx, &result); err != nil {
@@ -1004,6 +1011,7 @@ func listInstalledAppsOnRunner(
 
 func ensureInitialInstalledAppsTracked(
 	mobileCtx workflow.Context,
+	deviceID string,
 	deviceMap map[string]any,
 	serial string,
 	deviceType mobileDeviceType,
@@ -1014,6 +1022,7 @@ func ensureInitialInstalledAppsTracked(
 
 	initialInstalledApps, err := listInstalledAppsOnRunner(
 		mobileCtx,
+		deviceID,
 		serial,
 		deviceType.String(),
 	)
@@ -1032,6 +1041,7 @@ func fetchAndInstallAPK(
 		"version_identifier": input.payload.VersionID,
 		"action_identifier":  input.payload.ActionID,
 		"platform":           installerPlatformForDeviceType(input.deviceType),
+		"device_identifier":  input.payload.DeviceID,
 	}
 	if input.skipInstaller {
 		body[mobileSkipInstallerRequestKey] = true
@@ -1085,6 +1095,7 @@ func fetchAndInstallAPK(
 
 	if err := installAppIfNeeded(installAppIfNeededInput{
 		mobileCtx:  input.mobileCtx,
+		deviceID:   input.payload.DeviceID,
 		deviceMap:  input.deviceMap,
 		appPath:    apkPath,
 		versionID:  versionIdentifier,
@@ -1222,6 +1233,7 @@ func installAppIfNeeded(
 
 	if _, ok := installed[input.versionID]; !ok {
 		installPayload := map[string]any{
+			"device_id":                        input.deviceID,
 			input.activities.InstallAssetField: input.appPath,
 			"serial":                           input.serial,
 			"type":                             input.deviceType.String(),
@@ -1328,7 +1340,8 @@ func disablePlayStoreForDevices(
 			activities.NewDisableAndroidPlayStoreActivity().Name(),
 			workflowengine.ActivityInput{
 				Payload: map[string]any{
-					"serial": serial,
+					"device_id": deviceID,
+					"serial":    serial,
 				},
 			},
 		).Get(mobileCtx, nil); err != nil {
@@ -1368,6 +1381,7 @@ func startRecordingForDevice(
 
 	startRecordInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
+			"device_id":   input.deviceID,
 			"serial":      serial,
 			"workflow_id": workflow.GetInfo(mobileCtx).WorkflowExecution.ID,
 		},
@@ -1691,6 +1705,7 @@ func cleanupDevice(
 	})
 
 	cleanupPayload := map[string]any{
+		"device_id":              input.deviceID,
 		"serial":                 serial,
 		"type":                   deviceType,
 		"name":                   name,
@@ -1941,6 +1956,7 @@ func cleanupRecording(
 
 	lastFramePath, err := stopRecording(
 		input.mobileCtx,
+		input.deviceID,
 		recordingInfo,
 		logger,
 	)
@@ -2071,6 +2087,7 @@ func extractRecordingInfo(
 
 func stopRecording(
 	ctx workflow.Context,
+	deviceID string,
 	info *recordingInfo,
 	logger log.Logger,
 ) (string, error) {
@@ -2078,6 +2095,7 @@ func stopRecording(
 	stopCtx := heartbeatAwareCleanupContext(ctx)
 
 	stopPayload := map[string]any{
+		"device_id":             deviceID,
 		"video_path":            info.videoPath,
 		"recording_process_pid": info.recordingPid,
 		"ffmpeg_process_pid":    info.ffmpegPid,
@@ -2089,6 +2107,7 @@ func stopRecording(
 	}
 	if info.deviceType.IsIOS() {
 		stopPayload = map[string]any{
+			"device_id":             deviceID,
 			"recording_process_pid": info.recordingPid,
 			"video_path":            info.videoPath,
 			"log_process_pid":       info.logPid,

@@ -154,6 +154,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	mobileInput := workflowengine.ActivityInput{
 		Config: workflowengine.ActivityTelemetryConfig(runnerCtx, input.Config),
 		Payload: mobile.RunMobileFlowPayload{
+			DeviceID:   payload.DeviceID,
 			Serial:     payload.Serial,
 			Type:       payload.Type,
 			Yaml:       payload.ActionCode,
@@ -252,7 +253,11 @@ func runExternalInstallPostChecks(
 	}
 
 	activityName := activities.NewApkPostInstallChecksActivity().Name()
-	payloadMap := map[string]any{"serial": payload.Serial, "package_id": addedApps[0]}
+	payloadMap := map[string]any{
+		"device_id":  payload.DeviceID,
+		"serial":     payload.Serial,
+		"package_id": addedApps[0],
+	}
 	if isIOSWorkflowDeviceType(payload.Type) {
 		activityName = activities.NewIOSPostInstallChecksActivity().Name()
 		payloadMap["type"] = payload.Type

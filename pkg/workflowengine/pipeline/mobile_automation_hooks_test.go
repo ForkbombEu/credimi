@@ -375,6 +375,7 @@ func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
 
 					input := installAppIfNeededInput{
 						mobileCtx:  ctx,
+						deviceID:   "runner-1/device-1",
 						deviceMap:  deviceMap,
 						appPath:    "/tmp/app.bin",
 						versionID:  "ver-1",
@@ -404,6 +405,7 @@ func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
 						return false
 					}
 					return payload[tc.assetFieldName] == "/tmp/app.bin" &&
+						payload["device_id"] == "runner-1/device-1" &&
 						payload["serial"] == "serial-1"
 				}),
 			).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -2660,6 +2662,7 @@ func TestInstallAppIfNeededRequiresPackageID(t *testing.T) {
 			)
 			return installAppIfNeeded(installAppIfNeededInput{
 				mobileCtx:  ctx,
+				deviceID:   "runner-1/device-1",
 				deviceMap:  map[string]any{},
 				appPath:    "/tmp/app.apk",
 				versionID:  "ver-1",
@@ -2710,6 +2713,7 @@ func TestInstallAppIfNeededMarksCleanupBeforePostInstallError(t *testing.T) {
 
 			err := installAppIfNeeded(installAppIfNeededInput{
 				mobileCtx:  ctx,
+				deviceID:   "runner-1/device-1",
 				deviceMap:  deviceMap,
 				appPath:    "/tmp/app.apk",
 				versionID:  "ver-1",
@@ -3008,7 +3012,7 @@ func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
 		ffmpegPid:    2,
 		logPid:       3,
 	}
-	_, err := stopRecording(ctx, info, workflow.GetLogger(ctx))
+	_, err := stopRecording(ctx, "runner-1/device-1", info, workflow.GetLogger(ctx))
 	return err
 }
 
@@ -3028,7 +3032,7 @@ func testStopRecordingSuccessWorkflow(
 		ffmpegPid:    2,
 		logPid:       3,
 	}
-	return stopRecording(ctx, info, workflow.GetLogger(ctx))
+	return stopRecording(ctx, "runner-1/device-1", info, workflow.GetLogger(ctx))
 }
 
 func testStopRecordingUsesCleanupFallbackWorkflow(
