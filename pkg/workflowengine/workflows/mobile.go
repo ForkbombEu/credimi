@@ -136,7 +136,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	externalInstall := workflowengine.AsBool(input.Config[externalInstallDetectionConfigKey])
 	var beforeApps []string
 	if externalInstall {
-		beforeApps, err = executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
+		beforeApps, err = executeListInstalledApps(runnerCtx, payload.DeviceID, payload.Serial, payload.Type)
 		if err != nil {
 			if temporal.IsCanceledError(err) {
 				return workflowengine.WorkflowResult{}, err
@@ -223,6 +223,7 @@ func runExternalInstallPostChecks(
 ) (any, error) {
 	addedApps, afterApps, attempts, err := waitForAddedInstalledApps(
 		ctx,
+		payload.DeviceID,
 		payload.Serial,
 		payload.Type,
 		beforeApps,
@@ -356,6 +357,7 @@ func mobileActivityOptions(
 
 func executeListInstalledApps(
 	ctx workflow.Context,
+	deviceID string,
 	serial string,
 	deviceType string,
 ) ([]string, error) {
@@ -366,8 +368,9 @@ func executeListInstalledApps(
 		listActivity.Name(),
 		workflowengine.ActivityInput{
 			Payload: mobile.ListInstalledAppsPayload{
-				Serial: serial,
-				Type:   deviceType,
+				DeviceID: deviceID,
+				Serial:   serial,
+				Type:     deviceType,
 			},
 		},
 	).Get(ctx, &result); err != nil {
@@ -379,6 +382,7 @@ func executeListInstalledApps(
 
 func waitForAddedInstalledApps(
 	ctx workflow.Context,
+	deviceID string,
 	serial string,
 	deviceType string,
 	beforeApps []string,
@@ -391,7 +395,7 @@ func waitForAddedInstalledApps(
 	)
 
 	for {
-		afterApps, err := executeListInstalledApps(ctx, serial, deviceType)
+		afterApps, err := executeListInstalledApps(ctx, deviceID, serial, deviceType)
 		if err != nil {
 			return nil, nil, attempts, err
 		}

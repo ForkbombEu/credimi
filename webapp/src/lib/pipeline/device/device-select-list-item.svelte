@@ -47,6 +47,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	hideArrow
 >
 	{#snippet afterContent()}
+		{#if item.runnerName}
+			<div class="text-xs text-muted-foreground">Hosted by {item.runnerName}</div>
+		{/if}
 		{#if item.description}
 			<div class="text-xs text-balance text-muted-foreground">{item.description}</div>
 		{/if}
