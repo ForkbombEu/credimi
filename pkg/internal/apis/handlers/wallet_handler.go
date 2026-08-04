@@ -629,18 +629,15 @@ func publishedDeviceCanStoreForPublishedOrganization(
 			err.Error(),
 		)
 	}
-	if device.Collection() == nil || device.Collection().Name != "mobile_devices" {
+	if device.Collection() == nil || device.Collection().Name != mobileDevicesCollection {
 		return false, nil
 	}
 	runner, err := app.FindRecordById("mobile_runners", device.GetString("runner"))
-	if err != nil {
-		return false, nil
-	}
-	if runner.GetString("owner") != deviceOwnerID {
-		return false, nil
+	if err == nil && runner.GetString("owner") == deviceOwnerID {
+		return runner.GetBool("published"), nil
 	}
 
-	return runner.GetBool("published"), nil
+	return false, nil
 }
 
 func authorizeWalletInstallerAccess(

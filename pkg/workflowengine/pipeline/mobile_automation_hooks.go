@@ -480,7 +480,10 @@ func processStep(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: fmt.Sprintf("missing or invalid host runner_id for step %s", input.step.ID),
+				Message: fmt.Sprintf(
+					"missing or invalid host runner_id for step %s",
+					input.step.ID,
+				),
 				Details: map[string]any{"payload": deviceMap},
 			},
 		)

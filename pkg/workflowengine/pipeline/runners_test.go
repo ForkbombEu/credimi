@@ -66,7 +66,15 @@ steps:
 		got, err := ParsePipelineDeviceInfo(yamlStr)
 		require.NoError(t, err)
 		require.True(t, got.NeedsGlobalDevice)
-		require.Equal(t, []string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b", "tenant-a/runner-c/device-c"}, got.DeviceIDs)
+		require.Equal(
+			t,
+			[]string{
+				"tenant-a/runner-a/device-a",
+				"tenant-a/runner-b/device-b",
+				"tenant-a/runner-c/device-c",
+			},
+			got.DeviceIDs,
+		)
 	})
 
 	t.Run("normalizes leading slash device ids", func(t *testing.T) {

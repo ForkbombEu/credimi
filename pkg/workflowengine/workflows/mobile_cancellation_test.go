@@ -177,7 +177,12 @@ func TestMobileAutomationWorkflowSkipsScreenshotAPIWithoutPaths(t *testing.T) {
 
 	env.ExecuteWorkflow(w.Name(), mobileScreenshotWorkflowInput())
 	require.NoError(t, env.GetWorkflowError())
-	env.AssertNotCalled(t, activities.NewInternalHTTPActivity().Name(), mock.Anything, mock.Anything)
+	env.AssertNotCalled(
+		t,
+		activities.NewInternalHTTPActivity().Name(),
+		mock.Anything,
+		mock.Anything,
+	)
 }
 
 func mobileScreenshotWorkflowInput() workflowengine.WorkflowInput {

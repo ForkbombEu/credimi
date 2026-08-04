@@ -303,11 +303,11 @@ func TestHandlePauseDeviceCancelsRunningTicket(t *testing.T) {
 			require.Equal(t, "wf-1", payload.WorkflowID)
 			require.Equal(t, pipelineinternal.PipelineCancellationPolicySignal, payload.SignalName)
 			policy := workflowengine.AsMap(payload.Payload)
-			require.True(t, workflowengine.AsBool(policy["skip_runner_cleanup"]))
+			require.True(t, workflowengine.AsBool(policy["skip_device_cleanup"]))
 			require.Equal(
 				t,
 				[]string{"runner-1"},
-				workflowengine.AsSliceOfStrings(policy["skip_runner_cleanup_ids"]),
+				workflowengine.AsSliceOfStrings(policy["skip_device_cleanup_ids"]),
 			)
 			return workflowengine.ActivityResult{
 				Output: activities.SignalWorkflowActivityOutput{Signaled: true, Status: "SIGNALED"},

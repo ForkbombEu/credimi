@@ -51,8 +51,23 @@ func ensureMobileDevicesCollection(t testing.TB, app *tests.TestApp) {
 	collection, err := app.FindCollectionByNameOrId("mobile_devices")
 	if err != nil {
 		collection = core.NewBaseCollection("mobile_devices")
-		collection.Fields.Add(&core.RelationField{Name: "owner", CollectionId: "aako88kt3br4npt", MaxSelect: 1, Required: true})
-		collection.Fields.Add(&core.RelationField{Name: "runner", CollectionId: "pbc_500646217", MaxSelect: 1, Required: true, CascadeDelete: true})
+		collection.Fields.Add(
+			&core.RelationField{
+				Name:         "owner",
+				CollectionId: "aako88kt3br4npt",
+				MaxSelect:    1,
+				Required:     true,
+			},
+		)
+		collection.Fields.Add(
+			&core.RelationField{
+				Name:          "runner",
+				CollectionId:  "pbc_500646217",
+				MaxSelect:     1,
+				Required:      true,
+				CascadeDelete: true,
+			},
+		)
 		collection.Fields.Add(&core.TextField{Name: "name", Required: true})
 		collection.Fields.Add(&core.TextField{Name: "canonified_name", Required: true})
 		collection.Fields.Add(&core.BoolField{Name: "online"})
@@ -596,7 +611,11 @@ func TestListMobileDevices(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
 	rec := httptest.NewRecorder()
-	event := &core.RequestEvent{App: app, Auth: user, Event: router.Event{Request: req, Response: rec}}
+	event := &core.RequestEvent{
+		App:   app,
+		Auth:  user,
+		Event: router.Event{Request: req, Response: rec},
+	}
 	require.NoError(t, HandleListMobileDevices()(event))
 	require.Equal(t, http.StatusOK, rec.Code)
 
@@ -843,7 +862,10 @@ func TestPreviewMobileDeviceID(t *testing.T) {
 			app,
 			superuser,
 			"/api/mobile-device/preview-id",
-			PreviewMobileDeviceIDRequest{RunnerID: "userb-s-organization/runner-b", Name: "Derived Owner Device"},
+			PreviewMobileDeviceIDRequest{
+				RunnerID: "userb-s-organization/runner-b",
+				Name:     "Derived Owner Device",
+			},
 		)
 		require.NoError(t, HandlePreviewMobileDeviceID()(derivedOwnerEvent))
 		require.Equal(t, http.StatusOK, responseRecorder(t, derivedOwnerEvent).Code)

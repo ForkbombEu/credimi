@@ -22,7 +22,12 @@ import (
 	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
-func createMobileDeviceForLifecycleTest(t *testing.T, app core.App, runner *core.Record, name string) string {
+func createMobileDeviceForLifecycleTest(
+	t *testing.T,
+	app core.App,
+	runner *core.Record,
+	name string,
+) string {
 	t.Helper()
 	collection, err := app.FindCollectionByNameOrId("mobile_devices")
 	require.NoError(t, err)
@@ -178,7 +183,8 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 	}
 
 	mockClient := temporalmocks.NewClient(t)
-	mockClient.On("ExecuteWorkflow", mock.Anything, mock.Anything, workflows.MobileDeviceSemaphoreWorkflowName, mock.Anything).Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
+	mockClient.On("ExecuteWorkflow", mock.Anything, mock.Anything, workflows.MobileDeviceSemaphoreWorkflowName, mock.Anything).
+		Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
 	handle := temporalmocks.NewWorkflowUpdateHandle(t)
 	mockClient.
 		On(
@@ -207,7 +213,10 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/heartbeat",
-		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/heartbeat-resume-runner", Devices: []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}}},
+		MobileRunnerLifecycleRequest{
+			RunnerID: "/usera-s-organization/heartbeat-resume-runner",
+			Devices:  []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}},
+		},
 	)
 
 	err = HandleMobileRunnerLifecycleHeartbeat()(event)

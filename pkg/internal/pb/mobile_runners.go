@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -45,17 +44,4 @@ func RegisterMobileRunnerHooks(app core.App) {
 
 		return e.Next()
 	})
-}
-
-func mobileRunnerRecordIdentifier(app core.App, record *core.Record) (string, error) {
-	runnerID, err := canonify.BuildPath(
-		app,
-		record,
-		canonify.CanonifyPaths["mobile_runners"],
-		"",
-	)
-	if err != nil {
-		return "", err
-	}
-	return canonify.NormalizePath(runnerID), nil
 }

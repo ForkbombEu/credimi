@@ -1112,6 +1112,7 @@ func TestCleanupDeviceRunsForPreparedPhysicalDevice(t *testing.T) {
 			deviceMap := map[string]any{
 				"type":                "android_phone",
 				"serial":              "serial-1",
+				"runner_id":           "tenant/runner-1",
 				"runner_url":          "https://runner.example",
 				"recording":           false,
 				"installed":           map[string]string{},
@@ -2088,6 +2089,7 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 			deviceMap := map[string]any{
 				"type":                  "android_phone",
 				"serial":                "serial-1",
+				"runner_id":             "tenant/runner-1",
 				"runner_url":            "https://runner.example",
 				"recording":             true,
 				"video_path":            "/tmp/video.mp4",
@@ -2851,6 +2853,7 @@ func TestCleanupDeviceReturnsCleanupActivityError(t *testing.T) {
 				raw: map[string]any{
 					"type":       "android_phone",
 					"serial":     "serial-1",
+					"runner_id":  "runner-1",
 					"runner_url": "https://runner",
 					"recording":  false,
 					"installed":  map[string]string{"ver-1": "pkg-1"},

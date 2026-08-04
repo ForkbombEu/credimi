@@ -116,7 +116,15 @@ func TestCollectMobileDeviceIDs(t *testing.T) {
 
 	runnerIDs, err := collectMobileDeviceIDs(steps, "tenant/runner-global/device-global")
 	require.NoError(t, err)
-	require.Equal(t, []string{"tenant/runner-a/device-a", "tenant/runner-b/device-b", "tenant/runner-global/device-global"}, runnerIDs)
+	require.Equal(
+		t,
+		[]string{
+			"tenant/runner-a/device-a",
+			"tenant/runner-b/device-b",
+			"tenant/runner-global/device-global",
+		},
+		runnerIDs,
+	)
 }
 
 func TestCollectMobileDeviceIDsNormalizesLeadingSlash(t *testing.T) {
@@ -134,7 +142,11 @@ func TestCollectMobileDeviceIDsNormalizesLeadingSlash(t *testing.T) {
 
 	runnerIDs, err := collectMobileDeviceIDs(steps, "/tenant-a/runner-a/device-a")
 	require.NoError(t, err)
-	require.Equal(t, []string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b"}, runnerIDs)
+	require.Equal(
+		t,
+		[]string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b"},
+		runnerIDs,
+	)
 }
 
 func TestParseAPKResponse(t *testing.T) {

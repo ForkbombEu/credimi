@@ -104,7 +104,11 @@ steps:
 	require.Equal(t, "pipeline-123", capturedPayload.PipelineIdentifier)
 	require.Equal(t, pipelineYAML, capturedPayload.YAML)
 	require.Equal(t, 3, capturedPayload.MaxPipelinesInQueue)
-	require.ElementsMatch(t, []string{"runner-a/device-a", "runner-b/device-b"}, capturedPayload.DeviceIDs)
+	require.ElementsMatch(
+		t,
+		[]string{"runner-a/device-a", "runner-b/device-b"},
+		capturedPayload.DeviceIDs,
+	)
 
 	config := capturedPayload.PipelineConfig
 	require.Equal(t, "org-1", config["namespace"])

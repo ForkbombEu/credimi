@@ -61,8 +61,15 @@ func HandleStorePipelineStepScreenshots() func(*core.RequestEvent) error {
 			return apiErr
 		}
 		device, err := canonify.Resolve(e.App, deviceIdentifier)
-		if err != nil || device.Collection() == nil || device.Collection().Name != "mobile_devices" || !slices.Contains(resultRecord.GetStringSlice("devices"), device.Id) {
-			return apierror.New(http.StatusForbidden, "device_identifier", "device_not_reserved", "device is not reserved for this pipeline run")
+		if err != nil || device.Collection() == nil ||
+			device.Collection().Name != mobileDevicesCollection ||
+			!slices.Contains(resultRecord.GetStringSlice("devices"), device.Id) {
+			return apierror.New(
+				http.StatusForbidden,
+				"device_identifier",
+				"device_not_reserved",
+				"device is not reserved for this pipeline run",
+			)
 		}
 
 		filenames, urls, apiErr := storePipelineStepScreenshotFiles(

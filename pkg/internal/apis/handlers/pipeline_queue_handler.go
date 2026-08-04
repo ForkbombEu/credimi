@@ -693,7 +693,7 @@ func validatePipelineRunnerAccess(
 				err.Error(),
 			)
 		}
-		if record.Collection() == nil || record.Collection().Name != "mobile_devices" {
+		if record.Collection() == nil || record.Collection().Name != mobileDevicesCollection {
 			return apierror.New(
 				http.StatusNotFound,
 				"device_id",
@@ -703,7 +703,12 @@ func validatePipelineRunnerAccess(
 		}
 		runner, runnerErr := app.FindRecordById("mobile_runners", record.GetString("runner"))
 		if runnerErr != nil {
-			return apierror.New(http.StatusNotFound, "device_id", "device runner not found", runnerErr.Error())
+			return apierror.New(
+				http.StatusNotFound,
+				"device_id",
+				"device runner not found",
+				runnerErr.Error(),
+			)
 		}
 		if record.GetString("owner") == ownerID || runner.GetBool("published") {
 			continue

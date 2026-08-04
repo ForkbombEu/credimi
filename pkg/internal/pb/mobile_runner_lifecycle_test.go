@@ -53,7 +53,7 @@ func createLifecycleMonitorDevice(
 	app *tests.TestApp,
 	runner *core.Record,
 	name string,
-) *core.Record {
+) {
 	t.Helper()
 	ensureMobileDevicesCollection(t, app)
 	collection, err := app.FindCollectionByNameOrId("mobile_devices")
@@ -64,7 +64,6 @@ func createLifecycleMonitorDevice(
 	record.Set("name", name)
 	record.Set("canonified_name", name)
 	require.NoError(t, app.Save(record))
-	return record
 }
 
 func ensureLifecycleMonitorFields(t testing.TB, app *tests.TestApp) {
@@ -119,7 +118,10 @@ func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
 				req, ok := options.Args[0].(workflows.MobileDeviceSemaphorePauseDeviceRequest)
 				return ok &&
-					strings.HasPrefix(options.WorkflowID, "mobile-device-semaphore/usera-s-organization/stale-runner/stale-device-") &&
+					strings.HasPrefix(
+						options.WorkflowID,
+						"mobile-device-semaphore/usera-s-organization/stale-runner/stale-device-",
+					) &&
 					options.UpdateName == workflows.MobileDeviceSemaphorePauseDeviceUpdate &&
 					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
 					req.Reason == "heartbeat timeout" &&
@@ -161,7 +163,14 @@ func TestMarkStaleRunnersOfflineUsesHeartbeatTimeoutEnv(t *testing.T) {
 
 	lastHeartbeat := time.Date(2026, 6, 23, 10, 0, 0, 0, time.UTC)
 	now := lastHeartbeat.Add(5*time.Minute + time.Second)
-	staleRunner := createLifecycleMonitorRunner(t, app, orgID, "env-stale-runner", true, lastHeartbeat)
+	staleRunner := createLifecycleMonitorRunner(
+		t,
+		app,
+		orgID,
+		"env-stale-runner",
+		true,
+		lastHeartbeat,
+	)
 	createLifecycleMonitorDevice(t, app, staleRunner, "env-stale-device")
 
 	origNow := mobileRunnerLifecycleMonitorNow

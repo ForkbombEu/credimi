@@ -563,7 +563,12 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 			for _, deviceID := range deviceIDs {
 				device, resolveErr := canonify.Resolve(e.App, deviceID)
 				if resolveErr != nil {
-					return apierror.New(http.StatusNotFound, "device_id", "device not found", resolveErr.Error())
+					return apierror.New(
+						http.StatusNotFound,
+						"device_id",
+						"device not found",
+						resolveErr.Error(),
+					)
 				}
 				deviceRecordIDs = append(deviceRecordIDs, device.Id)
 			}

@@ -33,7 +33,14 @@ func TestGitHubAPIURL(t *testing.T) {
 		t,
 		"https://api.github.com/repos/ForkbombEu/eudi-app-android-wallet-ui/issues/1/comments?per_page=100",
 		withQueryParam(
-			client.githubAPIURL("repos", "ForkbombEu", "eudi-app-android-wallet-ui", "issues", "1", "comments"),
+			client.githubAPIURL(
+				"repos",
+				"ForkbombEu",
+				"eudi-app-android-wallet-ui",
+				"issues",
+				"1",
+				"comments",
+			),
 			"per_page",
 			"100",
 		),
@@ -226,7 +233,11 @@ func TestCreateOrUpdatePRCommentPatchesExplicitCommentID(t *testing.T) {
 func TestPRCommentHelpers(t *testing.T) {
 	require.Equal(t, DefaultMarker, Marker())
 	require.Equal(t, "body\n\n"+DefaultMarker, ensureMarker(" body ", DefaultMarker))
-	require.Equal(t, "already "+DefaultMarker, ensureMarker("already "+DefaultMarker, DefaultMarker))
+	require.Equal(
+		t,
+		"already "+DefaultMarker,
+		ensureMarker("already "+DefaultMarker, DefaultMarker),
+	)
 
 	require.Equal(t, 3, IntFromAny(3))
 	require.Equal(t, 4, IntFromAny(int64(4)))

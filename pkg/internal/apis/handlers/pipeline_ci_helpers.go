@@ -941,7 +941,8 @@ func selectPipelineCIDeviceByType(
 	selectedBacklog := 0
 	for _, device := range devices {
 		runner, runnerErr := app.FindRecordById("mobile_runners", device.GetString("runner"))
-		if runnerErr != nil || (runner.GetString("owner") != ownerID && !runner.GetBool("published")) {
+		if runnerErr != nil ||
+			(runner.GetString("owner") != ownerID && !runner.GetBool("published")) {
 			continue
 		}
 		online, apiErr := pipelineCIRunnerOnline(ctx, runner)
@@ -953,13 +954,19 @@ func selectPipelineCIDeviceByType(
 		}
 		deviceID, deviceErr := mobileDeviceIdentifier(app, device)
 		if deviceErr != nil {
-			return "", apierror.New(http.StatusInternalServerError, "device_id", "failed_to_build_device_id", deviceErr.Error())
+			return "", apierror.New(
+				http.StatusInternalServerError,
+				"device_id",
+				"failed_to_build_device_id",
+				deviceErr.Error(),
+			)
 		}
 		backlog, apiErr := pipelineCIDeviceBacklog(ctx, deviceID)
 		if apiErr != nil {
 			return "", apiErr
 		}
-		if selectedDeviceID == "" || backlog < selectedBacklog || (backlog == selectedBacklog && deviceID < selectedDeviceID) {
+		if selectedDeviceID == "" || backlog < selectedBacklog ||
+			(backlog == selectedBacklog && deviceID < selectedDeviceID) {
 			selectedDeviceID = deviceID
 			selectedBacklog = backlog
 		}
@@ -973,84 +980,6 @@ func selectPipelineCIDeviceByType(
 		)
 	}
 	return selectedDeviceID, nil
-}
-
-func partitionPipelineCIRunnerCandidates(
-	records []*core.Record,
-	ownerID string,
-) ([]*core.Record, []*core.Record) {
-	ownedPrivateRecords := make([]*core.Record, 0, len(records))
-	publishedRecords := make([]*core.Record, 0, len(records))
-	for _, record := range records {
-		if strings.TrimSpace(ownerID) != "" &&
-			record.GetString("owner") == ownerID &&
-			!record.GetBool("published") {
-			ownedPrivateRecords = append(ownedPrivateRecords, record)
-			continue
-		}
-		if record.GetBool("published") {
-			publishedRecords = append(publishedRecords, record)
-		}
-	}
-
-	return ownedPrivateRecords, publishedRecords
-}
-
-func selectOnlinePipelineCIRunner(
-	ctx context.Context,
-	app core.App,
-	records []*core.Record,
-) (string, *apierror.APIError) {
-	selectedDeviceID := ""
-	selectedBacklog := 0
-	for _, record := range records {
-		online, apiErr := pipelineCIRunnerOnline(ctx, record)
-		if apiErr != nil {
-			return "", apiErr
-		}
-		if !online {
-			continue
-		}
-
-		deviceID, apiErr := pipelineCIDeviceID(record, app)
-		if apiErr != nil {
-			return "", apiErr
-		}
-		backlog, apiErr := pipelineCIDeviceBacklog(ctx, deviceID)
-		if apiErr != nil {
-			return "", apiErr
-		}
-		if selectedDeviceID == "" ||
-			backlog < selectedBacklog ||
-			(backlog == selectedBacklog && deviceID < selectedDeviceID) {
-			selectedDeviceID = deviceID
-			selectedBacklog = backlog
-		}
-	}
-
-	return selectedDeviceID, nil
-}
-
-func pipelineCIDeviceID(record *core.Record, app core.App) (string, *apierror.APIError) {
-	deviceID, err := mobileDeviceIdentifier(app, record)
-	if err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"device_id",
-			"failed to build device_id",
-			err.Error(),
-		)
-	}
-	if deviceID == "" {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"device_id",
-			"failed to build device_id",
-			"empty device_id",
-		)
-	}
-
-	return deviceID, nil
 }
 
 func pipelineCIRunnerOnline(ctx context.Context, record *core.Record) (bool, *apierror.APIError) {

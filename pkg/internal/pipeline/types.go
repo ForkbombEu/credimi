@@ -76,7 +76,7 @@ type StepInputs struct {
 type RuntimeConfig struct {
 	Schedule struct {
 		Interval *time.Duration `yaml:"interval,omitempty" json:"interval,omitempty"`
-	} `yaml:"schedule,omitempty"                   json:"schedule,omitempty"`
+	} `yaml:"schedule,omitempty" json:"schedule,omitempty"`
 	// GlobalDeviceID is retained as an internal Go field while callers are migrated;
 	// the serialized pipeline contract is exclusively global_device_id.
 	GlobalDeviceID          string `yaml:"global_device_id,omitempty"           json:"global_device_id,omitempty"`

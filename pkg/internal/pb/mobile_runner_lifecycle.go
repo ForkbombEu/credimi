@@ -96,7 +96,14 @@ func markStaleRunnersOfflineAndPauseSemaphores(ctx context.Context, app core.App
 			continue
 		}
 
-		devices, err := app.FindRecordsByFilter("mobile_devices", "runner = {:runner}", "", -1, 0, dbx.Params{"runner": record.Id})
+		devices, err := app.FindRecordsByFilter(
+			"mobile_devices",
+			"runner = {:runner}",
+			"",
+			-1,
+			0,
+			dbx.Params{"runner": record.Id},
+		)
 		if err != nil {
 			return fmt.Errorf("list stale runner devices: %w", err)
 		}
@@ -106,7 +113,8 @@ func markStaleRunnersOfflineAndPauseSemaphores(ctx context.Context, app core.App
 				return fmt.Errorf("build stale device identifier: %w", err)
 			}
 			if err := pauseStaleDeviceSemaphore(ctx, deviceID, cutoff); err != nil {
-				app.Logger().Error("pause stale device semaphore failed", "device_id", deviceID, "error", err)
+				app.Logger().
+					Error("pause stale device semaphore failed", "device_id", deviceID, "error", err)
 			}
 		}
 	}

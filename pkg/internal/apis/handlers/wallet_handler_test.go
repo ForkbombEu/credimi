@@ -619,7 +619,10 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	var crossOrgRunnerBody bytes.Buffer
 	crossOrgRunnerWriter := multipart.NewWriter(&crossOrgRunnerBody)
 	_ = crossOrgRunnerWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = crossOrgRunnerWriter.WriteField("device_identifier", "userb-s-organization/public-runner")
+	_ = crossOrgRunnerWriter.WriteField(
+		"device_identifier",
+		"userb-s-organization/public-runner/public-device",
+	)
 	_ = crossOrgRunnerWriter.WriteField("platform", "android")
 
 	crossOrgVideoWriter, err := crossOrgRunnerWriter.CreatePart(partHeader)
@@ -736,7 +739,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"status":"success"`,
-				`"runner":"userb-s-organization/public-runner"`,
+				`"device":"userb-s-organization/public-runner/public-device"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
@@ -753,6 +756,17 @@ func TestWalletStorePipelineResult(t *testing.T) {
 					"http://127.0.0.1:1",
 					true,
 				)
+				runner, err := canonify.Resolve(app, "userb-s-organization/public-runner")
+				require.NoError(t, err)
+				ensureMobileDevicesCollection(t, app)
+				deviceCollection, err := app.FindCollectionByNameOrId("mobile_devices")
+				require.NoError(t, err)
+				device := core.NewRecord(deviceCollection)
+				device.Set("owner", runnerOrgID)
+				device.Set("runner", runner.Id)
+				device.Set("name", "public-device")
+				device.Set("canonified_name", "public-device")
+				require.NoError(t, app.Save(device))
 				return app
 			},
 		},

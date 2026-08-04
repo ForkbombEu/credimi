@@ -785,7 +785,10 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 	require.Len(t, cancelCalls, 2)
 	require.ElementsMatch(
 		t,
-		[]string{"usera-s-organization/runner-1/device-1", "usera-s-organization/runner-2/device-1"},
+		[]string{
+			"usera-s-organization/runner-1/device-1",
+			"usera-s-organization/runner-2/device-1",
+		},
 		[]string{
 			cancelCalls[0].deviceID,
 			cancelCalls[1].deviceID,
@@ -1090,7 +1093,10 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 	require.Len(t, cancelCalls, 2)
 	require.ElementsMatch(
 		t,
-		[]string{"usera-s-organization/runner-1/device-1", "usera-s-organization/runner-2/device-1"},
+		[]string{
+			"usera-s-organization/runner-1/device-1",
+			"usera-s-organization/runner-2/device-1",
+		},
 		[]string{
 			cancelCalls[0].deviceID,
 			cancelCalls[1].deviceID,

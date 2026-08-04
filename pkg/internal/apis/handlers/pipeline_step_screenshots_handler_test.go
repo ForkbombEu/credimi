@@ -89,7 +89,10 @@ func reserveStepScreenshotDevice(t testing.TB, app *tests.TestApp, orgID string)
 	device.Set("canonified_name", "test-device")
 	device.Set("type", "android_emulator")
 	require.NoError(t, app.Save(device))
-	result, err := app.FindFirstRecordByFilter("pipeline_results", "workflow_id = 'workflow123' && run_id = 'run123'")
+	result, err := app.FindFirstRecordByFilter(
+		"pipeline_results",
+		"workflow_id = 'workflow123' && run_id = 'run123'",
+	)
 	require.NoError(t, err)
 	result.Set("devices", []string{device.Id})
 	require.NoError(t, app.Save(result))
@@ -106,7 +109,9 @@ func ensureStepScreenshotField(t testing.TB, app *tests.TestApp) {
 		collection.Fields.Add(&core.FileField{Name: "maestro_screenshots", MaxSelect: 99})
 	}
 	if collection.Fields.GetByName("devices") == nil {
-		collection.Fields.Add(&core.RelationField{Name: "devices", CollectionId: devices.Id, MaxSelect: 999})
+		collection.Fields.Add(
+			&core.RelationField{Name: "devices", CollectionId: devices.Id, MaxSelect: 999},
+		)
 	}
 	require.NoError(t, app.Save(collection))
 }

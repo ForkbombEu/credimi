@@ -955,7 +955,9 @@ func ensureScoreboardDeviceRelation(t testing.TB, app *tests.TestApp) {
 	if cache.Fields.GetByName("mobile_devices") == nil {
 		devices, err := app.FindCollectionByNameOrId("mobile_devices")
 		require.NoError(t, err)
-		cache.Fields.Add(&core.RelationField{Name: "mobile_devices", CollectionId: devices.Id, MaxSelect: 999})
+		cache.Fields.Add(
+			&core.RelationField{Name: "mobile_devices", CollectionId: devices.Id, MaxSelect: 999},
+		)
 		require.NoError(t, app.Save(cache))
 	}
 }
