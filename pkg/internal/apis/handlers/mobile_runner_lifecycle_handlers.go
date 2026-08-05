@@ -113,15 +113,48 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		now := mobileRunnerLifecycleNow()
-		setRunnerHeartbeat(record, true, now)
-		if err := e.App.Save(record); err != nil {
+		deviceStates, err := applyRunnerHeartbeatDevices(
+			e.App,
+			record,
+			input.Devices,
+			mobileRunnerLifecycleNow(),
+		)
+		if err != nil {
 			return apierror.New(
-				http.StatusInternalServerError,
+				http.StatusBadRequest,
 				"mobile_runner",
-				"failed_to_save_mobile_runner",
+				"failed_to_apply_device_resume",
 				err.Error(),
 			)
+		}
+		for deviceID, online := range deviceStates {
+			if !online {
+				continue
+			}
+			if err := ensureRunQueueSemaphoreWorkflowTemporal(e.Request.Context(), deviceID); err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"mobile_device",
+					"failed_to_ensure_device_semaphore",
+					err.Error(),
+				)
+			}
+			_, err := updateRunnerSemaphore(
+				e.Request.Context(),
+				deviceID,
+				workflows.MobileDeviceSemaphoreResumeDeviceUpdate,
+				workflows.MobileDeviceSemaphoreResumeDeviceRequest{Reason: lifecycleReason(input.Reason, "runner_startup")},
+				nil,
+				lifecycleUpdateID("resume", deviceID),
+			)
+			if err != nil && !errors.Is(err, errSemaphoreNotFound) {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"mobile_device",
+					"failed_to_resume_device_semaphore",
+					err.Error(),
+				)
+			}
 		}
 
 		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, true))

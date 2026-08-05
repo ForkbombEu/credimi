@@ -51,21 +51,51 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 	require.NoError(t, err)
 	createMobileRunnerRecord(t, app, orgID, "resume-runner", "https://runner.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/resume-runner")
+	require.NoError(t, err)
+	deviceID := createMobileDeviceForLifecycleTest(t, app, runner, "device-a")
 
 	origNow := mobileRunnerLifecycleNow
+	origLifecycleClient := mobileRunnerLifecycleTemporalClient
+	origQueueClient := queueTemporalClient
 	t.Cleanup(func() {
 		mobileRunnerLifecycleNow = origNow
+		mobileRunnerLifecycleTemporalClient = origLifecycleClient
+		queueTemporalClient = origQueueClient
 	})
 
 	fixedNow := time.Date(2026, 6, 23, 12, 30, 0, 0, time.UTC)
 	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
+	mockClient := temporalmocks.NewClient(t)
+	mockClient.On("ExecuteWorkflow", mock.Anything, mock.Anything, workflows.MobileDeviceSemaphoreWorkflowName, mock.Anything).
+		Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
+	handle := temporalmocks.NewWorkflowUpdateHandle(t)
+	mockClient.
+		On(
+			"UpdateWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
+				req, ok := options.Args[0].(workflows.MobileDeviceSemaphoreResumeDeviceRequest)
+				return ok &&
+					options.WorkflowID == workflows.MobileDeviceSemaphoreWorkflowID(deviceID) &&
+					options.UpdateName == workflows.MobileDeviceSemaphoreResumeDeviceUpdate &&
+					req.Reason == "runner_startup"
+			}),
+		).
+		Return(handle, nil).
+		Once()
+	mobileRunnerLifecycleTemporalClient = func(_ string) (client.Client, error) { return mockClient, nil }
+	queueTemporalClient = func(_ string) (client.Client, error) { return mockClient, nil }
 
 	event := performMobileRunnerRequest(
 		t,
 		app,
 		user,
 		"/api/mobile-runner/lifecycle/resume",
-		MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/resume-runner"},
+		MobileRunnerLifecycleRequest{
+			RunnerID: "/usera-s-organization/resume-runner",
+			Devices:  []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}},
+		},
 	)
 
 	err = HandleMobileRunnerLifecycleResume()(event)
