@@ -795,6 +795,55 @@ func TestListMobileRunnerURLs(t *testing.T) {
 }
 
 func TestPreviewMobileDeviceID(t *testing.T) {
+	t.Run("user preview derives a first-run child ID before the runner is saved", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+
+		event := performMobileRunnerRequest(
+			t,
+			app,
+			user,
+			"/api/mobile-device/preview-id",
+			PreviewMobileDeviceIDRequest{
+				RunnerID: "usera-s-organization/new-runner",
+				Name:     " Pixel-7a ",
+			},
+		)
+
+		require.NoError(t, HandlePreviewMobileDeviceID()(event))
+		recorder := responseRecorder(t, event)
+		require.Equal(t, http.StatusOK, recorder.Code)
+
+		body := decodeJSONBody(t, recorder)
+		require.Equal(t, "usera-s-organization/new-runner", body["runner_id"])
+		require.Equal(t, "pixel-7a", body["canonified_name"])
+		require.Equal(t, "usera-s-organization/new-runner/pixel-7a", body["device_id"])
+	})
+
+	t.Run("user preview rejects a pending runner outside the user's organization", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+
+		event := performMobileRunnerRequest(
+			t,
+			app,
+			user,
+			"/api/mobile-device/preview-id",
+			PreviewMobileDeviceIDRequest{RunnerID: "userb-s-organization/new-runner", Name: "Device"},
+		)
+
+		err = HandlePreviewMobileDeviceID()(event)
+		recorder := responseRecorder(t, event)
+		requireHandlerErrorHandled(t, recorder, err)
+		require.Equal(t, http.StatusForbidden, recorder.Code)
+	})
+
 	t.Run("user preview uses user organization and increments canonified name", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)
 		defer app.Cleanup()

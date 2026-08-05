@@ -178,20 +178,46 @@ func HandlePreviewMobileDeviceID() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr
 		}
+		var preview PreviewMobileDeviceIDResponse
 		if runner == nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"runner_id",
-				"runner_not_found",
-				"runner_id does not reference a mobile runner",
-			)
+			preview, apiErr = previewPendingMobileDeviceIdentifier(owner, input.RunnerID, input.Name)
+		} else {
+			preview, apiErr = previewMobileDeviceIdentifier(e.App, runner, input.Name)
 		}
-		preview, apiErr := previewMobileDeviceIdentifier(e.App, runner, input.Name)
 		if apiErr != nil {
 			return apiErr
 		}
 		return e.JSON(http.StatusOK, preview)
 	}
+}
+
+// previewPendingMobileDeviceIdentifier derives the child path during first-run
+// setup. At this stage the runner has not been persisted yet, so there cannot
+// be any sibling devices to disambiguate. Device creation still performs the
+// authoritative uniqueness and ownership checks after the runner is saved.
+func previewPendingMobileDeviceIdentifier(
+	owner *core.Record,
+	runnerID string,
+	name string,
+) (PreviewMobileDeviceIDResponse, *apierror.APIError) {
+	normalizedRunnerID := canonify.NormalizePath(runnerID)
+	organizationID := canonify.NormalizePath(owner.GetString("canonified_name"))
+	prefix := organizationID + "/"
+	if organizationID == "" || !strings.HasPrefix(normalizedRunnerID, prefix) || strings.TrimPrefix(normalizedRunnerID, prefix) == "" || strings.Contains(strings.TrimPrefix(normalizedRunnerID, prefix), "/") {
+		return PreviewMobileDeviceIDResponse{}, apierror.New(
+			http.StatusForbidden,
+			"runner_id",
+			"runner_id_owner_mismatch",
+			"runner_id does not belong to the resolved organization",
+		)
+	}
+
+	canonifiedName := canonify.CanonifyPlain(strings.TrimSpace(name))
+	return PreviewMobileDeviceIDResponse{
+		RunnerID:       normalizedRunnerID,
+		DeviceID:       normalizedRunnerID + "/" + canonifiedName,
+		CanonifiedName: canonifiedName,
+	}, nil
 }
 
 func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
