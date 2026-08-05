@@ -16,7 +16,7 @@ const SAMPLE: RunnerRecord[] = [
 		path: 'org/r1',
 		isOwned: true,
 		isPublished: true,
-		isOnline: true
+		healthStatus: 'online'
 	}
 ];
 

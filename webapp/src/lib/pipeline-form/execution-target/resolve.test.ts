@@ -66,7 +66,7 @@ describe('resolveExecutionTarget', () => {
 				path: 'org/runner',
 				isOwned: true,
 				isPublished: true,
-				isOnline: true
+				healthStatus: 'online'
 			},
 			action
 		};

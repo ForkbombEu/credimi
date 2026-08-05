@@ -8,7 +8,7 @@ export type RunnerRecord = {
 	description?: string;
 	isOwned: boolean;
 	isPublished: boolean;
-	isOnline: boolean;
+	healthStatus: 'online' | 'offline' | 'misconfigured';
 	url?: string;
 	type?: string;
 	queueLength?: number;
