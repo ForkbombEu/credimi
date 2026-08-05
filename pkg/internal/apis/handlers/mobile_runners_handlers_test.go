@@ -245,7 +245,7 @@ func TestListMobileRunners(t *testing.T) {
 		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].Path)
 		require.Equal(t, "owned-online", response.Runners[0].Name)
 		require.True(t, response.Runners[0].IsOwned)
-		require.True(t, response.Runners[0].IsOnline)
+		require.Equal(t, "online", response.Runners[0].HealthStatus)
 		require.NotNil(t, response.Runners[0].QueueLength)
 		require.Equal(t, 3, *response.Runners[0].QueueLength)
 		require.Equal(t, []MobileRunnerHealthDevice{
@@ -254,12 +254,12 @@ func TestListMobileRunners(t *testing.T) {
 
 		require.Equal(t, "usera-s-organization/owned-offline", response.Runners[1].Path)
 		require.True(t, response.Runners[1].IsOwned)
-		require.False(t, response.Runners[1].IsOnline)
+		require.Equal(t, "offline", response.Runners[1].HealthStatus)
 		require.Nil(t, response.Runners[1].QueueLength)
 
 		require.Equal(t, "other-org/other-public", response.Runners[2].Path)
 		require.False(t, response.Runners[2].IsOwned)
-		require.True(t, response.Runners[2].IsOnline)
+		require.Equal(t, "online", response.Runners[2].HealthStatus)
 		require.NotNil(t, response.Runners[2].QueueLength)
 		require.Equal(t, 1, *response.Runners[2].QueueLength)
 	})
@@ -532,7 +532,7 @@ func TestListMobileRunners(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 		require.Len(t, response.Runners, 1)
 		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].Path)
-		require.True(t, response.Runners[0].IsOnline)
+		require.Equal(t, "online", response.Runners[0].HealthStatus)
 		require.Nil(t, response.Runners[0].QueueLength)
 		require.Empty(t, response.Runners[0].Devices)
 		require.Empty(t, response.Runners[0].URL)
@@ -544,7 +544,7 @@ func TestListMobileRunners(t *testing.T) {
 		require.NotContains(t, raw["runners"][0], "runner_url")
 		require.NotContains(t, raw["runners"][0], "runner_id")
 		require.Contains(t, raw["runners"][0], "path")
-		require.Contains(t, raw["runners"][0], "is_online")
+		require.Contains(t, raw["runners"][0], "health_status")
 		require.NotContains(t, raw["runners"][0], "devices")
 		require.NotContains(t, raw["runners"][0], "type")
 	})
@@ -575,7 +575,7 @@ func TestListMobileRunnersWithMalformedURL(t *testing.T) {
 	var response ListMobileRunnersPublicResponseSchema
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	require.Len(t, response.Runners, 1)
-	require.False(t, response.Runners[0].IsOnline)
+	require.Equal(t, "misconfigured", response.Runners[0].HealthStatus)
 	require.Equal(t, "misconfigured", response.Runners[0].HealthStatus)
 }
 

@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		runnerRequired &&
 			Pipeline.Runner.Catalog.isReady() &&
 			executionPath !== undefined &&
-			Pipeline.Runner.Catalog.findByPath(executionPath)?.isOnline === false
+			Pipeline.Runner.Catalog.findByPath(executionPath)?.healthStatus !== 'online'
 	);
 
 	const isRunnerMisconfigured = $derived(
@@ -65,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		const offline =
 			Pipeline.Runner.Catalog.isReady() &&
-			Pipeline.Runner.Catalog.findByPath(path)?.isOnline === false;
+			Pipeline.Runner.Catalog.findByPath(path)?.healthStatus !== 'online';
 
 		if (Pipeline.Runner.Catalog.findByPath(path)?.healthStatus === 'misconfigured') {
 			return { name, status: 'misconfigured' as const };

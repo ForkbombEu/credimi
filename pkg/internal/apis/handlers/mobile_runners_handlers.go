@@ -54,7 +54,6 @@ type MobileRunnerListItem struct {
 	Type         string                     `json:"type,omitempty"`
 	IsPublished  bool                       `json:"is_published"`
 	IsOwned      bool                       `json:"is_owned"`
-	IsOnline     bool                       `json:"is_online"`
 	HealthStatus string                     `json:"health_status"`
 	Devices      []MobileRunnerHealthDevice `json:"devices,omitempty"`
 	QueueLength  *int                       `json:"queue_length,omitempty"`
@@ -208,8 +207,8 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 			if left.IsOwned != right.IsOwned {
 				return left.IsOwned
 			}
-			if left.IsOnline != right.IsOnline {
-				return left.IsOnline
+			if left.HealthStatus != right.HealthStatus {
+				return left.HealthStatus == "online"
 			}
 			return left.Path < right.Path
 		})
@@ -289,7 +288,6 @@ func mobileRunnerListItem(
 		Description:  record.GetString("description"),
 		IsPublished:  record.GetBool("published"),
 		IsOwned:      callerOrgID != "" && record.GetString("owner") == callerOrgID,
-		IsOnline:     online,
 		HealthStatus: healthStatus,
 	}
 

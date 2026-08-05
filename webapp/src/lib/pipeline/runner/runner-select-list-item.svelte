@@ -25,7 +25,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const isSelected = $derived(selectedRunner === item.path);
 	const online = $derived(
-		presentation === 'run' && Pipeline.Runner.Catalog.isReady() ? item.isOnline : undefined
+		presentation === 'run' && Pipeline.Runner.Catalog.isReady()
+			? item.healthStatus === 'online'
+			: undefined
 	);
 	const isOffline = $derived(presentation === 'run' && online === false);
 	const isMisconfigured = $derived(item.healthStatus === 'misconfigured');
