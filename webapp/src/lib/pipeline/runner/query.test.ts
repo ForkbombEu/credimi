@@ -16,7 +16,8 @@ describe('parseSelectorResponse', () => {
 					description: 'desc',
 					is_owned: true,
 					is_published: false,
-					is_online: true
+					is_online: true,
+					health_status: 'online'
 				}
 			]
 		});
@@ -28,7 +29,8 @@ describe('parseSelectorResponse', () => {
 				description: 'desc',
 				isOwned: true,
 				isPublished: false,
-				isOnline: true
+				isOnline: true,
+				healthStatus: 'online'
 			}
 		]);
 	});

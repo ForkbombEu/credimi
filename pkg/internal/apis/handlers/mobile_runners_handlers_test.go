@@ -132,9 +132,16 @@ func responseRecorder(t testing.TB, event *core.RequestEvent) *httptest.Response
 }
 
 func TestCheckMobileRunnerHealthHTTP(t *testing.T) {
-	t.Run("empty url is offline without error", func(t *testing.T) {
+	t.Run("empty url is classified as malformed", func(t *testing.T) {
 		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), " ")
-		require.NoError(t, err)
+		require.ErrorIs(t, err, errMalformedMobileRunnerURL)
+		require.False(t, online)
+		require.Nil(t, devices)
+	})
+
+	t.Run("url without a scheme is classified as malformed", func(t *testing.T) {
+		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), "192.168.1.10:8050")
+		require.ErrorIs(t, err, errMalformedMobileRunnerURL)
 		require.False(t, online)
 		require.Nil(t, devices)
 	})
@@ -541,6 +548,35 @@ func TestListMobileRunners(t *testing.T) {
 		require.NotContains(t, raw["runners"][0], "devices")
 		require.NotContains(t, raw["runners"][0], "type")
 	})
+}
+
+func TestListMobileRunnersWithMalformedURL(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, orgID, "malformed-runner", "192.168.1.10:8050", false)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners?view=selector", nil)
+	rec := httptest.NewRecorder()
+	event := &core.RequestEvent{
+		App:   app,
+		Auth:  user,
+		Event: router.Event{Request: req, Response: rec},
+	}
+
+	err = HandleListMobileRunners()(event)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response ListMobileRunnersPublicResponseSchema
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Len(t, response.Runners, 1)
+	require.False(t, response.Runners[0].IsOnline)
+	require.Equal(t, "misconfigured", response.Runners[0].HealthStatus)
 }
 
 func createMobileRunnerRecord(

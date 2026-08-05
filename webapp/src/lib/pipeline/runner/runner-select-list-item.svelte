@@ -28,11 +28,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		presentation === 'run' && Pipeline.Runner.Catalog.isReady() ? item.isOnline : undefined
 	);
 	const isOffline = $derived(presentation === 'run' && online === false);
+	const isMisconfigured = $derived(item.healthStatus === 'misconfigured');
+	const isUnavailable = $derived(isOffline || isMisconfigured);
 </script>
 
 <ItemCard
 	title={item.name}
-	onClick={isOffline
+	onClick={isUnavailable
 		? undefined
 		: (e) => {
 				e.preventDefault();
@@ -41,9 +43,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'hover:cursor-pointer',
 		presentation !== 'minimal' && isSelected && 'border-blue-500 bg-blue-50!',
-		isOffline && 'bg-slate-100! opacity-50 hover:cursor-not-allowed'
+		isUnavailable && 'bg-slate-100! opacity-50 hover:cursor-not-allowed'
 	]}
-	tooltip={isOffline ? m.Runner_offline_select_disabled() : undefined}
+	tooltip={isMisconfigured
+		? m.Runner_misconfigured_select_disabled()
+		: isOffline
+			? m.Runner_offline_select_disabled()
+			: undefined}
 	hideArrow
 >
 	{#snippet afterContent()}
@@ -79,11 +85,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						online === false && 'border-red-500 bg-red-100',
 						online === undefined && 'border-muted-foreground/40 bg-muted-foreground/40'
 					]}
-					title={online === undefined
-						? m.Runner_status_checking()
-						: online === true
-							? 'Online'
-							: 'Offline'}
+					title={isMisconfigured
+						? m.Runner_misconfigured_status()
+						: online === undefined
+							? m.Runner_status_checking()
+							: online === true
+								? 'Online'
+								: 'Offline'}
 				></span>
 			{/if}
 		</div>
