@@ -281,8 +281,12 @@ func applyRunnerHeartbeatDevices(
 		}
 		for _, report := range reported {
 			identifier := canonify.NormalizePath(report.DeviceID)
-			device, ok := byID[identifier]
-			if !ok {
+			// Resolve the canonical child directly. Relation-filter queries can
+			// lag or behave differently across PocketBase relation storage
+			// variants; the record itself remains the source of truth for the
+			// ownership check performed by a heartbeat.
+			device, err := canonify.Resolve(txApp, identifier)
+			if err != nil || device == nil || device.Collection() == nil || device.Collection().Name != mobileDevicesCollection || device.GetString("runner") != currentRunner.Id {
 				return fmt.Errorf("device_id %q does not belong to runner", report.DeviceID)
 			}
 			device.Set("online", report.Online)
