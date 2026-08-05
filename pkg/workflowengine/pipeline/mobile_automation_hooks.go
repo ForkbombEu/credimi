@@ -149,6 +149,7 @@ type startRecordingForDevicesInput struct {
 	ctx           workflow.Context
 	settedDevices map[string]any
 	ao            *workflow.ActivityOptions
+	runIdentifier string
 }
 
 type disablePlayStoreForDevicesInput struct {
@@ -158,10 +159,11 @@ type disablePlayStoreForDevicesInput struct {
 }
 
 type startRecordingForDeviceInput struct {
-	ctx       workflow.Context
-	deviceID  string
-	deviceMap map[string]any
-	ao        *workflow.ActivityOptions
+	ctx           workflow.Context
+	deviceID      string
+	deviceMap     map[string]any
+	ao            *workflow.ActivityOptions
+	runIdentifier string
 }
 
 type cleanupDeviceInput struct {
@@ -276,6 +278,7 @@ func MobileAutomationSetupHook(
 		ctx:           ctx,
 		settedDevices: settedDevices,
 		ao:            &ao,
+		runIdentifier: workflowengine.AsString((*runData)["run_identifier"]),
 	}); err != nil {
 		return err
 	}
@@ -1291,10 +1294,11 @@ func startRecordingForDevices(
 		}
 
 		if err := startRecordingForDevice(startRecordingForDeviceInput{
-			ctx:       input.ctx,
-			deviceID:  deviceID,
-			deviceMap: deviceMap,
-			ao:        input.ao,
+			ctx:           input.ctx,
+			deviceID:      deviceID,
+			deviceMap:     deviceMap,
+			ao:            input.ao,
+			runIdentifier: input.runIdentifier,
 		}); err != nil {
 			return err
 		}
@@ -1383,7 +1387,7 @@ func startRecordingForDevice(
 		Payload: map[string]any{
 			"device_id":   input.deviceID,
 			"serial":      serial,
-			"workflow_id": workflow.GetInfo(mobileCtx).WorkflowExecution.ID,
+			"workflow_id": recordingWorkspaceID(mobileCtx, input.runIdentifier),
 		},
 		Config: workflowengine.ActivityTelemetryConfig(mobileCtx, nil),
 	}
@@ -1405,6 +1409,13 @@ func startRecordingForDevice(
 	}
 
 	return nil
+}
+
+func recordingWorkspaceID(ctx workflow.Context, runIdentifier string) string {
+	if runIdentifier = strings.TrimSpace(runIdentifier); runIdentifier != "" {
+		return runIdentifier
+	}
+	return workflow.GetInfo(ctx).WorkflowExecution.ID
 }
 
 func extractAndStoreRecordingInfo(

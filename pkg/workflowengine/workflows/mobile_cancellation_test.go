@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
@@ -118,7 +119,10 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 		activity.RegisterOptions{Name: httpActivity.Name()},
 	)
 
-	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload, err := workflowengine.DecodePayload[mobile.RunMobileFlowPayload](input.Payload)
+		return err == nil && payload.WorkflowId == "org/workflow-run"
+	})).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"output":                   "Maestro output",
 			"maestro_screenshot_paths": []string{"/tmp/checkout.png"},

@@ -150,6 +150,14 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	}
 
 	mobileActivity := activities.NewRunMobileFlowActivity()
+	// Runner-side artifact validation is scoped by the canonical pipeline run
+	// identifier. Activities must use that same workspace name rather than the
+	// Temporal child workflow ID, otherwise valid Maestro screenshots are
+	// written under a directory the runner cannot later upload from.
+	workspaceID := workflow.GetInfo(ctx).WorkflowExecution.ID
+	if runIdentifier := workflowengine.AsString(input.Config["run_identifier"]); runIdentifier != "" {
+		workspaceID = runIdentifier
+	}
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
 		Config: workflowengine.ActivityTelemetryConfig(runnerCtx, input.Config),
@@ -159,7 +167,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			Type:       payload.Type,
 			Yaml:       payload.ActionCode,
 			Parameters: payload.Parameters,
-			WorkflowId: workflow.GetInfo(ctx).WorkflowExecution.ID,
+			WorkflowId: workspaceID,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
