@@ -102,6 +102,7 @@ type fetchAndInstallAPKInput struct {
 type getOrCreateDeviceMapInput struct {
 	ctx           workflow.Context
 	mobileCtx     workflow.Context
+	ao            *workflow.ActivityOptions
 	payload       *workflows.MobileAutomationWorkflowPipelinePayload
 	settedDevices map[string]any
 	appURL        string
@@ -111,6 +112,7 @@ type getOrCreateDeviceMapInput struct {
 type setupNewDeviceInput struct {
 	ctx       workflow.Context
 	mobileCtx workflow.Context
+	ao        *workflow.ActivityOptions
 	payload   *workflows.MobileAutomationWorkflowPipelinePayload
 	deviceMap map[string]any
 	appURL    string
@@ -469,6 +471,7 @@ func processStep(
 	deviceMap, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
 		ctx:           input.ctx,
 		mobileCtx:     mobileCtx,
+		ao:            input.ao,
 		payload:       payload,
 		settedDevices: input.settedDevices,
 		appURL:        appURL,
@@ -727,6 +730,7 @@ func getOrCreateDeviceMap(
 	if err := setupNewDevice(setupNewDeviceInput{
 		ctx:       input.ctx,
 		mobileCtx: input.mobileCtx,
+		ao:        input.ao,
 		payload:   input.payload,
 		deviceMap: deviceMap,
 		appURL:    input.appURL,
@@ -752,7 +756,10 @@ func setupNewDevice(
 	}
 	mobileCtx := workflow.WithActivityOptions(
 		input.ctx,
-		mobileRunnerActivityOptions(nil, runnerID),
+		// Setup runs on the selected runner queue, but must retain the pipeline's
+		// activity retry policy. Passing nil here silently dropped that policy,
+		// causing Temporal's unlimited default retries for setup failures.
+		mobileRunnerActivityOptions(input.ao, runnerID),
 	)
 
 	deviceActivities := activitiesForDeviceType(deviceType)
