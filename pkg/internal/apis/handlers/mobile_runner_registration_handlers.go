@@ -81,6 +81,15 @@ var MobileDeviceRegistrationRoutes = routing.RouteGroup{
 			},
 		},
 		{
+			Method:        http.MethodPost,
+			Path:          "/reconcile",
+			Handler:       HandleReconcileMobileDevices,
+			RequestSchema: ReconcileMobileDevicesRequest{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminOrAuth(),
+			},
+		},
+		{
 			Method:        http.MethodDelete,
 			Path:          "",
 			Handler:       HandleDeleteMobileDevice,
@@ -99,9 +108,12 @@ type PreviewMobileDeviceIDRequest struct {
 }
 
 type PreviewMobileDeviceIDResponse struct {
-	RunnerID       string `json:"runner_id"`
-	DeviceID       string `json:"device_id"`
-	CanonifiedName string `json:"canonified_name"`
+	RunnerID        string `json:"runner_id"`
+	DeviceID        string `json:"device_id"`
+	BaseDeviceID    string `json:"base_device_id"`
+	PreviewDeviceID string `json:"preview_device_id"`
+	CanonifiedName  string `json:"canonified_name"`
+	Conflict        bool   `json:"conflict"`
 }
 
 type UpsertMobileDeviceRequest struct {
@@ -118,6 +130,58 @@ type DeleteMobileDeviceRequest struct {
 	Organization string `json:"organization,omitempty"`
 	RunnerID     string `json:"runner_id" validate:"required"`
 	DeviceID     string `json:"device_id" validate:"required"`
+}
+
+// ReconcileMobileDevicesRequest declares the complete device inventory the
+// runner has loaded. Records previously associated with the runner but absent
+// from this list are stale and are removed.
+type ReconcileMobileDevicesRequest struct {
+	Organization string   `json:"organization,omitempty"`
+	RunnerID     string   `json:"runner_id" validate:"required"`
+	DeviceIDs    []string `json:"device_ids"`
+}
+
+func HandleReconcileMobileDevices() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[ReconcileMobileDevicesRequest](e)
+		if err != nil {
+			return apierror.New(http.StatusBadRequest, "mobile_device", "invalid_request", err.Error())
+		}
+		owner, apiErr := resolveMobileDeviceOwner(e.App, e.Auth, input.Organization, input.RunnerID)
+		if apiErr != nil {
+			return apiErr
+		}
+		runner, apiErr := resolveExistingMobileRunner(e.App, owner, canonify.NormalizePath(input.RunnerID))
+		if apiErr != nil {
+			return apiErr
+		}
+		if runner == nil {
+			return apierror.New(http.StatusNotFound, "runner_id", "runner_not_found", "runner_id does not reference a mobile runner")
+		}
+		configured := make(map[string]struct{}, len(input.DeviceIDs))
+		for _, deviceID := range input.DeviceIDs {
+			configured[canonify.NormalizePath(deviceID)] = struct{}{}
+		}
+		records, findErr := e.App.FindRecordsByFilter(mobileDevicesCollection, "runner = {:runner}", "", 0, 0, dbx.Params{"runner": runner.Id})
+		if findErr != nil {
+			return apierror.New(http.StatusInternalServerError, "mobile_devices", "failed_to_list_mobile_devices", findErr.Error())
+		}
+		removed := make([]string, 0)
+		for _, record := range records {
+			deviceID, idErr := mobileDeviceIdentifier(e.App, record)
+			if idErr != nil {
+				return apierror.New(http.StatusInternalServerError, "device_id", "failed_to_build_device_id", idErr.Error())
+			}
+			if _, present := configured[deviceID]; present {
+				continue
+			}
+			if deleteErr := e.App.Delete(record); deleteErr != nil {
+				return apierror.New(http.StatusInternalServerError, "mobile_device", "failed_to_delete_mobile_device", deleteErr.Error())
+			}
+			removed = append(removed, deviceID)
+		}
+		return e.JSON(http.StatusOK, map[string]any{"removed_device_ids": removed})
+	}
 }
 
 func HandleDeleteMobileDevice() func(*core.RequestEvent) error {
@@ -290,6 +354,9 @@ func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
 			)
 		}
 		record.Set("name", strings.TrimSpace(input.Name))
+		if constraintErr := validateMobileDeviceConstraints(e.App, runner, record.Id, strings.TrimSpace(input.Type), strings.TrimSpace(input.Serial)); constraintErr != nil {
+			return constraintErr
+		}
 		record.Set("description", strings.TrimSpace(input.Description))
 		record.Set("type", strings.TrimSpace(input.Type))
 		record.Set("serial", strings.TrimSpace(input.Serial))
@@ -324,6 +391,28 @@ func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
 			},
 		)
 	}
+}
+
+func validateMobileDeviceConstraints(app core.App, runner *core.Record, currentRecordID, deviceType, serial string) *apierror.APIError {
+	if deviceType != "android_emulator" && deviceType != "ios_simulator" && deviceType != "android_phone" && deviceType != "redroid" {
+		return apierror.New(http.StatusBadRequest, "type", "invalid_device_type", "device type must be android_emulator, ios_simulator, android_phone, or redroid")
+	}
+	records, err := app.FindRecordsByFilter(mobileDevicesCollection, "runner = {:runner}", "", 0, 0, dbx.Params{"runner": runner.Id})
+	if err != nil {
+		return apierror.New(http.StatusInternalServerError, "mobile_devices", "failed_to_list_mobile_devices", err.Error())
+	}
+	for _, existing := range records {
+		if existing.Id == currentRecordID {
+			continue
+		}
+		if existing.GetString("type") == deviceType && (deviceType == "android_emulator" || deviceType == "ios_simulator") {
+			return apierror.New(http.StatusConflict, "type", "device_type_limit", fmt.Sprintf("runner already has an %s device; only one is allowed", deviceType))
+		}
+		if serial != "" && (deviceType == "android_phone" || deviceType == "redroid") && (existing.GetString("type") == "android_phone" || existing.GetString("type") == "redroid") && existing.GetString("serial") == serial {
+			return apierror.New(http.StatusConflict, "serial", "device_serial_conflict", fmt.Sprintf("runner already has a phone or Redroid using serial %q", serial))
+		}
+	}
+	return nil
 }
 
 type PreviewMobileRunnerIDRequest struct {
@@ -740,10 +829,15 @@ func previewMobileDeviceIdentifier(
 		)
 	}
 	runnerID, _ := mobileRunnerIdentifier(app, runner)
+	baseCanonifiedName := canonify.CanonifyPlain(strings.TrimSpace(name))
+	baseDeviceID := canonify.NormalizePath(runnerID + "/" + baseCanonifiedName)
 	return PreviewMobileDeviceIDResponse{
-		RunnerID:       runnerID,
-		DeviceID:       deviceID,
-		CanonifiedName: canonifiedName,
+		RunnerID:        runnerID,
+		DeviceID:        deviceID,
+		BaseDeviceID:    baseDeviceID,
+		PreviewDeviceID: deviceID,
+		CanonifiedName:  canonifiedName,
+		Conflict:        baseDeviceID != deviceID,
 	}, nil
 }
 
