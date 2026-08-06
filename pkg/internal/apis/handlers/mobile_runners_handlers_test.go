@@ -591,6 +591,8 @@ func TestListMobileDevices(t *testing.T) {
 
 	runner, err := canonify.Resolve(app, "/usera-s-organization/device-host")
 	require.NoError(t, err)
+	runner.Set("online", true)
+	require.NoError(t, app.Save(runner))
 	devices, err := app.FindCollectionByNameOrId("mobile_devices")
 	require.NoError(t, err)
 	device := core.NewRecord(devices)
@@ -640,7 +642,7 @@ func TestListMobileDevices(t *testing.T) {
 	require.Equal(t, 2, *item.QueueLength)
 }
 
-func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) {
+func TestListMobileDevicesUsesRecordedLivenessWhenPublicHostIsUnreachable(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
 
@@ -651,6 +653,8 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) 
 	createMobileRunnerRecord(t, app, ownerID, "offline-host", "https://offline.example", false)
 	runner, err := canonify.Resolve(app, "/usera-s-organization/offline-host")
 	require.NoError(t, err)
+	runner.Set("online", true)
+	require.NoError(t, app.Save(runner))
 	devices, err := app.FindCollectionByNameOrId("mobile_devices")
 	require.NoError(t, err)
 	device := core.NewRecord(devices)
@@ -666,6 +670,11 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) 
 		return false, nil, nil
 	}
 	t.Cleanup(func() { checkMobileRunnerHealth = originalHealth })
+	originalQuery := queryMobileDeviceSemaphoreState
+	queryMobileDeviceSemaphoreState = func(context.Context, string) (workflows.MobileDeviceSemaphoreStateView, error) {
+		return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
+	}
+	t.Cleanup(func() { queryMobileDeviceSemaphoreState = originalQuery })
 
 	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
 	rec := httptest.NewRecorder()
@@ -675,8 +684,8 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) 
 	var response ListMobileDevicesPublicResponseSchema
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	require.Len(t, response.Devices, 1)
-	require.False(t, response.Devices[0].IsOnline)
-	require.Nil(t, response.Devices[0].QueueLength)
+	require.True(t, response.Devices[0].IsOnline)
+	require.NotNil(t, response.Devices[0].QueueLength)
 }
 
 func createMobileRunnerRecord(
