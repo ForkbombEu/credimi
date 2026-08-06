@@ -290,12 +290,18 @@ func HandleListMobileDevices() func(*core.RequestEvent) error {
 
 		response := ListMobileDevicesPublicResponseSchema{Devices: make([]MobileDeviceListItem, 0)}
 		for _, runner := range runners {
-			// The lifecycle heartbeat is the authoritative liveness signal. In
-			// particular, quick Cloudflare tunnels receive a new public hostname
-			// on restart; probing that hostname here made an otherwise healthy
-			// runner (and all of its devices) appear offline during DNS/tunnel
-			// propagation.
-			runnerOnline := runner.GetBool("online")
+			runnerOnline, _, healthErr := checkMobileRunnerHealth(
+				e.Request.Context(),
+				mobileRunnerURL(runner),
+			)
+			if healthErr != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"mobile_runner",
+					"failed_to_check_runner_health",
+					healthErr.Error(),
+				)
+			}
 			devices, err := e.App.FindRecordsByFilter(
 				"mobile_devices",
 				"runner = {:runner}",
