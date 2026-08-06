@@ -108,12 +108,11 @@ type PreviewMobileDeviceIDRequest struct {
 }
 
 type PreviewMobileDeviceIDResponse struct {
-	RunnerID        string `json:"runner_id"`
-	DeviceID        string `json:"device_id"`
-	BaseDeviceID    string `json:"base_device_id"`
-	PreviewDeviceID string `json:"preview_device_id"`
-	CanonifiedName  string `json:"canonified_name"`
-	Conflict        bool   `json:"conflict"`
+	RunnerID         string `json:"runner_id"`
+	DeviceID         string `json:"device_id"`
+	ExistingDeviceID string `json:"existing_device_id,omitempty"`
+	CanonifiedName   string `json:"canonified_name"`
+	Conflict         bool   `json:"conflict"`
 }
 
 type UpsertMobileDeviceRequest struct {
@@ -421,9 +420,11 @@ type PreviewMobileRunnerIDRequest struct {
 }
 
 type PreviewMobileRunnerIDResponse struct {
-	Organization   string `json:"organization"`
-	CanonifiedName string `json:"canonified_name"`
-	RunnerID       string `json:"runner_id"`
+	Organization     string `json:"organization"`
+	CanonifiedName   string `json:"canonified_name"`
+	RunnerID         string `json:"runner_id"`
+	ExistingRunnerID string `json:"existing_runner_id,omitempty"`
+	Conflict         bool   `json:"conflict"`
 }
 
 type UpsertMobileRunnerRequest struct {
@@ -738,11 +739,17 @@ func previewMobileRunnerIdentifier(
 		)
 	}
 
-	return PreviewMobileRunnerIDResponse{
+	baseRunnerID := canonify.NormalizePath(owner.GetString("canonified_name") + "/" + canonify.CanonifyPlain(strings.TrimSpace(name)))
+	response := PreviewMobileRunnerIDResponse{
 		Organization:   owner.GetString("canonified_name"),
 		CanonifiedName: canonifiedName,
 		RunnerID:       runnerID,
-	}, nil
+		Conflict:       baseRunnerID != runnerID,
+	}
+	if response.Conflict {
+		response.ExistingRunnerID = baseRunnerID
+	}
+	return response, nil
 }
 
 func resolveExistingMobileRunner(
@@ -831,14 +838,11 @@ func previewMobileDeviceIdentifier(
 	runnerID, _ := mobileRunnerIdentifier(app, runner)
 	baseCanonifiedName := canonify.CanonifyPlain(strings.TrimSpace(name))
 	baseDeviceID := canonify.NormalizePath(runnerID + "/" + baseCanonifiedName)
-	return PreviewMobileDeviceIDResponse{
-		RunnerID:        runnerID,
-		DeviceID:        deviceID,
-		BaseDeviceID:    baseDeviceID,
-		PreviewDeviceID: deviceID,
-		CanonifiedName:  canonifiedName,
-		Conflict:        baseDeviceID != deviceID,
-	}, nil
+	response := PreviewMobileDeviceIDResponse{RunnerID: runnerID, DeviceID: deviceID, CanonifiedName: canonifiedName, Conflict: baseDeviceID != deviceID}
+	if response.Conflict {
+		response.ExistingDeviceID = baseDeviceID
+	}
+	return response, nil
 }
 
 func resolveExistingMobileDevice(
