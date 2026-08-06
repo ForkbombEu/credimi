@@ -353,7 +353,7 @@ func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
 			)
 		}
 		record.Set("name", strings.TrimSpace(input.Name))
-		if constraintErr := validateMobileDeviceConstraints(e.App, runner, record.Id, strings.TrimSpace(input.Type), strings.TrimSpace(input.Serial)); constraintErr != nil {
+		if constraintErr := validateMobileDeviceConstraints(e.App, runner, record.Id, strings.TrimSpace(input.Name), strings.TrimSpace(input.Type), strings.TrimSpace(input.Serial)); constraintErr != nil {
 			return constraintErr
 		}
 		record.Set("description", strings.TrimSpace(input.Description))
@@ -392,7 +392,7 @@ func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
 	}
 }
 
-func validateMobileDeviceConstraints(app core.App, runner *core.Record, currentRecordID, deviceType, serial string) *apierror.APIError {
+func validateMobileDeviceConstraints(app core.App, runner *core.Record, currentRecordID, deviceName, deviceType, serial string) *apierror.APIError {
 	if deviceType != "android_emulator" && deviceType != "ios_simulator" && deviceType != "android_phone" && deviceType != "redroid" {
 		return apierror.New(http.StatusBadRequest, "type", "invalid_device_type", "device type must be android_emulator, ios_simulator, android_phone, or redroid")
 	}
@@ -405,10 +405,10 @@ func validateMobileDeviceConstraints(app core.App, runner *core.Record, currentR
 			continue
 		}
 		if existing.GetString("type") == deviceType && (deviceType == "android_emulator" || deviceType == "ios_simulator") {
-			return apierror.New(http.StatusConflict, "type", "device_type_limit", fmt.Sprintf("runner already has an %s device; only one is allowed", deviceType))
+			return apierror.New(http.StatusConflict, "type", "device_type_limit", fmt.Sprintf("runner already has %s device %q; only one is allowed", deviceType, existing.GetString("name")))
 		}
 		if serial != "" && (deviceType == "android_phone" || deviceType == "redroid") && (existing.GetString("type") == "android_phone" || existing.GetString("type") == "redroid") && existing.GetString("serial") == serial {
-			return apierror.New(http.StatusConflict, "serial", "device_serial_conflict", fmt.Sprintf("runner already has a phone or Redroid using serial %q", serial))
+			return apierror.New(http.StatusConflict, "serial", "device_serial_conflict", fmt.Sprintf("serial %q is already registered for device %q; choose a different serial for device %q", serial, existing.GetString("name"), deviceName))
 		}
 	}
 	return nil
