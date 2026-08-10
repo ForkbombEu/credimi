@@ -70,16 +70,16 @@ type MobileDeviceListItem struct {
 }
 
 type MobileRunnerListItem struct {
-	Name        string                     `json:"name"`
-	Path        string                     `json:"path"`
-	URL         string                     `json:"url,omitempty"`
-	Description string                     `json:"description,omitempty"`
-	Type        string                     `json:"type,omitempty"`
-	IsPublished bool                       `json:"is_published"`
-	IsOwned     bool                       `json:"is_owned"`
-	IsOnline    bool                       `json:"is_online"`
-	Devices     []MobileRunnerHealthDevice `json:"devices,omitempty"`
-	QueueLength *int                       `json:"queue_length,omitempty"`
+	Name         string                     `json:"name"`
+	Path         string                     `json:"path"`
+	URL          string                     `json:"url,omitempty"`
+	Description  string                     `json:"description,omitempty"`
+	Type         string                     `json:"type,omitempty"`
+	IsPublished  bool                       `json:"is_published"`
+	IsOwned      bool                       `json:"is_owned"`
+	HealthStatus string                     `json:"health_status"`
+	Devices      []MobileRunnerHealthDevice `json:"devices,omitempty"`
+	QueueLength  *int                       `json:"queue_length,omitempty"`
 }
 
 type MobileRunnerHealthDevice struct {
@@ -201,6 +201,8 @@ var MobileDevicesTemporalInternalRoutes = routing.RouteGroup{
 
 var checkMobileRunnerHealth = checkMobileRunnerHealthHTTP
 
+var errMalformedMobileRunnerURL = errors.New("malformed mobile runner URL")
+
 func HandleListMobileRunners() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		callerOrgID := ""
@@ -261,8 +263,8 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 			if left.IsOwned != right.IsOwned {
 				return left.IsOwned
 			}
-			if left.IsOnline != right.IsOnline {
-				return left.IsOnline
+			if left.HealthStatus != right.HealthStatus {
+				return left.HealthStatus == "online"
 			}
 			return left.Path < right.Path
 		})
@@ -469,22 +471,29 @@ func mobileRunnerListItem(
 
 	runnerURL := mobileRunnerURL(record)
 	online, devices, err := checkMobileRunnerHealth(ctx, runnerURL)
+	healthStatus := "offline"
 	if err != nil {
-		return MobileRunnerListItem{}, apierror.New(
-			http.StatusInternalServerError,
-			"mobile_runner",
-			"failed_to_check_runner_health",
-			err.Error(),
-		)
+		if errors.Is(err, errMalformedMobileRunnerURL) {
+			healthStatus = "misconfigured"
+		} else {
+			return MobileRunnerListItem{}, apierror.New(
+				http.StatusInternalServerError,
+				"mobile_runner",
+				"failed_to_check_runner_health",
+				err.Error(),
+			)
+		}
+	} else if online {
+		healthStatus = "online"
 	}
 
 	item := MobileRunnerListItem{
-		Name:        record.GetString("name"),
-		Path:        runnerID,
-		Description: record.GetString("description"),
-		IsPublished: record.GetBool("published"),
-		IsOwned:     callerOrgID != "" && record.GetString("owner") == callerOrgID,
-		IsOnline:    online,
+		Name:         record.GetString("name"),
+		Path:         runnerID,
+		Description:  record.GetString("description"),
+		IsPublished:  record.GetBool("published"),
+		IsOwned:      callerOrgID != "" && record.GetString("owner") == callerOrgID,
+		HealthStatus: healthStatus,
 	}
 
 	if includeDetails {
@@ -509,12 +518,12 @@ func checkMobileRunnerHealthHTTP(
 	runnerURL string,
 ) (bool, []MobileRunnerHealthDevice, error) {
 	if strings.TrimSpace(runnerURL) == "" {
-		return false, nil, nil
+		return false, nil, errMalformedMobileRunnerURL
 	}
 
 	healthURL, err := url.JoinPath(runnerURL, "health")
 	if err != nil {
-		return false, nil, err
+		return false, nil, errMalformedMobileRunnerURL
 	}
 
 	healthCtx, cancel := context.WithTimeout(ctx, walletAPKRunnerHealthTimeout)
@@ -522,7 +531,7 @@ func checkMobileRunnerHealthHTTP(
 
 	req, err := http.NewRequestWithContext(healthCtx, http.MethodGet, healthURL, nil)
 	if err != nil {
-		return false, nil, err
+		return false, nil, errMalformedMobileRunnerURL
 	}
 
 	resp, err := http.DefaultClient.Do(req)

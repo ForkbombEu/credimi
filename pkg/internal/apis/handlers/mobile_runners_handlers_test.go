@@ -168,9 +168,16 @@ func responseRecorder(t testing.TB, event *core.RequestEvent) *httptest.Response
 }
 
 func TestCheckMobileRunnerHealthHTTP(t *testing.T) {
-	t.Run("empty url is offline without error", func(t *testing.T) {
+	t.Run("empty url is classified as malformed", func(t *testing.T) {
 		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), " ")
-		require.NoError(t, err)
+		require.ErrorIs(t, err, errMalformedMobileRunnerURL)
+		require.False(t, online)
+		require.Nil(t, devices)
+	})
+
+	t.Run("url without a scheme is classified as malformed", func(t *testing.T) {
+		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), "192.168.1.10:8050")
+		require.ErrorIs(t, err, errMalformedMobileRunnerURL)
 		require.False(t, online)
 		require.Nil(t, devices)
 	})
@@ -274,7 +281,7 @@ func TestListMobileRunners(t *testing.T) {
 		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].Path)
 		require.Equal(t, "owned-online", response.Runners[0].Name)
 		require.True(t, response.Runners[0].IsOwned)
-		require.True(t, response.Runners[0].IsOnline)
+		require.Equal(t, "online", response.Runners[0].HealthStatus)
 		require.NotNil(t, response.Runners[0].QueueLength)
 		require.Equal(t, 3, *response.Runners[0].QueueLength)
 		require.Equal(t, []MobileRunnerHealthDevice{
@@ -283,12 +290,12 @@ func TestListMobileRunners(t *testing.T) {
 
 		require.Equal(t, "usera-s-organization/owned-offline", response.Runners[1].Path)
 		require.True(t, response.Runners[1].IsOwned)
-		require.False(t, response.Runners[1].IsOnline)
+		require.Equal(t, "offline", response.Runners[1].HealthStatus)
 		require.Nil(t, response.Runners[1].QueueLength)
 
 		require.Equal(t, "other-org/other-public", response.Runners[2].Path)
 		require.False(t, response.Runners[2].IsOwned)
-		require.True(t, response.Runners[2].IsOnline)
+		require.Equal(t, "online", response.Runners[2].HealthStatus)
 		require.NotNil(t, response.Runners[2].QueueLength)
 		require.Equal(t, 1, *response.Runners[2].QueueLength)
 	})
@@ -561,7 +568,7 @@ func TestListMobileRunners(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 		require.Len(t, response.Runners, 1)
 		require.Equal(t, "usera-s-organization/owned-online", response.Runners[0].Path)
-		require.True(t, response.Runners[0].IsOnline)
+		require.Equal(t, "online", response.Runners[0].HealthStatus)
 		require.Nil(t, response.Runners[0].QueueLength)
 		require.Empty(t, response.Runners[0].Devices)
 		require.Empty(t, response.Runners[0].URL)
@@ -573,7 +580,7 @@ func TestListMobileRunners(t *testing.T) {
 		require.NotContains(t, raw["runners"][0], "runner_url")
 		require.NotContains(t, raw["runners"][0], "runner_id")
 		require.Contains(t, raw["runners"][0], "path")
-		require.Contains(t, raw["runners"][0], "is_online")
+		require.Contains(t, raw["runners"][0], "health_status")
 		require.NotContains(t, raw["runners"][0], "devices")
 		require.NotContains(t, raw["runners"][0], "type")
 	})
@@ -669,7 +676,11 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) 
 
 	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
 	rec := httptest.NewRecorder()
-	event := &core.RequestEvent{App: app, Auth: user, Event: router.Event{Request: req, Response: rec}}
+	event := &core.RequestEvent{
+		App:   app,
+		Auth:  user,
+		Event: router.Event{Request: req, Response: rec},
+	}
 	require.NoError(t, HandleListMobileDevices()(event))
 
 	var response ListMobileDevicesPublicResponseSchema
@@ -677,6 +688,33 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) 
 	require.Len(t, response.Devices, 1)
 	require.False(t, response.Devices[0].IsOnline)
 	require.Nil(t, response.Devices[0].QueueLength)
+}
+
+func TestListMobileRunnersWithMalformedURL(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, orgID, "malformed-runner", "192.168.1.10:8050", false)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners?view=selector", nil)
+	rec := httptest.NewRecorder()
+	event := &core.RequestEvent{
+		App:   app,
+		Auth:  user,
+		Event: router.Event{Request: req, Response: rec},
+	}
+
+	require.NoError(t, HandleListMobileRunners()(event))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response ListMobileRunnersPublicResponseSchema
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Len(t, response.Runners, 1)
+	require.Equal(t, "misconfigured", response.Runners[0].HealthStatus)
 }
 
 func createMobileRunnerRecord(
@@ -795,54 +833,63 @@ func TestListMobileRunnerURLs(t *testing.T) {
 }
 
 func TestPreviewMobileDeviceID(t *testing.T) {
-	t.Run("user preview derives a first-run child ID before the runner is saved", func(t *testing.T) {
-		app := setupMobileRunnerApp(t)
-		defer app.Cleanup()
+	t.Run(
+		"user preview derives a first-run child ID before the runner is saved",
+		func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
 
-		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-		require.NoError(t, err)
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
 
-		event := performMobileRunnerRequest(
-			t,
-			app,
-			user,
-			"/api/mobile-device/preview-id",
-			PreviewMobileDeviceIDRequest{
-				RunnerID: "usera-s-organization/new-runner",
-				Name:     " Pixel-7a ",
-			},
-		)
+			event := performMobileRunnerRequest(
+				t,
+				app,
+				user,
+				"/api/mobile-device/preview-id",
+				PreviewMobileDeviceIDRequest{
+					RunnerID: "usera-s-organization/new-runner",
+					Name:     " Pixel-7a ",
+				},
+			)
 
-		require.NoError(t, HandlePreviewMobileDeviceID()(event))
-		recorder := responseRecorder(t, event)
-		require.Equal(t, http.StatusOK, recorder.Code)
+			require.NoError(t, HandlePreviewMobileDeviceID()(event))
+			recorder := responseRecorder(t, event)
+			require.Equal(t, http.StatusOK, recorder.Code)
 
-		body := decodeJSONBody(t, recorder)
-		require.Equal(t, "usera-s-organization/new-runner", body["runner_id"])
-		require.Equal(t, "pixel-7a", body["canonified_name"])
-		require.Equal(t, "usera-s-organization/new-runner/pixel-7a", body["device_id"])
-	})
+			body := decodeJSONBody(t, recorder)
+			require.Equal(t, "usera-s-organization/new-runner", body["runner_id"])
+			require.Equal(t, "pixel-7a", body["canonified_name"])
+			require.Equal(t, "usera-s-organization/new-runner/pixel-7a", body["device_id"])
+		},
+	)
 
-	t.Run("user preview rejects a pending runner outside the user's organization", func(t *testing.T) {
-		app := setupMobileRunnerApp(t)
-		defer app.Cleanup()
+	t.Run(
+		"user preview rejects a pending runner outside the user's organization",
+		func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
 
-		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-		require.NoError(t, err)
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
 
-		event := performMobileRunnerRequest(
-			t,
-			app,
-			user,
-			"/api/mobile-device/preview-id",
-			PreviewMobileDeviceIDRequest{RunnerID: "userb-s-organization/new-runner", Name: "Device"},
-		)
+			event := performMobileRunnerRequest(
+				t,
+				app,
+				user,
+				"/api/mobile-device/preview-id",
+				PreviewMobileDeviceIDRequest{
+					RunnerID: "userb-s-organization/new-runner",
+					Name:     "Device",
+				},
+			)
 
-		err = HandlePreviewMobileDeviceID()(event)
-		recorder := responseRecorder(t, event)
-		requireHandlerErrorHandled(t, recorder, err)
-		require.Equal(t, http.StatusForbidden, recorder.Code)
-	})
+			err = HandlePreviewMobileDeviceID()(event)
+			recorder := responseRecorder(t, event)
+			requireHandlerErrorHandled(t, recorder, err)
+			require.Equal(t, http.StatusForbidden, recorder.Code)
+		},
+	)
 
 	t.Run("user preview uses user organization and increments canonified name", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)

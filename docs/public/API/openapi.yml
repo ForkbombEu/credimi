@@ -1009,8 +1009,8 @@ components:
           items:
             $ref: '#/components/schemas/HandlersMobileRunnerHealthDevice'
           type: array
-        is_online:
-          type: boolean
+        health_status:
+          type: string
         is_owned:
           type: boolean
         is_published:
