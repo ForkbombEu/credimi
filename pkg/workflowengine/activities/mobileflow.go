@@ -11,7 +11,6 @@ import (
 
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"go.temporal.io/sdk/activity"
 )
@@ -618,7 +617,7 @@ func buildMobileInput(
 
 	in := mobile.MobileActivityInput{
 		Payload:          payload,
-		GetEnv:           utils.GetEnvironmentVariable,
+		GetEnv:           mobileEnvironmentFromContext(ctx),
 		NewActivityError: newErr,
 		ErrorCodes:       baseCodes,
 		Heartbeat: func(details ...any) {
