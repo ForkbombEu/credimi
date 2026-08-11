@@ -671,10 +671,14 @@ github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90/go.mod h1:R/bRT+9gY/
 github.com/fogleman/gg v1.3.0/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
 github.com/forkbombeu/avdctl v0.10.3 h1:DmBy0VPnp1+BIrgq7+kQBN5UadLe//JXvKetpEFP24g=
 github.com/forkbombeu/avdctl v0.10.3/go.mod h1:dvjgfYAJ1lbxk56F4tazRCiOBOC+/D23Ok/tNBm2H1I=
+github.com/forkbombeu/avdctl v0.10.4 h1:L3cejNVUerCs/PQABpoFWxlYtBASKKJfye2HZ0LBsIk=
+github.com/forkbombeu/avdctl v0.10.4/go.mod h1:dvjgfYAJ1lbxk56F4tazRCiOBOC+/D23Ok/tNBm2H1I=
 github.com/forkbombeu/credimi-conformance-assessment v1.3.1 h1:SfKWEl3Wgegex76xiJT9SmhyJbUGHlUKC9s5OfK8+SU=
 github.com/forkbombeu/credimi-conformance-assessment v1.3.1/go.mod h1:1L+2vRyjOt1CN0MoYgsPG5q6lA5tmbTalc48EtxXfLo=
 github.com/forkbombeu/credimi-extra v1.14.4-0.20260724134709-29d767578a6f h1:sLgrT1O9y4yW1x8nSrd4Yl1e9w7zfPjuhomRQiBzk6A=
 github.com/forkbombeu/credimi-extra v1.14.4-0.20260724134709-29d767578a6f/go.mod h1:g/MfDxFIHMfNqlw696g1JjoG8fuzWd+L/INRHrRZ320=
+github.com/forkbombeu/credimi-extra v1.14.4-0.20260811163438-a4e1cff8dbcd h1:3SUDewC3ZbvjjHbz5mMDHMYJjpENba0ZNQZLmtKO968=
+github.com/forkbombeu/credimi-extra v1.14.4-0.20260811163438-a4e1cff8dbcd/go.mod h1:DJqq3KEzBCSyNraeHBuU/sXNUpcRbI5RDITR7E0ZSss=
 github.com/forkbombeu/eudi-conformance-evidence v1.0.2 h1:EtGUTYi+3aAWDEFrn6jt10KEFGjDxDU3SJTxgEbU29w=
 github.com/forkbombeu/eudi-conformance-evidence v1.0.2/go.mod h1:APm92tPag1I5LPtMYny5EN1mqMw+YHO8THOCoAbVQ3M=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
