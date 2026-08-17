@@ -39,6 +39,49 @@ func TestMobileAutomationSetupHookFailsWithoutSemaphoreMetadata(t *testing.T) {
 	require.Contains(t, err.Error(), "mobile-runner pipelines must be started via queue/semaphore")
 }
 
+func TestMobileAutomationSetupHookRejectsMixedGlobalAndNestedDeviceIDs(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			steps := []pipeline.StepDefinition{
+				{
+					StepSpec: pipeline.StepSpec{ID: "parent", Use: "echo"},
+					OnError: []*pipeline.OnErrorStepDefinition{
+						{StepSpec: pipeline.StepSpec{
+							ID:  "nested-error",
+							Use: mobileAutomationStepUse,
+							With: pipeline.StepInputs{Payload: map[string]any{
+								"device_id": "tenant/runner/device",
+							}},
+						}},
+					},
+				},
+			}
+			runData := map[string]any{}
+			return MobileAutomationSetupHook(
+				ctx,
+				&pipeline.WorkflowDefinition{Steps: steps},
+				map[string]any{
+					"global_device_id":                     "tenant/global/device",
+					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+				},
+				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
+			)
+		},
+		workflow.RegisterOptions{Name: "test-mobile-setup-mixed-global-nested-device"},
+	)
+
+	env.ExecuteWorkflow("test-mobile-setup-mixed-global-nested-device")
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `step "nested-error"`)
+	require.Contains(t, err.Error(), "global_device_id is set")
+}
+
 func TestStartRecordingForDeviceMissingSerial(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

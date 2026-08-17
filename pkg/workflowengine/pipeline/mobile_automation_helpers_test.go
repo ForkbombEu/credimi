@@ -114,15 +114,11 @@ func TestCollectMobileDeviceIDs(t *testing.T) {
 		},
 	}
 
-	runnerIDs, err := collectMobileDeviceIDs(steps, "tenant/runner-global/device-global")
+	runnerIDs, err := collectMobileDeviceIDs(steps, "")
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		[]string{
-			"tenant/runner-a/device-a",
-			"tenant/runner-b/device-b",
-			"tenant/runner-global/device-global",
-		},
+		[]string{"tenant/runner-a/device-a", "tenant/runner-b/device-b"},
 		runnerIDs,
 	)
 }
@@ -140,13 +136,66 @@ func TestCollectMobileDeviceIDsNormalizesLeadingSlash(t *testing.T) {
 		},
 	}
 
-	runnerIDs, err := collectMobileDeviceIDs(steps, "/tenant-a/runner-a/device-a")
+	runnerIDs, err := collectMobileDeviceIDs(steps, "")
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		[]string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b"},
+		[]string{"tenant-a/runner-b/device-b"},
 		runnerIDs,
 	)
+}
+
+func TestCollectMobileDeviceIDsUsesGlobalStrategy(t *testing.T) {
+	steps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{Use: "echo"},
+			OnError: []*pipeline.OnErrorStepDefinition{
+				{StepSpec: pipeline.StepSpec{Use: mobileAutomationStepUse}},
+			},
+		},
+	}
+
+	deviceIDs, err := collectMobileDeviceIDs(steps, " /tenant/runner-global/device-global ")
+	require.NoError(t, err)
+	require.Equal(t, []string{"tenant/runner-global/device-global"}, deviceIDs)
+}
+
+func TestCollectMobileDeviceIDsWithoutMobileSteps(t *testing.T) {
+	steps := []pipeline.StepDefinition{{StepSpec: pipeline.StepSpec{Use: "echo"}}}
+
+	deviceIDs, err := collectMobileDeviceIDs(steps, "tenant/runner-global/device-global")
+	require.NoError(t, err)
+	require.Empty(t, deviceIDs)
+}
+
+func TestCollectMobileDeviceIDsIncludesNestedStepsAndDeduplicates(t *testing.T) {
+	steps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{Use: "echo"},
+			OnError: []*pipeline.OnErrorStepDefinition{
+				{StepSpec: pipeline.StepSpec{
+					Use: mobileAutomationStepUse,
+					With: pipeline.StepInputs{Payload: map[string]any{
+						"action_id": "action-1",
+						"device_id": "/tenant/runner/device",
+					}},
+				}},
+			},
+			OnSuccess: []*pipeline.OnSuccessStepDefinition{
+				{StepSpec: pipeline.StepSpec{
+					Use: mobileAutomationStepUse,
+					With: pipeline.StepInputs{Payload: map[string]any{
+						"action_id": "action-2",
+						"device_id": "tenant/runner/device",
+					}},
+				}},
+			},
+		},
+	}
+
+	deviceIDs, err := collectMobileDeviceIDs(steps, "")
+	require.NoError(t, err)
+	require.Equal(t, []string{"tenant/runner/device"}, deviceIDs)
 }
 
 func TestParseAPKResponse(t *testing.T) {
@@ -206,7 +255,7 @@ func TestParseDeviceMap(t *testing.T) {
 	require.Equal(t, "abc", deviceMap["serial"])
 }
 
-func TestValidateDeviceIDConfigurationAdditional(t *testing.T) {
+func TestValidateMobileDeviceIDConfigurationAdditional(t *testing.T) {
 	steps := []pipeline.StepDefinition{
 		{
 			StepSpec: pipeline.StepSpec{
@@ -219,18 +268,18 @@ func TestValidateDeviceIDConfigurationAdditional(t *testing.T) {
 			},
 		},
 	}
-	err := validateDeviceIDConfiguration(&steps, "")
+	err := validateMobileDeviceIDConfiguration(steps, "")
 	require.Error(t, err)
 
-	err = validateDeviceIDConfiguration(&steps, "global-device")
+	err = validateMobileDeviceIDConfiguration(steps, "global-device")
 	require.NoError(t, err)
 
 	steps[0].With.Payload["device_id"] = "tenant/runner-1/device-1"
-	err = validateDeviceIDConfiguration(&steps, "")
+	err = validateMobileDeviceIDConfiguration(steps, "")
 	require.NoError(t, err)
 
 	nonMobile := []pipeline.StepDefinition{{StepSpec: pipeline.StepSpec{Use: "rest"}}}
-	err = validateDeviceIDConfiguration(&nonMobile, "")
+	err = validateMobileDeviceIDConfiguration(nonMobile, "")
 	require.NoError(t, err)
 }
 

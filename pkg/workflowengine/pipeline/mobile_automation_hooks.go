@@ -220,8 +220,15 @@ func MobileAutomationSetupHook(
 
 	// Validate device_id configuration.
 	globalDeviceID, _ := config["global_device_id"].(string)
-	if err := validateDeviceIDConfiguration(steps, globalDeviceID); err != nil {
-		return err
+	if err := validateMobileDeviceIDConfiguration(*steps, globalDeviceID); err != nil {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
 	}
 	semaphoreManaged := isSemaphoreManagedRun(config)
 	if err := markExternalInstallSteps(ctx, steps, config); err != nil {
@@ -352,44 +359,6 @@ func fetchMobileActionCategory(
 	return strings.TrimSpace(workflowengine.AsString(record["category"])), nil
 }
 
-// validateDeviceIDConfiguration checks that either all mobile-automation steps
-// have a device_id or the workflow has a global_device_id.
-func validateDeviceIDConfiguration(steps *[]pipeline.StepDefinition, globalDeviceID string) error {
-	var mobileAutomationSteps []*pipeline.StepDefinition
-	for i := range *steps {
-		if (*steps)[i].Use == mobileAutomationStepUse {
-			mobileAutomationSteps = append(mobileAutomationSteps, &(*steps)[i])
-		}
-	}
-
-	// If there are no mobile-automation steps, no validation needed
-	if len(mobileAutomationSteps) == 0 {
-		return nil
-	}
-
-	allStepsHaveDeviceID := true
-	for _, step := range mobileAutomationSteps {
-		deviceID, ok := step.With.Payload["device_id"].(string)
-		if !ok || canonify.NormalizePath(deviceID) == "" {
-			allStepsHaveDeviceID = false
-			break
-		}
-	}
-
-	if !allStepsHaveDeviceID && globalDeviceID == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: "mobile-automation steps require either a device_id or a global_device_id in the pipeline configuration",
-			},
-		)
-	}
-
-	return nil
-}
-
 func getOrCreateSettedDevices(runData *map[string]any) map[string]any {
 	settedDevices := make(map[string]any)
 	if alreadyStartedDevices, ok := (*runData)["setted_devices"].(map[string]any); ok {
@@ -402,24 +371,36 @@ func collectMobileDeviceIDs(steps []pipeline.StepDefinition, globalID string) ([
 	uniqueDeviceIDs := make(map[string]struct{})
 
 	globalID = canonify.NormalizePath(globalID)
-	if globalID != "" {
-		uniqueDeviceIDs[globalID] = struct{}{}
-	}
-	for i := range steps {
-		step := &steps[i]
+	foundMobileStep := false
+
+	err := walkSteps(steps, func(step pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
-			continue
+			return nil
+		}
+		foundMobileStep = true
+		if globalID != "" {
+			return nil
 		}
 
-		payload, err := decodeAndValidatePayload(step)
+		stepCopy := &pipeline.StepDefinition{StepSpec: step}
+		payload, err := decodeAndValidatePayload(stepCopy)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		payload.DeviceID = canonify.NormalizePath(payload.DeviceID)
-		if payload.DeviceID == "" {
-			continue
+		deviceID := canonify.NormalizePath(payload.DeviceID)
+		if deviceID != "" {
+			uniqueDeviceIDs[deviceID] = struct{}{}
 		}
-		uniqueDeviceIDs[payload.DeviceID] = struct{}{}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !foundMobileStep {
+		return nil, nil
+	}
+	if globalID != "" {
+		return []string{globalID}, nil
 	}
 
 	if len(uniqueDeviceIDs) == 0 {

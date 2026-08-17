@@ -5,7 +5,6 @@
 package pipeline
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -19,78 +18,14 @@ type PipelineDeviceInfo struct {
 	NeedsGlobalDevice bool
 }
 
-// ValidateDeviceIDYAML enforces device_id configuration rules for mobile-automation steps:
-// - If global_device_id is set, no step may define device_id.
-// - If global_device_id is not set, every mobile-automation step must define device_id.
+// ValidateDeviceIDYAML enforces the mobile device_id configuration rule.
 func ValidateDeviceIDYAML(yamlStr string) error {
 	wfDef, err := pipeline.ParseWorkflow(yamlStr)
 	if err != nil {
 		return err
 	}
 
-	globalDeviceID := strings.TrimSpace(wfDef.Runtime.GlobalDeviceID)
-	globalSet := globalDeviceID != ""
-
-	foundMobileStep := false
-
-	firstConflictStepID := ""
-	firstMissingStepID := ""
-
-	anyStepDeviceSet := false
-	anyStepDeviceMissing := false
-
-	err = walkSteps(wfDef.Steps, func(step pipeline.StepSpec) error {
-		if step.Use != mobileAutomationStepUse {
-			return nil
-		}
-
-		foundMobileStep = true
-
-		deviceID, _ := step.With.Payload["device_id"].(string)
-		deviceSet := canonify.NormalizePath(deviceID) != ""
-
-		if deviceSet {
-			anyStepDeviceSet = true
-			if globalSet && firstConflictStepID == "" {
-				firstConflictStepID = step.ID
-			}
-		} else {
-			anyStepDeviceMissing = true
-			if !globalSet && firstMissingStepID == "" {
-				firstMissingStepID = step.ID
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	// No mobile-automation steps → nothing to validate.
-	if !foundMobileStep {
-		return nil
-	}
-
-	// If global is set, no mobile step may set runner_id.
-	if globalSet {
-		if anyStepDeviceSet {
-			return fmt.Errorf(
-				"global_device_id is set, but step %q defines device_id; use only global_device_id or set device_id for all mobile-automation steps",
-				firstConflictStepID,
-			)
-		}
-		return nil
-	}
-
-	// If global is not set, all mobile steps must set runner_id.
-	if anyStepDeviceMissing {
-		return fmt.Errorf(
-			"global_device_id is not set and step %q is missing device_id; set device_id on all mobile-automation steps or set global_device_id",
-			firstMissingStepID,
-		)
-	}
-
-	return nil
+	return validateMobileDeviceIDConfiguration(wfDef.Steps, wfDef.Runtime.GlobalDeviceID)
 }
 
 func ParsePipelineDeviceInfo(yamlStr string) (PipelineDeviceInfo, error) {
