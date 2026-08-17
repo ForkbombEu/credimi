@@ -39,15 +39,15 @@ func ValidateDeviceIDYAML(yamlStr string) error {
 	anyStepDeviceSet := false
 	anyStepDeviceMissing := false
 
-	for _, step := range wfDef.Steps {
+	err = walkSteps(wfDef.Steps, func(step pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
-			continue
+			return nil
 		}
 
 		foundMobileStep = true
 
 		deviceID, _ := step.With.Payload["device_id"].(string)
-		deviceSet := strings.TrimSpace(deviceID) != ""
+		deviceSet := canonify.NormalizePath(deviceID) != ""
 
 		if deviceSet {
 			anyStepDeviceSet = true
@@ -60,6 +60,10 @@ func ValidateDeviceIDYAML(yamlStr string) error {
 				firstMissingStepID = step.ID
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	// No mobile-automation steps → nothing to validate.

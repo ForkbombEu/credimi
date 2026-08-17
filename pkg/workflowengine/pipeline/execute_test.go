@@ -131,6 +131,90 @@ steps:
 		require.Error(t, err)
 		require.Contains(t, err.Error(), `step "stepA"`)
 	})
+
+	t.Run("missing nested on_error device_id", func(t *testing.T) {
+		yamlContent := `
+name: Test Pipeline
+steps:
+  - id: step1
+    use: rest
+    on_error:
+      - id: error-step
+        use: mobile-automation
+        with:
+          payload:
+            device_id: " / "
+`
+		err := ValidateDeviceIDYAML(yamlContent)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), `step "error-step"`)
+		require.Contains(t, err.Error(), "missing device_id")
+	})
+
+	t.Run("valid nested on_success device_id", func(t *testing.T) {
+		yamlContent := `
+name: Test Pipeline
+steps:
+  - id: step1
+    use: rest
+    on_success:
+      - id: success-step
+        use: mobile-automation
+        with:
+          payload:
+            device_id: /tenant/runner/device
+`
+		require.NoError(t, ValidateDeviceIDYAML(yamlContent))
+	})
+
+	t.Run("nested device_id conflicts with global_device_id", func(t *testing.T) {
+		yamlContent := `
+name: Test Pipeline
+runtime:
+  global_device_id: tenant/global/device
+steps:
+  - id: step1
+    use: rest
+    on_error:
+      - id: error-step
+        use: mobile-automation
+        with:
+          payload:
+            device_id: tenant/runner/device
+`
+		err := ValidateDeviceIDYAML(yamlContent)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), `step "error-step"`)
+		require.Contains(t, err.Error(), "global_device_id is set")
+	})
+
+	t.Run("nested mobile step inherits global_device_id", func(t *testing.T) {
+		yamlContent := `
+name: Test Pipeline
+runtime:
+  global_device_id: tenant/global/device
+steps:
+  - id: step1
+    use: rest
+    on_success:
+      - id: success-step
+        use: mobile-automation
+`
+		require.NoError(t, ValidateDeviceIDYAML(yamlContent))
+	})
+
+	t.Run("nested non-mobile step does not require device_id", func(t *testing.T) {
+		yamlContent := `
+name: Test Pipeline
+steps:
+  - id: step1
+    use: rest
+    on_success:
+      - id: success-step
+        use: echo
+`
+		require.NoError(t, ValidateDeviceIDYAML(yamlContent))
+	})
 }
 
 func TestExecuteStepActivity(t *testing.T) {
