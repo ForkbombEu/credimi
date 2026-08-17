@@ -6,6 +6,7 @@ package pipeline
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -156,7 +157,18 @@ func ExecuteStep(
 		}
 		taskqueue := PipelineTaskQueue
 		if step.CustomTaskQueue {
-			taskqueue = s.With.Config["taskqueue"].(string)
+			configuredTaskQueue, ok := s.With.Config["taskqueue"].(string)
+			if !ok || strings.TrimSpace(configuredTaskQueue) == "" {
+				errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+				return nil, workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errCode.Code,
+						Summary: errCode.Description,
+						Message: fmt.Sprintf("missing or invalid taskqueue for step %s", s.ID),
+					},
+				)
+			}
+			taskqueue = configuredTaskQueue
 		}
 		w := step.NewFunc().(workflowengine.Workflow)
 		appURL, ok := s.With.Config["app_url"].(string)

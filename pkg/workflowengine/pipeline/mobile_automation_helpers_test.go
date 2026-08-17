@@ -21,48 +21,40 @@ import (
 
 func TestDecodeAndValidatePayload(t *testing.T) {
 	_, err := decodeAndValidatePayload(
-		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID:   "step-1",
-				With: pipeline.StepInputs{Payload: map[string]any{}},
-			},
+		&pipeline.StepSpec{
+			ID:   "step-1",
+			With: pipeline.StepInputs{Payload: map[string]any{}},
 		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID: "step-2",
-				With: pipeline.StepInputs{Payload: map[string]any{
-					"action_code": "code",
-				}},
-			},
+		&pipeline.StepSpec{
+			ID: "step-2",
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"action_code": "code",
+			}},
 		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID: "step-3",
-				With: pipeline.StepInputs{Payload: map[string]any{
-					"device_id": "tenant/runner-1/device-1",
-				}},
-			},
+		&pipeline.StepSpec{
+			ID: "step-3",
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"device_id": "tenant/runner-1/device-1",
+			}},
 		},
 	)
 	require.Error(t, err)
 
 	payload, err := decodeAndValidatePayload(
-		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID: "step-4",
-				With: pipeline.StepInputs{Payload: map[string]any{
-					"action_id": "action-1",
-					"device_id": "tenant/runner-2/device-2",
-				}},
-			},
+		&pipeline.StepSpec{
+			ID: "step-4",
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"action_id": "action-1",
+				"device_id": "tenant/runner-2/device-2",
+			}},
 		},
 	)
 	require.NoError(t, err)
@@ -71,15 +63,13 @@ func TestDecodeAndValidatePayload(t *testing.T) {
 }
 
 func TestDecodeAndValidatePayloadNormalizesActionAndVersionIdentifiers(t *testing.T) {
-	step := &pipeline.StepDefinition{
-		StepSpec: pipeline.StepSpec{
-			ID: "step-1",
-			With: pipeline.StepInputs{Payload: map[string]any{
-				"action_id":  " /tenant-a/wallet/action-1 ",
-				"version_id": " /tenant-a/wallet/v1 ",
-				"device_id":  " /tenant-a/runner-1/device-1 ",
-			}},
-		},
+	step := &pipeline.StepSpec{
+		ID: "step-1",
+		With: pipeline.StepInputs{Payload: map[string]any{
+			"action_id":  " /tenant-a/wallet/action-1 ",
+			"version_id": " /tenant-a/wallet/v1 ",
+			"device_id":  " /tenant-a/runner-1/device-1 ",
+		}},
 	}
 
 	payload, err := decodeAndValidatePayload(step)
@@ -207,7 +197,7 @@ func TestParseAPKResponse(t *testing.T) {
 		},
 	}}
 	payload := &workflows.MobileAutomationWorkflowPipelinePayload{ActionID: "action-1"}
-	step := &pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-1"}}
+	step := &pipeline.StepSpec{ID: "step-1"}
 	apkPath, versionID, actionCode, err := parseAPKResponse(result, payload, step)
 	require.NoError(t, err)
 	require.Equal(t, "path.apk", apkPath)

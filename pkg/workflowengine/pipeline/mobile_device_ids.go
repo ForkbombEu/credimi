@@ -17,7 +17,7 @@ func validateMobileDeviceIDConfiguration(
 ) error {
 	globalSet := canonify.NormalizePath(globalDeviceID) != ""
 
-	return walkSteps(steps, func(step internalpipeline.StepSpec) error {
+	return walkMutableStepSpecs(steps, func(step *internalpipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
 			return nil
 		}

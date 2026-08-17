@@ -76,7 +76,7 @@ var (
 
 type processStepInput struct {
 	ctx            workflow.Context
-	step           *pipeline.StepDefinition
+	step           *pipeline.StepSpec
 	config         map[string]any
 	ao             *workflow.ActivityOptions
 	settedDevices  map[string]any
@@ -88,7 +88,7 @@ type processStepInput struct {
 type fetchAndInstallAPKInput struct {
 	ctx           workflow.Context
 	mobileCtx     workflow.Context
-	step          *pipeline.StepDefinition
+	step          *pipeline.StepSpec
 	payload       *workflows.MobileAutomationWorkflowPipelinePayload
 	deviceMap     map[string]any
 	deviceType    mobileDeviceType
@@ -220,6 +220,7 @@ func MobileAutomationSetupHook(
 
 	// Validate device_id configuration.
 	globalDeviceID, _ := config["global_device_id"].(string)
+	globalDeviceID = canonify.NormalizePath(globalDeviceID)
 	if err := validateMobileDeviceIDConfiguration(*steps, globalDeviceID); err != nil {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 		return workflowengine.NewAppError(
@@ -252,14 +253,12 @@ func MobileAutomationSetupHook(
 
 	settedDevices := getOrCreateSettedDevices(runData)
 
-	for i := range *steps {
-		step := &(*steps)[i]
-
+	if err := walkMutableStepSpecs(*steps, func(step *pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
-			continue
+			return nil
 		}
 
-		if err := processStep(processStepInput{
+		return processStep(processStepInput{
 			ctx:            ctx,
 			step:           step,
 			config:         config,
@@ -268,9 +267,9 @@ func MobileAutomationSetupHook(
 			runData:        runData,
 			logger:         logger,
 			globalDeviceID: globalDeviceID,
-		}); err != nil {
-			return err
-		}
+		})
+	}); err != nil {
+		return err
 	}
 
 	if workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
@@ -307,13 +306,12 @@ func markExternalInstallSteps(
 		return nil
 	}
 
-	for i := range *steps {
-		step := &(*steps)[i]
+	return walkMutableStepSpecs(*steps, func(step *pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse ||
 			workflowengine.AsString(
 				step.With.Payload["version_id"],
 			) != mobileExternalSourceVersionID {
-			continue
+			return nil
 		}
 
 		category, err := fetchMobileActionCategory(
@@ -327,9 +325,8 @@ func markExternalInstallSteps(
 		if category == walletActionCategoryInstallApp {
 			SetConfigValue(&step.With.Config, mobileExternalInstallConfigKey, true)
 		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func fetchMobileActionCategory(
@@ -373,7 +370,7 @@ func collectMobileDeviceIDs(steps []pipeline.StepDefinition, globalID string) ([
 	globalID = canonify.NormalizePath(globalID)
 	foundMobileStep := false
 
-	err := walkSteps(steps, func(step pipeline.StepSpec) error {
+	err := walkMutableStepSpecs(steps, func(step *pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
 			return nil
 		}
@@ -382,8 +379,7 @@ func collectMobileDeviceIDs(steps []pipeline.StepDefinition, globalID string) ([
 			return nil
 		}
 
-		stepCopy := &pipeline.StepDefinition{StepSpec: step}
-		payload, err := decodeAndValidatePayload(stepCopy)
+		payload, err := decodeAndValidatePayload(step)
 		if err != nil {
 			return err
 		}
@@ -427,13 +423,12 @@ func processStep(
 		return err
 	}
 
-	// Use global_device_id if step-level device_id is not set
+	// Use global_device_id if step-level device_id is not set.
 	payload.DeviceID = canonify.NormalizePath(payload.DeviceID)
 	if payload.DeviceID == "" && input.globalDeviceID != "" {
 		payload.DeviceID = input.globalDeviceID
-		// Update the step payload with the global device_id for consistency
-		SetPayloadValue(&input.step.With.Payload, "device_id", input.globalDeviceID)
 	}
+	SetPayloadValue(&input.step.With.Payload, "device_id", payload.DeviceID)
 
 	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.ao)
 
@@ -616,7 +611,7 @@ func unexpectedPhysicalDeviceSetupOutput(runnerID string, output any) error {
 }
 
 func decodeAndValidatePayload(
-	step *pipeline.StepDefinition,
+	step *pipeline.StepSpec,
 ) (*workflows.MobileAutomationWorkflowPipelinePayload, error) {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	if len(step.With.Payload) == 0 {
@@ -679,7 +674,7 @@ func decodeAndValidatePayload(
 }
 
 func normalizeMobileAutomationPayloadIDs(
-	step *pipeline.StepDefinition,
+	step *pipeline.StepSpec,
 	payload *workflows.MobileAutomationWorkflowPipelinePayload,
 ) {
 	if payload.ActionID != "" {
@@ -1103,7 +1098,7 @@ func fetchAndInstallAPK(
 
 func parseInstallerActionResponseBody(
 	res workflowengine.ActivityResult,
-	step *pipeline.StepDefinition,
+	step *pipeline.StepSpec,
 ) (map[string]any, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
@@ -1124,7 +1119,7 @@ func parseInstallerActionResponseBody(
 
 func parseInstallerResponse(
 	body map[string]any,
-	step *pipeline.StepDefinition,
+	step *pipeline.StepSpec,
 ) (string, string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
@@ -1165,7 +1160,7 @@ func parseInstallerResponse(
 func parseInstallerActionCode(
 	body map[string]any,
 	payload *workflows.MobileAutomationWorkflowPipelinePayload,
-	step *pipeline.StepDefinition,
+	step *pipeline.StepSpec,
 ) (string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 	actionCode := payload.ActionCode
@@ -1194,7 +1189,7 @@ func parseInstallerActionCode(
 func parseAPKResponse(
 	res workflowengine.ActivityResult,
 	payload *workflows.MobileAutomationWorkflowPipelinePayload,
-	step *pipeline.StepDefinition,
+	step *pipeline.StepSpec,
 ) (string, string, string, error) {
 	body, err := parseInstallerActionResponseBody(res, step)
 	if err != nil {

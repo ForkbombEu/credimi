@@ -514,6 +514,40 @@ func TestExecuteStepWorkflow(t *testing.T) {
 	require.Equal(t, false, result["custom_task_queue"])
 }
 
+func TestExecuteStepRejectsMissingCustomTaskQueue(t *testing.T) {
+	originalFactory := registry.Registry["custom-check"]
+	factory := originalFactory
+	factory.CustomTaskQueue = true
+	registry.Registry["custom-check"] = factory
+	t.Cleanup(func() {
+		registry.Registry["custom-check"] = originalFactory
+	})
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			_, err := ExecuteStep(
+				"missing-queue",
+				"custom-check",
+				pipeline.StepInputs{Payload: map[string]any{}},
+				nil,
+				ctx,
+				map[string]any{},
+				map[string]any{},
+				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			)
+			return err
+		},
+		workflow.RegisterOptions{Name: "execute-step-missing-custom-queue"},
+	)
+
+	env.ExecuteWorkflow("execute-step-missing-custom-queue")
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing or invalid taskqueue")
+}
+
 func TestFetchChildPipelineYAML(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

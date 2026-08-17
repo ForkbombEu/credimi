@@ -535,7 +535,7 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
 				ctx:        ctx,
 				mobileCtx:  ctx,
-				step:       step,
+				step:       &step.StepSpec,
 				payload:    payload,
 				deviceMap:  deviceMap,
 				deviceType: deviceTypeAndroidPhone,
@@ -661,7 +661,7 @@ func TestFetchAndInstallAPKExternalSourceSkipsInstaller(t *testing.T) {
 			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
 				ctx:           ctx,
 				mobileCtx:     ctx,
-				step:          step,
+				step:          &step.StepSpec,
 				payload:       payload,
 				deviceMap:     deviceMap,
 				deviceType:    deviceTypeAndroidPhone,
@@ -760,7 +760,7 @@ func TestFetchAndInstallAPKExternalSourceNonInstallStepSkipsInstallerWithoutMuta
 			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
 				ctx:           ctx,
 				mobileCtx:     ctx,
-				step:          step,
+				step:          &step.StepSpec,
 				payload:       payload,
 				deviceMap:     deviceMap,
 				deviceType:    deviceTypeAndroidPhone,
@@ -864,7 +864,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 
 			err := processStep(processStepInput{
 				ctx:            ctx,
-				step:           step,
+				step:           &step.StepSpec,
 				config:         map[string]any{"app_url": "https://app.example"},
 				ao:             &ao,
 				settedDevices:  settedDevices,
@@ -1278,7 +1278,7 @@ func TestFetchAndInstallAPKKeepsExistingActionCode(t *testing.T) {
 			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
 				ctx:        ctx,
 				mobileCtx:  ctx,
-				step:       step,
+				step:       &step.StepSpec,
 				payload:    payload,
 				deviceMap:  deviceMap,
 				deviceType: deviceTypeAndroidPhone,
@@ -1781,6 +1781,185 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	require.Equal(t, float64(11), result["recording_pid"])
 }
 
+func TestMobileAutomationSetupHookPreparesNestedSteps(t *testing.T) {
+	tests := []struct {
+		name           string
+		globalDeviceID string
+		stepDeviceID   string
+	}{
+		{
+			name:         "per-step device",
+			stepDeviceID: " /tenant/runner-1/device-1 ",
+		},
+		{
+			name:           "global device",
+			globalDeviceID: " /tenant/runner-1/device-1 ",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			suite := testsuite.WorkflowTestSuite{}
+			env := suite.NewTestWorkflowEnvironment()
+			internalHTTPActivity := registerInternalHTTPActivity(env)
+
+			env.RegisterWorkflowWithOptions(
+				func(ctx workflow.Context) (map[string]any, error) {
+					steps := []pipeline.StepDefinition{{
+						StepSpec: pipeline.StepSpec{ID: "parent", Use: "echo"},
+						OnError: []*pipeline.OnErrorStepDefinition{{StepSpec: pipeline.StepSpec{
+							ID:   "nested-error",
+							Use:  mobileAutomationStepUse,
+							With: pipeline.StepInputs{Payload: nestedMobilePreparationPayload(tc.stepDeviceID, "error")},
+						}}},
+						OnSuccess: []*pipeline.OnSuccessStepDefinition{{StepSpec: pipeline.StepSpec{
+							ID:   "nested-success",
+							Use:  mobileAutomationStepUse,
+							With: pipeline.StepInputs{Payload: nestedMobilePreparationPayload(tc.stepDeviceID, "success")},
+						}}},
+					}}
+					deviceMap := map[string]any{
+						"runner_id":              "tenant/runner-1",
+						"runner_url":             "https://runner.example",
+						"type":                   "android_phone",
+						"serial":                 "serial-1",
+						"recording":              true,
+						"screen_prepared":        true,
+						"initial_installed_apps": []string{},
+						"installed":              map[string]string{},
+					}
+					runData := map[string]any{
+						"run_identifier": "tenant/workflow-run",
+						"setted_devices": map[string]any{
+							"tenant/runner-1/device-1": deviceMap,
+						},
+					}
+					config := map[string]any{
+						"app_url":                              "",
+						"global_device_id":                     tc.globalDeviceID,
+						mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+					}
+					wfDef := &pipeline.WorkflowDefinition{Steps: steps}
+					if err := MobileAutomationSetupHook(
+						ctx,
+						wfDef,
+						config,
+						&runData,
+						&map[string]any{},
+						log.Logger(noopLogger{}),
+					); err != nil {
+						return nil, err
+					}
+
+					return map[string]any{
+						"error":   nestedStepPreparationResult(steps[0].OnError[0].StepSpec),
+						"success": nestedStepPreparationResult(steps[0].OnSuccess[0].StepSpec),
+						"devices": len(runData["setted_devices"].(map[string]any)),
+					}, nil
+				},
+				workflow.RegisterOptions{Name: "test-mobile-setup-nested-steps"},
+			)
+
+			env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.Anything).
+				Return(workflowengine.ActivityResult{Output: map[string]any{
+					"body": map[string]any{"code": "code-1"},
+				}}, nil)
+
+			env.ExecuteWorkflow("test-mobile-setup-nested-steps")
+			require.NoError(t, env.GetWorkflowError())
+
+			var result map[string]any
+			require.NoError(t, env.GetWorkflowResult(&result))
+			require.Equal(t, float64(1), result["devices"])
+			for _, key := range []string{"error", "success"} {
+				stepResult := result[key].(map[string]any)
+				require.Equal(t, "tenant/runner-1/device-1", stepResult["device_id"])
+				require.Equal(t, "tenant/runner-1-TaskQueue", stepResult["taskqueue"])
+				require.Equal(t, "https://runner.example", stepResult["runner_url"])
+				require.Equal(t, "tenant/workflow-run", stepResult["run_identifier"])
+				require.Equal(t, "android_phone", stepResult["type"])
+			}
+		})
+	}
+}
+
+func TestMarkExternalInstallStepsPreparesNestedSpecs(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	internalHTTPActivity := registerInternalHTTPActivity(env)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
+			steps := []pipeline.StepDefinition{{
+				StepSpec: pipeline.StepSpec{ID: "parent", Use: "echo"},
+				OnError: []*pipeline.OnErrorStepDefinition{{StepSpec: pipeline.StepSpec{
+					ID:   "nested-error",
+					Use:  mobileAutomationStepUse,
+					With: pipeline.StepInputs{Payload: nestedExternalInstallPayload("error")},
+				}}},
+				OnSuccess: []*pipeline.OnSuccessStepDefinition{{StepSpec: pipeline.StepSpec{
+					ID:   "nested-success",
+					Use:  mobileAutomationStepUse,
+					With: pipeline.StepInputs{Payload: nestedExternalInstallPayload("success")},
+				}}},
+			}}
+			if err := markExternalInstallSteps(ctx, &steps, map[string]any{
+				"app_url": "https://app.example",
+			}); err != nil {
+				return nil, err
+			}
+			return map[string]any{
+				"error":   steps[0].OnError[0].With.Config[mobileExternalInstallConfigKey],
+				"success": steps[0].OnSuccess[0].With.Config[mobileExternalInstallConfigKey],
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "test-mark-nested-external-install"},
+	)
+	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{
+				"record": map[string]any{"category": walletActionCategoryInstallApp},
+			},
+		}}, nil).Twice()
+
+	env.ExecuteWorkflow("test-mark-nested-external-install")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, true, result["error"])
+	require.Equal(t, true, result["success"])
+}
+
+func nestedMobilePreparationPayload(deviceID, suffix string) map[string]any {
+	payload := map[string]any{
+		"action_id":  "tenant/action-" + suffix,
+		"version_id": mobileExternalSourceVersionID,
+	}
+	if deviceID != "" {
+		payload["device_id"] = deviceID
+	}
+	return payload
+}
+
+func nestedExternalInstallPayload(suffix string) map[string]any {
+	return map[string]any{
+		"action_id":  "tenant/action-" + suffix,
+		"version_id": mobileExternalSourceVersionID,
+	}
+}
+
+func nestedStepPreparationResult(step pipeline.StepSpec) map[string]any {
+	return map[string]any{
+		"device_id":      step.With.Payload["device_id"],
+		"taskqueue":      step.With.Config["taskqueue"],
+		"runner_url":     step.With.Config["runner_url"],
+		"run_identifier": step.With.Config["run_identifier"],
+		"type":           step.With.Payload["type"],
+	}
+}
+
 func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -2225,7 +2404,7 @@ func TestProcessStepMissingAppURL(t *testing.T) {
 
 			return processStep(processStepInput{
 				ctx:           workflow.WithActivityOptions(ctx, ao),
-				step:          step,
+				step:          &step.StepSpec,
 				config:        map[string]any{},
 				ao:            &ao,
 				settedDevices: map[string]any{},
@@ -2574,7 +2753,7 @@ func TestProcessStepMissingRunnerURL(t *testing.T) {
 
 			return processStep(processStepInput{
 				ctx:  ctx,
-				step: step,
+				step: &step.StepSpec,
 				config: map[string]any{
 					"app_url": "https://app.example",
 				},
