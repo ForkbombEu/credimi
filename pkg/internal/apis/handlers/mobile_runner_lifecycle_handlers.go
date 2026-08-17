@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,9 +38,10 @@ var mobileRunnerLifecycleNow = func() time.Time {
 var mobileRunnerLifecycleTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type MobileRunnerLifecycleRequest struct {
-	RunnerID string                       `json:"runner_id"         validate:"required"`
-	Reason   string                       `json:"reason,omitempty"`
-	Devices  []MobileDeviceLifecycleState `json:"devices,omitempty"`
+	RunnerID  string                       `json:"runner_id"         validate:"required"`
+	RequestID string                       `json:"request_id,omitempty"`
+	Reason    string                       `json:"reason,omitempty"`
+	Devices   []MobileDeviceLifecycleState `json:"devices,omitempty"`
 }
 
 type MobileDeviceLifecycleState struct {
@@ -145,7 +147,7 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 				workflows.MobileDeviceSemaphoreResumeDeviceUpdate,
 				workflows.MobileDeviceSemaphoreResumeDeviceRequest{Reason: lifecycleReason(input.Reason, "runner_startup")},
 				nil,
-				lifecycleUpdateID("resume", deviceID),
+				lifecycleUpdateID("resume", deviceID, input.RequestID),
 			)
 			if err != nil && !errors.Is(err, errSemaphoreNotFound) {
 				return apierror.New(
@@ -205,9 +207,11 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 						err.Error(),
 					)
 				}
-				if err := resumeHeartbeatPausedRunnerSemaphore(
+				if err := resumeRunnerSemaphore(
 					e.Request.Context(),
 					deviceID,
+					lifecycleReason(input.Reason, "runner_heartbeat"),
+					input.RequestID,
 				); err != nil {
 					return apierror.New(
 						http.StatusInternalServerError,
@@ -228,7 +232,7 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 					ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 				},
 				nil,
-				lifecycleUpdateID("pause", deviceID),
+				lifecycleUpdateID("pause", deviceID, input.RequestID),
 			)
 			if err != nil && !errors.Is(err, errSemaphoreNotFound) {
 				return apierror.New(
@@ -347,7 +351,7 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 					ShutdownAfterSeconds: int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 				},
 				nil,
-				lifecycleUpdateID("pause", deviceID),
+				lifecycleUpdateID("pause", deviceID, input.RequestID),
 			)
 			if updateErr != nil && !errors.Is(updateErr, errSemaphoreNotFound) {
 				return apierror.New(
@@ -476,25 +480,14 @@ func resolveLifecycleRunner(
 	return record, canonicalDeviceID, nil
 }
 
-func resumeHeartbeatPausedRunnerSemaphore(ctx context.Context, runnerID string) error {
-	state, err := queryMobileDeviceSemaphoreState(ctx, runnerID)
-	if err != nil {
-		if errors.Is(err, errSemaphoreNotFound) {
-			return nil
-		}
-		return err
-	}
-	if !state.Paused || strings.TrimSpace(state.PauseReason) != "heartbeat timeout" {
-		return nil
-	}
-
-	_, err = updateRunnerSemaphore(
+func resumeRunnerSemaphore(ctx context.Context, deviceID, reason, requestID string) error {
+	_, err := updateRunnerSemaphore(
 		ctx,
-		runnerID,
+		deviceID,
 		workflows.MobileDeviceSemaphoreResumeDeviceUpdate,
-		workflows.MobileDeviceSemaphoreResumeDeviceRequest{Reason: "heartbeat_recovered"},
+		workflows.MobileDeviceSemaphoreResumeDeviceRequest{Reason: reason},
 		nil,
-		lifecycleUpdateID("heartbeat-resume", runnerID),
+		lifecycleUpdateID("resume", deviceID, requestID),
 	)
 	if errors.Is(err, errSemaphoreNotFound) {
 		return nil
@@ -566,6 +559,10 @@ func lifecycleReason(reason string, fallback string) string {
 	return fallback
 }
 
-func lifecycleUpdateID(action string, runnerID string) string {
-	return fmt.Sprintf("%s/%s/%d", action, runnerID, mobileRunnerLifecycleNow().UnixNano())
+func lifecycleUpdateID(action, runnerID, requestID string) string {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		requestID = strconv.FormatInt(mobileRunnerLifecycleNow().UnixNano(), 10)
+	}
+	return fmt.Sprintf("%s/%s/%s", action, runnerID, requestID)
 }

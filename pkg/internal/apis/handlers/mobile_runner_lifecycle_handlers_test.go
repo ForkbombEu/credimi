@@ -79,6 +79,7 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 				return ok &&
 					options.WorkflowID == workflows.MobileDeviceSemaphoreWorkflowID(deviceID) &&
 					options.UpdateName == workflows.MobileDeviceSemaphoreResumeDeviceUpdate &&
+					options.UpdateID == "resume/"+deviceID+"/resume-1" &&
 					req.Reason == "runner_startup"
 			}),
 		).
@@ -93,8 +94,9 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 		user,
 		"/api/mobile-runner/lifecycle/resume",
 		MobileRunnerLifecycleRequest{
-			RunnerID: "/usera-s-organization/resume-runner",
-			Devices:  []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}},
+			RunnerID:  "/usera-s-organization/resume-runner",
+			RequestID: "resume-1",
+			Devices:   []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}},
 		},
 	)
 
@@ -191,27 +193,16 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 	deviceID := createMobileDeviceForLifecycleTest(t, app, runner, "device-a")
 
 	origNow := mobileRunnerLifecycleNow
-	origQuerySemaphore := queryMobileDeviceSemaphoreState
 	origLifecycleClient := mobileRunnerLifecycleTemporalClient
 	origQueueClient := queueTemporalClient
 	t.Cleanup(func() {
 		mobileRunnerLifecycleNow = origNow
-		queryMobileDeviceSemaphoreState = origQuerySemaphore
 		mobileRunnerLifecycleTemporalClient = origLifecycleClient
 		queueTemporalClient = origQueueClient
 	})
 
 	fixedNow := time.Date(2026, 6, 24, 10, 20, 30, 0, time.UTC)
 	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
-	queryMobileDeviceSemaphoreState = func(_ context.Context, runnerID string) (workflows.MobileDeviceSemaphoreStateView, error) {
-		require.Equal(t, deviceID, runnerID)
-		return workflows.MobileDeviceSemaphoreStateView{
-			DeviceID:    runnerID,
-			Paused:      true,
-			PauseReason: "heartbeat timeout",
-		}, nil
-	}
-
 	mockClient := temporalmocks.NewClient(t)
 	mockClient.On("ExecuteWorkflow", mock.Anything, mock.Anything, workflows.MobileDeviceSemaphoreWorkflowName, mock.Anything).
 		Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
@@ -228,7 +219,8 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 					) &&
 					options.UpdateName == workflows.MobileDeviceSemaphoreResumeDeviceUpdate &&
 					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
-					req.Reason == "heartbeat_recovered"
+					options.UpdateID == "resume/"+deviceID+"/heartbeat-1" &&
+					req.Reason == "runner_heartbeat"
 			}),
 		).
 		Return(handle, nil).
@@ -244,14 +236,19 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 		user,
 		"/api/mobile-runner/lifecycle/heartbeat",
 		MobileRunnerLifecycleRequest{
-			RunnerID: "/usera-s-organization/heartbeat-resume-runner",
-			Devices:  []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}},
+			RunnerID:  "/usera-s-organization/heartbeat-resume-runner",
+			RequestID: "heartbeat-1",
+			Devices:   []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: true}},
 		},
 	)
 
 	err = HandleMobileRunnerLifecycleHeartbeat()(event)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
+}
+
+func TestLifecycleUpdateIDUsesRequestID(t *testing.T) {
+	require.Equal(t, "resume/device-a/request-1", lifecycleUpdateID("resume", "device-a", "request-1"))
 }
 
 func TestHandleMobileRunnerLifecycleHeartbeatRejectsEmptyDeviceID(t *testing.T) {
