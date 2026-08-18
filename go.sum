@@ -673,8 +673,8 @@ github.com/forkbombeu/avdctl v0.10.6 h1:FKKk0gZY0+QtLefWlsllCYMB8ldOosnYBp+B5I61
 github.com/forkbombeu/avdctl v0.10.6/go.mod h1:dvjgfYAJ1lbxk56F4tazRCiOBOC+/D23Ok/tNBm2H1I=
 github.com/forkbombeu/credimi-conformance-assessment v1.3.1 h1:SfKWEl3Wgegex76xiJT9SmhyJbUGHlUKC9s5OfK8+SU=
 github.com/forkbombeu/credimi-conformance-assessment v1.3.1/go.mod h1:1L+2vRyjOt1CN0MoYgsPG5q6lA5tmbTalc48EtxXfLo=
-github.com/forkbombeu/credimi-extra v1.14.4-0.20260818105125-1e655f704460 h1:FvRddV293mFPlVlNhIKQ+avzIB6lV+ArPRnnFZaMG0w=
-github.com/forkbombeu/credimi-extra v1.14.4-0.20260818105125-1e655f704460/go.mod h1:SweYLvlz1JVCQffxMCFjYkV7FmA81dp3z8w+kKW2hjA=
+github.com/forkbombeu/credimi-extra v1.14.4-0.20260818135233-a57703d730dd h1:N55TWS5E+GsK38tSEnwJg0//G5rlc1nHX2LCjjx36Ak=
+github.com/forkbombeu/credimi-extra v1.14.4-0.20260818135233-a57703d730dd/go.mod h1:SweYLvlz1JVCQffxMCFjYkV7FmA81dp3z8w+kKW2hjA=
 github.com/forkbombeu/eudi-conformance-evidence v1.0.2 h1:EtGUTYi+3aAWDEFrn6jt10KEFGjDxDU3SJTxgEbU29w=
 github.com/forkbombeu/eudi-conformance-evidence v1.0.2/go.mod h1:APm92tPag1I5LPtMYny5EN1mqMw+YHO8THOCoAbVQ3M=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
