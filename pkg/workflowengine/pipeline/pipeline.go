@@ -315,12 +315,16 @@ func buildPipelineCleanupFailureErrors(errorsList []error) []workflowengine.Work
 }
 
 func hasMobileAutomationStep(steps []pipeline.StepDefinition) bool {
-	for _, step := range steps {
+	found := false
+	if err := walkMutableStepSpecs(steps, func(step *pipeline.StepSpec) error {
 		if step.Use == mobileAutomationStepUse {
-			return true
+			found = true
 		}
+		return nil
+	}); err != nil {
+		return false
 	}
-	return false
+	return found
 }
 
 func wrapWorkflowCancellationError(

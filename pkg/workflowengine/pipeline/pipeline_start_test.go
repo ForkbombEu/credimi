@@ -253,6 +253,29 @@ func TestHasMobileAutomationStep(t *testing.T) {
 		{StepSpec: pipeline.StepSpec{ID: "http", Use: "http-request"}},
 		{StepSpec: pipeline.StepSpec{ID: "mobile", Use: "mobile-automation"}},
 	}))
+
+	require.True(t, hasMobileAutomationStep([]pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{ID: "http", Use: "http-request"},
+			OnError: []*pipeline.OnErrorStepDefinition{
+				{StepSpec: pipeline.StepSpec{ID: "mobile-on-error", Use: mobileAutomationStepUse}},
+			},
+		},
+	}))
+
+	require.True(t, hasMobileAutomationStep([]pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{ID: "http", Use: "http-request"},
+			OnSuccess: []*pipeline.OnSuccessStepDefinition{
+				{
+					StepSpec: pipeline.StepSpec{
+						ID:  "mobile-on-success",
+						Use: mobileAutomationStepUse,
+					},
+				},
+			},
+		},
+	}))
 }
 
 func TestPipelineWorkflowReportsGitHubPRCommentDone(t *testing.T) {
