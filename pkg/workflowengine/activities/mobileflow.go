@@ -7,7 +7,6 @@ package activities
 
 import (
 	"context"
-	"os/exec"
 
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -626,7 +625,7 @@ func buildMobileInput(
 	}
 
 	if withCommand {
-		in.CommandContext = exec.CommandContext
+		in.CommandContext = mobileCommandContext(ctx)
 	}
 
 	return in
