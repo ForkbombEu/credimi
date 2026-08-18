@@ -12,12 +12,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import { m } from '@/i18n';
 
-	import type { ExecutionSummary } from './workflows';
-
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
+	import { getExecutionDeviceNames, type ExecutionSummary } from './workflows';
 
 	//
 
@@ -43,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet header({ Th })}
 		<Th>{m.Status()}</Th>
-		<Th>{m.Runner()}</Th>
+		<Th>Device</Th>
 		<Th>{m.Results()}</Th>
 	{/snippet}
 
@@ -68,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet row({ workflow, Td })}
-		{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
+		{@const deviceNames = getExecutionDeviceNames(workflow)}
 
 		<Td>
 			<WorkflowStatusTag
@@ -79,8 +78,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Td>
 
 		<Td>
-			{#if runnerNames.length > 0}
-				{runnerNames.join(', ')}
+			{#if deviceNames.length > 0}
+				{deviceNames.join(', ')}
 			{:else}
 				<span class="text-muted-foreground opacity-50">N/A</span>
 			{/if}
