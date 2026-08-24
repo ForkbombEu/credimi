@@ -218,8 +218,20 @@ func findOrCreatePipeline(
 	orgID string,
 	input *PipelineCLIInput,
 ) (map[string]any, error) {
-	if err := pipeline.ValidateRunnerIDYAML(input.YAML); err != nil {
-		return nil, err
+	return findOrCreatePipelineWithValidation(ctx, token, orgID, input, true)
+}
+
+func findOrCreatePipelineWithValidation(
+	ctx context.Context,
+	token string,
+	orgID string,
+	input *PipelineCLIInput,
+	validateRunner bool,
+) (map[string]any, error) {
+	if validateRunner {
+		if err := pipeline.ValidateRunnerIDYAML(input.YAML); err != nil {
+			return nil, err
+		}
 	}
 
 	filter := fmt.Sprintf(

@@ -1,5 +1,5 @@
 name: FCAF DCQL mismatched claim values
-runtime: { global_runner_id: "" }
+runtime: { global_runner_id: forkbomb-bv-andrea/usb }
 steps:
   - id: create-presentation
     use: http-request
@@ -17,8 +17,7 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - clearState: com.android.chrome
-        - launchApp: { stopApp: true, clearState: false }
+                - launchApp: { stopApp: true, clearState: false }
         - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
         - openLink: { link: ${output.authorizationRequest}, autoVerify: false, browser: false }
         - waitForAnimationToEnd: { timeout: 5000 }

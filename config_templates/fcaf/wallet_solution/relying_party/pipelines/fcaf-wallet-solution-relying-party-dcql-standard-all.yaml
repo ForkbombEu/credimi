@@ -1,0 +1,227 @@
+name: FCAF standard DCQL — all shareable tests
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+    verifier_url: https://capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_runner_id: forkbomb-bv-andrea/usb
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      heartbeat_timeout: 10m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: onboard-reference-wallet
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+    version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+- id: create-pid-sdjwt-offer
+  use: credential-offer
+  with:
+    credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+- id: obtain-pid-sdjwt
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    parameters:
+      deeplink: ${{ create-pid-sdjwt-offer.outputs }}
+- id: create-capture-session
+  use: http-request
+  with:
+    method: POST
+    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-standard-all
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+            - path:
+              - family_name
+- id: exercise-wallet
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    parameters:
+      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+- id: fetch-capture-session
+  use: http-request
+  with:
+    method: GET
+    url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_DM_CredentialMetadata_CredentialStructure_007
+    - WS_RP_DM_CredentialMetadata_CredentialStructure_008
+    - WS_RP_DM_CredentialMetadata_CredentialStructure_009
+    - WS_RP_DM_CredentialMetadata_CredentialStructure_010
+    - WS_RP_IA_MainInteraction__003
+    - WS_RP_IA_MainInteraction__004
+    - WS_RP_IA_MainInteraction__012
+    - WS_RP_IA_MainInteraction__013
+    - WS_RP_IA_MainInteraction__014
+    - WS_RP_IA_MainInteraction__060
+    - WS_RP_IA_Metadata__014
+    - WS_RP_MS_CredentialFormats__029
+    - WS_RP_MS_CredentialFormats__030
+    - WS_RP_MS_CredentialFormats__031
+    - WS_RP_MS_CredentialFormats__032
+    - WS_RP_MS_CredentialFormats__033
+    - WS_RP_MS_Metadata__081
+    - WS_RP_MS_Metadata__082
+    - WS_RP_MS_Metadata__083
+    - WS_RP_MS_Metadata__084
+    - WS_RP_MS_Metadata__085
+    - WS_RP_MS_Metadata__086
+    - WS_RP_MS_Metadata__087
+    - WS_RP_MS_Metadata__088
+    - WS_RP_MS_Metadata__089
+    - WS_RP_MS_Metadata__090
+    - WS_RP_MS_Metadata__091
+    - WS_RP_MS_Metadata__092
+    - WS_RP_MS_Metadata__093
+    - WS_RP_MS_Metadata__094
+    - WS_RP_MS_Metadata__095
+    - WS_RP_MS_Metadata__096
+    - WS_RP_MS_Metadata__097
+    - WS_RP_MS_Metadata__098
+    - WS_RP_MS_Metadata__099
+    - WS_RP_MS_Metadata__100
+    - WS_RP_MS_Metadata__101
+    - WS_RP_MS_Metadata__102
+    - WS_RP_MS_Metadata__103
+    - WS_RP_MS_Metadata__110
+    - WS_RP_MS_Metadata__111
+    - WS_RP_MS_Metadata__112
+    - WS_RP_MS_Metadata__113
+    - WS_RP_MS_Metadata__114
+    - WS_RP_MS_Metadata__115
+    - WS_RP_MS_Metadata__125
+    - WS_RP_MS_Metadata__126
+    - WS_RP_MS_Metadata__127
+    - WS_RP_MS_Metadata__128
+    - WS_RP_MS_Metadata__129
+    - WS_RP_MS_Metadata__130
+    - WS_RP_MS_Metadata__131
+    - WS_RP_MS_Metadata__132
+    - WS_RP_MS_Metadata__134
+    - WS_RP_MS_Metadata__135
+    - WS_RP_MS_ProtocolMessages__002
+    - WS_RP_MS_ProtocolMessages__003
+    - WS_RP_MS_ProtocolMessages__012
+    - WS_RP_MS_ProtocolMessages__013
+    - WS_RP_MS_ProtocolMessages__020
+    - WS_RP_MS_ProtocolMessages__038
+    - WS_RP_MS_ProtocolMessages__040
+    - WS_RP_MS_ProtocolMessages__052
+    - WS_RP_MS_ProtocolMessages__057
+    - WS_RP_MS_ProtocolMessages__070
+    - WS_RP_MS_ProtocolMessages__071
+    - WS_RP_MS_ProtocolMessages__080
+    - WS_RP_MS_ProtocolMessages__082
+    - WS_RP_MS_ProtocolMessages__083
+    - WS_RP_MS_ProtocolMessages__085
+    - WS_RP_MS_ProtocolMessages__087
+    - WS_RP_MS_ProtocolMessages__088
+    - WS_RP_MS_ProtocolMessages__089
+    - WS_RP_MS_ProtocolMessages__090
+    - WS_RP_MS_ProtocolMessages__095
+    - WS_RP_MS_ProtocolMessages__096
+    - WS_RP_MS_ProtocolMessages__097
+    - WS_RP_MS_ProtocolMessages__098
+    - WS_RP_MS_ProtocolMessages__099
+    - WS_RP_MS_ProtocolMessages__100
+    - WS_RP_MS_ProtocolMessages__101
+    - WS_RP_MS_ProtocolMessages__102
+    - WS_RP_MS_ProtocolMessages__103
+    - WS_RP_MS_ProtocolMessages__104
+    - WS_RP_MS_ProtocolMessages__105
+    - WS_RP_MS_ProtocolMessages__106
+    - WS_RP_MS_ProtocolMessages__107
+    - WS_RP_MS_ProtocolMessages__108
+    - WS_RP_MS_ProtocolMessages__109
+    - WS_RP_MS_ProtocolMessages__110
+    - WS_RP_MS_ProtocolMessages__111
+    - WS_RP_MS_ProtocolMessages__112
+    - WS_RP_MS_ProtocolMessages__113
+    - WS_RP_MS_ProtocolMessages__114
+    - WS_RP_MS_ProtocolMessages__115
+    - WS_RP_MS_ProtocolMessages__116
+    - WS_RP_MS_ProtocolMessages__117
+    - WS_RP_MS_ProtocolMessages__118
+    - WS_RP_MS_ProtocolMessages__147
+    - WS_RP_SH_Cryptography_CryptographicHash_001
+    - WS_RP_SH_Cryptography_CryptographicHash_006
+    - WS_RP_SH_Cryptography_CryptographicHash_007
+    - WS_RP_SH_Cryptography_CryptographicHash_008
+    - WS_RP_SH_Cryptography_CryptographicHash_010
+    - WS_RP_SH_Cryptography_Encryption_002
+    - WS_RP_SM_DeviceBinding__002
+    - WS_RP_SM_DeviceBinding__003
+    - WS_RP_SM_DeviceBinding__004
+    - WS_RP_SM_DeviceBinding__005
+    - WS_RP_SM_DeviceBinding__006
+    - WS_RP_SM_IssuerIntegrity__012
+    - WS_RP_SM_RpIntegrity__002
+    - WS_RP_SM_RpIntegrity__003
+    - WS_RP_SM_RpIntegrity__004
+    - WS_RP_SM_RpIntegrity__013
+    - WS_RP_SM_RpIntegrity__014
+    - WS_RP_SM_RpIntegrity__015
+    - WS_RP_SM_RpIntegrity__016
+    - WS_RP_SM_RpIntegrity__017
+    - WS_RP_SM_RpIntegrity__018
+    - WS_RP_SM_RpIntegrity__019
+    - WS_RP_SM_RpIntegrity__020
+    - WS_RP_SM_RpIntegrity__021
+    - WS_RP_SM_RpIntegrity__023
+    - WS_RP_SM_RpIntegrity__024
+    - WS_RP_SM_RpIntegrity__025
+    - WS_RP_SM_RpIntegrity__026
+    - WS_RP_SM_TrustMechanisms__002
+    - WS_RP_SM_TrustMechanisms__003
+    - WS_RP_SM_TrustMechanisms__004
+    - WS_RP_SM_TrustMechanisms__005
+    - WS_RP_SM_TrustMechanisms__006
+    - WS_RP_SM_TrustMechanisms__007
+    - WS_RP_SM_TrustMechanisms__008
+    - WS_RP_SM_TrustMechanisms__009
+    - WS_RP_SM_TrustMechanisms__010
+    - WS_RP_SM_TrustMechanisms__011
+    - WS_RP_SM_TrustMechanisms__012
+    - WS_RP_SM_TrustMechanisms__013
+    - WS_RP_SM_TrustMechanisms__015
+    - WS_RP_SM_TrustMechanisms__021
+    - WS_RP_UC_Presentation__003
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.standard-all:
+        output:
+          create-capture-session: ${{ create-capture-session.outputs }}
+          exercise-wallet: ${{ exercise-wallet.outputs }}
+          fetch-capture-session: ${{ fetch-capture-session.outputs }}
+          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

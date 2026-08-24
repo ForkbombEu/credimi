@@ -7,7 +7,9 @@ package activities
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -89,13 +91,21 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 	}
 
 	out := PipelineEvidenceExtractionOutput{}
-	out.CredentialOffers, out.CredentialWellKnowns = extractCredentialEvidence(
+	var evidenceErr error
+	out.CredentialOffers, out.CredentialWellKnowns, evidenceErr = extractCredentialEvidence(
 		ctx,
 		client,
 		discovered.CredentialOfferSteps,
 		payload,
 		&out.Warnings,
 	)
+	if evidenceErr != nil {
+		return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
+			Code:    errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed].Code,
+			Summary: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed].Description,
+			Message: evidenceErr.Error(),
+		})
+	}
 	out.PresentationResults = extractPresentationResults(
 		ctx,
 		client,
@@ -134,13 +144,13 @@ func extractCredentialEvidence(
 	steps []discovery.Step,
 	payload PipelineEvidenceExtractionInput,
 	warnings *[]string,
-) ([]map[string]any, []map[string]any) {
+) ([]map[string]any, []map[string]any, error) {
 	offers := make([]map[string]any, 0, len(steps))
 	wellKnowns := make([]map[string]any, 0, len(steps))
 	for _, step := range steps {
 		if ctx.Err() != nil {
 			*warnings = append(*warnings, ctx.Err().Error())
-			return offers, wellKnowns
+			return offers, wellKnowns, ctx.Err()
 		}
 		res := credoffer.Resolve(
 			client,
@@ -159,8 +169,19 @@ func extractCredentialEvidence(
 			"credential_id":    step.CredentialID,
 			"credential_offer": res.CredentialOffer,
 		})
-		wellKnown, fetch, err := credoffer.FetchIssuerMetadata(client, res.CredentialOffer)
+		wellKnown, fetch, err := fetchIssuerMetadataWithRetry(
+			ctx,
+			client,
+			res.CredentialOffer,
+		)
 		if err != nil {
+			if isRetryableMetadataFetchError(err) {
+				return offers, wellKnowns, fmt.Errorf(
+					"fetch issuer metadata for step %s: %w",
+					step.StepID,
+					err,
+				)
+			}
 			*warnings = append(
 				*warnings,
 				fmt.Sprintf("failed to fetch issuer metadata for step %s: %v", step.StepID, err),
@@ -174,7 +195,41 @@ func extractCredentialEvidence(
 			"fetch":         fetch,
 		})
 	}
-	return offers, wellKnowns
+	return offers, wellKnowns, nil
+}
+
+func isRetryableMetadataFetchError(err error) bool {
+	var networkErr net.Error
+	return errors.As(err, &networkErr) && (networkErr.Timeout() || networkErr.Temporary())
+}
+
+func fetchIssuerMetadataWithRetry(
+	ctx context.Context,
+	client *http.Client,
+	offer json.RawMessage,
+) (json.RawMessage, *credoffer.MetadataFetch, error) {
+	const maxAttempts = 3
+
+	var wellKnown json.RawMessage
+	var fetch *credoffer.MetadataFetch
+	var err error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if ctx.Err() != nil {
+			return wellKnown, fetch, ctx.Err()
+		}
+		wellKnown, fetch, err = credoffer.FetchIssuerMetadata(client, offer)
+		if err == nil {
+			return wellKnown, fetch, nil
+		}
+		if attempt < maxAttempts {
+			select {
+			case <-ctx.Done():
+				return wellKnown, fetch, ctx.Err()
+			case <-time.After(time.Duration(1<<(attempt-1)) * time.Second):
+			}
+		}
+	}
+	return wellKnown, fetch, fmt.Errorf("fetch issuer metadata after %d attempts: %w", maxAttempts, err)
 }
 
 func extractPresentationResults(

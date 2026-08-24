@@ -1,10 +1,11 @@
 id: pipeline.dcql.trusted-authorities-match
 kind: pipeline
-description: Match credentials when the DCQL query includes valid trusted_authorities. Upstream requires the wallet holds more than one credential from the issuer specified in trusted_authorities.
-pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trusted-authorities-match
+description: Match credentials when the DCQL query includes valid trusted_authorities. Upstream requires the wallet holds
+  more than one credential from the issuer specified in trusted_authorities.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-relying-party-dcql-trusted-authorities-match
 required_steps:
-  - present-with-reference-implementation
-  - fetch-capture-session
+- present-with-reference-implementation
+- fetch-capture-session
 outputs:
   dcql_exchange:
     path: $.output.fetch-capture-session.body

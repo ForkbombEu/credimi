@@ -1,5 +1,13 @@
 id: pipeline.dcql.claims-without-id-without-claim-sets
 kind: pipeline
-pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claims-without-id-without-claim-sets
-required_steps: [present-claims-without-id, fetch-result]
-outputs: { dcql_exchange: { path: $.output.fetch-result.body, decoder: raw }, visual_evidence: { path: $.output.present-claims-without-id.flow_output.maestro_screenshot_urls, decoder: raw } }
+pipeline_id: forkbomb-bv-andrea/fcaf-dcql-claims-without-id-and-without-claim-sets
+required_steps:
+- present-claims-without-id
+- fetch-result
+outputs:
+  dcql_exchange:
+    path: $.output.fetch-result.body
+    decoder: raw
+  visual_evidence:
+    path: $.output.present-claims-without-id.flow_output.maestro_screenshot_urls
+    decoder: raw

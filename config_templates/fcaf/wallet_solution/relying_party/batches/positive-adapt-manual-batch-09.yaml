@@ -1,0 +1,62 @@
+name: 'FCAF batch 09: SecurityMechanisms / RpIntegrity'
+description: Consolidated batch for SecurityMechanisms / RpIntegrity. 16 tests.
+tests:
+- id: WS_RP_SM_RpIntegrity__004
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__013
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__014
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__015
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__016
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__017
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__018
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__019
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__020
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__021
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__023
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__024
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__025
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__026
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__002
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+- id: WS_RP_SM_RpIntegrity__003
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-rp-integrity
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml
+run:
+  instance: http://localhost:8090
+  suite: wallet_solution/relying_party
+  runner_id: forkbomb-bv-andrea/usb
+  sync: make fcaf-sync FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+  pipeline_runs:
+  - filter: rp-integrity
+    command: make fcaf-run FCAF_FILTER=rp-integrity FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+validation:
+- go test ./pkg/fcaf/... ./cmd/cli
+- git diff --check

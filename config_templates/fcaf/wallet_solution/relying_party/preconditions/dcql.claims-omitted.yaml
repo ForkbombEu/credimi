@@ -1,11 +1,11 @@
 id: pipeline.dcql.claims-omitted
 kind: pipeline
 description: Execute a successful DCQL PID presentation with the credential claims property omitted.
-pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claims-omitted
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-relying-party-dcql-claims-omitted
 required_steps:
-  - evidence-request
-  - present-without-claims
-  - get-presentation-result
+- evidence-request
+- present-without-claims
+- get-presentation-result
 outputs:
   dcql_exchange:
     path: $.output

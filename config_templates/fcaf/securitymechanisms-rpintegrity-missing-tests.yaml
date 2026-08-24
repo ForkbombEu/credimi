@@ -1,0 +1,17 @@
+tests:
+- WS_RP_SM_RpIntegrity__002
+- WS_RP_SM_RpIntegrity__003
+- WS_RP_SM_RpIntegrity__004
+- WS_RP_SM_RpIntegrity__013
+- WS_RP_SM_RpIntegrity__014
+- WS_RP_SM_RpIntegrity__015
+- WS_RP_SM_RpIntegrity__016
+- WS_RP_SM_RpIntegrity__017
+- WS_RP_SM_RpIntegrity__018
+- WS_RP_SM_RpIntegrity__019
+- WS_RP_SM_RpIntegrity__020
+- WS_RP_SM_RpIntegrity__021
+- WS_RP_SM_RpIntegrity__023
+- WS_RP_SM_RpIntegrity__024
+- WS_RP_SM_RpIntegrity__025
+- WS_RP_SM_RpIntegrity__026

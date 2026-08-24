@@ -1,0 +1,17 @@
+name: 'FCAF batch 12: UseCases / Presentation'
+description: Consolidated batch for UseCases / Presentation. 1 tests.
+tests:
+- id: WS_RP_UC_Presentation__003
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-presentation
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-presentation.yaml
+run:
+  instance: http://localhost:8090
+  suite: wallet_solution/relying_party
+  runner_id: forkbomb-bv-andrea/usb
+  sync: make fcaf-sync FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+  pipeline_runs:
+  - filter: presentation
+    command: make fcaf-run FCAF_FILTER=presentation FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+validation:
+- go test ./pkg/fcaf/... ./cmd/cli
+- git diff --check

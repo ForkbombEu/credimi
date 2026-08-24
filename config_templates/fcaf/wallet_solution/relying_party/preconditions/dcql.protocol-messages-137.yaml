@@ -1,0 +1,16 @@
+id: pipeline.dcql.protocol-messages-137
+kind: pipeline
+description: Unknown scope causes invalid_scope
+pipeline_id: forkbomb-bv-andrea/fcaf-protocolmessages-137-unknown-scope-causes-invalid-scope
+required_steps:
+- create-capture-session
+- exercise-wallet
+- fetch-capture-session
+outputs:
+  dcql_exchange:
+    path: $.output.dcql_exchange
+    decoder: raw
+  visual_evidence:
+    path: $.output.exercise-wallet.flow_output.maestro_screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

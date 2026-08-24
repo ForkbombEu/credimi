@@ -1,10 +1,10 @@
 id: pipeline.dcql.format-mso-mdoc
 kind: pipeline
 description: Execute a successful DCQL presentation using the mso_mdoc credential format.
-pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-format-mso-mdoc
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-relying-party-dcql-mso-mdoc-format
 required_steps:
-  - present-with-reference-implementation
-  - get-presentation-result
+- present-with-reference-implementation
+- get-presentation-result
 outputs:
   dcql_exchange:
     path: $.output.get-presentation-result.body

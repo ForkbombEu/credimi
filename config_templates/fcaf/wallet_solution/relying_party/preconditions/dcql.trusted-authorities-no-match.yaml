@@ -1,9 +1,15 @@
 id: pipeline.dcql.trusted-authorities-no-match
 kind: pipeline
 description: Handle a valid trusted_authorities query that matches no wallet credential.
-pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trusted-authorities-no-match
-required_steps: [present-with-reference-implementation, get-capture-session]
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-relying-party-dcql-trusted-authorities-no-match
+required_steps:
+- present-with-reference-implementation
+- get-capture-session
 outputs:
-  dcql_exchange: { path: $.output.get-capture-session.body, decoder: raw }
-  visual_evidence: { path: $.output.present-with-reference-implementation.flow_output.maestro_screenshot_urls, decoder: raw }
+  dcql_exchange:
+    path: $.output.get-capture-session.body
+    decoder: raw
+  visual_evidence:
+    path: $.output.present-with-reference-implementation.flow_output.maestro_screenshot_urls
+    decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

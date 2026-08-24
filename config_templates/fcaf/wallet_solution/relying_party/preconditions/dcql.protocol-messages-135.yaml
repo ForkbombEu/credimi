@@ -1,0 +1,16 @@
+id: pipeline.dcql.protocol-messages-135
+kind: pipeline
+description: Unsupported transaction_data type rejected by wallet
+pipeline_id: forkbomb-bv-andrea/fcaf-protocolmessages-135-unsupported-transaction-data-type-rejected-by-wallet
+required_steps:
+- create-capture-session
+- exercise-wallet
+- fetch-capture-session
+outputs:
+  dcql_exchange:
+    path: $.output.dcql_exchange
+    decoder: raw
+  visual_evidence:
+    path: $.output.exercise-wallet.flow_output.maestro_screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

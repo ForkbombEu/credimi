@@ -1,5 +1,5 @@
 name: FCAF DCQL user-denied consent
-runtime: { global_runner_id: "" }
+runtime: { global_runner_id: forkbomb-bv-andrea/usb }
 steps:
   - id: create-presentation
     use: http-request
@@ -29,8 +29,7 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - clearState: com.android.chrome
-        - launchApp: { stopApp: true, clearState: false }
+                - launchApp: { stopApp: true, clearState: false }
         - extendedWaitUntil:
             visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
             timeout: 30000

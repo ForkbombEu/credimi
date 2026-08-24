@@ -28,13 +28,14 @@ import (
 const fcafSourceBaseURL = "https://github.com/eu-digital-identity-wallet/eudi-doc-functional-conformance-assessment/blob/88ab69a/docs/fcaf/suts/wallet_solution/relying_party/"
 
 var (
-	fcafDir       string
-	fcafOutput    string
-	fcafFilter    string
-	fcafTestsFile string
-	fcafRunnerID  string
-	fcafTimeout   time.Duration
-	fcafInterval  time.Duration
+	fcafDir        string
+	fcafOutput     string
+	fcafFilter     string
+	fcafTestsFile  string
+	fcafRunnerID   string
+	fcafTimeout    time.Duration
+	fcafInterval   time.Duration
+	fcafImportsDir string
 )
 
 type fcafRun struct {
@@ -92,6 +93,13 @@ func NewFCAFCommand() *cobra.Command {
 			return runFCAF(cmd.Context())
 		},
 	}
+	syncCmd := &cobra.Command{
+		Use:   "sync",
+		Short: "Synchronize FCAF pipelines and credential definitions without running them",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return syncFCAF(cmd.Context())
+		},
+	}
 	run.Flags().StringVar(&fcafDir, "dir", "config_templates/fcaf/wallet_solution/relying_party/pipelines", "directory containing pipeline YAML files")
 	run.Flags().StringVar(&fcafOutput, "output", "", "optional local directory for JSON, screenshots, and HTML output")
 	run.Flags().StringVar(&fcafFilter, "filter", "", "run only files whose name contains this value")
@@ -99,10 +107,310 @@ func NewFCAFCommand() *cobra.Command {
 	run.Flags().StringVar(&fcafRunnerID, "runner-id", "", "registered mobile runner identifier for mobile-automation steps")
 	run.Flags().DurationVar(&fcafTimeout, "timeout", 30*time.Minute, "maximum time allowed for each pipeline")
 	run.Flags().DurationVar(&fcafInterval, "interval", 5*time.Second, "queue polling interval")
+	syncCmd.Flags().StringVar(&fcafImportsDir, "imports-dir", "config_templates/fcaf/imports", "directory containing repository-backed FCAF imports")
+	syncCmd.Flags().StringVar(&fcafRunnerID, "runner-id", "", "registered mobile runner identifier to write into mobile-automation pipelines")
 	run.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
 	run.Flags().StringVarP(&instanceURL, "instance", "i", "http://localhost:8090", "URL of the Credimi instance")
+	syncCmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
+	syncCmd.Flags().StringVarP(&instanceURL, "instance", "i", "http://localhost:8090", "URL of the Credimi instance")
 	cmd.AddCommand(run)
+	cmd.AddCommand(syncCmd)
 	return cmd
+}
+
+type fcafCredentialImport struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	YAML        string `yaml:"yaml"`
+}
+
+type fcafCredentialCode struct {
+	Env struct {
+		Host                      string `yaml:"host"`
+		CredentialConfigurationID string `yaml:"credential_configuration_id"`
+	} `yaml:"env"`
+}
+
+func syncFCAF(ctx context.Context) error {
+	if strings.TrimSpace(apiKey) == "" {
+		apiKey = strings.TrimSpace(os.Getenv("CREDIMI_API_KEY"))
+	}
+	if apiKey == "" || apiKey == "replace-with-local-api-key" {
+		return fmt.Errorf("CREDIMI_API_KEY is required; generate a local key and set it in .env or use --api-key")
+	}
+	token, err := authenticate(ctx)
+	if err != nil {
+		return err
+	}
+	orgID, _, err := getMyOrganization(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	pipelinePaths, err := filepath.Glob(filepath.Join(fcafDir, "*.yaml"))
+	if err != nil {
+		return fmt.Errorf("find FCAF pipelines: %w", err)
+	}
+	sort.Strings(pipelinePaths)
+	for _, path := range pipelinePaths {
+		input, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("read pipeline %s: %w", path, readErr)
+		}
+		if fcafRunnerID != "" {
+			input, readErr = setFCAFRunnerID(input, fcafRunnerID)
+			if readErr != nil {
+				return fmt.Errorf("set runner ID in %s: %w", path, readErr)
+			}
+		}
+		name, parseErr := parsePipelineName(input)
+		if parseErr != nil {
+			return fmt.Errorf("parse pipeline %s: %w", path, parseErr)
+		}
+		if _, syncErr := findOrCreatePipelineWithValidation(ctx, token, orgID, &PipelineCLIInput{Name: name, YAML: string(input)}, fcafRunnerID != ""); syncErr != nil {
+			return fmt.Errorf("sync pipeline %s: %w", path, syncErr)
+		}
+		fmt.Printf("synced pipeline %s\n", name)
+	}
+
+	credentialPaths, err := filepath.Glob(filepath.Join(fcafImportsDir, "**", "credentials", "**", "*.yaml"))
+	if err != nil {
+		return fmt.Errorf("find FCAF credentials: %w", err)
+	}
+	// filepath.Glob does not support **; walk the import tree explicitly.
+	credentialPaths = credentialPaths[:0]
+	err = filepath.WalkDir(fcafImportsDir, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() && strings.Contains(filepath.ToSlash(path), "/credentials/") && strings.HasSuffix(path, ".yaml") {
+			credentialPaths = append(credentialPaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walk FCAF imports: %w", err)
+	}
+	sort.Strings(credentialPaths)
+	for _, path := range credentialPaths {
+		input, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("read credential %s: %w", path, readErr)
+		}
+		var definition fcafCredentialImport
+		if parseErr := yaml.Unmarshal(input, &definition); parseErr != nil {
+			return fmt.Errorf("parse credential %s: %w", path, parseErr)
+		}
+		if definition.Name == "" || definition.YAML == "" {
+			return fmt.Errorf("credential %s must define name and yaml", path)
+		}
+		if err := syncFCAFCredential(ctx, token, orgID, definition); err != nil {
+			return fmt.Errorf("sync credential %s: %w", path, err)
+		}
+		fmt.Printf("synced credential %s\n", definition.Name)
+	}
+
+	walletActionPaths := make([]string, 0)
+	err = filepath.WalkDir(filepath.Join(fcafImportsDir), func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() && strings.Contains(filepath.ToSlash(path), "/wallet/") && strings.HasSuffix(path, ".yaml") {
+			walletActionPaths = append(walletActionPaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walk FCAF wallet actions: %w", err)
+	}
+	sort.Strings(walletActionPaths)
+	for _, path := range walletActionPaths {
+		input, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("read wallet action %s: %w", path, readErr)
+		}
+		name, parseErr := parseWalletActionName(input)
+		if parseErr != nil {
+			continue
+		}
+		updated, syncErr := syncFCAFWalletAction(ctx, token, orgID, name, string(input))
+		if syncErr != nil {
+			return syncErr
+		}
+		if updated {
+			fmt.Printf("synced wallet action %s\n", name)
+		}
+	}
+	return nil
+}
+
+func parseWalletActionName(input []byte) (string, error) {
+	parts := strings.SplitN(string(input), "---", 2)
+	if len(parts) != 2 {
+		return "", fmt.Errorf("wallet action is missing YAML front matter")
+	}
+	var metadata struct {
+		Name string `yaml:"name"`
+	}
+	if err := yaml.Unmarshal([]byte(parts[0]), &metadata); err != nil {
+		return "", err
+	}
+	if metadata.Name == "" {
+		return "", fmt.Errorf("wallet action has no name")
+	}
+	return metadata.Name, nil
+}
+
+func syncFCAFWalletAction(ctx context.Context, token, orgID, name, code string) (bool, error) {
+	filter := url.Values{}
+	filter.Set("filter", fmt.Sprintf(`owner="%s" && name="%s"`, pocketBaseFilterString(orgID), pocketBaseFilterString(name)))
+	filter.Set("perPage", "20")
+	endpoint := utils.JoinURL(instanceURL, "api", "collections", "wallet_actions", "records") + "?" + filter.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("find wallet action failed: HTTP %d: %s", resp.StatusCode, body)
+	}
+	var records struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&records); err != nil {
+		return false, err
+	}
+	if len(records.Items) == 0 {
+		return false, nil
+	}
+	if len(records.Items) != 1 {
+		return false, fmt.Errorf("expected one wallet action named %q, found %d", name, len(records.Items))
+	}
+	id, ok := records.Items[0]["id"].(string)
+	if !ok || id == "" {
+		return false, fmt.Errorf("wallet action %q has no record id", name)
+	}
+	body, err := json.Marshal(map[string]string{"code": code})
+	if err != nil {
+		return false, err
+	}
+	patchURL := utils.JoinURL(instanceURL, "api", "collections", "wallet_actions", "records", id)
+	patchReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, patchURL, strings.NewReader(string(body)))
+	if err != nil {
+		return false, err
+	}
+	patchReq.Header.Set("Authorization", "Bearer "+token)
+	patchReq.Header.Set("Content-Type", "application/json")
+	patchResp, err := http.DefaultClient.Do(patchReq)
+	if err != nil {
+		return false, err
+	}
+	defer patchResp.Body.Close()
+	if patchResp.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(patchResp.Body)
+		return false, fmt.Errorf("update wallet action failed: HTTP %d: %s", patchResp.StatusCode, responseBody)
+	}
+	return true, nil
+}
+
+func syncFCAFCredential(ctx context.Context, token, orgID string, definition fcafCredentialImport) error {
+	filter := url.Values{}
+	filter.Set("filter", fmt.Sprintf(`owner="%s" && name="%s"`, pocketBaseFilterString(orgID), pocketBaseFilterString(definition.Name)))
+	filter.Set("perPage", "20")
+	endpoint := utils.JoinURL(instanceURL, "api", "collections", "credentials", "records") + "?" + filter.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("find credential failed: HTTP %d: %s", resp.StatusCode, body)
+	}
+	var records struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&records); err != nil {
+		return err
+	}
+	if len(records.Items) != 1 {
+		return fmt.Errorf("expected one credential record named %q, found %d", definition.Name, len(records.Items))
+	}
+	id, ok := records.Items[0]["id"].(string)
+	if !ok || id == "" {
+		return fmt.Errorf("credential %q has no record id", definition.Name)
+	}
+	var code fcafCredentialCode
+	if err := yaml.Unmarshal([]byte(definition.YAML), &code); err != nil {
+		return fmt.Errorf("parse credential code: %w", err)
+	}
+	updates := map[string]any{
+		"name":        definition.Name,
+		"description": definition.Description,
+		"yaml":        definition.YAML,
+	}
+	if strings.Contains(code.Env.Host, "capture-wallet") && code.Env.CredentialConfigurationID != "" {
+		offerBody, err := json.Marshal(map[string]string{"credential_configuration_id": code.Env.CredentialConfigurationID})
+		if err != nil {
+			return err
+		}
+		offerReq, err := http.NewRequestWithContext(ctx, http.MethodPost, code.Env.Host, strings.NewReader(string(offerBody)))
+		if err != nil {
+			return err
+		}
+		offerReq.Header.Set("Content-Type", "application/json")
+		offerResp, err := http.DefaultClient.Do(offerReq)
+		if err != nil {
+			return fmt.Errorf("regenerate credential offer: %w", err)
+		}
+		defer offerResp.Body.Close()
+		if offerResp.StatusCode != http.StatusCreated {
+			responseBody, _ := io.ReadAll(offerResp.Body)
+			return fmt.Errorf("regenerate credential offer failed: HTTP %d: %s", offerResp.StatusCode, responseBody)
+		}
+		var offer struct {
+			Deeplink string `json:"deeplink"`
+		}
+		if err := json.NewDecoder(offerResp.Body).Decode(&offer); err != nil {
+			return err
+		}
+		if offer.Deeplink == "" {
+			return fmt.Errorf("regenerated credential offer for %q has no deeplink", definition.Name)
+		}
+		updates["deeplink"] = offer.Deeplink
+	}
+	body, err := json.Marshal(updates)
+	if err != nil {
+		return err
+	}
+	patchURL := utils.JoinURL(instanceURL, "api", "collections", "credentials", "records", id)
+	patchReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, patchURL, strings.NewReader(string(body)))
+	if err != nil {
+		return err
+	}
+	patchReq.Header.Set("Authorization", "Bearer "+token)
+	patchReq.Header.Set("Content-Type", "application/json")
+	patchResp, err := http.DefaultClient.Do(patchReq)
+	if err != nil {
+		return err
+	}
+	defer patchResp.Body.Close()
+	if patchResp.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(patchResp.Body)
+		return fmt.Errorf("update credential failed: HTTP %d: %s", patchResp.StatusCode, responseBody)
+	}
+	return nil
 }
 
 func runFCAF(ctx context.Context) error {
@@ -218,9 +526,10 @@ type fcafTestsFileConfig struct {
 }
 
 type fcafTestSelection struct {
-	TestIDs []string
-	Tests   map[string]dsl.TestDefinition
-	Paths   []string
+	TestIDs   []string
+	Tests     map[string]dsl.TestDefinition
+	Paths     []string
+	TestPaths map[string]string
 }
 
 func pathsForFCAFTests(filename, pipelineDir string) ([]string, error) {
@@ -249,9 +558,10 @@ func selectionForFCAFTests(filename, pipelineDir string) (fcafTestSelection, err
 		return fcafTestSelection{}, fmt.Errorf("load FCAF catalog: %w", err)
 	}
 	selection := fcafTestSelection{
-		TestIDs: make([]string, 0, len(config.Tests)),
-		Tests:   make(map[string]dsl.TestDefinition, len(config.Tests)),
-		Paths:   make([]string, 0, len(config.Tests)),
+		TestIDs:   make([]string, 0, len(config.Tests)),
+		Tests:     make(map[string]dsl.TestDefinition, len(config.Tests)),
+		Paths:     make([]string, 0, len(config.Tests)),
+		TestPaths: make(map[string]string, len(config.Tests)),
 	}
 	paths := make([]string, 0, len(config.Tests))
 	seen := map[string]struct{}{}
@@ -287,6 +597,7 @@ func selectionForFCAFTests(filename, pipelineDir string) (fcafTestSelection, err
 		}
 		selection.TestIDs = append(selection.TestIDs, testID)
 		selection.Tests[testID] = test
+		selection.TestPaths[testID] = path
 		if _, exists := seen[path]; !exists {
 			seen[path] = struct{}{}
 			paths = append(paths, path)
@@ -297,13 +608,24 @@ func selectionForFCAFTests(filename, pipelineDir string) (fcafTestSelection, err
 }
 
 func runSelectedFCAFAssessment(ctx context.Context, token, orgID, org string, selection fcafTestSelection) error {
-	// Run each selected test independently so a slow or failed mobile workflow
-	// cannot hold the entire suite's report hostage.
-	if len(selection.TestIDs) > 1 {
+	// Keep tests that share a pipeline in one assessment. The pipeline output
+	// is intentionally reusable evidence for every compatible FCAF test.
+	if len(selection.Paths) > 1 {
+		groups := make(map[string]*fcafTestSelection, len(selection.Paths))
 		for _, testID := range selection.TestIDs {
-			single := selection
-			single.TestIDs = []string{testID}
-			if err := runSelectedFCAFAssessment(ctx, token, orgID, org, single); err != nil {
+			path := selection.TestPaths[testID]
+			group := groups[path]
+			if group == nil {
+				group = &fcafTestSelection{Tests: make(map[string]dsl.TestDefinition), TestPaths: make(map[string]string)}
+				groups[path] = group
+			}
+			group.TestIDs = append(group.TestIDs, testID)
+			group.Tests[testID] = selection.Tests[testID]
+			group.TestPaths[testID] = path
+			group.Paths = []string{path}
+		}
+		for _, group := range groups {
+			if err := runSelectedFCAFAssessment(ctx, token, orgID, org, *group); err != nil {
 				continue
 			}
 		}

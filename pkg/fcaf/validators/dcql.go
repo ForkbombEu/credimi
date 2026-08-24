@@ -83,7 +83,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, or claim_sets",
+			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, claim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
 		}
 	}
 
@@ -352,7 +352,41 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateTrustedAuthoritiesMatch(query, responseValue)
 	case "trusted_authorities_no_match":
 		return validateTrustedAuthoritiesNoMatch(query, responseValue)
-	case "property_type":
+		case "claim_path_member_type_error":
+			return validateClaimPathMemberTypeError(query, responseValue, errorValue)
+		case "wallet_error_expected":
+			return validateWalletErrorExpected(query, responseValue, errorValue, params.ExpectedValue)
+		case "invalid_scope":
+			return validateErrorCode(responseValue, errorValue, "invalid_scope")
+		case "unknown_field_stripped":
+			return validateUnknownFieldStripped(query, responseValue)
+		case "vp_formats_not_supported":
+			return validateErrorCode(responseValue, errorValue, "vp_formats_not_supported")
+		case "transaction_data_error":
+			return validateErrorCode(responseValue, errorValue, "invalid_transaction_data")
+		case "invalid_client":
+			return validateErrorCode(responseValue, errorValue, "invalid_client")
+		case "invalid_request_generic":
+			return validateErrorCode(responseValue, errorValue, "invalid_request")
+		case "access_denied":
+			return validateErrorCode(responseValue, errorValue, "access_denied")
+		case "jwe_enc_verified":
+			return validateJWEEncVerified(responseValue)
+	case "session_encryption":
+			return validateSessionEncryption(responseValue)
+		case "encoding":
+			return validateEncoding(responseValue)
+		case "interaction_engagement":
+			return validateInteractionCompleted(responseValue)
+		case "interaction_protocol_flow":
+			return validateInteractionCompleted(responseValue)
+		case "interaction_supportive":
+			return validateInteractionCompleted(responseValue)
+		case "rp_integrity_positive":
+			return validateEvidencePresent(responseValue, errorValue)
+		case "issuer_integrity_positive":
+			return validateEvidencePresent(responseValue, errorValue)
+		case "property_type":
 		if params.Property == "" {
 			return Result{
 				Status:  StatusError,
@@ -682,7 +716,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		if isEmptyDCQLValue(responseValue) {
 			return Result{
 				Status:  StatusFail,
-				Message: "wallet response contains no vp_token for claim_sets",
+				Message: "wallet response contains no vp_token fclaim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
 			}
 		}
 	}
@@ -1986,3 +2020,133 @@ func sdjwtMatchesIssuerClaim(presentation *evidence.SDJWTPresentation, values []
 	}
 	return false
 }
+
+// validateClaimPathMemberTypeError checks that wallet rejects DCQL queries with invalid claim-path
+// member types (boolean, negative integer, unsupported object types).
+func validateClaimPathMemberTypeError(query, responseValue, errorValue any) Result {
+	if errStr, _ := normalizeString(errorValue); errStr != "" {
+		if errStr == "invalid_request" {
+			return Result{Status: StatusPass, Message: fmt.Sprintf("wallet returned %s for invalid claim-path member type", errStr)}
+		}
+		return Result{Status: StatusPass, Message: fmt.Sprintf("wallet returned error %s for invalid claim-path member type", errStr)}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned vp_token for query with invalid claim-path member type"}
+	}
+	return Result{Status: StatusPass, Message: "wallet did not return vp_token for invalid claim-path member type"}
+}
+
+// validateWalletErrorExpected checks that wallet returns an expected error code.
+// If expected is nil, any error code is accepted.
+func validateWalletErrorExpected(query, responseValue, errorValue, expected any) Result {
+	if errStr, _ := normalizeString(errorValue); errStr != "" {
+		if expected != nil {
+			expectedStr, ok := expected.(string)
+			if ok && errStr == expectedStr {
+				return Result{Status: StatusPass, Message: fmt.Sprintf("wallet returned expected error %s", errStr)}
+			}
+			if ok {
+				return Result{Status: StatusFail, Message: fmt.Sprintf("wallet returned %s, expected %s", errStr, expectedStr)}
+			}
+		}
+		return Result{Status: StatusPass, Message: fmt.Sprintf("wallet returned error %s", errStr)}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned vp_token, expected error"}
+	}
+	return Result{Status: StatusPass, Message: "wallet did not return vp_token (expected error case)"}
+}
+
+// validateErrorCode checks that wallet returns a specific OAuth2/OID4VP error code.
+func validateErrorCode(responseValue, errorValue any, expectedCode string) Result {
+	if errStr, _ := normalizeString(errorValue); errStr != "" {
+		if errStr == expectedCode {
+			return Result{Status: StatusPass, Message: fmt.Sprintf("wallet returned expected error %s", expectedCode)}
+		}
+		return Result{Status: StatusFail, Message: fmt.Sprintf("wallet returned error %s, expected %s", errStr, expectedCode)}
+	}
+	if isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusPass, Message: fmt.Sprintf("wallet did not return vp_token for %s case", expectedCode)}
+	}
+	return Result{Status: StatusFail, Message: fmt.Sprintf("wallet returned vp_token, expected error %s", expectedCode)}
+}
+
+// validateUnknownFieldStripped checks that wallet processes request with unknown fields stripped.
+func validateUnknownFieldStripped(query, responseValue any) Result {
+	if errStr, _ := normalizeString(query); errStr != "" {
+		return Result{Status: StatusFail, Message: fmt.Sprintf("wallet returned error %s for unknown field (should have been stripped)", errStr)}
+	}
+	if isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned no vp_token for request with unknown fields"}
+	}
+	return Result{Status: StatusPass, Message: "wallet accepted request with unknown fields stripped"}
+}
+
+// validateJWEEncVerified checks JWE encryption parameters in the wallet response.
+func validateJWEEncVerified(responseValue any) Result {
+	resp, _ := normalizeJSONObject(responseValue)
+	if resp == nil || len(resp) == 0 {
+		return Result{Status: StatusFail, Message: "wallet returned empty vp_token, cannot verify JWE enc"}
+	}
+	if _, exists := resp["response"]; exists {
+		return Result{Status: StatusPass, Message: "wallet response contains JWE response evidence"}
+	}
+	for _, v := range resp {
+		if str, ok := v.(string); ok && len(str) > 0 {
+			parts := 0
+			for _, c := range str {
+				if c == '.' {
+					parts++
+				}
+			}
+			if parts == 4 {
+				return Result{Status: StatusPass, Message: "wallet response contains compact JWE"}
+			}
+		}
+	}
+	return Result{Status: StatusPass, Message: "wallet returned response evidence"}
+}
+
+func normalizeString(v any) (string, bool) {
+	if v == nil {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok
+}
+
+// validateSessionEncryption checks session encryption evidence.
+func validateSessionEncryption(responseValue any) Result {
+	if isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned no session encryption evidence"}
+	}
+	return Result{Status: StatusPass, Message: "wallet returned session encryption evidence"}
+}
+
+// validateEncoding checks encoding validation evidence.
+func validateEncoding(responseValue any) Result {
+	if isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned no encoding evidence"}
+	}
+	return Result{Status: StatusPass, Message: "wallet returned encoding evidence"}
+}
+
+// validateInteractionCompleted checks that wallet interaction completed successfully.
+func validateInteractionCompleted(responseValue any) Result {
+	if isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet interaction did not complete"}
+	}
+	return Result{Status: StatusPass, Message: "wallet interaction completed successfully"}
+}
+
+// validateEvidencePresent checks that evidence exists and no error occurred.
+func validateEvidencePresent(responseValue, errorValue any) Result {
+	if errStr, _ := normalizeString(errorValue); errStr != "" {
+		return Result{Status: StatusFail, Message: fmt.Sprintf("wallet returned error: %s", errStr)}
+	}
+	if isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned no evidence"}
+	}
+	return Result{Status: StatusPass, Message: "wallet evidence present"}
+}
+

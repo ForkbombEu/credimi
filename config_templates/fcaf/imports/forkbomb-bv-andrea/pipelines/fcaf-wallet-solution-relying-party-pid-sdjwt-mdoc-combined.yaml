@@ -11,7 +11,10 @@ runtime:
       start_to_close_timeout: 50m
       heartbeat_timeout: 10m
       retry_policy:
-        maximum_attempts: 1
+        maximum_attempts: 3
+        initial_interval: 5s
+        backoff_coefficient: 2
+        maximum_interval: 30s
 
 steps:
   - id: onboard-reference-wallet
@@ -22,6 +25,13 @@ steps:
 
   - id: create-pid-sdjwt-offer
     use: credential-offer
+    activity_options:
+      start_to_close_timeout: 2m
+      retry_policy:
+        maximum_attempts: 3
+        initial_interval: 5s
+        backoff_coefficient: 2
+        maximum_interval: 30s
     with:
       credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
 
@@ -35,6 +45,13 @@ steps:
 
   - id: create-sdjwt-capture-session
     use: http-request
+    activity_options:
+      start_to_close_timeout: 2m
+      retry_policy:
+        maximum_attempts: 3
+        initial_interval: 5s
+        backoff_coefficient: 2
+        maximum_interval: 30s
     with:
       method: POST
       url: https://capture-wallet.credimi.io/openid4vp/sessions
@@ -70,6 +87,13 @@ steps:
 
   - id: fetch-sdjwt-capture-session
     use: http-request
+    activity_options:
+      start_to_close_timeout: 2m
+      retry_policy:
+        maximum_attempts: 3
+        initial_interval: 5s
+        backoff_coefficient: 2
+        maximum_interval: 30s
     with:
       method: GET
       url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-sdjwt-capture-session.outputs.body.session_id }}
@@ -77,6 +101,13 @@ steps:
 
   - id: create-pid-mdoc-offer
     use: credential-offer
+    activity_options:
+      start_to_close_timeout: 2m
+      retry_policy:
+        maximum_attempts: 3
+        initial_interval: 5s
+        backoff_coefficient: 2
+        maximum_interval: 30s
     with:
       credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
 
@@ -90,6 +121,13 @@ steps:
 
   - id: create-capture-session
     use: http-request
+    activity_options:
+      start_to_close_timeout: 2m
+      retry_policy:
+        maximum_attempts: 3
+        initial_interval: 5s
+        backoff_coefficient: 2
+        maximum_interval: 30s
     with:
       method: POST
       url: https://capture-wallet.credimi.io/openid4vp/sessions
@@ -147,6 +185,13 @@ steps:
 
   - id: fetch-capture-session
     use: http-request
+    activity_options:
+      start_to_close_timeout: 2m
+      retry_policy:
+        maximum_attempts: 3
+        initial_interval: 5s
+        backoff_coefficient: 2
+        maximum_interval: 30s
     with:
       method: GET
       url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}

@@ -41,7 +41,6 @@ COVERAGE_PKGS ?= $(shell go list ./... | grep -v '/webapp/node_modules/')
 WEBENV			= $(WEBAPP)/.env
 BIN				= $(ROOT_DIR)/.bin
 DEPS 			= mise git temporal wget
-DEV_DEPS		= pre-commit
 TEST_DEPS		= mise
 
 # Generic tool checker
@@ -72,7 +71,7 @@ define write_compose_dev_override
 endef
 
 all: help
-.PHONY: submodules version dev test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run
+.PHONY: submodules version dev test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run fcaf-sync
 
 $(BIN):
 	@mkdir -p $@
@@ -123,6 +122,9 @@ test.all: ## 🧪 run all tests, including long tests skipped by test
 
 fcaf-run: ## Run selected FCAF pipelines through Credimi and store results server-side
 	$(GOCMD) run . fcaf run $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" $(if $(FCAF_OUTPUT),--output "$(FCAF_OUTPUT)",) $(if $(FCAF_FILTER),--filter "$(FCAF_FILTER)",) $(if $(FCAF_TESTS_FILE),--tests-file "$(FCAF_TESTS_FILE)",) $(if $(FCAF_RUNNER_ID),--runner-id "$(FCAF_RUNNER_ID)",)
+
+fcaf-sync: ## Synchronize repository FCAF pipelines and credential definitions without running them
+	$(GOCMD) run . fcaf sync $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" --imports-dir "$(or $(FCAF_IMPORTS_DIR),config_templates/fcaf/imports)" $(if $(FCAF_RUNNER_ID),--runner-id "$(FCAF_RUNNER_ID)",)
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
@@ -237,8 +239,6 @@ generate: $(ROOT_DIR)/pkg/gen.go
 	$(GOGEN) $(ROOT_DIR)/pkg/gen.go
 
 devtools: generate
-	pre-commit install
-	pre-commit autoupdate
 
 tools: generate $(BIN) $(BIN)/stepci-captured-runner $(BIN)/et-tu-cesr 
 	mise install

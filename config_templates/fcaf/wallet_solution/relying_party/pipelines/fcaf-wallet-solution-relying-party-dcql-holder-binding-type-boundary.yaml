@@ -1,6 +1,6 @@
 name: FCAF wallet relying-party DCQL holder binding type boundary
 runtime:
-  global_runner_id: ""
+  global_runner_id: forkbomb-bv-andrea/usb
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -375,6 +375,7 @@ steps:
       test_ids:
         - WS_RP_IA_MainInteraction__005
         - WS_RP_IA_MainInteraction__007
+        - WS_RP_IA_MainInteraction__008
         - WS_RP_MS_ProtocolMessages__081
         - WS_RP_SM_DeviceBinding__008
         - WS_RP_SM_DeviceBinding__009

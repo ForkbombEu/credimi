@@ -1,6 +1,6 @@
 name: FCAF wallet relying-party DCQL trusted authorities match
 runtime:
-  global_runner_id: ""
+  global_runner_id: forkbomb-bv-andrea/usb
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -48,8 +48,7 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - clearState: com.android.chrome
-        - launchApp:
+                - launchApp:
             stopApp: true
             clearState: false
             permissions:

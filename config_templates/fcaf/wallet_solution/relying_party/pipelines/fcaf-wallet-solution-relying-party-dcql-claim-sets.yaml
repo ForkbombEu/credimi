@@ -1,6 +1,6 @@
 name: FCAF wallet relying-party DCQL claim sets
 runtime:
-  global_runner_id: ""
+  global_runner_id: forkbomb-bv-andrea/usb
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m

@@ -1,0 +1,56 @@
+name: 'FCAF batch 10: SecurityMechanisms / TrustMechanisms'
+description: Consolidated batch for SecurityMechanisms / TrustMechanisms. 14 tests.
+tests:
+- id: WS_RP_SM_TrustMechanisms__002
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__003
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__004
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__005
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__006
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__007
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__008
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__021
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__009
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__010
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__011
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__012
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__013
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+- id: WS_RP_SM_TrustMechanisms__015
+  pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms
+  source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml
+run:
+  instance: http://localhost:8090
+  suite: wallet_solution/relying_party
+  runner_id: forkbomb-bv-andrea/usb
+  sync: make fcaf-sync FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+  pipeline_runs:
+  - filter: trust-mechanisms
+    command: make fcaf-run FCAF_FILTER=trust-mechanisms FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+validation:
+- go test ./pkg/fcaf/... ./cmd/cli
+- git diff --check

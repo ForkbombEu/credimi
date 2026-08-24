@@ -29,8 +29,7 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - clearState: com.android.chrome
-        - launchApp: { stopApp: true, clearState: false }
+                - launchApp: { stopApp: true, clearState: false }
         - extendedWaitUntil:
             visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
             timeout: 30000

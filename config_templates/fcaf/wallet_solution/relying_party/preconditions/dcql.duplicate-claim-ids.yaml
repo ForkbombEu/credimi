@@ -1,5 +1,13 @@
 id: pipeline.dcql.duplicate-claim-ids
 kind: pipeline
-pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-duplicate-claim-ids
-required_steps: [reject-duplicate-claim-ids, fetch-result]
-outputs: { dcql_exchange: { path: $.output.fetch-result.body, decoder: raw }, visual_evidence: { path: $.output.reject-duplicate-claim-ids.flow_output.maestro_screenshot_urls, decoder: raw } }
+pipeline_id: forkbomb-bv-andrea/fcaf-dcql-duplicate-claim-ids
+required_steps:
+- reject-duplicate-claim-ids
+- fetch-result
+outputs:
+  dcql_exchange:
+    path: $.output.fetch-result.body
+    decoder: raw
+  visual_evidence:
+    path: $.output.reject-duplicate-claim-ids.flow_output.maestro_screenshot_urls
+    decoder: raw

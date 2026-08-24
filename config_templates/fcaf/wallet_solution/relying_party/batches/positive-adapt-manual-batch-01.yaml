@@ -1,0 +1,25 @@
+name: FCAF positive adapt-manual batch 01
+description: First positive tests promoted from adapt-manual using existing evidence shapes.
+tests:
+  - id: WS_RP_IA_MainInteraction__008
+    pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-holder-binding-type-boundary
+    source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-holder-binding-type-boundary.yaml
+  - id: WS_RP_MS_ProtocolMessages__013
+    pipeline: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-same-credential-multiple-queries
+    source_pipeline: config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-dcql-same-credential-multiple-queries.yaml
+
+run:
+  instance: http://localhost:8090
+  suite: wallet_solution/relying_party
+  runner_id: forkbomb-bv-andrea/usb
+  sync: make fcaf-sync FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+  assessment: make fcaf-run FCAF_TESTS_FILE=config_templates/fcaf/pid-sdjwt-mdoc-combined-tests.yaml FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+  pipeline_runs:
+    - filter: dcql-holder-binding-type-boundary
+      command: make fcaf-run FCAF_FILTER=dcql-holder-binding-type-boundary FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+    - filter: dcql-same-credential-multiple-queries
+      command: make fcaf-run FCAF_FILTER=dcql-same-credential-multiple-queries FCAF_RUNNER_ID=forkbomb-bv-andrea/usb CREDIMI_API_KEY="$CREDIMI_API_KEY"
+
+validation:
+  - go test ./pkg/fcaf/catalog ./pkg/fcaf/validators ./cmd/cli
+  - git diff --check

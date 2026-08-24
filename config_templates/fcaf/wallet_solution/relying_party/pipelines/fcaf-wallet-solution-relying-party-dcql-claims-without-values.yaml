@@ -1,5 +1,5 @@
 name: FCAF DCQL claims without values
-runtime: { global_runner_id: "" }
+runtime: { global_runner_id: forkbomb-bv-andrea/usb }
 steps:
   - id: create-presentation
     use: http-request
@@ -17,8 +17,7 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - clearState: com.android.chrome
-        - launchApp: { stopApp: true, clearState: false }
+                - launchApp: { stopApp: true, clearState: false }
         - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Welcome, .*", timeout: 30000 }
         - runFlow:
             when: { visible: "Welcome back" }

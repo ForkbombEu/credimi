@@ -1,0 +1,16 @@
+id: test.WS_RP_DM_AddressData_Residentcity_PID_ISO-mdoc_001
+kind: pipeline
+description: FCAF pipeline for test.WS_RP_DM_AddressData_Residentcity_PID_ISO-mdoc_001
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-test.WS_RP_DM_AddressData_Residentcity_PID_ISO-mdoc_001
+required_steps:
+- create-capture-session
+- exercise-wallet
+- fetch-capture-session
+outputs:
+  dcql_exchange:
+    path: $.output.dcql_exchange
+    decoder: raw
+  visual_evidence:
+    path: $.output.visual_evidence
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

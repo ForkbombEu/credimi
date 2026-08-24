@@ -1,0 +1,16 @@
+id: pipeline.dcql.protocol-messages-129
+kind: pipeline
+description: JWE protected kid matches client_metadata
+pipeline_id: forkbomb-bv-andrea/fcaf-protocolmessages-129-jwe-protected-kid-matches-client-metadata
+required_steps:
+- create-capture-session
+- exercise-wallet
+- fetch-capture-session
+outputs:
+  dcql_exchange:
+    path: $.output.dcql_exchange
+    decoder: raw
+  visual_evidence:
+    path: $.output.exercise-wallet.flow_output.maestro_screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

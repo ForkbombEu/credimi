@@ -1,4 +1,4 @@
-name: FCAF wallet relying-party PID SD-JWT and mDoc combined happy flow
+name: FCAF wallet solution relying-party PID SDJWT mDoc combined
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
@@ -59,6 +59,29 @@ steps:
                 claims:
                   - path: [given_name]
                   - path: [family_name]
+                  - path: [birthdate]
+                  - path: [place_of_birth]
+                  - path: [birth_family_name]
+                  - path: [birth_given_name]
+                  - path: [email]
+                  - path: [phone_number]
+                  - path: [address, formatted]
+                  - path: [address, country]
+                  - path: [address, locality]
+                  - path: [address, region]
+                  - path: [address, street_address]
+                  - path: [address, house_number]
+                  - path: [address, postal_code]
+                  - path: [date_of_expiry]
+                  - path: [date_of_issuance]
+                  - path: [document_number]
+                  - path: [issuing_authority]
+                  - path: [issuing_country]
+                  - path: [issuing_jurisdiction]
+                  - path: [nationalities]
+                  - path: [personal_administrative_number]
+                  - path: [picture]
+                  - path: [sex]
 
   - id: invoke-wallet-with-sdjwt
     use: mobile-automation
@@ -151,127 +174,3 @@ steps:
       method: GET
       url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
       expected_status: 200
-
-  - id: run-fcaf-sdjwt-validators
-    use: fcaf-validation
-    with:
-      test_ids:
-        - WS_RP_IA_Engagement__001
-      suite: wallet_solution/relying_party
-      pipeline_outputs:
-        pipeline.pid.presentation.sdjwt.all-claims:
-          output:
-            onboard-reference-wallet: ${{ onboard-reference-wallet.outputs }}
-            create-pid-sdjwt-offer: ${{ create-pid-sdjwt-offer.outputs }}
-            obtain-pid-sdjwt: ${{ obtain-pid-sdjwt.outputs }}
-            create-capture-session: ${{ create-sdjwt-capture-session.outputs }}
-            invoke-wallet-with-haip-vp: ${{ invoke-wallet-with-sdjwt.outputs }}
-            fetch-capture-session: ${{ fetch-sdjwt-capture-session.outputs }}
-            visual_evidence: ${{ invoke-wallet-with-sdjwt.outputs.flow_output.maestro_screenshot_urls }}
-        forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-engagement-haip-vp:
-          output:
-            onboard-reference-wallet: ${{ onboard-reference-wallet.outputs }}
-            create-pid-sdjwt-offer: ${{ create-pid-sdjwt-offer.outputs }}
-            obtain-pid-sdjwt: ${{ obtain-pid-sdjwt.outputs }}
-            create-capture-session: ${{ create-sdjwt-capture-session.outputs }}
-            invoke-wallet-with-haip-vp: ${{ invoke-wallet-with-sdjwt.outputs }}
-            fetch-capture-session: ${{ fetch-sdjwt-capture-session.outputs }}
-            visual_evidence: ${{ invoke-wallet-with-sdjwt.outputs.flow_output.maestro_screenshot_urls }}
-
-  - id: run-fcaf-mdoc-validators
-    use: fcaf-validation
-    with:
-      test_ids:
-        - WS_RP_DM_AddressData_Emailaddress_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Emailaddress_PID_ISO-mdoc_002
-        - WS_RP_DM_AddressData_Emailaddress_PID_ISO-mdoc_003
-        - WS_RP_DM_AddressData_Mobilephonenumber_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Mobilephonenumber_PID_ISO-mdoc_002
-        - WS_RP_DM_AddressData_Mobilephonenumber_PID_ISO-mdoc_003
-        - WS_RP_DM_AddressData_Residentaddress_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Residentaddress_PID_ISO-mdoc_002
-        - WS_RP_DM_AddressData_Residentcity_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Residentcity_PID_ISO-mdoc_002
-        - WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_002
-        - WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_003
-        - WS_RP_DM_AddressData_Residenthousenumber_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Residenthousenumber_PID_ISO-mdoc_002
-        - WS_RP_DM_AddressData_Residentpostalcode_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Residentpostalcode_PID_ISO-mdoc_002
-        - WS_RP_DM_AddressData_Residentstate_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Residentstate_PID_ISO-mdoc_002
-        - WS_RP_DM_AddressData_Residentstreet_PID_ISO-mdoc_001
-        - WS_RP_DM_AddressData_Residentstreet_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Documentnumber_PID_ISO-mdoc_001
-        - WS_RP_DM_Credentialmetadata_Documentnumber_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Domestic_PID_ISO-mdoc_001
-        - WS_RP_DM_Credentialmetadata_Domestic_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_001
-        - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_003
-        - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_004
-        - WS_RP_DM_Credentialmetadata_Issuancedate_PID_ISO-mdoc_001
-        - WS_RP_DM_Credentialmetadata_Issuancedate_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Issuancedate_PID_ISO-mdoc_003
-        - WS_RP_DM_Credentialmetadata_Issuancedate_PID_ISO-mdoc_004
-        - WS_RP_DM_Credentialmetadata_Issuingauthority_PID_ISO-mdoc_001
-        - WS_RP_DM_Credentialmetadata_Issuingauthority_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_ISO-mdoc_001
-        - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_ISO-mdoc_003
-        - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_ISO-mdoc_001
-        - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_ISO-mdoc_003
-        - WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_003
-        - WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_004
-        - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_003
-        - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_004
-        - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_005
-        - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_006
-        - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_007
-        - WS_RP_DM_IdentifyingData_Familyname_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Familyname_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Familynamebirth_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Familynamebirth_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Givenname_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Givenname_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Givennamebirth_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Givennamebirth_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Nationality_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Nationality_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Nationality_PID_ISO-mdoc_003
-        - WS_RP_DM_IdentifyingData_Nationality_PID_ISO-mdoc_004
-        - WS_RP_DM_IdentifyingData_Personaladministrativenumber_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Personaladministrativenumber_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Portrait_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Portrait_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Portrait_PID_ISO-mdoc_003
-        - WS_RP_DM_IdentifyingData_Sex_PID_ISO-mdoc_001
-        - WS_RP_DM_IdentifyingData_Sex_PID_ISO-mdoc_002
-        - WS_RP_DM_IdentifyingData_Sex_PID_ISO-mdoc_003
-        - WS_RP_SH_Cryptography_CryptographicHash_002
-      suite: wallet_solution/relying_party
-      pipeline_outputs:
-        pipeline.pid.presentation.mdoc.all-claims-elements:
-          output:
-            onboard-reference-wallet: ${{ onboard-reference-wallet.outputs }}
-            create-pid-mdoc-offer: ${{ create-pid-mdoc-offer.outputs }}
-            obtain-pid-mdoc: ${{ obtain-pid-mdoc.outputs }}
-            create-capture-session: ${{ create-capture-session.outputs }}
-            invoke-wallet-with-haip-vp: ${{ invoke-wallet-with-haip-vp.outputs }}
-            fetch-capture-session: ${{ fetch-capture-session.outputs }}
-            visual_evidence: ${{ invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls }}
-        forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-pid-mdoc-data-model:
-          output:
-            onboard-reference-wallet: ${{ onboard-reference-wallet.outputs }}
-            create-pid-mdoc-offer: ${{ create-pid-mdoc-offer.outputs }}
-            obtain-pid-mdoc: ${{ obtain-pid-mdoc.outputs }}
-            create-capture-session: ${{ create-capture-session.outputs }}
-            invoke-wallet-with-haip-vp: ${{ invoke-wallet-with-haip-vp.outputs }}
-            fetch-capture-session: ${{ fetch-capture-session.outputs }}
-            visual_evidence: ${{ invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls }}

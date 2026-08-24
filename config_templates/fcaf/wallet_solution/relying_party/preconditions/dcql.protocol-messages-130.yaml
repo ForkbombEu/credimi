@@ -1,0 +1,16 @@
+id: pipeline.dcql.protocol-messages-130
+kind: pipeline
+description: Explicit JWE enc selection verification
+pipeline_id: forkbomb-bv-andrea/fcaf-protocolmessages-130-explicit-jwe-enc-selection-verification
+required_steps:
+- create-capture-session
+- exercise-wallet
+- fetch-capture-session
+outputs:
+  dcql_exchange:
+    path: $.output.dcql_exchange
+    decoder: raw
+  visual_evidence:
+    path: $.output.exercise-wallet.flow_output.maestro_screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

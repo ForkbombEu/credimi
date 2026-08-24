@@ -1,0 +1,28 @@
+id: WS_RP_IA_ProtocolFlow__002
+title: FCAF WS_RP_IA_ProtocolFlow__002
+source:
+  path: Interaction/ProtocolFlow/WS_RP_IA_ProtocolFlow__002.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.protocol_flow
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '6.1'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+- ref: pipeline.dcql.interaction-protocol-flow
+evidence:
+  dcql_exchange:
+    from: pipeline.dcql.interaction-protocol-flow.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.interaction-protocol-flow.outputs.visual_evidence
+assertions:
+- id: ws_rp_ia_protocolflow__002_dcql_valid
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
+verdict:
+  pass_when: all_assertions_pass
