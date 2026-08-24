@@ -52,6 +52,11 @@ services:
       - 7233:7233
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
+    logging:
+      driver: local
+      options:
+        max-size: "1g"
+        max-file: "5"
   temporal_ui:
     container_name: temporal-ui
     depends_on:
