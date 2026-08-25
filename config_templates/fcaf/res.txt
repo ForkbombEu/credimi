@@ -1,0 +1,84 @@
+No—the current folder cannot be considered semantically verified against the FCAF scenarios.
+
+  I compared all 559 YAML definitions with their authoritative source scenarios from the FCAF submitted branch at commit 2b223b56…. Every source
+  path resolved, but several systemic problems remain.
+
+  ## Critical findings
+
+  1. 376 tests reuse 13 category-level happy-path pipelines.
+
+  Twelve pipelines submit essentially the same request:
+
+  - haip-vp://
+  - request_uri_method: post
+  - request_delivery: by_reference
+  - response_type: vp_token
+  - response_mode: direct_post
+  - SD-JWT PID requesting given_name
+
+  Only the nonce/category name changes. This contradicts the repository’s own rule that request-object, transport, malformed, and negative cases
+  require dedicated request shapes (docs/fcaf-positive-adapt-manual-plan.md:27).
+
+  2. At least 149 negative/rejection scenarios positively require a matching credential.
+
+  There are 221 tests using mode: credentials_match; 149 of their source objectives/results require rejection, no credential, invalid input,
+  omission, unsupported input, or discontinuation.
+
+  For example:
+
+  - config_templates/fcaf/wallet_solution/relying_party/tests/WS_RP_MS_ProtocolMessages__002.yaml:16 must process a plain, unsigned
+    URL-parameter request, but runs a by-reference POST pipeline and only checks that a credential was returned. Authoritative scenario
+    (https://github.com/eu-digital-identity-wallet/eudi-doc-functional-conformance-assessment/blob/2b223b56be0d0a073ee0cdc9db1d7fd31d9529a1/docs/fcaf/suts/wallet_solution/relying_party/MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__002.md).
+
+  - config_templates/fcaf/wallet_solution/relying_party/tests/WS_RP_IA_MainInteraction__026.yaml:16 expects no credential and an access_denied
+    response when a required claim is unavailable; its assertion instead requires a credential.
+
+  - config_templates/fcaf/wallet_solution/relying_party/tests/WS_RP_MS_Metadata__086.yaml:16 should reject a status-list token with negative
+    idx; it neither creates that token nor asserts rejection.
+
+  3. Some definitions are internally contradictory.
+
+  config_templates/fcaf/wallet_solution/relying_party/tests/WS_RP_MS_CredentialFormats__029.yaml:16 is supposed to verify storage of a JWT
+  Referenced Token containing status_list. Its pipeline creates an SD-JWT presentation request, while its assertion checks format_mso_mdoc. None
+  of those verifies credential storage.
+
+  config_templates/fcaf/wallet_solution/relying_party/tests/WS_RP_SM_RpIntegrity__001.yaml:16 must reject invalid verifier_info signature or
+  binding, but only checks whether an iss field exists.
+
+  4. Visual assertions are generally too weak.
+
+  396 definitions use evidence.non_empty. That validator only checks whether a screenshot list/string/map is non-empty (pkg/fcaf/validators/
+  generic.go:73); it does not prove that the screenshot shows consent, rejection, success, requested claims, or any test-specific state.
+
+  5. A grouping commit weakened previously strict definitions.
+
+  Commit 794e7db0 touched 384 test definitions, including 48 existing ones. For example, current config_templates/fcaf/wallet_solution/
+  relying_party/tests/WS_RP_MS_ProtocolMessages__088.yaml:16 replaced its dedicated unsupported-authority pipeline with the generic happy path
+  and credentials_match. Cases 091–094 still retain their dedicated malformed-value matrices, showing the catalog now mixes strict and generic
+  generations.
+
+  6. 356 local titles contain no requirement description.
+
+  They are simply FCAF <ID>. Therefore review or generation cannot rely on the local title; it must read the referenced source Markdown
+  objective, preconditions, scenario, and expected results.
+
+  ## Your scheme example
+
+  config_templates/fcaf/wallet_solution/relying_party/tests/WS_RP_IA_Engagement__001.yaml:16 is correctly narrow:
+
+  - It uses pipeline.wallet.engagement.haip-vp.
+  - It asserts that deeplink starts with exactly haip-vp://.
+  - It does not accept openid4vp:// as an alternative.
+
+  So that particular case follows the intended pattern.
+
+  ## Validation
+
+  - go test ./pkg/fcaf/catalog ./pkg/fcaf/dsl ./pkg/fcaf/validators: passed.
+  - Full go test ./pkg/fcaf/...: failed at TestDeviceBinding012KBJWTPresentWithLiveEvidenceShape.
+  - git diff --check: passed.
+  - No files changed; existing untracked .codex was preserved.
+
+  The catalog is structurally loadable, but it is not semantically trustworthy as a conformance suite. The safest remediation is to quarantine
+  the 384 grouped definitions, restore the 48 overwritten dedicated definitions, then review each remaining case against its exact source
+  scenario before marking it runnable or implemented.

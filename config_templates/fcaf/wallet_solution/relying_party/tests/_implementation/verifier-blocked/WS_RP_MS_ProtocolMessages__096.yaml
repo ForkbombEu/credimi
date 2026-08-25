@@ -1,0 +1,30 @@
+id: WS_RP_MS_ProtocolMessages__096
+title: Reject credential_sets without options.
+source:
+  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__096.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "6.2, 8.5"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.dcql.credential-sets-options-missing
+evidence:
+  dcql_exchange: { from: pipeline.dcql.credential-sets-options-missing.outputs.dcql_exchange }
+  visual_evidence: { from: pipeline.dcql.credential-sets-options-missing.outputs.visual_evidence }
+assertions:
+  - id: missing_options_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params: { mode: credential_sets_options_missing }
+  - id: rejection_has_visual_evidence
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

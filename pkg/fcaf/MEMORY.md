@@ -10,30 +10,37 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
-## Git state at handoff
+## Current repository state
 
-- Repository: `/home/puria/src/github.com/ForkbombEu/credimi/PR/1295`
-- Detached HEAD: `54373c673c4d2e65118df2f77d32642dfba16e97`
-- Shared push target: `origin HEAD:feat/fcaf-test`
-- Worktree was clean before adding this memory and skill.
-- Catalog count: 182 tests after the uncommitted case 094 implementation.
+- Working branch: `fix/fcaf-improvments`.
+- Runnable catalog: 207 definitions directly under
+  `config_templates/fcaf/wallet_solution/relying_party/tests/`.
+- Pending implementation: 300 definitions under
+  `tests/_implementation/pending/`.
+- Verifier blocked: 52 definitions under
+  `tests/_implementation/verifier-blocked/`.
+- Total classified source definitions: 559.
+- The catalog loader skips `_implementation`; moving a file is therefore a
+  lifecycle change, not documentation only.
+- Runnable definitions must not use category-wide preconditions. Their pipeline
+  artifact must exist under `pipelines/` with the basename declared by
+  `pipeline_id`, because `selectionForFCAFTests` resolves that exact filename.
+- Non-runnable batches, preconditions and pipelines live under the relying-party
+  `_implementation/` tree and are not synchronized by the default CLI paths.
+- The verifier capability backlog and reactivation criteria are maintained in
+  `config_templates/fcaf/wallet_solution/relying_party/broken.md`.
+- `pkg/fcaf/implementation-inventory.csv` uses `🟢 ready`,
+  `⚪ pending implementation`, and `🟡 verifier blocked` for these states.
 
-Recent commits:
-
-- `54373c67` case 089, missing trusted-authority type, plus `request_rejected` validator mode
-- `016077d6` case 088, unsupported trusted-authority type
-- `b9978313` case 087, repeated queries matching the same PID
-- `49822612` case 086
-- `031de948` case 085
-- `6c9d1fb9` case 084
-- `5e80ac16` case 083
-- `5821662d` case 082
-- `12c466dc` case 081
-- `d5c029ac` case 080
+No SQLite database, WAL/SHM file, generated cache, or `types.d.ts` belongs in
+the runnable pipeline directory. Reusable YAML remains the source of truth.
 
 ## Current scope
 
-Implement mandatory wallet-solution/relying-party tests one at a time. Skip TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests. Keep reusable YAML in the repository, not SQLite.
+Implement mandatory wallet-solution/relying-party tests one at a time. Skip
+TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests.
+Promote a pending or blocked definition only after its exact source scenario,
+raw evidence and expected result are independently proven.
 
 ## Case 087
 
