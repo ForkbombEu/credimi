@@ -100,19 +100,29 @@ func NewFCAFCommand() *cobra.Command {
 			return syncFCAF(cmd.Context())
 		},
 	}
-	run.Flags().StringVar(&fcafDir, "dir", "config_templates/fcaf/wallet_solution/relying_party/pipelines", "directory containing pipeline YAML files")
-	run.Flags().StringVar(&fcafOutput, "output", "", "optional local directory for JSON, screenshots, and HTML output")
-	run.Flags().StringVar(&fcafFilter, "filter", "", "run only files whose name contains this value")
-	run.Flags().StringVar(&fcafTestsFile, "tests-file", "", "YAML file containing a tests list of FCAF test IDs")
-	run.Flags().StringVar(&fcafRunnerID, "runner-id", "", "registered mobile runner identifier for mobile-automation steps")
-	run.Flags().DurationVar(&fcafTimeout, "timeout", 30*time.Minute, "maximum time allowed for each pipeline")
+	run.Flags().
+		StringVar(&fcafDir, "dir", "config_templates/fcaf/wallet_solution/relying_party/pipelines", "directory containing pipeline YAML files")
+	run.Flags().
+		StringVar(&fcafOutput, "output", "", "optional local directory for JSON, screenshots, and HTML output")
+	run.Flags().
+		StringVar(&fcafFilter, "filter", "", "run only files whose name contains this value")
+	run.Flags().
+		StringVar(&fcafTestsFile, "tests-file", "", "YAML file containing a tests list of FCAF test IDs")
+	run.Flags().
+		StringVar(&fcafRunnerID, "runner-id", "", "registered mobile runner identifier for mobile-automation steps")
+	run.Flags().
+		DurationVar(&fcafTimeout, "timeout", 30*time.Minute, "maximum time allowed for each pipeline")
 	run.Flags().DurationVar(&fcafInterval, "interval", 5*time.Second, "queue polling interval")
-	syncCmd.Flags().StringVar(&fcafImportsDir, "imports-dir", "config_templates/fcaf/imports", "directory containing repository-backed FCAF imports")
-	syncCmd.Flags().StringVar(&fcafRunnerID, "runner-id", "", "registered mobile runner identifier to write into mobile-automation pipelines")
+	syncCmd.Flags().
+		StringVar(&fcafImportsDir, "imports-dir", "config_templates/fcaf/imports", "directory containing repository-backed FCAF imports")
+	syncCmd.Flags().
+		StringVar(&fcafRunnerID, "runner-id", "", "registered mobile runner identifier to write into mobile-automation pipelines")
 	run.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
-	run.Flags().StringVarP(&instanceURL, "instance", "i", "http://localhost:8090", "URL of the Credimi instance")
+	run.Flags().
+		StringVarP(&instanceURL, "instance", "i", "http://localhost:8090", "URL of the Credimi instance")
 	syncCmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
-	syncCmd.Flags().StringVarP(&instanceURL, "instance", "i", "http://localhost:8090", "URL of the Credimi instance")
+	syncCmd.Flags().
+		StringVarP(&instanceURL, "instance", "i", "http://localhost:8090", "URL of the Credimi instance")
 	cmd.AddCommand(run)
 	cmd.AddCommand(syncCmd)
 	return cmd
@@ -136,7 +146,9 @@ func syncFCAF(ctx context.Context) error {
 		apiKey = strings.TrimSpace(os.Getenv("CREDIMI_API_KEY"))
 	}
 	if apiKey == "" || apiKey == "replace-with-local-api-key" {
-		return fmt.Errorf("CREDIMI_API_KEY is required; generate a local key and set it in .env or use --api-key")
+		return fmt.Errorf(
+			"CREDIMI_API_KEY is required; generate a local key and set it in .env or use --api-key",
+		)
 	}
 	token, err := authenticate(ctx)
 	if err != nil {
@@ -167,27 +179,39 @@ func syncFCAF(ctx context.Context) error {
 		if parseErr != nil {
 			return fmt.Errorf("parse pipeline %s: %w", path, parseErr)
 		}
-		if _, syncErr := findOrCreatePipelineWithValidation(ctx, token, orgID, &PipelineCLIInput{Name: name, YAML: string(input)}, fcafRunnerID != ""); syncErr != nil {
+		if _, syncErr := findOrCreatePipelineWithValidation(
+			ctx,
+			token,
+			orgID,
+			&PipelineCLIInput{Name: name, YAML: string(input)},
+			fcafRunnerID != "",
+		); syncErr != nil {
 			return fmt.Errorf("sync pipeline %s: %w", path, syncErr)
 		}
 		fmt.Printf("synced pipeline %s\n", name)
 	}
 
-	credentialPaths, err := filepath.Glob(filepath.Join(fcafImportsDir, "**", "credentials", "**", "*.yaml"))
+	credentialPaths, err := filepath.Glob(
+		filepath.Join(fcafImportsDir, "**", "credentials", "**", "*.yaml"),
+	)
 	if err != nil {
 		return fmt.Errorf("find FCAF credentials: %w", err)
 	}
 	// filepath.Glob does not support **; walk the import tree explicitly.
 	credentialPaths = credentialPaths[:0]
-	err = filepath.WalkDir(fcafImportsDir, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !entry.IsDir() && strings.Contains(filepath.ToSlash(path), "/credentials/") && strings.HasSuffix(path, ".yaml") {
-			credentialPaths = append(credentialPaths, path)
-		}
-		return nil
-	})
+	err = filepath.WalkDir(
+		fcafImportsDir,
+		func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if !entry.IsDir() && strings.Contains(filepath.ToSlash(path), "/credentials/") &&
+				strings.HasSuffix(path, ".yaml") {
+				credentialPaths = append(credentialPaths, path)
+			}
+			return nil
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("walk FCAF imports: %w", err)
 	}
@@ -211,15 +235,19 @@ func syncFCAF(ctx context.Context) error {
 	}
 
 	walletActionPaths := make([]string, 0)
-	err = filepath.WalkDir(filepath.Join(fcafImportsDir), func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !entry.IsDir() && strings.Contains(filepath.ToSlash(path), "/wallet/") && strings.HasSuffix(path, ".yaml") {
-			walletActionPaths = append(walletActionPaths, path)
-		}
-		return nil
-	})
+	err = filepath.WalkDir(
+		filepath.Join(fcafImportsDir),
+		func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if !entry.IsDir() && strings.Contains(filepath.ToSlash(path), "/wallet/") &&
+				strings.HasSuffix(path, ".yaml") {
+				walletActionPaths = append(walletActionPaths, path)
+			}
+			return nil
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("walk FCAF wallet actions: %w", err)
 	}
@@ -263,9 +291,22 @@ func parseWalletActionName(input []byte) (string, error) {
 
 func syncFCAFWalletAction(ctx context.Context, token, orgID, name, code string) (bool, error) {
 	filter := url.Values{}
-	filter.Set("filter", fmt.Sprintf(`owner="%s" && name="%s"`, pocketBaseFilterString(orgID), pocketBaseFilterString(name)))
+	filter.Set(
+		"filter",
+		fmt.Sprintf(
+			`owner="%s" && name="%s"`,
+			pocketBaseFilterString(orgID),
+			pocketBaseFilterString(name),
+		),
+	)
 	filter.Set("perPage", "20")
-	endpoint := utils.JoinURL(instanceURL, "api", "collections", "wallet_actions", "records") + "?" + filter.Encode()
+	endpoint := utils.JoinURL(
+		instanceURL,
+		"api",
+		"collections",
+		"wallet_actions",
+		"records",
+	) + "?" + filter.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return false, err
@@ -290,7 +331,11 @@ func syncFCAFWalletAction(ctx context.Context, token, orgID, name, code string) 
 		return false, nil
 	}
 	if len(records.Items) != 1 {
-		return false, fmt.Errorf("expected one wallet action named %q, found %d", name, len(records.Items))
+		return false, fmt.Errorf(
+			"expected one wallet action named %q, found %d",
+			name,
+			len(records.Items),
+		)
 	}
 	id, ok := records.Items[0]["id"].(string)
 	if !ok || id == "" {
@@ -301,7 +346,12 @@ func syncFCAFWalletAction(ctx context.Context, token, orgID, name, code string) 
 		return false, err
 	}
 	patchURL := utils.JoinURL(instanceURL, "api", "collections", "wallet_actions", "records", id)
-	patchReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, patchURL, strings.NewReader(string(body)))
+	patchReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPatch,
+		patchURL,
+		strings.NewReader(string(body)),
+	)
 	if err != nil {
 		return false, err
 	}
@@ -314,16 +364,37 @@ func syncFCAFWalletAction(ctx context.Context, token, orgID, name, code string) 
 	defer patchResp.Body.Close()
 	if patchResp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(patchResp.Body)
-		return false, fmt.Errorf("update wallet action failed: HTTP %d: %s", patchResp.StatusCode, responseBody)
+		return false, fmt.Errorf(
+			"update wallet action failed: HTTP %d: %s",
+			patchResp.StatusCode,
+			responseBody,
+		)
 	}
 	return true, nil
 }
 
-func syncFCAFCredential(ctx context.Context, token, orgID string, definition fcafCredentialImport) error {
+func syncFCAFCredential(
+	ctx context.Context,
+	token, orgID string,
+	definition fcafCredentialImport,
+) error {
 	filter := url.Values{}
-	filter.Set("filter", fmt.Sprintf(`owner="%s" && name="%s"`, pocketBaseFilterString(orgID), pocketBaseFilterString(definition.Name)))
+	filter.Set(
+		"filter",
+		fmt.Sprintf(
+			`owner="%s" && name="%s"`,
+			pocketBaseFilterString(orgID),
+			pocketBaseFilterString(definition.Name),
+		),
+	)
 	filter.Set("perPage", "20")
-	endpoint := utils.JoinURL(instanceURL, "api", "collections", "credentials", "records") + "?" + filter.Encode()
+	endpoint := utils.JoinURL(
+		instanceURL,
+		"api",
+		"collections",
+		"credentials",
+		"records",
+	) + "?" + filter.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err
@@ -345,7 +416,11 @@ func syncFCAFCredential(ctx context.Context, token, orgID string, definition fca
 		return err
 	}
 	if len(records.Items) != 1 {
-		return fmt.Errorf("expected one credential record named %q, found %d", definition.Name, len(records.Items))
+		return fmt.Errorf(
+			"expected one credential record named %q, found %d",
+			definition.Name,
+			len(records.Items),
+		)
 	}
 	id, ok := records.Items[0]["id"].(string)
 	if !ok || id == "" {
@@ -360,12 +435,20 @@ func syncFCAFCredential(ctx context.Context, token, orgID string, definition fca
 		"description": definition.Description,
 		"yaml":        definition.YAML,
 	}
-	if strings.Contains(code.Env.Host, "capture-wallet") && code.Env.CredentialConfigurationID != "" {
-		offerBody, err := json.Marshal(map[string]string{"credential_configuration_id": code.Env.CredentialConfigurationID})
+	if strings.Contains(code.Env.Host, "capture-wallet") &&
+		code.Env.CredentialConfigurationID != "" {
+		offerBody, err := json.Marshal(
+			map[string]string{"credential_configuration_id": code.Env.CredentialConfigurationID},
+		)
 		if err != nil {
 			return err
 		}
-		offerReq, err := http.NewRequestWithContext(ctx, http.MethodPost, code.Env.Host, strings.NewReader(string(offerBody)))
+		offerReq, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPost,
+			code.Env.Host,
+			strings.NewReader(string(offerBody)),
+		)
 		if err != nil {
 			return err
 		}
@@ -377,7 +460,11 @@ func syncFCAFCredential(ctx context.Context, token, orgID string, definition fca
 		defer offerResp.Body.Close()
 		if offerResp.StatusCode != http.StatusCreated {
 			responseBody, _ := io.ReadAll(offerResp.Body)
-			return fmt.Errorf("regenerate credential offer failed: HTTP %d: %s", offerResp.StatusCode, responseBody)
+			return fmt.Errorf(
+				"regenerate credential offer failed: HTTP %d: %s",
+				offerResp.StatusCode,
+				responseBody,
+			)
 		}
 		var offer struct {
 			Deeplink string `json:"deeplink"`
@@ -386,7 +473,10 @@ func syncFCAFCredential(ctx context.Context, token, orgID string, definition fca
 			return err
 		}
 		if offer.Deeplink == "" {
-			return fmt.Errorf("regenerated credential offer for %q has no deeplink", definition.Name)
+			return fmt.Errorf(
+				"regenerated credential offer for %q has no deeplink",
+				definition.Name,
+			)
 		}
 		updates["deeplink"] = offer.Deeplink
 	}
@@ -395,7 +485,12 @@ func syncFCAFCredential(ctx context.Context, token, orgID string, definition fca
 		return err
 	}
 	patchURL := utils.JoinURL(instanceURL, "api", "collections", "credentials", "records", id)
-	patchReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, patchURL, strings.NewReader(string(body)))
+	patchReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPatch,
+		patchURL,
+		strings.NewReader(string(body)),
+	)
 	if err != nil {
 		return err
 	}
@@ -408,7 +503,11 @@ func syncFCAFCredential(ctx context.Context, token, orgID string, definition fca
 	defer patchResp.Body.Close()
 	if patchResp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(patchResp.Body)
-		return fmt.Errorf("update credential failed: HTTP %d: %s", patchResp.StatusCode, responseBody)
+		return fmt.Errorf(
+			"update credential failed: HTTP %d: %s",
+			patchResp.StatusCode,
+			responseBody,
+		)
 	}
 	return nil
 }
@@ -418,7 +517,9 @@ func runFCAF(ctx context.Context) error {
 		apiKey = strings.TrimSpace(os.Getenv("CREDIMI_API_KEY"))
 	}
 	if apiKey == "" || apiKey == "replace-with-local-api-key" {
-		return fmt.Errorf("CREDIMI_API_KEY is required; generate a local key and set it in .env or use --api-key")
+		return fmt.Errorf(
+			"CREDIMI_API_KEY is required; generate a local key and set it in .env or use --api-key",
+		)
 	}
 	token, err := authenticate(ctx)
 	if err != nil {
@@ -436,7 +537,11 @@ func runFCAF(ctx context.Context) error {
 		if err := runSelectedFCAFAssessment(ctx, token, orgID, org, selection); err != nil {
 			if localFCAFOutputEnabled() {
 				if reportErr := writeFCAFErrorReport(selection, err); reportErr != nil {
-					return fmt.Errorf("FCAF run failed: %v; write failure report: %w", err, reportErr)
+					return fmt.Errorf(
+						"FCAF run failed: %w; write failure report: %w",
+						err,
+						reportErr,
+					)
 				}
 			}
 			return err
@@ -487,7 +592,16 @@ func runFCAF(ctx context.Context) error {
 	if !localFCAFOutputEnabled() {
 		return nil
 	}
-	return writeFCAFReport(fcafReport{GeneratedAt: time.Now(), Runs: runs, Passed: report.Passed, Failed: report.Failed, Blocked: report.Blocked, Errors: report.Errors})
+	return writeFCAFReport(
+		fcafReport{
+			GeneratedAt: time.Now(),
+			Runs:        runs,
+			Passed:      report.Passed,
+			Failed:      report.Failed,
+			Blocked:     report.Blocked,
+			Errors:      report.Errors,
+		},
+	)
 }
 
 func localFCAFOutputEnabled() bool {
@@ -575,25 +689,42 @@ func selectionForFCAFTests(filename, pipelineDir string) (fcafTestSelection, err
 			return fcafTestSelection{}, fmt.Errorf("FCAF test ID %q not found", testID)
 		}
 		if len(test.Preconditions) == 0 {
-			return fcafTestSelection{}, fmt.Errorf("FCAF test %q has no preconditions to run", testID)
+			return fcafTestSelection{}, fmt.Errorf(
+				"FCAF test %q has no preconditions to run",
+				testID,
+			)
 		}
 		pipelineName := ""
 		for _, ref := range test.Preconditions {
 			precondition, ok := cat.Preconditions[ref.Ref]
 			if !ok {
-				return fcafTestSelection{}, fmt.Errorf("FCAF test %q references unknown precondition %q", testID, ref.Ref)
+				return fcafTestSelection{}, fmt.Errorf(
+					"FCAF test %q references unknown precondition %q",
+					testID,
+					ref.Ref,
+				)
 			}
 			if precondition.PipelineID != "" {
-				pipelineName = filepath.Base(strings.TrimSuffix(precondition.PipelineID, "/")) + ".yaml"
+				pipelineName = filepath.Base(
+					strings.TrimSuffix(precondition.PipelineID, "/"),
+				) + ".yaml"
 				break
 			}
 		}
 		if pipelineName == "" {
-			return fcafTestSelection{}, fmt.Errorf("FCAF test %q has no pipeline precondition", testID)
+			return fcafTestSelection{}, fmt.Errorf(
+				"FCAF test %q has no pipeline precondition",
+				testID,
+			)
 		}
 		path := filepath.Join(pipelineDir, pipelineName)
 		if _, err := os.Stat(path); err != nil {
-			return fcafTestSelection{}, fmt.Errorf("pipeline for FCAF test %q not found at %s: %w", testID, path, err)
+			return fcafTestSelection{}, fmt.Errorf(
+				"pipeline for FCAF test %q not found at %s: %w",
+				testID,
+				path,
+				err,
+			)
 		}
 		selection.TestIDs = append(selection.TestIDs, testID)
 		selection.Tests[testID] = test
@@ -607,7 +738,11 @@ func selectionForFCAFTests(filename, pipelineDir string) (fcafTestSelection, err
 	return selection, nil
 }
 
-func runSelectedFCAFAssessment(ctx context.Context, token, orgID, org string, selection fcafTestSelection) error {
+func runSelectedFCAFAssessment(
+	ctx context.Context,
+	token, orgID, org string,
+	selection fcafTestSelection,
+) error {
 	// Keep tests that share a pipeline in one assessment. The pipeline output
 	// is intentionally reusable evidence for every compatible FCAF test.
 	if len(selection.Paths) > 1 {
@@ -616,7 +751,10 @@ func runSelectedFCAFAssessment(ctx context.Context, token, orgID, org string, se
 			path := selection.TestPaths[testID]
 			group := groups[path]
 			if group == nil {
-				group = &fcafTestSelection{Tests: make(map[string]dsl.TestDefinition), TestPaths: make(map[string]string)}
+				group = &fcafTestSelection{
+					Tests:     make(map[string]dsl.TestDefinition),
+					TestPaths: make(map[string]string),
+				}
 				groups[path] = group
 			}
 			group.TestIDs = append(group.TestIDs, testID)
@@ -647,7 +785,12 @@ func runSelectedFCAFAssessment(ctx context.Context, token, orgID, org string, se
 		if err != nil {
 			return err
 		}
-		if _, err := findOrCreatePipeline(ctx, token, orgID, &PipelineCLIInput{Name: name, YAML: string(input)}); err != nil {
+		if _, err := findOrCreatePipeline(
+			ctx,
+			token,
+			orgID,
+			&PipelineCLIInput{Name: name, YAML: string(input)},
+		); err != nil {
 			return fmt.Errorf("import selected FCAF pipeline %s: %w", path, err)
 		}
 	}
@@ -685,7 +828,11 @@ func runSelectedFCAFAssessment(ctx context.Context, token, orgID, org string, se
 		if err := os.MkdirAll(fcafOutput, 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(fcafOutput, "fcaf-assessment.json"), response, 0o644); err != nil {
+		if err := os.WriteFile(
+			filepath.Join(fcafOutput, "fcaf-assessment.json"),
+			response,
+			0o644,
+		); err != nil {
 			return err
 		}
 	}
@@ -747,7 +894,12 @@ func runSelectedFCAFAssessment(ctx context.Context, token, orgID, org string, se
 					}
 					id, _ := assertion["id"].(string)
 					definition := findFCAFAssertion(test.Assertions, id)
-					validator := fcafValidatorRun{ID: id, Validator: definition.Validator, Input: definition.Input, Params: definition.Params}
+					validator := fcafValidatorRun{
+						ID:        id,
+						Validator: definition.Validator,
+						Input:     definition.Input,
+						Params:    definition.Params,
+					}
 					validator.Status, _ = assertion["status"].(string)
 					validator.Message, _ = assertion["message"].(string)
 					if keys, ok := assertion["evidence_keys"].([]any); ok {
@@ -788,12 +940,24 @@ func runSelectedFCAFAssessment(ctx context.Context, token, orgID, org string, se
 		}
 	}
 	if localFCAFOutputEnabled() {
-		if err := writeFCAFReport(fcafReport{GeneratedAt: time.Now(), Runs: runs, Passed: passed, Failed: failed, Blocked: blocked, Errors: errors}); err != nil {
+		if err := writeFCAFReport(
+			fcafReport{
+				GeneratedAt: time.Now(),
+				Runs:        runs,
+				Passed:      passed,
+				Failed:      failed,
+				Blocked:     blocked,
+				Errors:      errors,
+			},
+		); err != nil {
 			return err
 		}
 	}
 	if assessmentError != "" && !strings.Contains(assessmentError, "CRE229") {
-		if workflowID, runID := assessmentWorkflowIDs(assessmentError); workflowID != "" && runID != "" {
+		if workflowID, runID := assessmentWorkflowIDs(
+			assessmentError,
+		); workflowID != "" &&
+			runID != "" {
 			if details, err := pollFCAFExecution(ctx, token, org, workflowID, runID); err == nil {
 				if localFCAFOutputEnabled() {
 					path := filepath.Join(fcafOutput, selection.TestIDs[0]+"-execution.json")
@@ -832,11 +996,22 @@ func assessmentWorkflowIDs(message string) (string, string) {
 	return matches[1], matches[2]
 }
 
-func pollFCAFExecution(ctx context.Context, token, namespace, workflowID, runID string) (map[string]any, error) {
+func pollFCAFExecution(
+	ctx context.Context,
+	token, namespace, workflowID, runID string,
+) (map[string]any, error) {
 	deadline := time.NewTimer(fcafTimeout)
 	defer deadline.Stop()
 	for {
-		endpoint := utils.JoinURL(instanceURL, "api", "pipeline", "execution-details", namespace, workflowID, runID)
+		endpoint := utils.JoinURL(
+			instanceURL,
+			"api",
+			"pipeline",
+			"execution-details",
+			namespace,
+			workflowID,
+			runID,
+		)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 		if err != nil {
 			return nil, err
@@ -883,7 +1058,12 @@ func findFCAFAssertion(assertions []dsl.AssertionDefinition, id string) dsl.Asse
 
 func postFCAF(ctx context.Context, token string, body []byte) (int, []byte, error) {
 	target := utils.JoinURL(instanceURL, "api", "fcaf", "run")
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		target,
+		strings.NewReader(string(body)),
+	)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -900,7 +1080,11 @@ func postFCAF(ctx context.Context, token string, body []byte) (int, []byte, erro
 
 func runOneFCAF(ctx context.Context, token, orgID, org, path string) (fcafRun, error) {
 	started := time.Now()
-	run := fcafRun{Name: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), Path: path, StartedAt: started}
+	run := fcafRun{
+		Name:      strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
+		Path:      path,
+		StartedAt: started,
+	}
 	input, err := os.ReadFile(path)
 	if err != nil {
 		return run, err
@@ -916,12 +1100,19 @@ func runOneFCAF(ctx context.Context, token, orgID, org, path string) (fcafRun, e
 		return run, err
 	}
 	run.Name = parsed
-	rec, err := findOrCreatePipeline(ctx, token, orgID, &PipelineCLIInput{Name: parsed, YAML: string(input)})
+	rec, err := findOrCreatePipeline(
+		ctx,
+		token,
+		orgID,
+		&PipelineCLIInput{Name: parsed, YAML: string(input)},
+	)
 	if err != nil {
 		return run, err
 	}
 	identifier := fmt.Sprintf("%s/%s", org, rec["canonified_name"])
-	body, _ := json.Marshal(map[string]string{"pipeline_identifier": identifier, "yaml": string(input)})
+	body, _ := json.Marshal(
+		map[string]string{"pipeline_identifier": identifier, "yaml": string(input)},
+	)
 	status, response, err := postPipelineRequest(ctx, token, "queue", body)
 	if err != nil {
 		return run, err
@@ -941,12 +1132,20 @@ func runOneFCAF(ctx context.Context, token, orgID, org, path string) (fcafRun, e
 	defer deadline.Stop()
 	lastQueueStatusWarning := ""
 	for {
-		if queued.Status == "completed" || queued.Status == "failed" || queued.Status == "canceled" || queued.Status == "not_found" {
+		if queued.Status == "completed" || queued.Status == "failed" ||
+			queued.Status == "canceled" ||
+			queued.Status == "not_found" {
 			run.Status = queued.Status
 			run.Error = queued.ErrorMessage
 			run.FinishedAt = time.Now()
 			if queued.RunURL != "" && localFCAFOutputEnabled() {
-				run.Screenshots, run.DetailsFile = collectFCAFImages(ctx, token, queued.RunURL, fcafOutput, run.Name)
+				run.Screenshots, run.DetailsFile = collectFCAFImages(
+					ctx,
+					token,
+					queued.RunURL,
+					fcafOutput,
+					run.Name,
+				)
 			}
 			return run, nil
 		}
@@ -1039,7 +1238,11 @@ func setFCAFRunnerID(data []byte, runnerID string) ([]byte, error) {
 	return yaml.Marshal(&document)
 }
 
-func getPipeline(ctx context.Context, token, path string, query ...url.Values) (int, []byte, error) {
+func getPipeline(
+	ctx context.Context,
+	token, path string,
+	query ...url.Values,
+) (int, []byte, error) {
 	target := utils.JoinURL(instanceURL, "api", "pipeline", path)
 	if len(query) > 0 {
 		target += "?" + query[0].Encode()
@@ -1058,12 +1261,18 @@ func getPipeline(ctx context.Context, token, path string, query ...url.Values) (
 	return resp.StatusCode, b, err
 }
 
-func collectFCAFImages(ctx context.Context, token, detailsURL, output, runName string) ([]string, string) {
+func collectFCAFImages(
+	ctx context.Context,
+	token, detailsURL, output, runName string,
+) ([]string, string) {
 	status, body, err := getAbsolute(ctx, token, detailsURL)
 	if err != nil || status < 200 || status >= 300 {
 		return nil, ""
 	}
-	detailsFile := strings.TrimSuffix(filepath.Base(runName), filepath.Ext(runName)) + ".details.json"
+	detailsFile := strings.TrimSuffix(
+		filepath.Base(runName),
+		filepath.Ext(runName),
+	) + ".details.json"
 	if err := os.WriteFile(filepath.Join(output, detailsFile), body, 0o644); err != nil {
 		detailsFile = ""
 	}
@@ -1078,7 +1287,8 @@ func collectFCAFImages(ctx context.Context, token, detailsURL, output, runName s
 	imageNumber := 0
 	for _, imageURL := range urls {
 		lower := strings.ToLower(imageURL)
-		if !strings.Contains(lower, ".png") && !strings.Contains(lower, ".jpg") && !strings.Contains(lower, ".jpeg") {
+		if !strings.Contains(lower, ".png") && !strings.Contains(lower, ".jpg") &&
+			!strings.Contains(lower, ".jpeg") {
 			continue
 		}
 		if _, seen := seenURLs[imageURL]; seen {
@@ -1089,7 +1299,12 @@ func collectFCAFImages(ctx context.Context, token, detailsURL, output, runName s
 		if err != nil || status < 200 || status >= 300 {
 			continue
 		}
-		name := fmt.Sprintf("%s-evidence-%03d%s", strings.TrimSuffix(filepath.Base(runName), filepath.Ext(runName)), imageNumber, filepath.Ext(imageURL))
+		name := fmt.Sprintf(
+			"%s-evidence-%03d%s",
+			strings.TrimSuffix(filepath.Base(runName), filepath.Ext(runName)),
+			imageNumber,
+			filepath.Ext(imageURL),
+		)
 		if err := os.WriteFile(filepath.Join(output, name), data, 0o644); err == nil {
 			result = append(result, name)
 			imageNumber++

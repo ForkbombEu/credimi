@@ -215,7 +215,11 @@ func parseVPTokenJSONPresentations(raw string) ([]*SDJWTPresentation, error) {
 	for index, token := range tokens {
 		presentation, parseErr := ParseSDJWTPresentation(token)
 		if parseErr != nil {
-			return nil, fmt.Errorf("decode sdjwt.vp_token_presentations_json[%d]: %w", index, parseErr)
+			return nil, fmt.Errorf(
+				"decode sdjwt.vp_token_presentations_json[%d]: %w",
+				index,
+				parseErr,
+			)
 		}
 		presentations[index] = presentation
 	}

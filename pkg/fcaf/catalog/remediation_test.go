@@ -61,7 +61,9 @@ func TestRunnableCatalogPipelineArtifactsResolveByIdentifier(t *testing.T) {
 				continue
 			}
 
-			pipelineName := filepath.Base(strings.TrimSuffix(precondition.PipelineID, "/")) + ".yaml"
+			pipelineName := filepath.Base(
+				strings.TrimSuffix(precondition.PipelineID, "/"),
+			) + ".yaml"
 			require.FileExistsf(
 				t,
 				filepath.Join(root, "pipelines", pipelineName),
@@ -87,8 +89,8 @@ func TestRemediationClassification(t *testing.T) {
 		filepath.Join(root, "tests", "_implementation", "verifier-blocked"),
 	)
 
-	require.Len(t, cat.Tests, 207)
-	require.Len(t, pending, 300)
+	require.Len(t, cat.Tests, 209)
+	require.Len(t, pending, 298)
 	require.Len(t, verifierBlocked, 52)
 	require.Equal(t, 559, len(cat.Tests)+len(pending)+len(verifierBlocked))
 
@@ -129,22 +131,25 @@ func generatedWalletRelyingPartyRoot() string {
 func loadDefinitionsFromDirectory(t *testing.T, root string) map[string]dsl.TestDefinition {
 	t.Helper()
 	definitions := map[string]dsl.TestDefinition{}
-	require.NoError(t, filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".yaml") {
+	require.NoError(
+		t,
+		filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".yaml") {
+				return nil
+			}
+			definition, parseErr := dsl.ParseFile(path)
+			if parseErr != nil {
+				return parseErr
+			}
+			if _, duplicate := definitions[definition.ID]; duplicate {
+				t.Fatalf("duplicate FCAF definition %s in %s", definition.ID, path)
+			}
+			definitions[definition.ID] = *definition
 			return nil
-		}
-		definition, parseErr := dsl.ParseFile(path)
-		if parseErr != nil {
-			return parseErr
-		}
-		if _, duplicate := definitions[definition.ID]; duplicate {
-			t.Fatalf("duplicate FCAF definition %s in %s", definition.ID, path)
-		}
-		definitions[definition.ID] = *definition
-		return nil
-	}))
+		}),
+	)
 	return definitions
 }

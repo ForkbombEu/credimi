@@ -16,8 +16,8 @@ needs implementation.
 
 | State | Definitions | Executed by the catalog |
 | --- | ---: | --- |
-| Runnable | 207 | Yes |
-| Pending implementation | 300 | No |
+| Runnable | 209 | Yes |
+| Pending implementation | 298 | No |
 | Verifier blocked | 52 | No |
 | Total | 559 | |
 

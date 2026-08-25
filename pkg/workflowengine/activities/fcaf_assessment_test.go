@@ -27,28 +27,35 @@ func TestFCAFAssessmentActivityExecutesGeneratedTest(t *testing.T) {
 				PipelineOutputs: map[string]any{
 					"pipeline.pid.presentation.sdjwt.all-claims": map[string]any{
 						"output": map[string]any{
-							"capture-issuer-pid-dc-sd-jwt-0002": map[string]any{
+							"onboard-reference-wallet": map[string]any{
+								"outputs": "onboarded",
+							},
+							"create-pid-sdjwt-offer": map[string]any{
 								"outputs": "offer",
 							},
-							"getcredential-pid-sdjwt-all-claims-0003": map[string]any{
+							"obtain-pid-sdjwt": map[string]any{
 								"outputs": "issued",
 							},
-							"fake-verifier-pid-sd-jwt-credentials-all-claims-0006": map[string]any{
+							"create-sdjwt-capture-session": map[string]any{
 								"outputs": "request",
 							},
-							"verifycredential-pid-formeu-issuer-eudiw-dev-0007": map[string]any{
+							"invoke-wallet-with-sdjwt": map[string]any{
 								"outputs": "presented",
+								"flow_output": map[string]any{
+									"maestro_screenshot_urls": []string{
+										"https://example.test/consent.png",
+									},
+								},
 							},
-							"http-get-verifier-backend.eudiw.dev-0008": map[string]any{
-								"outputs": map[string]any{
-									"body": map[string]any{
-										"observed": map[string]any{
-											"wallet_response": map[string]any{
-												"value": map[string]any{
-													"vp_token": `{"query_0":["` + testPIDSDJWTPresentation(
-														t,
-													) + `"]}`,
-												},
+							"fetch-sdjwt-capture-session": map[string]any{
+								"outputs": "fetched",
+								"body": map[string]any{
+									"observed": map[string]any{
+										"wallet_response": map[string]any{
+											"value": map[string]any{
+												"vp_token": `{"query_0":["` + testPIDSDJWTPresentation(
+													t,
+												) + `"]}`,
 											},
 										},
 									},

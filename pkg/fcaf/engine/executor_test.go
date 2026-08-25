@@ -500,7 +500,9 @@ func TestDeviceBinding012KBJWTPresentWithLiveEvidenceShape(t *testing.T) {
 								"screenshot_urls": []string{"https://example.test/screenshot1.png"},
 							},
 						},
-						"verifycredential-pid-formeu-issuer-eudiw-dev-0007": map[string]any{"outputs": "ok"},
+						"verifycredential-pid-formeu-issuer-eudiw-dev-0007": map[string]any{
+							"outputs": "ok",
+						},
 						"http-get-verifier-backend.eudiw.dev-0008": map[string]any{
 							"outputs": map[string]any{
 								"body": map[string]any{

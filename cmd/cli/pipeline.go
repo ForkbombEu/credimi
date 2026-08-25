@@ -284,8 +284,20 @@ func findOrCreatePipelineWithValidation(
 		if id, ok := item["id"].(string); ok && id != "" {
 			payload := map[string]any{"yaml": input.YAML, "name": input.Name}
 			body, _ := json.Marshal(payload)
-			updateURL := utils.JoinURL(instanceURL, "api", "collections", "pipelines", "records", id)
-			updateReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, updateURL, bytes.NewReader(body))
+			updateURL := utils.JoinURL(
+				instanceURL,
+				"api",
+				"collections",
+				"pipelines",
+				"records",
+				id,
+			)
+			updateReq, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodPatch,
+				updateURL,
+				bytes.NewReader(body),
+			)
 			if err != nil {
 				return nil, err
 			}

@@ -695,8 +695,14 @@ func buildPipelineExecutionHierarchyFromResult(
 				rootSummary.Report = artifacts.Report
 			}
 		}
-		rootSummary.FCAFReport = pipelineresults.BuildPipelineExecutionArtifacts(app, resultRecord).FCAFReport
-		rootSummary.MaestroScreenshots = pipelineresults.BuildPipelineExecutionArtifacts(app, resultRecord).MaestroScreenshots
+		rootSummary.FCAFReport = pipelineresults.BuildPipelineExecutionArtifacts(
+			app,
+			resultRecord,
+		).FCAFReport
+		rootSummary.MaestroScreenshots = pipelineresults.BuildPipelineExecutionArtifacts(
+			app,
+			resultRecord,
+		).MaestroScreenshots
 	}
 
 	for _, childExecution := range childExecutions {

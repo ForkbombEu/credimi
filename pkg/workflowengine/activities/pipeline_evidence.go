@@ -229,7 +229,11 @@ func fetchIssuerMetadataWithRetry(
 			}
 		}
 	}
-	return wellKnown, fetch, fmt.Errorf("fetch issuer metadata after %d attempts: %w", maxAttempts, err)
+	return wellKnown, fetch, fmt.Errorf(
+		"fetch issuer metadata after %d attempts: %w",
+		maxAttempts,
+		err,
+	)
 }
 
 func extractPresentationResults(

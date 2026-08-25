@@ -421,11 +421,17 @@ func validateSDJWTKBJWTStructure(presentation *evidence.SDJWTPresentation) Resul
 		return Result{Status: StatusFail, Message: "KB-JWT payload is not valid JSON"}
 	}
 	if decoder.More() {
-		return Result{Status: StatusFail, Message: "KB-JWT payload contains trailing bytes after the JSON value"}
+		return Result{
+			Status:  StatusFail,
+			Message: "KB-JWT payload contains trailing bytes after the JSON value",
+		}
 	}
 	var extra json.RawMessage
 	if err := decoder.Decode(&extra); err != io.EOF {
-		return Result{Status: StatusFail, Message: "KB-JWT payload contains trailing bytes after the JSON value"}
+		return Result{
+			Status:  StatusFail,
+			Message: "KB-JWT payload contains trailing bytes after the JSON value",
+		}
 	}
 
 	if !validNumericDate(claims["iat"]) {
@@ -435,7 +441,10 @@ func validateSDJWTKBJWTStructure(presentation *evidence.SDJWTPresentation) Resul
 		return Result{Status: StatusFail, Message: `KB-JWT claim "aud" must be a non-empty string`}
 	}
 	if err := requireNonEmptyMapClaim(claims, "nonce"); err != nil {
-		return Result{Status: StatusFail, Message: `KB-JWT claim "nonce" must be a non-empty string`}
+		return Result{
+			Status:  StatusFail,
+			Message: `KB-JWT claim "nonce" must be a non-empty string`,
+		}
 	}
 	rawSDHash, ok := claims["sd_hash"].(string)
 	if !ok || rawSDHash == "" {

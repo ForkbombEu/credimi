@@ -72,14 +72,14 @@ type WorkflowExecution struct {
 }
 
 type WorkflowExecutionSummary struct {
-	Execution          *WorkflowIdentifier               `json:"execution"                validate:"required"`
-	Type               WorkflowType                      `json:"type"                     validate:"required"`
+	Execution          *WorkflowIdentifier               `json:"execution"                     validate:"required"`
+	Type               WorkflowType                      `json:"type"                          validate:"required"`
 	StartTime          string                            `json:"startTime"`
 	EndTime            string                            `json:"endTime"`
 	Duration           string                            `json:"duration"`
 	EnqueuedAt         string                            `json:"enqueuedAt"`
-	Status             string                            `json:"status"                   validate:"required"`
-	DisplayName        string                            `json:"displayName"              validate:"required"`
+	Status             string                            `json:"status"                        validate:"required"`
+	DisplayName        string                            `json:"displayName"                   validate:"required"`
 	Queue              *WorkflowQueueSummary             `json:"queue,omitempty"`
 	Children           []*WorkflowExecutionSummary       `json:"children,omitempty"`
 	Results            []pipelineresults.PipelineResults `json:"results,omitempty"`

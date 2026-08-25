@@ -47,12 +47,12 @@ type FCAFAssessmentActivityOutput struct {
 // the same dynamic pipeline. Keeping this as an activity lets validation be a
 // terminal pipeline step instead of a separate assessment workflow.
 type FCAFValidationActivityInput struct {
-	TestID      string         `json:"test_id,omitempty" yaml:"test_id,omitempty"`
-	TestIDs     []string       `json:"test_ids,omitempty" yaml:"test_ids,omitempty"`
-	Suite       string         `json:"suite,omitempty" yaml:"suite,omitempty"`
-	CatalogRoot string         `json:"catalog_root,omitempty" yaml:"catalog_root,omitempty"`
+	TestID      string         `json:"test_id,omitempty"          yaml:"test_id,omitempty"`
+	TestIDs     []string       `json:"test_ids,omitempty"         yaml:"test_ids,omitempty"`
+	Suite       string         `json:"suite,omitempty"            yaml:"suite,omitempty"`
+	CatalogRoot string         `json:"catalog_root,omitempty"     yaml:"catalog_root,omitempty"`
 	Pipeline    map[string]any `json:"pipeline_outputs,omitempty" yaml:"pipeline_outputs,omitempty"`
-	Runtime     map[string]any `json:"runtime,omitempty" yaml:"runtime,omitempty"`
+	Runtime     map[string]any `json:"runtime,omitempty"          yaml:"runtime,omitempty"`
 }
 
 type FCAFValidationActivity struct {
@@ -97,7 +97,9 @@ func (a *FCAFAssessmentActivity) ExecuteValidation(
 	}
 	testIDs := normalizeValidationTestIDs(payload)
 	if len(testIDs) == 0 {
-		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(fmt.Errorf("test_id or test_ids is required"))
+		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(
+			fmt.Errorf("test_id or test_ids is required"),
+		)
 	}
 	return a.Execute(ctx, workflowengine.ActivityInput{Payload: FCAFAssessmentActivityInput{
 		TestIDs:     testIDs,

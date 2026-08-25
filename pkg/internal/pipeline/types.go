@@ -74,7 +74,7 @@ type StepInputs struct {
 }
 
 type RuntimeConfig struct {
-	Fixture  map[string]string `yaml:"fixture,omitempty" json:"fixture,omitempty"`
+	Fixture  map[string]string `yaml:"fixture,omitempty"                    json:"fixture,omitempty"`
 	Schedule struct {
 		Interval *time.Duration `yaml:"interval,omitempty" json:"interval,omitempty"`
 	} `yaml:"schedule,omitempty"                   json:"schedule,omitempty"`
@@ -90,7 +90,7 @@ type RuntimeConfig struct {
 type ActivityOptionsConfig struct {
 	ScheduleToCloseTimeout string      `yaml:"schedule_to_close_timeout,omitempty" json:"schedule_to_close_timeout,omitempty"` //nolint
 	StartToCloseTimeout    string      `yaml:"start_to_close_timeout,omitempty"    json:"start_to_close_timeout,omitempty"`
-	HeartbeatTimeout       string      `yaml:"heartbeat_timeout,omitempty"           json:"heartbeat_timeout,omitempty"`
+	HeartbeatTimeout       string      `yaml:"heartbeat_timeout,omitempty"         json:"heartbeat_timeout,omitempty"`
 	RetryPolicy            RetryPolicy `yaml:"retry_policy,omitempty"              json:"retry_policy,omitempty"`
 }
 

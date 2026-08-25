@@ -13,9 +13,9 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 ## Current repository state
 
 - Working branch: `fix/fcaf-improvments`.
-- Runnable catalog: 207 definitions directly under
+- Runnable catalog: 209 definitions directly under
   `config_templates/fcaf/wallet_solution/relying_party/tests/`.
-- Pending implementation: 300 definitions under
+- Pending implementation: 298 definitions under
   `tests/_implementation/pending/`.
 - Verifier blocked: 52 definitions under
   `tests/_implementation/verifier-blocked/`.
@@ -41,6 +41,21 @@ Implement mandatory wallet-solution/relying-party tests one at a time. Skip
 TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests.
 Promote a pending or blocked definition only after its exact source scenario,
 raw evidence and expected result are independently proven.
+
+## Cases CredentialFormats 035 and 036
+
+`WS_RP_MS_CredentialFormats__035` and `__036` use independent pipelines and
+preconditions. Case 035 sends exactly one `mso_mdoc` PID query through
+`pipeline.credential-formats.mdoc-presentation`; case 036 sends exactly one
+`dc+sd-jwt` PID query through
+`pipeline.credential-formats.sdjwt-presentation`.
+
+Both tests require a non-empty response under the same DCQL query ID, decode
+the returned artifact in the requested format, validate the PID `docType` or
+`vct`, and require the two screenshots produced by the consent/share action.
+Their static validator, YAML and catalog checks pass. Reference-Wallet pipeline
+execution remains unverified until the mobile runner and Capture Wallet service
+are available in the same runtime.
 
 ## Case 087
 
