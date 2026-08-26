@@ -16,9 +16,9 @@ needs implementation.
 
 | State | Definitions | Executed by the catalog |
 | --- | ---: | --- |
-| Runnable | 214 | Yes |
-| Pending implementation | 293 | No |
-| Verifier blocked | 52 | No |
+| Runnable | 215 | Yes |
+| Pending implementation | 288 | No |
+| Verifier blocked | 56 | No |
 | Total | 559 | |
 
 Runnable definitions live directly in `tests/`. Pending definitions live in
@@ -135,6 +135,29 @@ Wallet's submitted `vp_formats_not_supported` response.
 
 Activation criterion: request creation succeeds without rewriting the format,
 the Wallet receives it, and the exact protocol error is captured.
+
+### Controllable verifier metadata
+
+Affected tests:
+
+`WS_RP_MS_Metadata__105–107` and `WS_RP_MS_Metadata__109`.
+
+Missing behavior: preserve caller-controlled `client_metadata` in the signed
+Authorization Request. The Capture Wallet service currently replaces supplied
+metadata with its canonical object. It therefore strips the unknown metadata
+required by 105, repairs the malformed value required by 106, and removes the
+inside/outside conflict required by 109. For 107 it always adds canonical
+`client_metadata`, so it cannot create the required request with
+`request_uri_method: post` and no Verifier capability information.
+
+Required evidence: the signed Request Object proving the exact metadata shape,
+the Wallet response or captured Request URI POST, and mandatory interaction
+evidence. Case 107 additionally requires the captured `wallet_metadata` JSON
+and proof that the Wallet retrieved the Request Object and continued.
+
+Activation criterion: per-session configuration can preserve, omit, or
+malform `client_metadata` without normalization, and the capture record retains
+the Wallet's protocol output for the same session.
 
 ### Verifier Info attestation generation
 

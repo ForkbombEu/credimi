@@ -98,6 +98,7 @@ steps:
     with:
       test_ids:
         - WS_RP_MS_Metadata__104
+        - WS_RP_MS_Metadata__108
         - WS_RP_MS_ProtocolMessages__004
         - WS_RP_MS_ProtocolMessages__005
         - WS_RP_MS_ProtocolMessages__008

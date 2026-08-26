@@ -65,7 +65,7 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 	cat, err := Load("../../../config_templates/fcaf/wallet_solution/relying_party")
 
 	require.NoError(t, err)
-	require.Len(t, cat.Tests, 214)
+	require.Len(t, cat.Tests, 215)
 	require.NotContains(t, cat.Tests, "WS_RP_MS_ProtocolMessages__002")
 	require.NotContains(t, cat.Tests, "WS_RP_SM_DeviceBinding__002")
 	require.Contains(t, cat.Preconditions, "pipeline.pid.presentation.sdjwt.all-claims")
@@ -94,7 +94,7 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 
 	selected, err := cat.ResolveSelectedTests(nil, "wallet_solution/relying_party", nil)
 	require.NoError(t, err)
-	require.Len(t, selected, 214)
+	require.Len(t, selected, 215)
 }
 
 func writeTestFile(t *testing.T, path string, content string) {

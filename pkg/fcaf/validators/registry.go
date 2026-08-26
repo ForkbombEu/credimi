@@ -59,6 +59,7 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPDeviceBindingValidator{},
 		OID4VPNonceStateBindingValidator{},
 		OID4VPUnsupportedResponseTypeValidator{},
+		OID4VPVerifierMetadataExclusiveValidator{},
 		DCQLResponseConstraintsValidator{},
 		SDJWTClaimPresentValidator{},
 		SDJWTClaimTypeValidator{},

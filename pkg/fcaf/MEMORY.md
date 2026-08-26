@@ -13,11 +13,11 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 ## Current repository state
 
 - Working branch: `fix/fcaf-improvments`.
-- Runnable catalog: 214 definitions directly under
+- Runnable catalog: 215 definitions directly under
   `config_templates/fcaf/wallet_solution/relying_party/tests/`.
-- Pending implementation: 293 definitions under
+- Pending implementation: 288 definitions under
   `tests/_implementation/pending/`.
-- Verifier blocked: 52 definitions under
+- Verifier blocked: 56 definitions under
   `tests/_implementation/verifier-blocked/`.
 - Total classified source definitions: 559.
 - The catalog loader skips `_implementation`; moving a file is therefore a
@@ -97,6 +97,24 @@ Static validator, YAML and catalog checks pass. Reference-Wallet execution
 remains unverified until the mobile runner and Capture Wallet service are
 available in the same runtime.
 
+## Cases Metadata 105–109
+
+`WS_RP_MS_Metadata__108` reuses
+`pipeline.wallet.protocol.request-object-by-value`. Its dedicated validator
+requires a non-empty `client_metadata` object with a non-empty
+`vp_formats_supported` object and rejects every metadata field duplicated at
+the Authorization Request top level. Separate assertions require a returned
+`vp_token` and the consent/success screenshots, proving that the Wallet
+processed the request and completed the flow.
+
+Cases 105, 106, 107 and 109 are verifier blocked. Live Capture Wallet probes
+on 26/08/2026 showed that it replaces caller-supplied `client_metadata` with a
+canonical object. This strips 105's unknown field, repairs 106's malformed
+value, removes 109's outside/inside metadata conflict, and prevents 107 from
+omitting `client_metadata`. The service does capture a Request URI POST and its
+`wallet_metadata`, but that alone does not satisfy 107's missing-metadata
+precondition.
+
 ## Case 087
 
 The request uses two IDs, `pid-query-one` and `pid-query-two`, both matching PID SD-JWT VC `urn:eudi:pid:1` and requesting `given_name`.
@@ -156,7 +174,7 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-Continue after the CredentialFormats prerequisite gaps. Case 041 needs three
+Continue after the CredentialFormats and Metadata prerequisite gaps. Case 041 needs three
 ISO mdoc presentations mapped to three distinct DCQL query IDs; the current
 fixtures expose only one PID mdoc document type, so three equivalent queries
 must not be treated as several mdocs. Case 044 needs an issued SD-JWT VC whose
@@ -165,6 +183,10 @@ produces compact SD-JWT VC presentations without key binding. Case 048 applies
 only to a Wallet and Credential profile that require JSON serialization, and
 needs both that declared profile state and raw JSON-serialized presentation
 evidence. Keep all four pending until those prerequisites are real.
+
+Metadata cases 105–107 and 109 need per-session control over canonical,
+malformed, omitted, and conflicting `client_metadata`; keep them verifier
+blocked until the signed Request Object preserves those exact shapes.
 
 Case 119 duplicates case 114; cases 120-146 and 153-159 are intentionally
 skipped where the required raw request, transaction-data fixture, or
