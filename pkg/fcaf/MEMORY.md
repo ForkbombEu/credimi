@@ -13,9 +13,9 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 ## Current repository state
 
 - Working branch: `fix/fcaf-improvments`.
-- Runnable catalog: 211 definitions directly under
+- Runnable catalog: 214 definitions directly under
   `config_templates/fcaf/wallet_solution/relying_party/tests/`.
-- Pending implementation: 296 definitions under
+- Pending implementation: 293 definitions under
   `tests/_implementation/pending/`.
 - Verifier blocked: 52 definitions under
   `tests/_implementation/verifier-blocked/`.
@@ -76,6 +76,27 @@ Static YAML and catalog validation pass. Reference-Wallet pipeline execution
 remains unverified until the mobile runner and verifier services are available
 in the same runtime.
 
+## Cases CredentialFormats 039, 040 and 045
+
+`WS_RP_MS_CredentialFormats__039` and `__040` use independent Capture Wallet
+pipelines so their Authorization Requests contain exactly `response_type:
+vp_token id_token` and `response_type: code`, respectively. The dedicated
+`oid4vp.unsupported_response_type_handled` validator rejects a mismatched or
+missing request value and any returned `vp_token`. It accepts only the three
+source-permitted outcomes: a non-empty Wallet error (including the detailed
+`unsupported_response_type` value), an unspecified non-empty error, or no
+submitted Wallet response after the mobile interaction. Visual evidence is a
+separate mandatory assertion.
+
+`WS_RP_MS_CredentialFormats__045` reuses the successful PID SD-JWT VC
+presentation. It verifies the exact `dc+sd-jwt` request and response mapping,
+the PID VCT, the RFC 9901 tilde-delimited compact serialization with a final
+KB-JWT, a structurally valid KB-JWT, and consent/share screenshots.
+
+Static validator, YAML and catalog checks pass. Reference-Wallet execution
+remains unverified until the mobile runner and Capture Wallet service are
+available in the same runtime.
+
 ## Case 087
 
 The request uses two IDs, `pid-query-one` and `pid-query-two`, both matching PID SD-JWT VC `urn:eudi:pid:1` and requesting `given_name`.
@@ -135,12 +156,15 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-Investigate `WS_RP_MS_CredentialFormats__039` and `__040` next. The verifier
-accepts `response_type` values `vp_token id_token` and `code`, so request
-delivery is not blocked. Before promoting either case, confirm whether the
-verifier captures the Wallet's `unsupported_response_type` response, an
-unspecified error, or enough session evidence to prove interaction
-discontinuation. Do not infer success from request creation alone.
+Continue after the CredentialFormats prerequisite gaps. Case 041 needs three
+ISO mdoc presentations mapped to three distinct DCQL query IDs; the current
+fixtures expose only one PID mdoc document type, so three equivalent queries
+must not be treated as several mdocs. Case 044 needs an issued SD-JWT VC whose
+`status` claim contains `status_list`. Case 046 needs an issuer/profile that
+produces compact SD-JWT VC presentations without key binding. Case 048 applies
+only to a Wallet and Credential profile that require JSON serialization, and
+needs both that declared profile state and raw JSON-serialized presentation
+evidence. Keep all four pending until those prerequisites are real.
 
 Case 119 duplicates case 114; cases 120-146 and 153-159 are intentionally
 skipped where the required raw request, transaction-data fixture, or

@@ -89,8 +89,8 @@ func TestRemediationClassification(t *testing.T) {
 		filepath.Join(root, "tests", "_implementation", "verifier-blocked"),
 	)
 
-	require.Len(t, cat.Tests, 211)
-	require.Len(t, pending, 296)
+	require.Len(t, cat.Tests, 214)
+	require.Len(t, pending, 293)
 	require.Len(t, verifierBlocked, 52)
 	require.Equal(t, 559, len(cat.Tests)+len(pending)+len(verifierBlocked))
 
