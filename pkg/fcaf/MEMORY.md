@@ -13,9 +13,9 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 ## Current repository state
 
 - Working branch: `fix/fcaf-improvments`.
-- Runnable catalog: 209 definitions directly under
+- Runnable catalog: 211 definitions directly under
   `config_templates/fcaf/wallet_solution/relying_party/tests/`.
-- Pending implementation: 298 definitions under
+- Pending implementation: 296 definitions under
   `tests/_implementation/pending/`.
 - Verifier blocked: 52 definitions under
   `tests/_implementation/verifier-blocked/`.
@@ -56,6 +56,25 @@ the returned artifact in the requested format, validate the PID `docType` or
 Their static validator, YAML and catalog checks pass. Reference-Wallet pipeline
 execution remains unverified until the mobile runner and Capture Wallet service
 are available in the same runtime.
+
+## Cases CredentialFormats 037 and 038
+
+`WS_RP_MS_CredentialFormats__037` composes the two independent presentation
+preconditions from cases 035 and 036. It requires successful ISO mdoc and IETF
+SD-JWT VC interactions, exact `mso_mdoc` and `dc+sd-jwt` request/response
+formats, decoded PID artifacts, and separate consent/share evidence for both
+interactions.
+
+`WS_RP_MS_CredentialFormats__038` reuses
+`pipeline.wallet.protocol.request-object-by-value`. It proves the signed
+Authorization Request contains `response_type: vp_token`, the Wallet response
+contains `vp_token`, and the interaction records both consent and successful
+sharing. The shared action now captures the consent screen before selecting
+Share in addition to its existing success screenshot.
+
+Static YAML and catalog validation pass. Reference-Wallet pipeline execution
+remains unverified until the mobile runner and verifier services are available
+in the same runtime.
 
 ## Case 087
 
@@ -116,10 +135,16 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-`WS_RP_SM_DeviceBinding__008` is the next runnable mandatory candidate. Case
-119 duplicates case 114; cases 120-146 and 153-159 are intentionally skipped
-where the required raw request, transaction-data fixture, or configurable
-verifier response cannot be produced by the public service.
+Investigate `WS_RP_MS_CredentialFormats__039` and `__040` next. The verifier
+accepts `response_type` values `vp_token id_token` and `code`, so request
+delivery is not blocked. Before promoting either case, confirm whether the
+verifier captures the Wallet's `unsupported_response_type` response, an
+unspecified error, or enough session evidence to prove interaction
+discontinuation. Do not infer success from request creation alone.
+
+Case 119 duplicates case 114; cases 120-146 and 153-159 are intentionally
+skipped where the required raw request, transaction-data fixture, or
+configurable verifier response cannot be produced by the public service.
 
 ## Mock-verifier skip queue
 

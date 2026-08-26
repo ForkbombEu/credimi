@@ -72,6 +72,7 @@ steps:
         - extendedWaitUntil:
             visible: "Share"
             timeout: 30000
+        - takeScreenshot: fcaf-request-object-by-value-consent
         - tapOn:
             text: "Share"
             enabled: true
@@ -104,6 +105,7 @@ steps:
         - WS_RP_MS_ProtocolMessages__035
         - WS_RP_MS_ProtocolMessages__036
         - WS_RP_MS_ProtocolMessages__037
+        - WS_RP_MS_CredentialFormats__038
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.protocol.request-object-by-value:
