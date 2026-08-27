@@ -1,0 +1,33 @@
+id: WS_RP_IA_MainInteraction__027
+title: Do not present a PID when a required claim value does not match.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__027.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "6.4"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.dcql.two-claims-value-mismatch
+evidence:
+  dcql_exchange:
+    from: pipeline.dcql.two-claims-value-mismatch.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.two-claims-value-mismatch.outputs.visual_evidence
+assertions:
+  - id: value_mismatched_credential_is_not_returned
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: claims_values_no_match
+  - id: wallet_outcome_is_recorded
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

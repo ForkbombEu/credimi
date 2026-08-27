@@ -1,0 +1,77 @@
+name: FCAF DCQL partially satisfiable claim set fallback
+runtime:
+  global_runner_id: forkbomb-bv-andrea/usb
+  fixture:
+    verifier_url: https://capture-wallet.credimi.io
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        response_type: vp_token
+        nonce: fcaf-ia-025
+        dcql_query:
+          credentials:
+            - id: pid
+              format: dc+sd-jwt
+              meta:
+                vct_values:
+                  - urn:eu.europa.ec.eudi:pid:1
+              claims:
+                - id: given_name
+                  path:
+                    - given_name
+                - id: family_name
+                  path:
+                    - family_name
+                - id: unavailable
+                  path:
+                    - claim_that_does_not_exist
+              claim_sets:
+                - - given_name
+                  - family_name
+                  - unavailable
+                - - given_name
+  - id: present-partial-fallback
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - launchApp:
+            stopApp: true
+            clearState: false
+        - openLink:
+            link: ${env.DEEPLINK}
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "DATA SHARING REQUEST"
+            timeout: 100000
+        - tapOn: "Share"
+        - takeScreenshot: fcaf-ia-025
+  - id: fetch-result
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
+      expected_status: 200
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      test_ids:
+        - WS_RP_IA_MainInteraction__025
+      suite: wallet_solution/relying_party
+      pipeline_outputs:
+        pipeline.dcql.claim-sets-partial-fallback:
+          output:
+            dcql_exchange: ${{ fetch-result.outputs.body }}
+            visual_evidence: ${{ present-partial-fallback.outputs.flow_output.maestro_screenshot_urls }}
