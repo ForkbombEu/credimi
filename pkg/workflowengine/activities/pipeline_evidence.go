@@ -200,7 +200,7 @@ func extractCredentialEvidence(
 
 func isRetryableMetadataFetchError(err error) bool {
 	var networkErr net.Error
-	return errors.As(err, &networkErr) && (networkErr.Timeout() || networkErr.Temporary())
+	return errors.As(err, &networkErr)
 }
 
 func fetchIssuerMetadataWithRetry(
@@ -229,7 +229,11 @@ func fetchIssuerMetadataWithRetry(
 			}
 		}
 	}
-	return wellKnown, fetch, fmt.Errorf("fetch issuer metadata after %d attempts: %w", maxAttempts, err)
+	return wellKnown, fetch, fmt.Errorf(
+		"fetch issuer metadata after %d attempts: %w",
+		maxAttempts,
+		err,
+	)
 }
 
 func extractPresentationResults(

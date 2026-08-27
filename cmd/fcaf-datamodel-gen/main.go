@@ -66,6 +66,7 @@ func main() {
 	}
 }
 
+//nolint:dupl // Separate format entry points preserve reviewed source counts and builders.
 func generateSDJWT(source string, output string) error {
 	specs := sdjwtFamilySpecs()
 	files, err := filepath.Glob(filepath.Join(source, "*", "*IETF-sd-jwt-vc*.md"))
@@ -98,6 +99,7 @@ func generateSDJWT(source string, output string) error {
 	return nil
 }
 
+//nolint:dupl // Separate format entry points preserve reviewed source counts and builders.
 func generateMDoc(source string, output string) error {
 	specs := mdocFamilySpecs()
 	files, err := filepath.Glob(filepath.Join(source, "*", "*ISO-mdoc*.md"))
@@ -172,17 +174,6 @@ func buildDefinition(
 		return dsl.TestDefinition{}, fmt.Errorf("%s has no normative references", id)
 	}
 
-	preconditions := []dsl.PreconditionRef{
-		{Ref: "pipeline.pid.presentation.sdjwt.all-ics-claims"},
-		{Ref: "assertion.pid.presentation.sdjwt.vct-pid"},
-		{Ref: "assertion.pid.presentation.sdjwt.required-mandatory-claims-presented"},
-	}
-	if variant != "001" {
-		preconditions = append(preconditions, dsl.PreconditionRef{
-			Ref: "test." + variantPattern.ReplaceAllString(id, "_001"),
-		})
-	}
-
 	title := strings.Join(sections["Objective"], " ")
 	title = strings.TrimSpace(strings.ReplaceAll(title, "\r", ""))
 	if title == "" {
@@ -205,18 +196,41 @@ func buildDefinition(
 			"document_type":     "pid",
 		},
 		NormativeReferences: references,
-		Preconditions:       preconditions,
 		Evidence: map[string]dsl.EvidenceBinding{
 			"pid_sdjwt": {
-				From: "pipeline.pid.presentation.sdjwt.all-ics-claims.outputs.pid_sdjwt",
+				From: "pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt",
 			},
 		},
-		Assertions: []dsl.AssertionDefinition{{
-			ID:        assertion.id,
-			Validator: assertion.validator,
-			Input:     "evidence.pid_sdjwt",
-			Params:    assertion.params,
-		}},
+		Assertions: []dsl.AssertionDefinition{
+			{
+				ID:        "pid_sdjwt_vct_pid",
+				Validator: "pid.sdjwt_vct_pid",
+				Input:     "evidence.pid_sdjwt",
+			},
+			{
+				ID:        "pid_sdjwt_required_mandatory_claims_present",
+				Validator: "pid.sdjwt_required_mandatory_claims_present",
+				Input:     "evidence.pid_sdjwt",
+				Params: map[string]any{
+					"required_elements": []string{
+						"family_name",
+						"given_name",
+						"birthdate",
+						"place_of_birth",
+						"nationalities",
+						"date_of_expiry",
+						"issuing_authority",
+						"issuing_country",
+					},
+				},
+			},
+			{
+				ID:        assertion.id,
+				Validator: assertion.validator,
+				Input:     "evidence.pid_sdjwt",
+				Params:    assertion.params,
+			},
+		},
 		Verdict: dsl.VerdictPolicy{PassWhen: "all_assertions_pass"},
 	}, nil
 }
@@ -261,16 +275,6 @@ func buildMDocDefinition(
 	if len(references) == 0 {
 		return dsl.TestDefinition{}, fmt.Errorf("%s has no normative references", id)
 	}
-	preconditions := []dsl.PreconditionRef{
-		{Ref: "pipeline.pid.presentation.mdoc.all-ics-elements"},
-		{Ref: "assertion.pid.presentation.mdoc.doc-type-pid"},
-		{Ref: "assertion.pid.presentation.mdoc.required-mandatory-elements-presented"},
-	}
-	if variant != "001" {
-		preconditions = append(preconditions, dsl.PreconditionRef{
-			Ref: "test." + variantPattern.ReplaceAllString(id, "_001"),
-		})
-	}
 	title := strings.TrimSpace(strings.Join(sections["Objective"], " "))
 	if title == "" {
 		title = id
@@ -289,16 +293,40 @@ func buildMDocDefinition(
 			"document_type":     "pid",
 		},
 		NormativeReferences: references,
-		Preconditions:       preconditions,
 		Evidence: map[string]dsl.EvidenceBinding{
-			"pid_mdoc": {From: "pipeline.pid.presentation.mdoc.all-ics-elements.outputs.pid_mdoc"},
+			"pid_mdoc": {
+				From: "pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc",
+			},
 		},
-		Assertions: []dsl.AssertionDefinition{{
-			ID:        assertion.id,
-			Validator: assertion.validator,
-			Input:     "evidence.pid_mdoc",
-			Params:    assertion.params,
-		}},
+		Assertions: []dsl.AssertionDefinition{
+			{
+				ID:        "pid_mdoc_doc_type",
+				Validator: "pid.mdoc_doc_type",
+				Input:     "evidence.pid_mdoc",
+			},
+			{
+				ID:        "pid_mdoc_required_mandatory_elements_present",
+				Validator: "pid.mdoc_required_mandatory_elements_present",
+				Input:     "evidence.pid_mdoc",
+				Params: map[string]any{
+					"namespace": "eu.europa.ec.eudi.pid.1",
+					"required_elements": []string{
+						"family_name",
+						"given_name",
+						"birth_date",
+						"expiry_date",
+						"issuing_authority",
+						"issuing_country",
+					},
+				},
+			},
+			{
+				ID:        assertion.id,
+				Validator: assertion.validator,
+				Input:     "evidence.pid_mdoc",
+				Params:    assertion.params,
+			},
+		},
 		Verdict: dsl.VerdictPolicy{PassWhen: "all_assertions_pass"},
 	}, nil
 }
@@ -339,6 +367,7 @@ func sdjwtFamilySpecs() []familySpec {
 		return spec
 	}
 
+	//nolint:prealloc // Reviewed ordering is clearer as core mappings plus exceptional families.
 	specs := []familySpec{
 		semantic("AddressData_Emailaddress_", "email", "sdjwt.claim_rfc5322_email", nil),
 		semantic(
@@ -494,6 +523,7 @@ func mdocFamilySpecs() []familySpec {
 		}
 	}
 
+	//nolint:prealloc // Reviewed ordering is clearer as core mappings plus exceptional families.
 	specs := []familySpec{
 		semantic("AddressData_Emailaddress_", "email_address", "mdoc.element_rfc5322_email", nil),
 		semantic(

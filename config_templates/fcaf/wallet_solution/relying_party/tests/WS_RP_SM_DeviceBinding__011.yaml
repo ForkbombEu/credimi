@@ -22,15 +22,17 @@ normative_references:
   - title: Selective Disclosure for JSON Web Tokens
     section: "4.3"
     url: https://www.rfc-editor.org/rfc/rfc9901.html
-preconditions:
-  - ref: pipeline.pid.presentation.sdjwt.all-claims
-  - ref: assertion.pid.presentation.sdjwt.vct-pid
 evidence:
+  pid_sdjwt:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
   pid_sdjwt_presentations:
     from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt_presentations
   visual_evidence:
     from: pipeline.pid.presentation.sdjwt.all-claims.outputs.visual_evidence
 assertions:
+  - id: pid_sdjwt_vct_pid
+    validator: pid.sdjwt_vct_pid
+    input: evidence.pid_sdjwt
   - id: every_cnf_identifies_one_proof_of_possession_key
     validator: sdjwt.cnf_conforms
     input: evidence.pid_sdjwt_presentations

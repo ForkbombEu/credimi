@@ -120,10 +120,13 @@ test.all: ## 🧪 run all tests, including long tests skipped by test
 	$(call require_tools,$(TEST_DEPS))
 	TEST_SHORT=0 bash ./scripts/test-summary.sh
 
-fcaf-run: ## Run selected FCAF pipelines through Credimi and store results server-side
-	$(GOCMD) run . fcaf run $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" $(if $(FCAF_OUTPUT),--output "$(FCAF_OUTPUT)",) $(if $(FCAF_FILTER),--filter "$(FCAF_FILTER)",) $(if $(FCAF_TESTS_FILE),--tests-file "$(FCAF_TESTS_FILE)",) $(if $(FCAF_RUNNER_ID),--runner-id "$(FCAF_RUNNER_ID)",)
+fcaf-generate: ## Generate one complete FCAF validation pipeline from scenario sources
+	$(GOCMD) run ./cmd/fcaf-pipeline-gen
 
-fcaf-sync: ## Synchronize repository FCAF pipelines and credential definitions without running them
+fcaf-run: fcaf-generate ## Run complete FCAF validation through Credimi and store results server-side
+	$(GOCMD) run . fcaf run $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" $(if $(FCAF_OUTPUT),--output "$(FCAF_OUTPUT)",) $(if $(FCAF_FILTER),--filter "$(FCAF_FILTER)",) $(if $(FCAF_RUNNER_ID),--runner-id "$(FCAF_RUNNER_ID)",)
+
+fcaf-sync: fcaf-generate ## Synchronize complete FCAF pipeline and credential definitions without running them
 	$(GOCMD) run . fcaf sync $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" --imports-dir "$(or $(FCAF_IMPORTS_DIR),config_templates/fcaf/imports)" $(if $(FCAF_RUNNER_ID),--runner-id "$(FCAF_RUNNER_ID)",)
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))

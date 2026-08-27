@@ -17,8 +17,7 @@ import (
 )
 
 type Catalog struct {
-	Tests         map[string]dsl.TestDefinition
-	Preconditions map[string]dsl.PreconditionDefinition
+	Tests map[string]dsl.TestDefinition
 }
 
 func Load(root string) (*Catalog, error) {
@@ -26,14 +25,7 @@ func Load(root string) (*Catalog, error) {
 	if err != nil {
 		return nil, err
 	}
-	preconditions, err := LoadPreconditions(filepath.Join(root, "preconditions"))
-	if err != nil {
-		return nil, err
-	}
-	return &Catalog{
-		Tests:         tests,
-		Preconditions: preconditions,
-	}, nil
+	return &Catalog{Tests: tests}, nil
 }
 
 func LoadTests(root string) (map[string]dsl.TestDefinition, error) {
@@ -103,36 +95,12 @@ func (c *Catalog) ResolveSelectedTests(
 		}
 	}
 
-	expanded := map[string]struct{}{}
-	visiting := map[string]struct{}{}
+	out := make([]string, 0, len(selected))
 	for id := range selected {
-		if err := c.expandTest(id, expanded, visiting); err != nil {
-			return nil, err
-		}
-	}
-
-	out := make([]string, 0, len(expanded))
-	for id := range expanded {
 		out = append(out, id)
 	}
 	sort.Strings(out)
 	return out, nil
-}
-
-func LoadPreconditions(root string) (map[string]dsl.PreconditionDefinition, error) {
-	preconditions := map[string]dsl.PreconditionDefinition{}
-	err := walkYAML(root, func(path string) error {
-		def, err := dsl.ParsePreconditionFile(path)
-		if err != nil {
-			return err
-		}
-		if _, exists := preconditions[def.ID]; exists {
-			return fmt.Errorf("duplicate fcaf precondition id %q in %s", def.ID, path)
-		}
-		preconditions[def.ID] = *def
-		return nil
-	})
-	return preconditions, err
 }
 
 func walkYAML(root string, visit func(path string) error) error {
@@ -149,42 +117,6 @@ func walkYAML(root string, visit func(path string) error) error {
 		}
 		return visit(path)
 	})
-}
-
-func (c *Catalog) expandTest(
-	id string,
-	expanded map[string]struct{},
-	visiting map[string]struct{},
-) error {
-	if _, ok := expanded[id]; ok {
-		return nil
-	}
-	if _, ok := visiting[id]; ok {
-		return fmt.Errorf("cycle detected while expanding test %q", id)
-	}
-	test, ok := c.Tests[id]
-	if !ok {
-		return fmt.Errorf("fcaf test id %q not found", id)
-	}
-	visiting[id] = struct{}{}
-	for _, ref := range test.Preconditions {
-		if strings.HasPrefix(ref.Ref, "test.") {
-			if err := c.expandTest(
-				strings.TrimPrefix(ref.Ref, "test."),
-				expanded,
-				visiting,
-			); err != nil {
-				return err
-			}
-			continue
-		}
-		if _, ok := c.Preconditions[ref.Ref]; !ok {
-			return fmt.Errorf("fcaf precondition %q not found", ref.Ref)
-		}
-	}
-	delete(visiting, id)
-	expanded[id] = struct{}{}
-	return nil
 }
 
 func matchesSuite(test dsl.TestDefinition, suite string) bool {

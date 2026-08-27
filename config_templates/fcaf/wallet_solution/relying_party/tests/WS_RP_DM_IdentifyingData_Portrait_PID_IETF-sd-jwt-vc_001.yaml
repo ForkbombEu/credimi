@@ -14,14 +14,26 @@ normative_references:
       url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_portrait_pid_ietf-sd-jwt-vc_001
     - title: '"ANNEXES to the COMMISSION IMPLEMENTING REGULATION amending Implementing Regulation (EU) 2024/2977, (EU) 2024/2979, (EU) 2024/2980 and (EU) 2024/2982 as regards applicable standards and specifications and correcting Implementing Regulation (EU) 2024/2980" section 4.2 (Table 1).'
       url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_portrait_pid_ietf-sd-jwt-vc_001
-preconditions:
-    - ref: pipeline.pid.presentation.sdjwt.all-claims
-    - ref: assertion.pid.presentation.sdjwt.vct-pid
-    - ref: assertion.pid.presentation.sdjwt.required-mandatory-claims-presented
 evidence:
     pid_sdjwt:
         from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
 assertions:
+    - id: pid_sdjwt_vct_pid
+      validator: pid.sdjwt_vct_pid
+      input: evidence.pid_sdjwt
+    - id: pid_sdjwt_required_mandatory_claims_present
+      validator: pid.sdjwt_required_mandatory_claims_present
+      input: evidence.pid_sdjwt
+      params:
+        required_elements:
+          - family_name
+          - given_name
+          - birthdate
+          - place_of_birth
+          - nationalities
+          - date_of_expiry
+          - issuing_authority
+          - issuing_country
     - id: picture_present
       validator: sdjwt.claim_present
       input: evidence.pid_sdjwt

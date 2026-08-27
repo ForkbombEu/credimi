@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFCAFManualPipelineTemplatesParse(t *testing.T) {
+func TestFCAFGeneratedPipelineTemplateParses(t *testing.T) {
 	root := filepath.Join(
 		"..",
 		"..",

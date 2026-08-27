@@ -165,7 +165,13 @@ func testX509CertWithAKI(t *testing.T) (der []byte, aki string) {
 		AuthorityKeyId: keyID[:],
 		SubjectKeyId:   keyID[:],
 	}
-	raw, err := x509.CreateCertificate(rand.Reader, template, template, &privateKey.PublicKey, privateKey)
+	raw, err := x509.CreateCertificate(
+		rand.Reader,
+		template,
+		template,
+		&privateKey.PublicKey,
+		privateKey,
+	)
 	require.NoError(t, err)
 	cert, err := x509.ParseCertificate(raw)
 	require.NoError(t, err)

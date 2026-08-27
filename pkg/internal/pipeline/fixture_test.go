@@ -28,7 +28,11 @@ steps:
 	require.NoError(t, err)
 	require.NoError(t, ApplyFixture(wf))
 	require.Equal(t, "https://verifier.example/requests", wf.Steps[0].With.Payload["url"])
-	require.Equal(t, "https://issuer.example", wf.Steps[0].With.Payload["body"].(map[string]any)["issuer"])
+	require.Equal(
+		t,
+		"https://issuer.example",
+		wf.Steps[0].With.Payload["body"].(map[string]any)["issuer"],
+	)
 	require.Equal(t, "capture", wf.Steps[0].With.Payload["body"].(map[string]any)["checker"])
 }
 

@@ -19,8 +19,6 @@ normative_references:
   - title: SD-JWT-based Verifiable Credentials
     section: "3.2.2.2"
     url: https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc
-preconditions:
-  - ref: pipeline.dcql.holder-binding-type-boundary
 evidence:
   holder_binding_exchange:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_valid_true

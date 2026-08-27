@@ -13,8 +13,6 @@ normative_references:
   - title: OpenID4VP High Assurance Interoperability Profile
     section: "5.1"
     url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
-preconditions:
-  - ref: pipeline.wallet.engagement.haip-vp
 evidence:
   wallet_engagement:
     from: pipeline.wallet.engagement.haip-vp.outputs.wallet_engagement

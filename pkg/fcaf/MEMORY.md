@@ -35,6 +35,14 @@ Recent commits:
 
 Implement mandatory wallet-solution/relying-party tests one at a time. Skip TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests. Keep reusable YAML in the repository, not SQLite.
 
+## Aggregate validation architecture
+
+On 27/08/2026, maintainer removed legacy FCAF orchestration. `/api/fcaf/run`, assessment/precondition workflows, catalog precondition definitions, and `fcaf run --tests-file` must stay removed. Validators consume exact named aggregate pipeline outputs directly.
+
+Maintain 112 evidence-producing source definitions under `config_templates/fcaf/wallet_solution/relying_party/scenarios/`. `make fcaf-generate` combines them into one deployable pipeline, prefixes scenario step IDs, continues after scenario failures, merges 115 exact evidence sources, and runs one final `fcaf-validation` over all 559 tests. `pipelines/` contains only this generated complete-validation pipeline, so sync/run creates one top-level FCAF execution.
+
+Every test has exactly one scenario owner. Do not restore sole-output fallback: one wallet interaction must never stand in for incompatible scenarios. A complete run may still contain many sequential wallet interactions. Mock-verifier-blocked tests must report blocked/failed from missing real evidence, never synthetic conformance passes.
+
 ## Case 087
 
 The request uses two IDs, `pid-query-one` and `pid-query-two`, both matching PID SD-JWT VC `urn:eudi:pid:1` and requesting `given_name`.

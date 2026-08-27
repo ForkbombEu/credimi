@@ -13,30 +13,25 @@ normative_references:
   - title: OpenID for Verifiable Presentations 1.0
     section: "5.6"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-preconditions:
-  - ref: pipeline.wallet.protocol.request-object-by-value
-  - ref: pipeline.dcql.credentials-match
-  - ref: pipeline.dcql.credential-sets
-  - ref: pipeline.dcql.claim-sets
 evidence:
   request_object:
     from: pipeline.wallet.protocol.request-object-by-value.outputs.request_object
   wallet_response:
     from: pipeline.wallet.protocol.request-object-by-value.outputs.wallet_response
   multiple_credentials_exchange:
-    from: pipeline.dcql.credentials-match.outputs.dcql_exchange
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.dcql_exchange
   credential_sets_exchange:
-    from: pipeline.dcql.credential-sets.outputs.dcql_exchange
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.dcql_exchange
   claim_sets_exchange:
-    from: pipeline.dcql.claim-sets.outputs.dcql_exchange
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.dcql_exchange
   by_value_visual_evidence:
     from: pipeline.wallet.protocol.request-object-by-value.outputs.visual_evidence
   multiple_credentials_visual_evidence:
-    from: pipeline.dcql.credentials-match.outputs.visual_evidence
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.visual_evidence
   credential_sets_visual_evidence:
-    from: pipeline.dcql.credential-sets.outputs.visual_evidence
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.visual_evidence
   claim_sets_visual_evidence:
-    from: pipeline.dcql.claim-sets.outputs.visual_evidence
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.visual_evidence
 assertions:
   - id: response_type_is_vp_token
     validator: jwt.payload_field_equals

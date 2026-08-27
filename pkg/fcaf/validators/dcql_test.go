@@ -61,44 +61,92 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
-			name:     "credential sets options empty is rejected",
-			mode:     "credential_sets_options_empty",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": []any{}}}}, "error": "invalid_request"},
-			status:   StatusPass,
+			name: "credential sets options empty is rejected",
+			mode: "credential_sets_options_empty",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{map[string]any{"options": []any{}}},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusPass,
 		},
 		{
-			name:     "credential sets options non array is rejected",
-			mode:     "credential_sets_options_non_array",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": "pid"}}}, "error": "invalid_request"},
-			status:   StatusPass,
+			name: "credential sets options non array is rejected",
+			mode: "credential_sets_options_non_array",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{map[string]any{"options": "pid"}},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusPass,
 		},
 		{
-			name:     "credential sets options valid references",
-			mode:     "credential_sets_options_valid_references",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": []any{[]any{"pid"}}}}}, "vp_token": map[string]any{"pid": []any{"presentation"}}},
-			status:   StatusPass,
+			name: "credential sets options valid references",
+			mode: "credential_sets_options_valid_references",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"pid"}}}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
 		},
 		{
-			name:     "credential sets options invalid references are rejected",
-			mode:     "credential_sets_options_invalid_references",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}, "credential_sets": []any{map[string]any{"options": []any{[]any{"unknown"}}}}}},
-			status:   StatusPass,
+			name: "credential sets options invalid references are rejected",
+			mode: "credential_sets_options_invalid_references",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"unknown"}}}},
+				},
+			},
+			status: StatusPass,
 		},
 		{
-			name: "required true match", mode: "credential_sets_required_true_match",
-			evidence: map[string]any{"dcql_query": map[string]any{"credential_sets": []any{map[string]any{"required": true}}}, "vp_token": map[string]any{"pid": []any{"presentation"}}}, status: StatusPass,
+			name: "required true match",
+			mode: "credential_sets_required_true_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credential_sets": []any{map[string]any{"required": true}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
 		},
 		{
-			name: "required true no match", mode: "credential_sets_required_true_no_match",
-			evidence: map[string]any{"dcql_query": map[string]any{"credential_sets": []any{map[string]any{"required": true}}}}, status: StatusPass,
+			name: "required true no match",
+			mode: "credential_sets_required_true_no_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credential_sets": []any{map[string]any{"required": true}},
+				},
+			},
+			status: StatusPass,
 		},
 		{
-			name: "required omitted", mode: "credential_sets_required_omitted",
-			evidence: map[string]any{"dcql_query": map[string]any{"credential_sets": []any{map[string]any{}}}, "vp_token": map[string]any{"pid": []any{"presentation"}}}, status: StatusPass,
+			name: "required omitted",
+			mode: "credential_sets_required_omitted",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credential_sets": []any{map[string]any{}}},
+				"vp_token":   map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
 		},
 		{
-			name: "required false with match", mode: "credential_sets_required_false_with_match",
-			evidence: map[string]any{"dcql_query": map[string]any{"credential_sets": []any{map[string]any{"required": false}}}, "vp_token": map[string]any{"pid": []any{"presentation"}}}, status: StatusPass,
+			name: "required false with match",
+			mode: "credential_sets_required_false_with_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credential_sets": []any{map[string]any{"required": false}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
 		},
 		{
 			name: "credentials matched",
@@ -115,8 +163,10 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			name: "claims are present and matched",
 			mode: "claims_present",
 			evidence: map[string]any{
-				"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}},
-				"vp_token":   map[string]any{"pid": []any{"presentation"}},
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
 			},
 			status: StatusPass,
 		},
@@ -139,7 +189,9 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			evidence: map[string]any{
 				"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
 					credential := validSDJWTCredentialQuery("pid")
-					credential["claims"] = []any{map[string]any{"path": []any{"claim_that_does_not_exist"}}}
+					credential["claims"] = []any{
+						map[string]any{"path": []any{"claim_that_does_not_exist"}},
+					}
 					return credential
 				}()}},
 			},
@@ -151,7 +203,12 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			evidence: map[string]any{
 				"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
 					credential := validSDJWTCredentialQuery("pid")
-					credential["claims"] = []any{map[string]any{"path": []any{"given_name"}, "values": []any{"value-that-does-not-match"}}}
+					credential["claims"] = []any{
+						map[string]any{
+							"path":   []any{"given_name"},
+							"values": []any{"value-that-does-not-match"},
+						},
+					}
 					return credential
 				}()}},
 			},
@@ -160,139 +217,471 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 		{
 			name: "missing claim id with claim sets is rejected",
 			mode: "claim_id_missing_with_claim_sets",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{map[string]any{
-				"claims": []any{map[string]any{"path": []any{"given_name"}}}, "claim_sets": []any{[]any{"missing_id"}},
-			}}}},
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{
+					map[string]any{
+						"claims": []any{
+							map[string]any{"path": []any{"given_name"}},
+						},
+						"claim_sets": []any{[]any{"missing_id"}},
+					},
+				}},
+			},
 			status: StatusPass,
 		},
 		{
-			name:     "claims without ids and claim sets are accepted",
-			mode:     "claims_without_id_without_claim_sets",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}}, "vp_token": map[string]any{"pid": []any{"presentation"}}},
-			status:   StatusPass,
+			name: "claims without ids and claim sets are accepted",
+			mode: "claims_without_id_without_claim_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
 		},
 		{
 			name: "claim id is not the requested shape",
 			mode: "claims_without_id_without_claim_sets",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
-				credential := validSDJWTCredentialQuery("pid")
-				credential["claims"] = []any{map[string]any{"id": "given_name", "path": []any{"given_name"}}}
-				return credential
-			}()}}, "vp_token": map[string]any{"pid": []any{"presentation"}}},
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
+					credential := validSDJWTCredentialQuery("pid")
+					credential["claims"] = []any{
+						map[string]any{"id": "given_name", "path": []any{"given_name"}},
+					}
+					return credential
+				}()}},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
 			status: StatusFail,
 		},
 		{
 			name: "claim sets must be absent",
 			mode: "claims_without_id_without_claim_sets",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
-				credential := validSDJWTCredentialQuery("pid")
-				credential["claim_sets"] = []any{[]any{"given_name"}}
-				return credential
-			}()}}, "vp_token": map[string]any{"pid": []any{"presentation"}}},
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{func() map[string]any {
+					credential := validSDJWTCredentialQuery("pid")
+					credential["claim_sets"] = []any{[]any{"given_name"}}
+					return credential
+				}()}},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
 			status: StatusFail,
 		},
 		{
-			name:     "accepted request must return a presentation",
-			mode:     "claims_without_id_without_claim_sets",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}}},
-			status:   StatusFail,
+			name: "accepted request must return a presentation",
+			mode: "claims_without_id_without_claim_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+			},
+			status: StatusFail,
 		},
 		{
-			name:     "duplicate claim ids are rejected",
-			mode:     "duplicate_claim_ids",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "name")}}, "error": "invalid_request"},
+			name: "duplicate claim ids are rejected",
+			mode: "duplicate_claim_ids",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "name")},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusPass,
+		},
+		{
+			name: "unrelated singleton claims array remains valid evidence",
+			mode: "duplicate_claim_ids",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						credentialQueryWithClaimIDs("pid-a", "name", "name"),
+						credentialQueryWithClaimIDs("pid-b", "birth_date"),
+					},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusPass,
+		},
+		{
+			name: "claim ids are scoped to one claims array",
+			mode: "duplicate_claim_ids",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						credentialQueryWithClaimIDs("pid-a", "name", "family_name"),
+						credentialQueryWithClaimIDs("pid-b", "name", "birth_date"),
+					},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusFail,
+		},
+		{
+			name: "unique claim ids are not the malformed case",
+			mode: "duplicate_claim_ids",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "family_name")},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusFail,
+		},
+		{
+			name: "duplicate claim ids require invalid request",
+			mode: "duplicate_claim_ids",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "name")},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "empty claim id is rejected",
+			mode: "empty_claim_id",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithClaimIDs("pid", "")},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusPass,
+		},
+		{
+			name: "missing claim id is not the empty id case",
+			mode: "empty_claim_id",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusFail,
+		},
+		{
+			name: "non-empty claim id is not malformed",
+			mode: "empty_claim_id",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithClaimIDs("pid", "name")},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusFail,
+		},
+		{
+			name: "empty claim id requires invalid request",
+			mode: "empty_claim_id",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithClaimIDs("pid", "")},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:     "claim id containing dot is rejected",
+			mode:     "invalid_claim_id_characters",
+			evidence: malformedClaimIDEvidence("given.name"),
 			status:   StatusPass,
 		},
 		{
-			name:     "unrelated singleton claims array remains valid evidence",
-			mode:     "duplicate_claim_ids",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid-a", "name", "name"), credentialQueryWithClaimIDs("pid-b", "birth_date")}}, "error": "invalid_request"},
+			name:     "claim id containing space is rejected",
+			mode:     "invalid_claim_id_characters",
+			evidence: malformedClaimIDEvidence("given name"),
 			status:   StatusPass,
 		},
 		{
-			name:     "claim ids are scoped to one claims array",
-			mode:     "duplicate_claim_ids",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid-a", "name", "family_name"), credentialQueryWithClaimIDs("pid-b", "name", "birth_date")}}, "error": "invalid_request"},
-			status:   StatusFail,
-		},
-		{
-			name:     "unique claim ids are not the malformed case",
-			mode:     "duplicate_claim_ids",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "family_name")}}, "error": "invalid_request"},
-			status:   StatusFail,
-		},
-		{
-			name:     "duplicate claim ids require invalid request",
-			mode:     "duplicate_claim_ids",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "name", "name")}}},
-			status:   StatusFail,
-		},
-		{
-			name:     "empty claim id is rejected",
-			mode:     "empty_claim_id",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "")}}, "error": "invalid_request"},
+			name:     "claim id containing colon is rejected",
+			mode:     "invalid_claim_id_characters",
+			evidence: malformedClaimIDEvidence("given:name"),
 			status:   StatusPass,
 		},
 		{
-			name:     "missing claim id is not the empty id case",
-			mode:     "empty_claim_id",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}}, "error": "invalid_request"},
+			name:     "claim id containing slash is rejected",
+			mode:     "invalid_claim_id_characters",
+			evidence: malformedClaimIDEvidence("given/name"),
+			status:   StatusPass,
+		},
+		{
+			name:     "claim id containing non ASCII is rejected",
+			mode:     "invalid_claim_id_characters",
+			evidence: malformedClaimIDEvidence("given_\u00e9"),
+			status:   StatusPass,
+		},
+		{
+			name:     "alphanumeric underscore and hyphen claim id is valid",
+			mode:     "invalid_claim_id_characters",
+			evidence: malformedClaimIDEvidence("Name_01-test"),
 			status:   StatusFail,
 		},
 		{
-			name:     "non-empty claim id is not malformed",
-			mode:     "empty_claim_id",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "name")}}, "error": "invalid_request"},
+			name:     "empty claim id is not the invalid character case",
+			mode:     "invalid_claim_id_characters",
+			evidence: malformedClaimIDEvidence(""),
 			status:   StatusFail,
 		},
 		{
-			name:     "empty claim id requires invalid request",
-			mode:     "empty_claim_id",
-			evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "")}}},
+			name: "malformed claim id requires invalid request",
+			mode: "invalid_claim_id_characters",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credentialQueryWithClaimIDs("pid", "given.name")},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:     "missing claim path is rejected",
+			mode:     "claim_path_missing",
+			evidence: claimPathEvidence(false, nil, true),
+			status:   StatusPass,
+		},
+		{
+			name:     "null claim path is present",
+			mode:     "claim_path_missing",
+			evidence: claimPathEvidence(true, nil, true),
 			status:   StatusFail,
 		},
-		{name: "claim id containing dot is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given.name"), status: StatusPass},
-		{name: "claim id containing space is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given name"), status: StatusPass},
-		{name: "claim id containing colon is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given:name"), status: StatusPass},
-		{name: "claim id containing slash is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given/name"), status: StatusPass},
-		{name: "claim id containing non ASCII is rejected", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("given_\u00e9"), status: StatusPass},
-		{name: "alphanumeric underscore and hyphen claim id is valid", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence("Name_01-test"), status: StatusFail},
-		{name: "empty claim id is not the invalid character case", mode: "invalid_claim_id_characters", evidence: malformedClaimIDEvidence(""), status: StatusFail},
-		{name: "malformed claim id requires invalid request", mode: "invalid_claim_id_characters", evidence: map[string]any{"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", "given.name")}}}, status: StatusFail},
-		{name: "missing claim path is rejected", mode: "claim_path_missing", evidence: claimPathEvidence(false, nil, true), status: StatusPass},
-		{name: "null claim path is present", mode: "claim_path_missing", evidence: claimPathEvidence(true, nil, true), status: StatusFail},
-		{name: "empty claim path is present", mode: "claim_path_missing", evidence: claimPathEvidence(true, []any{}, true), status: StatusFail},
-		{name: "valid claim path is present", mode: "claim_path_missing", evidence: claimPathEvidence(true, []any{"given_name"}, true), status: StatusFail},
-		{name: "missing claim path requires invalid request", mode: "claim_path_missing", evidence: claimPathEvidence(false, nil, false), status: StatusFail},
-		{name: "empty claim path is rejected", mode: "claim_path_empty", evidence: claimPathEvidence(true, []any{}, true), status: StatusPass},
-		{name: "missing claim path is not the empty path case", mode: "claim_path_empty", evidence: claimPathEvidence(false, nil, true), status: StatusFail},
-		{name: "null claim path is not the empty array case", mode: "claim_path_empty", evidence: claimPathEvidence(true, nil, true), status: StatusFail},
-		{name: "valid claim path is not empty", mode: "claim_path_empty", evidence: claimPathEvidence(true, []any{"given_name"}, true), status: StatusFail},
-		{name: "empty claim path requires invalid request", mode: "claim_path_empty", evidence: claimPathEvidence(true, []any{}, false), status: StatusFail},
-		{name: "null claim path is rejected as non-array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, nil, true), status: StatusPass},
-		{name: "true claim path is rejected as non-array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, true, true), status: StatusPass},
-		{name: "false claim path is rejected as non-array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, false, true), status: StatusPass},
-		{name: "zero claim path is rejected as non-array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, float64(0), true), status: StatusPass},
-		{name: "number claim path is rejected as non-array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, float64(73), true), status: StatusPass},
-		{name: "string claim path is rejected as non-array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, "given_name", true), status: StatusPass},
-		{name: "object claim path is rejected as non-array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, map[string]any{"claim": "given_name"}, true), status: StatusPass},
-		{name: "missing claim path is not the non-array case", mode: "claim_path_non_array", evidence: claimPathEvidence(false, nil, true), status: StatusFail},
-		{name: "empty array claim path is still an array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, []any{}, true), status: StatusFail},
-		{name: "valid claim path is an array", mode: "claim_path_non_array", evidence: claimPathEvidence(true, []any{"given_name"}, true), status: StatusFail},
-		{name: "non-array claim path requires invalid request", mode: "claim_path_non_array", evidence: claimPathEvidence(true, "given_name", false), status: StatusFail},
-		{name: "allowed claim path components resolve", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", float64(0)}, true), status: StatusPass},
-		{name: "allowed claim path components require every path to resolve", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsWithClaims([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", float64(0)}, map[string]any{"given_name": "Filippo"}), status: StatusFail},
-		{name: "allowed claim path components require string", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{nil}, []any{float64(0)}, nil, true), status: StatusFail},
-		{name: "allowed claim path components require null", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", float64(0)}, nil, true), status: StatusFail},
-		{name: "allowed claim path components require integer", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, nil, true), status: StatusFail},
-		{name: "allowed claim path rejects empty path", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{}, []any{"nationality", nil}, []any{"nationality", float64(0)}, true), status: StatusFail},
-		{name: "allowed claim path rejects boolean", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", true}, true), status: StatusFail},
-		{name: "allowed claim path rejects negative integer", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", float64(-1)}, true), status: StatusFail},
-		{name: "allowed claim path rejects fractional number", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", 1.5}, true), status: StatusFail},
-		{name: "allowed claim path requires presentation", mode: "claim_path_allowed_components", evidence: allowedClaimPathComponentsEvidence([]any{"given_name"}, []any{"nationality", nil}, []any{"nationality", float64(0)}, false), status: StatusFail},
-		{name: "claim without values is accepted", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(false, true), status: StatusPass},
-		{name: "claim with values is not the omitted case", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(true, true), status: StatusFail},
-		{name: "claim without values requires a presentation", mode: "claims_without_values", evidence: claimWithoutValuesEvidence(false, false), status: StatusFail},
+		{
+			name:     "empty claim path is present",
+			mode:     "claim_path_missing",
+			evidence: claimPathEvidence(true, []any{}, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "valid claim path is present",
+			mode:     "claim_path_missing",
+			evidence: claimPathEvidence(true, []any{"given_name"}, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "missing claim path requires invalid request",
+			mode:     "claim_path_missing",
+			evidence: claimPathEvidence(false, nil, false),
+			status:   StatusFail,
+		},
+		{
+			name:     "empty claim path is rejected",
+			mode:     "claim_path_empty",
+			evidence: claimPathEvidence(true, []any{}, true),
+			status:   StatusPass,
+		},
+		{
+			name:     "missing claim path is not the empty path case",
+			mode:     "claim_path_empty",
+			evidence: claimPathEvidence(false, nil, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "null claim path is not the empty array case",
+			mode:     "claim_path_empty",
+			evidence: claimPathEvidence(true, nil, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "valid claim path is not empty",
+			mode:     "claim_path_empty",
+			evidence: claimPathEvidence(true, []any{"given_name"}, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "empty claim path requires invalid request",
+			mode:     "claim_path_empty",
+			evidence: claimPathEvidence(true, []any{}, false),
+			status:   StatusFail,
+		},
+		{
+			name:     "null claim path is rejected as non-array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, nil, true),
+			status:   StatusPass,
+		},
+		{
+			name:     "true claim path is rejected as non-array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, true, true),
+			status:   StatusPass,
+		},
+		{
+			name:     "false claim path is rejected as non-array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, false, true),
+			status:   StatusPass,
+		},
+		{
+			name:     "zero claim path is rejected as non-array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, float64(0), true),
+			status:   StatusPass,
+		},
+		{
+			name:     "number claim path is rejected as non-array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, float64(73), true),
+			status:   StatusPass,
+		},
+		{
+			name:     "string claim path is rejected as non-array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, "given_name", true),
+			status:   StatusPass,
+		},
+		{
+			name:     "object claim path is rejected as non-array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, map[string]any{"claim": "given_name"}, true),
+			status:   StatusPass,
+		},
+		{
+			name:     "missing claim path is not the non-array case",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(false, nil, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "empty array claim path is still an array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, []any{}, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "valid claim path is an array",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, []any{"given_name"}, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "non-array claim path requires invalid request",
+			mode:     "claim_path_non_array",
+			evidence: claimPathEvidence(true, "given_name", false),
+			status:   StatusFail,
+		},
+		{
+			name: "allowed claim path components resolve",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence(
+				[]any{"given_name"},
+				[]any{"nationality", nil},
+				[]any{"nationality", float64(0)},
+				true,
+			),
+			status: StatusPass,
+		},
+		{
+			name: "allowed claim path components require every path to resolve",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsWithClaims(
+				[]any{"given_name"},
+				[]any{"nationality", nil},
+				[]any{"nationality", float64(0)},
+				map[string]any{"given_name": "Filippo"},
+			),
+			status: StatusFail,
+		},
+		{
+			name:     "allowed claim path components require string",
+			mode:     "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence([]any{nil}, []any{float64(0)}, nil, true),
+			status:   StatusFail,
+		},
+		{
+			name: "allowed claim path components require null",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence(
+				[]any{"given_name"},
+				[]any{"nationality", float64(0)},
+				nil,
+				true,
+			),
+			status: StatusFail,
+		},
+		{
+			name: "allowed claim path components require integer",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence(
+				[]any{"given_name"},
+				[]any{"nationality", nil},
+				nil,
+				true,
+			),
+			status: StatusFail,
+		},
+		{
+			name: "allowed claim path rejects empty path",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence(
+				[]any{},
+				[]any{"nationality", nil},
+				[]any{"nationality", float64(0)},
+				true,
+			),
+			status: StatusFail,
+		},
+		{
+			name: "allowed claim path rejects boolean",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence(
+				[]any{"given_name"},
+				[]any{"nationality", nil},
+				[]any{"nationality", true},
+				true,
+			),
+			status: StatusFail,
+		},
+		{
+			name: "allowed claim path rejects negative integer",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence(
+				[]any{"given_name"},
+				[]any{"nationality", nil},
+				[]any{"nationality", float64(-1)},
+				true,
+			),
+			status: StatusFail,
+		},
+		{
+			name: "allowed claim path rejects fractional number",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence(
+				[]any{"given_name"},
+				[]any{"nationality", nil},
+				[]any{"nationality", 1.5},
+				true,
+			),
+			status: StatusFail,
+		},
+		{
+			name: "allowed claim path requires presentation",
+			mode: "claim_path_allowed_components",
+			evidence: allowedClaimPathComponentsEvidence(
+				[]any{"given_name"},
+				[]any{"nationality", nil},
+				[]any{"nationality", float64(0)},
+				false,
+			),
+			status: StatusFail,
+		},
+		{
+			name:     "claim without values is accepted",
+			mode:     "claims_without_values",
+			evidence: claimWithoutValuesEvidence(false, true),
+			status:   StatusPass,
+		},
+		{
+			name:     "claim with values is not the omitted case",
+			mode:     "claims_without_values",
+			evidence: claimWithoutValuesEvidence(true, true),
+			status:   StatusFail,
+		},
+		{
+			name:     "claim without values requires a presentation",
+			mode:     "claims_without_values",
+			evidence: claimWithoutValuesEvidence(false, false),
+			status:   StatusFail,
+		},
 		{
 			name: "credentials matched without credential sets",
 			mode: "without_credential_sets",
@@ -309,7 +698,10 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			mode: "without_credential_sets",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credentials": []any{validSDJWTCredentialQuery("pid-given-name"), validSDJWTCredentialQuery("pid-given-name-copy")},
+					"credentials": []any{
+						validSDJWTCredentialQuery("pid-given-name"),
+						validSDJWTCredentialQuery("pid-given-name-copy"),
+					},
 				},
 				"vp_token": map[string]any{
 					"pid-given-name":      []any{"given-name-presentation"},
@@ -323,7 +715,10 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			mode: "without_credential_sets",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credentials": []any{validSDJWTCredentialQuery("pid-given-name"), validSDJWTCredentialQuery("pid-given-name-copy")},
+					"credentials": []any{
+						validSDJWTCredentialQuery("pid-given-name"),
+						validSDJWTCredentialQuery("pid-given-name-copy"),
+					},
 				},
 				"vp_token": map[string]any{"pid-given-name": []any{"given-name-presentation"}},
 			},
@@ -1033,8 +1428,10 @@ func credentialQueryWithClaimIDs(id string, claimIDs ...string) map[string]any {
 
 func malformedClaimIDEvidence(claimID string) map[string]any {
 	return map[string]any{
-		"dcql_query": map[string]any{"credentials": []any{credentialQueryWithClaimIDs("pid", claimID)}},
-		"error":      "invalid_request",
+		"dcql_query": map[string]any{
+			"credentials": []any{credentialQueryWithClaimIDs("pid", claimID)},
+		},
+		"error": "invalid_request",
 	}
 }
 
@@ -1069,7 +1466,12 @@ func claimWithoutValuesEvidence(valuesPresent bool, withPresentation bool) map[s
 	return evidence
 }
 
-func allowedClaimPathComponentsEvidence(first []any, second []any, third []any, withPresentation bool) map[string]any {
+func allowedClaimPathComponentsEvidence(
+	first []any,
+	second []any,
+	third []any,
+	withPresentation bool,
+) map[string]any {
 	claims := map[string]any{"given_name": "Filippo", "nationality": []any{"IT"}}
 	if !withPresentation {
 		claims = nil
@@ -1077,7 +1479,12 @@ func allowedClaimPathComponentsEvidence(first []any, second []any, third []any, 
 	return allowedClaimPathComponentsWithClaims(first, second, third, claims)
 }
 
-func allowedClaimPathComponentsWithClaims(first []any, second []any, third []any, disclosedClaims map[string]any) map[string]any {
+func allowedClaimPathComponentsWithClaims(
+	first []any,
+	second []any,
+	third []any,
+	disclosedClaims map[string]any,
+) map[string]any {
 	claims := []any{map[string]any{"path": first}, map[string]any{"path": second}}
 	if third != nil {
 		claims = append(claims, map[string]any{"path": third})
@@ -1103,7 +1510,14 @@ func testSDJWTPresentation(claims map[string]any) string {
 	}
 	header, _ := json.Marshal(map[string]any{"alg": "none"})
 	payload, _ := json.Marshal(map[string]any{"_sd_alg": "sha-256", "_sd": digests})
-	return base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(payload) + ".signature~" + strings.Join(disclosures, "~") + "~"
+	return base64.RawURLEncoding.EncodeToString(
+		header,
+	) + "." + base64.RawURLEncoding.EncodeToString(
+		payload,
+	) + ".signature~" + strings.Join(
+		disclosures,
+		"~",
+	) + "~"
 }
 
 func TestMatchesJSONType(t *testing.T) {

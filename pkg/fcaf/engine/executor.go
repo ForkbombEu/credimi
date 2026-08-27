@@ -6,8 +6,6 @@ package engine
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -16,20 +14,10 @@ import (
 	"github.com/forkbombeu/credimi/pkg/fcaf/dsl"
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 	"github.com/forkbombeu/credimi/pkg/fcaf/validators"
-	"github.com/forkbombeu/credimi/pkg/utils"
 )
 
 type Engine struct {
-	registry  *validators.Registry
-	extractor func(root any, path string, decoder string) (any, error)
-	nodeCache *NodeResultCache
-}
-
-type executionState struct {
-	catalog *catalog.Catalog
-	bundle  evidence.Bundle
-	runtime map[string]any
-	cache   map[string]NodeResult
+	registry *validators.Registry
 }
 
 func New(registry *validators.Registry) (*Engine, error) {
@@ -40,32 +28,7 @@ func New(registry *validators.Registry) (*Engine, error) {
 			return nil, err
 		}
 	}
-	return NewWithExtractor(registry, evidence.Extract)
-}
-
-func NewWithExtractor(
-	registry *validators.Registry,
-	extractor func(root any, path string, decoder string) (any, error),
-) (*Engine, error) {
-	return NewWithCaches(registry, extractor, nil)
-}
-
-func NewWithCaches(
-	registry *validators.Registry,
-	extractor func(root any, path string, decoder string) (any, error),
-	nodeCache *NodeResultCache,
-) (*Engine, error) {
-	if registry == nil {
-		var err error
-		registry, err = validators.DefaultRegistry()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if extractor == nil {
-		extractor = evidence.Extract
-	}
-	return &Engine{registry: registry, extractor: extractor, nodeCache: nodeCache}, nil
+	return &Engine{registry: registry}, nil
 }
 
 func (e *Engine) ExecuteCatalog(
@@ -85,65 +48,43 @@ func (e *Engine) ExecuteCatalog(
 		return Report{}, err
 	}
 
-	state := &executionState{
-		catalog: cat,
-		bundle:  bundle,
-		runtime: runtime,
-		cache:   map[string]NodeResult{},
-	}
-
 	report := Report{
 		Suite:           suite,
 		SelectedTestIDs: selected,
 		Tests:           make([]TestResult, 0, len(selected)),
 	}
-
 	for _, testID := range selected {
-		test := cat.Tests[testID]
-		result, err := e.evaluateTest(ctx, state, test)
-		if err != nil {
-			return Report{}, err
-		}
+		result := e.evaluateTest(ctx, cat.Tests[testID], bundle, runtime)
 		report.Tests = append(report.Tests, result)
 		addSummary(&report.Summary, result.Status)
 	}
-
 	return report, nil
 }
 
 func (e *Engine) evaluateTest(
 	ctx context.Context,
-	state *executionState,
 	test dsl.TestDefinition,
-) (TestResult, error) {
-	preconditions := make([]NodeResult, 0, len(test.Preconditions))
+	bundle evidence.Bundle,
+	runtime map[string]any,
+) TestResult {
 	evidenceResults := make([]EvidenceResult, 0, len(test.Evidence))
-	resolvedEvidence := map[string]any{}
+	resolvedEvidence := make(map[string]any, len(test.Evidence))
 	status := validators.StatusPass
 
-	for _, ref := range test.Preconditions {
-		node, err := e.evaluateReference(ctx, state, ref.Ref)
-		if err != nil {
-			return TestResult{}, err
-		}
-		preconditions = append(preconditions, node)
-		if node.Status == validators.StatusFail {
-			status = validators.StatusFail
-		}
-		if node.Status == validators.StatusBlocked && status != validators.StatusFail {
-			status = validators.StatusBlocked
-		}
+	names := make([]string, 0, len(test.Evidence))
+	for name := range test.Evidence {
+		names = append(names, name)
 	}
-
-	for name, binding := range test.Evidence {
-		sourceNode, sourcePath := splitNodeBinding(binding.From)
-		node, err := e.evaluateReference(ctx, state, sourceNode)
+	sort.Strings(names)
+	for _, name := range names {
+		binding := test.Evidence[name]
+		value, sourceNode, found, err := resolvePipelineOutput(binding.From, bundle.PipelineOutputs)
 		if err != nil {
-			return TestResult{}, err
+			status = validators.StatusError
+			continue
 		}
-		value, ok := lookupNodeOutput(node, sourcePath)
-		if !ok {
-			if status != validators.StatusFail {
+		if !found {
+			if status != validators.StatusError {
 				status = validators.StatusBlocked
 			}
 			continue
@@ -163,8 +104,8 @@ func (e *Engine) evaluateTest(
 			ctx,
 			test,
 			assertion,
-			state.bundle,
-			state.runtime,
+			bundle,
+			runtime,
 			resolvedEvidence,
 		)
 		assertions = append(assertions, result)
@@ -174,13 +115,6 @@ func (e *Engine) evaluateTest(
 		status = AggregateVerdict(assertions)
 	}
 
-	state.cache["test."+test.ID] = NodeResult{
-		ID:      "test." + test.ID,
-		Kind:    "test",
-		Status:  status,
-		Message: verdictMessage(status),
-	}
-
 	return TestResult{
 		ID:                  test.ID,
 		Title:               test.Title,
@@ -188,287 +122,47 @@ func (e *Engine) evaluateTest(
 		Suite:               test.Suite,
 		Assertions:          assertions,
 		NormativeReferences: test.NormativeReferences,
-		Preconditions:       preconditions,
 		Evidence:            evidenceResults,
 		Message:             verdictMessage(status),
-	}, nil
-}
-
-func (e *Engine) evaluateReference(
-	ctx context.Context,
-	state *executionState,
-	ref string,
-) (NodeResult, error) {
-	if node, ok := state.cache[ref]; ok {
-		return node, nil
-	}
-
-	switch {
-	case strings.HasPrefix(ref, "pipeline."), strings.HasPrefix(ref, "assertion."):
-		precondition, ok := state.catalog.Preconditions[ref]
-		if !ok {
-			return NodeResult{}, fmt.Errorf("precondition %q not found", ref)
-		}
-		cacheKey := reusablePreconditionCacheKey(precondition, state.bundle)
-		if node, found := e.nodeCache.Get(cacheKey); found {
-			state.cache[ref] = node
-			return node, nil
-		}
-		node, err := e.evaluatePrecondition(ctx, state, precondition)
-		if err != nil {
-			return NodeResult{}, err
-		}
-		state.cache[ref] = node
-		e.nodeCache.Put(cacheKey, node)
-		return node, nil
-	case strings.HasPrefix(ref, "test."):
-		testID := strings.TrimPrefix(ref, "test.")
-		test, ok := state.catalog.Tests[testID]
-		if !ok {
-			return NodeResult{}, fmt.Errorf("test %q not found", testID)
-		}
-		result, err := e.evaluateTest(ctx, state, test)
-		if err != nil {
-			return NodeResult{}, err
-		}
-		node := NodeResult{ID: ref, Kind: "test", Status: result.Status, Message: result.Message}
-		state.cache[ref] = node
-		return node, nil
-	default:
-		return NodeResult{}, fmt.Errorf("unsupported reference %q", ref)
 	}
 }
 
-func reusablePreconditionCacheKey(
-	precondition dsl.PreconditionDefinition,
-	bundle evidence.Bundle,
-) string {
-	executions := make([]string, 0)
-	seen := map[string]struct{}{}
-	for _, raw := range bundle.PipelineOutputs {
-		result, err := evidence.DecodePipelineExecutionResult(raw)
-		if err != nil || result.WorkflowID == "" {
-			continue
-		}
-		execution := result.WorkflowID + "\x00" + result.WorkflowRunID
-		if _, exists := seen[execution]; exists {
-			continue
-		}
-		seen[execution] = struct{}{}
-		executions = append(executions, execution)
+func resolvePipelineOutput(
+	binding string,
+	pipelineOutputs map[string]any,
+) (any, string, bool, error) {
+	sourceNode, outputName := splitPipelineOutputBinding(binding)
+	if sourceNode == "" || outputName == "" {
+		return nil, sourceNode, false, fmt.Errorf("invalid pipeline output binding %q", binding)
 	}
-	if len(executions) == 0 {
-		return ""
+
+	raw, found := pipelineOutputs[sourceNode]
+	if !found {
+		return nil, sourceNode, false, nil
 	}
-	sort.Strings(executions)
-	definition, err := json.Marshal(precondition)
+
+	result, err := evidence.DecodePipelineExecutionResult(raw)
 	if err != nil {
-		return ""
+		return nil, sourceNode, false, err
 	}
-	scope := lookupString(bundle.Runtime, "namespace") + "\x00" +
-		lookupString(bundle.Runtime, "app_url") + "\x00" +
-		lookupString(bundle.Runtime, "fixture") + "\x00" +
-		strings.Join(executions, "\x01")
-	sum := sha256.Sum256(append(definition, []byte(scope)...))
-	return fmt.Sprintf("%x", sum)
-}
-
-func (e *Engine) evaluatePrecondition(
-	ctx context.Context,
-	state *executionState,
-	precondition dsl.PreconditionDefinition,
-) (NodeResult, error) {
-	node := NodeResult{
-		ID:      precondition.ID,
-		Kind:    precondition.Kind,
-		Params:  precondition.Params,
-		Outputs: map[string]any{},
-	}
-
-	switch precondition.Kind {
-	case "pipeline":
-		pipelineID := precondition.PipelineID
-		if fixture := lookupString(state.runtime, "fixture"); fixture != "" {
-			if selected, ok := precondition.Fixtures[fixture]; ok {
-				pipelineID = selected
-			}
-		}
-		raw, ok := state.bundle.PipelineOutputs[precondition.ID]
-		if !ok {
-			raw, ok = state.bundle.PipelineOutputs[strings.TrimPrefix(precondition.ID, "pipeline.")]
-		}
-		if !ok && strings.TrimSpace(pipelineID) != "" {
-			raw, ok = state.bundle.PipelineOutputs[pipelineID]
-		}
-		if !ok && len(state.bundle.PipelineOutputs) == 1 {
-			// Grouped validation pipelines may publish one execution under a
-			// human-readable alias while tests refer to its reusable precondition.
-			// A sole execution is unambiguous; retain strict keyed lookup when
-			// multiple pipeline executions are supplied.
-			for _, candidate := range state.bundle.PipelineOutputs {
-				raw, ok = candidate, true
-			}
-		}
-		if !ok {
-			node.Status = validators.StatusBlocked
-			node.Message = "pipeline output was not provided"
-			return node, nil
-		}
-		pipelineResult, err := evidence.DecodePipelineExecutionResult(raw)
-		if err != nil {
-			node.Status = validators.StatusError
-			node.Message = err.Error()
-			return node, nil //nolint:nilerr // Decode failures are represented in the FCAF report.
-		}
-		rawEnvelope := pipelineResult.LegacyMap()
-		node.WorkflowID = pipelineResult.WorkflowID
-		node.RunID = pipelineResult.WorkflowRunID
-		node.PipelineURL = pipelineRunURL(
-			state.runtime,
-			pipelineResult.WorkflowID,
-			pipelineResult.WorkflowRunID,
-		)
-		if failure := validatePipelineRequiredSteps(precondition, pipelineResult); failure != "" {
-			node.Status = validators.StatusFail
-			node.Message = failure
-			return node, nil
-		}
-		for name, output := range precondition.Outputs {
-			value, extractMessage := e.extractPipelineOutput(rawEnvelope, output)
-			if extractMessage != "" {
-				node.Status = validators.StatusFail
-				node.Message = extractMessage
-				return node, nil //nolint:nilerr // Decode failures are represented in the FCAF report.
-			}
-			state.bundle.Preconditions = ensureMap(state.bundle.Preconditions)
-			state.bundle.Preconditions[precondition.ID+".outputs."+name] = value
-			node.Outputs[name] = value
-			node.Evidence = append(node.Evidence, EvidenceResult{
-				Name:       name,
-				SourceNode: precondition.ID,
-				Path:       output.Path,
-				Value:      value,
-			})
-		}
-		node.Status = validators.StatusPass
-		if len(precondition.RequiredSteps) > 0 {
-			node.Message = fmt.Sprintf(
-				"pipeline required steps passed: %s",
-				strings.Join(precondition.RequiredSteps, ", "),
-			)
-		} else {
-			node.Message = "pipeline outputs extracted"
-		}
-		return node, nil
-	case "assertion":
-		for _, dependency := range precondition.DependsOn {
-			dependencyNode, err := e.evaluateReference(ctx, state, dependency)
-			if err != nil {
-				return NodeResult{}, err
-			}
-			if dependencyNode.Status != validators.StatusPass {
-				node.Status = validators.StatusBlocked
-				node.Message = "dependency did not pass"
-				return node, nil
-			}
-		}
-		value, ok := resolveBindingValue(precondition.Input.From, state.bundle, state.runtime)
-		if !ok {
-			node.Status = validators.StatusBlocked
-			node.Message = "precondition input is missing"
-			return node, nil
-		}
-		validator, ok := e.registry.Get(precondition.Validator)
-		if !ok {
-			node.Status = validators.StatusError
-			node.Message = fmt.Sprintf("validator %q is not registered", precondition.Validator)
-			return node, nil
-		}
-		result := validator.Validate(ctx, validators.Input{
-			Value:   value,
-			Bundle:  state.bundle,
-			Params:  precondition.Params,
-			Runtime: state.runtime,
-		})
-		node.Status = result.Status
-		node.Message = result.Message
-		node.Validator = precondition.Validator
-		if evidenceKey := evidenceKeyFromBinding(precondition.Input.From); evidenceKey != "" {
-			node.Evidence = append(node.Evidence, EvidenceResult{
-				Name:       evidenceKey,
-				SourceNode: precondition.ID,
-				From:       precondition.Input.From,
-				Value:      value,
-			})
-		}
-		return node, nil
-	case "test":
-		dependency, err := e.evaluateReference(ctx, state, "test."+precondition.TestID)
-		if err != nil {
-			return NodeResult{}, err
-		}
-		node.Status = dependency.Status
-		node.Message = dependency.Message
-		return node, nil
-	default:
-		return NodeResult{}, fmt.Errorf("unsupported precondition kind %q", precondition.Kind)
-	}
-}
-
-func validatePipelineRequiredSteps(
-	precondition dsl.PreconditionDefinition,
-	result evidence.PipelineExecutionResult,
-) string {
-	failures := make(map[string]evidence.PipelineStepFailure, len(result.StepFailures))
-	for _, failure := range result.StepFailures {
-		if failure.StepID != "" {
-			failures[failure.StepID] = failure
-		}
-	}
-
-	if len(precondition.RequiredSteps) == 0 {
-		if len(result.StepFailures) == 0 {
-			return ""
-		}
-		return pipelineStepFailureMessage(result.StepFailures[0])
-	}
-
 	output, ok := result.Output.(map[string]any)
 	if !ok {
-		return fmt.Sprintf(
-			"pipeline output is %T, expected object containing step results",
+		return nil, sourceNode, false, fmt.Errorf(
+			"aggregate pipeline output is %T, expected object",
 			result.Output,
 		)
 	}
-	for _, stepID := range precondition.RequiredSteps {
-		if failure, failed := failures[stepID]; failed {
-			return pipelineStepFailureMessage(failure)
-		}
-		if _, executed := output[stepID]; !executed {
-			return fmt.Sprintf(
-				"required pipeline step %q was not executed or produced no result",
-				stepID,
-			)
-		}
-	}
-	return ""
+	value, found := output[outputName]
+	return value, sourceNode, found, nil
 }
 
-func pipelineStepFailureMessage(failure evidence.PipelineStepFailure) string {
-	reason := strings.TrimSpace(failure.Message)
-	if reason == "" {
-		reason = strings.TrimSpace(failure.Summary)
+func splitPipelineOutputBinding(binding string) (string, string) {
+	const marker = ".outputs."
+	index := strings.Index(binding, marker)
+	if index < 0 {
+		return "", ""
 	}
-	if reason == "" {
-		reason = "step failed"
-	}
-	if failure.Code != "" {
-		reason = failure.Code + " " + reason
-	}
-	if failure.StepID == "" {
-		return "pipeline failed: " + reason
-	}
-	return fmt.Sprintf("required pipeline step %q failed: %s", failure.StepID, reason)
+	return binding[:index], binding[index+len(marker):]
 }
 
 func (e *Engine) executeAssertion(
@@ -534,41 +228,10 @@ func resolveAssertionInput(
 		result := evidence.Lookup(bundle, input)
 		return result.Value, result.Found
 	}
-	return resolveBindingValue(input, bundle, runtime)
-}
-
-func resolveBindingValue(
-	binding string,
-	bundle evidence.Bundle,
-	runtime map[string]any,
-) (any, bool) {
-	switch {
-	case strings.HasPrefix(binding, "runtime."):
-		return lookupRuntime(runtime, strings.TrimPrefix(binding, "runtime."))
-	case strings.HasPrefix(binding, "evidence."):
-		result := evidence.Lookup(bundle, binding)
-		return result.Value, result.Found
-	default:
-		return lookupPreconditionValue(bundle.Preconditions, binding)
+	if strings.HasPrefix(input, "runtime.") {
+		return lookupRuntime(runtime, strings.TrimPrefix(input, "runtime."))
 	}
-}
-
-func splitNodeBinding(binding string) (string, string) {
-	idx := strings.Index(binding, ".outputs.")
-	if idx < 0 {
-		return binding, ""
-	}
-	return binding[:idx], strings.TrimPrefix(binding[idx:], ".outputs.")
-}
-
-func lookupNodeOutput(node NodeResult, output string) (any, bool) {
-	value, ok := node.Outputs[output]
-	return value, ok
-}
-
-func lookupPreconditionValue(preconditions map[string]any, key string) (any, bool) {
-	value, ok := preconditions[key]
-	return value, ok
+	return nil, false
 }
 
 func lookupRuntime(runtime map[string]any, path string) (any, bool) {
@@ -587,59 +250,20 @@ func lookupRuntime(runtime map[string]any, path string) (any, bool) {
 }
 
 func evidenceKeysFromAssertionInput(input string) []string {
-	key := evidenceKeyFromBinding(input)
-	if key == "" {
+	const prefix = "evidence."
+	if !strings.HasPrefix(input, prefix) {
+		return nil
+	}
+	key := strings.TrimPrefix(input, prefix)
+	if key == "" || strings.Contains(key, ".") {
 		return nil
 	}
 	return []string{key}
 }
 
-func evidenceKeyFromBinding(binding string) string {
-	const prefix = "evidence."
-	if !strings.HasPrefix(binding, prefix) {
-		return ""
-	}
-	key := strings.TrimPrefix(binding, prefix)
-	if key == "" || strings.Contains(key, ".") {
-		return ""
-	}
-	return key
-}
-
-func pipelineRunURL(runtime map[string]any, workflowID string, runID string) string {
-	if strings.TrimSpace(workflowID) == "" || strings.TrimSpace(runID) == "" {
-		return ""
-	}
-	appURL := lookupString(runtime, "app_url")
-	if appURL == "" {
-		return ""
-	}
-	return utils.JoinURL(appURL, "my", "tests", "runs", workflowID, runID)
-}
-
-func lookupString(values map[string]any, key string) string {
-	value, _ := values[key].(string)
-	return strings.TrimSpace(value)
-}
-
-func ensureMap(in map[string]any) map[string]any {
-	if in == nil {
-		return map[string]any{}
-	}
-	return in
-}
-
-func (e *Engine) extractPipelineOutput(raw any, output dsl.OutputDefinition) (any, string) {
-	value, err := e.extractor(raw, output.Path, output.Decoder)
-	if err != nil {
-		return nil, err.Error()
-	}
-	return value, ""
-}
-
 func mergeStatus(current validators.Status, next validators.Status) validators.Status {
 	switch {
-	case next == validators.StatusError:
+	case next == validators.StatusError || current == validators.StatusError:
 		return validators.StatusError
 	case current == validators.StatusFail || next == validators.StatusFail:
 		return validators.StatusFail

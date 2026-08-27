@@ -13,8 +13,6 @@ normative_references:
   - title: OpenID for Verifiable Presentations
     section: "6.1"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-preconditions:
-  - ref: pipeline.dcql.holder-binding-type-boundary
 evidence:
   holder_binding_exchange:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_valid_true

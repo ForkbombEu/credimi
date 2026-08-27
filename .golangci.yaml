@@ -155,6 +155,9 @@ linters:
         - G304
 
   exclusions:
+    paths:
+      - webapp/node_modules
+
     rules:
       - path: migrations/
         linters:

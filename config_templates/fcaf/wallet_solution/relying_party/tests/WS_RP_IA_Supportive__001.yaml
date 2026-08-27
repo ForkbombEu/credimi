@@ -13,8 +13,6 @@ normative_references:
   - title: OpenID for Verifiable Presentations 1.0
     section: "8.3"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-preconditions:
-  - ref: pipeline.wallet.supportive.redirect-uri
 evidence:
   wallet_response:
     from: pipeline.wallet.supportive.redirect-uri.outputs.wallet_response

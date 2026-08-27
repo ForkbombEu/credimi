@@ -13,13 +13,12 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-preconditions:
 - ref: pipeline.dcql.main-interaction
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence
 assertions:
 - id: ws_rp_ia_maininteraction__008_interaction
   validator: dcql.response_satisfies_constraints

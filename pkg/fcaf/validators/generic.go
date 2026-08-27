@@ -13,6 +13,8 @@ import (
 	"strings"
 )
 
+const fieldParamRequired = "field param is required"
+
 type EvidencePresentValidator struct{}
 
 func (EvidencePresentValidator) ID() string {
@@ -42,7 +44,7 @@ func (EvidenceMinimumItemsValidator) Validate(_ context.Context, input Input) Re
 		return Result{Status: StatusError, Message: "min_items must be greater than zero"}
 	}
 
-	itemCount := 0
+	var itemCount int
 	switch value := input.Value.(type) {
 	case []any:
 		itemCount = len(value)
@@ -128,27 +130,42 @@ func (JSONFieldStringPrefixValidator) Validate(_ context.Context, input Input) R
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Field == "" {
-		return Result{Status: StatusError, Message: "field param is required"}
+		return Result{Status: StatusError, Message: fieldParamRequired}
 	}
 	if params.Prefix == "" {
 		return Result{Status: StatusError, Message: "prefix param is required"}
 	}
 	obj, ok := input.Value.(map[string]any)
 	if !ok {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("input is %T, expected object", input.Value)}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected object", input.Value),
+		}
 	}
 	value, ok := obj[params.Field]
 	if !ok {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("required field %q is missing", params.Field)}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("required field %q is missing", params.Field),
+		}
 	}
 	actual, ok := value.(string)
 	if !ok {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("field %q is %T, expected string", params.Field, value)}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("field %q is %T, expected string", params.Field, value),
+		}
 	}
 	if !strings.HasPrefix(actual, params.Prefix) {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("field %q does not start with %q", params.Field, params.Prefix)}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("field %q does not start with %q", params.Field, params.Prefix),
+		}
 	}
-	return Result{Status: StatusPass, Message: fmt.Sprintf("field %q starts with %q", params.Field, params.Prefix)}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("field %q starts with %q", params.Field, params.Prefix),
+	}
 }
 
 func (JSONFieldPresenceValidator) Validate(_ context.Context, input Input) Result {
@@ -160,7 +177,7 @@ func (JSONFieldPresenceValidator) Validate(_ context.Context, input Input) Resul
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Field == "" {
-		return Result{Status: StatusError, Message: "field param is required"}
+		return Result{Status: StatusError, Message: fieldParamRequired}
 	}
 	if _, ok := input.Params["present"]; !ok {
 		return Result{Status: StatusError, Message: "present param is required"}
@@ -200,42 +217,7 @@ func (JWTHeaderFieldEqualsValidator) ID() string {
 }
 
 func (JWTHeaderFieldEqualsValidator) Validate(_ context.Context, input Input) Result {
-	params, err := DecodeParams[struct {
-		Field string `json:"field"`
-		Value any    `json:"value"`
-	}](input.Params)
-	if err != nil {
-		return Result{Status: StatusError, Message: err.Error()}
-	}
-	if params.Field == "" {
-		return Result{Status: StatusError, Message: "field param is required"}
-	}
-	header, err := compactJWTPart(input.Value, 0)
-	if err != nil {
-		return Result{Status: StatusFail, Message: err.Error()}
-	}
-	actual, exists := header[params.Field]
-	if !exists {
-		return Result{
-			Status:  StatusFail,
-			Message: fmt.Sprintf("JWT header field %q is missing", params.Field),
-		}
-	}
-	if !reflect.DeepEqual(actual, params.Value) {
-		return Result{
-			Status: StatusFail,
-			Message: fmt.Sprintf(
-				"JWT header field %q is %v, expected %v",
-				params.Field,
-				actual,
-				params.Value,
-			),
-		}
-	}
-	return Result{
-		Status:  StatusPass,
-		Message: fmt.Sprintf("JWT header field %q equals %v", params.Field, params.Value),
-	}
+	return validateJWTFieldEquals(input, 0, "header")
 }
 
 type JWTPayloadFieldEqualsValidator struct{}
@@ -245,6 +227,10 @@ func (JWTPayloadFieldEqualsValidator) ID() string {
 }
 
 func (JWTPayloadFieldEqualsValidator) Validate(_ context.Context, input Input) Result {
+	return validateJWTFieldEquals(input, 1, "payload")
+}
+
+func validateJWTFieldEquals(input Input, partIndex int, partName string) Result {
 	params, err := DecodeParams[struct {
 		Field string `json:"field"`
 		Value any    `json:"value"`
@@ -253,24 +239,25 @@ func (JWTPayloadFieldEqualsValidator) Validate(_ context.Context, input Input) R
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Field == "" {
-		return Result{Status: StatusError, Message: "field param is required"}
+		return Result{Status: StatusError, Message: fieldParamRequired}
 	}
-	payload, err := compactJWTPart(input.Value, 1)
+	part, err := compactJWTPart(input.Value, partIndex)
 	if err != nil {
 		return Result{Status: StatusFail, Message: err.Error()}
 	}
-	actual, exists := payload[params.Field]
+	actual, exists := part[params.Field]
 	if !exists {
 		return Result{
 			Status:  StatusFail,
-			Message: fmt.Sprintf("JWT payload field %q is missing", params.Field),
+			Message: fmt.Sprintf("JWT %s field %q is missing", partName, params.Field),
 		}
 	}
 	if !reflect.DeepEqual(actual, params.Value) {
 		return Result{
 			Status: StatusFail,
 			Message: fmt.Sprintf(
-				"JWT payload field %q is %v, expected %v",
+				"JWT %s field %q is %v, expected %v",
+				partName,
 				params.Field,
 				actual,
 				params.Value,
@@ -278,8 +265,13 @@ func (JWTPayloadFieldEqualsValidator) Validate(_ context.Context, input Input) R
 		}
 	}
 	return Result{
-		Status:  StatusPass,
-		Message: fmt.Sprintf("JWT payload field %q equals %v", params.Field, params.Value),
+		Status: StatusPass,
+		Message: fmt.Sprintf(
+			"JWT %s field %q equals %v",
+			partName,
+			params.Field,
+			params.Value,
+		),
 	}
 }
 
@@ -304,7 +296,7 @@ func (JWTPayloadFieldPresenceValidator) Validate(_ context.Context, input Input)
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Field == "" {
-		return Result{Status: StatusError, Message: "field param is required"}
+		return Result{Status: StatusError, Message: fieldParamRequired}
 	}
 	if _, ok := input.Params["present"]; !ok {
 		return Result{Status: StatusError, Message: "present param is required"}
@@ -343,7 +335,7 @@ func (JWTPayloadObjectKeysAllowedValidator) Validate(_ context.Context, input In
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Field == "" {
-		return Result{Status: StatusError, Message: "field param is required"}
+		return Result{Status: StatusError, Message: fieldParamRequired}
 	}
 	if len(params.AllowedKeys) == 0 {
 		return Result{Status: StatusError, Message: "allowed_keys param is required"}
@@ -417,7 +409,7 @@ func (JSONFieldEqualsValidator) Validate(_ context.Context, input Input) Result 
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Field == "" {
-		return Result{Status: StatusError, Message: "field param is required"}
+		return Result{Status: StatusError, Message: fieldParamRequired}
 	}
 	obj, ok := input.Value.(map[string]any)
 	if !ok {
@@ -458,7 +450,7 @@ func (JSONFieldRequiredValidator) Validate(_ context.Context, input Input) Resul
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Field == "" {
-		return Result{Status: StatusError, Message: "field param is required"}
+		return Result{Status: StatusError, Message: fieldParamRequired}
 	}
 	obj, ok := input.Value.(map[string]any)
 	if !ok {

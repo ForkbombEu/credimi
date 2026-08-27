@@ -21,7 +21,6 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 
 var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ConformanceRoutes,
-	handlers.FCAFRouteGroup,
 	handlers.TemplateRoutes,
 	handlers.IssuersRoutes,
 	handlers.IssuerTemporalInternalRoutes,

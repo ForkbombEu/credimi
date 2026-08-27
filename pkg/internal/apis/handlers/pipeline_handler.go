@@ -395,10 +395,20 @@ func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
 			return err
 		}
 		if strings.TrimSpace(input.WorkflowID) == "" || strings.TrimSpace(input.RunID) == "" {
-			return apierror.New(http.StatusBadRequest, "workflow", "workflow_id and run_id are required", "missing workflow_id or run_id")
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"workflow_id and run_id are required",
+				"missing workflow_id or run_id",
+			)
 		}
 		if strings.TrimSpace(input.JSON) == "" {
-			return apierror.New(http.StatusBadRequest, "report", "json is required", "missing FCAF report JSON")
+			return apierror.New(
+				http.StatusBadRequest,
+				"report",
+				"json is required",
+				"missing FCAF report JSON",
+			)
 		}
 		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
 		if apiErr != nil {
@@ -406,11 +416,21 @@ func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
 		}
 		file, err := filesystem.NewFileFromBytes([]byte(input.JSON), "fcaf-assessment.json")
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "report", "failed to create FCAF report file", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"report",
+				"failed to create FCAF report file",
+				err.Error(),
+			)
 		}
 		record.Set("fcaf_report", []*filesystem.File{file})
 		if err := e.App.Save(record); err != nil {
-			return apierror.New(http.StatusInternalServerError, "pipeline", "failed to save FCAF report", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to save FCAF report",
+				err.Error(),
+			)
 		}
 		return e.JSON(http.StatusOK, record.FieldsData())
 	}

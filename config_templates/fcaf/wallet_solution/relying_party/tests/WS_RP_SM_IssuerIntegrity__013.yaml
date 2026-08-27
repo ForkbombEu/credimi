@@ -13,13 +13,13 @@ normative_references:
   - title: OpenID4VC High Assurance Interoperability Profile
     section: "6.1.1"
     url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
-preconditions:
-  - ref: pipeline.pid.presentation.sdjwt.all-claims
-  - ref: assertion.pid.presentation.sdjwt.vct-pid
 evidence:
   pid_sdjwt:
     from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
 assertions:
+  - id: pid_sdjwt_vct_pid
+    validator: pid.sdjwt_vct_pid
+    input: evidence.pid_sdjwt
   - id: issuer_header_contains_x509_chain
     validator: sdjwt.issuer_x509_header
     input: evidence.pid_sdjwt

@@ -34,7 +34,10 @@ func TestEvidencePresentValidator(t *testing.T) {
 
 func TestJSONFieldStringPrefixValidator(t *testing.T) {
 	v := JSONFieldStringPrefixValidator{}
-	input := Input{Value: map[string]any{"deeplink": "haip-vp://example"}, Params: map[string]any{"field": "deeplink", "prefix": "haip-vp://"}}
+	input := Input{
+		Value:  map[string]any{"deeplink": "haip-vp://example"},
+		Params: map[string]any{"field": "deeplink", "prefix": "haip-vp://"},
+	}
 	require.Equal(t, StatusPass, v.Validate(context.Background(), input).Status)
 
 	input.Value = map[string]any{"deeplink": "openid4vp://example"}

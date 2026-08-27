@@ -1,0 +1,214 @@
+name: FCAF wallet relying-party demo validation
+runtime:
+    global_runner_id: forkbomb-bv-andrea/usb
+    temporal:
+        activity_options:
+            heartbeat_timeout: 10m
+            retry_policy:
+                maximum_attempts: 1
+            schedule_to_close_timeout: 50m
+            start_to_close_timeout: 50m
+steps:
+    - id: onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                            - path:
+                                - family_name
+                            - path:
+                                - address
+                                - country
+                            - path:
+                                - address
+                                - formatted
+                            - path:
+                                - address
+                                - house_number
+                            - path:
+                                - address
+                                - locality
+                            - path:
+                                - address
+                                - postal_code
+                            - path:
+                                - address
+                                - region
+                            - path:
+                                - address
+                                - street_address
+                            - path:
+                                - birth_family_name
+                            - path:
+                                - birth_given_name
+                            - path:
+                                - birthdate
+                            - path:
+                                - date_of_expiry
+                            - path:
+                                - date_of_issuance
+                            - path:
+                                - document_number
+                            - path:
+                                - email
+                            - path:
+                                - issuing_authority
+                            - path:
+                                - issuing_country
+                            - path:
+                                - issuing_jurisdiction
+                            - path:
+                                - nationalities
+                            - path:
+                                - personal_administrative_number
+                            - path:
+                                - phone_number
+                            - path:
+                                - picture
+                            - path:
+                                - place_of_birth
+                            - path:
+                                - sex
+                          format: dc+sd-jwt
+                          id: pid_sdjwt
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-engagement-haip-vp
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.session_id }}
+    - id: run-complete-fcaf-validation
+      use: fcaf-validation
+      with:
+        pipeline_outputs:
+            forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-engagement-haip-vp:
+                output:
+                    create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
+                    create-pid-sdjwt-offer: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs | optional }}
+                    fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
+                    invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
+                    obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
+                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.pid.presentation.sdjwt.all-claims:
+                output:
+                    create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
+                    create-pid-sdjwt-offer: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs | optional }}
+                    fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
+                    invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
+                    obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
+                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.wallet.engagement.haip-vp:
+                output:
+                    create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
+                    create-pid-sdjwt-offer: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs | optional }}
+                    fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
+                    invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
+                    obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
+                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    wallet_engagement: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body | optional }}
+        suite: wallet_solution/relying_party
+        test_ids:
+            - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_AddressData_Residentaddress_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentaddress_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentcity_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentcity_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentcountry_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentcountry_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentcountry_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_AddressData_Residenthousenumber_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residenthousenumber_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentpostalcode_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentpostalcode_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentstate_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentstate_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentstreet_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentstreet_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Documentnumber_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Documentnumber_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_IETF-sd-jwt-vc_004
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_IETF-sd-jwt-vc_004
+            - WS_RP_DM_Credentialmetadata_Issuingauthority_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Issuingauthority_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_IdentifyingData_Familyname_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Familyname_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Givenname_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Givenname_PID_IETF-sd-jwt-vc_002
+            - WS_RP_IA_Engagement__001
+            - WS_RP_SM_DeviceBinding__007
+            - WS_RP_SM_IssuerIntegrity__013

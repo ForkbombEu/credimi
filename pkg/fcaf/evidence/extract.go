@@ -206,6 +206,26 @@ func extractPresentationTokenFromVPTokenJSON(raw string, preferredKey string) (s
 	return presentations[0], nil
 }
 
+func ParseSDJWTVPTokenJSON(raw string) (*SDJWTPresentation, error) {
+	token, err := extractPresentationTokenFromVPTokenJSON(raw, "query_0")
+	if err != nil {
+		return nil, err
+	}
+	return ParseSDJWTPresentation(token)
+}
+
+func ParseSDJWTVPTokenPresentationsJSON(raw string) ([]*SDJWTPresentation, error) {
+	return parseVPTokenJSONPresentations(raw)
+}
+
+func ParseMDocVPTokenJSON(raw string) (*MDocPresentation, error) {
+	token, err := extractPresentationTokenFromVPTokenJSON(raw, "")
+	if err != nil {
+		return nil, err
+	}
+	return ParseMDocPresentation(token)
+}
+
 func parseVPTokenJSONPresentations(raw string) ([]*SDJWTPresentation, error) {
 	tokens, err := extractPresentationTokensFromVPTokenJSON(raw, "query_0")
 	if err != nil {
@@ -215,7 +235,11 @@ func parseVPTokenJSONPresentations(raw string) ([]*SDJWTPresentation, error) {
 	for index, token := range tokens {
 		presentation, parseErr := ParseSDJWTPresentation(token)
 		if parseErr != nil {
-			return nil, fmt.Errorf("decode sdjwt.vp_token_presentations_json[%d]: %w", index, parseErr)
+			return nil, fmt.Errorf(
+				"decode sdjwt.vp_token_presentations_json[%d]: %w",
+				index,
+				parseErr,
+			)
 		}
 		presentations[index] = presentation
 	}

@@ -13,13 +13,13 @@ normative_references:
   - title: OpenID4VC High Assurance Interoperability Profile
     section: "9"
     url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
-preconditions:
-  - ref: pipeline.pid.presentation.mdoc.all-claims-elements
-  - ref: assertion.pid.presentation.mdoc.doc-type-pid
 evidence:
   pid_mdoc:
     from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
 assertions:
+  - id: pid_mdoc_doc_type
+    validator: pid.mdoc_doc_type
+    input: evidence.pid_mdoc
   - id: mdoc_uses_sha_256_digests
     validator: mdoc.digest_algorithm
     input: evidence.pid_mdoc
