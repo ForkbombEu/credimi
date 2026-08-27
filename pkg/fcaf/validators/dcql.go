@@ -68,6 +68,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"without_credential_sets",
 		"without_trusted_authorities",
 		"without_claims",
+		"without_claim_disclosures",
 		"empty_claims",
 		"empty_array",
 		"property_type",
@@ -205,6 +206,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"without_credential_sets",
 		"without_trusted_authorities",
 		"without_claims",
+		"without_claim_disclosures",
 		"multiple_default_false",
 		"multiple_true":
 		if params.Mode == "without_credential_sets" {
@@ -245,7 +247,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					}
 				}
 			}
-			if params.Mode == "without_claims" {
+			if params.Mode == "without_claims" || params.Mode == "without_claim_disclosures" {
 				if _, exists := credential["claims"]; exists {
 					return Result{
 						Status:  StatusFail,
@@ -268,6 +270,25 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 						"vp_token has no presentation for credential query %q",
 						id,
 					),
+				}
+			}
+			if params.Mode == "without_claim_disclosures" {
+				presentations, ok := presentation.([]any)
+				if !ok || len(presentations) == 0 {
+					return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token has no SD-JWT presentation for credential query %q", id)}
+				}
+				for presentationIndex, rawPresentation := range presentations {
+					token, ok := rawPresentation.(string)
+					if !ok || token == "" {
+						return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] is not an SD-JWT presentation", id, presentationIndex)}
+					}
+					parsed, err := evidence.ParseSDJWTPresentation(token)
+					if err != nil {
+						return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] is not a valid SD-JWT presentation: %v", id, presentationIndex, err)}
+					}
+					if parsed.DisclosureCount != 0 {
+						return Result{Status: StatusFail, Message: fmt.Sprintf("vp_token[%q][%d] disclosed %d claim(s) although claims was omitted", id, presentationIndex, parsed.DisclosureCount)}
+					}
 				}
 			}
 			if params.Mode == "multiple_default_false" {

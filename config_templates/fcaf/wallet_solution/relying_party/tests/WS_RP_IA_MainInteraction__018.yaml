@@ -1,0 +1,43 @@
+id: WS_RP_IA_MainInteraction__018
+title: Disclose all requested PID claims when claim_sets is omitted.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__018.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+ - title: OpenID for Verifiable Presentations 1.0
+   section: "6.4.1"
+   url: "https://openid.net/specs/openid-4-verifiable-presentations-1_0.html"
+preconditions:
+  - ref: pipeline.pid.presentation.sdjwt.all-claims
+evidence:
+  pid_sdjwt:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
+  visual_evidence:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.visual_evidence
+assertions:
+  - id: requested_given_name_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: given_name
+  - id: requested_family_name_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: family_name
+  - id: requested_birthdate_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: birthdate
+  - id: successful_interaction_is_recorded
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

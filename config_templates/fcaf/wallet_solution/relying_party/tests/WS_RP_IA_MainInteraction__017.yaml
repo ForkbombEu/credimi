@@ -1,0 +1,33 @@
+id: WS_RP_IA_MainInteraction__017
+title: Do not disclose PID personal data when the query omits claims.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__017.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+ - title: OpenID for Verifiable Presentations 1.0
+   section: "6.4.1"
+   url: "https://openid.net/specs/openid-4-verifiable-presentations-1_0.html"
+preconditions:
+  - ref: pipeline.dcql.claims-omitted
+evidence:
+  dcql_exchange:
+    from: pipeline.dcql.claims-omitted.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.claims-omitted.outputs.visual_evidence
+assertions:
+  - id: no_pid_personal_data_is_disclosed
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: without_claim_disclosures
+  - id: successful_interaction_is_recorded
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

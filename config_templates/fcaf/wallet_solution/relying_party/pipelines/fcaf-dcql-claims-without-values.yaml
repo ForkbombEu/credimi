@@ -61,6 +61,7 @@ steps:
     with:
       test_ids:
         - WS_RP_MS_ProtocolMessages__116
+        - WS_RP_IA_MainInteraction__015
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.dcql.claims-without-values:

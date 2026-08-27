@@ -1634,14 +1634,39 @@ func testSDJWTPresentation(claims map[string]any) string {
 	}
 	header, _ := json.Marshal(map[string]any{"alg": "none"})
 	payload, _ := json.Marshal(map[string]any{"_sd_alg": "sha-256", "_sd": digests})
-	return base64.RawURLEncoding.EncodeToString(
+	token := base64.RawURLEncoding.EncodeToString(
 		header,
 	) + "." + base64.RawURLEncoding.EncodeToString(
 		payload,
-	) + ".signature~" + strings.Join(
-		disclosures,
-		"~",
-	) + "~"
+	) + ".signature"
+	if len(disclosures) == 0 {
+		return token + "~"
+	}
+	return token + "~" + strings.Join(disclosures, "~") + "~"
+}
+
+func TestDCQLWithoutClaimDisclosures(t *testing.T) {
+	validator := DCQLResponseConstraintsValidator{}
+	credential := validSDJWTCredentialQuery("pid")
+	delete(credential, "claims")
+
+	noDisclosure := validator.Validate(context.Background(), Input{
+		Value: map[string]any{
+			"dcql_query": map[string]any{"credentials": []any{credential}},
+			"vp_token":   map[string]any{"pid": []any{testSDJWTPresentation(map[string]any{})}},
+		},
+		Params: map[string]any{"mode": "without_claim_disclosures"},
+	})
+	require.Equal(t, StatusPass, noDisclosure.Status)
+
+	withDisclosure := validator.Validate(context.Background(), Input{
+		Value: map[string]any{
+			"dcql_query": map[string]any{"credentials": []any{credential}},
+			"vp_token":   map[string]any{"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})}},
+		},
+		Params: map[string]any{"mode": "without_claim_disclosures"},
+	})
+	require.Equal(t, StatusFail, withDisclosure.Status)
 }
 
 func TestMatchesJSONType(t *testing.T) {

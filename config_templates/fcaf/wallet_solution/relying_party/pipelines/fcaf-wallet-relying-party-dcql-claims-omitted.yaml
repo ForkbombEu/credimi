@@ -81,6 +81,8 @@ steps:
     with:
       test_ids:
         - WS_RP_MS_ProtocolMessages__082
+        - WS_RP_IA_MainInteraction__016
+        - WS_RP_IA_MainInteraction__017
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.dcql.claims-omitted:
