@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { indexItem, empty = false, children, class: className = '', right }: Props = $props();
 </script>
 
-<div class={['space-y-6', className]}>
+<div class={['min-w-0 space-y-6', className]}>
 	<PageHeaderIndexed {indexItem} {right} />
 
 	{#if empty}

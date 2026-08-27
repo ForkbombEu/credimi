@@ -18,11 +18,6 @@ type MobileAutomationWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
-// MobileExternalInstallWorkflow returns an error when the mobile automation module is disabled.
-type MobileExternalInstallWorkflow struct {
-	WorkflowFunc workflowengine.WorkflowFn
-}
-
 // MobileAutomationWorkflowPayload is the payload for the mobile automation workflow.
 type MobileAutomationWorkflowPayload struct {
 	ActionID         string            `json:"action_id,omitempty"          yaml:"action_id,omitempty"`
@@ -49,17 +44,7 @@ func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {
 	return w
 }
 
-func NewMobileExternalInstallWorkflow() *MobileExternalInstallWorkflow {
-	w := &MobileExternalInstallWorkflow{}
-	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
-	return w
-}
-
 func (MobileAutomationWorkflow) GetOptions() workflow.ActivityOptions {
-	return DefaultActivityOptions
-}
-
-func (MobileExternalInstallWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
@@ -73,18 +58,7 @@ func (MobileAutomationWorkflow) Name() string {
 	return "Run a mobile automation workflow"
 }
 
-func (MobileExternalInstallWorkflow) Name() string {
-	return "Run a mobile external install workflow"
-}
-
 func (w *MobileAutomationWorkflow) Workflow(
-	ctx workflow.Context,
-	input workflowengine.WorkflowInput,
-) (workflowengine.WorkflowResult, error) {
-	return w.WorkflowFunc(ctx, input)
-}
-
-func (w *MobileExternalInstallWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
@@ -93,22 +67,6 @@ func (w *MobileExternalInstallWorkflow) Workflow(
 
 // ExecuteWorkflow returns an error when the mobile automation module is disabled.
 func (w *MobileAutomationWorkflow) ExecuteWorkflow(
-	ctx workflow.Context,
-	input workflowengine.WorkflowInput,
-) (workflowengine.WorkflowResult, error) {
-	_ = ctx
-	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-	return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-		workflowengine.NewAppError(workflowengine.WorkflowError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: "mobile automation is disabled; build with -tags=credimi_extra",
-		}),
-		input.RunMetadata,
-	)
-}
-
-func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {

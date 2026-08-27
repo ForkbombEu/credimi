@@ -574,7 +574,7 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 	require.Equal(t, "pkg-1", result["installed"])
 }
 
-func TestFetchAndInstallAPKExternalInstallSkipsInstallerAndMutatesStepUse(t *testing.T) {
+func TestFetchAndInstallAPKExternalSourceSkipsInstaller(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -602,9 +602,6 @@ func TestFetchAndInstallAPKExternalInstallSkipsInstallerAndMutatesStepUse(t *tes
 							"version_id": mobileExternalSourceVersionID,
 						},
 					},
-					Metadata: map[string]any{
-						mobileSpecialInstallMetadataKey: true,
-					},
 				},
 			}
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{
@@ -617,29 +614,26 @@ func TestFetchAndInstallAPKExternalInstallSkipsInstallerAndMutatesStepUse(t *tes
 			}
 
 			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
-				ctx:             ctx,
-				mobileCtx:       ctx,
-				step:            step,
-				payload:         payload,
-				deviceMap:       deviceMap,
-				deviceType:      deviceTypeAndroidPhone,
-				activities:      activitiesForDeviceType(deviceTypeAndroidPhone),
-				appURL:          "https://app.example",
-				runnerURL:       "https://runner.example",
-				serial:          "serial-1",
-				skipInstaller:   true,
-				externalInstall: true,
+				ctx:           ctx,
+				mobileCtx:     ctx,
+				step:          step,
+				payload:       payload,
+				deviceMap:     deviceMap,
+				deviceType:    deviceTypeAndroidPhone,
+				activities:    activitiesForDeviceType(deviceTypeAndroidPhone),
+				appURL:        "https://app.example",
+				runnerURL:     "https://runner.example",
+				serial:        "serial-1",
+				skipInstaller: true,
 			})
 			if err != nil {
 				return nil, err
 			}
 
 			return map[string]any{
-				"use":         step.Use,
 				"action_code": step.With.Payload["action_code"],
 				"stored":      step.With.Payload["stored_action_code"],
 				"installed":   len(deviceMap["installed"].(map[string]string)),
-				"cleanup":     deviceMap[mobileExternalInstallCleanupKey],
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-fetch-and-install-apk-external"},
@@ -672,11 +666,9 @@ func TestFetchAndInstallAPKExternalInstallSkipsInstallerAndMutatesStepUse(t *tes
 
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, mobileExternalInstallStepUse, result["use"])
 	require.Equal(t, "code-1", result["action_code"])
 	require.Equal(t, true, result["stored"])
 	require.Equal(t, float64(0), result["installed"])
-	require.Equal(t, true, result["cleanup"])
 }
 
 func TestFetchAndInstallAPKExternalSourceNonInstallStepSkipsInstallerWithoutMutatingUse(
@@ -780,119 +772,19 @@ func TestFetchAndInstallAPKExternalSourceNonInstallStepSkipsInstallerWithoutMuta
 	require.Equal(t, float64(0), result["installed"])
 }
 
-func TestPrepareMobileAutomationStepsHoistsExternalInstallSteps(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) ([]pipeline.StepDefinition, error) {
-			ctx = workflow.WithActivityOptions(
-				ctx,
-				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
-			)
-
-			steps := []pipeline.StepDefinition{
-				{
-					StepSpec: pipeline.StepSpec{
-						ID:  "normal-http",
-						Use: "http-request",
-					},
-				},
-				{
-					StepSpec: pipeline.StepSpec{
-						ID:  "special-install",
-						Use: mobileAutomationStepUse,
-						With: pipeline.StepInputs{
-							Payload: map[string]any{
-								"action_id":  "wallet/install",
-								"version_id": mobileExternalSourceVersionID,
-							},
-						},
-					},
-				},
-				{
-					StepSpec: pipeline.StepSpec{
-						ID:  "external-regular",
-						Use: mobileAutomationStepUse,
-						With: pipeline.StepInputs{
-							Payload: map[string]any{
-								"action_id":  "wallet/open",
-								"version_id": mobileExternalSourceVersionID,
-							},
-						},
-					},
-				},
-			}
-
-			if err := prepareMobileAutomationSteps(
-				ctx,
-				&steps,
-				"https://app.example",
-			); err != nil {
-				return nil, err
-			}
-
-			return steps, nil
-		},
-		workflow.RegisterOptions{Name: "test-prepare-mobile-automation-steps"},
-	)
-
-	internalHTTPActivity := registerInternalHTTPActivity(env)
-	env.OnActivity(
-		internalHTTPActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(func(
-		_ context.Context,
-		input workflowengine.ActivityInput,
-	) (workflowengine.ActivityResult, error) {
-		payload, ok := input.Payload.(map[string]any)
-		require.True(t, ok)
-		require.Equal(
-			t,
-			"https://app.example/api/canonify/identifier/validate",
-			workflowengine.AsString(payload["url"]),
-		)
-
-		body, ok := payload["body"].(map[string]any)
-		require.True(t, ok)
-		actionID := workflowengine.AsString(body["canonified_name"])
-
-		category := "open-app"
-		if actionID == "wallet/install" {
-			category = walletActionCategoryInstallApp
-		}
-
-		return workflowengine.ActivityResult{Output: map[string]any{
-			"body": map[string]any{
-				"record": map[string]any{
-					"category": category,
-				},
-			},
-		}}, nil
-	})
-
-	env.ExecuteWorkflow("test-prepare-mobile-automation-steps")
-	require.NoError(t, env.GetWorkflowError())
-
-	var result []pipeline.StepDefinition
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Len(t, result, 3)
-	require.Equal(t, "special-install", result[0].ID)
-	require.Equal(t, "normal-http", result[1].ID)
-	require.Equal(t, "external-regular", result[2].ID)
-	require.Equal(t, true, result[0].Metadata[mobileSpecialInstallMetadataKey])
-	require.Nil(t, result[2].Metadata)
-}
-
 func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
 	internalHTTPActivity := registerInternalHTTPActivity(env)
+	setupActivity := activities.NewSetupMobileDeviceActivity()
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
+	env.RegisterActivityWithOptions(
+		setupActivity.Execute,
+		activity.RegisterOptions{Name: setupActivity.Name()},
+	)
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
@@ -950,6 +842,8 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 				"package_id":   deviceMap["installed"].(map[string]string)["ver-1"],
 				"stored_code":  step.With.Payload["stored_action_code"],
 				"runner_count": len(runData["setted_devices"].(map[string]any)),
+				"screen_ready": deviceMap["screen_prepared"],
+				"stay_awake":   deviceMap["original_stay_awake"],
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-process-step"},
@@ -973,6 +867,20 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 			"type":       "physical",
 			"serial":     "serial-1",
 		},
+	}}, nil)
+	env.OnActivity(
+		setupActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			return ok &&
+				payload["device_name"] == "tenant/runner-1" &&
+				payload["type"] == "android_phone" &&
+				payload["serial"] == "serial-1"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"screen_prepared":     true,
+		"original_stay_awake": "0",
 	}}, nil)
 	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
@@ -1041,6 +949,8 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	require.Equal(t, "android_phone", result["device_type"])
 	require.Equal(t, "pkg-1", result["package_id"])
 	require.Equal(t, float64(1), result["runner_count"])
+	require.Equal(t, true, result["screen_ready"])
+	require.Equal(t, "0", result["stay_awake"])
 }
 
 func TestCleanupDeviceMarksDeviceCleaned(t *testing.T) {
@@ -1137,12 +1047,11 @@ func TestCleanupDeviceSkipsPhysicalDeviceWithoutCleanupWork(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
 			deviceMap := map[string]any{
-				"type":                   "android_phone",
-				"serial":                 "serial-1",
-				"runner_url":             "https://runner.example",
-				"recording":              false,
-				"installed":              map[string]string{},
-				"initial_installed_apps": []string{"com.example.preinstalled"},
+				"type":       "android_phone",
+				"serial":     "serial-1",
+				"runner_url": "https://runner.example",
+				"recording":  false,
+				"installed":  map[string]string{},
 			}
 			output := map[string]any{}
 			cleanupErrs := []error{}
@@ -1181,6 +1090,63 @@ func TestCleanupDeviceSkipsPhysicalDeviceWithoutCleanupWork(t *testing.T) {
 	require.Equal(t, true, result["cleaned"])
 	require.Equal(t, float64(0), result["errors"])
 	env.AssertNotCalled(t, cleanupActivity.Name(), mock.Anything, mock.Anything)
+}
+
+func TestCleanupDeviceRunsForPreparedPhysicalDevice(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	cleanupActivity := activities.NewCleanupDeviceActivity()
+	env.RegisterActivityWithOptions(
+		cleanupActivity.Execute,
+		activity.RegisterOptions{Name: cleanupActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			deviceMap := map[string]any{
+				"type":                "android_phone",
+				"serial":              "serial-1",
+				"runner_url":          "https://runner.example",
+				"recording":           false,
+				"installed":           map[string]string{},
+				"screen_prepared":     true,
+				"original_stay_awake": "2",
+			}
+			output := map[string]any{}
+			cleanupErrs := []error{}
+			return cleanupDevice(cleanupDeviceInput{
+				ctx:           ctx,
+				runnerID:      "tenant/runner-1",
+				raw:           deviceMap,
+				mobileAo:      &ao,
+				runIdentifier: "run-1",
+				appURL:        "https://app.example",
+				output:        &output,
+				cleanupErrs:   &cleanupErrs,
+				logger:        workflow.GetLogger(ctx),
+			})
+		},
+		workflow.RegisterOptions{Name: "test-cleanup-prepared-physical-device"},
+	)
+
+	env.OnActivity(
+		cleanupActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			return ok &&
+				payload["serial"] == "serial-1" &&
+				payload["manage_screen"] == true &&
+				payload["original_stay_awake"] == "2"
+		}),
+	).Return(workflowengine.ActivityResult{}, nil).Once()
+
+	env.ExecuteWorkflow("test-cleanup-prepared-physical-device")
+	require.NoError(t, env.GetWorkflowError())
+	env.AssertExpectations(t)
 }
 
 func TestNormalizeDeviceTypeMappings(t *testing.T) {
@@ -1599,10 +1565,15 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	internalHTTPActivity := registerInternalHTTPActivity(env)
+	setupActivity := activities.NewSetupMobileDeviceActivity()
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	recordActivity := activities.NewStartRecordingActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
+	env.RegisterActivityWithOptions(
+		setupActivity.Execute,
+		activity.RegisterOptions{Name: setupActivity.Name()},
+	)
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
@@ -1691,6 +1662,11 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 			"serial":     "serial-1",
 		},
 	}}, nil)
+	env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"screen_prepared":     true,
+			"original_stay_awake": "0",
+		}}, nil).Once()
 
 	env.OnActivity(
 		internalHTTPActivity.Name(),
@@ -1759,10 +1735,16 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	env := suite.NewTestWorkflowEnvironment()
 
 	internalHTTPActivity := registerInternalHTTPActivity(env)
+	setupActivity := activities.NewSetupMobileDeviceActivity()
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	disablePlayStoreActivity := activities.NewDisableAndroidPlayStoreActivity()
+	listAppsActivity := activities.NewListInstalledAppsActivity()
 	recordActivity := activities.NewStartRecordingActivity()
+	env.RegisterActivityWithOptions(
+		setupActivity.Execute,
+		activity.RegisterOptions{Name: setupActivity.Name()},
+	)
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
@@ -1774,6 +1756,10 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	env.RegisterActivityWithOptions(
 		disablePlayStoreActivity.Execute,
 		activity.RegisterOptions{Name: disablePlayStoreActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
 		recordActivity.Execute,
@@ -1842,6 +1828,13 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 			"serial":     "serial-1",
 		},
 	}}, nil)
+	env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"screen_prepared":     true,
+			"original_stay_awake": "0",
+		}}, nil).Once()
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.example.before"}}, nil).Once()
 
 	env.OnActivity(
 		internalHTTPActivity.Name(),
@@ -1902,149 +1895,165 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	require.Equal(t, true, result["recording"])
 }
 
-func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
+/*
+	 TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps covered removed external-install routing.
+		suite := testsuite.WorkflowTestSuite{}
+		env := suite.NewTestWorkflowEnvironment()
 
-	internalHTTPActivity := registerInternalHTTPActivity(env)
-	listAppsActivity := activities.NewListInstalledAppsActivity()
-	recordActivity := activities.NewStartRecordingActivity()
-	env.RegisterActivityWithOptions(
-		listAppsActivity.Execute,
-		activity.RegisterOptions{Name: listAppsActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		recordActivity.Execute,
-		activity.RegisterOptions{Name: recordActivity.Name()},
-	)
+		internalHTTPActivity := registerInternalHTTPActivity(env)
+		setupActivity := activities.NewSetupMobileDeviceActivity()
+		listAppsActivity := activities.NewListInstalledAppsActivity()
+		recordActivity := activities.NewStartRecordingActivity()
+		env.RegisterActivityWithOptions(
+			setupActivity.Execute,
+			activity.RegisterOptions{Name: setupActivity.Name()},
+		)
+		env.RegisterActivityWithOptions(
+			listAppsActivity.Execute,
+			activity.RegisterOptions{Name: listAppsActivity.Name()},
+		)
+		env.RegisterActivityWithOptions(
+			recordActivity.Execute,
+			activity.RegisterOptions{Name: recordActivity.Name()},
+		)
 
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (map[string]any, error) {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			ctx = workflow.WithActivityOptions(ctx, ao)
+		env.RegisterWorkflowWithOptions(
+			func(ctx workflow.Context) (map[string]any, error) {
+				ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+				ctx = workflow.WithActivityOptions(ctx, ao)
 
-			steps := []pipeline.StepDefinition{
-				{
-					StepSpec: pipeline.StepSpec{
-						ID:  "step-1",
-						Use: mobileAutomationStepUse,
-						With: pipeline.StepInputs{
-							Payload: map[string]any{
-								"action_id":  "wallet/install",
-								"version_id": mobileExternalSourceVersionID,
+				steps := []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "step-1",
+							Use: mobileAutomationStepUse,
+							With: pipeline.StepInputs{
+								Payload: map[string]any{
+									"action_id":  "wallet/install",
+									"version_id": mobileExternalSourceVersionID,
+								},
 							},
 						},
 					},
-				},
-			}
-			runData := map[string]any{}
-			wfDef := &pipeline.WorkflowDefinition{Steps: steps}
+				}
+				runData := map[string]any{}
+				wfDef := &pipeline.WorkflowDefinition{Steps: steps}
 
-			err := MobileAutomationSetupHook(
-				ctx,
-				wfDef,
-				map[string]any{
-					"app_url":                              "https://app.example",
-					"global_runner_id":                     "tenant/runner-1",
-					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
-					mobileDisableAndroidPlayStoreConfigKey: true,
-				},
-				&runData,
-				&map[string]any{},
-				log.Logger(noopLogger{}),
-			)
-			if err != nil {
-				return nil, err
-			}
+				err := MobileAutomationSetupHook(
+					ctx,
+					wfDef,
+					map[string]any{
+						"app_url":                              "https://app.example",
+						"global_runner_id":                     "tenant/runner-1",
+						mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
+						mobileDisableAndroidPlayStoreConfigKey: true,
+					},
+					&runData,
+					&map[string]any{},
+					log.Logger(noopLogger{}),
+				)
+				if err != nil {
+					return nil, err
+				}
 
-			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1"].(map[string]any)
-			_, hasPlayStoreDisabled := deviceMap["play_store_disabled"]
-			return map[string]any{
-				"use":                        wfDef.Steps[0].Use,
-				"pending_play_store_disable": runData[mobilePendingPlayStoreDisableRunDataKey],
-				"play_store_disabled":        hasPlayStoreDisabled,
-				"recording":                  deviceMap["recording"],
-			}, nil
-		},
-		workflow.RegisterOptions{Name: "test-mobile-automation-setup-defer-disable-play-store"},
-	)
 
-	env.OnActivity(
-		internalHTTPActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(map[string]any)
-			if !ok {
-				return false
-			}
+		deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1"].(map[string]any)
+		_, hasPlayStoreDisabled := deviceMap["play_store_disabled"]
+		return map[string]any{
+			"use":                        wfDef.Steps[0].Use,
+			"pending_play_store_disable": runData[mobilePendingPlayStoreDisableRunDataKey],
+			"play_store_disabled":        hasPlayStoreDisabled,
+			"recording":                  deviceMap["recording"],
+		}, nil
+	},
+	workflow.RegisterOptions{Name: "test-mobile-automation-setup-defer-disable-play-store"},
 
-			switch workflowengine.AsString(payload["url"]) {
-			case "https://app.example/api/canonify/identifier/validate":
-				body, ok := payload["body"].(map[string]any)
-				return ok && workflowengine.AsString(body["canonified_name"]) == "wallet/install"
-			case "https://app.example/api/mobile-runner":
-				return true
-			case "https://runner.example/credimi/installer-action":
-				body, ok := payload["body"].(map[string]any)
-				return ok && workflowengine.AsBool(body["skip_installer"])
-			default:
-				return false
-			}
-		}),
-	).Return(func(
-		_ context.Context,
-		input workflowengine.ActivityInput,
-	) (workflowengine.ActivityResult, error) {
-		payload := input.Payload.(map[string]any)
+)
+
+env.OnActivity(
+
+	internalHTTPActivity.Name(),
+	mock.Anything,
+	mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload, ok := input.Payload.(map[string]any)
+		if !ok {
+			return false
+		}
+
 		switch workflowengine.AsString(payload["url"]) {
 		case "https://app.example/api/canonify/identifier/validate":
-			return workflowengine.ActivityResult{Output: map[string]any{
-				"body": map[string]any{
-					"record": map[string]any{
-						"category": walletActionCategoryInstallApp,
+			body, ok := payload["body"].(map[string]any)
+
+
+					return ok && workflowengine.AsString(body["canonified_name"]) == "wallet/install"
+				case "https://app.example/api/mobile-runner":
+					return true
+				case "https://runner.example/credimi/installer-action":
+					body, ok := payload["body"].(map[string]any)
+					return ok && workflowengine.AsBool(body["skip_installer"])
+				default:
+					return false
+				}
+			}),
+		).Return(func(
+			_ context.Context,
+			input workflowengine.ActivityInput,
+		) (workflowengine.ActivityResult, error) {
+			payload := input.Payload.(map[string]any)
+			switch workflowengine.AsString(payload["url"]) {
+			case "https://app.example/api/canonify/identifier/validate":
+				return workflowengine.ActivityResult{Output: map[string]any{
+					"body": map[string]any{
+						"record": map[string]any{
+							"category": walletActionCategoryInstallApp,
+						},
 					},
-				},
-			}}, nil
-		case "https://app.example/api/mobile-runner":
-			return workflowengine.ActivityResult{Output: map[string]any{
-				"body": map[string]any{
-					"runner_url": "https://runner.example",
-					"type":       "physical",
-					"serial":     "serial-1",
-				},
-			}}, nil
-		default:
-			return workflowengine.ActivityResult{Output: map[string]any{
-				"body": map[string]any{
-					"version_id": mobileExternalSourceVersionID,
-					"code":       "code-1",
-				},
-			}}, nil
-		}
-	})
+				}}, nil
+			case "https://app.example/api/mobile-runner":
+				return workflowengine.ActivityResult{Output: map[string]any{
+					"body": map[string]any{
+						"runner_url": "https://runner.example",
+						"type":       "physical",
+						"serial":     "serial-1",
+					},
+				}}, nil
+			default:
+				return workflowengine.ActivityResult{Output: map[string]any{
+					"body": map[string]any{
+						"version_id": mobileExternalSourceVersionID,
+						"code":       "code-1",
+					},
+				}}, nil
+			}
+		})
+		env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
+			Return(workflowengine.ActivityResult{Output: map[string]any{
+				"screen_prepared":     true,
+				"original_stay_awake": "0",
+			}}, nil).Once()
 
-	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil)
-	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"recording_process_pid": float64(11),
-			"ffmpeg_process_pid":    float64(12),
-			"log_process_pid":       float64(13),
-			"video_path":            "/tmp/video.mp4",
-			"log_path":              "/tmp/log.txt",
-		}}, nil)
+		env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+			Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil)
+		env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
+			Return(workflowengine.ActivityResult{Output: map[string]any{
+				"recording_process_pid": float64(11),
+				"ffmpeg_process_pid":    float64(12),
+				"log_process_pid":       float64(13),
+				"video_path":            "/tmp/video.mp4",
+				"log_path":              "/tmp/log.txt",
+			}}, nil)
 
-	env.ExecuteWorkflow("test-mobile-automation-setup-defer-disable-play-store")
-	require.NoError(t, env.GetWorkflowError())
+		env.ExecuteWorkflow("test-mobile-automation-setup-defer-disable-play-store")
+		require.NoError(t, env.GetWorkflowError())
 
-	var result map[string]any
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, mobileExternalInstallStepUse, result["use"])
-	require.Equal(t, true, result["pending_play_store_disable"])
-	require.Equal(t, false, result["play_store_disabled"])
-	require.Equal(t, true, result["recording"])
-}
-
+		var result map[string]any
+		require.NoError(t, env.GetWorkflowResult(&result))
+		require.Equal(t, mobileExternalInstallStepUse, result["use"])
+		require.Equal(t, true, result["pending_play_store_disable"])
+		require.Equal(t, false, result["play_store_disabled"])
+		require.Equal(t, true, result["recording"])
+	}
+*/
 func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -2482,6 +2491,11 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 func TestProcessStepMissingRunnerURL(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
+	listAppsActivity := activities.NewListInstalledAppsActivity()
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
+	)
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
@@ -2521,6 +2535,8 @@ func TestProcessStepMissingRunnerURL(t *testing.T) {
 		},
 		workflow.RegisterOptions{Name: "test-process-step-missing-runner-url"},
 	)
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{}}, nil)
 
 	env.ExecuteWorkflow("test-process-step-missing-runner-url")
 	err := env.GetWorkflowError()
@@ -2689,10 +2705,11 @@ func TestInstallAppIfNeededMarksCleanupBeforePostInstallError(t *testing.T) {
 				activities: activitiesForDeviceType(deviceTypeAndroidPhone),
 			})
 
+			initialInstalledApps, trackInstalledApps := extractInitialInstalledApps(deviceMap)
 			return map[string]any{
 				"err":                   err != nil,
-				"cleanup":               deviceMap[mobileAppInstallCleanupKey],
-				"initial_installed_app": extractInitialInstalledApps(deviceMap)[0],
+				"track_installed_apps":  trackInstalledApps,
+				"initial_installed_app": initialInstalledApps[0],
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-install-app-marks-cleanup-before-post-install-error"},
@@ -2709,7 +2726,7 @@ func TestInstallAppIfNeededMarksCleanupBeforePostInstallError(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, true, result["err"])
-	require.Equal(t, true, result["cleanup"])
+	require.Equal(t, true, result["track_installed_apps"])
 	require.Equal(t, "com.example.before", result["initial_installed_app"])
 }
 

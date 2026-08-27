@@ -16,16 +16,23 @@ import type {
 
 //
 
+export type AvatarData = {
+	src?: string;
+	fallback: string;
+	alt: string;
+};
+
 export type ChildLink = {
 	label: string;
 	href: string;
+	avatar?: AvatarData;
 };
 
 export type Item = {
 	key: string;
 	name: string;
 	href: string;
-	avatar?: { src?: string; fallback: string; alt: string };
+	avatar?: AvatarData;
 	kind?: EntityData;
 	caption?: string;
 	children?: ChildLink[];

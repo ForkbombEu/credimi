@@ -1243,6 +1243,8 @@ components:
           type: string
         fcaf_report:
           type: string
+        has_logs:
+          type: boolean
         maestro_screenshots:
           items:
             type: string

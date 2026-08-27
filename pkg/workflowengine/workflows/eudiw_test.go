@@ -196,16 +196,18 @@ func TestEudiwWorkflowStart(t *testing.T) {
 	var capturedNamespace string
 	var capturedOptions client.StartWorkflowOptions
 	var capturedName string
+	var capturedInput workflowengine.WorkflowInput
 
 	eudiwStartWorkflowWithOptions = func(
 		namespace string,
 		options client.StartWorkflowOptions,
 		name string,
-		_ workflowengine.WorkflowInput,
+		input workflowengine.WorkflowInput,
 	) (workflowengine.WorkflowResult, error) {
 		capturedNamespace = namespace
 		capturedOptions = options
 		capturedName = name
+		capturedInput = input
 		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
 	}
 
@@ -217,6 +219,7 @@ func TestEudiwWorkflowStart(t *testing.T) {
 	require.Equal(t, "run-1", result.WorkflowRunID)
 	require.Equal(t, "ns-1", capturedNamespace)
 	require.Equal(t, w.Name(), capturedName)
+	requireWorkflowLogsCapability(t, capturedInput, true)
 	require.Equal(t, EudiwTaskQueue, capturedOptions.TaskQueue)
 	require.True(t, strings.HasPrefix(capturedOptions.ID, "EudiWWorkflow"))
 }

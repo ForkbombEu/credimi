@@ -14,14 +14,14 @@ const RUNNERS: RunnerRecord[] = [
 		path: 'org-a/alpha',
 		isOwned: true,
 		isPublished: true,
-		isOnline: true
+		healthStatus: 'online'
 	},
 	{
 		name: 'Beta',
 		path: 'org-b/beta-runner',
 		isOwned: false,
 		isPublished: true,
-		isOnline: false
+		healthStatus: 'offline'
 	}
 ];
 

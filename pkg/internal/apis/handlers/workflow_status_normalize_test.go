@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -53,7 +54,14 @@ func TestBuildExecutionHierarchyNormalizesStatus(t *testing.T) {
 		Status:    "WORKFLOW_EXECUTION_STATUS_RUNNING",
 	}
 
-	summaries := buildExecutionHierarchy(nil, []*WorkflowExecution{exec}, "owner", "UTC", nil)
+	summaries := buildWorkflowExecutionHierarchy(
+		context.Background(),
+		nil,
+		[]*WorkflowExecution{exec},
+		"owner",
+		"UTC",
+		nil,
+	)
 	require.Len(t, summaries, 1)
 	require.Equal(t, "Running", summaries[0].Status)
 }

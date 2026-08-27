@@ -1,5 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"validation_wallet_action_market_link_requires_install_app": "As ações que abrem uma página de app da Play Store devem usar a categoria install-app.",
 	"accept_invite": "Aceitar convite",
 	"Accept": "Aceitar",
 	"accepted_files": "Arquivos aceitos",
@@ -277,6 +278,7 @@
 	"_Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List": "🚀 Fique à frente em conformidade de identidade digital – Entre na nossa lista de acesso antecipado!",
 	"Be_the_first_to_explore_DIDimo_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_": "Seja um dos primeiros a explorar o DIDimo, a ferramenta definitiva para testes de conformidade de identidade descentralizada. Receba atualizações exclusivas, acesso antecipado e contato direto com nossa equipe.",
 	"Join_the_Waitlist": "Entrar na lista de espera",
+	"Join_the_webinars": "Participe dos webinars!",
 	"Your_name": "Seu nome",
 	"e_g_hellomycompany_com": "ex.: ola@minhaempresa.com",
 	"An_error_occurred_while_submitting_your_request_Please_try_again": "Ocorreu um erro ao enviar sua solicitação. Tente novamente",
@@ -998,9 +1000,13 @@
 	"Wallet_version_current": "Atual",
 	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run.",
 	"extra_wallet_metadata_extractor": "Extrator de metadados de Wallet",
-	"extra_wallet_metadata_extractor_description": "Fake Issuer: extrair metadados de Wallet (via GUI ou REST)",
+	"extra_wallet_metadata_extractor_description": "Fake Issuer e Verifier: extrair metadados de Wallet (via GUI ou REST)",
 	"extra_issuer_verifier_metadata_extractor": "Extrator de metadados Issuer/Verifier",
 	"extra_issuer_verifier_metadata_extractor_description": "Extrair metadados do Issuer (da oferta de credencial) e DC-QL do Verifier (da solicitação de apresentação)",
+	"extra_trust_inspector": "Trust Inspector",
+	"extra_trust_inspector_description": "Extrair metadados de TLs/LoTL e verificar a conformidade com ETSI 119 602 e 119 612",
 	"extra_eudi_atlas": "EUDI Atlas",
-	"extra_eudi_atlas_description": "Mapa abrangente de documentos EUDI (organizado por função) com guia de testes de conformidade"
+	"extra_eudi_atlas_description": "Mapa abrangente de documentos EUDI (organizado por função) com guia de testes de conformidade",
+	"extra_tl_lote_onboarding_catalogue": "Onboarding/Catálogo TL/LoTE",
+	"extra_tl_lote_onboarding_catalogue_description": "Faça o onboarding de componentes EUDI em TL/LoTE apenas para testes e depuração; não use em produção"
 }

@@ -230,7 +230,6 @@ func (w *PipelineWorkflow) Workflow(
 		wfDef.Steps,
 		ao,
 		config,
-		&runData,
 		runMetadata,
 		state,
 		debug,
@@ -238,11 +237,6 @@ func (w *PipelineWorkflow) Workflow(
 	)
 	if err != nil {
 		finalErr = err
-		return workflowengine.WorkflowResult{}, finalErr
-	}
-
-	if err := runPendingPlayStoreDisableAfterSteps(ctx, &ao, config, &runData); err != nil {
-		finalErr = wrapWorkflowCancellationError(err, runMetadata)
 		return workflowengine.WorkflowResult{}, finalErr
 	}
 
@@ -358,7 +352,6 @@ func (w *PipelineWorkflow) executeSteps(
 	steps []pipeline.StepDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
-	runData *map[string]any,
 	runMetadata *workflowengine.WorkflowRunMetadata,
 	state *pipelineExecutionState,
 	debug bool,
@@ -371,7 +364,6 @@ func (w *PipelineWorkflow) executeSteps(
 			step,
 			ao,
 			config,
-			runData,
 			runMetadata,
 			state,
 			debug,
@@ -392,16 +384,11 @@ func (w *PipelineWorkflow) executeStep(
 	step pipeline.StepDefinition,
 	ao workflow.ActivityOptions,
 	config map[string]any,
-	runData *map[string]any,
 	runMetadata *workflowengine.WorkflowRunMetadata,
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
 ) (workflow.ActivityOptions, error) {
-	if err := runPendingPlayStoreDisableIfNeeded(ctx, step, &ao, config, runData); err != nil {
-		return ao, wrapWorkflowCancellationError(err, runMetadata)
-	}
-
 	switch step.Use {
 	case "debug":
 		runDebugActivity(

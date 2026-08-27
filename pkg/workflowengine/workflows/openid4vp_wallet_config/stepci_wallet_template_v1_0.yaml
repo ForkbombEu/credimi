@@ -66,22 +66,22 @@ tests:
             client:
               dcql:
                 credentials:
-                  - claims:
+                  - id: credential
+                    format: dc+sd-jwt
+                    meta:
+                      vct_values:
+                        - urn:eudi:pid:1
+                    claims:
                       - path:
                           - given_name
                       - path:
                           - family_name
                       - path:
-                          - birth_date
+                          - birthdate
                       - path:
                           - iss
                         values:
                           - https://capture-wallet.credimi.io
-                    format: dc+sd-jwt
-                    id: credential
-                    meta:
-                      vct_values:
-                        - urn:eu.europa.ec.eudi:pid:1.jwt
               jwks:
                 keys:
                   - kty: EC

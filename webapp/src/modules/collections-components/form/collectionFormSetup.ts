@@ -27,7 +27,7 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { getCollectionModel } from '@/pocketbase/collections-models';
 import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
-import { getExceptionMessage } from '@/utils/errors';
+import { getExceptionMessage, localizePocketBaseErrorCode } from '@/utils/errors';
 import { ensureArray } from '@/utils/other';
 
 import type { CollectionFormProps } from './collectionFormTypes';
@@ -152,12 +152,14 @@ export function setupCollectionForm<C extends CollectionName>({
 						{ message: string; code: string }
 					>;
 
-					Record.toEntries(details).forEach(([path, data]) => {
-						if (path in form.data) setError(form, path, data.message);
-						else setError(form, `${path} - ${data.message}`);
+					const entries = Record.toEntries(details);
+					entries.forEach(([path, data]) => {
+						const message = localizePocketBaseErrorCode(data.code, data.message);
+						if (path in form.data) setError(form, path, message);
+						else setError(form, `${path} - ${message}`);
 					});
 
-					setError(form, e.message);
+					setError(form, localizePocketBaseErrorCode(entries[0]?.[1].code, e.message));
 				} else {
 					setError(form, getExceptionMessage(e));
 				}

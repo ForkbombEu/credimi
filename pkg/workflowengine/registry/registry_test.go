@@ -19,7 +19,6 @@ func TestRegistryContainsCoreTasks(t *testing.T) {
 
 	require.Contains(t, Registry, "http-request")
 	require.Contains(t, Registry, "mobile-automation")
-	require.Contains(t, Registry, "mobile-external-install")
 	require.Contains(t, Registry, "conformance-check")
 	require.Contains(t, Registry, "fcaf-assessment")
 
@@ -35,11 +34,6 @@ func TestRegistryContainsCoreTasks(t *testing.T) {
 	require.False(t, mobileTask.CustomTaskQueue)
 	require.NotNil(t, mobileTask.PipelinePayloadType)
 
-	externalInstallTask := Registry["mobile-external-install"]
-	require.Equal(t, TaskWorkflow, externalInstallTask.Kind)
-	require.NotNil(t, externalInstallTask.NewFunc())
-	require.NotNil(t, externalInstallTask.PayloadType)
-	require.False(t, externalInstallTask.CustomTaskQueue)
 }
 
 func TestRegistryFactoriesCreateInstances(t *testing.T) {
@@ -108,10 +102,6 @@ func TestRegistryExpectedTaskTypeMappings(t *testing.T) {
 			key:              "mobile-automation",
 			expectedPayload:  reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
 			expectedPipeline: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
-		},
-		{
-			key:             "mobile-external-install",
-			expectedPayload: reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
 		},
 		{
 			key:              "conformance-check",

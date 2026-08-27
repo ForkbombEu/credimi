@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { TemplateSurface } from './query';
 import type { Standard } from './types';
 
 import { listAll } from './query';
@@ -20,8 +21,8 @@ export function get() {
 	return readonlyView;
 }
 
-export function load() {
-	listAll().match({
+export function load(options: { surface?: TemplateSurface } = {}) {
+	listAll(options).match({
 		Rejected: (reason) => {
 			console.error(reason);
 		},

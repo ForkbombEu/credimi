@@ -531,7 +531,7 @@ func TestSortExecutionSummariesAdditional(t *testing.T) {
 	require.Equal(t, "01/01/2025, 15:04:05", list[1].StartTime)
 }
 
-func TestBuildExecutionHierarchyWithChildAdditional(t *testing.T) {
+func TestBuildWorkflowExecutionHierarchyWithChildAdditional(t *testing.T) {
 	memoValue := base64.StdEncoding.EncodeToString([]byte(`"Parent Name"`))
 	executions := []*WorkflowExecution{
 		{
@@ -559,7 +559,14 @@ func TestBuildExecutionHierarchyWithChildAdditional(t *testing.T) {
 		},
 	}
 
-	roots := buildExecutionHierarchy(nil, executions, "owner", "UTC", nil)
+	roots := buildWorkflowExecutionHierarchy(
+		context.Background(),
+		nil,
+		executions,
+		"owner",
+		"UTC",
+		nil,
+	)
 	require.Len(t, roots, 1)
 	require.Equal(t, "Parent Name", roots[0].DisplayName)
 	require.Len(t, roots[0].Children, 1)
@@ -1813,7 +1820,7 @@ func TestHandleListMyWorkflowsFiltersDynamicPipeline(t *testing.T) {
 	require.Equal(t, "wf-execute-child", resp.Executions[1].Children[0].Execution.WorkflowID)
 }
 
-func TestBuildExecutionHierarchy(t *testing.T) {
+func TestBuildWorkflowExecutionHierarchy(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1845,7 +1852,8 @@ func TestBuildExecutionHierarchy(t *testing.T) {
 	}
 
 	mockClient := &temporalmocks.Client{}
-	results := buildExecutionHierarchy(
+	results := buildWorkflowExecutionHierarchy(
+		context.Background(),
 		app,
 		[]*WorkflowExecution{child, parent},
 		"owner",

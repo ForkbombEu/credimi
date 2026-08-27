@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<PageSection indexItem={sections.qr_code} class="flex flex-col items-stretch space-y-0">
+<PageSection indexItem={sections.qr_code} class="flex shrink-0 flex-col items-stretch space-y-0">
 	<QrCode
 		src={deeplink}
 		{isLoading}

@@ -101,11 +101,6 @@ var Registry = map[string]TaskFactory{
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
 		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
-	"mobile-external-install": {
-		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return workflows.NewMobileExternalInstallWorkflow() },
-		PayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
-	},
 	"custom-check": {
 		Kind:        TaskWorkflow,
 		NewFunc:     func() any { return workflows.NewCustomCheckWorkflow() },

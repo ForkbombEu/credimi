@@ -16,23 +16,23 @@ import (
 	"go.temporal.io/sdk/activity"
 )
 
-type StartEmulatorActivity struct {
+type SetupMobileDeviceActivity struct {
 	workflowengine.BaseActivity
 }
 
-func NewStartEmulatorActivity() *StartEmulatorActivity {
-	return &StartEmulatorActivity{
+func NewSetupMobileDeviceActivity() *SetupMobileDeviceActivity {
+	return &SetupMobileDeviceActivity{
 		BaseActivity: workflowengine.BaseActivity{
 			Name: "Setup mobile device",
 		},
 	}
 }
 
-func (a *StartEmulatorActivity) Name() string {
+func (a *SetupMobileDeviceActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
-func (a *StartEmulatorActivity) Execute(
+func (a *SetupMobileDeviceActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
@@ -42,10 +42,10 @@ func (a *StartEmulatorActivity) Execute(
 		input.Payload,
 		a.NewActivityError,
 		nil,
-		false,
+		true,
 	)
 
-	res, err := mobile.StartEmulator(ctx, runInput)
+	res, err := mobile.SetupMobileDevice(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}

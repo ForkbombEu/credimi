@@ -270,6 +270,55 @@ func TestSendTemporalSignalErrorMapping(t *testing.T) {
 	})
 }
 
+func TestEWCLikeSignalError(t *testing.T) {
+	tests := []struct {
+		name           string
+		err            error
+		expectedReason string
+	}{
+		{
+			name:           "invalid workflow ID",
+			err:            &serviceerror.InvalidArgument{Message: "bad workflow ID"},
+			expectedReason: "invalid workflow ID",
+		},
+		{
+			name:           "signal failure",
+			err:            errors.New("unavailable"),
+			expectedReason: "failed to send signal: start",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := ewcLikeSignalError(test.err, "start")
+			var apiErr *apierror.APIError
+			require.ErrorAs(t, err, &apiErr)
+			require.Equal(t, http.StatusBadRequest, apiErr.Code)
+			require.Equal(t, test.expectedReason, apiErr.Reason)
+		})
+	}
+}
+
+func TestExtractEWCLikeLogsFromWorkflowError(t *testing.T) {
+	expected := []any{map[string]any{
+		"message":   "check completed",
+		"timestamp": "2026-07-15T12:00:00Z",
+	}}
+	workflowErr := workflowengine.NewAppError(workflowengine.WorkflowError{
+		Code:    "CRE999",
+		Summary: "failed",
+		Details: map[string]any{
+			"payload": map[string]any{"logs": expected},
+		},
+	})
+
+	logs := extractEWCLikeLogsFromWorkflowError(errors.Join(errors.New("outer"), workflowErr))
+	require.Len(t, logs, 1)
+	require.Equal(t, "check completed", logs[0]["message"])
+
+	require.Nil(t, extractEWCLikeLogsFromWorkflowError(errors.New("unstructured")))
+}
+
 func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompleted(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)

@@ -29,7 +29,7 @@ const authStoreUnsubscribe = pb.authStore.onChange(() => {
 	document.cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
 });
 
-Conformance.Standards.Store.load();
+Conformance.Standards.Store.load({ surface: 'pipeline' });
 
 Pipeline.Runner.Catalog.init();
 

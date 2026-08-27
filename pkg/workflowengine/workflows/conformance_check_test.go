@@ -1174,16 +1174,18 @@ func TestStartCheckWorkflowStart(t *testing.T) {
 	var capturedNamespace string
 	var capturedOptions client.StartWorkflowOptions
 	var capturedName string
+	var capturedInput workflowengine.WorkflowInput
 
 	startCheckWorkflowWithOptions = func(
 		namespace string,
 		options client.StartWorkflowOptions,
 		name string,
-		_ workflowengine.WorkflowInput,
+		input workflowengine.WorkflowInput,
 	) (workflowengine.WorkflowResult, error) {
 		capturedNamespace = namespace
 		capturedOptions = options
 		capturedName = name
+		capturedInput = input
 		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
 	}
 
@@ -1194,6 +1196,7 @@ func TestStartCheckWorkflowStart(t *testing.T) {
 	require.Equal(t, "run-1", result.WorkflowRunID)
 	require.Equal(t, "ns-1", capturedNamespace)
 	require.Equal(t, w.Name(), capturedName)
+	requireWorkflowLogsCapability(t, capturedInput, false)
 	require.Equal(t, ConformanceCheckTaskQueue, capturedOptions.TaskQueue)
 	require.True(t, strings.HasPrefix(capturedOptions.ID, "conformance-check-"))
 }

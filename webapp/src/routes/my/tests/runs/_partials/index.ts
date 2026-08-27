@@ -61,7 +61,7 @@ export async function fetchWorkflows(
 		fetch?: typeof fetch;
 		status?: ExtendedWorkflowStatus | null;
 		limit?: number;
-		offset?: number;
+		page?: number;
 	} = {}
 ) {
 	let status: ExtendedWorkflowStatus | undefined = undefined;
@@ -73,7 +73,7 @@ export async function fetchWorkflows(
 			fetch: options.fetch,
 			status,
 			limit: options.limit,
-			offset: options.offset
+			page: options.page
 		});
 	} else {
 		const res = await Workflow.fetchWorkflows({ fetch: options.fetch, status });
@@ -86,27 +86,27 @@ export async function fetchWorkflows(
 
 export type PaginationParams = {
 	limit?: number;
-	offset?: number;
+	page?: number;
 };
 
 export function getPaginationQueryParams(url: URL): PaginationParams {
 	const limit = url.searchParams.get(Pipeline.Workflows.LIMIT_PARAM);
-	const offset = url.searchParams.get(Pipeline.Workflows.OFFSET_PARAM);
+	const page = url.searchParams.get(Pipeline.Workflows.PAGE_PARAM);
 	return {
 		limit: parseLimit(limit),
-		offset: parseOffset(offset)
+		page: parsePage(page)
 	};
 }
 
 const DEFAULT_LIMIT = 20;
-const DEFAULT_OFFSET = 0;
+const DEFAULT_PAGE = 0;
 
 export function parseLimit(value: string | null): number | undefined {
 	const parsed = Number(value);
 	return Number.isNaN(parsed) || value === null ? DEFAULT_LIMIT : parsed;
 }
 
-export function parseOffset(value: string | null): number | undefined {
+export function parsePage(value: string | null): number | undefined {
 	const parsed = Number(value);
-	return Number.isNaN(parsed) || value === null ? DEFAULT_OFFSET : parsed;
+	return Number.isNaN(parsed) || value === null ? DEFAULT_PAGE : parsed;
 }

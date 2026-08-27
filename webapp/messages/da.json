@@ -1,5 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"validation_wallet_action_market_link_requires_install_app": "Handlinger, der åbner en Play Butik-appside, skal bruge kategorien install-app.",
 	"accept_invite": "Accepter invitation",
 	"Accept": "Acceptere",
 	"accepted_files": "Accepterede filer",
@@ -277,6 +278,7 @@
 	"_Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List": "🚀 Vær på forkant med overensstemmelse for digital identitet – Tilmeld dig vores early access-liste!",
 	"Be_the_first_to_explore_DIDimo_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_": "Vær blandt de første til at udforske DIDimo, det ultimative værktøj til overensstemmelsestest af decentraliseret identitet. Få eksklusive opdateringer, early access og direkte kontakt til vores team.",
 	"Join_the_Waitlist": "Tilmeld dig ventelisten",
+	"Join_the_webinars": "Deltag i webinarerne!",
 	"Your_name": "Dit navn",
 	"e_g_hellomycompany_com": "f.eks. hej@mitfirma.com",
 	"An_error_occurred_while_submitting_your_request_Please_try_again": "Der opstod en fejl under afsendelse af din anmodning. Prøv igen",
@@ -998,9 +1000,13 @@
 	"Wallet_version_current": "Aktuel",
 	"Pipeline_summary_will_be_available_after_the_first_successful_run": "Pipeline summary will be available after the first successful run.",
 	"extra_wallet_metadata_extractor": "Wallet-metadataekstraktor",
-	"extra_wallet_metadata_extractor_description": "Fake Issuer: udtræk Wallet-metadata (via GUI eller REST)",
+	"extra_wallet_metadata_extractor_description": "Fake Issuer og Verifier: udtræk Wallet-metadata (via GUI eller REST)",
 	"extra_issuer_verifier_metadata_extractor": "Issuer/Verifier-metadataekstraktor",
 	"extra_issuer_verifier_metadata_extractor_description": "Udtræk Issuer-metadata (fra credential offer) og Verifiers DC-QL (fra presentation request)",
+	"extra_trust_inspector": "Trust Inspector",
+	"extra_trust_inspector_description": "Udtræk TLs/LoTL-metadata og verificer konformitet med ETSI 119 602 og 119 612",
 	"extra_eudi_atlas": "EUDI Atlas",
-	"extra_eudi_atlas_description": "Omfattende EUDI-dokumentkort (organiseret efter rolle) med konformitetstestguide"
+	"extra_eudi_atlas_description": "Omfattende EUDI-dokumentkort (organiseret efter rolle) med konformitetstestguide",
+	"extra_tl_lote_onboarding_catalogue": "TL/LoTE-onboarding/-katalog",
+	"extra_tl_lote_onboarding_catalogue_description": "Onboard EUDI-komponenter på TL/LoTE udelukkende til test og fejlfinding; ikke til produktion"
 }

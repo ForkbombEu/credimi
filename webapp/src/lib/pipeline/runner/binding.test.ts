@@ -16,7 +16,7 @@ function pipeline(id: string, yaml: string): PipelinesResponse {
 
 function runnerRecord(path: string): Record {
 	return {
-		isOnline: true,
+		healthStatus: 'online',
 		isOwned: true,
 		isPublished: true,
 		name: path.split('/').at(-1) ?? 'runner',
