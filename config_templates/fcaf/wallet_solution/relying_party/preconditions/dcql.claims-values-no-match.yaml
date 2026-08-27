@@ -1,6 +1,6 @@
 id: pipeline.dcql.claims-values-no-match
 kind: pipeline
-pipeline_id: forkbomb-bv-andrea/fcaf-dcql-mismatched-claim-values
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claims-values-no-match
 required_steps:
 - reject-mismatched-claim-values
 - fetch-result
