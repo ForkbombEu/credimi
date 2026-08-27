@@ -19,105 +19,57 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func TestMobileExternalInstallWorkflowWaitsForInstalledAppVisibility(t *testing.T) {
+func TestMobileAutomationWorkflowChecksExternallyInstalledApp(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	w := NewMobileExternalInstallWorkflow()
-	env.RegisterWorkflowWithOptions(
-		w.Workflow,
-		workflow.RegisterOptions{Name: w.Name()},
-	)
+	w := NewMobileAutomationWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	mobileActivity := activities.NewRunMobileFlowActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
-	env.RegisterActivityWithOptions(
-		mobileActivity.Execute,
-		activity.RegisterOptions{Name: mobileActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		listAppsActivity.Execute,
-		activity.RegisterOptions{Name: listAppsActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		postInstallActivity.Execute,
-		activity.RegisterOptions{Name: postInstallActivity.Name()},
-	)
+	for _, registeredActivity := range []struct {
+		name string
+		fn   any
+	}{
+		{mobileActivity.Name(), mobileActivity.Execute},
+		{listAppsActivity.Name(), listAppsActivity.Execute},
+		{postInstallActivity.Name(), postInstallActivity.Execute},
+	} {
+		env.RegisterActivityWithOptions(registeredActivity.fn, activity.RegisterOptions{Name: registeredActivity.name})
+	}
 
-	env.OnActivity(
-		mobileActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"status": "ok",
-	}}, nil).Once()
-
-	env.OnActivity(
-		listAppsActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil).Once()
-	env.OnActivity(
-		listAppsActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil).Once()
-	env.OnActivity(
-		listAppsActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil).Once()
-	env.OnActivity(
-		listAppsActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: []string{
-		"com.example.installed",
-		"com.example.old",
-	}}, nil).Once()
-
-	env.OnActivity(
-		postInstallActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(map[string]any)
-			return ok &&
-				workflowengine.AsString(payload["serial"]) == "serial-1" &&
-				workflowengine.AsString(payload["package_id"]) == "com.example.installed"
-		}),
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
+	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"status": "ok"}}, nil).Once()
+	for _, apps := range [][]string{
+		{"com.example.old"},
+		{"com.example.installed", "com.example.old"},
+	} {
+		env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+			Return(workflowengine.ActivityResult{Output: apps}, nil).Once()
+	}
+	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload := workflowengine.AsMap(input.Payload)
+		return payload["serial"] == "serial-1" && payload["package_id"] == "com.example.installed"
+	})).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"package_id": "com.example.installed",
 	}}, nil).Once()
 
-	env.ExecuteWorkflow(
-		w.Name(),
-		workflowengine.WorkflowInput{
-			Payload: MobileAutomationWorkflowPayload{
-				Serial:     "serial-1",
-				Type:       "android_phone",
-				ActionCode: "steps: []",
-			},
-			Config: map[string]any{
-				"app_url":   "https://example.test",
-				"taskqueue": "runner-1-TaskQueue",
-			},
-			ActivityOptions: &workflow.ActivityOptions{
-				StartToCloseTimeout: time.Second,
-			},
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: MobileAutomationWorkflowPayload{Serial: "serial-1", Type: "android_phone", ActionCode: "steps: []"},
+		Config: map[string]any{
+			"app_url":                         "https://example.test",
+			"taskqueue":                       "runner-1-TaskQueue",
+			externalInstallDetectionConfigKey: true,
 		},
-	)
+		ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+	})
 
 	require.NoError(t, env.GetWorkflowError())
-
 	var result workflowengine.WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
-
-	output, ok := result.Output.(map[string]any)
-	require.True(t, ok)
-	flowOutput, ok := output["flow_output"].(map[string]any)
-	require.True(t, ok)
-	postInstallOutput, ok := flowOutput["post_install"].(map[string]any)
-	require.True(t, ok)
+	flowOutput := workflowengine.AsMap(workflowengine.AsMap(result.Output)["flow_output"])
+	postInstallOutput := workflowengine.AsMap(flowOutput["post_install"])
 	require.Equal(t, "com.example.installed", postInstallOutput["package_id"])
 }

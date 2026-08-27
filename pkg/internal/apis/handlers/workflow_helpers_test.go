@@ -17,48 +17,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParsePaginationParams(t *testing.T) {
+func TestParsePageParams(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		rawURL        string
-		defaultLimit  int
-		defaultOffset int
-		wantLimit     int
-		wantOffset    int
+		name         string
+		rawURL       string
+		defaultLimit int
+		defaultPage  int
+		wantLimit    int
+		wantPage     int
 	}{
 		{
-			name:          "uses defaults when missing",
-			rawURL:        "/api/results",
-			defaultLimit:  20,
-			defaultOffset: 0,
-			wantLimit:     20,
-			wantOffset:    0,
+			name:         "uses defaults when missing",
+			rawURL:       "/api/results",
+			defaultLimit: 20,
+			defaultPage:  0,
+			wantLimit:    20,
+			wantPage:     0,
 		},
 		{
-			name:          "uses valid query params",
-			rawURL:        "/api/results?limit=50&offset=3",
-			defaultLimit:  20,
-			defaultOffset: 0,
-			wantLimit:     50,
-			wantOffset:    3,
+			name:         "uses valid query params",
+			rawURL:       "/api/results?limit=50&page=3",
+			defaultLimit: 20,
+			defaultPage:  0,
+			wantLimit:    50,
+			wantPage:     3,
 		},
 		{
-			name:          "falls back on invalid limit and offset",
-			rawURL:        "/api/results?limit=0&offset=-1",
-			defaultLimit:  20,
-			defaultOffset: 2,
-			wantLimit:     20,
-			wantOffset:    2,
+			name:         "falls back on invalid limit and offset",
+			rawURL:       "/api/results?limit=0&offset=-1",
+			defaultLimit: 20,
+			defaultPage:  2,
+			wantLimit:    20,
+			wantPage:     2,
 		},
 		{
-			name:          "falls back on non numeric values",
-			rawURL:        "/api/results?limit=abc&offset=xyz",
-			defaultLimit:  10,
-			defaultOffset: 4,
-			wantLimit:     10,
-			wantOffset:    4,
+			name:         "falls back on non numeric values",
+			rawURL:       "/api/results?limit=abc&offset=xyz",
+			defaultLimit: 10,
+			defaultPage:  4,
+			wantLimit:    10,
+			wantPage:     4,
 		},
 	}
 
@@ -72,9 +72,9 @@ func TestParsePaginationParams(t *testing.T) {
 				},
 			}
 
-			limit, offset := parsePaginationParams(e, tt.defaultLimit, tt.defaultOffset)
+			limit, page := parsePageParams(e, tt.defaultLimit, tt.defaultPage)
 			require.Equal(t, tt.wantLimit, limit)
-			require.Equal(t, tt.wantOffset, offset)
+			require.Equal(t, tt.wantPage, page)
 		})
 	}
 }

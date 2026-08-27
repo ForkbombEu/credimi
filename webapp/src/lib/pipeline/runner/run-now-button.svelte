@@ -41,10 +41,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		runnerRequired &&
 			Pipeline.Runner.Catalog.isReady() &&
 			executionPath !== undefined &&
-			Pipeline.Runner.Catalog.findByPath(executionPath)?.isOnline === false
+			Pipeline.Runner.Catalog.findByPath(executionPath)?.healthStatus !== 'online'
 	);
 
-	const runDisabled = $derived(isChecking || isRunnerOffline);
+	const isRunnerMisconfigured = $derived(
+		runnerRequired &&
+			Pipeline.Runner.Catalog.isReady() &&
+			executionPath !== undefined &&
+			Pipeline.Runner.Catalog.findByPath(executionPath)?.healthStatus === 'misconfigured'
+	);
+
+	const runDisabled = $derived(isChecking || isRunnerOffline || isRunnerMisconfigured);
 
 	const runnerSubline = $derived.by(() => {
 		const path = executionPath ?? Pipeline.Runner.Binding.get(pipeline.id);
@@ -58,7 +65,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		const offline =
 			Pipeline.Runner.Catalog.isReady() &&
-			Pipeline.Runner.Catalog.findByPath(path)?.isOnline === false;
+			Pipeline.Runner.Catalog.findByPath(path)?.healthStatus !== 'online';
+
+		if (Pipeline.Runner.Catalog.findByPath(path)?.healthStatus === 'misconfigured') {
+			return { name, status: 'misconfigured' as const };
+		}
 
 		if (offline) {
 			return { name, status: 'offline' as const };
@@ -116,6 +127,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</span>
 						{:else if runnerSubline.status === 'offline'}
 							[Offline] {runnerSubline.name}
+						{:else if runnerSubline.status === 'misconfigured'}
+							[Configuration error] {runnerSubline.name}
 						{:else}
 							{runnerSubline.name}
 						{/if}
@@ -146,6 +159,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet content()}
 			{#if isChecking}
 				<p>{m.Runner_status_checking()}</p>
+			{:else if isRunnerMisconfigured}
+				<p>{m.Runner_misconfigured_run_disabled()}</p>
 			{:else if isRunnerOffline}
 				<p>{m.Runner_offline_run_disabled()}</p>
 			{/if}

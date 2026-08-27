@@ -142,7 +142,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 				path,
 				isOwned: false,
 				isPublished: false,
-				isOnline: false
+				healthStatus: 'offline'
 			} satisfies Record;
 
 			await Pipeline.Runner.fetchRecords().match({

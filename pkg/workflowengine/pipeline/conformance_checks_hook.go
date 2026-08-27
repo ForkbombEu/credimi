@@ -149,6 +149,9 @@ func ConformanceCheckSetupHook(
 			"author":   suite,
 			"standard": standard,
 			"test":     checkName,
+			workflowengine.CredimiCapabilitiesMemoKey: workflowengine.CredimiCapabilities{
+				Logs: workflows.ConformanceSuiteHasLogs(suite),
+			},
 		}
 		SetConfigValue(&step.With.Config, "memo", memo)
 

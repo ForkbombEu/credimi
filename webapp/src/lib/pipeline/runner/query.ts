@@ -16,7 +16,7 @@ const runnerWireSchema = z.object({
 	description: z.string().optional(),
 	is_owned: z.boolean(),
 	is_published: z.boolean(),
-	is_online: z.boolean(),
+	health_status: z.enum(['online', 'offline', 'misconfigured']),
 	url: z.string().optional(),
 	type: z.string().optional(),
 	queue_length: z.number().optional()
@@ -33,7 +33,7 @@ function mapWireToRecord(wire: z.infer<typeof runnerWireSchema>): RunnerRecord {
 		description: wire.description,
 		isOwned: wire.is_owned,
 		isPublished: wire.is_published,
-		isOnline: wire.is_online,
+		healthStatus: wire.health_status,
 		url: wire.url,
 		type: wire.type,
 		queueLength: wire.queue_length

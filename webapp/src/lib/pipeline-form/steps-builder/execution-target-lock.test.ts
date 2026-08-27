@@ -24,7 +24,7 @@ const specificRunner = {
 	path: 'org/runner',
 	isOwned: true,
 	isPublished: true,
-	isOnline: true
+	healthStatus: 'online'
 };
 
 function target(runner: ExecutionTarget['runner']): ExecutionTarget {

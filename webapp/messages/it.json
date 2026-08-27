@@ -1,5 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"validation_wallet_action_market_link_requires_install_app": "Le azioni che aprono una pagina dell'app nel Play Store devono usare la categoria install-app.",
 	"accept_invite": "Accetta l'invito",
 	"Accept": "Accettare",
 	"accepted_files": "File accettati",
@@ -277,6 +278,7 @@
 	"_Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List": "🚀 Resta avanti nella conformità dell’identità digitale – Unisciti alla nostra lista di accesso anticipato!",
 	"Be_the_first_to_explore_DIDimo_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_": "Sii tra i primi a esplorare DIDimo, lo strumento definitivo per testare la conformità dell’identità decentralizzata. Ricevi aggiornamenti esclusivi, accesso anticipato e un contatto diretto con il nostro team.",
 	"Join_the_Waitlist": "Unisciti alla lista d’attesa",
+	"Join_the_webinars": "Partecipa ai webinar!",
 	"Your_name": "Il tuo nome",
 	"e_g_hellomycompany_com": "es. ciao@miaazienda.com",
 	"An_error_occurred_while_submitting_your_request_Please_try_again": "Si è verificato un errore durante l’invio della richiesta. Riprova",
@@ -1004,9 +1006,13 @@
 	"pipeline_artifact_log_tooltip": "Visualizza log",
 	"pipeline_artifact_report_tooltip": "Visualizza report",
 	"extra_wallet_metadata_extractor": "Estrattore metadati wallet",
-	"extra_wallet_metadata_extractor_description": "Fake Issuer: estrai metadati wallet (via GUI o REST)",
+	"extra_wallet_metadata_extractor_description": "Fake Issuer e Verifier: estrai metadati wallet (via GUI o REST)",
 	"extra_issuer_verifier_metadata_extractor": "Estrattore metadati Issuer/Verifier",
 	"extra_issuer_verifier_metadata_extractor_description": "Estrai metadati Issuer (da credential offer) e DC-QL del Verifier (da presentation request)",
+	"extra_trust_inspector": "Trust Inspector",
+	"extra_trust_inspector_description": "Estrai metadati TLs/LoTL e verifica la conformità con ETSI 119 602 e 119 612",
 	"extra_eudi_atlas": "EUDI Atlas",
-	"extra_eudi_atlas_description": "Mappa completa dei documenti EUDI (organizzata per ruolo) con guida ai test di conformità"
+	"extra_eudi_atlas_description": "Mappa completa dei documenti EUDI (organizzata per ruolo) con guida ai test di conformità",
+	"extra_tl_lote_onboarding_catalogue": "Onboarding/Catalogo TL/LoTE",
+	"extra_tl_lote_onboarding_catalogue_description": "Onboarding dei componenti EUDI su TL/LoTE solo per test e debug; non per uso in produzione"
 }

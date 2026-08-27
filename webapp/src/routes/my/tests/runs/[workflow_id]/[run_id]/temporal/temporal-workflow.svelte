@@ -88,4 +88,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	:global(.temporal-ui-workflow a) {
 		@apply no-underline! hover:cursor-not-allowed! hover:text-inherit!;
 	}
+
+	/* TW4 `rotate: 90deg` + temporal.css TW3 `transform: rotate(90deg)` stack to 180°. */
+	:global(.temporal-ui-workflow .rotate-90) {
+		rotate: none;
+	}
 </style>

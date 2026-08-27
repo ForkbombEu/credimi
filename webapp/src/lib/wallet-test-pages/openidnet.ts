@@ -7,6 +7,44 @@ import { z } from 'zod/v3';
 
 //
 
+export type OpenIDConformanceStandard =
+	| 'openid4vci_issuer'
+	| 'openid4vp_verifier'
+	| 'openid4vci_wallet'
+	| 'openid4vp_wallet';
+
+const openIDConformanceStandards = new Set<OpenIDConformanceStandard>([
+	'openid4vci_issuer',
+	'openid4vp_verifier',
+	'openid4vci_wallet',
+	'openid4vp_wallet'
+]);
+
+export function isOpenIDConformanceStandard(
+	standard: string | undefined
+): standard is OpenIDConformanceStandard {
+	return (
+		standard !== undefined &&
+		openIDConformanceStandards.has(standard as OpenIDConformanceStandard)
+	);
+}
+
+export function getOpenIDConformanceWorkflowLogsProps(
+	workflowId: string | undefined,
+	namespace: string | undefined,
+	standard: OpenIDConformanceStandard
+): WorkflowLogsProps {
+	switch (standard) {
+		case 'openid4vci_issuer':
+			return getOpenID4VCIIssuerWorkflowLogsProps(workflowId, namespace);
+		case 'openid4vp_verifier':
+			return getOpenID4VPVerifierWorkflowLogsProps(workflowId, namespace);
+		case 'openid4vci_wallet':
+		case 'openid4vp_wallet':
+			return getOpenIDNetWorkflowLogsProps(workflowId, namespace);
+	}
+}
+
 export function getOpenIDNetWorkflowLogsProps(
 	workflowId?: string,
 	namespace?: string

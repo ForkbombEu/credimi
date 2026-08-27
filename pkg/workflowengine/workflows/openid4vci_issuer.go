@@ -79,6 +79,10 @@ func (w *OpenID4VCIIssuerWorkflow) ExecuteWorkflow(
 func (w *OpenID4VCIIssuerWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
+	input = workflowengine.WithCredimiCapabilities(
+		input,
+		workflowengine.CredimiCapabilities{Logs: true},
+	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       "OpenID4VCIIssuerCheckWorkflow" + uuid.NewString(),
 		TaskQueue:                OpenID4VCIIssuerTaskQueue,

@@ -64,6 +64,43 @@ func TestMobileAutomationWorkflowPropagatesActivityCancellation(t *testing.T) {
 	require.True(t, temporal.IsCanceledError(err))
 }
 
+func TestMobileAutomationWorkflowPropagatesExternalInstallDetectionCancellation(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileAutomationWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	listAppsActivity := activities.NewListInstalledAppsActivity()
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
+	)
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, temporal.NewCanceledError("listing canceled"))
+
+	env.ExecuteWorkflow(w.Name(), externalInstallWorkflowInput())
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.True(t, temporal.IsCanceledError(err))
+}
+
+func externalInstallWorkflowInput() workflowengine.WorkflowInput {
+	return workflowengine.WorkflowInput{
+		Payload: MobileAutomationWorkflowPayload{
+			Serial:     "emulator-5554",
+			ActionCode: "steps: []",
+		},
+		Config: map[string]any{
+			"app_url":                         "https://example.test",
+			"taskqueue":                       "runner-1-TaskQueue",
+			externalInstallDetectionConfigKey: true,
+		},
+		ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+	}
+}
+
 func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

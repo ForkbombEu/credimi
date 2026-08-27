@@ -266,6 +266,10 @@ func (w *OpenID4VPWalletWorkflow) ExecuteWorkflow(
 func (w *OpenID4VPWalletWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
+	input = workflowengine.WithCredimiCapabilities(
+		input,
+		workflowengine.CredimiCapabilities{Logs: true},
+	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       "OpenID4VPWalletCheckWorkflow" + uuid.NewString(),
 		TaskQueue:                OpenID4VPWalletTaskQueue,

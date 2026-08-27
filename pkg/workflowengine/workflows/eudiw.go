@@ -458,6 +458,10 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 func (w *EudiwWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
+	input = workflowengine.WithCredimiCapabilities(
+		input,
+		workflowengine.CredimiCapabilities{Logs: true},
+	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       "EudiWWorkflow" + uuid.NewString(),
 		TaskQueue:                EudiwTaskQueue,

@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { goto, m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import { currentEmail } from './+layout.svelte';
+	import { currentEmail, loginCaptcha } from './+layout.svelte';
 
 	//
 
@@ -28,7 +28,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSubmit: async ({ form }) => {
 			const { data } = form;
 			const u = pb.collection('users');
-			await u.authWithPassword(data.email, data.password);
+			await u.authWithPassword(data.email, data.password, {
+				headers: { 'X-Turnstile-Token': loginCaptcha.token }
+			});
 			await goto('/my');
 		},
 		initialData: { email: currentEmail.value },

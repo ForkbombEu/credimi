@@ -32,6 +32,42 @@ func TestHookTurnstileVerification(t *testing.T) {
 		require.ErrorContains(t, err, "Captcha verification failed")
 	})
 
+	t.Run("requires captcha for password login", func(t *testing.T) {
+		app := pocketbase.New()
+		HookTurnstileVerification(app)
+
+		event := newUserPasswordAuthRequestEvent(t, app)
+		err := app.OnRecordAuthWithPasswordRequest("users").
+			Trigger(event, func(e *core.RecordAuthWithPasswordRequestEvent) error {
+				return nil
+			})
+
+		require.Error(t, err)
+		require.ErrorContains(t, err, "Captcha verification failed")
+	})
+
+	t.Run(
+		"allows password login with a token when verification is not configured",
+		func(t *testing.T) {
+			t.Setenv("TURNSTILE_SECRET_KEY", "")
+
+			app := pocketbase.New()
+			HookTurnstileVerification(app)
+
+			called := false
+			event := newUserPasswordAuthRequestEvent(t, app)
+			event.Request.Header.Set("X-Turnstile-Token", "test-token")
+			err := app.OnRecordAuthWithPasswordRequest("users").
+				Trigger(event, func(e *core.RecordAuthWithPasswordRequestEvent) error {
+					called = true
+					return nil
+				})
+
+			require.NoError(t, err)
+			require.True(t, called)
+		},
+	)
+
 	t.Run("bypasses captcha for OAuth2-created users", func(t *testing.T) {
 		app := pocketbase.New()
 		HookTurnstileVerification(app)
@@ -63,21 +99,19 @@ func TestHookTurnstileVerification(t *testing.T) {
 		require.ErrorContains(t, err, "Captcha verification failed")
 	})
 
-	t.Run("allows OAuth2 login without captcha", func(t *testing.T) {
+	t.Run("requires captcha for OAuth2 login", func(t *testing.T) {
 		app := pocketbase.New()
 		HookTurnstileVerification(app)
 
-		called := false
 		event := newOAuth2AuthRequestEvent(t, app)
 		event.IsNewRecord = false
 		err := app.OnRecordAuthWithOAuth2Request("users").
 			Trigger(event, func(e *core.RecordAuthWithOAuth2RequestEvent) error {
-				called = true
 				return nil
 			})
 
-		require.NoError(t, err)
-		require.True(t, called)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "Captcha verification failed")
 	})
 
 	t.Run(
@@ -171,6 +205,31 @@ func newOAuth2AuthRequestEvent(
 	}
 
 	event := &core.RecordAuthWithOAuth2RequestEvent{
+		RequestEvent: requestEvent,
+	}
+	event.Collection = users
+
+	return event
+}
+
+func newUserPasswordAuthRequestEvent(
+	t testing.TB,
+	app core.App,
+) *core.RecordAuthWithPasswordRequestEvent {
+	t.Helper()
+
+	users := core.NewAuthCollection("users")
+	req := httptest.NewRequest(http.MethodPost, "/api/collections/users/auth-with-password", nil)
+	rec := httptest.NewRecorder()
+	requestEvent := &core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	}
+
+	event := &core.RecordAuthWithPasswordRequestEvent{
 		RequestEvent: requestEvent,
 	}
 	event.Collection = users

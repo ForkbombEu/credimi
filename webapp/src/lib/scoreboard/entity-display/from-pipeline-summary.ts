@@ -8,7 +8,7 @@ import type { ScoreboardRow } from '../types';
 import type { ChildLink, Item } from './types';
 
 import { fromConformancePaths } from './from-conformance';
-import { fromPocketbaseEntity, getPocketbaseEntityHref } from './from-pocketbase';
+import { fromPocketbaseEntity } from './from-pocketbase';
 import { fromWalletRows } from './from-wallets';
 
 //
@@ -31,10 +31,14 @@ export function buildPipelineSummaryItems(row: ScoreboardRow): Item[] {
 	const issuerItems: Item[] = issuers.map((issuer) => {
 		const children: ChildLink[] = credentials
 			.filter((credential) => credential.credential_issuer === issuer.id)
-			.map((credential) => ({
-				label: credential.name,
-				href: getPocketbaseEntityHref(credential)
-			}));
+			.map((credential) => {
+				const entityItem = fromPocketbaseEntity(credential);
+				return {
+					label: entityItem.name,
+					href: entityItem.href,
+					avatar: entityItem.avatar
+				};
+			});
 
 		return {
 			...fromPocketbaseEntity(issuer, entities.credential_issuers),
@@ -45,10 +49,14 @@ export function buildPipelineSummaryItems(row: ScoreboardRow): Item[] {
 	const verifierItems: Item[] = verifiers.map((verifier) => {
 		const children: ChildLink[] = useCaseVerifications
 			.filter((verification) => verification.verifier === verifier.id)
-			.map((verification) => ({
-				label: verification.name,
-				href: getPocketbaseEntityHref(verification)
-			}));
+			.map((verification) => {
+				const entityItem = fromPocketbaseEntity(verification);
+				return {
+					label: entityItem.name,
+					href: entityItem.href,
+					avatar: entityItem.avatar
+				};
+			});
 
 		return {
 			...fromPocketbaseEntity(verifier, entities.verifiers),
