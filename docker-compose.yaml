@@ -46,12 +46,17 @@ services:
       - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
     ports:
       - 7233:7233
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
+    logging:
+      driver: local
+      options:
+        max-size: "1g"
+        max-file: "5"
   temporal_ui:
     container_name: temporal-ui
     depends_on:
