@@ -1,0 +1,33 @@
+id: WS_RP_IA_MainInteraction__022
+title: Reject DCQL claim_sets when claims is absent.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__022.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "6.4"
+    url: "https://openid.net/specs/openid-4-verifiable-presentations-1_0.html"
+preconditions:
+  - ref: pipeline.dcql.claim-sets-without-claims
+evidence:
+  dcql_exchange:
+    from: pipeline.dcql.claim-sets-without-claims.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.claim-sets-without-claims.outputs.visual_evidence
+assertions:
+  - id: invalid_claim_sets_without_claims_is_rejected
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: claim_sets_without_claims
+  - id: wallet_outcome_is_recorded
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

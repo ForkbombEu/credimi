@@ -1,0 +1,15 @@
+id: pipeline.dcql.claim-sets-without-claims
+kind: pipeline
+description: Deliver a DCQL credential query containing claim_sets but no claims.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claim-sets-without-claims
+required_steps:
+  - reject-claim-sets-without-claims
+  - fetch-result
+outputs:
+  dcql_exchange:
+    path: $.output.fetch-result.body
+    decoder: raw
+  visual_evidence:
+    path: $.output.reject-claim-sets-without-claims.flow_output.maestro_screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

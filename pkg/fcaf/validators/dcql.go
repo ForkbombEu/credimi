@@ -41,6 +41,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "credential_sets",
 		"claim_sets_preferred_option",
 		"claim_sets_no_match",
+		"claim_sets_without_claims",
 		"claims_present",
 		"claims_subset",
 		"claims_union",
@@ -912,6 +913,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateClaimSetsPreferredOption(query, responseValue, params.ExpectedValue)
 	case "claim_sets_no_match":
 		return validateClaimSetsNoMatch(query, responseValue)
+	case "claim_sets_without_claims":
+		return validateClaimSetsWithoutClaims(query, responseValue)
 	}
 	return Result{
 		Status:  StatusPass,
@@ -1624,6 +1627,30 @@ func validateClaimSetsNoMatch(query map[string]any, responseValue any) Result {
 		return Result{Status: StatusFail, Message: "wallet returned claims although no claim_set is satisfiable"}
 	}
 	return Result{Status: StatusPass, Message: "wallet returned no claims for unsatisfiable claim_sets"}
+}
+
+func validateClaimSetsWithoutClaims(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "request contains no credential query"}
+	}
+	for _, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: "credential query is not an object"}
+		}
+		if _, exists := credential["claims"]; exists {
+			return Result{Status: StatusFail, Message: "invalid request unexpectedly contains claims"}
+		}
+		sets, ok := credential["claim_sets"].([]any)
+		if !ok || len(sets) == 0 {
+			return Result{Status: StatusFail, Message: "invalid request contains no claim_sets"}
+		}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned a credential for claim_sets without claims"}
+	}
+	return Result{Status: StatusPass, Message: "wallet rejected claim_sets without claims"}
 }
 
 func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {
