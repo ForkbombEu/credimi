@@ -47,6 +47,7 @@ maestro --device emulator-5580 test all-preconditions.yaml \
   -e DCQL_CREDENTIALS_MATCH_DEEPLINK_URL='<fresh credentials-match request>' \
   -e DCQL_NO_MATCHING_CREDENTIALS_DEEPLINK_URL='<fresh no-match request>' \
   -e DCQL_CLAIM_SETS_DEEPLINK_URL='<fresh claim_sets request>' \
+  -e DCQL_CLAIM_SETS_SECOND_PREFERRED_PRESENTATION_URL='<fresh claim_sets request whose second option is first satisfiable>' \
   -e DCQL_CLAIMS_WITHOUT_ID_PRESENTATION_URL='<fresh claims-without-id request without claim_sets>' \
   -e DCQL_DUPLICATE_CLAIM_IDS_PRESENTATION_URL='<fresh signed request containing duplicate claim ids>' \
   -e DCQL_EMPTY_CLAIM_ID_PRESENTATION_URL='<fresh signed request containing an empty claim id>' \
@@ -92,6 +93,7 @@ Maestro-backed preconditions:
 - `pipeline.dcql.user-authentication-failed`: `dcql-user-authentication-failed.yaml`
 - `pipeline.oid4vp.invalid-request-uri-method`: `invalid-request-uri-method.yaml`
 - `pipeline.dcql.claim-sets`: `dcql-claim-sets.yaml`
+- `pipeline.dcql.claim-sets-second-preferred`: `dcql-claim-sets-second-preferred.yaml`
 - `pipeline.dcql.holder-binding-type-boundary`: `dcql-holder-binding-type-boundary.yaml`
 - `pipeline.dcql.claims-omitted`: `dcql-claims-omitted.yaml`
 - `pipeline.dcql.claims-empty`: `dcql-claims-empty.yaml`

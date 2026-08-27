@@ -26,6 +26,8 @@ tags:
 - runFlow:
     file: dcql-claim-sets.yaml
 - runFlow:
+    file: dcql-claim-sets-second-preferred.yaml
+- runFlow:
     file: dcql-holder-binding-type-boundary.yaml
 - runFlow:
     file: dcql-claims-omitted.yaml

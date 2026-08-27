@@ -1669,6 +1669,37 @@ func TestDCQLWithoutClaimDisclosures(t *testing.T) {
 	require.Equal(t, StatusFail, withDisclosure.Status)
 }
 
+func TestDCQLClaimSetsSelection(t *testing.T) {
+	validator := DCQLResponseConstraintsValidator{}
+	credential := validSDJWTCredentialQuery("pid")
+	credential["claims"] = []any{
+		map[string]any{"id": "first", "path": []any{"given_name"}},
+		map[string]any{"id": "second", "path": []any{"family_name"}},
+		map[string]any{"id": "third", "path": []any{"birthdate"}},
+	}
+	credential["claim_sets"] = []any{[]any{"first"}, []any{"second"}, []any{"third"}}
+	evidence := map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{credential}},
+		"vp_token":   map[string]any{"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})}},
+	}
+	result := validator.Validate(context.Background(), Input{
+		Value: evidence, Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+	})
+	require.Equal(t, StatusPass, result.Status)
+
+	evidence["vp_token"] = map[string]any{"pid": []any{testSDJWTPresentation(map[string]any{"family_name": "Smith"})}}
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+	})
+	require.Equal(t, StatusFail, result.Status)
+
+	delete(evidence, "vp_token")
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: map[string]any{"mode": "claim_sets_no_match"},
+	})
+	require.Equal(t, StatusPass, result.Status)
+}
+
 func TestMatchesJSONType(t *testing.T) {
 	tests := []struct {
 		name     string

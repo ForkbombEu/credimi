@@ -1,22 +1,9 @@
-name: FCAF wallet relying-party DCQL claims omitted
+name: FCAF DCQL claim_sets second satisfiable option
 runtime:
   global_runner_id: forkbomb-bv-andrea/usb
   fixture:
     verifier_url: https://capture-wallet.credimi.io
-  temporal:
-    activity_options:
-      schedule_to_close_timeout: 50m
-      start_to_close_timeout: 50m
-      retry_policy:
-        maximum_attempts: 1
-
 steps:
-  - id: evidence-request
-    use: json-parse
-    with:
-      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]}}]}}'
-      struct_type: map
-
   - id: create-presentation
     use: http-request
     with:
@@ -27,16 +14,30 @@ steps:
         Content-Type: application/json
       body:
         response_type: vp_token
-        nonce: fcaf-082-claims-omitted
+        nonce: fcaf-ia-020
         dcql_query:
           credentials:
-            - id: pididentity01
+            - id: pid
               format: dc+sd-jwt
               meta:
                 vct_values:
-                  - urn:eudi:pid:1
+                  - urn:eu.europa.ec.eudi:pid:1
+              claims:
+                - id: unavailable
+                  path:
+                    - claim_that_does_not_exist
+                - id: second
+                  path:
+                    - given_name
+                - id: third
+                  path:
+                    - family_name
+              claim_sets:
+                - - unavailable
+                - - second
+                - - third
 
-  - id: present-without-claims
+  - id: present-second-preferred-option
     use: mobile-automation
     with:
       version_id: installed_from_external_source
@@ -45,13 +46,25 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - extendedWaitUntil:
-            visible: "Home|Documents|Welcome, .*"
-            timeout: 30000
+        - launchApp:
+            stopApp: true
+            clearState: false
         - openLink:
             link: ${env.DEEPLINK}
             autoVerify: false
             browser: false
+        - extendedWaitUntil:
+            visible: "Welcome back|DATA SHARING REQUEST"
+            timeout: 100000
+        - runFlow:
+            when:
+              visible: "Welcome back"
+            commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - tapOn:
+                  point: "50%,10%"
         - extendedWaitUntil:
             visible: "DATA SHARING REQUEST"
             timeout: 100000
@@ -62,34 +75,27 @@ steps:
         - tapOn:
             point: "11%,39%"
         - inputText: "123456"
-        - tapOn: { point: "50%,10%" }
+        - tapOn:
+            point: "50%,10%"
         - extendedWaitUntil:
             visible: ".*successfully shared.*"
             timeout: 30000
-        - takeScreenshot: fcaf-082-claims-omitted
+        - takeScreenshot: fcaf-ia-020
         - tapOn: "Close"
-
-  - id: get-presentation-result
+  - id: fetch-result
     use: http-request
     with:
       method: GET
       url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
       expected_status: 200
-
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
       test_ids:
-        - WS_RP_MS_ProtocolMessages__082
-        - WS_RP_IA_MainInteraction__016
-        - WS_RP_IA_MainInteraction__017
+        - WS_RP_IA_MainInteraction__020
       suite: wallet_solution/relying_party
       pipeline_outputs:
-        pipeline.dcql.claims-omitted:
+        pipeline.dcql.claim-sets-second-preferred:
           output:
-            dcql_exchange: ${{ get-presentation-result.outputs.body }}
-            visual_evidence: ${{ present-without-claims.outputs.flow_output.maestro_screenshot_urls }}
-            evidence-request: ${{ evidence-request.outputs }}
-            create-presentation: ${{ create-presentation.outputs }}
-            present-without-claims: ${{ present-without-claims.outputs }}
-            get-presentation-result: ${{ get-presentation-result.outputs }}
+            dcql_exchange: ${{ fetch-result.outputs.body }}
+            visual_evidence: ${{ present-second-preferred-option.outputs.flow_output.maestro_screenshot_urls }}

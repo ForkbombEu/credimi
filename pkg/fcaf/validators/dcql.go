@@ -39,6 +39,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	}
 	switch params.Mode {
 	case "credential_sets",
+		"claim_sets_preferred_option",
+		"claim_sets_no_match",
 		"claims_present",
 		"claims_subset",
 		"claims_union",
@@ -906,6 +908,10 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: "wallet response contains no vp_token fclaim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
 			}
 		}
+	case "claim_sets_preferred_option":
+		return validateClaimSetsPreferredOption(query, responseValue, params.ExpectedValue)
+	case "claim_sets_no_match":
+		return validateClaimSetsNoMatch(query, responseValue)
 	}
 	return Result{
 		Status:  StatusPass,
@@ -1534,6 +1540,90 @@ func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPath
 		Status:  StatusPass,
 		Message: "wallet disclosed requested claims and omitted unchecked claims",
 	}
+}
+
+func validateClaimSetsPreferredOption(query map[string]any, responseValue, expectedValue any) Result {
+	expectedFloat, ok := expectedValue.(float64)
+	if !ok || expectedFloat < 0 || expectedFloat != float64(int(expectedFloat)) {
+		return Result{Status: StatusError, Message: "expected_value must be a non-negative claim_sets index"}
+	}
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 1 {
+		return Result{Status: StatusFail, Message: "claim_sets preference requires exactly one credential query"}
+	}
+	credential, ok := normalizeJSONObject(credentials[0])
+	if !ok {
+		return Result{Status: StatusFail, Message: "credential query is not an object"}
+	}
+	id, _ := credential["id"].(string)
+	claims, claimsOK := credential["claims"].([]any)
+	sets, setsOK := credential["claim_sets"].([]any)
+	if id == "" || !claimsOK || !setsOK || len(sets) != 3 || int(expectedFloat) >= len(sets) {
+		return Result{Status: StatusFail, Message: "request does not contain three claim_sets over identified claims"}
+	}
+	paths := map[string][]any{}
+	for _, rawClaim := range claims {
+		claim, ok := normalizeJSONObject(rawClaim)
+		if !ok {
+			return Result{Status: StatusFail, Message: "claim is not an object"}
+		}
+		claimID, _ := claim["id"].(string)
+		path, pathOK := claim["path"].([]any)
+		if claimID == "" || !pathOK || len(path) == 0 {
+			return Result{Status: StatusFail, Message: "claim has no id or path"}
+		}
+		paths[claimID] = path
+	}
+	expected, ok := sets[int(expectedFloat)].([]any)
+	if !ok || len(expected) == 0 {
+		return Result{Status: StatusFail, Message: "preferred claim_set is empty or invalid"}
+	}
+	expectedIDs := map[string]struct{}{}
+	for _, rawID := range expected {
+		claimID, ok := rawID.(string)
+		if !ok || paths[claimID] == nil {
+			return Result{Status: StatusFail, Message: "preferred claim_set references an unknown claim"}
+		}
+		expectedIDs[claimID] = struct{}{}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{Status: StatusFail, Message: "wallet response contains no vp_token"}
+	}
+	presentations, ok := response[id].([]any)
+	if !ok || len(presentations) != 1 {
+		return Result{Status: StatusFail, Message: "wallet did not return exactly one selected presentation"}
+	}
+	token, ok := presentations[0].(string)
+	if !ok || token == "" {
+		return Result{Status: StatusFail, Message: "selected presentation is not an SD-JWT"}
+	}
+	presentation, err := evidence.ParseSDJWTPresentation(token)
+	if err != nil {
+		return Result{Status: StatusFail, Message: fmt.Sprintf("selected presentation is not valid SD-JWT: %v", err)}
+	}
+	for claimID, path := range paths {
+		_, expected := expectedIDs[claimID]
+		disclosed := claimPathResolves(presentation.Claims, path)
+		if expected && !disclosed {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("selected claim_set claim %q was not disclosed", claimID)}
+		}
+		if !expected && disclosed {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("claim %q outside the selected claim_set was disclosed", claimID)}
+		}
+	}
+	return Result{Status: StatusPass, Message: "wallet disclosed only the preferred satisfiable claim_set"}
+}
+
+func validateClaimSetsNoMatch(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 || !containsClaimSets(credentials) {
+		return Result{Status: StatusFail, Message: "request does not contain credential claims and claim_sets"}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned claims although no claim_set is satisfiable"}
+	}
+	return Result{Status: StatusPass, Message: "wallet returned no claims for unsatisfiable claim_sets"}
 }
 
 func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {

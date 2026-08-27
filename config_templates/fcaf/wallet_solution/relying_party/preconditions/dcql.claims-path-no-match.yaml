@@ -1,6 +1,6 @@
 id: pipeline.dcql.claims-path-no-match
 kind: pipeline
-pipeline_id: forkbomb-bv-andrea/fcaf-dcql-unmatched-claim-path
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claims-path-no-match
 required_steps:
 - reject-unmatched-claim-path
 - fetch-result

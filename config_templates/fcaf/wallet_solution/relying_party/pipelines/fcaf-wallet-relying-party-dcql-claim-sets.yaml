@@ -1,6 +1,8 @@
 name: FCAF wallet relying-party DCQL claim sets
 runtime:
   global_runner_id: forkbomb-bv-andrea/usb
+  fixture:
+    verifier_url: https://capture-wallet.credimi.io
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -13,12 +15,12 @@ steps:
     use: http-request
     with:
       method: POST
-      url: ${fixture.verifier_url}/ui/presentations
-      expected_status: 200
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
       headers:
         Content-Type: application/json
       body:
-        type: vp_token
+        response_type: vp_token
         nonce: fcaf-dcql-claim-sets
         dcql_query:
           credentials:
@@ -39,7 +41,7 @@ steps:
                     - resident_postal_code
               claim_sets:
                 - - identity_name
-                  - identity_family_name
+                - - identity_family_name
                 - - postal_code
 
   - id: present-with-reference-implementation
@@ -47,8 +49,7 @@ steps:
     with:
       version_id: installed_from_external_source
       parameters:
-        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
-        REQUEST_URI: ${{ create-presentation.outputs.body.request_uri }}
+        DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
       action_code: |
         appId: eu.europa.ec.euidi
         ---
@@ -59,9 +60,8 @@ steps:
               camera: allow
               notifications: allow
               all: unset
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
         - openLink:
-            link: ${output.authorizationRequest}
+            link: ${env.DEEPLINK}
             autoVerify: false
             browser: false
         - waitForAnimationToEnd:
@@ -82,17 +82,18 @@ steps:
     use: http-request
     with:
       method: GET
-      url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
       expected_status: 200
 
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
       test_ids:
-        - WS_RP_MS_ProtocolMessages__086
+        - WS_RP_DM_CredentialMetadata_CredentialStructure_010
+        - WS_RP_IA_MainInteraction__019
       suite: wallet_solution/relying_party
       pipeline_outputs:
-        pipeline.dcql.claim-sets-non-array:
+        pipeline.dcql.claim-sets:
           output:
             dcql_exchange: ${{ fetch-capture-session.outputs.body }}
             visual_evidence: ${{ present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls }}

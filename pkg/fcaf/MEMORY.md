@@ -13,9 +13,9 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 ## Current repository state
 
 - Working branch: `fix/fcaf-improvments`.
-- Runnable catalog: 215 definitions directly under
+- Runnable catalog: 222 definitions directly under
   `config_templates/fcaf/wallet_solution/relying_party/tests/`.
-- Pending implementation: 288 definitions under
+- Pending implementation: 281 definitions under
   `tests/_implementation/pending/`.
 - Verifier blocked: 56 definitions under
   `tests/_implementation/verifier-blocked/`.
