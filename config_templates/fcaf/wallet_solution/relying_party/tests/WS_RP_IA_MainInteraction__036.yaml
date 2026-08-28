@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__036
-title: FCAF WS_RP_IA_MainInteraction__036
+title: VP token response is a JSON object
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__036.md
 suite:
@@ -24,7 +24,7 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: vp_token_json_object
 - id: ws_rp_ia_maininteraction__036_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

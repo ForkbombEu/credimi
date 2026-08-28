@@ -1575,6 +1575,126 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	}
 }
 
+func TestDCQLVPTokenResponseModes(t *testing.T) {
+	baseEvidence := func() map[string]any {
+		return map[string]any{
+			"response_type": "vp_token",
+			"dcql_query": map[string]any{
+				"credentials": []any{validSDJWTCredentialQuery("pid")},
+			},
+			"vp_token": map[string]any{
+				"pid": []any{signedSDJWTPresentation()},
+			},
+		}
+	}
+
+	tests := []struct {
+		name   string
+		mode   string
+		mutate func(map[string]any)
+		status Status
+	}{
+		{
+			name:   "signed presentation accepts vp token response type and signed sd jwt",
+			mode:   "vp_token_signed_presentation",
+			status: StatusPass,
+		},
+		{
+			name: "signed presentation rejects another response type",
+			mode: "vp_token_signed_presentation",
+			mutate: func(evidence map[string]any) {
+				evidence["response_type"] = "code"
+			},
+			status: StatusFail,
+		},
+		{
+			name: "signed presentation rejects unsigned jwt",
+			mode: "vp_token_signed_presentation",
+			mutate: func(evidence map[string]any) {
+				evidence["vp_token"] = map[string]any{"pid": []any{unsignedSDJWTPresentation()}}
+			},
+			status: StatusFail,
+		},
+		{
+			name:   "json object accepts vp token object",
+			mode:   "vp_token_json_object",
+			status: StatusPass,
+		},
+		{
+			name: "json object rejects array",
+			mode: "vp_token_json_object",
+			mutate: func(evidence map[string]any) {
+				evidence["vp_token"] = []any{"presentation"}
+			},
+			status: StatusFail,
+		},
+		{
+			name:   "query ids accept exact keys",
+			mode:   "vp_token_query_ids",
+			status: StatusPass,
+		},
+		{
+			name: "query ids reject additional key",
+			mode: "vp_token_query_ids",
+			mutate: func(evidence map[string]any) {
+				evidence["vp_token"] = map[string]any{
+					"pid":   []any{"presentation"},
+					"other": []any{"presentation"},
+				}
+			},
+			status: StatusFail,
+		},
+		{
+			name:   "presentation arrays accept non empty array",
+			mode:   "vp_token_presentation_arrays",
+			status: StatusPass,
+		},
+		{
+			name: "presentation arrays reject scalar",
+			mode: "vp_token_presentation_arrays",
+			mutate: func(evidence map[string]any) {
+				evidence["vp_token"] = map[string]any{"pid": "presentation"}
+			},
+			status: StatusFail,
+		},
+	}
+
+	validator := DCQLResponseConstraintsValidator{}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			evidence := baseEvidence()
+			if test.mutate != nil {
+				test.mutate(evidence)
+			}
+			result := validator.Validate(context.Background(), Input{
+				Value:  evidence,
+				Params: map[string]any{"mode": test.mode},
+			})
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
+	}
+}
+
+func unsignedSDJWTPresentation() string {
+	header, _ := json.Marshal(map[string]any{"alg": "none"})
+	payload, _ := json.Marshal(map[string]any{"_sd_alg": "sha-256"})
+	return base64.RawURLEncoding.EncodeToString(
+		header,
+	) + "." + base64.RawURLEncoding.EncodeToString(
+		payload,
+	) + ".~"
+}
+
+func signedSDJWTPresentation() string {
+	header, _ := json.Marshal(map[string]any{"alg": "ES256"})
+	payload, _ := json.Marshal(map[string]any{"_sd_alg": "sha-256"})
+	return base64.RawURLEncoding.EncodeToString(
+		header,
+	) + "." + base64.RawURLEncoding.EncodeToString(
+		payload,
+	) + ".signature~"
+}
+
 func credentialFormatEvidence(format, responseID string) map[string]any {
 	return credentialFormatEvidenceWithPresentations(
 		"pid",

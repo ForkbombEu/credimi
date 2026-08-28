@@ -74,6 +74,10 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_single_available_option",
 		"credential_sets_combined_option_no_match",
 		"credential_format_presentation",
+		"vp_token_signed_presentation",
+		"vp_token_json_object",
+		"vp_token_query_ids",
+		"vp_token_presentation_arrays",
 		"credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
@@ -218,6 +222,14 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateCredentialSetInteraction(query, responseValue, params.Mode)
 	case "credential_format_presentation":
 		return validateCredentialFormatPresentation(query, responseValue, params.ExpectedFormat)
+	case "vp_token_signed_presentation":
+		return validateVPTokenSignedPresentation(root, query, responseValue)
+	case "vp_token_json_object":
+		return validateVPTokenJSONObject(responseValue)
+	case "vp_token_query_ids":
+		return validateVPTokenQueryIDs(query, responseValue)
+	case "vp_token_presentation_arrays":
+		return validateVPTokenPresentationArrays(query, responseValue)
 	case "credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
@@ -1070,6 +1082,151 @@ func validateCredentialFormatPresentation(
 			queryID,
 		),
 	}
+}
+
+func validateVPTokenSignedPresentation(
+	root map[string]any,
+	query map[string]any,
+	responseValue any,
+) Result {
+	responseTypes := collectObjectFieldValues(root, "response_type")
+	if len(responseTypes) != 1 || responseTypes[0] != "vp_token" {
+		return Result{
+			Status:  StatusFail,
+			Message: "captured authorization request response_type must equal vp_token",
+		}
+	}
+	response, result := validatedVPTokenPresentations(query, responseValue)
+	if result != nil {
+		return *result
+	}
+	for queryID, rawPresentations := range response {
+		presentations, ok := rawPresentations.([]any)
+		if !ok {
+			continue
+		}
+		for index, rawPresentation := range presentations {
+			token, ok := rawPresentation.(string)
+			if !ok || token == "" {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] is not an SD-JWT presentation",
+						queryID,
+						index,
+					),
+				}
+			}
+			parsed, err := evidence.ParseSDJWTPresentation(token)
+			if err != nil {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] is not a valid SD-JWT presentation: %v",
+						queryID,
+						index,
+						err,
+					),
+				}
+			}
+			algorithm, _ := parsed.ProtectedHeaders["alg"].(string)
+			if algorithm == "" || algorithm == "none" {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] is not a signed JWT presentation",
+						queryID,
+						index,
+					),
+				}
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "authorization response contains signed SD-JWT vp_token presentations",
+	}
+}
+
+func validateVPTokenJSONObject(responseValue any) Result {
+	if _, ok := normalizeJSONObject(responseValue); !ok {
+		return Result{Status: StatusFail, Message: "wallet response vp_token is not a JSON object"}
+	}
+	return Result{Status: StatusPass, Message: "wallet response vp_token is a JSON object"}
+}
+
+func validateVPTokenQueryIDs(query map[string]any, responseValue any) Result {
+	response, result := validatedVPTokenPresentations(query, responseValue)
+	if result != nil {
+		return *result
+	}
+	if len(response) != len(queryCredentialIDs(query)) {
+		return Result{
+			Status:  StatusFail,
+			Message: "vp_token keys do not exactly match credential query IDs",
+		}
+	}
+	for _, queryID := range queryCredentialIDs(query) {
+		if _, found := response[queryID]; !found {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("vp_token has no key for credential query %q", queryID),
+			}
+		}
+	}
+	return Result{Status: StatusPass, Message: "vp_token keys exactly match credential query IDs"}
+}
+
+func validateVPTokenPresentationArrays(query map[string]any, responseValue any) Result {
+	_, result := validatedVPTokenPresentations(query, responseValue)
+	if result != nil {
+		return *result
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "vp_token entries are non-empty presentation arrays for each credential query",
+	}
+}
+
+func validatedVPTokenPresentations(
+	query map[string]any,
+	responseValue any,
+) (map[string]any, *Result) {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return nil, &Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	if err := validateDCQLCredentialQueries(credentials); err != nil {
+		return nil, &Result{Status: StatusFail, Message: err.Error()}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return nil, &Result{
+			Status:  StatusFail,
+			Message: "wallet response vp_token is not a JSON object",
+		}
+	}
+	for _, queryID := range queryCredentialIDs(query) {
+		presentations, ok := response[queryID].([]any)
+		if !ok || len(presentations) == 0 {
+			return nil, &Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("vp_token[%q] is not a non-empty presentation array", queryID),
+			}
+		}
+	}
+	return response, nil
+}
+
+func queryCredentialIDs(query map[string]any) []string {
+	credentials, _ := query["credentials"].([]any)
+	ids := make([]string, 0, len(credentials))
+	for _, rawCredential := range credentials {
+		credential, _ := normalizeJSONObject(rawCredential)
+		id, _ := credential["id"].(string)
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 func validateDCQLCredentialQueries(credentials []any) error {

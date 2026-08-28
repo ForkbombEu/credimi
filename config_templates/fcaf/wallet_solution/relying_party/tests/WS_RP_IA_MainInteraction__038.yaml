@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__038
-title: FCAF WS_RP_IA_MainInteraction__038
+title: VP token entries are presentation arrays
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__038.md
 suite:
@@ -24,7 +24,7 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: vp_token_presentation_arrays
 - id: ws_rp_ia_maininteraction__038_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
