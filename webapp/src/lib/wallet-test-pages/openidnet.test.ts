@@ -8,8 +8,8 @@ import { getOpenIDConformanceWorkflowLogsProps, isOpenIDConformanceStandard } fr
 
 describe('OpenID conformance workflow logs', () => {
 	it.each([
-		['openid4vci_issuer', 'start-openid4vci-issuer-log-update'],
-		['openid4vp_verifier', 'start-openid4vp-verifier-log-update'],
+		['openid4vci_issuer', 'start-openid4vci-issuer-log-update', undefined],
+		['openid4vp_verifier', 'start-openid4vp-verifier-log-update', undefined],
 		['openid4vci_wallet', 'start-openidnet-check-log-update', '-log'],
 		['openid4vp_wallet', 'start-openidnet-check-log-update', '-log']
 	] as const)('selects the established adapter for %s', (standard, startSignal, suffix) => {

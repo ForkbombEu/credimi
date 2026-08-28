@@ -19,7 +19,7 @@ function mobileSteps(count: number): EnrichedStep[] {
 
 const wallet = { id: 'w1', name: 'Wallet' } as never;
 const version = 'installed_from_external_source' as const;
-const specificRunner = {
+const specificRunner: ExecutionTarget['runner'] = {
 	name: 'Runner',
 	path: 'org/runner',
 	isOwned: true,

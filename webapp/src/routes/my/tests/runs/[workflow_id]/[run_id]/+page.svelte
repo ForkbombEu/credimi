@@ -12,8 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import { TemporalI18nProvider } from '$lib/temporal';
-	import { WorkflowQrPoller } from '$lib/workflows';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
+	import { WorkflowQrPoller } from '$lib/workflows';
 	import { onMount } from 'svelte';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
