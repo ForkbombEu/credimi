@@ -25,6 +25,7 @@ type PipelineExecutionArtifacts struct {
 	MaestroScreenshots []string          `json:"maestro_screenshots,omitempty"`
 	Report             string            `json:"report,omitempty"`
 	FCAFReport         string            `json:"fcaf_report,omitempty"`
+	FCAFReportPDF      string            `json:"fcaf_report_pdf,omitempty"`
 }
 
 func RegisterPipelineResultsHooks(app core.App) {
@@ -49,6 +50,7 @@ func BuildPipelineExecutionArtifacts(app core.App, record *core.Record) Pipeline
 		MaestroScreenshots: ComputeMaestroScreenshotURLs(app, record),
 		Report:             ComputePipelineReportURLFromRecord(app, record),
 		FCAFReport:         ComputePipelineFCAFReportURLFromRecord(app, record),
+		FCAFReportPDF:      ComputePipelineFCAFReportPDFURLFromRecord(app, record),
 	}
 }
 
@@ -188,13 +190,21 @@ func ComputePipelineReportURLFromRecord(app core.App, record *core.Record) strin
 }
 
 func ComputePipelineFCAFReportURLFromRecord(app core.App, record *core.Record) string {
+	return computePipelineResultFileURL(app, record, "fcaf_report")
+}
+
+func ComputePipelineFCAFReportPDFURLFromRecord(app core.App, record *core.Record) string {
+	return computePipelineResultFileURL(app, record, "fcaf_report_pdf")
+}
+
+func computePipelineResultFileURL(app core.App, record *core.Record, field string) string {
 	if app == nil || record == nil {
 		return ""
 	}
-	filename := record.GetString("fcaf_report")
+	filename := record.GetString(field)
 	if filename == "" {
-		if reports := record.GetStringSlice("fcaf_report"); len(reports) > 0 {
-			filename = reports[0]
+		if files := record.GetStringSlice(field); len(files) > 0 {
+			filename = files[0]
 		}
 	}
 	if filename == "" {

@@ -53,7 +53,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		artifacts.results.length > 0 ||
 			(artifacts.maestro_screenshots?.length ?? 0) > 0 ||
 			Boolean(artifacts.report) ||
-			Boolean(artifacts.fcafReport)
+			Boolean(artifacts.fcafReport) ||
+			Boolean(artifacts.fcafReportPdf)
 	);
 
 	const containerClass = $derived(
@@ -104,6 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</PipelineReportSheet>
 		<FCAFReportSheet
 			reportUrl={artifacts.fcafReport}
+			pdfUrl={artifacts.fcafReportPdf}
 			maestroScreenshotUrls={artifacts.maestro_screenshots ?? []}
 		>
 			{#snippet sheetTrigger({ props })}

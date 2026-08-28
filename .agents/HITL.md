@@ -96,13 +96,3 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: Temporary implementation files may live beside the FCAF test YAML for now, under the test catalog folder, and must be deleted during implementation once consumed.
 - follow-up: Implementation agents must keep the temporary folder clearly named and remove it before finalizing production-ready FCAF catalog work unless the maintainer explicitly keeps it.
 
-### 2026-07-02 - FCAF GitNexus override
-
-- status: resolved
-- owner: human maintainer
-- context: Repository instructions require GitNexus impact checks before editing workflows, activities, registry entries, and other architecture-sensitive code. GitNexus tools were not exposed in this Codex session.
-- question: Should FCAF workflow integration wait for GitNexus availability?
-- options considered: Pause workflow/registry edits until GitNexus is available; continue only inside isolated `pkg/fcaf`; proceed with workflow integration without GitNexus.
-- default risk: Proceeding without GitNexus may miss affected symbols or execution flows that indexed code intelligence would have surfaced.
-- decision: The maintainer explicitly instructed to skip GitNexus for this FCAF implementation pass.
-- follow-up: Report this override in final summaries for workflow/registry edits.
