@@ -20,6 +20,7 @@ func TestRegistryContainsCoreTasks(t *testing.T) {
 	require.Contains(t, Registry, "http-request")
 	require.Contains(t, Registry, "mobile-automation")
 	require.Contains(t, Registry, "conformance-check")
+	require.Contains(t, Registry, "fcaf-validation")
 
 	httpTask := Registry["http-request"]
 	require.Equal(t, TaskActivity, httpTask.Kind)

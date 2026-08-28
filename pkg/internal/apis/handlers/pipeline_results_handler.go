@@ -106,6 +106,7 @@ func listPipelineExecutionHistory(
 	builder := newPipelineExecutionSummaryBuilder(
 		request.App,
 		request.TemporalClient,
+		request.Namespace,
 		request.UserTimezone,
 	)
 	summaries := make([]*pipelineWorkflowSummary, 0, len(executions))
@@ -564,6 +565,7 @@ func workflowExecutionRefs(executions []*WorkflowExecution) []workflowExecutionR
 type pipelineExecutionSummaryBuilder struct {
 	app         core.App
 	client      client.Client
+	namespace   string
 	location    *time.Location
 	runnerCache map[string]map[string]any
 	runnerInfo  map[string]pipeline.PipelineDeviceInfo
@@ -572,6 +574,7 @@ type pipelineExecutionSummaryBuilder struct {
 func newPipelineExecutionSummaryBuilder(
 	app core.App,
 	temporalClient client.Client,
+	namespace string,
 	userTimezone string,
 ) *pipelineExecutionSummaryBuilder {
 	location, err := time.LoadLocation(userTimezone)
@@ -581,6 +584,7 @@ func newPipelineExecutionSummaryBuilder(
 	return &pipelineExecutionSummaryBuilder{
 		app:         app,
 		client:      temporalClient,
+		namespace:   namespace,
 		location:    location,
 		runnerCache: map[string]map[string]any{},
 		runnerInfo:  map[string]pipeline.PipelineDeviceInfo{},
@@ -606,8 +610,33 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 		}
 	}
 
-	if resultRecord != nil {
-		attachPipelineArtifactsToSummary(rootSummary, b.app, resultRecord)
+	w := pipeline.PipelineWorkflow{}
+	if rootSummary.Type.Name == w.Name() {
+		if resultRecord != nil {
+			attachPipelineArtifactsToSummary(rootSummary, b.app, resultRecord)
+		}
+		if len(rootSummary.Results) == 0 || rootSummary.Report == "" {
+			artifacts := pipelineresults.ResolvePipelineExecutionArtifacts(
+				b.app,
+				b.namespace,
+				rootExecution.Execution.WorkflowID,
+				rootExecution.Execution.RunID,
+			)
+			if len(rootSummary.Results) == 0 {
+				rootSummary.Results = artifacts.Results
+			}
+			if rootSummary.Report == "" {
+				rootSummary.Report = artifacts.Report
+			}
+		}
+		rootSummary.FCAFReport = pipelineresults.BuildPipelineExecutionArtifacts(
+			b.app,
+			resultRecord,
+		).FCAFReport
+		rootSummary.MaestroScreenshots = pipelineresults.BuildPipelineExecutionArtifacts(
+			b.app,
+			resultRecord,
+		).MaestroScreenshots
 	}
 
 	for _, childExecution := range childExecutions {
@@ -746,7 +775,9 @@ func attachPipelineArtifactsToSummary(
 	}
 	artifacts := pipelineresults.BuildPipelineExecutionArtifacts(app, record)
 	summary.Results = artifacts.Results
+	summary.MaestroScreenshots = artifacts.MaestroScreenshots
 	summary.Report = artifacts.Report
+	summary.FCAFReport = artifacts.FCAFReport
 }
 
 func getChildWorkflowsByParents(

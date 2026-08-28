@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ClassValue } from 'svelte/elements';
 
-	import { FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { BadgeCheckIcon, FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 
 	import type { IconComponent } from '@/components/types';
 
@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type IconType = 'image' | 'video' | 'file' | 'document';
+	type IconType = 'image' | 'video' | 'file' | 'document' | 'fcaf';
 
 	type Props = {
 		image?: string;
@@ -32,7 +32,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		image: ImageIcon,
 		video: VideoIcon,
 		file: FileCogIcon,
-		document: FileIcon
+		document: FileIcon,
+		fcaf: BadgeCheckIcon
 	};
 
 	const iconComponent = $derived<IconComponent>(typeof icon === 'string' ? map[icon] : icon);

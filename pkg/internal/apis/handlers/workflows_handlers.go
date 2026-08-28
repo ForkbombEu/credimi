@@ -1335,7 +1335,9 @@ func buildWorkflowExecutionHierarchy(
 				exec.Execution.RunID,
 			)
 			current.Results = artifacts.Results
+			current.MaestroScreenshots = artifacts.MaestroScreenshots
 			current.Report = artifacts.Report
+			current.FCAFReport = artifacts.FCAFReport
 		}
 		current.DisplayName = parentDisplay
 		roots = append(roots, current)

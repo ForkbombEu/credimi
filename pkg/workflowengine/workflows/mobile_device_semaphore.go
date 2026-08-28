@@ -21,6 +21,7 @@ const (
 	mobileDeviceSemaphoreMaxUpdateBatches = 1000
 	runCompletionCheckInterval            = 45 * time.Second
 	runStartingReconcileInterval          = 20 * time.Second
+	terminalRunRetention                  = 2 * time.Minute
 )
 
 type MobileDeviceSemaphoreWorkflow struct {
@@ -857,6 +858,7 @@ func (r *mobileDeviceSemaphoreRuntime) awaitContinue() error {
 
 func (r *mobileDeviceSemaphoreRuntime) processRunQueue(ctx workflow.Context) {
 	defer r.flushQueuedPositionUpdates(ctx)
+	r.pruneTerminalRunTickets(workflow.Now(ctx))
 	if r.shutdownRequested || r.paused {
 		return
 	}
@@ -1165,6 +1167,14 @@ func (r *mobileDeviceSemaphoreRuntime) finalizeRunTicket(
 	if runID != "" {
 		state.RunID = runID
 	}
+	doneAt := workflow.Now(ctx)
+	state.DoneAt = &doneAt
+	state.Status = terminalRunStatusForWorkflowResult(workflowStatus)
+	if state.Status != mobileDeviceSemaphoreRunNotFound &&
+		strings.TrimSpace(state.ErrorMessage) == "" &&
+		strings.TrimSpace(workflowStatus) != "" {
+		state.ErrorMessage = workflowStatus
+	}
 	r.notifyGitHubPRComment(
 		ctx,
 		ticketID,
@@ -1175,7 +1185,11 @@ func (r *mobileDeviceSemaphoreRuntime) finalizeRunTicket(
 		state.ErrorMessage,
 	)
 	r.runQueue = removeFromQueue(r.runQueue, ticketID)
-	delete(r.runTickets, ticketID)
+	if state.Status == mobileDeviceSemaphoreRunNotFound {
+		delete(r.runTickets, ticketID)
+	} else {
+		r.runTickets[ticketID] = state
+	}
 	r.updateCount++
 	r.maybeScheduleContinue()
 	r.requestRunStart()
@@ -1800,6 +1814,21 @@ func (r *mobileDeviceSemaphoreRuntime) hasFollowerStartingTickets() bool {
 	return false
 }
 
+func (r *mobileDeviceSemaphoreRuntime) pruneTerminalRunTickets(now time.Time) {
+	for ticketID, state := range r.runTickets {
+		if !isTerminalRunStatus(state.Status) || state.DoneAt == nil {
+			continue
+		}
+		if now.Sub(*state.DoneAt) < terminalRunRetention {
+			continue
+		}
+		r.runQueue = removeFromQueue(r.runQueue, ticketID)
+		delete(r.runTickets, ticketID)
+		r.updateCount++
+		r.markQueuePositionsDirty()
+	}
+}
+
 func (r *mobileDeviceSemaphoreRuntime) runSlotsUsed() int {
 	used := 0
 	for _, state := range r.runTickets {
@@ -1809,6 +1838,28 @@ func (r *mobileDeviceSemaphoreRuntime) runSlotsUsed() int {
 		}
 	}
 	return used
+}
+
+func isTerminalRunStatus(status MobileDeviceSemaphoreRunStatus) bool {
+	switch status {
+	case mobileDeviceSemaphoreRunFailed,
+		mobileDeviceSemaphoreRunCanceled,
+		mobileDeviceSemaphoreRunNotFound:
+		return true
+	default:
+		return false
+	}
+}
+
+func terminalRunStatusForWorkflowResult(workflowStatus string) MobileDeviceSemaphoreRunStatus {
+	switch strings.ToLower(strings.TrimSpace(workflowStatus)) {
+	case "failed", "failure", "terminated", "error":
+		return mobileDeviceSemaphoreRunFailed
+	case "canceled", "cancelled":
+		return mobileDeviceSemaphoreRunCanceled
+	default:
+		return mobileDeviceSemaphoreRunNotFound
+	}
 }
 
 func (r *mobileDeviceSemaphoreRuntime) inFlightRunCount(ownerNamespace string) int {

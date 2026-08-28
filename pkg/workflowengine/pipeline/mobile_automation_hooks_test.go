@@ -1808,14 +1808,18 @@ func TestMobileAutomationSetupHookPreparesNestedSteps(t *testing.T) {
 					steps := []pipeline.StepDefinition{{
 						StepSpec: pipeline.StepSpec{ID: "parent", Use: "echo"},
 						OnError: []*pipeline.OnErrorStepDefinition{{StepSpec: pipeline.StepSpec{
-							ID:   "nested-error",
-							Use:  mobileAutomationStepUse,
-							With: pipeline.StepInputs{Payload: nestedMobilePreparationPayload(tc.stepDeviceID, "error")},
+							ID:  "nested-error",
+							Use: mobileAutomationStepUse,
+							With: pipeline.StepInputs{
+								Payload: nestedMobilePreparationPayload(tc.stepDeviceID, "error"),
+							},
 						}}},
 						OnSuccess: []*pipeline.OnSuccessStepDefinition{{StepSpec: pipeline.StepSpec{
-							ID:   "nested-success",
-							Use:  mobileAutomationStepUse,
-							With: pipeline.StepInputs{Payload: nestedMobilePreparationPayload(tc.stepDeviceID, "success")},
+							ID:  "nested-success",
+							Use: mobileAutomationStepUse,
+							With: pipeline.StepInputs{
+								Payload: nestedMobilePreparationPayload(tc.stepDeviceID, "success"),
+							},
 						}}},
 					}}
 					deviceMap := map[string]any{
@@ -1890,7 +1894,10 @@ func TestMarkExternalInstallStepsPreparesNestedSpecs(t *testing.T) {
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (map[string]any, error) {
-			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
+			ctx = workflow.WithActivityOptions(
+				ctx,
+				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			)
 			steps := []pipeline.StepDefinition{{
 				StepSpec: pipeline.StepSpec{ID: "parent", Use: "echo"},
 				OnError: []*pipeline.OnErrorStepDefinition{{StepSpec: pipeline.StepSpec{

@@ -72,20 +72,22 @@ type WorkflowExecution struct {
 }
 
 type WorkflowExecutionSummary struct {
-	Execution     *WorkflowIdentifier               `json:"execution"                validate:"required"`
-	Type          WorkflowType                      `json:"type"                     validate:"required"`
-	StartTime     string                            `json:"startTime"`
-	EndTime       string                            `json:"endTime"`
-	Duration      string                            `json:"duration"`
-	EnqueuedAt    string                            `json:"enqueuedAt"`
-	Status        string                            `json:"status"                   validate:"required"`
-	DisplayName   string                            `json:"displayName"              validate:"required"`
-	Queue         *WorkflowQueueSummary             `json:"queue,omitempty"`
-	Children      []*WorkflowExecutionSummary       `json:"children,omitempty"`
-	Results       []pipelineresults.PipelineResults `json:"results,omitempty"`
-	Report        string                            `json:"report,omitempty"`
-	FailureReason *string                           `json:"failure_reason,omitempty"`
-	HasLogs       bool                              `json:"has_logs,omitempty"`
+	Execution          *WorkflowIdentifier               `json:"execution"                     validate:"required"`
+	Type               WorkflowType                      `json:"type"                          validate:"required"`
+	StartTime          string                            `json:"startTime"`
+	EndTime            string                            `json:"endTime"`
+	Duration           string                            `json:"duration"`
+	EnqueuedAt         string                            `json:"enqueuedAt"`
+	Status             string                            `json:"status"                        validate:"required"`
+	DisplayName        string                            `json:"displayName"                   validate:"required"`
+	Queue              *WorkflowQueueSummary             `json:"queue,omitempty"`
+	Children           []*WorkflowExecutionSummary       `json:"children,omitempty"`
+	Results            []pipelineresults.PipelineResults `json:"results,omitempty"`
+	MaestroScreenshots []string                          `json:"maestro_screenshots,omitempty"`
+	Report             string                            `json:"report,omitempty"`
+	FCAFReport         string                            `json:"fcaf_report,omitempty"`
+	FailureReason      *string                           `json:"failure_reason,omitempty"`
+	HasLogs            bool                              `json:"has_logs,omitempty"`
 }
 
 type WorkflowQueueSummary struct {

@@ -1,0 +1,32 @@
+id: WS_RP_SH_Cryptography_CryptographicHash_007
+title: FCAF WS_RP_SH_Cryptography_CryptographicHash_007
+source:
+  path: Shared/Cryptography/WS_RP_SH_Cryptography_CryptographicHash_007.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: shared.cryptography
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '6.1'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- ref: pipeline.dcql.cryptography
+evidence:
+  dcql_exchange:
+    from: pipeline.dcql.cryptography.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.cryptography.outputs.visual_evidence
+assertions:
+- id: ws_rp_sh_cryptography_cryptographichash_007_crypto_verified
+  validator: jwt.payload_field_presence
+  input: evidence.dcql_exchange
+  params:
+    field: hash
+- id: ws_rp_sh_cryptography_cryptographichash_007_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

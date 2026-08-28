@@ -506,29 +506,66 @@ func TestHandleCancelRunPaths(t *testing.T) {
 	require.True(t, rt.runTickets["ticket-2"].CancelRequested)
 }
 
-func TestHandleRunDoneRemovesTicket(t *testing.T) {
-	rt := newRuntimeForTests()
-	rt.deviceID = "runner-2"
-	rt.runTickets["ticket-1"] = MobileDeviceSemaphoreRunTicketState{
-		Request: MobileDeviceSemaphoreEnqueueRunRequest{
-			TicketID:       "ticket-1",
-			OwnerNamespace: "ns-1",
-			LeaderDeviceID: "runner-1",
-		},
-		Status:     mobileDeviceSemaphoreRunRunning,
-		WorkflowID: "wf-1",
-		RunID:      "run-1",
-	}
-	rt.runQueue = []string{"ticket-1"}
+func TestHandleRunDoneRemovesCompletedTicket(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
 
-	var ctx workflow.Context
-	view, err := rt.handleRunDone(ctx, MobileDeviceSemaphoreRunDoneRequest{
-		TicketID:       "ticket-1",
-		OwnerNamespace: "ns-1",
-	})
-	require.NoError(t, err)
-	require.Equal(t, mobileDeviceSemaphoreRunNotFound, view.Status)
-	require.Empty(t, rt.runTickets)
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (struct {
+			RunTickets  int
+			RunQueue    []string
+			UpdateCount int
+		}, error) {
+			rt := newRuntimeForTests()
+			rt.deviceID = "runner-2"
+			rt.runTickets["ticket-1"] = MobileDeviceSemaphoreRunTicketState{
+				Request: MobileDeviceSemaphoreEnqueueRunRequest{
+					TicketID:       "ticket-1",
+					OwnerNamespace: "ns-1",
+					LeaderDeviceID: "runner-1",
+				},
+				Status:     mobileDeviceSemaphoreRunRunning,
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+			}
+			rt.runQueue = []string{"ticket-1"}
+
+			_, err := rt.handleRunDone(ctx, MobileDeviceSemaphoreRunDoneRequest{
+				TicketID:       "ticket-1",
+				OwnerNamespace: "ns-1",
+			})
+			if err != nil {
+				return struct {
+					RunTickets  int
+					RunQueue    []string
+					UpdateCount int
+				}{}, err
+			}
+			return struct {
+				RunTickets  int
+				RunQueue    []string
+				UpdateCount int
+			}{
+				RunTickets:  len(rt.runTickets),
+				RunQueue:    rt.runQueue,
+				UpdateCount: rt.updateCount,
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "test-handle-run-done-removes-completed-ticket"},
+	)
+
+	env.ExecuteWorkflow("test-handle-run-done-removes-completed-ticket")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result struct {
+		RunTickets  int
+		RunQueue    []string
+		UpdateCount int
+	}
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Zero(t, result.RunTickets)
+	require.Empty(t, result.RunQueue)
+	require.Equal(t, 1, result.UpdateCount)
 }
 
 func TestHandleRunStatusQueryQueued(t *testing.T) {
@@ -796,7 +833,23 @@ func TestCheckRunCompletionFinalizesClosedRun(t *testing.T) {
 
 	var remaining int
 	require.NoError(t, env.GetWorkflowResult(&remaining))
-	require.Equal(t, 0, remaining)
+	require.Zero(t, remaining)
+}
+
+func TestTerminalRunStatusForWorkflowResult(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, mobileDeviceSemaphoreRunFailed, terminalRunStatusForWorkflowResult("failed"))
+	require.Equal(
+		t,
+		mobileDeviceSemaphoreRunCanceled,
+		terminalRunStatusForWorkflowResult("canceled"),
+	)
+	require.Equal(
+		t,
+		mobileDeviceSemaphoreRunNotFound,
+		terminalRunStatusForWorkflowResult("completed"),
+	)
 }
 
 func TestReconcileStartingTicketsUpdatesRunning(t *testing.T) {

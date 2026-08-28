@@ -294,8 +294,9 @@ func runChildPipeline(
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 	}
 
-	ctxChild := workflow.WithChildOptions(ctx, childOpts)
 	ao := PrepareActivityOptions(options.ActivityOptions, step.ActivityOptions)
+	childOpts.RetryPolicy = ao.RetryPolicy
+	ctxChild := workflow.WithChildOptions(ctx, childOpts)
 	err = pipeline.ResolveInputs(&step, input.WorkflowInput.Config, dataCtx)
 	if err != nil {
 		return nil, err

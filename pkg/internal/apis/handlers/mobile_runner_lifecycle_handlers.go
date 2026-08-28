@@ -38,7 +38,7 @@ var mobileRunnerLifecycleNow = func() time.Time {
 var mobileRunnerLifecycleTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type MobileRunnerLifecycleRequest struct {
-	RunnerID  string                       `json:"runner_id"         validate:"required"`
+	RunnerID  string                       `json:"runner_id"            validate:"required"`
 	RequestID string                       `json:"request_id,omitempty"`
 	Reason    string                       `json:"reason,omitempty"`
 	Devices   []MobileDeviceLifecycleState `json:"devices,omitempty"`
@@ -133,7 +133,10 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			if !online {
 				continue
 			}
-			if err := ensureRunQueueSemaphoreWorkflowTemporal(e.Request.Context(), deviceID); err != nil {
+			if err := ensureRunQueueSemaphoreWorkflowTemporal(
+				e.Request.Context(),
+				deviceID,
+			); err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
 					"mobile_device",
@@ -145,7 +148,9 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 				e.Request.Context(),
 				deviceID,
 				workflows.MobileDeviceSemaphoreResumeDeviceUpdate,
-				workflows.MobileDeviceSemaphoreResumeDeviceRequest{Reason: lifecycleReason(input.Reason, "runner_startup")},
+				workflows.MobileDeviceSemaphoreResumeDeviceRequest{
+					Reason: lifecycleReason(input.Reason, "runner_startup"),
+				},
 				nil,
 				lifecycleUpdateID("resume", deviceID, input.RequestID),
 			)
@@ -290,7 +295,9 @@ func applyRunnerHeartbeatDevices(
 			// variants; the record itself remains the source of truth for the
 			// ownership check performed by a heartbeat.
 			device, err := canonify.Resolve(txApp, identifier)
-			if err != nil || device == nil || device.Collection() == nil || device.Collection().Name != mobileDevicesCollection || device.GetString("runner") != currentRunner.Id {
+			if err != nil || device == nil || device.Collection() == nil ||
+				device.Collection().Name != mobileDevicesCollection ||
+				device.GetString("runner") != currentRunner.Id {
 				return fmt.Errorf("device_id %q does not belong to runner", report.DeviceID)
 			}
 			device.Set("online", report.Online)

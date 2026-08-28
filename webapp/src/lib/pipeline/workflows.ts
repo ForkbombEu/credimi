@@ -33,6 +33,7 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 		device_ids: string[];
 	};
 	report?: string;
+	fcaf_report?: string;
 	results?: Array<{
 		video: string;
 		screenshot: string;

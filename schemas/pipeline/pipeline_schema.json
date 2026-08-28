@@ -3,6 +3,9 @@
     "ActivityOptions": {
       "additionalProperties": false,
       "properties": {
+        "heartbeat_timeout": {
+          "type": "string"
+        },
         "retry_policy": {
           "additionalProperties": false,
           "properties": {
@@ -123,6 +126,12 @@
         "disable_android_play_store": {
           "type": "boolean"
         },
+        "fixture": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
         "global_device_id": {
           "type": "string"
         },
@@ -141,6 +150,9 @@
             "activity_options": {
               "additionalProperties": false,
               "properties": {
+                "heartbeat_timeout": {
+                  "type": "string"
+                },
                 "retry_policy": {
                   "additionalProperties": false,
                   "properties": {
@@ -767,6 +779,64 @@
                 "required": [
                   "recipient"
                 ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "fcaf-validation",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "catalog_root": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "pipeline_outputs": {
+                    "type": "object"
+                  },
+                  "runtime": {
+                    "type": "object"
+                  },
+                  "suite": {
+                    "type": "string"
+                  },
+                  "test_id": {
+                    "type": "string"
+                  },
+                  "test_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
                 "type": "object"
               }
             },

@@ -1,0 +1,82 @@
+name: FCAF DCQL union across multiple queries
+runtime: { global_device_id: forkbomb-bv-andrea/usb/device }
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/ui/presentations
+      expected_status: 200
+      headers: { Content-Type: application/json }
+      body:
+        type: vp_token
+        nonce: fcaf-014-claims-union
+        dcql_query:
+          credentials:
+            - { id: pid-name, format: dc+sd-jwt, meta: { vct_values: [urn:eudi:pid:1] }, claims: [{ path: [given_name] }] }
+            - { id: pid-address, format: dc+sd-jwt, meta: { vct_values: [urn:eudi:pid:1] }, claims: [{ path: [address] }] }
+  - id: present-union
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters: { CLIENT_ID: "${{ create-presentation.outputs.body.client_id }}", REQUEST_URI: "${{ create-presentation.outputs.body.request_uri }}" }
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+                - launchApp: { stopApp: true, clearState: false }
+        - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Welcome, .*", timeout: 30000 }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - inputText: "123456"
+              - tapOn: { point: "50%,10%" }
+        - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
+        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
+        - openLink: { link: ${output.authorizationRequest}, autoVerify: false, browser: false }
+        - runFlow:
+            when: { visible: "EUDI Wallet" }
+            commands: [{ tapOn: { text: "EUDI Wallet", optional: true } }]
+        - runFlow:
+            when: { visible: "Just once" }
+            commands: [{ tapOn: { text: "Just once", optional: true } }]
+        - extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,39%" }
+              - inputText: "123456"
+              - tapOn: { point: "50%,10%" }
+        - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+        - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+        - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
+        - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false }
+        - assertVisible: "Given Name(s)"
+        - assertVisible: "Address"
+        - takeScreenshot: fcaf-014-claims-union-request
+        - tapOn: "Share"
+        - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
+        - tapOn: { point: "11%,39%" }
+        - inputText: "123456"
+        - tapOn: { point: "50%,10%" }
+        - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
+        - takeScreenshot: fcaf-014-claims-union-shared
+        - tapOn: "Close"
+  - id: fetch-result
+    use: http-request
+    with: { method: GET, url: "${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}", expected_status: 200 }
+
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      test_ids:
+        - WS_RP_IA_MainInteraction__014
+      suite: wallet_solution/relying_party
+      pipeline_outputs:
+        pipeline.dcql.claims-union:
+          output:
+            dcql_exchange: ${{ fetch-result.outputs.body }}
+            visual_evidence: ${{ present-union.outputs.flow_output.maestro_screenshot_urls }}
+            create-presentation: ${{ create-presentation.outputs }}
+            present-union: ${{ present-union.outputs }}
+            fetch-result: ${{ fetch-result.outputs }}

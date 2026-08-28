@@ -1,0 +1,110 @@
+name: FCAF wallet relying-party DCQL trusted authorities no match
+runtime:
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+  - id: create-capture-session
+    use: http-request
+    with:
+      method: POST
+      url: https://capture-wallet.credimi.io/openid4vp/sessions
+      expected_status: 201
+      headers: { Content-Type: application/json }
+      body:
+        response_mode: direct_post
+        presentation_request:
+          nonce: fcaf-dcql-trusted-authorities-no-match
+          dcql_query:
+            credentials:
+              - id: pid_identity
+                format: dc+sd-jwt
+                meta: { vct_values: [urn:eudi:pid:1] }
+                claims: [{ path: [given_name] }]
+                trusted_authorities:
+                  # Valid base64url AuthorityKeyIdentifier that differs from the reference PID issuer.
+                  - { type: aki, values: [AAAAAAAAAAAAAAAAAAAAAAAAAAA] }
+  - id: present-with-reference-implementation
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        DEEPLINK: ${{ create-capture-session.outputs.body.deeplink }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+                - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
+        - extendedWaitUntil:
+            visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+            timeout: 30000
+        - runFlow:
+            when:
+              visible: "Welcome back"
+            commands:
+              - tapOn:
+                  point: "11%,40%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn: { point: "50%,10%" }
+        - extendedWaitUntil:
+            visible: "Home|Documents|Add document|Welcome, .*"
+            timeout: 30000
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+        - runFlow:
+            when:
+              visible: "EUDI Wallet"
+            commands:
+              - tapOn: { text: "EUDI Wallet", optional: true }
+        - runFlow:
+            when:
+              visible: "Just once"
+            commands:
+              - tapOn: { text: "Just once", optional: true }
+        - runFlow:
+            when:
+              visible: "Always"
+            commands:
+              - tapOn: { text: "Always", optional: true }
+        - extendedWaitUntil: { visible: "Welcome back|The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 100000 }
+        - runFlow:
+            when: { visible: "Welcome back" }
+            commands:
+              - tapOn: { point: "11%,40%" }
+              - inputText: "123456"
+              - tapOn: { point: "50%,10%" }
+        - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 30000 }
+        - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+        - takeScreenshot: fcaf-dcql-trusted-authorities-no-match
+        - runFlow:
+            when: { visible: "The requested document is not available in your EUDI Wallet.*" }
+            commands: [{ tapOn: "Go Back" }]
+        - runFlow:
+            when: { visible: "Cancel" }
+            commands: [{ tapOn: "Cancel" }]
+        - runFlow:
+            when: { visible: "Close" }
+            commands: [{ tapOn: "Close" }]
+  - id: get-capture-session
+    use: http-request
+    with:
+      method: GET
+      url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+      expected_status: 200
+
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      test_ids:
+        - WS_RP_IA_MainInteraction__004
+      suite: wallet_solution/relying_party
+      pipeline_outputs:
+        pipeline.dcql.trusted-authorities-no-match:
+          output:
+            dcql_exchange: ${{ get-capture-session.outputs.body }}
+            visual_evidence: ${{ present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls }}
+            create-capture-session: ${{ create-capture-session.outputs }}
+            present-with-reference-implementation: ${{ present-with-reference-implementation.outputs }}
+            get-capture-session: ${{ get-capture-session.outputs }}

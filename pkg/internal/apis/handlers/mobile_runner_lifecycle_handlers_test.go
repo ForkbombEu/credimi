@@ -248,7 +248,11 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 }
 
 func TestLifecycleUpdateIDUsesRequestID(t *testing.T) {
-	require.Equal(t, "resume/device-a/request-1", lifecycleUpdateID("resume", "device-a", "request-1"))
+	require.Equal(
+		t,
+		"resume/device-a/request-1",
+		lifecycleUpdateID("resume", "device-a", "request-1"),
+	)
 }
 
 func TestHandleMobileRunnerLifecycleHeartbeatRejectsEmptyDeviceID(t *testing.T) {
