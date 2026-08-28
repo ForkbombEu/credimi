@@ -14,14 +14,25 @@ normative_references:
       url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_personaladministrativenumber_pid_iso-mdoc_001
     - title: '"ANNEXES to the COMMISSION IMPLEMENTING REGULATION amending Implementing Regulation (EU) 2024/2977, (EU) 2024/2979, (EU) 2024/2980 and (EU) 2024/2982 as regards applicable standards and specifications and correcting Implementing Regulation (EU) 2024/2980" section 4.1 (Table 2).'
       url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_identifyingdata_personaladministrativenumber_pid_iso-mdoc_001
-preconditions:
-    - ref: pipeline.pid.presentation.mdoc.all-claims-elements
-    - ref: assertion.pid.presentation.mdoc.doc-type-pid
-    - ref: assertion.pid.presentation.mdoc.required-mandatory-elements-presented
 evidence:
     pid_mdoc:
         from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
 assertions:
+    - id: pid_mdoc_doc_type
+      validator: pid.mdoc_doc_type
+      input: evidence.pid_mdoc
+    - id: pid_mdoc_required_mandatory_elements_present
+      validator: pid.mdoc_required_mandatory_elements_present
+      input: evidence.pid_mdoc
+      params:
+        namespace: eu.europa.ec.eudi.pid.1
+        required_elements:
+          - family_name
+          - given_name
+          - birth_date
+          - expiry_date
+          - issuing_authority
+          - issuing_country
     - id: personal_administrative_number_present
       validator: mdoc.namespace_element_present
       input: evidence.pid_mdoc

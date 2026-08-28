@@ -663,11 +663,16 @@ func jwkVerificationKey(jwk map[string]any, algorithm string) (any, error) {
 		coordinateLength := (curve.Params().BitSize + 7) / 8
 		x, _ := decodeBase64URLMember(jwk, "x", coordinateLength)
 		y, _ := decodeBase64URLMember(jwk, "y", coordinateLength)
-		return &ecdsa.PublicKey{
-			Curve: curve,
-			X:     new(big.Int).SetBytes(x),
-			Y:     new(big.Int).SetBytes(y),
-		}, nil
+		point := append([]byte{4}, x...)
+		point = append(point, y...)
+		publicKey, err := ecdsa.ParseUncompressedPublicKey(curve, point)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"JWK EC coordinates do not form a valid public key on curve %q",
+				curveName,
+			)
+		}
+		return publicKey, nil
 	case "RSA":
 		if !strings.HasPrefix(algorithm, "RS") && !strings.HasPrefix(algorithm, "PS") {
 			return nil, fmt.Errorf("RSA key cannot verify algorithm %s", algorithm)
@@ -769,10 +774,8 @@ func validatePublicJWK(jwk map[string]any) error {
 		if err != nil {
 			return err
 		}
-		encodedPoint := make([]byte, 1+len(x)+len(y))
-		encodedPoint[0] = 4
-		copy(encodedPoint[1:], x)
-		copy(encodedPoint[1+len(x):], y)
+		encodedPoint := append([]byte{4}, x...)
+		encodedPoint = append(encodedPoint, y...)
 		if _, err := curve.ecdh.NewPublicKey(encodedPoint); err != nil {
 			return fmt.Errorf("JWK EC coordinates are not on curve %q", crv)
 		}
@@ -840,6 +843,13 @@ func sdjwtPresentation(value any) (*evidence.SDJWTPresentation, bool) {
 		return typed, typed != nil
 	case evidence.SDJWTPresentation:
 		return &typed, true
+	case string:
+		presentation, err := evidence.ParseSDJWTPresentation(typed)
+		if err == nil {
+			return presentation, true
+		}
+		presentation, err = evidence.ParseSDJWTVPTokenJSON(typed)
+		return presentation, err == nil
 	default:
 		return nil, false
 	}
@@ -866,6 +876,28 @@ func sdjwtPresentations(value any) ([]*evidence.SDJWTPresentation, bool) {
 			presentations[index] = &typed[index]
 		}
 		return presentations, true
+	case []any:
+		if len(typed) == 0 {
+			return nil, false
+		}
+		presentations := make([]*evidence.SDJWTPresentation, len(typed))
+		for index, raw := range typed {
+			encoded, ok := raw.(string)
+			if !ok {
+				return nil, false
+			}
+			presentation, err := evidence.ParseSDJWTPresentation(encoded)
+			if err != nil {
+				return nil, false
+			}
+			presentations[index] = presentation
+		}
+		return presentations, true
+	case string:
+		presentations, err := evidence.ParseSDJWTVPTokenPresentationsJSON(typed)
+		if err == nil && len(presentations) > 0 {
+			return presentations, true
+		}
 	default:
 		presentation, ok := sdjwtPresentation(value)
 		if !ok {
@@ -873,20 +905,15 @@ func sdjwtPresentations(value any) ([]*evidence.SDJWTPresentation, bool) {
 		}
 		return []*evidence.SDJWTPresentation{presentation}, true
 	}
+	return nil, false
 }
 
 func sdjwtProtectedHeaders(value any) (map[string]any, bool) {
-	switch typed := value.(type) {
-	case *evidence.SDJWTPresentation:
-		if typed == nil {
-			return nil, false
-		}
-		return typed.ProtectedHeaders, true
-	case evidence.SDJWTPresentation:
-		return typed.ProtectedHeaders, true
-	default:
+	presentation, ok := sdjwtPresentation(value)
+	if !ok {
 		return nil, false
 	}
+	return presentation.ProtectedHeaders, true
 }
 
 const pidSDJWTVCTPrefix = "urn:eudi:pid:"
@@ -969,21 +996,14 @@ func decodeClaimParam(params map[string]any) (string, error) {
 }
 
 func sdjwtClaim(value any, claim string) (any, bool) {
-	var claims map[string]any
-	switch typed := value.(type) {
-	case *evidence.SDJWTPresentation:
-		if typed == nil {
-			return nil, false
-		}
-		claims = typed.Claims
-	case evidence.SDJWTPresentation:
-		claims = typed.Claims
-	case map[string]any:
-		claims = typed
-	default:
+	if claims, ok := value.(map[string]any); ok {
+		return resolveObjectPath(claims, claim)
+	}
+	presentation, ok := sdjwtPresentation(value)
+	if !ok {
 		return nil, false
 	}
-	return resolveObjectPath(claims, claim)
+	return resolveObjectPath(presentation.Claims, claim)
 }
 
 func claimFromValue(value any, claim string) (any, bool) {

@@ -21,7 +21,6 @@ type Bundle struct {
 	Runner                      map[string]any `json:"runner,omitempty"`
 	Artifacts                   map[string]any `json:"artifacts,omitempty"`
 	PipelineOutputs             map[string]any `json:"pipeline_outputs,omitempty"`
-	Preconditions               map[string]any `json:"preconditions,omitempty"`
 	Runtime                     map[string]any `json:"runtime,omitempty"`
 	Extra                       map[string]any `json:"extra,omitempty"`
 }

@@ -19,15 +19,17 @@ normative_references:
   - title: SD-JWT-based Verifiable Credentials
     section: "3.2.2.2"
     url: https://datatracker.ietf.org/doc/html/draft-ietf-oauth-sd-jwt-vc
-preconditions:
-  - ref: pipeline.pid.presentation.sdjwt.all-claims
-  - ref: assertion.pid.presentation.sdjwt.vct-pid
 evidence:
+  pid_sdjwt:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
   pid_sdjwt_presentations:
     from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt_presentations
   visual_evidence:
     from: pipeline.pid.presentation.sdjwt.all-claims.outputs.visual_evidence
 assertions:
+  - id: pid_sdjwt_vct_pid
+    validator: pid.sdjwt_vct_pid
+    input: evidence.pid_sdjwt
   - id: credential_has_cryptographic_holder_binding
     validator: sdjwt.cnf_conforms
     input: evidence.pid_sdjwt_presentations

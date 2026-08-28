@@ -200,7 +200,7 @@ func extractCredentialEvidence(
 
 func isRetryableMetadataFetchError(err error) bool {
 	var networkErr net.Error
-	return errors.As(err, &networkErr) && (networkErr.Timeout() || networkErr.Temporary())
+	return errors.As(err, &networkErr)
 }
 
 func fetchIssuerMetadataWithRetry(

@@ -10,110 +10,38 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
-## Current repository state
+## Git state at handoff
 
-- Working branch: `fix/fcaf-improvments`.
-- Runnable catalog: 224 definitions directly under
-  `config_templates/fcaf/wallet_solution/relying_party/tests/`.
-- Pending implementation: 279 definitions under
-  `tests/_implementation/pending/`.
-- Verifier blocked: 56 definitions under
-  `tests/_implementation/verifier-blocked/`.
-- Total classified source definitions: 559.
-- The catalog loader skips `_implementation`; moving a file is therefore a
-  lifecycle change, not documentation only.
-- Runnable definitions must not use category-wide preconditions. Their pipeline
-  artifact must exist under `pipelines/` with the basename declared by
-  `pipeline_id`, because `selectionForFCAFTests` resolves that exact filename.
-- Non-runnable batches, preconditions and pipelines live under the relying-party
-  `_implementation/` tree and are not synchronized by the default CLI paths.
-- The verifier capability backlog and reactivation criteria are maintained in
-  `config_templates/fcaf/wallet_solution/relying_party/broken.md`.
-- `pkg/fcaf/implementation-inventory.csv` uses `🟢 ready`,
-  `⚪ pending implementation`, and `🟡 verifier blocked` for these states.
+- Repository: `/home/puria/src/github.com/ForkbombEu/credimi/PR/1295`
+- Detached HEAD: `54373c673c4d2e65118df2f77d32642dfba16e97`
+- Shared push target: `origin HEAD:feat/fcaf-test`
+- Worktree was clean before adding this memory and skill.
+- Catalog count: 182 tests after the uncommitted case 094 implementation.
 
-No SQLite database, WAL/SHM file, generated cache, or `types.d.ts` belongs in
-the runnable pipeline directory. Reusable YAML remains the source of truth.
+Recent commits:
+
+- `54373c67` case 089, missing trusted-authority type, plus `request_rejected` validator mode
+- `016077d6` case 088, unsupported trusted-authority type
+- `b9978313` case 087, repeated queries matching the same PID
+- `49822612` case 086
+- `031de948` case 085
+- `6c9d1fb9` case 084
+- `5e80ac16` case 083
+- `5821662d` case 082
+- `12c466dc` case 081
+- `d5c029ac` case 080
 
 ## Current scope
 
-Implement mandatory wallet-solution/relying-party tests one at a time. Skip
-TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests.
-Promote a pending or blocked definition only after its exact source scenario,
-raw evidence and expected result are independently proven.
+Implement mandatory wallet-solution/relying-party tests one at a time. Skip TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests. Keep reusable YAML in the repository, not SQLite.
 
-## Cases CredentialFormats 035 and 036
+## Aggregate validation architecture
 
-`WS_RP_MS_CredentialFormats__035` and `__036` use independent pipelines and
-preconditions. Case 035 sends exactly one `mso_mdoc` PID query through
-`pipeline.credential-formats.mdoc-presentation`; case 036 sends exactly one
-`dc+sd-jwt` PID query through
-`pipeline.credential-formats.sdjwt-presentation`.
+On 27/08/2026, maintainer removed legacy FCAF orchestration. `/api/fcaf/run`, assessment/precondition workflows, catalog precondition definitions, and `fcaf run --tests-file` must stay removed. Validators consume exact named aggregate pipeline outputs directly.
 
-Both tests require a non-empty response under the same DCQL query ID, decode
-the returned artifact in the requested format, validate the PID `docType` or
-`vct`, and require the two screenshots produced by the consent/share action.
-Their static validator, YAML and catalog checks pass. Reference-Wallet pipeline
-execution remains unverified until the mobile runner and Capture Wallet service
-are available in the same runtime.
+Maintain 112 evidence-producing source definitions under `config_templates/fcaf/wallet_solution/relying_party/scenarios/`. `make fcaf-generate` combines them into one deployable pipeline, prefixes scenario step IDs, continues after scenario failures, merges 115 exact evidence sources, and runs one final `fcaf-validation` over all 559 tests. `pipelines/` contains only this generated complete-validation pipeline, so sync/run creates one top-level FCAF execution.
 
-## Cases CredentialFormats 037 and 038
-
-`WS_RP_MS_CredentialFormats__037` composes the two independent presentation
-preconditions from cases 035 and 036. It requires successful ISO mdoc and IETF
-SD-JWT VC interactions, exact `mso_mdoc` and `dc+sd-jwt` request/response
-formats, decoded PID artifacts, and separate consent/share evidence for both
-interactions.
-
-`WS_RP_MS_CredentialFormats__038` reuses
-`pipeline.wallet.protocol.request-object-by-value`. It proves the signed
-Authorization Request contains `response_type: vp_token`, the Wallet response
-contains `vp_token`, and the interaction records both consent and successful
-sharing. The shared action now captures the consent screen before selecting
-Share in addition to its existing success screenshot.
-
-Static YAML and catalog validation pass. Reference-Wallet pipeline execution
-remains unverified until the mobile runner and verifier services are available
-in the same runtime.
-
-## Cases CredentialFormats 039, 040 and 045
-
-`WS_RP_MS_CredentialFormats__039` and `__040` use independent Capture Wallet
-pipelines so their Authorization Requests contain exactly `response_type:
-vp_token id_token` and `response_type: code`, respectively. The dedicated
-`oid4vp.unsupported_response_type_handled` validator rejects a mismatched or
-missing request value and any returned `vp_token`. It accepts only the three
-source-permitted outcomes: a non-empty Wallet error (including the detailed
-`unsupported_response_type` value), an unspecified non-empty error, or no
-submitted Wallet response after the mobile interaction. Visual evidence is a
-separate mandatory assertion.
-
-`WS_RP_MS_CredentialFormats__045` reuses the successful PID SD-JWT VC
-presentation. It verifies the exact `dc+sd-jwt` request and response mapping,
-the PID VCT, the RFC 9901 tilde-delimited compact serialization with a final
-KB-JWT, a structurally valid KB-JWT, and consent/share screenshots.
-
-Static validator, YAML and catalog checks pass. Reference-Wallet execution
-remains unverified until the mobile runner and Capture Wallet service are
-available in the same runtime.
-
-## Cases Metadata 105–109
-
-`WS_RP_MS_Metadata__108` reuses
-`pipeline.wallet.protocol.request-object-by-value`. Its dedicated validator
-requires a non-empty `client_metadata` object with a non-empty
-`vp_formats_supported` object and rejects every metadata field duplicated at
-the Authorization Request top level. Separate assertions require a returned
-`vp_token` and the consent/success screenshots, proving that the Wallet
-processed the request and completed the flow.
-
-Cases 105, 106, 107 and 109 are verifier blocked. Live Capture Wallet probes
-on 26/08/2026 showed that it replaces caller-supplied `client_metadata` with a
-canonical object. This strips 105's unknown field, repairs 106's malformed
-value, removes 109's outside/inside metadata conflict, and prevents 107 from
-omitting `client_metadata`. The service does capture a Request URI POST and its
-`wallet_metadata`, but that alone does not satisfy 107's missing-metadata
-precondition.
+Every test has exactly one scenario owner. Do not restore sole-output fallback: one wallet interaction must never stand in for incompatible scenarios. A complete run may still contain many sequential wallet interactions. Mock-verifier-blocked tests must report blocked/failed from missing real evidence, never synthetic conformance passes.
 
 ## Case 087
 
@@ -174,23 +102,10 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
-Continue after the CredentialFormats and Metadata prerequisite gaps. Case 041 needs three
-ISO mdoc presentations mapped to three distinct DCQL query IDs; the current
-fixtures expose only one PID mdoc document type, so three equivalent queries
-must not be treated as several mdocs. Case 044 needs an issued SD-JWT VC whose
-`status` claim contains `status_list`. Case 046 needs an issuer/profile that
-produces compact SD-JWT VC presentations without key binding. Case 048 applies
-only to a Wallet and Credential profile that require JSON serialization, and
-needs both that declared profile state and raw JSON-serialized presentation
-evidence. Keep all four pending until those prerequisites are real.
-
-Metadata cases 105–107 and 109 need per-session control over canonical,
-malformed, omitted, and conflicting `client_metadata`; keep them verifier
-blocked until the signed Request Object preserves those exact shapes.
-
-Case 119 duplicates case 114; cases 120-146 and 153-159 are intentionally
-skipped where the required raw request, transaction-data fixture, or
-configurable verifier response cannot be produced by the public service.
+`WS_RP_SM_DeviceBinding__008` is the next runnable mandatory candidate. Case
+119 duplicates case 114; cases 120-146 and 153-159 are intentionally skipped
+where the required raw request, transaction-data fixture, or configurable
+verifier response cannot be produced by the public service.
 
 ## Mock-verifier skip queue
 

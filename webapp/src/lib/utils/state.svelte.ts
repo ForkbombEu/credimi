@@ -4,7 +4,7 @@
 
 import { onMount } from 'svelte';
 
-import { activeSheet } from './sheet-state.svelte';
+import { activeSheet } from './sheet-state.svelte.js';
 
 //
 

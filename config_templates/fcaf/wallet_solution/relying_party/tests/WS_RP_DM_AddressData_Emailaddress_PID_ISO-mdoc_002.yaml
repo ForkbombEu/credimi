@@ -16,15 +16,25 @@ normative_references:
       url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_emailaddress_pid_iso-mdoc_002
     - title: RFC 7049 section 2.1
       url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_emailaddress_pid_iso-mdoc_002
-preconditions:
-    - ref: pipeline.pid.presentation.mdoc.all-claims-elements
-    - ref: assertion.pid.presentation.mdoc.doc-type-pid
-    - ref: assertion.pid.presentation.mdoc.required-mandatory-elements-presented
-    - ref: test.WS_RP_DM_AddressData_Emailaddress_PID_ISO-mdoc_001
 evidence:
     pid_mdoc:
         from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
 assertions:
+    - id: pid_mdoc_doc_type
+      validator: pid.mdoc_doc_type
+      input: evidence.pid_mdoc
+    - id: pid_mdoc_required_mandatory_elements_present
+      validator: pid.mdoc_required_mandatory_elements_present
+      input: evidence.pid_mdoc
+      params:
+        namespace: eu.europa.ec.eudi.pid.1
+        required_elements:
+          - family_name
+          - given_name
+          - birth_date
+          - expiry_date
+          - issuing_authority
+          - issuing_country
     - id: email_address_utf8
       validator: mdoc.element_utf8_string
       input: evidence.pid_mdoc

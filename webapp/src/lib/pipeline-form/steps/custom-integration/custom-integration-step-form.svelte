@@ -9,7 +9,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { userOrganization } from '$lib/app-state';
 	import { entities } from '$lib/global/entities';
-	import { ItemCard, StepCollectionPicker, WithLabel } from '$pipeline-form/steps/_partials/index.js';
+	import {
+		ItemCard,
+		StepCollectionPicker,
+		WithLabel
+	} from '$pipeline-form/steps/_partials/index.js';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 	import type { CustomChecksResponse } from '@/pocketbase/types';

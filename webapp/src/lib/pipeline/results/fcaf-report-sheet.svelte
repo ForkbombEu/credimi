@@ -8,12 +8,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { ExternalLinkIcon } from '@lucide/svelte';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import { activeSheet } from '$lib/utils/sheet-state.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
+
+	import type { GenericRecord } from '@/utils/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
-	import { activeSheet } from '$lib/utils/sheet-state.svelte';
-	import type { GenericRecord } from '@/utils/types';
 
 	type Props = {
 		reportUrl: string | undefined;
@@ -75,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	function uniqueScreenshots(screenshots: Screenshot[]): Screenshot[] {
-		const seen = new Set<string>();
+		const seen = new SvelteSet<string>();
 		return screenshots.filter((screenshot) => {
 			const key = screenshot.label.toLowerCase();
 			if (seen.has(key)) return false;
@@ -178,10 +180,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if report}
 						{@const evidenceScreenshots = evidenceScreenshotUrls(report)}
 						{@const allScreenshots = uniqueScreenshots(
-							[...new Set([...maestroScreenshotUrls, ...evidenceScreenshots])].map((url) => ({
-								url,
-								label: screenshotLabel(url)
-							}))
+							[...new Set([...maestroScreenshotUrls, ...evidenceScreenshots])].map(
+								(url) => ({
+									url,
+									label: screenshotLabel(url)
+								})
+							)
 						)}
 						{@const unassignedScreenshots = screenshotsWithoutTest(
 							allScreenshots,
@@ -197,9 +201,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</div>
 
 						{#if report.summary}
-							{@const entries = Object.entries(report.summary).filter(([, c]) => c > 0)}
+							{@const entries = Object.entries(report.summary).filter(
+								([, c]) => c > 0
+							)}
 							<div class="flex flex-wrap items-center gap-1.5">
-								<span class="text-xs font-medium text-muted-foreground">Filter:</span>
+								<span class="text-xs font-medium text-muted-foreground"
+									>Filter:</span
+								>
 								<button
 									class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors
 									{selectedFilter === 'all'
@@ -209,7 +217,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								>
 									All ({report.executed_tests?.length ?? 0})
 								</button>
-								{#each entries as [label, count]}
+								{#each entries as [label, count] (label)}
 									{@const dot =
 										label === 'pass'
 											? 'bg-green-600'
@@ -221,9 +229,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										{selectedFilter === label
 											? 'bg-primary text-primary-foreground'
 											: 'border bg-muted/50 text-muted-foreground hover:bg-muted'}"
-										onclick={() => (selectedFilter = selectedFilter === label ? 'all' : label)}
+										onclick={() =>
+											(selectedFilter =
+												selectedFilter === label ? 'all' : label)}
 									>
-										<span class="inline-block size-2 rounded-full {dot}" aria-hidden="true"></span>
+										<span
+											class="inline-block size-2 rounded-full {dot}"
+											aria-hidden="true"
+										></span>
 										{label} ({count})
 									</button>
 								{/each}
@@ -231,113 +244,137 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/if}
 
 						{@const filteredTests = (report.executed_tests ?? []).filter(
-								(t) => selectedFilter === 'all' || (t.status ?? '').startsWith(selectedFilter)
-							)}
-							{@const grouped = filteredTests.reduce((acc, t) => { const key = icsFromTestId(t.test_id); (acc[key] ??= []).push(t); return acc; }, {} as Record<string, TestResult[]>)}
-							<div class="space-y-6">
-								{#each Object.entries(grouped) as [ics, tests]}
-									{@const icsPassed = (tests ?? []).filter((t) => (t.status ?? '').startsWith('pass')).length}
-									{@const icsTotal = (tests ?? []).length}
-									<section>
-										<div class="mb-2 flex items-baseline gap-2">
-											<h3 class="text-sm font-semibold font-mono break-all">
-												{ics}
-											</h3>
-											<span class="text-xs text-muted-foreground">
-												{icsPassed}/{icsTotal} passed
-											</span>
-										</div>
-										<div class="space-y-3">
-											{#each tests ?? [] as test (test.test_id)}
-												{@const testScreenshots = screenshotsForTest(allScreenshots, test)}
-												<div class="rounded border p-4">
-													<div class="flex items-start justify-between gap-4">
-														<div>
-															<div class="font-medium">
-																{test.title ?? test.test_id}
+							(t) =>
+								selectedFilter === 'all' ||
+								(t.status ?? '').startsWith(selectedFilter)
+						)}
+						{@const grouped = filteredTests.reduce(
+							(acc, t) => {
+								const key = icsFromTestId(t.test_id);
+								(acc[key] ??= []).push(t);
+								return acc;
+							},
+							{} as Record<string, TestResult[]>
+						)}
+						<div class="space-y-6">
+							{#each Object.entries(grouped) as [ics, tests] (ics)}
+								{@const icsPassed = (tests ?? []).filter((t) =>
+									(t.status ?? '').startsWith('pass')
+								).length}
+								{@const icsTotal = (tests ?? []).length}
+								<section>
+									<div class="mb-2 flex items-baseline gap-2">
+										<h3 class="font-mono text-sm font-semibold break-all">
+											{ics}
+										</h3>
+										<span class="text-xs text-muted-foreground">
+											{icsPassed}/{icsTotal} passed
+										</span>
+									</div>
+									<div class="space-y-3">
+										{#each tests ?? [] as test (test.test_id)}
+											{@const testScreenshots = screenshotsForTest(
+												allScreenshots,
+												test
+											)}
+											<div class="rounded border p-4">
+												<div class="flex items-start justify-between gap-4">
+													<div>
+														<div class="font-medium">
+															{test.title ?? test.test_id}
+														</div>
+														{#if fcafSourceUrl(test.test_id)}
+															<a
+																href={fcafSourceUrl(test.test_id)}
+																target="_blank"
+																rel="noreferrer"
+																class="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
+															>
+																<code>{test.test_id}</code>
+																<ExternalLinkIcon class="size-3" />
+															</a>
+														{:else}
+															<code
+																class="text-xs text-muted-foreground"
+																>{test.test_id}</code
+															>
+														{/if}
+													</div>
+													<strong class={statusClass(test.status)}
+														>{test.status ?? 'unknown'}</strong
+													>
+												</div>
+												{#if test.assertions?.length || test.validators?.length}
+													<div
+														class="mt-3 space-y-2 border-t pt-3 text-sm"
+													>
+														{#each test.validators ?? test.assertions ?? [] as validator (validator.id)}
+															<div class="flex justify-between gap-3">
+																<span
+																	>{validator.validator ??
+																		validator.id}</span
+																>
+																<strong
+																	class={statusClass(
+																		validator.status
+																	)}
+																	>{validator.status ??
+																		'unknown'}</strong
+																>
 															</div>
-															{#if fcafSourceUrl(test.test_id)}
+															{#if validator.message}<div
+																	class="text-xs text-muted-foreground"
+																>
+																	{validator.message}
+																</div>{/if}
+														{/each}
+													</div>
+												{/if}
+												{#if testScreenshots.length}
+													<div class="mt-4 space-y-2 border-t pt-3">
+														<div
+															class="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+														>
+															Visual evidence
+														</div>
+														<div
+															class="grid grid-cols-2 gap-2 sm:grid-cols-4"
+														>
+															{#each testScreenshots as screenshot (screenshot.url)}
 																<a
-																	href={fcafSourceUrl(test.test_id)}
+																	href={screenshot.url}
 																	target="_blank"
 																	rel="noreferrer"
-																	class="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
+																	class="block overflow-hidden rounded border bg-muted/20"
 																>
-																	<code>{test.test_id}</code>
-																	<ExternalLinkIcon class="size-3" />
+																	<img
+																		src={screenshot.url}
+																		alt={screenshot.label}
+																		class="aspect-video h-auto w-full object-contain"
+																		loading="lazy"
+																	/>
+																	<div
+																		class="px-2 py-1 text-xs break-all text-muted-foreground"
+																	>
+																		{screenshot.label}
+																	</div>
 																</a>
-															{:else}
-																<code class="text-xs text-muted-foreground"
-																	>{test.test_id}</code
-																>
-															{/if}
-														</div>
-														<strong class={statusClass(test.status)}
-															>{test.status ?? 'unknown'}</strong
-														>
-													</div>
-													{#if test.assertions?.length || test.validators?.length}
-														<div class="mt-3 space-y-2 border-t pt-3 text-sm">
-															{#each test.validators ?? test.assertions ?? [] as validator (validator.id)}
-																<div class="flex justify-between gap-3">
-																	<span
-																		>{validator.validator ?? validator.id}</span
-																	>
-																	<strong class={statusClass(validator.status)}
-																		>{validator.status ?? 'unknown'}</strong
-																	>
-																</div>
-																{#if validator.message}<div
-																		class="text-xs text-muted-foreground"
-																	>
-																		{validator.message}
-																	</div>{/if}
 															{/each}
 														</div>
-													{/if}
-													{#if testScreenshots.length}
-														<div class="mt-4 space-y-2 border-t pt-3">
-															<div
-																class="text-xs font-medium tracking-wide text-muted-foreground uppercase"
-															>
-																Visual evidence
-															</div>
-															<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-																{#each testScreenshots as screenshot}
-																	<a
-																		href={screenshot.url}
-																		target="_blank"
-																		rel="noreferrer"
-																		class="block overflow-hidden rounded border bg-muted/20"
-																	>
-																		<img
-																			src={screenshot.url}
-																			alt={screenshot.label}
-																			class="aspect-video h-auto w-full object-contain"
-																			loading="lazy"
-																		/>
-																		<div
-																			class="break-all px-2 py-1 text-xs text-muted-foreground"
-																		>
-																			{screenshot.label}
-																		</div>
-																	</a>
-																{/each}
-															</div>
-														</div>
-													{/if}
-												</div>
-											{/each}
-										</div>
-									</section>
-								{/each}
-							</div>
+													</div>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</section>
+							{/each}
+						</div>
 
 						{#if unassignedScreenshots.length}
 							<div class="space-y-3 border-t pt-4">
 								<h3 class="font-medium">Other visual evidence</h3>
 								<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-									{#each unassignedScreenshots as screenshot}
+									{#each unassignedScreenshots as screenshot (screenshot.url)}
 										<a
 											href={screenshot.url}
 											target="_blank"
@@ -351,7 +388,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 												loading="lazy"
 											/>
 											<div
-												class="break-all px-2 py-1 text-xs text-muted-foreground"
+												class="px-2 py-1 text-xs break-all text-muted-foreground"
 											>
 												{screenshot.label}
 											</div>
@@ -364,7 +401,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const checkedDeeplink = evidenceDeeplink(report.evidence)}
 						{#if checkedDeeplink}
 							<details>
-								<summary class="cursor-pointer text-sm font-medium">Checked deeplink</summary>
+								<summary class="cursor-pointer text-sm font-medium"
+									>Checked deeplink</summary
+								>
 								<div class="mt-2">
 									<code
 										class="block overflow-x-auto rounded border bg-muted/20 p-3 text-xs whitespace-nowrap"
@@ -377,7 +416,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 						<div class="flex flex-wrap items-center gap-2">
 							<details class="w-full">
-								<summary class="cursor-pointer text-sm font-medium">View raw JSON</summary>
+								<summary class="cursor-pointer text-sm font-medium"
+									>View raw JSON</summary
+								>
 								<div class="mt-2 max-h-96 overflow-auto">
 									<CodeDisplay
 										content={JSON.stringify(report, null, 2)}

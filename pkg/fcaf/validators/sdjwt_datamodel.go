@@ -11,8 +11,6 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 )
 
 var domesticNamespacePattern = regexp.MustCompile(
@@ -539,19 +537,14 @@ func sdjwtObjectClaim(value any, claim string) (map[string]any, *Result) {
 }
 
 func sdjwtClaims(value any) (map[string]any, bool) {
-	switch typed := value.(type) {
-	case *evidence.SDJWTPresentation:
-		if typed == nil {
-			return nil, false
-		}
-		return typed.Claims, true
-	case evidence.SDJWTPresentation:
-		return typed.Claims, true
-	case map[string]any:
-		return typed, true
-	default:
+	if claims, ok := value.(map[string]any); ok {
+		return claims, true
+	}
+	presentation, ok := sdjwtPresentation(value)
+	if !ok {
 		return nil, false
 	}
+	return presentation.Claims, true
 }
 
 func missingClaim(claim string) Result {

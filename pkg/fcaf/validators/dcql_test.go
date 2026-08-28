@@ -154,7 +154,10 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			mode: "credential_sets_required_optional",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credentials": []any{validSDJWTCredentialQuery("available"), validSDJWTCredentialQuery("unavailable")},
+					"credentials": []any{
+						validSDJWTCredentialQuery("available"),
+						validSDJWTCredentialQuery("unavailable"),
+					},
 					"credential_sets": []any{
 						map[string]any{"required": true, "options": []any{[]any{"available"}}},
 						map[string]any{"required": false, "options": []any{[]any{"unavailable"}}},
@@ -169,7 +172,10 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			mode: "credential_sets_single_available_option",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credentials":     []any{validSDJWTCredentialQuery("available"), validSDJWTCredentialQuery("unavailable")},
+					"credentials": []any{
+						validSDJWTCredentialQuery("available"),
+						validSDJWTCredentialQuery("unavailable"),
+					},
 					"credential_sets": []any{map[string]any{"options": []any{[]any{"available"}}}},
 				},
 				"vp_token": map[string]any{"available": []any{"presentation"}},
@@ -181,8 +187,13 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			mode: "credential_sets_combined_option_no_match",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credentials":     []any{validSDJWTCredentialQuery("available"), validSDJWTCredentialQuery("unavailable")},
-					"credential_sets": []any{map[string]any{"options": []any{[]any{"available", "unavailable"}}}},
+					"credentials": []any{
+						validSDJWTCredentialQuery("available"),
+						validSDJWTCredentialQuery("unavailable"),
+					},
+					"credential_sets": []any{
+						map[string]any{"options": []any{[]any{"available", "unavailable"}}},
+					},
 				},
 			},
 			status: StatusPass,
@@ -1700,7 +1711,9 @@ func TestDCQLWithoutClaimDisclosures(t *testing.T) {
 	withDisclosure := validator.Validate(context.Background(), Input{
 		Value: map[string]any{
 			"dcql_query": map[string]any{"credentials": []any{credential}},
-			"vp_token":   map[string]any{"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})}},
+			"vp_token": map[string]any{
+				"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})},
+			},
 		},
 		Params: map[string]any{"mode": "without_claim_disclosures"},
 	})
@@ -1718,16 +1731,22 @@ func TestDCQLClaimSetsSelection(t *testing.T) {
 	credential["claim_sets"] = []any{[]any{"first"}, []any{"second"}, []any{"third"}}
 	evidence := map[string]any{
 		"dcql_query": map[string]any{"credentials": []any{credential}},
-		"vp_token":   map[string]any{"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})}},
+		"vp_token": map[string]any{
+			"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})},
+		},
 	}
 	result := validator.Validate(context.Background(), Input{
-		Value: evidence, Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+		Value:  evidence,
+		Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
 	})
 	require.Equal(t, StatusPass, result.Status)
 
-	evidence["vp_token"] = map[string]any{"pid": []any{testSDJWTPresentation(map[string]any{"family_name": "Smith"})}}
+	evidence["vp_token"] = map[string]any{
+		"pid": []any{testSDJWTPresentation(map[string]any{"family_name": "Smith"})},
+	}
 	result = validator.Validate(context.Background(), Input{
-		Value: evidence, Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+		Value:  evidence,
+		Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
 	})
 	require.Equal(t, StatusFail, result.Status)
 

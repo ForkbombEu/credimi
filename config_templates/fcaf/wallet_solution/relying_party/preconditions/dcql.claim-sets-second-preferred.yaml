@@ -1,9 +1,0 @@
-id: pipeline.dcql.claim-sets-second-preferred
-kind: pipeline
-description: Present the earliest satisfiable DCQL claim_sets option after an unavailable first option.
-pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-claim-sets-second-preferred
-required_steps: [present-second-preferred-option, fetch-result]
-outputs:
-  dcql_exchange: { path: $.output.fetch-result.body, decoder: raw }
-  visual_evidence: { path: $.output.present-second-preferred-option.flow_output.maestro_screenshot_urls, decoder: raw }
-failure_policy: fail_dependent_preconditions_and_tests

@@ -7,10 +7,12 @@ package catalog
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/validators"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoadTestsByID(t *testing.T) {
@@ -44,57 +46,97 @@ func TestLoadTestsSkipsImplementationFolder(t *testing.T) {
 	require.Len(t, tests, 1)
 }
 
-func TestLoadPreconditions(t *testing.T) {
-	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "pre.yaml"), `
-id: pipeline.pre-1
-kind: pipeline
-pipeline_id: org/pipeline
-outputs:
-  decoded_sdjwt:
-    path: $.decoded
-`)
-
-	preconditions, err := LoadPreconditions(root)
-
-	require.NoError(t, err)
-	require.Contains(t, preconditions, "pipeline.pre-1")
-}
-
 func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 	cat, err := Load("../../../config_templates/fcaf/wallet_solution/relying_party")
 
 	require.NoError(t, err)
-	require.Len(t, cat.Tests, 231)
-	require.NotContains(t, cat.Tests, "WS_RP_MS_ProtocolMessages__002")
-	require.NotContains(t, cat.Tests, "WS_RP_SM_DeviceBinding__002")
-	require.Contains(t, cat.Preconditions, "pipeline.pid.presentation.sdjwt.all-claims")
-	require.Contains(t, cat.Preconditions, "pipeline.pid.presentation.mdoc.all-claims-elements")
-	require.Contains(
-		t,
-		cat.Preconditions,
-		"assertion.pid.presentation.sdjwt.required-mandatory-claims-presented",
-	)
+	require.Len(t, cat.Tests, 559)
 
 	registry, err := validators.DefaultRegistry()
 	require.NoError(t, err)
 	for id, test := range cat.Tests {
+		for name, binding := range test.Evidence {
+			require.Containsf(t, binding.From, ".outputs.", "%s evidence %s", id, name)
+		}
 		for _, assertion := range test.Assertions {
 			_, exists := registry.Get(assertion.Validator)
 			require.Truef(t, exists, "%s references unknown validator %s", id, assertion.Validator)
 		}
 	}
-	for id, precondition := range cat.Preconditions {
-		if precondition.Kind != "assertion" {
-			continue
-		}
-		_, exists := registry.Get(precondition.Validator)
-		require.Truef(t, exists, "%s references unknown validator %s", id, precondition.Validator)
-	}
 
 	selected, err := cat.ResolveSelectedTests(nil, "wallet_solution/relying_party", nil)
 	require.NoError(t, err)
-	require.Len(t, selected, 231)
+	require.Len(t, selected, 559)
+}
+
+func TestEmbeddedValidationStepsExposeDirectTestEvidence(t *testing.T) {
+	catalogRoot := "../../../config_templates/fcaf/wallet_solution/relying_party"
+	cat, err := Load(catalogRoot)
+	require.NoError(t, err)
+
+	type validationStep struct {
+		Use  string `yaml:"use"`
+		With struct {
+			TestID          string   `yaml:"test_id"`
+			TestIDs         []string `yaml:"test_ids"`
+			PipelineOutputs map[string]struct {
+				Output map[string]any `yaml:"output"`
+			} `yaml:"pipeline_outputs"`
+		} `yaml:"with"`
+	}
+	var definitions struct {
+		Steps []validationStep `yaml:"steps"`
+	}
+
+	paths, err := filepath.Glob(filepath.Join(catalogRoot, "pipelines", "*.yaml"))
+	require.NoError(t, err)
+	validationSteps := 0
+	for _, path := range paths {
+		data, readErr := os.ReadFile(path)
+		require.NoError(t, readErr)
+		definitions.Steps = nil
+		require.NoError(t, yaml.Unmarshal(data, &definitions), path)
+		for _, step := range definitions.Steps {
+			if step.Use != "fcaf-validation" {
+				continue
+			}
+			validationSteps++
+			testIDs := append([]string(nil), step.With.TestIDs...)
+			if step.With.TestID != "" {
+				testIDs = append(testIDs, step.With.TestID)
+			}
+			for _, testID := range testIDs {
+				test, exists := cat.Tests[testID]
+				require.Truef(t, exists, "%s references unknown test %s", path, testID)
+				for name, binding := range test.Evidence {
+					parts := strings.SplitN(binding.From, ".outputs.", 2)
+					require.Lenf(t, parts, 2, "%s evidence %s", testID, name)
+					pipeline, exists := step.With.PipelineOutputs[parts[0]]
+					require.Truef(
+						t,
+						exists,
+						"%s does not expose source %s required by %s evidence %s",
+						path,
+						parts[0],
+						testID,
+						name,
+					)
+					_, exists = pipeline.Output[parts[1]]
+					require.Truef(
+						t,
+						exists,
+						"%s source %s does not expose %s required by %s evidence %s",
+						path,
+						parts[0],
+						parts[1],
+						testID,
+						name,
+					)
+				}
+			}
+		}
+	}
+	require.Positive(t, validationSteps)
 }
 
 func writeTestFile(t *testing.T, path string, content string) {
@@ -117,8 +159,9 @@ applicability:
   credential_format: sd-jwt-vc
 normative_references:
   - title: reference
-preconditions:
-  - ref: pipeline.pre-1
+evidence:
+  decoded_sdjwt:
+    from: pipeline.pid.outputs.decoded_sdjwt
 assertions:
   - id: claim-present
     validator: evidence.present

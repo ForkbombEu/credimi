@@ -15,16 +15,13 @@ normative_references:
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
   - title: OpenID4VP High Assurance Interoperability Profile 1.0
     url: https://openid.net/specs/openid4vp-high-assurance-interoperability-profile-1_0.html
-preconditions:
-  - ref: pipeline.dcql.valid-id-alphanumeric
-  - ref: pipeline.dcql.format-mso-mdoc
 evidence:
   sdjwt_exchange:
-    from: pipeline.dcql.valid-id-alphanumeric.outputs.dcql_exchange
+    from: pipeline.dcql.format-mso-mdoc.outputs.dcql_exchange
   mdoc_exchange:
     from: pipeline.dcql.format-mso-mdoc.outputs.dcql_exchange
   sdjwt_visual_evidence:
-    from: pipeline.dcql.valid-id-alphanumeric.outputs.visual_evidence
+    from: pipeline.dcql.format-mso-mdoc.outputs.visual_evidence
   mdoc_visual_evidence:
     from: pipeline.dcql.format-mso-mdoc.outputs.visual_evidence
 assertions:

@@ -1,0 +1,77 @@
+name: 'FCAF ProtocolMessages 156: Out-of-range transaction_data field causes error'
+runtime:
+  global_runner_id: forkbomb-bv-andrea/usb
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: create-capture-session
+  use: http-request
+  with:
+    method: POST
+    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-156
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+          transaction_data:
+          - type: supported_type
+            data: dGVzdA==
+            amount: -1
+- id: exercise-wallet
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters:
+      DEEPLINK: ${{ create-capture-session.outputs.body.deeplink }}
+    action_code: "appId: eu.europa.ec.euidi\n---\n- launchApp:\n    stopApp: true\n    clearState:\
+      \ false\n    permissions:\n      camera: allow\n      notifications: allow\n      all: unset\n- extendedWaitUntil:\n\
+      \    visible: \"Welcome back|Home|Documents|Add document|Welcome, .*\"\n    timeout: 30000\n- runFlow:\n    when:\n\
+      \      visible: \"Welcome back\"\n    commands:\n      - tapOn:\n          point: \"11%,40%\"\n      - inputText: \"\
+      123456\"\n      - hideKeyboard\n      - tapOn:\n          point: \"50%,10%\"\n- extendedWaitUntil:\n    visible: \"\
+      Home|Documents|Add document|Welcome, .*\"\n    timeout: 30000\n- openLink:\n    link: \"${DEEPLINK}\"\n    autoVerify:\
+      \ false\n    browser: false\n- runFlow:\n    when:\n      visible: \"EUDI Wallet\"\n    commands:\n      - tapOn:\n\
+      \          text: \"EUDI Wallet\"\n          optional: true\n- runFlow:\n    when:\n      visible: \"Just once\"\n  \
+      \  commands:\n      - tapOn:\n          text: \"Just once\"\n          optional: true\n- runFlow:\n    when:\n     \
+      \ visible: \"Always\"\n    commands:\n      - tapOn:\n          text: \"Always\"\n          optional: true\n- extendedWaitUntil:\n\
+      \    visible: \"Welcome back|Error|invalid request|Something went wrong|DATA SHARING REQUEST\"\n    timeout: 100000\n\
+      - runFlow:\n    when:\n      visible: \"DATA SHARING REQUEST\"\n    commands:\n      - tapOn: \"Share\"\n      - extendedWaitUntil:\n\
+      \          visible: \"PIN\"\n          timeout: 30000\n      - tapOn:\n          point: \"11%,39%\"\n      - inputText:\
+      \ \"123456\"\n      - tapOn:\n          point: \"50%,10%\"\n      - extendedWaitUntil:\n          visible: \".*successfully\
+      \ shared.*|Welcome back\"\n          timeout: 30000\n- runFlow:\n    when:\n      visible: \"Welcome back\"\n    commands:\n\
+      \      - tapOn:\n          point: \"11%,40%\"\n      - inputText: \"123456\"\n- extendedWaitUntil:\n    visible: \"\
+      Error|invalid request|Something went wrong|Home|Documents\"\n    timeout: 30000\n- takeScreenshot: protocol-messages-156\n\
+      - back"
+- id: fetch-capture-session
+  use: http-request
+  with:
+    method: GET
+    url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+      - WS_RP_MS_ProtocolMessages__156
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.protocol-messages-156:
+        output:
+          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

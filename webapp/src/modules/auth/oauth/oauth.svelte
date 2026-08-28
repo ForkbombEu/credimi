@@ -29,7 +29,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		captchaToken?: string;
 	};
 
-	const { hideOr = false, requireCaptcha = false, captchaToken: providedCaptchaToken }: Props = $props();
+	const {
+		hideOr = false,
+		requireCaptcha = false,
+		captchaToken: providedCaptchaToken
+	}: Props = $props();
 
 	//
 

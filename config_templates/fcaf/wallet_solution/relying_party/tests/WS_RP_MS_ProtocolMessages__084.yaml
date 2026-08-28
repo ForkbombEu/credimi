@@ -13,8 +13,6 @@ normative_references:
   - title: OpenID for Verifiable Presentations 1.0
     section: "6.1, 8.5"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-preconditions:
-  - ref: pipeline.dcql.claims-non-array
 evidence:
   null_value: { from: pipeline.dcql.claims-non-array.outputs.null_value }
   true_value: { from: pipeline.dcql.claims-non-array.outputs.true_value }

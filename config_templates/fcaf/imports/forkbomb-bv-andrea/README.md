@@ -6,37 +6,29 @@ wallet-solution relying-party definitions for the canonified organization
 
 ## Contents
 
-- `pipelines/`: 59 FCAF pipeline YAMLs plus the public PID acquisition pipeline
-  exported from Credimi. Their filenames are the
-  canonified pipeline names after the organization prefix.
-- `wallet/`: reusable Maestro wallet flows used by those pipelines:
+- `wallet/`: reusable Maestro wallet flows used by the FCAF scenarios:
   `onboarding.yaml`, `unlock-wallet.yaml`, `choose-eudi-wallet.yaml`, the PID
   acquisition flows, and the PID presentation flows.
 - `wallet-actions.yaml`: portable Wallet actions import manifest. It maps each
   action's name, category, tags, and separate Maestro YAML file to the target
   wallet and version.
 - `credential-issuers/`: portable credential issuer records required by FCAF
-  preconditions.
+  scenarios.
 - `credentials/`: portable credential definitions grouped by their canonified
   issuer name. The credential's `yaml` field remains the executable source used
   by the `credential-offer` pipeline step.
 
-The source inventory contains 60 distinct pipeline IDs. The PID precondition
-is backed by the public Credimi pipeline:
-
-- `forkbomb-bv-andrea/eudiw-v-06-38-pid-issue-x2-and-verify-x1-issuer-eudiw-dev`
-  (exported locally under its public name and under the compatibility filename
-  `fcaf-wallet-solution-relying-party-pid-presentations.yaml`; used by both the
-  SD-JWT and mdoc PID presentation preconditions)
-
-The remaining pipeline IDs are represented under `pipelines/`.
+FCAF validation now runs as one aggregate pipeline generated from
+`config_templates/fcaf/wallet_solution/relying_party/scenarios/`. The legacy
+per-scenario pipeline exports that used to live under `pipelines/` were
+removed; deployable pipeline YAML is generated on demand with
+`make fcaf-generate`.
 
 ## Import layout
 
 The intended organization-relative paths are:
 
 ```text
-forkbomb-bv-andrea/pipelines/<canonified-pipeline-name>.yaml
 forkbomb-bv-andrea/wallet/<action-name>.yaml
 forkbomb-bv-andrea/credential-issuers/<canonified-issuer-name>.yaml
 forkbomb-bv-andrea/credentials/<canonified-issuer-name>/<canonified-credential-name>.yaml

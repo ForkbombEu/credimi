@@ -10,24 +10,23 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-  - title: OpenID for Verifiable Presentations 1.0
-    section: "6, 6.1"
-    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-preconditions:
-  - ref: pipeline.dcql.credentials-match
+- title: OpenID for Verifiable Presentations 1.0
+  section: 6, 6.1
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- ref: pipeline.dcql.standard-all
 evidence:
   dcql_exchange:
     from: pipeline.dcql.credentials-match.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.credentials-match.outputs.visual_evidence
 assertions:
-  - id: valid_credentials_entries_are_processed
-    validator: dcql.response_satisfies_constraints
-    input: evidence.dcql_exchange
-    params:
-      mode: credentials_match
-  - id: wallet_interaction_visual_evidence_is_stored
-    validator: evidence.non_empty
-    input: evidence.visual_evidence
+- id: ws_rp_ms_protocolmessages__052_dcql_valid
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
+  params:
+    mode: credentials_match
+- id: ws_rp_ms_protocolmessages__052_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

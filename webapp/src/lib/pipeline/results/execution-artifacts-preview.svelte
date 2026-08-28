@@ -18,8 +18,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
 
-	import PipelineReportSheet from './pipeline-report-sheet.svelte';
 	import FCAFReportSheet from './fcaf-report-sheet.svelte';
+	import PipelineReportSheet from './pipeline-report-sheet.svelte';
 
 	type PreviewIcon = 'image' | 'video' | 'file' | 'document' | 'fcaf';
 
@@ -51,9 +51,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const hasContent = $derived(
 		artifacts.results.length > 0 ||
-		(artifacts.maestro_screenshots?.length ?? 0) > 0 ||
-		Boolean(artifacts.report) ||
-		Boolean(artifacts.fcafReport)
+			(artifacts.maestro_screenshots?.length ?? 0) > 0 ||
+			Boolean(artifacts.report) ||
+			Boolean(artifacts.fcafReport)
 	);
 
 	const containerClass = $derived(

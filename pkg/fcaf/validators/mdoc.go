@@ -707,6 +707,13 @@ func mdocPresentation(value any) (*evidence.MDocPresentation, bool) {
 		return typed, typed != nil
 	case evidence.MDocPresentation:
 		return &typed, true
+	case string:
+		presentation, err := evidence.ParseMDocPresentation(typed)
+		if err == nil {
+			return presentation, true
+		}
+		presentation, err = evidence.ParseMDocVPTokenJSON(typed)
+		return presentation, err == nil
 	default:
 		return nil, false
 	}

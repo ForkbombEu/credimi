@@ -1,6 +1,6 @@
 ---
 name: fcaf-definitions
-description: Implement, review, run, and maintain Credimi FCAF wallet-solution relying-party test definitions, reusable preconditions, Maestro flows, pipeline YAML, validators, and implementation-inventory entries. Use when selecting the next FCAF test, translating an FCAF Markdown scenario into Credimi artifacts, verifying assertions against the reference Android wallet, or coordinating parallel FCAF test work.
+description: Implement, review, run, and maintain Credimi FCAF wallet-solution relying-party test definitions, aggregate pipeline scenarios, Maestro flows, validators, and implementation-inventory entries. Use when selecting the next FCAF test, translating an FCAF Markdown scenario into Credimi artifacts, verifying assertions against the reference Android wallet, or coordinating parallel FCAF test work.
 ---
 
 # FCAF definitions
@@ -29,25 +29,23 @@ Source requirements normally live under:
 
 ## Build the artifact set
 
-Create or update all applicable artifacts under:
+Create or update applicable source artifacts under:
 
 `config_templates/fcaf/wallet_solution/relying_party/`
 
 The usual set is:
 
-1. `maestro-preconditions/<flow>.yaml`
-2. `pipelines/fcaf-wallet-solution-relying-party-<flow>.yaml`
-3. `preconditions/<precondition>.yaml`
-4. `tests/<FCAF-ID>.yaml`
+1. `scenarios/fcaf-wallet-solution-relying-party-<flow>.yaml`
+2. `tests/<FCAF-ID>.yaml`
+3. `pkg/fcaf/implementation-inventory.csv`
 
-Also update:
+Scenario pipeline must end in `fcaf-validation`, own each selected test exactly once, and expose every test evidence binding under its exact `pipeline.<source>.outputs.<name>` key. Validators consume these aggregate outputs directly. Do not add catalog precondition YAML, assessment workflows, or unrelated-output fallback behavior.
 
-- `maestro-preconditions/all-preconditions.yaml`
-- `maestro-preconditions/README.md`
-- `pkg/fcaf/catalog/loader_test.go`
-- `pkg/fcaf/implementation-inventory.csv`
+After changing scenarios or tests, run `make fcaf-generate`. This regenerates the sole deployable pipeline:
 
-Keep leaf Maestro behavior and pipeline inline `action_code` synchronized. Prefer extracting shared behavior to a reusable flow when the runner can resolve it; otherwise verify both copies explicitly.
+`pipelines/fcaf-wallet-solution-relying-party-complete-validation.yaml`
+
+Keep inline `action_code` synchronized with emulator-tested behavior. Prefer extracting shared behavior only when runner resolution is deterministic.
 
 ## Preserve assertion integrity
 
@@ -84,7 +82,8 @@ Run the narrow checks while iterating:
 
 ```sh
 gofmt -w pkg/fcaf/validators/dcql.go  # only when this Go file changed
-go test ./pkg/fcaf/...
+make fcaf-generate
+go test ./cmd/fcaf-pipeline-gen ./pkg/fcaf/... ./pkg/internal/pipeline
 git diff --check
 ```
 

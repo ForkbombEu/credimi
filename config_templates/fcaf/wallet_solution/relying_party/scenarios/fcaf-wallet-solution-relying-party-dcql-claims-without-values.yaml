@@ -1,0 +1,99 @@
+name: FCAF DCQL claims without values
+runtime:
+    fixture:
+        verifier_url: https://capture-wallet.credimi.io
+    global_runner_id: forkbomb-bv-andrea/usb
+steps:
+    - id: create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - id: given_name
+                          path:
+                            - given_name
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eu.europa.ec.eudi:pid:1
+            nonce: fcaf-116
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: present-claim-without-values
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+            - extendedWaitUntil:
+                visible: "Welcome back|Home|Documents|Welcome, .*"
+                timeout: 30000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - tapOn: { point: "50%,10%" }
+            - openLink:
+                link: ${env.DEEPLINK}
+                autoVerify: false
+                browser: false
+            - extendedWaitUntil:
+                visible: "Welcome back|DATA SHARING REQUEST"
+                timeout: 100000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - tapOn: { point: "11%,39%" }
+                  - inputText: "123456"
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil:
+                visible: "DATA SHARING REQUEST"
+                timeout: 100000
+            - tapOn: "Share"
+            - extendedWaitUntil:
+                visible: "PIN"
+                timeout: 30000
+            - tapOn: { point: "11%,39%" }
+            - inputText: "123456"
+            - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil:
+                visible: ".*successfully shared.*"
+                timeout: 30000
+            - takeScreenshot: fcaf-116-claims-without-values
+            - tapOn: "Close"
+        parameters:
+            DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
+    - id: run-fcaf-validators
+      use: fcaf-validation
+      with:
+        pipeline_outputs:
+            pipeline.dcql.claims-without-values:
+                output:
+                    create-presentation: ${{ create-presentation.outputs }}
+                    dcql_exchange: ${{ fetch-result.outputs.body }}
+                    fetch-result: ${{ fetch-result.outputs }}
+                    present-claim-without-values: ${{ present-claim-without-values.outputs }}
+                    visual_evidence: ${{ present-claim-without-values.outputs.flow_output.maestro_screenshot_urls }}
+        suite: wallet_solution/relying_party
+        test_ids:
+            - WS_RP_MS_ProtocolMessages__116

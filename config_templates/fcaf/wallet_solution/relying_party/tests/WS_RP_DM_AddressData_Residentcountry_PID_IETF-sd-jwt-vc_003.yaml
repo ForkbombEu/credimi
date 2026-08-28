@@ -16,15 +16,26 @@ normative_references:
       url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_residentcountry_pid_ietf-sd-jwt-vc_003
     - title: ISO 3166-1:2020, 6.1 ISO 3166-1:2020, 8.3
       url: https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_residentcountry_pid_ietf-sd-jwt-vc_003
-preconditions:
-    - ref: pipeline.pid.presentation.sdjwt.all-claims
-    - ref: assertion.pid.presentation.sdjwt.vct-pid
-    - ref: assertion.pid.presentation.sdjwt.required-mandatory-claims-presented
-    - ref: test.WS_RP_DM_AddressData_Residentcountry_PID_IETF-sd-jwt-vc_001
 evidence:
     pid_sdjwt:
         from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
 assertions:
+    - id: pid_sdjwt_vct_pid
+      validator: pid.sdjwt_vct_pid
+      input: evidence.pid_sdjwt
+    - id: pid_sdjwt_required_mandatory_claims_present
+      validator: pid.sdjwt_required_mandatory_claims_present
+      input: evidence.pid_sdjwt
+      params:
+        required_elements:
+          - family_name
+          - given_name
+          - birthdate
+          - place_of_birth
+          - nationalities
+          - date_of_expiry
+          - issuing_authority
+          - issuing_country
     - id: address_country_semantic
       validator: sdjwt.claim_country_code
       input: evidence.pid_sdjwt

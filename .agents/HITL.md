@@ -30,6 +30,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-08-28 - FCAF assertion-review backlog scope and location
+
+- status: resolved
+- owner: human maintainer
+- context: Merging `origin/main` into `fix/fcaf-improvments` retains main's two generated aggregate pipelines and keeps not-fully-implemented tests in those pipelines. At merge time, the branch tree classified 272 YAML tests as pending and 56 as verifier-blocked under `_implementation`; older counts in `pkg/fcaf/MEMORY.md` were stale.
+- question: Should the exact assertion-review backlog be the 328 branch-classified pending/verifier-blocked test IDs, and should those IDs be added to the existing missing-validators document or maintained in a new dedicated file?
+- options considered: (1) add the checklist to `FCAF_MISSING_VALIDATORS_AND_ASSERTIONS.md`; (2) create a dedicated assertion-review backlog; (3) list every main test except cases explicitly improved on this branch.
+- default risk: Choosing the wrong population can omit tests whose assertions remain placeholders or incorrectly mark implemented tests as needing review.
+- decision: Keep exactly the pending and verifier-blocked classifications in a dedicated `config_templates/fcaf/wallet_solution/relying_party/ASSERTION_REVIEW_BACKLOG.md` file because the maintainer will work only from that list.
+- follow-up: Remove items from the dedicated backlog only after their assertions and evidence have been reviewed and improved; keep the tests in the aggregate pipeline throughout.
+
 ### 2026-07-22 - Login Turnstile gating scope
 
 - status: resolved
@@ -40,6 +51,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: Choosing the wrong scope can either leave an authentication endpoint unprotected or impose CAPTCHA on login methods that were not intended to require it.
 - decision: The existing login experience is visible only after a successful Turnstile challenge. Password login sends the resulting token to the PocketBase API, which verifies it before authentication.
 - follow-up: API coverage added. Frontend type checking remains blocked because Bun is unavailable in this environment.
+
+### 2026-08-27 - FCAF direct-validation ownership after precondition removal
+
+- status: resolved
+- owner: human maintainer
+- context: FCAF pipelines now embed `fcaf-validation` and pass aggregate `pipeline_outputs` directly, while all precondition YAML files were intentionally deleted. Catalog loading, `/api/fcaf/run`, `fcaf run --tests-file`, and the legacy assessment workflow still depended on precondition definitions for pipeline IDs, output decoders, and four shared assertion gates. Many tests also appeared in multiple aggregate or diagnostic pipelines.
+- question: Should legacy assessment orchestration be removed in favor of running self-validating pipeline YAML directly, or preserved through a new explicit test-to-pipeline ownership manifest?
+- options considered: Remove `/api/fcaf/run`, assessment/precondition workflows, and `--tests-file`; preserve them with a new ownership manifest; infer ownership from embedded `fcaf-validation.test_ids` despite duplicate owners.
+- default risk: Inferring one owner from duplicate aggregate pipelines can execute wrong evidence flow; silently retaining legacy paths leaves production entrypoints broken when precondition files are absent.
+- decision: Remove `/api/fcaf/run`, assessment and precondition workflows, and `fcaf run --tests-file`. Keep embedded `fcaf-validation`; validators consume aggregate pipeline results directly. Primary product goal is one FCAF pipeline run covering all feasible tests through multiple sequential scenarios and one final aggregate validation, not one wallet interaction reused across incompatible tests.
+- follow-up: Completed in current worktree: four assertion gates migrated inline; legacy registrations/types removed; 559 tests assigned exactly once; 112 maintained scenarios generate one deployable aggregate pipeline with one final validation step.
 
 ### 2026-07-14 - FCAF trusted-authorities issuer fixture
 

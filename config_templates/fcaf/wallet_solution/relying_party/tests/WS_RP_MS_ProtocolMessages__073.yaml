@@ -13,16 +13,13 @@ normative_references:
   - title: OpenID for Verifiable Presentations 1.0
     section: "6.1"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-preconditions:
-  - ref: pipeline.dcql.valid-id-alphanumeric
-  - ref: pipeline.dcql.meta-vct-mismatch
 evidence:
   matching_meta_exchange:
-    from: pipeline.dcql.valid-id-alphanumeric.outputs.dcql_exchange
+    from: pipeline.dcql.meta-vct-mismatch.outputs.dcql_exchange
   mismatching_meta_exchange:
     from: pipeline.dcql.meta-vct-mismatch.outputs.dcql_exchange
   matching_meta_visual_evidence:
-    from: pipeline.dcql.valid-id-alphanumeric.outputs.visual_evidence
+    from: pipeline.dcql.meta-vct-mismatch.outputs.visual_evidence
   mismatching_meta_visual_evidence:
     from: pipeline.dcql.meta-vct-mismatch.outputs.visual_evidence
 assertions:

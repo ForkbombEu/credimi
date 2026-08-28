@@ -4,14 +4,14 @@
 
 module github.com/forkbombeu/credimi
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/ForkbombEu/et-tu-cesr v0.0.0-20250730082655-1822692d6150
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/forkbombeu/credimi-conformance-assessment v1.3.1
-	github.com/forkbombeu/credimi-extra v1.14.3
+	github.com/forkbombeu/credimi-extra v1.14.4
 	github.com/forkbombeu/eudi-conformance-evidence v1.0.2
 	github.com/fxamacker/cbor/v2 v2.9.0
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0

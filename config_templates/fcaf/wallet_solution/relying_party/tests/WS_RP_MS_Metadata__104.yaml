@@ -13,8 +13,6 @@ normative_references:
   - title: OpenID for Verifiable Presentations 1.0
     section: "5.1"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-preconditions:
-  - ref: pipeline.wallet.protocol.request-object-by-value
 evidence:
   request_object:
     from: pipeline.wallet.protocol.request-object-by-value.outputs.request_object

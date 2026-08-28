@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseDSLV2EmailPresentExample(t *testing.T) {
+func TestParseDirectPipelineEvidenceDefinition(t *testing.T) {
 	def, err := Parse([]byte(`
 id: WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001
 title: Email address is present in the PID SD-JWT VC presentation
@@ -24,12 +24,9 @@ applicability:
 normative_references:
   - title: ARF Annex 3.01 pid rulebook
     section: 4.2 Table 5
-preconditions:
-  - ref: pipeline.pid_sdjwt_presentation_success
-  - ref: assertion.pid_sdjwt_all_required_and_ics_elements_requested
 evidence:
   pid_sdjwt:
-    from: pipeline.pid_sdjwt_presentation_success.outputs.pid_sdjwt
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
 assertions:
   - id: email_present
     validator: sdjwt.claim_present
@@ -42,45 +39,33 @@ verdict:
 
 	require.NoError(t, err)
 	require.Equal(t, "wallet_solution", def.Suite.SUT)
-	require.Equal(t, "pipeline.pid_sdjwt_presentation_success", def.Preconditions[0].Ref)
+	require.Equal(
+		t,
+		"pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt",
+		def.Evidence["pid_sdjwt"].From,
+	)
 }
 
-func TestParseDSLV2DependentEmailExample(t *testing.T) {
-	def, err := Parse([]byte(`
-id: WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_003
-title: Email address is a UTF-8 string supporting the full Unicode range
+func TestParseRejectsLegacyEvidenceBinding(t *testing.T) {
+	_, err := Parse([]byte(`
+id: test
 suite:
   sut: wallet_solution
   role: relying_party
-  section: data_model.address_data.emailaddress
-applicability:
-  credential_format: ietf_sd_jwt_vc
-  document_type: pid
 normative_references:
-  - title: ARF Annex 3.01 pid rulebook
-preconditions:
-  - ref: pipeline.pid_sdjwt_presentation_success
-  - ref: assertion.pid_sdjwt_all_required_and_ics_elements_requested
-  - ref: test.WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001
+  - title: reference
 evidence:
   pid_sdjwt:
-    from: pipeline.pid_sdjwt_presentation_success.outputs.pid_sdjwt
+    from: preconditions.pipeline.pid.outputs.pid_sdjwt
 assertions:
-  - id: email_is_utf8_string
-    validator: sdjwt.claim_utf8_string
+  - id: email-present
+    validator: sdjwt.claim_present
     input: evidence.pid_sdjwt
-    params:
-      claim: email
 verdict:
   pass_when: all_assertions_pass
 `))
 
-	require.NoError(t, err)
-	require.Equal(
-		t,
-		"test.WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001",
-		def.Preconditions[2].Ref,
-	)
+	require.ErrorContains(t, err, "must match pipeline.<id>.outputs.<name>")
 }
 
 func TestParseRejectsDuplicateAssertionID(t *testing.T) {
@@ -92,8 +77,9 @@ suite:
   role: relying_party
 normative_references:
   - title: reference
-preconditions:
-  - ref: pipeline.pid_sdjwt
+evidence:
+  pid_sdjwt:
+    from: pipeline.pid.outputs.pid_sdjwt
 assertions:
   - id: email-present
     validator: sdjwt.claim_present
@@ -111,37 +97,4 @@ verdict:
 
 	_, err := Parse([]byte(raw))
 	require.ErrorContains(t, err, "duplicate assertion id")
-}
-
-func TestParsePipelinePreconditionRequiredSteps(t *testing.T) {
-	def, err := ParsePrecondition([]byte(`
-id: pipeline.shared
-kind: pipeline
-pipeline_id: owner/shared
-required_steps:
-  - issue-pid
-  - present-pid
-outputs:
-  pid:
-    path: $.output.present-pid.outputs
-`))
-
-	require.NoError(t, err)
-	require.Equal(t, []string{"issue-pid", "present-pid"}, def.RequiredSteps)
-}
-
-func TestParsePipelinePreconditionRejectsInvalidRequiredSteps(t *testing.T) {
-	_, err := ParsePrecondition([]byte(`
-id: pipeline.shared
-kind: pipeline
-pipeline_id: owner/shared
-required_steps:
-  - present-pid
-  - present-pid
-outputs:
-  pid:
-    path: $.output.present-pid.outputs
-`))
-
-	require.ErrorContains(t, err, `duplicate required step "present-pid"`)
 }

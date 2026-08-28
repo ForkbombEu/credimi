@@ -10,6 +10,7 @@ import type { AnyConfig } from './types';
 
 import { conformanceCheckStepConfig } from './conformance-check';
 import { customCheckStepConfig } from './custom-integration';
+import { fcafValidationStepConfig } from './fcaf-validation';
 import * as hubSteps from './hub-item';
 import * as utilsSteps from './utils-steps';
 import { walletActionStepConfig } from './wallet-action';
@@ -29,7 +30,7 @@ export const coreConfigs: AnyConfig[] = [
 	customCheckStepConfig
 ];
 
-export const configs: AnyConfig[] = [...coreConfigs, ...utilsConfigs];
+export const configs: AnyConfig[] = [...coreConfigs, fcafValidationStepConfig, ...utilsConfigs];
 
 export function getConfigByType(type: PipelineStepType): AnyConfig | undefined {
 	return configs.find((c) => c.use === type);

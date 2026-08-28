@@ -36,8 +36,6 @@ func rootValue(bundle Bundle, path string) (any, []string, bool) {
 	case "evidence":
 		root, ok := evidenceSlot(bundle, parts[1])
 		return root, parts[2:], ok
-	case "preconditions":
-		return bundle.Preconditions, parts[1:], true
 	case "runtime":
 		return bundle.Runtime, parts[1:], true
 	default:
