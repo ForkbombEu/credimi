@@ -179,7 +179,7 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:          "/pipeline-execution-results/fcaf-report",
 			Handler:       HandleUpdatePipelineExecutionFCAFReport,
 			RequestSchema: PipelineResultFCAFReportInput{},
-			Description:   "Update the FCAF assessment report file",
+			Description:   "Update the FCAF assessment JSON and PDF report files",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
@@ -429,6 +429,39 @@ func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
 				http.StatusInternalServerError,
 				"pipeline",
 				"failed to save FCAF report",
+				err.Error(),
+			)
+		}
+
+		pdfData, err := generatePipelineFCAFReportPDF(
+			e.Request.Context(),
+			e.App,
+			record,
+			[]byte(input.JSON),
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"report",
+				"failed to generate FCAF report PDF",
+				err.Error(),
+			)
+		}
+		pdfFile, err := filesystem.NewFileFromBytes(pdfData, "fcaf-assessment.pdf")
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"report",
+				"failed to create FCAF report PDF file",
+				err.Error(),
+			)
+		}
+		record.Set("fcaf_report_pdf", []*filesystem.File{pdfFile})
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to save FCAF report PDF",
 				err.Error(),
 			)
 		}

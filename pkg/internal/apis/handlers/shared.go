@@ -86,6 +86,7 @@ type WorkflowExecutionSummary struct {
 	MaestroScreenshots []string                          `json:"maestro_screenshots,omitempty"`
 	Report             string                            `json:"report,omitempty"`
 	FCAFReport         string                            `json:"fcaf_report,omitempty"`
+	FCAFReportPDF      string                            `json:"fcaf_report_pdf,omitempty"`
 	FailureReason      *string                           `json:"failure_reason,omitempty"`
 	HasLogs            bool                              `json:"has_logs,omitempty"`
 }

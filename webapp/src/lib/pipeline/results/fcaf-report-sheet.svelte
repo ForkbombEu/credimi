@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { ExternalLinkIcon } from '@lucide/svelte';
+	import { DownloadIcon, ExternalLinkIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { activeSheet } from '$lib/utils/sheet-state.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		reportUrl: string | undefined;
+		pdfUrl: string | undefined;
 		maestroScreenshotUrls: string[];
 		sheetTrigger: Snippet<[{ props: GenericRecord; openSheet: () => void }]>;
 	};
@@ -141,7 +142,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return match ? match[1] : testId;
 	}
 
-	let { reportUrl, maestroScreenshotUrls, sheetTrigger }: Props = $props();
+	let { reportUrl, pdfUrl, maestroScreenshotUrls, sheetTrigger }: Props = $props();
 	let selectedFilter = $state<string>('all');
 	let sheetOpen = $state(false);
 
@@ -426,10 +427,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									/>
 								</div>
 							</details>
-							<Button variant="outline" href={reportUrl} target="_blank">
-								<ExternalLinkIcon class="size-4" />
+							<Button
+								variant="outline"
+								href={reportUrl}
+								download="fcaf-assessment.json"
+							>
+								<DownloadIcon class="size-4" />
 								Download JSON
 							</Button>
+							{#if pdfUrl}
+								<Button
+									variant="outline"
+									href={pdfUrl}
+									download="fcaf-assessment.pdf"
+								>
+									<DownloadIcon class="size-4" />
+									Download PDF
+								</Button>
+							{/if}
 						</div>
 					{:else}
 						<p>Unable to load the FCAF assessment.</p>

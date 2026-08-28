@@ -91,8 +91,6 @@ flowchart LR
 - `WorkflowExecutionSummary.Report` in `shared.go`
 - Per-pipeline hierarchy builder sets `Results` + `Report` from record when available
 
-**GitNexus:** `computePipelineResultsFromRecord` has **HIGH** blast radius (3 direct callers, 4 affected processes). The new wrapper must delegate to it — do not modify its grouping logic.
-
 ### New glue (`pkg/internal/apis/handlers/`)
 
 Add `PipelineExecutionArtifacts` struct (in `shared.go` or `pipeline_results_handler.go`):
@@ -234,11 +232,6 @@ Run: `go test -tags=unit ./pkg/internal/apis/handlers/... ./pkg/internal/pipelin
 
 - Unit tests for `fromApiSummary` / `fromEnrichedRecord` in `execution-artifacts.test.ts`
 - `cd webapp && bun run check`
-
-### Pre-commit
-
-- `gitnexus_impact` on `computePipelineResultsFromRecord` before Go edits
-- `gitnexus_detect_changes()` before commit
 
 ## Verification checklist
 

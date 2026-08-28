@@ -943,8 +943,8 @@ components:
           items:
             $ref: '#/components/schemas/HandlersMobileRunnerHealthDevice'
           type: array
-        is_online:
-          type: boolean
+        health_status:
+          type: string
         is_owned:
           type: boolean
         is_published:
@@ -1242,6 +1242,8 @@ components:
           nullable: true
           type: string
         fcaf_report:
+          type: string
+        fcaf_report_pdf:
           type: string
         has_logs:
           type: boolean

@@ -615,7 +615,8 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 		if resultRecord != nil {
 			attachPipelineArtifactsToSummary(rootSummary, b.app, resultRecord)
 		}
-		if len(rootSummary.Results) == 0 || rootSummary.Report == "" {
+		if len(rootSummary.Results) == 0 || rootSummary.Report == "" ||
+			rootSummary.FCAFReport == "" || rootSummary.FCAFReportPDF == "" {
 			artifacts := pipelineresults.ResolvePipelineExecutionArtifacts(
 				b.app,
 				b.namespace,
@@ -625,12 +626,19 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 			if len(rootSummary.Results) == 0 {
 				rootSummary.Results = artifacts.Results
 			}
+			if len(rootSummary.MaestroScreenshots) == 0 {
+				rootSummary.MaestroScreenshots = artifacts.MaestroScreenshots
+			}
 			if rootSummary.Report == "" {
 				rootSummary.Report = artifacts.Report
 			}
+			if rootSummary.FCAFReport == "" {
+				rootSummary.FCAFReport = artifacts.FCAFReport
+			}
+			if rootSummary.FCAFReportPDF == "" {
+				rootSummary.FCAFReportPDF = artifacts.FCAFReportPDF
+			}
 		}
-		rootSummary.FCAFReport = pipelineresults.BuildPipelineExecutionArtifacts(b.app, resultRecord).FCAFReport
-		rootSummary.MaestroScreenshots = pipelineresults.BuildPipelineExecutionArtifacts(b.app, resultRecord).MaestroScreenshots
 	}
 
 	for _, childExecution := range childExecutions {
@@ -772,6 +780,7 @@ func attachPipelineArtifactsToSummary(
 	summary.MaestroScreenshots = artifacts.MaestroScreenshots
 	summary.Report = artifacts.Report
 	summary.FCAFReport = artifacts.FCAFReport
+	summary.FCAFReportPDF = artifacts.FCAFReportPDF
 }
 
 func getChildWorkflowsByParents(
