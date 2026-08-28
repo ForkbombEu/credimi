@@ -321,8 +321,28 @@ func storeMobileFlowScreenshots(
 	}
 
 	delete(flowOutput, "maestro_screenshot_paths")
-	flowOutput["maestro_screenshot_urls"] = screenshotURLs
+	flowOutput["maestro_screenshot_urls"] = uniqueScreenshotURLs(screenshotURLs)
 	return flowOutput, nil
+}
+
+func uniqueScreenshotURLs(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		filename := value
+		if query := strings.IndexByte(filename, '?'); query >= 0 {
+			filename = filename[:query]
+		}
+		if slash := strings.LastIndexByte(filename, '/'); slash >= 0 {
+			filename = filename[slash+1:]
+		}
+		if _, ok := seen[filename]; ok {
+			continue
+		}
+		seen[filename] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func mobileActivityOptions(

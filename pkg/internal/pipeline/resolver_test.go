@@ -342,6 +342,24 @@ func TestResolveInputs(t *testing.T) {
 	}
 }
 
+func TestPipelineOptionalFunction(t *testing.T) {
+	ctx := map[string]any{
+		"completed": map[string]any{"outputs": map[string]any{"body": "ok"}},
+		"failed":    map[string]any{"outputs": nil},
+	}
+
+	value, err := ResolveExpressions("${{ completed.outputs.body | optional }}", ctx)
+	require.NoError(t, err)
+	require.Equal(t, "ok", value)
+
+	value, err = ResolveExpressions("${{ failed.outputs.body | optional }}", ctx)
+	require.NoError(t, err)
+	require.Nil(t, value)
+
+	_, err = ResolveExpressions("${{ failed.outputs.body }}", ctx)
+	require.Error(t, err)
+}
+
 func TestPipelineFunctionsUpperLower(t *testing.T) {
 	tests := []struct {
 		name     string

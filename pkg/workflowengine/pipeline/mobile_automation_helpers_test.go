@@ -979,8 +979,8 @@ func TestExtractAndStoreURLs(t *testing.T) {
 	var nilOutput map[string]any
 	err = extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
-			"result_urls":     []string{"video-2"},
-			"screenshot_urls": []string{"frame-2"},
+			"result_urls":     []string{"video-2", "video-2"},
+			"screenshot_urls": []string{"frame-2", "frame-2"},
 		},
 	}}, &nilOutput)
 	require.NoError(t, err)

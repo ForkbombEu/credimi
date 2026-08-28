@@ -64,8 +64,11 @@ func PrepareWorkflowOptions(rc pipeline.RuntimeConfig) pipeline.WorkflowOptions 
 			rc.Temporal.ActivityOptions.StartToCloseTimeout,
 			DefaultActivityStartTimeout,
 		),
-		HeartbeatTimeout: parseDurationOrDefault("", DefaultActivityHeartbeatTimeout),
-		RetryPolicy:      rp,
+		HeartbeatTimeout: parseDurationOrDefault(
+			rc.Temporal.ActivityOptions.HeartbeatTimeout,
+			DefaultActivityHeartbeatTimeout,
+		),
+		RetryPolicy: rp,
 	}
 
 	return pipeline.WorkflowOptions{
@@ -94,6 +97,12 @@ func PrepareActivityOptions(
 	}
 
 	if stepAO != nil {
+		if stepAO.HeartbeatTimeout != "" {
+			heartbeatTimeout = parseDurationOrDefault(
+				stepAO.HeartbeatTimeout,
+				heartbeatTimeout.String(),
+			)
+		}
 		if stepAO.RetryPolicy.MaximumAttempts > 0 {
 			rp.MaximumAttempts = stepAO.RetryPolicy.MaximumAttempts
 		}

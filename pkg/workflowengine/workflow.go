@@ -24,6 +24,8 @@ import (
 
 var workflowTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
+const CollectPipelineStepFailuresConfigKey = "collect_pipeline_step_failures"
+
 // WorkflowInput represents the input data required to start a workflow.
 type WorkflowInput struct {
 	Payload         any                       `json:"payload,omitempty"`

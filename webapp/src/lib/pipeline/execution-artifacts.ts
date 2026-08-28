@@ -4,19 +4,26 @@
 
 export type PipelineExecutionArtifacts = {
 	results: Array<{ video: string; screenshot: string; log: string }>;
+	maestro_screenshots?: string[];
 	report?: string;
+	fcafReport?: string;
 };
 
 export function fromApiSummary(summary: {
 	results?: PipelineExecutionArtifacts['results'];
+	maestro_screenshots?: string[];
 	report?: string;
+	fcaf_report?: string;
 }): PipelineExecutionArtifacts | undefined {
 	const hasResults = (summary.results?.length ?? 0) > 0;
 	const hasReport = Boolean(summary.report);
-	if (!hasResults && !hasReport) return undefined;
+	const hasFCAFReport = Boolean(summary.fcaf_report);
+	if (!hasResults && !hasReport && !hasFCAFReport) return undefined;
 	return {
 		results: summary.results ?? [],
-		report: summary.report
+		maestro_screenshots: summary.maestro_screenshots ?? [],
+		report: summary.report,
+		fcafReport: summary.fcaf_report
 	};
 }
 
@@ -24,9 +31,15 @@ export function fromEnrichedRecord(record: {
 	artifacts?: PipelineExecutionArtifacts;
 }): PipelineExecutionArtifacts | undefined {
 	if (!record.artifacts) return undefined;
-	const { results, report } = record.artifacts;
+	const { results, report, fcafReport } = record.artifacts;
 	const hasResults = (results?.length ?? 0) > 0;
 	const hasReport = Boolean(report);
-	if (!hasResults && !hasReport) return undefined;
-	return { results: results ?? [], report };
+	const hasFCAFReport = Boolean(fcafReport);
+	if (!hasResults && !hasReport && !hasFCAFReport) return undefined;
+	return {
+		results: results ?? [],
+		maestro_screenshots: record.artifacts.maestro_screenshots ?? [],
+		report,
+		fcafReport
+	};
 }

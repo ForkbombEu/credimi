@@ -1,0 +1,9 @@
+name: Misc Issuer integration (demo)
+canonified_name: misc-issuer-integration-demo
+description: Temp integration test with **multiple test Issuers**
+url: https://labs-openid-interop.vididentity.net/
+homepage_url: https://credimi.io/
+repo_url: https://github.com/forkbombeu/credimi/
+logo_url: https://demo.credimi.io/logos/credimi_logo.svg
+published: true
+imported: false

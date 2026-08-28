@@ -2164,10 +2164,21 @@ func extractAndStoreURLs(
 	existingResultURLs := workflowengine.AsSliceOfStrings((*output)["result_video_urls"])
 	existingFrameURLs := workflowengine.AsSliceOfStrings((*output)["screenshot_urls"])
 
-	(*output)["result_video_urls"] =
-		append(existingResultURLs, resultURLs...)
-	(*output)["screenshot_urls"] =
-		append(existingFrameURLs, frameURLs...)
+	(*output)["result_video_urls"] = appendUniqueStrings(existingResultURLs, resultURLs...)
+	(*output)["screenshot_urls"] = appendUniqueStrings(existingFrameURLs, frameURLs...)
 
 	return nil
+}
+
+func appendUniqueStrings(existing []string, values ...string) []string {
+	seen := make(map[string]struct{}, len(existing)+len(values))
+	result := make([]string, 0, len(existing)+len(values))
+	for _, value := range append(existing, values...) {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }

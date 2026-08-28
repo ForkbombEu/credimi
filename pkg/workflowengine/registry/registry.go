@@ -117,6 +117,12 @@ var Registry = map[string]TaskFactory{
 		PayloadType:         reflect.TypeOf(workflows.StartCheckWorkflowPayload{}),
 		PipelinePayloadType: reflect.TypeOf(workflows.StartCheckWorkflowPipelinePayload{}),
 	},
+	"fcaf-validation": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewFCAFValidationActivity() },
+		PayloadType: reflect.TypeOf(activities.FCAFValidationActivityInput{}),
+		OutputKind:  workflowengine.OutputMap,
+	},
 	"use-case-verification-deeplink": {
 		Kind:        TaskWorkflow,
 		NewFunc:     func() any { return workflows.NewGetUseCaseVerificationDeeplinkWorkflow() },

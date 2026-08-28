@@ -108,6 +108,8 @@ func ApplyFunction(value any, funcName string) (any, error) {
 			return urlEncode(value), nil
 		case "url_decode":
 			return urlDecode(value)
+		case "optional":
+			return value, nil
 		default:
 			return nil, fmt.Errorf("unknown function: %s", funcName)
 		}
@@ -163,7 +165,11 @@ func ResolvePipeline(expr string, ctx map[string]any) (any, error) {
 
 	current, err := resolveRef(initialValue, ctx)
 	if err != nil {
-		return nil, fmt.Errorf("resolving initial value %q: %w", initialValue, err)
+		if len(functions) == 0 || functions[0] != "optional" {
+			return nil, fmt.Errorf("resolving initial value %q: %w", initialValue, err)
+		}
+		current = nil
+		functions = functions[1:]
 	}
 
 	for _, funcName := range functions {

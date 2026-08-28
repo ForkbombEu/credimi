@@ -591,7 +591,7 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	}
 
-	builder := newPipelineExecutionSummaryBuilder(app, nil, "UTC")
+	builder := newPipelineExecutionSummaryBuilder(app, nil, "", "UTC")
 	rootSummary, err := builder.Build(
 		context.Background(),
 		nil,
@@ -712,7 +712,7 @@ steps:
       action_id: missing-runner-id
 `)
 
-	builder := newPipelineExecutionSummaryBuilder(app, mockClient, "UTC")
+	builder := newPipelineExecutionSummaryBuilder(app, mockClient, "", "UTC")
 	out, err := builder.Build(
 		context.Background(),
 		pipelineRecord,

@@ -4,6 +4,8 @@
 
 import { onMount } from 'svelte';
 
+import { activeSheet } from './sheet-state.svelte.js';
+
 //
 
 type InitialValueType<T> = (() => T) | undefined;
@@ -40,8 +42,22 @@ export class PolledResource<T, InitialValue extends InitialValueType<T>> {
 	#current = $state<T>();
 	#error = $state<Error>();
 	#loading = $state(false);
+	#paused = $state(false);
+
+	pause() {
+		this.#paused = true;
+	}
+
+	resume() {
+		this.#paused = false;
+	}
+
+	get paused() {
+		return this.#paused;
+	}
 
 	async fetch() {
+		if (this.#paused || activeSheet.count > 0) return;
 		this.#loading = true;
 		try {
 			this.#current = await this.fn();

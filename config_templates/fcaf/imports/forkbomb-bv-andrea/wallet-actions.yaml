@@ -1,0 +1,32 @@
+organization: forkbomb-bv-andrea
+wallet: eudiw-beta-wallet
+version: 2026-06-38-demo
+actions:
+  - name: onboarding-1
+    category: onboarding
+    tags: 2026.06.38
+    file: wallet/onboarding-1.yaml
+  - name: getcredential-pid-formeu-issuer-eudiw-dev
+    category: get-credential-specific
+    tags: fcaf, pid, formeu
+    file: wallet/getcredential-pid-formeu-issuer-eudiw-dev.yaml
+  - name: getcredential-generic-credential-without-authentication
+    category: get-credential-generic
+    tags: fcaf, credential, generic
+    file: wallet/getcredential-generic-credential-without-authentication.yaml
+  - name: verifycredential-pid-formeu-issuer-eudiw-dev
+    category: verify-credential
+    tags: fcaf, pid, formeu
+    file: wallet/verifycredential-pid-formeu-issuer-eudiw-dev.yaml
+  - name: unlock-wallet
+    category: other
+    tags: fcaf, helper
+    file: wallet/unlock-wallet.yaml
+  - name: choose-eudi-wallet
+    category: other
+    tags: fcaf, helper
+    file: wallet/choose-eudi-wallet.yaml
+  - name: fcaf-engagement-haip-vp
+    category: verify-credential
+    tags: fcaf, engagement, haip-vp
+    file: wallet/fcaf-engagement-haip-vp.yaml

@@ -19,7 +19,9 @@ describe('fromApiSummary', () => {
 			})
 		).toEqual({
 			results: [{ video: 'v', screenshot: 's', log: 'l' }],
-			report: 'https://app/r.md'
+			maestro_screenshots: [],
+			report: 'https://app/r.md',
+			fcafReport: undefined
 		});
 	});
 });
@@ -31,7 +33,10 @@ describe('fromEnrichedRecord', () => {
 				artifacts: { results: [{ video: 'v', screenshot: 's', log: 'l' }] }
 			})
 		).toEqual({
-			results: [{ video: 'v', screenshot: 's', log: 'l' }]
+			results: [{ video: 'v', screenshot: 's', log: 'l' }],
+			maestro_screenshots: [],
+			report: undefined,
+			fcafReport: undefined
 		});
 	});
 

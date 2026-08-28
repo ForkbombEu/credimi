@@ -21,8 +21,11 @@ import (
 	"github.com/antchfx/htmlquery"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"go.temporal.io/sdk/activity"
 	"golang.org/x/net/html"
 )
+
+const httpActivityHeartbeatInterval = 10 * time.Second
 
 var sensitiveHeaders = map[string]struct{}{
 	"authorization":   {},
@@ -182,6 +185,8 @@ func executeHTTPRequest(
 	}
 
 	client := &http.Client{Timeout: timeout}
+	stopHeartbeat := startHTTPActivityHeartbeat(ctx)
+	defer stopHeartbeat()
 	resp, err := client.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
@@ -260,6 +265,35 @@ func executeHTTPRequest(
 
 	result.Output = resultMap
 	return result, nil
+}
+
+func startHTTPActivityHeartbeat(ctx context.Context) func() {
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(httpActivityHeartbeatInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-done:
+				return
+			case <-ticker.C:
+				recordHTTPActivityHeartbeat(ctx)
+			}
+		}
+	}()
+	return func() {
+		close(done)
+	}
+}
+
+func recordHTTPActivityHeartbeat(ctx context.Context) {
+	defer func() {
+		// executeHTTPRequest is also exercised with plain contexts in unit tests.
+		_ = recover()
+	}()
+	activity.RecordHeartbeat(ctx, "waiting for HTTP response")
 }
 
 func splitSecretsFromOutput(output any) (any, map[string]any, error) {

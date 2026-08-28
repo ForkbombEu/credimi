@@ -21,8 +21,10 @@ type PipelineResults struct {
 }
 
 type PipelineExecutionArtifacts struct {
-	Results []PipelineResults `json:"results"`
-	Report  string            `json:"report,omitempty"`
+	Results            []PipelineResults `json:"results"`
+	MaestroScreenshots []string          `json:"maestro_screenshots,omitempty"`
+	Report             string            `json:"report,omitempty"`
+	FCAFReport         string            `json:"fcaf_report,omitempty"`
 }
 
 func RegisterPipelineResultsHooks(app core.App) {
@@ -43,9 +45,29 @@ func BuildPipelineExecutionArtifacts(app core.App, record *core.Record) Pipeline
 	}
 
 	return PipelineExecutionArtifacts{
-		Results: results,
-		Report:  ComputePipelineReportURLFromRecord(app, record),
+		Results:            results,
+		MaestroScreenshots: ComputeMaestroScreenshotURLs(app, record),
+		Report:             ComputePipelineReportURLFromRecord(app, record),
+		FCAFReport:         ComputePipelineFCAFReportURLFromRecord(app, record),
 	}
+}
+
+func ComputeMaestroScreenshotURLs(app core.App, record *core.Record) []string {
+	if app == nil || record == nil {
+		return nil
+	}
+	names := record.GetStringSlice("maestro_screenshots")
+	urls := make([]string, 0, len(names))
+	for _, name := range names {
+		if strings.TrimSpace(name) == "" {
+			continue
+		}
+		urls = append(urls, utils.JoinURL(
+			app.Settings().Meta.AppURL,
+			"api", "files", "pipeline_results", record.Id, name,
+		))
+	}
+	return urls
 }
 
 func ResolvePipelineExecutionArtifacts(
@@ -157,6 +179,27 @@ func ComputePipelineReportURLFromRecord(app core.App, record *core.Record) strin
 		return ""
 	}
 
+	return utils.JoinURL(
+		app.Settings().Meta.AppURL,
+		"api", "files", "pipeline_results",
+		record.Id,
+		filename,
+	)
+}
+
+func ComputePipelineFCAFReportURLFromRecord(app core.App, record *core.Record) string {
+	if app == nil || record == nil {
+		return ""
+	}
+	filename := record.GetString("fcaf_report")
+	if filename == "" {
+		if reports := record.GetStringSlice("fcaf_report"); len(reports) > 0 {
+			filename = reports[0]
+		}
+	}
+	if filename == "" {
+		return ""
+	}
 	return utils.JoinURL(
 		app.Settings().Meta.AppURL,
 		"api", "files", "pipeline_results",
