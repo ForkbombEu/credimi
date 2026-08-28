@@ -123,8 +123,8 @@ func (a *FCAFValidationActivity) Execute(
 }
 
 func normalizeValidationTestIDs(payload FCAFValidationActivityInput) []string {
-	ids := make([]string, 0, len(payload.TestIDs)+1)
-	seen := make(map[string]struct{}, cap(ids))
+	ids := make([]string, 0, len(payload.TestIDs))
+	seen := make(map[string]struct{}, len(payload.TestIDs))
 	add := func(id string) {
 		id = strings.TrimSpace(id)
 		if id == "" {

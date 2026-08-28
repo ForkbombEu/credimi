@@ -4,6 +4,7 @@
 package pipeline
 
 import (
+	"slices"
 	"time"
 
 	"go.temporal.io/sdk/client"
@@ -57,15 +58,7 @@ func (f FinallyDefinition) IsZero() bool {
 }
 
 func (f FinallyDefinition) AllSteps() []FinallyStepDefinition {
-	steps := make(
-		[]FinallyStepDefinition,
-		0,
-		len(f.Always)+len(f.OnSuccess)+len(f.OnFailure),
-	)
-	steps = append(steps, f.Always...)
-	steps = append(steps, f.OnSuccess...)
-	steps = append(steps, f.OnFailure...)
-	return steps
+	return slices.Concat(f.Always, f.OnSuccess, f.OnFailure)
 }
 
 type StepInputs struct {

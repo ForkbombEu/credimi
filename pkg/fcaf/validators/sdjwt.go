@@ -663,11 +663,16 @@ func jwkVerificationKey(jwk map[string]any, algorithm string) (any, error) {
 		coordinateLength := (curve.Params().BitSize + 7) / 8
 		x, _ := decodeBase64URLMember(jwk, "x", coordinateLength)
 		y, _ := decodeBase64URLMember(jwk, "y", coordinateLength)
-		return &ecdsa.PublicKey{
-			Curve: curve,
-			X:     new(big.Int).SetBytes(x),
-			Y:     new(big.Int).SetBytes(y),
-		}, nil
+		point := append([]byte{4}, x...)
+		point = append(point, y...)
+		publicKey, err := ecdsa.ParseUncompressedPublicKey(curve, point)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"JWK EC coordinates do not form a valid public key on curve %q",
+				curveName,
+			)
+		}
+		return publicKey, nil
 	case "RSA":
 		if !strings.HasPrefix(algorithm, "RS") && !strings.HasPrefix(algorithm, "PS") {
 			return nil, fmt.Errorf("RSA key cannot verify algorithm %s", algorithm)
@@ -769,10 +774,8 @@ func validatePublicJWK(jwk map[string]any) error {
 		if err != nil {
 			return err
 		}
-		encodedPoint := make([]byte, 1+len(x)+len(y))
-		encodedPoint[0] = 4
-		copy(encodedPoint[1:], x)
-		copy(encodedPoint[1+len(x):], y)
+		encodedPoint := append([]byte{4}, x...)
+		encodedPoint = append(encodedPoint, y...)
 		if _, err := curve.ecdh.NewPublicKey(encodedPoint); err != nil {
 			return fmt.Errorf("JWK EC coordinates are not on curve %q", crv)
 		}
