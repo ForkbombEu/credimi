@@ -1,0 +1,64 @@
+name: FCAF DCQL non-selective mDoc full disclosure
+runtime:
+  global_runner_id: forkbomb-bv-andrea/usb
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+    verifier_url: https://capture-wallet.credimi.io
+steps:
+  - id: onboard-reference-wallet
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+      version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+  - id: create-pid-mdoc-offer
+    use: credential-offer
+    with:
+      credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
+  - id: obtain-pid-mdoc
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+      version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+      parameters:
+        deeplink: ${{ create-pid-mdoc-offer.outputs }}
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        response_type: vp_token
+        nonce: fcaf-ia-028
+        dcql_query:
+          credentials:
+            - id: pid_mdoc
+              format: mso_mdoc
+              meta:
+                doctype_value: eu.europa.ec.eudi.pid.1
+  - id: present-full-disclosure
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+      version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+      parameters:
+        deeplink: ${{ create-presentation.outputs.body.deeplink }}
+  - id: fetch-result
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
+      expected_status: 200
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      test_ids:
+        - WS_RP_IA_MainInteraction__028
+      suite: wallet_solution/relying_party
+      pipeline_outputs:
+        pipeline.dcql.non-selective-mdoc-full-disclosure:
+          output:
+            dcql_exchange: ${{ fetch-result.outputs.body }}
+            visual_evidence: ${{ present-full-disclosure.outputs.flow_output.maestro_screenshot_urls }}

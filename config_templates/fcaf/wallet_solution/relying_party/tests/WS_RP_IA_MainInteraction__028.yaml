@@ -1,0 +1,39 @@
+id: WS_RP_IA_MainInteraction__028
+title: FCAF WS_RP_IA_MainInteraction__028
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__028.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+  - title: OpenID for Verifiable Presentations 1.0
+    section: '6.4'
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+preconditions:
+  - ref: pipeline.dcql.non-selective-mdoc-full-disclosure
+evidence:
+  dcql_exchange:
+    from: pipeline.dcql.non-selective-mdoc-full-disclosure.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.non-selective-mdoc-full-disclosure.outputs.visual_evidence
+assertions:
+  - id: ws_rp_ia_maininteraction__028_full_disclosure
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: without_claims
+  - id: ws_rp_ia_maininteraction__028_mdoc_presentation
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: credential_format_presentation
+      expected_format: mso_mdoc
+  - id: ws_rp_ia_maininteraction__028_visual_evidence
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

@@ -150,6 +150,44 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name: "required credential set with unavailable optional set",
+			mode: "credential_sets_required_optional",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("available"), validSDJWTCredentialQuery("unavailable")},
+					"credential_sets": []any{
+						map[string]any{"required": true, "options": []any{[]any{"available"}}},
+						map[string]any{"required": false, "options": []any{[]any{"unavailable"}}},
+					},
+				},
+				"vp_token": map[string]any{"available": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "single available credential set option",
+			mode: "credential_sets_single_available_option",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("available"), validSDJWTCredentialQuery("unavailable")},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"available"}}}},
+				},
+				"vp_token": map[string]any{"available": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "combined unavailable credential set option is not presented",
+			mode: "credential_sets_combined_option_no_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("available"), validSDJWTCredentialQuery("unavailable")},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"available", "unavailable"}}}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
 			name: "credentials matched",
 			mode: "credentials_match",
 			evidence: map[string]any{

@@ -1,0 +1,15 @@
+id: pipeline.dcql.non-selective-mdoc-full-disclosure
+kind: pipeline
+description: Request full disclosure of a non-selective PID mDoc without claims or credential sets.
+pipeline_id: forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-dcql-non-selective-mdoc-full-disclosure
+required_steps:
+  - present-full-disclosure
+  - fetch-result
+outputs:
+  dcql_exchange:
+    path: $.output.fetch-result.body
+    decoder: raw
+  visual_evidence:
+    path: $.output.present-full-disclosure.flow_output.maestro_screenshot_urls
+    decoder: raw
+failure_policy: fail_dependent_preconditions_and_tests

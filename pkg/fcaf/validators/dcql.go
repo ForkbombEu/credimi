@@ -66,6 +66,9 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_required_true_no_match",
 		"credential_sets_required_omitted",
 		"credential_sets_required_false_with_match",
+		"credential_sets_required_optional",
+		"credential_sets_single_available_option",
+		"credential_sets_combined_option_no_match",
 		"credential_format_presentation",
 		"credentials_match",
 		"without_credential_sets",
@@ -203,6 +206,10 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_required_omitted",
 		"credential_sets_required_false_with_match":
 		return validateCredentialSetsRequired(query, responseValue, params.Mode)
+	case "credential_sets_required_optional",
+		"credential_sets_single_available_option",
+		"credential_sets_combined_option_no_match":
+		return validateCredentialSetInteraction(query, responseValue, params.Mode)
 	case "credential_format_presentation":
 		return validateCredentialFormatPresentation(query, responseValue, params.ExpectedFormat)
 	case "credentials_match",
@@ -1334,6 +1341,85 @@ func validateCredentialSetsRequired(query map[string]any, responseValue any, mod
 		Status:  StatusPass,
 		Message: "wallet stopped without presenting a missing required credential set",
 	}
+}
+
+func validateCredentialSetInteraction(query map[string]any, responseValue any, mode string) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 2 {
+		return Result{Status: StatusFail, Message: "dcql_query must contain exactly two credential queries"}
+	}
+	ids := make([]string, 2)
+	for index, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] is not an object", index)}
+		}
+		id, _ := credential["id"].(string)
+		if id == "" {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("credentials[%d] has no id", index)}
+		}
+		ids[index] = id
+	}
+	sets, ok := query["credential_sets"].([]any)
+	if !ok {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credential_sets"}
+	}
+	if mode == "credential_sets_required_optional" {
+		if len(sets) != 2 || !credentialSetHasExactOption(sets[0], ids[0]) || !credentialSetHasExactOption(sets[1], ids[1]) {
+			return Result{Status: StatusFail, Message: "credential_sets must contain separate options for the available required and unavailable optional queries"}
+		}
+		first, _ := normalizeJSONObject(sets[0])
+		second, _ := normalizeJSONObject(sets[1])
+		if first["required"] != true || second["required"] != false {
+			return Result{Status: StatusFail, Message: "credential_sets must mark the available option required and unavailable option optional"}
+		}
+	} else {
+		if len(sets) != 1 {
+			return Result{Status: StatusFail, Message: "credential_sets must contain exactly one set"}
+		}
+		expected := []string{ids[0]}
+		if mode == "credential_sets_combined_option_no_match" {
+			expected = append(expected, ids[1])
+		}
+		if !credentialSetHasExactOption(sets[0], expected...) {
+			return Result{Status: StatusFail, Message: "credential_sets option does not match the requested credential queries"}
+		}
+	}
+	response, responseOK := normalizeJSONObject(responseValue)
+	if mode == "credential_sets_combined_option_no_match" {
+		if !isEmptyDCQLValue(responseValue) {
+			return Result{Status: StatusFail, Message: "wallet returned a presentation for an unsatisfied combined credential-set option"}
+		}
+		return Result{Status: StatusPass, Message: "wallet did not return an unsatisfied combined credential-set option"}
+	}
+	if !responseOK || isEmptyDCQLValue(response[ids[0]]) {
+		return Result{Status: StatusFail, Message: "wallet did not return the available credential-set option"}
+	}
+	if !isEmptyDCQLValue(response[ids[1]]) {
+		return Result{Status: StatusFail, Message: "wallet returned the unavailable credential query"}
+	}
+	return Result{Status: StatusPass, Message: "wallet returned only the available credential-set option"}
+}
+
+func credentialSetHasExactOption(rawSet any, expected ...string) bool {
+	set, ok := normalizeJSONObject(rawSet)
+	if !ok {
+		return false
+	}
+	options, ok := set["options"].([]any)
+	if !ok || len(options) != 1 {
+		return false
+	}
+	option, ok := options[0].([]any)
+	if !ok || len(option) != len(expected) {
+		return false
+	}
+	for index, id := range expected {
+		if option[index] != id {
+			return false
+		}
+	}
+	return true
 }
 
 func validateClaimsPresent(query map[string]any, responseValue any) Result {
