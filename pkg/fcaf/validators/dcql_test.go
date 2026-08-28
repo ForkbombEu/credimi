@@ -18,14 +18,15 @@ import (
 
 func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	tests := []struct {
-		name          string
-		mode          string
-		property      string
-		expectedType  string
-		expectedValue any
-		valid         bool
-		evidence      map[string]any
-		status        Status
+		name           string
+		mode           string
+		property       string
+		expectedType   string
+		expectedValue  any
+		expectedFormat string
+		valid          bool
+		evidence       map[string]any
+		status         Status
 	}{
 		{
 			name: "credential sets",
@@ -145,6 +146,55 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 					"credential_sets": []any{map[string]any{"required": false}},
 				},
 				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "required credential set with unavailable optional set",
+			mode: "credential_sets_required_optional",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("available"),
+						validSDJWTCredentialQuery("unavailable"),
+					},
+					"credential_sets": []any{
+						map[string]any{"required": true, "options": []any{[]any{"available"}}},
+						map[string]any{"required": false, "options": []any{[]any{"unavailable"}}},
+					},
+				},
+				"vp_token": map[string]any{"available": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "single available credential set option",
+			mode: "credential_sets_single_available_option",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("available"),
+						validSDJWTCredentialQuery("unavailable"),
+					},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"available"}}}},
+				},
+				"vp_token": map[string]any{"available": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "combined unavailable credential set option is not presented",
+			mode: "credential_sets_combined_option_no_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("available"),
+						validSDJWTCredentialQuery("unavailable"),
+					},
+					"credential_sets": []any{
+						map[string]any{"options": []any{[]any{"available", "unavailable"}}},
+					},
+				},
 			},
 			status: StatusPass,
 		},
@@ -1351,6 +1401,94 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name:           "mso mdoc format presentation",
+			mode:           "credential_format_presentation",
+			expectedFormat: "mso_mdoc",
+			evidence: map[string]any{
+				"authorization_request": map[string]any{
+					"dcql_query": map[string]any{
+						"credentials": []any{map[string]any{
+							"id":     "pid_mdoc",
+							"format": "mso_mdoc",
+							"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+						}},
+					},
+				},
+				"observed": map[string]any{
+					"wallet_response": map[string]any{
+						"value": map[string]any{
+							"vp_token": map[string]any{"pid_mdoc": []any{"device-response"}},
+						},
+					},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:           "dc sd jwt format presentation",
+			mode:           "credential_format_presentation",
+			expectedFormat: "dc+sd-jwt",
+			evidence: map[string]any{
+				"authorization_request": map[string]any{
+					"dcql_query": map[string]any{
+						"credentials": []any{map[string]any{
+							"id":     "pid_sdjwt",
+							"format": "dc+sd-jwt",
+							"meta":   map[string]any{"vct_values": []any{"urn:eudi:pid:1"}},
+						}},
+					},
+				},
+				"observed": map[string]any{
+					"wallet_response": map[string]any{
+						"value": map[string]any{
+							"vp_token": map[string]any{"pid_sdjwt": []any{"sd-jwt-presentation"}},
+						},
+					},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:           "format presentation rejects opposite format",
+			mode:           "credential_format_presentation",
+			expectedFormat: "mso_mdoc",
+			evidence:       credentialFormatEvidence("dc+sd-jwt", "pid"),
+			status:         StatusFail,
+		},
+		{
+			name:           "format presentation rejects missing format",
+			mode:           "credential_format_presentation",
+			expectedFormat: "mso_mdoc",
+			evidence:       credentialFormatEvidence("", "pid"),
+			status:         StatusFail,
+		},
+		{
+			name:           "format presentation rejects missing vp token",
+			mode:           "credential_format_presentation",
+			expectedFormat: "mso_mdoc",
+			evidence:       credentialFormatEvidence("mso_mdoc", ""),
+			status:         StatusFail,
+		},
+		{
+			name:           "format presentation rejects wrong response query id",
+			mode:           "credential_format_presentation",
+			expectedFormat: "mso_mdoc",
+			evidence:       credentialFormatEvidence("mso_mdoc", "other"),
+			status:         StatusFail,
+		},
+		{
+			name:           "format presentation rejects empty presentation array",
+			mode:           "credential_format_presentation",
+			expectedFormat: "mso_mdoc",
+			evidence: credentialFormatEvidenceWithPresentations(
+				"pid",
+				"mso_mdoc",
+				"pid",
+				[]any{},
+			),
+			status: StatusFail,
+		},
+		{
 			name: "claim sets",
 			mode: "claim_sets",
 			evidence: map[string]any{
@@ -1379,6 +1517,9 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			if test.mode == "property_equals" {
 				params["expected_value"] = test.expectedValue
 			}
+			if test.expectedFormat != "" {
+				params["expected_format"] = test.expectedFormat
+			}
 			if test.mode == "trusted_authority_array_item_type" {
 				params["expected_type"] = test.expectedType
 				params["valid"] = test.valid
@@ -1392,6 +1533,38 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			require.Equal(t, test.status, result.Status, result.Message)
 		})
 	}
+}
+
+func credentialFormatEvidence(format, responseID string) map[string]any {
+	return credentialFormatEvidenceWithPresentations(
+		"pid",
+		format,
+		responseID,
+		[]any{"presentation"},
+	)
+}
+
+func credentialFormatEvidenceWithPresentations(
+	queryID string,
+	format string,
+	responseID string,
+	presentations []any,
+) map[string]any {
+	meta := map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"}
+	if format == "dc+sd-jwt" {
+		meta = map[string]any{"vct_values": []any{"urn:eudi:pid:1"}}
+	}
+	credential := map[string]any{"id": queryID, "meta": meta}
+	if format != "" {
+		credential["format"] = format
+	}
+	evidence := map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{credential}},
+	}
+	if responseID != "" {
+		evidence["vp_token"] = map[string]any{responseID: presentations}
+	}
+	return evidence
 }
 
 func validSDJWTCredentialQuery(id string) map[string]any {
@@ -1510,14 +1683,78 @@ func testSDJWTPresentation(claims map[string]any) string {
 	}
 	header, _ := json.Marshal(map[string]any{"alg": "none"})
 	payload, _ := json.Marshal(map[string]any{"_sd_alg": "sha-256", "_sd": digests})
-	return base64.RawURLEncoding.EncodeToString(
+	token := base64.RawURLEncoding.EncodeToString(
 		header,
 	) + "." + base64.RawURLEncoding.EncodeToString(
 		payload,
-	) + ".signature~" + strings.Join(
-		disclosures,
-		"~",
-	) + "~"
+	) + ".signature"
+	if len(disclosures) == 0 {
+		return token + "~"
+	}
+	return token + "~" + strings.Join(disclosures, "~") + "~"
+}
+
+func TestDCQLWithoutClaimDisclosures(t *testing.T) {
+	validator := DCQLResponseConstraintsValidator{}
+	credential := validSDJWTCredentialQuery("pid")
+	delete(credential, "claims")
+
+	noDisclosure := validator.Validate(context.Background(), Input{
+		Value: map[string]any{
+			"dcql_query": map[string]any{"credentials": []any{credential}},
+			"vp_token":   map[string]any{"pid": []any{testSDJWTPresentation(map[string]any{})}},
+		},
+		Params: map[string]any{"mode": "without_claim_disclosures"},
+	})
+	require.Equal(t, StatusPass, noDisclosure.Status)
+
+	withDisclosure := validator.Validate(context.Background(), Input{
+		Value: map[string]any{
+			"dcql_query": map[string]any{"credentials": []any{credential}},
+			"vp_token": map[string]any{
+				"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})},
+			},
+		},
+		Params: map[string]any{"mode": "without_claim_disclosures"},
+	})
+	require.Equal(t, StatusFail, withDisclosure.Status)
+}
+
+func TestDCQLClaimSetsSelection(t *testing.T) {
+	validator := DCQLResponseConstraintsValidator{}
+	credential := validSDJWTCredentialQuery("pid")
+	credential["claims"] = []any{
+		map[string]any{"id": "first", "path": []any{"given_name"}},
+		map[string]any{"id": "second", "path": []any{"family_name"}},
+		map[string]any{"id": "third", "path": []any{"birthdate"}},
+	}
+	credential["claim_sets"] = []any{[]any{"first"}, []any{"second"}, []any{"third"}}
+	evidence := map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{credential}},
+		"vp_token": map[string]any{
+			"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})},
+		},
+	}
+	result := validator.Validate(context.Background(), Input{
+		Value:  evidence,
+		Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+	})
+	require.Equal(t, StatusPass, result.Status)
+
+	evidence["vp_token"] = map[string]any{
+		"pid": []any{testSDJWTPresentation(map[string]any{"family_name": "Smith"})},
+	}
+	result = validator.Validate(context.Background(), Input{
+		Value:  evidence,
+		Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+	})
+	require.Equal(t, StatusFail, result.Status)
+
+	delete(evidence, "vp_token")
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: map[string]any{"mode": "claim_sets_no_match"},
+	})
+	require.Equal(t, StatusPass, result.Status)
 }
 
 func TestMatchesJSONType(t *testing.T) {

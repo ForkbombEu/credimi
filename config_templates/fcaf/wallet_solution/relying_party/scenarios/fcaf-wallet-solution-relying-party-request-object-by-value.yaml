@@ -1,116 +1,113 @@
 name: FCAF wallet relying-party Request Object by value
 runtime:
-  global_runner_id: ""
-  temporal:
-    activity_options:
-      schedule_to_close_timeout: 50m
-      start_to_close_timeout: 50m
-      retry_policy:
-        maximum_attempts: 1
-
+    global_runner_id: ""
+    temporal:
+        activity_options:
+            retry_policy:
+                maximum_attempts: 1
+            schedule_to_close_timeout: 50m
+            start_to_close_timeout: 50m
 steps:
-  - id: create-presentation
-    use: http-request
-    with:
-      method: POST
-      url: ${fixture.verifier_url}/ui/presentations
-      expected_status: 200
-      headers:
-        Content-Type: application/json
-      body:
-        type: vp_token
-        nonce: fcaf-request-object-by-value
-        jar_mode: by_value
-        dcql_query:
-          credentials:
-            - id: pid_mdoc
-              format: mso_mdoc
-              meta:
-                doctype_value: eu.europa.ec.eudi.pid.1
-              claims:
-                - path:
-                    - eu.europa.ec.eudi.pid.1
-                    - given_name
-                - path:
-                    - eu.europa.ec.eudi.pid.1
-                    - family_name
-
-  - id: submit-request-object-by-value
-    use: mobile-automation
-    with:
-      version_id: installed_from_external_source
-      parameters:
-        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
-        REQUEST_OBJECT: ${{ create-presentation.outputs.body.request }}
-      action_code: |
-        appId: eu.europa.ec.euidi
-        ---
-        - stopApp
-        - evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
-        - openLink:
-            link: ${output.authorizationRequest}
-            autoVerify: false
-            browser: false
-        - waitForAnimationToEnd:
-            timeout: 5000
-        - tapOn:
-            text: "EUDI Wallet"
-            optional: true
-        - tapOn:
-            text: "Just once"
-            optional: true
-        - extendedWaitUntil:
-            visible: "Welcome back|Share|Cancel|Close"
-            timeout: 100000
-        - runFlow:
-            when:
-              visible: "Welcome back"
-            commands:
-              - tapOn:
-                  point: "11%,40%"
-              - inputText: "123456"
-        - extendedWaitUntil:
-            visible: "Share"
-            timeout: 30000
-        - tapOn:
-            text: "Share"
-            enabled: true
-        - extendedWaitUntil:
-            visible: "verify your identity|PIN"
-            timeout: 30000
-        - inputText: "123456"
-        - extendedWaitUntil:
-            visible: "Close"
-            timeout: 30000
-        - assertVisible: "Close"
-        - takeScreenshot: fcaf-request-object-by-value-accepted
-
-  - id: get-presentation-result
-    use: http-request
-    with:
-      method: GET
-      url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
-      expected_status: 200
-
-  - id: run-fcaf-validators
-    use: fcaf-validation
-    with:
-      test_ids:
-        - WS_RP_MS_Metadata__104
-        - WS_RP_MS_ProtocolMessages__004
-        - WS_RP_MS_ProtocolMessages__008
-        - WS_RP_MS_ProtocolMessages__019
-        - WS_RP_MS_ProtocolMessages__035
-        - WS_RP_MS_ProtocolMessages__036
-        - WS_RP_MS_ProtocolMessages__037
-      suite: wallet_solution/relying_party
-      pipeline_outputs:
-        pipeline.wallet.protocol.request-object-by-value:
-          output:
-            dcql_exchange: ${{ get-presentation-result.outputs.body }}
-            request_object: ${{ create-presentation.outputs.body.request }}
-            wallet_response: ${{ get-presentation-result.outputs.body }}
-            visual_evidence: ${{ submit-request-object-by-value.outputs.flow_output.maestro_screenshot_urls }}
-            create-presentation: ${{ create-presentation.outputs }}
-            submit-request-object-by-value: ${{ submit-request-object-by-value.outputs }}
-            get-presentation-result: ${{ get-presentation-result.outputs }}
+    - id: create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - eu.europa.ec.eudi.pid.1
+                            - given_name
+                        - path:
+                            - eu.europa.ec.eudi.pid.1
+                            - family_name
+                      format: mso_mdoc
+                      id: pid_mdoc
+                      meta:
+                        doctype_value: eu.europa.ec.eudi.pid.1
+            jar_mode: by_value
+            nonce: fcaf-request-object-by-value
+            type: vp_token
+        expected_status: 200
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/ui/presentations
+    - id: submit-request-object-by-value
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - stopApp
+            - evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
+            - openLink:
+                link: ${output.authorizationRequest}
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 5000
+            - tapOn:
+                text: "EUDI Wallet"
+                optional: true
+            - tapOn:
+                text: "Just once"
+                optional: true
+            - extendedWaitUntil:
+                visible: "Welcome back|Share|Cancel|Close"
+                timeout: 100000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - tapOn:
+                      point: "11%,40%"
+                  - inputText: "123456"
+            - extendedWaitUntil:
+                visible: "Share"
+                timeout: 30000
+            - takeScreenshot: fcaf-request-object-by-value-consent
+            - tapOn:
+                text: "Share"
+                enabled: true
+            - extendedWaitUntil:
+                visible: "verify your identity|PIN"
+                timeout: 30000
+            - inputText: "123456"
+            - extendedWaitUntil:
+                visible: "Close"
+                timeout: 30000
+            - assertVisible: "Close"
+            - takeScreenshot: fcaf-request-object-by-value-accepted
+        parameters:
+            CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
+            REQUEST_OBJECT: ${{ create-presentation.outputs.body.request }}
+        version_id: installed_from_external_source
+    - id: get-presentation-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+    - id: run-fcaf-validators
+      use: fcaf-validation
+      with:
+        pipeline_outputs:
+            pipeline.wallet.protocol.request-object-by-value:
+                output:
+                    create-presentation: ${{ create-presentation.outputs }}
+                    dcql_exchange: ${{ get-presentation-result.outputs.body }}
+                    get-presentation-result: ${{ get-presentation-result.outputs }}
+                    request_object: ${{ create-presentation.outputs.body.request }}
+                    submit-request-object-by-value: ${{ submit-request-object-by-value.outputs }}
+                    visual_evidence: ${{ submit-request-object-by-value.outputs.flow_output.maestro_screenshot_urls }}
+                    wallet_response: ${{ get-presentation-result.outputs.body }}
+        suite: wallet_solution/relying_party
+        test_ids:
+            - WS_RP_MS_Metadata__104
+            - WS_RP_MS_ProtocolMessages__004
+            - WS_RP_MS_ProtocolMessages__008
+            - WS_RP_MS_ProtocolMessages__019
+            - WS_RP_MS_ProtocolMessages__035
+            - WS_RP_MS_ProtocolMessages__036
+            - WS_RP_MS_ProtocolMessages__037

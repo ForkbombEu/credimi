@@ -15,12 +15,6 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
         version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
     - continue_on_error: true
-      id: engagement-haip-vp-4bb0f83a-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
-    - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
       use: credential-offer
       with:
@@ -141,7 +135,7 @@ steps:
                     fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
                     invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
-                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    onboard-reference-wallet: ${{ onboard-reference-wallet.outputs | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.pid.presentation.sdjwt.all-claims:
                 output:
@@ -150,7 +144,7 @@ steps:
                     fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
                     invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
-                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    onboard-reference-wallet: ${{ onboard-reference-wallet.outputs | optional }}
                     pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
@@ -161,7 +155,7 @@ steps:
                     fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
                     invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
-                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    onboard-reference-wallet: ${{ onboard-reference-wallet.outputs | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wallet_engagement: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body | optional }}
         suite: wallet_solution/relying_party

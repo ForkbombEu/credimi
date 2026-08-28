@@ -70,7 +70,29 @@ steps:
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
-    test_ids: []
+    test_ids:
+    - WS_RP_SH_Encoding_TextualEncoding_001
+    - WS_RP_SH_Encoding_TextualEncoding_002
+    - WS_RP_SH_Encoding_TextualEncoding_003
+    - WS_RP_SH_Encoding_TextualEncoding_004
+    - WS_RP_SH_Encoding_TextualEncoding_005
+    - WS_RP_SH_Encoding_TextualEncoding_006
+    - WS_RP_SH_Encoding_TextualEncoding_007
+    - WS_RP_SH_Encoding_TextualEncoding_008
+    - WS_RP_SH_Encoding_TextualEncoding_009
+    - WS_RP_SH_Encoding_TextualEncoding_010
+    - WS_RP_SH_Encoding_TextualEncoding_011
+    - WS_RP_SH_Encoding_TextualEncoding_012
+    - WS_RP_SH_Encoding_TextualEncoding_013
+    - WS_RP_SH_Encoding_TextualEncoding_014
+    - WS_RP_SH_Encoding_TextualEncoding_015
+    - WS_RP_SH_Encoding_TextualEncoding_016
+    - WS_RP_SH_Encoding_TextualEncoding_017
+    - WS_RP_SH_Encoding_TextualEncoding_018
+    - WS_RP_SH_Encoding_TextualEncoding_019
+    - WS_RP_SH_Encoding_TextualEncoding_020
+    - WS_RP_SH_Encoding_TextualEncoding_021
+    - WS_RP_SH_Encoding_TextualEncoding_022
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.encoding:

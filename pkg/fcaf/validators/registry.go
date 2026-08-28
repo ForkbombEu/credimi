@@ -58,6 +58,8 @@ func DefaultRegistry() (*Registry, error) {
 		JOSEJWEEncryptedResponseValidator{},
 		OID4VPDeviceBindingValidator{},
 		OID4VPNonceStateBindingValidator{},
+		OID4VPUnsupportedResponseTypeValidator{},
+		OID4VPVerifierMetadataExclusiveValidator{},
 		DCQLResponseConstraintsValidator{},
 		SDJWTClaimPresentValidator{},
 		SDJWTClaimTypeValidator{},
@@ -83,6 +85,7 @@ func DefaultRegistry() (*Registry, error) {
 		SDJWTCNFConformsValidator{},
 		SDJWTKeyBindingMatchesCNFValidator{},
 		SDJWTKBJWTPresentValidator{},
+		SDJWTCompactSerializationValidator{},
 		PIDSDJWTVCTValidator{},
 		PIDSDJWTMandatoryClaimsValidator{},
 	)

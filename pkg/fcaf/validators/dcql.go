@@ -16,9 +16,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 )
 
-const invalidRequestError = "invalid_request"
-
 var dcqlIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+const invalidRequestError = "invalid_request"
 
 type DCQLResponseConstraintsValidator struct{}
 
@@ -26,7 +26,7 @@ func (DCQLResponseConstraintsValidator) ID() string {
 	return "dcql.response_satisfies_constraints"
 }
 
-//nolint:gocyclo // DCQL modes remain explicit so each conformance branch is auditable.
+//nolint:gocyclo // DCQL modes share decoding and evidence normalization in one registry validator.
 func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
 		Mode           string  `json:"mode"`
@@ -35,12 +35,16 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		ExpectedType   string  `json:"expected_type"`
 		Valid          bool    `json:"valid"`
 		ExpectedValue  any     `json:"expected_value"`
+		ExpectedFormat string  `json:"expected_format"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	switch params.Mode {
 	case "credential_sets",
+		"claim_sets_preferred_option",
+		"claim_sets_no_match",
+		"claim_sets_without_claims",
 		"claims_present",
 		"claims_subset",
 		"claims_union",
@@ -65,10 +69,15 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_required_true_no_match",
 		"credential_sets_required_omitted",
 		"credential_sets_required_false_with_match",
+		"credential_sets_required_optional",
+		"credential_sets_single_available_option",
+		"credential_sets_combined_option_no_match",
+		"credential_format_presentation",
 		"credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
 		"without_claims",
+		"without_claim_disclosures",
 		"empty_claims",
 		"empty_array",
 		"property_type",
@@ -86,7 +95,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, claim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
+			Message: "mode must be credential_sets, credential_format_presentation, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, claim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
 		}
 	}
 
@@ -200,10 +209,17 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_required_omitted",
 		"credential_sets_required_false_with_match":
 		return validateCredentialSetsRequired(query, responseValue, params.Mode)
+	case "credential_sets_required_optional",
+		"credential_sets_single_available_option",
+		"credential_sets_combined_option_no_match":
+		return validateCredentialSetInteraction(query, responseValue, params.Mode)
+	case "credential_format_presentation":
+		return validateCredentialFormatPresentation(query, responseValue, params.ExpectedFormat)
 	case "credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
 		"without_claims",
+		"without_claim_disclosures",
 		"multiple_default_false",
 		"multiple_true":
 		if params.Mode == "without_credential_sets" {
@@ -244,7 +260,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					}
 				}
 			}
-			if params.Mode == "without_claims" {
+			if params.Mode == "without_claims" || params.Mode == "without_claim_disclosures" {
 				if _, exists := credential["claims"]; exists {
 					return Result{
 						Status:  StatusFail,
@@ -267,6 +283,54 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 						"vp_token has no presentation for credential query %q",
 						id,
 					),
+				}
+			}
+			if params.Mode == "without_claim_disclosures" {
+				presentations, ok := presentation.([]any)
+				if !ok || len(presentations) == 0 {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"vp_token has no SD-JWT presentation for credential query %q",
+							id,
+						),
+					}
+				}
+				for presentationIndex, rawPresentation := range presentations {
+					token, ok := rawPresentation.(string)
+					if !ok || token == "" {
+						return Result{
+							Status: StatusFail,
+							Message: fmt.Sprintf(
+								"vp_token[%q][%d] is not an SD-JWT presentation",
+								id,
+								presentationIndex,
+							),
+						}
+					}
+					parsed, err := evidence.ParseSDJWTPresentation(token)
+					if err != nil {
+						return Result{
+							Status: StatusFail,
+							Message: fmt.Sprintf(
+								"vp_token[%q][%d] is not a valid SD-JWT presentation: %v",
+								id,
+								presentationIndex,
+								err,
+							),
+						}
+					}
+					if parsed.DisclosureCount != 0 {
+						return Result{
+							Status: StatusFail,
+							Message: fmt.Sprintf(
+								"vp_token[%q][%d] disclosed %d claim(s) although claims was omitted",
+								id,
+								presentationIndex,
+								parsed.DisclosureCount,
+							),
+						}
+					}
 				}
 			}
 			if params.Mode == "multiple_default_false" {
@@ -884,6 +948,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				Message: "wallet response contains no vp_token fclaim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
 			}
 		}
+	case "claim_sets_preferred_option":
+		return validateClaimSetsPreferredOption(query, responseValue, params.ExpectedValue)
+	case "claim_sets_no_match":
+		return validateClaimSetsNoMatch(query, responseValue)
+	case "claim_sets_without_claims":
+		return validateClaimSetsWithoutClaims(query, responseValue)
 	}
 	return Result{
 		Status:  StatusPass,
@@ -936,6 +1006,66 @@ func matchesJSONType(value any, expected string) bool {
 		return value == nil
 	default:
 		return false
+	}
+}
+
+func validateCredentialFormatPresentation(
+	query map[string]any,
+	responseValue any,
+	expectedFormat string,
+) Result {
+	if expectedFormat != "mso_mdoc" && expectedFormat != "dc+sd-jwt" {
+		return Result{
+			Status:  StatusError,
+			Message: "expected_format must be mso_mdoc or dc+sd-jwt",
+		}
+	}
+
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain exactly one credential query",
+		}
+	}
+	if err := validateDCQLCredentialQueries(credentials); err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+	credential, _ := normalizeJSONObject(credentials[0])
+	queryID, _ := credential["id"].(string)
+	actualFormat, _ := credential["format"].(string)
+	if actualFormat != expectedFormat {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"credential query format is %q, expected %q",
+				actualFormat,
+				expectedFormat,
+			),
+		}
+	}
+
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet response vp_token is not an object",
+		}
+	}
+	presentations, ok := response[queryID].([]any)
+	if !ok || len(presentations) == 0 {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("vp_token has no presentation for query %q", queryID),
+		}
+	}
+	return Result{
+		Status: StatusPass,
+		Message: fmt.Sprintf(
+			"wallet returned %s presentation for query %q",
+			expectedFormat,
+			queryID,
+		),
 	}
 }
 
@@ -1080,7 +1210,7 @@ func isEmptyDCQLValue(value any) bool {
 	}
 }
 
-//nolint:gocyclo // Each credential-set shape has distinct conformance semantics.
+//nolint:gocyclo // Each malformed options shape has a distinct conformance result.
 func validateCredentialSetsOptions(
 	query map[string]any,
 	responseValue, errorValue any,
@@ -1244,6 +1374,122 @@ func validateCredentialSetsRequired(query map[string]any, responseValue any, mod
 		Status:  StatusPass,
 		Message: "wallet stopped without presenting a missing required credential set",
 	}
+}
+
+func validateCredentialSetInteraction(query map[string]any, responseValue any, mode string) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 2 {
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain exactly two credential queries",
+		}
+	}
+	ids := make([]string, 2)
+	for index, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] is not an object", index),
+			}
+		}
+		id, _ := credential["id"].(string)
+		if id == "" {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] has no id", index),
+			}
+		}
+		ids[index] = id
+	}
+	sets, ok := query["credential_sets"].([]any)
+	if !ok {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credential_sets"}
+	}
+	if mode == "credential_sets_required_optional" {
+		if len(sets) != 2 || !credentialSetHasExactOption(sets[0], ids[0]) ||
+			!credentialSetHasExactOption(sets[1], ids[1]) {
+			return Result{
+				Status:  StatusFail,
+				Message: "credential_sets must contain separate options for the available required and unavailable optional queries",
+			}
+		}
+		first, _ := normalizeJSONObject(sets[0])
+		second, _ := normalizeJSONObject(sets[1])
+		if first["required"] != true || second["required"] != false {
+			return Result{
+				Status:  StatusFail,
+				Message: "credential_sets must mark the available option required and unavailable option optional",
+			}
+		}
+	} else {
+		if len(sets) != 1 {
+			return Result{
+				Status:  StatusFail,
+				Message: "credential_sets must contain exactly one set",
+			}
+		}
+		expected := []string{ids[0]}
+		if mode == "credential_sets_combined_option_no_match" {
+			expected = append(expected, ids[1])
+		}
+		if !credentialSetHasExactOption(sets[0], expected...) {
+			return Result{
+				Status:  StatusFail,
+				Message: "credential_sets option does not match the requested credential queries",
+			}
+		}
+	}
+	response, responseOK := normalizeJSONObject(responseValue)
+	if mode == "credential_sets_combined_option_no_match" {
+		if !isEmptyDCQLValue(responseValue) {
+			return Result{
+				Status:  StatusFail,
+				Message: "wallet returned a presentation for an unsatisfied combined credential-set option",
+			}
+		}
+		return Result{
+			Status:  StatusPass,
+			Message: "wallet did not return an unsatisfied combined credential-set option",
+		}
+	}
+	if !responseOK || isEmptyDCQLValue(response[ids[0]]) {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet did not return the available credential-set option",
+		}
+	}
+	if !isEmptyDCQLValue(response[ids[1]]) {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned the unavailable credential query",
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "wallet returned only the available credential-set option",
+	}
+}
+
+func credentialSetHasExactOption(rawSet any, expected ...string) bool {
+	set, ok := normalizeJSONObject(rawSet)
+	if !ok {
+		return false
+	}
+	options, ok := set["options"].([]any)
+	if !ok || len(options) != 1 {
+		return false
+	}
+	option, ok := options[0].([]any)
+	if !ok || len(option) != len(expected) {
+		return false
+	}
+	for index, id := range expected {
+		if option[index] != id {
+			return false
+		}
+	}
+	return true
 }
 
 func validateClaimsPresent(query map[string]any, responseValue any) Result {
@@ -1453,6 +1699,163 @@ func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPath
 		Status:  StatusPass,
 		Message: "wallet disclosed requested claims and omitted unchecked claims",
 	}
+}
+
+//nolint:gocyclo // Selection precedence requires explicit handling of each claim-set shape.
+func validateClaimSetsPreferredOption(
+	query map[string]any,
+	responseValue, expectedValue any,
+) Result {
+	expectedFloat, ok := expectedValue.(float64)
+	if !ok || expectedFloat < 0 || expectedFloat != float64(int(expectedFloat)) {
+		return Result{
+			Status:  StatusError,
+			Message: "expected_value must be a non-negative claim_sets index",
+		}
+	}
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "claim_sets preference requires exactly one credential query",
+		}
+	}
+	credential, ok := normalizeJSONObject(credentials[0])
+	if !ok {
+		return Result{Status: StatusFail, Message: "credential query is not an object"}
+	}
+	id, _ := credential["id"].(string)
+	claims, claimsOK := credential["claims"].([]any)
+	sets, setsOK := credential["claim_sets"].([]any)
+	if id == "" || !claimsOK || !setsOK || len(sets) != 3 || int(expectedFloat) >= len(sets) {
+		return Result{
+			Status:  StatusFail,
+			Message: "request does not contain three claim_sets over identified claims",
+		}
+	}
+	paths := map[string][]any{}
+	for _, rawClaim := range claims {
+		claim, ok := normalizeJSONObject(rawClaim)
+		if !ok {
+			return Result{Status: StatusFail, Message: "claim is not an object"}
+		}
+		claimID, _ := claim["id"].(string)
+		path, pathOK := claim["path"].([]any)
+		if claimID == "" || !pathOK || len(path) == 0 {
+			return Result{Status: StatusFail, Message: "claim has no id or path"}
+		}
+		paths[claimID] = path
+	}
+	expected, ok := sets[int(expectedFloat)].([]any)
+	if !ok || len(expected) == 0 {
+		return Result{Status: StatusFail, Message: "preferred claim_set is empty or invalid"}
+	}
+	expectedIDs := map[string]struct{}{}
+	for _, rawID := range expected {
+		claimID, ok := rawID.(string)
+		if !ok || paths[claimID] == nil {
+			return Result{
+				Status:  StatusFail,
+				Message: "preferred claim_set references an unknown claim",
+			}
+		}
+		expectedIDs[claimID] = struct{}{}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{Status: StatusFail, Message: "wallet response contains no vp_token"}
+	}
+	presentations, ok := response[id].([]any)
+	if !ok || len(presentations) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet did not return exactly one selected presentation",
+		}
+	}
+	token, ok := presentations[0].(string)
+	if !ok || token == "" {
+		return Result{Status: StatusFail, Message: "selected presentation is not an SD-JWT"}
+	}
+	presentation, err := evidence.ParseSDJWTPresentation(token)
+	if err != nil {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("selected presentation is not valid SD-JWT: %v", err),
+		}
+	}
+	for claimID, path := range paths {
+		_, expected := expectedIDs[claimID]
+		disclosed := claimPathResolves(presentation.Claims, path)
+		if expected && !disclosed {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("selected claim_set claim %q was not disclosed", claimID),
+			}
+		}
+		if !expected && disclosed {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"claim %q outside the selected claim_set was disclosed",
+					claimID,
+				),
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "wallet disclosed only the preferred satisfiable claim_set",
+	}
+}
+
+func validateClaimSetsNoMatch(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 || !containsClaimSets(credentials) {
+		return Result{
+			Status:  StatusFail,
+			Message: "request does not contain credential claims and claim_sets",
+		}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned claims although no claim_set is satisfiable",
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "wallet returned no claims for unsatisfiable claim_sets",
+	}
+}
+
+func validateClaimSetsWithoutClaims(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "request contains no credential query"}
+	}
+	for _, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{Status: StatusFail, Message: "credential query is not an object"}
+		}
+		if _, exists := credential["claims"]; exists {
+			return Result{
+				Status:  StatusFail,
+				Message: "invalid request unexpectedly contains claims",
+			}
+		}
+		sets, ok := credential["claim_sets"].([]any)
+		if !ok || len(sets) == 0 {
+			return Result{Status: StatusFail, Message: "invalid request contains no claim_sets"}
+		}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned a credential for claim_sets without claims",
+		}
+	}
+	return Result{Status: StatusPass, Message: "wallet rejected claim_sets without claims"}
 }
 
 func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {
@@ -3061,6 +3464,9 @@ func validateJWEEncVerified(responseValue any) Result {
 }
 
 func normalizeString(v any) string {
+	if v == nil {
+		return ""
+	}
 	s, _ := v.(string)
 	return s
 }
