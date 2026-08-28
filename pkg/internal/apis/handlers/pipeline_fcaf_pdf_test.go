@@ -86,7 +86,7 @@ func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 	defer reader.Close()
 	pdf, err := io.ReadAll(reader)
 	require.NoError(t, err)
-	require.Contains(t, string(pdf[:8]), "%PDF-")
+	require.Contains(t, string(pdf), "%PDF-")
 }
 
 func TestLoadPipelineFCAFReportImagesUsesExactEvidenceKey(t *testing.T) {

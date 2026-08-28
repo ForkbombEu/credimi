@@ -614,8 +614,7 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	if rootSummary.Type.Name == w.Name() {
 		if resultRecord != nil {
 			attachPipelineArtifactsToSummary(rootSummary, b.app, resultRecord)
-		}
-		if len(rootSummary.Results) == 0 || rootSummary.Report == "" ||
+		} else if len(rootSummary.Results) == 0 || rootSummary.Report == "" ||
 			rootSummary.FCAFReport == "" || rootSummary.FCAFReportPDF == "" {
 			artifacts := pipelineresults.ResolvePipelineExecutionArtifacts(
 				b.app,
