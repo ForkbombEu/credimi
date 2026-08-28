@@ -199,6 +199,46 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			name: "required combined credential set returns a privacy-preserving error",
+			mode: "required_credentials_no_partial_presentation",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("available"),
+						validSDJWTCredentialQuery("unavailable"),
+					},
+					"credential_sets": []any{
+						map[string]any{
+							"required": true,
+							"options":  []any{[]any{"available", "unavailable"}},
+						},
+					},
+				},
+				"error": "access_denied",
+			},
+			status: StatusPass,
+		},
+		{
+			name: "required combined credential set rejects partial presentation",
+			mode: "required_credentials_no_partial_presentation",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("available"),
+						validSDJWTCredentialQuery("unavailable"),
+					},
+					"credential_sets": []any{
+						map[string]any{
+							"required": true,
+							"options":  []any{[]any{"available", "unavailable"}},
+						},
+					},
+				},
+				"vp_token": map[string]any{"available": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "credentials matched",
 			mode: "credentials_match",
 			evidence: map[string]any{

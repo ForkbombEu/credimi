@@ -629,8 +629,14 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 				rootSummary.Report = artifacts.Report
 			}
 		}
-		rootSummary.FCAFReport = pipelineresults.BuildPipelineExecutionArtifacts(b.app, resultRecord).FCAFReport
-		rootSummary.MaestroScreenshots = pipelineresults.BuildPipelineExecutionArtifacts(b.app, resultRecord).MaestroScreenshots
+		rootSummary.FCAFReport = pipelineresults.BuildPipelineExecutionArtifacts(
+			b.app,
+			resultRecord,
+		).FCAFReport
+		rootSummary.MaestroScreenshots = pipelineresults.BuildPipelineExecutionArtifacts(
+			b.app,
+			resultRecord,
+		).MaestroScreenshots
 	}
 
 	for _, childExecution := range childExecutions {

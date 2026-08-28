@@ -69,6 +69,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_required_true_no_match",
 		"credential_sets_required_omitted",
 		"credential_sets_required_false_with_match",
+		"required_credentials_no_partial_presentation",
 		"credential_sets_required_optional",
 		"credential_sets_single_available_option",
 		"credential_sets_combined_option_no_match",
@@ -209,6 +210,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_required_omitted",
 		"credential_sets_required_false_with_match":
 		return validateCredentialSetsRequired(query, responseValue, params.Mode)
+	case "required_credentials_no_partial_presentation":
+		return validateRequiredCredentialsNoPartialPresentation(query, responseValue, errorValue)
 	case "credential_sets_required_optional",
 		"credential_sets_single_available_option",
 		"credential_sets_combined_option_no_match":
@@ -1373,6 +1376,59 @@ func validateCredentialSetsRequired(query map[string]any, responseValue any, mod
 	return Result{
 		Status:  StatusPass,
 		Message: "wallet stopped without presenting a missing required credential set",
+	}
+}
+
+func validateRequiredCredentialsNoPartialPresentation(
+	query map[string]any,
+	responseValue any,
+	errorValue any,
+) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 2 {
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain exactly two credential queries",
+		}
+	}
+	if err := validateDCQLCredentialQueries(credentials); err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+
+	credentialIDs := make([]string, len(credentials))
+	for index, rawCredential := range credentials {
+		credential, _ := normalizeJSONObject(rawCredential)
+		credentialIDs[index], _ = credential["id"].(string)
+	}
+
+	sets, ok := query["credential_sets"].([]any)
+	if !ok || len(sets) != 1 || !credentialSetHasExactOption(sets[0], credentialIDs...) {
+		return Result{
+			Status:  StatusFail,
+			Message: "credential_sets must contain one option requiring both credential queries",
+		}
+	}
+	set, _ := normalizeJSONObject(sets[0])
+	if set["required"] != true {
+		return Result{Status: StatusFail, Message: "credential_sets option is not required"}
+	}
+
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned a partial presentation for an unsatisfied required credential set",
+		}
+	}
+	if errorMessage, ok := errorValue.(string); !ok || errorMessage == "" {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet did not return a requirement-not-met error for an unsatisfied required credential set",
+		}
+	}
+
+	return Result{
+		Status:  StatusPass,
+		Message: "wallet returned a requirement-not-met error without presenting a partial credential set",
 	}
 }
 

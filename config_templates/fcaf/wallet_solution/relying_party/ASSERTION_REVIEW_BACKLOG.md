@@ -12,13 +12,7 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 
 ## Pending
 
-- [ ] `WS_RP_IA_Engagement__002`
-- [ ] `WS_RP_IA_MainInteraction__006`
-- [ ] `WS_RP_IA_MainInteraction__008`
-- [ ] `WS_RP_IA_MainInteraction__010`
-- [ ] `WS_RP_IA_MainInteraction__024`
-- [ ] `WS_RP_IA_MainInteraction__032`
-- [ ] `WS_RP_IA_MainInteraction__033`
+- [ ] `WS_RP_IA_MainInteraction__024` (no idea of what encrypted values means)
 - [ ] `WS_RP_IA_MainInteraction__034`
 - [ ] `WS_RP_IA_MainInteraction__035`
 - [ ] `WS_RP_IA_MainInteraction__036`
@@ -287,6 +281,12 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 
 ## Verifier Blocked
 
+- [ ] `WS_RP_IA_Engagement__002` (W3C API)
+- [ ] `WS_RP_IA_MainInteraction__006` (credential with no hb)
+- [ ] `WS_RP_IA_MainInteraction__008` (credential with no hb)
+- [ ] `WS_RP_IA_MainInteraction__010` (credential with no hb)
+- [ ] `WS_RP_IA_MainInteraction__032` (PID with `over 18` set to false)
+- [ ] `WS_RP_IA_MainInteraction__033` (multiple credentials (same type) with different values)
 - [ ] `WS_RP_MS_Metadata__105`
 - [ ] `WS_RP_MS_Metadata__106`
 - [ ] `WS_RP_MS_Metadata__107`

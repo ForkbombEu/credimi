@@ -9888,6 +9888,84 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-required-credentials-no-partial-c6dd8f09-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credential_sets:
+                        - options:
+                            - - available_pid
+                              - unavailable_credential
+                          required: true
+                    credentials:
+                        - format: dc+sd-jwt
+                          id: available_pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                        - format: dc+sd-jwt
+                          id: unavailable_credential
+                          meta:
+                            vct_values:
+                                - urn:credimi:fcaf:unavailable-required-credential:1
+                nonce: fcaf-ia-034
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-required-credentials-no-partial-c6dd8f09-reject-partial-presentation
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+                  all: unset
+            - extendedWaitUntil:
+                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+                timeout: 30000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - tapOn:
+                      point: "11%,40%"
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn:
+                      point: "50%,10%"
+            - extendedWaitUntil:
+                visible: "Home|Documents|Add document|Welcome, .*"
+                timeout: 30000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - extendedWaitUntil:
+                visible: "Oups! Something went wrong|Error|invalid request|Something went wrong|Home|Documents"
+                timeout: 100000
+            - takeScreenshot: fcaf-ia-034-required-credentials
+        parameters:
+            DEEPLINK: ${{ dcql-required-credentials-no-partial-c6dd8f09-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-required-credentials-no-partial-c6dd8f09-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-required-credentials-no-partial-c6dd8f09-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-create-capture-session
       use: http-request
       with:
@@ -13166,6 +13244,13 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-159-fd92371b-fetch-capture-session.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-159-fd92371b-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.required-credentials-no-partial-presentation:
+                output:
+                    create-capture-session: ${{ dcql-required-credentials-no-partial-c6dd8f09-create-capture-session.outputs | optional }}
+                    dcql_exchange: ${{ dcql-required-credentials-no-partial-c6dd8f09-fetch-capture-session.outputs.body | optional }}
+                    fetch-capture-session: ${{ dcql-required-credentials-no-partial-c6dd8f09-fetch-capture-session.outputs | optional }}
+                    reject-partial-presentation: ${{ dcql-required-credentials-no-partial-c6dd8f09-reject-partial-presentation.outputs | optional }}
+                    visual_evidence: ${{ dcql-required-credentials-no-partial-c6dd8f09-reject-partial-presentation.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.rp-integrity:
                 output:
                     dcql_exchange: ${{ dcql-rp-integrity-3576cc79-fetch-capture-session.outputs.body | optional }}
