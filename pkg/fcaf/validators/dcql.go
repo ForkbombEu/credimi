@@ -78,6 +78,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"vp_token_json_object",
 		"vp_token_query_ids",
 		"vp_token_presentation_arrays",
+		"two_distinct_format_presentations",
 		"credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
@@ -230,6 +231,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateVPTokenQueryIDs(query, responseValue)
 	case "vp_token_presentation_arrays":
 		return validateVPTokenPresentationArrays(query, responseValue)
+	case "two_distinct_format_presentations":
+		return validateTwoDistinctFormatPresentations(query, responseValue)
 	case "credentials_match",
 		"without_credential_sets",
 		"without_trusted_authorities",
@@ -1186,6 +1189,111 @@ func validateVPTokenPresentationArrays(query map[string]any, responseValue any) 
 		Status:  StatusPass,
 		Message: "vp_token entries are non-empty presentation arrays for each credential query",
 	}
+}
+
+func validateTwoDistinctFormatPresentations(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 2 {
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain exactly two credential queries",
+		}
+	}
+	if err := validateDCQLCredentialQueries(credentials); err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+
+	formats := make(map[string]string, len(credentials))
+	for _, rawCredential := range credentials {
+		credential, _ := normalizeJSONObject(rawCredential)
+		id, _ := credential["id"].(string)
+		formats[id], _ = credential["format"].(string)
+	}
+	if len(formats) != 2 || !containsCredentialFormat(formats, "dc+sd-jwt") ||
+		!containsCredentialFormat(formats, "mso_mdoc") {
+		return Result{
+			Status:  StatusFail,
+			Message: "credential queries must contain one dc+sd-jwt and one mso_mdoc credential",
+		}
+	}
+
+	response, result := validatedVPTokenPresentations(query, responseValue)
+	if result != nil {
+		return *result
+	}
+	if len(response) != len(formats) {
+		return Result{
+			Status:  StatusFail,
+			Message: "vp_token keys do not exactly match the two credential query IDs",
+		}
+	}
+	for queryID, format := range formats {
+		presentations := response[queryID].([]any)
+		for index, rawPresentation := range presentations {
+			token, ok := rawPresentation.(string)
+			if !ok || token == "" {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] is not a presentation string",
+						queryID,
+						index,
+					),
+				}
+			}
+			switch format {
+			case "dc+sd-jwt":
+				parsed, err := evidence.ParseSDJWTPresentation(token)
+				if err != nil {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"vp_token[%q][%d] is not a valid SD-JWT presentation: %v",
+							queryID,
+							index,
+							err,
+						),
+					}
+				}
+				algorithm, _ := parsed.ProtectedHeaders["alg"].(string)
+				if algorithm == "" || algorithm == "none" {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"vp_token[%q][%d] is not a signed SD-JWT presentation",
+							queryID,
+							index,
+						),
+					}
+				}
+			case "mso_mdoc":
+				if _, err := evidence.ParseMDocPresentation(token); err != nil {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"vp_token[%q][%d] is not a valid mDoc presentation: %v",
+							queryID,
+							index,
+							err,
+						),
+					}
+				}
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "vp_token exactly maps distinct SD-JWT and mDoc credential queries to valid presentations",
+	}
+}
+
+func containsCredentialFormat(formats map[string]string, expected string) bool {
+	for _, actual := range formats {
+		if actual == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func validatedVPTokenPresentations(

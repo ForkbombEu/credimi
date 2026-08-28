@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1693,6 +1694,98 @@ func signedSDJWTPresentation() string {
 	) + "." + base64.RawURLEncoding.EncodeToString(
 		payload,
 	) + ".signature~"
+}
+
+func TestDCQLTwoDistinctFormatPresentations(t *testing.T) {
+	baseEvidence := func() map[string]any {
+		return map[string]any{
+			"dcql_query": map[string]any{"credentials": []any{
+				validSDJWTCredentialQuery("pid_sdjwt"),
+				map[string]any{
+					"id":     "pid_mdoc",
+					"format": "mso_mdoc",
+					"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+				},
+			}},
+			"vp_token": map[string]any{
+				"pid_sdjwt": []any{signedSDJWTPresentation()},
+				"pid_mdoc":  []any{validMDocPresentation(t)},
+			},
+		}
+	}
+	validator := DCQLResponseConstraintsValidator{}
+
+	for _, test := range []struct {
+		name   string
+		mutate func(map[string]any)
+		status Status
+	}{
+		{name: "accepts exact signed SD JWT and mdoc mappings", status: StatusPass},
+		{
+			name: "rejects an extra response key",
+			mutate: func(evidence map[string]any) {
+				evidence["vp_token"].(map[string]any)["extra"] = []any{"presentation"}
+			},
+			status: StatusFail,
+		},
+		{
+			name: "rejects an invalid mdoc presentation",
+			mutate: func(evidence map[string]any) {
+				evidence["vp_token"].(map[string]any)["pid_mdoc"] = []any{"not-an-mdoc"}
+			},
+			status: StatusFail,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			evidence := baseEvidence()
+			if test.mutate != nil {
+				test.mutate(evidence)
+			}
+			result := validator.Validate(
+				context.Background(),
+				Input{
+					Value:  evidence,
+					Params: map[string]any{"mode": "two_distinct_format_presentations"},
+				},
+			)
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
+	}
+}
+
+func validMDocPresentation(t *testing.T) string {
+	t.Helper()
+	itemValue, err := cbor.Marshal("Alice")
+	require.NoError(t, err)
+	item, err := cbor.Marshal(map[string]any{
+		"digestID": uint64(
+			1,
+		),
+		"random":            []byte("salt"),
+		"elementIdentifier": "given_name",
+		"elementValue":      cbor.RawMessage(itemValue),
+	})
+	require.NoError(t, err)
+	mso, err := cbor.Marshal(map[string]any{"digestAlgorithm": "SHA-256"})
+	require.NoError(t, err)
+	msoBytes, err := cbor.Marshal(mso)
+	require.NoError(t, err)
+	raw, err := cbor.Marshal(map[string]any{
+		"version": "1.0", "documents": []any{map[string]any{
+			"docType": "eu.europa.ec.eudi.pid.1",
+			"issuerSigned": map[string]any{
+				"nameSpaces": map[string]any{
+					"eu.europa.ec.eudi.pid.1": []any{cbor.Tag{Number: 24, Content: item}},
+				},
+				"issuerAuth": cbor.Tag{
+					Number:  18,
+					Content: []any{[]byte{}, map[string]any{}, msoBytes, []byte("signature")},
+				},
+			},
+		}}, "status": uint64(0),
+	})
+	require.NoError(t, err)
+	return base64.RawURLEncoding.EncodeToString(raw)
 }
 
 func credentialFormatEvidence(format, responseID string) map[string]any {

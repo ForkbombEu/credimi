@@ -13,12 +13,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 ## Pending
 
 - [ ] `WS_RP_IA_MainInteraction__024` (no idea of what encrypted values means)
-- [ ] `WS_RP_IA_MainInteraction__034`
-- [ ] `WS_RP_IA_MainInteraction__035`
-- [ ] `WS_RP_IA_MainInteraction__036`
-- [ ] `WS_RP_IA_MainInteraction__037`
-- [ ] `WS_RP_IA_MainInteraction__038`
-- [ ] `WS_RP_IA_MainInteraction__039`
 - [ ] `WS_RP_IA_MainInteraction__040`
 - [ ] `WS_RP_IA_MainInteraction__041`
 - [ ] `WS_RP_IA_MainInteraction__042`

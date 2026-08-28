@@ -688,6 +688,89 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-031-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-039-create-two-credentials-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid_sdjwt
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-main-interaction-039
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-039-present-two-credentials
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+                  all: unset
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - tapOn: { point: "50%,10%" }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - runFlow:
+                when: { visible: "EUDI Wallet" }
+                commands:
+                  - tapOn: { text: "EUDI Wallet", optional: true }
+            - runFlow:
+                when: { visible: "Just once" }
+                commands:
+                  - tapOn: { text: "Just once", optional: true }
+            - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+            - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+            - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
+            - takeScreenshot: fcaf-main-interaction-039-two-credentials
+            - tapOn: "Share"
+            - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
+            - tapOn: { point: "11%,39%" }
+            - inputText: "123456"
+            - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
+            - tapOn: "Close"
+        parameters:
+            DEEPLINK: ${{ main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-039-fetch-two-credentials-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-039-create-two-credentials-presentation.outputs.body.session_id }}
     - id: run-fcaf-validators
       use: fcaf-validation
       with:
@@ -727,6 +810,10 @@ steps:
                 output:
                     dcql_exchange: ${{ fetch-capture-session.outputs.body }}
                     visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.main-interaction-two-distinct-credentials:
+                output:
+                    dcql_exchange: ${{ main-interaction-039-fetch-two-credentials-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-039-present-two-credentials.outputs.flow_output.maestro_screenshot_urls }}
             pipeline.dcql.non-selective-mdoc-full-disclosure:
                 output:
                     dcql_exchange: ${{ main-interaction-028-fetch-result.outputs.body }}

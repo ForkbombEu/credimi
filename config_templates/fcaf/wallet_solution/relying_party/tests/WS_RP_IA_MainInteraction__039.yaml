@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__039
-title: FCAF WS_RP_IA_MainInteraction__039
+title: VP token maps two distinct credential formats to their query IDs
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__039.md
 suite:
@@ -13,18 +13,18 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
+- ref: pipeline.dcql.main-interaction-two-distinct-credentials
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+    from: pipeline.dcql.main-interaction-two-distinct-credentials.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.dcql.main-interaction-two-distinct-credentials.outputs.visual_evidence
 assertions:
 - id: ws_rp_ia_maininteraction__039_interaction
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: two_distinct_format_presentations
 - id: ws_rp_ia_maininteraction__039_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
