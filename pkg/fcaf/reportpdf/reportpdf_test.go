@@ -102,6 +102,39 @@ func TestBuildDocumentAssociatesOnlyExactEvidenceImages(t *testing.T) {
 	require.NotEmpty(t, document.JSONSHA256)
 }
 
+func TestBuildDocumentFallsBackToFilenameAssociation(t *testing.T) {
+	report := engine.Report{
+		ExecutedTests: []engine.ExecutedTest{
+			{
+				TestID: "WS_RP_DM_Credentialmetadata_Documentnumber__001",
+				Status: "failed",
+			},
+			{
+				TestID: "WS_RP_DM_AddressData_Emailaddress__001",
+				Status: "failed",
+			},
+		},
+		Evidence: engine.EvidenceMap{
+			// visual_evidence resolved to null because the producing step failed.
+			"visual_evidence": {Type: "json.array", Value: nil},
+		},
+	}
+
+	document := BuildDocument(Input{
+		Report: report,
+		Images: []ImageAsset{
+			{Filename: "getcredential_generic_credential_without_authentication_0004_credential_added_x.png", Data: []byte("image")},
+			{Filename: "onboarding_1_fcaf_onboarding_complete_y.png", Data: []byte("image")},
+		},
+	})
+
+	require.Len(t, document.Groups, 2)
+	// "credential" word overlaps the Credentialmetadata test id.
+	require.Len(t, document.Groups[0].Tests[0].Images, 1)
+	require.Empty(t, document.Groups[1].Tests[0].Images)
+	require.Len(t, document.Unassigned, 1)
+}
+
 func TestImageReferencesAndPreparation(t *testing.T) {
 	report := engine.Report{Evidence: engine.EvidenceMap{
 		"visual": {
