@@ -71,6 +71,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_required_false_with_match",
 		"required_credentials_no_partial_presentation",
 		"credential_sets_required_optional",
+		"credential_sets_optional_no_match",
 		"credential_sets_single_available_option",
 		"credential_sets_combined_option_no_match",
 		"credential_format_presentation",
@@ -221,6 +222,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_single_available_option",
 		"credential_sets_combined_option_no_match":
 		return validateCredentialSetInteraction(query, responseValue, params.Mode)
+	case "credential_sets_optional_no_match":
+		return validateOptionalCredentialSetNoMatch(query, responseValue)
 	case "credential_format_presentation":
 		return validateCredentialFormatPresentation(query, responseValue, params.ExpectedFormat)
 	case "vp_token_signed_presentation":
@@ -1789,6 +1792,51 @@ func validateCredentialSetInteraction(query map[string]any, responseValue any, m
 	return Result{
 		Status:  StatusPass,
 		Message: "wallet returned only the available credential-set option",
+	}
+}
+
+func validateOptionalCredentialSetNoMatch(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain exactly one optional credential query",
+		}
+	}
+	if err := validateDCQLCredentialQueries(credentials); err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+	credential, _ := normalizeJSONObject(credentials[0])
+	credentialID, _ := credential["id"].(string)
+	if credentialID == "" {
+		return Result{Status: StatusFail, Message: "optional credential query has no id"}
+	}
+
+	sets, ok := query["credential_sets"].([]any)
+	if !ok || len(sets) != 1 || !credentialSetHasExactOption(sets[0], credentialID) {
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain one credential set for the optional credential query",
+		}
+	}
+	set, _ := normalizeJSONObject(sets[0])
+	if set["required"] != false {
+		return Result{
+			Status:  StatusFail,
+			Message: "credential set must mark the unavailable credential query optional",
+		}
+	}
+
+	vpToken, ok := normalizeJSONObject(responseValue)
+	if !ok || len(vpToken) != 0 {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet did not return an empty vp_token for the unavailable optional credential query",
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "wallet returned an empty vp_token for the unavailable optional credential query",
 	}
 }
 

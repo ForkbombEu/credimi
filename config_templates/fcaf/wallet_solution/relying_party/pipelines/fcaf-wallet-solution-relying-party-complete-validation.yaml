@@ -4623,6 +4623,44 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credential_sets:
+                    - options:
+                        - - unavailable_optional_pid
+                      required: false
+                credentials:
+                    - format: dc+sd-jwt
+                      id: unavailable_optional_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:unavailable:optional:1
+            nonce: fcaf-ia-043
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-fetch-optional-no-match-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-pid-sdjwt-offer
       use: credential-offer
       with:
@@ -13135,6 +13173,10 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-fetch-capture-session.outputs.body | optional }}
                     visual_evidence: ${{ dcql-main-interaction-eeb8ef1f-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.main-interaction-optional-no-match:
+                output:
+                    dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-fetch-optional-no-match-result.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.main-interaction-two-distinct-credentials:
                 output:
                     dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-fetch-two-credentials-result.outputs.body | optional }}

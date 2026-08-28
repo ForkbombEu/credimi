@@ -13,11 +13,9 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 ## Pending
 
 - [ ] `WS_RP_IA_MainInteraction__024` (no idea of what encrypted values means)
-- [ ] `WS_RP_IA_MainInteraction__040`
-- [ ] `WS_RP_IA_MainInteraction__041`
-- [ ] `WS_RP_IA_MainInteraction__042`
-- [ ] `WS_RP_IA_MainInteraction__043`
-- [ ] `WS_RP_IA_MainInteraction__046`
+- [ ] `WS_RP_IA_MainInteraction__040` (requires two distinct credential, same type but different values)
+- [ ] `WS_RP_IA_MainInteraction__041` (requires two distinct credential, same type but different values)
+- [ ] `WS_RP_IA_MainInteraction__046` (credential such that resulting presentation size exceeds typical URL length limit)
 - [ ] `WS_RP_IA_MainInteraction__049`
 - [ ] `WS_RP_IA_MainInteraction__052`
 - [ ] `WS_RP_IA_MainInteraction__053`
