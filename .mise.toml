@@ -10,5 +10,5 @@ bun = "1.3.12"
 node = "24.13.0"
 "aqua:dyne/slangroom-exec" = "latest"
 pre-commit = "latest"
-"github:forkbombeu/stepci-captured-runner" = "latest"
+"github:forkbombeu/stepci-captured-runner" = { version = "latest", bin = "stepci-captured-runner" }
 "github:forkbombeu/et-tu-cesr" = "latest"

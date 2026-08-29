@@ -45,8 +45,9 @@ COPY .mise.toml ./
 RUN mise trust
 RUN --mount=type=cache,target=/mise/cache mise i
 RUN mkdir -p .bin && \
-    ln -sf "$$(mise which et-tu-cesr)" .bin/et-tu-cesr && \
-    ln -sf "$$(mise which stepci-captured-runner-Linux)" .bin/stepci-captured-runner
+    ln -sf "$(mise which et-tu-cesr)" .bin/et-tu-cesr && \
+    ln -sf "$(mise which stepci-captured-runner)" .bin/stepci-captured-runner && \
+    test -x .bin/et-tu-cesr && test -x .bin/stepci-captured-runner
 
 # install bun deps and cache
 COPY ./webapp/package.json webapp/
