@@ -15,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
 	"github.com/forkbombeu/credimi/pkg/fcaf/reportpdf"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -208,6 +209,7 @@ func pipelineFCAFReportMetadata(
 			} else {
 				metadata.PipelineIdentifier = strings.Trim(identifier, "/")
 			}
+			metadata.Runner = resolvePipelineRunner(app, pipelineRecord)
 		}
 	}
 
@@ -243,4 +245,35 @@ func firstNonBlank(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func resolvePipelineRunner(app core.App, pipelineRecord *core.Record) reportpdf.RunnerInfo {
+	wf, err := pipeline.ParseWorkflow(pipelineRecord.GetString("yaml"))
+	if err != nil || wf.Runtime.GlobalRunnerID == "" {
+		return reportpdf.RunnerInfo{}
+	}
+	runnerRecord, err := canonify.Resolve(app, canonify.NormalizePath(wf.Runtime.GlobalRunnerID))
+	if err != nil {
+		return reportpdf.RunnerInfo{}
+	}
+	return reportpdf.RunnerInfo{
+		Name:   runnerRecord.GetString("name"),
+		Type:   humanizeRunnerType(runnerRecord.GetString("type")),
+		Serial: runnerRecord.GetString("serial"),
+	}
+}
+
+func humanizeRunnerType(runnerType string) string {
+	switch runnerType {
+	case "android_emulator":
+		return "Android emulator"
+	case "android_phone":
+		return "Android phone"
+	case "ios_emulator", "ios_simulator":
+		return "iOS simulator"
+	case "ios_phone":
+		return "iOS phone"
+	default:
+		return runnerType
+	}
 }

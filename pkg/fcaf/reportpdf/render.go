@@ -29,6 +29,12 @@ type renderer struct {
 	pdf              *fpdf.Fpdf
 	document         Document
 	registeredImages map[string]string
+	section          string
+	sectionColor     [3]int
+	testProgress     string
+	testCount        int
+	evidenceCount    int
+	onBackCover      bool
 }
 
 func Render(ctx context.Context, document Document) ([]byte, error) {
@@ -101,28 +107,39 @@ func (r *renderer) installHeaderAndFooter() {
 		r.pdf.Line(pageMargin, 16, pageWidth-pageMargin, 16)
 	}, true)
 	r.pdf.SetFooterFunc(func() {
+		if r.onBackCover {
+			return
+		}
 		r.pdf.SetY(-14)
 		r.pdf.SetDrawColor(225, 222, 237)
 		r.pdf.Line(pageMargin, r.pdf.GetY(), pageWidth-pageMargin, r.pdf.GetY())
 		r.pdf.SetY(-11)
 		r.pdf.SetFont("SourceCodePro", "", 7)
 		r.pdf.SetTextColor(100, 98, 112)
-		identifier := strings.TrimSpace(r.document.Metadata.WorkflowID)
-		if identifier == "" {
-			identifier = "FCAF assessment"
+
+		left := r.section
+		hasSection := left != ""
+		if !hasSection {
+			left = strings.TrimSpace(r.document.Metadata.WorkflowID)
+			if left == "" {
+				left = "FCAF assessment"
+			}
 		}
-		r.pdf.CellFormat(bodyWidth/2, 5, identifier, "", 0, "L", false, 0, "")
-		r.pdf.CellFormat(
-			bodyWidth/2,
-			5,
-			fmt.Sprintf("Page %d of {nb}", r.pdf.PageNo()),
-			"",
-			0,
-			"R",
-			false,
-			0,
-			"",
-		)
+
+		leftWidth := bodyWidth / 2
+		if hasSection {
+			r.pdf.SetFillColor(r.sectionColor[0], r.sectionColor[1], r.sectionColor[2])
+			r.pdf.Rect(pageMargin, r.pdf.GetY()+0.5, 1.5, 4.5, "F")
+			r.pdf.SetXY(pageMargin+5, r.pdf.GetY())
+			leftWidth -= 5
+		}
+		r.pdf.CellFormat(leftWidth, 5, left, "", 0, "L", false, 0, "")
+
+		right := fmt.Sprintf("Page %d of {nb}", r.pdf.PageNo())
+		if r.testProgress != "" {
+			right = r.testProgress + " · " + right
+		}
+		r.pdf.CellFormat(bodyWidth/2, 5, right, "", 0, "R", false, 0, "")
 	})
 }
 
@@ -132,15 +149,17 @@ func (r *renderer) render() error {
 	}
 	r.renderCover()
 	r.renderExecutiveSummary()
-	for _, group := range r.document.Groups {
+	r.renderGroupSummary()
+	for _, category := range r.document.Categories {
 		if err := r.checkContext(); err != nil {
 			return err
 		}
-		r.renderGroup(group)
+		r.renderCategory(category)
 	}
 	r.renderEvidenceIndex()
 	r.renderUnassignedImages()
 	r.renderWarnings()
+	r.renderBackCover()
 	return r.pdf.Error()
 }
 
@@ -186,6 +205,15 @@ func (r *renderer) renderCover() {
 		firstNonEmpty(r.document.Metadata.OrganizationName, "—"),
 		false,
 	)
+	if r.document.Metadata.Runner.Name != "" {
+		r.renderMetadataRow("Runner", r.document.Metadata.Runner.Name, false)
+	}
+	if r.document.Metadata.Runner.Type != "" {
+		r.renderMetadataRow("Runner type", r.document.Metadata.Runner.Type, false)
+	}
+	if r.document.Metadata.Runner.Serial != "" {
+		r.renderMetadataRow("Serial", r.document.Metadata.Runner.Serial, true)
+	}
 	r.renderMetadataRow("Workflow ID", firstNonEmpty(r.document.Metadata.WorkflowID, "—"), true)
 	r.renderMetadataRow("Run ID", firstNonEmpty(r.document.Metadata.RunID, "—"), true)
 	date := "—"
@@ -193,6 +221,73 @@ func (r *renderer) renderCover() {
 		date = r.document.Metadata.GeneratedAt.Format("02/01/2006")
 	}
 	r.renderMetadataRow("Report date", date, true)
+	r.pdf.Ln(10)
+	r.pdf.SetFont("Inter", "M", 9)
+	r.pdf.SetTextColor(41, 18, 120)
+	r.pdf.CellFormat(bodyWidth, 6, "By Forkbomb BV", "", 0, "L", false, 0, "")
+}
+
+func (r *renderer) renderBackCover() {
+	r.pdf.AddPage()
+	r.onBackCover = true
+	r.pdf.Bookmark("About Credimi", 0, -1)
+
+	r.pdf.SetFillColor(239, 236, 252)
+	r.pdf.Rect(0, 0, pageWidth, pageHeight, "F")
+
+	r.pdf.ImageOptions(
+		"credimi-wordmark",
+		(pageWidth-90)/2,
+		34,
+		90,
+		0,
+		false,
+		fpdf.ImageOptions{ImageType: "PNG"},
+		0,
+		"",
+	)
+
+	r.pdf.SetXY(pageMargin, 92)
+	r.pdf.SetFont("Inter", "B", 19)
+	r.pdf.SetTextColor(41, 18, 120)
+	r.pdf.MultiCell(bodyWidth, 10, "Your trustworthy compliance checker", "", "C", false)
+	r.pdf.SetFont("Inter", "", 12)
+	r.pdf.SetTextColor(70, 68, 86)
+	r.pdf.MultiCell(bodyWidth, 7, "for decentralized identity solutions", "", "C", false)
+
+	r.pdf.Ln(16)
+	r.pdf.SetFont("Inter", "", 10)
+	r.pdf.SetTextColor(70, 68, 86)
+	r.pdf.MultiCell(
+		bodyWidth,
+		6,
+		"Credimi automates FCAF conformance assessment for EUDI wallets and relying parties.",
+		"",
+		"C",
+		false,
+	)
+
+	r.pdf.Ln(20)
+	r.pdf.SetFont("Inter", "B", 11)
+	r.pdf.SetTextColor(41, 18, 120)
+	r.pdf.MultiCell(bodyWidth, 7, "Get in touch", "", "C", false)
+	r.pdf.Ln(3)
+
+	contacts := []string{
+		"credimi.io",
+		"docs.credimi.io",
+		"info@forkbomb.com",
+	}
+	for _, contact := range contacts {
+		r.pdf.SetFont("SourceCodePro", "", 9.5)
+		r.pdf.SetTextColor(70, 68, 86)
+		r.pdf.MultiCell(bodyWidth, 6.5, contact, "", "C", false)
+	}
+
+	r.pdf.Ln(24)
+	r.pdf.SetFont("Inter", "", 8)
+	r.pdf.SetTextColor(100, 98, 112)
+	r.pdf.MultiCell(bodyWidth, 5, "© Forkbomb BV. All rights reserved.", "", "C", false)
 }
 
 func (r *renderer) renderMetadataRow(label, value string, monospace bool) {
@@ -266,10 +361,78 @@ func (r *renderer) renderExecutiveSummary() {
 	}
 }
 
-func (r *renderer) renderGroup(group TestGroup) {
+func (r *renderer) renderGroupSummary() {
 	r.pdf.AddPage()
-	r.pdf.Bookmark(group.Name, 0, -1)
-	r.heading(1, group.Name)
+	r.pdf.Bookmark("Test groups", 0, -1)
+	r.heading(1, "Test groups")
+	r.paragraph(
+		"Conformance checks are organised by FCAF area and subsection. Each area is colour-coded throughout this report.",
+	)
+
+	r.ensureSpace(10)
+	r.pdf.SetFont("Inter", "M", 8.5)
+	r.pdf.SetTextColor(100, 98, 112)
+	r.pdf.CellFormat(bodyWidth, 5, "Colour key", "", 0, "L", false, 0, "")
+	r.pdf.Ln(6)
+	for _, category := range r.document.Categories {
+		r.colorSwatch(category.Color, category.Name)
+	}
+
+	r.pdf.Ln(4)
+	r.heading(2, "Areas under test:")
+	for _, category := range r.document.Categories {
+		r.ensureSpace(18)
+		r.coloredHeading(1, category.Name, category.Color)
+		passed, total := 0, 0
+		for _, group := range category.Groups {
+			for _, test := range group.Tests {
+				total++
+				if strings.HasPrefix(strings.ToLower(test.Execution.Status), "pass") {
+					passed++
+				}
+			}
+		}
+		r.paragraph(fmt.Sprintf("%d over %d tests passed", passed, total))
+		for _, group := range category.Groups {
+			groupPassed := 0
+			for _, test := range group.Tests {
+				if strings.HasPrefix(strings.ToLower(test.Execution.Status), "pass") {
+					groupPassed++
+				}
+			}
+			r.summaryRow(group.Name, groupPassed, len(group.Tests), category.Color)
+		}
+	}
+}
+
+func (r *renderer) renderCategory(category Category) {
+	r.pdf.AddPage()
+	r.pdf.Bookmark(category.Name, 0, -1)
+	r.section = category.Name
+	r.sectionColor = category.Color
+	r.testProgress = ""
+	r.coloredHeading(1, category.Name, category.Color)
+	passed, total := 0, 0
+	for _, group := range category.Groups {
+		for _, test := range group.Tests {
+			total++
+			if strings.HasPrefix(strings.ToLower(test.Execution.Status), "pass") {
+				passed++
+			}
+		}
+	}
+	r.paragraph(fmt.Sprintf("%d over %d tests passed", passed, total))
+	for _, group := range category.Groups {
+		r.renderSubgroup(group, category.Name, category.Color)
+	}
+}
+
+func (r *renderer) renderSubgroup(group TestGroup, categoryName string, color [3]int) {
+	r.pdf.AddPage()
+	r.section = categoryName + " · " + group.Name
+	r.sectionColor = color
+	r.testProgress = ""
+	r.coloredHeading(2, group.Name, color)
 	passed := 0
 	for _, test := range group.Tests {
 		if strings.HasPrefix(strings.ToLower(test.Execution.Status), "pass") {
@@ -283,23 +446,26 @@ func (r *renderer) renderGroup(group TestGroup) {
 }
 
 func (r *renderer) renderTest(test TestEntry) {
-	r.pdf.SetFont("SourceCodePro", "", 7.5)
-	wrappedID := r.wrapToken(test.Execution.TestID, bodyWidth-44)
-	idLines := strings.Count(wrappedID, "\n") + 1
-	cardHeight := 10.0 + 4.5*float64(idLines) + 3.0
-	r.ensureSpace(cardHeight + 6)
+	r.pdf.AddPage()
+	r.testCount++
+	r.testProgress = fmt.Sprintf("Test %d of %d", r.testCount, r.document.SelectedCount)
 	r.pdf.Bookmark(test.Execution.TestID, 1, -1)
-	cardY := r.pdf.GetY()
-	r.pdf.SetFillColor(248, 247, 252)
-	r.pdf.SetDrawColor(225, 222, 237)
-	r.pdf.RoundedRect(pageMargin, cardY, bodyWidth, cardHeight, 2, "1234", "DF")
-	r.pdf.SetXY(pageMargin+6, cardY+4)
-	r.pdf.SetFont("SourceCodePro", "", 7.5)
-	r.pdf.SetTextColor(75, 72, 90)
-	r.pdf.MultiCell(bodyWidth-44, 4.5, wrappedID, "", "L", false)
-	r.pdf.SetXY(pageWidth-pageMargin-27, cardY+4)
+
+	title := firstNonEmpty(test.Execution.Title, test.Execution.TestID)
+	r.pdf.SetFont("Inter", "B", 12)
+	r.pdf.SetTextColor(41, 18, 120)
+	titleY := r.pdf.GetY()
+	r.pdf.SetXY(pageMargin, titleY)
+	r.pdf.MultiCell(bodyWidth-32, 6, r.wrapToken(title, bodyWidth-32), "", "L", false)
+	titleBottom := r.pdf.GetY()
+	r.pdf.SetXY(pageWidth-pageMargin-27, titleY+1)
 	r.statusCell(test.Execution.Status, 23)
-	r.pdf.SetXY(pageMargin, cardY+cardHeight+3)
+
+	r.pdf.SetXY(pageMargin, max(titleBottom, titleY+8)+1)
+	r.pdf.SetFont("SourceCodePro", "", 7.5)
+	r.pdf.SetTextColor(100, 98, 112)
+	r.pdf.MultiCell(bodyWidth, 4.5, r.wrapToken(test.Execution.TestID, bodyWidth), "", "L", false)
+	r.pdf.Ln(4)
 
 	if test.Execution.Outcome.Reason != "" {
 		r.labelledText("Outcome", test.Execution.Outcome.Reason)
@@ -396,9 +562,7 @@ func (r *renderer) renderTest(test TestEntry) {
 	}
 	if len(test.Images) > 0 {
 		r.heading(3, "Visual evidence:")
-		for _, image := range test.Images {
-			r.renderImage(image)
-		}
+		r.renderImageGrid(test.Images)
 	}
 	r.pdf.Ln(5)
 }
@@ -470,9 +634,9 @@ func (r *renderer) renderWarnings() {
 	}
 }
 
-func (r *renderer) renderImage(image ImageAsset) {
+func (r *renderer) registerImage(image ImageAsset) (string, float64, float64, bool) {
 	if len(image.Data) == 0 {
-		return
+		return "", 0, 0, false
 	}
 	registeredName, found := r.registeredImages[image.Filename]
 	if !found {
@@ -483,15 +647,26 @@ func (r *renderer) renderImage(image ImageAsset) {
 			bytes.NewReader(image.Data),
 		)
 		if r.pdf.Error() != nil {
-			return
+			return "", 0, 0, false
 		}
 		r.registeredImages[image.Filename] = registeredName
 	}
 	info := r.pdf.GetImageInfo(registeredName)
 	if info == nil {
-		return
+		return "", 0, 0, false
 	}
 	width, height := info.Extent()
+	if width <= 0 || height <= 0 {
+		return "", 0, 0, false
+	}
+	return registeredName, width, height, true
+}
+
+func (r *renderer) renderImage(image ImageAsset) {
+	name, width, height, ok := r.registerImage(image)
+	if !ok {
+		return
+	}
 	maxWidth, maxHeight := 120.0, 92.0
 	if width > maxWidth {
 		height *= maxWidth / width
@@ -503,17 +678,7 @@ func (r *renderer) renderImage(image ImageAsset) {
 	}
 	r.ensureSpace(height + 11)
 	x := pageMargin + (bodyWidth-width)/2
-	r.pdf.ImageOptions(
-		registeredName,
-		x,
-		r.pdf.GetY(),
-		width,
-		height,
-		false,
-		fpdf.ImageOptions{ImageType: "PNG"},
-		0,
-		"",
-	)
+	r.pdf.ImageOptions(name, x, r.pdf.GetY(), width, height, false, fpdf.ImageOptions{ImageType: "PNG"}, 0, "")
 	r.pdf.SetY(r.pdf.GetY() + height + 1.5)
 	r.pdf.SetFont("SourceCodePro", "", 7)
 	r.pdf.SetTextColor(100, 98, 112)
@@ -522,6 +687,74 @@ func (r *renderer) renderImage(image ImageAsset) {
 		caption += " · " + image.EvidenceKey
 	}
 	r.pdf.MultiCell(bodyWidth, 4, caption, "", "C", false)
+	r.pdf.Ln(2)
+}
+
+func (r *renderer) renderImageGrid(images []ImageAsset) {
+	const columns = 2
+	const gap = 8.0
+	const captionHeight = 10.0
+	const maxImageHeight = 110.0
+
+	cellWidth := (bodyWidth - float64(columns-1)*gap) / columns
+	rowY := 0.0
+
+	type figure struct {
+		number      int
+		filename    string
+		evidenceKey string
+	}
+	figures := make([]figure, 0, len(images))
+
+	for i, image := range images {
+		col := i % columns
+		if col == 0 {
+			r.ensureSpace(maxImageHeight + captionHeight + 8)
+			rowY = r.pdf.GetY()
+		}
+
+		name, width, height, ok := r.registerImage(image)
+		if !ok {
+			continue
+		}
+		scale := min(cellWidth/width, maxImageHeight/height)
+		drawW := width * scale
+		drawH := height * scale
+
+		r.evidenceCount++
+		figures = append(figures, figure{
+			number:      r.evidenceCount,
+			filename:    image.Filename,
+			evidenceKey: image.EvidenceKey,
+		})
+
+		x := pageMargin + float64(col)*(cellWidth+gap) + (cellWidth-drawW)/2
+		r.pdf.ImageOptions(name, x, rowY, drawW, drawH, false, fpdf.ImageOptions{ImageType: "PNG"}, 0, "")
+
+		r.pdf.SetXY(pageMargin+float64(col)*(cellWidth+gap), rowY+maxImageHeight+1.5)
+		r.pdf.SetFont("SourceCodePro", "", 7)
+		r.pdf.SetTextColor(100, 98, 112)
+		r.pdf.CellFormat(cellWidth, 3.5, fmt.Sprintf("Evidence %d", r.evidenceCount), "", 0, "C", false, 0, "")
+
+		if col == columns-1 {
+			r.pdf.SetY(rowY + maxImageHeight + captionHeight + 3)
+		}
+	}
+
+	// Contextual table of pictures: full filenames, untruncated, right after the grid.
+	for _, fig := range figures {
+		r.ensureSpace(8)
+		r.pdf.SetFont("Inter", "M", 8)
+		r.pdf.SetTextColor(40, 38, 48)
+		r.pdf.CellFormat(24, 4.5, fmt.Sprintf("Evidence %d:", fig.number), "", 0, "L", false, 0, "")
+		name := fig.filename
+		if fig.evidenceKey != "" {
+			name += " · " + fig.evidenceKey
+		}
+		r.pdf.SetFont("SourceCodePro", "", 7)
+		r.pdf.SetTextColor(75, 72, 90)
+		r.pdf.MultiCell(bodyWidth-24, 4.5, r.wrapToken(name, bodyWidth-24), "", "L", false)
+	}
 	r.pdf.Ln(2)
 }
 
@@ -553,6 +786,49 @@ func (r *renderer) heading(level int, text string) {
 	r.pdf.SetTextColor(41, 18, 120)
 	r.pdf.MultiCell(bodyWidth, spaces[level], r.wrapToken(text, bodyWidth), "", "L", false)
 	r.pdf.Ln(1)
+}
+
+func (r *renderer) coloredHeading(level int, text string, color [3]int) {
+	sizes := map[int]float64{1: 15, 2: 10.5}
+	spaces := map[int]float64{1: 8, 2: 6}
+	r.ensureSpace(spaces[level] + 8)
+	r.pdf.Ln(spaces[level] / 2)
+	y := r.pdf.GetY()
+	r.pdf.SetFillColor(color[0], color[1], color[2])
+	r.pdf.Rect(pageMargin, y, 3.5, sizes[level]+3, "F")
+	r.pdf.SetXY(pageMargin+11, y)
+	r.pdf.SetFont("Inter", "B", sizes[level])
+	r.pdf.SetTextColor(color[0], color[1], color[2])
+	r.pdf.MultiCell(bodyWidth-11, spaces[level], r.wrapToken(text, bodyWidth-11), "", "L", false)
+	r.pdf.SetY(max(r.pdf.GetY(), y+sizes[level]+3))
+	r.pdf.Ln(1)
+}
+
+func (r *renderer) colorSwatch(color [3]int, label string) {
+	r.ensureSpace(8)
+	y := r.pdf.GetY()
+	r.pdf.SetFillColor(color[0], color[1], color[2])
+	r.pdf.Rect(pageMargin, y+1, 6, 6, "F")
+	r.pdf.SetXY(pageMargin+10, y)
+	r.pdf.SetFont("Inter", "", 9)
+	r.pdf.SetTextColor(40, 38, 48)
+	r.pdf.CellFormat(bodyWidth-10, 7, label, "", 0, "L", false, 0, "")
+	r.pdf.Ln(8)
+}
+
+func (r *renderer) summaryRow(label string, passed, total int, color [3]int) {
+	r.ensureSpace(7)
+	y := r.pdf.GetY()
+	r.pdf.SetFillColor(color[0], color[1], color[2])
+	r.pdf.Rect(pageMargin+18, y+1.5, 2.5, 4.5, "F")
+	r.pdf.SetXY(pageMargin+26, y)
+	r.pdf.SetFont("Inter", "", 9)
+	r.pdf.SetTextColor(40, 38, 48)
+	r.pdf.CellFormat(bodyWidth-78, 6, label, "", 0, "L", false, 0, "")
+	r.pdf.SetFont("SourceCodePro", "", 8.5)
+	r.pdf.SetTextColor(75, 72, 90)
+	r.pdf.CellFormat(52, 6, fmt.Sprintf("%d/%d passed", passed, total), "", 0, "R", false, 0, "")
+	r.pdf.Ln(7)
 }
 
 func (r *renderer) paragraph(text string) {

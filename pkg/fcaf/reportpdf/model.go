@@ -25,6 +25,13 @@ type Metadata struct {
 	RunID              string
 	GeneratedAt        time.Time
 	JSONFilename       string
+	Runner             RunnerInfo
+}
+
+type RunnerInfo struct {
+	Name   string
+	Type   string
+	Serial string
 }
 
 type ImageAsset struct {
@@ -47,11 +54,18 @@ type Document struct {
 	Report        engine.Report
 	Metadata      Metadata
 	JSONSHA256    string
-	Groups        []TestGroup
+	Categories    []Category
 	Evidence      []EvidenceEntry
 	Unassigned    []ImageAsset
 	Warnings      []string
 	SelectedCount int
+}
+
+type Category struct {
+	Code   string
+	Name   string
+	Color  [3]int
+	Groups []TestGroup
 }
 
 type TestGroup struct {
@@ -93,16 +107,20 @@ func BuildDocument(input Input) Document {
 		imagesByEvidence[image.EvidenceKey] = append(imagesByEvidence[image.EvidenceKey], image)
 	}
 
-	groupIndex := map[string]int{}
+	categoryGroups := map[string]map[string]*TestGroup{}
 	referencedEvidence := map[string]struct{}{}
 	assignedImages := map[string]struct{}{}
 	for _, execution := range input.Report.ExecutedTests {
-		groupName := testGroupName(execution.TestID)
-		index, found := groupIndex[groupName]
-		if !found {
-			index = len(document.Groups)
-			groupIndex[groupName] = index
-			document.Groups = append(document.Groups, TestGroup{Name: groupName})
+		code, subgroup, label := parseTestID(execution.TestID)
+		groups, ok := categoryGroups[code]
+		if !ok {
+			groups = map[string]*TestGroup{}
+			categoryGroups[code] = groups
+		}
+		group, ok := groups[subgroup]
+		if !ok {
+			group = &TestGroup{Name: label}
+			groups[subgroup] = group
 		}
 
 		entry := TestEntry{
@@ -130,7 +148,25 @@ func BuildDocument(input Input) Document {
 				assignedImages[image.Filename] = struct{}{}
 			}
 		}
-		document.Groups[index].Tests = append(document.Groups[index].Tests, entry)
+		group.Tests = append(group.Tests, entry)
+	}
+
+	for _, code := range categoryOrder {
+		groups, ok := categoryGroups[code]
+		if !ok {
+			continue
+		}
+		keys := make([]string, 0, len(groups))
+		for key := range groups {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		meta := categoryByCode[code]
+		category := Category{Code: code, Name: meta.name, Color: meta.color}
+		for _, key := range keys {
+			category.Groups = append(category.Groups, *groups[key])
+		}
+		document.Categories = append(document.Categories, category)
 	}
 
 	keys := make([]string, 0, len(input.Report.Evidence))
@@ -166,14 +202,16 @@ func BuildDocument(input Input) Document {
 	for _, filename := range imageNames {
 		image := allImages[filename]
 		matched := false
-		for groupIndex := range document.Groups {
-			for testIndex := range document.Groups[groupIndex].Tests {
-				if screenshotMatchesTest(filename, document.Groups[groupIndex].Tests[testIndex]) {
-					appendImageUnique(
-						&document.Groups[groupIndex].Tests[testIndex].Images,
-						image,
-					)
-					matched = true
+		for categoryIndex := range document.Categories {
+			for groupIndex := range document.Categories[categoryIndex].Groups {
+				for testIndex := range document.Categories[categoryIndex].Groups[groupIndex].Tests {
+					if screenshotMatchesTest(filename, document.Categories[categoryIndex].Groups[groupIndex].Tests[testIndex]) {
+						appendImageUnique(
+							&document.Categories[categoryIndex].Groups[groupIndex].Tests[testIndex].Images,
+							image,
+						)
+						matched = true
+					}
 				}
 			}
 		}
@@ -237,14 +275,4 @@ func testEvidenceKeys(test engine.ExecutedTest) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-func testGroupName(testID string) string {
-	if index := strings.LastIndex(testID, "__"); index > 0 {
-		return testID[:index]
-	}
-	if strings.TrimSpace(testID) == "" {
-		return "Other"
-	}
-	return testID
 }
