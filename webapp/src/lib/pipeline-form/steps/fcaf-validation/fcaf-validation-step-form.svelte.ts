@@ -11,6 +11,7 @@ import {
 	type FCAFTestCatalogEntry
 } from '$lib/fcaf/tests.generated.js';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
+import { SvelteSet } from 'svelte/reactivity';
 import { parse, stringify } from 'yaml';
 
 import Component from './fcaf-validation-step-form.svelte';
@@ -32,12 +33,11 @@ function defaultFCAFValidationYaml(): string {
 }
 
 function filterPipelineOutputsFor(testIds: string[]): Record<string, unknown> {
-	const needed: string[] = [];
+	const selected = new SvelteSet(testIds);
+	const needed = new SvelteSet<string>();
 	for (const test of FCAF_TESTS) {
-		if (!testIds.includes(test.id)) continue;
-		for (const source of test.sources) {
-			if (!needed.includes(source)) needed.push(source);
-		}
+		if (!selected.has(test.id)) continue;
+		for (const source of test.sources) needed.add(source);
 	}
 
 	const outputs = FCAF_PIPELINE_OUTPUTS as Record<string, unknown>;

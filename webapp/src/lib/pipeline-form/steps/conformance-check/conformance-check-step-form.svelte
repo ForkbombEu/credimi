@@ -108,8 +108,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="space-y-2 pt-1">
 					{#if form.state == 'select-standard'}
 						<ItemCard
-							title="FCAF"
-							subtitle="Functional Conformance Assessment Framework"
+							title={m.FCAF()}
+							subtitle={m.FCAF_subtitle()}
 							onClick={() => form.selectFCAF()}
 						/>
 						{#each standards as standard (standard.uid)}

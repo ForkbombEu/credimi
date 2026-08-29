@@ -22,9 +22,10 @@ export function categoryLabel(section: string): string {
 }
 
 export function groupSelectedTests(testIds: string[]): FCAFGroupedTests[] {
+	const selected = new Set(testIds);
 	const acc: Record<string, FCAFTestCatalogEntry[]> = {};
 	for (const test of FCAF_TESTS) {
-		if (!testIds.includes(test.id)) continue;
+		if (!selected.has(test.id)) continue;
 		const key = test.section || 'other';
 		(acc[key] ??= []).push(test);
 	}

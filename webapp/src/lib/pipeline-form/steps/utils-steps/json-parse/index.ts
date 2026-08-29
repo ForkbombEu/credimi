@@ -41,8 +41,8 @@ export const jsonParseStepConfig: TypedConfig<'json-parse', JsonParseFormData> =
 	}),
 
 	deserialize: async ({ rawJSON, struct_type }) => ({
-		rawJSON: rawJSON || '{}',
-		struct_type: struct_type || 'map'
+		rawJSON: rawJSON == null || rawJSON === '' ? '{}' : rawJSON,
+		struct_type: struct_type == null || struct_type === '' ? 'map' : struct_type
 	}),
 
 	cardData: ({ struct_type }) => ({

@@ -26,7 +26,7 @@ export class JsonParseStepForm extends BaseForm<JsonParseFormData, JsonParseStep
 	constructor(opts?: InitFormOptions<JsonParseFormData>) {
 		super(opts);
 		if (opts?.initial) {
-			this.data = { ...opts.initial };
+			this.data = { ...this.data, ...opts.initial };
 		}
 	}
 
