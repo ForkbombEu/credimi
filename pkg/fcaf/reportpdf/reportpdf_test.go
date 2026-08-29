@@ -95,9 +95,9 @@ func TestBuildDocumentAssociatesOnlyExactEvidenceImages(t *testing.T) {
 		},
 	})
 
-	require.Len(t, document.Groups, 1)
-	require.Len(t, document.Groups[0].Tests[0].Images, 1)
-	require.Empty(t, document.Groups[0].Tests[1].Images)
+	require.Len(t, document.Categories, 1)
+	require.Len(t, document.Categories[0].Groups[0].Tests[0].Images, 1)
+	require.Empty(t, document.Categories[0].Groups[0].Tests[1].Images)
 	require.Len(t, document.Unassigned, 1)
 	require.NotEmpty(t, document.JSONSHA256)
 }
@@ -128,10 +128,12 @@ func TestBuildDocumentFallsBackToFilenameAssociation(t *testing.T) {
 		},
 	})
 
-	require.Len(t, document.Groups, 2)
+	require.Len(t, document.Categories, 1)
+	require.Len(t, document.Categories[0].Groups, 2)
+	// Subgroups sort alphabetically: AddressData before Credentialmetadata.
+	require.Empty(t, document.Categories[0].Groups[0].Tests[0].Images)
 	// "credential" word overlaps the Credentialmetadata test id.
-	require.Len(t, document.Groups[0].Tests[0].Images, 1)
-	require.Empty(t, document.Groups[1].Tests[0].Images)
+	require.Len(t, document.Categories[0].Groups[1].Tests[0].Images, 1)
 	require.Len(t, document.Unassigned, 1)
 }
 
