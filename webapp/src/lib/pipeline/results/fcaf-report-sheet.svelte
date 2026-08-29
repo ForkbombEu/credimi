@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { DownloadIcon, ExternalLinkIcon } from '@lucide/svelte';
+	import LazyImage from '$lib/components/lazy-image.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { activeSheet } from '$lib/utils/sheet-state.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -153,15 +154,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			activeSheet.close();
 		}
 	});
-	const reportPromise = $derived(
-		reportUrl
-			? fetch(reportUrl).then(async (response) => {
-					if (!response.ok)
-						throw new Error(`FCAF report request failed: ${response.status}`);
-					return (await response.json()) as Report;
-				})
-			: undefined
-	);
+	// Fetch lazily: only once the sheet is opened, not for every run row that has a report.
+	let cachedReport: Promise<Report | undefined> | undefined;
+
+	const reportPromise = $derived.by(() => {
+		if (!reportUrl) return undefined;
+		if (!sheetOpen) return cachedReport;
+		return (cachedReport ??= fetch(reportUrl)
+			.then(async (response) => {
+				if (!response.ok) throw new Error(`FCAF report request failed: ${response.status}`);
+				return (await response.json()) as Report;
+			})
+			.catch(() => undefined));
+	});
 
 	function statusClass(status = '') {
 		if (['passed', 'pass'].includes(status)) return 'text-green-700';
@@ -348,11 +353,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 																	rel="noreferrer"
 																	class="block overflow-hidden rounded border bg-muted/20"
 																>
-																	<img
+																	<LazyImage
 																		src={screenshot.url}
 																		alt={screenshot.label}
 																		class="aspect-video h-auto w-full object-contain"
-																		loading="lazy"
 																	/>
 																	<div
 																		class="px-2 py-1 text-xs break-all text-muted-foreground"
@@ -382,11 +386,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											rel="noreferrer"
 											class="block overflow-hidden rounded border bg-muted/20"
 										>
-											<img
+											<LazyImage
 												src={screenshot.url}
 												alt={screenshot.label}
 												class="aspect-video h-auto w-full object-contain"
-												loading="lazy"
 											/>
 											<div
 												class="px-2 py-1 text-xs break-all text-muted-foreground"
