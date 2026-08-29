@@ -1,0 +1,8 @@
+name: Relying Party
+homepage: https://conformance.eudi.dev/
+repository: https://github.com/eu-digital-identity-wallet/eudi-doc-functional-conformance-assessment
+help: https://conformance.eudi.dev/latest/fcaf/using-fcaf/
+description: FCAF test cases for the wallet solution relying party role
+logo: https://raw.githubusercontent.com/eu-digital-identity-wallet/eudi-app-ios-wallet-ui/main/Wallet/Assets.xcassets/AppIcon.appiconset/app_icon.png
+visible_in:
+  - pipeline

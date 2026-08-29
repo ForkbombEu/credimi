@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageSection from '../../../[...path]/_partials/_utils/page-section.svelte';
 	import { sections as s } from '../../../[...path]/_partials/_utils/sections';
 	import CheckCard from './components/check-card.svelte';
+	import FcafTests from './components/fcaf-tests.svelte';
 	import PageLayout from './components/page-layout.svelte';
 
 	//
@@ -42,11 +43,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</PageSection>
 
 		<PageSection indexItem={s.checks}>
-			<div class="space-y-2">
-				{#each suite.paths as path (path)}
-					<CheckCard {standard} {version} {suite} test={path} />
-				{/each}
-			</div>
+			{#if standard.uid === 'fcaf'}
+				<FcafTests />
+			{:else}
+				<div class="space-y-2">
+					{#each suite.paths as path (path)}
+						<CheckCard {standard} {version} {suite} test={path} />
+					{/each}
+				</div>
+			{/if}
 		</PageSection>
 	{/snippet}
 </PageLayout>
