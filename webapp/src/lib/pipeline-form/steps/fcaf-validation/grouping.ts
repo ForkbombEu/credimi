@@ -21,11 +21,18 @@ export function categoryLabel(section: string): string {
 	return humanize(section.split('.')[0] ?? section);
 }
 
+export function groupAllTests(): FCAFGroupedTests[] {
+	return groupTests(FCAF_TESTS);
+}
+
 export function groupSelectedTests(testIds: string[]): FCAFGroupedTests[] {
 	const selected = new Set(testIds);
+	return groupTests(FCAF_TESTS.filter((test) => selected.has(test.id)));
+}
+
+function groupTests(tests: FCAFTestCatalogEntry[]): FCAFGroupedTests[] {
 	const acc: Record<string, FCAFTestCatalogEntry[]> = {};
-	for (const test of FCAF_TESTS) {
-		if (!selected.has(test.id)) continue;
+	for (const test of tests) {
 		const key = test.section || 'other';
 		(acc[key] ??= []).push(test);
 	}
