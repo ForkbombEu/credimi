@@ -173,6 +173,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (['failed', 'fail', 'error'].includes(status)) return 'text-red-700';
 		return 'text-amber-700';
 	}
+
+	function statusDotClass(status = '') {
+		if (['passed', 'pass'].includes(status)) return 'bg-green-600';
+		if (['failed', 'fail', 'error'].includes(status)) return 'bg-red-600';
+		return 'bg-amber-500';
+	}
+
+	function statusIsPassed(status = '') {
+		return (status ?? '').startsWith('pass');
+	}
+
+	function statusIsFailed(status = '') {
+		return ['failed', 'fail', 'error'].includes(status ?? '');
+	}
 </script>
 
 {#if reportUrl}
@@ -182,7 +196,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 		{#snippet content()}
 			{#await reportPromise then report}
-				<div class="space-y-6 pb-6">
+				<div class="pb-6">
 					{#if report}
 						{@const evidenceScreenshots = evidenceScreenshotUrls(report)}
 						{@const allScreenshots = uniqueScreenshots(
@@ -193,63 +207,121 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								})
 							)
 						)}
+						{@const executedTests = report.executed_tests ?? []}
+						{@const totalTests = executedTests.length}
+						{@const passedTests = executedTests.filter((t) =>
+							statusIsPassed(t.status)
+						).length}
+						{@const failedTests = executedTests.filter((t) =>
+							statusIsFailed(t.status)
+						).length}
+						{@const otherTests = totalTests - passedTests - failedTests}
 						{@const unassignedScreenshots = screenshotsWithoutTest(
 							allScreenshots,
-							report.executed_tests ?? []
+							executedTests
 						)}
-						<div class="flex flex-wrap items-center gap-2 text-sm">
-							<strong class={statusClass(report.status)}
-								>{report.status ?? 'unknown'}</strong
-							>
-							{#if report.suite}<span class="text-muted-foreground"
-									>{report.suite}</span
-								>{/if}
-						</div>
 
-						{#if report.summary}
-							{@const entries = Object.entries(report.summary).filter(
-								([, c]) => c > 0
-							)}
-							<div class="flex flex-wrap items-center gap-1.5">
-								<span class="text-xs font-medium text-muted-foreground"
-									>Filter:</span
-								>
-								<button
-									class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors
-									{selectedFilter === 'all'
-										? 'bg-primary text-primary-foreground'
-										: 'border bg-muted/50 text-muted-foreground hover:bg-muted'}"
-									onclick={() => (selectedFilter = 'all')}
-								>
-									All ({report.executed_tests?.length ?? 0})
-								</button>
-								{#each entries as [label, count] (label)}
-									{@const dot =
-										label === 'pass'
-											? 'bg-green-600'
-											: label === 'fail' || label === 'error'
-												? 'bg-red-600'
-												: 'bg-amber-500'}
+						<div
+							class="sticky top-0 z-20 -mx-6 border-b bg-background/95 px-6 py-3 backdrop-blur"
+						>
+							<div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+								<div class="min-w-0 space-y-1.5">
+									<div class="flex flex-wrap items-center gap-2">
+										<span
+											class="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-0.5 text-xs font-medium"
+										>
+											<span
+												class="inline-block size-1.5 rounded-full {statusDotClass(
+													report.status
+												)}"
+												aria-hidden="true"
+											></span>
+											{report.status ?? 'unknown'}
+										</span>
+										{#if report.suite}
+											<span class="text-xs text-muted-foreground"
+												>{report.suite}</span
+											>
+										{/if}
+									</div>
+									<div
+										class="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs"
+									>
+										<span class="text-muted-foreground">{totalTests} tests</span
+										>
+										<span class="text-green-700">{passedTests} passed</span>
+										{#if failedTests}
+											<span class="text-red-700">{failedTests} failed</span>
+										{/if}
+										{#if otherTests}
+											<span class="text-amber-700">{otherTests} other</span>
+										{/if}
+									</div>
+								</div>
+
+								<div class="flex shrink-0 flex-wrap items-center gap-2">
+									<Button
+										variant="outline"
+										size="sm"
+										href={reportUrl}
+										download="fcaf-assessment.json"
+									>
+										<DownloadIcon class="size-4" />
+										JSON
+									</Button>
+									{#if pdfUrl}
+										<Button
+											size="sm"
+											href={pdfUrl}
+											download="fcaf-assessment.pdf"
+										>
+											<DownloadIcon class="size-4" />
+											PDF
+										</Button>
+									{/if}
+								</div>
+							</div>
+
+							{#if report.summary}
+								{@const entries = Object.entries(report.summary).filter(
+									([, c]) => c > 0
+								)}
+								<div class="mt-3 flex flex-wrap items-center gap-1.5">
+									<span class="text-xs font-medium text-muted-foreground"
+										>Filter:</span
+									>
 									<button
 										class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors
-										{selectedFilter === label
+										{selectedFilter === 'all'
 											? 'bg-primary text-primary-foreground'
 											: 'border bg-muted/50 text-muted-foreground hover:bg-muted'}"
-										onclick={() =>
-											(selectedFilter =
-												selectedFilter === label ? 'all' : label)}
+										onclick={() => (selectedFilter = 'all')}
 									>
-										<span
-											class="inline-block size-2 rounded-full {dot}"
-											aria-hidden="true"
-										></span>
-										{label} ({count})
+										All ({totalTests})
 									</button>
-								{/each}
-							</div>
-						{/if}
+									{#each entries as [label, count] (label)}
+										{@const dot = statusDotClass(label)}
+										<button
+											class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors
+											{selectedFilter === label
+												? 'bg-primary text-primary-foreground'
+												: 'border bg-muted/50 text-muted-foreground hover:bg-muted'}"
+											onclick={() =>
+												(selectedFilter =
+													selectedFilter === label ? 'all' : label)}
+										>
+											<span
+												class="inline-block size-2 rounded-full {dot}"
+												aria-hidden="true"
+											></span>
+											{label} ({count})
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
 
-						{@const filteredTests = (report.executed_tests ?? []).filter(
+						{@const filteredTests = executedTests.filter(
 							(t) =>
 								selectedFilter === 'all' ||
 								(t.status ?? '').startsWith(selectedFilter)
@@ -262,12 +334,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							},
 							{} as Record<string, TestResult[]>
 						)}
-						<div class="space-y-6">
+						<div class="space-y-6 pt-4">
 							{#each Object.entries(grouped) as [ics, tests] (ics)}
 								{@const icsPassed = (tests ?? []).filter((t) =>
-									(t.status ?? '').startsWith('pass')
+									statusIsPassed(t.status)
 								).length}
 								{@const icsTotal = (tests ?? []).length}
+								{@const icsRate =
+									icsTotal > 0 ? Math.round((icsPassed / icsTotal) * 100) : 0}
 								<section>
 									<div class="mb-2 flex items-baseline gap-2">
 										<h3 class="font-mono text-sm font-semibold break-all">
@@ -277,6 +351,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											{icsPassed}/{icsTotal} passed
 										</span>
 									</div>
+									<div class="mb-3 h-1 overflow-hidden rounded-full bg-muted">
+										<div
+											class="h-full rounded-full {icsTotal > 0
+												? icsPassed === icsTotal
+													? 'bg-green-600'
+													: icsPassed > 0
+														? 'bg-amber-500'
+														: 'bg-red-600'
+												: 'bg-muted'}"
+											style="width: {icsRate}%"
+										></div>
+									</div>
 									<div class="space-y-3">
 										{#each tests ?? [] as test (test.test_id)}
 											{@const testScreenshots = screenshotsForTest(
@@ -285,7 +371,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											)}
 											<div class="rounded border p-4">
 												<div class="flex items-start justify-between gap-4">
-													<div>
+													<div class="min-w-0">
 														<div class="font-medium">
 															{test.title ?? test.test_id}
 														</div>
@@ -306,9 +392,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 															>
 														{/if}
 													</div>
-													<strong class={statusClass(test.status)}
-														>{test.status ?? 'unknown'}</strong
+													<span
+														class="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium {statusClass(
+															test.status
+														)}"
 													>
+														<span
+															class="inline-block size-1.5 rounded-full {statusDotClass(
+																test.status
+															)}"
+															aria-hidden="true"
+														></span>
+														{test.status ?? 'unknown'}
+													</span>
 												</div>
 												{#if test.assertions?.length || test.validators?.length}
 													<div
@@ -376,7 +472,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</div>
 
 						{#if unassignedScreenshots.length}
-							<div class="space-y-3 border-t pt-4">
+							<div class="space-y-3 border-t py-4">
 								<h3 class="font-medium">Other visual evidence</h3>
 								<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
 									{#each unassignedScreenshots as screenshot (screenshot.url)}
@@ -403,22 +499,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/if}
 
 						{@const checkedDeeplink = evidenceDeeplink(report.evidence)}
-						{#if checkedDeeplink}
-							<details>
-								<summary class="cursor-pointer text-sm font-medium"
-									>Checked deeplink</summary
-								>
-								<div class="mt-2">
-									<code
-										class="block overflow-x-auto rounded border bg-muted/20 p-3 text-xs whitespace-nowrap"
+						<div class="space-y-3 border-t py-4">
+							{#if checkedDeeplink}
+								<details>
+									<summary class="cursor-pointer text-sm font-medium"
+										>Checked deeplink</summary
 									>
-										{checkedDeeplink}
-									</code>
-								</div>
-							</details>
-						{/if}
+									<div class="mt-2">
+										<code
+											class="block overflow-x-auto rounded border bg-muted/20 p-3 text-xs whitespace-nowrap"
+										>
+											{checkedDeeplink}
+										</code>
+									</div>
+								</details>
+							{/if}
 
-						<div class="flex flex-wrap items-center gap-2">
 							<details class="w-full">
 								<summary class="cursor-pointer text-sm font-medium"
 									>View raw JSON</summary
@@ -430,27 +526,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									/>
 								</div>
 							</details>
-							<Button
-								variant="outline"
-								href={reportUrl}
-								download="fcaf-assessment.json"
-							>
-								<DownloadIcon class="size-4" />
-								Download JSON
-							</Button>
-							{#if pdfUrl}
-								<Button
-									variant="outline"
-									href={pdfUrl}
-									download="fcaf-assessment.pdf"
-								>
-									<DownloadIcon class="size-4" />
-									Download PDF
-								</Button>
-							{/if}
 						</div>
 					{:else}
-						<p>Unable to load the FCAF assessment.</p>
+						<p class="py-8 text-sm text-muted-foreground">
+							Unable to load the FCAF assessment.
+						</p>
 					{/if}
 				</div>
 			{/await}
