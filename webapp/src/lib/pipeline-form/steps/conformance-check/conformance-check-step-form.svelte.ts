@@ -52,9 +52,16 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	data = $state<Partial<FormData>>({});
 
+	private readonly openStep: ((type: string) => void) | undefined;
+
 	constructor(opts?: InitFormOptions<FormData>) {
 		super(opts);
+		this.openStep = opts?.openStep;
 		if (opts?.initial) this.data = { ...opts.initial };
+	}
+
+	selectFCAF() {
+		this.openStep?.('fcaf-validation');
 	}
 
 	canSave() {

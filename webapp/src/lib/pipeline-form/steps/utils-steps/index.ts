@@ -12,6 +12,8 @@ import { m } from '@/i18n';
 import { EmailStepForm, type EmailFormData } from './email-step-form.svelte.js';
 import { HttpRequestStepForm, type HttpRequestFormData } from './http-request-step-form.svelte.js';
 
+export { jsonParseStepConfig } from './json-parse';
+
 //
 
 const utilsEntity = {
