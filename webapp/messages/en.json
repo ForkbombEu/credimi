@@ -970,6 +970,7 @@
 	"Failed_to_cancel_pipeline": "Failed to cancel pipeline",
 	"Pipeline_execution_canceled": "Pipeline execution canceled",
 	"Queued": "Queued",
+	"eta_remaining": "~{time} left",
 	"Configure_integration": "Configure integration",
 	"Configure_integration_description": "Set the parameters for this integration before running.",
 	"Custom_integration_started_successfully": "Custom integration started successfully",

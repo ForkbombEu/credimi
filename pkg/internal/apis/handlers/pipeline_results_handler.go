@@ -677,6 +677,15 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 			b.runnerCache,
 		),
 	}
+	if rootSummary.Status == string(WorkflowStatusRunning) {
+		summary.Progress = computePipelineProgress(
+			ctx,
+			b,
+			pipelineIdentifier,
+			runnerIDs,
+			rootSummary.StartTime,
+		)
+	}
 	summary.PipelineIdentifier = pipelineIdentifier
 	summary.PipelineName = resolvePipelineNameFromRecord(pipelineRecord, pipelineIdentifier)
 	localizePipelineWorkflowSummaries([]*pipelineWorkflowSummary{summary}, b.location)
@@ -995,11 +1004,12 @@ func describeWorkflowExecution(
 
 type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
-	PipelineIdentifier string           `json:"pipeline_identifier,omitempty"`
-	PipelineName       string           `json:"pipeline_name,omitempty"`
-	GlobalRunnerID     string           `json:"global_runner_id,omitempty"`
-	RunnerIDs          []string         `json:"runner_ids,omitempty"`
-	RunnerRecords      []map[string]any `json:"runner_records,omitempty"`
+	Progress           *PipelineProgress `json:"progress,omitempty"`
+	PipelineIdentifier string            `json:"pipeline_identifier,omitempty"`
+	PipelineName       string            `json:"pipeline_name,omitempty"`
+	GlobalRunnerID     string            `json:"global_runner_id,omitempty"`
+	RunnerIDs          []string          `json:"runner_ids,omitempty"`
+	RunnerRecords      []map[string]any  `json:"runner_records,omitempty"`
 }
 
 func appendQueuedPipelineSummaries(
