@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const selectLabel = $derived.by(() => {
 		if (form.state === 'select-standard') {
-			return m.Standard();
+			return m.Conformance_check();
 		} else if (form.state === 'select-version') {
 			return m.Version();
 		} else if (form.state === 'select-suite') {
@@ -61,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if hasSelection}
 			<div class="space-y-2 border-b p-4">
 				{#if form.data.standard}
-					<WithLabel label={m.Standard()}>
+					<WithLabel label={m.Conformance_check()}>
 						<ItemCard
 							title={form.data.standard.name}
 							onDiscard={() => form.discardStandard()}
@@ -107,6 +107,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<WithLabel label={m.Select_item({ item: selectLabel.toLowerCase() })} class="p-4">
 				<div class="space-y-2 pt-1">
 					{#if form.state == 'select-standard'}
+						<ItemCard
+							title="FCAF"
+							subtitle="Functional Conformance Assessment Framework"
+							onClick={() => form.selectFCAF()}
+						/>
 						{#each standards as standard (standard.uid)}
 							<ItemCard
 								title={standard.name}

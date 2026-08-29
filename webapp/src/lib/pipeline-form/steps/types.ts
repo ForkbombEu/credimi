@@ -28,6 +28,8 @@ export type ExecutionTargetFormContext = {
 export type InitFormOptions<T> = {
 	intent: FormIntent;
 	initial?: T;
+	/** Opens a different step form, replacing the current one. */
+	openStep?: (type: string) => void;
 } & ExecutionTargetFormContext;
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {

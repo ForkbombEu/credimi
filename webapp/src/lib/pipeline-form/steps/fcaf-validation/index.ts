@@ -4,6 +4,7 @@
 
 import type { TypedConfig } from '$pipeline-form/steps/types';
 
+import { BadgeCheckIcon } from '@lucide/svelte';
 import { entities } from '$lib/global/entities.js';
 import { stringify } from 'yaml';
 
@@ -22,6 +23,7 @@ export const fcafValidationStepConfig: TypedConfig<'fcaf-validation', FCAFValida
 
 	display: {
 		...entities.conformance_checks,
+		icon: BadgeCheckIcon,
 		slug: 'fcaf-validation',
 		labels: {
 			singular: 'FCAF validation',

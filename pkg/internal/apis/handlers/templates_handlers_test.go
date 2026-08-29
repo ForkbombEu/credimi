@@ -45,6 +45,17 @@ func TestWalkConfigTemplates(t *testing.T) {
 		os.WriteFile(filepath.Join(standardDir, "standard.yaml"), standardYaml, 0644),
 	)
 
+	// Non-standard data directories must be excluded from blueprints.
+	for _, skipUID := range []string{"fcaf", "fcaf_sources"} {
+		skipDir := filepath.Join(testdataDir, skipUID)
+		require.NoError(t, os.Mkdir(skipDir, 0755))
+		skipYaml, _ := yaml.Marshal(StandardMetadata{UID: skipUID, Name: skipUID})
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(skipDir, "standard.yaml"), skipYaml, 0644),
+		)
+	}
+
 	versionUID := "draft-24"
 	versionDir := filepath.Join(standardDir, versionUID)
 	require.NoError(t, os.Mkdir(versionDir, 0755))

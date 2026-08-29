@@ -180,6 +180,14 @@ type Standard struct {
 
 type Standards []Standard
 
+// nonStandardTemplateDirs are config_templates entries that are not
+// conformance-check standards and must not appear in the template
+// blueprints listing.
+var nonStandardTemplateDirs = map[string]struct{}{
+	"fcaf":         {},
+	"fcaf_sources": {},
+}
+
 func walkConfigTemplates(dir string, surface string) (Standards, error) {
 	var standards = make(Standards, 0)
 	filter := surface != ""
@@ -228,6 +236,10 @@ func walkConfigTemplates(dir string, surface string) (Standards, error) {
 
 	for _, entry := range standardEntries {
 		if !entry.IsDir() {
+			continue
+		}
+
+		if _, skip := nonStandardTemplateDirs[entry.Name()]; skip {
 			continue
 		}
 
