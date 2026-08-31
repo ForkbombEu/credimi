@@ -195,7 +195,6 @@ func enqueuePipelineRun(
 	if runContext.metadata != nil {
 		memo["metadata"] = runContext.metadata
 	}
-	memo[pipelineinternal.PublishedMemoKey] = runContext.pipelineRecord.GetBool("published")
 	config := buildPipelineQueueConfig(e, namespace, runContext.userName, runContext.userEmail)
 	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
 

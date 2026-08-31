@@ -447,7 +447,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			if pipelineRecord == nil {
 				continue
 			}
-			if !workflowExecutionVisibleOnScoreboard(exec, pipelineRecord) {
+			if !pipelineRecord.GetBool("published") {
 				continue
 			}
 			executionsByPipelineID[pipelineRecord.Id] = append(
@@ -497,32 +497,6 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, response)
 	}
-}
-
-func workflowExecutionVisibleOnScoreboard(
-	exec *WorkflowExecution,
-	pipelineRecord *core.Record,
-) bool {
-	published, ok := workflowExecutionPublishedMemo(exec)
-	if ok {
-		return published
-	}
-	return pipelineRecord != nil && pipelineRecord.GetBool(pipelineinternal.PublishedMemoKey)
-}
-
-func workflowExecutionPublishedMemo(exec *WorkflowExecution) (bool, bool) {
-	if exec == nil || exec.Memo == nil {
-		return false, false
-	}
-	field, ok := exec.Memo.Fields[pipelineinternal.PublishedMemoKey]
-	if !ok || field == nil || field.Data == nil {
-		return false, false
-	}
-	published, err := strconv.ParseBool(DecodeFromTemporalPayload(*field.Data))
-	if err != nil {
-		return false, false
-	}
-	return published, true
 }
 
 func HandleGetExecutionDetails() func(*core.RequestEvent) error {

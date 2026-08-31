@@ -290,9 +290,8 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		info.WorkflowExecution.RunID,
 	)
 	memo := map[string]any{
-		"test":                            "pipeline-run",
-		pipelineinternal.RunTypeMemoKey:   pipelineinternal.RunTypeScheduled,
-		pipelineinternal.PublishedMemoKey: scheduledPipelinePublished(record),
+		"test":                          "pipeline-run",
+		pipelineinternal.RunTypeMemoKey: pipelineinternal.RunTypeScheduled,
 	}
 
 	enqueueInput := workflowengine.ActivityInput{
@@ -409,11 +408,6 @@ type scheduledPipelineStep struct {
 type scheduledPipelineRunnerInfo struct {
 	RunnerIDs         []string
 	NeedsGlobalRunner bool
-}
-
-func scheduledPipelinePublished(record map[string]any) bool {
-	published, _ := record[pipelineinternal.PublishedMemoKey].(bool)
-	return published
 }
 
 // parseScheduledPipelineDefinition reads YAML and returns runner metadata for schedules.
