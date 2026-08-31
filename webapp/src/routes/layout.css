@@ -38,6 +38,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	--chart-3: oklch(0.398 0.07 227.392);
 	--chart-4: oklch(0.828 0.189 84.429);
 	--chart-5: oklch(0.769 0.188 70.08);
+	--fcaf-data-model: oklch(0.5 0.17 262);
+	--fcaf-message-structure: oklch(0.52 0.13 200);
+	--fcaf-interaction: oklch(0.54 0.17 45);
+	--fcaf-security-mechanisms: oklch(0.5 0.2 330);
+	--fcaf-shared: oklch(0.5 0.13 155);
+	--fcaf-use-cases: oklch(0.58 0.15 85);
 	--sidebar: oklch(0.984 0.003 247.858);
 	--sidebar-foreground: oklch(0.129 0.042 264.695);
 	--sidebar-primary: oklch(0.208 0.042 265.755);
@@ -72,6 +78,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	--chart-3: oklch(0.769 0.188 70.08);
 	--chart-4: oklch(0.627 0.265 303.9);
 	--chart-5: oklch(0.645 0.246 16.439);
+	--fcaf-data-model: oklch(0.75 0.11 262);
+	--fcaf-message-structure: oklch(0.77 0.1 200);
+	--fcaf-interaction: oklch(0.78 0.12 45);
+	--fcaf-security-mechanisms: oklch(0.74 0.12 330);
+	--fcaf-shared: oklch(0.75 0.1 155);
+	--fcaf-use-cases: oklch(0.8 0.12 85);
 	--sidebar: oklch(0.208 0.042 265.755);
 	--sidebar-foreground: oklch(0.984 0.003 247.858);
 	--sidebar-primary: oklch(0.488 0.243 264.376);
@@ -110,6 +122,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	--color-chart-3: var(--chart-3);
 	--color-chart-4: var(--chart-4);
 	--color-chart-5: var(--chart-5);
+	--color-fcaf-data-model: var(--fcaf-data-model);
+	--color-fcaf-message-structure: var(--fcaf-message-structure);
+	--color-fcaf-interaction: var(--fcaf-interaction);
+	--color-fcaf-security-mechanisms: var(--fcaf-security-mechanisms);
+	--color-fcaf-shared: var(--fcaf-shared);
+	--color-fcaf-use-cases: var(--fcaf-use-cases);
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
 	--color-sidebar-primary: var(--sidebar-primary);

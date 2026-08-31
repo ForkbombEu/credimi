@@ -27,7 +27,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		id: 'wallets',
 		header: renderComponent(EntityHeader, {
-			data: entities.wallets
+			data: entities.wallets,
+			plurality: 'plural',
+			hideIcon: true
 		}),
 		sortField: 'wallets.name',
 		manualPillPositioning: true
@@ -38,4 +40,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<EntityDisplay.List items={value} layout="full" />
+<EntityDisplay.List items={value} layout="compact" />

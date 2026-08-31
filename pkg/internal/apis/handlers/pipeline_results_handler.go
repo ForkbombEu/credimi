@@ -614,8 +614,8 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	if rootSummary.Type.Name == w.Name() {
 		if resultRecord != nil {
 			attachPipelineArtifactsToSummary(rootSummary, b.app, resultRecord)
-		}
-		if len(rootSummary.Results) == 0 || rootSummary.Report == "" {
+		} else if len(rootSummary.Results) == 0 || rootSummary.Report == "" ||
+			rootSummary.FCAFReport == "" || rootSummary.FCAFReportPDF == "" {
 			artifacts := pipelineresults.ResolvePipelineExecutionArtifacts(
 				b.app,
 				b.namespace,
@@ -625,18 +625,19 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 			if len(rootSummary.Results) == 0 {
 				rootSummary.Results = artifacts.Results
 			}
+			if len(rootSummary.MaestroScreenshots) == 0 {
+				rootSummary.MaestroScreenshots = artifacts.MaestroScreenshots
+			}
 			if rootSummary.Report == "" {
 				rootSummary.Report = artifacts.Report
 			}
+			if rootSummary.FCAFReport == "" {
+				rootSummary.FCAFReport = artifacts.FCAFReport
+			}
+			if rootSummary.FCAFReportPDF == "" {
+				rootSummary.FCAFReportPDF = artifacts.FCAFReportPDF
+			}
 		}
-		rootSummary.FCAFReport = pipelineresults.BuildPipelineExecutionArtifacts(
-			b.app,
-			resultRecord,
-		).FCAFReport
-		rootSummary.MaestroScreenshots = pipelineresults.BuildPipelineExecutionArtifacts(
-			b.app,
-			resultRecord,
-		).MaestroScreenshots
 	}
 
 	for _, childExecution := range childExecutions {
@@ -675,6 +676,15 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 			runnerIDs,
 			b.runnerCache,
 		),
+	}
+	if rootSummary.Status == string(WorkflowStatusRunning) {
+		summary.Progress = computePipelineProgress(
+			ctx,
+			b,
+			pipelineIdentifier,
+			runnerIDs,
+			rootSummary.StartTime,
+		)
 	}
 	summary.PipelineIdentifier = pipelineIdentifier
 	summary.PipelineName = resolvePipelineNameFromRecord(pipelineRecord, pipelineIdentifier)
@@ -778,6 +788,7 @@ func attachPipelineArtifactsToSummary(
 	summary.MaestroScreenshots = artifacts.MaestroScreenshots
 	summary.Report = artifacts.Report
 	summary.FCAFReport = artifacts.FCAFReport
+	summary.FCAFReportPDF = artifacts.FCAFReportPDF
 }
 
 func getChildWorkflowsByParents(
@@ -993,11 +1004,12 @@ func describeWorkflowExecution(
 
 type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
-	PipelineIdentifier string           `json:"pipeline_identifier,omitempty"`
-	PipelineName       string           `json:"pipeline_name,omitempty"`
-	GlobalRunnerID     string           `json:"global_runner_id,omitempty"`
-	RunnerIDs          []string         `json:"runner_ids,omitempty"`
-	RunnerRecords      []map[string]any `json:"runner_records,omitempty"`
+	Progress           *PipelineProgress `json:"progress,omitempty"`
+	PipelineIdentifier string            `json:"pipeline_identifier,omitempty"`
+	PipelineName       string            `json:"pipeline_name,omitempty"`
+	GlobalRunnerID     string            `json:"global_runner_id,omitempty"`
+	RunnerIDs          []string          `json:"runner_ids,omitempty"`
+	RunnerRecords      []map[string]any  `json:"runner_records,omitempty"`
 }
 
 func appendQueuedPipelineSummaries(

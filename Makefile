@@ -243,14 +243,11 @@ generate: $(ROOT_DIR)/pkg/gen.go
 
 devtools: generate
 
-tools: generate $(BIN) $(BIN)/stepci-captured-runner $(BIN)/et-tu-cesr 
+tools: generate $(BIN)
 	mise install
-
-$(BIN)/stepci-captured-runner:
-	wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/download/stepci-captured-runner-$(shell uname)-$(shell uname -m) -O $(BIN)/stepci-captured-runner && chmod +x $(BIN)/stepci-captured-runner
-
-$(BIN)/et-tu-cesr:
-	wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-$(shell go env GOOS)-$(shell go env GOARCH) -O $(BIN)/et-tu-cesr && chmod +x $(BIN)/et-tu-cesr
+	ln -sf "$$(mise which et-tu-cesr)" "$(BIN)/et-tu-cesr"
+	ln -sf "$$(mise which stepci-captured-runner)" "$(BIN)/stepci-captured-runner"
+	test -x "$(BIN)/et-tu-cesr" && test -x "$(BIN)/stepci-captured-runner"
 
 ## Help:
 help: ## Show this help.

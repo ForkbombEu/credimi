@@ -56,6 +56,12 @@ func ensurePipelineRetentionEvidenceFields(t testing.TB, app *tests.TestApp) {
 	if collection.Fields.GetByName("report") == nil {
 		collection.Fields.Add(&core.FileField{Name: "report", MaxSelect: 1})
 	}
+	if collection.Fields.GetByName("fcaf_report") == nil {
+		collection.Fields.Add(&core.FileField{Name: "fcaf_report", MaxSelect: 1})
+	}
+	if collection.Fields.GetByName("fcaf_report_pdf") == nil {
+		collection.Fields.Add(&core.FileField{Name: "fcaf_report_pdf", MaxSelect: 1})
+	}
 	require.NoError(t, app.Save(collection))
 }
 
@@ -196,6 +202,13 @@ func TestDeletePipelineResultFilesClearsReport(t *testing.T) {
 	oldRecord := createPipelineRetentionRecord(t, app)
 	require.NoError(t, app.Save(oldRecord))
 	setPipelineResultReport(t, app, oldRecord.Id, "workflow-1.md")
+	setPipelineResultFCAFReports(
+		t,
+		app,
+		oldRecord.Id,
+		"fcaf-assessment.json",
+		"fcaf-assessment.pdf",
+	)
 	setPipelineResultCreatedAt(t, app, oldRecord.Id, time.Now().UTC().AddDate(0, 0, -35))
 
 	response, err := deletePipelineResultFilesOlderThan(
@@ -208,11 +221,15 @@ func TestDeletePipelineResultFilesClearsReport(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, response.UpdatedRecords)
 	require.Equal(t, 1, response.DeletedFiles.Report)
-	require.Equal(t, 1, response.DeletedFiles.Total)
+	require.Equal(t, 1, response.DeletedFiles.FCAFReport)
+	require.Equal(t, 1, response.DeletedFiles.FCAFReportPDF)
+	require.Equal(t, 3, response.DeletedFiles.Total)
 
 	reloaded, err := app.FindRecordById("pipeline_results", oldRecord.Id)
 	require.NoError(t, err)
 	require.Empty(t, reloaded.GetStringSlice("report"))
+	require.Empty(t, reloaded.GetStringSlice("fcaf_report"))
+	require.Empty(t, reloaded.GetStringSlice("fcaf_report_pdf"))
 }
 
 func TestPipelineRetentionEvidenceHelpers(t *testing.T) {
@@ -783,6 +800,28 @@ func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, 
 	).Bind(dbx.Params{
 		"report": mustMarshalJSONStringArray(t, []string{report}),
 		"id":     recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func setPipelineResultFCAFReports(
+	t testing.TB,
+	app *tests.TestApp,
+	recordID string,
+	jsonReport string,
+	pdfReport string,
+) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET fcaf_report = {:fcaf_report},
+		    fcaf_report_pdf = {:fcaf_report_pdf}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"fcaf_report":     mustMarshalJSONStringArray(t, []string{jsonReport}),
+		"fcaf_report_pdf": mustMarshalJSONStringArray(t, []string{pdfReport}),
+		"id":              recordID,
 	}).Execute()
 	require.NoError(t, err)
 }

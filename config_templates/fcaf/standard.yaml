@@ -1,0 +1,7 @@
+uid: fcaf
+name: EUDI Wallet FCAF
+description: Functional Conformance Assessment Framework for the European Digital Identity Wallet
+standard_url: https://conformance.eudi.dev/
+latest_update: 2026-03-13
+disabled: false
+external_links:

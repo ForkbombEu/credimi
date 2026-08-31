@@ -8,6 +8,8 @@ import type { MobileRunnersResponse } from '@/pocketbase/types';
 
 import { pb } from '@/pocketbase';
 
+import type { PipelineProgress } from './progress';
+
 import StatusTag from './workflow-status-tag.svelte';
 import SmallTable from './workflows-table-small.svelte';
 import Table from './workflows-table.svelte';
@@ -25,6 +27,7 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	runner_ids?: string[];
 	enqueuedAt?: string;
 	runner_records?: Array<MobileRunnersResponse>;
+	progress?: PipelineProgress;
 	queue?: {
 		ticket_id: string;
 		position: number;
@@ -33,6 +36,7 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	};
 	report?: string;
 	fcaf_report?: string;
+	fcaf_report_pdf?: string;
 	results?: Array<{
 		video: string;
 		screenshot: string;

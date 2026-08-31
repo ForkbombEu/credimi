@@ -204,11 +204,23 @@ func TestBuildPipelineExecutionArtifacts(t *testing.T) {
 	record.Set("screenshots", []string{"abc_screenshot_main.png"})
 	record.Set("logcats", []string{"abc_logfile_main.zip"})
 	record.Set("report", []string{"run_report.md"})
+	record.Set("fcaf_report", []string{"fcaf_assessment.json"})
+	record.Set("fcaf_report_pdf", []string{"fcaf_assessment.pdf"})
 
 	got := pipelineresults.BuildPipelineExecutionArtifacts(app, record)
 	require.Len(t, got.Results, 1)
 	require.Contains(t, got.Results[0].Log, "abc_logfile_main.zip")
 	require.Equal(t, "https://app.test/api/files/pipeline_results/rec123/run_report.md", got.Report)
+	require.Equal(
+		t,
+		"https://app.test/api/files/pipeline_results/rec123/fcaf_assessment.json",
+		got.FCAFReport,
+	)
+	require.Equal(
+		t,
+		"https://app.test/api/files/pipeline_results/rec123/fcaf_assessment.pdf",
+		got.FCAFReportPDF,
+	)
 
 	require.Equal(
 		t,

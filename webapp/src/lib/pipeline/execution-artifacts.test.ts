@@ -21,7 +21,23 @@ describe('fromApiSummary', () => {
 			results: [{ video: 'v', screenshot: 's', log: 'l' }],
 			maestro_screenshots: [],
 			report: 'https://app/r.md',
-			fcafReport: undefined
+			fcafReport: undefined,
+			fcafReportPdf: undefined
+		});
+	});
+
+	it('maps FCAF JSON and PDF reports', () => {
+		expect(
+			fromApiSummary({
+				fcaf_report: 'https://app/fcaf.json',
+				fcaf_report_pdf: 'https://app/fcaf.pdf'
+			})
+		).toEqual({
+			results: [],
+			maestro_screenshots: [],
+			report: undefined,
+			fcafReport: 'https://app/fcaf.json',
+			fcafReportPdf: 'https://app/fcaf.pdf'
 		});
 	});
 });
@@ -36,7 +52,26 @@ describe('fromEnrichedRecord', () => {
 			results: [{ video: 'v', screenshot: 's', log: 'l' }],
 			maestro_screenshots: [],
 			report: undefined,
-			fcafReport: undefined
+			fcafReport: undefined,
+			fcafReportPdf: undefined
+		});
+	});
+
+	it('normalizes snake-case enriched FCAF artifacts', () => {
+		expect(
+			fromEnrichedRecord({
+				artifacts: {
+					results: [],
+					fcaf_report: 'https://app/fcaf.json',
+					fcaf_report_pdf: 'https://app/fcaf.pdf'
+				}
+			})
+		).toEqual({
+			results: [],
+			maestro_screenshots: [],
+			report: undefined,
+			fcafReport: 'https://app/fcaf.json',
+			fcafReportPdf: 'https://app/fcaf.pdf'
 		});
 	});
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -409,6 +410,10 @@ func syncFCAFCredentialIssuer(
 		"published":       issuer.Published,
 		"imported":        issuer.Imported,
 	}
+	// The credential_issuers update rule forbids changing `url` (system-managed),
+	// so it is only sent on create.
+	patchUpdates := maps.Clone(updates)
+	delete(patchUpdates, "url")
 	switch len(records) {
 	case 0:
 		updates["owner"] = orgID
@@ -418,7 +423,7 @@ func syncFCAFCredentialIssuer(
 		if !ok || id == "" {
 			return fmt.Errorf("credential issuer %q has no record id", lookup)
 		}
-		return fcafPatchRecord(ctx, token, "credential_issuers", id, updates)
+		return fcafPatchRecord(ctx, token, "credential_issuers", id, patchUpdates)
 	default:
 		return fmt.Errorf(
 			"expected one credential issuer named %q, found %d",

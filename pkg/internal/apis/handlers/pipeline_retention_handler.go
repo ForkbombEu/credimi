@@ -36,6 +36,8 @@ var pipelineRetentionFileFields = []string{
 	"logcats",
 	"ios_logstreams",
 	"report",
+	"fcaf_report",
+	"fcaf_report_pdf",
 }
 
 var pipelineRetentionEvidenceFields = []string{
@@ -60,6 +62,8 @@ type PipelineResultFileCounts struct {
 	Logcats            int `json:"logcats"`
 	IOSLogstreams      int `json:"ios_logstreams"`
 	Report             int `json:"report"`
+	FCAFReport         int `json:"fcaf_report"`
+	FCAFReportPDF      int `json:"fcaf_report_pdf"`
 	Total              int `json:"total"`
 }
 
@@ -456,9 +460,12 @@ func countPipelineResultFiles(record *core.Record) PipelineResultFileCounts {
 		Logcats:            len(record.GetStringSlice("logcats")),
 		IOSLogstreams:      len(record.GetStringSlice("ios_logstreams")),
 		Report:             len(record.GetStringSlice("report")),
+		FCAFReport:         len(record.GetStringSlice("fcaf_report")),
+		FCAFReportPDF:      len(record.GetStringSlice("fcaf_report_pdf")),
 	}
 	counts.Total = counts.VideoResults + counts.Screenshots + counts.MaestroScreenshots +
-		counts.Logcats + counts.IOSLogstreams + counts.Report
+		counts.Logcats + counts.IOSLogstreams + counts.Report + counts.FCAFReport +
+		counts.FCAFReportPDF
 
 	return counts
 }
@@ -473,6 +480,8 @@ func addPipelineResultFileCounts(
 	left.Logcats += right.Logcats
 	left.IOSLogstreams += right.IOSLogstreams
 	left.Report += right.Report
+	left.FCAFReport += right.FCAFReport
+	left.FCAFReportPDF += right.FCAFReportPDF
 	left.Total += right.Total
 
 	return left

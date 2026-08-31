@@ -45,6 +45,17 @@ func TestWalkConfigTemplates(t *testing.T) {
 		os.WriteFile(filepath.Join(standardDir, "standard.yaml"), standardYaml, 0644),
 	)
 
+	// Non-standard data directories must be excluded from blueprints.
+	for _, skipUID := range []string{"fcaf_sources"} {
+		skipDir := filepath.Join(testdataDir, skipUID)
+		require.NoError(t, os.Mkdir(skipDir, 0755))
+		skipYaml, _ := yaml.Marshal(StandardMetadata{UID: skipUID, Name: skipUID})
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(skipDir, "standard.yaml"), skipYaml, 0644),
+		)
+	}
+
 	versionUID := "draft-24"
 	versionDir := filepath.Join(standardDir, versionUID)
 	require.NoError(t, os.Mkdir(versionDir, 0755))
@@ -109,6 +120,18 @@ func TestWalkConfigTemplates(t *testing.T) {
 	}
 	suite3Yaml, _ := yaml.Marshal(suite3Meta)
 	require.NoError(t, os.WriteFile(filepath.Join(suite3Dir, "metadata.yaml"), suite3Yaml, 0644))
+
+	// Directories without version.yaml or metadata.yaml must be skipped, not
+	// surfaced as blank versions or suites (e.g. FCAF data directories).
+	noVersionDir := filepath.Join(standardDir, "no_version_dir")
+	require.NoError(t, os.Mkdir(noVersionDir, 0755))
+
+	noMetaSuiteDir := filepath.Join(versionDir, "no_metadata_suite")
+	require.NoError(t, os.Mkdir(noMetaSuiteDir, 0755))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(noMetaSuiteDir, "orphan.json"), []byte("{}"), 0644),
+	)
 
 	wantUnfiltered := Standards{
 		Standard{

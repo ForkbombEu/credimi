@@ -180,6 +180,13 @@ type Standard struct {
 
 type Standards []Standard
 
+// nonStandardTemplateDirs are config_templates entries that are not
+// conformance-check standards and must not appear in the template
+// blueprints listing.
+var nonStandardTemplateDirs = map[string]struct{}{
+	"fcaf_sources": {},
+}
+
 func walkConfigTemplates(dir string, surface string) (Standards, error) {
 	var standards = make(Standards, 0)
 	filter := surface != ""
@@ -231,6 +238,10 @@ func walkConfigTemplates(dir string, surface string) (Standards, error) {
 			continue
 		}
 
+		if _, skip := nonStandardTemplateDirs[entry.Name()]; skip {
+			continue
+		}
+
 		standardUID := entry.Name()
 		standardPath := filepath.Join(dir, standardUID)
 
@@ -256,11 +267,13 @@ func walkConfigTemplates(dir string, surface string) (Standards, error) {
 			versionUID := vEntry.Name()
 			versionPath := filepath.Join(standardPath, versionUID)
 
+			versionYamlPath := filepath.Join(versionPath, "version.yaml")
+			if _, err := os.Stat(versionYamlPath); err != nil {
+				continue
+			}
+
 			versionMeta := VersionMetadata{UID: versionUID}
-			if err := readYaml(
-				filepath.Join(versionPath, "version.yaml"),
-				&versionMeta,
-			); err != nil {
+			if err := readYaml(versionYamlPath, &versionMeta); err != nil {
 				return nil, err
 			}
 
@@ -277,11 +290,13 @@ func walkConfigTemplates(dir string, surface string) (Standards, error) {
 				suiteUID := sEntry.Name()
 				suitePath := filepath.Join(versionPath, suiteUID)
 
+				metadataYamlPath := filepath.Join(suitePath, "metadata.yaml")
+				if _, err := os.Stat(metadataYamlPath); err != nil {
+					continue
+				}
+
 				suiteMeta := SuiteMetadata{UID: suiteUID}
-				if err := readYaml(
-					filepath.Join(suitePath, "metadata.yaml"),
-					&suiteMeta,
-				); err != nil {
+				if err := readYaml(metadataYamlPath, &suiteMeta); err != nil {
 					return nil, err
 				}
 

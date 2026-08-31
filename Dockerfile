@@ -44,6 +44,10 @@ RUN curl https://mise.run | sh
 COPY .mise.toml ./
 RUN mise trust
 RUN --mount=type=cache,target=/mise/cache mise i
+RUN mkdir -p .bin && \
+    ln -sf "$(mise which et-tu-cesr)" .bin/et-tu-cesr && \
+    ln -sf "$(mise which stepci-captured-runner)" .bin/stepci-captured-runner && \
+    test -x .bin/et-tu-cesr && test -x .bin/stepci-captured-runner
 
 # install bun deps and cache
 COPY ./webapp/package.json webapp/
@@ -58,13 +62,6 @@ RUN mv overmind-v2.5.1-linux-amd64 /usr/local/bin/overmind
 RUN chmod +x /usr/local/bin/overmind
 
 WORKDIR /app
-
-# install the stepci-captured-runner
-RUN mkdir .bin
-RUN wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/download/stepci-captured-runner-Linux-x86_64 -O .bin/stepci-captured-runner && chmod +x .bin/stepci-captured-runner
-
-#install et-tu-cesr
-RUN wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-linux-amd64 -O .bin/et-tu-cesr && chmod +x .bin/et-tu-cesr
 
 # copy everything
 COPY . ./
