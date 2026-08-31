@@ -35,6 +35,7 @@ type LoadPageOptions = {
 	page?: number;
 	perPage?: number;
 	sort?: string;
+	filter?: string;
 	fetch?: typeof fetch;
 };
 
@@ -53,7 +54,8 @@ export async function loadPage(options: LoadPageOptions = {}): Promise<ListResul
 	const res = await agent.getList(options.page ?? 1, options.perPage, {
 		fetch: options.fetch,
 		requestKey: null,
-		...(options.sort ? { sort: options.sort } : {})
+		...(options.sort ? { sort: options.sort } : {}),
+		...(options.filter ? { filter: options.filter } : {})
 	});
 	return res as ListResult<ScoreboardRow>;
 }

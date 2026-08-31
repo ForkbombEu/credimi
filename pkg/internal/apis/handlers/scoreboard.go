@@ -35,6 +35,9 @@ const scoreboardPipelineRecordBatchSize = 250
 
 var errScoreboardRelationSkipped = errors.New("scoreboard relation skipped")
 
+// errPipelineNotPublished marks pipelines excluded from the public scoreboard.
+var errPipelineNotPublished = errors.New("pipeline not published")
+
 var aggregateScoreboardWorkflowStart = func(
 	namespace string,
 	input workflowengine.WorkflowInput,
@@ -1087,6 +1090,13 @@ func insertAggregatedResults(
 		record := core.NewRecord(collection)
 		setBasicFields(record, stats)
 		if err := setPipelineRelation(record, app, stats.PipelineID); err != nil {
+			if errors.Is(err, errPipelineNotPublished) {
+				app.Logger().Debug(
+					"skipping unpublished pipeline for scoreboard",
+					"pipeline_id", stats.PipelineID,
+				)
+				continue
+			}
 			saveErrors = append(saveErrors, fmt.Errorf("pipeline %s: %w", stats.PipelineID, err))
 			continue
 		}
@@ -1152,6 +1162,9 @@ func setPipelineRelation(record *core.Record, app core.App, pipelineID string) e
 	pipelineRecord, err := app.FindRecordById("pipelines", pipelineID)
 	if err != nil {
 		return fmt.Errorf("failed to find pipeline record for ID %s: %w", pipelineID, err)
+	}
+	if !pipelineRecord.GetBool("published") {
+		return errPipelineNotPublished
 	}
 	record.Set("pipeline", pipelineRecord.Id)
 	return nil

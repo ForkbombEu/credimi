@@ -28,9 +28,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import PipelineExecutionStats from '../extras/pipeline-execution-stats.svelte';
+	import ScorePill from '../score-pill.svelte';
 
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<PipelineExecutionStats stats={value} layout="inline" />
+<div class="flex flex-col items-start gap-1">
+	<ScorePill percent={value.percent} total={value.total} />
+	<p class="text-xs text-muted-foreground">
+		{m.scoreboard_runs_passed({ successes: value.successes, total: value.total })}
+	</p>
+</div>

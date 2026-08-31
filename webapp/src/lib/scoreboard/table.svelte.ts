@@ -16,15 +16,10 @@ import type { ScoreboardRow } from './types';
 
 import * as Column from './column';
 import * as conformanceChecks from './columns/conformance-checks.svelte';
-import * as credentials from './columns/credentials.svelte';
-import * as customIntegrations from './columns/custom-integrations.svelte';
 import * as issuers from './columns/issuers.svelte';
 import * as lastExecution from './columns/last-execution.svelte';
-import * as minimumRunningTime from './columns/minimum-running-time.svelte';
 import * as name from './columns/name.svelte';
 import * as runners from './columns/runners.svelte';
-import * as totalExecutionsSuccessesPercentage from './columns/total-executions-successes-percentage.svelte';
-import * as useCaseVerifications from './columns/use-case-verifications.svelte';
 import * as verifiers from './columns/verifiers.svelte';
 import * as videoScreenshot from './columns/video-screenshot.svelte';
 import * as wallets from './columns/wallets.svelte';
@@ -35,16 +30,11 @@ import { loadPage } from './records';
 const columns = [
 	Column.build(name),
 	Column.build(videoScreenshot),
-	Column.build(totalExecutionsSuccessesPercentage),
 	Column.build(wallets),
 	Column.build(issuers),
-	Column.build(credentials),
 	Column.build(verifiers),
-	Column.build(useCaseVerifications),
 	Column.build(conformanceChecks),
-	Column.build(customIntegrations),
 	Column.build(runners),
-	Column.build(minimumRunningTime),
 	Column.build(lastExecution)
 ];
 
@@ -72,6 +62,10 @@ export class ScoreboardTable {
 
 	#sorting = $state<SortingState>([{ id: lastExecution.column.id, desc: true }]);
 
+	#filter = $state<string | undefined>(undefined);
+
+	#columnVisibility = $state<Record<string, boolean>>({});
+
 	get pageSize() {
 		return this.#pagination.pageSize;
 	}
@@ -80,6 +74,24 @@ export class ScoreboardTable {
 	}
 	get totalItems() {
 		return this.#pagination.totalItems;
+	}
+
+	get filter() {
+		return this.#filter;
+	}
+
+	setFilter(filter: string | undefined) {
+		this.#filter = filter;
+		this.#pagination.pageIndex = 0;
+		this.loadData();
+	}
+
+	get columnVisibility() {
+		return this.#columnVisibility;
+	}
+
+	toggleColumn(id: string, visible: boolean) {
+		this.#columnVisibility = { ...this.#columnVisibility, [id]: visible };
 	}
 
 	get currentPage() {
@@ -101,6 +113,7 @@ export class ScoreboardTable {
 			this.#pagination.pageSize = p.pageSize;
 		};
 		const getSorting = () => this.#sorting;
+		const getColumnVisibility = () => this.#columnVisibility;
 
 		this.table = createSvelteTable({
 			columns,
@@ -114,6 +127,9 @@ export class ScoreboardTable {
 				},
 				get sorting() {
 					return getSorting();
+				},
+				get columnVisibility() {
+					return getColumnVisibility();
 				}
 			},
 			onPaginationChange: (updater) => {
@@ -125,6 +141,11 @@ export class ScoreboardTable {
 				this.#sorting = next;
 				this.#pagination.pageIndex = 0;
 				this.loadData();
+			},
+			onColumnVisibilityChange: (updater) => {
+				const next =
+					typeof updater === 'function' ? updater(getColumnVisibility()) : updater;
+				this.#columnVisibility = next;
 			},
 			manualPagination: true,
 			manualSorting: true,
@@ -150,7 +171,8 @@ export class ScoreboardTable {
 		const res = await loadPage({
 			page: currentApiPage,
 			perPage: this.#pagination.pageSize,
-			...(sort ? { sort } : {})
+			...(sort ? { sort } : {}),
+			...(this.#filter ? { filter: this.#filter } : {})
 		});
 		const normalizedApiPage = fromApiPage(res.page);
 		this.#data = res.items;

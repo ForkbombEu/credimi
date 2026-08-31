@@ -38,7 +38,7 @@ export type Item = {
 	children?: ChildLink[];
 };
 
-export type Layout = 'avatar-only' | 'links-only' | 'compact' | 'full';
+export type Layout = 'avatar-only' | 'links-only' | 'compact' | 'full' | 'logos';
 
 export type Align = 'start' | 'end';
 
