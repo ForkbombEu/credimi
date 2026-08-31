@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export const column = Column.define({
 		fn: (row) =>
 			EntityDisplay.fromPocketbaseEntities(
-				row.expand.use_case_verifications ?? [],
+				row.expanded_data?.use_case_verifications ?? [],
 				entities.use_cases_verifications
 			),
 		id: 'use_case_verifications',

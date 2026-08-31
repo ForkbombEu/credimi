@@ -4,16 +4,6 @@
 
 import type { EntityData } from '$lib/global';
 
-import type {
-	CredentialIssuersResponse,
-	CredentialsResponse,
-	CustomChecksResponse,
-	PipelinesResponse,
-	UseCasesVerificationsResponse,
-	VerifiersResponse,
-	WalletsResponse
-} from '@/pocketbase/types';
-
 //
 
 export type AvatarData = {
@@ -42,11 +32,11 @@ export type Layout = 'avatar-only' | 'links-only' | 'compact' | 'full';
 
 export type Align = 'start' | 'end';
 
-export type PocketbaseEntity =
-	| WalletsResponse
-	| CredentialIssuersResponse
-	| VerifiersResponse
-	| UseCasesVerificationsResponse
-	| CredentialsResponse
-	| CustomChecksResponse
-	| PipelinesResponse;
+export type PocketbaseEntity = {
+	id: string;
+	collectionName: string;
+	name?: string;
+	logo?: string;
+	logo_url?: string;
+	__canonified_path__?: string;
+};

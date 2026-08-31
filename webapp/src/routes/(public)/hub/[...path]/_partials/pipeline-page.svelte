@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = Awaited<ReturnType<typeof getPipelineDetails>>;
 	let { pipeline, results }: Props = $props();
 
-	const runners = $derived(results?.expand.mobile_runners ?? []);
+	const runners = $derived(results?.expanded_data?.mobile_runners ?? []);
 </script>
 
 <LayoutWithToc sections={[s.description, s.pipeline_steps, s.workflow_yaml]}>

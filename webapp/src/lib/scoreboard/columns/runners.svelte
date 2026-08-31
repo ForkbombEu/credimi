@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	export const column = Column.define({
-		fn: (row) => row.expand.mobile_runners ?? [],
+		fn: (row) => row.expanded_data?.mobile_runners ?? [],
 		id: 'runners',
 		header: m.Runners()
 	});

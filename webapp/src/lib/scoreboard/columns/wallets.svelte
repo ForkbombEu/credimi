@@ -15,8 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	export const column = Column.define({
 		fn: (row) => {
-			const wallets = row.expand.wallets ?? [];
-			const walletVersions = row.expand.wallet_versions ?? [];
+			const wallets = row.expanded_data?.wallets ?? [];
+			const walletVersions = row.expanded_data?.wallet_versions ?? [];
 
 			return EntityDisplay.fromWalletRows(
 				wallets.map((wallet) => ({

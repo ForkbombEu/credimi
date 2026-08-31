@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	export const column = Column.define({
-		fn: (row) => row.expand.pipeline,
+		fn: (row) => row.expanded_data?.pipeline,
 		id: 'name',
 		header: renderComponent(EntityHeader, {
 			data: entities.pipelines
