@@ -1036,5 +1036,6 @@
 	"extra_eudi_atlas_description": "Comprehensive EUDI documents map (organized per role) with conformance test guide",
 	"extra_tl_lote_onboarding_catalogue": "TL/LoTE Onboarding/Catalogue",
 	"extra_tl_lote_onboarding_catalogue_description": "Onboard EUDI components on TL/LoTE(s) for testing and debugging only; not for production use",
-	"Extras": "Extras"
+	"Extras": "Extras",
+	"executions_CI": "CI/CD"
 }
