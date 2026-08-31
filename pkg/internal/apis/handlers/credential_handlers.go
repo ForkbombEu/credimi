@@ -29,8 +29,8 @@ var CredentialTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/credential",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		middlewares.RequireInternalAdminAPIKey(),
 		{Func: middlewares.ErrorHandlingMiddleware},
+		middlewares.RequireInternalAdminAPIKey(),
 	},
 	Routes: []routing.RouteDefinition{
 		{

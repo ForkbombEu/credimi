@@ -706,12 +706,10 @@ func syncFCAFWalletAction(
 		category = "other"
 	}
 	updates := map[string]any{
-		"name":     action.Name,
-		"code":     code,
-		"category": category,
-	}
-	if action.Tags != "" {
-		updates["tags"] = action.Tags
+		"name":      action.Name,
+		"code":      code,
+		"category":  category,
+		"published": true,
 	}
 	switch len(records) {
 	case 0:
