@@ -18,9 +18,7 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_IA_MainInteraction__046` (credential such that resulting presentation size exceeds typical URL length limit (?))
 - [ ] `WS_RP_IA_Metadata__012`        (waiting to use beta verifier)
 - [ ] `WS_RP_IA_Metadata__013`        (waiting to use beta verifier)
-- [ ] `WS_RP_IA_Supportive__002`
-- [ ] `WS_RP_IA_Supportive__006`
-- [ ] `WS_RP_IA_Supportive__007`
+- [ ] `WS_RP_IA_Supportive__006`      (hard load?????????)
 - [ ] `WS_RP_MS_CredentialFormats__029`
 - [ ] `WS_RP_MS_CredentialFormats__030`
 - [ ] `WS_RP_MS_CredentialFormats__031`
@@ -267,15 +265,16 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_IA_MainInteraction__057` (capture verifier response and add redirects)
 - [ ] `WS_RP_IA_MainInteraction__060` (IMPOSSIBLE, credo does not support fragment/query)
 - [ ] `WS_RP_IA_MainInteraction__061` (add verifier redirects response)
+- [ ] `WS_RP_IA_MainInteraction__064`
+- [ ] `WS_RP_IA_MainInteraction__065`
+- [ ] `WS_RP_IA_MainInteraction__066`
+- [ ] `WS_RP_IA_MainInteraction__067`
 - [ ] `WS_RP_IA_Metadata__010`        (redirect_uri must be present with response_mode=direct_post.jwt)
 - [ ] `WS_RP_IA_Metadata__011`        (dynamic discovery)
 - [ ] `WS_RP_IA_Metadata__014`        (support openid_federation prefix for client_id)
 - [ ] `WS_RP_IA_Metadata__015`        (support decentralized_identifier prefix for client_id)
 - [ ] `WS_RP_IA_Metadata__016`        (support decentralized_identifier prefix for client_id and empty client_metadata)
-- [ ] `WS_RP_IA_MainInteraction__064`
-- [ ] `WS_RP_IA_MainInteraction__065`
-- [ ] `WS_RP_IA_MainInteraction__066`
-- [ ] `WS_RP_IA_MainInteraction__067`
+- [ ] `WS_RP_IA_Supportive__002`      (wrong request_uri)
 - [ ] `WS_RP_MS_Metadata__105`
 - [ ] `WS_RP_MS_Metadata__106`
 - [ ] `WS_RP_MS_Metadata__107`

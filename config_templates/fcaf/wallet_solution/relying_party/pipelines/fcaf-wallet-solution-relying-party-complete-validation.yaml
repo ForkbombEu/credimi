@@ -12416,7 +12416,7 @@ steps:
             appId: eu.europa.ec.euidi
             ---
             - stopApp
-            - evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
+            - evalScript: ${output.authorizationRequest = 'openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
             - openLink:
                 link: ${output.authorizationRequest}
                 autoVerify: false
@@ -12808,6 +12808,65 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/ui/presentations/${{ supportive-redirect-uri-9f399357-create-presentation.outputs.body.transaction_id }}
+    - continue_on_error: true
+      id: supportive-signed-request-without-re-042dcbe8-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - eu.europa.ec.eudi.pid.1
+                            - given_name
+                      format: mso_mdoc
+                      id: pid_mdoc
+                      meta:
+                        doctype_value: eu.europa.ec.eudi.pid.1
+            nonce: fcaf-supportive-signed-request-without-request-uri
+            request_delivery: by_value
+            type: vp_token
+        expected_status: 200
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/ui/presentations
+    - continue_on_error: true
+      id: supportive-signed-request-without-re-042dcbe8-submit-haip-by-value-request
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - stopApp
+            - evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
+            - openLink:
+                link: ${output.authorizationRequest}
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 5000
+            - tapOn:
+                text: "EUDI Wallet"
+                optional: true
+            - tapOn:
+                text: "Just once"
+                optional: true
+            - extendedWaitUntil:
+                visible: "Oups! Something went wrong|invalid request|Something went wrong|Home|Documents"
+                timeout: 30000
+            - takeScreenshot: fcaf-supportive-signed-request-without-request-uri-rejected
+        parameters:
+            CLIENT_ID: ${{ supportive-signed-request-without-re-042dcbe8-create-presentation.outputs.body.client_id }}
+            REQUEST_OBJECT: ${{ supportive-signed-request-without-re-042dcbe8-create-presentation.outputs.body.request }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: supportive-signed-request-without-re-042dcbe8-get-presentation-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/ui/presentations/${{ supportive-signed-request-without-re-042dcbe8-create-presentation.outputs.body.transaction_id }}
     - id: run-complete-fcaf-validation
       use: fcaf-validation
       with:
@@ -13626,6 +13685,11 @@ steps:
                     submit-and-follow-redirect: ${{ supportive-redirect-uri-9f399357-submit-and-follow-redirect.outputs | optional }}
                     visual_evidence: ${{ supportive-redirect-uri-9f399357-submit-and-follow-redirect.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wallet_response: ${{ supportive-redirect-uri-9f399357-get-presentation-result.outputs.body | optional }}
+            pipeline.wallet.supportive.signed-request-without-request-uri:
+                output:
+                    dcql_exchange: ${{ supportive-signed-request-without-re-042dcbe8-get-presentation-result.outputs.body | optional }}
+                    request_object: ${{ supportive-signed-request-without-re-042dcbe8-create-presentation.outputs.body.request | optional }}
+                    visual_evidence: ${{ supportive-signed-request-without-re-042dcbe8-submit-haip-by-value-request.outputs.flow_output.maestro_screenshot_urls | optional }}
         suite: wallet_solution/relying_party
         test_ids:
             - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001

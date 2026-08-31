@@ -40,7 +40,7 @@ steps:
             appId: eu.europa.ec.euidi
             ---
             - stopApp
-            - evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
+            - evalScript: ${output.authorizationRequest = 'openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
             - openLink:
                 link: ${output.authorizationRequest}
                 autoVerify: false

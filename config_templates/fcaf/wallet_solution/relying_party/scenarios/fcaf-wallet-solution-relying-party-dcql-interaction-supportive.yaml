@@ -73,7 +73,6 @@ steps:
     test_ids:
       - WS_RP_IA_Supportive__002
       - WS_RP_IA_Supportive__006
-      - WS_RP_IA_Supportive__007
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.interaction-supportive:
