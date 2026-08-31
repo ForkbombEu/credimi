@@ -1164,6 +1164,8 @@ steps:
                             - path:
                                 - eu.europa.ec.eudi.pid.1
                                 - given_name
+                              values:
+                                - Mario
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:

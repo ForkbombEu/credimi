@@ -19,12 +19,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_IA_Metadata__012`        (waiting to use beta verifier)
 - [ ] `WS_RP_IA_Metadata__013`        (waiting to use beta verifier)
 - [ ] `WS_RP_IA_Supportive__006`      (hard load?????????)
-- [ ] `WS_RP_MS_CredentialFormats__029`
-- [ ] `WS_RP_MS_CredentialFormats__030`
-- [ ] `WS_RP_MS_CredentialFormats__031`
-- [ ] `WS_RP_MS_CredentialFormats__032`
-- [ ] `WS_RP_MS_CredentialFormats__033`
-- [ ] `WS_RP_MS_CredentialFormats__034`
 - [ ] `WS_RP_MS_CredentialFormats__041`
 - [ ] `WS_RP_MS_CredentialFormats__044`
 - [ ] `WS_RP_MS_CredentialFormats__046`
@@ -250,31 +244,36 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 
 ## Verifier Blocked
 
-- [ ] `WS_RP_IA_Engagement__002` (W3C API)
-- [ ] `WS_RP_IA_MainInteraction__006` (credential with no hb)
-- [ ] `WS_RP_IA_MainInteraction__008` (credential with no hb)
-- [ ] `WS_RP_IA_MainInteraction__010` (credential with no hb)
-- [ ] `WS_RP_IA_MainInteraction__032` (PID with `over 18` set to false)
-- [ ] `WS_RP_IA_MainInteraction__033` (multiple credentials (same type) with different values)
-- [ ] `WS_RP_IA_MainInteraction__049` (verifier should capture header and body)
-- [ ] `WS_RP_IA_MainInteraction__052` (verifier should capture header and body)
-- [ ] `WS_RP_IA_MainInteraction__053` (response_uri must be missing)
-- [ ] `WS_RP_IA_MainInteraction__054` (verifier should capture http method)
-- [ ] `WS_RP_IA_MainInteraction__055` (redirect_uri must be present with response_mode=direct_post.jwt)
-- [ ] `WS_RP_IA_MainInteraction__056` (response_uri must be wrong)
-- [ ] `WS_RP_IA_MainInteraction__057` (capture verifier response and add redirects)
-- [ ] `WS_RP_IA_MainInteraction__060` (IMPOSSIBLE, credo does not support fragment/query)
-- [ ] `WS_RP_IA_MainInteraction__061` (add verifier redirects response)
+- [ ] `WS_RP_IA_Engagement__002`        (W3C API)
+- [ ] `WS_RP_IA_MainInteraction__006`   (credential with no hb)
+- [ ] `WS_RP_IA_MainInteraction__008`   (credential with no hb)
+- [ ] `WS_RP_IA_MainInteraction__010`   (credential with no hb)
+- [ ] `WS_RP_IA_MainInteraction__032`   (PID with `over 18` set to false)
+- [ ] `WS_RP_IA_MainInteraction__033`   (multiple credentials (same type) with different values)
+- [ ] `WS_RP_IA_MainInteraction__049`   (verifier should capture header and body)
+- [ ] `WS_RP_IA_MainInteraction__052`   (verifier should capture header and body)
+- [ ] `WS_RP_IA_MainInteraction__053`   (response_uri must be missing)
+- [ ] `WS_RP_IA_MainInteraction__054`   (verifier should capture http method)
+- [ ] `WS_RP_IA_MainInteraction__055`   (redirect_uri must be present with response_mode=direct_post.jwt)
+- [ ] `WS_RP_IA_MainInteraction__056`   (response_uri must be wrong)
+- [ ] `WS_RP_IA_MainInteraction__057`   (capture verifier response and add redirects)
+- [ ] `WS_RP_IA_MainInteraction__060`   (IMPOSSIBLE, credo does not support fragment/query)
+- [ ] `WS_RP_IA_MainInteraction__061`   (add verifier redirects response)
 - [ ] `WS_RP_IA_MainInteraction__064`
 - [ ] `WS_RP_IA_MainInteraction__065`
 - [ ] `WS_RP_IA_MainInteraction__066`
 - [ ] `WS_RP_IA_MainInteraction__067`
-- [ ] `WS_RP_IA_Metadata__010`        (redirect_uri must be present with response_mode=direct_post.jwt)
-- [ ] `WS_RP_IA_Metadata__011`        (dynamic discovery)
-- [ ] `WS_RP_IA_Metadata__014`        (support openid_federation prefix for client_id)
-- [ ] `WS_RP_IA_Metadata__015`        (support decentralized_identifier prefix for client_id)
-- [ ] `WS_RP_IA_Metadata__016`        (support decentralized_identifier prefix for client_id and empty client_metadata)
-- [ ] `WS_RP_IA_Supportive__002`      (wrong request_uri)
+- [ ] `WS_RP_IA_Metadata__010`          (redirect_uri must be present with response_mode=direct_post.jwt)
+- [ ] `WS_RP_IA_Metadata__011`          (dynamic discovery)
+- [ ] `WS_RP_IA_Metadata__014`          (support openid_federation prefix for client_id)
+- [ ] `WS_RP_IA_Metadata__015`          (support decentralized_identifier prefix for client_id)
+- [ ] `WS_RP_IA_Metadata__016`          (support decentralized_identifier prefix for client_id and empty client_metadata)
+- [ ] `WS_RP_IA_Supportive__002`        (wrong request_uri)
+- [ ] `WS_RP_MS_CredentialFormats__029` (issue jwt with status.status_list)
+- [ ] `WS_RP_MS_CredentialFormats__030` (issue sd-jwt with status.status_list)
+- [ ] `WS_RP_MS_CredentialFormats__031` (issue sd-jwt vc with status.status_list)
+- [ ] `WS_RP_MS_CredentialFormats__032` (issue cwt with status.status_list)
+- [ ] `WS_RP_MS_CredentialFormats__033` (issue iso mdoc with status.status_list)
 - [ ] `WS_RP_MS_Metadata__105`
 - [ ] `WS_RP_MS_Metadata__106`
 - [ ] `WS_RP_MS_Metadata__107`
