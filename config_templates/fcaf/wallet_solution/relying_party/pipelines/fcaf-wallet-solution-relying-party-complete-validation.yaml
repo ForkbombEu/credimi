@@ -13596,6 +13596,7 @@ steps:
                     get-presentation-result: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs | optional }}
                     presentation_request: ${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body | optional }}
                     request_object: ${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body.request | optional }}
+                    request_uri_payload: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.request_uri_payload | optional }}
                     submit-request-uri-method-post: ${{ request-uri-method-post-11b1acd0-submit-request-uri-method-post.outputs | optional }}
                     visual_evidence: ${{ request-uri-method-post-11b1acd0-submit-request-uri-method-post.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wallet_response: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body | optional }}

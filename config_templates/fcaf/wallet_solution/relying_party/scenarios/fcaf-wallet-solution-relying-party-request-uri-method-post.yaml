@@ -98,6 +98,7 @@ steps:
     with:
       test_ids:
         - WS_RP_IA_ProtocolFlow__001
+        - WS_RP_IA_Metadata__017
         - WS_RP_MS_ProtocolMessages__005
         - WS_RP_MS_ProtocolMessages__023
         - WS_RP_MS_ProtocolMessages__031
@@ -108,6 +109,7 @@ steps:
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
             presentation_request: ${{ create-presentation.outputs.body }}
             request_object: ${{ create-presentation.outputs.body.request }}
+            request_uri_payload: ${{ get-presentation-result.outputs.body.request_uri_payload }}
             wallet_response: ${{ get-presentation-result.outputs.body }}
             visual_evidence: ${{ submit-request-uri-method-post.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}
