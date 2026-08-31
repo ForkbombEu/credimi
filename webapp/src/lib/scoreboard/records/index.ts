@@ -15,6 +15,13 @@ import type { ScoreboardRow } from '../types';
 
 //
 
+/** Public scoreboard listings must only include published pipelines. */
+export const PUBLISHED_PIPELINE_FILTER = 'pipeline.published = true';
+
+export function hasVisiblePipeline(row: ScoreboardRow): boolean {
+	return Boolean(row.expanded_data?.pipeline);
+}
+
 const agent = new PocketbaseQueryAgent({
 	collection: 'pipeline_scoreboard_cache'
 });
@@ -46,6 +53,7 @@ export async function loadPage(options: LoadPageOptions = {}): Promise<ListResul
 	const res = await agent.getList(options.page ?? 1, options.perPage, {
 		fetch: options.fetch,
 		requestKey: null,
+		filter: PUBLISHED_PIPELINE_FILTER,
 		...(options.sort ? { sort: options.sort } : {})
 	});
 	return res as ListResult<ScoreboardRow>;
