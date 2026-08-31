@@ -5,9 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ClassValue } from 'svelte/elements';
+
 	import { resolve } from '$app/paths';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import { cn } from '@/components/ui/utils';
 	import { localizeHref } from '@/i18n';
 
 	import type { Item } from './types';
@@ -17,9 +20,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		item: Item;
 		link?: boolean;
+		class?: ClassValue;
 	};
 
-	let { item, link = false }: Props = $props();
+	let { item, link = false, class: className }: Props = $props();
 </script>
 
 {#if item.avatar}
@@ -41,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			src={item.avatar.src}
 			fallback={item.avatar.fallback}
 			alt={item.avatar.alt}
-			class="size-8 rounded-sm border bg-muted uppercase"
+			class={cn('size-8 rounded-sm border bg-muted uppercase', className)}
 		/>
 	{/if}
 {/snippet}

@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '$lib/fcaf/categories.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { activeSheet } from '$lib/utils/sheet-state.svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	import type { GenericRecord } from '@/utils/types';
 
@@ -159,7 +159,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	function groupExecutedTests(tests: TestResult[]): CategoryGroup[] {
-		const byCategory = new Map<
+		const byCategory = new SvelteMap<
 			string,
 			{ category: FCAFCategory; groups: Map<string, { label: string; tests: TestResult[] }> }
 		>();

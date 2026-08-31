@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <ul class="flex list-disc flex-col">
 	{#each children as child (child.href)}
-		<li class="max-w-[35ch] truncate text-xs">
+		<li class="text-xs whitespace-nowrap">
 			<a class={linkClass} href={resolve(localizeHref(child.href) as '/')}>
 				{child.label}
 			</a>

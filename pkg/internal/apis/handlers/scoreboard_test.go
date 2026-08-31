@@ -1825,3 +1825,70 @@ func TestHandleCancelAggregateScoreboardSchedule(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 }
+
+func TestSaveScoreboardResultsSkipsUnpublishedPipelines(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	publishedPipeline := createPipelineRecord(t, app, orgID, "Published Pipeline")
+	publishedPipeline.Set("published", true)
+	require.NoError(t, app.Save(publishedPipeline))
+
+	privatePipeline := createPipelineRecord(t, app, orgID, "Private Pipeline")
+	privatePipeline.Set("published", false)
+	require.NoError(t, app.Save(privatePipeline))
+
+	aggregatedPipelines := []workflows.AggregatedPipelineStats{
+		{
+			PipelineID:         publishedPipeline.Id,
+			PipelineName:       "Published Pipeline",
+			TotalRuns:          10,
+			FirstExecutionDate: "2024-01-01T00:00:00Z",
+			LastExecutionDate:  "2024-01-02T00:00:00Z",
+		},
+		{
+			PipelineID:         privatePipeline.Id,
+			PipelineName:       "Private Pipeline",
+			TotalRuns:          5,
+			FirstExecutionDate: "2024-01-01T00:00:00Z",
+			LastExecutionDate:  "2024-01-02T00:00:00Z",
+		},
+	}
+
+	requestBody := SaveScoreboardResultsRequest{AggregatedPipelines: aggregatedPipelines}
+	bodyBytes, err := json.Marshal(requestBody)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/pipeline/scoreboard/save-results",
+		strings.NewReader(string(bodyBytes)),
+	)
+	req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	err = HandleSaveScoreboardResults()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response SaveScoreboardResultsResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+	require.True(t, response.Success)
+	require.Equal(t, 1, response.RecordsCount)
+
+	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+	records, err := app.FindRecordsByFilter(collection.Id, "", "", -1, 0)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	require.Equal(t, publishedPipeline.Id, records[0].GetString("pipeline"))
+}

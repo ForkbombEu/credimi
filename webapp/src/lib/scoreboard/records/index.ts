@@ -24,6 +24,11 @@ export function hasVisiblePipeline(row: ScoreboardRow): boolean {
 	return Boolean(row.expand?.pipeline);
 }
 
+/** Always require published pipelines; optionally AND extra UI filters (e.g. score bands). */
+export function buildLoadPageFilter(extraFilter?: string): string {
+	return [PUBLISHED_PIPELINE_FILTER, extraFilter].filter(Boolean).join(' && ');
+}
+
 const agent = new PocketbaseQueryAgent({
 	collection: 'pipeline_scoreboard_cache',
 	expand: [
@@ -44,6 +49,7 @@ type LoadPageOptions = {
 	page?: number;
 	perPage?: number;
 	sort?: string;
+	filter?: string;
 	fetch?: typeof fetch;
 };
 
@@ -62,7 +68,7 @@ export async function loadPage(options: LoadPageOptions = {}): Promise<ListResul
 	const res = await agent.getList(options.page ?? 1, options.perPage, {
 		fetch: options.fetch,
 		requestKey: null,
-		filter: PUBLISHED_PIPELINE_FILTER,
+		filter: buildLoadPageFilter(options.filter),
 		...(options.sort ? { sort: options.sort } : {})
 	});
 	return res as ListResult<ScoreboardRow>;
