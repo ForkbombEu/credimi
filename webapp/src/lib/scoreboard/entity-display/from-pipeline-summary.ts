@@ -14,12 +14,12 @@ import { fromWalletRows } from './from-wallets';
 //
 
 export function buildPipelineSummaryItems(row: ScoreboardRow): Item[] {
-	const wallets = row.expand?.wallets ?? [];
-	const walletVersions = row.expand?.wallet_versions ?? [];
-	const issuers = row.expand?.issuers ?? [];
-	const verifiers = row.expand?.verifiers ?? [];
-	const credentials = row.expand?.credentials ?? [];
-	const useCaseVerifications = row.expand?.use_case_verifications ?? [];
+	const wallets = row.expanded_data?.wallets ?? [];
+	const walletVersions = row.expanded_data?.wallet_versions ?? [];
+	const issuers = row.expanded_data?.issuers ?? [];
+	const verifiers = row.expanded_data?.verifiers ?? [];
+	const credentials = row.expanded_data?.credentials ?? [];
+	const useCaseVerifications = row.expanded_data?.use_case_verifications ?? [];
 
 	const walletItems = fromWalletRows(
 		wallets.map((wallet) => ({

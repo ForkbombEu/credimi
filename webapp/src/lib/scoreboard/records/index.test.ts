@@ -13,9 +13,9 @@ describe('scoreboard records visibility', () => {
 		expect(PUBLISHED_PIPELINE_FILTER).toBe('pipeline.published = true');
 	});
 
-	it('treats rows with an expanded pipeline as visible', () => {
+	it('treats rows with cached pipeline data as visible', () => {
 		const row = {
-			expand: {
+			expanded_data: {
 				pipeline: {
 					id: 'pipe1',
 					name: 'Capture Wallet Metadata Issue and Verification of credential',
@@ -27,11 +27,11 @@ describe('scoreboard records visibility', () => {
 		expect(hasVisiblePipeline(row)).toBe(true);
 	});
 
-	it('hides rows whose pipeline expand is missing (unpublished / private)', () => {
+	it('hides rows whose cached pipeline data is missing', () => {
 		const row = {
 			id: 'cache1',
 			pipeline: 'hidden-pipeline-id',
-			expand: {}
+			expanded_data: undefined
 		} as ScoreboardRow;
 
 		expect(hasVisiblePipeline(row)).toBe(false);

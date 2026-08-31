@@ -15,29 +15,15 @@ import type { ScoreboardRow } from '../types';
 
 //
 
-/** Public scoreboard listings must only include published pipelines.
- * Unpublished pipelines still exist in the cache, but their `pipeline`
- * expand is omitted for anonymous viewers, which left cards with no title. */
+/** Public scoreboard listings must only include published pipelines. */
 export const PUBLISHED_PIPELINE_FILTER = 'pipeline.published = true';
 
 export function hasVisiblePipeline(row: ScoreboardRow): boolean {
-	return Boolean(row.expand?.pipeline);
+	return Boolean(row.expanded_data?.pipeline);
 }
 
 const agent = new PocketbaseQueryAgent({
-	collection: 'pipeline_scoreboard_cache',
-	expand: [
-		'credentials',
-		'custom_integrations',
-		'issuers',
-		'latest_successful_execution',
-		'mobile_runners',
-		'pipeline',
-		'use_case_verifications',
-		'verifiers',
-		'wallet_versions',
-		'wallets'
-	]
+	collection: 'pipeline_scoreboard_cache'
 });
 
 type LoadPageOptions = {
@@ -56,7 +42,12 @@ type LoadExecutionStatsForPipelineOptions = {
 };
 
 /** Unexpanded cache row — execution stats fields only (no relation expands). */
-export type PipelineScoreboardCacheStats = PipelineScoreboardCacheResponse;
+export type PipelineScoreboardCacheStats = Omit<
+	PipelineScoreboardCacheResponse,
+	'expanded_data'
+> & {
+	expanded_data?: unknown;
+};
 
 export async function loadPage(options: LoadPageOptions = {}): Promise<ListResult<ScoreboardRow>> {
 	const res = await agent.getList(options.page ?? 1, options.perPage, {

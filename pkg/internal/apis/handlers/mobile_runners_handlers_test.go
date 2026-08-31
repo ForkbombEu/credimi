@@ -75,6 +75,9 @@ func ensureMobileRunnerLifecycleFields(t testing.TB, app *tests.TestApp) {
 	if collection.Fields.GetByName("last_heartbeat_at") == nil {
 		collection.Fields.Add(&core.DateField{Name: "last_heartbeat_at"})
 	}
+	if collection.Fields.GetByName("disabled") == nil {
+		collection.Fields.Add(&core.BoolField{Name: "disabled"})
+	}
 
 	require.NoError(t, app.Save(collection))
 }
@@ -173,6 +176,40 @@ func TestCheckMobileRunnerHealthHTTP(t *testing.T) {
 }
 
 func TestListMobileRunners(t *testing.T) {
+	t.Run("excludes disabled runners", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+		require.NoError(t, err)
+
+		createMobileRunnerRecord(t, app, orgID, "enabled-runner", "http://127.0.0.1:1", false)
+		createMobileRunnerRecord(t, app, orgID, "disabled-runner", "http://127.0.0.1:1", false)
+		disabled, err := app.FindFirstRecordByFilter(
+			"mobile_runners",
+			"name = {:name}",
+			map[string]any{"name": "disabled-runner"},
+		)
+		require.NoError(t, err)
+		disabled.Set("disabled", true)
+		require.NoError(t, app.Save(disabled))
+
+		req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners?view=selector", nil)
+		rec := httptest.NewRecorder()
+		err = HandleListMobileRunners()(&core.RequestEvent{
+			App: app, Auth: user, Event: router.Event{Request: req, Response: rec},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response ListMobileRunnersPublicResponseSchema
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.Len(t, response.Runners, 1)
+		require.Equal(t, "usera-s-organization/enabled-runner", response.Runners[0].Path)
+	})
+
 	t.Run("user sees owned and public runners with health and queue details", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)
 		defer app.Cleanup()

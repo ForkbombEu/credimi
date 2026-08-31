@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#snippet scoreboardContent(record: ScoreboardRow)}
-	{@const pipeline = record.expand?.pipeline}
+	{@const pipeline = record.expanded_data?.pipeline}
 	<div class="flex flex-col items-start gap-2 md:flex-row md:items-center">
 		<EntityTag data={entities.pipelines} />
 		<div class="text-sm">
@@ -40,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-2">
 	{#each visibleRecords as record (record.id)}
-		{@const pipeline = record.expand?.pipeline}
+		{@const pipeline = record.expanded_data?.pipeline}
 		{#if pipeline}
 			{#if pipeline.published}
 				<CardLink href={`/hub/pipelines/${getPath(pipeline)}`} class={cardClass}>

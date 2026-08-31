@@ -37,12 +37,26 @@ import (
 func setupPipelineApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
+	ensureScoreboardExpandedDataField(t, app)
 
 	canonify.RegisterCanonifyHooks(app)
 	PipelineTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 
 	return app
+}
+
+// The test fixture predates the expanded_data migration. Keep its schema aligned
+// with the production migration while tests run against the fixture database.
+func ensureScoreboardExpandedDataField(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+	if collection.Fields.GetByName("expanded_data") != nil {
+		return
+	}
+	collection.Fields.Add(&core.JSONField{Name: "expanded_data"})
+	require.NoError(t, app.Save(collection))
 }
 
 // setupPipelineStartApp builds a test app with pipeline start routes.

@@ -188,6 +188,9 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 		}
 		includeDetails := e.Request.URL.Query().Get("view") != "selector"
 		for _, record := range records {
+			if record.GetBool("disabled") {
+				continue
+			}
 			item, apiErr := mobileRunnerListItem(
 				e.Request.Context(),
 				e.App,

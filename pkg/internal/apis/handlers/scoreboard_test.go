@@ -1202,6 +1202,20 @@ func TestSaveScoreboardResults(t *testing.T) {
 
 		ConformanceTest := record.GetStringSlice("conformance_checks")
 		require.NotEmpty(t, ConformanceTest, "conformance_checks should not be empty")
+
+		var expandedData map[string]any
+		require.NoError(t, json.Unmarshal([]byte(record.GetString("expanded_data")), &expandedData))
+		pipelineData, ok := expandedData["pipeline"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, pipeline.Id, pipelineData["id"])
+		require.Equal(t, "pipelines", pipelineData["collectionName"])
+		require.Equal(t, "usera-s-organization/test-pipeline", pipelineData["__canonified_path__"])
+		walletsData, ok := expandedData["wallets"].([]any)
+		require.True(t, ok)
+		require.Len(t, walletsData, 1)
+		latestData, ok := expandedData["latest_successful_execution"].(map[string]any)
+		require.True(t, ok)
+		require.Contains(t, latestData, "artifacts")
 	})
 	t.Run("fail - invalid JSON body", func(t *testing.T) {
 		req := httptest.NewRequest(
