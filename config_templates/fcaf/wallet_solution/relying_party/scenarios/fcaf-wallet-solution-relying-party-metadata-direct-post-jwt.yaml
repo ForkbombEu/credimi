@@ -97,11 +97,14 @@ steps:
     with:
       test_ids:
         - WS_RP_IA_Metadata__008
+        - WS_RP_IA_Metadata__009
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.metadata.direct-post-jwt:
           output:
+            authorization_request: ${{ get-presentation-result.outputs.body.authorization_request }}
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
+            encrypted_response: ${{ get-presentation-result.outputs.body.observed.wallet_response.value.response }}
             wallet_response: ${{ get-presentation-result.outputs.body }}
             visual_evidence: ${{ submit-direct-post-jwt.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}

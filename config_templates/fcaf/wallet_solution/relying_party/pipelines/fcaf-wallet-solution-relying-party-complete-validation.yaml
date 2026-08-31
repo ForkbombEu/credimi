@@ -13563,8 +13563,10 @@ steps:
                     wallet_engagement: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body | optional }}
             pipeline.wallet.metadata.direct-post-jwt:
                 output:
+                    authorization_request: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body.authorization_request | optional }}
                     create-presentation: ${{ metadata-direct-post-jwt-bf077ae9-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body | optional }}
+                    encrypted_response: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body.observed.wallet_response.value.response | optional }}
                     get-presentation-result: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs | optional }}
                     submit-direct-post-jwt: ${{ metadata-direct-post-jwt-bf077ae9-submit-direct-post-jwt.outputs | optional }}
                     visual_evidence: ${{ metadata-direct-post-jwt-bf077ae9-submit-direct-post-jwt.outputs.flow_output.maestro_screenshot_urls | optional }}

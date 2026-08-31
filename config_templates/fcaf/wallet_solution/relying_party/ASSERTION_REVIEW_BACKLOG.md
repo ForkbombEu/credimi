@@ -15,23 +15,8 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_IA_MainInteraction__024` (no idea of what encrypted values means)
 - [ ] `WS_RP_IA_MainInteraction__040` (requires two distinct credential, same type but different values)
 - [ ] `WS_RP_IA_MainInteraction__041` (requires two distinct credential, same type but different values)
-- [ ] `WS_RP_IA_MainInteraction__046` (credential such that resulting presentation size exceeds typical URL length limit)
-- [ ] `WS_RP_IA_MainInteraction__049`
-- [ ] `WS_RP_IA_MainInteraction__052`
-- [ ] `WS_RP_IA_MainInteraction__053`
-- [ ] `WS_RP_IA_MainInteraction__054`
-- [ ] `WS_RP_IA_MainInteraction__055`
-- [ ] `WS_RP_IA_MainInteraction__056`
-- [ ] `WS_RP_IA_MainInteraction__057`
-- [ ] `WS_RP_IA_MainInteraction__060`
-- [ ] `WS_RP_IA_MainInteraction__061`
-- [ ] `WS_RP_IA_MainInteraction__064`
-- [ ] `WS_RP_IA_MainInteraction__065`
-- [ ] `WS_RP_IA_MainInteraction__066`
-- [ ] `WS_RP_IA_MainInteraction__067`
+- [ ] `WS_RP_IA_MainInteraction__046` (credential such that resulting presentation size exceeds typical URL length limit (?))
 - [ ] `WS_RP_IA_Metadata__009`
-- [ ] `WS_RP_IA_Metadata__010`
-- [ ] `WS_RP_IA_Metadata__011`
 - [ ] `WS_RP_IA_Metadata__012`
 - [ ] `WS_RP_IA_Metadata__013`
 - [ ] `WS_RP_IA_Metadata__014`
@@ -279,6 +264,21 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_IA_MainInteraction__010` (credential with no hb)
 - [ ] `WS_RP_IA_MainInteraction__032` (PID with `over 18` set to false)
 - [ ] `WS_RP_IA_MainInteraction__033` (multiple credentials (same type) with different values)
+- [ ] `WS_RP_IA_MainInteraction__049` (verifier should capture header and body)
+- [ ] `WS_RP_IA_MainInteraction__052` (verifier should capture header and body)
+- [ ] `WS_RP_IA_MainInteraction__053` (response_uri must be missing)
+- [ ] `WS_RP_IA_MainInteraction__054` (verifier should capture http method)
+- [ ] `WS_RP_IA_MainInteraction__055` (redirect_uri must be present with response_mode=direct_post.jwt)
+- [ ] `WS_RP_IA_MainInteraction__056` (response_uri must be wrong)
+- [ ] `WS_RP_IA_MainInteraction__057` (capture verifier response and add redirects)
+- [ ] `WS_RP_IA_MainInteraction__060` (IMPOSSIBLE, credo does not support fragment/query)
+- [ ] `WS_RP_IA_MainInteraction__061` (add verifier redirects response)
+- [ ] `WS_RP_IA_Metadata__010`        (redirect_uri must be present with response_mode=direct_post.jwt)
+- [ ] `WS_RP_IA_Metadata__011`        (dynamic discovery)
+- [ ] `WS_RP_IA_MainInteraction__064`
+- [ ] `WS_RP_IA_MainInteraction__065`
+- [ ] `WS_RP_IA_MainInteraction__066`
+- [ ] `WS_RP_IA_MainInteraction__067`
 - [ ] `WS_RP_MS_Metadata__105`
 - [ ] `WS_RP_MS_Metadata__106`
 - [ ] `WS_RP_MS_Metadata__107`

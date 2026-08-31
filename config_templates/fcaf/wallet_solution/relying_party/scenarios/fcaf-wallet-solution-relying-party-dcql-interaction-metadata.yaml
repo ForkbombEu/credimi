@@ -71,7 +71,6 @@ steps:
   use: fcaf-validation
   with:
     test_ids:
-      - WS_RP_IA_Metadata__009
       - WS_RP_IA_Metadata__010
       - WS_RP_IA_Metadata__011
       - WS_RP_IA_Metadata__012
