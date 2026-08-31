@@ -6,11 +6,14 @@ package validators
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const fieldParamRequired = "field param is required"
@@ -498,6 +501,50 @@ func (MDocNamespaceElementPresentValidator) Validate(_ context.Context, input In
 		return invalidMDocElement(params, fmt.Errorf("element is missing"))
 	}
 	return validMDocElement(params, "is present without an ErrorItem")
+}
+
+type JOSEJWSSignedRequestValidator struct{}
+
+func (JOSEJWSSignedRequestValidator) ID() string {
+	return "jose.jws_signed_request"
+}
+
+func (JOSEJWSSignedRequestValidator) Validate(_ context.Context, input Input) Result {
+	token, ok := input.Value.(string)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected compact JWS", input.Value),
+		}
+	}
+
+	_, err := jwt.Parse(token, func(parsed *jwt.Token) (any, error) {
+		x5c, ok := parsed.Header["x5c"].([]any)
+		if !ok || len(x5c) == 0 {
+			return nil, fmt.Errorf("JWS header x5c certificate chain is missing")
+		}
+		certificateDER, ok := x5c[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("JWS header x5c leaf certificate is not a string")
+		}
+		certificateBytes, err := base64.StdEncoding.DecodeString(certificateDER)
+		if err != nil {
+			return nil, fmt.Errorf("decode JWS x5c leaf certificate: %w", err)
+		}
+		certificate, err := x509.ParseCertificate(certificateBytes)
+		if err != nil {
+			return nil, fmt.Errorf("parse JWS x5c leaf certificate: %w", err)
+		}
+		return certificate.PublicKey, nil
+	})
+	if err != nil {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("signed request verification failed: %v", err),
+		}
+	}
+
+	return Result{Status: StatusPass, Message: "signed request JWS signature is valid"}
 }
 
 type JOSEJWEEncryptedResponseValidator struct{}

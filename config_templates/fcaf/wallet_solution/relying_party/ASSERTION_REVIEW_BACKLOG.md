@@ -18,7 +18,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_IA_MainInteraction__046` (credential such that resulting presentation size exceeds typical URL length limit (?))
 - [ ] `WS_RP_IA_Metadata__012`        (waiting to use beta verifier)
 - [ ] `WS_RP_IA_Metadata__013`        (waiting to use beta verifier)
-- [ ] `WS_RP_IA_ProtocolFlow__002`
 - [ ] `WS_RP_IA_Supportive__002`
 - [ ] `WS_RP_IA_Supportive__006`
 - [ ] `WS_RP_IA_Supportive__007`

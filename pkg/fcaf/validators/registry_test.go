@@ -371,6 +371,46 @@ func TestJOSEJWEEncryptedResponseValidator(t *testing.T) {
 	require.Equal(t, StatusPass, got.Status)
 }
 
+func TestJOSEJWSSignedRequestValidator(t *testing.T) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	now := time.Now()
+	certificateDER, err := x509.CreateCertificate(
+		rand.Reader,
+		&x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			NotBefore:    now.Add(-time.Hour),
+			NotAfter:     now.Add(time.Hour),
+		},
+		&x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			NotBefore:    now.Add(-time.Hour),
+			NotAfter:     now.Add(time.Hour),
+		},
+		&privateKey.PublicKey,
+		privateKey,
+	)
+	require.NoError(t, err)
+
+	signedRequest := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{"nonce": "nonce-1"})
+	signedRequest.Header["x5c"] = []string{base64.StdEncoding.EncodeToString(certificateDER)}
+	compactRequest, err := signedRequest.SignedString(privateKey)
+	require.NoError(t, err)
+
+	validator := JOSEJWSSignedRequestValidator{}
+	require.Equal(
+		t,
+		StatusPass,
+		validator.Validate(context.Background(), Input{Value: compactRequest}).Status,
+	)
+	require.Equal(
+		t,
+		StatusFail,
+		validator.Validate(context.Background(), Input{Value: "header.payload.signature"}).Status,
+	)
+}
+
 func TestOID4VPNonceStateBindingValidator(t *testing.T) {
 	got := OID4VPNonceStateBindingValidator{}.Validate(context.Background(), Input{
 		Value: map[string]any{

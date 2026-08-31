@@ -55,6 +55,7 @@ func DefaultRegistry() (*Registry, error) {
 		MDocElementJPEGValidator{},
 		MDocDomesticNamespaceValidator{},
 		MDocElementCountrySubdivisionValidator{},
+		JOSEJWSSignedRequestValidator{},
 		JOSEJWEEncryptedResponseValidator{},
 		OID4VPDeviceBindingValidator{},
 		OID4VPNonceStateBindingValidator{},
