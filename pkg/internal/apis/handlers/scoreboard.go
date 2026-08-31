@@ -89,6 +89,47 @@ type PipelineStats struct {
 	LastExecutionDate   string
 }
 
+// ScoreboardExpandedData is the display-safe relation snapshot consumed by the
+// public scoreboard. Keep this deliberately narrower than PocketBase exports:
+// the cache is public and must not embed relation fields such as secrets or YAML.
+type ScoreboardExpandedData struct {
+	Pipeline                  *ScoreboardExpandedEntity         `json:"pipeline,omitempty"`
+	MobileRunners             []ScoreboardMobileRunner          `json:"mobile_runners"`
+	Wallets                   []ScoreboardExpandedEntity        `json:"wallets"`
+	WalletVersions            []ScoreboardExpandedEntity        `json:"wallet_versions"`
+	Issuers                   []ScoreboardExpandedEntity        `json:"issuers"`
+	Verifiers                 []ScoreboardExpandedEntity        `json:"verifiers"`
+	Credentials               []ScoreboardExpandedEntity        `json:"credentials"`
+	UseCaseVerifications      []ScoreboardExpandedEntity        `json:"use_case_verifications"`
+	CustomIntegrations        []ScoreboardExpandedEntity        `json:"custom_integrations"`
+	LatestSuccessfulExecution *ScoreboardExpandedPipelineResult `json:"latest_successful_execution,omitempty"`
+}
+
+type ScoreboardExpandedEntity struct {
+	ID               string `json:"id"`
+	CollectionName   string `json:"collectionName"`
+	Name             string `json:"name,omitempty"`
+	Logo             string `json:"logo,omitempty"`
+	LogoURL          string `json:"logo_url,omitempty"`
+	Published        bool   `json:"published"`
+	CanonifiedPath   string `json:"__canonified_path__"`
+	Wallet           string `json:"wallet,omitempty"`
+	CredentialIssuer string `json:"credential_issuer,omitempty"`
+	Verifier         string `json:"verifier,omitempty"`
+	Tag              string `json:"tag,omitempty"`
+}
+
+type ScoreboardMobileRunner struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+type ScoreboardExpandedPipelineResult struct {
+	Created   string                                     `json:"created"`
+	Artifacts pipelineresults.PipelineExecutionArtifacts `json:"artifacts"`
+}
+
 type LastExecutionDetails struct {
 	PipelineName         string   `json:"pipeline_name"`
 	WorkflowID           string   `json:"workflow_id,omitempty"`
@@ -1114,6 +1155,15 @@ func insertAggregatedResults(
 				)
 			}
 		}
+		expandedData, err := buildScoreboardExpandedData(app, record)
+		if err != nil {
+			saveErrors = append(
+				saveErrors,
+				fmt.Errorf("pipeline %s expanded data: %w", stats.PipelineID, err),
+			)
+			continue
+		}
+		record.Set("expanded_data", expandedData)
 
 		if err := app.Save(record); err != nil {
 			saveErrors = append(
@@ -1125,6 +1175,147 @@ func insertAggregatedResults(
 		count++
 	}
 	return count, saveErrors
+}
+
+func buildScoreboardExpandedData(
+	app core.App,
+	record *core.Record,
+) (ScoreboardExpandedData, error) {
+	data := ScoreboardExpandedData{
+		MobileRunners:        []ScoreboardMobileRunner{},
+		Wallets:              []ScoreboardExpandedEntity{},
+		WalletVersions:       []ScoreboardExpandedEntity{},
+		Issuers:              []ScoreboardExpandedEntity{},
+		Verifiers:            []ScoreboardExpandedEntity{},
+		Credentials:          []ScoreboardExpandedEntity{},
+		UseCaseVerifications: []ScoreboardExpandedEntity{},
+		CustomIntegrations:   []ScoreboardExpandedEntity{},
+	}
+
+	var err error
+	if data.Pipeline, err = scoreboardExpandedRecord(
+		app,
+		"pipelines",
+		record.GetString("pipeline"),
+	); err != nil {
+		return data, err
+	}
+	if data.MobileRunners, err = scoreboardExpandedRunners(
+		app,
+		record.GetStringSlice("mobile_runners"),
+	); err != nil {
+		return data, err
+	}
+	for _, target := range []struct {
+		collection string
+		ids        []string
+		out        *[]ScoreboardExpandedEntity
+	}{
+		{"wallets", record.GetStringSlice("wallets"), &data.Wallets},
+		{"wallet_versions", record.GetStringSlice("wallet_versions"), &data.WalletVersions},
+		{"credential_issuers", record.GetStringSlice("issuers"), &data.Issuers},
+		{"verifiers", record.GetStringSlice("verifiers"), &data.Verifiers},
+		{"credentials", record.GetStringSlice("credentials"), &data.Credentials},
+		{"use_cases_verifications", record.GetStringSlice("use_case_verifications"), &data.UseCaseVerifications},
+		{"custom_checks", record.GetStringSlice("custom_integrations"), &data.CustomIntegrations},
+	} {
+		if *target.out, err = scoreboardExpandedRecords(
+			app,
+			target.collection,
+			target.ids,
+		); err != nil {
+			return data, err
+		}
+	}
+
+	latestID := record.GetString("latest_successful_execution")
+	if latestID != "" {
+		latest, err := app.FindRecordById("pipeline_results", latestID)
+		if err != nil {
+			return data, fmt.Errorf("find latest successful execution: %w", err)
+		}
+		data.LatestSuccessfulExecution = &ScoreboardExpandedPipelineResult{
+			Created: latest.GetString(
+				"created",
+			),
+			Artifacts: pipelineresults.BuildPipelineExecutionArtifacts(app, latest),
+		}
+	}
+
+	return data, nil
+}
+
+func scoreboardExpandedRecords(
+	app core.App,
+	collection string,
+	ids []string,
+) ([]ScoreboardExpandedEntity, error) {
+	entities := make([]ScoreboardExpandedEntity, 0, len(ids))
+	for _, id := range ids {
+		entity, err := scoreboardExpandedRecord(app, collection, id)
+		if err != nil {
+			return nil, err
+		}
+		if entity != nil {
+			entities = append(entities, *entity)
+		}
+	}
+	return entities, nil
+}
+
+func scoreboardExpandedRecord(
+	app core.App,
+	collection, id string,
+) (*ScoreboardExpandedEntity, error) {
+	if id == "" {
+		return nil, nil
+	}
+	record, err := app.FindRecordById(collection, id)
+	if err != nil {
+		return nil, fmt.Errorf("find %s %s: %w", collection, id, err)
+	}
+	template, ok := canonify.CanonifyPaths[collection]
+	if !ok {
+		return nil, fmt.Errorf("missing canonify path for collection %s", collection)
+	}
+	path, err := canonify.BuildPath(app, record, template, "")
+	if err != nil {
+		return nil, fmt.Errorf("build %s path: %w", collection, err)
+	}
+	return &ScoreboardExpandedEntity{
+		ID:             record.Id,
+		CollectionName: collection,
+		Name:           record.GetString("name"),
+		Logo:           record.GetString("logo"),
+		LogoURL: record.GetString(
+			"logo_url",
+		),
+		Published:        record.GetBool("published"),
+		CanonifiedPath:   path,
+		Wallet:           record.GetString("wallet"),
+		CredentialIssuer: record.GetString("credential_issuer"),
+		Verifier:         record.GetString("verifier"),
+		Tag:              record.GetString("tag"),
+	}, nil
+}
+
+func scoreboardExpandedRunners(app core.App, ids []string) ([]ScoreboardMobileRunner, error) {
+	runners := make([]ScoreboardMobileRunner, 0, len(ids))
+	for _, id := range ids {
+		record, err := app.FindRecordById("mobile_runners", id)
+		if err != nil {
+			return nil, fmt.Errorf("find mobile runner %s: %w", id, err)
+		}
+		runners = append(
+			runners,
+			ScoreboardMobileRunner{
+				ID:          record.Id,
+				Name:        record.GetString("name"),
+				Description: record.GetString("description"),
+			},
+		)
+	}
+	return runners, nil
 }
 
 func hasFatalScoreboardSaveErrors(saveErrors []error) bool {
