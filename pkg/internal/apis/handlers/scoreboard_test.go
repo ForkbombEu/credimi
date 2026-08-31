@@ -286,7 +286,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-10*time.Minute).Add(-5*time.Second),
 		now.Add(-10*time.Minute),
 	)
-	setWorkflowExecutionPublished(t, exec6.Info, false)
 	exec7 := buildPipelineExecutionInfoWithRunner(
 		t,
 		"wf-7",
@@ -404,7 +403,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	var response []PipelineStatsResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
 
-	require.Len(t, response, 3)
+	require.Len(t, response, 2)
 
 	var stats1, stats2, stats3 *PipelineStatsResponse
 	for i := range response {
@@ -420,31 +419,34 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	}
 
 	require.NotNil(t, stats1)
-	require.Equal(t, 3, stats1.TotalRuns)
-	require.Equal(t, 2, stats1.TotalSuccesses)
+	require.Equal(t, 4, stats1.TotalRuns)
+	require.Equal(t, 3, stats1.TotalSuccesses)
 	require.Equal(t, 1, stats1.ScheduledExecutions)
-	require.Equal(t, 1, stats1.ManualExecutions)
+	require.Equal(t, 2, stats1.ManualExecutions)
 	require.Equal(t, 1, stats1.CIExecutions)
 	require.ElementsMatch(
 		t,
-		[]string{"usera-s-organization/runner-android", "usera-s-organization/runner-ios"},
+		[]string{
+			"usera-s-organization/runner-android",
+			"usera-s-organization/runner-ios",
+			"usera-s-organization/runner-default",
+		},
 		stats1.Runners,
 	)
-	require.Equal(t, "1m45s", stats1.MinExecutionTime)
+	require.Equal(t, "5s", stats1.MinExecutionTime)
 	expectedFirstTime := exec1.Info.GetStartTime().AsTime()
 	actualFirstTime, err := time.Parse(time.RFC3339Nano, stats1.FirstExecutionDate)
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedFirstTime, actualFirstTime, time.Second)
-	expectedLastTime := exec3.Info.GetStartTime().AsTime()
+	expectedLastTime := exec6.Info.GetStartTime().AsTime()
 	actualLastTime, err := time.Parse(time.RFC3339Nano, stats1.LastExecutionDate)
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedLastTime, actualLastTime, time.Second)
-	require.Equal(t, 66.67, stats1.SuccessRate)
+	require.Equal(t, 75.00, stats1.SuccessRate)
 
 	require.NotNil(t, stats1.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
-	require.Equal(t, "wf-2", stats1.LastSuccessfulRun.WorkflowID)
-	require.Equal(t, "run-2", stats1.LastSuccessfulRun.RunID)
-	require.NotEmpty(t, stats1.LastSuccessfulRun.StartTime)
+	require.Equal(t, "wf-6", stats1.LastSuccessfulRun.WorkflowID)
+	require.Equal(t, "run-6", stats1.LastSuccessfulRun.RunID)
 
 	require.NotNil(t, stats2)
 	require.Equal(t, 1, stats2.TotalRuns)
@@ -468,13 +470,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.Equal(t, "Pipeline-Sched-wf-4", stats2.LastSuccessfulRun.WorkflowID)
 	require.Equal(t, "run-4", stats2.LastSuccessfulRun.RunID)
 
-	require.Equal(t, "2h4m10s", stats3.MinExecutionTime)
-	require.NotNil(t, stats3.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
-	require.Equal(t, "wf-5", stats3.LastSuccessfulRun.WorkflowID)
-	require.Equal(t, "run-5", stats3.LastSuccessfulRun.RunID)
-	require.Equal(t, 1, stats3.ManualExecutions)
-	require.Equal(t, 0, stats3.ScheduledExecutions)
-	require.Equal(t, 0, stats3.CIExecutions)
+	require.Nil(t, stats3, "unpublished pipelines must not appear on the scoreboard")
 
 	mockClient.AssertExpectations(t)
 }
@@ -815,25 +811,10 @@ func buildPipelineExecutionInfoWithRunner(
 			IndexedFields: indexedFields,
 		}
 	}
-	setWorkflowExecutionPublished(t, info, true)
 
 	return ExecutionInfo{
 		Info:     info,
 		Duration: duration,
-	}
-}
-
-func setWorkflowExecutionPublished(
-	t testing.TB,
-	info *workflow.WorkflowExecutionInfo,
-	published bool,
-) {
-	payload, err := converter.GetDefaultDataConverter().ToPayload(published)
-	require.NoError(t, err)
-	info.Memo = &common.Memo{
-		Fields: map[string]*common.Payload{
-			pipelineinternal.PublishedMemoKey: payload,
-		},
 	}
 }
 
