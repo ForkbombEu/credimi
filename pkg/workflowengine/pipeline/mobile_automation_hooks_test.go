@@ -3045,3 +3045,70 @@ func mobileAutomationSetupSteps() []pipeline.StepDefinition {
 		},
 	}
 }
+
+func testMarkExternalInstallStepsWorkflow(
+	ctx workflow.Context,
+	steps []pipeline.StepDefinition,
+) error {
+	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: time.Minute,
+	})
+	return markExternalInstallSteps(ctx, &steps, map[string]any{"app_url": "https://example.test"})
+}
+
+// TestMarkExternalInstallStepsSkipsInlineActionCodeSteps guards against
+// resolving the literal "<nil>" identifier for sentinel steps that carry an
+// inline action_code and no stored action_id.
+func TestMarkExternalInstallStepsSkipsInlineActionCodeSteps(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		testMarkExternalInstallStepsWorkflow,
+		workflow.RegisterOptions{Name: "test-mark-external-install-steps"},
+	)
+	httpActivity := registerInternalHTTPActivity(env)
+	httpCalls := 0
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"record": map[string]any{"category": "verify-credential"}},
+		}}, nil).
+		Run(func(_ mock.Arguments) { httpCalls++ })
+
+	steps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "inline-code",
+				Use: "mobile-automation",
+				With: pipeline.StepInputs{
+					Payload: map[string]any{
+						"version_id":  "installed_from_external_source",
+						"action_code": "appId: eu.europa.ec.euidi",
+					},
+				},
+			},
+		},
+		{
+			StepSpec: pipeline.StepSpec{
+				ID:  "stored-action",
+				Use: "mobile-automation",
+				With: pipeline.StepInputs{
+					Payload: map[string]any{
+						"version_id": "installed_from_external_source",
+						"action_id":  "fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp",
+					},
+				},
+			},
+		},
+	}
+
+	env.ExecuteWorkflow("test-mark-external-install-steps", steps)
+
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, 1, httpCalls, "only the stored-action step may resolve a category")
+	require.False(
+		t,
+		steps[0].With.Config["detect_external_install"] == true,
+		"inline action_code steps must not enable external install detection",
+	)
+}

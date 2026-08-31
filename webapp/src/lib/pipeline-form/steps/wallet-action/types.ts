@@ -6,8 +6,10 @@ import { isExecutionTarget, type ExecutionTarget } from '$pipeline-form/executio
 
 import type { WalletActionsResponse } from '@/pocketbase/types';
 
-export type WalletActionStepData = ExecutionTarget & { action: WalletActionsResponse };
-
+export type WalletActionStepData = ExecutionTarget & {
+	action: WalletActionsResponse;
+	parameters?: { [key: string]: string };
+};
 export function isWalletActionStepData(value: unknown): value is WalletActionStepData {
 	if (!isExecutionTarget(value) || !('action' in value)) return false;
 	const action = (value as WalletActionStepData).action;

@@ -1,0 +1,1334 @@
+name: FCAF wallet relying-party happy flow validation
+runtime:
+    global_runner_id: forkbomb-bv-andrea/usb
+    temporal:
+        activity_options:
+            heartbeat_timeout: 10m
+            retry_policy:
+                maximum_attempts: 1
+            schedule_to_close_timeout: 50m
+            start_to_close_timeout: 50m
+steps:
+    - id: onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: credential-formats
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-credential-formats-3cfeac03-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-credentials-match-cc301c32-onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: dcql-credentials-match-cc301c32-create-pid-sdjwt-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+    - continue_on_error: true
+      id: dcql-credentials-match-cc301c32-obtain-pid-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-credentials-match-cc301c32-create-pid-sdjwt-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - activity_options:
+        retry_policy:
+            backoff_coefficient: 2
+            initial_interval: 5s
+            maximum_attempts: 3
+            maximum_interval: 30s
+        start_to_close_timeout: 2m
+      continue_on_error: true
+      id: dcql-credentials-match-cc301c32-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - given_name
+                        - path:
+                            - family_name
+                      format: dc+sd-jwt
+                      id: pid_identity
+                      meta:
+                        vct_values:
+                            - urn:eudi:pid:1
+            nonce: fcaf-dcql-credentials-match
+            type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credentials-match-cc301c32-present-with-reference-implementation
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ dcql-credentials-match-cc301c32-create-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - activity_options:
+        retry_policy:
+            backoff_coefficient: 2
+            initial_interval: 5s
+            maximum_attempts: 3
+            maximum_interval: 30s
+        start_to_close_timeout: 2m
+      continue_on_error: true
+      id: dcql-credentials-match-cc301c32-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credentials-match-cc301c32-create-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: cryptography
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-cryptography-1a488a33-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-cryptography-1a488a33-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: device-binding
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-device-binding-f7c71f86-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-device-binding-f7c71f86-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: interaction-metadata
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-interaction-metadata-f9737358-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-interaction-metadata-f9737358-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: main-interaction
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-metadata-b66a6319-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: metadata
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-metadata-b66a6319-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-metadata-b66a6319-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-metadata-b66a6319-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-metadata-b66a6319-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: protocol-messages
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-rp-integrity-3576cc79-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: rp-integrity
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-rp-integrity-3576cc79-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-rp-integrity-3576cc79-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-rp-integrity-3576cc79-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-rp-integrity-3576cc79-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-session-encryption-210827bd-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: session-encryption
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-session-encryption-210827bd-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-session-encryption-210827bd-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-session-encryption-210827bd-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-session-encryption-210827bd-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: trust-mechanisms
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-trust-mechanisms-157d0f39-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-trust-mechanisms-157d0f39-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                            - path:
+                                - family_name
+                            - path:
+                                - address
+                                - country
+                            - path:
+                                - address
+                                - formatted
+                            - path:
+                                - address
+                                - house_number
+                            - path:
+                                - address
+                                - locality
+                            - path:
+                                - address
+                                - postal_code
+                            - path:
+                                - address
+                                - region
+                            - path:
+                                - address
+                                - street_address
+                            - path:
+                                - birth_family_name
+                            - path:
+                                - birth_given_name
+                            - path:
+                                - birthdate
+                            - path:
+                                - date_of_expiry
+                            - path:
+                                - date_of_issuance
+                            - path:
+                                - document_number
+                            - path:
+                                - email
+                            - path:
+                                - issuing_authority
+                            - path:
+                                - issuing_country
+                            - path:
+                                - issuing_jurisdiction
+                            - path:
+                                - nationalities
+                            - path:
+                                - personal_administrative_number
+                            - path:
+                                - phone_number
+                            - path:
+                                - picture
+                            - path:
+                                - place_of_birth
+                            - path:
+                                - sex
+                          format: dc+sd-jwt
+                          id: pid_sdjwt
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-engagement-haip-vp
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: engagement-haip-vp-4bb0f83a-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: pid-mdoc-data-model-8f915369-onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: pid-mdoc-data-model-8f915369-create-pid-mdoc-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
+    - continue_on_error: true
+      id: pid-mdoc-data-model-8f915369-obtain-pid-mdoc
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ pid-mdoc-data-model-8f915369-create-pid-mdoc-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: pid-mdoc-data-model-8f915369-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - birth_date
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - document_number
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - email_address
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - expiry_date
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - family_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - family_name_birth
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name_birth
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - issuance_date
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - issuing_authority
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - issuing_country
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - issuing_jurisdiction
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - mobile_phone_number
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - nationality
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - personal_administrative_number
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - place_of_birth
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - portrait
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - resident_address
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - resident_city
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - resident_country
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - resident_house_number
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - resident_postal_code
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - resident_state
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - resident_street
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - sex
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-pid-mdoc-data-model
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: pid-mdoc-data-model-8f915369-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-by-value-f1c94061-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - eu.europa.ec.eudi.pid.1
+                            - given_name
+                        - path:
+                            - eu.europa.ec.eudi.pid.1
+                            - family_name
+                      format: mso_mdoc
+                      id: pid_mdoc
+                      meta:
+                        doctype_value: eu.europa.ec.eudi.pid.1
+            jar_mode: by_value
+            nonce: fcaf-request-object-by-value
+            type: vp_token
+        expected_status: 200
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/ui/presentations
+    - continue_on_error: true
+      id: request-object-by-value-f1c94061-submit-request-object-by-value
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-submit-request-object-by-value
+        parameters:
+            CLIENT_ID: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.client_id }}
+            REQUEST_OBJECT: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.request }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-by-value-f1c94061-get-presentation-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/ui/presentations/${{ request-object-by-value-f1c94061-create-presentation.outputs.body.transaction_id }}
+    - id: run-complete-fcaf-validation
+      use: fcaf-validation
+      with:
+        pipeline_outputs:
+            forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-engagement-haip-vp:
+                output:
+                    create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
+                    create-pid-sdjwt-offer: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs | optional }}
+                    fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
+                    invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
+                    obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
+                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-pid-mdoc-data-model:
+                output:
+                    create-capture-session: ${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs | optional }}
+                    create-pid-mdoc-offer: ${{ pid-mdoc-data-model-8f915369-create-pid-mdoc-offer.outputs | optional }}
+                    fetch-capture-session: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs | optional }}
+                    invoke-wallet-with-haip-vp: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs | optional }}
+                    obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
+                    onboard-reference-wallet: ${{ pid-mdoc-data-model-8f915369-onboard-reference-wallet.outputs | optional }}
+                    visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.credential-formats:
+                output:
+                    dcql_exchange: ${{ dcql-credential-formats-3cfeac03-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-credential-formats-3cfeac03-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.credentials-match:
+                output:
+                    create-presentation: ${{ dcql-credentials-match-cc301c32-create-presentation.outputs | optional }}
+                    dcql_exchange: ${{ dcql-credentials-match-cc301c32-fetch-capture-session.outputs.body | optional }}
+                    fetch-capture-session: ${{ dcql-credentials-match-cc301c32-fetch-capture-session.outputs | optional }}
+                    present-with-reference-implementation: ${{ dcql-credentials-match-cc301c32-present-with-reference-implementation.outputs | optional }}
+                    visual_evidence: ${{ dcql-credentials-match-cc301c32-present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.cryptography:
+                output:
+                    dcql_exchange: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-cryptography-1a488a33-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.device-binding:
+                output:
+                    dcql_exchange: ${{ dcql-device-binding-f7c71f86-fetch-capture-session.outputs.body | optional }}
+                    pid_sdjwt_presentations: ${{ dcql-device-binding-f7c71f86-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    visual_evidence: ${{ dcql-device-binding-f7c71f86-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.interaction-metadata:
+                output:
+                    dcql_exchange: ${{ dcql-interaction-metadata-f9737358-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-interaction-metadata-f9737358-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.main-interaction:
+                output:
+                    dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-main-interaction-eeb8ef1f-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.metadata:
+                output:
+                    dcql_exchange: ${{ dcql-metadata-b66a6319-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-metadata-b66a6319-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.protocol-messages:
+                output:
+                    dcql_exchange: ${{ dcql-protocol-messages-a25772b2-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-protocol-messages-a25772b2-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.rp-integrity:
+                output:
+                    dcql_exchange: ${{ dcql-rp-integrity-3576cc79-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-rp-integrity-3576cc79-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.session-encryption:
+                output:
+                    dcql_exchange: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-session-encryption-210827bd-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.trust-mechanisms:
+                output:
+                    dcql_exchange: ${{ dcql-trust-mechanisms-157d0f39-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-trust-mechanisms-157d0f39-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.pid.presentation.mdoc.all-claims-elements:
+                output:
+                    create-capture-session: ${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs | optional }}
+                    create-pid-mdoc-offer: ${{ pid-mdoc-data-model-8f915369-create-pid-mdoc-offer.outputs | optional }}
+                    fetch-capture-session: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs | optional }}
+                    invoke-wallet-with-haip-vp: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs | optional }}
+                    obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
+                    onboard-reference-wallet: ${{ pid-mdoc-data-model-8f915369-onboard-reference-wallet.outputs | optional }}
+                    pid_mdoc: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.pid.presentation.sdjwt.all-claims:
+                output:
+                    create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
+                    create-pid-sdjwt-offer: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs | optional }}
+                    fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
+                    invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
+                    obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
+                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.wallet.engagement.haip-vp:
+                output:
+                    create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
+                    create-pid-sdjwt-offer: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs | optional }}
+                    fetch-capture-session: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs | optional }}
+                    invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
+                    obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
+                    onboard-reference-wallet: ${{ engagement-haip-vp-4bb0f83a-onboard-reference-wallet.outputs | optional }}
+                    visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    wallet_engagement: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body | optional }}
+            pipeline.wallet.protocol.request-object-by-value:
+                output:
+                    create-presentation: ${{ request-object-by-value-f1c94061-create-presentation.outputs | optional }}
+                    dcql_exchange: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body | optional }}
+                    get-presentation-result: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs | optional }}
+                    request_object: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.request | optional }}
+                    submit-request-object-by-value: ${{ request-object-by-value-f1c94061-submit-request-object-by-value.outputs | optional }}
+                    visual_evidence: ${{ request-object-by-value-f1c94061-submit-request-object-by-value.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    wallet_response: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body | optional }}
+        suite: wallet_solution/relying_party
+        test_ids:
+            - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_AddressData_Emailaddress_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Emailaddress_PID_ISO-mdoc_002
+            - WS_RP_DM_AddressData_Emailaddress_PID_ISO-mdoc_003
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_ISO-mdoc_002
+            - WS_RP_DM_AddressData_Mobilephonenumber_PID_ISO-mdoc_003
+            - WS_RP_DM_AddressData_Residentaddress_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentaddress_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentaddress_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Residentaddress_PID_ISO-mdoc_002
+            - WS_RP_DM_AddressData_Residentcity_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentcity_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentcity_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Residentcity_PID_ISO-mdoc_002
+            - WS_RP_DM_AddressData_Residentcountry_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentcountry_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentcountry_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_002
+            - WS_RP_DM_AddressData_Residentcountry_PID_ISO-mdoc_003
+            - WS_RP_DM_AddressData_Residenthousenumber_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residenthousenumber_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residenthousenumber_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Residenthousenumber_PID_ISO-mdoc_002
+            - WS_RP_DM_AddressData_Residentpostalcode_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentpostalcode_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentpostalcode_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Residentpostalcode_PID_ISO-mdoc_002
+            - WS_RP_DM_AddressData_Residentstate_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentstate_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentstate_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Residentstate_PID_ISO-mdoc_002
+            - WS_RP_DM_AddressData_Residentstreet_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_AddressData_Residentstreet_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_AddressData_Residentstreet_PID_ISO-mdoc_001
+            - WS_RP_DM_AddressData_Residentstreet_PID_ISO-mdoc_002
+            - WS_RP_DM_CredentialMetadata_CredentialStructure_008
+            - WS_RP_DM_Credentialmetadata_Documentnumber_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Documentnumber_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Documentnumber_PID_ISO-mdoc_001
+            - WS_RP_DM_Credentialmetadata_Documentnumber_PID_ISO-mdoc_002
+            - WS_RP_DM_Credentialmetadata_Domestic_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Domestic_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Domestic_PID_ISO-mdoc_001
+            - WS_RP_DM_Credentialmetadata_Domestic_PID_ISO-mdoc_002
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_IETF-sd-jwt-vc_004
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_001
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_002
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_003
+            - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_004
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_IETF-sd-jwt-vc_004
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_ISO-mdoc_001
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_ISO-mdoc_002
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_ISO-mdoc_003
+            - WS_RP_DM_Credentialmetadata_Issuancedate_PID_ISO-mdoc_004
+            - WS_RP_DM_Credentialmetadata_Issuingauthority_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Issuingauthority_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Issuingauthority_PID_ISO-mdoc_001
+            - WS_RP_DM_Credentialmetadata_Issuingauthority_PID_ISO-mdoc_002
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_ISO-mdoc_001
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_ISO-mdoc_002
+            - WS_RP_DM_Credentialmetadata_Issuingcountry_PID_ISO-mdoc_003
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_ISO-mdoc_001
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_ISO-mdoc_002
+            - WS_RP_DM_Credentialmetadata_Issuingjurisdiction_PID_ISO-mdoc_003
+            - WS_RP_DM_IdentifyingData_Birthdate_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Birthdate_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Birthdate_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_IdentifyingData_Birthdate_PID_IETF-sd-jwt-vc_004
+            - WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_003
+            - WS_RP_DM_IdentifyingData_Birthdate_PID_ISO-mdoc_004
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_003
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_004
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_005
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_006
+            - WS_RP_DM_IdentifyingData_Birthplace_PID_ISO-mdoc_007
+            - WS_RP_DM_IdentifyingData_Familyname_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Familyname_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Familyname_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Familyname_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Familynamebirth_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Familynamebirth_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Familynamebirth_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Familynamebirth_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Givenname_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Givenname_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Givenname_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Givenname_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Givennamebirth_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Givennamebirth_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Givennamebirth_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Givennamebirth_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Nationality_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Nationality_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Nationality_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_IdentifyingData_Nationality_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Nationality_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Nationality_PID_ISO-mdoc_003
+            - WS_RP_DM_IdentifyingData_Nationality_PID_ISO-mdoc_004
+            - WS_RP_DM_IdentifyingData_Personaladministrativenumber_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Personaladministrativenumber_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Personaladministrativenumber_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Personaladministrativenumber_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Portrait_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Portrait_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Portrait_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_IdentifyingData_Portrait_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Portrait_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Portrait_PID_ISO-mdoc_003
+            - WS_RP_DM_IdentifyingData_Sex_PID_IETF-sd-jwt-vc_001
+            - WS_RP_DM_IdentifyingData_Sex_PID_IETF-sd-jwt-vc_002
+            - WS_RP_DM_IdentifyingData_Sex_PID_IETF-sd-jwt-vc_003
+            - WS_RP_DM_IdentifyingData_Sex_PID_ISO-mdoc_001
+            - WS_RP_DM_IdentifyingData_Sex_PID_ISO-mdoc_002
+            - WS_RP_DM_IdentifyingData_Sex_PID_ISO-mdoc_003
+            - WS_RP_IA_Engagement__001
+            - WS_RP_IA_MainInteraction__006
+            - WS_RP_IA_MainInteraction__010
+            - WS_RP_IA_MainInteraction__015
+            - WS_RP_IA_MainInteraction__016
+            - WS_RP_IA_MainInteraction__017
+            - WS_RP_IA_MainInteraction__018
+            - WS_RP_IA_MainInteraction__019
+            - WS_RP_IA_MainInteraction__020
+            - WS_RP_IA_MainInteraction__021
+            - WS_RP_IA_MainInteraction__022
+            - WS_RP_IA_MainInteraction__023
+            - WS_RP_IA_MainInteraction__024
+            - WS_RP_IA_MainInteraction__025
+            - WS_RP_IA_MainInteraction__026
+            - WS_RP_IA_MainInteraction__027
+            - WS_RP_IA_MainInteraction__028
+            - WS_RP_IA_MainInteraction__029
+            - WS_RP_IA_MainInteraction__030
+            - WS_RP_IA_MainInteraction__031
+            - WS_RP_IA_MainInteraction__032
+            - WS_RP_IA_MainInteraction__033
+            - WS_RP_IA_MainInteraction__034
+            - WS_RP_IA_MainInteraction__035
+            - WS_RP_IA_MainInteraction__036
+            - WS_RP_IA_MainInteraction__037
+            - WS_RP_IA_MainInteraction__038
+            - WS_RP_IA_MainInteraction__039
+            - WS_RP_IA_MainInteraction__040
+            - WS_RP_IA_MainInteraction__041
+            - WS_RP_IA_MainInteraction__042
+            - WS_RP_IA_MainInteraction__043
+            - WS_RP_IA_MainInteraction__046
+            - WS_RP_IA_MainInteraction__049
+            - WS_RP_IA_MainInteraction__052
+            - WS_RP_IA_MainInteraction__053
+            - WS_RP_IA_MainInteraction__054
+            - WS_RP_IA_MainInteraction__055
+            - WS_RP_IA_MainInteraction__056
+            - WS_RP_IA_MainInteraction__057
+            - WS_RP_IA_MainInteraction__060
+            - WS_RP_IA_MainInteraction__061
+            - WS_RP_IA_MainInteraction__064
+            - WS_RP_IA_MainInteraction__065
+            - WS_RP_IA_MainInteraction__066
+            - WS_RP_IA_MainInteraction__067
+            - WS_RP_IA_Metadata__009
+            - WS_RP_IA_Metadata__010
+            - WS_RP_IA_Metadata__011
+            - WS_RP_IA_Metadata__012
+            - WS_RP_IA_Metadata__013
+            - WS_RP_IA_Metadata__014
+            - WS_RP_IA_Metadata__015
+            - WS_RP_IA_Metadata__016
+            - WS_RP_IA_Metadata__017
+            - WS_RP_MS_CredentialFormats__029
+            - WS_RP_MS_CredentialFormats__030
+            - WS_RP_MS_CredentialFormats__031
+            - WS_RP_MS_CredentialFormats__032
+            - WS_RP_MS_CredentialFormats__033
+            - WS_RP_MS_CredentialFormats__034
+            - WS_RP_MS_CredentialFormats__035
+            - WS_RP_MS_CredentialFormats__036
+            - WS_RP_MS_CredentialFormats__037
+            - WS_RP_MS_CredentialFormats__038
+            - WS_RP_MS_CredentialFormats__039
+            - WS_RP_MS_CredentialFormats__040
+            - WS_RP_MS_CredentialFormats__041
+            - WS_RP_MS_CredentialFormats__044
+            - WS_RP_MS_CredentialFormats__045
+            - WS_RP_MS_CredentialFormats__046
+            - WS_RP_MS_CredentialFormats__048
+            - WS_RP_MS_Metadata__081
+            - WS_RP_MS_Metadata__082
+            - WS_RP_MS_Metadata__083
+            - WS_RP_MS_Metadata__084
+            - WS_RP_MS_Metadata__085
+            - WS_RP_MS_Metadata__086
+            - WS_RP_MS_Metadata__087
+            - WS_RP_MS_Metadata__088
+            - WS_RP_MS_Metadata__089
+            - WS_RP_MS_Metadata__090
+            - WS_RP_MS_Metadata__091
+            - WS_RP_MS_Metadata__092
+            - WS_RP_MS_Metadata__093
+            - WS_RP_MS_Metadata__094
+            - WS_RP_MS_Metadata__095
+            - WS_RP_MS_Metadata__096
+            - WS_RP_MS_Metadata__097
+            - WS_RP_MS_Metadata__098
+            - WS_RP_MS_Metadata__099
+            - WS_RP_MS_Metadata__100
+            - WS_RP_MS_Metadata__101
+            - WS_RP_MS_Metadata__102
+            - WS_RP_MS_Metadata__103
+            - WS_RP_MS_Metadata__104
+            - WS_RP_MS_Metadata__105
+            - WS_RP_MS_Metadata__106
+            - WS_RP_MS_Metadata__107
+            - WS_RP_MS_Metadata__108
+            - WS_RP_MS_Metadata__109
+            - WS_RP_MS_Metadata__110
+            - WS_RP_MS_Metadata__111
+            - WS_RP_MS_Metadata__112
+            - WS_RP_MS_Metadata__113
+            - WS_RP_MS_Metadata__114
+            - WS_RP_MS_Metadata__115
+            - WS_RP_MS_Metadata__116
+            - WS_RP_MS_Metadata__117
+            - WS_RP_MS_Metadata__118
+            - WS_RP_MS_Metadata__119
+            - WS_RP_MS_Metadata__120
+            - WS_RP_MS_Metadata__121
+            - WS_RP_MS_Metadata__122
+            - WS_RP_MS_Metadata__123
+            - WS_RP_MS_Metadata__124
+            - WS_RP_MS_Metadata__125
+            - WS_RP_MS_Metadata__126
+            - WS_RP_MS_Metadata__127
+            - WS_RP_MS_Metadata__128
+            - WS_RP_MS_Metadata__129
+            - WS_RP_MS_Metadata__130
+            - WS_RP_MS_Metadata__131
+            - WS_RP_MS_Metadata__132
+            - WS_RP_MS_Metadata__133
+            - WS_RP_MS_Metadata__134
+            - WS_RP_MS_Metadata__135
+            - WS_RP_MS_Metadata__136
+            - WS_RP_MS_Metadata__137
+            - WS_RP_MS_Metadata__138
+            - WS_RP_MS_Metadata__139
+            - WS_RP_MS_Metadata__140
+            - WS_RP_MS_Metadata__141
+            - WS_RP_MS_ProtocolMessages__002
+            - WS_RP_MS_ProtocolMessages__003
+            - WS_RP_MS_ProtocolMessages__004
+            - WS_RP_MS_ProtocolMessages__006
+            - WS_RP_MS_ProtocolMessages__007
+            - WS_RP_MS_ProtocolMessages__008
+            - WS_RP_MS_ProtocolMessages__009
+            - WS_RP_MS_ProtocolMessages__010
+            - WS_RP_MS_ProtocolMessages__011
+            - WS_RP_MS_ProtocolMessages__012
+            - WS_RP_MS_ProtocolMessages__014
+            - WS_RP_MS_ProtocolMessages__015
+            - WS_RP_MS_ProtocolMessages__016
+            - WS_RP_MS_ProtocolMessages__017
+            - WS_RP_MS_ProtocolMessages__018
+            - WS_RP_MS_ProtocolMessages__019
+            - WS_RP_MS_ProtocolMessages__020
+            - WS_RP_MS_ProtocolMessages__021
+            - WS_RP_MS_ProtocolMessages__024
+            - WS_RP_MS_ProtocolMessages__025
+            - WS_RP_MS_ProtocolMessages__026
+            - WS_RP_MS_ProtocolMessages__027
+            - WS_RP_MS_ProtocolMessages__028
+            - WS_RP_MS_ProtocolMessages__029
+            - WS_RP_MS_ProtocolMessages__030
+            - WS_RP_MS_ProtocolMessages__032
+            - WS_RP_MS_ProtocolMessages__033
+            - WS_RP_MS_ProtocolMessages__034
+            - WS_RP_MS_ProtocolMessages__035
+            - WS_RP_MS_ProtocolMessages__036
+            - WS_RP_MS_ProtocolMessages__037
+            - WS_RP_MS_ProtocolMessages__038
+            - WS_RP_MS_ProtocolMessages__039
+            - WS_RP_MS_ProtocolMessages__040
+            - WS_RP_MS_ProtocolMessages__041
+            - WS_RP_MS_ProtocolMessages__042
+            - WS_RP_MS_ProtocolMessages__043
+            - WS_RP_MS_ProtocolMessages__044
+            - WS_RP_MS_ProtocolMessages__045
+            - WS_RP_MS_ProtocolMessages__046
+            - WS_RP_MS_ProtocolMessages__047
+            - WS_RP_MS_ProtocolMessages__048
+            - WS_RP_MS_ProtocolMessages__049
+            - WS_RP_MS_ProtocolMessages__050
+            - WS_RP_MS_ProtocolMessages__051
+            - WS_RP_MS_ProtocolMessages__052
+            - WS_RP_MS_ProtocolMessages__053
+            - WS_RP_MS_ProtocolMessages__054
+            - WS_RP_MS_ProtocolMessages__055
+            - WS_RP_MS_ProtocolMessages__056
+            - WS_RP_MS_ProtocolMessages__057
+            - WS_RP_MS_ProtocolMessages__058
+            - WS_RP_MS_ProtocolMessages__059
+            - WS_RP_MS_ProtocolMessages__060
+            - WS_RP_MS_ProtocolMessages__061
+            - WS_RP_MS_ProtocolMessages__062
+            - WS_RP_MS_ProtocolMessages__063
+            - WS_RP_MS_ProtocolMessages__065
+            - WS_RP_MS_ProtocolMessages__066
+            - WS_RP_MS_ProtocolMessages__068
+            - WS_RP_MS_ProtocolMessages__069
+            - WS_RP_MS_ProtocolMessages__070
+            - WS_RP_MS_ProtocolMessages__072
+            - WS_RP_MS_ProtocolMessages__074
+            - WS_RP_MS_ProtocolMessages__075
+            - WS_RP_MS_ProtocolMessages__076
+            - WS_RP_MS_ProtocolMessages__077
+            - WS_RP_MS_ProtocolMessages__078
+            - WS_RP_MS_ProtocolMessages__079
+            - WS_RP_MS_ProtocolMessages__095
+            - WS_RP_MS_ProtocolMessages__105
+            - WS_RP_MS_ProtocolMessages__119
+            - WS_RP_SH_Cryptography_CryptographicHash_001
+            - WS_RP_SH_Cryptography_CryptographicHash_002
+            - WS_RP_SH_Cryptography_CryptographicHash_006
+            - WS_RP_SH_Cryptography_CryptographicHash_007
+            - WS_RP_SH_Cryptography_CryptographicHash_008
+            - WS_RP_SH_Cryptography_CryptographicHash_010
+            - WS_RP_SH_Cryptography_Encryption_002
+            - WS_RP_SM_DeviceBinding__002
+            - WS_RP_SM_DeviceBinding__003
+            - WS_RP_SM_DeviceBinding__004
+            - WS_RP_SM_DeviceBinding__005
+            - WS_RP_SM_DeviceBinding__006
+            - WS_RP_SM_DeviceBinding__007
+            - WS_RP_SM_DeviceBinding__010
+            - WS_RP_SM_DeviceBinding__011
+            - WS_RP_SM_DeviceBinding__012
+            - WS_RP_SM_IssuerIntegrity__013
+            - WS_RP_SM_RpIntegrity_CryptographicSignature_002
+            - WS_RP_SM_RpIntegrity_CryptographicSignature_003
+            - WS_RP_SM_RpIntegrity_CryptographicSignature_004
+            - WS_RP_SM_RpIntegrity__001
+            - WS_RP_SM_RpIntegrity__002
+            - WS_RP_SM_RpIntegrity__003
+            - WS_RP_SM_RpIntegrity__004
+            - WS_RP_SM_RpIntegrity__005
+            - WS_RP_SM_RpIntegrity__006
+            - WS_RP_SM_RpIntegrity__007
+            - WS_RP_SM_RpIntegrity__008
+            - WS_RP_SM_RpIntegrity__009
+            - WS_RP_SM_RpIntegrity__010
+            - WS_RP_SM_RpIntegrity__011
+            - WS_RP_SM_RpIntegrity__012
+            - WS_RP_SM_RpIntegrity__013
+            - WS_RP_SM_RpIntegrity__014
+            - WS_RP_SM_RpIntegrity__015
+            - WS_RP_SM_RpIntegrity__016
+            - WS_RP_SM_RpIntegrity__017
+            - WS_RP_SM_RpIntegrity__018
+            - WS_RP_SM_RpIntegrity__019
+            - WS_RP_SM_RpIntegrity__020
+            - WS_RP_SM_RpIntegrity__021
+            - WS_RP_SM_RpIntegrity__022
+            - WS_RP_SM_RpIntegrity__023
+            - WS_RP_SM_RpIntegrity__024
+            - WS_RP_SM_RpIntegrity__025
+            - WS_RP_SM_RpIntegrity__026
+            - WS_RP_SM_RpIntegrity__027
+            - WS_RP_SM_RpIntegrity__028
+            - WS_RP_SM_RpIntegrity__029
+            - WS_RP_SM_RpIntegrity__030
+            - WS_RP_SM_RpIntegrity__031
+            - WS_RP_SM_RpIntegrity__032
+            - WS_RP_SM_RpIntegrity__033
+            - WS_RP_SM_RpIntegrity__034
+            - WS_RP_SM_SessionEncryption__001
+            - WS_RP_SM_SessionEncryption__002
+            - WS_RP_SM_SessionEncryption__003
+            - WS_RP_SM_SessionEncryption__005
+            - WS_RP_SM_SessionEncryption__006
+            - WS_RP_SM_SessionEncryption__007
+            - WS_RP_SM_SessionEncryption__008
+            - WS_RP_SM_SessionEncryption__009
+            - WS_RP_SM_SessionEncryption__010
+            - WS_RP_SM_SessionEncryption__011
+            - WS_RP_SM_SessionEncryption__012
+            - WS_RP_SM_TrustMechanisms__002
+            - WS_RP_SM_TrustMechanisms__003
+            - WS_RP_SM_TrustMechanisms__004
+            - WS_RP_SM_TrustMechanisms__005
+            - WS_RP_SM_TrustMechanisms__006
+            - WS_RP_SM_TrustMechanisms__007
+            - WS_RP_SM_TrustMechanisms__008
+            - WS_RP_SM_TrustMechanisms__009
+            - WS_RP_SM_TrustMechanisms__010
+            - WS_RP_SM_TrustMechanisms__011
+            - WS_RP_SM_TrustMechanisms__012
+            - WS_RP_SM_TrustMechanisms__013
+            - WS_RP_SM_TrustMechanisms__015
+            - WS_RP_SM_TrustMechanisms__021

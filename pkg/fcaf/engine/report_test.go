@@ -84,3 +84,40 @@ func TestPopulateExecutedTestsFailsWhenAssertionFails(t *testing.T) {
 	require.Equal(t, "failed", report.ExecutedTests[0].Status)
 	require.Equal(t, `claim "email" is missing`, report.ExecutedTests[0].Outcome.Reason)
 }
+
+func TestPopulateExecutedTestsCarriesPerTestVisualEvidence(t *testing.T) {
+	first := Report{Tests: []TestResult{{
+		ID:     "cryptography-test",
+		Status: validators.StatusPass,
+		Evidence: []EvidenceResult{{
+			Name:       "visual_evidence",
+			SourceNode: "pipeline.dcql.cryptography",
+			Value:      []any{"https://app.test/a/cryptography.png"},
+		}},
+	}}}
+	second := Report{Tests: []TestResult{{
+		ID:     "trust-test",
+		Status: validators.StatusPass,
+		Evidence: []EvidenceResult{{
+			Name:       "visual_evidence",
+			SourceNode: "pipeline.dcql.trust-mechanisms",
+			Value:      []any{"https://app.test/a/trust.png"},
+		}},
+	}}}
+
+	first.PopulateDerivedViews()
+	second.PopulateDerivedViews()
+
+	require.Len(t, first.ExecutedTests[0].Evidence, 1)
+	require.Equal(t, "pipeline.dcql.cryptography", first.ExecutedTests[0].Evidence[0].SourceNode)
+	require.Equal(
+		t,
+		[]string{"https://app.test/a/cryptography.png"},
+		first.ExecutedTests[0].Evidence[0].Visual,
+	)
+	require.Equal(
+		t,
+		[]string{"https://app.test/a/trust.png"},
+		second.ExecutedTests[0].Evidence[0].Visual,
+	)
+}

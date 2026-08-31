@@ -30,3 +30,11 @@ actions:
     category: verify-credential
     tags: fcaf, engagement, haip-vp
     file: wallet/fcaf-engagement-haip-vp.yaml
+  - name: fcaf-exercise-wallet-generic
+    category: verify-credential
+    tags: fcaf, exercise, generic
+    file: wallet/fcaf-exercise-wallet-generic.yaml
+  - name: fcaf-submit-request-object-by-value
+    category: verify-credential
+    tags: fcaf, request-object, by-value
+    file: wallet/fcaf-submit-request-object-by-value.yaml

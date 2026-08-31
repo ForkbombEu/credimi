@@ -29,6 +29,7 @@ type renderer struct {
 	pdf              *fpdf.Fpdf
 	document         Document
 	registeredImages map[string]string
+	figureNumbers    map[string]int
 	section          string
 	sectionColor     [3]int
 	testProgress     string
@@ -68,6 +69,7 @@ func Render(ctx context.Context, document Document) ([]byte, error) {
 		pdf:              pdf,
 		document:         document,
 		registeredImages: map[string]string{},
+		figureNumbers:    map[string]int{},
 	}
 	r.installHeaderAndFooter()
 	if err := r.render(); err != nil {
@@ -643,7 +645,7 @@ func (r *renderer) registerImage(image ImageAsset) (string, float64, float64, bo
 		registeredName = fmt.Sprintf("evidence-image-%d", len(r.registeredImages)+1)
 		r.pdf.RegisterImageOptionsReader(
 			registeredName,
-			fpdf.ImageOptions{ImageType: "PNG"},
+			fpdf.ImageOptions{ImageType: "JPEG"},
 			bytes.NewReader(image.Data),
 		)
 		if r.pdf.Error() != nil {
@@ -678,7 +680,17 @@ func (r *renderer) renderImage(image ImageAsset) {
 	}
 	r.ensureSpace(height + 11)
 	x := pageMargin + (bodyWidth-width)/2
-	r.pdf.ImageOptions(name, x, r.pdf.GetY(), width, height, false, fpdf.ImageOptions{ImageType: "PNG"}, 0, "")
+	r.pdf.ImageOptions(
+		name,
+		x,
+		r.pdf.GetY(),
+		width,
+		height,
+		false,
+		fpdf.ImageOptions{ImageType: "JPEG"},
+		0,
+		"",
+	)
 	r.pdf.SetY(r.pdf.GetY() + height + 1.5)
 	r.pdf.SetFont("SourceCodePro", "", 7)
 	r.pdf.SetTextColor(100, 98, 112)
@@ -691,10 +703,10 @@ func (r *renderer) renderImage(image ImageAsset) {
 }
 
 func (r *renderer) renderImageGrid(images []ImageAsset) {
-	const columns = 2
-	const gap = 8.0
-	const captionHeight = 10.0
-	const maxImageHeight = 110.0
+	const columns = 4
+	const gap = 4.0
+	const captionHeight = 8.0
+	const maxImageHeight = 68.0
 
 	cellWidth := (bodyWidth - float64(columns-1)*gap) / columns
 	rowY := 0.0
@@ -705,11 +717,10 @@ func (r *renderer) renderImageGrid(images []ImageAsset) {
 		evidenceKey string
 	}
 	figures := make([]figure, 0, len(images))
-
 	for i, image := range images {
 		col := i % columns
 		if col == 0 {
-			r.ensureSpace(maxImageHeight + captionHeight + 8)
+			r.ensureSpace(maxImageHeight + captionHeight + 6)
 			rowY = r.pdf.GetY()
 		}
 
@@ -720,24 +731,48 @@ func (r *renderer) renderImageGrid(images []ImageAsset) {
 		scale := min(cellWidth/width, maxImageHeight/height)
 		drawW := width * scale
 		drawH := height * scale
-
-		r.evidenceCount++
+		figureNumber, seen := r.figureNumbers[image.Filename]
+		if !seen {
+			r.evidenceCount++
+			figureNumber = r.evidenceCount
+			r.figureNumbers[image.Filename] = figureNumber
+		}
 		figures = append(figures, figure{
-			number:      r.evidenceCount,
+			number:      figureNumber,
 			filename:    image.Filename,
 			evidenceKey: image.EvidenceKey,
 		})
 
 		x := pageMargin + float64(col)*(cellWidth+gap) + (cellWidth-drawW)/2
-		r.pdf.ImageOptions(name, x, rowY, drawW, drawH, false, fpdf.ImageOptions{ImageType: "PNG"}, 0, "")
+		r.pdf.ImageOptions(
+			name,
+			x,
+			rowY,
+			drawW,
+			drawH,
+			false,
+			fpdf.ImageOptions{ImageType: "JPEG"},
+			0,
+			"",
+		)
 
-		r.pdf.SetXY(pageMargin+float64(col)*(cellWidth+gap), rowY+maxImageHeight+1.5)
-		r.pdf.SetFont("SourceCodePro", "", 7)
+		r.pdf.SetXY(pageMargin+float64(col)*(cellWidth+gap), rowY+maxImageHeight+1.0)
+		r.pdf.SetFont("SourceCodePro", "", 6.5)
 		r.pdf.SetTextColor(100, 98, 112)
-		r.pdf.CellFormat(cellWidth, 3.5, fmt.Sprintf("Evidence %d", r.evidenceCount), "", 0, "C", false, 0, "")
+		r.pdf.CellFormat(
+			cellWidth,
+			3,
+			fmt.Sprintf("Evidence %d", figureNumber),
+			"",
+			0,
+			"C",
+			false,
+			0,
+			"",
+		)
 
-		if col == columns-1 {
-			r.pdf.SetY(rowY + maxImageHeight + captionHeight + 3)
+		if col == columns-1 || i == len(images)-1 {
+			r.pdf.SetY(rowY + maxImageHeight + captionHeight + 2)
 		}
 	}
 
