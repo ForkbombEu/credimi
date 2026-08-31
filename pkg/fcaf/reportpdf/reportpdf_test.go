@@ -62,7 +62,7 @@ func TestLoadMaterialsFindsCatalogAndSource(t *testing.T) {
 	require.NotEmpty(t, sources[testID].ExpectedResults)
 }
 
-func TestBuildDocumentAssociatesOnlyExactEvidenceImages(t *testing.T) {
+func TestBuildDocumentAttachesPerTestVisualEvidence(t *testing.T) {
 	report := engine.Report{
 		ExecutedTests: []engine.ExecutedTest{
 			{
@@ -71,6 +71,11 @@ func TestBuildDocumentAssociatesOnlyExactEvidenceImages(t *testing.T) {
 				Assertions: []engine.ExecutedCheck{
 					{ID: "visual", Status: "passed", EvidenceKeys: []string{"visual_evidence"}},
 				},
+				Evidence: []engine.ExecutedEvidence{{
+					Name:       "visual_evidence",
+					SourceNode: "pipeline.dcql.cryptography",
+					Visual:     []string{"https://app.test/cryptography.png"},
+				}},
 			},
 			{
 				TestID: "WS_RP_TEST__002",
@@ -81,7 +86,10 @@ func TestBuildDocumentAssociatesOnlyExactEvidenceImages(t *testing.T) {
 			},
 		},
 		Evidence: engine.EvidenceMap{
-			"visual_evidence":   {Type: "json.array", Value: []any{"https://app.test/visual.png"}},
+			"visual_evidence": {
+				Type:  "json.array",
+				Value: []any{"https://app.test/cryptography.png"},
+			},
 			"protocol_evidence": {Type: "json.object", Value: map[string]any{"status": "failed"}},
 		},
 	}
@@ -90,76 +98,117 @@ func TestBuildDocumentAssociatesOnlyExactEvidenceImages(t *testing.T) {
 		Report:  report,
 		RawJSON: []byte(`{"status":"failed"}`),
 		Images: []ImageAsset{
-			{EvidenceKey: "visual_evidence", Filename: "visual.png", Data: []byte("image")},
+			{Filename: "cryptography.png", Data: []byte("image")},
 			{Filename: "unassigned.png", Data: []byte("image")},
 		},
 	})
 
 	require.Len(t, document.Categories, 1)
 	require.Len(t, document.Categories[0].Groups[0].Tests[0].Images, 1)
+	require.Equal(
+		t,
+		"cryptography.png",
+		document.Categories[0].Groups[0].Tests[0].Images[0].Filename,
+	)
+	// The other test cited no visual evidence, so it gets no screenshot even
+	// though the flat report evidence map shares its name.
 	require.Empty(t, document.Categories[0].Groups[0].Tests[1].Images)
 	require.Len(t, document.Unassigned, 1)
 	require.NotEmpty(t, document.JSONSHA256)
 }
 
-func TestBuildDocumentFallsBackToFilenameAssociation(t *testing.T) {
+func TestBuildDocumentFallsBackToWordMatchAssociation(t *testing.T) {
 	report := engine.Report{
 		ExecutedTests: []engine.ExecutedTest{
 			{
 				TestID: "WS_RP_DM_Credentialmetadata_Documentnumber__001",
-				Status: "failed",
+				Status: "passed",
 			},
 			{
-				TestID: "WS_RP_DM_AddressData_Emailaddress__001",
-				Status: "failed",
+				TestID: "WS_RP_IA_Engagement__001",
+				Status: "passed",
 			},
-		},
-		Evidence: engine.EvidenceMap{
-			// visual_evidence resolved to null because the producing step failed.
-			"visual_evidence": {Type: "json.array", Value: nil},
 		},
 	}
 
 	document := BuildDocument(Input{
 		Report: report,
 		Images: []ImageAsset{
-			{Filename: "getcredential_generic_credential_without_authentication_0004_credential_added_x.png", Data: []byte("image")},
-			{Filename: "onboarding_1_fcaf_onboarding_complete_y.png", Data: []byte("image")},
+			{Filename: "scenario_obtain_pid_credential_added_x.png", Data: []byte("image")},
+			{Filename: "scenario_engagement_complete_y.png", Data: []byte("image")},
 		},
 	})
 
-	require.Len(t, document.Categories, 1)
-	require.Len(t, document.Categories[0].Groups, 2)
-	// Subgroups sort alphabetically: AddressData before Credentialmetadata.
-	require.Empty(t, document.Categories[0].Groups[0].Tests[0].Images)
-	// "credential" word overlaps the Credentialmetadata test id.
-	require.Len(t, document.Categories[0].Groups[1].Tests[0].Images, 1)
-	require.Len(t, document.Unassigned, 1)
-}
-
-func TestImageReferencesAndPreparation(t *testing.T) {
-	report := engine.Report{Evidence: engine.EvidenceMap{
-		"visual": {
-			Value: map[string]any{
-				"screenshots": []any{
-					"https://app.test/api/files/pipeline_results/record/step.png?token=x",
-					"https://app.test/result.json",
-				},
-			},
-		},
-	}}
-
-	references := ImageReferences(report)
+	// "credential" matches the Credentialmetadata test id; "engagement"
+	// matches the Engagement test id — mirroring the webapp sheet.
+	require.Len(t, document.Categories[0].Groups[0].Tests[0].Images, 1)
 	require.Equal(
 		t,
-		[]string{"https://app.test/api/files/pipeline_results/record/step.png?token=x"},
-		references["visual"],
+		"scenario_obtain_pid_credential_added_x.png",
+		document.Categories[0].Groups[0].Tests[0].Images[0].Filename,
 	)
-	require.Equal(t, "step.png", ReferenceFilename(references["visual"][0]))
+	require.Len(t, document.Categories[1].Groups[0].Tests[0].Images, 1)
+	require.Equal(
+		t,
+		"scenario_engagement_complete_y.png",
+		document.Categories[1].Groups[0].Tests[0].Images[0].Filename,
+	)
+	require.Empty(t, document.Unassigned)
+}
+
+func TestBuildDocumentKeepsScenarioEvidenceSeparate(t *testing.T) {
+	report := engine.Report{
+		ExecutedTests: []engine.ExecutedTest{
+			{
+				TestID: "WS_RP_MS_Cryptography__001",
+				Status: "passed",
+				Evidence: []engine.ExecutedEvidence{{
+					Name:       "visual_evidence",
+					SourceNode: "pipeline.dcql.cryptography",
+					Visual:     []string{"https://app.test/cryptography.png"},
+				}},
+			},
+			{
+				TestID: "WS_RP_MS_TrustMechanisms__001",
+				Status: "passed",
+				Evidence: []engine.ExecutedEvidence{{
+					Name:       "visual_evidence",
+					SourceNode: "pipeline.dcql.trust-mechanisms",
+					Visual:     []string{"https://app.test/trust.png"},
+				}},
+			},
+		},
+	}
+
+	document := BuildDocument(Input{
+		Report: report,
+		Images: []ImageAsset{
+			{Filename: "cryptography.png", Data: []byte("image")},
+			{Filename: "trust.png", Data: []byte("image")},
+		},
+	})
+
+	// Both scenarios share the evidence name visual_evidence; each test still
+	// receives only its own scenario's screenshot.
+	groups := document.Categories[0].Groups
+	require.Len(t, groups[0].Tests[0].Images, 1)
+	require.Equal(t, "cryptography.png", groups[0].Tests[0].Images[0].Filename)
+	require.Len(t, groups[1].Tests[0].Images, 1)
+	require.Equal(t, "trust.png", groups[1].Tests[0].Images[0].Filename)
+	require.Empty(t, document.Unassigned)
+}
+
+func TestReferenceFilenameAndPreparation(t *testing.T) {
+	require.Equal(
+		t,
+		"step.png",
+		ReferenceFilename("https://app.test/api/files/pipeline_results/record/step.png?token=x"),
+	)
+	require.Equal(t, "", ReferenceFilename("https://app.test/"))
 
 	prepared, err := PrepareImage(testPNG(t))
 	require.NoError(t, err)
-	require.True(t, bytes.HasPrefix(prepared, []byte("\x89PNG")))
+	require.True(t, bytes.HasPrefix(prepared, []byte{0xFF, 0xD8}))
 
 	_, err = PrepareImage([]byte("not an image"))
 	require.Error(t, err)
@@ -177,7 +226,11 @@ func TestRenderEmbedsVisualEvidenceImage(t *testing.T) {
 				TestID: "WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001",
 				Status: "passed",
 				Assertions: []engine.ExecutedCheck{
-					{ID: "email_present", Status: "passed", EvidenceKeys: []string{"visual_evidence"}},
+					{
+						ID:           "email_present",
+						Status:       "passed",
+						EvidenceKeys: []string{"visual_evidence"},
+					},
 				},
 			},
 		},
@@ -185,7 +238,8 @@ func TestRenderEmbedsVisualEvidenceImage(t *testing.T) {
 			"visual_evidence": {Type: "json.array", Value: []any{"https://app.test/visual.png"}},
 		},
 	}
-	imageData := testPNG(t)
+	imageData, err := PrepareImage(testPNG(t))
+	require.NoError(t, err)
 	document := BuildDocument(Input{
 		Report:  report,
 		RawJSON: []byte(`{"status":"passed"}`),
@@ -241,6 +295,59 @@ func TestRenderProducesMultipagePDF(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, bytes.HasPrefix(data, []byte("%PDF-")))
 	require.Greater(t, bytes.Count(data, []byte("/Type /Page")), 2)
+}
+
+func TestDeduplicateScreenshotsKeepsLastPerBurst(t *testing.T) {
+	images := []ImageAsset{
+		{
+			Filename: "pid_mdoc_8f915369_obtain_pid_mdoc_screenshot_1788208561028_action_a1.yaml1.png",
+		},
+		{Filename: "pid_mdoc_8f915369_obtain_pid_mdoc_credential_added_x1.png"},
+		{
+			Filename: "pid_mdoc_8f915369_obtain_pid_mdoc_screenshot_1788208562014_action_a2.yaml1.png",
+		},
+		{
+			Filename: "engagement_4bb0f83a_obtain_pid_sdjwt_screenshot_1788207713069_action_b1.yaml2.png",
+		},
+		{
+			Filename: "pid_mdoc_8f915369_obtain_pid_mdoc_screenshot_1788208562614_action_a3.yaml1.png",
+		},
+		{
+			Filename: "engagement_4bb0f83a_obtain_pid_sdjwt_screenshot_1788207713943_action_b2.yaml2.png",
+		},
+	}
+
+	kept, dropped := DeduplicateScreenshots(images)
+
+	require.Equal(t, 3, dropped)
+	require.Len(t, kept, 3)
+	require.Equal(
+		t,
+		"pid_mdoc_8f915369_obtain_pid_mdoc_credential_added_x1.png",
+		kept[0].Filename,
+	)
+	require.Equal(
+		t,
+		"pid_mdoc_8f915369_obtain_pid_mdoc_screenshot_1788208562614_action_a3.yaml1.png",
+		kept[1].Filename,
+	)
+	require.Equal(
+		t,
+		"engagement_4bb0f83a_obtain_pid_sdjwt_screenshot_1788207713943_action_b2.yaml2.png",
+		kept[2].Filename,
+	)
+}
+
+func TestDeduplicateScreenshotsLeavesNonBurstImagesAlone(t *testing.T) {
+	images := []ImageAsset{
+		{Filename: "onboard_reference_wallet_fcaf_onboarding_complete_y.png"},
+		{Filename: "dcql_cryptography_1a488a33_exercise_wallet_cryptography_x.png"},
+	}
+
+	kept, dropped := DeduplicateScreenshots(images)
+
+	require.Equal(t, 0, dropped)
+	require.Len(t, kept, 2)
 }
 
 func testPNG(t *testing.T) []byte {

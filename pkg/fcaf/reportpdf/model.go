@@ -7,6 +7,7 @@ package reportpdf
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/url"
 	"path/filepath"
 	"sort"
@@ -98,13 +99,19 @@ func BuildDocument(input Input) Document {
 		digest := sha256.Sum256(input.RawJSON)
 		document.JSONSHA256 = hex.EncodeToString(digest[:])
 	}
+	images, droppedScreenshots := DeduplicateScreenshots(input.Images)
+	if droppedScreenshots > 0 {
+		document.Warnings = append(
+			document.Warnings,
+			fmt.Sprintf("dropped %d duplicate Maestro action screenshots", droppedScreenshots),
+		)
+	}
 
-	imagesByEvidence := make(map[string][]ImageAsset)
-	for _, image := range input.Images {
-		if strings.TrimSpace(image.EvidenceKey) == "" {
-			continue
+	imagesByFilename := make(map[string]ImageAsset, len(images))
+	for _, image := range images {
+		if _, found := imagesByFilename[image.Filename]; !found {
+			imagesByFilename[image.Filename] = image
 		}
-		imagesByEvidence[image.EvidenceKey] = append(imagesByEvidence[image.EvidenceKey], image)
 	}
 
 	categoryGroups := map[string]map[string]*TestGroup{}
@@ -143,9 +150,31 @@ func BuildDocument(input Input) Document {
 				Record:     record,
 				Referenced: true,
 			})
-			for _, image := range imagesByEvidence[key] {
+		}
+		for _, item := range execution.Evidence {
+			for _, reference := range item.Visual {
+				filename := ReferenceFilename(reference)
+				if filename == "" {
+					continue
+				}
+				image, found := imagesByFilename[filename]
+				if !found {
+					continue
+				}
 				appendImageUnique(&entry.Images, image)
 				assignedImages[image.Filename] = struct{}{}
+			}
+		}
+		// Match the webapp sheet association for tests without bound visual
+		// evidence: a single stored screenshot belongs to every test, and
+		// otherwise screenshots attach by shared words between their
+		// filename and the test id or title.
+		if len(entry.Images) == 0 {
+			for _, image := range images {
+				if len(images) == 1 || screenshotMatchesTest(image.Filename, execution) {
+					appendImageUnique(&entry.Images, image)
+					assignedImages[image.Filename] = struct{}{}
+				}
 			}
 		}
 		group.Tests = append(group.Tests, entry)
@@ -183,42 +212,11 @@ func BuildDocument(input Input) Document {
 		})
 	}
 
-	// Apply the same filename-based association the webapp report uses so
-	// stored screenshots land under the tests whose id or title shares a word
-	// with the screenshot name. Exact evidence references are kept in
-	// addition: a screenshot referenced by an assertion stays attached to
-	// that test even when the name match does not fire.
-	allImages := map[string]ImageAsset{}
-	for _, image := range input.Images {
-		if _, found := allImages[image.Filename]; !found {
-			allImages[image.Filename] = image
-		}
-	}
-	imageNames := make([]string, 0, len(allImages))
-	for filename := range allImages {
-		imageNames = append(imageNames, filename)
-	}
-	sort.Strings(imageNames)
-	for _, filename := range imageNames {
-		image := allImages[filename]
-		matched := false
-		for categoryIndex := range document.Categories {
-			for groupIndex := range document.Categories[categoryIndex].Groups {
-				for testIndex := range document.Categories[categoryIndex].Groups[groupIndex].Tests {
-					if screenshotMatchesTest(filename, document.Categories[categoryIndex].Groups[groupIndex].Tests[testIndex]) {
-						appendImageUnique(
-							&document.Categories[categoryIndex].Groups[groupIndex].Tests[testIndex].Images,
-							image,
-						)
-						matched = true
-					}
-				}
-			}
-		}
-		if !matched {
-			if _, assigned := assignedImages[filename]; !assigned {
-				document.Unassigned = append(document.Unassigned, image)
-			}
+	// Screenshots not associated with any test render once in the evidence
+	// appendix.
+	for _, image := range images {
+		if _, assigned := assignedImages[image.Filename]; !assigned {
+			document.Unassigned = append(document.Unassigned, image)
 		}
 	}
 
@@ -243,12 +241,12 @@ func screenshotLabel(filename string) string {
 	return strings.ToLower(strings.Join(strings.Fields(name), " "))
 }
 
-func screenshotMatchesTest(filename string, test TestEntry) bool {
+func screenshotMatchesTest(filename string, test engine.ExecutedTest) bool {
 	label := screenshotLabel(filename)
 	if label == "" {
 		return false
 	}
-	searchable := strings.ToLower(test.Execution.TestID + " " + test.Execution.Title)
+	searchable := strings.ToLower(test.TestID + " " + test.Title)
 	for _, word := range strings.Fields(label) {
 		if len(word) > 3 && strings.Contains(searchable, word) {
 			return true

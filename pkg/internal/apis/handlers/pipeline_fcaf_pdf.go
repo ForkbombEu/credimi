@@ -92,36 +92,37 @@ func loadPipelineFCAFReportImages(
 			storedFilenames = append(storedFilenames, filename)
 		}
 	}
-	if len(storedFilenames) == 0 {
+	if len(storedFilenames) == 0 && len(report.ExecutedTests) == 0 {
 		return nil, nil, nil
 	}
 
-	evidenceKeysByFilename := map[string][]string{}
 	warnings := []string{}
-	for evidenceKey, references := range reportpdf.ImageReferences(report) {
-		for _, reference := range references {
-			filename := reportpdf.ReferenceFilename(reference)
-			if filename == "" {
-				warnings = append(warnings, "invalid visual evidence reference for "+evidenceKey)
-				continue
+	seenWarnings := map[string]struct{}{}
+	for _, execution := range report.ExecutedTests {
+		for _, item := range execution.Evidence {
+			for _, reference := range item.Visual {
+				filename := reportpdf.ReferenceFilename(reference)
+				if filename == "" {
+					continue
+				}
+				if _, found := storedSet[filename]; found {
+					continue
+				}
+				if _, warned := seenWarnings[filename]; warned {
+					continue
+				}
+				seenWarnings[filename] = struct{}{}
+				warnings = append(warnings, fmt.Sprintf(
+					"visual evidence %s was not stored on this pipeline result",
+					filename,
+				))
 			}
-			if _, found := storedSet[filename]; !found {
-				warnings = append(
-					warnings,
-					fmt.Sprintf(
-						"visual evidence %s was not stored on this pipeline result",
-						filename,
-					),
-				)
-				continue
-			}
-			evidenceKeysByFilename[filename] = appendUniqueString(
-				evidenceKeysByFilename[filename],
-				evidenceKey,
-			)
 		}
 	}
 
+	if len(storedFilenames) == 0 {
+		return nil, warnings, nil
+	}
 	fileSystem, err := app.NewFilesystem()
 	if err != nil {
 		return nil, warnings, fmt.Errorf("open PocketBase filesystem: %w", err)
@@ -160,18 +161,7 @@ func loadPipelineFCAFReportImages(
 			continue
 		}
 
-		evidenceKeys := evidenceKeysByFilename[filename]
-		if len(evidenceKeys) == 0 {
-			images = append(images, reportpdf.ImageAsset{Filename: filename, Data: prepared})
-			continue
-		}
-		for _, evidenceKey := range evidenceKeys {
-			images = append(images, reportpdf.ImageAsset{
-				EvidenceKey: evidenceKey,
-				Filename:    filename,
-				Data:        prepared,
-			})
-		}
+		images = append(images, reportpdf.ImageAsset{Filename: filename, Data: prepared})
 	}
 
 	return images, warnings, nil
@@ -225,17 +215,7 @@ func pipelineFCAFReportMetadata(
 			)
 		}
 	}
-
 	return metadata, warnings
-}
-
-func appendUniqueString(values []string, value string) []string {
-	for _, existing := range values {
-		if existing == value {
-			return values
-		}
-	}
-	return append(values, value)
 }
 
 func firstNonBlank(values ...string) string {

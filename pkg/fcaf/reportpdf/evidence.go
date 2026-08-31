@@ -8,39 +8,28 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	_ "image/gif"  // register GIF image decoder
-	_ "image/jpeg" // register JPEG image decoder
-	"image/png"
+	"image/draw"
+	_ "image/gif" // register GIF image decoder
+	"image/jpeg"
+	_ "image/png" // register PNG image decoder
 	"net/url"
 	"path"
-	"sort"
 	"strings"
 
-	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
+	xdraw "golang.org/x/image/draw"
 	_ "golang.org/x/image/webp" // register WebP image decoder
 )
 
 const (
 	maxImageBytes  = 50 << 20
 	maxImagePixels = 40_000_000
-)
 
-func ImageReferences(report engine.Report) map[string][]string {
-	references := make(map[string][]string)
-	for key, record := range report.Evidence {
-		seen := map[string]struct{}{}
-		collectImageReferences(record.Value, seen)
-		values := make([]string, 0, len(seen))
-		for value := range seen {
-			values = append(values, value)
-		}
-		sort.Strings(values)
-		if len(values) > 0 {
-			references[key] = values
-		}
-	}
-	return references
-}
+	// pdfImageWidth caps the embedded evidence width. Screenshots render at
+	// most 120 mm wide in the document, so wider sources are downscaled to
+	// keep the generated PDF well under the pipeline-results file size limit.
+	pdfImageWidth  = 700
+	pdfJPEGQuality = 75
+)
 
 func ReferenceFilename(reference string) string {
 	parsed, err := url.Parse(strings.TrimSpace(reference))
@@ -78,44 +67,22 @@ func PrepareImage(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
 	}
+	bounds := decoded.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	if width > pdfImageWidth {
+		scale := float64(pdfImageWidth) / float64(width)
+		height = max(1, int(float64(height)*scale))
+		width = pdfImageWidth
+	}
+
+	// Flatten onto white: JPEG has no alpha channel.
+	canvas := image.NewRGBA(image.Rect(0, 0, width, height))
+	draw.Draw(canvas, canvas.Bounds(), image.NewUniform(image.White), image.Point{}, draw.Src)
+	xdraw.CatmullRom.Scale(canvas, canvas.Bounds(), decoded, bounds, xdraw.Over, nil)
+
 	var output bytes.Buffer
-	if err := png.Encode(&output, decoded); err != nil {
-		return nil, fmt.Errorf("encode image as PNG: %w", err)
+	if err := jpeg.Encode(&output, canvas, &jpeg.Options{Quality: pdfJPEGQuality}); err != nil {
+		return nil, fmt.Errorf("encode image as JPEG: %w", err)
 	}
 	return output.Bytes(), nil
-}
-
-func collectImageReferences(value any, seen map[string]struct{}) {
-	switch value := value.(type) {
-	case string:
-		if isImageReference(value) {
-			seen[value] = struct{}{}
-		}
-	case []any:
-		for _, child := range value {
-			collectImageReferences(child, seen)
-		}
-	case []string:
-		for _, child := range value {
-			collectImageReferences(child, seen)
-		}
-	case map[string]any:
-		for _, child := range value {
-			collectImageReferences(child, seen)
-		}
-	}
-}
-
-func isImageReference(value string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(value))
-	if err != nil {
-		return false
-	}
-	extension := strings.ToLower(path.Ext(parsed.Path))
-	switch extension {
-	case ".gif", ".jpeg", ".jpg", ".png", ".webp":
-		return true
-	default:
-		return false
-	}
 }
