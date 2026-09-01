@@ -2183,6 +2183,7 @@ steps:
                       meta:
                         vct_values:
                             - urn:eudi:pid:1
+                fcaf_unknown_top_level: ignored
             nonce: fcaf-dcql-credentials-match
             type: vp_token
         expected_status: 201

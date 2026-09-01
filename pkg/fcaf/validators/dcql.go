@@ -471,7 +471,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "invalid_scope":
 		return validateErrorCode(responseValue, errorValue, "invalid_scope")
 	case "unknown_field_stripped":
-		return validateUnknownFieldStripped(query, responseValue)
+		return validateUnknownFieldStripped(query, responseValue, params.Property)
 	case "vp_formats_not_supported":
 		return validateErrorCode(responseValue, errorValue, "vp_formats_not_supported")
 	case "transaction_data_error":
@@ -3782,8 +3782,18 @@ func validateErrorCode(responseValue, errorValue any, expectedCode string) Resul
 }
 
 // validateUnknownFieldStripped checks that wallet processes request with unknown fields stripped.
-func validateUnknownFieldStripped(query, responseValue any) Result {
-	if errStr := normalizeString(query); errStr != "" {
+func validateUnknownFieldStripped(query, responseValue any, property string) Result {
+	if property == "" {
+		return Result{Status: StatusError, Message: "property is required for unknown_field_stripped mode"}
+	}
+	queryObject, ok := normalizeJSONObject(query)
+	if !ok {
+		return Result{Status: StatusFail, Message: "dcql_query is not an object"}
+	}
+	if _, exists := queryObject[property]; !exists {
+		return Result{Status: StatusFail, Message: fmt.Sprintf("dcql_query does not contain unknown property %q", property)}
+	}
+	if errStr := normalizeString(responseValue); errStr != "" {
 		return Result{
 			Status: StatusFail,
 			Message: fmt.Sprintf(
