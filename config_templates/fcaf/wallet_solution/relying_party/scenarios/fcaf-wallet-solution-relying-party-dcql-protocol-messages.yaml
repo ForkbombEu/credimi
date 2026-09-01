@@ -72,7 +72,6 @@ steps:
   with:
     test_ids:
       - WS_RP_MS_ProtocolMessages__002
-      - WS_RP_MS_ProtocolMessages__003
       - WS_RP_MS_ProtocolMessages__006
       - WS_RP_MS_ProtocolMessages__007
       - WS_RP_MS_ProtocolMessages__009

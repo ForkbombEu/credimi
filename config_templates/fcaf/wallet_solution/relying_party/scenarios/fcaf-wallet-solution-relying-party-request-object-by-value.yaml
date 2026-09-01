@@ -25,7 +25,7 @@ steps:
                       id: pid_mdoc
                       meta:
                         doctype_value: eu.europa.ec.eudi.pid.1
-            jar_mode: by_value
+            request_delivery: by_value
             nonce: fcaf-request-object-by-value
             type: vp_token
         expected_status: 200
@@ -105,6 +105,7 @@ steps:
         suite: wallet_solution/relying_party
         test_ids:
             - WS_RP_MS_Metadata__104
+            - WS_RP_MS_ProtocolMessages__003
             - WS_RP_MS_ProtocolMessages__004
             - WS_RP_MS_ProtocolMessages__008
             - WS_RP_MS_ProtocolMessages__019

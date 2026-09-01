@@ -12402,8 +12402,8 @@ steps:
                       id: pid_mdoc
                       meta:
                         doctype_value: eu.europa.ec.eudi.pid.1
-            jar_mode: by_value
             nonce: fcaf-request-object-by-value
+            request_delivery: by_value
             type: vp_token
         expected_status: 200
         headers:
