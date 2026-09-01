@@ -67,6 +67,7 @@ steps:
   use: fcaf-validation
   with:
     test_ids:
+      - WS_RP_MS_ProtocolMessages__024
       - WS_RP_MS_ProtocolMessages__135
     suite: wallet_solution/relying_party
     pipeline_outputs:
