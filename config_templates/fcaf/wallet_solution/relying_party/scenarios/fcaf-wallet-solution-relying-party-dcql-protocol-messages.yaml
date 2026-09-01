@@ -106,7 +106,6 @@ steps:
       - WS_RP_MS_ProtocolMessages__051
       - WS_RP_MS_ProtocolMessages__059
       - WS_RP_MS_ProtocolMessages__060
-      - WS_RP_MS_ProtocolMessages__066
       - WS_RP_MS_ProtocolMessages__068
       - WS_RP_MS_ProtocolMessages__069
       - WS_RP_MS_ProtocolMessages__072
