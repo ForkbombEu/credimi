@@ -44,20 +44,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex flex-wrap items-center gap-1.5">
 			{#each item.children as child (child.href)}
 				<Tooltip>
-					<a href={child.href} class="rounded-sm focus-visible:outline-2">
-						{#if child.avatar}
-							<EntityAvatar
-								item={{
-									key: child.href,
-									name: child.label,
-									href: child.href,
-									avatar: child.avatar
-								}}
-							/>
-						{:else}
-							<span class="text-xs hover:underline">{child.label}</span>
-						{/if}
-					</a>
+					{#if child.avatar}
+						<EntityAvatar
+							item={{
+								key: child.href,
+								name: child.label,
+								href: child.href,
+								avatar: child.avatar
+							}}
+							link
+						/>
+					{:else}
+						<a
+							href={child.href}
+							class="rounded-sm text-xs hover:underline focus-visible:outline-2"
+						>
+							{child.label}
+						</a>
+					{/if}
 					{#snippet content()}
 						<p class="text-xs font-semibold">{child.label}</p>
 					{/snippet}

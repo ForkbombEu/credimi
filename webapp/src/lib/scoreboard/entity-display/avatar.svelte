@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if link}
 		<a
 			href={resolve(localizeHref(item.href) as '/')}
-			class="relative inline-flex shrink-0 rounded-sm ring-2 ring-transparent hover:ring-primary"
+			class="relative inline-flex shrink-0 rounded-sm ring-2 ring-transparent hover:ring-primary focus-visible:outline-2"
 		>
 			{@render content()}
 		</a>
