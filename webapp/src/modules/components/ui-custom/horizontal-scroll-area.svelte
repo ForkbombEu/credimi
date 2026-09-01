@@ -252,7 +252,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		id={contentId}
 		bind:this={contentEl}
 		data-slot="table-container"
-		class={cn('scrollbar-hide w-full overflow-x-auto', contentClass)}
+		class={cn('scrollbar-none w-full overflow-x-auto overflow-y-hidden', contentClass)}
 		onscroll={onContentScroll}
 	>
 		{@render children?.()}

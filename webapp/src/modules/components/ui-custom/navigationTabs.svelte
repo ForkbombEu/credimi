@@ -50,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/if}
 
-	<ul class="scrollbar-hide flex gap-1 overflow-x-auto">
+	<ul class="scrollbar-none flex gap-1 overflow-x-auto">
 		{#each tabs as tab (tab.href)}
 			<li role="presentation" class="flex-shrink-0">
 				<NavigationTab {...tab} />

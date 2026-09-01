@@ -19,7 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		header: renderComponent(EntityHeader, {
 			label: m.scoreboard_last_run()
 		}),
-		sortField: 'latest_successful_execution.created'
+		sortField: 'latest_successful_execution.created',
+		manualPillPositioning: true
 	});
 </script>
 
