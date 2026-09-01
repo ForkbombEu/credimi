@@ -182,4 +182,10 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.PipelineReportGenerationInput{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
+	"pipeline-completion-notification": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewSendPipelineCompletionNotificationActivity() },
+		PayloadType: reflect.TypeOf(activities.SendPipelineCompletionNotificationInput{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
 }
