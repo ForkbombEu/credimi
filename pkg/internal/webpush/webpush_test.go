@@ -5,6 +5,7 @@
 package webpush
 
 import (
+	"context"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base64"
@@ -177,7 +178,7 @@ func TestNotifyPipelineRunCompletionSendsToOrgMembersOnly(t *testing.T) {
 	createPushSubscription(t, app, memberUserID, server.URL)
 	createPushSubscription(t, app, firstNonMemberUser(t, app, memberUserID), server.URL)
 
-	sent, err := NotifyPipelineRunCompletion(app, CompletionRequest{
+	sent, err := NotifyPipelineRunCompletion(context.Background(), app, CompletionRequest{
 		OrgID:        orgID,
 		PipelineName: "my-pipeline",
 		WorkflowID:   "wf-1",
@@ -206,7 +207,7 @@ func TestNotifyPipelineRunCompletionPrunesDeadSubscriptions(t *testing.T) {
 
 	subscription := createPushSubscription(t, app, userID, server.URL)
 
-	sent, err := NotifyPipelineRunCompletion(app, CompletionRequest{
+	sent, err := NotifyPipelineRunCompletion(context.Background(), app, CompletionRequest{
 		OrgID:        orgID,
 		PipelineName: "my-pipeline",
 		WorkflowID:   "wf-1",
@@ -237,7 +238,7 @@ func TestNotifyPipelineRunCompletionCollectsFailures(t *testing.T) {
 
 	subscription := createPushSubscription(t, app, userID, server.URL)
 
-	sent, err := NotifyPipelineRunCompletion(app, CompletionRequest{
+	sent, err := NotifyPipelineRunCompletion(context.Background(), app, CompletionRequest{
 		OrgID:        orgID,
 		PipelineName: "my-pipeline",
 		WorkflowID:   "wf-1",

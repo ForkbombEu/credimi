@@ -117,17 +117,21 @@ func HandleWebPushPipelineCompleted() func(*core.RequestEvent) error {
 			duration = time.Since(startedAt.Time()).Round(time.Second).String()
 		}
 
-		sent, err := webpush.NotifyPipelineRunCompletion(e.App, webpush.CompletionRequest{
-			OrgID:        result.GetString("owner"),
-			PipelineName: pipeline.GetString("name"),
-			Organization: organization.GetString("name"),
-			WorkflowID:   input.WorkflowID,
-			RunID:        input.RunID,
-			Result:       input.Result,
-			Duration:     duration,
-			Error:        input.ErrorMessage,
-			AppURL:       appURL,
-		})
+		sent, err := webpush.NotifyPipelineRunCompletion(
+			e.Request.Context(),
+			e.App,
+			webpush.CompletionRequest{
+				OrgID:        result.GetString("owner"),
+				PipelineName: pipeline.GetString("name"),
+				Organization: organization.GetString("name"),
+				WorkflowID:   input.WorkflowID,
+				RunID:        input.RunID,
+				Result:       input.Result,
+				Duration:     duration,
+				Error:        input.ErrorMessage,
+				AppURL:       appURL,
+			},
+		)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

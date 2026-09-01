@@ -58,8 +58,12 @@ export async function enablePipelineNotifications(): Promise<Result<null, string
 
 		const permission = await Notification.requestPermission();
 		if (permission !== 'granted') return err(m.Failed_to_enable_pipeline_notifications());
-
-		const registration = await navigator.serviceWorker.ready;
+		// SvelteKit registers the service worker automatically, but fall
+		// back to an explicit registration so the toggle cannot hang on
+		// `ready` if the automatic registration has not happened yet.
+		const registration =
+			(await navigator.serviceWorker.getRegistration()) ??
+			(await navigator.serviceWorker.register('/service-worker.js'));
 		let subscription = await registration.pushManager.getSubscription();
 		if (!subscription) {
 			const { public_key } = await pb.send<{ public_key: string }>(VAPID_PUBLIC_KEY_URL, {
@@ -110,7 +114,9 @@ async function saveSubscription(subscription: PushSubscription): Promise<void> {
 		// A unique-constraint conflict on `endpoint` means this browser is
 		// already registered: refresh its keys instead of failing.
 		if (!(e instanceof ClientResponseError)) throw e;
-		const existing = await findSubscriptionRecord(endpoint);
+		const user = pb.authStore.record?.id;
+		if (!user) throw e;
+		const existing = await findSubscriptionRecord(user, endpoint);
 		if (!existing) throw e;
 		await pb.collection('push_subscriptions').update(existing.id, { user, keys });
 	}
@@ -120,7 +126,7 @@ async function deleteSubscriptionRecords(endpoint: string): Promise<void> {
 	const user = pb.authStore.record?.id;
 	if (!user) return;
 
-	const record = await findSubscriptionRecord(endpoint);
+	const record = await findSubscriptionRecord(user, endpoint);
 
 	if (record) {
 		await pb.collection('push_subscriptions').delete(record.id);
@@ -129,16 +135,15 @@ async function deleteSubscriptionRecords(endpoint: string): Promise<void> {
 
 	// No record matches this endpoint (e.g. the browser lost the subscription):
 	// clear all of the user's records so no stale subscription keeps pushing.
-
 	const records = await pb.collection('push_subscriptions').getFullList({
-		filter: `user = "${user}"`
+		filter: pb.filter('user = {:user}', { user })
 	});
 	await Promise.all(records.map((r) => pb.collection('push_subscriptions').delete(r.id)));
 }
 
-async function findSubscriptionRecord(endpoint: string) {
+async function findSubscriptionRecord(user: string, endpoint: string) {
 	return pb
 		.collection('push_subscriptions')
-		.getFirstListItem(`user = "${pb.authStore.record?.id}" && endpoint = "${endpoint}"`)
+		.getFirstListItem(pb.filter('user = {:user} && endpoint = {:endpoint}', { user, endpoint }))
 		.catch(() => null);
 }

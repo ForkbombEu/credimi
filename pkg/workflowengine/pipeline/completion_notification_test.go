@@ -5,8 +5,10 @@
 package pipeline
 
 import (
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -131,4 +133,16 @@ func TestPipelineSkipsCompletionNotificationWithoutConfigKey(t *testing.T) {
 	})
 
 	require.NoError(t, env.GetWorkflowError())
+}
+
+func TestTruncateWorkflowErrorKeepsRunesIntact(t *testing.T) {
+	t.Parallel()
+
+	// 100 "€" runes = 300 bytes, plus a suffix that pushes past the limit.
+	long := strings.Repeat("€", 100) + "trailing text beyond the limit"
+	got := truncateWorkflowError(long)
+
+	require.LessOrEqual(t, len([]rune(got)), 141)
+	require.True(t, utf8.ValidString(got), "truncated message must stay valid UTF-8")
+	require.Contains(t, got, "€")
 }

@@ -65,6 +65,17 @@ func reportPipelineCompletionNotification(
 	}
 }
 
+// truncateWorkflowError caps a notification body by rune count so multi-byte
+// characters are never split mid-rune.
+func truncateWorkflowError(message string) string {
+	const maxLength = 140
+	runes := []rune(message)
+	if len(runes) <= maxLength {
+		return message
+	}
+	return string(runes[:maxLength]) + "…"
+}
+
 // workflowErrorMessage derives a short, notification-sized cause from the
 // workflow error. Empty for canceled runs and plain Temporal errors.
 func workflowErrorMessage(err error) string {
@@ -82,12 +93,4 @@ func workflowErrorMessage(err error) string {
 		return truncateWorkflowError(wfErr.Code)
 	}
 	return truncateWorkflowError(wfErr.Code + ": " + wfErr.Summary)
-}
-
-func truncateWorkflowError(message string) string {
-	const maxLength = 140
-	if len(message) <= maxLength {
-		return message
-	}
-	return message[:maxLength] + "…"
 }

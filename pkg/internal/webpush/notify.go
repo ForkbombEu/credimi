@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	webpushgo "github.com/SherClockHolmes/webpush-go"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -24,6 +26,10 @@ const (
 	// pushTTLSeconds keeps a notification deliverable for one hour so
 	// devices that are briefly offline still receive it.
 	pushTTLSeconds = 3600
+
+	// pushSendTimeout bounds a single push send so a stalled push service
+	// cannot hang the whole notification fan-out.
+	pushSendTimeout = 10 * time.Second
 )
 
 // CompletionRequest describes a finished pipeline run to notify users about.
@@ -57,7 +63,11 @@ type subscriptionKeys struct {
 // pipeline run to every push subscription of the organization members.
 // Per-subscription failures are collected into the returned error without
 // aborting the remaining sends. Dead subscriptions (HTTP 404/410) are pruned.
-func NotifyPipelineRunCompletion(app core.App, req CompletionRequest) (int, error) {
+func NotifyPipelineRunCompletion(
+	ctx context.Context,
+	app core.App,
+	req CompletionRequest,
+) (int, error) {
 	publicKey, privateKey, err := GetVAPIDKeyPair(app)
 	if err != nil {
 		return 0, err
@@ -82,10 +92,10 @@ func NotifyPipelineRunCompletion(app core.App, req CompletionRequest) (int, erro
 
 	sent := 0
 	var sendErrs []error
-
 	for _, subscription := range subscriptions {
+		sendCtx, cancel := context.WithTimeout(ctx, pushSendTimeout)
 		delivered, err := sendPush(
-			context.Background(),
+			sendCtx,
 			app,
 			subscription,
 			payload,
@@ -93,6 +103,7 @@ func NotifyPipelineRunCompletion(app core.App, req CompletionRequest) (int, erro
 			privateKey,
 			req.AppURL,
 		)
+		cancel()
 		if err != nil {
 			sendErrs = append(sendErrs, err)
 			continue
@@ -121,24 +132,31 @@ func findOrgMemberSubscriptions(app core.App, orgID string) ([]*core.Record, err
 		return nil, fmt.Errorf("failed to resolve organization members: %w", err)
 	}
 
-	var subscriptions []*core.Record
-	for _, member := range members {
+	params := dbx.Params{"org": orgID}
+	conditions := make([]string, 0, len(members))
+	for i, member := range members {
 		userID := member.GetString("user")
 		if userID == "" {
 			continue
 		}
-		userSubscriptions, err := app.FindRecordsByFilter(
-			pushSubscriptionsCollection,
-			"user = {:user}",
-			"",
-			0,
-			0,
-			dbx.Params{"user": userID},
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch push subscriptions: %w", err)
-		}
-		subscriptions = append(subscriptions, userSubscriptions...)
+		key := fmt.Sprintf("user%d", i)
+		params[key] = userID
+		conditions = append(conditions, fmt.Sprintf("user = {:%s}", key))
+	}
+	if len(conditions) == 0 {
+		return nil, nil
+	}
+
+	subscriptions, err := app.FindRecordsByFilter(
+		pushSubscriptionsCollection,
+		strings.Join(conditions, " || "),
+		"",
+		0,
+		0,
+		params,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch push subscriptions: %w", err)
 	}
 	return subscriptions, nil
 }
