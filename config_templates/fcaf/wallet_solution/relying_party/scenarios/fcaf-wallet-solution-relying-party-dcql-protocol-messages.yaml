@@ -82,7 +82,6 @@ steps:
       - WS_RP_MS_ProtocolMessages__017
       - WS_RP_MS_ProtocolMessages__018
       - WS_RP_MS_ProtocolMessages__020
-      - WS_RP_MS_ProtocolMessages__021
       - WS_RP_MS_ProtocolMessages__025
       - WS_RP_MS_ProtocolMessages__026
       - WS_RP_MS_ProtocolMessages__027
