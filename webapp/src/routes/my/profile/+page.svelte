@@ -6,6 +6,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Pencil } from '@lucide/svelte';
+	import {
+		disablePipelineNotifications,
+		enablePipelineNotifications,
+		getNotificationState,
+		type NotificationState
+	} from '$lib/pipeline/web-push';
+	import { toast } from 'svelte-sonner';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod/v3';
 
@@ -13,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
 	import Separator from '@/components/ui/separator/separator.svelte';
+	import { Switch } from '@/components/ui/switch';
 	import { Form, createForm } from '@/forms';
 	import { CheckboxField, Field, FileField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
@@ -56,6 +64,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	setDashboardNavbar({
 		title: m.Profile()
 	});
+
+	let pushState: NotificationState = $state('off');
+	let pushUpdating = $state(false);
+
+	$effect(() => {
+		getNotificationState().then((state) => (pushState = state));
+	});
+
+	async function togglePipelineNotifications(checked: boolean) {
+		pushUpdating = true;
+		const result = checked
+			? await enablePipelineNotifications()
+			: await disablePipelineNotifications();
+		pushState = await getNotificationState();
+		pushUpdating = false;
+		if (result.isOk) {
+			toast.success(
+				checked ? m.Pipeline_notifications_enabled() : m.Pipeline_notifications_disabled()
+			);
+		} else {
+			toast.error(result.error);
+		}
+	}
 </script>
 
 <div class="space-y-6">
@@ -109,4 +140,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/snippet}
 		</Form>
 	{/key}
+
+	<Separator />
+
+	<div class="flex items-center justify-between gap-4">
+		<div class="space-y-1">
+			<T tag="h4">{m.Pipeline_notifications()}</T>
+			<T tag="p" class="text-sm text-gray-400">{m.Pipeline_notifications_description()}</T>
+			{#if pushState === 'denied'}
+				<T tag="p" class="text-sm text-gray-400">{m.Notifications_blocked_hint()}</T>
+			{:else if pushState === 'unsupported'}
+				<T tag="p" class="text-sm text-gray-400">{m.Push_notifications_unsupported()}</T>
+			{/if}
+		</div>
+		<Switch
+			aria-label={m.Pipeline_notifications()}
+			checked={pushState === 'on'}
+			disabled={pushState === 'unsupported' || pushUpdating}
+			onCheckedChange={togglePipelineNotifications}
+		/>
+	</div>
 </div>

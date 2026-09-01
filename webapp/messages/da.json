@@ -1016,5 +1016,13 @@
 	"extra_eudi_atlas": "EUDI Atlas",
 	"extra_eudi_atlas_description": "Omfattende EUDI-dokumentkort (organiseret efter rolle) med konformitetstestguide",
 	"extra_tl_lote_onboarding_catalogue": "TL/LoTE-onboarding/-katalog",
-	"extra_tl_lote_onboarding_catalogue_description": "Onboard EUDI-komponenter på TL/LoTE udelukkende til test og fejlfinding; ikke til produktion"
+	"extra_tl_lote_onboarding_catalogue_description": "Onboard EUDI-komponenter på TL/LoTE udelukkende til test og fejlfinding; ikke til produktion",
+	"Pipeline_notifications": "Pipeline-notifikationer",
+	"Pipeline_notifications_description": "Modtag en push-notifikation, når en pipelinekørsel er afsluttet.",
+	"Pipeline_notifications_enabled": "Pipeline-notifikationer aktiveret",
+	"Pipeline_notifications_disabled": "Pipeline-notifikationer deaktiveret",
+	"Failed_to_enable_pipeline_notifications": "Kunne ikke aktivere pipeline-notifikationer",
+	"Failed_to_disable_pipeline_notifications": "Kunne ikke deaktivere pipeline-notifikationer",
+	"Notifications_blocked_hint": "Notifikationer er blokeret for dette websted. Aktivér dem igen i browserens webstedsindstillinger.",
+	"Push_notifications_unsupported": "Denne browser understøtter ikke push-notifikationer."
 }

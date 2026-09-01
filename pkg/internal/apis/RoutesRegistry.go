@@ -41,6 +41,7 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.MobileRunnerRegistrationRoutes,
 	handlers.MobileRunnerLifecycleRoutes,
 	handlers.MobileRunnersTemporalInternalRoutes,
+	handlers.WebPushRoutes,
 }
 
 func RegisterMyRoutes(app core.App) {
