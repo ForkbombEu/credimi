@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__055
-title: FCAF WS_RP_MS_ProtocolMessages__055
+title: Reject a DCQL query with an empty credentials array.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__055.md
 suite:
@@ -13,18 +13,17 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
+    from: pipeline.dcql.credentials-empty.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.dcql.credentials-empty.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__055_dcql_protocol_valid
+- id: empty_credentials_returns_invalid_request
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: invalid_request_generic
 - id: ws_rp_ms_protocolmessages__055_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
