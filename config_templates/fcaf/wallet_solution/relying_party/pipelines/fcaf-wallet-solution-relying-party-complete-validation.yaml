@@ -1392,6 +1392,46 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-credential-sets-empty-84f34308-create
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credential_sets: []
+                    credentials:
+                        - format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credential-sets-empty-84f34308-reject
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - takeScreenshot: fcaf-dcql-credential-sets-empty
+        parameters:
+            DEEPLINK: ${{ dcql-credential-sets-empty-84f34308-create.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-credential-sets-empty-84f34308-fetch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-sets-empty-84f34308-create.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-credential-sets-options-empty-b28d4071-create-capture-session
       use: http-request
       with:
@@ -13214,6 +13254,10 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-fetch-result.outputs.body | optional }}
                     visual_evidence: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.credential-sets-empty:
+                output:
+                    dcql_exchange: ${{ dcql-credential-sets-empty-84f34308-fetch.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-credential-sets-empty-84f34308-reject.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.credential-sets-options-empty:
                 output:
                     create-capture-session: ${{ dcql-credential-sets-options-empty-b28d4071-create-capture-session.outputs | optional }}
