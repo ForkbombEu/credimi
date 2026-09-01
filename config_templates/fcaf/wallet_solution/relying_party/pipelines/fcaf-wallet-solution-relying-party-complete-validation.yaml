@@ -2169,6 +2169,49 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credentials-match-cc301c32-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-credentials-missing-377a6829-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query: {}
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credentials-missing-377a6829-reject-missing-credentials
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - tapOn: { text: "EUDI Wallet", optional: true }
+            - tapOn: { text: "Just once", optional: true }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - takeScreenshot: fcaf-dcql-credentials-missing
+        parameters:
+            DEEPLINK: ${{ dcql-credentials-missing-377a6829-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-credentials-missing-377a6829-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credentials-missing-377a6829-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-cryptography-1a488a33-create-capture-session
       use: http-request
       with:
@@ -13127,6 +13170,10 @@ steps:
                     fetch-capture-session: ${{ dcql-credentials-match-cc301c32-fetch-capture-session.outputs | optional }}
                     present-with-reference-implementation: ${{ dcql-credentials-match-cc301c32-present-with-reference-implementation.outputs | optional }}
                     visual_evidence: ${{ dcql-credentials-match-cc301c32-present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.credentials-missing:
+                output:
+                    dcql_exchange: ${{ dcql-credentials-missing-377a6829-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-credentials-missing-377a6829-reject-missing-credentials.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.cryptography:
                 output:
                     dcql_exchange: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body | optional }}
