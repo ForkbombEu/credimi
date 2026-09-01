@@ -39,11 +39,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const runners = $derived(record.expand?.mobile_runners ?? []);
 
 	const artifacts = $derived(
-		record.expand.latest_successful_execution
+		record.expand.latest_execution
 			? fromEnrichedRecord(
-					record.expand.latest_successful_execution as Parameters<
-						typeof fromEnrichedRecord
-					>[0]
+					record.expand.latest_execution as Parameters<typeof fromEnrichedRecord>[0]
 				)
 			: undefined
 	);
