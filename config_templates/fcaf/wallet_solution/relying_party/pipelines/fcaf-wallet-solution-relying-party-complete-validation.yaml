@@ -2141,6 +2141,41 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credentials-empty-8a34dae1-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-credentials-malformed-e90a2f4e-create
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        malformed: true
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credentials-malformed-e90a2f4e-reject
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - takeScreenshot: fcaf-dcql-credentials-malformed
+        parameters:
+            DEEPLINK: ${{ dcql-credentials-malformed-e90a2f4e-create.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-credentials-malformed-e90a2f4e-fetch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credentials-malformed-e90a2f4e-create.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-credentials-match-cc301c32-onboard-reference-wallet
       use: mobile-automation
       with:
@@ -13257,6 +13292,10 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-credentials-empty-8a34dae1-fetch-capture-session.outputs.body | optional }}
                     visual_evidence: ${{ dcql-credentials-empty-8a34dae1-reject-empty-credentials.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.credentials-malformed:
+                output:
+                    dcql_exchange: ${{ dcql-credentials-malformed-e90a2f4e-fetch.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-credentials-malformed-e90a2f4e-reject.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.credentials-match:
                 output:
                     create-presentation: ${{ dcql-credentials-match-cc301c32-create-presentation.outputs | optional }}
