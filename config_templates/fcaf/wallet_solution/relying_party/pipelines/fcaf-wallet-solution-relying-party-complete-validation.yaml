@@ -2178,6 +2178,7 @@ steps:
                             - given_name
                         - path:
                             - family_name
+                      fcaf_unknown_nested: ignored
                       format: dc+sd-jwt
                       id: pid_identity
                       meta:

@@ -3791,7 +3791,20 @@ func validateUnknownFieldStripped(query, responseValue any, property string) Res
 		return Result{Status: StatusFail, Message: "dcql_query is not an object"}
 	}
 	if _, exists := queryObject[property]; !exists {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("dcql_query does not contain unknown property %q", property)}
+		credentials, _ := queryObject["credentials"].([]any)
+		found := false
+		for _, rawCredential := range credentials {
+			credential, ok := normalizeJSONObject(rawCredential)
+			if ok {
+				_, found = credential[property]
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			return Result{Status: StatusFail, Message: fmt.Sprintf("dcql_query does not contain unknown property %q", property)}
+		}
 	}
 	if errStr := normalizeString(responseValue); errStr != "" {
 		return Result{
