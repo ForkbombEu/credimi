@@ -1017,6 +1017,44 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-claims-without-values-174b98b6-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-credential-format-missing-b1b0b25b-create
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credential-format-missing-b1b0b25b-reject
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - takeScreenshot: fcaf-dcql-credential-format-missing
+        parameters:
+            DEEPLINK: ${{ dcql-credential-format-missing-b1b0b25b-create.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-credential-format-missing-b1b0b25b-fetch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-format-missing-b1b0b25b-create.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-create-capture-session
       use: http-request
       with:
@@ -13445,6 +13483,10 @@ steps:
                     fetch-result: ${{ dcql-claims-without-values-174b98b6-fetch-result.outputs | optional }}
                     present-claim-without-values: ${{ dcql-claims-without-values-174b98b6-present-claim-without-values.outputs | optional }}
                     visual_evidence: ${{ dcql-claims-without-values-174b98b6-present-claim-without-values.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.credential-format-missing:
+                output:
+                    dcql_exchange: ${{ dcql-credential-format-missing-b1b0b25b-fetch.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-credential-format-missing-b1b0b25b-reject.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.credential-formats:
                 output:
                     dcql_exchange: ${{ dcql-credential-formats-3cfeac03-fetch-capture-session.outputs.body | optional }}
