@@ -126,6 +126,15 @@ func (w *PipelineWorkflow) Workflow(
 			runID,
 			finalResult,
 		)
+		reportPipelineCompletionNotification(
+			ctx,
+			logger,
+			config,
+			workflowID,
+			runID,
+			finalResult,
+			finalErr,
+		)
 	}()
 
 	if wfDef == nil {

@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const scoreboard = new Scoreboard.Instance({
 		pageSize: 20,
-		initialData: () => data.scoreboardData
+		initialPage: () => data.scoreboardPage
 	});
 </script>
 

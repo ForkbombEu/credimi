@@ -54,17 +54,16 @@ type StartQueuedPipelineActivityOutput struct {
 }
 
 const (
-	pipelineTaskQueue              = "PipelineTaskQueue"
-	pipelineWorkflowName           = "Dynamic Pipeline Workflow"
-	defaultExecutionTimeout        = "24h"
-	defaultActivityScheduleTimeout = "10m"
-	defaultActivityStartTimeout    = "5m"
-	defaultActivityHeartbeat       = "30s"
-	defaultRetryMaxAttempts        = int32(5)
-	defaultRetryInitialInterval    = "5s"
-	defaultRetryMaxInterval        = "1m"
-	defaultRetryBackoffCoefficient = 2.0
-
+	pipelineTaskQueue                            = "PipelineTaskQueue"
+	pipelineWorkflowName                         = "Dynamic Pipeline Workflow"
+	defaultExecutionTimeout                      = "24h"
+	defaultActivityScheduleTimeout               = "10m"
+	defaultActivityStartTimeout                  = "5m"
+	defaultActivityHeartbeat                     = "30s"
+	defaultRetryMaxAttempts                      = int32(5)
+	defaultRetryInitialInterval                  = "5s"
+	defaultRetryMaxInterval                      = "1m"
+	defaultRetryBackoffCoefficient               = 2.0
 	mobileRunnerSemaphoreTicketIDConfigKey       = "mobile_runner_semaphore_ticket_id"
 	mobileRunnerSemaphoreRunnerIDsConfigKey      = "mobile_runner_semaphore_runner_ids"
 	mobileRunnerSemaphoreLeaderRunnerIDConfigKey = "mobile_runner_semaphore_leader_runner_id"

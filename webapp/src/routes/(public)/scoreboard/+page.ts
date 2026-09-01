@@ -5,13 +5,13 @@
 import { Scoreboard } from '$lib';
 
 export const load = async ({ fetch }) => {
-	const data = await Scoreboard.Records.loadPage({
+	const scoreboardPage = await Scoreboard.Records.loadPage({
 		fetch,
 		perPage: 20,
 		page: 1,
 		sort: '-latest_execution.created'
 	});
 	return {
-		scoreboardData: data.items
+		scoreboardPage
 	};
 };

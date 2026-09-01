@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={[
-		'relative flex items-center gap-1.5',
+		'flex items-center gap-1',
 		{
 			'justify-start': align === 'left',
 			'justify-center': align === 'center',
@@ -48,16 +48,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	]}
 >
 	<span
-		class="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.08em] whitespace-nowrap text-muted-foreground uppercase"
+		class="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.08em] whitespace-nowrap text-primary uppercase"
 	>
 		{#if props.data?.icon && !props.hideIcon}
 			<props.data.icon class="size-3.5" />
 		{/if}
 		{label}
 	</span>
-	<div class="absolute top-0 right-0 translate-x-3 -translate-y-1">
-		{#if ctx.header.column.getCanSort() && ctx.header.column.columnDef.meta?.manualPillPositioning}
-			<SortHeaderPill header={ctx.header} table={ctx.table} />
-		{/if}
-	</div>
+	{#if ctx.header.column.getCanSort() && ctx.header.column.columnDef.meta?.manualPillPositioning}
+		<SortHeaderPill header={ctx.header} table={ctx.table} />
+	{/if}
 </div>

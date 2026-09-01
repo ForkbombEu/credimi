@@ -50,10 +50,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ChevronDownIcon } from '@lucide/svelte';
 
 	import HorizontalScrollArea from '@/components/ui-custom/horizontal-scroll-area.svelte';
+	import SearchInput from '@/components/ui-custom/search-input.svelte';
 	import Button from '@/components/ui/button/button.svelte';
 	import { FlexRender } from '@/components/ui/data-table/index.js';
 	import * as DropdownMenu from '@/components/ui/dropdown-menu/index.js';
-	import Input from '@/components/ui/input/input.svelte';
 	import * as Pagination from '@/components/ui/pagination/index.js';
 	import * as Select from '@/components/ui/select/index.js';
 	import * as Table from '@/components/ui/table/index.js';
@@ -117,12 +117,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-4">
 	<div class="flex flex-wrap items-center gap-2">
-		<Input
-			type="search"
-			placeholder={m.Search()}
+		<SearchInput
 			class="w-56"
 			bind:value={searchInput}
 			oninput={onSearchInput}
+			onclear={() => {
+				clearTimeout(searchDebounce);
+				applyFilters();
+			}}
 		/>
 		<Select.Root
 			type="single"
@@ -132,7 +134,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				applyFilters();
 			}}
 		>
-			<Select.Trigger class="w-40">
+			<Select.Trigger class="w-40 bg-background">
 				{BAND_FILTERS.find((option) => option.value === bandFilter)?.label}
 			</Select.Trigger>
 			<Select.Content>
@@ -149,6 +151,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Button {...props} variant="outline" size="sm">
 						<Columns3Icon class="size-4" />
 						{m.Columns()}
+						<ChevronDownIcon class="size-4 opacity-50" />
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
@@ -174,7 +177,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<table class="w-max min-w-full caption-bottom text-sm">
 			<Table.Header>
 				{#each scoreboard.table.getHeaderGroups() as headerGroup (headerGroup.id)}
-					<Table.Row class="bg-secondary">
+					<Table.Row class="bg-[#d1c8f3] hover:bg-[#d1c8f3]">
 						<Table.Head class="w-10"></Table.Head>
 						{#each headerGroup.headers as header (header.id)}
 							{#if header.column.getIsVisible()}
@@ -217,15 +220,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@const isExpanded = expandedRowId === row.id}
 					<Table.Row
 						data-state={row.getIsSelected() && 'selected'}
-						class="cursor-pointer hover:bg-secondary data-[state=selected]:bg-secondary {isExpanded
-							? 'bg-secondary'
+						class="cursor-pointer hover:bg-muted/50 data-[state=selected]:bg-muted/30 {isExpanded
+							? 'bg-muted/30'
 							: ''}"
 						onclick={(event) => onRowClick(event, row.id)}
 					>
 						<Table.Cell class="align-top">
 							<button
 								type="button"
-								class="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2"
+								class="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline-2"
 								aria-expanded={isExpanded}
 								aria-label={isExpanded ? m.Collapse() : m.Expand()}
 								onclick={() => toggleRow(row.id)}
@@ -247,7 +250,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/each}
 					</Table.Row>
 					{#if isExpanded}
-						<Table.Row class="bg-secondary hover:bg-secondary">
+						<Table.Row class="bg-muted/30 hover:bg-muted/30">
 							<Table.Cell colspan={row.getVisibleCells().length + 1} class="p-0!">
 								<RowDetails record={row.original} />
 							</Table.Cell>
