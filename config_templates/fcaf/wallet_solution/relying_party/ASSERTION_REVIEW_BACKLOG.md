@@ -19,117 +19,7 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_IA_Metadata__012`        (waiting to use beta verifier)
 - [ ] `WS_RP_IA_Metadata__013`        (waiting to use beta verifier)
 - [ ] `WS_RP_IA_Supportive__006`      (hard load?????????)
-- [ ] `WS_RP_MS_CredentialFormats__041`
-- [ ] `WS_RP_MS_CredentialFormats__044`
-- [ ] `WS_RP_MS_CredentialFormats__046`
-- [ ] `WS_RP_MS_CredentialFormats__048`
-- [ ] `WS_RP_MS_Metadata__081`
-- [ ] `WS_RP_MS_Metadata__082`
-- [ ] `WS_RP_MS_Metadata__083`
-- [ ] `WS_RP_MS_Metadata__084`
-- [ ] `WS_RP_MS_Metadata__085`
-- [ ] `WS_RP_MS_Metadata__086`
-- [ ] `WS_RP_MS_Metadata__087`
-- [ ] `WS_RP_MS_Metadata__088`
-- [ ] `WS_RP_MS_Metadata__089`
-- [ ] `WS_RP_MS_Metadata__090`
-- [ ] `WS_RP_MS_Metadata__091`
-- [ ] `WS_RP_MS_Metadata__092`
-- [ ] `WS_RP_MS_Metadata__093`
-- [ ] `WS_RP_MS_Metadata__094`
-- [ ] `WS_RP_MS_Metadata__095`
-- [ ] `WS_RP_MS_Metadata__096`
-- [ ] `WS_RP_MS_Metadata__097`
-- [ ] `WS_RP_MS_Metadata__098`
-- [ ] `WS_RP_MS_Metadata__099`
-- [ ] `WS_RP_MS_Metadata__100`
-- [ ] `WS_RP_MS_Metadata__101`
-- [ ] `WS_RP_MS_Metadata__102`
-- [ ] `WS_RP_MS_Metadata__103`
-- [ ] `WS_RP_MS_Metadata__110`
-- [ ] `WS_RP_MS_Metadata__111`
-- [ ] `WS_RP_MS_Metadata__112`
-- [ ] `WS_RP_MS_Metadata__113`
-- [ ] `WS_RP_MS_Metadata__114`
-- [ ] `WS_RP_MS_Metadata__115`
-- [ ] `WS_RP_MS_Metadata__116`
-- [ ] `WS_RP_MS_Metadata__117`
-- [ ] `WS_RP_MS_Metadata__118`
-- [ ] `WS_RP_MS_Metadata__119`
-- [ ] `WS_RP_MS_Metadata__120`
-- [ ] `WS_RP_MS_Metadata__121`
-- [ ] `WS_RP_MS_Metadata__122`
-- [ ] `WS_RP_MS_Metadata__123`
-- [ ] `WS_RP_MS_Metadata__124`
-- [ ] `WS_RP_MS_Metadata__125`
-- [ ] `WS_RP_MS_Metadata__126`
-- [ ] `WS_RP_MS_Metadata__127`
-- [ ] `WS_RP_MS_Metadata__128`
-- [ ] `WS_RP_MS_Metadata__129`
-- [ ] `WS_RP_MS_Metadata__130`
-- [ ] `WS_RP_MS_Metadata__131`
-- [ ] `WS_RP_MS_Metadata__132`
-- [ ] `WS_RP_MS_Metadata__133`
-- [ ] `WS_RP_MS_Metadata__134`
-- [ ] `WS_RP_MS_Metadata__135`
-- [ ] `WS_RP_MS_Metadata__136`
-- [ ] `WS_RP_MS_Metadata__137`
-- [ ] `WS_RP_MS_Metadata__138`
-- [ ] `WS_RP_MS_Metadata__139`
-- [ ] `WS_RP_MS_Metadata__140`
-- [ ] `WS_RP_MS_Metadata__141`
-- [ ] `WS_RP_MS_ProtocolMessages__003`
-- [ ] `WS_RP_MS_ProtocolMessages__006`
-- [ ] `WS_RP_MS_ProtocolMessages__007`
-- [ ] `WS_RP_MS_ProtocolMessages__009`
-- [ ] `WS_RP_MS_ProtocolMessages__010`
-- [ ] `WS_RP_MS_ProtocolMessages__011`
 - [ ] `WS_RP_MS_ProtocolMessages__013`
-- [ ] `WS_RP_MS_ProtocolMessages__014`
-- [ ] `WS_RP_MS_ProtocolMessages__015`
-- [ ] `WS_RP_MS_ProtocolMessages__016`
-- [ ] `WS_RP_MS_ProtocolMessages__017`
-- [ ] `WS_RP_MS_ProtocolMessages__018`
-- [ ] `WS_RP_MS_ProtocolMessages__020`
-- [ ] `WS_RP_MS_ProtocolMessages__021`
-- [ ] `WS_RP_MS_ProtocolMessages__024`
-- [ ] `WS_RP_MS_ProtocolMessages__025`
-- [ ] `WS_RP_MS_ProtocolMessages__026`
-- [ ] `WS_RP_MS_ProtocolMessages__027`
-- [ ] `WS_RP_MS_ProtocolMessages__028`
-- [ ] `WS_RP_MS_ProtocolMessages__029`
-- [ ] `WS_RP_MS_ProtocolMessages__030`
-- [ ] `WS_RP_MS_ProtocolMessages__032`
-- [ ] `WS_RP_MS_ProtocolMessages__033`
-- [ ] `WS_RP_MS_ProtocolMessages__034`
-- [ ] `WS_RP_MS_ProtocolMessages__038`
-- [ ] `WS_RP_MS_ProtocolMessages__039`
-- [ ] `WS_RP_MS_ProtocolMessages__040`
-- [ ] `WS_RP_MS_ProtocolMessages__041`
-- [ ] `WS_RP_MS_ProtocolMessages__042`
-- [ ] `WS_RP_MS_ProtocolMessages__043`
-- [ ] `WS_RP_MS_ProtocolMessages__044`
-- [ ] `WS_RP_MS_ProtocolMessages__045`
-- [ ] `WS_RP_MS_ProtocolMessages__046`
-- [ ] `WS_RP_MS_ProtocolMessages__047`
-- [ ] `WS_RP_MS_ProtocolMessages__048`
-- [ ] `WS_RP_MS_ProtocolMessages__049`
-- [ ] `WS_RP_MS_ProtocolMessages__050`
-- [ ] `WS_RP_MS_ProtocolMessages__051`
-- [ ] `WS_RP_MS_ProtocolMessages__053`
-- [ ] `WS_RP_MS_ProtocolMessages__054`
-- [ ] `WS_RP_MS_ProtocolMessages__055`
-- [ ] `WS_RP_MS_ProtocolMessages__056`
-- [ ] `WS_RP_MS_ProtocolMessages__058`
-- [ ] `WS_RP_MS_ProtocolMessages__059`
-- [ ] `WS_RP_MS_ProtocolMessages__060`
-- [ ] `WS_RP_MS_ProtocolMessages__061`
-- [ ] `WS_RP_MS_ProtocolMessages__062`
-- [ ] `WS_RP_MS_ProtocolMessages__063`
-- [ ] `WS_RP_MS_ProtocolMessages__065`
-- [ ] `WS_RP_MS_ProtocolMessages__066`
-- [ ] `WS_RP_MS_ProtocolMessages__068`
-- [ ] `WS_RP_MS_ProtocolMessages__069`
 - [ ] `WS_RP_MS_ProtocolMessages__072`
 - [ ] `WS_RP_MS_ProtocolMessages__074`
 - [ ] `WS_RP_MS_ProtocolMessages__075`
@@ -244,6 +134,94 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 
 ## Verifier Blocked
 
+- [ ] `WS_RP_MS_ProtocolMessages__006` (needs a retrievable Request Object signed without a `typ` JOSE header)
+- [ ] `WS_RP_MS_ProtocolMessages__007` (needs a retrievable Request Object signed with an invalid `typ` JOSE header)
+- [ ] `WS_RP_MS_ProtocolMessages__009` (needs a signed Request Object with independently controlled `client_id` and `iss` claims)
+- [ ] `WS_RP_MS_ProtocolMessages__010` (needs a signed Request Object with the required `client_id` claim omitted)
+- [ ] `WS_RP_MS_ProtocolMessages__011` (needs a wallet configuration that does not support POST `request_uri` retrieval)
+- [ ] `WS_RP_MS_ProtocolMessages__013` (needs two available credentials that satisfy one DCQL credential query)
+- [ ] `WS_RP_MS_ProtocolMessages__015` (needs a verifier-delivered malformed DCQL query and the resulting wallet error callback)
+- [ ] `WS_RP_MS_ProtocolMessages__016` (needs a signed or referenced Authorization Request with a controllable unknown top-level parameter)
+- [ ] `WS_RP_MS_ProtocolMessages__017` (needs a wallet configuration without `transaction_data` support and a verifier callback capture)
+- [ ] `WS_RP_MS_ProtocolMessages__018` (needs a verifier-supported valid `transaction_data` type and matching wallet capability)
+- [ ] `WS_RP_MS_ProtocolMessages__020` (needs a verifier-supported scope value with a defined DCQL mapping)
+- [ ] `WS_RP_MS_ProtocolMessages__025` (needs a verifier-delivered transaction_data entry with a non-string `type` field)
+- [ ] `WS_RP_MS_ProtocolMessages__026` (needs a verifier-supported transaction_data schema with controllable invalid `credential_ids` encodings)
+- [ ] `WS_RP_MS_ProtocolMessages__027` (needs a supported transaction_data type to isolate a mismatched DCQL credential ID)
+- [ ] `WS_RP_MS_ProtocolMessages__028` (needs a supported transaction_data type and a valid credential_ids-positive fixture)
+- [ ] `WS_RP_MS_ProtocolMessages__029` (needs a verifier-info attestation with controllable omitted `credential_ids`)
+- [ ] `WS_RP_MS_ProtocolMessages__030` (needs a scope-only request with a controlled unknown scope value)
+- [ ] `WS_RP_MS_ProtocolMessages__033` (needs a signed or referenced request with a controllable invalid state value)
+- [ ] `WS_RP_MS_ProtocolMessages__034` (needs a signed request with `require_cryptographic_holder_binding=false` and no state)
+- [ ] `WS_RP_MS_ProtocolMessages__038` (needs an unsigned request with a valid `redirect_uri:` client identifier)
+- [ ] `WS_RP_MS_ProtocolMessages__039` (needs an unsigned request with a malformed or non-HTTPS `redirect_uri:` client identifier)
+- [ ] `WS_RP_MS_ProtocolMessages__040` (needs a `redirect_uri:` client identifier request without `redirect_uri`)
+- [ ] `WS_RP_MS_ProtocolMessages__041` (needs a direct_post.jwt request with `redirect_uri:` client identifier and no `response_uri`)
+- [ ] `WS_RP_MS_ProtocolMessages__042` (needs capture of request-URI POST method and HTTP headers, not only its decoded body)
+- [ ] `WS_RP_MS_ProtocolMessages__043` (needs a controllable HTTP request_uri endpoint)
+- [ ] `WS_RP_MS_ProtocolMessages__044` (needs raw request-URI POST bytes and encoding metadata)
+- [ ] `WS_RP_MS_ProtocolMessages__045` (needs the verifier to echo the wallet POST `wallet_nonce` into its signed Request Object)
+- [ ] `WS_RP_MS_ProtocolMessages__046` (needs a returned signed Request Object with missing or mismatched `wallet_nonce`)
+- [ ] `WS_RP_MS_ProtocolMessages__047` (needs capture of Request URI response headers and the signed response body)
+- [ ] `WS_RP_MS_ProtocolMessages__048` (needs a Request URI response with a controllable wrong Content-Type)
+- [ ] `WS_RP_MS_ProtocolMessages__049` (needs independently controllable conflicting outer and Request Object parameters)
+- [ ] `WS_RP_MS_ProtocolMessages__050` (needs evidence that outer and Request Object client_id values are equal, including prefix form)
+- [ ] `WS_RP_MS_ProtocolMessages__051` (needs independently controllable mismatching outer and Request Object client_id values)
+- [ ] `WS_RP_MS_Metadata__081` (needs an issuer-controlled JOSE referenced status token)
+- [ ] `WS_RP_MS_Metadata__082` (needs a JOSE referenced token with the status claim omitted)
+- [ ] `WS_RP_MS_Metadata__083` (needs a JOSE referenced token with controllable status_list values)
+- [ ] `WS_RP_MS_Metadata__084` (needs a JOSE referenced token without status_list)
+- [ ] `WS_RP_MS_Metadata__085` (needs a JOSE referenced token with controllable status_list.idx)
+- [ ] `WS_RP_MS_Metadata__086` (needs a JOSE referenced token with negative status_list.idx)
+- [ ] `WS_RP_MS_Metadata__087` (needs a JOSE referenced token with status_list.idx omitted)
+- [ ] `WS_RP_MS_Metadata__088` (needs a JOSE referenced token with a controllable status_list.uri)
+- [ ] `WS_RP_MS_Metadata__089` (needs malformed status_list.uri variants in an issued JOSE token)
+- [ ] `WS_RP_MS_Metadata__090` (needs a JOSE referenced token with status_list.uri omitted)
+- [ ] `WS_RP_MS_Metadata__091` (needs an issuer-controlled COSE referenced status token)
+- [ ] `WS_RP_MS_Metadata__092` (needs a COSE referenced token with an empty status map)
+- [ ] `WS_RP_MS_Metadata__093` (needs a COSE referenced token with controllable status_list fields)
+- [ ] `WS_RP_MS_Metadata__094` (needs a COSE referenced token without status_list)
+- [ ] `WS_RP_MS_Metadata__095` (needs a COSE token with controlled unsigned status_list.idx encoding)
+- [ ] `WS_RP_MS_Metadata__096` (needs malformed COSE status_list.idx encodings)
+- [ ] `WS_RP_MS_Metadata__097` (needs a COSE referenced token with status_list.idx omitted)
+- [ ] `WS_RP_MS_Metadata__098` (needs a COSE token with controlled status_list.uri encoding)
+- [ ] `WS_RP_MS_Metadata__099` (needs malformed status_list.uri variants in an issued COSE token)
+- [ ] `WS_RP_MS_Metadata__100` (needs a COSE referenced token with status_list.uri omitted)
+- [ ] `WS_RP_MS_Metadata__101` (needs a COSE referenced token with a status claim at label 65535)
+- [ ] `WS_RP_MS_Metadata__102` (needs a COSE referenced token with label 65535 omitted)
+- [ ] `WS_RP_MS_Metadata__103` (needs issuer control of StatusListInfo CBOR map shape and labels)
+- [ ] `WS_RP_MS_Metadata__110` (needs a signed redirect_uri-prefixed Request Object)
+- [ ] `WS_RP_MS_Metadata__111` (needs a verifier signing prefix and resolvable signing keys)
+- [ ] `WS_RP_MS_Metadata__112` (needs a valid OpenID Federation trust chain)
+- [ ] `WS_RP_MS_Metadata__113` (needs malformed or untrusted OpenID Federation chains)
+- [ ] `WS_RP_MS_Metadata__114` (needs OpenID Federation metadata resolution with conflicting client_metadata)
+- [ ] `WS_RP_MS_Metadata__115` (needs OpenID Federation metadata resolution without client_metadata)
+- [ ] `WS_RP_MS_Metadata__116` (needs a valid verifier attestation JWT and matching client identifier)
+- [ ] `WS_RP_MS_Metadata__117` (needs a verifier attestation JWT with a mismatched subject)
+- [ ] `WS_RP_MS_Metadata__118` (needs a verifier attestation JWT in the Request Object JOSE header)
+- [ ] `WS_RP_MS_Metadata__119` (needs a verifier_attestation request missing the jwt header)
+- [ ] `WS_RP_MS_Metadata__120` (needs a controllable verifier attestation redirect_uris claim)
+- [ ] `WS_RP_MS_Metadata__121` (needs a verifier attestation redirect_uris mismatch)
+- [ ] `WS_RP_MS_Metadata__122` (needs a verifier attestation without redirect_uris)
+- [ ] `WS_RP_MS_Metadata__123` (needs a verifier attestation request with external non-key metadata)
+- [ ] `WS_RP_MS_Metadata__124` (needs a verifier attestation request with client_metadata-only non-key metadata)
+- [ ] `WS_RP_MS_Metadata__125` (needs an x509_san_dns request and a controllable SAN certificate)
+- [ ] `WS_RP_MS_Metadata__126` (needs an x509_san_dns request with SAN mismatch)
+- [ ] `WS_RP_MS_Metadata__127` (needs an x509_san_dns request with redirect URI hostname binding)
+- [ ] `WS_RP_MS_Metadata__128` (needs an x509_san_dns request with redirect URI hostname mismatch)
+- [ ] `WS_RP_MS_Metadata__129` (needs an x509_hash request and controllable leaf certificate)
+- [ ] `WS_RP_MS_Metadata__130` (needs an x509_hash request with leaf certificate hash mismatch)
+- [ ] `WS_RP_MS_Metadata__131` (needs an x509_hash request signed by the leaf certificate key)
+- [ ] `WS_RP_MS_Metadata__132` (needs an x509_hash request signed by a different key)
+- [ ] `WS_RP_MS_Metadata__133` (needs an origin-prefixed request outside the Digital Credentials API)
+- [ ] `WS_RP_MS_Metadata__134` (needs verifier-issued encrypted Request Objects from POST wallet metadata)
+- [ ] `WS_RP_MS_Metadata__135` (needs a verifier to return an unencrypted Request Object after encryption negotiation)
+- [ ] `WS_RP_MS_Metadata__136` (needs POST wallet metadata for a verifier signing-capable client identifier prefix)
+- [ ] `WS_RP_MS_Metadata__137` (needs POST wallet metadata for a redirect_uri-prefixed request)
+- [ ] `WS_RP_MS_Metadata__138` (needs a verifier to echo the posted wallet_nonce into the Request Object)
+- [ ] `WS_RP_MS_Metadata__139` (needs a verifier to return a mismatched wallet_nonce)
+- [ ] `WS_RP_MS_Metadata__140` (needs a verifier to omit wallet_nonce after the Wallet posts one)
+
 - [ ] `WS_RP_IA_Engagement__002`        (W3C API)
 - [ ] `WS_RP_IA_MainInteraction__006`   (credential with no hb)
 - [ ] `WS_RP_IA_MainInteraction__008`   (credential with no hb)
@@ -274,6 +252,10 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_CredentialFormats__031` (issue sd-jwt vc with status.status_list)
 - [ ] `WS_RP_MS_CredentialFormats__032` (issue cwt with status.status_list)
 - [ ] `WS_RP_MS_CredentialFormats__033` (issue iso mdoc with status.status_list)
+- [ ] `WS_RP_MS_CredentialFormats__041` (multiple mdoc credentials with different values)
+- [ ] `WS_RP_MS_CredentialFormats__044` (requires credential with status)
+- [ ] `WS_RP_MS_CredentialFormats__046` (requires credential with no key-binding)
+- [ ] `WS_RP_MS_CredentialFormats__048` (strange json encoding vc, not to be done)
 - [ ] `WS_RP_MS_Metadata__105`
 - [ ] `WS_RP_MS_Metadata__106`
 - [ ] `WS_RP_MS_Metadata__107`
@@ -330,3 +312,26 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_SM_DeviceBinding__004`
 - [ ] `WS_RP_SM_DeviceBinding__005`
 - [ ] `WS_RP_SM_DeviceBinding__006`
+
+## Done
+
+- [x] `WS_RP_MS_Metadata__141` (reuses SD-JWT presentation evidence and validates issuer `x5c` chain)
+- [x] `WS_RP_MS_ProtocolMessages__003` (reuses valid by-value Request Object evidence with `typ: oauth-authz-req+jwt`)
+- [x] `WS_RP_MS_ProtocolMessages__014` (reuses no-matching-credentials evidence and validates `access_denied`)
+- [x] `WS_RP_MS_ProtocolMessages__021` (reuses conflicting DCQL and scope evidence and validates `invalid_request`)
+- [x] `WS_RP_MS_ProtocolMessages__024` (reuses unsupported transaction_data evidence and validates `invalid_transaction_data`)
+- [x] `WS_RP_MS_ProtocolMessages__032` (reuses a no-state Request Object and validates no response state)
+- [x] `WS_RP_MS_ProtocolMessages__053`
+- [x] `WS_RP_MS_ProtocolMessages__054`
+- [x] `WS_RP_MS_ProtocolMessages__055`
+- [x] `WS_RP_MS_ProtocolMessages__056`
+- [x] `WS_RP_MS_ProtocolMessages__058`
+- [x] `WS_RP_MS_ProtocolMessages__059`
+- [x] `WS_RP_MS_ProtocolMessages__060`
+- [x] `WS_RP_MS_ProtocolMessages__061`
+- [x] `WS_RP_MS_ProtocolMessages__062`
+- [x] `WS_RP_MS_ProtocolMessages__063`
+- [x] `WS_RP_MS_ProtocolMessages__065`
+- [x] `WS_RP_MS_ProtocolMessages__066`
+- [x] `WS_RP_MS_ProtocolMessages__068`
+- [x] `WS_RP_MS_ProtocolMessages__069`
