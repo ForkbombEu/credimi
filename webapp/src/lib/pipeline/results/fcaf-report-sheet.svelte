@@ -99,7 +99,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	function dedupeBurstScreenshots(screenshots: Screenshot[]): Screenshot[] {
-		const burst = /^(.+)_screenshot_\d+_action_[A-Za-z0-9_]+\.yaml\d+\.png$/;
+		const burst =
+			/^(.+)(?:_screenshot_\d+_action_[A-Za-z0-9_]+\.yaml\d+|_step_\d+_[A-Za-z0-9_]+)\.png$/;
 		const lastOfBurst = new Map<string, Screenshot>();
 		for (const screenshot of screenshots) {
 			const filename = screenshot.url.split('?')[0].split('/').pop() ?? '';
