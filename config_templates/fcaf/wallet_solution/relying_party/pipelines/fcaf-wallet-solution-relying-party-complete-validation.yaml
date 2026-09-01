@@ -1392,6 +1392,45 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-credential-id-empty-6d3e76ff-create
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - format: dc+sd-jwt
+                          id: ""
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credential-id-empty-6d3e76ff-reject
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - takeScreenshot: fcaf-dcql-credential-id-empty
+        parameters:
+            DEEPLINK: ${{ dcql-credential-id-empty-6d3e76ff-create.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-credential-id-empty-6d3e76ff-fetch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-id-empty-6d3e76ff-create.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-credential-id-missing-b9fe0583-create
       use: http-request
       with:
@@ -13327,6 +13366,10 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-credential-formats-3cfeac03-fetch-capture-session.outputs.body | optional }}
                     visual_evidence: ${{ dcql-credential-formats-3cfeac03-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.credential-id-empty:
+                output:
+                    dcql_exchange: ${{ dcql-credential-id-empty-6d3e76ff-fetch.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-credential-id-empty-6d3e76ff-reject.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.credential-id-missing:
                 output:
                     dcql_exchange: ${{ dcql-credential-id-missing-b9fe0583-fetch.outputs.body | optional }}
