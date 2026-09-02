@@ -149,7 +149,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__026` (needs a verifier-supported transaction_data schema with controllable invalid `credential_ids` encodings)
 - [ ] `WS_RP_MS_ProtocolMessages__027` (needs a supported transaction_data type to isolate a mismatched DCQL credential ID)
 - [ ] `WS_RP_MS_ProtocolMessages__028` (needs a supported transaction_data type and a valid credential_ids-positive fixture)
-- [ ] `WS_RP_MS_ProtocolMessages__029` (needs a verifier-info attestation with controllable omitted `credential_ids`)
 - [ ] `WS_RP_MS_ProtocolMessages__030` (needs a scope-only request with a controlled unknown scope value)
 - [ ] `WS_RP_MS_ProtocolMessages__033` (needs a signed or referenced request with a controllable invalid state value)
 - [ ] `WS_RP_MS_ProtocolMessages__034` (needs a signed request with `require_cryptographic_holder_binding=false` and no state)

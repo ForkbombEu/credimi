@@ -87,7 +87,7 @@ The service records issuance capture evidence, but the exact `observed`, `checks
 | `dcql_query` | Open-ended JSON object. | Supported as input; delivery semantics must be inspected. |
 | `scopes` | String or string array. | Supported as input. |
 | `transaction_data` | Unconstrained JSON value. | Supported as input; supported Wallet types are unknown. |
-| `verifier_info` | Unconstrained JSON value. | Supported as input; attestation generation and Wallet support are unknown. |
+| `verifier_info` | Unconstrained JSON value. | Supported as input. Observed on 02/09/2026: when nested in `presentation_request`, it is preserved in the signed Request Object; attestation generation and Wallet support remain unknown. |
 
 `additionalProperties` are accepted by the public request schema, but that does **not** establish that an unknown property appears in the signed Authorization Request. Retrieve and decode the request before using an unknown field as test evidence.
 
