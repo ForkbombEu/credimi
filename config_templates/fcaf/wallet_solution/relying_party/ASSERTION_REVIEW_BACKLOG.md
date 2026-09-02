@@ -140,10 +140,9 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__010` (needs a signed Request Object with the required `client_id` claim omitted)
 - [ ] `WS_RP_MS_ProtocolMessages__011` (needs a wallet configuration that does not support POST `request_uri` retrieval)
 - [ ] `WS_RP_MS_ProtocolMessages__013` (needs two available credentials that satisfy one DCQL credential query)
-- [ ] `WS_RP_MS_ProtocolMessages__015` (needs a verifier-delivered malformed DCQL query and the resulting wallet error callback)
 - [ ] `WS_RP_MS_ProtocolMessages__016` (needs a signed or referenced Authorization Request with a controllable unknown top-level parameter)
 - [ ] `WS_RP_MS_ProtocolMessages__017` (needs a wallet configuration without `transaction_data` support and a verifier callback capture)
-- [ ] `WS_RP_MS_ProtocolMessages__018` (needs a verifier-supported valid `transaction_data` type and matching wallet capability) [IMPLEMENTED IN BETA]
+- [ ] `WS_RP_MS_ProtocolMessages__018` (needs a verifier-supported valid `transaction_data` type and matching wallet capability)
 - [ ] `WS_RP_MS_ProtocolMessages__020` (needs a verifier-supported scope value with a defined DCQL mapping)
 - [ ] `WS_RP_MS_ProtocolMessages__030` (needs a scope-only request with a controlled unknown scope value)
 - [ ] `WS_RP_MS_ProtocolMessages__033` (needs a signed or referenced request with a controllable invalid state value)
@@ -211,7 +210,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_Metadata__135` (needs a verifier to return an unencrypted Request Object after encryption negotiation)
 - [ ] `WS_RP_MS_Metadata__136` (needs POST wallet metadata for a verifier signing-capable client identifier prefix)
 - [ ] `WS_RP_MS_Metadata__137` (needs POST wallet metadata for a redirect_uri-prefixed request)
-- [ ] `WS_RP_MS_Metadata__138` (needs a verifier to echo the posted wallet_nonce into the Request Object)
 - [ ] `WS_RP_MS_Metadata__139` (needs a verifier to return a mismatched wallet_nonce)
 - [ ] `WS_RP_MS_Metadata__140` (needs a verifier to omit wallet_nonce after the Wallet posts one)
 
@@ -309,8 +307,10 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 ## Done
 
 - [x] `WS_RP_MS_Metadata__141` (reuses SD-JWT presentation evidence and validates issuer `x5c` chain)
+- [x] `WS_RP_MS_Metadata__138`
 - [x] `WS_RP_MS_ProtocolMessages__003` (reuses valid by-value Request Object evidence with `typ: oauth-authz-req+jwt`)
 - [x] `WS_RP_MS_ProtocolMessages__014` (reuses no-matching-credentials evidence and validates `access_denied`)
+- [x] `WS_RP_MS_ProtocolMessages__015`
 - [x] `WS_RP_MS_ProtocolMessages__021` (reuses conflicting DCQL and scope evidence and validates `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__024` (reuses unsupported transaction_data evidence and validates `invalid_transaction_data`)
 - [x] `WS_RP_MS_ProtocolMessages__025`

@@ -101,6 +101,7 @@ steps:
       - WS_RP_MS_ProtocolMessages__043
       - WS_RP_MS_ProtocolMessages__044
       - WS_RP_MS_ProtocolMessages__045
+      - WS_RP_MS_Metadata__138
       - WS_RP_MS_ProtocolMessages__046
       - WS_RP_MS_ProtocolMessages__047
       - WS_RP_MS_ProtocolMessages__048
