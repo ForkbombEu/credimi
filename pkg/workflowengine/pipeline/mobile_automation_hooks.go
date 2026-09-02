@@ -314,11 +314,13 @@ func markExternalInstallSteps(
 			return nil
 		}
 
-		category, err := fetchMobileActionCategory(
-			ctx,
-			appURL,
-			workflowengine.AsString(step.With.Payload["action_id"]),
-		)
+		actionID, _ := step.With.Payload["action_id"].(string)
+		if strings.TrimSpace(actionID) == "" {
+			// Inline action_code steps have no stored action to categorize;
+			// resolving a missing identifier would query "<nil>".
+			return nil
+		}
+		category, err := fetchMobileActionCategory(ctx, appURL, actionID)
 		if err != nil {
 			return err
 		}

@@ -53,7 +53,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"min_execution_time":   "10m0s",
 						"first_execution_date": "2026-01-01T00:00:00Z",
 						"last_execution_date":  "2026-04-01T00:00:00Z",
-						"last_successful_run": map[string]any{
+						"last_run": map[string]any{
 							"workflow_id": "wf-1",
 							"run_id":      "run-1",
 							"start_time":  "2026-04-01T10:00:00Z",
@@ -75,7 +75,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"min_execution_time":   "2m0s",
 						"first_execution_date": "2026-02-01T00:00:00Z",
 						"last_execution_date":  "2026-04-03T00:00:00Z",
-						"last_successful_run": map[string]any{
+						"last_run": map[string]any{
 							"workflow_id": "wf-2",
 							"run_id":      "run-2",
 							"start_time":  "2026-04-03T10:00:00Z",
@@ -95,7 +95,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"min_execution_time":   "2m0s",
 						"first_execution_date": "2026-02-02T00:00:00Z",
 						"last_execution_date":  "2026-02-03T00:00:00Z",
-						"last_successful_run": map[string]any{
+						"last_run": map[string]any{
 							"workflow_id": "wf-3",
 							"run_id":      "run-3",
 							"start_time":  "2026-02-03T10:00:00Z",
@@ -206,7 +206,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						"min_execution_time":   "45s",
 						"first_execution_date": "2026-04-01T00:00:00Z",
 						"last_execution_date":  "2026-04-02T00:00:00Z",
-						"last_successful_run": map[string]any{
+						"last_run": map[string]any{
 							"workflow_id": "wf-1",
 							"run_id":      "run-1",
 							"start_time":  "2026-04-02T10:00:00Z",
@@ -401,7 +401,7 @@ func TestAggregateScoreboardWorkflowOrdersMixedTimestampPrecision(t *testing.T) 
 	lastRunMap := map[string]*pipelineRunRef{}
 	w.trackLastRun(
 		map[string]any{
-			"last_successful_run": map[string]any{
+			"last_run": map[string]any{
 				"workflow_id": "whole-second",
 				"run_id":      "run-1",
 				"start_time":  "2026-04-21T10:00:00Z",
@@ -413,7 +413,7 @@ func TestAggregateScoreboardWorkflowOrdersMixedTimestampPrecision(t *testing.T) 
 	)
 	w.trackLastRun(
 		map[string]any{
-			"last_successful_run": map[string]any{
+			"last_run": map[string]any{
 				"workflow_id": "fractional-second",
 				"run_id":      "run-2",
 				"start_time":  "2026-04-21T10:00:00.1Z",

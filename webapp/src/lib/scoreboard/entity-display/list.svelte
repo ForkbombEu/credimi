@@ -32,7 +32,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			compact: 'flex flex-wrap items-center gap-4',
 			full: 'flex flex-col gap-2',
 			'avatar-only': 'flex flex-col gap-0',
-			'links-only': 'flex flex-col gap-0'
+			'links-only': 'flex flex-col gap-0',
+			logos: 'flex flex-wrap items-center gap-1.5'
 		};
 
 		return [

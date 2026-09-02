@@ -65,6 +65,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<br />
 						{results?.scheduled_runs}
 						{m.executions_scheduled()}
+						<br />
+						{results?.CI_runs}
+						{m.executions_CI()}
 					</p>
 				</div>
 				<div class="stat">

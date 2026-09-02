@@ -107,13 +107,11 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: Temporary implementation files may live beside the FCAF test YAML for now, under the test catalog folder, and must be deleted during implementation once consumed.
 - follow-up: Implementation agents must keep the temporary folder clearly named and remove it before finalizing production-ready FCAF catalog work unless the maintainer explicitly keeps it.
 
-### 2026-07-02 - FCAF GitNexus override
 
-- status: resolved
-- owner: human maintainer
-- context: Repository instructions require GitNexus impact checks before editing workflows, activities, registry entries, and other architecture-sensitive code. GitNexus tools were not exposed in this Codex session.
-- question: Should FCAF workflow integration wait for GitNexus availability?
-- options considered: Pause workflow/registry edits until GitNexus is available; continue only inside isolated `pkg/fcaf`; proceed with workflow integration without GitNexus.
-- default risk: Proceeding without GitNexus may miss affected symbols or execution flows that indexed code intelligence would have surfaced.
-- decision: The maintainer explicitly instructed to skip GitNexus for this FCAF implementation pass.
-- follow-up: Report this override in final summaries for workflow/registry edits.
+## 2026-08-30 — Scoreboard success-rate sparkline
+
+- **Question:** Should the public scoreboard success-rate column show a sparkline of execution trends?
+- **Context:** `pipeline_scoreboard_cache` holds only aggregate stats (total_runs, total_successes, success_rate, first_execution); no per-run time series is exposed to the scoreboard API. A real sparkline needs a new data source (e.g. per-pipeline execution history endpoint or cached trend buckets) — cross-cutting API/schema change.
+- **Options considered:** (a) honest band-colored progress bar + score pill (implemented now); (b) sparkline fed by pipeline_results history (needs new backend query, N+1 risk on 20-row pages); (c) cached trend column in pipeline_scoreboard_cache populated by the scoreboard cache hook (schema + hook change).
+- **Default risk:** Current bar shows only the aggregate ratio, not direction/trend over time.
+- **Owner:** puria — **Status:** open

@@ -94,3 +94,48 @@ func TestGenerateDemoFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, committed, data, "generated demo pipeline is stale")
 }
+
+func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
+	root := filepath.Join(
+		"..",
+		"..",
+		"config_templates",
+		"fcaf",
+		"wallet_solution",
+		"relying_party",
+	)
+	output := filepath.Join(t.TempDir(), "happy-flow.yaml")
+	require.NoError(t, generateHappyFlow(filepath.Join(root, "scenarios"), output))
+
+	data, err := os.ReadFile(output)
+	require.NoError(t, err)
+	var definition pipelineDefinition
+	require.NoError(t, yaml.Unmarshal(data, &definition))
+	require.Len(t, definition.Steps, 53)
+	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
+
+	validationSteps := make([]map[string]any, 0, 1)
+	for index, step := range definition.Steps {
+		if step["use"] == validationTask {
+			validationSteps = append(validationSteps, step)
+			continue
+		}
+		if step["id"] == "onboard-reference-wallet" {
+			continue
+		}
+		require.Equal(t, true, step["continue_on_error"], "step %d", index)
+	}
+	require.Len(t, validationSteps, 1)
+	with, ok := validationSteps[0]["with"].(map[string]any)
+	require.True(t, ok)
+	require.Len(t, stringSlice(with["test_ids"]), 423)
+	require.Len(t, with["pipeline_outputs"], 17)
+
+	committed, err := os.ReadFile(filepath.Join(
+		root,
+		"pipelines",
+		"fcaf-wallet-solution-relying-party-happy-flow-validation.yaml",
+	))
+	require.NoError(t, err)
+	require.Equal(t, committed, data, "generated happy flow pipeline is stale")
+}

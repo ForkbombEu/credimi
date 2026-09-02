@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
+	import ExecutionProgress from './execution-progress.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 	import { getExecutionDeviceNames, type ExecutionSummary } from './workflows';
@@ -57,6 +58,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									failureReason={workflow.failure_reason}
 									size="sm"
 								/>
+								{#if workflow.status === 'Running'}
+									<ExecutionProgress progress={workflow.progress} />
+								{/if}
 							</td>
 							<td>
 								{#if deviceNames.length > 0}

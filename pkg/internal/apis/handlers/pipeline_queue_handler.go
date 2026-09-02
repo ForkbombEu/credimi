@@ -195,10 +195,11 @@ func enqueuePipelineRun(
 	if runContext.metadata != nil {
 		memo["metadata"] = runContext.metadata
 	}
-	memo[pipelineinternal.PublishedMemoKey] = runContext.pipelineRecord.GetBool("published")
 	config := buildPipelineQueueConfig(e, namespace, runContext.userName, runContext.userEmail)
+	// Every queue-started run notifies organization members on completion,
+	// whether it starts directly or through the device semaphore.
+	config[pipeline.CompletionNotificationConfigKey] = true
 	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
-
 	deviceInfo, err := pipeline.ParsePipelineDeviceInfo(runContext.yaml)
 	if err != nil {
 		return PipelineQueueResponse{}, apierror.New(

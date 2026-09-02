@@ -19,7 +19,8 @@ import { walletActionStepConfig } from './wallet-action';
 
 export const utilsConfigs: AnyConfig[] = [
 	utilsSteps.emailStepConfig,
-	utilsSteps.httpRequestStepConfig
+	utilsSteps.httpRequestStepConfig,
+	utilsSteps.jsonParseStepConfig
 ];
 
 export const coreConfigs: AnyConfig[] = [

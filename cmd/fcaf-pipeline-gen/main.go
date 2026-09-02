@@ -35,8 +35,9 @@ type aggregateDefinition struct {
 var nonSlugCharacter = regexp.MustCompile(`[^a-z0-9]+`)
 
 const (
-	completeValidationName = "FCAF wallet relying-party complete validation"
-	demoValidationName     = "FCAF wallet relying-party demo validation"
+	completeValidationName  = "FCAF wallet relying-party complete validation"
+	demoValidationName      = "FCAF wallet relying-party demo validation"
+	happyFlowValidationName = "FCAF wallet relying-party happy flow validation"
 )
 
 var demoScenarioNames = []string{
@@ -109,6 +110,11 @@ func main() {
 		"config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-demo-validation.yaml",
 		"generated demo validation pipeline YAML",
 	)
+	happyFlowOutputPath := flag.String(
+		"happy-flow-output",
+		"config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-happy-flow-validation.yaml",
+		"generated happy flow validation pipeline YAML",
+	)
 	flag.Parse()
 
 	if err := generate(*inputDir, *outputPath); err != nil {
@@ -119,31 +125,73 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	if err := generateHappyFlow(*inputDir, *happyFlowOutputPath); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 func generateDemo(inputDir string, outputPath string) error {
+	selected, err := selectScenarios(inputDir, demoScenarioNames)
+	if err != nil {
+		return err
+	}
+	return buildAggregate(demoValidationName, selected, outputPath, demoTestIDs)
+}
+
+// happyFlowScenarioNames keeps the happy flow to the shared-evidence
+// scenarios that own the positive test batches; the fragmented one-test
+// DCQL variants stay in the complete validation aggregate only.
+var happyFlowScenarioNames = []string{
+	"fcaf-wallet-solution-relying-party-engagement-haip-vp.yaml",
+	"fcaf-wallet-solution-relying-party-pid-mdoc-data-model.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-protocol-messages.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-metadata.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-main-interaction.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-credential-formats.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-session-encryption.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-interaction-metadata.yaml",
+	"fcaf-wallet-solution-relying-party-request-object-by-value.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-cryptography.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-credentials-match.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-device-binding.yaml",
+}
+
+// generateHappyFlow builds the aggregate pipeline validating every FCAF test
+// owned by the single happy-flow scenario, without the curated demo filter.
+func generateHappyFlow(inputDir string, outputPath string) error {
+	selected, err := selectScenarios(inputDir, happyFlowScenarioNames)
+	if err != nil {
+		return err
+	}
+	return buildAggregate(happyFlowValidationName, selected, outputPath, nil)
+}
+
+func selectScenarios(inputDir string, names []string) ([]string, error) {
 	paths, err := filepath.Glob(filepath.Join(inputDir, "*.yaml"))
 	if err != nil {
-		return fmt.Errorf("find FCAF scenarios: %w", err)
+		return nil, fmt.Errorf("find FCAF scenarios: %w", err)
 	}
-	selected := make([]string, 0, len(demoScenarioNames))
+	selected := make([]string, 0, len(names))
 	for _, path := range paths {
-		for _, name := range demoScenarioNames {
+		for _, name := range names {
 			if filepath.Base(path) == name {
 				selected = append(selected, path)
 				break
 			}
 		}
 	}
-	if len(selected) != len(demoScenarioNames) {
-		return fmt.Errorf(
-			"demo scenarios incomplete: expected %v, found %d files",
-			demoScenarioNames,
+	if len(selected) != len(names) {
+		return nil, fmt.Errorf(
+			"FCAF scenarios incomplete: expected %v, found %d files",
+			names,
 			len(selected),
 		)
 	}
 	sort.Strings(selected)
-	return buildAggregate(demoValidationName, selected, outputPath, demoTestIDs)
+	return selected, nil
 }
 
 func generate(inputDir string, outputPath string) error {

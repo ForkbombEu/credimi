@@ -77,11 +77,22 @@ type FailureReason struct {
 }
 
 type ExecutedTest struct {
-	TestID     string          `json:"test_id"`
-	Title      string          `json:"title,omitempty"`
-	Status     string          `json:"status"`
-	Assertions []ExecutedCheck `json:"assertions,omitempty"`
-	Outcome    TestOutcome     `json:"outcome"`
+	TestID     string             `json:"test_id"`
+	Title      string             `json:"title,omitempty"`
+	Status     string             `json:"status"`
+	Assertions []ExecutedCheck    `json:"assertions,omitempty"`
+	Evidence   []ExecutedEvidence `json:"evidence,omitempty"`
+	Outcome    TestOutcome        `json:"outcome"`
+}
+
+// ExecutedEvidence records which evidence a test consumed. The flat report
+// evidence map keeps only one record per name, so per-test consumers such as
+// the PDF and the webapp sheet must use this list to attach the right
+// scenario's artifacts to each test.
+type ExecutedEvidence struct {
+	Name       string   `json:"name"`
+	SourceNode string   `json:"source_node,omitempty"`
+	Visual     []string `json:"visual,omitempty"`
 }
 
 type ExecutedCheck struct {
@@ -174,6 +185,17 @@ func (r *Report) PopulateExecutedTests() {
 				Status:       normalizeExecutionStatus(assertion.Status),
 				Message:      assertion.Message,
 				EvidenceKeys: append([]string(nil), assertion.EvidenceKeys...),
+			})
+		}
+		for _, item := range test.Evidence {
+			visual := ImageReferenceURLs(item.Value)
+			if len(visual) == 0 && item.Name == "" {
+				continue
+			}
+			executed.Evidence = append(executed.Evidence, ExecutedEvidence{
+				Name:       item.Name,
+				SourceNode: item.SourceNode,
+				Visual:     visual,
 			})
 		}
 		r.ExecutedTests = append(r.ExecutedTests, executed)

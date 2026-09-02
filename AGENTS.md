@@ -94,52 +94,12 @@ Before modifying files:
 1. Read this `AGENTS.md`.
 2. Inspect the repository structure relevant to the request.
 3. Check `git status --short` and preserve unrelated user changes.
-4. For unfamiliar behavior, use GitNexus first when it applies.
-5. Read the local code before editing it.
-6. If a convention is unclear, append it to `.agents/HITL.md` and ask the user. Do not assume.
-7. Choose the smallest change that satisfies the task.
-8. Validate with the narrowest meaningful test first, then broader checks when risk warrants it.
+4. Read the local code before editing it.
+5. If a convention is unclear, append it to `.agents/HITL.md` and ask the user. Do not assume.
+6. Choose the smallest change that satisfies the task.
+7. Validate with the narrowest meaningful test first, then broader checks when risk warrants it.
 
 For UI/Svelte tasks, also read `webapp/AGENTS.md` before editing webapp files.
-
-## GitNexus Requirement
-
-This project is indexed by GitNexus as `credimi`.
-
-Use GitNexus for code intelligence whenever a task changes or depends on symbols, flows, or architecture.
-
-Before editing any function, class, method, exported type, workflow, activity, handler, route registration, Svelte component logic, or shared module:
-
-- run `gitnexus_impact({target: "symbolName", direction: "upstream"})`
-- report the blast radius to the user: direct callers, affected process groups, and risk level
-- if the risk is HIGH or CRITICAL, warn the user before editing
-
-Before committing, if the user explicitly requested a commit:
-
-- run `gitnexus_detect_changes()`
-- verify the affected symbols and execution flows are expected
-
-If GitNexus warns that the index is stale, run:
-
-```sh
-npx gitnexus analyze
-```
-
-Useful resources:
-
-- `gitnexus://repo/credimi/context`
-- `gitnexus://repo/credimi/clusters`
-- `gitnexus://repo/credimi/processes`
-- `gitnexus://repo/credimi/process/{name}`
-
-Skill references:
-
-- `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md`
-- `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md`
-- `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md`
-- `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md`
-- `.claude/skills/gitnexus/gitnexus-guide/SKILL.md`
-- `.claude/skills/gitnexus/gitnexus-cli/SKILL.md`
 
 ## Forkbomb Ecosystem Boundary
 
@@ -229,7 +189,7 @@ Do not commit local `pb_data/`, `.env`, generated local databases, secrets, cove
 - Pipeline workflows run in the owner organization namespace.
 - The `mobile-automation` child workflow runs in the same namespace as the pipeline and uses a runner-specific task queue.
 
-Namespace changes are high risk. Use GitNexus and inspect startup hooks, route handlers, workflow starts, and worker registration before editing.
+Namespace changes are high risk. Inspect startup hooks, route handlers, workflow starts, and worker registration before editing.
 
 ## Dynamic Pipeline Workflow
 
@@ -741,9 +701,8 @@ Before every requested commit:
 - inspect staged files with `git diff --cached --stat` and, when needed, `git diff --cached`
 - inspect staged files for secrets and sensitive data
 - ensure private Forkbomb dependencies remain present
-- run `gitnexus_detect_changes()`
 
-If formatting, linting, tests, staged-file inspection, or GitNexus change detection fails:
+If formatting, linting, tests, or staged-file inspection fails:
 
 -> STOP
 -> fix the issue

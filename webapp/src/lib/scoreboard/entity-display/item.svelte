@@ -39,6 +39,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		tooltip={item.name}
 		aria-label={item.name}
 	/>
+{:else if layout === 'logos'}
+	{#if item.children?.length}
+		<div class="flex flex-wrap items-center gap-1.5">
+			{#each item.children as child (child.href)}
+				<Tooltip>
+					{#if child.avatar}
+						<EntityAvatar
+							item={{
+								key: child.href,
+								name: child.label,
+								href: child.href,
+								avatar: child.avatar
+							}}
+							link
+						/>
+					{:else}
+						<a
+							href={child.href}
+							class="rounded-sm text-xs hover:underline focus-visible:outline-2"
+						>
+							{child.label}
+						</a>
+					{/if}
+					{#snippet content()}
+						<p class="text-xs font-semibold">{child.label}</p>
+					{/snippet}
+				</Tooltip>
+			{/each}
+		</div>
+	{/if}
 {:else if layout === 'links-only'}
 	<A href={item.href} class="block max-w-[30ch] truncate text-xs">
 		{item.name}
@@ -65,34 +95,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{:else if item.avatar}
 			<EntityAvatar {item} link />
 		{/if}
-		<div class="flex flex-col text-xs">
-			<A href={item.href} class="max-w-[15ch] truncate">
-				{item.name}
-			</A>
-			{#if item.kind}
-				<p class={[item.kind.classes.text]}>
-					<item.kind.icon class="inline-block size-3 -translate-y-px" />
-					{item.kind.labels.singular}
-					{#if item.children?.length}
-						<Tooltip>
-							<span
-								class={[
-									'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] leading-none tabular-nums transition-colors',
-									item.kind.classes.text,
-									'bg-current/15 hover:bg-current/35'
-								]}
-							>
-								{item.children.length}
-							</span>
-
-							{#snippet content()}
-								<EntityChildren
-									children={item.children!}
-									linkClass="text-white hover:underline"
-								/>
-							{/snippet}
-						</Tooltip>
-					{/if}
+		<div class="flex min-w-0 flex-col text-xs">
+			<span class="flex items-center gap-1">
+				<A href={item.href} class="font-semibold whitespace-nowrap">
+					{item.name}
+				</A>
+				{#if item.children && item.children.length > 1}
+					<span
+						class="inline-flex min-w-4 items-center justify-center rounded-full bg-secondary px-1 text-[9px] leading-4 font-semibold text-secondary-foreground tabular-nums"
+						aria-label="{item.children.length} {item.kind?.labels.plural ?? 'items'}"
+					>
+						{item.children.length}
+					</span>
+				{/if}
+			</span>
+			{#if item.caption}
+				<p class="font-mono text-[10px] text-muted-foreground">
+					{item.caption}
 				</p>
 			{/if}
 		</div>

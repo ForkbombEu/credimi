@@ -10,8 +10,6 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-05-pipeline-artifacts-unification-design.md` (revised)
 
-**Pre-flight:** Run `gitnexus_impact({ target: "computePipelineResultsFromRecord", direction: "upstream", repo: "credimi" })` and note blast radius before Go edits. Do **not** modify `computePipelineResultsFromRecord` logic — only wrap it.
-
 **Already done (skip):** `WorkflowExecutionSummary.Report`, `computePipelineReportURLFromRecord`, per-pipeline hierarchy wiring, `PipelineReportSheet.svelte`, workflow table inline rendering, `workflows.ts` types + mock removal.
 
 ---
@@ -638,11 +636,7 @@ Run: `cd webapp && bun run check`
 
 Expected: PASS
 
-- [ ] **Step 3: GitNexus detect changes**
-
-Run: `gitnexus_detect_changes({ repo: "credimi" })` per AGENTS.md — confirm scope matches expected symbols only.
-
-- [ ] **Step 4: Manual smoke (optional)**
+- [ ] **Step 3: Manual smoke (optional)**
 
 - Scoreboard row shows log icon alongside video/screenshot
 - Report sheet + print opens from all three surfaces

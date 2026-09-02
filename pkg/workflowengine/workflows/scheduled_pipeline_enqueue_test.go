@@ -120,7 +120,6 @@ steps:
 		pipelineinternal.RunTypeScheduled,
 		capturedPayload.Memo[pipelineinternal.RunTypeMemoKey],
 	)
-	require.Equal(t, true, capturedPayload.Memo[pipelineinternal.PublishedMemoKey])
 
 	require.False(t, capturedPayload.EnqueuedAt.IsZero())
 	require.Equal(t, time.UTC, capturedPayload.EnqueuedAt.Location())

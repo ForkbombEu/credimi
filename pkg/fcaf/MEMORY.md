@@ -41,6 +41,53 @@ On 27/08/2026, maintainer removed legacy FCAF orchestration. `/api/fcaf/run`, as
 
 Maintain 112 evidence-producing source definitions under `config_templates/fcaf/wallet_solution/relying_party/scenarios/`. `make fcaf-generate` combines them into one deployable pipeline, prefixes scenario step IDs, continues after scenario failures, merges 115 exact evidence sources, and runs one final `fcaf-validation` over all 559 tests. `pipelines/` contains only this generated complete-validation pipeline, so sync/run creates one top-level FCAF execution.
 
+## Happy flow aggregate pipeline
+
+On 31/08/2026 `cmd/fcaf-pipeline-gen` gained a third generated pipeline,
+`fcaf-wallet-solution-relying-party-happy-flow-validation.yaml`: the
+shared-evidence positive batch of the FCAF catalog, deliberately NOT the
+complete assessment. `happyFlowScenarioNames` selects the 14 scenarios that
+own every positive test batch (>= 5 positive tests each): 423 test IDs, 17
+evidence sources, 53 steps, 21 mobile-automation actions. Excluded: all
+negative tests and the fragmented one-test-per-interaction DCQL tail that
+only the complete validation aggregate covers. Reuses only existing wallet
+actions (`onboarding-1`, `getcredential-generic-credential-without-authentication`,
+`fcaf-engagement-haip-vp`); no new Maestro actions are needed. The
+maintainer rejected both a positives-only aggregate of all 75 positive
+scenarios (500 tests, ~86 wallet actions, "full assessment minus negatives")
+and a strict single-presentation flow (72 tests, below the 200+ check
+expectation). Deployment to the fcaf-1 org on credimi.io: apply the CLI org
+rewrite (`forkbomb-bv-andrea/` -> `fcaf-1/`), drop `runtime.global_runner_id`,
+and upload the record; the webapp queue flow injects the UI-selected runner
+as `global_runner_id` at queue time. `installed_from_external_source` is a
+platform sentinel (use the wallet pre-installed on the runner), not a
+wallet_versions lookup, and needs no org rewrite.
+
+## Happy flow fcaf-1 deployment incident
+
+The first credimi.io/fcaf-1 run of the happy flow pipeline (31/08/2026,
+17:21) failed during workflow setup: `markExternalInstallSteps` resolved
+`workflowengine.AsString(nil)` — the literal string `"<nil>"` — as an
+action identifier for the eleven `installed_from_external_source` steps
+that carry inline `action_code` and no `action_id`, so the canonify
+validate endpoint returned CRE310 `invalid path "<nil>"`. Two-part remedy:
+
+1. Repo fix (uncommitted in the fcaf-happy-flow worktree):
+   `markExternalInstallSteps` now skips sentinel steps without a string
+   `action_id`; regression test
+   `TestMarkExternalInstallStepsSkipsInlineActionCodeSteps` fails on the
+   unfixed code. Deploy with the next server release.
+2. Instance-side pipeline shim (record `7j70w1pf7pqpl23`, patched 17:27):
+   those eleven steps now declare
+   `action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp`
+   (category `verify-credential`, never `install-app`). Execution is
+   unchanged because the mobile-automation child workflow runs
+   `payload.ActionCode`, not the stored action; the shim only feeds the
+   category lookup. Replace the shim with the repo fix once deployed.
+
+The complete-validation pipeline hits the same setup bug on any current
+server build; it is not fcaf-1-specific.
+
 Every test has exactly one scenario owner. Do not restore sole-output fallback: one wallet interaction must never stand in for incompatible scenarios. A complete run may still contain many sequential wallet interactions. Mock-verifier-blocked tests must report blocked/failed from missing real evidence, never synthetic conformance passes.
 
 ## Case 087
@@ -463,3 +510,22 @@ Active worktrees prepared from `54373c67`:
 - 093: `/tmp/credimi-fcaf-093`, branch `test/fcaf-093-authority-value-items`
 
 Each worktree contains an untracked `AGENT_TASK.md`. Agents own only test-specific artifacts. Shared integration files remain owned by the main worktree and must be updated after the four branches are reviewed/cherry-picked. Code work can run concurrently; emulator/Maestro runs cannot because all agents share `emulator-5580`.
+
+## Wallet step editor compatibility (2026-09-01)
+
+The pipeline editor could not display inline `action_code` mobile-automation
+steps ("Invalid pipeline step data"): `walletActionStepConfig.deserialize`
+requires `action_id`. The 11 happy-flow scenarios that used inline code now
+reference two stored wallet actions synced from
+`config_templates/fcaf/imports/forkbomb-bv-andrea/wallet/`:
+`fcaf-exercise-wallet-generic` (generic capture-session exercise, `deeplink`
+parameter, fixed `exercise-wallet` screenshot label) and
+`fcaf-submit-request-object-by-value` (`CLIENT_ID`/`REQUEST_OBJECT`
+parameters). Both keep `version_id: installed_from_external_source`, which the
+editor resolves as the external version. The editor now also round-trips
+arbitrary step `parameters` on edit instead of only `deeplink`.
+
+The ~90 fragmented one-test DCQL scenarios in the complete-validation
+aggregate still use inline `action_code` and remain flagged in the editor;
+converting them needs their distinct mock-deeplink flow templates extracted
+first (see scenario sources under `scenarios/fcaf-wallet-solution-relying-party-dcql-*`).

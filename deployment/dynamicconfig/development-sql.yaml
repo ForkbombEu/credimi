@@ -7,3 +7,10 @@ limit.maxIDLength:
 system.forceSearchAttributesCacheRefreshOnRead:
   - value: true # Dev setup only. Please don't turn this on in production.
     constraints: {}
+# FCAF aggregate validation reports exceed the default 2MB per-event blob limit.
+limit.blobSize.error:
+  - value: 104857600
+    constraints: {}
+limit.blobSize.warn:
+  - value: 104857600
+    constraints: {}

@@ -1,0 +1,46 @@
+appId: eu.europa.ec.euidi
+name: FCAF submit request object by value
+tags:
+  - fcaf
+  - request-object
+  - by-value
+---
+- stopApp
+- evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
+- openLink:
+    link: ${output.authorizationRequest}
+    autoVerify: false
+    browser: false
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    text: "EUDI Wallet"
+    optional: true
+- tapOn:
+    text: "Just once"
+    optional: true
+- extendedWaitUntil:
+    visible: "Welcome back|Share|Cancel|Close"
+    timeout: 100000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
+- extendedWaitUntil:
+    visible: "Share"
+    timeout: 30000
+- tapOn:
+    text: "Share"
+    enabled: true
+- extendedWaitUntil:
+    visible: "verify your identity|PIN"
+    timeout: 30000
+- inputText: "123456"
+- extendedWaitUntil:
+    visible: "Close"
+    timeout: 30000
+- assertVisible: "Close"
+- takeScreenshot: fcaf-request-object-by-value-accepted

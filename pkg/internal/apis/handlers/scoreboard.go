@@ -35,6 +35,9 @@ const scoreboardPipelineRecordBatchSize = 250
 
 var errScoreboardRelationSkipped = errors.New("scoreboard relation skipped")
 
+// errPipelineNotPublished marks pipelines excluded from the public scoreboard.
+var errPipelineNotPublished = errors.New("pipeline not published")
+
 var aggregateScoreboardWorkflowStart = func(
 	namespace string,
 	input workflowengine.WorkflowInput,
@@ -51,24 +54,24 @@ type StartAggregateScoreboardResponse struct {
 }
 
 type PipelineStatsResponse struct {
-	PipelineID          string             `json:"pipeline_id"`
-	PipelineName        string             `json:"pipeline_name"`
-	PipelineIdentifier  string             `json:"pipeline_identifier"`
-	DeviceTypes         []string           `json:"device_types"`
-	DeviceIDs           []string           `json:"device_ids"`
-	TotalRuns           int                `json:"total_runs"`
-	TotalSuccesses      int                `json:"total_successes"`
-	SuccessRate         float64            `json:"success_rate"`
-	ManualExecutions    int                `json:"manual_executions"`
-	ScheduledExecutions int                `json:"scheduled_executions"`
-	CIExecutions        int                `json:"ci_executions"`
-	MinExecutionTime    string             `json:"min_execution_time"`
-	FirstExecutionDate  string             `json:"first_execution_date"`
-	LastExecutionDate   string             `json:"last_execution_date"`
-	LastSuccessfulRun   *LastSuccessfulRun `json:"last_successful_run,omitempty"`
+	PipelineID          string   `json:"pipeline_id"`
+	PipelineName        string   `json:"pipeline_name"`
+	PipelineIdentifier  string   `json:"pipeline_identifier"`
+	DeviceTypes         []string `json:"device_types"`
+	DeviceIDs           []string `json:"device_ids"`
+	TotalRuns           int      `json:"total_runs"`
+	TotalSuccesses      int      `json:"total_successes"`
+	SuccessRate         float64  `json:"success_rate"`
+	ManualExecutions    int      `json:"manual_executions"`
+	ScheduledExecutions int      `json:"scheduled_executions"`
+	CIExecutions        int      `json:"ci_executions"`
+	MinExecutionTime    string   `json:"min_execution_time"`
+	FirstExecutionDate  string   `json:"first_execution_date"`
+	LastExecutionDate   string   `json:"last_execution_date"`
+	LastRun             *LastRun `json:"last_run,omitempty"`
 }
 
-type LastSuccessfulRun struct {
+type LastRun struct {
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
 	StartTime  string `json:"start_time"`
@@ -444,7 +447,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			if pipelineRecord == nil {
 				continue
 			}
-			if !workflowExecutionVisibleOnScoreboard(exec, pipelineRecord) {
+			if !pipelineRecord.GetBool("published") {
 				continue
 			}
 			executionsByPipelineID[pipelineRecord.Id] = append(
@@ -463,7 +466,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 			pipelineName := pipelineRecord.GetString("name")
 
 			runnerCache := make(map[string]map[string]any)
-			stats, lastSuccessfulRun := calculateStatsFromExecutions(
+			stats, lastRun := calculateStatsFromExecutions(
 				pipelineExecutions,
 				e.App,
 				runTypes,
@@ -489,37 +492,11 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 				MinExecutionTime:    stats.MinExecutionTime,
 				FirstExecutionDate:  stats.FirstExecutionDate,
 				LastExecutionDate:   stats.LastExecutionDate,
-				LastSuccessfulRun:   lastSuccessfulRun,
+				LastRun:             lastRun,
 			})
 		}
 		return e.JSON(http.StatusOK, response)
 	}
-}
-
-func workflowExecutionVisibleOnScoreboard(
-	exec *WorkflowExecution,
-	pipelineRecord *core.Record,
-) bool {
-	published, ok := workflowExecutionPublishedMemo(exec)
-	if ok {
-		return published
-	}
-	return pipelineRecord != nil && pipelineRecord.GetBool(pipelineinternal.PublishedMemoKey)
-}
-
-func workflowExecutionPublishedMemo(exec *WorkflowExecution) (bool, bool) {
-	if exec == nil || exec.Memo == nil {
-		return false, false
-	}
-	field, ok := exec.Memo.Fields[pipelineinternal.PublishedMemoKey]
-	if !ok || field == nil || field.Data == nil {
-		return false, false
-	}
-	published, err := strconv.ParseBool(DecodeFromTemporalPayload(*field.Data))
-	if err != nil {
-		return false, false
-	}
-	return published, true
 }
 
 func HandleGetExecutionDetails() func(*core.RequestEvent) error {
@@ -633,7 +610,7 @@ func calculateStatsFromExecutions(
 	app core.App,
 	runTypes map[workflowExecutionRef]string,
 	runnerCache map[string]map[string]any,
-) (*PipelineStats, *LastSuccessfulRun) {
+) (*PipelineStats, *LastRun) {
 	stats := &PipelineStats{
 		DeviceIDs:   []string{},
 		DeviceTypes: []string{},
@@ -648,7 +625,7 @@ func calculateStatsFromExecutions(
 	var firstTime, lastTime string
 	minDurationSet := false
 
-	var lastSuccessfulExec *WorkflowExecution
+	var lastExec *WorkflowExecution
 
 	for _, exec := range executions {
 		if exec == nil || exec.SearchAttributes == nil {
@@ -662,11 +639,11 @@ func calculateStatsFromExecutions(
 		isCompleted := extractCompletionStatus(exec)
 		if isCompleted {
 			stats.TotalSuccesses++
-
-			if lastSuccessfulExec == nil ||
-				utils.TimeStringAfter(exec.StartTime, lastSuccessfulExec.StartTime) {
-				lastSuccessfulExec = exec
-			}
+		}
+		// The scoreboard shows evidence for the latest run, failed runs included:
+		// a broken pipeline must expose why it is broken.
+		if lastExec == nil || utils.TimeStringAfter(exec.StartTime, lastExec.StartTime) {
+			lastExec = exec
 		}
 
 		switch pipelineRunTypeFromMap(runTypes, exec) {
@@ -703,16 +680,16 @@ func calculateStatsFromExecutions(
 	stats.LastExecutionDate = lastTime
 	stats.MinExecutionTime = formatDurationString(minDuration, minDurationSet)
 
-	var lastSuccessfulRun *LastSuccessfulRun
-	if lastSuccessfulExec != nil {
-		lastSuccessfulRun = &LastSuccessfulRun{
-			WorkflowID: lastSuccessfulExec.Execution.WorkflowID,
-			RunID:      lastSuccessfulExec.Execution.RunID,
-			StartTime:  lastSuccessfulExec.StartTime,
+	var lastRun *LastRun
+	if lastExec != nil {
+		lastRun = &LastRun{
+			WorkflowID: lastExec.Execution.WorkflowID,
+			RunID:      lastExec.Execution.RunID,
+			StartTime:  lastExec.StartTime,
 		}
 	}
 
-	return stats, lastSuccessfulRun
+	return stats, lastRun
 }
 
 func workflowExecutionExcludedFromScoreboardStats(exec *WorkflowExecution) bool {
@@ -1087,6 +1064,13 @@ func insertAggregatedResults(
 		record := core.NewRecord(collection)
 		setBasicFields(record, stats)
 		if err := setPipelineRelation(record, app, stats.PipelineID); err != nil {
+			if errors.Is(err, errPipelineNotPublished) {
+				app.Logger().Debug(
+					"skipping unpublished pipeline for scoreboard",
+					"pipeline_id", stats.PipelineID,
+				)
+				continue
+			}
 			saveErrors = append(saveErrors, fmt.Errorf("pipeline %s: %w", stats.PipelineID, err))
 			continue
 		}
@@ -1152,6 +1136,9 @@ func setPipelineRelation(record *core.Record, app core.App, pipelineID string) e
 	pipelineRecord, err := app.FindRecordById("pipelines", pipelineID)
 	if err != nil {
 		return fmt.Errorf("failed to find pipeline record for ID %s: %w", pipelineID, err)
+	}
+	if !pipelineRecord.GetBool("published") {
+		return errPipelineNotPublished
 	}
 	record.Set("pipeline", pipelineRecord.Id)
 	return nil
@@ -1236,14 +1223,14 @@ func setLastExecutionFields(
 		skipped = append(
 			skipped,
 			fmt.Sprintf(
-				"latest_successful_execution for workflow %s and run %s: %v",
+				"latest_execution for workflow %s and run %s: %v",
 				lastExecution.WorkflowID,
 				lastExecution.RunID,
 				err,
 			),
 		)
 	} else if pipelineResultId != "" {
-		record.Set("latest_successful_execution", pipelineResultId)
+		record.Set("latest_execution", pipelineResultId)
 	}
 
 	setOptionalRelationField(

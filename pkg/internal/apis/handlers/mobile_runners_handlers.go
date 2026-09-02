@@ -156,8 +156,8 @@ var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/mobile-runner",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		middlewares.RequireInternalAdminAPIKey(),
 		{Func: middlewares.ErrorHandlingMiddleware},
+		middlewares.RequireInternalAdminAPIKey(),
 	},
 	Routes: []routing.RouteDefinition{
 		{

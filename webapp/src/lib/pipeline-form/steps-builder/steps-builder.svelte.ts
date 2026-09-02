@@ -151,6 +151,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 					form = config.initForm({
 						intent,
 						initial: opts.initial as never,
+						openStep: (type) => this.initAddStep(type),
 						getExecutionTarget: () => this.executionTarget,
 						isExecutionTargetLocked: () =>
 							isExecutionTargetLocked({

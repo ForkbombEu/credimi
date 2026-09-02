@@ -77,7 +77,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	initForm: (opts) => new WalletActionStepForm(opts),
 
-	serialize: ({ action, version, device }) => {
+	serialize: ({ action, version, device, parameters }) => {
 		type StepData = PipelineStepData<PipelineStepByType<'mobile-automation'>>;
 		const _with: StepData = {
 			action_id: getPath(action),
@@ -86,7 +86,11 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		if (device !== GLOBAL_DEVICE) {
 			_with.device_id = device.path;
 		}
-		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
+		if (parameters && Object.keys(parameters).length > 0) {
+			// Keep the exact bound parameters so editing a step never drops
+			// values like deeplink references or custom action variables.
+			_with.parameters = parameters;
+		} else if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
 				deeplink: '<deeplink-placeholder>'
 			};
@@ -157,6 +161,12 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 		const wallet: HubItem = await pb.collection('hub_items').getOne(action.wallet);
 
-		return { wallet, version, action, device };
+		return {
+			wallet,
+			version,
+			action,
+			device,
+			parameters: data.parameters as { [key: string]: string } | undefined
+		};
 	}
 };

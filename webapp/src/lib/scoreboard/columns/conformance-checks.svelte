@@ -17,7 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		id: 'conformance_checks',
 		header: renderComponent(EntityHeader, {
 			data: entities.conformance_checks,
-			plurality: 'plural'
+			plurality: 'plural',
+			hideIcon: true
 		}),
 		fn: (row) => EntityDisplay.fromConformancePaths(row.conformance_checks ?? []),
 		sortField: 'use_case_verifications.name',
@@ -29,4 +30,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 </script>
 
-<EntityDisplay.List items={value} layout="full" />
+<EntityDisplay.List items={value} layout="compact" />
