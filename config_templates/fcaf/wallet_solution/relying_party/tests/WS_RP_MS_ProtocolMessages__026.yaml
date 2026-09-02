@@ -13,18 +13,22 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.dcql.transaction-data-non-array
 evidence:
+  request_object: { from: pipeline.dcql.transaction-data-non-array.outputs.request_object }
   dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
+    from: pipeline.dcql.transaction-data-non-array.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.dcql.transaction-data-non-array.outputs.visual_evidence
 assertions:
+- id: ws_rp_ms_protocolmessages__026_non_array_credential_ids
+  validator: oid4vp.transaction_data_credential_ids_non_array
+  input: evidence.request_object
 - id: ws_rp_ms_protocolmessages__026_dcql_protocol_valid
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: transaction_data_error
 - id: ws_rp_ms_protocolmessages__026_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

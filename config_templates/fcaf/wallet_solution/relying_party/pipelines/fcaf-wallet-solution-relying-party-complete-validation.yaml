@@ -13457,6 +13457,60 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ transaction-data-matching-credential-09aba950-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
+      id: transaction-data-non-array-41ef94bc-create
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-026
+                transaction_data:
+                    - credential_ids: pid
+                      data: dGVzdA==
+                      type: payment
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: transaction-data-non-array-41ef94bc-wallet
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - takeScreenshot: protocol-messages-026
+        parameters:
+            DEEPLINK: ${{ transaction-data-non-array-41ef94bc-create.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: transaction-data-non-array-41ef94bc-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ transaction-data-non-array-41ef94bc-create.outputs.body.session_id }}
+    - continue_on_error: true
+      id: transaction-data-non-array-41ef94bc-request
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ transaction-data-non-array-41ef94bc-create.outputs.body.session_id }}/request
+    - continue_on_error: true
       id: verifier-info-all-credentials-039537ba-create-capture-session
       use: http-request
       with:
@@ -14264,6 +14318,11 @@ steps:
                     dcql_exchange: ${{ transaction-data-matching-credential-09aba950-fetch-capture-session.outputs.body | optional }}
                     request_object: ${{ transaction-data-matching-credential-09aba950-fetch-signed-request-object.outputs.body | optional }}
                     visual_evidence: ${{ transaction-data-matching-credential-09aba950-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.transaction-data-non-array:
+                output:
+                    dcql_exchange: ${{ transaction-data-non-array-41ef94bc-session.outputs.body | optional }}
+                    request_object: ${{ transaction-data-non-array-41ef94bc-request.outputs.body | optional }}
+                    visual_evidence: ${{ transaction-data-non-array-41ef94bc-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.trust-mechanisms:
                 output:
                     dcql_exchange: ${{ dcql-trust-mechanisms-157d0f39-fetch-capture-session.outputs.body | optional }}
