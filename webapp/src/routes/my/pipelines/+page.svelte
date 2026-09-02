@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queryOptions={{
 			filter: `owner.id = '${userOrganization.current?.id}'`,
 			sort: ['created', 'DESC'],
-			expand: ['schedules_via_pipeline']
+			expand: ['schedules_via_pipeline', 'owner']
 		}}
 		hide={['pagination']}
 	>
