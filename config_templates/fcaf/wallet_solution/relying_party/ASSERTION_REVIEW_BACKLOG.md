@@ -165,7 +165,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__047` (needs capture of Request URI response headers and the signed response body)
 - [ ] `WS_RP_MS_ProtocolMessages__048` (needs a Request URI response with a controllable wrong Content-Type)
 - [ ] `WS_RP_MS_ProtocolMessages__049` (needs independently controllable conflicting outer and Request Object parameters)
-- [ ] `WS_RP_MS_ProtocolMessages__050` (needs evidence that outer and Request Object client_id values are equal, including prefix form)
 - [ ] `WS_RP_MS_ProtocolMessages__051` (needs independently controllable mismatching outer and Request Object client_id values)
 - [ ] `WS_RP_MS_Metadata__081` (needs an issuer-controlled JOSE referenced status token)
 - [ ] `WS_RP_MS_Metadata__082` (needs a JOSE referenced token with the status claim omitted)

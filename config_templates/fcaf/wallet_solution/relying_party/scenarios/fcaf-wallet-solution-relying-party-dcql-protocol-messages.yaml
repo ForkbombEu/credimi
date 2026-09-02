@@ -67,6 +67,12 @@ steps:
     method: GET
     url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     expected_status: 200
+- id: fetch-signed-request-object
+  use: http-request
+  with:
+    method: GET
+    url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}/request
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -119,5 +125,8 @@ steps:
     pipeline_outputs:
       pipeline.dcql.protocol-messages:
         output:
+          client_id_evidence:
+            deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+            request_object: ${{ fetch-signed-request-object.outputs.body }}
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

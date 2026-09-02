@@ -10503,6 +10503,13 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-fetch-signed-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}/request
+    - continue_on_error: true
       id: dcql-required-credentials-no-partial-c6dd8f09-create-capture-session
       use: http-request
       with:
@@ -13831,6 +13838,9 @@ steps:
                     visual_evidence: ${{ dcql-presentation-76d882de-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages:
                 output:
+                    client_id_evidence:
+                        deeplink: ${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.deeplink | optional }}
+                        request_object: ${{ dcql-protocol-messages-a25772b2-fetch-signed-request-object.outputs.body | optional }}
                     dcql_exchange: ${{ dcql-protocol-messages-a25772b2-fetch-capture-session.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-a25772b2-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages-120:

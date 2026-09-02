@@ -15,11 +15,16 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.protocol-messages
 evidence:
+  client_id_evidence:
+    from: pipeline.dcql.protocol-messages.outputs.client_id_evidence
   dcql_exchange:
     from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.protocol-messages.outputs.visual_evidence
 assertions:
+- id: ws_rp_ms_protocolmessages__050_client_ids_match
+  validator: oid4vp.client_id_matches_request_object
+  input: evidence.client_id_evidence
 - id: ws_rp_ms_protocolmessages__050_dcql_protocol_valid
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange

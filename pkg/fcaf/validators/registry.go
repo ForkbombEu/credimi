@@ -59,6 +59,7 @@ func DefaultRegistry() (*Registry, error) {
 		JOSEJWEEncryptedResponseValidator{},
 		OID4VPDeviceBindingValidator{},
 		OID4VPNonceStateBindingValidator{},
+		OID4VPClientIDMatchValidator{},
 		OID4VPUnsupportedResponseTypeValidator{},
 		OID4VPVerifierMetadataExclusiveValidator{},
 		DCQLResponseConstraintsValidator{},
