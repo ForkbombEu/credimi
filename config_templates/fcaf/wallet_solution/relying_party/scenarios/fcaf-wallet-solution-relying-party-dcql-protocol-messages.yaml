@@ -130,3 +130,6 @@ steps:
             request_object: ${{ fetch-signed-request-object.outputs.body }}
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          wallet_nonce_evidence:
+            request_object: ${{ fetch-signed-request-object.outputs.body }}
+            request_uri_payload: ${{ fetch-capture-session.outputs.body.observed.request_uri_payload.value }}

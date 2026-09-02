@@ -15,11 +15,16 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.protocol-messages
 evidence:
+  wallet_nonce_evidence:
+    from: pipeline.dcql.protocol-messages.outputs.wallet_nonce_evidence
   dcql_exchange:
     from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.protocol-messages.outputs.visual_evidence
 assertions:
+- id: ws_rp_ms_protocolmessages__045_wallet_nonce_matches
+  validator: oid4vp.wallet_nonce_matches_request_object
+  input: evidence.wallet_nonce_evidence
 - id: ws_rp_ms_protocolmessages__045_dcql_protocol_valid
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange

@@ -160,7 +160,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__042` (needs capture of request-URI POST method and HTTP headers, not only its decoded body)
 - [ ] `WS_RP_MS_ProtocolMessages__043` (needs a controllable HTTP request_uri endpoint)
 - [ ] `WS_RP_MS_ProtocolMessages__044` (needs raw request-URI POST bytes and encoding metadata)
-- [ ] `WS_RP_MS_ProtocolMessages__045` (needs the verifier to echo the wallet POST `wallet_nonce` into its signed Request Object)
 - [ ] `WS_RP_MS_ProtocolMessages__046` (needs a returned signed Request Object with missing or mismatched `wallet_nonce`)
 - [ ] `WS_RP_MS_ProtocolMessages__047` (needs capture of Request URI response headers and the signed response body)
 - [ ] `WS_RP_MS_ProtocolMessages__048` (needs a Request URI response with a controllable wrong Content-Type)

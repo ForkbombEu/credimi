@@ -13843,6 +13843,9 @@ steps:
                         request_object: ${{ dcql-protocol-messages-a25772b2-fetch-signed-request-object.outputs.body | optional }}
                     dcql_exchange: ${{ dcql-protocol-messages-a25772b2-fetch-capture-session.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-a25772b2-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    wallet_nonce_evidence:
+                        request_object: ${{ dcql-protocol-messages-a25772b2-fetch-signed-request-object.outputs.body | optional }}
+                        request_uri_payload: ${{ dcql-protocol-messages-a25772b2-fetch-capture-session.outputs.body.observed.request_uri_payload.value | optional }}
             pipeline.dcql.protocol-messages-120:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-120-b6247e8b-fetch-capture-session.outputs.body | optional }}
