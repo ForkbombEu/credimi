@@ -10256,6 +10256,13 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-protocol-messages-158-ae4d2651-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-protocol-messages-158-ae4d2651-fetch-signed-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-protocol-messages-158-ae4d2651-create-capture-session.outputs.body.session_id }}/request
+    - continue_on_error: true
       id: dcql-protocol-messages-159-fd92371b-create-capture-session
       use: http-request
       with:
@@ -14210,6 +14217,7 @@ steps:
             pipeline.dcql.protocol-messages-158:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-158-ae4d2651-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ dcql-protocol-messages-158-ae4d2651-fetch-signed-request-object.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-158-ae4d2651-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages-159:
                 output:

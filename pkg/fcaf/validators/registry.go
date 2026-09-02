@@ -62,6 +62,7 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPClientIDMatchValidator{},
 		OID4VPVerifierInfoAllCredentialsValidator{},
 		OID4VPTransactionDataCredentialIDsValidator{},
+		OID4VPTransactionDataCredentialIDsMismatchValidator{},
 		OID4VPWalletNonceMatchValidator{},
 		OID4VPUnsupportedResponseTypeValidator{},
 		OID4VPVerifierMetadataExclusiveValidator{},

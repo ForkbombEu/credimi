@@ -90,7 +90,6 @@ steps:
       - WS_RP_MS_ProtocolMessages__020
       - WS_RP_MS_ProtocolMessages__025
       - WS_RP_MS_ProtocolMessages__026
-      - WS_RP_MS_ProtocolMessages__027
       - WS_RP_MS_ProtocolMessages__030
       - WS_RP_MS_ProtocolMessages__033
       - WS_RP_MS_ProtocolMessages__034

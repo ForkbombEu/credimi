@@ -29,7 +29,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 503)
+	require.Len(t, definition.Steps, 504)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)

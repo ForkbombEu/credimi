@@ -147,7 +147,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__020` (needs a verifier-supported scope value with a defined DCQL mapping)
 - [ ] `WS_RP_MS_ProtocolMessages__025` (needs a verifier-delivered transaction_data entry with a non-string `type` field) [IMPLEMENTED IN BETA]
 - [ ] `WS_RP_MS_ProtocolMessages__026` (needs a verifier-supported transaction_data schema with controllable invalid `credential_ids` encodings) [IMPLEMENTED IN BETA]
-- [ ] `WS_RP_MS_ProtocolMessages__027` (needs a supported transaction_data type to isolate a mismatched DCQL credential ID) [IMPLEMENTED IN BETA]
 - [ ] `WS_RP_MS_ProtocolMessages__030` (needs a scope-only request with a controlled unknown scope value)
 - [ ] `WS_RP_MS_ProtocolMessages__033` (needs a signed or referenced request with a controllable invalid state value)
 - [ ] `WS_RP_MS_ProtocolMessages__034` (needs a signed request with `require_cryptographic_holder_binding=false` and no state)
