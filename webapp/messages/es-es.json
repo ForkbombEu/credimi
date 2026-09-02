@@ -955,6 +955,7 @@
 	"Configure_the_runner_for_this_pipeline": "Configure the runner for this pipeline",
 	"Current_runner": "Actual runner",
 	"Runner_configuration_not_available": "Ejecutarner configuration not available for pipelines with specific runner steps",
+	"runner_picker_scroll_hint": "Hay más runners disponibles. Desplázate para ver los {count}.",
 	"Runner_status_checking": "Checking runner status…",
 	"Failed_to_enqueue_pipeline": "Fallido to enqueue pipeline",
 	"Pipeline_queued": "Pipeline queued (position {position})",
