@@ -143,12 +143,11 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__015` (needs a verifier-delivered malformed DCQL query and the resulting wallet error callback)
 - [ ] `WS_RP_MS_ProtocolMessages__016` (needs a signed or referenced Authorization Request with a controllable unknown top-level parameter)
 - [ ] `WS_RP_MS_ProtocolMessages__017` (needs a wallet configuration without `transaction_data` support and a verifier callback capture)
-- [ ] `WS_RP_MS_ProtocolMessages__018` (needs a verifier-supported valid `transaction_data` type and matching wallet capability)
+- [ ] `WS_RP_MS_ProtocolMessages__018` (needs a verifier-supported valid `transaction_data` type and matching wallet capability) [IMPLEMENTED IN BETA]
 - [ ] `WS_RP_MS_ProtocolMessages__020` (needs a verifier-supported scope value with a defined DCQL mapping)
-- [ ] `WS_RP_MS_ProtocolMessages__025` (needs a verifier-delivered transaction_data entry with a non-string `type` field)
-- [ ] `WS_RP_MS_ProtocolMessages__026` (needs a verifier-supported transaction_data schema with controllable invalid `credential_ids` encodings)
-- [ ] `WS_RP_MS_ProtocolMessages__027` (needs a supported transaction_data type to isolate a mismatched DCQL credential ID)
-- [ ] `WS_RP_MS_ProtocolMessages__028` (needs a supported transaction_data type and a valid credential_ids-positive fixture)
+- [ ] `WS_RP_MS_ProtocolMessages__025` (needs a verifier-delivered transaction_data entry with a non-string `type` field) [IMPLEMENTED IN BETA]
+- [ ] `WS_RP_MS_ProtocolMessages__026` (needs a verifier-supported transaction_data schema with controllable invalid `credential_ids` encodings) [IMPLEMENTED IN BETA]
+- [ ] `WS_RP_MS_ProtocolMessages__027` (needs a supported transaction_data type to isolate a mismatched DCQL credential ID) [IMPLEMENTED IN BETA]
 - [ ] `WS_RP_MS_ProtocolMessages__030` (needs a scope-only request with a controlled unknown scope value)
 - [ ] `WS_RP_MS_ProtocolMessages__033` (needs a signed or referenced request with a controllable invalid state value)
 - [ ] `WS_RP_MS_ProtocolMessages__034` (needs a signed request with `require_cryptographic_holder_binding=false` and no state)
@@ -163,7 +162,7 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__047` (needs capture of Request URI response headers and the signed response body)
 - [ ] `WS_RP_MS_ProtocolMessages__048` (needs a Request URI response with a controllable wrong Content-Type)
 - [ ] `WS_RP_MS_ProtocolMessages__049` (needs independently controllable conflicting outer and Request Object parameters)
-- [ ] `WS_RP_MS_ProtocolMessages__051` (needs independently controllable mismatching outer and Request Object client_id values)
+- [ ] `WS_RP_MS_ProtocolMessages__051` (client_id in deeplink and request object must differ)
 - [ ] `WS_RP_MS_Metadata__081` (needs an issuer-controlled JOSE referenced status token)
 - [ ] `WS_RP_MS_Metadata__082` (needs a JOSE referenced token with the status claim omitted)
 - [ ] `WS_RP_MS_Metadata__083` (needs a JOSE referenced token with controllable status_list values)
@@ -317,7 +316,11 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [x] `WS_RP_MS_ProtocolMessages__014` (reuses no-matching-credentials evidence and validates `access_denied`)
 - [x] `WS_RP_MS_ProtocolMessages__021` (reuses conflicting DCQL and scope evidence and validates `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__024` (reuses unsupported transaction_data evidence and validates `invalid_transaction_data`)
+- [x] `WS_RP_MS_ProtocolMessages__028`
+- [x] `WS_RP_MS_ProtocolMessages__029`
 - [x] `WS_RP_MS_ProtocolMessages__032` (reuses a no-state Request Object and validates no response state)
+- [x] `WS_RP_MS_ProtocolMessages__045`
+- [x] `WS_RP_MS_ProtocolMessages__050`
 - [x] `WS_RP_MS_ProtocolMessages__053`
 - [x] `WS_RP_MS_ProtocolMessages__054`
 - [x] `WS_RP_MS_ProtocolMessages__055`
