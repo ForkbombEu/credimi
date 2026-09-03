@@ -4944,6 +4944,49 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-meta-empty-1fc6aca5-create
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta: {}
+            request_uri_method: post
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-meta-empty-1fc6aca5-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-meta-empty-1fc6aca5-create.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-meta-empty-1fc6aca5-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-meta-empty-1fc6aca5-create.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-meta-empty-1fc6aca5-request
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-meta-empty-1fc6aca5-create.outputs.body.session_id }}/request
+    - continue_on_error: true
       id: dcql-meta-format-mismatch-dbb8d5c5-create
       use: http-request
       with:
@@ -13504,6 +13547,11 @@ steps:
                     dcql_exchange: ${{ malformed-dcql-1e84df7a-session.outputs.body | optional }}
                     request_object: ${{ malformed-dcql-1e84df7a-request.outputs.body | optional }}
                     visual_evidence: ${{ malformed-dcql-1e84df7a-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.meta-empty:
+                output:
+                    dcql_exchange: ${{ dcql-meta-empty-1fc6aca5-session.outputs.body | optional }}
+                    request_object: ${{ dcql-meta-empty-1fc6aca5-request.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-meta-empty-1fc6aca5-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.meta-format-mismatch:
                 output:
                     dcql_exchange: ${{ dcql-meta-format-mismatch-dbb8d5c5-session.outputs.body | optional }}
