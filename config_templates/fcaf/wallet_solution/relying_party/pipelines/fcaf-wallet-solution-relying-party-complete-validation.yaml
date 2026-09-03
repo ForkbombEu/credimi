@@ -839,31 +839,32 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/ui/presentations/${{ dcql-claims-union-b689aff5-create-presentation.outputs.body.transaction_id }}
     - continue_on_error: true
-      id: dcql-claims-values-no-match-9e05fa90-create-presentation
+      id: dcql-claims-values-no-match-9e05fa90-create
       use: http-request
       with:
         body:
-            dcql_query:
-                credentials:
-                    - claims:
-                        - path:
-                            - given_name
-                          values:
-                            - value-that-does-not-match
-                      format: dc+sd-jwt
-                      id: pid
-                      meta:
-                        vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
-            nonce: fcaf-107
-            response_type: vp_token
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                              values:
+                                - value-that-does-not-match
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+            request_uri_method: post
+            response_mode: direct_post
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
         url: https://capture-wallet.credimi.io/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claims-values-no-match-9e05fa90-reject-mismatched-claim-values
+      id: dcql-claims-values-no-match-9e05fa90-wallet
       use: mobile-automation
       with:
         action_code: |
@@ -872,24 +873,53 @@ steps:
             - launchApp:
                 stopApp: true
                 clearState: false
-            - openLink:
-                link: ${env.DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|invalid request|Something went wrong|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-107
+                permissions: { camera: allow, notifications: allow, all: unset }
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - runFlow:
+                when: { visible: "EUDI Wallet" }
+                commands:
+                  - tapOn: { text: "EUDI Wallet", optional: true }
+            - runFlow:
+                when: { visible: "Just once" }
+                commands:
+                  - tapOn: { text: "Just once", optional: true }
+            - runFlow:
+                when: { visible: "Always" }
+                commands:
+                  - tapOn: { text: "Always", optional: true }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - tapOn: { text: "1", retryTapIfNoChange: false }
+                  - tapOn: { text: "2", retryTapIfNoChange: false }
+                  - tapOn: { text: "3", retryTapIfNoChange: false }
+                  - tapOn: { text: "4", retryTapIfNoChange: false }
+                  - tapOn: { text: "5", retryTapIfNoChange: false }
+                  - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
+            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+            - takeScreenshot: fcaf-107-unmatched-claim-value
+            - tapOn: "Go Back"
         parameters:
-            DEEPLINK: ${{ dcql-claims-values-no-match-9e05fa90-create-presentation.outputs.body.deeplink }}
+            DEEPLINK: ${{ dcql-claims-values-no-match-9e05fa90-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-claims-values-no-match-9e05fa90-fetch-result
+      id: dcql-claims-values-no-match-9e05fa90-session
       use: http-request
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-claims-values-no-match-9e05fa90-create-presentation.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-claims-values-no-match-9e05fa90-create.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-claims-without-id-without-claim-939800aa-create-presentation
       use: http-request
@@ -13479,11 +13509,8 @@ steps:
                     visual_evidence: ${{ dcql-claims-union-b689aff5-present-union.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claims-values-no-match:
                 output:
-                    create-presentation: ${{ dcql-claims-values-no-match-9e05fa90-create-presentation.outputs | optional }}
-                    dcql_exchange: ${{ dcql-claims-values-no-match-9e05fa90-fetch-result.outputs.body | optional }}
-                    fetch-result: ${{ dcql-claims-values-no-match-9e05fa90-fetch-result.outputs | optional }}
-                    reject-mismatched-claim-values: ${{ dcql-claims-values-no-match-9e05fa90-reject-mismatched-claim-values.outputs | optional }}
-                    visual_evidence: ${{ dcql-claims-values-no-match-9e05fa90-reject-mismatched-claim-values.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    dcql_exchange: ${{ dcql-claims-values-no-match-9e05fa90-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-claims-values-no-match-9e05fa90-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claims-without-id-without-claim-sets:
                 output:
                     create-presentation: ${{ dcql-claims-without-id-without-claim-939800aa-create-presentation.outputs | optional }}

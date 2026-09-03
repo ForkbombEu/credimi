@@ -1,69 +1,84 @@
-name: FCAF DCQL mismatched claim values
-runtime:
-    fixture:
-        verifier_url: https://capture-wallet.credimi.io
-    global_runner_id: forkbomb-bv-andrea/usb
+name: 'FCAF ProtocolMessages 107: unmatched claim value'
+runtime: { global_runner_id: forkbomb-bv-andrea/usb }
 steps:
-    - id: create-presentation
-      use: http-request
-      with:
-        body:
-            dcql_query:
-                credentials:
-                    - claims:
-                        - path:
-                            - given_name
-                          values:
-                            - value-that-does-not-match
-                      format: dc+sd-jwt
-                      id: pid
-                      meta:
-                        vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
-            nonce: fcaf-107
-            response_type: vp_token
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - id: reject-mismatched-claim-values
-      use: mobile-automation
-      with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${env.DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|invalid request|Something went wrong|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-107
-        parameters:
-            DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - id: fetch-result
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
-    - id: run-fcaf-validators
-      use: fcaf-validation
-      with:
-        pipeline_outputs:
-            pipeline.dcql.claims-values-no-match:
-                output:
-                    create-presentation: ${{ create-presentation.outputs }}
-                    dcql_exchange: ${{ fetch-result.outputs.body }}
-                    fetch-result: ${{ fetch-result.outputs }}
-                    reject-mismatched-claim-values: ${{ reject-mismatched-claim-values.outputs }}
-                    visual_evidence: ${{ reject-mismatched-claim-values.outputs.flow_output.maestro_screenshot_urls }}
-        suite: wallet_solution/relying_party
-        test_ids:
-            - WS_RP_MS_ProtocolMessages__107
+- id: create
+  use: http-request
+  with:
+    method: POST
+    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_uri_method: post
+      response_mode: direct_post
+      presentation_request:
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: [urn:eudi:pid:1] }
+            claims:
+            - path: [given_name]
+              values: [value-that-does-not-match]
+- id: wallet
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters:
+      DEEPLINK: ${{ create.outputs.body.deeplink }}
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp:
+          stopApp: true
+          clearState: false
+          permissions: { camera: allow, notifications: allow, all: unset }
+      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - runFlow:
+          when: { visible: "EUDI Wallet" }
+          commands:
+            - tapOn: { text: "EUDI Wallet", optional: true }
+      - runFlow:
+          when: { visible: "Just once" }
+          commands:
+            - tapOn: { text: "Just once", optional: true }
+      - runFlow:
+          when: { visible: "Always" }
+          commands:
+            - tapOn: { text: "Always", optional: true }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - tapOn: { text: "1", retryTapIfNoChange: false }
+            - tapOn: { text: "2", retryTapIfNoChange: false }
+            - tapOn: { text: "3", retryTapIfNoChange: false }
+            - tapOn: { text: "4", retryTapIfNoChange: false }
+            - tapOn: { text: "5", retryTapIfNoChange: false }
+            - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
+      - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+      - takeScreenshot: fcaf-107-unmatched-claim-value
+      - tapOn: "Go Back"
+- id: session
+  use: http-request
+  with: { method: GET, url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_MS_ProtocolMessages__107]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.claims-values-no-match:
+        output:
+          dcql_exchange: ${{ session.outputs.body }}
+          visual_evidence: ${{ wallet.outputs.flow_output.maestro_screenshot_urls }}
