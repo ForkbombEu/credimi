@@ -32,7 +32,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						test.id.toLowerCase().includes(query) ||
 						test.title.toLowerCase().includes(query) ||
 						test.section.toLowerCase().includes(query)
-				)
+				),
+				groups: group.groups
+					.map((subgroup) => ({
+						...subgroup,
+						tests: subgroup.tests.filter(
+							(test) =>
+								test.id.toLowerCase().includes(query) ||
+								test.title.toLowerCase().includes(query) ||
+								test.section.toLowerCase().includes(query)
+						)
+					}))
+					.filter((subgroup) => subgroup.tests.length > 0)
 			}))
 			.filter((group) => group.tests.length > 0);
 	});
@@ -55,7 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="flex items-center justify-between gap-2 border-b px-3 py-2">
 		<span class="text-xs text-muted-foreground">{totalTests} {m.Tests()}</span>
 	</div>
-	<div class="max-h-96 overflow-y-auto p-1">
+	<div class="max-h-96 space-y-1 overflow-y-auto p-1">
 		{#each groups as group (group.key)}
 			<div class="rounded">
 				<button
@@ -70,24 +81,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							? 'rotate-90'
 							: ''}"
 					/>
-					<span class="truncate text-sm font-medium">{group.label}</span>
-					<span class="shrink-0 text-xs text-muted-foreground">{group.category}</span>
+					<span
+						class="inline-block size-2 shrink-0 rounded-full {group.color.bar}"
+						aria-hidden="true"
+					></span>
+					<span class="truncate text-sm font-medium {group.color.text}">
+						{group.label}
+					</span>
 					<span class="ml-auto shrink-0 text-xs text-muted-foreground">
 						{group.tests.length}
 					</span>
 				</button>
 				{#if isOpen(group.key)}
-					<div class="space-y-0.5 pb-1 pl-9">
-						{#each group.tests as test (test.id)}
-							<div class="rounded px-2 py-1">
-								<div class="truncate font-mono text-xs" title={test.id}>
-									{test.id}
+					<div class="space-y-1 pb-1 pl-9">
+						{#each group.groups as subgroup (subgroup.key)}
+							<div>
+								<p class="text-[10px] font-medium text-muted-foreground">
+									{subgroup.label}
+								</p>
+								<div class="space-y-0.5 pl-2">
+									{#each subgroup.tests as test (test.id)}
+										<div class="rounded px-2 py-1">
+											<div
+												class="truncate font-mono text-xs {group.color
+													.text}"
+												title={test.id}
+											>
+												{test.id}
+											</div>
+											{#if test.title}
+												<div
+													class="line-clamp-2 text-xs text-muted-foreground"
+												>
+													{test.title}
+												</div>
+											{/if}
+										</div>
+									{/each}
 								</div>
-								{#if test.title}
-									<div class="line-clamp-2 text-xs text-muted-foreground">
-										{test.title}
-									</div>
-								{/if}
 							</div>
 						{/each}
 					</div>

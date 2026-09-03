@@ -2,24 +2,30 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { FCAF_CATEGORY_ORDER, parseFCAFTestId, type FCAFCategory } from '$lib/fcaf/categories.js';
 import { FCAF_TESTS, type FCAFTestCatalogEntry } from '$lib/fcaf/tests.generated.js';
 
 //
 
-export type FCAFGroupedTests = {
+/**
+ * Tests grouped under one FCAF category, mirroring the generated report:
+ * category (Data model, Interaction, ...) > subgroup (Address data, ...).
+ */
+export type FCAFSubgroupTests = {
 	key: string;
 	label: string;
-	category: string;
 	tests: FCAFTestCatalogEntry[];
 };
 
-export function groupLabel(section: string): string {
-	return humanize(section.split('.').pop() ?? section);
-}
-
-export function categoryLabel(section: string): string {
-	return humanize(section.split('.')[0] ?? section);
-}
+export type FCAFGroupedTests = {
+	/** Category code (DM, MS, IA, ...). */
+	key: string;
+	label: string;
+	color: FCAFCategory;
+	groups: FCAFSubgroupTests[];
+	/** Flat test list for the whole category, for counts and filtering. */
+	tests: FCAFTestCatalogEntry[];
+};
 
 export function groupAllTests(): FCAFGroupedTests[] {
 	return groupTests(FCAF_TESTS);
@@ -30,24 +36,35 @@ export function groupSelectedTests(testIds: string[]): FCAFGroupedTests[] {
 	return groupTests(FCAF_TESTS.filter((test) => selected.has(test.id)));
 }
 
-function groupTests(tests: FCAFTestCatalogEntry[]): FCAFGroupedTests[] {
-	const acc: Record<string, FCAFTestCatalogEntry[]> = {};
+export function groupTests(tests: FCAFTestCatalogEntry[]): FCAFGroupedTests[] {
+	const byCategory = new Map<
+		string,
+		{ color: FCAFCategory; groups: Map<string, FCAFSubgroupTests> }
+	>();
 	for (const test of tests) {
-		const key = test.section || 'other';
-		(acc[key] ??= []).push(test);
+		const parsed = parseFCAFTestId(test.id);
+		let entry = byCategory.get(parsed.category.code);
+		if (!entry) {
+			entry = { color: parsed.category, groups: new Map() };
+			byCategory.set(parsed.category.code, entry);
+		}
+		let bucket = entry.groups.get(parsed.key);
+		if (!bucket) {
+			bucket = { key: parsed.key, label: parsed.label, tests: [] };
+			entry.groups.set(parsed.key, bucket);
+		}
+		bucket.tests.push(test);
 	}
 
-	return Object.entries(acc)
-		.sort(([a], [b]) => a.localeCompare(b))
-		.map(([key, tests]) => ({
-			key,
-			label: groupLabel(key),
-			category: categoryLabel(key),
-			tests
-		}));
-}
-
-function humanize(key: string): string {
-	const word = key.replace(/_/g, ' ');
-	return word.charAt(0).toUpperCase() + word.slice(1);
+	return FCAF_CATEGORY_ORDER.filter((code) => byCategory.has(code)).map((code) => {
+		const entry = byCategory.get(code)!;
+		const groups = [...entry.groups.values()].sort((a, b) => a.key.localeCompare(b.key));
+		return {
+			key: code,
+			label: entry.color.label,
+			color: entry.color,
+			groups,
+			tests: groups.flatMap((group) => group.tests)
+		};
+	});
 }
