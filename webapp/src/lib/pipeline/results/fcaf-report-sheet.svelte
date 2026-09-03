@@ -37,14 +37,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		validator?: string;
 	};
 
+	type ExecutedEvidence = {
+		name?: string;
+		source_node?: string;
+		visual?: string[];
+	};
+
 	type TestResult = {
 		test_id?: string;
 		title?: string;
 		status?: string;
 		assertions?: Array<{ id?: string; status?: string; message?: string; validator?: string }>;
 		validators?: Validator[];
+		evidence?: ExecutedEvidence[];
 	};
-
 	type Report = {
 		status?: string;
 		suite?: string;
@@ -82,7 +88,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			.replace(/\s+/g, ' ')
 			.trim();
 	}
-
 	function uniqueScreenshots(screenshots: Screenshot[]): Screenshot[] {
 		const seen = new SvelteSet<string>();
 		return screenshots.filter((screenshot) => {
@@ -93,8 +98,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		});
 	}
 
+	function dedupeBurstScreenshots(screenshots: Screenshot[]): Screenshot[] {
+		const burst =
+			/^(.+)(?:_screenshot_\d+_action_[A-Za-z0-9_]+\.yaml\d+|_step_\d+_[A-Za-z0-9_]+)\.png$/;
+		const lastOfBurst = new Map<string, Screenshot>();
+		for (const screenshot of screenshots) {
+			const filename = screenshot.url.split('?')[0].split('/').pop() ?? '';
+			const match = burst.exec(decodeURIComponent(filename));
+			if (match) lastOfBurst.set(match[1], screenshot);
+		}
+		return screenshots.filter((screenshot) => {
+			const filename = screenshot.url.split('?')[0].split('/').pop() ?? '';
+			const match = burst.exec(decodeURIComponent(filename));
+			if (!match) return true;
+			return lastOfBurst.get(match[1]) === screenshot;
+		});
+	}
+
+	function visualUrlsForTest(test: TestResult): string[] {
+		const urls: string[] = [];
+		const seen = new Set<string>();
+		for (const item of test.evidence ?? []) {
+			for (const url of item.visual ?? []) {
+				const normalized = url.split('?')[0];
+				if (!seen.has(normalized)) {
+					seen.add(normalized);
+					urls.push(normalized);
+				}
+			}
+		}
+		return urls;
+	}
+
 	function screenshotsForTest(screenshots: Screenshot[], test: TestResult): Screenshot[] {
 		if (screenshots.length === 0) return [];
+
+		// Prefer the per-test visual evidence recorded by the report engine:
+		// the flat evidence map keeps only one record per evidence name.
+		const visual = visualUrlsForTest(test);
+		if (visual.length > 0) {
+			const byUrl = new Map(screenshots.map((s) => [s.url.split('?')[0], s]));
+			return visual
+				.map((url) => byUrl.get(url))
+				.filter((screenshot): screenshot is Screenshot => Boolean(screenshot));
+		}
 		if (screenshots.length === 1) return screenshots;
 
 		const searchable = `${test.test_id ?? ''} ${test.title ?? ''}`.toLowerCase();
@@ -287,13 +334,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#await reportPromise then report}
 				<div class="pb-6">
 					{#if report}
-						{@const evidenceScreenshots = evidenceScreenshotUrls(report)}
-						{@const allScreenshots = uniqueScreenshots(
-							[...new Set([...maestroScreenshotUrls, ...evidenceScreenshots])].map(
-								(url) => ({
+						{@const evidenceScreenshots = evidenceScreenshotUrls(report.evidence)}
+						{@const allScreenshots = dedupeBurstScreenshots(
+							uniqueScreenshots(
+								[
+									...new Set([...maestroScreenshotUrls, ...evidenceScreenshots])
+								].map((url) => ({
 									url,
 									label: screenshotLabel(url)
-								})
+								}))
 							)
 						)}
 						{@const executedTests = report.executed_tests ?? []}

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ListResult } from 'pocketbase';
+
 import {
 	getCoreRowModel,
 	type PaginationState,
@@ -45,7 +47,7 @@ interface ExtendedPaginationState extends PaginationState {
 
 interface Options {
 	pageSize?: number;
-	initialData?: () => ScoreboardRow[];
+	initialPage?: () => ListResult<ScoreboardRow>;
 }
 
 export class ScoreboardTable {
@@ -155,14 +157,25 @@ export class ScoreboardTable {
 		});
 
 		onMount(() => {
-			if (!options.initialData) this.loadData();
+			if (!options.initialPage) this.loadData();
 		});
 
 		$effect(() => {
-			if (options.initialData) {
-				this.#data = options.initialData();
+			if (options.initialPage) {
+				this.applyPageResult(options.initialPage());
 			}
 		});
+	}
+
+	private applyPageResult(res: ListResult<ScoreboardRow>) {
+		const normalizedApiPage = fromApiPage(res.page);
+		this.#data = res.items;
+		this.#pagination = {
+			pageSize: res.perPage,
+			pageIndex: toTableIndex(normalizedApiPage),
+			pageCount: res.totalPages,
+			totalItems: res.totalItems
+		};
 	}
 
 	private async loadData() {
@@ -174,14 +187,7 @@ export class ScoreboardTable {
 			...(sort ? { sort } : {}),
 			...(this.#filter ? { filter: this.#filter } : {})
 		});
-		const normalizedApiPage = fromApiPage(res.page);
-		this.#data = res.items;
-		this.#pagination = {
-			pageSize: res.perPage,
-			pageIndex: toTableIndex(normalizedApiPage),
-			pageCount: res.totalPages,
-			totalItems: res.totalItems
-		};
+		this.applyPageResult(res);
 	}
 }
 

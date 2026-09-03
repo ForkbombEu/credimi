@@ -24,8 +24,8 @@ var VerifierTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/verifier",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		middlewares.RequireInternalAdminAPIKey(),
 		{Func: middlewares.ErrorHandlingMiddleware},
+		middlewares.RequireInternalAdminAPIKey(),
 	},
 	Routes: []routing.RouteDefinition{
 		{

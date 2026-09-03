@@ -107,15 +107,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<WithLabel label={m.Select_item({ item: selectLabel.toLowerCase() })} class="p-4">
 				<div class="space-y-2 pt-1">
 					{#if form.state == 'select-standard'}
-						<ItemCard
-							title={m.FCAF()}
-							subtitle={m.FCAF_subtitle()}
-							onClick={() => form.selectFCAF()}
-						/>
 						{#each standards as standard (standard.uid)}
 							<ItemCard
 								title={standard.name}
-								onClick={() => form.selectStandard(standard)}
+								subtitle={standard.uid === 'fcaf' ? m.FCAF_subtitle() : undefined}
+								onClick={() =>
+									standard.uid === 'fcaf'
+										? form.selectFCAF()
+										: form.selectStandard(standard)}
 							/>
 						{/each}
 					{:else if form.state === 'select-version'}

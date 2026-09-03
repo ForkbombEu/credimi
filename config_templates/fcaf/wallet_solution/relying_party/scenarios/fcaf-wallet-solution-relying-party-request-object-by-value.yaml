@@ -36,49 +36,7 @@ steps:
     - id: submit-request-object-by-value
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - evalScript: ${output.authorizationRequest = 'openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
-            - openLink:
-                link: ${output.authorizationRequest}
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "EUDI Wallet"
-                optional: true
-            - tapOn:
-                text: "Just once"
-                optional: true
-            - extendedWaitUntil:
-                visible: "Welcome back|Share|Cancel|Close"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-            - extendedWaitUntil:
-                visible: "Share"
-                timeout: 30000
-            - takeScreenshot: fcaf-request-object-by-value-consent
-            - tapOn:
-                text: "Share"
-                enabled: true
-            - extendedWaitUntil:
-                visible: "verify your identity|PIN"
-                timeout: 30000
-            - inputText: "123456"
-            - extendedWaitUntil:
-                visible: "Close"
-                timeout: 30000
-            - assertVisible: "Close"
-            - takeScreenshot: fcaf-request-object-by-value-accepted
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-submit-request-object-by-value
         parameters:
             CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
             REQUEST_OBJECT: ${{ create-presentation.outputs.body.request }}

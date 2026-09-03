@@ -33,7 +33,6 @@ func TestRegistryContainsCoreTasks(t *testing.T) {
 	require.NotNil(t, mobileTask.PayloadType)
 	require.False(t, mobileTask.CustomTaskQueue)
 	require.NotNil(t, mobileTask.PipelinePayloadType)
-
 }
 
 func TestRegistryFactoriesCreateInstances(t *testing.T) {

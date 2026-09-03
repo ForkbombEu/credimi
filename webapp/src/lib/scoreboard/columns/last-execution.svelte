@@ -14,12 +14,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	export const column = Column.define({
-		fn: (row) => row.expand.latest_successful_execution?.created,
+		fn: (row) => row.expand.latest_execution?.created,
 		id: 'last_execution',
 		header: renderComponent(EntityHeader, {
 			label: m.scoreboard_last_run()
 		}),
-		sortField: 'latest_successful_execution.created'
+		sortField: 'latest_execution.created',
+		manualPillPositioning: true
 	});
 </script>
 

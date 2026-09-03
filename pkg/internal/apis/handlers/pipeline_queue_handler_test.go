@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -376,14 +377,14 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	t.Cleanup(func() {
 		startPipelineWorkflow = origStart
 	})
-	var capturedMemo map[string]any
+	var capturedConfig map[string]any
 	startPipelineWorkflow = func(
 		yaml string,
 		config map[string]any,
 		memo map[string]any,
 		pipelineIdentifier string,
 	) (workflowengine.WorkflowResult, error) {
-		capturedMemo = memo
+		capturedConfig = config
 		return workflowengine.WorkflowResult{
 			WorkflowID:    "wf-123",
 			WorkflowRunID: "run-456",
@@ -454,7 +455,13 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	require.Equal(t, "wf-123", results[0].GetString("workflow_id"))
 	require.Equal(t, "run-456", results[0].GetString("run_id"))
 	require.Equal(t, pipelineinternal.RunTypeManual, results[0].GetString("type"))
-	require.Equal(t, false, capturedMemo[pipelineinternal.PublishedMemoKey])
+
+	require.Equal(
+		t,
+		true,
+		capturedConfig[pipeline.CompletionNotificationConfigKey],
+		"direct-start queue runs must carry the completion notification key",
+	)
 }
 
 func TestPipelineQueueStatusReturnsRunURL(t *testing.T) {

@@ -286,7 +286,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-10*time.Minute).Add(-5*time.Second),
 		now.Add(-10*time.Minute),
 	)
-	setWorkflowExecutionPublished(t, exec6.Info, false)
 	exec7 := buildPipelineExecutionInfoWithRunner(
 		t,
 		"wf-7",
@@ -404,7 +403,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	var response []PipelineStatsResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
 
-	require.Len(t, response, 3)
+	require.Len(t, response, 2)
 
 	var stats1, stats2, stats3 *PipelineStatsResponse
 	for i := range response {
@@ -420,31 +419,34 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	}
 
 	require.NotNil(t, stats1)
-	require.Equal(t, 3, stats1.TotalRuns)
-	require.Equal(t, 2, stats1.TotalSuccesses)
+	require.Equal(t, 4, stats1.TotalRuns)
+	require.Equal(t, 3, stats1.TotalSuccesses)
 	require.Equal(t, 1, stats1.ScheduledExecutions)
-	require.Equal(t, 1, stats1.ManualExecutions)
+	require.Equal(t, 2, stats1.ManualExecutions)
 	require.Equal(t, 1, stats1.CIExecutions)
 	require.ElementsMatch(
 		t,
-		[]string{"usera-s-organization/runner-android", "usera-s-organization/runner-ios"},
+		[]string{
+			"usera-s-organization/runner-android",
+			"usera-s-organization/runner-ios",
+			"usera-s-organization/runner-default",
+		},
 		stats1.Runners,
 	)
-	require.Equal(t, "1m45s", stats1.MinExecutionTime)
+	require.Equal(t, "5s", stats1.MinExecutionTime)
 	expectedFirstTime := exec1.Info.GetStartTime().AsTime()
 	actualFirstTime, err := time.Parse(time.RFC3339Nano, stats1.FirstExecutionDate)
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedFirstTime, actualFirstTime, time.Second)
-	expectedLastTime := exec3.Info.GetStartTime().AsTime()
+	expectedLastTime := exec6.Info.GetStartTime().AsTime()
 	actualLastTime, err := time.Parse(time.RFC3339Nano, stats1.LastExecutionDate)
 	require.NoError(t, err)
 	require.WithinDuration(t, expectedLastTime, actualLastTime, time.Second)
-	require.Equal(t, 66.67, stats1.SuccessRate)
+	require.Equal(t, 75.00, stats1.SuccessRate)
 
-	require.NotNil(t, stats1.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
-	require.Equal(t, "wf-2", stats1.LastSuccessfulRun.WorkflowID)
-	require.Equal(t, "run-2", stats1.LastSuccessfulRun.RunID)
-	require.NotEmpty(t, stats1.LastSuccessfulRun.StartTime)
+	require.NotNil(t, stats1.LastRun, "LastRun should not be nil")
+	require.Equal(t, "wf-6", stats1.LastRun.WorkflowID)
+	require.Equal(t, "run-6", stats1.LastRun.RunID)
 
 	require.NotNil(t, stats2)
 	require.Equal(t, 1, stats2.TotalRuns)
@@ -464,17 +466,11 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.WithinDuration(t, expectedTime2, actualTime2, time.Second)
 	require.Equal(t, stats2.FirstExecutionDate, stats2.LastExecutionDate)
 	require.Equal(t, 100.00, stats2.SuccessRate)
-	require.NotNil(t, stats2.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
-	require.Equal(t, "Pipeline-Sched-wf-4", stats2.LastSuccessfulRun.WorkflowID)
-	require.Equal(t, "run-4", stats2.LastSuccessfulRun.RunID)
+	require.NotNil(t, stats2.LastRun, "LastRun should not be nil")
+	require.Equal(t, "Pipeline-Sched-wf-4", stats2.LastRun.WorkflowID)
+	require.Equal(t, "run-4", stats2.LastRun.RunID)
 
-	require.Equal(t, "2h4m10s", stats3.MinExecutionTime)
-	require.NotNil(t, stats3.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
-	require.Equal(t, "wf-5", stats3.LastSuccessfulRun.WorkflowID)
-	require.Equal(t, "run-5", stats3.LastSuccessfulRun.RunID)
-	require.Equal(t, 1, stats3.ManualExecutions)
-	require.Equal(t, 0, stats3.ScheduledExecutions)
-	require.Equal(t, 0, stats3.CIExecutions)
+	require.Nil(t, stats3, "unpublished pipelines must not appear on the scoreboard")
 
 	mockClient.AssertExpectations(t)
 }
@@ -815,25 +811,10 @@ func buildPipelineExecutionInfoWithRunner(
 			IndexedFields: indexedFields,
 		}
 	}
-	setWorkflowExecutionPublished(t, info, true)
 
 	return ExecutionInfo{
 		Info:     info,
 		Duration: duration,
-	}
-}
-
-func setWorkflowExecutionPublished(
-	t testing.TB,
-	info *workflow.WorkflowExecutionInfo,
-	published bool,
-) {
-	payload, err := converter.GetDefaultDataConverter().ToPayload(published)
-	require.NoError(t, err)
-	info.Memo = &common.Memo{
-		Fields: map[string]*common.Payload{
-			pipelineinternal.PublishedMemoKey: payload,
-		},
 	}
 }
 
@@ -915,12 +896,41 @@ func TestCalculateStatsFromExecutionsOrdersMixedTimestampPrecision(t *testing.T)
 		},
 	}
 
-	stats, lastSuccessfulRun := calculateStatsFromExecutions(executions, nil, nil, nil)
+	stats, lastRun := calculateStatsFromExecutions(executions, nil, nil, nil)
 
 	require.Equal(t, "2026-04-21T09:59:59.999999999Z", stats.FirstExecutionDate)
 	require.Equal(t, "2026-04-21T10:00:00.1Z", stats.LastExecutionDate)
-	require.NotNil(t, lastSuccessfulRun)
-	require.Equal(t, "fractional-second", lastSuccessfulRun.WorkflowID)
+	require.NotNil(t, lastRun)
+	require.Equal(t, "fractional-second", lastRun.WorkflowID)
+}
+
+func TestCalculateStatsFromExecutionsTracksLatestFailedRun(t *testing.T) {
+	attrs := DecodedWorkflowSearchAttributes{}
+	executions := []*WorkflowExecution{
+		{
+			Execution:        &WorkflowIdentifier{WorkflowID: "older-success", RunID: "run-1"},
+			StartTime:        "2026-04-21T10:00:00Z",
+			CloseTime:        "2026-04-21T10:01:00Z",
+			Status:           "Completed",
+			SearchAttributes: &attrs,
+		},
+		{
+			Execution:        &WorkflowIdentifier{WorkflowID: "latest-failure", RunID: "run-2"},
+			StartTime:        "2026-04-21T11:00:00Z",
+			CloseTime:        "2026-04-21T11:01:00Z",
+			Status:           "Failed",
+			SearchAttributes: &attrs,
+		},
+	}
+
+	stats, lastRun := calculateStatsFromExecutions(executions, nil, nil, nil)
+
+	require.Equal(t, 2, stats.TotalRuns)
+	require.Equal(t, 1, stats.TotalSuccesses)
+	require.NotNil(t, lastRun, "failed latest run must be tracked for scoreboard evidence")
+	require.Equal(t, "latest-failure", lastRun.WorkflowID)
+	require.Equal(t, "run-2", lastRun.RunID)
+
 }
 
 func createRunnerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
@@ -1133,8 +1143,8 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "test-runner", runnerRecord.GetString("name"))
 
-		latestExecutionID := record.GetString("latest_successful_execution")
-		require.NotEmpty(t, latestExecutionID, "latest_successful_execution should not be empty")
+		latestExecutionID := record.GetString("latest_execution")
+		require.NotEmpty(t, latestExecutionID, "latest_execution should not be empty")
 
 		executionRecord, err := app.FindRecordById("pipeline_results", latestExecutionID)
 		require.NoError(t, err)

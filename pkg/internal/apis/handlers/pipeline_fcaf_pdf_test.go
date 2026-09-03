@@ -89,7 +89,7 @@ func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 	require.Contains(t, string(pdf), "%PDF-")
 }
 
-func TestLoadPipelineFCAFReportImagesUsesExactEvidenceKey(t *testing.T) {
+func TestLoadPipelineFCAFReportImagesLoadsStoredScreenshots(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
 	ensureStepScreenshotField(t, app)
@@ -107,20 +107,47 @@ func TestLoadPipelineFCAFReportImagesUsesExactEvidenceKey(t *testing.T) {
 	filenames := record.GetStringSlice("maestro_screenshots")
 	require.Len(t, filenames, 1)
 	filename := filenames[0]
-	report := engine.Report{Evidence: engine.EvidenceMap{
-		"visual_evidence": {
-			Value: []any{
-				"https://app.test/api/files/pipeline_results/" + record.Id + "/" + filename,
+	report := engine.Report{ExecutedTests: []engine.ExecutedTest{{
+		TestID: "test-1",
+		Evidence: []engine.ExecutedEvidence{
+			{
+				Name: "visual_evidence",
+				Visual: []string{
+					"https://app.test/api/files/pipeline_results/" + record.Id + "/" + filename,
+				},
 			},
 		},
-	}}
+	}}}
 	images, warnings, err := loadPipelineFCAFReportImages(app, record, report)
 	require.NoError(t, err)
 	require.Empty(t, warnings)
 	require.Len(t, images, 1)
-	require.Equal(t, "visual_evidence", images[0].EvidenceKey)
 	require.Equal(t, filename, images[0].Filename)
 	require.NotEmpty(t, images[0].Data)
+}
+
+func TestLoadPipelineFCAFReportImagesWarnsForUnstoredVisualReference(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+	ensureStepScreenshotField(t, app)
+
+	record := createFCAFReportPipelineResult(t, app, "workflow-missing", "run-missing")
+	report := engine.Report{ExecutedTests: []engine.ExecutedTest{{
+		TestID: "test-1",
+		Evidence: []engine.ExecutedEvidence{
+			{
+				Name: "visual_evidence",
+				Visual: []string{
+					"https://app.test/api/files/pipeline_results/" + record.Id + "/missing.png",
+				},
+			},
+		},
+	}}}
+	images, warnings, err := loadPipelineFCAFReportImages(app, record, report)
+	require.NoError(t, err)
+	require.Empty(t, images)
+	require.Len(t, warnings, 1)
+	require.Contains(t, warnings[0], "missing.png was not stored")
 }
 
 func TestUpdatePipelineExecutionFCAFReportPreservesJSONWhenPDFGenerationFails(t *testing.T) {

@@ -35,7 +35,7 @@ const agent = new PocketbaseQueryAgent({
 		'credentials',
 		'custom_integrations',
 		'issuers',
-		'latest_successful_execution',
+		'latest_execution',
 		'mobile_runners',
 		'pipeline',
 		'use_case_verifications',

@@ -362,7 +362,7 @@ func (w *AggregateScoreboardWorkflow) aggregateSinglePipeline(
 	// Update dates
 	w.updateDates(stats, pipeline)
 
-	// Track last successful run
+	// Track last run (failed runs included: the scoreboard shows why pipelines are broken)
 	w.trackLastRun(pipeline, namespace, pipelineID, lastRunMap)
 }
 
@@ -442,7 +442,7 @@ func (w *AggregateScoreboardWorkflow) trackLastRun(
 	pipelineID string,
 	lastRunMap map[string]*pipelineRunRef,
 ) {
-	lastRunRaw, ok := pipeline["last_successful_run"]
+	lastRunRaw, ok := pipeline["last_run"]
 	if !ok || lastRunRaw == nil {
 		return
 	}
@@ -471,7 +471,7 @@ func (w *AggregateScoreboardWorkflow) trackLastRun(
 	}
 }
 
-// fetchLastExecutionDetails fetches details for the last successful runs
+// fetchLastExecutionDetails fetches details for the last runs
 func (w *AggregateScoreboardWorkflow) fetchLastExecutionDetails(
 	ctx workflow.Context,
 	httpActivity *activities.InternalHTTPActivity,
