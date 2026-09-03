@@ -66,6 +66,7 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPTransactionDataCredentialIDsNonArrayValidator{},
 		OID4VPTransactionDataTypeNonStringValidator{},
 		OID4VPDCQLCredentialsNonArrayValidator{},
+		OID4VPDCQLMultipleNonBooleanValidator{},
 		OID4VPWalletNonceMatchValidator{},
 		OID4VPUnsupportedResponseTypeValidator{},
 		OID4VPVerifierMetadataExclusiveValidator{},
