@@ -277,7 +277,7 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__145`
 - [ ] `WS_RP_MS_ProtocolMessages__146`
 - [ ] `WS_RP_MS_ProtocolMessages__150`
-- [ ] `WS_RP_MS_ProtocolMessages__153`
+- [x] `WS_RP_MS_ProtocolMessages__153` (strictly requires a captured `invalid_transaction_data` response)
 - [ ] `WS_RP_MS_ProtocolMessages__154`
 - [ ] `WS_RP_MS_ProtocolMessages__155`
 - [ ] `WS_RP_MS_ProtocolMessages__156`

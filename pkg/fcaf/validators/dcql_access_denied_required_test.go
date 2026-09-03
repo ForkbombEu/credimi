@@ -34,3 +34,34 @@ func TestAccessDeniedRequiredMode(t *testing.T) {
 		).Status,
 	)
 }
+
+func TestTransactionDataErrorRequiredMode(t *testing.T) {
+	validator := DCQLResponseConstraintsValidator{}
+	query := map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{map[string]any{"id": "pid"}}},
+	}
+	withError := map[string]any{
+		"dcql_query": query["dcql_query"],
+		"error":      "invalid_transaction_data",
+	}
+
+	require.Equal(
+		t,
+		StatusPass,
+		validator.Validate(
+			context.Background(),
+			Input{
+				Value:  withError,
+				Params: map[string]any{"mode": "transaction_data_error_required"},
+			},
+		).Status,
+	)
+	require.Equal(
+		t,
+		StatusFail,
+		validator.Validate(
+			context.Background(),
+			Input{Value: query, Params: map[string]any{"mode": "transaction_data_error_required"}},
+		).Status,
+	)
+}
