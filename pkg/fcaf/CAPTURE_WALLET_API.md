@@ -92,6 +92,7 @@ The service records issuance capture evidence, but the exact `observed`, `checks
 Observed on 03/09/2026: a DCQL credential that omits `meta` is accepted at
 session creation and preserved without `meta` in the signed Request Object.
 An explicitly empty `meta: {}` object is likewise accepted and preserved.
+An empty `trusted_authorities: []` array is also accepted and preserved.
 
 `additionalProperties` are accepted by the public request schema, but that does **not** establish that an unknown property appears in the signed Authorization Request. Retrieve and decode the request before using an unknown field as test evidence.
 
