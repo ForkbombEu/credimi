@@ -19,7 +19,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_IA_Metadata__012`        (waiting to use beta verifier)
 - [ ] `WS_RP_IA_Metadata__013`        (waiting to use beta verifier)
 - [ ] `WS_RP_IA_Supportive__006`      (hard load?????????)
-- [ ] `WS_RP_MS_ProtocolMessages__074`
 - [ ] `WS_RP_MS_ProtocolMessages__075`
 - [ ] `WS_RP_MS_ProtocolMessages__076`
 - [ ] `WS_RP_MS_ProtocolMessages__077`
@@ -332,5 +331,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [x] `WS_RP_MS_ProtocolMessages__065`
 - [x] `WS_RP_MS_ProtocolMessages__066`
 - [x] `WS_RP_MS_ProtocolMessages__072`
+- [x] `WS_RP_MS_ProtocolMessages__074`
 - [x] `WS_RP_MS_ProtocolMessages__068`
 - [x] `WS_RP_MS_ProtocolMessages__069`
