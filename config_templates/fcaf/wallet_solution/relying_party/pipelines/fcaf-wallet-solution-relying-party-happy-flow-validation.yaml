@@ -2278,7 +2278,6 @@ steps:
             - WS_RP_MS_ProtocolMessages__059
             - WS_RP_MS_ProtocolMessages__060
             - WS_RP_MS_ProtocolMessages__070
-            - WS_RP_MS_ProtocolMessages__078
             - WS_RP_MS_ProtocolMessages__079
             - WS_RP_MS_ProtocolMessages__095
             - WS_RP_MS_ProtocolMessages__105
