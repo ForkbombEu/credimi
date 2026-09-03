@@ -39,15 +39,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<div
 			aria-label={m.Tests()}
-			class="max-h-60 overflow-y-auto rounded-md border bg-muted/30"
+			class="max-h-60 space-y-0.5 overflow-y-auto rounded-md border bg-muted/30 p-1"
 			role="region"
 			tabindex="0"
 		>
 			{#each groups as group (group.key)}
-				<div>
+				<div class="rounded">
 					<button
 						type="button"
-						class="flex w-full items-center gap-1.5 px-2 py-1.5 text-left hover:bg-muted/50"
+						class="flex w-full items-center gap-1.5 rounded px-1.5 py-1.5 text-left hover:bg-muted/50"
 						onclick={() => toggleOpen(group.key)}
 					>
 						<ChevronRightIcon
@@ -57,20 +57,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								? 'rotate-90'
 								: ''}"
 						/>
-						<span class="text-xs font-medium">{group.label}</span>
-						<span class="text-[10px] text-muted-foreground">{group.category}</span>
+						<span
+							class="inline-block size-2 shrink-0 rounded-full {group.color.bar}"
+							aria-hidden="true"
+						></span>
+						<span class="text-xs font-medium {group.color.text}">{group.label}</span>
 						<span class="ml-auto text-[10px] text-muted-foreground">
 							{group.tests.length}
 						</span>
 					</button>
 					{#if isOpen(group.key)}
-						<ul class="space-y-0.5 pb-1 pl-8">
-							{#each group.tests as test (test.id)}
-								<li class="truncate pr-2 font-mono text-xs" title={test.id}>
-									{test.id}
-								</li>
+						<div class="space-y-1 pb-1 pl-7">
+							{#each group.groups as subgroup (subgroup.key)}
+								<div>
+									<p class="text-[10px] font-medium text-muted-foreground">
+										{subgroup.label}
+									</p>
+									<ul class="space-y-0.5 pl-2">
+										{#each subgroup.tests as test (test.id)}
+											<li
+												class="truncate pr-2 font-mono text-xs {group.color
+													.text}"
+												title={test.id}
+											>
+												{test.id}
+											</li>
+										{/each}
+									</ul>
+								</div>
 							{/each}
-						</ul>
+						</div>
 					{/if}
 				</div>
 			{/each}

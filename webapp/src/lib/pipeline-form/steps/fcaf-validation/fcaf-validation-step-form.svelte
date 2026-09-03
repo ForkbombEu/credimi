@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { FCAFValidationStepForm } from './fcaf-validation-step-form.svelte.js';
 
-	import { categoryLabel, groupLabel } from './grouping.js';
+	import { groupTests } from './grouping.js';
 
 	//
 
@@ -44,20 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				)
 			: form.availableTests;
 
-		const acc: Record<string, FCAFTestCatalogEntry[]> = {};
-		for (const test of filtered) {
-			const key = test.section || 'other';
-			(acc[key] ??= []).push(test);
-		}
-
-		return Object.entries(acc)
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([key, tests]) => ({
-				key,
-				label: groupLabel(key),
-				category: categoryLabel(key),
-				tests
-			}));
+		return groupTests(filtered);
 	});
 
 	function isOpen(key: string): boolean {
@@ -115,7 +102,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Button>
 				</div>
 			</div>
-			<div class="max-h-72 overflow-y-auto p-1">
+			<div class="max-h-72 space-y-1 overflow-y-auto p-1">
 				{#each filteredGroups as group (group.key)}
 					<div class="rounded">
 						<div class="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/50">
@@ -131,9 +118,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										? 'rotate-90'
 										: ''}"
 								/>
-								<span class="truncate text-sm font-medium">{group.label}</span>
-								<span class="shrink-0 text-xs text-muted-foreground">
-									{group.category}
+								<span
+									class="inline-block size-2 shrink-0 rounded-full {group.color
+										.bar}"
+									aria-hidden="true"
+								></span>
+								<span class="truncate text-sm font-medium {group.color.text}">
+									{group.label}
 								</span>
 							</button>
 							<span class="ml-auto shrink-0 text-xs text-muted-foreground">
@@ -148,30 +139,77 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							/>
 						</div>
 						{#if isOpen(group.key)}
-							<div class="space-y-0.5 pb-1 pl-9">
-								{#each group.tests as test (test.id)}
-									<label
-										class="flex cursor-pointer items-start gap-2 rounded px-2 py-1 hover:bg-muted/50"
-									>
-										<input
-											type="checkbox"
-											class="mt-0.5 shrink-0 accent-primary"
-											checked={selectedIds.includes(test.id)}
-											onchange={() => form.toggleTestId(test.id)}
-										/>
-										<div class="min-w-0">
-											<div class="truncate font-mono text-xs" title={test.id}>
-												{test.id}
-											</div>
-											{#if test.title}
-												<div
-													class="line-clamp-2 text-xs text-muted-foreground"
-												>
-													{test.title}
-												</div>
-											{/if}
+							<div class="space-y-1 pb-1 pl-9">
+								{#each group.groups as subgroup (subgroup.key)}
+									<div class="rounded">
+										<div
+											class="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted/50"
+										>
+											<button
+												type="button"
+												class="flex min-w-0 flex-1 items-center gap-2 text-left"
+												onclick={() =>
+													toggleOpen('{group.key}/{subgroup.key}')}
+											>
+												<ChevronRightIcon
+													class="size-3.5 shrink-0 text-muted-foreground transition-transform {isOpen(
+														'{group.key}/{subgroup.key}'
+													)
+														? 'rotate-90'
+														: ''}"
+												/>
+												<span class="truncate text-xs font-medium">
+													{subgroup.label}
+												</span>
+											</button>
+											<span
+												class="ml-auto shrink-0 text-xs text-muted-foreground"
+											>
+												{groupSelectedCount(subgroup.tests)}/{subgroup.tests
+													.length}
+											</span>
+											<input
+												type="checkbox"
+												class="shrink-0 accent-primary"
+												checked={groupAllSelected(subgroup.tests)}
+												indeterminate={groupPartial(subgroup.tests)}
+												onchange={() => toggleGroup(subgroup.tests)}
+											/>
 										</div>
-									</label>
+										{#if isOpen('{group.key}/{subgroup.key}')}
+											<div class="space-y-0.5 pb-1 pl-8">
+												{#each subgroup.tests as test (test.id)}
+													<label
+														class="flex cursor-pointer items-start gap-2 rounded px-2 py-1 hover:bg-muted/50"
+													>
+														<input
+															type="checkbox"
+															class="mt-0.5 shrink-0 accent-primary"
+															checked={selectedIds.includes(test.id)}
+															onchange={() =>
+																form.toggleTestId(test.id)}
+														/>
+														<div class="min-w-0">
+															<div
+																class="truncate font-mono text-xs {group
+																	.color.text}"
+																title={test.id}
+															>
+																{test.id}
+															</div>
+															{#if test.title}
+																<div
+																	class="line-clamp-2 text-xs text-muted-foreground"
+																>
+																	{test.title}
+																</div>
+															{/if}
+														</div>
+													</label>
+												{/each}
+											</div>
+										{/if}
+									</div>
 								{/each}
 							</div>
 						{/if}
