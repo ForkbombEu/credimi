@@ -11197,28 +11197,54 @@ steps:
             - takeScreenshot: fcaf-091-object
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-trusted-authorities-unsupported-90d3d4bb-evidence-unsupported-trusted-authorities-type
-      use: json-parse
+      id: dcql-trusted-authorities-unsupported-90d3d4bb-create
+      use: http-request
       with:
-        rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":"unsupported","values":["https://example.com/authority"]}]}]},"error":"invalid_request"}'
-        struct_type: map
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          trusted_authorities:
+                            - type: unsupported
+                              values:
+                                - https://example.com/authority
+            request_uri_method: post
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-unsupported-90d3d4bb-reject-unsupported-trusted-authorities-type
+      id: dcql-trusted-authorities-unsupported-90d3d4bb-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - launchApp: { clearState: false }
-            - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
-            - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:'unsupported',values:['https://example.com/authority']}]}]})}
-            - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-088-trusted-authorities-unsupported-type&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-            - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back", timeout: 30000 }
-            - takeScreenshot: fcaf-088-trusted-authorities-unsupported-type-rejected
-            - back
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-trusted-authorities-unsupported-90d3d4bb-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-unsupported-90d3d4bb-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-trusted-authorities-unsupported-90d3d4bb-create.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-unsupported-90d3d4bb-request
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-trusted-authorities-unsupported-90d3d4bb-create.outputs.body.session_id }}/request
     - continue_on_error: true
       id: dcql-trusted-authorities-values-empt-9ce9e426-evidence-single
       use: json-parse
@@ -14013,8 +14039,9 @@ steps:
                     zero_value: ${{ dcql-trusted-authorities-type-non-st-4e26a188-evidence-zero.outputs | optional }}
             pipeline.dcql.trusted-authorities-unsupported-type:
                 output:
-                    dcql_exchange: ${{ dcql-trusted-authorities-unsupported-90d3d4bb-evidence-unsupported-trusted-authorities-type.outputs | optional }}
-                    visual_evidence: ${{ dcql-trusted-authorities-unsupported-90d3d4bb-reject-unsupported-trusted-authorities-type.outputs.screenshot_urls | optional }}
+                    dcql_exchange: ${{ dcql-trusted-authorities-unsupported-90d3d4bb-session.outputs.body | optional }}
+                    request_object: ${{ dcql-trusted-authorities-unsupported-90d3d4bb-request.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-trusted-authorities-unsupported-90d3d4bb-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.trusted-authorities-values-empty-string:
                 output:
                     mixed_value: ${{ dcql-trusted-authorities-values-empt-9ce9e426-evidence-mixed.outputs | optional }}
