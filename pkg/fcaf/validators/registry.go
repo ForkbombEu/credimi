@@ -73,6 +73,7 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPDCQLTrustedAuthoritiesNonArrayValidator{},
 		OID4VPDCQLTrustedAuthoritiesInvalidObjectValidator{},
 		OID4VPDCQLTrustedAuthoritiesUnsupportedTypeValidator{},
+		OID4VPDCQLTrustedAuthoritiesMissingTypeValidator{},
 		OID4VPDCQLMultipleNonBooleanValidator{},
 		OID4VPWalletNonceMatchValidator{},
 		OID4VPUnsupportedResponseTypeValidator{},

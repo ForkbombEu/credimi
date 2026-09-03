@@ -95,6 +95,8 @@ An explicitly empty `meta: {}` object is likewise accepted and preserved.
 An empty `trusted_authorities: []` array is also accepted and preserved.
 On 03/09/2026, a `trusted_authorities` entry with `type: unsupported` and a
 string `values` array was accepted and preserved in the signed Request Object.
+On 03/09/2026, a `trusted_authorities` entry with a string `values` array but
+no `type` was also accepted and preserved in the signed Request Object.
 
 `additionalProperties` are accepted by the public request schema, but that does **not** establish that an unknown property appears in the signed Authorization Request. Retrieve and decode the request before using an unknown field as test evidence.
 
