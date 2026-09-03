@@ -98,6 +98,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"request_rejected",
 		"trusted_authorities_match",
 		"trusted_authorities_no_match",
+		"access_denied_required",
 		"claim_sets":
 	default:
 		return Result{
@@ -482,6 +483,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateErrorCode(responseValue, errorValue, invalidRequestError)
 	case "access_denied":
 		return validateErrorCode(responseValue, errorValue, "access_denied")
+	case "access_denied_required":
+		return validateRequiredErrorCode(responseValue, errorValue, "access_denied")
 	case "jwe_enc_verified":
 		return validateJWEEncVerified(responseValue)
 	case "session_encryption":
@@ -3778,6 +3781,26 @@ func validateErrorCode(responseValue, errorValue any, expectedCode string) Resul
 	return Result{
 		Status:  StatusFail,
 		Message: fmt.Sprintf("wallet returned vp_token, expected error %s", expectedCode),
+	}
+}
+
+func validateRequiredErrorCode(responseValue, errorValue any, expectedCode string) Result {
+	errStr := normalizeString(errorValue)
+	if errStr == expectedCode && isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status:  StatusPass,
+			Message: fmt.Sprintf("wallet returned expected error %s", expectedCode),
+		}
+	}
+	if errStr == "" {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("wallet did not return required error %s", expectedCode),
+		}
+	}
+	return Result{
+		Status:  StatusFail,
+		Message: fmt.Sprintf("wallet returned error %s, expected %s", errStr, expectedCode),
 	}
 }
 

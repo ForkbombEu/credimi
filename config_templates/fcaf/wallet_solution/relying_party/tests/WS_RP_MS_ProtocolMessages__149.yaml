@@ -13,18 +13,18 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.dcql.user-authentication-failed
 evidence:
   dcql_exchange:
     from: pipeline.dcql.user-authentication-failed.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.user-authentication-failed.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__149_dcql_protocol_valid
+- id: ws_rp_ms_protocolmessages__149_returns_access_denied_after_authentication_failure
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: access_denied_required
 - id: ws_rp_ms_protocolmessages__149_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
