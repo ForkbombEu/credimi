@@ -229,7 +229,7 @@ func buildAggregate(
 	aggregate := aggregateDefinition{
 		Name: name,
 		Runtime: map[string]any{
-			"global_runner_id": "forkbomb-bv-andrea/usb",
+			"global_device_id": "forkbomb-bv-andrea/usb/device",
 			"temporal": map[string]any{
 				"activity_options": map[string]any{
 					"schedule_to_close_timeout": "50m",

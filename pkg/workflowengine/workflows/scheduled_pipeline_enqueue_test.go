@@ -26,12 +26,12 @@ steps:
   - id: step-1
     use: mobile-automation
     with:
-      runner_id: runner-b
+      device_id: runner-b/device-b
       action_id: action-1
   - id: step-2
     use: mobile-automation
     with:
-      runner_id: runner-a
+      device_id: runner-a/device-a
       action_id: action-2
 `
 
@@ -104,7 +104,11 @@ steps:
 	require.Equal(t, "pipeline-123", capturedPayload.PipelineIdentifier)
 	require.Equal(t, pipelineYAML, capturedPayload.YAML)
 	require.Equal(t, 3, capturedPayload.MaxPipelinesInQueue)
-	require.ElementsMatch(t, []string{"runner-a", "runner-b"}, capturedPayload.RunnerIDs)
+	require.ElementsMatch(
+		t,
+		[]string{"runner-a/device-a", "runner-b/device-b"},
+		capturedPayload.DeviceIDs,
+	)
 
 	config := capturedPayload.PipelineConfig
 	require.Equal(t, "org-1", config["namespace"])
@@ -121,12 +125,12 @@ steps:
 	require.Equal(t, time.UTC, capturedPayload.EnqueuedAt.Location())
 }
 
-func TestCollectRunnerIDsAndNeedsGlobal(t *testing.T) {
+func TestCollectDeviceIDsAndNeedsGlobal(t *testing.T) {
 	steps := []scheduledPipelineStep{
 		{
 			Use: "mobile-automation",
 			With: map[string]any{
-				"runner_id": "runner-a",
+				"device_id": "runner-a",
 			},
 			OnError: []scheduledPipelineStep{
 				{
@@ -136,25 +140,25 @@ func TestCollectRunnerIDsAndNeedsGlobal(t *testing.T) {
 		},
 	}
 
-	runnerIDs := map[string]struct{}{}
+	deviceIDs := map[string]struct{}{}
 	needsGlobal := false
 
-	collectRunnerIDs(steps, runnerIDs, &needsGlobal)
+	collectDeviceIDs(steps, deviceIDs, &needsGlobal)
 
-	_, ok := runnerIDs["runner-a"]
+	_, ok := deviceIDs["runner-a"]
 	require.True(t, ok)
 	require.True(t, needsGlobal)
 }
 
-func TestRunnerIDsWithGlobal(t *testing.T) {
+func TestDeviceIDsWithGlobal(t *testing.T) {
 	info := scheduledPipelineRunnerInfo{
-		RunnerIDs:         []string{"runner-b"},
+		DeviceIDs:         []string{"runner-b"},
 		NeedsGlobalRunner: true,
 	}
 
-	ids := runnerIDsWithGlobal(info, "runner-a")
+	ids := deviceIDsWithGlobal(info, "runner-a")
 	require.Equal(t, []string{"runner-a", "runner-b"}, ids)
 
-	ids = runnerIDsWithGlobal(info, "runner-b")
+	ids = deviceIDsWithGlobal(info, "runner-b")
 	require.Equal(t, []string{"runner-b"}, ids)
 }

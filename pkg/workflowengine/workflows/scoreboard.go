@@ -26,8 +26,8 @@ var aggregateScoreboardStartWorkflowWithOptions = workflowengine.StartWorkflowWi
 type AggregatedPipelineStats struct {
 	PipelineID          string                  `json:"pipeline_id"`
 	PipelineName        string                  `json:"pipeline_name"`
-	RunnerTypes         []string                `json:"runner_types"`
-	Runners             []string                `json:"runners"`
+	DeviceTypes         []string                `json:"device_types"`
+	DeviceIDs           []string                `json:"device_ids"`
 	TotalRuns           int                     `json:"total_runs"`
 	TotalSuccesses      int                     `json:"total_successes"`
 	SuccessRate         float64                 `json:"success_rate"`
@@ -165,8 +165,8 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 				float64(stats.TotalSuccesses)/float64(stats.TotalRuns)*10000,
 			) / 100
 		}
-		sort.Strings(stats.Runners)
-		sort.Strings(stats.RunnerTypes)
+		sort.Strings(stats.DeviceIDs)
+		sort.Strings(stats.DeviceTypes)
 	}
 
 	// 4. Fetch last execution details
@@ -346,8 +346,8 @@ func (w *AggregateScoreboardWorkflow) aggregateSinglePipeline(
 		stats = &AggregatedPipelineStats{
 			PipelineID:   pipelineID,
 			PipelineName: getString(pipeline, "pipeline_name"),
-			RunnerTypes:  []string{},
-			Runners:      []string{},
+			DeviceTypes:  []string{},
+			DeviceIDs:    []string{},
 		}
 		aggregatedMap[pipelineID] = stats
 	}
@@ -355,9 +355,9 @@ func (w *AggregateScoreboardWorkflow) aggregateSinglePipeline(
 	// Aggregate numeric stats
 	w.aggregateNumericStats(stats, pipeline)
 
-	// Aggregate runners and types
-	w.aggregateRunners(stats, pipeline)
-	w.aggregateRunnerTypes(stats, pipeline)
+	// Aggregate execution devices and types.
+	w.aggregateDeviceIDs(stats, pipeline)
+	w.aggregateDeviceTypes(stats, pipeline)
 
 	// Update dates
 	w.updateDates(stats, pipeline)
@@ -387,27 +387,27 @@ func (w *AggregateScoreboardWorkflow) aggregateNumericStats(
 	}
 }
 
-func (w *AggregateScoreboardWorkflow) aggregateRunners(
+func (w *AggregateScoreboardWorkflow) aggregateDeviceIDs(
 	stats *AggregatedPipelineStats,
 	pipeline map[string]any,
 ) {
-	if runners, ok := pipeline["runners"].([]any); ok {
-		for _, runner := range runners {
-			if runnerID, ok := runner.(string); ok {
-				stats.Runners = appendUnique(stats.Runners, runnerID)
+	if deviceIDs, ok := pipeline["device_ids"].([]any); ok {
+		for _, device := range deviceIDs {
+			if deviceID, ok := device.(string); ok {
+				stats.DeviceIDs = appendUnique(stats.DeviceIDs, deviceID)
 			}
 		}
 	}
 }
 
-func (w *AggregateScoreboardWorkflow) aggregateRunnerTypes(
+func (w *AggregateScoreboardWorkflow) aggregateDeviceTypes(
 	stats *AggregatedPipelineStats,
 	pipeline map[string]any,
 ) {
-	if runnerTypes, ok := pipeline["runner_types"].([]any); ok {
-		for _, runnerType := range runnerTypes {
-			if runnerTypeValue, ok := runnerType.(string); ok {
-				stats.RunnerTypes = appendUnique(stats.RunnerTypes, runnerTypeValue)
+	if deviceTypes, ok := pipeline["device_types"].([]any); ok {
+		for _, deviceType := range deviceTypes {
+			if deviceTypeValue, ok := deviceType.(string); ok {
+				stats.DeviceTypes = appendUnique(stats.DeviceTypes, deviceTypeValue)
 			}
 		}
 	}

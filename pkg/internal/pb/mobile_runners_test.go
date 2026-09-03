@@ -28,29 +28,31 @@ func TestRegisterMobileRunnerHooksDeletesRunnerByShuttingDownSemaphore(t *testin
 		"UpdateWorkflow",
 		mock.Anything,
 		mock.MatchedBy(func(options tclient.UpdateWorkflowOptions) bool {
-			req, ok := options.Args[0].(workflows.MobileRunnerSemaphoreShutdownRunnerRequest)
-			return options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
-				"usera-s-organization/runner-delete",
+			req, ok := options.Args[0].(workflows.MobileDeviceSemaphoreShutdownDeviceRequest)
+			return options.WorkflowID == workflows.MobileDeviceSemaphoreWorkflowID(
+				"usera-s-organization/runner-delete/device-a",
 			) &&
-				options.UpdateName == workflows.MobileRunnerSemaphoreShutdownRunnerUpdate &&
-				options.UpdateID == "shutdown/usera-s-organization/runner-delete" &&
+				options.UpdateName == workflows.MobileDeviceSemaphoreShutdownDeviceUpdate &&
+				options.UpdateID == "shutdown/usera-s-organization/runner-delete/device-a" &&
 				options.WaitForStage == tclient.WorkflowUpdateStageAccepted &&
 				ok &&
 				req.Reason == "mobile runner deleted"
 		}),
 	).Return(temporalmocks.NewWorkflowUpdateHandle(t), nil).Once()
 	mobileRunnerShutdownTemporalClient = func(namespace string) (tclient.Client, error) {
-		require.Equal(t, workflowengine.MobileRunnerSemaphoreDefaultNamespace, namespace)
+		require.Equal(t, workflowengine.MobileDeviceSemaphoreDefaultNamespace, namespace)
 		return mockClient, nil
 	}
 
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
+	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	RegisterMobileRunnerHooks(app)
 
 	record := createMobileRunnerRecordForDeleteTest(t, app, "runner-delete")
+	createMobileDeviceRecordForDeleteTest(t, app, record, "device-a")
 	require.NoError(t, app.Delete(record))
 }
 
@@ -68,11 +70,78 @@ func TestRegisterMobileRunnerHooksIgnoresMissingSemaphore(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
+	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	RegisterMobileRunnerHooks(app)
 
 	record := createMobileRunnerRecordForDeleteTest(t, app, "runner-missing")
+	createMobileDeviceRecordForDeleteTest(t, app, record, "device-a")
 	require.NoError(t, app.Delete(record))
+}
+
+func TestRegisterMobileDeviceHooksContinuesToCanonifyCreate(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	ensureMobileDevicesCollection(t, app)
+	canonify.RegisterCanonifyHooks(app)
+	RegisterMobileDeviceHooks(app)
+
+	runner := createMobileRunnerRecordForDeleteTest(t, app, "runner-device-create")
+	collection, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(collection)
+	device.Set("owner", runner.GetString("owner"))
+	device.Set("runner", runner.Id)
+	device.Set("name", "Android Emulator")
+	require.NoError(t, app.Save(device))
+	require.Equal(t, "android-emulator", device.GetString("canonified_name"))
+}
+
+func ensureMobileDevicesCollection(t *testing.T, app core.App) {
+	t.Helper()
+	if _, err := app.FindCollectionByNameOrId("mobile_devices"); err == nil {
+		return
+	}
+
+	collection := core.NewBaseCollection("mobile_devices")
+	collection.Fields.Add(
+		&core.RelationField{
+			Name:         "owner",
+			CollectionId: "aako88kt3br4npt",
+			MaxSelect:    1,
+			Required:     true,
+		},
+	)
+	collection.Fields.Add(
+		&core.RelationField{
+			Name:          "runner",
+			CollectionId:  "pbc_500646217",
+			MaxSelect:     1,
+			Required:      true,
+			CascadeDelete: true,
+		},
+	)
+	collection.Fields.Add(&core.TextField{Name: "name", Required: true})
+	collection.Fields.Add(&core.TextField{Name: "canonified_name", Required: true})
+	require.NoError(t, app.Save(collection))
+}
+
+func createMobileDeviceRecordForDeleteTest(
+	t *testing.T,
+	app core.App,
+	runner *core.Record,
+	name string,
+) {
+	t.Helper()
+	collection, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	record := core.NewRecord(collection)
+	record.Set("owner", runner.GetString("owner"))
+	record.Set("runner", runner.Id)
+	record.Set("name", name)
+	record.Set("canonified_name", name)
+	require.NoError(t, app.Save(record))
 }
 
 func createMobileRunnerRecordForDeleteTest(t *testing.T, app core.App, name string) *core.Record {

@@ -57,7 +57,7 @@ export async function run(pipeline: PipelinesResponse) {
 						}
 						const response = await PipelineQueue.cancel(
 							result.value.ticket_id,
-							result.value.runner_ids ?? []
+							result.value.device_ids ?? []
 						);
 						if (response.isOk) toast.success(m.Pipeline_execution_canceled());
 						else toast.error(response.error);
@@ -74,7 +74,7 @@ export async function cancel(workflow: PipelineWorkflows.ExecutionSummary) {
 		fn: async () => {
 			try {
 				if (queue) {
-					return await PipelineQueue.cancel(queue.ticket_id, queue.runner_ids);
+					return await PipelineQueue.cancel(queue.ticket_id, queue.device_ids);
 				} else if (workflow.status === 'Running') {
 					const res = await Workflow.cancel(execution.workflowId, execution.runId);
 					return ok(res);

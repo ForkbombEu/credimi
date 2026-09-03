@@ -4,7 +4,7 @@ runtime:
     issuer_url: https://capture-wallet.credimi.io
     verifier_url: https://capture-wallet.credimi.io
     log_checker: capture-wallet
-  global_runner_id: ""
+  global_device_id: ""
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m

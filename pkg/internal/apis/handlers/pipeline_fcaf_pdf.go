@@ -229,17 +229,17 @@ func firstNonBlank(values ...string) string {
 
 func resolvePipelineRunner(app core.App, pipelineRecord *core.Record) reportpdf.RunnerInfo {
 	wf, err := pipeline.ParseWorkflow(pipelineRecord.GetString("yaml"))
-	if err != nil || wf.Runtime.GlobalRunnerID == "" {
+	if err != nil || wf.Runtime.GlobalDeviceID == "" {
 		return reportpdf.RunnerInfo{}
 	}
-	runnerRecord, err := canonify.Resolve(app, canonify.NormalizePath(wf.Runtime.GlobalRunnerID))
+	deviceRecord, err := canonify.Resolve(app, canonify.NormalizePath(wf.Runtime.GlobalDeviceID))
 	if err != nil {
 		return reportpdf.RunnerInfo{}
 	}
 	return reportpdf.RunnerInfo{
-		Name:   runnerRecord.GetString("name"),
-		Type:   humanizeRunnerType(runnerRecord.GetString("type")),
-		Serial: runnerRecord.GetString("serial"),
+		Name:   deviceRecord.GetString("name"),
+		Type:   humanizeRunnerType(deviceRecord.GetString("type")),
+		Serial: deviceRecord.GetString("serial"),
 	}
 }
 

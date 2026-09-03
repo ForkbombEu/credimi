@@ -88,7 +88,7 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
 			return apiErr
 		}
-		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIRunnerID(
+		deviceID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIDeviceID(
 			e.Request.Context(),
 			e.App,
 			runContext.OrganizationRecord.Id,
@@ -99,16 +99,16 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			rollbackPipelineCITempRecords(e, tempUseCases, "use case verification")
 			return apiErr
 		}
-		warning := pipelineCIIgnoredRunnerWarning(
-			input.RunnerID,
-			input.RunnerType,
+		warning := pipelineCIIgnoredDeviceWarning(
+			input.DeviceID,
+			input.DeviceType,
 			hasStepRunner,
 			needsGlobalRunner,
 		)
-		manipulatedYAML, apiErr := injectPipelineCIGlobalRunnerID(
+		manipulatedYAML, apiErr := injectPipelineCIGlobalDeviceID(
 			rewrittenYAML,
 			workflowDefinition,
-			runnerID,
+			deviceID,
 			hasStepRunner,
 			needsGlobalRunner,
 		)
@@ -120,8 +120,8 @@ func HandlePipelineRunVerifier() func(*core.RequestEvent) error {
 			input.Metadata,
 			e.App.Settings().Meta.AppURL,
 			input.PipelineIdentifier,
-			runnerID,
-			resolveWalletAPKGitHubPRRunnerType(e.App, runnerID, input.RunnerType),
+			deviceID,
+			resolveWalletAPKGitHubPRDeviceType(e.App, deviceID, input.DeviceType),
 			activities.GitHubPRCommentSectionVerifier,
 		)
 
@@ -274,18 +274,18 @@ func resolvePipelineRunVerifierUseCaseReferences(
 
 func buildPipelineRunVerifierCleanupMetadata(
 	tempUseCases []tempUseCaseVerification,
-) *workflows.MobileRunnerSemaphoreCleanupMetadata {
+) *workflows.MobileDeviceSemaphoreCleanupMetadata {
 	if len(tempUseCases) == 0 {
 		return nil
 	}
-	cleanup := &workflows.MobileRunnerSemaphoreCleanupMetadata{}
+	cleanup := &workflows.MobileDeviceSemaphoreCleanupMetadata{}
 	for _, useCase := range tempUseCases {
 		if useCase.Record == nil || useCase.Record.Id == "" {
 			continue
 		}
 		cleanup.TempUseCaseVerifications = append(
 			cleanup.TempUseCaseVerifications,
-			workflows.MobileRunnerSemaphoreTempCredentialCleanupMetadata{
+			workflows.MobileDeviceSemaphoreTempCredentialCleanupMetadata{
 				RecordID:   useCase.Record.Id,
 				OwnerID:    useCase.Record.GetString("owner"),
 				Identifier: useCase.Identifier,

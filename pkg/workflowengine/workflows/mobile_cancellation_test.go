@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
@@ -118,7 +119,10 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 		activity.RegisterOptions{Name: httpActivity.Name()},
 	)
 
-	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload, err := workflowengine.DecodePayload[mobile.RunMobileFlowPayload](input.Payload)
+		return err == nil && payload.WorkflowId == "org/workflow-run"
+	})).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"output":                   "Maestro output",
 			"maestro_screenshot_paths": []string{"/tmp/checkout.png"},
@@ -137,7 +141,7 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 			return request.URL == "https://runner.example/credimi/execution-screenshots" &&
 				workflowengine.AsString(body["step_id"]) == "scan-credential" &&
 				workflowengine.AsString(body["run_identifier"]) == "org/workflow-run" &&
-				workflowengine.AsString(body["runner_identifier"]) == "org/runner" &&
+				workflowengine.AsString(body["device_identifier"]) == "org/runner" &&
 				requireScreenshotPaths(body["screenshot_paths"], "/tmp/checkout.png")
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -177,7 +181,12 @@ func TestMobileAutomationWorkflowSkipsScreenshotAPIWithoutPaths(t *testing.T) {
 
 	env.ExecuteWorkflow(w.Name(), mobileScreenshotWorkflowInput())
 	require.NoError(t, env.GetWorkflowError())
-	env.AssertNotCalled(t, activities.NewInternalHTTPActivity().Name(), mock.Anything, mock.Anything)
+	env.AssertNotCalled(
+		t,
+		activities.NewInternalHTTPActivity().Name(),
+		mock.Anything,
+		mock.Anything,
+	)
 }
 
 func mobileScreenshotWorkflowInput() workflowengine.WorkflowInput {
@@ -185,7 +194,7 @@ func mobileScreenshotWorkflowInput() workflowengine.WorkflowInput {
 		Payload: MobileAutomationWorkflowPayload{
 			Serial:     "emulator-5554",
 			ActionCode: "steps: []",
-			RunnerID:   "org/runner",
+			DeviceID:   "org/runner",
 		},
 		Config: map[string]any{
 			"app_url":        "https://app.example",

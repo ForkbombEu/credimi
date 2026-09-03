@@ -12,7 +12,7 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { getExceptionMessage } from '@/utils/errors';
 
-import * as Runner from './runner';
+import * as Device from './device';
 import { parseYaml } from './utils';
 
 //
@@ -23,7 +23,7 @@ export type Status = 'queued' | 'starting' | 'running' | 'failed' | 'canceled' |
 type APIResponseBase = {
 	ticket_id?: string;
 	enqueued_at?: string;
-	runner_ids?: string[];
+	device_ids?: string[];
 	position?: number;
 	line_len?: number;
 	workflow_id?: string;
@@ -44,13 +44,13 @@ export type APIResponse =
 export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIResponse, string>> {
 	try {
 		const parsedYaml = parseYaml(pipeline.yaml);
-		const runnerType = Runner.Binding.getType(pipeline);
+		const deviceType = Device.Binding.getType(pipeline);
 
-		if (runnerType === 'global') {
-			const runner = Runner.Binding.get(pipeline.id);
-			if (!runner) throw new Error('No runner found');
-			if (parsedYaml.runtime) parsedYaml.runtime.global_runner_id = runner;
-			else parsedYaml.runtime = { global_runner_id: runner };
+		if (deviceType === 'global') {
+			const device = Device.Binding.get(pipeline.id);
+			if (!device) throw new Error('No device found');
+			if (parsedYaml.runtime) parsedYaml.runtime.global_device_id = device;
+			else parsedYaml.runtime = { global_device_id: device };
 		}
 
 		const res = await pb.send<APIResponse>('/api/pipeline/queue', {
@@ -61,9 +61,9 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 			}
 		});
 
-		const assignedRunnerIds = res.runner_ids ?? [];
-		if (Runner.Binding.isRequired(pipeline)) {
-			if (assignedRunnerIds.length === 0 || !res.ticket_id) {
+		const assignedDeviceIds = res.device_ids ?? [];
+		if (Device.Binding.isRequired(pipeline)) {
+			if (assignedDeviceIds.length === 0 || !res.ticket_id) {
 				return err(m.Failed_to_enqueue_pipeline());
 			}
 		}
@@ -80,11 +80,11 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 
 export async function cancel(
 	ticketId: string,
-	runnerIds: string[]
+	deviceIds: string[]
 ): Promise<Result<APIResponse, string>> {
 	try {
 		const params = new URLSearchParams();
-		params.set('runner_ids', runnerIds.join(','));
+		params.set('device_ids', deviceIds.join(','));
 		const url = `/api/pipeline/queue/${ticketId}?${params.toString()}`;
 		const res = await pb.send<APIResponse>(url, { method: 'DELETE' });
 		if (res.status === 'canceled') {

@@ -37,7 +37,7 @@ type ScheduledPipelineEnqueueWorkflowInput struct {
 	PipelineIdentifier  string         `json:"pipeline_identifier"`
 	OwnerNamespace      string         `json:"owner_namespace"`
 	PipelineConfig      map[string]any `json:"pipeline_config,omitempty"`
-	GlobalRunnerID      string         `json:"global_runner_id,omitempty"`
+	GlobalDeviceID      string         `json:"global_device_id,omitempty"`
 	MaxPipelinesInQueue int            `json:"max_pipelines_in_queue,omitempty"`
 }
 
@@ -239,31 +239,31 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	globalRunnerID := ""
+	globalDeviceID := ""
 	if runnerInfo.NeedsGlobalRunner {
-		globalRunnerID = strings.TrimSpace(parsedPipeline.Runtime.GlobalRunnerID)
-		if globalRunnerID == "" {
-			globalRunnerID = strings.TrimSpace(payload.GlobalRunnerID)
+		globalDeviceID = strings.TrimSpace(parsedPipeline.Runtime.GlobalDeviceID)
+		if globalDeviceID == "" {
+			globalDeviceID = strings.TrimSpace(payload.GlobalDeviceID)
 		}
-		if globalRunnerID == "" {
+		if globalDeviceID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-				"global_runner_id",
+				"global_device_id",
 				input.RunMetadata,
 			)
 		}
 	}
-	if globalRunnerID != "" {
-		config["global_runner_id"] = globalRunnerID
+	if globalDeviceID != "" {
+		config["global_device_id"] = globalDeviceID
 	}
 
-	runnerIDs := runnerIDsWithGlobal(runnerInfo, globalRunnerID)
-	sort.Strings(runnerIDs)
-	if len(runnerIDs) == 0 {
+	deviceIDs := deviceIDsWithGlobal(runnerInfo, globalDeviceID)
+	sort.Strings(deviceIDs)
+	if len(deviceIDs) == 0 {
 		configErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
 				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
-				Message: "runner_ids",
+				Message: "device_ids",
 				Details: map[string]any{"payload": "no runner ids resolved from yaml"},
 			},
 		)
@@ -277,7 +277,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		ctx,
 		appURL,
 		ownerNamespace,
-		runnerIDs,
+		deviceIDs,
 		input.RunMetadata,
 	); err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -299,7 +299,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			TicketID:            ticketID,
 			OwnerNamespace:      ownerNamespace,
 			EnqueuedAt:          enqueuedAt,
-			RunnerIDs:           runnerIDs,
+			DeviceIDs:           deviceIDs,
 			PipelineIdentifier:  pipelineIdentifier,
 			YAML:                pipelineYAML,
 			PipelineConfig:      config,
@@ -345,7 +345,7 @@ func validateScheduledPipelineRunnerAccess(
 	ctx workflow.Context,
 	appURL string,
 	ownerNamespace string,
-	runnerIDs []string,
+	deviceIDs []string,
 	runMetadata *workflowengine.WorkflowRunMetadata,
 ) error {
 	httpActivity := activities.NewInternalHTTPActivity()
@@ -358,7 +358,7 @@ func validateScheduledPipelineRunnerAccess(
 			),
 			Body: map[string]any{
 				"owner_namespace": ownerNamespace,
-				"runner_ids":      runnerIDs,
+				"device_ids":      deviceIDs,
 			},
 			ExpectedStatus: http.StatusOK,
 		},
@@ -393,7 +393,7 @@ type scheduledPipelineDefinition struct {
 
 // scheduledPipelineRuntime stores global runner configuration from YAML.
 type scheduledPipelineRuntime struct {
-	GlobalRunnerID string `yaml:"global_runner_id,omitempty"`
+	GlobalDeviceID string `yaml:"global_device_id,omitempty"`
 }
 
 // scheduledPipelineStep is a minimal step definition for runner lookup.
@@ -406,7 +406,7 @@ type scheduledPipelineStep struct {
 
 // scheduledPipelineRunnerInfo describes runner IDs resolved from a pipeline YAML.
 type scheduledPipelineRunnerInfo struct {
-	RunnerIDs         []string
+	DeviceIDs         []string
 	NeedsGlobalRunner bool
 }
 
@@ -423,73 +423,73 @@ func parseScheduledPipelineDefinition(
 		return def, scheduledPipelineRunnerInfo{}, err
 	}
 
-	runnerIDs := map[string]struct{}{}
+	deviceIDs := map[string]struct{}{}
 	needsGlobal := false
-	collectRunnerIDs(def.Steps, runnerIDs, &needsGlobal)
+	collectDeviceIDs(def.Steps, deviceIDs, &needsGlobal)
 
 	info := scheduledPipelineRunnerInfo{
 		NeedsGlobalRunner: needsGlobal,
 	}
-	if len(runnerIDs) == 0 {
+	if len(deviceIDs) == 0 {
 		return def, info, nil
 	}
 
-	info.RunnerIDs = make([]string, 0, len(runnerIDs))
-	for runnerID := range runnerIDs {
-		info.RunnerIDs = append(info.RunnerIDs, runnerID)
+	info.DeviceIDs = make([]string, 0, len(deviceIDs))
+	for deviceID := range deviceIDs {
+		info.DeviceIDs = append(info.DeviceIDs, deviceID)
 	}
-	sort.Strings(info.RunnerIDs)
+	sort.Strings(info.DeviceIDs)
 
 	return def, info, nil
 }
 
-// collectRunnerIDs walks pipeline steps and collects runner IDs plus missing runner flags.
-func collectRunnerIDs(
+// collectDeviceIDs walks pipeline steps and collects runner IDs plus missing runner flags.
+func collectDeviceIDs(
 	steps []scheduledPipelineStep,
-	runnerIDs map[string]struct{},
+	deviceIDs map[string]struct{},
 	needsGlobal *bool,
 ) {
 	for _, step := range steps {
-		runnerID := ""
+		deviceID := ""
 		if step.With != nil {
-			if rawRunnerID, ok := step.With["runner_id"]; ok {
-				if id, ok := rawRunnerID.(string); ok {
-					runnerID = strings.TrimSpace(id)
+			if rawDeviceID, ok := step.With["device_id"]; ok {
+				if id, ok := rawDeviceID.(string); ok {
+					deviceID = strings.TrimSpace(id)
 				}
 			}
 		}
 
-		if runnerID != "" {
-			runnerIDs[runnerID] = struct{}{}
+		if deviceID != "" {
+			deviceIDs[deviceID] = struct{}{}
 		} else if step.Use == "mobile-automation" && needsGlobal != nil {
 			*needsGlobal = true
 		}
 
 		if len(step.OnError) > 0 {
-			collectRunnerIDs(step.OnError, runnerIDs, needsGlobal)
+			collectDeviceIDs(step.OnError, deviceIDs, needsGlobal)
 		}
 		if len(step.OnSuccess) > 0 {
-			collectRunnerIDs(step.OnSuccess, runnerIDs, needsGlobal)
+			collectDeviceIDs(step.OnSuccess, deviceIDs, needsGlobal)
 		}
 	}
 }
 
-// runnerIDsWithGlobal combines explicit runner IDs with a global runner override when needed.
-func runnerIDsWithGlobal(info scheduledPipelineRunnerInfo, globalRunnerID string) []string {
-	runnerIDs := append([]string{}, info.RunnerIDs...)
-	globalRunnerID = strings.TrimSpace(globalRunnerID)
-	if info.NeedsGlobalRunner && globalRunnerID != "" {
+// deviceIDsWithGlobal combines explicit runner IDs with a global runner override when needed.
+func deviceIDsWithGlobal(info scheduledPipelineRunnerInfo, globalDeviceID string) []string {
+	deviceIDs := append([]string{}, info.DeviceIDs...)
+	globalDeviceID = strings.TrimSpace(globalDeviceID)
+	if info.NeedsGlobalRunner && globalDeviceID != "" {
 		found := false
-		for _, id := range runnerIDs {
-			if id == globalRunnerID {
+		for _, id := range deviceIDs {
+			if id == globalDeviceID {
 				found = true
 				break
 			}
 		}
 		if !found {
-			runnerIDs = append(runnerIDs, globalRunnerID)
-			sort.Strings(runnerIDs)
+			deviceIDs = append(deviceIDs, globalDeviceID)
+			sort.Strings(deviceIDs)
 		}
 	}
-	return runnerIDs
+	return deviceIDs
 }

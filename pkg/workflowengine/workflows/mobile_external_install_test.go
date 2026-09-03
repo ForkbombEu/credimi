@@ -37,27 +37,44 @@ func TestMobileAutomationWorkflowChecksExternallyInstalledApp(t *testing.T) {
 		{listAppsActivity.Name(), listAppsActivity.Execute},
 		{postInstallActivity.Name(), postInstallActivity.Execute},
 	} {
-		env.RegisterActivityWithOptions(registeredActivity.fn, activity.RegisterOptions{Name: registeredActivity.name})
+		env.RegisterActivityWithOptions(
+			registeredActivity.fn,
+			activity.RegisterOptions{Name: registeredActivity.name},
+		)
 	}
 
-	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload := workflowengine.AsMap(input.Payload)
+		return payload["device_id"] == "acme/runner/pixel" && payload["serial"] == "serial-1"
+	})).
 		Return(workflowengine.ActivityResult{Output: map[string]any{"status": "ok"}}, nil).Once()
 	for _, apps := range [][]string{
 		{"com.example.old"},
 		{"com.example.installed", "com.example.old"},
 	} {
-		env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload := workflowengine.AsMap(input.Payload)
+			return payload["device_id"] == "acme/runner/pixel" && payload["serial"] == "serial-1"
+		})).
 			Return(workflowengine.ActivityResult{Output: apps}, nil).Once()
 	}
 	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 		payload := workflowengine.AsMap(input.Payload)
-		return payload["serial"] == "serial-1" && payload["package_id"] == "com.example.installed"
-	})).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"package_id": "com.example.installed",
-	}}, nil).Once()
+		return payload["device_id"] == "acme/runner/pixel" &&
+			payload["serial"] == "serial-1" && payload["package_id"] == "com.example.installed"
+	})).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"package_id": "com.example.installed",
+		}}, nil).
+		Once()
 
 	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
-		Payload: MobileAutomationWorkflowPayload{Serial: "serial-1", Type: "android_phone", ActionCode: "steps: []"},
+		Payload: MobileAutomationWorkflowPayload{
+			DeviceID:   "acme/runner/pixel",
+			Serial:     "serial-1",
+			Type:       "android_phone",
+			ActionCode: "steps: []",
+		},
 		Config: map[string]any{
 			"app_url":                         "https://example.test",
 			"taskqueue":                       "runner-1-TaskQueue",

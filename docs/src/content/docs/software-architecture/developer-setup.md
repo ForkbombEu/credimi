@@ -88,13 +88,13 @@ temporal operator search-attributes create --name PipelineIdentifier --type Keyw
 If the attribute is added after workflows already exist, trigger a Temporal visibility reindex to backfill
 historical data (see Temporal admin tooling docs for your deployment).
 
-## Mobile Runner Semaphore Ops (Internal)
+## mobile device semaphore Ops (Internal)
 
 ### Defaults and knobs
 
 - Default acquire wait timeout: 45m.
-- Override timeout: `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT=30m` (or any valid `time.ParseDuration` value).
-- Disable semaphore (no-op acquire/release): `MOBILE_RUNNER_SEMAPHORE_DISABLED=1`.
+- Override timeout: `MOBILE_DEVICE_SEMAPHORE_WAIT_TIMEOUT=30m` (or any valid `time.ParseDuration` value).
+- Disable semaphore (no-op acquire/release): `MOBILE_DEVICE_SEMAPHORE_DISABLED=1`.
 - Internal Temporal API auth key: `CREDIMI_INTERNAL_ADMIN_KEY=<plaintext key>` (required for internal workflow HTTP calls).
 
 ### Internal admin API key rollout
@@ -107,6 +107,6 @@ historical data (see Temporal admin tooling docs for your deployment).
 
 ### Emergency procedures
 
-- Semaphore workflows live in the Temporal `default` namespace with IDs: `mobile-runner-semaphore/<runner_id>`.
-- Query current state via Temporal UI (`GetState`) or `GET /api/mobile-runner/semaphore?runner_identifier=...`.
+- Semaphore workflows live in the Temporal `default` namespace with IDs: `mobile-device-semaphore/<device_id>`.
+- Query current state via Temporal UI (`GetState`) or `GET /api/mobile-runner/semaphore?device_identifier=...`.
 - To unstick a runner, terminate the semaphore workflow in Temporal; it will be recreated on the next acquire.

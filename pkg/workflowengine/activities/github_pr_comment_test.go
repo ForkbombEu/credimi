@@ -50,8 +50,8 @@ func TestBuildGitHubPRCommentBody(t *testing.T) {
 		Status:     "queued",
 		Position:   &position,
 		PipelineID: "org/pipeline",
-		RunnerID:   "org/runner-1",
-		RunnerType: "android_phone",
+		DeviceID:   "org/runner-1",
+		DeviceType: "android_phone",
 	})
 	require.Contains(
 		t,

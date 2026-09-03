@@ -13,8 +13,8 @@ import (
 const (
 	// PipelineIdentifierSearchAttribute is the Temporal visibility field storing pipeline identifiers.
 	PipelineIdentifierSearchAttribute = "PipelineIdentifier"
-	// RunnerIdentifierSearchAttribute is the Temporal visibility field storing runner identifiers.
-	RunnerIdentifiersSearchAttribute = "RunnerIdentifiers"
+	// DeviceIdentifiersSearchAttribute is the Temporal visibility field storing device identifiers.
+	DeviceIdentifiersSearchAttribute = "DeviceIdentifiers"
 	ActionsSearchAttribute           = "ActionsID"
 	VersionsSearchAttribute          = "VersionsID"
 	CredentialsSearchAttribute       = "CredentialsID"
@@ -40,7 +40,7 @@ func NormalizePipelineIdentifier(identifier string) string {
 // PipelineTypedSearchAttributes returns typed search attributes for scheduled workflow actions.
 func PipelineTypedSearchAttributes(
 	pipelineIdentifier string,
-	runnerIDs []string,
+	deviceIDs []string,
 	entityIDs EntityIDs,
 ) temporal.SearchAttributes {
 	var attrs []temporal.SearchAttributeUpdate
@@ -49,9 +49,9 @@ func PipelineTypedSearchAttributes(
 		keyPipeline := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
 		attrs = append(attrs, keyPipeline.ValueSet(normalized))
 	}
-	if len(runnerIDs) > 0 {
-		runnerKey := temporal.NewSearchAttributeKeyKeywordList(RunnerIdentifiersSearchAttribute)
-		attrs = append(attrs, runnerKey.ValueSet(runnerIDs))
+	if len(deviceIDs) > 0 {
+		runnerKey := temporal.NewSearchAttributeKeyKeywordList(DeviceIdentifiersSearchAttribute)
+		attrs = append(attrs, runnerKey.ValueSet(deviceIDs))
 	}
 	if len(entityIDs.Actions) > 0 {
 		key := temporal.NewSearchAttributeKeyKeywordList(ActionsSearchAttribute)
@@ -87,7 +87,7 @@ func PipelineTypedSearchAttributes(
 func ApplyPipelineSearchAttributes(
 	options *client.StartWorkflowOptions,
 	pipelineIdentifier string,
-	runnerIDs []string,
+	deviceIDs []string,
 	entityIDs EntityIDs,
 ) {
 	if options == nil {
@@ -99,9 +99,9 @@ func ApplyPipelineSearchAttributes(
 		pipelineKey := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
 		updates = append(updates, pipelineKey.ValueSet(normalized))
 	}
-	if len(runnerIDs) > 0 {
-		runnerKey := temporal.NewSearchAttributeKeyKeywordList(RunnerIdentifiersSearchAttribute)
-		updates = append(updates, runnerKey.ValueSet(runnerIDs))
+	if len(deviceIDs) > 0 {
+		runnerKey := temporal.NewSearchAttributeKeyKeywordList(DeviceIdentifiersSearchAttribute)
+		updates = append(updates, runnerKey.ValueSet(deviceIDs))
 	}
 	if len(entityIDs.Actions) > 0 {
 		key := temporal.NewSearchAttributeKeyKeywordList(ActionsSearchAttribute)

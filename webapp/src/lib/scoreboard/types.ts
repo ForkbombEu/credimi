@@ -14,6 +14,7 @@ import type {
 export type ScoreboardRow = Simplify<
 	PipelineScoreboardCacheResponse<
 		string[],
+		unknown,
 		SetOptional<PipelineScoreboardCacheExpand, 'pipeline'>
 		// Generated types say that the pipeline field is always present
 		// but it's not always the case: pipelines can be "private"

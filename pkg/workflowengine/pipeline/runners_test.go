@@ -14,32 +14,33 @@ import (
 
 const testDataDir = "../../../test_pb_data"
 
-func TestParsePipelineRunnerInfo(t *testing.T) {
+func TestParsePipelineDeviceInfo(t *testing.T) {
 	t.Run("empty yaml returns zero value", func(t *testing.T) {
-		got, err := ParsePipelineRunnerInfo("   ")
+		got, err := ParsePipelineDeviceInfo("   ")
 		require.NoError(t, err)
-		require.False(t, got.NeedsGlobalRunner)
-		require.Empty(t, got.RunnerIDs)
+		require.False(t, got.NeedsGlobalDevice)
+		require.Empty(t, got.DeviceIDs)
 	})
 
 	t.Run("invalid yaml returns error", func(t *testing.T) {
-		_, err := ParsePipelineRunnerInfo("[")
+		_, err := ParsePipelineDeviceInfo("[")
 		require.Error(t, err)
 	})
 
-	t.Run("collects and deduplicates runner ids from steps and branches", func(t *testing.T) {
+	t.Run("collects and deduplicates device ids from steps and branches", func(t *testing.T) {
 		yamlStr := `
 name: test
 steps:
   - id: step-1
     use: mobile-automation
     with:
-      runner_id: runner-b
+      payload:
+        device_id: tenant-a/runner-b/device-b
   - id: step-2
     use: mobile-automation
     with:
       payload:
-        runner_id: runner-a
+        device_id: tenant-a/runner-a/device-a
   - id: step-3
     use: echo
     with:
@@ -48,26 +49,35 @@ steps:
       - id: err-step
         use: mobile-automation
         with:
-          runner_id: runner-c
+          payload:
+            device_id: tenant-a/runner-c/device-c
     on_success:
       - id: success-step
         use: mobile-automation
         with:
           payload:
-            runner_id: runner-a
+            device_id: tenant-a/runner-a/device-a
   - id: step-4
     use: mobile-automation
     with:
       action_id: missing-runner-id
 `
 
-		got, err := ParsePipelineRunnerInfo(yamlStr)
+		got, err := ParsePipelineDeviceInfo(yamlStr)
 		require.NoError(t, err)
-		require.True(t, got.NeedsGlobalRunner)
-		require.Equal(t, []string{"runner-a", "runner-b", "runner-c"}, got.RunnerIDs)
+		require.True(t, got.NeedsGlobalDevice)
+		require.Equal(
+			t,
+			[]string{
+				"tenant-a/runner-a/device-a",
+				"tenant-a/runner-b/device-b",
+				"tenant-a/runner-c/device-c",
+			},
+			got.DeviceIDs,
+		)
 	})
 
-	t.Run("normalizes leading slash runner ids", func(t *testing.T) {
+	t.Run("normalizes leading slash device ids", func(t *testing.T) {
 		yamlStr := `
 name: test
 steps:
@@ -75,71 +85,71 @@ steps:
     use: mobile-automation
     with:
       payload:
-        runner_id: /tenant-a/runner-a
+        device_id: /tenant-a/runner-a/device-a
 `
 
-		got, err := ParsePipelineRunnerInfo(yamlStr)
+		got, err := ParsePipelineDeviceInfo(yamlStr)
 		require.NoError(t, err)
-		require.Equal(t, []string{"tenant-a/runner-a"}, got.RunnerIDs)
+		require.Equal(t, []string{"tenant-a/runner-a/device-a"}, got.DeviceIDs)
 	})
 }
 
-func TestRunnerIDsWithGlobal(t *testing.T) {
-	t.Run("adds global runner if needed and missing", func(t *testing.T) {
-		info := PipelineRunnerInfo{
-			RunnerIDs:         []string{"runner-b"},
-			NeedsGlobalRunner: true,
+func TestDeviceIDsWithGlobal(t *testing.T) {
+	t.Run("adds global device if needed and missing", func(t *testing.T) {
+		info := PipelineDeviceInfo{
+			DeviceIDs:         []string{"device-b"},
+			NeedsGlobalDevice: true,
 		}
-		got := RunnerIDsWithGlobal(info, " runner-a ")
-		require.Equal(t, []string{"runner-a", "runner-b"}, got)
+		got := DeviceIDsWithGlobal(info, " device-a ")
+		require.Equal(t, []string{"device-a", "device-b"}, got)
 	})
 
 	t.Run("normalizes global runner leading slash", func(t *testing.T) {
-		info := PipelineRunnerInfo{
-			RunnerIDs:         []string{"tenant-a/runner-b"},
-			NeedsGlobalRunner: true,
+		info := PipelineDeviceInfo{
+			DeviceIDs:         []string{"tenant-a/runner-b/device-b"},
+			NeedsGlobalDevice: true,
 		}
-		got := RunnerIDsWithGlobal(info, " /tenant-a/runner-a ")
-		require.Equal(t, []string{"tenant-a/runner-a", "tenant-a/runner-b"}, got)
+		got := DeviceIDsWithGlobal(info, " /tenant-a/runner-a/device-a ")
+		require.Equal(t, []string{"tenant-a/runner-a/device-a", "tenant-a/runner-b/device-b"}, got)
 	})
 
 	t.Run("does not duplicate global runner", func(t *testing.T) {
-		info := PipelineRunnerInfo{
-			RunnerIDs:         []string{"runner-a", "runner-b"},
-			NeedsGlobalRunner: true,
+		info := PipelineDeviceInfo{
+			DeviceIDs:         []string{"device-a", "device-b"},
+			NeedsGlobalDevice: true,
 		}
-		got := RunnerIDsWithGlobal(info, "runner-a")
-		require.Equal(t, []string{"runner-a", "runner-b"}, got)
+		got := DeviceIDsWithGlobal(info, "device-a")
+		require.Equal(t, []string{"device-a", "device-b"}, got)
 	})
 
 	t.Run("ignores global runner when not needed", func(t *testing.T) {
-		info := PipelineRunnerInfo{
-			RunnerIDs:         []string{"runner-a"},
-			NeedsGlobalRunner: false,
+		info := PipelineDeviceInfo{
+			DeviceIDs:         []string{"device-a"},
+			NeedsGlobalDevice: false,
 		}
-		got := RunnerIDsWithGlobal(info, "runner-b")
-		require.Equal(t, []string{"runner-a"}, got)
+		got := DeviceIDsWithGlobal(info, "device-b")
+		require.Equal(t, []string{"device-a"}, got)
 	})
 }
 
-func TestGlobalRunnerIDFromConfig(t *testing.T) {
-	require.Equal(t, "", GlobalRunnerIDFromConfig(nil))
-	require.Equal(t, "", GlobalRunnerIDFromConfig(map[string]any{"global_runner_id": 12}))
+func TestGlobalDeviceIDFromConfig(t *testing.T) {
+	require.Equal(t, "", GlobalDeviceIDFromConfig(nil))
+	require.Equal(t, "", GlobalDeviceIDFromConfig(map[string]any{"global_device_id": 12}))
 	require.Equal(
 		t,
 		"runner-a",
-		GlobalRunnerIDFromConfig(map[string]any{"global_runner_id": " runner-a "}),
+		GlobalDeviceIDFromConfig(map[string]any{"global_device_id": " runner-a "}),
 	)
 	require.Equal(
 		t,
 		"tenant-a/runner-a",
-		GlobalRunnerIDFromConfig(map[string]any{"global_runner_id": " /tenant-a/runner-a "}),
+		GlobalDeviceIDFromConfig(map[string]any{"global_device_id": " /tenant-a/runner-a "}),
 	)
 }
 
-func TestResolveRunnerRecord(t *testing.T) {
+func TestResolveDeviceRecord(t *testing.T) {
 	t.Run("empty runner id returns nil", func(t *testing.T) {
-		got := ResolveRunnerRecord(nil, " ", nil)
+		got := ResolveDeviceRecord(nil, " ", nil)
 		require.Nil(t, got)
 	})
 
@@ -147,7 +157,7 @@ func TestResolveRunnerRecord(t *testing.T) {
 		cache := map[string]map[string]any{
 			"tenant/runner-a": {"id": "cached-id"},
 		}
-		got := ResolveRunnerRecord(nil, "/tenant/runner-a", cache)
+		got := ResolveDeviceRecord(nil, "/tenant/runner-a", cache)
 		require.Equal(t, map[string]any{"id": "cached-id"}, got)
 	})
 
@@ -159,14 +169,14 @@ func TestResolveRunnerRecord(t *testing.T) {
 		cache := map[string]map[string]any{}
 		runnerID := "missing-org/missing-runner"
 
-		got := ResolveRunnerRecord(app, runnerID, cache)
+		got := ResolveDeviceRecord(app, runnerID, cache)
 		require.Nil(t, got)
 		_, ok := cache[runnerID]
 		require.True(t, ok)
 		require.Nil(t, cache[runnerID])
 	})
 
-	t.Run("resolves known runner from fixtures", func(t *testing.T) {
+	t.Run("rejects a runner identifier", func(t *testing.T) {
 		app, err := tests.NewTestApp(testDataDir)
 		require.NoError(t, err)
 		defer app.Cleanup()
@@ -188,21 +198,21 @@ func TestResolveRunnerRecord(t *testing.T) {
 
 		cache := map[string]map[string]any{}
 		runnerID := "/" + orgCanon + "/test-runner"
-		got := ResolveRunnerRecord(app, runnerID, cache)
+		got := ResolveDeviceRecord(app, runnerID, cache)
 
-		require.NotNil(t, got)
-		require.NotEmpty(t, got[core.FieldNameId])
-		require.Equal(t, got, cache[orgCanon+"/test-runner"])
+		require.Nil(t, got)
+		require.Contains(t, cache, orgCanon+"/test-runner")
+		require.Nil(t, cache[orgCanon+"/test-runner"])
 	})
 }
 
-func TestResolveRunnerRecords(t *testing.T) {
+func TestResolveDeviceRecords(t *testing.T) {
 	t.Run("empty input returns empty slice", func(t *testing.T) {
-		got := ResolveRunnerRecords(nil, nil, nil)
+		got := ResolveDeviceRecords(nil, nil, nil)
 		require.Empty(t, got)
 	})
 
-	t.Run("returns only resolvable runner records", func(t *testing.T) {
+	t.Run("rejects non-device records", func(t *testing.T) {
 		app, err := tests.NewTestApp(testDataDir)
 		require.NoError(t, err)
 		defer app.Cleanup()
@@ -223,17 +233,16 @@ func TestResolveRunnerRecords(t *testing.T) {
 		require.NoError(t, app.Save(newRunner))
 
 		cache := map[string]map[string]any{}
-		resolvableRunnerID := orgCanon + "/queue-runner"
-		got := ResolveRunnerRecords(
+		resolvableDeviceID := orgCanon + "/queue-runner"
+		got := ResolveDeviceRecords(
 			app,
 			[]string{
-				resolvableRunnerID,
+				resolvableDeviceID,
 				"missing-org/missing-runner",
 			},
 			cache,
 		)
 
-		require.Len(t, got, 1)
-		require.NotEmpty(t, got[0][core.FieldNameId])
+		require.Empty(t, got)
 	})
 }

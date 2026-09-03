@@ -45,99 +45,99 @@ func getOrgIDfromName(app core.App) (string, error) {
 	return record.Id, nil
 }
 
-func TestReadGlobalRunnerIDFromScheduleDescription(t *testing.T) {
+func TestReadGlobalDeviceIDFromScheduleDescription(t *testing.T) {
 	t.Run("nil description", func(t *testing.T) {
-		require.Empty(t, readGlobalRunnerIDFromScheduleDescription(nil))
+		require.Empty(t, readGlobalDeviceIDFromScheduleDescription(nil))
 	})
 
 	t.Run("nil action", func(t *testing.T) {
 		desc := &client.ScheduleDescription{Schedule: client.Schedule{Action: nil}}
-		require.Empty(t, readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Empty(t, readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("workflow action with empty args", func(t *testing.T) {
 		desc := scheduleDescWithArg(nil)
 		desc.Schedule.Action = &client.ScheduleWorkflowAction{}
-		require.Empty(t, readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Empty(t, readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("scheduled input value", func(t *testing.T) {
 		desc := scheduleDescWithArg(workflows.ScheduledPipelineEnqueueWorkflowInput{
-			GlobalRunnerID: "runner-1",
+			GlobalDeviceID: "runner-1",
 		})
-		require.Equal(t, "runner-1", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-1", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("scheduled input pointer", func(t *testing.T) {
 		desc := scheduleDescWithArg(&workflows.ScheduledPipelineEnqueueWorkflowInput{
-			GlobalRunnerID: "runner-2",
+			GlobalDeviceID: "runner-2",
 		})
-		require.Equal(t, "runner-2", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-2", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("workflow input value", func(t *testing.T) {
 		desc := scheduleDescWithArg(workflowengine.WorkflowInput{
-			Payload: workflows.ScheduledPipelineEnqueueWorkflowInput{GlobalRunnerID: "runner-3"},
+			Payload: workflows.ScheduledPipelineEnqueueWorkflowInput{GlobalDeviceID: "runner-3"},
 		})
-		require.Equal(t, "runner-3", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-3", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("workflow input pointer with map payload", func(t *testing.T) {
 		desc := scheduleDescWithArg(&workflowengine.WorkflowInput{
 			Payload: map[string]any{
-				"global_runner_id": "runner-4",
+				"global_device_id": "runner-4",
 			},
 		})
-		require.Equal(t, "runner-4", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-4", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("pipeline input value", func(t *testing.T) {
 		desc := scheduleDescWithArg(pipeline.PipelineWorkflowInput{
 			WorkflowInput: workflowengine.WorkflowInput{
-				Config: map[string]any{"global_runner_id": "runner-5"},
+				Config: map[string]any{"global_device_id": "runner-5"},
 			},
 		})
-		require.Equal(t, "runner-5", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-5", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("pipeline input pointer", func(t *testing.T) {
 		desc := scheduleDescWithArg(&pipeline.PipelineWorkflowInput{
 			WorkflowInput: workflowengine.WorkflowInput{
-				Config: map[string]any{"global_runner_id": "runner-6"},
+				Config: map[string]any{"global_device_id": "runner-6"},
 			},
 		})
-		require.Equal(t, "runner-6", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-6", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("payload scheduled input", func(t *testing.T) {
 		payload := mustPayload(t, workflows.ScheduledPipelineEnqueueWorkflowInput{
-			GlobalRunnerID: "runner-7",
+			GlobalDeviceID: "runner-7",
 		})
 		desc := scheduleDescWithArg(payload)
-		require.Equal(t, "runner-7", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-7", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("payload workflow input", func(t *testing.T) {
 		payload := mustPayload(t, workflowengine.WorkflowInput{
-			Config: map[string]any{"global_runner_id": "runner-8"},
+			Config: map[string]any{"global_device_id": "runner-8"},
 		})
 		desc := scheduleDescWithArg(payload)
-		require.Equal(t, "runner-8", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-8", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("payload pipeline input", func(t *testing.T) {
 		payload := mustPayload(t, pipeline.PipelineWorkflowInput{
 			WorkflowInput: workflowengine.WorkflowInput{
-				Config: map[string]any{"global_runner_id": "runner-9"},
+				Config: map[string]any{"global_device_id": "runner-9"},
 			},
 		})
 		desc := scheduleDescWithArg(payload)
-		require.Equal(t, "runner-9", readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Equal(t, "runner-9", readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 
 	t.Run("unsupported arg type", func(t *testing.T) {
 		desc := scheduleDescWithArg(12345)
-		require.Empty(t, readGlobalRunnerIDFromScheduleDescription(desc))
+		require.Empty(t, readGlobalDeviceIDFromScheduleDescription(desc))
 	})
 }
 
@@ -146,6 +146,7 @@ func TestResolveScheduleRunnerRecordsFallbackToCanonify(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 	canonify.RegisterCanonifyHooks(app)
+	ensureMobileDevicesCollection(t, app)
 
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
@@ -167,7 +168,7 @@ func TestResolveScheduleRunnerRecordsFallbackToCanonify(t *testing.T) {
 	pipelineRecord.Set("description", "test pipeline")
 	pipelineRecord.Set(
 		"yaml",
-		"name: pipeline-1\nsteps:\n  - use: mobile-automation\n    with:\n      payload:\n        runner_id: \""+orgCanon+"/runner-1\"\n",
+		"name: pipeline-1\nsteps:\n  - use: mobile-automation\n    with:\n      payload:\n        device_id: \""+orgCanon+"/runner-1/device-1\"\n",
 	)
 	require.NoError(t, app.Save(pipelineRecord))
 
@@ -182,11 +183,12 @@ func TestResolveScheduleRunnerRecordsFallbackToCanonify(t *testing.T) {
 	runnerRecord.Set("runner_url", "https://runner.test")
 	runnerRecord.Set("serial", "serial-1")
 	require.NoError(t, app.Save(runnerRecord))
+	createMobileDeviceRecordForDeleteTest(t, app, runnerRecord, "device-1")
 
 	records, err := resolveScheduleRunnerRecords(app, orgCanon+"/pipeline-1", nil)
 	require.NoError(t, err)
 	require.Len(t, records, 1)
-	require.Equal(t, runnerRecord.Id, records[0]["id"])
+	require.Equal(t, "device-1", records[0]["canonified_name"])
 }
 
 func TestResolveScheduleRunnerRecordsParseError(t *testing.T) {
@@ -235,6 +237,7 @@ func TestRegisterSchedulesHooksNotFoundEnrich(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 	RegisterSchedulesHooks(app)
+	ensureMobileDevicesCollection(t, app)
 
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
@@ -255,7 +258,7 @@ func TestRegisterSchedulesHooksNotFoundEnrich(t *testing.T) {
 	pipelineRecord.Set("description", "test pipeline")
 	pipelineRecord.Set(
 		"yaml",
-		"name: pipeline-1\nsteps:\n  - use: mobile-automation\n    with:\n      payload:\n        runner_id: \""+orgCanon+"/runner-1\"\n",
+		"name: pipeline-1\nsteps:\n  - use: mobile-automation\n    with:\n      payload:\n        device_id: \""+orgCanon+"/runner-1/device-1\"\n",
 	)
 	require.NoError(t, app.Save(pipelineRecord))
 
@@ -270,6 +273,7 @@ func TestRegisterSchedulesHooksNotFoundEnrich(t *testing.T) {
 	runnerRecord.Set("runner_url", "https://runner.test")
 	runnerRecord.Set("serial", "serial-1")
 	require.NoError(t, app.Save(runnerRecord))
+	createMobileDeviceRecordForDeleteTest(t, app, runnerRecord, "device-1")
 
 	schedulesColl, err := app.FindCollectionByNameOrId("schedules")
 	require.NoError(t, err)
@@ -321,7 +325,7 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 			Action: &client.ScheduleWorkflowAction{
 				Args: []interface{}{
 					workflows.ScheduledPipelineEnqueueWorkflowInput{
-						GlobalRunnerID: "usera-s-organization/runner-1",
+						GlobalDeviceID: "usera-s-organization/runner-1/device-1",
 					},
 				},
 			},
@@ -353,6 +357,7 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 	RegisterSchedulesHooks(app)
+	ensureMobileDevicesCollection(t, app)
 
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
@@ -373,7 +378,7 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 	pipelineRecord.Set("description", "test pipeline")
 	pipelineRecord.Set(
 		"yaml",
-		"name: pipeline-2\nsteps:\n  - use: mobile-automation\n    with:\n      payload:\n        runner_id: \""+orgCanon+"/runner-1\"\n",
+		"name: pipeline-2\nsteps:\n  - use: mobile-automation\n    with:\n      payload:\n        device_id: \""+orgCanon+"/runner-1/device-1\"\n",
 	)
 	require.NoError(t, app.Save(pipelineRecord))
 
@@ -388,6 +393,7 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 	runnerRecord.Set("runner_url", "https://runner.test")
 	runnerRecord.Set("serial", "serial-1")
 	require.NoError(t, app.Save(runnerRecord))
+	createMobileDeviceRecordForDeleteTest(t, app, runnerRecord, "device-1")
 
 	schedulesColl, err := app.FindCollectionByNameOrId("schedules")
 	require.NoError(t, err)
@@ -431,11 +437,11 @@ func TestDecodeScheduledEnqueueInput(t *testing.T) {
 	t.Run("valid payload", func(t *testing.T) {
 		input, err := decodeScheduledEnqueueInput(map[string]any{
 			"pipeline_identifier": "pipeline-1",
-			"global_runner_id":    "runner-1",
+			"global_device_id":    "runner-1",
 		})
 		require.NoError(t, err)
 		require.Equal(t, "pipeline-1", input.PipelineIdentifier)
-		require.Equal(t, "runner-1", input.GlobalRunnerID)
+		require.Equal(t, "runner-1", input.GlobalDeviceID)
 	})
 
 	t.Run("invalid payload types", func(t *testing.T) {
@@ -447,39 +453,39 @@ func TestDecodeScheduledEnqueueInput(t *testing.T) {
 }
 
 func TestGlobalRunnerHelpers(t *testing.T) {
-	t.Run("globalRunnerIDFromPayload nil payload", func(t *testing.T) {
-		require.Empty(t, globalRunnerIDFromPayload(nil))
+	t.Run("globalDeviceIDFromPayload nil payload", func(t *testing.T) {
+		require.Empty(t, globalDeviceIDFromPayload(nil))
 	})
 
-	t.Run("globalRunnerIDFromPayload invalid payload", func(t *testing.T) {
+	t.Run("globalDeviceIDFromPayload invalid payload", func(t *testing.T) {
 		invalid := &commonpb.Payload{
 			Data: []byte("this-is-not-a-temporal-payload"),
 		}
-		require.Empty(t, globalRunnerIDFromPayload(invalid))
+		require.Empty(t, globalDeviceIDFromPayload(invalid))
 	})
 
-	t.Run("globalRunnerIDFromWorkflowInput pointer payload nil", func(t *testing.T) {
+	t.Run("globalDeviceIDFromWorkflowInput pointer payload nil", func(t *testing.T) {
 		var nilScheduled *workflows.ScheduledPipelineEnqueueWorkflowInput
 		input := workflowengine.WorkflowInput{Payload: nilScheduled}
-		require.Empty(t, globalRunnerIDFromWorkflowInput(input))
+		require.Empty(t, globalDeviceIDFromWorkflowInput(input))
 	})
 
-	t.Run("globalRunnerIDFromWorkflowInput map decode error fallback config", func(t *testing.T) {
+	t.Run("globalDeviceIDFromWorkflowInput map decode error fallback config", func(t *testing.T) {
 		input := workflowengine.WorkflowInput{
 			Payload: map[string]any{
-				"global_runner_id": 123, // invalid type for decodeScheduledEnqueueInput
+				"global_device_id": 123, // invalid type for decodeScheduledEnqueueInput
 			},
 			Config: map[string]any{
-				"global_runner_id": "runner-from-config",
+				"global_device_id": "runner-from-config",
 			},
 		}
-		require.Equal(t, "runner-from-config", globalRunnerIDFromWorkflowInput(input))
+		require.Equal(t, "runner-from-config", globalDeviceIDFromWorkflowInput(input))
 	})
 
-	t.Run("globalRunnerIDFromScheduledInput config fallback", func(t *testing.T) {
+	t.Run("globalDeviceIDFromScheduledInput config fallback", func(t *testing.T) {
 		input := workflows.ScheduledPipelineEnqueueWorkflowInput{}
-		config := map[string]any{"global_runner_id": "runner-cfg"}
-		require.Equal(t, "runner-cfg", globalRunnerIDFromScheduledInput(input, config))
+		config := map[string]any{"global_device_id": "runner-cfg"}
+		require.Equal(t, "runner-cfg", globalDeviceIDFromScheduledInput(input, config))
 	})
 }
 

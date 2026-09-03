@@ -25,7 +25,7 @@ const progressMaxSamples = 10
 
 // PipelineProgress describes the estimated advancement of a running pipeline
 // execution, derived from the durations of previous completed runs of the same
-// pipeline (runner-matched when possible).
+// pipeline (device-matched when possible).
 type PipelineProgress struct {
 	// ExpectedDurationSeconds is the estimated total duration of the run.
 	ExpectedDurationSeconds float64 `json:"expected_duration_seconds"`
@@ -41,12 +41,12 @@ type PipelineProgress struct {
 
 // computePipelineProgress estimates the progress of a running pipeline
 // execution from the durations of previous completed runs of the same
-// pipeline, preferring runs executed by the same runners.
+// pipeline, preferring runs executed by the same devices.
 func computePipelineProgress(
 	ctx context.Context,
 	b *pipelineExecutionSummaryBuilder,
 	pipelineIdentifier string,
-	runnerIDs []string,
+	deviceIDs []string,
 	startTime string,
 ) *PipelineProgress {
 	if b == nil || b.client == nil {
@@ -71,7 +71,7 @@ func computePipelineProgress(
 		b.client,
 		b.namespace,
 		normalized,
-		runnerIDs,
+		deviceIDs,
 	)
 	if expected <= 0 {
 		return nil
@@ -95,14 +95,14 @@ func computePipelineProgress(
 }
 
 // expectedPipelineDuration returns the median duration of recent completed
-// runs of the given pipeline. Runs are filtered by runner identifiers when the
+// runs of the given pipeline. Runs are filtered by device identifiers when the
 // current run declares them and matching history exists.
 func expectedPipelineDuration(
 	ctx context.Context,
 	temporalClient client.Client,
 	namespace string,
 	pipelineIdentifier string,
-	runnerIDs []string,
+	deviceIDs []string,
 ) (float64, int) {
 	query := buildPipelineWorkflowsQuery(
 		[]enums.WorkflowExecutionStatus{enums.WORKFLOW_EXECUTION_STATUS_COMPLETED},
@@ -127,13 +127,13 @@ func expectedPipelineDuration(
 		if execInfo == nil || execInfo.GetStartTime() == nil {
 			continue
 		}
-		if len(runnerIDs) > 0 {
+		if len(deviceIDs) > 0 {
 			attrs, err := decodeWorkflowSearchAttributes(execInfo.GetSearchAttributes())
 			if err != nil || attrs == nil {
 				continue
 			}
-			if historyRunners := runnerIDsFromSearchAttributes(&attrs); len(historyRunners) > 0 &&
-				!runnerSetsIntersect(runnerIDs, historyRunners) {
+			if historyDevices := deviceIDsFromSearchAttributes(&attrs); len(historyDevices) > 0 &&
+				!deviceSetsIntersect(deviceIDs, historyDevices) {
 				continue
 			}
 		}
@@ -167,15 +167,15 @@ func expectedPipelineDuration(
 	return median, len(durations)
 }
 
-// runnerIDsFromSearchAttributes extracts the RunnerIdentifiers keyword list
+// deviceIDsFromSearchAttributes extracts the DeviceIdentifiers keyword list
 // from decoded Temporal search attributes.
-func runnerIDsFromSearchAttributes(
+func deviceIDsFromSearchAttributes(
 	attributes *DecodedWorkflowSearchAttributes,
 ) []string {
 	if attributes == nil {
 		return nil
 	}
-	value, ok := (*attributes)[workflowengine.RunnerIdentifiersSearchAttribute]
+	value, ok := (*attributes)[workflowengine.DeviceIdentifiersSearchAttribute]
 	if !ok {
 		return nil
 	}
@@ -194,7 +194,7 @@ func runnerIDsFromSearchAttributes(
 	return nil
 }
 
-func runnerSetsIntersect(a, b []string) bool {
+func deviceSetsIntersect(a, b []string) bool {
 	set := make(map[string]struct{}, len(a))
 	for _, id := range a {
 		set[strings.TrimSpace(id)] = struct{}{}

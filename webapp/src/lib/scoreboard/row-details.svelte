@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const conformanceItems = $derived(conformanceChecks.column.fn(record));
 	const customItems = $derived(customIntegrations.column.fn(record));
 	const stats = $derived(fromScoreboardRow(record));
-	const runners = $derived(record.expand?.mobile_runners ?? []);
+	const runners = $derived(record.expand?.mobile_devices ?? []);
 
 	const artifacts = $derived(
 		record.expand.latest_execution

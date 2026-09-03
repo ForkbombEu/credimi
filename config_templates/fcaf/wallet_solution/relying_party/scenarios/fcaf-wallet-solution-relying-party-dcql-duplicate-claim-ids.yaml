@@ -1,6 +1,6 @@
 name: FCAF DCQL duplicate claim ids
 runtime:
-  global_runner_id: forkbomb-bv-andrea/usb
+  global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m

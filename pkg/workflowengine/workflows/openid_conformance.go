@@ -101,7 +101,7 @@ func runOpenIDConformanceWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	rid := openIDConformanceRunnerID(result.Captures)
+	rid := openIDConformanceDeviceID(result.Captures)
 	if rid == "" {
 		return workflowengine.WorkflowResult{},
 			workflowengine.NewStepCIOutputError("rid", result.Captures, input.RunMetadata)
@@ -117,17 +117,17 @@ func runOpenIDConformanceWorkflow(
 	)
 }
 
-func openIDConformanceRunnerID(captures map[string]any) string {
+func openIDConformanceDeviceID(captures map[string]any) string {
 	if rid, ok := captures["rid"].(string); ok && rid != "" {
 		return rid
 	}
-	runnerID, _ := captures["runner_id"].(string)
-	return runnerID
+	deviceID, _ := captures["device_id"].(string)
+	return deviceID
 }
 
 func pollOpenIDConformanceLogs(
 	ctx workflow.Context,
-	runnerID string,
+	deviceID string,
 	appURL string,
 	token string,
 	notifyLogs bool,
@@ -141,7 +141,7 @@ func pollOpenIDConformanceLogs(
 			Method: http.MethodGet,
 			URL: utils.JoinURL(
 				"https://www.certification.openid.net/api/log",
-				url.PathEscape(runnerID),
+				url.PathEscape(deviceID),
 			),
 			Headers: map[string]string{
 				"Authorization": fmt.Sprintf("Bearer %s", token),

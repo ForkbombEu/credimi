@@ -19,12 +19,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ExecutionProgress from './execution-progress.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
-	import * as PipelineWorkflows from './workflows';
+	import { getExecutionDeviceNames, type ExecutionSummary } from './workflows';
 
 	//
 
 	type Props = {
-		workflows: PipelineWorkflows.ExecutionSummary[];
+		workflows: ExecutionSummary[];
 	};
 
 	let { workflows }: Props = $props();
@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<thead class=" bg-slate-100">
 					<tr>
 						<th class="rounded-l-sm">{m.Status()}</th>
-						<th>{m.Runner()}</th>
+						<th>Device</th>
 						<th>{m.Results()}</th>
 						<th>{m.Start_time()}</th>
 						<th>{m.End_time()}</th>
@@ -48,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</thead>
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
-						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
+						{@const deviceNames = getExecutionDeviceNames(workflow)}
 						{@const artifacts = fromApiSummary(workflow)}
 						<tr>
 							<td>
@@ -63,8 +63,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 							</td>
 							<td>
-								{#if runnerNames.length > 0}
-									{runnerNames.join(', ')}
+								{#if deviceNames.length > 0}
+									{deviceNames.join(', ')}
 								{:else}
 									{@render na()}
 								{/if}

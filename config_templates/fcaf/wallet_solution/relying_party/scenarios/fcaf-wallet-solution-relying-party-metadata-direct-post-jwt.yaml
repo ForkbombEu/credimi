@@ -1,6 +1,6 @@
 name: FCAF wallet relying-party direct_post.jwt metadata
 runtime:
-  global_runner_id: ""
+  global_device_id: ""
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m

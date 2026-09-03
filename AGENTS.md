@@ -185,7 +185,7 @@ Do not commit local `pb_data/`, `.env`, generated local databases, secrets, cove
 - `organizations.canonified_name` is the Temporal namespace for that tenant.
 - Organization create/update ensures the namespace exists and starts workers in `pkg/internal/pb/namespaces.go`.
 - Server startup starts workers for `default` and all organization namespaces in `pkg/workflowengine/hooks/hook.go`.
-- Mobile-runner semaphore workflows run in the Temporal `default` namespace.
+- Mobile-device semaphore workflows run in the Temporal `default` namespace.
 - Pipeline workflows run in the owner organization namespace.
 - The `mobile-automation` child workflow runs in the same namespace as the pipeline and uses a runner-specific task queue.
 
@@ -201,7 +201,7 @@ Pipeline contract:
 - `step.with.config` is reserved for per-step config.
 - `step.with.payload` is reserved for step payload.
 - Other keys under `step.with` are merged into `payload`.
-- `mobile-automation` steps must provide `with.payload.runner_id`, or the pipeline must set `runtime.global_runner_id`.
+- `mobile-automation` steps must provide `with.payload.device_id`, or the pipeline must set `runtime.global_device_id`.
 
 Direct run path:
 
@@ -216,18 +216,18 @@ Queued mobile run path:
 - Queue handler: `pkg/internal/apis/handlers/pipeline_queue_handler.go`.
 - Queue endpoints require user auth:
   - `POST /api/pipeline/queue` with `{ pipeline_identifier, yaml }`
-  - `GET /api/pipeline/queue/{ticket}?runner_ids=...`
-  - `DELETE /api/pipeline/queue/{ticket}?runner_ids=...`
-- `runner_ids` accepts both `runner_ids=a,b,c` and repeated params.
+  - `GET /api/pipeline/queue/{ticket}?device_ids=...`
+  - `DELETE /api/pipeline/queue/{ticket}?device_ids=...`
+- `device_ids` accepts both `device_ids=a,b,c` and repeated params.
 - Queue statuses are `queued`, `starting`, `running`, `failed`, `canceled`, and `not_found`.
 - `position` is 0-based; the UI displays `position + 1`.
 
 Semaphore:
 
 - Namespace: `default`.
-- Workflow ID: `mobile-runner-semaphore/<runner_id>`.
-- Types: `pkg/workflowengine/mobilerunnersemaphore/types.go`.
-- Implementation: `pkg/workflowengine/workflows/mobile_runner_semaphore.go`.
+- Workflow ID: `mobile-device-semaphore/<device_id>`.
+- Types: `pkg/workflowengine/mobiledevicesemaphore/types.go`.
+- Implementation: `pkg/workflowengine/workflows/mobile_device_semaphore.go`.
 - Updates: `EnqueueRun`, `CancelRun`, `RunDone`.
 - Queries: `GetRunStatus`, `GetState`.
 
@@ -236,11 +236,11 @@ Grant/start path:
 - Semaphore runs `StartQueuedPipelineActivity` in `pkg/workflowengine/activities/queued_pipeline.go`.
 - The activity starts the pipeline workflow in the owner organization namespace.
 - Injected config keys:
-  - `mobile_runner_semaphore_ticket_id`
-  - `mobile_runner_semaphore_runner_ids`
-  - `mobile_runner_semaphore_leader_runner_id`
-  - `mobile_runner_semaphore_owner_namespace`
-- The pipeline reports completion to the leader semaphore through `ReportMobileRunnerSemaphoreDoneActivity` in `pkg/workflowengine/pipeline/semaphore_done.go`.
+  - `mobile_device_semaphore_ticket_id`
+  - `mobile_device_semaphore_device_ids`
+  - `mobile_device_semaphore_leader_device_id`
+  - `mobile_device_semaphore_owner_namespace`
+- The pipeline reports completion to the leader semaphore through `ReportMobileDeviceSemaphoreDoneActivity` in `pkg/workflowengine/pipeline/semaphore_done.go`.
 - `pipeline_results` creation after Temporal start is best-effort and retried.
 - The internal result handler is idempotent on `(workflow_id, run_id)`.
 - PocketBase uniqueness constraint: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
@@ -301,42 +301,50 @@ Do not redesign this cleanup model without asking. It is a known V1 tradeoff.
 
 Search attribute changes affect Temporal visibility, UI execution pages, and fallback behavior. Treat them as cross-cutting.
 
-## Mobile Runners
+## Mobile runners and devices
 
 PocketBase collection:
 
 - `mobile_runners`
 - Migration: `pb_migrations/1769505309_created_mobile_runners.js`.
 
-Public list shape:
+Runner host list shape:
 
 - `GET /api/mobile-runners`
 - Items include `path`, `is_owned`, `is_published`, `is_online`.
-- Selector views omit `url`, `type`, `devices`, and `queue_length`.
-- Pipeline YAML still uses `runner_id` and `global_runner_id`.
+Device selector list shape:
+
+- `GET /api/mobile-devices`
+- Items include `path`, device `type`, `serial`, `is_owned`, `is_published`,
+  `is_online`, `queue_length`, plus `runner_id` and `runner_name` as host context.
+- Pipeline YAML uses `device_id` and `global_device_id` only.
 
 Internal lookup:
 
-- `GET /api/mobile-runner?runner_identifier=<canonified>` returns `{ runner_url, serial }`.
-- `GET /api/mobile-runner/semaphore?runner_identifier=...` returns summarized semaphore state.
+- `GET /api/mobile-device?device_identifier=<canonified>` returns the selected
+  device's `{ device_id, runner_id, type, serial, runner_url }`.
+- `GET /api/mobile-device/semaphore?device_identifier=...` returns the selected
+  device semaphore state.
 - Handler: `pkg/internal/apis/handlers/mobile_runners_handlers.go`.
 
 External runner HTTP contract:
 
 - `POST {runner_url}/fetch-apk-and-action`
-  - Body: `{ instance_url, version_identifier, action_identifier }`
+  - Body: `{ instance_url, version_identifier, action_identifier, device_identifier }`
 - `POST {runner_url}/store-pipeline-result`
-  - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, runner_identifier, instance_url }`
+  - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url }`
   - Response: `{ result_urls: string[], screenshot_urls: string[] }`
 
 The external runner service is implemented in `github.com/forkbombeu/credimi-extra`. If the contract changes, ask whether the sibling repository must change.
 
 Temporal runner worker contract:
 
-- Task queue: `${runner_id}-TaskQueue`.
+- Task queue: `${runner_id}-TaskQueue`; this remains shared by all devices of
+  the host runner.
 - The dynamic task queue is set in `pkg/workflowengine/pipeline/mobile_automation_hooks.go`.
 - `workflows.MobileAutomationTaskQueue` exists in `pkg/workflowengine/workflows/mobile.go`, but pipeline execution uses the dynamic task queue.
-- Runner workers must poll `${runner_id}-TaskQueue` in the organization namespace.
+- Runner workers must poll `${runner_id}-TaskQueue` in the organization namespace
+  and dispatch each activity by its explicit `device_id`.
 - Runner workers must register workflow `mobile-automation`.
 - `mobile-automation` is denylisted from the pipeline worker in `pkg/workflowengine/registry/registry.go`.
 - Runner workers must register activities in `pkg/workflowengine/activities/mobileflow.go`.

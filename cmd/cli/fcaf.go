@@ -27,7 +27,7 @@ var (
 	fcafDir        string
 	fcafOutput     string
 	fcafFilter     string
-	fcafRunnerID   string
+	fcafDeviceID   string
 	fcafTimeout    time.Duration
 	fcafInterval   time.Duration
 	fcafImportsDir string
@@ -82,7 +82,7 @@ func NewFCAFCommand() *cobra.Command {
 	run.Flags().
 		StringVar(&fcafFilter, "filter", "", "run only files whose name contains this value")
 	run.Flags().
-		StringVar(&fcafRunnerID, "runner-id", "", "registered mobile runner identifier for mobile-automation steps")
+		StringVar(&fcafDeviceID, "device-id", "", "registered mobile device identifier for mobile-automation steps")
 	run.Flags().
 		DurationVar(&fcafTimeout, "timeout", 30*time.Minute, "maximum time allowed for each pipeline")
 	run.Flags().DurationVar(&fcafInterval, "interval", 5*time.Second, "queue polling interval")
@@ -91,7 +91,7 @@ func NewFCAFCommand() *cobra.Command {
 	syncCmd.Flags().
 		StringVar(&fcafDir, "dir", "config_templates/fcaf/wallet_solution/relying_party/pipelines", "directory containing pipeline YAML files")
 	syncCmd.Flags().
-		StringVar(&fcafRunnerID, "runner-id", "", "registered mobile runner identifier to write into mobile-automation pipelines")
+		StringVar(&fcafDeviceID, "device-id", "", "registered mobile device identifier to write into mobile-automation pipelines")
 	run.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
 	run.Flags().
 		StringVarP(&instanceURL, "instance", "i", "http://localhost:8090", "URL of the Credimi instance")
@@ -181,10 +181,10 @@ func syncFCAF(ctx context.Context) error {
 			return fmt.Errorf("read pipeline %s: %w", path, readErr)
 		}
 		input = rewriteFCAFOrganization(input, orgCanonName)
-		if fcafRunnerID != "" {
-			input, readErr = setFCAFRunnerID(input, fcafRunnerID)
+		if fcafDeviceID != "" {
+			input, readErr = setFCAFDeviceID(input, fcafDeviceID)
 			if readErr != nil {
-				return fmt.Errorf("set runner ID in %s: %w", path, readErr)
+				return fmt.Errorf("set device ID in %s: %w", path, readErr)
 			}
 		}
 		name, parseErr := parsePipelineName(input)
@@ -196,7 +196,7 @@ func syncFCAF(ctx context.Context) error {
 			token,
 			orgID,
 			&PipelineCLIInput{Name: name, YAML: string(input)},
-			fcafRunnerID != "",
+			fcafDeviceID != "",
 		); syncErr != nil {
 			return fmt.Errorf("sync pipeline %s: %w", path, syncErr)
 		}
@@ -213,7 +213,7 @@ func syncFCAF(ctx context.Context) error {
 }
 
 // rewriteFCAFOrganization points org-scoped canonical references
-// (global_runner_id, action_id, version_id) at the target organization.
+// (global_device_id, action_id, version_id) at the target organization.
 func rewriteFCAFOrganization(input []byte, orgCanonName string) []byte {
 	if orgCanonName == "" || orgCanonName == fcafSourceOrg {
 		return input
@@ -820,10 +820,10 @@ func runOneFCAF(ctx context.Context, token, orgID, org, path string) (fcafRun, e
 		return run, err
 	}
 	input = rewriteFCAFOrganization(input, org)
-	if fcafRunnerID != "" {
-		input, err = setFCAFRunnerID(input, fcafRunnerID)
+	if fcafDeviceID != "" {
+		input, err = setFCAFDeviceID(input, fcafDeviceID)
 		if err != nil {
-			return run, fmt.Errorf("set runner ID in %s: %w", path, err)
+			return run, fmt.Errorf("set device ID in %s: %w", path, err)
 		}
 	}
 	parsed, err := parsePipelineName(input)
@@ -895,7 +895,7 @@ func runOneFCAF(ctx context.Context, token, orgID, org, path string) (fcafRun, e
 		case <-time.After(fcafInterval):
 		}
 		query := url.Values{}
-		query.Set("runner_ids", strings.Join(queued.RunnerIDs, ","))
+		query.Set("device_ids", strings.Join(queued.DeviceIDs, ","))
 		status, response, err = getPipeline(ctx, token, "queue/"+queued.TicketID, query)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -927,7 +927,7 @@ func retryableFCAFQueueStatus(status int) bool {
 		status >= http.StatusInternalServerError
 }
 
-func setFCAFRunnerID(data []byte, runnerID string) ([]byte, error) {
+func setFCAFDeviceID(data []byte, deviceID string) ([]byte, error) {
 	var document yaml.Node
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return nil, err
@@ -955,16 +955,16 @@ func setFCAFRunnerID(data []byte, runnerID string) ([]byte, error) {
 	if runtime.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("runtime is not a mapping")
 	}
-	global := find(runtime, "global_runner_id")
+	global := find(runtime, "global_device_id")
 	if global == nil {
 		runtime.Content = append(runtime.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "global_runner_id"},
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: runnerID},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "global_device_id"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: deviceID},
 		)
 	} else {
 		global.Kind = yaml.ScalarNode
 		global.Tag = "!!str"
-		global.Value = runnerID
+		global.Value = deviceID
 	}
 	return yaml.Marshal(&document)
 }

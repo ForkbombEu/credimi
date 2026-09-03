@@ -45,7 +45,7 @@ type MobileAutomationWorkflowPayload struct {
 	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
 	Serial           string            `json:"serial,omitempty"             yaml:"serial,omitempty"`
 	Type             string            `json:"type,omitempty"               yaml:"type,omitempty"`
-	RunnerID         string            `json:"runner_id,omitempty"          yaml:"runner_id,omitempty"`
+	DeviceID         string            `json:"device_id,omitempty"          yaml:"device_id,omitempty"`
 	Parameters       map[string]string `json:"parameters,omitempty"         yaml:"parameters,omitempty"`
 }
 
@@ -54,7 +54,7 @@ type MobileAutomationWorkflowPipelinePayload struct {
 	VersionID  string            `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
 	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
 	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
-	RunnerID   string            `json:"runner_id,omitempty"   yaml:"runner_id,omitempty"`
+	DeviceID   string            `json:"device_id,omitempty"   yaml:"device_id,omitempty"`
 }
 
 func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {
@@ -129,11 +129,14 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	runnerCtx := workflow.WithActivityOptions(ctx, mobileActivityOptions(input.ActivityOptions, taskqueue))
+	runnerCtx := workflow.WithActivityOptions(
+		ctx,
+		mobileActivityOptions(input.ActivityOptions, taskqueue),
+	)
 	externalInstall := workflowengine.AsBool(input.Config[externalInstallDetectionConfigKey])
 	var beforeApps []string
 	if externalInstall {
-		beforeApps, err = executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
+		beforeApps, err = executeListInstalledApps(runnerCtx, payload.DeviceID, payload.Serial, payload.Type)
 		if err != nil {
 			if temporal.IsCanceledError(err) {
 				return workflowengine.WorkflowResult{}, err
@@ -147,15 +150,24 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	}
 
 	mobileActivity := activities.NewRunMobileFlowActivity()
+	// Runner-side artifact validation is scoped by the canonical pipeline run
+	// identifier. Activities must use that same workspace name rather than the
+	// Temporal child workflow ID, otherwise valid Maestro screenshots are
+	// written under a directory the runner cannot later upload from.
+	workspaceID := workflow.GetInfo(ctx).WorkflowExecution.ID
+	if runIdentifier := workflowengine.AsString(input.Config["run_identifier"]); runIdentifier != "" {
+		workspaceID = runIdentifier
+	}
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
 		Config: workflowengine.ActivityTelemetryConfig(runnerCtx, input.Config),
 		Payload: mobile.RunMobileFlowPayload{
+			DeviceID:   payload.DeviceID,
 			Serial:     payload.Serial,
 			Type:       payload.Type,
 			Yaml:       payload.ActionCode,
 			Parameters: payload.Parameters,
-			WorkflowId: workflow.GetInfo(ctx).WorkflowExecution.ID,
+			WorkflowId: workspaceID,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
@@ -218,7 +230,13 @@ func runExternalInstallPostChecks(
 	runMetadata *workflowengine.WorkflowRunMetadata,
 	output MobileWorkflowOutput,
 ) (any, error) {
-	addedApps, afterApps, attempts, err := waitForAddedInstalledApps(ctx, payload.Serial, payload.Type, beforeApps)
+	addedApps, afterApps, attempts, err := waitForAddedInstalledApps(
+		ctx,
+		payload.DeviceID,
+		payload.Serial,
+		payload.Type,
+		beforeApps,
+	)
 	if err != nil {
 		if temporal.IsCanceledError(err) {
 			return nil, err
@@ -243,14 +261,19 @@ func runExternalInstallPostChecks(
 	}
 
 	activityName := activities.NewApkPostInstallChecksActivity().Name()
-	payloadMap := map[string]any{"serial": payload.Serial, "package_id": addedApps[0]}
+	payloadMap := map[string]any{
+		"device_id":  payload.DeviceID,
+		"serial":     payload.Serial,
+		"package_id": addedApps[0],
+	}
 	if isIOSWorkflowDeviceType(payload.Type) {
 		activityName = activities.NewIOSPostInstallChecksActivity().Name()
 		payloadMap["type"] = payload.Type
 	}
 
 	var result workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, activityName, workflowengine.ActivityInput{Payload: payloadMap}).Get(ctx, &result); err != nil {
+	if err := workflow.ExecuteActivity(ctx, activityName, workflowengine.ActivityInput{Payload: payloadMap}).
+		Get(ctx, &result); err != nil {
 		if temporal.IsCanceledError(err) {
 			return nil, err
 		}
@@ -274,9 +297,9 @@ func storeMobileFlowScreenshots(
 	runnerURL := workflowengine.AsString(input.Config["runner_url"])
 	stepID := workflowengine.AsString(input.Config["step_id"])
 	runIdentifier := workflowengine.AsString(input.Config["run_identifier"])
-	if runnerURL == "" || stepID == "" || runIdentifier == "" || payload.RunnerID == "" {
+	if runnerURL == "" || stepID == "" || runIdentifier == "" || payload.DeviceID == "" {
 		return nil, workflowengine.NewMissingConfigError(
-			"runner_url, step_id, run_identifier, or runner_id",
+			"runner_url, step_id, run_identifier, or device_id",
 			input.RunMetadata,
 		)
 	}
@@ -300,7 +323,7 @@ func storeMobileFlowScreenshots(
 			},
 			Body: map[string]any{
 				"run_identifier":    runIdentifier,
-				"runner_identifier": payload.RunnerID,
+				"device_identifier": payload.DeviceID,
 				"step_id":           stepID,
 				"screenshot_paths":  screenshotPaths,
 			},
@@ -367,6 +390,7 @@ func mobileActivityOptions(
 
 func executeListInstalledApps(
 	ctx workflow.Context,
+	deviceID string,
 	serial string,
 	deviceType string,
 ) ([]string, error) {
@@ -377,8 +401,9 @@ func executeListInstalledApps(
 		listActivity.Name(),
 		workflowengine.ActivityInput{
 			Payload: mobile.ListInstalledAppsPayload{
-				Serial: serial,
-				Type:   deviceType,
+				DeviceID: deviceID,
+				Serial:   serial,
+				Type:     deviceType,
 			},
 		},
 	).Get(ctx, &result); err != nil {
@@ -390,6 +415,7 @@ func executeListInstalledApps(
 
 func waitForAddedInstalledApps(
 	ctx workflow.Context,
+	deviceID string,
 	serial string,
 	deviceType string,
 	beforeApps []string,
@@ -402,7 +428,7 @@ func waitForAddedInstalledApps(
 	)
 
 	for {
-		afterApps, err := executeListInstalledApps(ctx, serial, deviceType)
+		afterApps, err := executeListInstalledApps(ctx, deviceID, serial, deviceType)
 		if err != nil {
 			return nil, nil, attempts, err
 		}

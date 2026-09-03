@@ -568,7 +568,7 @@ type pipelineExecutionSummaryBuilder struct {
 	namespace   string
 	location    *time.Location
 	runnerCache map[string]map[string]any
-	runnerInfo  map[string]pipeline.PipelineRunnerInfo
+	runnerInfo  map[string]pipeline.PipelineDeviceInfo
 }
 
 func newPipelineExecutionSummaryBuilder(
@@ -587,7 +587,7 @@ func newPipelineExecutionSummaryBuilder(
 		namespace:   namespace,
 		location:    location,
 		runnerCache: map[string]map[string]any{},
-		runnerInfo:  map[string]pipeline.PipelineRunnerInfo{},
+		runnerInfo:  map[string]pipeline.PipelineDeviceInfo{},
 	}
 }
 
@@ -652,10 +652,10 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	sortWorkflowExecutionSummaries(rootSummary.Children, true)
 
 	runnerInfo := b.pipelineRunnerInfo(pipelineRecord)
-	globalRunnerID := ""
-	if b.client != nil && runnerInfo.NeedsGlobalRunner {
+	globalDeviceID := ""
+	if b.client != nil && runnerInfo.NeedsGlobalDevice {
 		var err error
-		globalRunnerID, err = readGlobalRunnerIDFromTemporalHistory(
+		globalDeviceID, err = readGlobalDeviceIDFromTemporalHistory(
 			ctx,
 			b.client,
 			rootSummary.Execution.WorkflowID,
@@ -666,14 +666,14 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 		}
 	}
 
-	runnerIDs := pipeline.RunnerIDsWithGlobal(runnerInfo, globalRunnerID)
+	deviceIDs := pipeline.DeviceIDsWithGlobal(runnerInfo, globalDeviceID)
 	summary := &pipelineWorkflowSummary{
 		WorkflowExecutionSummary: *rootSummary,
-		GlobalRunnerID:           globalRunnerID,
-		RunnerIDs:                runnerIDs,
-		RunnerRecords: pipeline.ResolveRunnerRecords(
+		GlobalDeviceID:           globalDeviceID,
+		DeviceIDs:                deviceIDs,
+		RunnerRecords: pipeline.ResolveDeviceRecords(
 			b.app,
-			runnerIDs,
+			deviceIDs,
 			b.runnerCache,
 		),
 	}
@@ -682,7 +682,7 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 			ctx,
 			b,
 			pipelineIdentifier,
-			runnerIDs,
+			deviceIDs,
 			rootSummary.StartTime,
 		)
 	}
@@ -713,14 +713,14 @@ func workflowExecutionHasLogs(exec *WorkflowExecution) bool {
 
 func (b *pipelineExecutionSummaryBuilder) pipelineRunnerInfo(
 	pipelineRecord *core.Record,
-) pipeline.PipelineRunnerInfo {
+) pipeline.PipelineDeviceInfo {
 	if pipelineRecord == nil {
-		return pipeline.PipelineRunnerInfo{}
+		return pipeline.PipelineDeviceInfo{}
 	}
 	if info, ok := b.runnerInfo[pipelineRecord.Id]; ok {
 		return info
 	}
-	info, _ := pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+	info, _ := pipeline.ParsePipelineDeviceInfo(pipelineRecord.GetString("yaml"))
 	b.runnerInfo[pipelineRecord.Id] = info
 	return info
 }
@@ -1007,9 +1007,9 @@ type pipelineWorkflowSummary struct {
 	Progress           *PipelineProgress `json:"progress,omitempty"`
 	PipelineIdentifier string            `json:"pipeline_identifier,omitempty"`
 	PipelineName       string            `json:"pipeline_name,omitempty"`
-	GlobalRunnerID     string            `json:"global_runner_id,omitempty"`
-	RunnerIDs          []string          `json:"runner_ids,omitempty"`
-	RunnerRecords      []map[string]any  `json:"runner_records,omitempty"`
+	GlobalDeviceID     string            `json:"global_device_id,omitempty"`
+	DeviceIDs          []string          `json:"device_ids,omitempty"`
+	RunnerRecords      []map[string]any  `json:"device_records,omitempty"`
 }
 
 func appendQueuedPipelineSummaries(
@@ -1084,7 +1084,7 @@ func buildQueuedPipelineSummary(
 		TicketID:  queued.TicketID,
 		Position:  queued.Position + 1,
 		LineLen:   queued.LineLen,
-		RunnerIDs: copyStringSlice(queued.RunnerIDs),
+		DeviceIDs: copyStringSlice(queued.DeviceIDs),
 	}
 
 	pipelineWorkflow := pipeline.NewPipelineWorkflow()
@@ -1102,15 +1102,15 @@ func buildQueuedPipelineSummary(
 		Queue:       queue,
 	}
 
-	runnerIDs := copyStringSlice(queued.RunnerIDs)
+	deviceIDs := copyStringSlice(queued.DeviceIDs)
 	return &pipelineWorkflowSummary{
 		WorkflowExecutionSummary: *exec,
 		PipelineIdentifier: workflowengine.NormalizePipelineIdentifier(
 			queued.PipelineIdentifier,
 		),
 		PipelineName:  displayName,
-		RunnerIDs:     runnerIDs,
-		RunnerRecords: pipeline.ResolveRunnerRecords(app, runnerIDs, runnerCache),
+		DeviceIDs:     deviceIDs,
+		RunnerRecords: pipeline.ResolveDeviceRecords(app, deviceIDs, runnerCache),
 	}
 }
 
@@ -1199,7 +1199,7 @@ func mapQueuedRunsToPipelines(
 	return queuedByPipeline
 }
 
-func readGlobalRunnerIDFromTemporalHistory(
+func readGlobalDeviceIDFromTemporalHistory(
 	ctx context.Context,
 	c client.Client,
 	workflowID, runID string,
@@ -1235,7 +1235,7 @@ func readGlobalRunnerIDFromTemporalHistory(
 			return "", nil // nolint
 		}
 
-		return pipeline.GlobalRunnerIDFromConfig(in.WorkflowInput.Config), nil
+		return pipeline.GlobalDeviceIDFromConfig(in.WorkflowInput.Config), nil
 	}
 
 	return "", nil

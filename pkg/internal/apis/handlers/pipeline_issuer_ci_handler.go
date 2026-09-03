@@ -90,7 +90,7 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
 			return apiErr
 		}
-		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIRunnerID(
+		deviceID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineCIDeviceID(
 			e.Request.Context(),
 			e.App,
 			runContext.OrganizationRecord.Id,
@@ -101,16 +101,16 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			rollbackPipelineCITempRecords(e, tempCredentials, credentialResourceDomain)
 			return apiErr
 		}
-		warning := pipelineCIIgnoredRunnerWarning(
-			input.RunnerID,
-			input.RunnerType,
+		warning := pipelineCIIgnoredDeviceWarning(
+			input.DeviceID,
+			input.DeviceType,
 			hasStepRunner,
 			needsGlobalRunner,
 		)
-		manipulatedYAML, apiErr := injectPipelineCIGlobalRunnerID(
+		manipulatedYAML, apiErr := injectPipelineCIGlobalDeviceID(
 			rewrittenYAML,
 			workflowDefinition,
-			runnerID,
+			deviceID,
 			hasStepRunner,
 			needsGlobalRunner,
 		)
@@ -122,8 +122,8 @@ func HandlePipelineRunIssuer() func(*core.RequestEvent) error {
 			input.Metadata,
 			e.App.Settings().Meta.AppURL,
 			input.PipelineIdentifier,
-			runnerID,
-			resolveWalletAPKGitHubPRRunnerType(e.App, runnerID, input.RunnerType),
+			deviceID,
+			resolveWalletAPKGitHubPRDeviceType(e.App, deviceID, input.DeviceType),
 			activities.GitHubPRCommentSectionIssuer,
 		)
 
@@ -311,18 +311,18 @@ func rewritePipelineRunIssuerYAML(
 
 func buildPipelineRunIssuerCleanupMetadata(
 	tempCredentials []tempCredential,
-) *workflows.MobileRunnerSemaphoreCleanupMetadata {
+) *workflows.MobileDeviceSemaphoreCleanupMetadata {
 	if len(tempCredentials) == 0 {
 		return nil
 	}
-	cleanup := &workflows.MobileRunnerSemaphoreCleanupMetadata{}
+	cleanup := &workflows.MobileDeviceSemaphoreCleanupMetadata{}
 	for _, credential := range tempCredentials {
 		if credential.Record == nil || credential.Record.Id == "" {
 			continue
 		}
 		cleanup.TempCredentials = append(
 			cleanup.TempCredentials,
-			workflows.MobileRunnerSemaphoreTempCredentialCleanupMetadata{
+			workflows.MobileDeviceSemaphoreTempCredentialCleanupMetadata{
 				RecordID:   credential.Record.Id,
 				OwnerID:    credential.Record.GetString("owner"),
 				Identifier: credential.Identifier,

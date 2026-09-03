@@ -4,7 +4,7 @@
 
 import { Workflow } from '$lib';
 
-import type { MobileRunnersResponse } from '@/pocketbase/types';
+import type { MobileDevicesResponse } from '@/pocketbase/types';
 
 import { pb } from '@/pocketbase';
 
@@ -19,20 +19,21 @@ export { SmallTable, StatusTag, Table };
 
 export const QUEUED_STATUS = 'Queued';
 export type Status = Workflow.WorkflowStatus | typeof QUEUED_STATUS;
+export type ExecutionDeviceRecord = Pick<MobileDevicesResponse, 'name'>;
 
 export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	pipeline_identifier?: string;
 	pipeline_name?: string;
-	global_runner_id?: string;
-	runner_ids?: string[];
+	global_device_id?: string;
+	device_ids?: string[];
 	enqueuedAt?: string;
-	runner_records?: Array<MobileRunnersResponse>;
+	device_records?: Array<ExecutionDeviceRecord>;
 	progress?: PipelineProgress;
 	queue?: {
 		ticket_id: string;
 		position: number;
 		line_len: number;
-		runner_ids: string[];
+		device_ids: string[];
 	};
 	report?: string;
 	fcaf_report?: string;
@@ -42,6 +43,12 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 		screenshot: string;
 		log: string;
 	}>;
+}
+
+export function getExecutionDeviceNames(
+	execution: Pick<ExecutionSummary, 'device_records'>
+): string[] {
+	return (execution.device_records ?? []).map((device) => device.name);
 }
 
 const groupedExecutionsUrl = '/api/pipeline/list-executions';

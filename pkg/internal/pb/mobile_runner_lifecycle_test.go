@@ -6,6 +6,7 @@ package pb
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +48,24 @@ func createLifecycleMonitorRunner(
 	return record
 }
 
+func createLifecycleMonitorDevice(
+	t *testing.T,
+	app *tests.TestApp,
+	runner *core.Record,
+	name string,
+) {
+	t.Helper()
+	ensureMobileDevicesCollection(t, app)
+	collection, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	record := core.NewRecord(collection)
+	record.Set("owner", runner.GetString("owner"))
+	record.Set("runner", runner.Id)
+	record.Set("name", name)
+	record.Set("canonified_name", name)
+	require.NoError(t, app.Save(record))
+}
+
 func ensureLifecycleMonitorFields(t testing.TB, app *tests.TestApp) {
 	t.Helper()
 
@@ -77,8 +96,10 @@ func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 	freshAt := staleAt.Add(119 * time.Second)
 	now := staleAt.Add(mobilerunnerlifecycle.DefaultHeartbeatTimeout + time.Second)
 
-	createLifecycleMonitorRunner(t, app, orgID, "stale-runner", true, staleAt)
+	staleRunner := createLifecycleMonitorRunner(t, app, orgID, "stale-runner", true, staleAt)
 	createLifecycleMonitorRunner(t, app, orgID, "fresh-runner", true, freshAt)
+	createLifecycleMonitorDevice(t, app, staleRunner, "stale-device-a")
+	createLifecycleMonitorDevice(t, app, staleRunner, "stale-device-b")
 
 	origNow := mobileRunnerLifecycleMonitorNow
 	origClient := mobileRunnerLifecycleMonitorTemporalClient
@@ -95,12 +116,13 @@ func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 			"UpdateWorkflow",
 			mock.Anything,
 			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
-				req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
+				req, ok := options.Args[0].(workflows.MobileDeviceSemaphorePauseDeviceRequest)
 				return ok &&
-					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
-						"usera-s-organization/stale-runner",
+					strings.HasPrefix(
+						options.WorkflowID,
+						"mobile-device-semaphore/usera-s-organization/stale-runner/stale-device-",
 					) &&
-					options.UpdateName == workflows.MobileRunnerSemaphorePauseRunnerUpdate &&
+					options.UpdateName == workflows.MobileDeviceSemaphorePauseDeviceUpdate &&
 					options.WaitForStage == client.WorkflowUpdateStageAccepted &&
 					req.Reason == "heartbeat timeout" &&
 					req.CancelRunning &&
@@ -110,7 +132,7 @@ func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 			}),
 		).
 		Return(handle, nil).
-		Once()
+		Twice()
 	mobileRunnerLifecycleMonitorTemporalClient = func(_ string) (client.Client, error) {
 		return mockClient, nil
 	}
@@ -141,7 +163,15 @@ func TestMarkStaleRunnersOfflineUsesHeartbeatTimeoutEnv(t *testing.T) {
 
 	lastHeartbeat := time.Date(2026, 6, 23, 10, 0, 0, 0, time.UTC)
 	now := lastHeartbeat.Add(5*time.Minute + time.Second)
-	createLifecycleMonitorRunner(t, app, orgID, "env-stale-runner", true, lastHeartbeat)
+	staleRunner := createLifecycleMonitorRunner(
+		t,
+		app,
+		orgID,
+		"env-stale-runner",
+		true,
+		lastHeartbeat,
+	)
+	createLifecycleMonitorDevice(t, app, staleRunner, "env-stale-device")
 
 	origNow := mobileRunnerLifecycleMonitorNow
 	origClient := mobileRunnerLifecycleMonitorTemporalClient
@@ -158,10 +188,10 @@ func TestMarkStaleRunnersOfflineUsesHeartbeatTimeoutEnv(t *testing.T) {
 			"UpdateWorkflow",
 			mock.Anything,
 			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
-				req, ok := options.Args[0].(workflows.MobileRunnerSemaphorePauseRunnerRequest)
+				req, ok := options.Args[0].(workflows.MobileDeviceSemaphorePauseDeviceRequest)
 				return ok &&
-					options.WorkflowID == workflows.MobileRunnerSemaphoreWorkflowID(
-						"usera-s-organization/env-stale-runner",
+					options.WorkflowID == workflows.MobileDeviceSemaphoreWorkflowID(
+						"usera-s-organization/env-stale-runner/env-stale-device",
 					) &&
 					req.ShutdownAfterSeconds == int((10*time.Minute)/time.Second)
 			}),
@@ -212,7 +242,7 @@ func TestPauseStaleRunnerSemaphoreIgnoresMissingWorkflow(t *testing.T) {
 		return mockClient, nil
 	}
 
-	err := pauseStaleRunnerSemaphore(
+	err := pauseStaleDeviceSemaphore(
 		context.Background(),
 		"runner-1",
 		time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC),

@@ -1,0 +1,78 @@
+// SPDX-FileCopyrightText: 2025 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package workflows
+
+import "github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
+
+const (
+	MobileDeviceSemaphoreTaskQueue            = mobiledevicesemaphore.TaskQueue
+	MobileDeviceSemaphoreWorkflowName         = mobiledevicesemaphore.WorkflowName
+	MobileDeviceSemaphoreStateQuery           = mobiledevicesemaphore.StateQuery
+	MobileDeviceSemaphoreEnqueueRunUpdate     = mobiledevicesemaphore.EnqueueRunUpdate
+	MobileDeviceSemaphoreRunStatusQuery       = mobiledevicesemaphore.RunStatusQuery
+	MobileDeviceSemaphoreListQueuedRunsQuery  = mobiledevicesemaphore.ListQueuedRunsQuery
+	MobileDeviceSemaphoreRunDoneUpdate        = mobiledevicesemaphore.RunDoneUpdate
+	MobileDeviceSemaphoreCancelRunUpdate      = mobiledevicesemaphore.CancelRunUpdate
+	MobileDeviceSemaphorePauseDeviceUpdate    = mobiledevicesemaphore.PauseDeviceUpdate
+	MobileDeviceSemaphoreResumeDeviceUpdate   = mobiledevicesemaphore.ResumeDeviceUpdate
+	MobileDeviceSemaphoreShutdownDeviceUpdate = mobiledevicesemaphore.ShutdownDeviceUpdate
+	MobileDeviceSemaphoreRunGrantedSignalName = mobiledevicesemaphore.RunGrantedSignal
+	MobileDeviceSemaphoreRunStartedSignalName = mobiledevicesemaphore.RunStartedSignal
+	MobileDeviceSemaphoreRunDoneSignalName    = mobiledevicesemaphore.RunDoneSignal
+
+	MobileDeviceSemaphoreErrInvalidRequest     = mobiledevicesemaphore.ErrInvalidRequest
+	MobileDeviceSemaphoreErrQueueLimitExceeded = mobiledevicesemaphore.ErrQueueLimitExceeded
+)
+
+type MobileDeviceSemaphoreWorkflowInput = mobiledevicesemaphore.MobileDeviceSemaphoreWorkflowInput
+
+type MobileDeviceSemaphoreWorkflowState = mobiledevicesemaphore.MobileDeviceSemaphoreWorkflowState
+
+type MobileDeviceSemaphoreStateView = mobiledevicesemaphore.MobileDeviceSemaphoreStateView
+
+type MobileDeviceSemaphoreRunStatus = mobiledevicesemaphore.MobileDeviceSemaphoreRunStatus
+
+type MobileDeviceSemaphoreEnqueueRunRequest = mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest
+
+type MobileDeviceSemaphoreCleanupMetadata = mobiledevicesemaphore.MobileDeviceSemaphoreCleanupMetadata
+
+type MobileDeviceSemaphoreTempCredentialCleanupMetadata = mobiledevicesemaphore.MobileDeviceSemaphoreTempCredentialCleanupMetadata
+
+type MobileDeviceSemaphoreNotification = mobiledevicesemaphore.MobileDeviceSemaphoreNotification
+
+type MobileDeviceSemaphoreGitHubPRNotification = mobiledevicesemaphore.MobileDeviceSemaphoreGitHubPRNotification
+
+type MobileDeviceSemaphoreEnqueueRunResponse = mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse
+
+type MobileDeviceSemaphoreRunStatusView = mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView
+
+type MobileDeviceSemaphoreQueuedRunView = mobiledevicesemaphore.MobileDeviceSemaphoreQueuedRunView
+
+type MobileDeviceSemaphoreRunDoneRequest = mobiledevicesemaphore.MobileDeviceSemaphoreRunDoneRequest
+
+type MobileDeviceSemaphoreRunCancelRequest = mobiledevicesemaphore.MobileDeviceSemaphoreRunCancelRequest
+
+type MobileDeviceSemaphoreShutdownDeviceRequest = mobiledevicesemaphore.MobileDeviceSemaphoreShutdownDeviceRequest
+
+type MobileDeviceSemaphorePauseDeviceRequest = mobiledevicesemaphore.MobileDeviceSemaphorePauseDeviceRequest
+
+type MobileDeviceSemaphorePauseDeviceResponse = mobiledevicesemaphore.MobileDeviceSemaphorePauseDeviceResponse
+
+type MobileDeviceSemaphoreResumeDeviceRequest = mobiledevicesemaphore.MobileDeviceSemaphoreResumeDeviceRequest
+
+type MobileDeviceSemaphoreResumeDeviceResponse = mobiledevicesemaphore.MobileDeviceSemaphoreResumeDeviceResponse
+
+type MobileDeviceSemaphoreShutdownDeviceResponse = mobiledevicesemaphore.MobileDeviceSemaphoreShutdownDeviceResponse
+
+type MobileDeviceSemaphoreRunGrantedSignal = mobiledevicesemaphore.MobileDeviceSemaphoreRunGrantedSignal
+
+type MobileDeviceSemaphoreRunStartedSignal = mobiledevicesemaphore.MobileDeviceSemaphoreRunStartedSignal
+
+type MobileDeviceSemaphoreRunDoneSignal = mobiledevicesemaphore.MobileDeviceSemaphoreRunDoneSignal
+
+type MobileDeviceSemaphoreRunTicketState = mobiledevicesemaphore.MobileDeviceSemaphoreRunTicketState
+
+func MobileDeviceSemaphoreWorkflowID(deviceID string) string {
+	return mobiledevicesemaphore.WorkflowID(deviceID)
+}

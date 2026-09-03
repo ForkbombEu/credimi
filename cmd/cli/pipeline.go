@@ -200,7 +200,7 @@ type pipelineQueueResponse struct {
 	Status            string   `json:"status"`
 	TicketID          string   `json:"ticket_id"`
 	EnqueuedAt        string   `json:"enqueued_at"`
-	RunnerIDs         []string `json:"runner_ids"`
+	DeviceIDs         []string `json:"device_ids"`
 	Position          int      `json:"position"`
 	LineLen           int      `json:"line_len"`
 	WorkflowID        string   `json:"workflow_id"`
@@ -226,10 +226,10 @@ func findOrCreatePipelineWithValidation(
 	token string,
 	orgID string,
 	input *PipelineCLIInput,
-	validateRunner bool,
+	validateDevice bool,
 ) (map[string]any, error) {
-	if validateRunner {
-		if err := pipeline.ValidateRunnerIDYAML(input.YAML); err != nil {
+	if validateDevice {
+		if err := pipeline.ValidateDeviceIDYAML(input.YAML); err != nil {
 			return nil, err
 		}
 	}
@@ -386,7 +386,7 @@ func createPipeline(
 	orgID string,
 	input *PipelineCLIInput,
 ) (map[string]any, error) {
-	if err := pipeline.ValidateRunnerIDYAML(input.YAML); err != nil {
+	if err := pipeline.ValidateDeviceIDYAML(input.YAML); err != nil {
 		return nil, err
 	}
 
@@ -532,7 +532,7 @@ func startPipeline(ctx context.Context, token string, canonName string, rec map[
 			"status":               queueResp.Status,
 			"ticket_id":            queueResp.TicketID,
 			"enqueued_at":          queueResp.EnqueuedAt,
-			"runner_ids":           queueResp.RunnerIDs,
+			"device_ids":           queueResp.DeviceIDs,
 			"position":             position,
 			"line_len":             queueResp.LineLen,
 			pipelineURLResponseKey: queueResp.PipelineURL,

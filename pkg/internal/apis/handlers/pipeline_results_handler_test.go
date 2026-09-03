@@ -664,7 +664,7 @@ func TestPipelineExecutionSummaryBuilderReadsGlobalRunner(t *testing.T) {
 	payloads, err := converter.GetDefaultDataConverter().ToPayloads(
 		pipeline.PipelineWorkflowInput{
 			WorkflowInput: workflowengine.WorkflowInput{
-				Config: map[string]any{"global_runner_id": "runner-1"},
+				Config: map[string]any{"global_device_id": "runner-1"},
 			},
 		},
 	)
@@ -722,8 +722,8 @@ steps:
 		nil,
 	)
 	require.NoError(t, err)
-	require.Equal(t, "runner-1", out.GlobalRunnerID)
-	require.Equal(t, []string{"runner-1"}, out.RunnerIDs)
+	require.Equal(t, "runner-1", out.GlobalDeviceID)
+	require.Equal(t, []string{"runner-1"}, out.DeviceIDs)
 }
 
 func TestDescribeWorkflowExecutionErrors(t *testing.T) {
@@ -809,7 +809,7 @@ func TestAppendQueuedPipelineSummaries(t *testing.T) {
 	require.Equal(t, string(WorkflowStatusQueued), response["pipe-1"][0].Status)
 }
 
-func TestReadGlobalRunnerIDFromTemporalHistory(t *testing.T) {
+func TestReadGlobalDeviceIDFromTemporalHistory(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
 	iter := &fakeHistoryIterator{
 		events: []*historypb.HistoryEvent{
@@ -826,7 +826,7 @@ func TestReadGlobalRunnerIDFromTemporalHistory(t *testing.T) {
 			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 		).
 		Return(iter, nil)
-	value, err := readGlobalRunnerIDFromTemporalHistory(
+	value, err := readGlobalDeviceIDFromTemporalHistory(
 		context.Background(),
 		mockClient,
 		"wf-1",
@@ -858,7 +858,7 @@ func TestReadGlobalRunnerIDFromTemporalHistory(t *testing.T) {
 			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 		).
 		Return(iter, nil)
-	value, err = readGlobalRunnerIDFromTemporalHistory(
+	value, err = readGlobalDeviceIDFromTemporalHistory(
 		context.Background(),
 		mockClient,
 		"wf-2",

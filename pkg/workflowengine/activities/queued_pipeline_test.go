@@ -396,6 +396,7 @@ func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 		"wf-1",
 		"run-1",
 		pipelineinternal.RunTypeManual,
+		nil,
 	)
 
 	require.Error(t, err)
@@ -415,6 +416,7 @@ func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
 		"wf-1",
 		"run-1",
 		pipelineinternal.RunTypeManual,
+		nil,
 	)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, status)
@@ -435,6 +437,7 @@ func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {
 		"wf-1",
 		"run-1",
 		pipelineinternal.RunTypeManual,
+		nil,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")
@@ -554,8 +557,8 @@ func TestPrepareQueuedWorkflowOptionsOverrides(t *testing.T) {
 func TestApplySemaphoreTicketMetadata(t *testing.T) {
 	payload := StartQueuedPipelineActivityInput{
 		TicketID:          "ticket-1",
-		RequiredRunnerIDs: []string{"runner-1"},
-		LeaderRunnerID:    "runner-1",
+		RequiredDeviceIDs: []string{"runner-1"},
+		LeaderDeviceID:    "runner-1",
 		OwnerNamespace:    "ns-1",
 	}
 
@@ -563,10 +566,10 @@ func TestApplySemaphoreTicketMetadata(t *testing.T) {
 
 	config := map[string]any{}
 	applySemaphoreTicketMetadata(config, payload)
-	require.Equal(t, "ticket-1", config[mobileRunnerSemaphoreTicketIDConfigKey])
-	require.Equal(t, []string{"runner-1"}, config[mobileRunnerSemaphoreRunnerIDsConfigKey])
-	require.Equal(t, "runner-1", config[mobileRunnerSemaphoreLeaderRunnerIDConfigKey])
-	require.Equal(t, "ns-1", config[mobileRunnerSemaphoreOwnerNamespaceConfigKey])
+	require.Equal(t, "ticket-1", config[mobileDeviceSemaphoreTicketIDConfigKey])
+	require.Equal(t, []string{"runner-1"}, config[mobileDeviceSemaphoreDeviceIDsConfigKey])
+	require.Equal(t, "runner-1", config[mobileDeviceSemaphoreLeaderDeviceIDConfigKey])
+	require.Equal(t, "ns-1", config[mobileDeviceSemaphoreOwnerNamespaceConfigKey])
 }
 
 func TestParseQueuedWorkflowDefinitionError(t *testing.T) {

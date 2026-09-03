@@ -442,7 +442,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			)
 		}
 
-		runnerIdentifier := e.Request.FormValue("runner_identifier")
+		deviceIdentifier := e.Request.FormValue("device_identifier")
 		runIdentifier := e.Request.FormValue("run_identifier")
 		platform, err := normalizeWalletPlatform(e.Request.FormValue("platform"))
 		if err != nil {
@@ -466,13 +466,13 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 		if apiErr := authorizePipelineResultStoreAccess(
 			e,
 			resultRecord.GetString("owner"),
-			runnerIdentifier,
+			deviceIdentifier,
 		); apiErr != nil {
 			return apiErr
 		}
 
 		versionName := strings.ReplaceAll(
-			strings.Trim(runnerIdentifier, "/"),
+			strings.Trim(deviceIdentifier, "/"),
 			"/",
 			"-",
 		)
@@ -494,7 +494,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 
 		response := map[string]any{
 			"status":               "success",
-			"runner":               runnerIdentifier,
+			"device":               deviceIdentifier,
 			"video_file_name":      videoFilename,
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,
@@ -553,7 +553,7 @@ func authorizeOwnerAccess(e *core.RequestEvent, ownerID string) *apierror.APIErr
 func authorizePipelineResultStoreAccess(
 	e *core.RequestEvent,
 	ownerID string,
-	runnerIdentifier string,
+	deviceIdentifier string,
 ) *apierror.APIError {
 	if isInternalAdminPrincipal(e.Auth) {
 		return nil
@@ -580,11 +580,11 @@ func authorizePipelineResultStoreAccess(
 		return nil
 	}
 
-	allowed, apiErr := publishedRunnerCanStoreForPublishedOrganization(
+	allowed, apiErr := publishedDeviceCanStoreForPublishedOrganization(
 		e.App,
 		userOrgID,
 		ownerID,
-		runnerIdentifier,
+		deviceIdentifier,
 	)
 	if apiErr != nil {
 		return apiErr
@@ -601,11 +601,11 @@ func authorizePipelineResultStoreAccess(
 	)
 }
 
-func publishedRunnerCanStoreForPublishedOrganization(
+func publishedDeviceCanStoreForPublishedOrganization(
 	app core.App,
-	runnerOwnerID string,
+	deviceOwnerID string,
 	resultOwnerID string,
-	runnerIdentifier string,
+	deviceIdentifier string,
 ) (bool, *apierror.APIError) {
 	ownerOrg, err := app.FindRecordById("organizations", resultOwnerID)
 	if err != nil {
@@ -620,23 +620,24 @@ func publishedRunnerCanStoreForPublishedOrganization(
 		return false, nil
 	}
 
-	runner, err := canonify.Resolve(app, runnerIdentifier)
+	device, err := canonify.Resolve(app, deviceIdentifier)
 	if err != nil {
 		return false, apierror.New(
 			http.StatusBadRequest,
-			"runner_identifier",
-			"failed_to_resolve_runner_identifier",
+			"device_identifier",
+			"failed_to_resolve_device_identifier",
 			err.Error(),
 		)
 	}
-	if runner.Collection() == nil || runner.Collection().Name != "mobile_runners" {
+	if device.Collection() == nil || device.Collection().Name != mobileDevicesCollection {
 		return false, nil
 	}
-	if runner.GetString("owner") != runnerOwnerID {
-		return false, nil
+	runner, err := app.FindRecordById("mobile_runners", device.GetString("runner"))
+	if err == nil && runner.GetString("owner") == deviceOwnerID {
+		return runner.GetBool("published"), nil
 	}
 
-	return runner.GetBool("published"), nil
+	return false, nil
 }
 
 func authorizeWalletInstallerAccess(

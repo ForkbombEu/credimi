@@ -1,5 +1,5 @@
 name: FCAF invalid request_uri_method
-runtime: { global_runner_id: "" }
+runtime: { global_device_id: "" }
 steps:
   - id: create-presentation
     use: http-request

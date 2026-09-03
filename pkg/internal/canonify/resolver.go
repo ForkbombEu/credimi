@@ -106,6 +106,12 @@ var CanonifyPaths = map[string]PathTemplate{
 		Parent:          &Parent{Collection: "organizations", Field: "owner"},
 		PathLength:      2,
 	},
+	"mobile_devices": {
+		Field:           "name",
+		CanonifiedField: "canonified_name",
+		Parent:          &Parent{Collection: "mobile_runners", Field: "runner"},
+		PathLength:      3,
+	},
 }
 
 func NormalizePath(path string) string {

@@ -26,8 +26,8 @@ func TestStorePipelineStepScreenshots(t *testing.T) {
 		"usera-s-organization/workflow123-run123",
 	))
 	require.NoError(t, writer.WriteField(
-		"runner_identifier",
-		"usera-s-organization/test-runner",
+		"device_identifier",
+		"usera-s-organization/test-runner/test-device",
 	))
 	require.NoError(t, writer.WriteField("step_id", "scan credential"))
 	first, err := writer.CreateFormFile("screenshots", "checkout.png")
@@ -62,18 +62,56 @@ func TestStorePipelineStepScreenshots(t *testing.T) {
 			ensureStepScreenshotField(t, app)
 			PipelineTemporalInternalRoutes.Add(app)
 			setupWalletPipelineTestRecords(t, app, orgID)
+			reserveStepScreenshotDevice(t, app, orgID)
 			return app
 		},
 	}
 	scenario.Test(t)
 }
 
+func reserveStepScreenshotDevice(t testing.TB, app *tests.TestApp, orgID string) {
+	t.Helper()
+	ensureMobileDevicesCollection(t, app)
+	runners, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+	runner := core.NewRecord(runners)
+	runner.Set("owner", orgID)
+	runner.Set("name", "test-runner")
+	runner.Set("ip", "https://runner.example.test")
+	runner.Set("type", "android_emulator")
+	require.NoError(t, app.Save(runner))
+	devices, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(devices)
+	device.Set("owner", orgID)
+	device.Set("runner", runner.Id)
+	device.Set("name", "test-device")
+	device.Set("canonified_name", "test-device")
+	device.Set("type", "android_emulator")
+	require.NoError(t, app.Save(device))
+	result, err := app.FindFirstRecordByFilter(
+		"pipeline_results",
+		"workflow_id = 'workflow123' && run_id = 'run123'",
+	)
+	require.NoError(t, err)
+	result.Set("devices", []string{device.Id})
+	require.NoError(t, app.Save(result))
+}
+
 func ensureStepScreenshotField(t testing.TB, app *tests.TestApp) {
 	t.Helper()
+	ensureMobileDevicesCollection(t, app)
 	collection, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	devices, err := app.FindCollectionByNameOrId("mobile_devices")
 	require.NoError(t, err)
 	if collection.Fields.GetByName("maestro_screenshots") == nil {
 		collection.Fields.Add(&core.FileField{Name: "maestro_screenshots", MaxSelect: 99})
-		require.NoError(t, app.Save(collection))
 	}
+	if collection.Fields.GetByName("devices") == nil {
+		collection.Fields.Add(
+			&core.RelationField{Name: "devices", CollectionId: devices.Id, MaxSelect: 999},
+		)
+	}
+	require.NoError(t, app.Save(collection))
 }

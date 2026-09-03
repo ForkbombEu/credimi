@@ -124,10 +124,10 @@ fcaf-generate: ## Generate one complete FCAF validation pipeline from scenario s
 	$(GOCMD) run ./cmd/fcaf-pipeline-gen
 
 fcaf-run: fcaf-generate ## Run complete FCAF validation through Credimi and store results server-side
-	$(GOCMD) run . fcaf run $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" $(if $(FCAF_OUTPUT),--output "$(FCAF_OUTPUT)",) $(if $(FCAF_FILTER),--filter "$(FCAF_FILTER)",) $(if $(FCAF_RUNNER_ID),--runner-id "$(FCAF_RUNNER_ID)",)
+	$(GOCMD) run . fcaf run $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" $(if $(FCAF_OUTPUT),--output "$(FCAF_OUTPUT)",) $(if $(FCAF_FILTER),--filter "$(FCAF_FILTER)",) $(if $(FCAF_DEVICE_ID),--device-id "$(FCAF_DEVICE_ID)",)
 
 fcaf-sync: fcaf-generate ## Synchronize complete FCAF pipeline and credential definitions without running them
-	$(GOCMD) run . fcaf sync $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" --imports-dir "$(or $(FCAF_IMPORTS_DIR),config_templates/fcaf/imports)" $(if $(FCAF_RUNNER_ID),--runner-id "$(FCAF_RUNNER_ID)",)
+	$(GOCMD) run . fcaf sync $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" --imports-dir "$(or $(FCAF_IMPORTS_DIR),config_templates/fcaf/imports)" $(if $(FCAF_DEVICE_ID),--device-id "$(FCAF_DEVICE_ID)",)
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)

@@ -20,15 +20,15 @@ func buildWalletAPKGitHubPRNotification(
 	metadata map[string]any,
 	appURL string,
 	pipelineIdentifier string,
-	runnerID string,
-	runnerType string,
-) *workflows.MobileRunnerSemaphoreNotification {
+	deviceID string,
+	deviceType string,
+) *workflows.MobileDeviceSemaphoreNotification {
 	return buildPipelineGitHubPRNotification(
 		metadata,
 		appURL,
 		pipelineIdentifier,
-		runnerID,
-		runnerType,
+		deviceID,
+		deviceType,
 		activities.GitHubPRCommentSectionWalletAPK,
 	)
 }
@@ -37,18 +37,18 @@ func buildPipelineGitHubPRNotification(
 	metadata map[string]any,
 	appURL string,
 	pipelineIdentifier string,
-	runnerID string,
-	runnerType string,
+	deviceID string,
+	deviceType string,
 	sectionTitle string,
-) *workflows.MobileRunnerSemaphoreNotification {
+) *workflows.MobileDeviceSemaphoreNotification {
 	repository := metadataString(metadata, "repository")
 	prNumber := pullRequestNumberFromMetadata(metadata)
 	if repository == "" || prNumber <= 0 {
 		return nil
 	}
 
-	return &workflows.MobileRunnerSemaphoreNotification{
-		GitHubPR: &workflows.MobileRunnerSemaphoreGitHubPRNotification{
+	return &workflows.MobileDeviceSemaphoreNotification{
+		GitHubPR: &workflows.MobileDeviceSemaphoreGitHubPRNotification{
 			Repository:        repository,
 			PullRequestNumber: prNumber,
 			CommitSHA: firstNonEmpty(
@@ -56,9 +56,9 @@ func buildPipelineGitHubPRNotification(
 				metadataSHA(metadata),
 			),
 			PipelineIdentifier: pipelineIdentifier,
-			RunnerID:           runnerID,
-			RunnerType:         runnerType,
-			RunnerTypes:        buildInitialGitHubPRRunnerTypes(runnerID, runnerType),
+			DeviceID:           deviceID,
+			DeviceType:         deviceType,
+			DeviceTypes:        buildInitialGitHubPRDeviceTypes(deviceID, deviceType),
 			PipelineURL:        buildPipelinePageURL(appURL, pipelineIdentifier),
 			AppURL:             appURL,
 			SectionTitle:       sectionTitle,
@@ -66,18 +66,18 @@ func buildPipelineGitHubPRNotification(
 	}
 }
 
-func buildInitialGitHubPRRunnerTypes(runnerID string, runnerType string) map[string]string {
-	runnerID = strings.TrimSpace(runnerID)
-	runnerType = strings.TrimSpace(runnerType)
-	if runnerID == "" || runnerType == "" {
+func buildInitialGitHubPRDeviceTypes(deviceID string, deviceType string) map[string]string {
+	deviceID = strings.TrimSpace(deviceID)
+	deviceType = strings.TrimSpace(deviceType)
+	if deviceID == "" || deviceType == "" {
 		return nil
 	}
-	return map[string]string{runnerID: runnerType}
+	return map[string]string{deviceID: deviceType}
 }
 
 func maybeCreateWalletAPKQueuedPRComment(
 	ctx context.Context,
-	notification *workflows.MobileRunnerSemaphoreNotification,
+	notification *workflows.MobileDeviceSemaphoreNotification,
 	response PipelineRunWalletAPKResponse,
 ) error {
 	return maybeCreatePipelineGitHubPRComment(ctx, notification, response.PipelineQueueResponse)
@@ -85,7 +85,7 @@ func maybeCreateWalletAPKQueuedPRComment(
 
 func maybeCreatePipelineGitHubPRComment(
 	ctx context.Context,
-	notification *workflows.MobileRunnerSemaphoreNotification,
+	notification *workflows.MobileDeviceSemaphoreNotification,
 	response PipelineQueueResponse,
 ) error {
 	if notification == nil || notification.GitHubPR == nil {
@@ -98,11 +98,11 @@ func maybeCreatePipelineGitHubPRComment(
 		Status:            string(response.Status),
 		Position:          response.Position,
 		PipelineID:        notification.GitHubPR.PipelineIdentifier,
-		RunnerID: githubPRCommentRunnerID(
-			notification.GitHubPR.RunnerID,
-			response.RunnerIDs,
+		DeviceID: githubPRCommentDeviceID(
+			notification.GitHubPR.DeviceID,
+			response.DeviceIDs,
 		),
-		RunnerType:   githubPRCommentRunnerType(notification.GitHubPR, response.RunnerIDs),
+		DeviceType:   githubPRCommentDeviceType(notification.GitHubPR, response.DeviceIDs),
 		PipelineURL:  notification.GitHubPR.PipelineURL,
 		AppURL:       notification.GitHubPR.AppURL,
 		WorkflowID:   response.WorkflowID,
@@ -114,7 +114,7 @@ func maybeCreatePipelineGitHubPRComment(
 }
 
 func buildPipelineGitHubPRCommentConfig(
-	notification *workflows.MobileRunnerSemaphoreNotification,
+	notification *workflows.MobileDeviceSemaphoreNotification,
 ) map[string]any {
 	if notification == nil || notification.GitHubPR == nil {
 		return nil
@@ -130,54 +130,54 @@ func buildPipelineGitHubPRCommentConfig(
 	}
 }
 
-func githubPRCommentRunnerType(
-	notification *workflows.MobileRunnerSemaphoreGitHubPRNotification,
-	runnerIDs []string,
+func githubPRCommentDeviceType(
+	notification *workflows.MobileDeviceSemaphoreGitHubPRNotification,
+	deviceIDs []string,
 ) string {
 	if notification == nil {
 		return ""
 	}
-	runnerID := githubPRCommentRunnerID(notification.RunnerID, runnerIDs)
-	if runnerType := strings.TrimSpace(notification.RunnerTypes[runnerID]); runnerType != "" {
-		return runnerType
+	deviceID := githubPRCommentDeviceID(notification.DeviceID, deviceIDs)
+	if deviceType := strings.TrimSpace(notification.DeviceTypes[deviceID]); deviceType != "" {
+		return deviceType
 	}
-	return notification.RunnerType
+	return notification.DeviceType
 }
 
-func buildGitHubPRRunnerTypes(
+func buildGitHubPRDeviceTypes(
 	app core.App,
-	runnerIDs []string,
+	deviceIDs []string,
 	existing map[string]string,
 ) map[string]string {
-	runnerTypes := map[string]string{}
-	for runnerID, runnerType := range existing {
-		if strings.TrimSpace(runnerID) != "" && strings.TrimSpace(runnerType) != "" {
-			runnerTypes[runnerID] = runnerType
+	deviceTypes := map[string]string{}
+	for deviceID, deviceType := range existing {
+		if strings.TrimSpace(deviceID) != "" && strings.TrimSpace(deviceType) != "" {
+			deviceTypes[deviceID] = deviceType
 		}
 	}
-	for _, runnerID := range runnerIDs {
-		runnerID = strings.TrimSpace(runnerID)
-		if runnerID == "" || strings.TrimSpace(runnerTypes[runnerID]) != "" {
+	for _, deviceID := range deviceIDs {
+		deviceID = strings.TrimSpace(deviceID)
+		if deviceID == "" || strings.TrimSpace(deviceTypes[deviceID]) != "" {
 			continue
 		}
-		if runnerType := resolveWalletAPKGitHubPRRunnerType(app, runnerID, ""); runnerType != "" {
-			runnerTypes[runnerID] = runnerType
+		if deviceType := resolveWalletAPKGitHubPRDeviceType(app, deviceID, ""); deviceType != "" {
+			deviceTypes[deviceID] = deviceType
 		}
 	}
-	if len(runnerTypes) == 0 {
+	if len(deviceTypes) == 0 {
 		return nil
 	}
-	return runnerTypes
+	return deviceTypes
 }
 
-func githubPRCommentRunnerID(runnerID string, runnerIDs []string) string {
-	if strings.TrimSpace(runnerID) != "" {
-		return runnerID
+func githubPRCommentDeviceID(deviceID string, deviceIDs []string) string {
+	if strings.TrimSpace(deviceID) != "" {
+		return deviceID
 	}
-	if len(runnerIDs) == 0 {
+	if len(deviceIDs) == 0 {
 		return ""
 	}
-	return runnerIDs[0]
+	return deviceIDs[0]
 }
 
 func pullRequestNumberFromMetadata(metadata map[string]any) int {

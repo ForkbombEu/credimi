@@ -23,38 +23,38 @@ import (
 )
 
 func TestListQueuedPipelineRunsAggregatesTickets(t *testing.T) {
-	originalList := listMobileRunnerSemaphoreWorkflows
-	originalQuery := queryMobileRunnerSemaphoreQueuedRuns
+	originalList := listMobileDeviceSemaphoreWorkflows
+	originalQuery := queryMobileDeviceSemaphoreQueuedRuns
 	t.Cleanup(func() {
-		listMobileRunnerSemaphoreWorkflows = originalList
-		queryMobileRunnerSemaphoreQueuedRuns = originalQuery
+		listMobileDeviceSemaphoreWorkflows = originalList
+		queryMobileDeviceSemaphoreQueuedRuns = originalQuery
 	})
 
 	orgNamespace := "org-1"
 	enqueuedAt := time.Date(2026, 2, 5, 9, 0, 0, 0, time.UTC)
 
-	listMobileRunnerSemaphoreWorkflows = func(_ context.Context) ([]string, error) {
+	listMobileDeviceSemaphoreWorkflows = func(_ context.Context) ([]string, error) {
 		return []string{"runner-1", "runner-2"}, nil
 	}
 
-	queryMobileRunnerSemaphoreQueuedRuns = func(
+	queryMobileDeviceSemaphoreQueuedRuns = func(
 		_ context.Context,
-		runnerID string,
+		deviceID string,
 		ownerNamespace string,
-	) ([]workflows.MobileRunnerSemaphoreQueuedRunView, error) {
+	) ([]workflows.MobileDeviceSemaphoreQueuedRunView, error) {
 		require.Equal(t, orgNamespace, ownerNamespace)
 
-		switch runnerID {
+		switch deviceID {
 		case "runner-1":
-			return []workflows.MobileRunnerSemaphoreQueuedRunView{
+			return []workflows.MobileDeviceSemaphoreQueuedRunView{
 				{
 					TicketID:           "ticket-1",
 					OwnerNamespace:     orgNamespace,
 					PipelineIdentifier: "org-1/pipeline-a",
 					EnqueuedAt:         enqueuedAt,
-					LeaderRunnerID:     "runner-1",
-					RequiredRunnerIDs:  []string{"runner-1", "runner-2"},
-					Status:             workflowengine.MobileRunnerSemaphoreRunQueued,
+					LeaderDeviceID:     "runner-1",
+					RequiredDeviceIDs:  []string{"runner-1", "runner-2"},
+					Status:             workflowengine.MobileDeviceSemaphoreRunQueued,
 					Position:           0,
 					LineLen:            2,
 				},
@@ -63,23 +63,23 @@ func TestListQueuedPipelineRunsAggregatesTickets(t *testing.T) {
 					OwnerNamespace:     orgNamespace,
 					PipelineIdentifier: "org-1/pipeline-b",
 					EnqueuedAt:         enqueuedAt,
-					LeaderRunnerID:     "runner-1",
-					RequiredRunnerIDs:  []string{"runner-1"},
-					Status:             workflowengine.MobileRunnerSemaphoreRunRunning,
+					LeaderDeviceID:     "runner-1",
+					RequiredDeviceIDs:  []string{"runner-1"},
+					Status:             workflowengine.MobileDeviceSemaphoreRunRunning,
 					Position:           0,
 					LineLen:            1,
 				},
 			}, nil
 		case "runner-2":
-			return []workflows.MobileRunnerSemaphoreQueuedRunView{
+			return []workflows.MobileDeviceSemaphoreQueuedRunView{
 				{
 					TicketID:           "ticket-1",
 					OwnerNamespace:     orgNamespace,
 					PipelineIdentifier: "org-1/pipeline-a",
 					EnqueuedAt:         enqueuedAt,
-					LeaderRunnerID:     "runner-1",
-					RequiredRunnerIDs:  []string{"runner-1", "runner-2"},
-					Status:             workflowengine.MobileRunnerSemaphoreRunQueued,
+					LeaderDeviceID:     "runner-1",
+					RequiredDeviceIDs:  []string{"runner-1", "runner-2"},
+					Status:             workflowengine.MobileDeviceSemaphoreRunQueued,
 					Position:           1,
 					LineLen:            3,
 				},
@@ -97,22 +97,22 @@ func TestListQueuedPipelineRunsAggregatesTickets(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "org-1/pipeline-a", agg.PipelineIdentifier)
 	require.Equal(t, enqueuedAt, agg.EnqueuedAt)
-	require.Equal(t, "runner-1", agg.LeaderRunnerID)
-	require.Equal(t, []string{"runner-1", "runner-2"}, agg.RequiredRunnerIDs)
-	require.Equal(t, []string{"runner-1", "runner-2"}, agg.RunnerIDs)
-	require.Equal(t, workflowengine.MobileRunnerSemaphoreRunQueued, agg.Status)
+	require.Equal(t, "runner-1", agg.LeaderDeviceID)
+	require.Equal(t, []string{"runner-1", "runner-2"}, agg.RequiredDeviceIDs)
+	require.Equal(t, []string{"runner-1", "runner-2"}, agg.DeviceIDs)
+	require.Equal(t, workflowengine.MobileDeviceSemaphoreRunQueued, agg.Status)
 	require.Equal(t, 1, agg.Position)
 	require.Equal(t, 3, agg.LineLen)
 }
 
 type queuedRunsEncodedValue struct {
-	value []workflows.MobileRunnerSemaphoreQueuedRunView
+	value []workflows.MobileDeviceSemaphoreQueuedRunView
 }
 
 func (q queuedRunsEncodedValue) HasValue() bool { return true }
 
 func (q queuedRunsEncodedValue) Get(valuePtr interface{}) error {
-	ptr, ok := valuePtr.(*[]workflows.MobileRunnerSemaphoreQueuedRunView)
+	ptr, ok := valuePtr.(*[]workflows.MobileDeviceSemaphoreQueuedRunView)
 	if !ok {
 		return errors.New("unexpected type")
 	}
@@ -126,7 +126,7 @@ func (e errorEncodedValue) HasValue() bool { return true }
 
 func (e errorEncodedValue) Get(interface{}) error { return errors.New("decode failed") }
 
-func TestListMobileRunnerSemaphoreWorkflowsTemporal(t *testing.T) {
+func TestListMobileDeviceSemaphoreWorkflowsTemporal(t *testing.T) {
 	origClient := queuedRunsTemporalClient
 	t.Cleanup(func() { queuedRunsTemporalClient = origClient })
 
@@ -141,7 +141,7 @@ func TestListMobileRunnerSemaphoreWorkflowsTemporal(t *testing.T) {
 			Executions: []*workflow.WorkflowExecutionInfo{
 				{
 					Execution: &commonpb.WorkflowExecution{
-						WorkflowId: workflows.MobileRunnerSemaphoreWorkflowName + "/runner-1",
+						WorkflowId: workflows.MobileDeviceSemaphoreWorkflowName + "/runner-1",
 					},
 				},
 				{Execution: &commonpb.WorkflowExecution{WorkflowId: "unrelated"}},
@@ -159,7 +159,7 @@ func TestListMobileRunnerSemaphoreWorkflowsTemporal(t *testing.T) {
 			Executions: []*workflow.WorkflowExecutionInfo{
 				{
 					Execution: &commonpb.WorkflowExecution{
-						WorkflowId: workflows.MobileRunnerSemaphoreWorkflowName + "/runner-2",
+						WorkflowId: workflows.MobileDeviceSemaphoreWorkflowName + "/runner-2",
 					},
 				},
 				{},
@@ -171,12 +171,12 @@ func TestListMobileRunnerSemaphoreWorkflowsTemporal(t *testing.T) {
 		return mockClient, nil
 	}
 
-	runnerIDs, err := listMobileRunnerSemaphoreWorkflowsTemporal(context.Background())
+	deviceIDs, err := listMobileDeviceSemaphoreWorkflowsTemporal(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, []string{"runner-1", "runner-2"}, runnerIDs)
+	require.Equal(t, []string{"runner-1", "runner-2"}, deviceIDs)
 }
 
-func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
+func TestQueryMobileDeviceSemaphoreQueuedRunsTemporal(t *testing.T) {
 	t.Run("not found returns nil", func(t *testing.T) {
 		origClient := queuedRunsTemporalClient
 		t.Cleanup(func() { queuedRunsTemporalClient = origClient })
@@ -186,9 +186,9 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 			On(
 				"QueryWorkflow",
 				mock.Anything,
-				workflows.MobileRunnerSemaphoreWorkflowID("runner-1"),
+				workflows.MobileDeviceSemaphoreWorkflowID("runner-1"),
 				"",
-				workflows.MobileRunnerSemaphoreListQueuedRunsQuery,
+				workflows.MobileDeviceSemaphoreListQueuedRunsQuery,
 				"org-1",
 			).
 			Return(converter.EncodedValue(nil), &serviceerror.NotFound{Message: "missing"})
@@ -197,7 +197,7 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 			return mockClient, nil
 		}
 
-		views, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(
+		views, err := queryMobileDeviceSemaphoreQueuedRunsTemporal(
 			context.Background(),
 			"runner-1",
 			"org-1",
@@ -215,9 +215,9 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 			On(
 				"QueryWorkflow",
 				mock.Anything,
-				workflows.MobileRunnerSemaphoreWorkflowID("runner-2"),
+				workflows.MobileDeviceSemaphoreWorkflowID("runner-2"),
 				"",
-				workflows.MobileRunnerSemaphoreListQueuedRunsQuery,
+				workflows.MobileDeviceSemaphoreListQueuedRunsQuery,
 				"org-1",
 			).
 			Return(converter.EncodedValue(errorEncodedValue{}), nil)
@@ -226,7 +226,7 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 			return mockClient, nil
 		}
 
-		_, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(
+		_, err := queryMobileDeviceSemaphoreQueuedRunsTemporal(
 			context.Background(),
 			"runner-2",
 			"org-1",
@@ -239,16 +239,16 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 		t.Cleanup(func() { queuedRunsTemporalClient = origClient })
 
 		mockClient := temporalmocks.NewClient(t)
-		expected := []workflows.MobileRunnerSemaphoreQueuedRunView{
+		expected := []workflows.MobileDeviceSemaphoreQueuedRunView{
 			{TicketID: "ticket-1", OwnerNamespace: "org-1"},
 		}
 		mockClient.
 			On(
 				"QueryWorkflow",
 				mock.Anything,
-				workflows.MobileRunnerSemaphoreWorkflowID("runner-3"),
+				workflows.MobileDeviceSemaphoreWorkflowID("runner-3"),
 				"",
-				workflows.MobileRunnerSemaphoreListQueuedRunsQuery,
+				workflows.MobileDeviceSemaphoreListQueuedRunsQuery,
 				"org-1",
 			).
 			Return(converter.EncodedValue(queuedRunsEncodedValue{value: expected}), nil)
@@ -257,7 +257,7 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 			return mockClient, nil
 		}
 
-		views, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(
+		views, err := queryMobileDeviceSemaphoreQueuedRunsTemporal(
 			context.Background(),
 			"runner-3",
 			"org-1",

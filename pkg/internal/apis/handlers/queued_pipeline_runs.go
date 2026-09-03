@@ -26,18 +26,18 @@ const (
 	semaphoreQueuedRunsTimeout time.Duration = 2 * time.Second
 )
 
-var listMobileRunnerSemaphoreWorkflows = listMobileRunnerSemaphoreWorkflowsTemporal
-var queryMobileRunnerSemaphoreQueuedRuns = queryMobileRunnerSemaphoreQueuedRunsTemporal
+var listMobileDeviceSemaphoreWorkflows = listMobileDeviceSemaphoreWorkflowsTemporal
+var queryMobileDeviceSemaphoreQueuedRuns = queryMobileDeviceSemaphoreQueuedRunsTemporal
 var queuedRunsTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type QueuedPipelineRunAggregate struct {
 	TicketID           string
 	PipelineIdentifier string
 	EnqueuedAt         time.Time
-	LeaderRunnerID     string
-	RequiredRunnerIDs  []string
-	RunnerIDs          []string
-	Status             workflows.MobileRunnerSemaphoreRunStatus
+	LeaderDeviceID     string
+	RequiredDeviceIDs  []string
+	DeviceIDs          []string
+	Status             workflows.MobileDeviceSemaphoreRunStatus
 	Position           int
 	LineLen            int
 }
@@ -50,31 +50,31 @@ func listQueuedPipelineRuns(
 		return nil, nil
 	}
 
-	runnerIDs, err := listMobileRunnerSemaphoreWorkflows(ctx)
+	deviceIDs, err := listMobileDeviceSemaphoreWorkflows(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	aggregates := make(map[string]QueuedPipelineRunAggregate)
-	statuses := make(map[string][]runqueue.RunnerStatus)
+	statuses := make(map[string][]runqueue.DeviceStatus)
 
-	for _, runnerID := range runnerIDs {
+	for _, deviceID := range deviceIDs {
 		runnerCtx, cancel := context.WithTimeout(ctx, semaphoreQueuedRunsTimeout)
-		views, err := queryMobileRunnerSemaphoreQueuedRuns(runnerCtx, runnerID, orgNamespace)
+		views, err := queryMobileDeviceSemaphoreQueuedRuns(runnerCtx, deviceID, orgNamespace)
 		cancel()
 		if err != nil {
 			continue
 		}
 
 		for _, view := range views {
-			if view.Status != workflowengine.MobileRunnerSemaphoreRunQueued {
+			if view.Status != workflowengine.MobileDeviceSemaphoreRunQueued {
 				continue
 			}
 
 			statuses[view.TicketID] = append(
 				statuses[view.TicketID],
-				runqueue.RunnerStatus{
-					RunnerID: runnerID,
+				runqueue.DeviceStatus{
+					DeviceID: deviceID,
 					Status:   view.Status,
 					Position: view.Position,
 					LineLen:  view.LineLen,
@@ -87,9 +87,9 @@ func listQueuedPipelineRuns(
 					TicketID:           view.TicketID,
 					PipelineIdentifier: view.PipelineIdentifier,
 					EnqueuedAt:         view.EnqueuedAt,
-					LeaderRunnerID:     view.LeaderRunnerID,
-					RequiredRunnerIDs:  copyStringSlice(view.RequiredRunnerIDs),
-					RunnerIDs:          copyStringSlice(view.RequiredRunnerIDs),
+					LeaderDeviceID:     view.LeaderDeviceID,
+					RequiredDeviceIDs:  copyStringSlice(view.RequiredDeviceIDs),
+					DeviceIDs:          copyStringSlice(view.RequiredDeviceIDs),
 				}
 				continue
 			}
@@ -100,12 +100,12 @@ func listQueuedPipelineRuns(
 			if agg.EnqueuedAt.IsZero() {
 				agg.EnqueuedAt = view.EnqueuedAt
 			}
-			if agg.LeaderRunnerID == "" {
-				agg.LeaderRunnerID = view.LeaderRunnerID
+			if agg.LeaderDeviceID == "" {
+				agg.LeaderDeviceID = view.LeaderDeviceID
 			}
-			if len(agg.RequiredRunnerIDs) == 0 && len(view.RequiredRunnerIDs) > 0 {
-				agg.RequiredRunnerIDs = copyStringSlice(view.RequiredRunnerIDs)
-				agg.RunnerIDs = copyStringSlice(view.RequiredRunnerIDs)
+			if len(agg.RequiredDeviceIDs) == 0 && len(view.RequiredDeviceIDs) > 0 {
+				agg.RequiredDeviceIDs = copyStringSlice(view.RequiredDeviceIDs)
+				agg.DeviceIDs = copyStringSlice(view.RequiredDeviceIDs)
 			}
 
 			aggregates[view.TicketID] = agg
@@ -113,7 +113,7 @@ func listQueuedPipelineRuns(
 	}
 
 	for ticketID, runnerStatuses := range statuses {
-		aggregateStatus := runqueue.AggregateRunnerStatuses(runnerStatuses)
+		aggregateStatus := runqueue.AggregateDeviceStatuses(runnerStatuses)
 		agg := aggregates[ticketID]
 		agg.Status = aggregateStatus.Status
 		agg.Position = aggregateStatus.Position
@@ -124,9 +124,9 @@ func listQueuedPipelineRuns(
 	return aggregates, nil
 }
 
-func listMobileRunnerSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, error) {
+func listMobileDeviceSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, error) {
 	client, err := queuedRunsTemporalClient(
-		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 	)
 	if err != nil {
 		return nil, err
@@ -134,17 +134,17 @@ func listMobileRunnerSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, 
 
 	query := fmt.Sprintf(
 		"WorkflowType = \"%s\" and ExecutionStatus = %d",
-		workflows.MobileRunnerSemaphoreWorkflowName,
+		workflows.MobileDeviceSemaphoreWorkflowName,
 		enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
 	)
 	pageToken := []byte(nil)
 	pageCount := 0
-	runnerIDs := make(map[string]struct{})
-	workflowPrefix := workflows.MobileRunnerSemaphoreWorkflowName + "/"
+	deviceIDs := make(map[string]struct{})
+	workflowPrefix := workflows.MobileDeviceSemaphoreWorkflowName + "/"
 
 	for pageCount < semaphoreWorkflowPageCap {
 		resp, err := client.ListWorkflow(ctx, &workflowservice.ListWorkflowExecutionsRequest{
-			Namespace:     workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+			Namespace:     workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 			Query:         query,
 			PageSize:      semaphoreWorkflowPageSize,
 			NextPageToken: pageToken,
@@ -161,11 +161,11 @@ func listMobileRunnerSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, 
 			if workflowID == "" {
 				continue
 			}
-			runnerID := strings.TrimPrefix(workflowID, workflowPrefix)
-			if runnerID == workflowID {
+			deviceID := strings.TrimPrefix(workflowID, workflowPrefix)
+			if deviceID == workflowID {
 				continue
 			}
-			runnerIDs[runnerID] = struct{}{}
+			deviceIDs[deviceID] = struct{}{}
 		}
 
 		if len(resp.GetNextPageToken()) == 0 {
@@ -175,33 +175,33 @@ func listMobileRunnerSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, 
 		pageCount++
 	}
 
-	result := make([]string, 0, len(runnerIDs))
-	for runnerID := range runnerIDs {
-		result = append(result, runnerID)
+	result := make([]string, 0, len(deviceIDs))
+	for deviceID := range deviceIDs {
+		result = append(result, deviceID)
 	}
 	sort.Strings(result)
 
 	return result, nil
 }
 
-func queryMobileRunnerSemaphoreQueuedRunsTemporal(
+func queryMobileDeviceSemaphoreQueuedRunsTemporal(
 	ctx context.Context,
-	runnerID string,
+	deviceID string,
 	ownerNamespace string,
-) ([]workflows.MobileRunnerSemaphoreQueuedRunView, error) {
+) ([]workflows.MobileDeviceSemaphoreQueuedRunView, error) {
 	client, err := queuedRunsTemporalClient(
-		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	workflowID := workflows.MobileRunnerSemaphoreWorkflowID(runnerID)
+	workflowID := workflows.MobileDeviceSemaphoreWorkflowID(deviceID)
 	encoded, err := client.QueryWorkflow(
 		ctx,
 		workflowID,
 		"",
-		workflows.MobileRunnerSemaphoreListQueuedRunsQuery,
+		workflows.MobileDeviceSemaphoreListQueuedRunsQuery,
 		ownerNamespace,
 	)
 	if err != nil {
@@ -212,7 +212,7 @@ func queryMobileRunnerSemaphoreQueuedRunsTemporal(
 		return nil, err
 	}
 
-	var queued []workflows.MobileRunnerSemaphoreQueuedRunView
+	var queued []workflows.MobileDeviceSemaphoreQueuedRunView
 	if err := encoded.Get(&queued); err != nil {
 		return nil, err
 	}

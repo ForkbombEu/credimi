@@ -14,6 +14,6 @@ export function resolveExecutionTarget(steps: EnrichedStep[]): ExecutionTarget |
 	if (!last) return undefined;
 	const [, data] = last;
 	if (isError(data) || !isExecutionTarget(data)) return undefined;
-	const { wallet, version, runner } = data;
-	return { wallet, version, runner };
+	const { wallet, version, device } = data;
+	return { wallet, version, device };
 }

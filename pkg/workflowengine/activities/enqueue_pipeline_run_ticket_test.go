@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
@@ -48,7 +48,7 @@ func (f enqueueFakeWorkflowRun) GetWithOptions(
 
 // fakeUpdateHandle returns a predefined enqueue response.
 type fakeUpdateHandle struct {
-	response   mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse
+	response   mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse
 	err        error
 	workflowID string
 	runID      string
@@ -60,7 +60,7 @@ func (f fakeUpdateHandle) Get(ctx context.Context, valuePtr interface{}) error {
 	if f.err != nil {
 		return f.err
 	}
-	respPtr, ok := valuePtr.(*mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse)
+	respPtr, ok := valuePtr.(*mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse)
 	if !ok {
 		return errors.New("unexpected response type")
 	}
@@ -93,7 +93,7 @@ type executeCall struct {
 type fakeEnqueueClient struct {
 	executeCalls    []executeCall
 	updateCalls     []client.UpdateWorkflowOptions
-	updateResponses map[string]mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse
+	updateResponses map[string]mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse
 	updateErr       error
 }
 
@@ -129,16 +129,16 @@ func (f *fakeEnqueueClient) UpdateWorkflow(
 func TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates(t *testing.T) {
 	act := NewEnqueuePipelineRunTicketActivity()
 	fakeClient := &fakeEnqueueClient{
-		updateResponses: map[string]mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse{
-			mobilerunnersemaphore.WorkflowID("runner-b"): {
+		updateResponses: map[string]mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse{
+			mobiledevicesemaphore.WorkflowID("runner-b"): {
 				TicketID: "ticket-1",
-				Status:   mobilerunnersemaphore.MobileRunnerSemaphoreRunQueued,
+				Status:   mobiledevicesemaphore.MobileDeviceSemaphoreRunQueued,
 				Position: 2,
 				LineLen:  3,
 			},
-			mobilerunnersemaphore.WorkflowID("runner-a"): {
+			mobiledevicesemaphore.WorkflowID("runner-a"): {
 				TicketID: "ticket-1",
-				Status:   mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning,
+				Status:   mobiledevicesemaphore.MobileDeviceSemaphoreRunRunning,
 				Position: 1,
 				LineLen:  2,
 			},
@@ -146,7 +146,7 @@ func TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates(t *testing.T) {
 	}
 
 	act.temporalClientFactory = func(namespace string) (temporalWorkflowUpdater, error) {
-		require.Equal(t, workflowengine.MobileRunnerSemaphoreDefaultNamespace, namespace)
+		require.Equal(t, workflowengine.MobileDeviceSemaphoreDefaultNamespace, namespace)
 		return fakeClient, nil
 	}
 
@@ -154,7 +154,7 @@ func TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates(t *testing.T) {
 		TicketID:           "ticket-1",
 		OwnerNamespace:     "tenant-1",
 		EnqueuedAt:         time.Now().UTC(),
-		RunnerIDs:          []string{"runner-b", "runner-a"},
+		DeviceIDs:          []string{"runner-b", "runner-a"},
 		PipelineIdentifier: "tenant-1/pipeline",
 		YAML:               "name: test\nsteps: []\n",
 		PipelineConfig: map[string]any{
@@ -171,38 +171,38 @@ func TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates(t *testing.T) {
 
 	output, ok := result.Output.(EnqueuePipelineRunTicketActivityOutput)
 	require.True(t, ok)
-	require.Equal(t, mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning, output.Status)
+	require.Equal(t, mobiledevicesemaphore.MobileDeviceSemaphoreRunRunning, output.Status)
 	require.Equal(t, 2, output.Position)
 	require.Equal(t, 3, output.LineLen)
 	require.Len(t, output.Runners, 2)
 
 	require.Len(t, fakeClient.executeCalls, 2)
-	require.Equal(t, mobilerunnersemaphore.WorkflowName, fakeClient.executeCalls[0].workflow)
+	require.Equal(t, mobiledevicesemaphore.WorkflowName, fakeClient.executeCalls[0].workflow)
 	require.Equal(
 		t,
-		mobilerunnersemaphore.WorkflowID("runner-b"),
+		mobiledevicesemaphore.WorkflowID("runner-b"),
 		fakeClient.executeCalls[0].options.ID,
 	)
-	require.Equal(t, mobilerunnersemaphore.TaskQueue, fakeClient.executeCalls[0].options.TaskQueue)
+	require.Equal(t, mobiledevicesemaphore.TaskQueue, fakeClient.executeCalls[0].options.TaskQueue)
 
 	require.Len(t, fakeClient.updateCalls, 2)
 	require.Equal(
 		t,
-		mobilerunnersemaphore.WorkflowID("runner-b"),
+		mobiledevicesemaphore.WorkflowID("runner-b"),
 		fakeClient.updateCalls[0].WorkflowID,
 	)
-	require.Equal(t, mobilerunnersemaphore.EnqueueRunUpdate, fakeClient.updateCalls[0].UpdateName)
+	require.Equal(t, mobiledevicesemaphore.EnqueueRunUpdate, fakeClient.updateCalls[0].UpdateName)
 	require.Equal(
 		t,
 		"enqueue/runner-b/ticket-1",
 		fakeClient.updateCalls[0].UpdateID,
 	)
 	require.Len(t, fakeClient.updateCalls[0].Args, 1)
-	req, ok := fakeClient.updateCalls[0].Args[0].(mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunRequest)
+	req, ok := fakeClient.updateCalls[0].Args[0].(mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest)
 	require.True(t, ok)
-	require.Equal(t, "runner-b", req.RunnerID)
-	require.Equal(t, []string{"runner-b", "runner-a"}, req.RequiredRunnerIDs)
-	require.Equal(t, "runner-b", req.LeaderRunnerID)
+	require.Equal(t, "runner-b", req.DeviceID)
+	require.Equal(t, []string{"runner-b", "runner-a"}, req.RequiredDeviceIDs)
+	require.Equal(t, "runner-b", req.LeaderDeviceID)
 }
 
 // TestEnqueuePipelineRunTicketActivityQueueLimitError keeps the queue-limit error type stable.
@@ -210,7 +210,7 @@ func TestEnqueuePipelineRunTicketActivityQueueLimitError(t *testing.T) {
 	act := NewEnqueuePipelineRunTicketActivity()
 	queueErr := temporal.NewApplicationError(
 		"queue limit exceeded",
-		mobilerunnersemaphore.ErrQueueLimitExceeded,
+		mobiledevicesemaphore.ErrQueueLimitExceeded,
 	)
 
 	fakeClient := &fakeEnqueueClient{updateErr: queueErr}
@@ -222,7 +222,7 @@ func TestEnqueuePipelineRunTicketActivityQueueLimitError(t *testing.T) {
 		TicketID:           "ticket-2",
 		OwnerNamespace:     "tenant-2",
 		EnqueuedAt:         time.Now().UTC(),
-		RunnerIDs:          []string{"runner-1"},
+		DeviceIDs:          []string{"runner-1"},
 		PipelineIdentifier: "tenant-2/pipeline",
 		YAML:               "name: test\nsteps: []\n",
 	}
@@ -232,7 +232,7 @@ func TestEnqueuePipelineRunTicketActivityQueueLimitError(t *testing.T) {
 
 	var appErr *temporal.ApplicationError
 	require.True(t, errors.As(err, &appErr))
-	require.Equal(t, mobilerunnersemaphore.ErrQueueLimitExceeded, appErr.Type())
+	require.Equal(t, mobiledevicesemaphore.ErrQueueLimitExceeded, appErr.Type())
 }
 
 func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
@@ -249,7 +249,7 @@ func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
 				OwnerNamespace:     "tenant",
 				PipelineIdentifier: "tenant/pipeline",
 				YAML:               "name: test\nsteps: []\n",
-				RunnerIDs:          []string{"runner-1"},
+				DeviceIDs:          []string{"runner-1"},
 			},
 			errContains: "ticket_id",
 		},
@@ -259,7 +259,7 @@ func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
 				TicketID:           "ticket-1",
 				PipelineIdentifier: "tenant/pipeline",
 				YAML:               "name: test\nsteps: []\n",
-				RunnerIDs:          []string{"runner-1"},
+				DeviceIDs:          []string{"runner-1"},
 			},
 			errContains: "owner_namespace",
 		},
@@ -269,7 +269,7 @@ func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
 				TicketID:       "ticket-1",
 				OwnerNamespace: "tenant",
 				YAML:           "name: test\nsteps: []\n",
-				RunnerIDs:      []string{"runner-1"},
+				DeviceIDs:      []string{"runner-1"},
 			},
 			errContains: "pipeline_identifier",
 		},
@@ -279,7 +279,7 @@ func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
 				TicketID:           "ticket-1",
 				OwnerNamespace:     "tenant",
 				PipelineIdentifier: "tenant/pipeline",
-				RunnerIDs:          []string{"runner-1"},
+				DeviceIDs:          []string{"runner-1"},
 			},
 			errContains: "yaml is required",
 		},
@@ -291,7 +291,7 @@ func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
 				PipelineIdentifier: "tenant/pipeline",
 				YAML:               "name: test\nsteps: []\n",
 			},
-			errContains: "runner_ids",
+			errContains: "device_ids",
 		},
 	}
 
@@ -318,7 +318,7 @@ func TestEnqueuePipelineRunTicketActivityTemporalClientError(t *testing.T) {
 		OwnerNamespace:     "tenant",
 		PipelineIdentifier: "tenant/pipeline",
 		YAML:               "name: test\nsteps: []\n",
-		RunnerIDs:          []string{"runner-1"},
+		DeviceIDs:          []string{"runner-1"},
 	}
 
 	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: payload})

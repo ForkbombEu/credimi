@@ -76,12 +76,12 @@ steps:
     use: mobile-automation
     with:
       payload:
-        runner_id: "runner-android"
+        device_id: "runner-android/device-1"
   - id: step2
     use: mobile-automation
     with:
       payload:
-        runner_id: "runner-ios"
+        device_id: "runner-ios/device-1"
 `
 	result, err := pipelineWf.Start(
 		yaml,
@@ -93,10 +93,10 @@ steps:
 	require.Equal(t, "schedule-123", result.WorkflowID)
 	require.Contains(t, result.Message, "scheduled successfully")
 
-	expectedRunnerIDs := []string{"runner-android", "runner-ios"}
+	expectedDeviceIDs := []string{"runner-android/device-1", "runner-ios/device-1"}
 	expectedSearchAttrs := workflowengine.PipelineTypedSearchAttributes(
 		"tenant-1/scheduled-pipeline",
-		expectedRunnerIDs,
+		expectedDeviceIDs,
 		workflowengine.EntityIDs{},
 	)
 	require.Equal(
@@ -252,6 +252,29 @@ func TestHasMobileAutomationStep(t *testing.T) {
 	require.True(t, hasMobileAutomationStep([]pipeline.StepDefinition{
 		{StepSpec: pipeline.StepSpec{ID: "http", Use: "http-request"}},
 		{StepSpec: pipeline.StepSpec{ID: "mobile", Use: "mobile-automation"}},
+	}))
+
+	require.True(t, hasMobileAutomationStep([]pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{ID: "http", Use: "http-request"},
+			OnError: []*pipeline.OnErrorStepDefinition{
+				{StepSpec: pipeline.StepSpec{ID: "mobile-on-error", Use: mobileAutomationStepUse}},
+			},
+		},
+	}))
+
+	require.True(t, hasMobileAutomationStep([]pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{ID: "http", Use: "http-request"},
+			OnSuccess: []*pipeline.OnSuccessStepDefinition{
+				{
+					StepSpec: pipeline.StepSpec{
+						ID:  "mobile-on-success",
+						Use: mobileAutomationStepUse,
+					},
+				},
+			},
+		},
 	}))
 }
 

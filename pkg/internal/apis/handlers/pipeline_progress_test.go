@@ -20,32 +20,32 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestRunnerSetsIntersect(t *testing.T) {
-	require.True(t, runnerSetsIntersect([]string{"a", "b"}, []string{"b"}))
-	require.True(t, runnerSetsIntersect([]string{" a "}, []string{"a"}))
-	require.False(t, runnerSetsIntersect([]string{"a"}, []string{"b"}))
-	require.False(t, runnerSetsIntersect(nil, []string{"b"}))
+func TestDeviceSetsIntersect(t *testing.T) {
+	require.True(t, deviceSetsIntersect([]string{"a", "b"}, []string{"b"}))
+	require.True(t, deviceSetsIntersect([]string{" a "}, []string{"a"}))
+	require.False(t, deviceSetsIntersect([]string{"a"}, []string{"b"}))
+	require.False(t, deviceSetsIntersect(nil, []string{"b"}))
 }
 
-func TestRunnerIDsFromSearchAttributes(t *testing.T) {
-	require.Nil(t, runnerIDsFromSearchAttributes(nil))
+func TestDeviceIDsFromSearchAttributes(t *testing.T) {
+	require.Nil(t, deviceIDsFromSearchAttributes(nil))
 
 	stringList := DecodedWorkflowSearchAttributes{
-		"RunnerIdentifiers": []string{"runner-1", "runner-2"},
+		"DeviceIdentifiers": []string{"device-1", "device-2"},
 	}
 	require.Equal(
 		t,
-		[]string{"runner-1", "runner-2"},
-		runnerIDsFromSearchAttributes(&stringList),
+		[]string{"device-1", "device-2"},
+		deviceIDsFromSearchAttributes(&stringList),
 	)
 
 	anyList := DecodedWorkflowSearchAttributes{
-		"RunnerIdentifiers": []any{"runner-1", "", 42},
+		"DeviceIdentifiers": []any{"device-1", "", 42},
 	}
-	require.Equal(t, []string{"runner-1"}, runnerIDsFromSearchAttributes(&anyList))
+	require.Equal(t, []string{"device-1"}, deviceIDsFromSearchAttributes(&anyList))
 
 	missing := DecodedWorkflowSearchAttributes{"Other": "x"}
-	require.Nil(t, runnerIDsFromSearchAttributes(&missing))
+	require.Nil(t, deviceIDsFromSearchAttributes(&missing))
 }
 
 func progressHistoryClient(
@@ -85,17 +85,17 @@ func TestExpectedPipelineDurationMedian(t *testing.T) {
 	require.InDelta(t, 120.0, duration, 0.001)
 }
 
-func TestExpectedPipelineDurationFiltersByRunner(t *testing.T) {
+func TestExpectedPipelineDurationFiltersByDevice(t *testing.T) {
 	converter := temporalcrypto.DataConverter()
 	runnerPayloads := map[string]*commonpb.Payload{}
-	for _, runner := range []string{"runner-1", "runner-2"} {
-		payload, err := converter.ToPayloads([]string{runner})
+	for _, device := range []string{"device-1", "device-2"} {
+		payload, err := converter.ToPayloads([]string{device})
 		require.NoError(t, err)
-		runnerPayloads[runner] = payload.GetPayloads()[0]
+		runnerPayloads[device] = payload.GetPayloads()[0]
 	}
 
 	now := time.Now()
-	newExecution := func(runners string, durationSeconds float64) *workflow.WorkflowExecutionInfo {
+	newExecution := func(devices string, durationSeconds float64) *workflow.WorkflowExecutionInfo {
 		info := &workflow.WorkflowExecutionInfo{
 			StartTime:     timestamppb.New(now.Add(-2 * time.Hour)),
 			ExecutionTime: timestamppb.New(now.Add(-2 * time.Hour)),
@@ -104,21 +104,21 @@ func TestExpectedPipelineDurationFiltersByRunner(t *testing.T) {
 			),
 			Status: 1,
 		}
-		if runners != "" {
+		if devices != "" {
 			info.SearchAttributes = &commonpb.SearchAttributes{
 				IndexedFields: map[string]*commonpb.Payload{
-					"RunnerIdentifiers": runnerPayloads[runners],
+					"DeviceIdentifiers": runnerPayloads[devices],
 				},
 			}
 		}
 		return info
 	}
 
-	// runner-2 runs take 120s; the runner-1 run takes 600s and must be excluded.
+	// device-2 runs take 120s; the device-1 run takes 600s and must be excluded.
 	executions := []*workflow.WorkflowExecutionInfo{
-		newExecution("runner-2", 120),
-		newExecution("runner-2", 120),
-		newExecution("runner-1", 600),
+		newExecution("device-2", 120),
+		newExecution("device-2", 120),
+		newExecution("device-1", 600),
 	}
 
 	duration, samples := expectedPipelineDuration(
@@ -126,7 +126,7 @@ func TestExpectedPipelineDurationFiltersByRunner(t *testing.T) {
 		progressHistoryClient(t, executions),
 		"ns",
 		"tenant/pipeline",
-		[]string{"runner-2"},
+		[]string{"device-2"},
 	)
 	require.Equal(t, 2, samples)
 	require.InDelta(t, 120.0, duration, 0.001)

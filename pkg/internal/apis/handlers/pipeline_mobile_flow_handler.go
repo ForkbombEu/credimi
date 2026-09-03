@@ -61,7 +61,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			)
 		}
 
-		runnerID, device, apiErr := pipelineMobileFlowDevice(
+		deviceID, device, apiErr := pipelineMobileFlowDevice(
 			e.Request.Context(),
 			temporalClient,
 			strings.TrimSpace(input.WorkflowID),
@@ -113,15 +113,18 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			mobileWorkflow.Name(),
 			workflowengine.WorkflowInput{
 				Config: map[string]any{
-					"app_url":   e.App.Settings().Meta.AppURL,
-					"taskqueue": fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID)),
+					"app_url": e.App.Settings().Meta.AppURL,
+					"taskqueue": fmt.Sprintf(
+						"%s-TaskQueue",
+						canonify.NormalizePath(workflowengine.AsString(device["runner_id"])),
+					),
 				},
 				Payload: workflows.MobileAutomationWorkflowPayload{
 					ActionID:   strings.TrimSpace(input.ActionID),
 					ActionCode: actionCode,
 					Serial:     workflowengine.AsString(device["serial"]),
 					Type:       workflowengine.AsString(device["type"]),
-					RunnerID:   runnerID,
+					DeviceID:   deviceID,
 					Parameters: input.ActionParameters,
 				},
 				ActivityOptions: &activityOptions,
@@ -221,13 +224,13 @@ func pipelineMobileFlowDevice(
 			err.Error(),
 		)
 	}
-	runnerIDs := stringSlice(attributes[workflowengine.RunnerIdentifiersSearchAttribute])
-	if len(runnerIDs) != 1 {
+	deviceIDs := stringSlice(attributes[workflowengine.DeviceIdentifiersSearchAttribute])
+	if len(deviceIDs) != 1 {
 		return "", nil, apierror.New(
 			http.StatusUnprocessableEntity,
-			"runner_id",
-			"pipeline must have exactly one reserved runner",
-			fmt.Sprintf("found %d reserved runners", len(runnerIDs)),
+			"device_id",
+			"pipeline must have exactly one reserved device",
+			fmt.Sprintf("found %d reserved devices", len(deviceIDs)),
 		)
 	}
 
@@ -240,7 +243,7 @@ func pipelineMobileFlowDevice(
 	if err != nil {
 		return "", nil, apierror.New(
 			http.StatusConflict,
-			"runner_id",
+			"device_id",
 			"pipeline mobile device is not initialized",
 			err.Error(),
 		)
@@ -249,18 +252,18 @@ func pipelineMobileFlowDevice(
 	if err := encoded.Get(&devices); err != nil {
 		return "", nil, apierror.New(
 			http.StatusInternalServerError,
-			"runner_id",
+			"device_id",
 			"failed to read initialized pipeline devices",
 			err.Error(),
 		)
 	}
 
-	runnerID := canonify.NormalizePath(runnerIDs[0])
-	device, ok := devices[runnerID].(map[string]any)
+	deviceID := canonify.NormalizePath(deviceIDs[0])
+	device, ok := devices[deviceID].(map[string]any)
 	if !ok {
 		return "", nil, apierror.New(
 			http.StatusConflict,
-			"runner_id",
+			"device_id",
 			"pipeline mobile device is not initialized",
 			"run a mobile-automation step before calling this API",
 		)
@@ -268,13 +271,13 @@ func pipelineMobileFlowDevice(
 	if workflowengine.AsString(device["type"]) == "" {
 		return "", nil, apierror.New(
 			http.StatusConflict,
-			"runner_id",
+			"device_id",
 			"pipeline mobile device is not initialized",
 			"initialized device type is missing",
 		)
 	}
 
-	return runnerID, device, nil
+	return deviceID, device, nil
 }
 
 func stringSlice(value any) []string {

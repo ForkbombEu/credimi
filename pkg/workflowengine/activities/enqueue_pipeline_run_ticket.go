@@ -15,7 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/runqueue"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
@@ -118,14 +118,14 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 		)
 	}
 
-	runnerIDs := normalizeRunnerIDs(payload.RunnerIDs)
-	if len(runnerIDs) == 0 {
+	deviceIDs := normalizeDeviceIDs(payload.DeviceIDs)
+	if len(deviceIDs) == 0 {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
 			workflowengine.ActivityError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: "runner_ids are required",
+				Message: "device_ids are required",
 			},
 		)
 	}
@@ -145,7 +145,7 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 			return temporalclient.GetTemporalClientWithNamespace(namespace)
 		}
 	}
-	temporalClient, err := factory(workflowengine.MobileRunnerSemaphoreDefaultNamespace)
+	temporalClient, err := factory(workflowengine.MobileDeviceSemaphoreDefaultNamespace)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 		return result, a.NewActivityError(
@@ -157,8 +157,8 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 		)
 	}
 
-	for _, runnerID := range runnerIDs {
-		if err := ensureRunQueueSemaphoreWorkflow(ctx, temporalClient, runnerID); err != nil {
+	for _, deviceID := range deviceIDs {
+		if err := ensureRunQueueSemaphoreWorkflow(ctx, temporalClient, deviceID); err != nil {
 			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 			return result, a.NewActivityError(
 				workflowengine.ActivityError{
@@ -170,24 +170,24 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 		}
 	}
 
-	leaderRunnerID := runnerIDs[0]
+	leaderDeviceID := deviceIDs[0]
 	var logger log.Logger
 	if activity.IsActivity(ctx) {
 		logger = activity.GetLogger(ctx)
 	}
-	rollbackRunnerIDs := make([]string, 0, len(runnerIDs))
-	runnerStatuses := make([]EnqueuePipelineRunTicketRunnerStatus, 0, len(runnerIDs))
+	rollbackDeviceIDs := make([]string, 0, len(deviceIDs))
+	runnerStatuses := make([]EnqueuePipelineRunTicketDeviceStatus, 0, len(deviceIDs))
 
-	rollbackEnqueuedTickets := func(runnerIDs []string) {
+	rollbackEnqueuedTickets := func(deviceIDs []string) {
 		rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		for _, runnerID := range runnerIDs {
+		for _, deviceID := range deviceIDs {
 			status, err := cancelRunTicket(
 				rollbackCtx,
 				temporalClient,
-				runnerID,
-				mobilerunnersemaphore.MobileRunnerSemaphoreRunCancelRequest{
+				deviceID,
+				mobiledevicesemaphore.MobileDeviceSemaphoreRunCancelRequest{
 					TicketID:       ticketID,
 					OwnerNamespace: ownerNamespace,
 				},
@@ -200,36 +200,36 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 					logger.Warn(fmt.Sprintf(
 						"failed to rollback run ticket %s for runner %s: %v",
 						ticketID,
-						runnerID,
+						deviceID,
 						err,
 					))
 				}
 				continue
 			}
-			if status.Status == mobilerunnersemaphore.MobileRunnerSemaphoreRunNotFound {
+			if status.Status == mobiledevicesemaphore.MobileDeviceSemaphoreRunNotFound {
 				continue
 			}
 		}
 	}
 
-	for _, runnerID := range runnerIDs {
-		rollbackRunnerIDs = append(rollbackRunnerIDs, runnerID)
-		req := mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunRequest{
+	for _, deviceID := range deviceIDs {
+		rollbackDeviceIDs = append(rollbackDeviceIDs, deviceID)
+		req := mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest{
 			TicketID:            ticketID,
 			OwnerNamespace:      ownerNamespace,
 			EnqueuedAt:          payload.EnqueuedAt,
-			RunnerID:            runnerID,
-			RequiredRunnerIDs:   runnerIDs,
-			LeaderRunnerID:      leaderRunnerID,
+			DeviceID:            deviceID,
+			RequiredDeviceIDs:   deviceIDs,
+			LeaderDeviceID:      leaderDeviceID,
 			MaxPipelinesInQueue: payload.MaxPipelinesInQueue,
 			PipelineIdentifier:  pipelineIdentifier,
 			YAML:                yaml,
 			PipelineConfig:      config,
 			Memo:                memo,
 		}
-		resp, err := enqueueRunTicket(ctx, temporalClient, runnerID, req)
+		resp, err := enqueueRunTicket(ctx, temporalClient, deviceID, req)
 		if err != nil {
-			rollbackEnqueuedTickets(rollbackRunnerIDs)
+			rollbackEnqueuedTickets(rollbackDeviceIDs)
 			if isQueueLimitExceeded(err) {
 				return result, err
 			}
@@ -242,15 +242,15 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 				},
 			)
 		}
-		runnerStatuses = append(runnerStatuses, EnqueuePipelineRunTicketRunnerStatus{
-			RunnerID: runnerID,
+		runnerStatuses = append(runnerStatuses, EnqueuePipelineRunTicketDeviceStatus{
+			DeviceID: deviceID,
 			Status:   resp.Status,
 			Position: resp.Position,
 			LineLen:  resp.LineLen,
 		})
 	}
 
-	aggregate := runqueue.AggregateRunnerStatuses(toRunQueueStatuses(runnerStatuses))
+	aggregate := runqueue.AggregateDeviceStatuses(toRunQueueStatuses(runnerStatuses))
 	result.Output = EnqueuePipelineRunTicketActivityOutput{
 		Status:            aggregate.Status,
 		Position:          aggregate.Position,
@@ -272,7 +272,7 @@ var errRunTicketNotFound = errors.New("run ticket not found")
 func isQueueLimitExceeded(err error) bool {
 	var appErr *temporal.ApplicationError
 	if errors.As(err, &appErr) {
-		return appErr.Type() == mobilerunnersemaphore.ErrQueueLimitExceeded
+		return appErr.Type() == mobiledevicesemaphore.ErrQueueLimitExceeded
 	}
 	return false
 }
@@ -281,12 +281,12 @@ func isQueueLimitExceeded(err error) bool {
 func ensureRunQueueSemaphoreWorkflow(
 	ctx context.Context,
 	temporalClient temporalWorkflowUpdater,
-	runnerID string,
+	deviceID string,
 ) error {
-	workflowID := mobilerunnersemaphore.WorkflowID(runnerID)
+	workflowID := mobiledevicesemaphore.WorkflowID(deviceID)
 	input := workflowengine.WorkflowInput{
-		Payload: mobilerunnersemaphore.MobileRunnerSemaphoreWorkflowInput{
-			RunnerID: runnerID,
+		Payload: mobiledevicesemaphore.MobileDeviceSemaphoreWorkflowInput{
+			DeviceID: deviceID,
 			Capacity: 1,
 		},
 	}
@@ -295,9 +295,9 @@ func ensureRunQueueSemaphoreWorkflow(
 		ctx,
 		client.StartWorkflowOptions{
 			ID:        workflowID,
-			TaskQueue: mobilerunnersemaphore.TaskQueue,
+			TaskQueue: mobiledevicesemaphore.TaskQueue,
 		},
-		mobilerunnersemaphore.WorkflowName,
+		mobiledevicesemaphore.WorkflowName,
 		input,
 	)
 	if err != nil && !temporal.IsWorkflowExecutionAlreadyStartedError(err) {
@@ -310,24 +310,24 @@ func ensureRunQueueSemaphoreWorkflow(
 func enqueueRunTicket(
 	ctx context.Context,
 	temporalClient temporalWorkflowUpdater,
-	runnerID string,
-	req mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunRequest,
-) (mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse, error) {
-	workflowID := mobilerunnersemaphore.WorkflowID(runnerID)
+	deviceID string,
+	req mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest,
+) (mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse, error) {
+	workflowID := mobiledevicesemaphore.WorkflowID(deviceID)
 	handle, err := temporalClient.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
 		WorkflowID:   workflowID,
-		UpdateName:   mobilerunnersemaphore.EnqueueRunUpdate,
-		UpdateID:     runQueueUpdateID("enqueue", runnerID, req.TicketID),
+		UpdateName:   mobiledevicesemaphore.EnqueueRunUpdate,
+		UpdateID:     runQueueUpdateID("enqueue", deviceID, req.TicketID),
 		Args:         []interface{}{req},
 		WaitForStage: client.WorkflowUpdateStageCompleted,
 	})
 	if err != nil {
-		return mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse{}, err
+		return mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse{}, err
 	}
 
-	var response mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse
+	var response mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse
 	if err := handle.Get(ctx, &response); err != nil {
-		return mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse{}, err
+		return mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse{}, err
 	}
 	return response, nil
 }
@@ -336,41 +336,41 @@ func enqueueRunTicket(
 func cancelRunTicket(
 	ctx context.Context,
 	temporalClient temporalWorkflowUpdater,
-	runnerID string,
-	req mobilerunnersemaphore.MobileRunnerSemaphoreRunCancelRequest,
-) (mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView, error) {
-	workflowID := mobilerunnersemaphore.WorkflowID(runnerID)
+	deviceID string,
+	req mobiledevicesemaphore.MobileDeviceSemaphoreRunCancelRequest,
+) (mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView, error) {
+	workflowID := mobiledevicesemaphore.WorkflowID(deviceID)
 	handle, err := temporalClient.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
 		WorkflowID:   workflowID,
-		UpdateName:   mobilerunnersemaphore.CancelRunUpdate,
-		UpdateID:     runQueueUpdateID("cancel", runnerID, req.TicketID),
+		UpdateName:   mobiledevicesemaphore.CancelRunUpdate,
+		UpdateID:     runQueueUpdateID("cancel", deviceID, req.TicketID),
 		Args:         []interface{}{req},
 		WaitForStage: client.WorkflowUpdateStageCompleted,
 	})
 	if err != nil {
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {
-			return mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView{}, errRunTicketNotFound
+			return mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView{}, errRunTicketNotFound
 		}
-		return mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView{}, err
+		return mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView{}, err
 	}
 
-	var status mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView
+	var status mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView
 	if err := handle.Get(ctx, &status); err != nil {
-		return mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView{}, err
+		return mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView{}, err
 	}
 
 	return status, nil
 }
 
 // runQueueUpdateID builds a stable update identifier for runner queue updates.
-func runQueueUpdateID(prefix, runnerID, ticketID string) string {
-	runnerID = canonify.NormalizePath(runnerID)
-	return prefix + "/" + runnerID + "/" + ticketID
+func runQueueUpdateID(prefix, deviceID, ticketID string) string {
+	deviceID = canonify.NormalizePath(deviceID)
+	return prefix + "/" + deviceID + "/" + ticketID
 }
 
-// normalizeRunnerIDs trims and filters runner IDs while preserving order.
-func normalizeRunnerIDs(values []string) []string {
+// normalizeDeviceIDs trims and filters runner IDs while preserving order.
+func normalizeDeviceIDs(values []string) []string {
 	if len(values) == 0 {
 		return nil
 	}
@@ -387,15 +387,15 @@ func normalizeRunnerIDs(values []string) []string {
 
 // toRunQueueStatuses converts activity runner statuses for aggregation.
 func toRunQueueStatuses(
-	statuses []EnqueuePipelineRunTicketRunnerStatus,
-) []runqueue.RunnerStatus {
+	statuses []EnqueuePipelineRunTicketDeviceStatus,
+) []runqueue.DeviceStatus {
 	if len(statuses) == 0 {
 		return nil
 	}
-	out := make([]runqueue.RunnerStatus, 0, len(statuses))
+	out := make([]runqueue.DeviceStatus, 0, len(statuses))
 	for _, status := range statuses {
-		out = append(out, runqueue.RunnerStatus{
-			RunnerID:          status.RunnerID,
+		out = append(out, runqueue.DeviceStatus{
+			DeviceID:          status.DeviceID,
 			Status:            status.Status,
 			Position:          status.Position,
 			LineLen:           status.LineLen,

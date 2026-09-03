@@ -21,85 +21,75 @@ import (
 
 func TestDecodeAndValidatePayload(t *testing.T) {
 	_, err := decodeAndValidatePayload(
-		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID:   "step-1",
-				With: pipeline.StepInputs{Payload: map[string]any{}},
-			},
+		&pipeline.StepSpec{
+			ID:   "step-1",
+			With: pipeline.StepInputs{Payload: map[string]any{}},
 		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID: "step-2",
-				With: pipeline.StepInputs{Payload: map[string]any{
-					"action_code": "code",
-				}},
-			},
+		&pipeline.StepSpec{
+			ID: "step-2",
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"action_code": "code",
+			}},
 		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID: "step-3",
-				With: pipeline.StepInputs{Payload: map[string]any{
-					"runner_id": "runner-1",
-				}},
-			},
+		&pipeline.StepSpec{
+			ID: "step-3",
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"device_id": "tenant/runner-1/device-1",
+			}},
 		},
 	)
 	require.Error(t, err)
 
 	payload, err := decodeAndValidatePayload(
-		&pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID: "step-4",
-				With: pipeline.StepInputs{Payload: map[string]any{
-					"action_id": "action-1",
-					"runner_id": "runner-2",
-				}},
-			},
+		&pipeline.StepSpec{
+			ID: "step-4",
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"action_id": "action-1",
+				"device_id": "tenant/runner-2/device-2",
+			}},
 		},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "action-1", payload.ActionID)
-	require.Equal(t, "runner-2", payload.RunnerID)
+	require.Equal(t, "tenant/runner-2/device-2", payload.DeviceID)
 }
 
 func TestDecodeAndValidatePayloadNormalizesActionAndVersionIdentifiers(t *testing.T) {
-	step := &pipeline.StepDefinition{
-		StepSpec: pipeline.StepSpec{
-			ID: "step-1",
-			With: pipeline.StepInputs{Payload: map[string]any{
-				"action_id":  " /tenant-a/wallet/action-1 ",
-				"version_id": " /tenant-a/wallet/v1 ",
-				"runner_id":  " /tenant-a/runner-1 ",
-			}},
-		},
+	step := &pipeline.StepSpec{
+		ID: "step-1",
+		With: pipeline.StepInputs{Payload: map[string]any{
+			"action_id":  " /tenant-a/wallet/action-1 ",
+			"version_id": " /tenant-a/wallet/v1 ",
+			"device_id":  " /tenant-a/runner-1/device-1 ",
+		}},
 	}
 
 	payload, err := decodeAndValidatePayload(step)
 	require.NoError(t, err)
 	require.Equal(t, "tenant-a/wallet/action-1", payload.ActionID)
 	require.Equal(t, "tenant-a/wallet/v1", payload.VersionID)
-	require.Equal(t, " /tenant-a/runner-1 ", payload.RunnerID)
+	require.Equal(t, " /tenant-a/runner-1/device-1 ", payload.DeviceID)
 	require.Equal(t, "tenant-a/wallet/action-1", step.With.Payload["action_id"])
 	require.Equal(t, "tenant-a/wallet/v1", step.With.Payload["version_id"])
-	require.Equal(t, " /tenant-a/runner-1 ", step.With.Payload["runner_id"])
+	require.Equal(t, " /tenant-a/runner-1/device-1 ", step.With.Payload["device_id"])
 }
 
-func TestCollectMobileRunnerIDs(t *testing.T) {
+func TestCollectMobileDeviceIDs(t *testing.T) {
 	steps := []pipeline.StepDefinition{
 		{
 			StepSpec: pipeline.StepSpec{
 				Use: mobileAutomationStepUse,
 				With: pipeline.StepInputs{Payload: map[string]any{
 					"action_id": "action-1",
-					"runner_id": "runner-b",
+					"device_id": "tenant/runner-b/device-b",
 				}},
 			},
 		},
@@ -108,33 +98,94 @@ func TestCollectMobileRunnerIDs(t *testing.T) {
 				Use: mobileAutomationStepUse,
 				With: pipeline.StepInputs{Payload: map[string]any{
 					"action_id": "action-2",
-					"runner_id": "runner-a",
+					"device_id": "tenant/runner-a/device-a",
 				}},
 			},
 		},
 	}
 
-	runnerIDs, err := collectMobileRunnerIDs(steps, "runner-global")
+	runnerIDs, err := collectMobileDeviceIDs(steps, "")
 	require.NoError(t, err)
-	require.Equal(t, []string{"runner-a", "runner-b", "runner-global"}, runnerIDs)
+	require.Equal(
+		t,
+		[]string{"tenant/runner-a/device-a", "tenant/runner-b/device-b"},
+		runnerIDs,
+	)
 }
 
-func TestCollectMobileRunnerIDsNormalizesLeadingSlash(t *testing.T) {
+func TestCollectMobileDeviceIDsNormalizesLeadingSlash(t *testing.T) {
 	steps := []pipeline.StepDefinition{
 		{
 			StepSpec: pipeline.StepSpec{
 				Use: mobileAutomationStepUse,
 				With: pipeline.StepInputs{Payload: map[string]any{
 					"action_id": "action-1",
-					"runner_id": "/tenant-a/runner-b",
+					"device_id": "/tenant-a/runner-b/device-b",
 				}},
 			},
 		},
 	}
 
-	runnerIDs, err := collectMobileRunnerIDs(steps, "/tenant-a/runner-a")
+	runnerIDs, err := collectMobileDeviceIDs(steps, "")
 	require.NoError(t, err)
-	require.Equal(t, []string{"tenant-a/runner-a", "tenant-a/runner-b"}, runnerIDs)
+	require.Equal(
+		t,
+		[]string{"tenant-a/runner-b/device-b"},
+		runnerIDs,
+	)
+}
+
+func TestCollectMobileDeviceIDsUsesGlobalStrategy(t *testing.T) {
+	steps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{Use: "echo"},
+			OnError: []*pipeline.OnErrorStepDefinition{
+				{StepSpec: pipeline.StepSpec{Use: mobileAutomationStepUse}},
+			},
+		},
+	}
+
+	deviceIDs, err := collectMobileDeviceIDs(steps, " /tenant/runner-global/device-global ")
+	require.NoError(t, err)
+	require.Equal(t, []string{"tenant/runner-global/device-global"}, deviceIDs)
+}
+
+func TestCollectMobileDeviceIDsWithoutMobileSteps(t *testing.T) {
+	steps := []pipeline.StepDefinition{{StepSpec: pipeline.StepSpec{Use: "echo"}}}
+
+	deviceIDs, err := collectMobileDeviceIDs(steps, "tenant/runner-global/device-global")
+	require.NoError(t, err)
+	require.Empty(t, deviceIDs)
+}
+
+func TestCollectMobileDeviceIDsIncludesNestedStepsAndDeduplicates(t *testing.T) {
+	steps := []pipeline.StepDefinition{
+		{
+			StepSpec: pipeline.StepSpec{Use: "echo"},
+			OnError: []*pipeline.OnErrorStepDefinition{
+				{StepSpec: pipeline.StepSpec{
+					Use: mobileAutomationStepUse,
+					With: pipeline.StepInputs{Payload: map[string]any{
+						"action_id": "action-1",
+						"device_id": "/tenant/runner/device",
+					}},
+				}},
+			},
+			OnSuccess: []*pipeline.OnSuccessStepDefinition{
+				{StepSpec: pipeline.StepSpec{
+					Use: mobileAutomationStepUse,
+					With: pipeline.StepInputs{Payload: map[string]any{
+						"action_id": "action-2",
+						"device_id": "tenant/runner/device",
+					}},
+				}},
+			},
+		},
+	}
+
+	deviceIDs, err := collectMobileDeviceIDs(steps, "")
+	require.NoError(t, err)
+	require.Equal(t, []string{"tenant/runner/device"}, deviceIDs)
 }
 
 func TestParseAPKResponse(t *testing.T) {
@@ -146,7 +197,7 @@ func TestParseAPKResponse(t *testing.T) {
 		},
 	}}
 	payload := &workflows.MobileAutomationWorkflowPipelinePayload{ActionID: "action-1"}
-	step := &pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-1"}}
+	step := &pipeline.StepSpec{ID: "step-1"}
 	apkPath, versionID, actionCode, err := parseAPKResponse(result, payload, step)
 	require.NoError(t, err)
 	require.Equal(t, "path.apk", apkPath)
@@ -177,7 +228,7 @@ func TestIsSemaphoreManagedRun(t *testing.T) {
 	require.False(t, isSemaphoreManagedRun(map[string]any{}))
 	require.True(
 		t,
-		isSemaphoreManagedRun(map[string]any{mobileRunnerSemaphoreTicketIDConfigKey: "ticket"}),
+		isSemaphoreManagedRun(map[string]any{mobileDeviceSemaphoreTicketIDConfigKey: "ticket"}),
 	)
 }
 
@@ -194,7 +245,7 @@ func TestParseDeviceMap(t *testing.T) {
 	require.Equal(t, "abc", deviceMap["serial"])
 }
 
-func TestValidateRunnerIDConfigurationAdditional(t *testing.T) {
+func TestValidateMobileDeviceIDConfigurationAdditional(t *testing.T) {
 	steps := []pipeline.StepDefinition{
 		{
 			StepSpec: pipeline.StepSpec{
@@ -207,18 +258,18 @@ func TestValidateRunnerIDConfigurationAdditional(t *testing.T) {
 			},
 		},
 	}
-	err := validateRunnerIDConfiguration(&steps, "")
+	err := validateMobileDeviceIDConfiguration(steps, "")
 	require.Error(t, err)
 
-	err = validateRunnerIDConfiguration(&steps, "global-runner")
+	err = validateMobileDeviceIDConfiguration(steps, "global-device")
 	require.NoError(t, err)
 
-	steps[0].With.Payload["runner_id"] = "runner-1"
-	err = validateRunnerIDConfiguration(&steps, "")
+	steps[0].With.Payload["device_id"] = "tenant/runner-1/device-1"
+	err = validateMobileDeviceIDConfiguration(steps, "")
 	require.NoError(t, err)
 
 	nonMobile := []pipeline.StepDefinition{{StepSpec: pipeline.StepSpec{Use: "rest"}}}
-	err = validateRunnerIDConfiguration(&nonMobile, "")
+	err = validateMobileDeviceIDConfiguration(nonMobile, "")
 	require.NoError(t, err)
 }
 
@@ -314,7 +365,7 @@ func TestGetOrCreateDeviceMapExisting(t *testing.T) {
 	setted := map[string]any{
 		"runner-1": map[string]any{"serial": "serial-1"},
 	}
-	payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+	payload := &workflows.MobileAutomationWorkflowPipelinePayload{DeviceID: "runner-1"}
 	device, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
 		payload:       payload,
 		settedDevices: setted,
@@ -392,7 +443,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 		func(ctx workflow.Context) (map[string]any, error) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
-			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{DeviceID: "runner-1"}
 			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
 				ctx:           ctx,
 				mobileCtx:     ctx,
@@ -411,6 +462,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
+			"runner_id":  "tenant/runner-1",
 			"runner_url": "http://runner",
 			"type":       "physical",
 			"serial":     "serial-1",
@@ -451,7 +503,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 		func(ctx workflow.Context) (map[string]any, error) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
-			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{DeviceID: "runner-1"}
 			return getOrCreateDeviceMap(getOrCreateDeviceMapInput{
 				ctx:           ctx,
 				mobileCtx:     ctx,
@@ -470,6 +522,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
+			"runner_id":  "tenant/runner-1",
 			"runner_url": "http://runner",
 			"type":       "android_emulator",
 			"serial":     "serial-from-runner",
@@ -562,8 +615,8 @@ func TestFetchRunnerInfo(t *testing.T) {
 		func(ctx workflow.Context) (map[string]any, error) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
-			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
-			runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{DeviceID: "runner-1"}
+			runnerID, runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx:     ctx,
 				payload: payload,
 				appURL:  "http://localhost:8090",
@@ -573,6 +626,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 				return nil, err
 			}
 			return map[string]any{
+				"runner_id":  runnerID,
 				"runner_url": runnerURL,
 				"type":       deviceType.String(),
 				"serial":     serial,
@@ -587,6 +641,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
+			"runner_id":  "organization/runner-1",
 			"runner_url": "http://runner",
 			"type":       "physical",
 			"serial":     "serial-1",
@@ -599,6 +654,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "organization/runner-1", result["runner_id"])
 	require.Equal(t, "http://runner", result["runner_url"])
 	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "serial-1", result["serial"])
@@ -655,9 +711,9 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 					ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 					ctx = workflow.WithActivityOptions(ctx, ao)
 					payload := &workflows.MobileAutomationWorkflowPipelinePayload{
-						RunnerID: "runner-1",
+						DeviceID: "runner-1",
 					}
-					_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
+					_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 						ctx:     ctx,
 						payload: payload,
 						appURL:  "http://localhost:8090",
@@ -698,7 +754,7 @@ func TestStartManagedDeviceAndroid(t *testing.T) {
 		func(ctx workflow.Context) (map[string]any, error) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
-			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{DeviceID: "runner-1"}
 			name, serial, err := startManagedDevice(startManagedDeviceInput{
 				ctx:        ctx,
 				mobileCtx:  ctx,
@@ -755,7 +811,7 @@ func TestStartManagedDeviceIOS(t *testing.T) {
 		func(ctx workflow.Context) (map[string]any, error) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
-			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{DeviceID: "runner-1"}
 			name, serial, err := startManagedDevice(startManagedDeviceInput{
 				ctx:        ctx,
 				mobileCtx:  ctx,
@@ -812,7 +868,7 @@ func TestStartManagedDeviceMissingSerialDefaultsToEmptyString(t *testing.T) {
 		func(ctx workflow.Context) (map[string]any, error) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
-			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{DeviceID: "runner-1"}
 			name, serial, err := startManagedDevice(startManagedDeviceInput{
 				ctx:        ctx,
 				mobileCtx:  ctx,
@@ -877,7 +933,7 @@ func TestStartManagedDeviceErrors(t *testing.T) {
 					ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 					ctx = workflow.WithActivityOptions(ctx, ao)
 					payload := &workflows.MobileAutomationWorkflowPipelinePayload{
-						RunnerID: "runner-1",
+						DeviceID: "runner-1",
 					}
 					_, _, err := startManagedDevice(startManagedDeviceInput{
 						ctx:        ctx,

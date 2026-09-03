@@ -16,6 +16,7 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 	handlers.SchedulesRoutes,
 	handlers.CustomIntegrationsRoutes,
 	handlers.MobileRunnersPublicRoutes,
+	handlers.MobileDevicesPublicRoutes,
 	// handlers.ScoreboardRoutes,
 }
 
@@ -39,8 +40,10 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	// handlers.ScoreboardPublicRoutes,
 	handlers.CloneRecord,
 	handlers.MobileRunnerRegistrationRoutes,
+	handlers.MobileDeviceRegistrationRoutes,
 	handlers.MobileRunnerLifecycleRoutes,
 	handlers.MobileRunnersTemporalInternalRoutes,
+	handlers.MobileDevicesTemporalInternalRoutes,
 	handlers.WebPushRoutes,
 }
 

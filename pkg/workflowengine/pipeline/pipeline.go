@@ -118,7 +118,7 @@ func (w *PipelineWorkflow) Workflow(
 			runID,
 			finalResult,
 		)
-		reportMobileRunnerSemaphoreDone(
+		reportMobileDeviceSemaphoreDone(
 			ctx,
 			logger,
 			config,
@@ -336,12 +336,16 @@ func buildPipelineCleanupFailureErrors(errorsList []error) []workflowengine.Work
 }
 
 func hasMobileAutomationStep(steps []pipeline.StepDefinition) bool {
-	for _, step := range steps {
+	found := false
+	if err := walkMutableStepSpecs(steps, func(step *pipeline.StepSpec) error {
 		if step.Use == mobileAutomationStepUse {
-			return true
+			found = true
 		}
+		return nil
+	}); err != nil {
+		return false
 	}
-	return false
+	return found
 }
 
 func wrapWorkflowCancellationError(
@@ -896,13 +900,13 @@ func (w *PipelineWorkflow) Start(
 		}
 	}
 
-	runnerInfo, _ := ParsePipelineRunnerInfo(inputYaml)
-	// Add global_runner_id to config if specified
-	if wfDef.Runtime.GlobalRunnerID != "" {
-		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
+	deviceInfo, _ := ParsePipelineDeviceInfo(inputYaml)
+	// Add global_device_id to config if specified.
+	if wfDef.Runtime.GlobalDeviceID != "" {
+		config["global_device_id"] = wfDef.Runtime.GlobalDeviceID
 	}
-	globalRunnerID := GlobalRunnerIDFromConfig(config)
-	runnerIDs := RunnerIDsWithGlobal(runnerInfo, globalRunnerID)
+	globalDeviceID := GlobalDeviceIDFromConfig(config)
+	deviceIDs := DeviceIDsWithGlobal(deviceInfo, globalDeviceID)
 	config["disable_android_play_store"] = wfDef.Runtime.DisableAndroidPlayStore
 	entityIDs, err := pipeline.ParseEntityIDs(inputYaml)
 	if err != nil {
@@ -912,7 +916,7 @@ func (w *PipelineWorkflow) Start(
 	workflowengine.ApplyPipelineSearchAttributes(
 		&options.Options,
 		pipelineIdentifier,
-		runnerIDs,
+		deviceIDs,
 		entityIDs,
 	)
 
@@ -928,7 +932,7 @@ func (w *PipelineWorkflow) Start(
 	if wfDef.Runtime.Schedule.Interval != nil {
 		searchAttributes := workflowengine.PipelineTypedSearchAttributes(
 			pipelineIdentifier,
-			runnerIDs,
+			deviceIDs,
 			entityIDs,
 		)
 		ctx := context.Background()

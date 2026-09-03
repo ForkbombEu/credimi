@@ -39,6 +39,7 @@ ensure_attr() {
 
 retry 60 1 ensure_attr "PipelineIdentifier" "Keyword"
 retry 60 1 ensure_attr "RunnerIdentifiers" "KeywordList"
+retry 60 1 ensure_attr "DeviceIdentifiers" "KeywordList"
 retry 60 1 ensure_attr "ActionsID" "KeywordList"
 retry 60 1 ensure_attr "VersionsID" "KeywordList"
 retry 60 1 ensure_attr "CredentialsID" "KeywordList"

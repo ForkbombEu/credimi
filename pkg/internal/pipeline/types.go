@@ -67,11 +67,13 @@ type StepInputs struct {
 }
 
 type RuntimeConfig struct {
-	Fixture  map[string]string `yaml:"fixture,omitempty"                    json:"fixture,omitempty"`
+	Fixture  map[string]string `yaml:"fixture,omitempty"  json:"fixture,omitempty"`
 	Schedule struct {
 		Interval *time.Duration `yaml:"interval,omitempty" json:"interval,omitempty"`
-	} `yaml:"schedule,omitempty"                   json:"schedule,omitempty"`
-	GlobalRunnerID          string `yaml:"global_runner_id,omitempty"           json:"global_runner_id,omitempty"`
+	} `yaml:"schedule,omitempty" json:"schedule,omitempty"`
+	// GlobalDeviceID is retained as an internal Go field while callers are migrated;
+	// the serialized pipeline contract is exclusively global_device_id.
+	GlobalDeviceID          string `yaml:"global_device_id,omitempty"           json:"global_device_id,omitempty"`
 	DisableAndroidPlayStore bool   `yaml:"disable_android_play_store,omitempty" json:"disable_android_play_store,omitempty"`
 	Debug                   bool   `yaml:"debug,omitempty"                      json:"debug,omitempty"`
 	Temporal                struct {

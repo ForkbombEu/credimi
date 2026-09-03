@@ -35,7 +35,7 @@ const walletAPKRunnerHealthTimeout = 10 * time.Second
 
 var walletAPKURLDownloader = downloadWalletAPKFromURL
 
-var walletAPKAllowedRunnerTypes = map[string]struct{}{
+var walletAPKAllowedDeviceTypes = map[string]struct{}{
 	"android_emulator": {},
 	"redroid":          {},
 	"android_phone":    {},
@@ -47,8 +47,8 @@ type pipelineRunWalletAPKRequest struct {
 	PipelineIdentifier string                `json:"pipeline_identifier"`
 	CommitSHA          string                `json:"commit_sha"`
 	Metadata           map[string]any        `json:"metadata"`
-	RunnerID           string                `json:"runner_id"`
-	RunnerType         string                `json:"runner_type"`
+	DeviceID           string                `json:"device_id"`
+	DeviceType         string                `json:"device_type"`
 	APKURL             string                `json:"apk_url"`
 	APKFile            *multipart.FileHeader `json:"-"`
 }
@@ -139,7 +139,7 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr
 		}
-		runnerID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKRunnerID(
+		deviceID, hasStepRunner, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKDeviceID(
 			e.Request.Context(),
 			e.App,
 			runContext.organizationRecord.Id,
@@ -150,16 +150,16 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			rollbackPipelineRunWalletAPKTempVersion(e, tempVersion)
 			return apiErr
 		}
-		warning := pipelineCIIgnoredRunnerWarning(
-			input.RunnerID,
-			input.RunnerType,
+		warning := pipelineCIIgnoredDeviceWarning(
+			input.DeviceID,
+			input.DeviceType,
 			hasStepRunner,
 			needsGlobalRunner,
 		)
-		manipulatedYAML, apiErr := injectPipelineCIGlobalRunnerID(
+		manipulatedYAML, apiErr := injectPipelineCIGlobalDeviceID(
 			rewrittenYAML,
 			workflowDefinition,
-			runnerID,
+			deviceID,
 			hasStepRunner,
 			needsGlobalRunner,
 		)
@@ -171,8 +171,8 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 			input.Metadata,
 			e.App.Settings().Meta.AppURL,
 			input.PipelineIdentifier,
-			runnerID,
-			resolveWalletAPKGitHubPRRunnerType(e.App, runnerID, input.RunnerType),
+			deviceID,
+			resolveWalletAPKGitHubPRDeviceType(e.App, deviceID, input.DeviceType),
 		)
 
 		queueResponse, apiErr := enqueuePipelineRun(e, pipelineQueueRunContext{
@@ -215,18 +215,18 @@ func HandlePipelineRunWalletAPK() func(*core.RequestEvent) error {
 	}
 }
 
-func resolveWalletAPKGitHubPRRunnerType(
+func resolveWalletAPKGitHubPRDeviceType(
 	app core.App,
-	runnerID string,
-	requestedRunnerType string,
+	deviceID string,
+	requestedDeviceType string,
 ) string {
-	if runnerType := strings.TrimSpace(requestedRunnerType); runnerType != "" {
-		return runnerType
+	if deviceType := strings.TrimSpace(requestedDeviceType); deviceType != "" {
+		return deviceType
 	}
-	if strings.TrimSpace(runnerID) == "" {
+	if strings.TrimSpace(deviceID) == "" {
 		return ""
 	}
-	record, err := canonify.Resolve(app, runnerID)
+	record, err := canonify.Resolve(app, deviceID)
 	if err != nil {
 		return ""
 	}
@@ -235,11 +235,11 @@ func resolveWalletAPKGitHubPRRunnerType(
 
 func buildPipelineRunWalletAPKCleanupMetadata(
 	tempVersion tempWalletVersion,
-) *workflows.MobileRunnerSemaphoreCleanupMetadata {
+) *workflows.MobileDeviceSemaphoreCleanupMetadata {
 	if tempVersion.Record == nil || tempVersion.Record.Id == "" {
 		return nil
 	}
-	return &workflows.MobileRunnerSemaphoreCleanupMetadata{
+	return &workflows.MobileDeviceSemaphoreCleanupMetadata{
 		TempWalletVersionID:         tempVersion.Record.Id,
 		TempWalletVersionOwnerID:    tempVersion.Record.GetString("owner"),
 		TempWalletVersionIdentifier: tempVersion.Identifier,
@@ -721,7 +721,7 @@ func rewriteWalletAPKStepVersion(
 	return 1
 }
 
-func resolvePipelineRunWalletAPKRunnerID(
+func resolvePipelineRunWalletAPKDeviceID(
 	ctx context.Context,
 	app core.App,
 	ownerID string,
@@ -732,13 +732,13 @@ func resolvePipelineRunWalletAPKRunnerID(
 	if !hasStepRunner && !needsGlobalRunner {
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
-	if strings.TrimSpace(input.RunnerID) != "" {
-		return input.RunnerID, hasStepRunner, needsGlobalRunner, nil
+	if strings.TrimSpace(input.DeviceID) != "" {
+		return input.DeviceID, hasStepRunner, needsGlobalRunner, nil
 	}
 
-	runnerType := strings.TrimSpace(input.RunnerType)
-	if runnerType == "" {
-		if apiErr := validatePipelineCIGlobalRunnerRequest(
+	deviceType := strings.TrimSpace(input.DeviceType)
+	if deviceType == "" {
+		if apiErr := validatePipelineCIGlobalDeviceRequest(
 			"",
 			hasStepRunner,
 			needsGlobalRunner,
@@ -748,8 +748,8 @@ func resolvePipelineRunWalletAPKRunnerID(
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
 
-	runnerID, apiErr := selectPipelineCIRunnerByType(ctx, app, ownerID, runnerType)
-	return runnerID, hasStepRunner, needsGlobalRunner, apiErr
+	deviceID, apiErr := selectPipelineCIDeviceByType(ctx, app, ownerID, deviceType)
+	return deviceID, hasStepRunner, needsGlobalRunner, apiErr
 }
 
 func collectWalletAPKVersionReferences(
@@ -819,8 +819,8 @@ func parsePipelineRunWalletAPKRequest(
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
 		CommitSHA:          strings.TrimSpace(metadataSHA(metadata)),
 		Metadata:           metadata,
-		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
-		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
+		DeviceID:           strings.TrimSpace(e.Request.FormValue("device_id")),
+		DeviceType:         strings.TrimSpace(e.Request.FormValue("device_type")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 	}, nil
 }
@@ -853,8 +853,8 @@ func parsePipelineRunWalletAPKMultipartRequest(
 		PipelineIdentifier: strings.TrimSpace(e.Request.FormValue("pipeline_identifier")),
 		CommitSHA:          strings.TrimSpace(metadataSHA(metadata)),
 		Metadata:           metadata,
-		RunnerID:           strings.TrimSpace(e.Request.FormValue("runner_id")),
-		RunnerType:         strings.TrimSpace(e.Request.FormValue("runner_type")),
+		DeviceID:           strings.TrimSpace(e.Request.FormValue("device_id")),
+		DeviceType:         strings.TrimSpace(e.Request.FormValue("device_type")),
 		APKURL:             strings.TrimSpace(e.Request.FormValue("apk_url")),
 		APKFile:            apkFile,
 	}, nil
@@ -874,8 +874,8 @@ func parsePipelineRunWalletAPKJSONRequest(
 	}
 	input.PipelineIdentifier = strings.TrimSpace(input.PipelineIdentifier)
 	input.CommitSHA = strings.TrimSpace(metadataSHA(input.Metadata))
-	input.RunnerID = strings.TrimSpace(input.RunnerID)
-	input.RunnerType = strings.TrimSpace(input.RunnerType)
+	input.DeviceID = strings.TrimSpace(input.DeviceID)
+	input.DeviceType = strings.TrimSpace(input.DeviceType)
 	input.APKURL = strings.TrimSpace(input.APKURL)
 	return input, nil
 }
@@ -897,13 +897,13 @@ func validatePipelineRunWalletAPKRequest(input pipelineRunWalletAPKRequest) *api
 			"missing metadata.sha",
 		)
 	}
-	if runnerType := strings.TrimSpace(input.RunnerType); runnerType != "" {
-		if _, ok := walletAPKAllowedRunnerTypes[runnerType]; !ok {
+	if deviceType := strings.TrimSpace(input.DeviceType); deviceType != "" {
+		if _, ok := walletAPKAllowedDeviceTypes[deviceType]; !ok {
 			return apierror.New(
 				http.StatusBadRequest,
-				"runner_type",
-				"runner_type is invalid",
-				"runner_type must be one of android_emulator, redroid, android_phone, ios_simulator, ios_phone",
+				"device_type",
+				"device_type is invalid",
+				"device_type must be one of android_emulator, redroid, android_phone, ios_simulator, ios_phone",
 			)
 		}
 	}
