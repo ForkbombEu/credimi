@@ -30,7 +30,7 @@ func TestCompleteFCAFPipelineResolvesValidationAfterScenarioFailures(t *testing.
 	validation := definition.Steps[len(definition.Steps)-1]
 	require.Equal(t, "fcaf-validation", validation.Use)
 	require.NoError(t, ResolveInputs(&validation, nil, context))
-	require.Len(t, validation.With.Payload["pipeline_outputs"], 152)
+	require.Len(t, validation.With.Payload["pipeline_outputs"], 153)
 }
 
 func TestFCAFPipelineTemplatesParse(t *testing.T) {

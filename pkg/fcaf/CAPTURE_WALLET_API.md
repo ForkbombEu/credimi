@@ -89,6 +89,9 @@ The service records issuance capture evidence, but the exact `observed`, `checks
 | `transaction_data` | Unconstrained JSON value. | Supported as input. Observed on 02/09/2026: when nested in `presentation_request`, it is preserved in the signed Request Object; supported Wallet types remain unknown. |
 | `verifier_info` | Unconstrained JSON value. | Supported as input. Observed on 02/09/2026: when nested in `presentation_request`, it is preserved in the signed Request Object; attestation generation and Wallet support remain unknown. |
 
+Observed on 03/09/2026: a DCQL credential that omits `meta` is accepted at
+session creation and preserved without `meta` in the signed Request Object.
+
 `additionalProperties` are accepted by the public request schema, but that does **not** establish that an unknown property appears in the signed Authorization Request. Retrieve and decode the request before using an unknown field as test evidence.
 
 ### Delivery and response endpoints
