@@ -19,7 +19,7 @@ func (OID4VPDCQLMetaOmittedValidator) Validate(_ context.Context, input Input) R
 	}
 	query, ok := normalizeJSONObject(payload["dcql_query"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "Request Object dcql_query is missing or not an object"}
+		return Result{Status: StatusFail, Message: requestObjectDCQLQueryMissingMessage}
 	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {

@@ -19,7 +19,7 @@ func (OID4VPDCQLMultipleNonBooleanValidator) Validate(_ context.Context, input I
 	}
 	query, ok := normalizeJSONObject(payload["dcql_query"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "Request Object dcql_query is missing or not an object"}
+		return Result{Status: StatusFail, Message: requestObjectDCQLQueryMissingMessage}
 	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
@@ -32,9 +32,15 @@ func (OID4VPDCQLMultipleNonBooleanValidator) Validate(_ context.Context, input I
 		}
 		if value, exists := credential["multiple"]; exists {
 			if _, isBoolean := value.(bool); !isBoolean {
-				return Result{Status: StatusPass, Message: "dcql_query credential multiple is not a boolean"}
+				return Result{
+					Status:  StatusPass,
+					Message: "dcql_query credential multiple is not a boolean",
+				}
 			}
 		}
 	}
-	return Result{Status: StatusFail, Message: "dcql_query credential multiple is boolean or missing"}
+	return Result{
+		Status:  StatusFail,
+		Message: "dcql_query credential multiple is boolean or missing",
+	}
 }

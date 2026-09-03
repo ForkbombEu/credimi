@@ -20,16 +20,24 @@ func TestOID4VPVerifierInfoAllCredentialsValidator(t *testing.T) {
 		{
 			name: "accepts attestation without credential IDs",
 			value: compactTestJWT(t, map[string]any{
-				"dcql_query":    map[string]any{"credentials": []any{map[string]any{"id": "pid"}}},
-				"verifier_info": []any{map[string]any{"format": "example", "data": map[string]any{}}},
+				"dcql_query": map[string]any{"credentials": []any{map[string]any{"id": "pid"}}},
+				"verifier_info": []any{
+					map[string]any{"format": "example", "data": map[string]any{}},
+				},
 			}),
 			wantStatus: StatusPass,
 		},
 		{
 			name: "rejects attestation with credential IDs",
 			value: compactTestJWT(t, map[string]any{
-				"dcql_query":    map[string]any{"credentials": []any{map[string]any{"id": "pid"}}},
-				"verifier_info": []any{map[string]any{"format": "example", "data": map[string]any{}, "credential_ids": []any{"pid"}}},
+				"dcql_query": map[string]any{"credentials": []any{map[string]any{"id": "pid"}}},
+				"verifier_info": []any{
+					map[string]any{
+						"format":         "example",
+						"data":           map[string]any{},
+						"credential_ids": []any{"pid"},
+					},
+				},
 			}),
 			wantStatus: StatusFail,
 		},

@@ -25,41 +25,68 @@ func (OID4VPVerifierInfoAllCredentialsValidator) Validate(_ context.Context, inp
 
 	dcqlQuery, ok := normalizeJSONObject(payload["dcql_query"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "Request Object dcql_query is missing or not an object"}
+		return Result{Status: StatusFail, Message: requestObjectDCQLQueryMissingMessage}
 	}
 	credentials, ok := dcqlQuery["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
-		return Result{Status: StatusFail, Message: "Request Object dcql_query.credentials is missing or empty"}
+		return Result{
+			Status:  StatusFail,
+			Message: "Request Object dcql_query.credentials is missing or empty",
+		}
 	}
 	for index, rawCredential := range credentials {
 		credential, ok := normalizeJSONObject(rawCredential)
 		if !ok {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("dcql_query.credentials[%d] is not an object", index)}
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("dcql_query.credentials[%d] is not an object", index),
+			}
 		}
 		if id, _ := credential["id"].(string); id == "" {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("dcql_query.credentials[%d].id is missing or empty", index)}
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("dcql_query.credentials[%d].id is missing or empty", index),
+			}
 		}
 	}
 
 	attestations, ok := payload["verifier_info"].([]any)
 	if !ok || len(attestations) == 0 {
-		return Result{Status: StatusFail, Message: "Request Object verifier_info is missing or empty"}
+		return Result{
+			Status:  StatusFail,
+			Message: "Request Object verifier_info is missing or empty",
+		}
 	}
 	for index, rawAttestation := range attestations {
 		attestation, ok := normalizeJSONObject(rawAttestation)
 		if !ok {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("verifier_info[%d] is not an object", index)}
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("verifier_info[%d] is not an object", index),
+			}
 		}
 		if format, _ := attestation["format"].(string); format == "" {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("verifier_info[%d].format is missing or empty", index)}
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("verifier_info[%d].format is missing or empty", index),
+			}
 		}
 		if _, exists := attestation["data"]; !exists {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("verifier_info[%d].data is missing", index)}
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("verifier_info[%d].data is missing", index),
+			}
 		}
 		if _, exists := attestation["credential_ids"]; exists {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("verifier_info[%d] contains credential_ids", index)}
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("verifier_info[%d] contains credential_ids", index),
+			}
 		}
 	}
 
-	return Result{Status: StatusPass, Message: "all verifier_info attestations omit credential_ids for the requested DCQL credentials"}
+	return Result{
+		Status:  StatusPass,
+		Message: "all verifier_info attestations omit credential_ids for the requested DCQL credentials",
+	}
 }

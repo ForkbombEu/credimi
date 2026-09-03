@@ -3784,7 +3784,10 @@ func validateErrorCode(responseValue, errorValue any, expectedCode string) Resul
 // validateUnknownFieldStripped checks that wallet processes request with unknown fields stripped.
 func validateUnknownFieldStripped(query, responseValue any, property string) Result {
 	if property == "" {
-		return Result{Status: StatusError, Message: "property is required for unknown_field_stripped mode"}
+		return Result{
+			Status:  StatusError,
+			Message: "property is required for unknown_field_stripped mode",
+		}
 	}
 	queryObject, ok := normalizeJSONObject(query)
 	if !ok {
@@ -3803,7 +3806,10 @@ func validateUnknownFieldStripped(query, responseValue any, property string) Res
 			}
 		}
 		if !found {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("dcql_query does not contain unknown property %q", property)}
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("dcql_query does not contain unknown property %q", property),
+			}
 		}
 	}
 	if errStr := normalizeString(responseValue); errStr != "" {

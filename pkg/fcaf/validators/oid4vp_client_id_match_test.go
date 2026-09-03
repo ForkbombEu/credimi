@@ -30,8 +30,11 @@ func TestOID4VPClientIDMatchValidator(t *testing.T) {
 		{
 			name: "rejects client IDs with different prefixes",
 			value: map[string]any{
-				"deeplink":       "haip-vp://?client_id=x509_hash%3Amatching-client",
-				"request_object": compactTestJWT(t, map[string]any{"client_id": "did:example:matching-client"}),
+				"deeplink": "haip-vp://?client_id=x509_hash%3Amatching-client",
+				"request_object": compactTestJWT(
+					t,
+					map[string]any{"client_id": "did:example:matching-client"},
+				),
 			},
 			wantStatus: StatusFail,
 		},

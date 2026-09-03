@@ -32,6 +32,14 @@ func TestOID4VPDCQLTrustedAuthoritiesUnsupportedTypeValidator(t *testing.T) {
 		},
 	})
 
-	require.Equal(t, StatusPass, validator.Validate(context.Background(), Input{Value: unsupported}).Status)
-	require.Equal(t, StatusFail, validator.Validate(context.Background(), Input{Value: supported}).Status)
+	require.Equal(
+		t,
+		StatusPass,
+		validator.Validate(context.Background(), Input{Value: unsupported}).Status,
+	)
+	require.Equal(
+		t,
+		StatusFail,
+		validator.Validate(context.Background(), Input{Value: supported}).Status,
+	)
 }

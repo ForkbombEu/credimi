@@ -25,11 +25,17 @@ func (OID4VPWalletNonceMatchValidator) Validate(_ context.Context, input Input) 
 
 	requestURIPayload, ok := normalizeJSONObject(evidence["request_uri_payload"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "request_uri_payload is missing or not an object"}
+		return Result{
+			Status:  StatusFail,
+			Message: "request_uri_payload is missing or not an object",
+		}
 	}
 	postedWalletNonce, ok := requestURIPayload["wallet_nonce"].(string)
 	if !ok || postedWalletNonce == "" {
-		return Result{Status: StatusFail, Message: "request_uri POST wallet_nonce is missing or not a string"}
+		return Result{
+			Status:  StatusFail,
+			Message: "request_uri POST wallet_nonce is missing or not a string",
+		}
 	}
 
 	requestObject, ok := evidence["request_object"].(string)
@@ -42,7 +48,10 @@ func (OID4VPWalletNonceMatchValidator) Validate(_ context.Context, input Input) 
 	}
 	requestObjectWalletNonce, ok := payload["wallet_nonce"].(string)
 	if !ok || requestObjectWalletNonce == "" {
-		return Result{Status: StatusFail, Message: "Request Object wallet_nonce is missing or not a string"}
+		return Result{
+			Status:  StatusFail,
+			Message: "Request Object wallet_nonce is missing or not a string",
+		}
 	}
 	if postedWalletNonce != requestObjectWalletNonce {
 		return Result{

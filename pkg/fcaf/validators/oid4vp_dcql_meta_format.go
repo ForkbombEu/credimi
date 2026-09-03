@@ -19,7 +19,7 @@ func (OID4VPDCQLMetaFormatMismatchValidator) Validate(_ context.Context, input I
 	}
 	query, ok := normalizeJSONObject(payload["dcql_query"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "Request Object dcql_query is missing or not an object"}
+		return Result{Status: StatusFail, Message: requestObjectDCQLQueryMissingMessage}
 	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
@@ -38,13 +38,22 @@ func (OID4VPDCQLMetaFormatMismatchValidator) Validate(_ context.Context, input I
 		switch format {
 		case "dc+sd-jwt":
 			if _, exists := meta["doctype_value"]; exists {
-				return Result{Status: StatusPass, Message: "SD-JWT credential uses mdoc doctype_value metadata"}
+				return Result{
+					Status:  StatusPass,
+					Message: "SD-JWT credential uses mdoc doctype_value metadata",
+				}
 			}
 		case "mso_mdoc":
 			if _, exists := meta["vct_values"]; exists {
-				return Result{Status: StatusPass, Message: "mdoc credential uses SD-JWT vct_values metadata"}
+				return Result{
+					Status:  StatusPass,
+					Message: "mdoc credential uses SD-JWT vct_values metadata",
+				}
 			}
 		}
 	}
-	return Result{Status: StatusFail, Message: "dcql_query contains no credential metadata from another format"}
+	return Result{
+		Status:  StatusFail,
+		Message: "dcql_query contains no credential metadata from another format",
+	}
 }

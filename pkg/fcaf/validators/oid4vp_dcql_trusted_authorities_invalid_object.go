@@ -9,14 +9,18 @@ type OID4VPDCQLTrustedAuthoritiesInvalidObjectValidator struct{}
 func (OID4VPDCQLTrustedAuthoritiesInvalidObjectValidator) ID() string {
 	return "oid4vp.dcql_trusted_authorities_invalid_object"
 }
-func (OID4VPDCQLTrustedAuthoritiesInvalidObjectValidator) Validate(_ context.Context, input Input) Result {
+
+func (OID4VPDCQLTrustedAuthoritiesInvalidObjectValidator) Validate(
+	_ context.Context,
+	input Input,
+) Result {
 	payload, err := compactJWTPart(input.Value, 1)
 	if err != nil {
 		return Result{Status: StatusFail, Message: err.Error()}
 	}
 	query, ok := normalizeJSONObject(payload["dcql_query"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "Request Object dcql_query is missing or not an object"}
+		return Result{Status: StatusFail, Message: requestObjectDCQLQueryMissingMessage}
 	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
@@ -37,10 +41,16 @@ func (OID4VPDCQLTrustedAuthoritiesInvalidObjectValidator) Validate(_ context.Con
 				_, hasType := authority["type"]
 				_, hasValues := authority["values"]
 				if !hasType && !hasValues {
-					return Result{Status: StatusPass, Message: "trusted_authorities contains an undefined object"}
+					return Result{
+						Status:  StatusPass,
+						Message: "trusted_authorities contains an undefined object",
+					}
 				}
 			}
 		}
 	}
-	return Result{Status: StatusFail, Message: "dcql_query contains no undefined trusted_authorities object"}
+	return Result{
+		Status:  StatusFail,
+		Message: "dcql_query contains no undefined trusted_authorities object",
+	}
 }

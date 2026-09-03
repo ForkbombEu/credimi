@@ -20,24 +20,48 @@ func TestOID4VPTransactionDataCredentialIDsMismatchValidator(t *testing.T) {
 		{
 			name: "accepts string credential ID absent from DCQL query",
 			value: compactTestJWT(t, map[string]any{
-				"dcql_query":       map[string]any{"credentials": []any{map[string]any{"id": "pid"}}},
-				"transaction_data": []any{map[string]any{"type": "payment", "data": "dGVzdA==", "credential_ids": []any{"other"}}},
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{"id": "pid"}},
+				},
+				"transaction_data": []any{
+					map[string]any{
+						"type":           "payment",
+						"data":           "dGVzdA==",
+						"credential_ids": []any{"other"},
+					},
+				},
 			}),
 			wantStatus: StatusPass,
 		},
 		{
 			name: "rejects matching credential ID",
 			value: compactTestJWT(t, map[string]any{
-				"dcql_query":       map[string]any{"credentials": []any{map[string]any{"id": "pid"}}},
-				"transaction_data": []any{map[string]any{"type": "payment", "data": "dGVzdA==", "credential_ids": []any{"pid"}}},
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{"id": "pid"}},
+				},
+				"transaction_data": []any{
+					map[string]any{
+						"type":           "payment",
+						"data":           "dGVzdA==",
+						"credential_ids": []any{"pid"},
+					},
+				},
 			}),
 			wantStatus: StatusFail,
 		},
 		{
 			name: "rejects non-string mismatched credential ID",
 			value: compactTestJWT(t, map[string]any{
-				"dcql_query":       map[string]any{"credentials": []any{map[string]any{"id": "pid"}}},
-				"transaction_data": []any{map[string]any{"type": "payment", "data": "dGVzdA==", "credential_ids": []any{1}}},
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{"id": "pid"}},
+				},
+				"transaction_data": []any{
+					map[string]any{
+						"type":           "payment",
+						"data":           "dGVzdA==",
+						"credential_ids": []any{1},
+					},
+				},
 			}),
 			wantStatus: StatusFail,
 		},

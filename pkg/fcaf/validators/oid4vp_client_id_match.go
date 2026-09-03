@@ -43,7 +43,10 @@ func (OID4VPClientIDMatchValidator) Validate(_ context.Context, input Input) Res
 	}
 	requestObjectClientID, ok := payload["client_id"].(string)
 	if !ok || requestObjectClientID == "" {
-		return Result{Status: StatusFail, Message: "Request Object client_id is missing or not a string"}
+		return Result{
+			Status:  StatusFail,
+			Message: "Request Object client_id is missing or not a string",
+		}
 	}
 	if outerClientID != requestObjectClientID {
 		return Result{

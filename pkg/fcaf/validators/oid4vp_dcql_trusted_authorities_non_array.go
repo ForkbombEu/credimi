@@ -11,14 +11,17 @@ func (OID4VPDCQLTrustedAuthoritiesNonArrayValidator) ID() string {
 	return "oid4vp.dcql_trusted_authorities_non_array"
 }
 
-func (OID4VPDCQLTrustedAuthoritiesNonArrayValidator) Validate(_ context.Context, input Input) Result {
+func (OID4VPDCQLTrustedAuthoritiesNonArrayValidator) Validate(
+	_ context.Context,
+	input Input,
+) Result {
 	payload, err := compactJWTPart(input.Value, 1)
 	if err != nil {
 		return Result{Status: StatusFail, Message: err.Error()}
 	}
 	query, ok := normalizeJSONObject(payload["dcql_query"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "Request Object dcql_query is missing or not an object"}
+		return Result{Status: StatusFail, Message: requestObjectDCQLQueryMissingMessage}
 	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
@@ -31,9 +34,15 @@ func (OID4VPDCQLTrustedAuthoritiesNonArrayValidator) Validate(_ context.Context,
 		}
 		if value, exists := credential["trusted_authorities"]; exists {
 			if _, array := value.([]any); !array {
-				return Result{Status: StatusPass, Message: "DCQL credential trusted_authorities is not an array"}
+				return Result{
+					Status:  StatusPass,
+					Message: "DCQL credential trusted_authorities is not an array",
+				}
 			}
 		}
 	}
-	return Result{Status: StatusFail, Message: "dcql_query contains no non-array trusted_authorities"}
+	return Result{
+		Status:  StatusFail,
+		Message: "dcql_query contains no non-array trusted_authorities",
+	}
 }

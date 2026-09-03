@@ -20,7 +20,10 @@ func (OID4VPTransactionDataTypeNonStringValidator) Validate(_ context.Context, i
 	}
 	entries, ok := payload["transaction_data"].([]any)
 	if !ok || len(entries) == 0 {
-		return Result{Status: StatusFail, Message: "Request Object transaction_data is missing or empty"}
+		return Result{
+			Status:  StatusFail,
+			Message: "Request Object transaction_data is missing or empty",
+		}
 	}
 	for _, raw := range entries {
 		entry, ok := normalizeJSONObject(raw)

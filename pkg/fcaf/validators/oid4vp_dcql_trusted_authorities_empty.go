@@ -19,7 +19,7 @@ func (OID4VPDCQLTrustedAuthoritiesEmptyValidator) Validate(_ context.Context, in
 	}
 	query, ok := normalizeJSONObject(payload["dcql_query"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "Request Object dcql_query is missing or not an object"}
+		return Result{Status: StatusFail, Message: requestObjectDCQLQueryMissingMessage}
 	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
@@ -32,8 +32,14 @@ func (OID4VPDCQLTrustedAuthoritiesEmptyValidator) Validate(_ context.Context, in
 		}
 		authorities, exists := credential["trusted_authorities"].([]any)
 		if exists && len(authorities) == 0 {
-			return Result{Status: StatusPass, Message: "DCQL credential contains an empty trusted_authorities array"}
+			return Result{
+				Status:  StatusPass,
+				Message: "DCQL credential contains an empty trusted_authorities array",
+			}
 		}
 	}
-	return Result{Status: StatusFail, Message: "dcql_query contains no credential with an empty trusted_authorities array"}
+	return Result{
+		Status:  StatusFail,
+		Message: "dcql_query contains no credential with an empty trusted_authorities array",
+	}
 }
