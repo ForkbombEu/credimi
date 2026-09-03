@@ -2280,7 +2280,6 @@ steps:
             - WS_RP_MS_ProtocolMessages__070
             - WS_RP_MS_ProtocolMessages__095
             - WS_RP_MS_ProtocolMessages__105
-            - WS_RP_MS_ProtocolMessages__119
             - WS_RP_SH_Cryptography_CryptographicHash_001
             - WS_RP_SH_Cryptography_CryptographicHash_002
             - WS_RP_SH_Cryptography_CryptographicHash_006

@@ -29,7 +29,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 548)
+	require.Len(t, definition.Steps, 549)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
@@ -134,7 +134,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 		"WS_RP_IA_MainInteraction__015",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
-	require.Len(t, stringSlice(with["test_ids"]), 387)
+	require.Len(t, stringSlice(with["test_ids"]), 386)
 	require.Len(t, with["pipeline_outputs"], 33)
 
 	committed, err := os.ReadFile(filepath.Join(

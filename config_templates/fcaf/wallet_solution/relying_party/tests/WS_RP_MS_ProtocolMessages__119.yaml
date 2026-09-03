@@ -13,18 +13,22 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.dcql.empty-claim-path
 evidence:
+  request_object:
+    from: pipeline.dcql.empty-claim-path.outputs.request_object
   dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
+    from: pipeline.dcql.empty-claim-path.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.dcql.empty-claim-path.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__119_dcql_protocol_valid
+- id: ws_rp_ms_protocolmessages__119_claim_path_is_empty
+  validator: oid4vp.dcql_empty_claim_path
+  input: evidence.request_object
+- id: ws_rp_ms_protocolmessages__119_request_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
+  params: { mode: request_rejected }
 - id: ws_rp_ms_protocolmessages__119_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

@@ -3044,6 +3044,13 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-empty-claim-path-5e517cde-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-empty-claim-path-5e517cde-fetch-signed-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-empty-claim-path-5e517cde-create-capture-session.outputs.body.session_id }}/request
+    - continue_on_error: true
       id: dcql-encoding-93928417-create-capture-session
       use: http-request
       with:
@@ -13691,6 +13698,7 @@ steps:
                     dcql_exchange: ${{ dcql-empty-claim-path-5e517cde-fetch-capture-session.outputs.body | optional }}
                     exercise-wallet: ${{ dcql-empty-claim-path-5e517cde-exercise-wallet.outputs | optional }}
                     fetch-capture-session: ${{ dcql-empty-claim-path-5e517cde-fetch-capture-session.outputs | optional }}
+                    request_object: ${{ dcql-empty-claim-path-5e517cde-fetch-signed-request-object.outputs.body | optional }}
                     visual_evidence: ${{ dcql-empty-claim-path-5e517cde-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.encoding:
                 output:
