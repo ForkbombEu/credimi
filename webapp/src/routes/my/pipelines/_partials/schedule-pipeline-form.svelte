@@ -82,7 +82,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<Dialog bind:open={isOpen} title={m.Schedule_pipeline()}>
+<Dialog
+	bind:open={isOpen}
+	title={m.Schedule_pipeline()}
+	contentClass="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+>
 	{#snippet trigger({ props })}
 		<IconButton {...props} icon={CalendarIcon} tooltip={m.Schedule_pipeline()} />
 	{/snippet}
@@ -128,6 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					onSelect={onRunnerSelect}
 					selectedRunner={($formData as { global_runner_id?: string }).global_runner_id}
 					required
+					constrainResults
 				/>
 			{/if}
 
