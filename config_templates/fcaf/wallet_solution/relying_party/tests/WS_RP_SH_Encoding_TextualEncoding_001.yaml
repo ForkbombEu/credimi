@@ -20,9 +20,13 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.encoding.outputs.visual_evidence
 assertions:
-- id: ws_rp_sh_encoding_textualencoding_001_encoding_verified
-  validator: sdjwt.claim_utf8_string
+- id: ws_rp_sh_encoding_textualencoding_001_string_path_selects_the_targeted_claim
+  validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
+  params:
+    mode: claims_subset
+    forbidden_paths:
+    - - family_name
 - id: ws_rp_sh_encoding_textualencoding_001_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

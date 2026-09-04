@@ -577,6 +577,10 @@ The dedicated Capture Wallet scenario omits `credential_sets.options`. Capture W
 
 The existing Capture Wallet DCQL scenario obtains a successful PID SD-JWT VP and now exposes its raw `vp_token` as `pid_sdjwt`. The `sdjwt.disclosure_digests_sha_256` validator requires disclosed claims, accepts the explicit or RFC default SHA-256 algorithm, and relies on the SD-JWT parser to recompute every disclosure digest and verify its `_sd` reference. An emulator run remains needed to establish the reference Wallet's conformance result.
 
+## TextualEncoding 001
+
+The existing Capture Wallet Encoding scenario sends a DCQL string path, `["given_name"]`, for the standard PID SD-JWT VC. The `claims_subset` assertion verifies that the string path resolves to a disclosed value and that the known unrequested sibling `family_name` is absent, proving selective claim resolution without requiring the source's unavailable Arthur Dent fixture. An emulator run remains needed to establish the reference Wallet's conformance result.
+
 ## Parallel ownership
 
 Reserve one test ID per agent. Avoid simultaneous edits to:
