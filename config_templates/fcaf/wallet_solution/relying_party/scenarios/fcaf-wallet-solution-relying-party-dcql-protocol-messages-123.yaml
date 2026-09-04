@@ -30,7 +30,7 @@ steps:
             claims:
             - id: bad_path
               path:
-              - nested: object
+              - true
 - id: exercise-wallet
   use: mobile-automation
   with:

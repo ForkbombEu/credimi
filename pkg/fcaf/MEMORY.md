@@ -150,9 +150,19 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 ## Next candidate
 
 `WS_RP_SM_DeviceBinding__008` is the next runnable mandatory candidate. Case
-119 duplicates case 114; cases 120-146 and 153-159 are intentionally skipped
+119 duplicates case 114; cases 120-122, 124-146, and 153-159 are intentionally skipped
 where the required raw request, transaction-data fixture, or configurable
 verifier response cannot be produced by the public service.
+
+## Case 123
+
+Capture Wallet accepts the source-defined `path: [true]` malformed
+claim-path member and preserves it unchanged in its signed Authorization
+Request. The dedicated scenario therefore exercises the Wallet directly.
+Its strict `invalid_request_required` validator requires a captured
+`invalid_request` and rejects both a presentation and a silent discontinuation.
+The generated aggregate pipeline was refreshed; an emulator run remains needed
+to establish the reference Wallet's conformance result.
 
 ## Mock-verifier skip queue
 
@@ -163,7 +173,7 @@ deliver the required request and capture the Wallet's actual protocol result:
 - 096-098, 100, 108, and 110-115: validators and YAML exist, but the public
   verifier rejects each malformed DCQL shape before creating a signed request.
   Keep them marked missing until their device-level execution can run.
-- 120-123: malformed claim-path members or shape. The public verifier's typed
+- 120-122: malformed claim-path members or shape. The public verifier's typed
   request model rejects these before it can create a signed request. Case 122
   also duplicates the partially implemented non-array path case 115.
 - 124: the public endpoint accepts an unknown field in its presentation-create

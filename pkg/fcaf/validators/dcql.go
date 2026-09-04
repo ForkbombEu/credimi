@@ -100,6 +100,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"trusted_authorities_no_match",
 		"access_denied_required",
 		"transaction_data_error_required",
+		"invalid_request_required",
 		"claim_sets":
 	default:
 		return Result{
@@ -480,6 +481,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateErrorCode(responseValue, errorValue, "invalid_transaction_data")
 	case "transaction_data_error_required":
 		return validateRequiredErrorCode(responseValue, errorValue, "invalid_transaction_data")
+	case "invalid_request_required":
+		return validateRequiredErrorCode(responseValue, errorValue, invalidRequestError)
 	case "invalid_client":
 		return validateErrorCode(responseValue, errorValue, "invalid_client")
 	case "invalid_request_generic":

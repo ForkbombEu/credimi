@@ -252,7 +252,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__120`
 - [ ] `WS_RP_MS_ProtocolMessages__121`
 - [ ] `WS_RP_MS_ProtocolMessages__122`
-- [ ] `WS_RP_MS_ProtocolMessages__123`
 - [ ] `WS_RP_MS_ProtocolMessages__124`
 - [ ] `WS_RP_MS_ProtocolMessages__125`
 - [ ] `WS_RP_MS_ProtocolMessages__126`
@@ -329,6 +328,7 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [x] `WS_RP_MS_ProtocolMessages__106`
 - [x] `WS_RP_MS_ProtocolMessages__107`
 - [x] `WS_RP_MS_ProtocolMessages__119`
+- [x] `WS_RP_MS_ProtocolMessages__123` (invalid claim-path member requires captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__136` (requires a captured `invalid_transaction_data` response for unsupported transaction_data)
 - [x] `WS_RP_MS_ProtocolMessages__149` (strictly requires a captured `access_denied` after authentication failure)
 - [x] `WS_RP_MS_ProtocolMessages__153` (strictly requires a captured `invalid_transaction_data` response)

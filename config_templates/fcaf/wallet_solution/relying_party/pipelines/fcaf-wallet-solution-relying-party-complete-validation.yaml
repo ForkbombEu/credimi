@@ -6218,7 +6218,7 @@ steps:
                         - claims:
                             - id: bad_path
                               path:
-                                - nested: object
+                                - true
                           format: dc+sd-jwt
                           id: pid
                           meta:
