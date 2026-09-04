@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 This is the dedicated worklist for tests whose assertions were classified as pending or verifier-blocked on `fix/fcaf-improvments` before the merge with `origin/main`. The tests remain in the generated aggregate pipeline; completing an item means reviewing its source scenario, pipeline evidence, and assertions rather than removing it from execution.
 
-Total: 323 tests (272 pending, 51 verifier-blocked).
+Total: 322 tests (272 pending, 50 verifier-blocked).
 
 ## Pending
 
@@ -238,7 +238,6 @@ Total: 323 tests (272 pending, 51 verifier-blocked).
 - [ ] `WS_RP_MS_Metadata__107`
 - [ ] `WS_RP_MS_Metadata__109`
 - [ ] `WS_RP_MS_ProtocolMessages__002`
-- [ ] `WS_RP_MS_ProtocolMessages__096`
 - [ ] `WS_RP_MS_ProtocolMessages__124` (verifier needs to add unknown param to A.R. when response_mode=direct_post.jwt)
 - [ ] `WS_RP_MS_ProtocolMessages__125` (verifier response_uri return 200 + plain text body)
 - [ ] `WS_RP_MS_ProtocolMessages__126` (verifier response_uri return 400 + json body)
@@ -312,6 +311,7 @@ Total: 323 tests (272 pending, 51 verifier-blocked).
 - [x] `WS_RP_MS_ProtocolMessages__079`
 - [x] `WS_RP_MS_ProtocolMessages__088`
 - [x] `WS_RP_MS_ProtocolMessages__089`
+- [x] `WS_RP_MS_ProtocolMessages__096` (missing credential-set options require captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__097` (empty credential-set options require captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__098` (non-array credential-set options require captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__100` (invalid credential-set references require a privacy-preserving error)

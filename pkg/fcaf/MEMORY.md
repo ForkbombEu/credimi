@@ -238,9 +238,6 @@ Do not implement the following negative cases with the public reference
 verifier. Keep their inventory status at `missing` until a mock service can
 deliver the required request and capture the Wallet's actual protocol result:
 
-- 096: validators and YAML exist, but the public
-  verifier rejects each malformed DCQL shape before creating a signed request.
-  Keep them marked missing until their device-level execution can run.
 - 124: the public endpoint accepts an unknown field in its presentation-create
   JSON but strips it from the signed Authorization Request. A live probe on
   15/07/2026 confirmed `fcaf_unknown_parameter` was absent from the JWT.
@@ -571,6 +568,10 @@ The dedicated Capture Wallet scenario sends `credential_sets.options` as a strin
 ## Case 097
 
 The dedicated Capture Wallet scenario sends an empty `credential_sets.options` array. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `credential_sets_options_empty` validator proves the empty array, rejects any presentation, and requires a captured `invalid_request`. An emulator run remains needed to establish the reference Wallet's conformance result.
+
+## Case 096
+
+The dedicated Capture Wallet scenario omits `credential_sets.options`. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `credential_sets_options_missing` validator proves the omission, rejects any presentation, and requires a captured `invalid_request`. An emulator run remains needed to establish the reference Wallet's conformance result.
 
 ## Parallel ownership
 
