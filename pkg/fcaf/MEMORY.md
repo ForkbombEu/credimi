@@ -238,7 +238,7 @@ Do not implement the following negative cases with the public reference
 verifier. Keep their inventory status at `missing` until a mock service can
 deliver the required request and capture the Wallet's actual protocol result:
 
-- 096-098, 100, 108, and 110: validators and YAML exist, but the public
+- 096-098, 100, and 108: validators and YAML exist, but the public
   verifier rejects each malformed DCQL shape before creating a signed request.
   Keep them marked missing until their device-level execution can run.
 - 124: the public endpoint accepts an unknown field in its presentation-create
@@ -532,11 +532,7 @@ The public verifier rejected request creation with HTTP 400 in `ClaimId` validat
 
 ## Case 110
 
-110 uses `duplicate_claim_ids` to require two claims in the same credential query to repeat a non-empty `id`, no `vp_token`, and a real `invalid_request` response. A duplicated ID across separate credential queries is explicitly not treated as this malformed case.
-
-The public verifier rejected the probe with HTTP 400 before request creation: `CredentialQuery.ensureUniqueIds` reported that the same claims ID must not occur more than once. Device-level execution therefore requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13. The reusable Maestro flow accepts a signed mock-verifier deep link through `DCQL_DUPLICATE_CLAIM_IDS_PRESENTATION_URL`.
-
-The direct by-value emulator probe reached the reference Wallet but displayed no error page; after processing, the Wallet was on Home. This is a failed case 110 result because the source explicitly requires `invalid_request`; discontinuation is not an accepted alternative. The Maestro flow therefore requires an error UI and fails on Home, while the validator independently requires the mock verifier to capture an actual `error: invalid_request` response and rejects evidence that only lacks a `vp_token`.
+The dedicated scenario sends two claims in the same credential query with the same non-empty `duplicated_name` ID. Capture Wallet accepts the request and preserves both IDs in its signed Authorization Request. The `duplicate_claim_ids` validator proves the duplicate, requires no `vp_token`, and requires a captured `invalid_request`; a duplicated ID across separate credential queries is explicitly not treated as this malformed case. An emulator run remains needed to establish the reference Wallet's conformance result.
 
 ## Case 109
 
