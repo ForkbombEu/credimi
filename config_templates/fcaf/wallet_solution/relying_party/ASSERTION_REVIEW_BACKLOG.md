@@ -244,7 +244,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__100`
 - [ ] `WS_RP_MS_ProtocolMessages__108`
 - [ ] `WS_RP_MS_ProtocolMessages__110`
-- [ ] `WS_RP_MS_ProtocolMessages__111`
 - [ ] `WS_RP_MS_ProtocolMessages__124` (verifier needs to add unknown param to A.R. when response_mode=direct_post.jwt)
 - [ ] `WS_RP_MS_ProtocolMessages__125` (verifier response_uri return 200 + plain text body)
 - [ ] `WS_RP_MS_ProtocolMessages__126` (verifier response_uri return 400 + json body)
@@ -320,6 +319,7 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [x] `WS_RP_MS_ProtocolMessages__089`
 - [x] `WS_RP_MS_ProtocolMessages__106`
 - [x] `WS_RP_MS_ProtocolMessages__107`
+- [x] `WS_RP_MS_ProtocolMessages__111` (empty claim ID requires captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__112` (invalid claim ID requires captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__113` (missing claim path requires captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__114` (empty claim path requires captured `invalid_request`)
