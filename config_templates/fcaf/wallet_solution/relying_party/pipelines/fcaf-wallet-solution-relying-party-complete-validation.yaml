@@ -7853,22 +7853,7 @@ steps:
             - extendedWaitUntil:
                 visible: "Welcome back|Error|invalid request|Something went wrong|DATA SHARING REQUEST"
                 timeout: 100000
-            - runFlow:
-                when:
-                  visible: "DATA SHARING REQUEST"
-                commands:
-                  - tapOn: "Share"
-                  - extendedWaitUntil:
-                      visible: "PIN"
-                      timeout: 30000
-                  - tapOn:
-                      point: "11%,39%"
-                  - inputText: "123456"
-                  - tapOn:
-                      point: "50%,10%"
-                  - extendedWaitUntil:
-                      visible: ".*successfully shared.*|Welcome back"
-                      timeout: 30000
+            - assertNotVisible: "DATA SHARING REQUEST"
             - runFlow:
                 when:
                   visible: "Welcome back"

@@ -264,26 +264,24 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__132`
 - [ ] `WS_RP_MS_ProtocolMessages__133`
 - [ ] `WS_RP_MS_ProtocolMessages__134`
-- [ ] `WS_RP_MS_ProtocolMessages__135`
-- [ ] `WS_RP_MS_ProtocolMessages__136`
-- [ ] `WS_RP_MS_ProtocolMessages__137`
-- [ ] `WS_RP_MS_ProtocolMessages__138`
-- [ ] `WS_RP_MS_ProtocolMessages__139`
-- [ ] `WS_RP_MS_ProtocolMessages__140`
-- [ ] `WS_RP_MS_ProtocolMessages__141`
-- [ ] `WS_RP_MS_ProtocolMessages__142`
-- [ ] `WS_RP_MS_ProtocolMessages__143`
-- [ ] `WS_RP_MS_ProtocolMessages__144`
-- [ ] `WS_RP_MS_ProtocolMessages__145`
-- [ ] `WS_RP_MS_ProtocolMessages__146`
-- [ ] `WS_RP_MS_ProtocolMessages__150`
-- [x] `WS_RP_MS_ProtocolMessages__153` (strictly requires a captured `invalid_transaction_data` response)
-- [ ] `WS_RP_MS_ProtocolMessages__154`
-- [ ] `WS_RP_MS_ProtocolMessages__155`
-- [ ] `WS_RP_MS_ProtocolMessages__156`
-- [ ] `WS_RP_MS_ProtocolMessages__157`
-- [ ] `WS_RP_MS_ProtocolMessages__158`
-- [ ] `WS_RP_MS_ProtocolMessages__159`
+- [ ] `WS_RP_MS_ProtocolMessages__135` (wallet shoudl support transaction_data)
+- [ ] `WS_RP_MS_ProtocolMessages__137` (require invalid scope and no dcql_query in the authorization request)
+- [ ] `WS_RP_MS_ProtocolMessages__138` (require invalid scope and no dcql_query in the authorization request)
+- [ ] `WS_RP_MS_ProtocolMessages__139` (require empty scope and no dcql_query in the authorization request)
+- [ ] `WS_RP_MS_ProtocolMessages__140` (require empty scope and no dcql_query in the authorization request)
+- [ ] `WS_RP_MS_ProtocolMessages__141` (wallet does not have scope to dcql mapping)
+- [ ] `WS_RP_MS_ProtocolMessages__142` (required no scope and no dcql_query in the authorization request)
+- [ ] `WS_RP_MS_ProtocolMessages__143` (client_id prefix unsupported, at the moment not settable)
+- [ ] `WS_RP_MS_ProtocolMessages__144` (client_id prefix HTTPS does not exists!)
+- [ ] `WS_RP_MS_ProtocolMessages__145` (locally stored verifier metadata???)
+- [ ] `WS_RP_MS_ProtocolMessages__146` (client_id resolves to a trusted registry?)
+- [ ] `WS_RP_MS_ProtocolMessages__150` (wallet should not support dc+sd-jwt???)
+- [ ] `WS_RP_MS_ProtocolMessages__154` (non implementable due to the lack of know transaction type supported by the wallet)
+- [ ] `WS_RP_MS_ProtocolMessages__155` (non implementable due to the lack of know transaction type supported by the wallet)
+- [ ] `WS_RP_MS_ProtocolMessages__156` (non implementable due to the lack of know transaction type supported by the wallet)
+- [ ] `WS_RP_MS_ProtocolMessages__157` (non implementable due to the lack of know transaction type supported by the wallet)
+- [ ] `WS_RP_MS_ProtocolMessages__158` (non implementable due to the lack of know transaction type supported by the wallet)
+- [ ] `WS_RP_MS_ProtocolMessages__159` (non implementable due to the lack of know transaction type supported by the wallet)
 - [ ] `WS_RP_SM_DeviceBinding__002`
 - [ ] `WS_RP_SM_DeviceBinding__003`
 - [ ] `WS_RP_SM_DeviceBinding__004`
@@ -331,6 +329,8 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [x] `WS_RP_MS_ProtocolMessages__106`
 - [x] `WS_RP_MS_ProtocolMessages__107`
 - [x] `WS_RP_MS_ProtocolMessages__119`
+- [x] `WS_RP_MS_ProtocolMessages__136` (requires a captured `invalid_transaction_data` response for unsupported transaction_data)
 - [x] `WS_RP_MS_ProtocolMessages__149` (strictly requires a captured `access_denied` after authentication failure)
+- [x] `WS_RP_MS_ProtocolMessages__153` (strictly requires a captured `invalid_transaction_data` response)
 - [x] `WS_RP_MS_ProtocolMessages__068`
 - [x] `WS_RP_MS_ProtocolMessages__069`
