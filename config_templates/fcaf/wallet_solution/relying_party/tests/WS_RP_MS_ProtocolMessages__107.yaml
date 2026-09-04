@@ -29,7 +29,7 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: access_denied
+    mode: access_denied_required
 - id: ws_rp_ms_protocolmessages__107_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

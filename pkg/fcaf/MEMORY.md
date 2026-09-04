@@ -552,7 +552,7 @@ Emulator evidence is incomplete: the verifier accepted the request, the Wallet a
 
 ## Case 107
 
-107 uses the valid `given_name` path with a deliberately mismatched `values` constraint. The dedicated `claims_values_no_match` validator requires non-empty `path` and `values` arrays and proves that no `vp_token` is returned.
+107 uses the valid `given_name` path with a deliberately mismatched `values` constraint. The dedicated `claims_values_no_match` validator requires non-empty `path` and `values` arrays and proves that no `vp_token` is returned. A separate strict assertion requires the source-mandated `access_denied`; a silent discontinuation does not pass.
 
 The emulator accepted the request and PIN, then returned Home without consent or presentation. The verifier transaction endpoint returned HTTP 400 with an empty body. As with 106, this proves no credential was returned but does not prove the source-required `access_denied` response or description.
 
