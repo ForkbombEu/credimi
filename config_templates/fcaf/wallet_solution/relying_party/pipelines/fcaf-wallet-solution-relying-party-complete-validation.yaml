@@ -266,6 +266,48 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-claim-id-missing-with-claim-set-6de0c1eb-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-claim-path-reversed-e458d519-create
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - reversed_address_street
+                          claims:
+                            - id: reversed_address_street
+                              path:
+                                - street_address
+                                - address
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+            request_uri_method: post
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-claim-path-reversed-e458d519-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-claim-path-reversed-e458d519-create.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claim-path-reversed-e458d519-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-claim-path-reversed-e458d519-create.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-claim-sets-empty-2fce8ed5-evidence-empty-claim-sets-request
       use: json-parse
       with:
@@ -13323,6 +13365,10 @@ steps:
                     exercise-wallet: ${{ dcql-claim-id-missing-with-claim-set-6de0c1eb-exercise-wallet.outputs | optional }}
                     fetch-capture-session: ${{ dcql-claim-id-missing-with-claim-set-6de0c1eb-fetch-capture-session.outputs | optional }}
                     visual_evidence: ${{ dcql-claim-id-missing-with-claim-set-6de0c1eb-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.claim-path-reversed:
+                output:
+                    dcql_exchange: ${{ dcql-claim-path-reversed-e458d519-session.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-claim-path-reversed-e458d519-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claim-sets:
                 output:
                     create-presentation: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation.outputs | optional }}

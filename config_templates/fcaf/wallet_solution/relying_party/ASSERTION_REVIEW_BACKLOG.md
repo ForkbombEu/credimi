@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 This is the dedicated worklist for tests whose assertions were classified as pending or verifier-blocked on `fix/fcaf-improvments` before the merge with `origin/main`. The tests remain in the generated aggregate pipeline; completing an item means reviewing its source scenario, pipeline evidence, and assertions rather than removing it from execution.
 
-Total: 320 tests (266 pending, 54 verifier-blocked).
+Total: 319 tests (265 pending, 54 verifier-blocked).
 
 ## Pending
 
@@ -21,9 +21,6 @@ Total: 320 tests (266 pending, 54 verifier-blocked).
 - [ ] `WS_RP_IA_Supportive__006`      (hard load?????????)
 - [ ] `WS_RP_MS_ProtocolMessages__095`
 - [ ] `WS_RP_MS_ProtocolMessages__151`
-- [ ] `WS_RP_SH_Encoding_TextualEncoding_002`
-- [ ] `WS_RP_SH_Encoding_TextualEncoding_003`
-- [ ] `WS_RP_SH_Encoding_TextualEncoding_004`
 - [ ] `WS_RP_SH_Encoding_TextualEncoding_005`
 - [ ] `WS_RP_SH_Encoding_TextualEncoding_006`
 - [ ] `WS_RP_SH_Encoding_TextualEncoding_007`
@@ -270,8 +267,12 @@ Total: 320 tests (266 pending, 54 verifier-blocked).
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_007` (requires a Wallet profile with another supported hash algorithm and a defined client-metadata representation)
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_008` (requires a verifier to use and expose a non-SHA-256 hashing function)
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_010` (requires an issuer fixture using a non-SHA-256 credential digest algorithm)
+- [ ] `WS_RP_SH_Encoding_TextualEncoding_002` (requires a credential with a param that is an array of objects with length > 1)
+- [ ] `WS_RP_SH_Encoding_TextualEncoding_003` (requires a credential with a param that is an array of elements with length > 1)
 
 ## Done
+
+- [x] `WS_RP_SH_Encoding_TextualEncoding_004` (dedicated reversed `street_address`/`address` DCQL path rejects rather than matching `address.street_address`)
 
 - [x] `WS_RP_SH_Encoding_TextualEncoding_001` (reuses a string-only `given_name` path and proves selective disclosure)
 - [x] `WS_RP_SH_Cryptography_CryptographicHash_001` (reuses the Capture SD-JWT presentation and verifies SHA-256 disclosure digests)

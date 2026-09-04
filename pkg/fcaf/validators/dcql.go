@@ -29,13 +29,14 @@ func (DCQLResponseConstraintsValidator) ID() string {
 //nolint:gocyclo // DCQL modes share decoding and evidence normalization in one registry validator.
 func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
-		Mode           string  `json:"mode"`
-		ForbiddenPaths [][]any `json:"forbidden_paths"`
-		Property       string  `json:"property"`
-		ExpectedType   string  `json:"expected_type"`
-		Valid          bool    `json:"valid"`
-		ExpectedValue  any     `json:"expected_value"`
-		ExpectedFormat string  `json:"expected_format"`
+		Mode              string  `json:"mode"`
+		ForbiddenPaths    [][]any `json:"forbidden_paths"`
+		Property          string  `json:"property"`
+		ExpectedType      string  `json:"expected_type"`
+		Valid             bool    `json:"valid"`
+		ExpectedValue     any     `json:"expected_value"`
+		ExpectedFormat    string  `json:"expected_format"`
+		ExpectedClaimPath []any   `json:"expected_claim_path"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -143,7 +144,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "claims_union":
 		return validateClaimsUnion(query, responseValue, params.ForbiddenPaths)
 	case "claims_path_no_match":
-		return validateClaimsPathNoMatch(query, responseValue)
+		return validateClaimsPathNoMatch(query, responseValue, params.ExpectedClaimPath)
 	case "claims_values_no_match":
 		return validateClaimsValuesNoMatch(query, responseValue)
 	case "claim_id_missing_with_claim_sets":
@@ -2373,11 +2374,12 @@ func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths
 	}
 }
 
-func validateClaimsPathNoMatch(query map[string]any, responseValue any) Result {
+func validateClaimsPathNoMatch(query map[string]any, responseValue any, expectedClaimPath []any) Result {
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
 		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
 	}
+	foundExpectedClaimPath := len(expectedClaimPath) == 0
 	for index, rawCredential := range credentials {
 		credential, ok := normalizeJSONObject(rawCredential)
 		if !ok {
@@ -2416,7 +2418,13 @@ func validateClaimsPathNoMatch(query map[string]any, responseValue any) Result {
 					),
 				}
 			}
+			if reflect.DeepEqual(path, expectedClaimPath) {
+				foundExpectedClaimPath = true
+			}
 		}
+	}
+	if !foundExpectedClaimPath {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain the expected unmatched claim path"}
 	}
 	if !isEmptyDCQLValue(responseValue) {
 		return Result{

@@ -1632,6 +1632,26 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	}
 }
 
+func TestDCQLClaimsPathNoMatchRequiresExpectedClaimPath(t *testing.T) {
+	result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+		Value: map[string]any{
+			"dcql_query": map[string]any{
+				"credentials": []any{func() map[string]any {
+					credential := validSDJWTCredentialQuery("pid")
+					credential["claims"] = []any{map[string]any{"path": []any{"address", "street_address"}}}
+					return credential
+				}()},
+			},
+		},
+		Params: map[string]any{
+			"mode":                "claims_path_no_match",
+			"expected_claim_path": []any{"street_address", "address"},
+		},
+	})
+
+	require.Equal(t, StatusFail, result.Status, result.Message)
+}
+
 func TestDCQLVPTokenResponseModes(t *testing.T) {
 	baseEvidence := func() map[string]any {
 		return map[string]any{

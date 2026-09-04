@@ -149,6 +149,18 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
+## TextualEncoding 004
+
+`WS_RP_SH_Encoding_TextualEncoding_004` uses a dedicated Capture Wallet DCQL
+scenario with the syntactically valid but reversed path
+`["street_address", "address"]`. Capture's PID contains the contrasting valid
+`address.street_address` claim, so the no-match and `access_denied` assertions
+test left-to-right processing rather than merely a missing claim. The scenario
+reuses the established no-match Wallet UI flow and retains exact session and
+visual evidence.
+
+## Next candidate
+
 `WS_RP_SM_DeviceBinding__008` is the next runnable mandatory candidate. Case
 119 duplicates case 114; cases 124-146 and 153-159 are intentionally skipped
 where the required raw request, transaction-data fixture, or configurable
