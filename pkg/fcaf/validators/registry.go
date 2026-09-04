@@ -105,6 +105,7 @@ func DefaultRegistry() (*Registry, error) {
 		SDJWTKeyBindingMatchesCNFValidator{},
 		SDJWTKBJWTPresentValidator{},
 		SDJWTCompactSerializationValidator{},
+		SDJWTDisclosureDigestsSHA256Validator{},
 		PIDSDJWTVCTValidator{},
 		PIDSDJWTMandatoryClaimsValidator{},
 	)

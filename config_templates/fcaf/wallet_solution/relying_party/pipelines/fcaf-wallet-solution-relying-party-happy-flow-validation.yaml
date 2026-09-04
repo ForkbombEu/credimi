@@ -1871,6 +1871,7 @@ steps:
             pipeline.dcql.cryptography:
                 output:
                     dcql_exchange: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body | optional }}
+                    pid_sdjwt: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ dcql-cryptography-1a488a33-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.device-binding:
                 output:

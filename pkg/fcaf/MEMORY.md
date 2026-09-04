@@ -573,6 +573,10 @@ The dedicated Capture Wallet scenario sends an empty `credential_sets.options` a
 
 The dedicated Capture Wallet scenario omits `credential_sets.options`. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `credential_sets_options_missing` validator proves the omission, rejects any presentation, and requires a captured `invalid_request`. An emulator run remains needed to establish the reference Wallet's conformance result.
 
+## CryptographicHash 001
+
+The existing Capture Wallet DCQL scenario obtains a successful PID SD-JWT VP and now exposes its raw `vp_token` as `pid_sdjwt`. The `sdjwt.disclosure_digests_sha_256` validator requires disclosed claims, accepts the explicit or RFC default SHA-256 algorithm, and relies on the SD-JWT parser to recompute every disclosure digest and verify its `_sd` reference. An emulator run remains needed to establish the reference Wallet's conformance result.
+
 ## Parallel ownership
 
 Reserve one test ID per agent. Avoid simultaneous edits to:

@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 This is the dedicated worklist for tests whose assertions were classified as pending or verifier-blocked on `fix/fcaf-improvments` before the merge with `origin/main`. The tests remain in the generated aggregate pipeline; completing an item means reviewing its source scenario, pipeline evidence, and assertions rather than removing it from execution.
 
-Total: 322 tests (272 pending, 50 verifier-blocked).
+Total: 321 tests (271 pending, 50 verifier-blocked).
 
 ## Pending
 
@@ -21,7 +21,6 @@ Total: 322 tests (272 pending, 50 verifier-blocked).
 - [ ] `WS_RP_IA_Supportive__006`      (hard load?????????)
 - [ ] `WS_RP_MS_ProtocolMessages__095`
 - [ ] `WS_RP_MS_ProtocolMessages__151`
-- [ ] `WS_RP_SH_Cryptography_CryptographicHash_001`
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_006`
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_007`
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_008`
@@ -275,6 +274,7 @@ Total: 322 tests (272 pending, 50 verifier-blocked).
 
 ## Done
 
+- [x] `WS_RP_SH_Cryptography_CryptographicHash_001` (reuses the Capture SD-JWT presentation and verifies SHA-256 disclosure digests)
 - [x] `WS_RP_MS_Metadata__141` (reuses SD-JWT presentation evidence and validates issuer `x5c` chain)
 - [x] `WS_RP_MS_Metadata__138`
 - [x] `WS_RP_MS_ProtocolMessages__003` (reuses valid by-value Request Object evidence with `typ: oauth-authz-req+jwt`)
