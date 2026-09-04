@@ -188,13 +188,22 @@ dedicated scenario reuses the verified Capture Wallet delivery path and strict
 presentation. An emulator run remains needed to establish the reference
 Wallet's conformance result.
 
+## Case 115
+
+The dedicated non-array claim-path scenario sends `path: "given_name"`, which
+Capture Wallet preserves in its signed Authorization Request. Its
+`claim_path_non_array` validator verifies the malformed structure and requires
+the captured `invalid_request`; a presentation or a silent discontinuation
+fails. An emulator run remains needed to establish the reference Wallet's
+conformance result.
+
 ## Mock-verifier skip queue
 
 Do not implement the following negative cases with the public reference
 verifier. Keep their inventory status at `missing` until a mock service can
 deliver the required request and capture the Wallet's actual protocol result:
 
-- 096-098, 100, 108, and 110-115: validators and YAML exist, but the public
+- 096-098, 100, 108, and 110-114: validators and YAML exist, but the public
   verifier rejects each malformed DCQL shape before creating a signed request.
   Keep them marked missing until their device-level execution can run.
 - 124: the public endpoint accepts an unknown field in its presentation-create
