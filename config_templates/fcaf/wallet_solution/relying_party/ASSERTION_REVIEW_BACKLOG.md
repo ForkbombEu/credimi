@@ -251,17 +251,17 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__115`
 - [ ] `WS_RP_MS_ProtocolMessages__120`
 - [ ] `WS_RP_MS_ProtocolMessages__121`
-- [ ] `WS_RP_MS_ProtocolMessages__124`
-- [ ] `WS_RP_MS_ProtocolMessages__125`
-- [ ] `WS_RP_MS_ProtocolMessages__126`
-- [ ] `WS_RP_MS_ProtocolMessages__127`
-- [ ] `WS_RP_MS_ProtocolMessages__128`
-- [ ] `WS_RP_MS_ProtocolMessages__129`
-- [ ] `WS_RP_MS_ProtocolMessages__130`
-- [ ] `WS_RP_MS_ProtocolMessages__131`
-- [ ] `WS_RP_MS_ProtocolMessages__132`
-- [ ] `WS_RP_MS_ProtocolMessages__133`
-- [ ] `WS_RP_MS_ProtocolMessages__134`
+- [ ] `WS_RP_MS_ProtocolMessages__124` (verifier needs to add unknown param to A.R. when response_mode=direct_post.jwt)
+- [ ] `WS_RP_MS_ProtocolMessages__125` (verifier response_uri return 200 + plain text body)
+- [ ] `WS_RP_MS_ProtocolMessages__126` (verifier response_uri return 400 + json body)
+- [ ] `WS_RP_MS_ProtocolMessages__127` (verifier needs to add unknown param to response after the wallet POST to response_uri)
+- [ ] `WS_RP_MS_ProtocolMessages__128` (verifier needs to add unknown param to A.R. and response after the wallet POST to response_uri)
+- [ ] `WS_RP_MS_ProtocolMessages__129` (verifier needs to capture compact jwe after decryption)
+- [ ] `WS_RP_MS_ProtocolMessages__130` (verifier needs to capture compact jwe after decryption)
+- [ ] `WS_RP_MS_ProtocolMessages__131` (verifier needs to capture compact jwe after decryption)
+- [ ] `WS_RP_MS_ProtocolMessages__132` (verifier needs to capture compact jwe after decryption)
+- [ ] `WS_RP_MS_ProtocolMessages__133` (verifier needs to capture http method of the wallet response)
+- [ ] `WS_RP_MS_ProtocolMessages__134` (verifier needs to capture http method and header of the wallet response)
 - [ ] `WS_RP_MS_ProtocolMessages__135` (wallet shoudl support transaction_data)
 - [ ] `WS_RP_MS_ProtocolMessages__137` (require invalid scope and no dcql_query in the authorization request)
 - [ ] `WS_RP_MS_ProtocolMessages__138` (require invalid scope and no dcql_query in the authorization request)
