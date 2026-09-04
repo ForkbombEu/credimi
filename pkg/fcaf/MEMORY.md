@@ -206,13 +206,22 @@ captured `invalid_request`; a presentation or a silent discontinuation fails.
 An emulator run remains needed to establish the reference Wallet's conformance
 result.
 
+## Case 113
+
+The dedicated missing claim-path scenario sends the source-defined claim object
+without `path`, which Capture Wallet preserves in the signed Authorization
+Request. Its `claim_path_missing` validator verifies the malformed structure
+and requires the captured `invalid_request`; a presentation or a silent
+discontinuation fails. An emulator run remains needed to establish the
+reference Wallet's conformance result.
+
 ## Mock-verifier skip queue
 
 Do not implement the following negative cases with the public reference
 verifier. Keep their inventory status at `missing` until a mock service can
 deliver the required request and capture the Wallet's actual protocol result:
 
-- 096-098, 100, 108, and 110-113: validators and YAML exist, but the public
+- 096-098, 100, 108, and 110-112: validators and YAML exist, but the public
   verifier rejects each malformed DCQL shape before creating a signed request.
   Keep them marked missing until their device-level execution can run.
 - 124: the public endpoint accepts an unknown field in its presentation-create
