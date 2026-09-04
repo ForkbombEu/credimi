@@ -921,80 +921,43 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-claims-values-no-match-9e05fa90-create.outputs.body.session_id }}
     - continue_on_error: true
-      id: dcql-claims-without-id-without-claim-939800aa-create-presentation
+      id: dcql-claims-without-id-without-claim-939800aa-create-capture-session
       use: http-request
       with:
         body:
-            dcql_query:
-                credentials:
-                    - claims:
-                        - path:
-                            - given_name
-                      format: dc+sd-jwt
-                      id: pid
-                      meta:
-                        vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
-            nonce: fcaf-109
-            type: vp_token
-        expected_status: 200
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eu.europa.ec.eudi:pid:1
+                nonce: fcaf-109
+            response_mode: direct_post
+        expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.verifier_url}/ui/presentations
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claims-without-id-without-claim-939800aa-present-claims-without-id
+      id: dcql-claims-without-id-without-claim-939800aa-exercise-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-                    - launchApp: { stopApp: true, clearState: false }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
-            - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
-            - openLink: { link: ${output.authorizationRequest}, autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "EUDI Wallet" }
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when: { visible: "Just once" }
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,39%" }
-                  - inputText: "123456"
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
-            - tapOn: "Share"
-            - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
-            - tapOn: { point: "11%,39%" }
-            - inputText: "123456"
-            - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
-            - takeScreenshot: fcaf-109-claims-without-id
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            CLIENT_ID: ${{ dcql-claims-without-id-without-claim-939800aa-create-presentation.outputs.body.client_id }}
-            REQUEST_URI: ${{ dcql-claims-without-id-without-claim-939800aa-create-presentation.outputs.body.request_uri }}
+            deeplink: ${{ dcql-claims-without-id-without-claim-939800aa-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-claims-without-id-without-claim-939800aa-fetch-result
+      id: dcql-claims-without-id-without-claim-939800aa-fetch-capture-session
       use: http-request
       with:
         expected_status: 200
         method: GET
-        url: ${fixture.verifier_url}/ui/presentations/${{ dcql-claims-without-id-without-claim-939800aa-create-presentation.outputs.body.transaction_id }}
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-claims-without-id-without-claim-939800aa-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-claims-without-values-174b98b6-create-presentation
       use: http-request
@@ -13505,11 +13468,11 @@ steps:
                     visual_evidence: ${{ dcql-claims-values-no-match-9e05fa90-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claims-without-id-without-claim-sets:
                 output:
-                    create-presentation: ${{ dcql-claims-without-id-without-claim-939800aa-create-presentation.outputs | optional }}
-                    dcql_exchange: ${{ dcql-claims-without-id-without-claim-939800aa-fetch-result.outputs.body | optional }}
-                    fetch-result: ${{ dcql-claims-without-id-without-claim-939800aa-fetch-result.outputs | optional }}
-                    present-claims-without-id: ${{ dcql-claims-without-id-without-claim-939800aa-present-claims-without-id.outputs | optional }}
-                    visual_evidence: ${{ dcql-claims-without-id-without-claim-939800aa-present-claims-without-id.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    create-capture-session: ${{ dcql-claims-without-id-without-claim-939800aa-create-capture-session.outputs | optional }}
+                    dcql_exchange: ${{ dcql-claims-without-id-without-claim-939800aa-fetch-capture-session.outputs.body | optional }}
+                    exercise-wallet: ${{ dcql-claims-without-id-without-claim-939800aa-exercise-wallet.outputs | optional }}
+                    fetch-capture-session: ${{ dcql-claims-without-id-without-claim-939800aa-fetch-capture-session.outputs | optional }}
+                    visual_evidence: ${{ dcql-claims-without-id-without-claim-939800aa-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claims-without-values:
                 output:
                     create-presentation: ${{ dcql-claims-without-values-174b98b6-create-presentation.outputs | optional }}
