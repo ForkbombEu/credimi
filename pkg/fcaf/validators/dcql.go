@@ -1581,8 +1581,13 @@ func validateCredentialSetsOptions(
 				Message: "wallet returned a vp_token for an invalid credential_sets.options query",
 			}
 		}
-		if (mode == "credential_sets_options_empty" || mode == "credential_sets_options_non_array") &&
-			errorValue != invalidRequestError {
+		if mode == "credential_sets_options_invalid_references" && normalizeString(errorValue) == "" {
+			return Result{
+				Status:  StatusFail,
+				Message: "wallet did not return a privacy-preserving error for invalid credential_sets.options references",
+			}
+		}
+		if (mode == "credential_sets_options_empty" || mode == "credential_sets_options_non_array") && errorValue != invalidRequestError {
 			return Result{
 				Status:  StatusFail,
 				Message: "wallet did not return invalid_request for an invalid credential_sets.options query",
@@ -1590,7 +1595,7 @@ func validateCredentialSetsOptions(
 		}
 		return Result{
 			Status:  StatusPass,
-			Message: "wallet rejected invalid credential_sets.options",
+			Message: "wallet returned a privacy-preserving error for invalid credential_sets.options",
 		}
 	}
 	if isEmptyDCQLValue(responseValue) {

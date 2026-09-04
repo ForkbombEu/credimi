@@ -99,13 +99,25 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
-			name: "credential sets options invalid references are rejected",
+			name: "credential sets options invalid references require an error",
 			mode: "credential_sets_options_invalid_references",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
 					"credentials":     []any{validSDJWTCredentialQuery("pid")},
 					"credential_sets": []any{map[string]any{"options": []any{[]any{"unknown"}}}},
 				},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "credential sets options invalid references return an error",
+			mode: "credential_sets_options_invalid_references",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials":     []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"unknown"}}}},
+				},
+				"error": "invalid_request",
 			},
 			status: StatusPass,
 		},
