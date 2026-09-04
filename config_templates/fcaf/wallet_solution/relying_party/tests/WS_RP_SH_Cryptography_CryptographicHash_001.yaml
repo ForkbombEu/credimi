@@ -17,14 +17,14 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.cryptography.outputs.dcql_exchange
+  pid_sdjwt:
+    from: pipeline.dcql.cryptography.outputs.pid_sdjwt
   visual_evidence:
     from: pipeline.dcql.cryptography.outputs.visual_evidence
 assertions:
 - id: ws_rp_sh_cryptography_cryptographichash_001_crypto_verified
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: hash
+  validator: sdjwt.disclosure_digests_sha_256
+  input: evidence.pid_sdjwt
 - id: ws_rp_sh_cryptography_cryptographichash_001_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

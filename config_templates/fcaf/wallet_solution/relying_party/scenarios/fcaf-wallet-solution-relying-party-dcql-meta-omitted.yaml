@@ -1,0 +1,58 @@
+name: 'FCAF ProtocolMessages 075: DCQL metadata omitted'
+runtime: { global_runner_id: forkbomb-bv-andrea/usb }
+steps:
+- id: create
+  use: http-request
+  with:
+    method: POST
+    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_uri_method: post
+      response_mode: direct_post
+      presentation_request:
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            claims: [{ path: [given_name] }]
+- id: wallet
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: '${{ create.outputs.body.deeplink }}' }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
+      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - tapOn: { text: "EUDI Wallet", optional: true }
+      - tapOn: { text: "Just once", optional: true }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - takeScreenshot: protocol-messages-075
+- id: session
+  use: http-request
+  with: { method: GET, url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }
+- id: request
+  use: http-request
+  with: { method: GET, url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}/request', expected_status: 200 }
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_MS_ProtocolMessages__075]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.meta-omitted:
+        output:
+          request_object: ${{ request.outputs.body }}
+          dcql_exchange: ${{ session.outputs.body }}
+          visual_evidence: ${{ wallet.outputs.flow_output.maestro_screenshot_urls }}

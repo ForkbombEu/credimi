@@ -11,9 +11,12 @@ Implement one FCAF test number end to end. Treat protocol evidence and visual ev
 
 1. Read repository `AGENTS.md`.
 2. Read `pkg/fcaf/MEMORY.md` for current progress, known failures, and the next candidate.
-3. Check `git status --short`; preserve unrelated work.
-4. Read the exact source test under the sibling FCAF repository. Do not infer the objective from neighboring IDs or the generated inventory.
-5. Inspect neighboring implemented tests and validators, but do not copy a pattern until its semantics match.
+3. When the test uses capture-wallet as issuer or verifier, read
+   `pkg/fcaf/CAPTURE_WALLET_API.md` and classify the required session input,
+   Wallet delivery, and evidence capture before writing a scenario.
+4. Check `git status --short`; preserve unrelated work.
+5. Read the exact source test under the sibling FCAF repository. Do not infer the objective from neighboring IDs or the generated inventory.
+6. Inspect neighboring implemented tests and validators, but do not copy a pattern until its semantics match.
 
 Source requirements normally live under:
 

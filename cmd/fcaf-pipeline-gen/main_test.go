@@ -29,7 +29,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 392)
+	require.Len(t, definition.Steps, 552)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
@@ -46,8 +46,8 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.Len(t, validationSteps, 1)
 	with, ok := validationSteps[0]["with"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, stringSlice(with["test_ids"]), 537)
-	require.Len(t, with["pipeline_outputs"], 115)
+	require.Len(t, stringSlice(with["test_ids"]), 559)
+	require.Len(t, with["pipeline_outputs"], 158)
 
 	committed, err := os.ReadFile(filepath.Join(
 		root,
@@ -74,7 +74,7 @@ func TestGenerateDemoFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 8)
+	require.Len(t, definition.Steps, 7)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validation := definition.Steps[len(definition.Steps)-1]
@@ -111,7 +111,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 53)
+	require.Len(t, definition.Steps, 113)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validationSteps := make([]map[string]any, 0, 1)
@@ -128,8 +128,14 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.Len(t, validationSteps, 1)
 	with, ok := validationSteps[0]["with"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, stringSlice(with["test_ids"]), 423)
-	require.Len(t, with["pipeline_outputs"], 17)
+	require.NotContains(
+		t,
+		stringSlice(with["test_ids"]),
+		"WS_RP_IA_MainInteraction__015",
+		"happy flow must omit tests whose exact evidence source is not selected",
+	)
+	require.Len(t, stringSlice(with["test_ids"]), 386)
+	require.Len(t, with["pipeline_outputs"], 33)
 
 	committed, err := os.ReadFile(filepath.Join(
 		root,

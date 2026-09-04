@@ -51,32 +51,30 @@ steps:
     method: GET
     url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     expected_status: 200
+- id: fetch-signed-request-object
+  use: http-request
+  with:
+    method: GET
+    url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}/request
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
     test_ids:
       - WS_RP_MS_ProtocolMessages__002
-      - WS_RP_MS_ProtocolMessages__003
       - WS_RP_MS_ProtocolMessages__006
       - WS_RP_MS_ProtocolMessages__007
       - WS_RP_MS_ProtocolMessages__009
       - WS_RP_MS_ProtocolMessages__010
       - WS_RP_MS_ProtocolMessages__011
-      - WS_RP_MS_ProtocolMessages__014
       - WS_RP_MS_ProtocolMessages__015
       - WS_RP_MS_ProtocolMessages__016
       - WS_RP_MS_ProtocolMessages__017
       - WS_RP_MS_ProtocolMessages__018
       - WS_RP_MS_ProtocolMessages__020
-      - WS_RP_MS_ProtocolMessages__021
-      - WS_RP_MS_ProtocolMessages__024
       - WS_RP_MS_ProtocolMessages__025
       - WS_RP_MS_ProtocolMessages__026
-      - WS_RP_MS_ProtocolMessages__027
-      - WS_RP_MS_ProtocolMessages__028
-      - WS_RP_MS_ProtocolMessages__029
       - WS_RP_MS_ProtocolMessages__030
-      - WS_RP_MS_ProtocolMessages__032
       - WS_RP_MS_ProtocolMessages__033
       - WS_RP_MS_ProtocolMessages__034
       - WS_RP_MS_ProtocolMessages__038
@@ -87,38 +85,26 @@ steps:
       - WS_RP_MS_ProtocolMessages__043
       - WS_RP_MS_ProtocolMessages__044
       - WS_RP_MS_ProtocolMessages__045
+      - WS_RP_MS_Metadata__138
       - WS_RP_MS_ProtocolMessages__046
       - WS_RP_MS_ProtocolMessages__047
       - WS_RP_MS_ProtocolMessages__048
       - WS_RP_MS_ProtocolMessages__049
       - WS_RP_MS_ProtocolMessages__050
       - WS_RP_MS_ProtocolMessages__051
-      - WS_RP_MS_ProtocolMessages__053
-      - WS_RP_MS_ProtocolMessages__054
-      - WS_RP_MS_ProtocolMessages__055
-      - WS_RP_MS_ProtocolMessages__056
-      - WS_RP_MS_ProtocolMessages__058
       - WS_RP_MS_ProtocolMessages__059
       - WS_RP_MS_ProtocolMessages__060
-      - WS_RP_MS_ProtocolMessages__061
-      - WS_RP_MS_ProtocolMessages__062
-      - WS_RP_MS_ProtocolMessages__063
-      - WS_RP_MS_ProtocolMessages__065
-      - WS_RP_MS_ProtocolMessages__066
-      - WS_RP_MS_ProtocolMessages__068
-      - WS_RP_MS_ProtocolMessages__069
-      - WS_RP_MS_ProtocolMessages__072
-      - WS_RP_MS_ProtocolMessages__074
-      - WS_RP_MS_ProtocolMessages__075
-      - WS_RP_MS_ProtocolMessages__076
-      - WS_RP_MS_ProtocolMessages__077
-      - WS_RP_MS_ProtocolMessages__078
-      - WS_RP_MS_ProtocolMessages__079
       - WS_RP_MS_ProtocolMessages__095
       - WS_RP_MS_ProtocolMessages__119
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.protocol-messages:
         output:
+          client_id_evidence:
+            deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+            request_object: ${{ fetch-signed-request-object.outputs.body }}
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          wallet_nonce_evidence:
+            request_object: ${{ fetch-signed-request-object.outputs.body }}
+            request_uri_payload: ${{ fetch-capture-session.outputs.body.observed.request_uri_payload.value }}

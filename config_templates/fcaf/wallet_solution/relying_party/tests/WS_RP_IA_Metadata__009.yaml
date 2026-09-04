@@ -1,5 +1,5 @@
 id: WS_RP_IA_Metadata__009
-title: FCAF WS_RP_IA_Metadata__009
+title: Verify an encrypted direct_post.jwt Authorization Response is sent over HTTPS.
 source:
   path: Interaction/Metadata/WS_RP_IA_Metadata__009.md
 suite:
@@ -10,23 +10,34 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.interaction-metadata
+  - title: OpenID for Verifiable Presentations 1.0
+    section: '5.2, 8.2, 8.3'
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.interaction-metadata.outputs.dcql_exchange
+  authorization_request:
+    from: pipeline.wallet.metadata.direct-post-jwt.outputs.authorization_request
+  encrypted_response:
+    from: pipeline.wallet.metadata.direct-post-jwt.outputs.encrypted_response
   visual_evidence:
-    from: pipeline.dcql.interaction-metadata.outputs.visual_evidence
+    from: pipeline.wallet.metadata.direct-post-jwt.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_metadata__009_metadata_valid
-  validator: json.field_required
-  input: evidence.dcql_exchange
-  params:
-    field: vp_token
-- id: ws_rp_ia_metadata__009_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+  - id: ws_rp_ia_metadata__009_response_mode_is_direct_post_jwt
+    validator: json.field_equals
+    input: evidence.authorization_request
+    params:
+      field: response_mode
+      value: direct_post.jwt
+  - id: ws_rp_ia_metadata__009_response_uri_is_https
+    validator: json.field_string_prefix
+    input: evidence.authorization_request
+    params:
+      field: response_uri
+      prefix: https://
+  - id: ws_rp_ia_metadata__009_response_is_encrypted_jwe
+    validator: jose.jwe_encrypted_response
+    input: evidence.encrypted_response
+  - id: ws_rp_ia_metadata__009_visual_evidence
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

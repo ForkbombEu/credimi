@@ -1,5 +1,5 @@
 id: WS_RP_IA_Metadata__017
-title: FCAF WS_RP_IA_Metadata__017
+title: Wallet metadata declares supported cryptographic algorithms and key types
 source:
   path: Interaction/Metadata/WS_RP_IA_Metadata__017.md
 suite:
@@ -10,23 +10,23 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+- title: High Assurance Interoperability Profile
+  section: '7'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.interaction-metadata
+- ref: pipeline.wallet.protocol.request-uri-method-post
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.interaction-metadata.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.interaction-metadata.outputs.visual_evidence
+  request_uri_payload:
+    from: pipeline.wallet.protocol.request-uri-method-post.outputs.request_uri_payload
 assertions:
-- id: ws_rp_ia_metadata__017_metadata_valid
+- id: wallet_metadata_posted
   validator: json.field_required
-  input: evidence.dcql_exchange
+  input: evidence.request_uri_payload
   params:
-    field: vp_token
-- id: ws_rp_ia_metadata__017_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    field: wallet_metadata
+- id: supported_cryptographic_formats_declared
+  validator: json.field_required
+  input: evidence.request_uri_payload.wallet_metadata
+  params:
+    field: vp_formats_supported
 verdict:
   pass_when: all_assertions_pass

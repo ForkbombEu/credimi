@@ -149,10 +149,100 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 
 ## Next candidate
 
+## TextualEncoding 004
+
+`WS_RP_SH_Encoding_TextualEncoding_004` uses a dedicated Capture Wallet DCQL
+scenario with the syntactically valid but reversed path
+`["street_address", "address"]`. Capture's PID contains the contrasting valid
+`address.street_address` claim, so the no-match and `access_denied` assertions
+test left-to-right processing rather than merely a missing claim. The scenario
+reuses the established no-match Wallet UI flow and retains exact session and
+visual evidence.
+
+## Next candidate
+
 `WS_RP_SM_DeviceBinding__008` is the next runnable mandatory candidate. Case
-119 duplicates case 114; cases 120-146 and 153-159 are intentionally skipped
+119 duplicates case 114; cases 124-146 and 153-159 are intentionally skipped
 where the required raw request, transaction-data fixture, or configurable
 verifier response cannot be produced by the public service.
+
+## Case 123
+
+Capture Wallet accepts the source-defined `path: [true]` malformed
+claim-path member and preserves it unchanged in its signed Authorization
+Request. The dedicated scenario therefore exercises the Wallet directly.
+Its strict `invalid_request_required` validator requires a captured
+`invalid_request` and rejects both a presentation and a silent discontinuation.
+The generated aggregate pipeline was refreshed; an emulator run remains needed
+to establish the reference Wallet's conformance result.
+
+## Case 122
+
+Capture Wallet accepts the source-defined non-array `path: "given_name"` and
+preserves it in the signed Authorization Request. The scenario therefore reuses
+the strict `invalid_request_required` validator from case 123, requiring a
+captured error and no presentation. An emulator run remains needed to establish
+the reference Wallet's conformance result.
+
+## Case 121
+
+Capture Wallet accepts the source-defined `path: [-1]` and preserves it in the
+signed Authorization Request. The scenario reuses the strict
+`invalid_request_required` validator, requiring a captured error and no
+presentation. An emulator run remains needed to establish the reference
+Wallet's conformance result.
+
+## Case 120
+
+Case 120 uses the same source-defined `path: [true]` value as case 123. Its
+dedicated scenario reuses the verified Capture Wallet delivery path and strict
+`invalid_request_required` validator, requiring a captured error and no
+presentation. An emulator run remains needed to establish the reference
+Wallet's conformance result.
+
+## Case 115
+
+The dedicated non-array claim-path scenario sends `path: "given_name"`, which
+Capture Wallet preserves in its signed Authorization Request. Its
+`claim_path_non_array` validator verifies the malformed structure and requires
+the captured `invalid_request`; a presentation or a silent discontinuation
+fails. An emulator run remains needed to establish the reference Wallet's
+conformance result.
+
+## Case 114
+
+The dedicated empty claim-path scenario sends the source-defined `path: []`,
+which Capture Wallet preserves in the signed Authorization Request. Its
+`claim_path_empty` validator verifies the malformed structure and requires the
+captured `invalid_request`; a presentation or a silent discontinuation fails.
+An emulator run remains needed to establish the reference Wallet's conformance
+result.
+
+## Case 113
+
+The dedicated missing claim-path scenario sends the source-defined claim object
+without `path`, which Capture Wallet preserves in the signed Authorization
+Request. Its `claim_path_missing` validator verifies the malformed structure
+and requires the captured `invalid_request`; a presentation or a silent
+discontinuation fails. An emulator run remains needed to establish the
+reference Wallet's conformance result.
+
+## Case 112
+
+The dedicated invalid-claim-ID scenario sends `claim with spaces!`, which
+Capture Wallet preserves in the signed Authorization Request. Its
+`invalid_claim_id_characters` validator verifies the malformed ID and requires
+the captured `invalid_request`; a presentation or a silent discontinuation
+fails. An emulator run remains needed to establish the reference Wallet's
+conformance result.
+
+## Case 111
+
+The dedicated empty-claim-ID scenario sends `id: ""`, which Capture Wallet
+preserves in the signed Authorization Request. Its `empty_claim_id` validator
+verifies the malformed ID and requires the captured `invalid_request`; a
+presentation or a silent discontinuation fails. An emulator run remains needed
+to establish the reference Wallet's conformance result.
 
 ## Mock-verifier skip queue
 
@@ -160,12 +250,6 @@ Do not implement the following negative cases with the public reference
 verifier. Keep their inventory status at `missing` until a mock service can
 deliver the required request and capture the Wallet's actual protocol result:
 
-- 096-098, 100, 108, and 110-115: validators and YAML exist, but the public
-  verifier rejects each malformed DCQL shape before creating a signed request.
-  Keep them marked missing until their device-level execution can run.
-- 120-123: malformed claim-path members or shape. The public verifier's typed
-  request model rejects these before it can create a signed request. Case 122
-  also duplicates the partially implemented non-array path case 115.
 - 124: the public endpoint accepts an unknown field in its presentation-create
   JSON but strips it from the signed Authorization Request. A live probe on
   15/07/2026 confirmed `fcaf_unknown_parameter` was absent from the JWT.
@@ -457,17 +541,11 @@ The public verifier rejected request creation with HTTP 400 in `ClaimId` validat
 
 ## Case 110
 
-110 uses `duplicate_claim_ids` to require two claims in the same credential query to repeat a non-empty `id`, no `vp_token`, and a real `invalid_request` response. A duplicated ID across separate credential queries is explicitly not treated as this malformed case.
-
-The public verifier rejected the probe with HTTP 400 before request creation: `CredentialQuery.ensureUniqueIds` reported that the same claims ID must not occur more than once. Device-level execution therefore requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13. The reusable Maestro flow accepts a signed mock-verifier deep link through `DCQL_DUPLICATE_CLAIM_IDS_PRESENTATION_URL`.
-
-The direct by-value emulator probe reached the reference Wallet but displayed no error page; after processing, the Wallet was on Home. This is a failed case 110 result because the source explicitly requires `invalid_request`; discontinuation is not an accepted alternative. The Maestro flow therefore requires an error UI and fails on Home, while the validator independently requires the mock verifier to capture an actual `error: invalid_request` response and rejects evidence that only lacks a `vp_token`.
+The dedicated scenario sends two claims in the same credential query with the same non-empty `duplicated_name` ID. Capture Wallet accepts the request and preserves both IDs in its signed Authorization Request. The `duplicate_claim_ids` validator proves the duplicate, requires no `vp_token`, and requires a captured `invalid_request`; a duplicated ID across separate credential queries is explicitly not treated as this malformed case. An emulator run remains needed to establish the reference Wallet's conformance result.
 
 ## Case 109
 
-109 uses a dedicated `claims_without_id_without_claim_sets` validator. It proves every requested claim omits `id`, the credential query omits `claim_sets`, claim paths are valid, and the Wallet returns a presentation under the credential query ID. The pipeline and standalone Maestro flow require the visible successful-sharing state; a parsed request or absence of an error is insufficient.
-
-Reference-wallet verification did not pass. The public verifier accepted two fresh requests with a claim path and no claim `id` or `claim_sets`. On the first run, the post-link `Welcome back` gate discarded the pending interaction; the flow was corrected to unlock before opening the link and to handle the resolver plus any second unlock. On the clean rerun, the Wallet still returned Home without showing `DATA SHARING REQUEST`, and the verifier transaction returned HTTP 400 with an empty body. Keep the strict positive assertions: this is a Wallet failure or an unresolved wallet-core interoperability issue, not grounds to treat discontinuation as acceptance.
+The dedicated Capture Wallet scenario sends a credential query whose claim omits `id` and whose credential query omits `claim_sets`. Capture Wallet accepts and preserves that shape in its signed Authorization Request. The `claims_without_id_without_claim_sets` validator proves both omissions, validates the claim path, and requires a `vp_token` entry for the credential query ID; visual evidence is separately required. An emulator run remains needed to establish the reference Wallet's conformance result.
 
 ## Case 105
 
@@ -483,13 +561,37 @@ Emulator evidence is incomplete: the verifier accepted the request, the Wallet a
 
 ## Case 107
 
-107 uses the valid `given_name` path with a deliberately mismatched `values` constraint. The dedicated `claims_values_no_match` validator requires non-empty `path` and `values` arrays and proves that no `vp_token` is returned.
+107 uses the valid `given_name` path with a deliberately mismatched `values` constraint. The dedicated `claims_values_no_match` validator requires non-empty `path` and `values` arrays and proves that no `vp_token` is returned. A separate strict assertion requires the source-mandated `access_denied`; a silent discontinuation does not pass.
 
 The emulator accepted the request and PIN, then returned Home without consent or presentation. The verifier transaction endpoint returned HTTP 400 with an empty body. As with 106, this proves no credential was returned but does not prove the source-required `access_denied` response or description.
 
 ## Case 108
 
-108 proves the request contains non-empty `claims` and `claim_sets`, at least one claim omits `id`, and no `vp_token` is returned. The public verifier rejected request creation with HTTP 400 `Unknown claim ids` from `ClaimSet.ensureKnownClaimIds`, so the request never reached the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
+The dedicated Capture Wallet scenario sends a credential query whose claim omits `id` while credential-level `claim_sets` is present. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `claim_id_missing_with_claim_sets` validator proves the shape, rejects any presentation, and requires a captured `invalid_request`; visual evidence is separately required. An emulator run remains needed to establish the reference Wallet's conformance result.
+
+## Case 100
+
+The dedicated Capture Wallet scenario sends a `credential_sets.options` entry that references an unknown credential query ID. Capture Wallet accepts and preserves that malformed shape in its signed Authorization Request. The `credential_sets_options_invalid_references` validator proves the invalid reference, rejects any presentation, and requires a privacy-preserving error. An emulator run remains needed to establish the reference Wallet's conformance result.
+
+## Case 098
+
+The dedicated Capture Wallet scenario sends `credential_sets.options` as a string rather than an array. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `credential_sets_options_non_array` validator proves the type error, rejects any presentation, and requires a captured `invalid_request`. An emulator run remains needed to establish the reference Wallet's conformance result.
+
+## Case 097
+
+The dedicated Capture Wallet scenario sends an empty `credential_sets.options` array. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `credential_sets_options_empty` validator proves the empty array, rejects any presentation, and requires a captured `invalid_request`. An emulator run remains needed to establish the reference Wallet's conformance result.
+
+## Case 096
+
+The dedicated Capture Wallet scenario omits `credential_sets.options`. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `credential_sets_options_missing` validator proves the omission, rejects any presentation, and requires a captured `invalid_request`. An emulator run remains needed to establish the reference Wallet's conformance result.
+
+## CryptographicHash 001
+
+The existing Capture Wallet DCQL scenario obtains a successful PID SD-JWT VP and now exposes its raw `vp_token` as `pid_sdjwt`. The `sdjwt.disclosure_digests_sha_256` validator requires disclosed claims, accepts the explicit or RFC default SHA-256 algorithm, and relies on the SD-JWT parser to recompute every disclosure digest and verify its `_sd` reference. An emulator run remains needed to establish the reference Wallet's conformance result.
+
+## TextualEncoding 001
+
+The existing Capture Wallet Encoding scenario sends a DCQL string path, `["given_name"]`, for the standard PID SD-JWT VC. The `claims_subset` assertion verifies that the string path resolves to a disclosed value and that the known unrequested sibling `family_name` is absent, proving selective claim resolution without requiring the source's unavailable Arthur Dent fixture. An emulator run remains needed to establish the reference Wallet's conformance result.
 
 ## Parallel ownership
 

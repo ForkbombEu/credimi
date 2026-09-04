@@ -13,7 +13,7 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.dcql.protocol-messages-121
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-121.outputs.dcql_exchange
@@ -24,7 +24,7 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: claim_path_member_type_error
+    mode: invalid_request_required
 - id: ws_rp_ms_protocolmessages__121_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__026
-title: FCAF WS_RP_IA_MainInteraction__026
+title: Do not present a PID when one required claim is unavailable.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__026.md
 suite:
@@ -10,23 +10,22 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "6.4"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+    from: pipeline.dcql.two-claims-one-missing.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.dcql.two-claims-one-missing.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__026_interaction
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__026_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+  - id: incomplete_credential_is_not_returned
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: claims_path_no_match
+  - id: wallet_outcome_is_recorded
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

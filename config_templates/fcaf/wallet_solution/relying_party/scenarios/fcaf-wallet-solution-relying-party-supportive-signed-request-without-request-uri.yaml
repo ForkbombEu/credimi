@@ -1,0 +1,82 @@
+name: FCAF Supportive signed Request Object without request_uri
+runtime:
+  global_runner_id: ""
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/ui/presentations
+      expected_status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        type: vp_token
+        nonce: fcaf-supportive-signed-request-without-request-uri
+        request_delivery: by_value
+        dcql_query:
+          credentials:
+            - id: pid_mdoc
+              format: mso_mdoc
+              meta:
+                doctype_value: eu.europa.ec.eudi.pid.1
+              claims:
+                - path:
+                    - eu.europa.ec.eudi.pid.1
+                    - given_name
+
+  - id: submit-haip-by-value-request
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
+        REQUEST_OBJECT: ${{ create-presentation.outputs.body.request }}
+      action_code: |
+        appId: eu.europa.ec.euidi
+        ---
+        - stopApp
+        - evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
+        - openLink:
+            link: ${output.authorizationRequest}
+            autoVerify: false
+            browser: false
+        - waitForAnimationToEnd:
+            timeout: 5000
+        - tapOn:
+            text: "EUDI Wallet"
+            optional: true
+        - tapOn:
+            text: "Just once"
+            optional: true
+        - extendedWaitUntil:
+            visible: "Oups! Something went wrong|invalid request|Something went wrong|Home|Documents"
+            timeout: 30000
+        - takeScreenshot: fcaf-supportive-signed-request-without-request-uri-rejected
+
+  - id: get-presentation-result
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      expected_status: 200
+
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      test_ids:
+        - WS_RP_IA_Supportive__007
+      suite: wallet_solution/relying_party
+      pipeline_outputs:
+        pipeline.wallet.supportive.signed-request-without-request-uri:
+          output:
+            request_object: ${{ create-presentation.outputs.body.request }}
+            dcql_exchange: ${{ get-presentation-result.outputs.body }}
+            visual_evidence: ${{ submit-haip-by-value-request.outputs.flow_output.maestro_screenshot_urls }}

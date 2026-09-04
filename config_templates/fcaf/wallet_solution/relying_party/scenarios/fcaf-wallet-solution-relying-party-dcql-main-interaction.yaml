@@ -1,108 +1,833 @@
 name: FCAF main-interaction
 runtime:
-  fixture:
-    issuer_url: https://capture-wallet.credimi.io
-    verifier_url: https://capture-wallet.credimi.io
-    log_checker: capture-wallet
-  global_runner_id: forkbomb-bv-andrea/usb
-  temporal:
-    activity_options:
-      schedule_to_close_timeout: 50m
-      start_to_close_timeout: 50m
-      retry_policy:
-        maximum_attempts: 1
+    fixture:
+        issuer_url: https://capture-wallet.credimi.io
+        log_checker: capture-wallet
+        verifier_url: https://capture-wallet.credimi.io
+    global_runner_id: forkbomb-bv-andrea/usb
+    temporal:
+        activity_options:
+            retry_policy:
+                maximum_attempts: 1
+            schedule_to_close_timeout: 50m
+            start_to_close_timeout: 50m
 steps:
-- id: create-capture-session
-  use: http-request
-  with:
-    method: POST
-    url: https://capture-wallet.credimi.io/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      scheme: haip-vp://
-      request_uri_method: post
-      request_delivery: by_reference
-      response_type: vp_token
-      response_mode: direct_post
-      presentation_request:
-        nonce: main-interaction
-        dcql_query:
-          credentials:
-          - id: pid
-            format: dc+sd-jwt
-            meta:
-              vct_values:
-              - urn:eudi:pid:1
-            claims:
-            - path:
-              - given_name
-- id: exercise-wallet
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-    version_id: installed_from_external_source
-    parameters:
-      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-- id: fetch-capture-session
-  use: http-request
-  with:
-    method: GET
-    url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
-    expected_status: 200
-- id: run-fcaf-validators
-  use: fcaf-validation
-  with:
-    test_ids:
-      - WS_RP_IA_MainInteraction__006
-      - WS_RP_IA_MainInteraction__010
-      - WS_RP_IA_MainInteraction__015
-      - WS_RP_IA_MainInteraction__016
-      - WS_RP_IA_MainInteraction__017
-      - WS_RP_IA_MainInteraction__018
-      - WS_RP_IA_MainInteraction__019
-      - WS_RP_IA_MainInteraction__020
-      - WS_RP_IA_MainInteraction__021
-      - WS_RP_IA_MainInteraction__022
-      - WS_RP_IA_MainInteraction__023
-      - WS_RP_IA_MainInteraction__024
-      - WS_RP_IA_MainInteraction__025
-      - WS_RP_IA_MainInteraction__026
-      - WS_RP_IA_MainInteraction__027
-      - WS_RP_IA_MainInteraction__028
-      - WS_RP_IA_MainInteraction__029
-      - WS_RP_IA_MainInteraction__030
-      - WS_RP_IA_MainInteraction__031
-      - WS_RP_IA_MainInteraction__032
-      - WS_RP_IA_MainInteraction__033
-      - WS_RP_IA_MainInteraction__034
-      - WS_RP_IA_MainInteraction__035
-      - WS_RP_IA_MainInteraction__036
-      - WS_RP_IA_MainInteraction__037
-      - WS_RP_IA_MainInteraction__038
-      - WS_RP_IA_MainInteraction__039
-      - WS_RP_IA_MainInteraction__040
-      - WS_RP_IA_MainInteraction__041
-      - WS_RP_IA_MainInteraction__042
-      - WS_RP_IA_MainInteraction__043
-      - WS_RP_IA_MainInteraction__046
-      - WS_RP_IA_MainInteraction__049
-      - WS_RP_IA_MainInteraction__052
-      - WS_RP_IA_MainInteraction__053
-      - WS_RP_IA_MainInteraction__054
-      - WS_RP_IA_MainInteraction__055
-      - WS_RP_IA_MainInteraction__056
-      - WS_RP_IA_MainInteraction__057
-      - WS_RP_IA_MainInteraction__060
-      - WS_RP_IA_MainInteraction__061
-      - WS_RP_IA_MainInteraction__064
-      - WS_RP_IA_MainInteraction__065
-      - WS_RP_IA_MainInteraction__066
-      - WS_RP_IA_MainInteraction__067
-    suite: wallet_solution/relying_party
-    pipeline_outputs:
-      pipeline.dcql.main-interaction:
-        output:
-          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+    - id: create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: main-interaction
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - id: exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    - id: main-interaction-019-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claim_sets:
+                        - - identity_name
+                        - - identity_family_name
+                        - - postal_code
+                      claims:
+                        - id: identity_name
+                          path:
+                            - given_name
+                        - id: identity_family_name
+                          path:
+                            - family_name
+                        - id: postal_code
+                          path:
+                            - resident_postal_code
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eu.europa.ec.eudi:pid:1
+            nonce: fcaf-dcql-claim-sets
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-019-present-with-reference-implementation
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: false
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+                  all: unset
+            - openLink:
+                link: ${env.DEEPLINK}
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 5000
+            - tapOn:
+                text: "(?i)(continue|accept|authorize|share|present)"
+                optional: true
+            - waitForAnimationToEnd:
+                timeout: 5000
+            - tapOn:
+                text: "(?i)(continue|accept|authorize|share|present)"
+                optional: true
+            - waitForAnimationToEnd:
+                timeout: 5000
+            - takeScreenshot: fcaf-dcql-claim-sets
+        parameters:
+            DEEPLINK: ${{ main-interaction-019-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: main-interaction-019-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-019-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-020-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claim_sets:
+                        - - unavailable
+                        - - second
+                        - - third
+                      claims:
+                        - id: unavailable
+                          path:
+                            - claim_that_does_not_exist
+                        - id: second
+                          path:
+                            - given_name
+                        - id: third
+                          path:
+                            - family_name
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eu.europa.ec.eudi:pid:1
+            nonce: fcaf-ia-020
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-020-present-second-preferred-option
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+            - openLink:
+                link: ${env.DEEPLINK}
+                autoVerify: false
+                browser: false
+            - extendedWaitUntil:
+                visible: "Welcome back|DATA SHARING REQUEST"
+                timeout: 100000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - tapOn:
+                      point: "11%,39%"
+                  - inputText: "123456"
+                  - tapOn:
+                      point: "50%,10%"
+            - extendedWaitUntil:
+                visible: "DATA SHARING REQUEST"
+                timeout: 100000
+            - tapOn: "Share"
+            - extendedWaitUntil:
+                visible: "PIN"
+                timeout: 30000
+            - tapOn:
+                point: "11%,39%"
+            - inputText: "123456"
+            - tapOn:
+                point: "50%,10%"
+            - extendedWaitUntil:
+                visible: ".*successfully shared.*"
+                timeout: 30000
+            - takeScreenshot: fcaf-ia-020
+            - tapOn: "Close"
+        parameters:
+            DEEPLINK: ${{ main-interaction-020-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: main-interaction-020-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-020-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-022-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claim_sets:
+                        - - missing_claim
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eu.europa.ec.eudi:pid:1
+            nonce: fcaf-ia-022
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-022-reject-claim-sets-without-claims
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+            - openLink:
+                link: ${env.DEEPLINK}
+                autoVerify: false
+                browser: false
+            - extendedWaitUntil:
+                visible: "Error|invalid request|Something went wrong|Home|Documents"
+                timeout: 100000
+            - takeScreenshot: fcaf-ia-022
+        parameters:
+            DEEPLINK: ${{ main-interaction-022-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: main-interaction-022-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-022-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-025-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claim_sets:
+                        - - given_name
+                          - family_name
+                          - unavailable
+                        - - given_name
+                      claims:
+                        - id: given_name
+                          path:
+                            - given_name
+                        - id: family_name
+                          path:
+                            - family_name
+                        - id: unavailable
+                          path:
+                            - claim_that_does_not_exist
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eu.europa.ec.eudi:pid:1
+            nonce: fcaf-ia-025
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-025-present-partial-fallback
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+            - openLink:
+                link: ${env.DEEPLINK}
+                autoVerify: false
+                browser: false
+            - extendedWaitUntil:
+                visible: "DATA SHARING REQUEST"
+                timeout: 100000
+            - tapOn: "Share"
+            - takeScreenshot: fcaf-ia-025
+        parameters:
+            DEEPLINK: ${{ main-interaction-025-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: main-interaction-025-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-025-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-026-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - given_name
+                        - path:
+                            - claim_that_does_not_exist
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eu.europa.ec.eudi:pid:1
+            nonce: fcaf-ia-026
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-026-exercise-no-match
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+            - openLink:
+                link: ${env.DEEPLINK}
+                autoVerify: false
+                browser: false
+            - extendedWaitUntil:
+                visible: "Error|Home|Documents|No matching"
+                timeout: 100000
+            - takeScreenshot: fcaf-ia-026
+        parameters:
+            DEEPLINK: ${{ main-interaction-026-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: main-interaction-026-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-026-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-027-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - given_name
+                        - path:
+                            - family_name
+                          values:
+                            - value-that-does-not-match
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eu.europa.ec.eudi:pid:1
+            nonce: fcaf-ia-027
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-027-exercise-no-match
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+            - openLink:
+                link: ${env.DEEPLINK}
+                autoVerify: false
+                browser: false
+            - extendedWaitUntil:
+                visible: "Error|Home|Documents|No matching"
+                timeout: 100000
+            - takeScreenshot: fcaf-ia-027
+        parameters:
+            DEEPLINK: ${{ main-interaction-027-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: main-interaction-027-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-027-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-028-create-pid-mdoc-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
+    - id: main-interaction-028-obtain-pid-mdoc
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ main-interaction-028-create-pid-mdoc-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-028-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - format: mso_mdoc
+                      id: pid_mdoc
+                      meta:
+                        doctype_value: eu.europa.ec.eudi.pid.1
+            nonce: fcaf-ia-028
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-028-present-full-disclosure
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ main-interaction-028-create-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-028-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-028-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-029-create-pid-sdjwt-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+    - id: main-interaction-029-obtain-pid-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ main-interaction-029-create-pid-sdjwt-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-029-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credential_sets:
+                    - options:
+                        - - available_pid
+                      required: true
+                    - options:
+                        - - unavailable_pid
+                      required: false
+                credentials:
+                    - format: dc+sd-jwt
+                      id: available_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:pid:1
+                    - format: dc+sd-jwt
+                      id: unavailable_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:unavailable:1
+            nonce: fcaf-ia-029
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-029-present-required-option
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ main-interaction-029-create-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-029-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-029-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-043-create-optional-no-match-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credential_sets:
+                    - options:
+                        - - unavailable_optional_pid
+                      required: false
+                credentials:
+                    - format: dc+sd-jwt
+                      id: unavailable_optional_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:unavailable:optional:1
+            nonce: fcaf-ia-043
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-043-present-optional-no-match
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-043-fetch-optional-no-match-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-043-create-optional-no-match-presentation.outputs.body.session_id }}
+    - id: main-interaction-030-create-pid-sdjwt-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+    - id: main-interaction-030-obtain-pid-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ main-interaction-030-create-pid-sdjwt-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-030-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credential_sets:
+                    - options:
+                        - - available_pid
+                credentials:
+                    - format: dc+sd-jwt
+                      id: available_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:pid:1
+                    - format: dc+sd-jwt
+                      id: unavailable_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:unavailable:1
+            nonce: fcaf-ia-030
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-030-present-available-option
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ main-interaction-030-create-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-030-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-030-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-031-create-pid-sdjwt-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+    - id: main-interaction-031-obtain-pid-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ main-interaction-031-create-pid-sdjwt-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-031-create-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credential_sets:
+                    - options:
+                        - - available_pid
+                          - unavailable_pid
+                credentials:
+                    - format: dc+sd-jwt
+                      id: available_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:pid:1
+                    - format: dc+sd-jwt
+                      id: unavailable_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:unavailable:1
+            nonce: fcaf-ia-031
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-031-present-combined-option
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ main-interaction-031-create-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-031-fetch-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-031-create-presentation.outputs.body.session_id }}
+    - id: main-interaction-039-create-two-credentials-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid_sdjwt
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-main-interaction-039
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-039-present-two-credentials
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+                  all: unset
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - tapOn: { point: "50%,10%" }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - runFlow:
+                when: { visible: "EUDI Wallet" }
+                commands:
+                  - tapOn: { text: "EUDI Wallet", optional: true }
+            - runFlow:
+                when: { visible: "Just once" }
+                commands:
+                  - tapOn: { text: "Just once", optional: true }
+            - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+            - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+            - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
+            - takeScreenshot: fcaf-main-interaction-039-two-credentials
+            - tapOn: "Share"
+            - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
+            - tapOn: { point: "11%,39%" }
+            - inputText: "123456"
+            - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
+            - tapOn: "Close"
+        parameters:
+            DEEPLINK: ${{ main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - id: main-interaction-039-fetch-two-credentials-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-039-create-two-credentials-presentation.outputs.body.session_id }}
+    - id: run-fcaf-validators
+      use: fcaf-validation
+      with:
+        pipeline_outputs:
+            pipeline.dcql.claim-sets:
+                output:
+                    create-presentation: ${{ main-interaction-019-create-presentation.outputs }}
+                    dcql_exchange: ${{ main-interaction-019-fetch-capture-session.outputs.body }}
+                    fetch-capture-session: ${{ main-interaction-019-fetch-capture-session.outputs }}
+                    present-with-reference-implementation: ${{ main-interaction-019-present-with-reference-implementation.outputs }}
+                    visual_evidence: ${{ main-interaction-019-present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.claim-sets-partial-fallback:
+                output:
+                    dcql_exchange: ${{ main-interaction-025-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-025-present-partial-fallback.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.claim-sets-second-preferred:
+                output:
+                    dcql_exchange: ${{ main-interaction-020-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-020-present-second-preferred-option.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.claim-sets-without-claims:
+                output:
+                    dcql_exchange: ${{ main-interaction-022-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-022-reject-claim-sets-without-claims.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.credential-sets-combined-option-no-match:
+                output:
+                    dcql_exchange: ${{ main-interaction-031-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-031-present-combined-option.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.credential-sets-required-optional:
+                output:
+                    dcql_exchange: ${{ main-interaction-029-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-029-present-required-option.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.credential-sets-single-available-option:
+                output:
+                    dcql_exchange: ${{ main-interaction-030-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-030-present-available-option.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.main-interaction:
+                output:
+                    dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+                    visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.main-interaction-two-distinct-credentials:
+                output:
+                    dcql_exchange: ${{ main-interaction-039-fetch-two-credentials-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-039-present-two-credentials.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.main-interaction-optional-no-match:
+                output:
+                    dcql_exchange: ${{ main-interaction-043-fetch-optional-no-match-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-043-present-optional-no-match.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.non-selective-mdoc-full-disclosure:
+                output:
+                    dcql_exchange: ${{ main-interaction-028-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-028-present-full-disclosure.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.two-claims-one-missing:
+                output:
+                    dcql_exchange: ${{ main-interaction-026-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-026-exercise-no-match.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.two-claims-value-mismatch:
+                output:
+                    dcql_exchange: ${{ main-interaction-027-fetch-result.outputs.body }}
+                    visual_evidence: ${{ main-interaction-027-exercise-no-match.outputs.flow_output.maestro_screenshot_urls }}
+        suite: wallet_solution/relying_party
+        test_ids:
+            - WS_RP_IA_MainInteraction__006
+            - WS_RP_IA_MainInteraction__010
+            - WS_RP_IA_MainInteraction__015
+            - WS_RP_IA_MainInteraction__016
+            - WS_RP_IA_MainInteraction__017
+            - WS_RP_IA_MainInteraction__018
+            - WS_RP_IA_MainInteraction__019
+            - WS_RP_IA_MainInteraction__020
+            - WS_RP_IA_MainInteraction__021
+            - WS_RP_IA_MainInteraction__022
+            - WS_RP_IA_MainInteraction__023
+            - WS_RP_IA_MainInteraction__024
+            - WS_RP_IA_MainInteraction__025
+            - WS_RP_IA_MainInteraction__026
+            - WS_RP_IA_MainInteraction__027
+            - WS_RP_IA_MainInteraction__028
+            - WS_RP_IA_MainInteraction__029
+            - WS_RP_IA_MainInteraction__030
+            - WS_RP_IA_MainInteraction__031
+            - WS_RP_IA_MainInteraction__032
+            - WS_RP_IA_MainInteraction__033
+            - WS_RP_IA_MainInteraction__034
+            - WS_RP_IA_MainInteraction__035
+            - WS_RP_IA_MainInteraction__036
+            - WS_RP_IA_MainInteraction__037
+            - WS_RP_IA_MainInteraction__038
+            - WS_RP_IA_MainInteraction__039
+            - WS_RP_IA_MainInteraction__040
+            - WS_RP_IA_MainInteraction__041
+            - WS_RP_IA_MainInteraction__042
+            - WS_RP_IA_MainInteraction__043
+            - WS_RP_IA_MainInteraction__046
+            - WS_RP_IA_MainInteraction__049
+            - WS_RP_IA_MainInteraction__052
+            - WS_RP_IA_MainInteraction__053
+            - WS_RP_IA_MainInteraction__054
+            - WS_RP_IA_MainInteraction__055
+            - WS_RP_IA_MainInteraction__056
+            - WS_RP_IA_MainInteraction__057
+            - WS_RP_IA_MainInteraction__060
+            - WS_RP_IA_MainInteraction__061
+            - WS_RP_IA_MainInteraction__064
+            - WS_RP_IA_MainInteraction__065
+            - WS_RP_IA_MainInteraction__066
+            - WS_RP_IA_MainInteraction__067

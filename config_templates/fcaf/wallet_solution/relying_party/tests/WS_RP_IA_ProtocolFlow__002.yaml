@@ -1,5 +1,5 @@
 id: WS_RP_IA_ProtocolFlow__002
-title: FCAF WS_RP_IA_ProtocolFlow__002
+title: Signed Request Object retrieved via request_uri is accepted
 source:
   path: Interaction/ProtocolFlow/WS_RP_IA_ProtocolFlow__002.md
 suite:
@@ -10,18 +10,39 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: High Assurance Interoperability Profile
+  section: '5.1'
+  url: https://openid.net/specs/openid-4-high-assurance-interoperability-profile-1_0.html
 - ref: pipeline.dcql.interaction-protocol-flow
 evidence:
   dcql_exchange:
     from: pipeline.dcql.interaction-protocol-flow.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.interaction-protocol-flow.outputs.visual_evidence
+  signed_request_object:
+    from: pipeline.dcql.interaction-protocol-flow.outputs.signed_request_object
+  request_uri_payload:
+    from: pipeline.dcql.interaction-protocol-flow.outputs.request_uri_payload
+  session_checks:
+    from: pipeline.dcql.interaction-protocol-flow.outputs.session_checks
 assertions:
-- id: ws_rp_ia_protocolflow__002_dcql_valid
+- id: signed_request_signature_is_valid
+  validator: jose.jws_signed_request
+  input: evidence.signed_request_object
+- id: wallet_retrieved_request_object
+  validator: evidence.present
+  input: evidence.request_uri_payload
+- id: presentation_matches_requested_credentials
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
+- id: presentation_was_accepted
+  validator: json.field_equals
+  input: evidence.session_checks
+  params:
+    field: presentation_valid
+    value: true
+- id: user_consent_was_exercised
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

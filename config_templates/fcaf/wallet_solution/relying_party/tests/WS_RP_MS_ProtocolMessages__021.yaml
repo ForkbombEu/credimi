@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__021
-title: FCAF WS_RP_MS_ProtocolMessages__021
+title: Reject an Authorization Request containing both DCQL and scope.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__021.md
 suite:
@@ -10,23 +10,22 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "5.1"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
+    from: pipeline.dcql.protocol-messages-141.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.dcql.protocol-messages-141.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__021_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__021_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+  - id: conflicting_dcql_and_scope_returns_invalid_request
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: invalid_request_generic
+  - id: conflict_rejection_visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

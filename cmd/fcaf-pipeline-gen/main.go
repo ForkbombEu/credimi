@@ -15,6 +15,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
+	"github.com/forkbombeu/credimi/pkg/fcaf/dsl"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -136,7 +139,7 @@ func generateDemo(inputDir string, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	return buildAggregate(demoValidationName, selected, outputPath, demoTestIDs)
+	return buildAggregate(demoValidationName, selected, outputPath, demoTestIDs, false)
 }
 
 // happyFlowScenarioNames keeps the happy flow to the shared-evidence
@@ -166,7 +169,7 @@ func generateHappyFlow(inputDir string, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	return buildAggregate(happyFlowValidationName, selected, outputPath, nil)
+	return buildAggregate(happyFlowValidationName, selected, outputPath, nil, true)
 }
 
 func selectScenarios(inputDir string, names []string) ([]string, error) {
@@ -203,7 +206,7 @@ func generate(inputDir string, outputPath string) error {
 		return fmt.Errorf("no FCAF scenarios found in %s", inputDir)
 	}
 	sort.Strings(paths)
-	return buildAggregate(completeValidationName, paths, outputPath, nil)
+	return buildAggregate(completeValidationName, paths, outputPath, nil, false)
 }
 
 func buildAggregate(
@@ -211,6 +214,7 @@ func buildAggregate(
 	paths []string,
 	outputPath string,
 	allowedTestIDs []string,
+	filterTestsByEvidence bool,
 ) error {
 	var allowedTests map[string]struct{}
 	if allowedTestIDs != nil {
@@ -298,6 +302,15 @@ func buildAggregate(
 			return fmt.Errorf("requested FCAF test %q is not owned by selected scenarios", id)
 		}
 	}
+	if filterTestsByEvidence {
+		testDefinitions, err := catalog.LoadTests(filepath.Join(filepath.Dir(paths[0]), "..", "tests"))
+		if err != nil {
+			return fmt.Errorf("load FCAF test definitions: %w", err)
+		}
+		if err := removeTestsWithoutAvailableEvidence(testIDs, pipelineOutputs, testDefinitions); err != nil {
+			return err
+		}
+	}
 
 	selectedTests := make([]string, 0, len(testIDs))
 	for id := range testIDs {
@@ -327,6 +340,43 @@ func buildAggregate(
 	}
 	if err := os.WriteFile(outputPath, data, 0o644); err != nil {
 		return fmt.Errorf("write aggregate FCAF pipeline: %w", err)
+	}
+	return nil
+}
+
+func removeTestsWithoutAvailableEvidence(
+	testIDs map[string]struct{},
+	pipelineOutputs map[string]any,
+	testDefinitions map[string]dsl.TestDefinition,
+) error {
+	for id := range testIDs {
+		test, exists := testDefinitions[id]
+		if !exists {
+			return fmt.Errorf("FCAF test %q has no definition", id)
+		}
+		for evidenceName, binding := range test.Evidence {
+			source, outputName, found := strings.Cut(binding.From, ".outputs.")
+			if !found || source == "" || outputName == "" {
+				return fmt.Errorf("FCAF test %q evidence %q has invalid source %q", id, evidenceName, binding.From)
+			}
+			rawSource, exists := pipelineOutputs[source]
+			if !exists {
+				delete(testIDs, id)
+				break
+			}
+			sourceDefinition, ok := rawSource.(map[string]any)
+			if !ok {
+				return fmt.Errorf("FCAF evidence source %q has invalid definition", source)
+			}
+			outputs, ok := sourceDefinition["output"].(map[string]any)
+			if !ok {
+				return fmt.Errorf("FCAF evidence source %q has no output object", source)
+			}
+			if _, exists := outputs[outputName]; !exists {
+				delete(testIDs, id)
+				break
+			}
+		}
 	}
 	return nil
 }

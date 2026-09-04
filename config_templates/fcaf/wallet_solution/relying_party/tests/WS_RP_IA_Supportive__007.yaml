@@ -1,5 +1,5 @@
 id: WS_RP_IA_Supportive__007
-title: FCAF WS_RP_IA_Supportive__007
+title: HAIP rejects a signed Request Object delivered without request_uri
 source:
   path: Interaction/Supportive/WS_RP_IA_Supportive__007.md
 suite:
@@ -10,22 +10,36 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.interaction-supportive
+- title: High Assurance Interoperability Profile
+  section: '5.1'
+  url: https://openid.net/specs/openid-4-high-assurance-interoperability-profile-1_0.html
+- ref: pipeline.wallet.supportive.signed-request-without-request-uri
 evidence:
-  wallet_response:
-    from: pipeline.dcql.interaction-supportive.outputs.wallet_response
+  request_object:
+    from: pipeline.wallet.supportive.signed-request-without-request-uri.outputs.request_object
+  dcql_exchange:
+    from: pipeline.wallet.supportive.signed-request-without-request-uri.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.interaction-supportive.outputs.visual_evidence
+    from: pipeline.wallet.supportive.signed-request-without-request-uri.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_supportive__007_redirect_uri_followed
-  validator: json.field_required
-  input: evidence.wallet_response
+- id: signed_request_is_delivered_by_value
+  validator: jwt.header_field_equals
+  input: evidence.request_object
   params:
-    field: vp_token
-- id: ws_rp_ia_supportive__007_visual_evidence_stored
+    field: typ
+    value: oauth-authz-req+jwt
+- id: signed_request_omits_request_uri
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params:
+    field: request_uri
+    present: false
+- id: wallet_rejects_or_discontinues_without_request_uri
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
+  params:
+    mode: request_rejected
+- id: rejection_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

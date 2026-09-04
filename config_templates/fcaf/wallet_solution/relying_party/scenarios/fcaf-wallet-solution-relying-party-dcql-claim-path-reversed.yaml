@@ -1,0 +1,43 @@
+name: 'FCAF TextualEncoding 004: reversed claim path'
+runtime: { global_runner_id: forkbomb-bv-andrea/usb }
+steps:
+- id: create
+  use: http-request
+  with:
+    method: POST
+    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_uri_method: post
+      response_mode: direct_post
+      presentation_request:
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: [urn:eudi:pid:1] }
+            claims:
+            - id: reversed_address_street
+              path: [street_address, address]
+            claim_sets: [[reversed_address_street]]
+- id: wallet
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create.outputs.body.deeplink }}
+- id: session
+  use: http-request
+  with: { method: GET, url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_SH_Encoding_TextualEncoding_004]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.claim-path-reversed:
+        output:
+          dcql_exchange: ${{ session.outputs.body }}
+          visual_evidence: ${{ wallet.outputs.flow_output.maestro_screenshot_urls }}

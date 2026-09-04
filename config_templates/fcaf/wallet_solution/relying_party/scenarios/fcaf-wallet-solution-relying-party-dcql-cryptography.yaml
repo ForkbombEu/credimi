@@ -66,4 +66,5 @@ steps:
       pipeline.dcql.cryptography:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          pid_sdjwt: ${{ fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

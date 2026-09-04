@@ -1,0 +1,41 @@
+name: 'FCAF ProtocolMessages 015: malformed DCQL credentials'
+runtime: { global_runner_id: forkbomb-bv-andrea/usb }
+steps:
+- id: create
+  use: http-request
+  with:
+    method: POST
+    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      response_mode: direct_post
+      presentation_request: { dcql_query: { credentials: not-an-array } }
+- id: wallet
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: '${{ create.outputs.body.deeplink }}' }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - takeScreenshot: protocol-messages-015
+- id: session
+  use: http-request
+  with: { method: GET, url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }
+- id: request
+  use: http-request
+  with: { method: GET, url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}/request', expected_status: 200 }
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_MS_ProtocolMessages__015]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.malformed-credentials:
+        output:
+          request_object: ${{ request.outputs.body }}
+          dcql_exchange: ${{ session.outputs.body }}
+          visual_evidence: ${{ wallet.outputs.flow_output.maestro_screenshot_urls }}

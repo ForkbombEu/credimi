@@ -50,10 +50,7 @@ steps:
       \  commands:\n      - tapOn:\n          text: \"Just once\"\n          optional: true\n- runFlow:\n    when:\n     \
       \ visible: \"Always\"\n    commands:\n      - tapOn:\n          text: \"Always\"\n          optional: true\n- extendedWaitUntil:\n\
       \    visible: \"Welcome back|Error|invalid request|Something went wrong|DATA SHARING REQUEST\"\n    timeout: 100000\n\
-      - runFlow:\n    when:\n      visible: \"DATA SHARING REQUEST\"\n    commands:\n      - tapOn: \"Share\"\n      - extendedWaitUntil:\n\
-      \          visible: \"PIN\"\n          timeout: 30000\n      - tapOn:\n          point: \"11%,39%\"\n      - inputText:\
-      \ \"123456\"\n      - tapOn:\n          point: \"50%,10%\"\n      - extendedWaitUntil:\n          visible: \".*successfully\
-      \ shared.*|Welcome back\"\n          timeout: 30000\n- runFlow:\n    when:\n      visible: \"Welcome back\"\n    commands:\n\
+      - assertNotVisible: \"DATA SHARING REQUEST\"\n- runFlow:\n    when:\n      visible: \"Welcome back\"\n    commands:\n\
       \      - tapOn:\n          point: \"11%,40%\"\n      - inputText: \"123456\"\n- extendedWaitUntil:\n    visible: \"\
       Error|invalid request|Something went wrong|Home|Documents\"\n    timeout: 30000\n- takeScreenshot: protocol-messages-136\n\
       - back"
