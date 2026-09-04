@@ -147,7 +147,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "claims_values_no_match":
 		return validateClaimsValuesNoMatch(query, responseValue)
 	case "claim_id_missing_with_claim_sets":
-		return validateMissingClaimIDWithClaimSets(query, responseValue)
+		return validateMissingClaimIDWithClaimSets(query, responseValue, errorValue)
 	case "claims_without_id_without_claim_sets":
 		return validateClaimsWithoutIDWithoutClaimSets(query, responseValue)
 	case "duplicate_claim_ids":
@@ -2496,7 +2496,11 @@ func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result
 	}
 }
 
-func validateMissingClaimIDWithClaimSets(query map[string]any, responseValue any) Result {
+func validateMissingClaimIDWithClaimSets(
+	query map[string]any,
+	responseValue any,
+	errorValue any,
+) Result {
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
 		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
@@ -2549,7 +2553,16 @@ func validateMissingClaimIDWithClaimSets(query map[string]any, responseValue any
 			Message: "wallet returned a credential for claims missing id with claim_sets",
 		}
 	}
-	return Result{Status: StatusPass, Message: "wallet rejected claims missing id with claim_sets"}
+	if errorValue != invalidRequestError {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet did not return invalid_request for claims missing id with claim_sets",
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "wallet returned invalid_request for claims missing id with claim_sets",
+	}
 }
 
 func validateClaimsWithoutIDWithoutClaimSets(query map[string]any, responseValue any) Result {

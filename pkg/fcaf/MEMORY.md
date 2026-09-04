@@ -558,7 +558,7 @@ The emulator accepted the request and PIN, then returned Home without consent or
 
 ## Case 108
 
-108 proves the request contains non-empty `claims` and `claim_sets`, at least one claim omits `id`, and no `vp_token` is returned. The public verifier rejected request creation with HTTP 400 `Unknown claim ids` from `ClaimSet.ensureKnownClaimIds`, so the request never reached the Wallet. Device-level execution requires the raw mock-verifier service tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 13.
+The dedicated Capture Wallet scenario sends a credential query whose claim omits `id` while credential-level `claim_sets` is present. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `claim_id_missing_with_claim_sets` validator proves the shape, rejects any presentation, and requires a captured `invalid_request`; visual evidence is separately required. An emulator run remains needed to establish the reference Wallet's conformance result.
 
 ## Parallel ownership
 
