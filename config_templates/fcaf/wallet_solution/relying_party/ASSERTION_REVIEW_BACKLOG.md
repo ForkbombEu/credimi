@@ -250,7 +250,6 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [ ] `WS_RP_MS_ProtocolMessages__114`
 - [ ] `WS_RP_MS_ProtocolMessages__115`
 - [ ] `WS_RP_MS_ProtocolMessages__120`
-- [ ] `WS_RP_MS_ProtocolMessages__121`
 - [ ] `WS_RP_MS_ProtocolMessages__124` (verifier needs to add unknown param to A.R. when response_mode=direct_post.jwt)
 - [ ] `WS_RP_MS_ProtocolMessages__125` (verifier response_uri return 200 + plain text body)
 - [ ] `WS_RP_MS_ProtocolMessages__126` (verifier response_uri return 400 + json body)
@@ -327,6 +326,7 @@ Total: 328 tests (272 pending, 56 verifier-blocked).
 - [x] `WS_RP_MS_ProtocolMessages__106`
 - [x] `WS_RP_MS_ProtocolMessages__107`
 - [x] `WS_RP_MS_ProtocolMessages__119`
+- [x] `WS_RP_MS_ProtocolMessages__121` (negative claim-path member requires captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__122` (non-array claim path requires captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__123` (invalid claim-path member requires captured `invalid_request`)
 - [x] `WS_RP_MS_ProtocolMessages__136` (requires a captured `invalid_transaction_data` response for unsupported transaction_data)
