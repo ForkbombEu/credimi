@@ -238,7 +238,7 @@ Do not implement the following negative cases with the public reference
 verifier. Keep their inventory status at `missing` until a mock service can
 deliver the required request and capture the Wallet's actual protocol result:
 
-- 096-098: validators and YAML exist, but the public
+- 096-097: validators and YAML exist, but the public
   verifier rejects each malformed DCQL shape before creating a signed request.
   Keep them marked missing until their device-level execution can run.
 - 124: the public endpoint accepts an unknown field in its presentation-create
@@ -563,6 +563,10 @@ The dedicated Capture Wallet scenario sends a credential query whose claim omits
 ## Case 100
 
 The dedicated Capture Wallet scenario sends a `credential_sets.options` entry that references an unknown credential query ID. Capture Wallet accepts and preserves that malformed shape in its signed Authorization Request. The `credential_sets_options_invalid_references` validator proves the invalid reference, rejects any presentation, and requires a privacy-preserving error. An emulator run remains needed to establish the reference Wallet's conformance result.
+
+## Case 098
+
+The dedicated Capture Wallet scenario sends `credential_sets.options` as a string rather than an array. Capture Wallet accepts and preserves the malformed shape in its signed Authorization Request. The `credential_sets_options_non_array` validator proves the type error, rejects any presentation, and requires a captured `invalid_request`. An emulator run remains needed to establish the reference Wallet's conformance result.
 
 ## Parallel ownership
 
