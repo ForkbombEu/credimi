@@ -150,7 +150,7 @@ The implementation covers a single empty string and a mixed valid-plus-empty arr
 ## Next candidate
 
 `WS_RP_SM_DeviceBinding__008` is the next runnable mandatory candidate. Case
-119 duplicates case 114; cases 120, 124-146, and 153-159 are intentionally skipped
+119 duplicates case 114; cases 124-146 and 153-159 are intentionally skipped
 where the required raw request, transaction-data fixture, or configurable
 verifier response cannot be produced by the public service.
 
@@ -180,6 +180,14 @@ signed Authorization Request. The scenario reuses the strict
 presentation. An emulator run remains needed to establish the reference
 Wallet's conformance result.
 
+## Case 120
+
+Case 120 uses the same source-defined `path: [true]` value as case 123. Its
+dedicated scenario reuses the verified Capture Wallet delivery path and strict
+`invalid_request_required` validator, requiring a captured error and no
+presentation. An emulator run remains needed to establish the reference
+Wallet's conformance result.
+
 ## Mock-verifier skip queue
 
 Do not implement the following negative cases with the public reference
@@ -189,9 +197,6 @@ deliver the required request and capture the Wallet's actual protocol result:
 - 096-098, 100, 108, and 110-115: validators and YAML exist, but the public
   verifier rejects each malformed DCQL shape before creating a signed request.
   Keep them marked missing until their device-level execution can run.
-- 120: malformed claim-path member. The public verifier's typed
-  request model rejects these before it can create a signed request. Case 122
-  also duplicates the partially implemented non-array path case 115.
 - 124: the public endpoint accepts an unknown field in its presentation-create
   JSON but strips it from the signed Authorization Request. A live probe on
   15/07/2026 confirmed `fcaf_unknown_parameter` was absent from the JWT.
