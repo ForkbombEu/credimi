@@ -839,3 +839,12 @@ captured direct-post.jwt response, that exact metadata value and protected JWE
 `enc`, and byte-equivalent preservation of the generated JWK set. An emulator
 is not connected, so a live reference-Wallet run remains required before
 claiming a conformance result.
+
+## Case 131 (Protocol messages)
+
+`WS_RP_MS_ProtocolMessages__131` shares the default direct-post.jwt scenario.
+It requires a captured `POST` response containing only `response`, confirms
+that signed request metadata omits the encryption override, and checks the
+original compact JWE protected header defaults `enc` to `A128GCM`. An emulator
+is not connected, so a live reference-Wallet run remains required before
+claiming a conformance result.
