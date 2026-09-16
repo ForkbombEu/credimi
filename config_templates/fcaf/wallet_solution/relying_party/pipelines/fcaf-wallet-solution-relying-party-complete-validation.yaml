@@ -15,6 +15,47 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
         version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
     - continue_on_error: true
+      id: callback-redirect-298d09a0-create-callback-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-callback-redirect
+            redirect_uri: https://verifier.eudiw.dev/
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: callback-redirect-298d09a0-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ callback-redirect-298d09a0-create-callback-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: callback-redirect-298d09a0-fetch-callback-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ callback-redirect-298d09a0-create-callback-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-all-credentials-without-credent-5818b47e-create-presentation
       use: http-request
       with:
@@ -13633,6 +13674,12 @@ steps:
                     obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
                     onboard-reference-wallet: ${{ onboard-reference-wallet.outputs | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.callback.redirect:
+                output:
+                    callback_evidence:
+                        configured_redirect_uri: ${{ callback-redirect-298d09a0-create-callback-session.outputs.body.redirect_uri | optional }}
+                        verifier_http: ${{ callback-redirect-298d09a0-fetch-callback-session.outputs.body.raw.presentation_response_verifier_http | optional }}
+                    visual_evidence: ${{ callback-redirect-298d09a0-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.credential-formats.mdoc-presentation:
                 output:
                     create-capture-session: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session.outputs | optional }}

@@ -1,0 +1,46 @@
+name: FCAF response endpoint callback redirect
+runtime:
+  fixture: {verifier_url: "https://beta-capture-wallet.credimi.io"}
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: {maximum_attempts: 1}
+steps:
+  - id: create-callback-session
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers: {Content-Type: application/json}
+      body:
+        scheme: haip-vp://
+        response_type: vp_token
+        response_mode: direct_post.jwt
+        redirect_uri: https://verifier.eudiw.dev/
+        presentation_request:
+          nonce: fcaf-callback-redirect
+          dcql_query: {credentials: [{id: pid, format: dc+sd-jwt, meta: {vct_values: ['urn:eudi:pid:1']}, claims: [{path: [given_name]}]}]}
+  - id: exercise-wallet
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+      version_id: installed_from_external_source
+      parameters: {deeplink: "${{ create-callback-session.outputs.body.deeplink }}"}
+  - id: fetch-callback-session
+    use: http-request
+    with: {method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-callback-session.outputs.body.session_id }}", expected_status: 200}
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      test_ids: [WS_RP_IA_MainInteraction__057]
+      suite: wallet_solution/relying_party
+      pipeline_outputs:
+        pipeline.callback.redirect:
+          output:
+            callback_evidence:
+              verifier_http: "${{ fetch-callback-session.outputs.body.raw.presentation_response_verifier_http }}"
+              configured_redirect_uri: "${{ create-callback-session.outputs.body.redirect_uri }}"
+            visual_evidence: "${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}"

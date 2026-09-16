@@ -892,3 +892,25 @@ containing only the response parameter; the sibling rows
 body without importing another row's criterion. `WS_RP_MS_ProtocolMessages__134`
 is the only row that carried `response_only` before this work; do not copy it
 to rows whose own source test does not require exclusivity.
+
+## Case 057
+
+`WS_RP_IA_MainInteraction__057` now owns a dedicated scenario,
+`scenarios/fcaf-wallet-solution-relying-party-callback-redirect.yaml`, that
+creates a `direct_post.jwt` session with a configured `redirect_uri`. The
+scenario exposes the verifier's reply to the Wallet
+(`raw.presentation_response_verifier_http`) together with the `redirect_uri`
+echoed by session creation, and the new `oid4vp.response_endpoint_callback`
+validator requires HTTP 200, `application/json`, `Cache-Control: no-store`, and
+a callback `redirect_uri` targeting the configured URI.
+
+Capture appends its own fresh `response_code` to the configured redirect URI, so
+the validator compares scheme, host, and path only. Direct probes confirmed the
+verifier-callback record shape, the `no-store` JSON error response, and the
+session-creation `redirect_uri` echo; the successful callback body itself still
+requires a live reference-Wallet run, as does confirmation that the exercised
+flow's screenshots actually capture the Wallet following the redirect.
+
+`WS_RP_IA_MainInteraction__061` and `067` remain owned by the main-interaction
+scenario and can move onto this callback scenario next: they need the same
+evidence with `require_no_store` and the redirect-only check respectively.
