@@ -1046,5 +1046,5 @@ func fcafSourceURL(testID string) string {
 		}
 	}
 	anchor = strings.Trim(builder.String(), "_")
-	return "https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/ws_rp/#" + anchor
+	return "https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test-cases/#" + anchor
 }

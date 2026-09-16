@@ -169,7 +169,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			.toLowerCase()
 			.replace(/[^a-z0-9]+/g, '_')
 			.replace(/^_+|_+$/g, '');
-		return `https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/ws_rp/#${anchor}`;
+		return `https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test-cases/#${anchor}`;
 	}
 
 	function evidenceDeeplink(value: unknown): string | undefined {
