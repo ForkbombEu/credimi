@@ -93,8 +93,6 @@ services:
         - PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://demo.credimi.io}
         - PUBLIC_TURNSTILE_SITE_KEY=${PUBLIC_TURNSTILE_SITE_KEY:?PUBLIC_TURNSTILE_SITE_KEY is required}
     environment:
-      - SERVICE_FQDN_CREDIMI
-      - SERVICE_FQDN_CREDIMI_8090
       - ADDRESS_GRAFANA=http://grafana:8085
       - ADDRESS_UI=http://localhost:5100
       - ROOT_DIR=/app
