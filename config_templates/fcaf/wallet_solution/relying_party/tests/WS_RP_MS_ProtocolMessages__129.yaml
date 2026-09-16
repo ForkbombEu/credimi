@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__129
-title: FCAF WS_RP_MS_ProtocolMessages__129
+title: Return a direct-post JWE using the client metadata JWK kid.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__129.md
 suite:
@@ -17,15 +17,24 @@ normative_references:
 evidence:
   encryption_evidence:
     from: pipeline.direct-post-jwt.response-transport.outputs.default_encryption_evidence
+  capture_session:
+    from: pipeline.direct-post-jwt.response-transport.outputs.capture_session
   visual_evidence:
     from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__129_response_key_matches_metadata
+- id: direct_post_jwt_response_is_captured
+  validator: oid4vp.presentation_response_http
+  input: evidence.capture_session
+  params:
+    method: POST
+    require_response_parameter: true
+    response_only: true
+- id: protected_jwe_kid_matches_client_metadata
   validator: oid4vp.response_encryption
   input: evidence.encryption_evidence
   params:
     match_metadata_kid: true
-- id: ws_rp_ms_protocolmessages__129_visual_evidence_stored
+- id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

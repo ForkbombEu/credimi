@@ -820,3 +820,12 @@ The separate probe avoids falsely attributing an agent-issued `POST` to the
 Wallet. A direct Capture probe confirmed the media type and a three-part JWS.
 An emulator is not connected, so a live reference-Wallet run remains required
 before claiming a conformance result.
+
+## Case 129 (Protocol messages)
+
+`WS_RP_MS_ProtocolMessages__129` uses the direct-post.jwt response-transport
+scenario. It requires captured `POST` form evidence with exactly a `response`
+parameter, then parses the original compact JWE's protected header and requires
+its `kid` to occur in the Request Object's client-metadata JWK set. Screenshot
+evidence proves the Wallet flow proceeded. An emulator is not connected, so a
+live reference-Wallet run remains required before claiming a conformance result.
