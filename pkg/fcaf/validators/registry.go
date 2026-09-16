@@ -62,6 +62,8 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPPresentationResponseHTTPValidator{},
 		OID4VPResponseEncryptionValidator{},
 		OID4VPResponseEndpointCallbackValidator{},
+		OID4VPErrorResponseRequiredValidator{},
+		OID4VPSessionEventCountValidator{},
 		OID4VPDeviceBindingValidator{},
 		OID4VPNonceStateBindingValidator{},
 		OID4VPClientIDMatchValidator{},

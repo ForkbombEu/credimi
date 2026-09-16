@@ -927,3 +927,43 @@ Two deliberate limits, both verified against the service rather than assumed:
 - 061 does not assert `Cache-Control: no-store`. The service always sends it on
   this response, so the check cannot fail against the fixture and would only pad
   the assertion set; the suite certifies the Wallet, not the verifier's caching.
+
+## Cases 137, 138, 139, 140, 142, 150
+
+These six request-shape/error cases now use two new validators.
+`oid4vp.error_response_required` requires the Wallet's exact error code and no
+`vp_token`, which is what "does not proceed to credential selection" means;
+`oid4vp.session_event_count` requires an exact capture event count. The existing
+`dcql.response_satisfies_constraints` could not serve them: it hard-fails unless
+the evidence contains a `dcql_query`, and `dcql_query: null` sessions contain
+none anywhere.
+
+Four defects were found and fixed while reviewing the sources:
+
+- Capture substitutes its default DCQL query when `presentation_request.dcql_query`
+  is omitted. `142` omitted the key and therefore delivered a fully valid request
+  while claiming "no data requirements". It now sends `dcql_query: null`, which
+  verifiably removes the query from the signed request.
+- `138` sent the same empty scope as `139`. It now sends `bad\scope`, a backslash
+  being illegal in an RFC 6749 scope-token.
+- `142` asserted `invalid_scope`; its source requires `invalid_request`.
+- `137`/`138`/`139`/`140` sent a valid `dcql_query` alongside the scope, which
+  risks the ambiguous "both dcql_query and a scope" case from OID4VP 8.5. They
+  now send `dcql_query: null` plus the scope only.
+
+`scope` placement matters: it must sit inside `presentation_request` to reach the
+signed request. A top-level `scopes` field is accepted but ignored, so it never
+reaches the Wallet. Verified by decoding the signed Request Object.
+
+`140` genuinely proves termination: every Wallet delivery records a
+`vp_presentation_response_received` event, so exactly one such event means the
+Wallet sent its error and then stopped. A second delivery adds a second event and
+fails the test.
+
+`150` still asks for `format: vc+sd-jwt`, which Capture accepts and preserves. The
+source precondition says the Wallet supports `mso_mdoc` but not `vc+sd-jwt`; the
+reference Wallet supports the current `dc+sd-jwt` name, so whether it treats the
+pre-final alias as unsupported is a live-run question, not a definition defect.
+
+An emulator is not connected, so none of these six has a live reference-Wallet
+result yet.

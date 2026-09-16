@@ -20,6 +20,7 @@ steps:
       response_mode: direct_post
       presentation_request:
         nonce: fcaf-142
+        dcql_query: null
 - id: exercise-wallet
   use: mobile-automation
   with:

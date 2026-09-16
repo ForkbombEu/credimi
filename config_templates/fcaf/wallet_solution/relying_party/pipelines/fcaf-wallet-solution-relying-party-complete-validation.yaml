@@ -7340,16 +7340,7 @@ steps:
       with:
         body:
             presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
+                dcql_query: null
                 nonce: fcaf-137
                 scope: unknown_scope_value
             response_mode: direct_post
@@ -7460,18 +7451,9 @@ steps:
       with:
         body:
             presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
+                dcql_query: null
                 nonce: fcaf-138
-                scope: ""
+                scope: bad\scope
             response_mode: direct_post
         expected_status: 201
         headers:
@@ -7580,16 +7562,7 @@ steps:
       with:
         body:
             presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
+                dcql_query: null
                 nonce: fcaf-139
                 scope: ""
             response_mode: direct_post
@@ -7700,16 +7673,7 @@ steps:
       with:
         body:
             presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
+                dcql_query: null
                 nonce: fcaf-140
                 scope: ""
             response_mode: direct_post
@@ -7940,6 +7904,7 @@ steps:
       with:
         body:
             presentation_request:
+                dcql_query: null
                 nonce: fcaf-142
             response_mode: direct_post
         expected_status: 201
