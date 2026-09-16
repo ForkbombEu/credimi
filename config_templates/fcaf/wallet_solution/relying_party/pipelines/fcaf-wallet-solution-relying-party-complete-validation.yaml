@@ -11797,6 +11797,13 @@ steps:
         method: GET
         url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ did-empty-metadata-0b80b79f-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: did-empty-metadata-0b80b79f-fetch-did
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/openid4vp/did.json
+    - continue_on_error: true
       id: did-metadata-b39af5a1-create-presentation
       use: http-request
       with:
@@ -14509,9 +14516,12 @@ steps:
                     wallet_response: ${{ did-metadata-b39af5a1-fetch-session.outputs.body | optional }}
             pipeline.wallet.metadata.did-empty:
                 output:
+                    dcql_exchange: ${{ did-empty-metadata-0b80b79f-fetch-session.outputs.body | optional }}
+                    request_evidence:
+                        did_document: ${{ did-empty-metadata-0b80b79f-fetch-did.outputs.body | optional }}
+                        request_object: ${{ did-empty-metadata-0b80b79f-fetch-session.outputs.body.raw.authorization_request_jwt | optional }}
                     request_object: ${{ did-empty-metadata-0b80b79f-fetch-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ did-empty-metadata-0b80b79f-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wallet_response: ${{ did-empty-metadata-0b80b79f-fetch-session.outputs.body | optional }}
             pipeline.wallet.metadata.direct-post-jwt:
                 output:
                     authorization_request: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body.authorization_request | optional }}

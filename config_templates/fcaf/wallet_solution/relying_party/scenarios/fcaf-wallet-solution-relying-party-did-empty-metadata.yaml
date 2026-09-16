@@ -32,6 +32,9 @@ steps:
   - id: fetch-session
     use: http-request
     with: {method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}", expected_status: 200}
+  - id: fetch-did
+    use: http-request
+    with: {method: GET, url: "${fixture.verifier_url}/openid4vp/did.json", expected_status: 200}
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
@@ -41,5 +44,8 @@ steps:
         pipeline.wallet.metadata.did-empty:
           output:
             request_object: "${{ fetch-session.outputs.body.raw.authorization_request_jwt }}"
-            wallet_response: "${{ fetch-session.outputs.body }}"
+            request_evidence:
+              request_object: "${{ fetch-session.outputs.body.raw.authorization_request_jwt }}"
+              did_document: "${{ fetch-did.outputs.body }}"
+            dcql_exchange: "${{ fetch-session.outputs.body }}"
             visual_evidence: "${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}"

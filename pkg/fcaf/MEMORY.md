@@ -797,3 +797,15 @@ DID-published key, verify that verifier metadata is exclusive to
 probe returned the decentralized client ID, signed Request Object, resolvable
 DID document, and expected client metadata. An emulator is not connected, so a
 live reference-Wallet run remains required before claiming a conformance result.
+
+## Case 016
+
+`WS_RP_IA_Metadata__016` owns the empty-client-metadata decentralized-
+identifier Capture scenario. It captures the signed Request Object, its DID
+document, the complete session response, and Wallet-flow screenshots. The
+assertions verify the DID key before requiring `client_metadata: {}` and an
+`invalid_request` response, preventing a signature failure from being treated
+as the required metadata rejection. A direct Capture probe returned the
+decentralized client ID, DID-key `kid`, and exactly empty client metadata. An
+emulator is not connected, so a live reference-Wallet run remains required
+before claiming a conformance result.

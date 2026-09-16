@@ -14,17 +14,27 @@ normative_references:
     section: "5.9.3"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
+  request_evidence:
+    from: pipeline.wallet.metadata.did-empty.outputs.request_evidence
   request_object:
     from: pipeline.wallet.metadata.did-empty.outputs.request_object
-  wallet_response:
-    from: pipeline.wallet.metadata.did-empty.outputs.wallet_response
+  dcql_exchange:
+    from: pipeline.wallet.metadata.did-empty.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.wallet.metadata.did-empty.outputs.visual_evidence
 assertions:
+  - id: did_key_verifies_request_object
+    validator: oid4vp.did_signed_request
+    input: evidence.request_evidence
   - id: request_contains_exactly_empty_client_metadata
     validator: jwt.payload_field_equals
     input: evidence.request_object
     params: {field: client_metadata, value: {}}
-  - id: rejected_request_does_not_present_credentials
-    validator: json.field_presence
-    input: evidence.wallet_response
-    params: {field: vp_token, present: false}
+  - id: empty_client_metadata_returns_invalid_request
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params: {mode: invalid_request_generic}
+  - id: rejection_has_visual_evidence
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
 verdict: {pass_when: all_assertions_pass}

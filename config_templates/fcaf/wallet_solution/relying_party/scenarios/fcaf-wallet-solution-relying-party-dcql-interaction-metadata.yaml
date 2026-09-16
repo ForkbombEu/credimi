@@ -60,7 +60,6 @@ steps:
       - WS_RP_IA_Metadata__012
       - WS_RP_IA_Metadata__013
       - WS_RP_IA_Metadata__014
-      - WS_RP_IA_Metadata__016
       - WS_RP_IA_Metadata__017
     suite: wallet_solution/relying_party
     pipeline_outputs:
