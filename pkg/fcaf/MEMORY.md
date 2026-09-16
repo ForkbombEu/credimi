@@ -765,3 +765,13 @@ Capture probe created the session and retrieved a compact signed Request Object
 with `x509_hash:` client ID and `x5c` leaf certificate. An emulator is not
 connected, so a live reference-Wallet run remains required before claiming a
 conformance result.
+
+## Case 129
+
+`WS_RP_MS_Metadata__129` now owns a distinct Capture Wallet scenario that
+uses Capture's default `x509_hash` client identifier. The validator recomputes
+the base64url SHA-256 hash of the Request Object's `x5c` leaf and requires the
+Wallet-flow screenshot evidence. A direct probe created the default session
+and confirmed the returned client ID matches the leaf hash. An emulator is not
+connected, so a live reference-Wallet run remains required before claiming a
+conformance result.

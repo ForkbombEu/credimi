@@ -11714,6 +11714,48 @@ steps:
         method: GET
         url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-valid-id-special-4b48cc60-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: default-x509-hash-metadata-6eed4e38-create-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-metadata-default-x509-hash
+            request_delivery: by_reference
+            request_uri_method: get
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: openid4vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: default-x509-hash-metadata-6eed4e38-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ default-x509-hash-metadata-6eed4e38-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: default-x509-hash-metadata-6eed4e38-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ default-x509-hash-metadata-6eed4e38-create-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: did-empty-metadata-0b80b79f-create-presentation
       use: http-request
       with:
@@ -14453,6 +14495,10 @@ steps:
                     onboard-reference-wallet: ${{ onboard-reference-wallet.outputs | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wallet_engagement: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body | optional }}
+            pipeline.wallet.metadata.default-x509-hash:
+                output:
+                    signed_request_object: ${{ default-x509-hash-metadata-6eed4e38-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ default-x509-hash-metadata-6eed4e38-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.metadata.did:
                 output:
                     request_evidence:
