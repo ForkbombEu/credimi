@@ -71,7 +71,7 @@ endef
 # (via scripts/worktree-compose.sh for make dev / worktree-down / purge).
 
 all: help
-.PHONY: submodules version dev dev.noworkers worktree-bootstrap worktree-down test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run fcaf-sync
+.PHONY: submodules version dev dev.noworkers worktree-bootstrap worktree-down worktree-destroy test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run fcaf-sync
 
 $(BIN):
 	@mkdir -p $@
@@ -129,6 +129,18 @@ worktree-bootstrap: ## 🌳 Worktrunk bootstrap: copy-ignored + .env.worktree po
 
 worktree-down: ## 🌳 stop this worktree Compose project
 	@./scripts/worktree-compose.sh down
+
+worktree-destroy: ## 🗑️ remove a disposable worktree, its runtime data, and branch (WORKTREE=<branch>)
+	@if [ -z "$(WORKTREE)" ]; then \
+		echo "usage: make worktree-destroy WORKTREE=<branch>" >&2; \
+		exit 2; \
+	fi
+	@if [ "$(WORKTREE)" = "$(GIT_BRANCH)" ]; then \
+		echo "refusing to destroy the current worktree branch: $(GIT_BRANCH)" >&2; \
+		exit 2; \
+	fi
+	@command -v wt >/dev/null 2>&1 || { echo "Worktrunk (wt) is required" >&2; exit 1; }
+	@wt remove --yes --foreground --reap --force --force-delete "$(WORKTREE)"
 
 test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))

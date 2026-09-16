@@ -49,6 +49,10 @@ compose() {
 	docker compose -f docker-compose.yaml -f "${COMPOSE_DEV_OVERRIDE_FILE}" "$@"
 }
 
+cleanup_runtime_files() {
+	rm -f -- "${COMPOSE_DEV_OVERRIDE_FILE}" "${PROCFILE_RUNTIME}"
+}
+
 main() {
 	local cmd="${1:-}"
 	case "${cmd}" in
@@ -75,6 +79,7 @@ main() {
 		load_env
 		prepare 1
 		compose down -v --remove-orphans
+		cleanup_runtime_files
 		;;
 	"" | -h | --help)
 		usage

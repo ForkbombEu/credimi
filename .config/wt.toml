@@ -10,4 +10,4 @@
 bootstrap = "make worktree-bootstrap"
 
 [pre-remove]
-compose = "make worktree-down"
+purge = "make purge"

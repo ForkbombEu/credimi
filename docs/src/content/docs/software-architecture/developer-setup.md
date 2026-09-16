@@ -106,7 +106,7 @@ Intended flow: open an agent worktree, run `make dev`, check results, dispose.
 make dev
 ```
 
-When finished, stop Compose with `make worktree-down` (or dispose the sandbox after stacks are down). Language servers are often off by default under `~/.cursor/worktrees/`; turn on “Enable LSPs for Worktrees” if you need full IDE features while checking.
+When finished, stop Compose with `make worktree-down`. To remove a disposable worktree and its containers, volumes, copied data, and branch from the primary checkout, run `make worktree-destroy WORKTREE=<branch>`. Language servers are often off by default under `~/.cursor/worktrees/`; turn on “Enable LSPs for Worktrees” if you need full IDE features while checking.
 
 ### Worktrunk CLI worktrees
 
@@ -115,7 +115,7 @@ wt switch -c feat/my-thing
 make dev
 ```
 
-`.config/wt.toml` runs the same bootstrap on pre-start and `make worktree-down` on remove.
+`.config/wt.toml` runs the same bootstrap on pre-start and `make purge` on removal, so Worktrunk removals discard that worktree's containers, volumes, copied data, and generated runtime files.
 
 Bootstrap (also callable by hand) uses `wt step copy-ignored --require-include` for `.worktreeinclude` (`.env`, `webapp/.env`, `webapp/node_modules/`, `pb_data/`), writes unique ports into `.env.worktree` (Worktrunk `hash_port` seeds + collision walk), syncs PocketBase URLs in `webapp/.env`, initializes submodules, and runs `make tools` when `.bin` is missing.
 

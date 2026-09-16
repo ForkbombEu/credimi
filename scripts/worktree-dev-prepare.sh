@@ -18,12 +18,8 @@ printf '%s\n' \
 	'  postgresql:' \
 	"    container_name: ${COMPOSE_PROJECT_NAME}-temporal-postgresql" \
 	'  temporal:' \
-	'    ports:' \
-	"      - \"${TEMPORAL_PORT}:7233\"" \
 	'  temporal_ui:' \
 	"    container_name: ${COMPOSE_PROJECT_NAME}-temporal-ui" \
-	'    ports:' \
-	"      - \"${TEMPORAL_UI_PORT}:8280\"" \
 	>"${COMPOSE_DEV_OVERRIDE_FILE}"
 
 printf '%s\n' \
