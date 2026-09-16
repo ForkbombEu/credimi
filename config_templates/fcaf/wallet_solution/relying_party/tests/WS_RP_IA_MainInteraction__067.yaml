@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__067
-title: FCAF WS_RP_IA_MainInteraction__067
+title: Follow the redirect URI supplied by the verifier response.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__067.md
 suite:
@@ -11,21 +11,23 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
+- ref: pipeline.callback.redirect
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+  callback_evidence:
+    from: pipeline.callback.redirect.outputs.callback_evidence
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.callback.redirect.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__067_interaction
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: callback_supplies_the_configured_redirect_uri
+  validator: oid4vp.response_endpoint_callback
+  input: evidence.callback_evidence
   params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__067_visual_evidence
+    status: 200
+    media_type: application/json
+    match_configured_redirect_uri: true
+- id: wallet_navigates_to_redirect_uri_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

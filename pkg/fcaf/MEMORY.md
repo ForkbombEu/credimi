@@ -911,6 +911,19 @@ session-creation `redirect_uri` echo; the successful callback body itself still
 requires a live reference-Wallet run, as does confirmation that the exercised
 flow's screenshots actually capture the Wallet following the redirect.
 
-`WS_RP_IA_MainInteraction__061` and `067` remain owned by the main-interaction
-scenario and can move onto this callback scenario next: they need the same
-evidence with `require_no_store` and the redirect-only check respectively.
+`WS_RP_IA_MainInteraction__061` and `067` now share that scenario and expose
+the same callback evidence: 061 requires the JSON redirect response the Wallet
+must open unchanged, and 067 requires the callback to supply the configured
+redirect URI that the Wallet follows.
+
+Two deliberate limits, both verified against the service rather than assumed:
+
+- Capture records no evidence of the Wallet's navigation. `GET
+  /openid4vp/redirect` returns 404, and opening a session's configured redirect
+  creates no session event or raw record. The Wallet-side half of 061 ("does not
+  append the Authorization Response to the redirect_uri") and of 067 ("triggers
+  the user agent to navigate") therefore rests on the Wallet-flow screenshots
+  and needs a live run to confirm the flow captures the browser state.
+- 061 does not assert `Cache-Control: no-store`. The service always sends it on
+  this response, so the check cannot fail against the fixture and would only pad
+  the assertion set; the suite certifies the Wallet, not the verifier's caching.

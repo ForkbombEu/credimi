@@ -35,7 +35,7 @@ steps:
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
-      test_ids: [WS_RP_IA_MainInteraction__057]
+      test_ids: [WS_RP_IA_MainInteraction__057, WS_RP_IA_MainInteraction__061, WS_RP_IA_MainInteraction__067]
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.callback.redirect:
