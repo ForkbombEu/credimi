@@ -62,7 +62,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<CollectionForm
 				collection="verifiers"
 				onSuccess={closeSheet}
-				fieldsOptions={settings}
+				fieldsOptions={{
+					...settings,
+					hide: {
+						owner: organization.id
+					}
+				}}
 			/>
 		{/snippet}
 	</Sheet>
