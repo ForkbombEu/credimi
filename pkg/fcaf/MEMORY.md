@@ -785,3 +785,15 @@ public key verifies its JWS signature. Its dedicated assertion uses
 JWS with that certificate's public key; visual evidence proves the Wallet flow
 proceeded. An emulator is not connected, so a live reference-Wallet run remains
 required before claiming a conformance result.
+
+## Case 015
+
+`WS_RP_IA_Metadata__015` owns the existing decentralized-identifier Capture
+scenario. It explicitly requests `client_id_scheme: decentralized_identifier`,
+serves the corresponding `did.json`, and supplies `vp_formats_supported` only
+through `client_metadata`. The assertions verify the Request Object against the
+DID-published key, verify that verifier metadata is exclusive to
+`client_metadata`, and require Wallet-flow visual evidence. A direct Capture
+probe returned the decentralized client ID, signed Request Object, resolvable
+DID document, and expected client metadata. An emulator is not connected, so a
+live reference-Wallet run remains required before claiming a conformance result.

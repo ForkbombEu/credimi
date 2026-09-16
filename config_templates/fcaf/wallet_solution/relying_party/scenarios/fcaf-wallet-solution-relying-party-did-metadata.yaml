@@ -48,5 +48,6 @@ steps:
             request_evidence:
               request_object: "${{ fetch-session.outputs.body.raw.authorization_request_jwt }}"
               did_document: "${{ fetch-did.outputs.body }}"
+            request_object: "${{ fetch-session.outputs.body.raw.authorization_request_jwt }}"
             wallet_response: "${{ fetch-session.outputs.body }}"
             visual_evidence: "${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}"
