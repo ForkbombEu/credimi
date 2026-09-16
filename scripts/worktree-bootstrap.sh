@@ -71,5 +71,6 @@ if [[ ! -x .bin/stepci-captured-runner || ! -x .bin/et-tu-cesr ]]; then
 fi
 
 echo
-echo "bootstrap complete. next: make dev"
+echo "bootstrap complete."
+echo "  cd ${ROOT_DIR} && make dev"
 ./scripts/worktree-env.sh print
