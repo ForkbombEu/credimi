@@ -38,11 +38,37 @@ steps:
             claims:
             - path:
               - given_name
+- id: create-request-uri-media-type-probe
+  use: http-request
+  with:
+    method: POST
+    url: https://beta-capture-wallet.credimi.io/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: protocol-messages-request-uri-media-type
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
 - id: probe-request-uri-response
   use: http-request
   with:
     method: POST
-    url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}/request
+    url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create-request-uri-media-type-probe.outputs.body.session_id }}/request
     expected_status: 200
 - id: exercise-wallet
   use: mobile-automation
@@ -110,7 +136,7 @@ steps:
             request_object: ${{ fetch-signed-request-object.outputs.body }}
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           request_uri_response: ${{ probe-request-uri-response.outputs }}
-          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
+          request_object: ${{ probe-request-uri-response.outputs.body }}
           capture_session: ${{ fetch-capture-session.outputs.body }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
           wallet_nonce_evidence:

@@ -809,3 +809,14 @@ as the required metadata rejection. A direct Capture probe returned the
 decentralized client ID, DID-key `kid`, and exactly empty client metadata. An
 emulator is not connected, so a live reference-Wallet run remains required
 before claiming a conformance result.
+
+## Case 047
+
+`WS_RP_MS_ProtocolMessages__047` now keeps the Wallet session free of manual
+request-URI retrievals: its session capture proves the Wallet's `POST` and
+Host header, while a separate same-shape Capture probe proves the endpoint's
+`application/oauth-authz-req+jwt` response and compact signed Request Object.
+The separate probe avoids falsely attributing an agent-issued `POST` to the
+Wallet. A direct Capture probe confirmed the media type and a three-part JWS.
+An emulator is not connected, so a live reference-Wallet run remains required
+before claiming a conformance result.

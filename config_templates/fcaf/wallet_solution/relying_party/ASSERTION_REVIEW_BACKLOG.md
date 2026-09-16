@@ -51,8 +51,8 @@ conformance-pass claim.
 - [x] `WS_RP_MS_Metadata__111` (signed `x509_hash`, `x509_san_dns`, or `decentralized_identifier` request)
 - [x] `WS_RP_MS_Metadata__129` (valid default `x509_hash` certificate-hash binding)
 - [x] `WS_RP_MS_Metadata__131` (request signed by the default x509 leaf key)
-- [ ] `WS_RP_IA_Metadata__015` (published `decentralized_identifier` DID document and client metadata)
-- [ ] `WS_RP_IA_Metadata__016` (empty replacement `client_metadata` in a `direct_post` session)
+- [x] `WS_RP_IA_Metadata__015` (published `decentralized_identifier` DID document and client metadata)
+- [x] `WS_RP_IA_Metadata__016` (empty replacement `client_metadata` in a `direct_post` session)
 
 #### Request-URI and response transport evidence
 
