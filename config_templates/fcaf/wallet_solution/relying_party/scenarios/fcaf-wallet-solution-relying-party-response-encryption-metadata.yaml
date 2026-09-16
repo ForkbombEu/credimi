@@ -89,6 +89,7 @@ steps:
     pipeline_outputs:
       pipeline.response-encryption-metadata:
         output:
+          capture_session: ${{ fetch-capture-session.outputs.body }}
           replacement_encryption_evidence:
             request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
             presentation_response_http: ${{ fetch-capture-session.outputs.body.raw.presentation_response_http }}

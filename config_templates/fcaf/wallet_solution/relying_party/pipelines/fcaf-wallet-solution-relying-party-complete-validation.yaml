@@ -14514,6 +14514,7 @@ steps:
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.response-encryption-metadata:
                 output:
+                    capture_session: ${{ response-encryption-metadata-7d34f50e-fetch-capture-session.outputs.body | optional }}
                     replacement_encryption_evidence:
                         generated_jwks: ${{ response-encryption-metadata-7d34f50e-metadata-probe.outputs.body.authorization_request.client_metadata.jwks | optional }}
                         presentation_response_http: ${{ response-encryption-metadata-7d34f50e-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
