@@ -49,7 +49,7 @@ services:
       - LOG_LEVEL=info
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
     ports:
-      - 7233:7233
+      - ${TEMPORAL_PORT:-7233}:7233
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
     logging:
@@ -67,7 +67,7 @@ services:
       - TEMPORAL_UI_PORT=8280
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     ports:
-      - 8280:8280
+      - ${TEMPORAL_UI_PORT:-8280}:8280
   temporal_setup:
     depends_on:
       - temporal

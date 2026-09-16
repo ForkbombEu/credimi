@@ -1,0 +1,8 @@
+{
+	"setup-worktree-unix": [
+		"make worktree-bootstrap"
+	],
+	"setup-worktree": [
+		"make worktree-bootstrap"
+	]
+}

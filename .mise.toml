@@ -10,6 +10,7 @@ bun = "latest"
 node = "24.13.0"
 "aqua:dyne/slangroom-exec" = "latest"
 pre-commit = "latest"
+"github:max-sixty/worktrunk" = { version = "latest", bin = "wt" }
 "github:forkbombeu/stepci-captured-runner" = { version = "latest", bin = "stepci-captured-runner" }
 "github:forkbombeu/et-tu-cesr" = "latest"
 

@@ -148,22 +148,22 @@ Main areas:
 Source of truth:
 
 - `Makefile`
-- `Procfile.dev`
+- `scripts/dev-ports.env` (classic port defaults)
+- `Procfile.dev` (classic template; `make dev` generates a runtime Procfile)
 - `docker-compose.yaml`
 
 Local dev process:
 
 - `make dev` starts infrastructure and runs the API/UI through `hivemind`.
 - `make dev.noworkers` is the same stack with `CREDIMI_TEMPORAL_WORKERS_DISABLED=1` so Temporal workers are not registered (faster boot; pipelines/workflows will not run).
-- Temporal is provided by Docker Compose in dev, with gRPC at `localhost:7233`.
-- PocketBase API runs at `localhost:8090`.
-- Webapp runs at `localhost:5100`.
+- Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`.
 - PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`.
+- Parallel worktrees: require Worktrunk for bootstrap. Cursor sandboxes use `.cursor/worktrees.json` → `make worktree-bootstrap`; CLI worktrees use `.config/wt.toml` pre-start. Ports live in gitignored `.env.worktree`. Checkout path is per-user (not committed). Primary `make dev` keeps classic ports without Worktrunk. See developer-setup “Parallel worktrees”.
 
-Procfile dev processes:
+Procfile dev processes (classic defaults; runtime Procfile substitutes worktree ports):
 
-- `API`: waits for Temporal at `localhost:7233`, then runs `go tool gow run -tags=credimi_extra main.go serve`.
-- `UI`: waits for PocketBase at `localhost:8090`, then runs `cd webapp && bun i && bun dev`.
+- `API`: waits for Temporal, then runs `go tool gow run -tags=credimi_extra main.go serve`.
+- `UI`: waits for PocketBase, then runs `cd webapp && bun i && bun dev`.
 
 WAF emulation:
 
@@ -184,7 +184,7 @@ Key environment variables:
 - `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities and internal result posting.
 - `CREDIMI_INTERNAL_APP_URL`: deployment-local Temporal-worker-to-Credimi base URL; callback consumers prefer it while persisted `app_url` remains public. It must be provisioned wherever workers execute.
 
-Do not commit local `pb_data/`, `.env`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
+Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
 
 ## Tenancy And Temporal
 
