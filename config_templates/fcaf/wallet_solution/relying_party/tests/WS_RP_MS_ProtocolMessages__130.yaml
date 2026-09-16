@@ -28,7 +28,6 @@ assertions:
   params:
     method: POST
     require_response_parameter: true
-    response_only: true
 - id: replacement_metadata_preserves_key_and_selects_encryption
   validator: oid4vp.response_encryption
   input: evidence.encryption_evidence

@@ -868,9 +868,27 @@ reference-Wallet run remains required before claiming a conformance result.
 ## Case 049
 
 `WS_RP_IA_MainInteraction__049` shares the default direct-post.jwt scenario and
-requires the captured Wallet exchange to be a form-encoded `POST` whose body
-contains only the `response` parameter. `WS_RP_IA_MainInteraction__052` (UTF-8
-form encoding) and `054` (POST to the response URI) still bind the same session
-with weaker assertions and remain next in the response-transport group. An
-emulator is not connected, so a live reference-Wallet run remains required
-before claiming a conformance result.
+requires the captured Wallet exchange to be a `POST` carrying
+`application/x-www-form-urlencoded` with exactly one non-empty `response`
+parameter. `WS_RP_IA_MainInteraction__052` additionally requires every body
+name and value to be valid UTF-8, and `WS_RP_IA_MainInteraction__054` requires
+the Authorization Response to be delivered by `POST` at all. An emulator is not
+connected, so a live reference-Wallet run remains required before claiming a
+conformance result.
+
+## Response-transport assertion scope
+
+OID4VP 1.0 section 8.3.1 says the Wallet "adds the `response` parameter
+containing the JWT" to a UTF-8 `application/x-www-form-urlencoded` POST body,
+and section 8.3 puts the section 8.1 response parameters inside the JWE
+payload. The spec never says the body carries `response` *exclusively*, and
+section 13.3 shows `state` as a separate direct-post response parameter.
+Therefore `response_only: true` stays only on
+`WS_RP_MS_ProtocolMessages__134`, whose source test explicitly demands a body
+containing only the response parameter; the sibling rows
+`WS_RP_MS_ProtocolMessages__129`/`130`/`131`/`133` and
+`WS_RP_IA_MainInteraction__049`/`052`/`054` keep
+`require_response_parameter: true`, which removes the vacuous pass on an empty
+body without importing another row's criterion. `WS_RP_MS_ProtocolMessages__134`
+is the only row that carried `response_only` before this work; do not copy it
+to rows whose own source test does not require exclusivity.

@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__052
-title: FCAF WS_RP_IA_MainInteraction__052
+title: Encode every direct-post JWT response body parameter as UTF-8.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__052.md
 suite:
@@ -20,12 +20,14 @@ evidence:
   visual_evidence:
     from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__052_response_utf8
+- id: direct_post_jwt_response_body_is_utf8_encoded
   validator: oid4vp.presentation_response_http
   input: evidence.capture_session
   params:
+    method: POST
+    require_response_parameter: true
     form_utf8: true
-- id: ws_rp_ia_maininteraction__052_visual_evidence
+- id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

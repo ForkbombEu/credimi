@@ -28,7 +28,6 @@ assertions:
   params:
     method: POST
     require_response_parameter: true
-    response_only: true
 - id: absent_metadata_encryption_defaults_to_a128gcm
   validator: oid4vp.response_encryption
   input: evidence.encryption_evidence

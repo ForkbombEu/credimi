@@ -28,7 +28,6 @@ assertions:
   params:
     method: POST
     require_response_parameter: true
-    response_only: true
 - id: protected_jwe_kid_matches_client_metadata
   validator: oid4vp.response_encryption
   input: evidence.encryption_evidence

@@ -27,7 +27,6 @@ assertions:
     method: POST
     media_type: application/x-www-form-urlencoded
     require_response_parameter: true
-    response_only: true
 - id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
