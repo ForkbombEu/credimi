@@ -754,3 +754,14 @@ screenshots. Assertions require the `redirect_uri:` client identifier prefix, a
 returned `vp_token`, and non-empty visual evidence. The source and Capture
 Wallet contract establish all three evidence boundaries; a live reference
 Wallet run remains required before claiming a conformance result.
+
+## Case 111
+
+`WS_RP_MS_Metadata__111` now owns a dedicated Capture Wallet scenario using
+`client_id_scheme: x509_hash` with signed, by-reference delivery. It binds the
+exact session Request Object to JWS-signature and leaf-certificate hash
+assertions, and requires visual evidence that the Wallet proceeds. A direct
+Capture probe created the session and retrieved a compact signed Request Object
+with `x509_hash:` client ID and `x5c` leaf certificate. An emulator is not
+connected, so a live reference-Wallet run remains required before claiming a
+conformance result.
