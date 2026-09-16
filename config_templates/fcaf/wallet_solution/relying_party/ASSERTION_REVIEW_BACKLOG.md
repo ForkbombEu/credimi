@@ -47,7 +47,7 @@ conformance-pass claim.
 
 #### Plain redirect-URI, signing-prefix, and metadata coverage
 
-- [ ] `WS_RP_MS_ProtocolMessages__038` (unsigned `redirect_uri:` request with `request_delivery: plain`)
+- [x] `WS_RP_MS_ProtocolMessages__038` (unsigned `redirect_uri:` request with `request_delivery: plain`)
 - [ ] `WS_RP_MS_Metadata__111` (signed `x509_hash`, `x509_san_dns`, or `decentralized_identifier` request)
 - [ ] `WS_RP_MS_Metadata__129` (valid default `x509_hash` certificate-hash binding)
 - [ ] `WS_RP_MS_Metadata__131` (request signed by the default x509 leaf key)

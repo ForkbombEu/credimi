@@ -743,3 +743,14 @@ observed. Do not substitute screenshots or decrypted results. The next live
 run must inspect `raw.request_uri_http` for 047 and
 `raw.presentation_response_http.body` for all direct_post.jwt cases; 129–131
 must validate the original compact JWE against delivered client metadata.
+
+## Case 038
+
+`WS_RP_MS_ProtocolMessages__038` uses the dedicated Capture Wallet plain
+redirect-URI scenario. It creates an unsigned `request_delivery: plain`
+Authorization Request with `client_id_scheme: redirect_uri`, preserves the
+returned Authorization Request, and captures the session response and Maestro
+screenshots. Assertions require the `redirect_uri:` client identifier prefix, a
+returned `vp_token`, and non-empty visual evidence. The source and Capture
+Wallet contract establish all three evidence boundaries; a live reference
+Wallet run remains required before claiming a conformance result.
