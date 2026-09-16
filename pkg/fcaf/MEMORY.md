@@ -848,3 +848,11 @@ that signed request metadata omits the encryption override, and checks the
 original compact JWE protected header defaults `enc` to `A128GCM`. An emulator
 is not connected, so a live reference-Wallet run remains required before
 claiming a conformance result.
+
+## Case 133
+
+`WS_RP_MS_ProtocolMessages__133` shares the default direct-post.jwt scenario
+and requires raw Capture HTTP evidence: the response must use `POST` and contain
+only a non-empty `response` form parameter. Screenshot evidence proves the
+Wallet flow proceeded. An emulator is not connected, so a live reference-Wallet
+run remains required before claiming a conformance result.

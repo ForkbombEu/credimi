@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__133
-title: FCAF WS_RP_MS_ProtocolMessages__133
+title: Return the direct-post JWT Authorization Response by HTTP POST.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__133.md
 suite:
@@ -20,12 +20,14 @@ evidence:
   visual_evidence:
     from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__133_response_is_post
+- id: direct_post_jwt_response_is_posted
   validator: oid4vp.presentation_response_http
   input: evidence.capture_session
   params:
     method: POST
-- id: ws_rp_ms_protocolmessages__133_visual_evidence_stored
+    require_response_parameter: true
+    response_only: true
+- id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:
