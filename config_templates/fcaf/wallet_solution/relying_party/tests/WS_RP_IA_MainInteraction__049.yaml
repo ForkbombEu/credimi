@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__049
-title: FCAF WS_RP_IA_MainInteraction__049
+title: Submit the direct-post JWT response form-encoded.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__049.md
 suite:
@@ -20,14 +20,15 @@ evidence:
   visual_evidence:
     from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__049_response_form
+- id: direct_post_jwt_response_is_form_encoded
   validator: oid4vp.presentation_response_http
   input: evidence.capture_session
   params:
     method: POST
     media_type: application/x-www-form-urlencoded
     require_response_parameter: true
-- id: ws_rp_ia_maininteraction__049_visual_evidence
+    response_only: true
+- id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

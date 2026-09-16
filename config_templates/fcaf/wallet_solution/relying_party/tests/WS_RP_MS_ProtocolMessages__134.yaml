@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__134
-title: FCAF WS_RP_MS_ProtocolMessages__134
+title: Submit the encrypted direct-post JWT response as a form-encoded POST.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__134.md
 suite:
@@ -17,10 +17,12 @@ normative_references:
 evidence:
   capture_session:
     from: pipeline.direct-post-jwt.response-transport.outputs.capture_session
+  encryption_evidence:
+    from: pipeline.direct-post-jwt.response-transport.outputs.default_encryption_evidence
   visual_evidence:
     from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__134_response_form
+- id: direct_post_jwt_response_is_form_encoded
   validator: oid4vp.presentation_response_http
   input: evidence.capture_session
   params:
@@ -28,7 +30,14 @@ assertions:
     media_type: application/x-www-form-urlencoded
     require_response_parameter: true
     response_only: true
-- id: ws_rp_ms_protocolmessages__134_visual_evidence_stored
+    form_utf8: true
+- id: response_parameter_contains_compact_jwe
+  validator: oid4vp.response_encryption
+  input: evidence.encryption_evidence
+  params:
+    expected_enc: A128GCM
+    metadata_enc_absent: true
+- id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

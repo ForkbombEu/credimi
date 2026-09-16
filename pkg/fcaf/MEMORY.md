@@ -856,3 +856,21 @@ and requires raw Capture HTTP evidence: the response must use `POST` and contain
 only a non-empty `response` form parameter. Screenshot evidence proves the
 Wallet flow proceeded. An emulator is not connected, so a live reference-Wallet
 run remains required before claiming a conformance result.
+
+## Case 134
+
+`WS_RP_MS_ProtocolMessages__134` shares the default direct-post.jwt scenario.
+It requires raw HTTP `POST`, `application/x-www-form-urlencoded`, valid UTF-8,
+and a body containing only `response`; the value must be an original compact
+JWE with default `A128GCM` encryption. An emulator is not connected, so a live
+reference-Wallet run remains required before claiming a conformance result.
+
+## Case 049
+
+`WS_RP_IA_MainInteraction__049` shares the default direct-post.jwt scenario and
+requires the captured Wallet exchange to be a form-encoded `POST` whose body
+contains only the `response` parameter. `WS_RP_IA_MainInteraction__052` (UTF-8
+form encoding) and `054` (POST to the response URI) still bind the same session
+with weaker assertions and remain next in the response-transport group. An
+emulator is not connected, so a live reference-Wallet run remains required
+before claiming a conformance result.
