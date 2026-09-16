@@ -775,3 +775,13 @@ Wallet-flow screenshot evidence. A direct probe created the default session
 and confirmed the returned client ID matches the leaf hash. An emulator is not
 connected, so a live reference-Wallet run remains required before claiming a
 conformance result.
+
+## Case 131
+
+`WS_RP_MS_Metadata__131` shares the exact default-`x509_hash` scenario owned
+by case 129: the same Request Object must carry the leaf certificate whose
+public key verifies its JWS signature. Its dedicated assertion uses
+`jose.jws_signed_request`, which parses the `x5c` leaf and verifies the compact
+JWS with that certificate's public key; visual evidence proves the Wallet flow
+proceeded. An emulator is not connected, so a live reference-Wallet run remains
+required before claiming a conformance result.
