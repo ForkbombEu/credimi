@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ArrowRightIcon, EllipsisVerticalIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	import A from '@/components/ui-custom/a.svelte';
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
@@ -31,21 +32,40 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { workflows }: Props = $props();
 
-	const PARENT_COLUMN_COUNT = 9;
-
-	let expandedRunId = $state<string | null>(null);
+	const expandedRunIds = new SvelteSet<string>();
 
 	$effect(() => {
-		if (
-			expandedRunId &&
-			!workflows.some((workflow) => workflow.execution.runId === expandedRunId)
-		) {
-			expandedRunId = null;
+		const validIds = collectRunIds(workflows);
+		for (const id of [...expandedRunIds]) {
+			if (!validIds.has(id)) {
+				expandedRunIds.delete(id);
+			}
 		}
 	});
 
+	function collectRunIds(
+		items: Array<{ execution: { runId: string }; children?: WorkflowExecutionSummary[] }>,
+		ids = new SvelteSet<string>()
+	): SvelteSet<string> {
+		for (const item of items) {
+			ids.add(item.execution.runId);
+			if (item.children?.length) {
+				collectRunIds(item.children, ids);
+			}
+		}
+		return ids;
+	}
+
 	function toggleChildren(runId: string) {
-		expandedRunId = expandedRunId === runId ? null : runId;
+		if (expandedRunIds.has(runId)) {
+			expandedRunIds.delete(runId);
+		} else {
+			expandedRunIds.add(runId);
+		}
+	}
+
+	function statusPadding(depth: number): string {
+		return `${depth * 1.5}rem`;
 	}
 </script>
 
@@ -73,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const children = (workflow.children ?? []) as WorkflowExecutionSummary[]}
 						{@const count = children.length}
 						{@const isExpanded =
-							expandedRunId === workflow.execution.runId && count > 0}
+							expandedRunIds.has(workflow.execution.runId) && count > 0}
 						<tr>
 							<td>
 								<WorkflowStatusTag
@@ -170,69 +190,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</td>
 						</tr>
 						{#if isExpanded}
-							<tr class="bg-slate-50">
-								<td colspan={PARENT_COLUMN_COUNT} class="px-2 py-2">
-									<table class="w-full text-xs">
-										<thead>
-											<tr>
-												<th class="rounded-l-sm">{m.Status()}</th>
-												<th>{m.Type()}</th>
-												<th>{m.Duration()}</th>
-												<th class="rounded-r-sm">{m.details()}</th>
-											</tr>
-										</thead>
-										<tbody>
-											{#each children as child (child.execution.runId)}
-												<tr>
-													<td>
-														<WorkflowStatusTag
-															status={child.status}
-															failureReason={child.failure_reason}
-															size="sm"
-														/>
-													</td>
-													<td>
-														<div class="flex min-w-0 flex-col gap-0.5">
-															<span class="truncate font-medium">
-																{child.type.name}
-															</span>
-															<span
-																class="truncate text-muted-foreground"
-															>
-																{child.displayName}
-															</span>
-														</div>
-													</td>
-													<td class="text-muted-foreground">
-														{#if child.duration}
-															{child.duration}
-														{:else}
-															{@render na()}
-														{/if}
-													</td>
-													<td>
-														<A
-															href={resolve(
-																'/my/tests/runs/[workflow_id]/[run_id]',
-																{
-																	workflow_id:
-																		child.execution.workflowId,
-																	run_id: child.execution.runId
-																}
-															)}
-														>
-															{m.View()}
-															<ArrowRightIcon
-																class="inline-block size-3 -translate-y-px"
-															/>
-														</A>
-													</td>
-												</tr>
-											{/each}
-										</tbody>
-									</table>
-								</td>
-							</tr>
+							{@render childRows(children, 1)}
 						{/if}
 					{/each}
 				</tbody>
@@ -240,6 +198,83 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 </TemporalI18nProvider>
+
+{#snippet childRows(children: WorkflowExecutionSummary[], depth: number)}
+	{#each children as child (child.execution.runId)}
+		{@const nested = child.children ?? []}
+		{@const nestedCount = nested.length}
+		{@const nestedExpanded = expandedRunIds.has(child.execution.runId) && nestedCount > 0}
+		<tr class="bg-slate-50">
+			<td style:padding-left={statusPadding(depth)}>
+				<WorkflowStatusTag
+					status={child.status}
+					failureReason={child.failure_reason}
+					size="sm"
+				/>
+			</td>
+			<td colspan="2">
+				<div class="flex min-w-0 flex-col gap-0.5">
+					<span class="truncate font-medium">
+						{child.type.name}
+					</span>
+					<span class="truncate text-muted-foreground">
+						{child.displayName}
+					</span>
+				</div>
+			</td>
+			<td class="text-muted-foreground">
+				{#if child.startTime}
+					{child.startTime}
+				{:else}
+					{@render na()}
+				{/if}
+			</td>
+			<td class="text-muted-foreground">
+				{#if child.endTime}
+					{child.endTime}
+				{:else}
+					{@render na()}
+				{/if}
+			</td>
+			<td class="text-muted-foreground">
+				{#if child.duration}
+					{child.duration}
+				{:else}
+					{@render na()}
+				{/if}
+			</td>
+			<td>
+				{#if nestedCount > 0}
+					<button
+						type="button"
+						class="text-primary hover:underline"
+						aria-expanded={nestedExpanded}
+						onclick={() => toggleChildren(child.execution.runId)}
+					>
+						{m.count_children({ count: nestedCount })}
+					</button>
+				{:else}
+					<span class="text-muted-foreground opacity-50">—</span>
+				{/if}
+			</td>
+			<td>
+				<A
+					href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+						workflow_id: child.execution.workflowId,
+						run_id: child.execution.runId
+					})}
+				>
+					{m.View()}
+					<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
+				</A>
+			</td>
+			<td></td>
+		</tr>
+		{#if nestedExpanded}
+			{@render childRows(nested, depth + 1)}
+		{/if}
+	{/each}
+{/snippet}
 
 {#snippet na()}
 	<span class="text-muted-foreground opacity-50">N/A</span>
