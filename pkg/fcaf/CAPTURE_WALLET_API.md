@@ -184,20 +184,25 @@ the same `POST /openid4vp/sessions` call that returns it, so a caller cannot
 reproduce it: omit `jwks` to keep it, and expect `invalid_client_metadata` when
 `jwks` is replaced or nulled without the flag below.
 
-`allow_undecryptable_response: true` waives that check and publishes the supplied
-`jwks` verbatim, including a foreign, static, `alg`-less, or deliberately
-mismatched key. It exists only to build requests no Wallet should answer. The
-service can then no longer decrypt a `direct_post.jwt` response, a Wallet that
-answers anyway is captured as a decryption failure, and every such request
-records a `vp_undecryptable_response_allowed` event. Without a `client_metadata`
-object it is rejected with
-`allow_undecryptable_response_requires_client_metadata`.
+`allow_undecryptable_response: true` waives that check and publishes a supplied
+replacement `jwks` verbatim, including a foreign, static, `alg`-less, or
+deliberately mismatched key. Set `"jwks": null` to omit `jwks` entirely, or set
+`"jwks": {"keys":[]}` to publish an empty key set; both require the flag.
+It exists only to build requests no Wallet should answer. The service can then
+no longer decrypt a `direct_post.jwt` response, a Wallet that answers anyway is
+captured as a decryption failure, and every such request records a
+`vp_undecryptable_response_allowed` event. Without a `client_metadata` object
+it is rejected with `allow_undecryptable_response_requires_client_metadata`.
 
 Observed on beta 17/09/2026: with the flag, a static P-256 `use: enc` key was
 published verbatim both without `alg` and with `alg: ECDH-ES+A256KW`; the same
-body without the flag returned `400 {"error":"invalid_client_metadata"}`. This
-is the only way to build the verifier-JWK negative preconditions used by
-`WS_RP_SM_SessionEncryption__002` and `WS_RP_SM_SessionEncryption__003`.
+body without the flag returned `400 {"error":"invalid_client_metadata"}`.
+`"jwks": null` omitted the member from the signed Request Object (session
+`bca854ad-9d91-4ea4-a53e-065aa6916a34`), while an empty metadata object retained
+the generated key. These controls can construct the missing-encryption-key
+precondition for `WS_RP_SM_SessionEncryption__006` and the static-key-reuse
+precondition for `WS_RP_SM_SessionEncryption__010`; they do not prove a Wallet
+outcome without a Wallet interaction.
 
 A `client_metadata` value nested inside `presentation_request` is discarded
 without an error, and the generated metadata is used. `scheme`,
@@ -206,6 +211,14 @@ without an error, and the generated metadata is used. `scheme`,
 `response_type`, `dcql_query`, `nonce`, `scopes`, `transaction_data`, and
 `verifier_info` are honoured in both positions, and a top-level `response_type`
 wins over a nested one.
+
+Observed on beta 17/09/2026: omitting `nonce` entirely generates a service
+nonce, but setting `presentation_request.nonce` to `null` omits the claim from
+the signed Request Object (session `302c9402-d95a-427d-b93b-cbde2f01301e`).
+A non-empty supplied nonce is preserved verbatim, including `fcaf nonce/!`
+(session `9b24ae01-8c79-4283-9cef-d38a93a7ddbf`). These controls make the missing-
+and malformed-nonce request preconditions for `WS_RP_SM_SessionBinding__002`
+and `WS_RP_SM_SessionBinding__003` constructible.
 
 When a session sets `redirect_uri`, the service appends a fresh 128-bit
 `response_code` and returns the resulting URI in the creation response. After a
@@ -289,6 +302,15 @@ retrieval method and redacted headers, and adds the exact POST body when one was
 received. The capture is attached to the session-specific `/request` endpoint;
 the published schema does not expose a separate raw request-target or query
 field.
+
+Observed on beta 17/09/2026: the raw record for session
+`627e4f90-b955-43c5-bd3e-c03edd1b2487` preserved a POST method, the
+`application/x-www-form-urlencoded` and `application/oauth-authz-req+jwt`
+headers, and the exact percent-encoded body
+`wallet_nonce=%FF&extra=%E2%82%AC`. The capture can therefore distinguish
+invalid UTF-8 form values from correctly UTF-8-encoded values; it can support
+the evidence requirements for `WS_RP_MS_ProtocolMessages__042` and
+`WS_RP_MS_ProtocolMessages__044`.
 
 The direct-post endpoints return `200` only when the presentation was captured
 and verified. A failed verifier check and a Wallet's decision to send no

@@ -1275,3 +1275,48 @@ Engine runs confirmed: both responses keyed to their own request pass; a second
 response reusing the first key fails only the second pairing assertion; and two
 identical request objects fail the distinctness assertion, so a verifier that
 stopped rotating keys cannot yield a false pass.
+
+## Blocked-test Capture Wallet review, 17/09/2026
+
+The blocked backlog was compared again with the current Capture Wallet contract
+and direct beta probes. Five formerly blocked tests have a complete service-side
+precondition and evidence path: `WS_RP_SM_SessionBinding__003`,
+`WS_RP_SM_SessionEncryption__006`, `WS_RP_SM_SessionEncryption__010`,
+`WS_RP_MS_ProtocolMessages__042`, and `WS_RP_MS_ProtocolMessages__044`.
+They are listed as ready to implement in the assertion-review backlog; each
+still requires its own reference-Wallet execution.
+
+The beta probes established that `presentation_request.nonce: null` omits
+`nonce` from the signed Request Object, a supplied nonce is preserved, `jwks:
+null` with `allow_undecryptable_response` removes verifier encryption keys, and
+the same static encryption JWK can be published across sessions. The
+`raw.request_uri_http` record preserves the request method, redacted headers,
+and exact percent-encoded POST body. The synthetic HTTP probe proves Capture's
+recording capability, not the reference Wallet's behavior.
+
+`WS_RP_SM_SessionBinding__002` now owns
+`fcaf-wallet-solution-relying-party-session-binding-missing-nonce`. Its signed
+request must omit `nonce`; `oid4vp.error_response_required` requires the
+Wallet's `invalid_request` without a presentation, and visual evidence remains
+mandatory. The previous generic session-binding scenario no longer claims this
+case. No mobile runner was available for a reference-Wallet execution.
+
+Every other entry remains blocked: its stated certificate, trust-list,
+credential-fixture, Request Object signing, transport, client-identifier,
+Digital Credentials API, or Wallet-profile prerequisite is not exposed by the
+published contract or the beta probes.
+
+## Case 003, SessionBinding non-URL-safe nonce
+
+`WS_RP_SM_SessionBinding__003` owns
+`fcaf-wallet-solution-relying-party-session-binding-invalid-nonce`. It sends
+the exact nonce `fcaf nonce/!`, which beta Capture preserved verbatim in the
+signed Request Object (session `9b24ae01-8c79-4283-9cef-d38a93a7ddbf`).
+`jwt.payload_field_equals` proves that precondition, while
+`oid4vp.error_response_required` requires `invalid_request` with no
+presentation and the scenario retains visual evidence.
+
+The old shared `dcql-session-binding` scenario is deleted because it no longer
+owns a source-specific assertion. No mobile runner was available to establish
+the reference Wallet's actual refusal response; the scenario will fail rather
+than fabricate that evidence.

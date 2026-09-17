@@ -6397,48 +6397,6 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-same-credential-multiple-querie-28308591-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
-      id: dcql-session-binding-a642defc-create-capture-session
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: session-binding
-            request_delivery: by_reference
-            request_uri_method: post
-            response_mode: direct_post
-            response_type: vp_token
-            scheme: haip-vp://
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: dcql-session-binding-a642defc-exercise-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-        parameters:
-            deeplink: ${{ dcql-session-binding-a642defc-create-capture-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-session-binding-a642defc-fetch-capture-session
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-session-binding-a642defc-create-capture-session.outputs.body.session_id }}
-    - continue_on_error: true
       id: dcql-session-encryption-210827bd-create-capture-session
       use: http-request
       with:
@@ -9790,6 +9748,90 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-per-request-keys-4f12992b-create-second-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: session-binding-invalid-nonce-0c3e8d16-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf nonce/!
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: session-binding-invalid-nonce-0c3e8d16-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ session-binding-invalid-nonce-0c3e8d16-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: session-binding-invalid-nonce-0c3e8d16-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ session-binding-invalid-nonce-0c3e8d16-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: session-binding-missing-nonce-2d9d51e7-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: null
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: session-binding-missing-nonce-2d9d51e7-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ session-binding-missing-nonce-2d9d51e7-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: session-binding-missing-nonce-2d9d51e7-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ session-binding-missing-nonce-2d9d51e7-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: session-binding-valid-nonce-aa3a1f9c-create-presentation
       use: http-request
       with:
@@ -10993,10 +11035,6 @@ steps:
                     get-presentation-result: ${{ dcql-same-credential-multiple-querie-28308591-get-presentation-result.outputs | optional }}
                     present-and-share: ${{ dcql-same-credential-multiple-querie-28308591-present-and-share.outputs | optional }}
                     visual_evidence: ${{ dcql-same-credential-multiple-querie-28308591-present-and-share.outputs.flow_output.maestro_screenshot_urls | optional }}
-            pipeline.dcql.session-binding:
-                output:
-                    dcql_exchange: ${{ dcql-session-binding-a642defc-fetch-capture-session.outputs.body | optional }}
-                    visual_evidence: ${{ dcql-session-binding-a642defc-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.session-encryption:
                 output:
                     dcql_exchange: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body | optional }}
@@ -11274,6 +11312,16 @@ steps:
                         presentation_response_http: ${{ response-encryption-per-request-keys-4f12992b-fetch-second-capture-session.outputs.body.raw.presentation_response_http | optional }}
                         request_object: ${{ response-encryption-per-request-keys-4f12992b-fetch-second-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-per-request-keys-4f12992b-exercise-wallet-for-second-request.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.session-binding.invalid-nonce:
+                output:
+                    capture_session: ${{ session-binding-invalid-nonce-0c3e8d16-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ session-binding-invalid-nonce-0c3e8d16-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ session-binding-invalid-nonce-0c3e8d16-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.session-binding.missing-nonce:
+                output:
+                    capture_session: ${{ session-binding-missing-nonce-2d9d51e7-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ session-binding-missing-nonce-2d9d51e7-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ session-binding-missing-nonce-2d9d51e7-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.engagement.haip-vp:
                 output:
                     create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}

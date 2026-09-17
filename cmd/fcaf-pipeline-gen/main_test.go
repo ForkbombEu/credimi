@@ -29,7 +29,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 634)
+	require.Len(t, definition.Steps, 637)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
@@ -63,7 +63,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 			"each response-encryption case needs its own verifier metadata scenario",
 		)
 	}
-	require.Len(t, with["pipeline_outputs"], 178)
+	require.Len(t, with["pipeline_outputs"], 179)
 
 	committed, err := os.ReadFile(filepath.Join(
 		root,

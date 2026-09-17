@@ -1,4 +1,8 @@
-name: FCAF Session Binding
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF wallet relying-party missing nonce session binding
 runtime:
   fixture:
     issuer_url: https://beta-capture-wallet.credimi.io
@@ -26,7 +30,7 @@ steps:
       response_type: vp_token
       response_mode: direct_post
       presentation_request:
-        nonce: session-binding
+        nonce: null
         dcql_query:
           credentials:
           - id: pid
@@ -40,10 +44,10 @@ steps:
 - id: exercise-wallet
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
 - id: fetch-capture-session
   use: http-request
   with:
@@ -54,11 +58,11 @@ steps:
   use: fcaf-validation
   with:
     test_ids:
-      - WS_RP_SM_SessionBinding__002
-      - WS_RP_SM_SessionBinding__003
+    - WS_RP_SM_SessionBinding__002
     suite: wallet_solution/relying_party
     pipeline_outputs:
-      pipeline.dcql.session-binding:
+      pipeline.session-binding.missing-nonce:
         output:
-          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          capture_session: ${{ fetch-capture-session.outputs.body }}
+          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
