@@ -10,8 +10,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" generics="R extends DashboardRecord">
 	import type { Snippet } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 
-	import { ArrowDown, ArrowUp } from '@lucide/svelte';
+	import { ArrowDown, ArrowUp, EllipsisVertical } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { getCustomCheckPublicUrl } from '$lib/hub/utils';
 	import { getPath, mergePaths } from '$lib/utils';
@@ -31,7 +32,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import { buttonVariants } from '@/components/ui/button';
+	import * as DropdownMenu from '@/components/ui/dropdown-menu';
 	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
 	import { Collections, type CustomChecksResponse } from '@/pocketbase/types';
 
 	import LabelLink from './label-link.svelte';
@@ -47,6 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		subtitle?: string;
 		badge?: string;
 		actions?: Snippet;
+		secondaryActions?: Snippet;
 		editAction?: Snippet;
 		publishAction?: Snippet;
 		nameRight?: Snippet;
@@ -63,6 +68,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		subtitle,
 		badge,
 		actions,
+		secondaryActions,
 		editAction,
 		publishAction,
 		nameRight,
@@ -102,18 +108,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const hideActionsList = $derived(hideActions === true ? ['all'] : hideActions);
+
+	const showPublish = $derived(!hideActionsList.includes('publish'));
+	const showClone = $derived(!hideActionsList.includes('clone'));
+	const showEdit = $derived(Boolean(editAction) || !hideActionsList.includes('edit'));
+	const showDelete = $derived(!hideActionsList.includes('delete'));
+	const hasSecondaryControls = $derived(
+		showPublish || Boolean(secondaryActions) || showClone || showEdit || showDelete
+	);
+
+	/** Shared with Run now `@[48rem]` — inline secondary vs overflow menu. */
+	const secondaryInlineMinWidthPx = 48 * 16;
+
+	let isCompactHeader = $state(true);
+
+	const observeHeaderCompact: Attachment = (el) => {
+		const update = () => {
+			isCompactHeader = el.clientWidth < secondaryInlineMinWidthPx;
+		};
+
+		update();
+		if (typeof ResizeObserver === 'undefined') return;
+
+		const observer = new ResizeObserver(update);
+		observer.observe(el);
+		return () => observer.disconnect();
+	};
 </script>
 
 <Card
 	id={record.canonified_name}
-	class="scroll-mt-5 rounded-sm bg-card"
+	class="@container scroll-mt-5 rounded-sm bg-card"
 	contentClass="space-y-3 p-4"
 >
-	<div class="flex items-center justify-between gap-3">
-		<div class="flex items-center gap-4">
-			<Avatar src={avatarSrc} fallback={record.name} class="rounded-sm border" />
-			<div class="space-y-1">
-				<div class="flex items-center gap-2">
+	<div {@attach observeHeaderCompact} class="flex items-center justify-between gap-3">
+		<div class="flex min-w-0 flex-1 items-center gap-4">
+			<Avatar src={avatarSrc} fallback={record.name} class="shrink-0 rounded-sm border" />
+			<div class="min-w-0 space-y-1">
+				<div class="flex min-w-0 items-center gap-2">
 					<LabelLink
 						label={record.name}
 						href={publicUrl}
@@ -121,10 +153,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						textToCopy={getPath(record)}
 					/>
 					{#if nameRight}
-						{@render nameRight()}
+						<div class="shrink-0">
+							{@render nameRight()}
+						</div>
 					{/if}
 					{#if badge}
-						<Badge variant="secondary">{badge}</Badge>
+						<Badge variant="secondary" class="shrink-0">{badge}</Badge>
 					{/if}
 				</div>
 				{#if subtitle}
@@ -134,35 +168,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		{#if hideActions !== true}
-			<div class="flex items-center gap-2">
-				{#if !hideActionsList.includes('publish')}
-					{#if publishAction}
-						{@render publishAction()}
-					{:else}
-						<PublishedSwitch record={record as DashboardRecord} field="published" />
-					{/if}
-				{/if}
-
+			<div class="flex shrink-0 items-center gap-2">
 				{@render actions?.()}
 
-				{#if !hideActionsList.includes('clone')}
-					<RecordClone
-						collectionName={record.collectionName}
-						recordId={record.id}
-						size="md"
-					/>
-				{/if}
-
-				{#if editAction}
-					{@render editAction()}
-				{:else if !hideActionsList.includes('edit')}
-					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
-					<RecordEdit record={record as any} />
-				{/if}
-
-				{#if !hideActionsList.includes('delete')}
-					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
-					<RecordDelete record={record as any} />
+				{#if hasSecondaryControls}
+					{#if isCompactHeader}
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger
+								class={buttonVariants({ variant: 'outline', size: 'icon' })}
+							>
+								<EllipsisVertical class="size-4" aria-hidden="true" />
+								<span class="sr-only">{m.Actions()}</span>
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content
+								align="end"
+								class="flex max-w-xs flex-wrap items-center gap-2 p-2"
+							>
+								{@render secondaryControls()}
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
+					{:else}
+						<div class="flex items-center gap-2">
+							{@render secondaryControls()}
+						</div>
+					{/if}
 				{/if}
 			</div>
 		{/if}
@@ -214,6 +243,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render content()}
 	{/if}
 </Card>
+
+{#snippet secondaryControls()}
+	{#if showPublish}
+		{#if publishAction}
+			{@render publishAction()}
+		{:else}
+			<PublishedSwitch record={record as DashboardRecord} field="published" />
+		{/if}
+	{/if}
+
+	{@render secondaryActions?.()}
+
+	{#if showClone}
+		<RecordClone collectionName={record.collectionName} recordId={record.id} size="md" />
+	{/if}
+
+	{#if editAction}
+		{@render editAction()}
+	{:else if showEdit}
+		<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+		<RecordEdit record={record as any} />
+	{/if}
+
+	{#if showDelete}
+		<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+		<RecordDelete record={record as any} />
+	{/if}
+{/snippet}
 
 {#snippet infoLink(props: { label: string; href?: string | null })}
 	<div class="flex items-center gap-1">
