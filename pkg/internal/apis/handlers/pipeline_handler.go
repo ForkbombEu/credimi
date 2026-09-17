@@ -815,7 +815,6 @@ func HandleListPipelineExecutionHistory() func(*core.RequestEvent) error {
 				return e.JSON(http.StatusOK, paginateQueuedPipelineSummaries(
 					e.App,
 					queuedForPipeline,
-					scope.Auth.GetString("Timezone"),
 					limit,
 					itemOffset,
 				))
@@ -826,7 +825,6 @@ func HandleListPipelineExecutionHistory() func(*core.RequestEvent) error {
 				queuedSummaries := paginateQueuedPipelineSummaries(
 					e.App,
 					queuedForPipeline,
-					scope.Auth.GetString("Timezone"),
 					limit,
 					itemOffset,
 				)
@@ -890,7 +888,6 @@ func listPipelineExecutionHistoryPage(
 		TemporalClient:     temporalClient,
 		Namespace:          scope.Namespace,
 		OwnerID:            scope.Organization.Id,
-		UserTimezone:       scope.Auth.GetString("Timezone"),
 		PipelineRecord:     scope.Pipeline,
 		PipelineIdentifier: scope.PipelineIdentifier,
 		StatusFilter:       statusFilter,
@@ -998,7 +995,6 @@ func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 			e.App,
 			temporalClient,
 			scope.Namespace,
-			scope.Auth.GetString("Timezone"),
 		)
 		summary, err := builder.Build(
 			e.Request.Context(),
@@ -1071,14 +1067,12 @@ func queuedOnlyPipelineExecutions(statusFilter string) bool {
 func paginateQueuedPipelineSummaries(
 	app core.App,
 	queuedRuns []QueuedPipelineRunAggregate,
-	userTimezone string,
 	limit int,
 	offset int,
 ) []*pipelineWorkflowSummary {
 	summaries := buildQueuedPipelineSummaries(
 		app,
 		queuedRuns,
-		userTimezone,
 		map[string]map[string]any{},
 	)
 	if len(summaries) == 0 || limit <= 0 || offset >= len(summaries) {
@@ -1244,7 +1238,6 @@ func HandleListPipelineExecutionOverview() func(*core.RequestEvent) error {
 			e.App,
 			temporalClient,
 			namespace,
-			authRecord.GetString("Timezone"),
 		)
 
 		for pipelineID, executions := range selectedExecutions {
@@ -1281,7 +1274,6 @@ func HandleListPipelineExecutionOverview() func(*core.RequestEvent) error {
 			e.App,
 			response,
 			queuedByPipelineID,
-			authRecord.GetString("Timezone"),
 			builder.runnerCache,
 		)
 

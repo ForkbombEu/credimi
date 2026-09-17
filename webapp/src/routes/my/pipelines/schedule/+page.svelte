@@ -7,7 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ArrowLeft, Ellipsis } from '@lucide/svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
+	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import { omit } from 'lodash';
+	import { fromStore } from 'svelte/store';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -15,6 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
+	import { currentUser } from '@/pocketbase';
 
 	import ScheduleActions from '../_partials/schedule-actions.svelte';
 	import ScheduleStateDisplay from '../_partials/schedule-state-display.svelte';
@@ -30,6 +33,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	let { organization } = $derived(data);
+
+	const user = fromStore(currentUser);
+	const timezone = $derived(user.current?.Timezone);
 
 	setDashboardNavbar({ title: m.Scheduled_pipelines(), right: navbarRight });
 </script>
@@ -107,7 +113,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</Table.Cell>
 								<Table.Cell>
 									{#if state === 'active'}
-										{status.next_action_time}
+										{@const nextRun = formatExecutionTimestamp(
+											status.next_action_time,
+											timezone
+										)}
+										{#if nextRun}
+											<span class="font-mono">{nextRun}</span>
+										{:else}
+											<span class="text-slate-400">N/A</span>
+										{/if}
 									{:else}
 										<span class="text-slate-400">N/A</span>
 									{/if}

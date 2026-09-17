@@ -10,11 +10,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ArrowRightIcon, EllipsisVerticalIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
+	import {
+		formatEndClock,
+		splitExecutionTimes,
+		type SplitExecutionTimes
+	} from '$lib/workflows/format-execution-time';
+	import { fromStore } from 'svelte/store';
 
 	import A from '@/components/ui-custom/a.svelte';
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
+	import { currentUser } from '@/pocketbase';
 
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
@@ -31,7 +38,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { workflows }: Props = $props();
 
-	const PARENT_COLUMN_COUNT = 9;
+	const PARENT_COLUMN_COUNT = 10;
+
+	const user = fromStore(currentUser);
+	const timezone = $derived(user.current?.Timezone);
 
 	let expandedRunId = $state<string | null>(null);
 
@@ -47,6 +57,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function toggleChildren(runId: string) {
 		expandedRunId = expandedRunId === runId ? null : runId;
 	}
+
+	function parentTimeParts(workflow: ExecutionSummary): SplitExecutionTimes | undefined {
+		if (workflow.queue) {
+			if (!workflow.enqueuedAt) return undefined;
+			return splitExecutionTimes(workflow.enqueuedAt, undefined, timezone);
+		}
+		return splitExecutionTimes(workflow.startTime, workflow.endTime, timezone);
+	}
 </script>
 
 <TemporalI18nProvider>
@@ -58,7 +76,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<th class="rounded-l-sm">{m.Status()}</th>
 						<th>Device</th>
 						<th>{m.Results()}</th>
-						<th>{m.Start_time()}</th>
+						<th>{m.Date()}</th>
+						<th>{m.start()}</th>
 						<th>{m.End_time()}</th>
 						<th>{m.Duration()}</th>
 						<th>{m.Children()}</th>
@@ -74,6 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const count = children.length}
 						{@const isExpanded =
 							expandedRunId === workflow.execution.runId && count > 0}
+						{@const parts = parentTimeParts(workflow)}
 						<tr>
 							<td>
 								<WorkflowStatusTag
@@ -101,20 +121,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{@render na()}
 								{/if}
 							</td>
-							<td class="text-muted-foreground">
-								{#if workflow.queue}
-									{@render na()}
-								{:else}
-									{workflow.startTime}
-								{/if}
-							</td>
-							<td class="text-muted-foreground">
-								{#if workflow.endTime !== ''}
-									{workflow.endTime}
-								{:else}
-									{@render na()}
-								{/if}
-							</td>
+							{@render timeCells(parts)}
 							<td class="text-muted-foreground">
 								{#if workflow.duration}
 									{workflow.duration}
@@ -177,12 +184,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											<tr>
 												<th class="rounded-l-sm">{m.Status()}</th>
 												<th>{m.Type()}</th>
+												<th>{m.Date()}</th>
+												<th>{m.start()}</th>
+												<th>{m.End_time()}</th>
 												<th>{m.Duration()}</th>
 												<th class="rounded-r-sm">{m.details()}</th>
 											</tr>
 										</thead>
 										<tbody>
 											{#each children as child (child.execution.runId)}
+												{@const childParts = splitExecutionTimes(
+													child.startTime,
+													child.endTime,
+													timezone
+												)}
 												<tr>
 													<td>
 														<WorkflowStatusTag
@@ -203,6 +218,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 															</span>
 														</div>
 													</td>
+													{@render timeCells(childParts)}
 													<td class="text-muted-foreground">
 														{#if child.duration}
 															{child.duration}
@@ -240,6 +256,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 </TemporalI18nProvider>
+
+{#snippet timeCells(parts: SplitExecutionTimes | undefined)}
+	<td class="font-mono text-muted-foreground">
+		{#if parts}
+			{parts.date}
+		{:else}
+			{@render na()}
+		{/if}
+	</td>
+	<td class="font-mono text-muted-foreground">
+		{#if parts}
+			{parts.start}
+		{:else}
+			{@render na()}
+		{/if}
+	</td>
+	<td class="font-mono text-muted-foreground">
+		{#if parts}
+			{@const endClock = formatEndClock(parts)}
+			{#if endClock}
+				{endClock}
+			{:else}
+				{@render na()}
+			{/if}
+		{:else}
+			{@render na()}
+		{/if}
+	</td>
+{/snippet}
 
 {#snippet na()}
 	<span class="text-muted-foreground opacity-50">N/A</span>

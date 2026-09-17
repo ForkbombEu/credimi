@@ -30,6 +30,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-17 - Workflow timestamp presentation ownership
+
+- status: resolved
+- owner: human maintainer (user chose long-term option in chat)
+- context: Pipeline/workflow list APIs localized `startTime`/`endTime`/`enqueuedAt` (and schedule `next_action_time`) to `DD/MM/YYYY, HH:mm:ss` server-side. Dense table UI wants Date + Start + End (`HH:mm`) with a next-day marker, without repeating the calendar date.
+- question: Should Credimi keep server-side prettified datetimes, add display-specific DTO fields, or send RFC3339 and let the webapp format?
+- options considered: (1) frontend-only parse of localized strings; (2) additive API display fields; (3) stop API prettifying, return RFC3339/ISO, UI owns formatting.
+- default risk: Changing string formats breaks clients that assumed localized datetimes; keeping prettifying locks table layout into the API.
+- decision: Option (3). List/summary APIs return RFC3339 instants; webapp formats Date/Start/End (and full timestamps elsewhere) in the user timezone.
+- follow-up: Keep legacy localized-string parse fallback in `parseExecutionTime` until no cached clients remain; consider documenting in AGENTS.md under Routes/DTOs.
+
 ### 2026-08-28 - FCAF runner-to-device identifier mapping
 
 - status: resolved

@@ -59,7 +59,6 @@ func TestBuildExecutionHierarchyNormalizesStatus(t *testing.T) {
 		nil,
 		[]*WorkflowExecution{exec},
 		"owner",
-		"UTC",
 		nil,
 	)
 	require.Len(t, summaries, 1)

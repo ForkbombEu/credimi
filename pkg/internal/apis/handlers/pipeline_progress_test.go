@@ -137,7 +137,7 @@ func TestComputePipelineProgressGuards(t *testing.T) {
 		context.Background(), nil, "tenant/pipeline", nil, "",
 	))
 
-	builder := newPipelineExecutionSummaryBuilder(nil, progressHistoryClient(t, nil), "ns", "UTC")
+	builder := newPipelineExecutionSummaryBuilder(nil, progressHistoryClient(t, nil), "ns")
 	require.Nil(t, computePipelineProgress(
 		context.Background(), builder, "", nil, "",
 	))
@@ -168,7 +168,7 @@ func TestComputePipelineProgressEstimates(t *testing.T) {
 
 	progress := computePipelineProgress(
 		context.Background(),
-		newPipelineExecutionSummaryBuilder(nil, progressHistoryClient(t, executions), "ns", "UTC"),
+		newPipelineExecutionSummaryBuilder(nil, progressHistoryClient(t, executions), "ns"),
 		"tenant/pipeline",
 		nil,
 		now.Add(-30*time.Second).Format(time.RFC3339Nano),

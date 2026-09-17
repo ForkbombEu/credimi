@@ -117,6 +117,14 @@ function parseExecutionTime(execution: ExecutionSummary): number {
 	const value = execution.enqueuedAt ?? execution.startTime;
 	if (!value) return 0;
 
+	// Prefer native Date for ISO/RFC3339. Skip when the value looks like the
+	// legacy localized form so DD/MM is not misread as MM/DD.
+	const looksLocalized = /^\d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}:\d{2}$/.test(value);
+	if (!looksLocalized) {
+		const fromIso = new Date(value).getTime();
+		if (!Number.isNaN(fromIso)) return fromIso;
+	}
+
 	const localizedMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4}), (\d{2}):(\d{2}):(\d{2})$/);
 	if (localizedMatch) {
 		const [, day, month, year, hour, minute, second] = localizedMatch;
@@ -130,5 +138,5 @@ function parseExecutionTime(execution: ExecutionSummary): number {
 		).getTime();
 	}
 
-	return new Date(value).getTime();
+	return 0;
 }

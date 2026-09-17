@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -105,7 +106,7 @@ func RegisterSchedulesHooks(app core.App) {
 
 		nextActionTime := ""
 		if len(desc.Info.NextActionTimes) > 0 {
-			nextActionTime = desc.Info.NextActionTimes[0].Format("02/01/2006, 15:04:05")
+			nextActionTime = desc.Info.NextActionTimes[0].UTC().Format(time.RFC3339)
 		}
 		status := ScheduleStatus{
 			DisplayName:    displayName,

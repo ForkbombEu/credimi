@@ -284,7 +284,7 @@ func TestBuildWorkflowExecutionSummaryFailureReason(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistoryLimitZero(t *testing.T) {
-	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	app, _, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	summaries, err := listPipelineExecutionHistory(
@@ -293,7 +293,6 @@ func TestListPipelineExecutionHistoryLimitZero(t *testing.T) {
 			App:            app,
 			Namespace:      "ns-1",
 			OwnerID:        pipelineRecord.GetString("owner"),
-			UserTimezone:   authRecord.GetString("Timezone"),
 			PipelineRecord: pipelineRecord,
 			Limit:          0,
 		},
@@ -303,7 +302,7 @@ func TestListPipelineExecutionHistoryLimitZero(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistoryTemporalError(t *testing.T) {
-	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	app, _, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	mockClient := &temporalmocks.Client{}
@@ -319,7 +318,6 @@ func TestListPipelineExecutionHistoryTemporalError(t *testing.T) {
 			TemporalClient: mockClient,
 			Namespace:      "ns-1",
 			OwnerID:        pipelineRecord.GetString("owner"),
-			UserTimezone:   authRecord.GetString("Timezone"),
 			PipelineRecord: pipelineRecord,
 			Limit:          1,
 		},
@@ -328,7 +326,7 @@ func TestListPipelineExecutionHistoryTemporalError(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistoryReturnsChildQueryError(t *testing.T) {
-	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	app, _, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 	pipelineIdentifier := pipelineIdentifierForTest(t, app, pipelineRecord)
 
@@ -362,7 +360,6 @@ func TestListPipelineExecutionHistoryReturnsChildQueryError(t *testing.T) {
 			TemporalClient:     mockClient,
 			Namespace:          "ns-1",
 			OwnerID:            pipelineRecord.GetString("owner"),
-			UserTimezone:       authRecord.GetString("Timezone"),
 			PipelineRecord:     pipelineRecord,
 			PipelineIdentifier: pipelineIdentifier,
 			Limit:              1,
@@ -373,7 +370,7 @@ func TestListPipelineExecutionHistoryReturnsChildQueryError(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistoryFilters(t *testing.T) {
-	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	app, _, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	orgID := pipelineRecord.GetString("owner")
@@ -446,7 +443,6 @@ func TestListPipelineExecutionHistoryFilters(t *testing.T) {
 			TemporalClient:     mockClient,
 			Namespace:          "ns-1",
 			OwnerID:            orgID,
-			UserTimezone:       authRecord.GetString("Timezone"),
 			PipelineRecord:     pipelineRecord,
 			PipelineIdentifier: pipelineIdentifier,
 			StatusFilter:       "Completed",
@@ -462,7 +458,7 @@ func TestListPipelineExecutionHistoryFilters(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistorySortsByParsedStartTime(t *testing.T) {
-	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	app, _, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	orgID := pipelineRecord.GetString("owner")
@@ -537,7 +533,6 @@ func TestListPipelineExecutionHistorySortsByParsedStartTime(t *testing.T) {
 			TemporalClient:     mockClient,
 			Namespace:          "ns-1",
 			OwnerID:            orgID,
-			UserTimezone:       authRecord.GetString("Timezone"),
 			PipelineRecord:     pipelineRecord,
 			PipelineIdentifier: pipelineIdentifier,
 			StatusFilter:       "Completed",
@@ -591,7 +586,7 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	}
 
-	builder := newPipelineExecutionSummaryBuilder(app, nil, "", "UTC")
+	builder := newPipelineExecutionSummaryBuilder(app, nil, "")
 	rootSummary, err := builder.Build(
 		context.Background(),
 		nil,
@@ -624,14 +619,11 @@ func TestBuildChildWorkflowParentQueryPipelineResults(t *testing.T) {
 }
 
 func TestFormatQueuedRunTimePipelineResults(t *testing.T) {
-	require.Equal(t, "", formatQueuedRunTime(time.Time{}, "UTC"))
+	require.Equal(t, "", formatQueuedRunTime(time.Time{}))
 
 	ts := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
-	formatted := formatQueuedRunTime(ts, "UTC")
-	require.Equal(t, "02/01/2025, 03:04:05", formatted)
-
-	invalid := formatQueuedRunTime(ts, "bad/timezone")
-	require.NotEmpty(t, invalid)
+	formatted := formatQueuedRunTime(ts)
+	require.Equal(t, "2025-01-02T03:04:05Z", formatted)
 }
 
 func TestMapQueuedRunsToPipelinesPipelineResults(t *testing.T) {
@@ -712,7 +704,7 @@ steps:
       action_id: missing-runner-id
 `)
 
-	builder := newPipelineExecutionSummaryBuilder(app, mockClient, "", "UTC")
+	builder := newPipelineExecutionSummaryBuilder(app, mockClient, "")
 	out, err := builder.Build(
 		context.Background(),
 		pipelineRecord,
@@ -777,7 +769,7 @@ func TestBuildQueuedPipelineSummaries(t *testing.T) {
 		},
 	}
 
-	summaries := buildQueuedPipelineSummaries(nil, queued, "UTC", map[string]map[string]any{})
+	summaries := buildQueuedPipelineSummaries(nil, queued, map[string]map[string]any{})
 	require.Len(t, summaries, 1)
 	require.Equal(t, "pipe-1", summaries[0].DisplayName)
 	require.Equal(t, "pipe-1", summaries[0].PipelineName)
@@ -802,7 +794,6 @@ func TestAppendQueuedPipelineSummaries(t *testing.T) {
 		nil,
 		response,
 		queuedByPipeline,
-		"UTC",
 		map[string]map[string]any{},
 	)
 	require.Len(t, response["pipe-1"], 2)

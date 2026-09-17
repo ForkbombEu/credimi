@@ -519,16 +519,13 @@ func TestComputeChildDisplayNameAdditional(t *testing.T) {
 }
 
 func TestSortExecutionSummariesAdditional(t *testing.T) {
-	loc, err := time.LoadLocation("UTC")
-	require.NoError(t, err)
-
 	list := []*WorkflowExecutionSummary{
 		{StartTime: "2025-01-02T15:04:05Z", EndTime: "2025-01-02T16:04:05Z"},
 		{StartTime: "2025-01-01T15:04:05Z", EndTime: "2025-01-01T16:04:05Z"},
 	}
-	sortExecutionSummaries(list, loc, false)
-	require.Equal(t, "02/01/2025, 15:04:05", list[0].StartTime)
-	require.Equal(t, "01/01/2025, 15:04:05", list[1].StartTime)
+	sortExecutionSummaries(list, false)
+	require.Equal(t, "2025-01-02T15:04:05Z", list[0].StartTime)
+	require.Equal(t, "2025-01-01T15:04:05Z", list[1].StartTime)
 }
 
 func TestBuildWorkflowExecutionHierarchyWithChildAdditional(t *testing.T) {
@@ -564,7 +561,6 @@ func TestBuildWorkflowExecutionHierarchyWithChildAdditional(t *testing.T) {
 		nil,
 		executions,
 		"owner",
-		"UTC",
 		nil,
 	)
 	require.Len(t, roots, 1)
@@ -1857,15 +1853,14 @@ func TestBuildWorkflowExecutionHierarchy(t *testing.T) {
 		app,
 		[]*WorkflowExecution{child, parent},
 		"owner",
-		"UTC",
 		mockClient,
 	)
 	require.Len(t, results, 1)
 	require.Equal(t, "Parent Display", results[0].DisplayName)
 	require.Len(t, results[0].Children, 1)
 	require.Equal(t, "suffix", results[0].Children[0].DisplayName)
-	require.Contains(t, results[0].StartTime, "/")
-	require.Contains(t, results[0].EndTime, "/")
+	require.Equal(t, parent.StartTime, results[0].StartTime)
+	require.Equal(t, parent.CloseTime, results[0].EndTime)
 }
 
 func TestHandleListMyWorkflowsListError(t *testing.T) {
