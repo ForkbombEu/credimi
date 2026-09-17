@@ -1320,3 +1320,23 @@ The old shared `dcql-session-binding` scenario is deleted because it no longer
 owns a source-specific assertion. No mobile runner was available to establish
 the reference Wallet's actual refusal response; the scenario will fail rather
 than fabricate that evidence.
+
+## Case 006, SessionEncryption no bare ECDH-ES verifier JWK
+
+`WS_RP_SM_SessionEncryption__006` owns
+`fcaf-wallet-solution-relying-party-response-encryption-no-ecdh-es-jwk`. The
+source asks specifically for no `client_metadata` JWK whose `alg` value is bare
+`ECDH-ES`; it does not ask for the `jwks` member to be absent. The scenario
+therefore publishes exactly one valid P-256 `use: enc` JWK with
+`alg: ECDH-ES+A256KW` and `allow_undecryptable_response: true`.
+
+`oid4vp.request_encryption_jwk` proves that one required static JWK, while the
+new `oid4vp.request_jwk_value_absent` validator scans every published JWK and
+fails if any has `alg: ECDH-ES`. The source only requires an error, not a
+particular OAuth error code, so `dcql.response_satisfies_constraints` uses
+`wallet_error_required`: it requires a Wallet error and no presentation without
+inventing `invalid_request`.
+
+Capture beta accepted and preserved this exact static key on 17/09/2026. No
+mobile runner was available to establish the reference Wallet's response; the
+scenario remains evidence-strict and fails without that error.

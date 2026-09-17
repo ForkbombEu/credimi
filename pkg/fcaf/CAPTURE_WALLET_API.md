@@ -199,10 +199,11 @@ published verbatim both without `alg` and with `alg: ECDH-ES+A256KW`; the same
 body without the flag returned `400 {"error":"invalid_client_metadata"}`.
 `"jwks": null` omitted the member from the signed Request Object (session
 `bca854ad-9d91-4ea4-a53e-065aa6916a34`), while an empty metadata object retained
-the generated key. These controls can construct the missing-encryption-key
-precondition for `WS_RP_SM_SessionEncryption__006` and the static-key-reuse
-precondition for `WS_RP_SM_SessionEncryption__010`; they do not prove a Wallet
-outcome without a Wallet interaction.
+the generated key. A single static P-256 `use: enc` key with
+`alg: ECDH-ES+A256KW` has no JWK whose `alg` is bare `ECDH-ES`, so it constructs
+the source precondition for `WS_RP_SM_SessionEncryption__006` and the
+static-key-reuse precondition for `WS_RP_SM_SessionEncryption__010`; it does not
+prove a Wallet outcome without a Wallet interaction.
 
 A `client_metadata` value nested inside `presentation_request` is discarded
 without an error, and the generated metadata is used. `scheme`,

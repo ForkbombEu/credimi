@@ -9664,6 +9664,59 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-metadata-7d34f50e-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: response-encryption-no-ecdh-es-jwk-00b10ba8-create-capture-session
+      use: http-request
+      with:
+        body:
+            allow_undecryptable_response: true
+            client_metadata:
+                jwks:
+                    keys:
+                        - alg: ECDH-ES+A256KW
+                          crv: P-256
+                          kid: fcaf-static-verifier-enc-key
+                          kty: EC
+                          use: enc
+                          x: 2HBwD9dMk-T3nLobOnvKGrXW0OJmXhyDZ92Yh_quEdA
+                          "y": SWCeVREJqSFRRXLrjTUIkMDtqn_88DbktyVKJc0ECEk
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: response-encryption-no-ecdh-es-jwk
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-no-ecdh-es-jwk-00b10ba8-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-no-ecdh-es-jwk-00b10ba8-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-no-ecdh-es-jwk-00b10ba8-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-no-ecdh-es-jwk-00b10ba8-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: response-encryption-per-request-keys-4f12992b-create-first-capture-session
       use: http-request
       with:
@@ -11300,6 +11353,11 @@ steps:
                     capture_session: ${{ response-encryption-jwk-without-alg-3e14f10a-fetch-capture-session.outputs.body | optional }}
                     request_object: ${{ response-encryption-jwk-without-alg-3e14f10a-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-jwk-without-alg-3e14f10a-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.response-encryption.no-ecdh-es-jwk:
+                output:
+                    capture_session: ${{ response-encryption-no-ecdh-es-jwk-00b10ba8-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ response-encryption-no-ecdh-es-jwk-00b10ba8-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ response-encryption-no-ecdh-es-jwk-00b10ba8-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.response-encryption.per-request-keys:
                 output:
                     first_encryption_evidence:
