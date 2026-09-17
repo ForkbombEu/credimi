@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ExecutionSummary } from '$lib/pipeline/workflows';
 
-	import { ArrowRightIcon, Pencil, RefreshCw } from '@lucide/svelte';
+	import { ArrowRightIcon, InfoIcon, Pencil, RefreshCw } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
@@ -145,9 +145,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet afterDescription()}
-	{#await scoreboardPromise}
-		{@render emptyState()}
-	{:then results}
+	{#await scoreboardPromise then results}
 		{#if results && Scoreboard.EntityDisplay.buildPipelineSummaryItems(results).length > 0}
 			<div class="flex items-start justify-between gap-4 pt-1">
 				<PipelineContentSummary {results} />
@@ -160,6 +158,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/await}
 {/snippet}
 
+{#snippet workflowsErrorBanner()}
+	<div
+		class="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
+	>
+		<span>{m.Error()}</span>
+		{#if onRetryWorkflows}
+			<IconButton
+				icon={RefreshCw}
+				variant="ghost"
+				size="xs"
+				tooltip={m.Error()}
+				onclick={() => onRetryWorkflows()}
+			/>
+		{/if}
+	</div>
+{/snippet}
+
 {#snippet content()}
 	<div class="space-y-3 pt-5">
 		{#if workflowsLoading}
@@ -168,69 +183,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Skeleton class="h-8 w-full rounded-md" />
 				<Skeleton class="h-8 w-3/4 rounded-md" />
 			</div>
-		{:else if workflowsError && !showWorkflows}
-			<div
-				class="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
-			>
-				<span>{m.Error()}</span>
-				{#if onRetryWorkflows}
-					<IconButton
-						icon={RefreshCw}
-						variant="ghost"
-						size="xs"
-						tooltip={m.Error()}
-						onclick={() => onRetryWorkflows()}
-					/>
-				{/if}
-			</div>
-		{:else if showWorkflows && workflows}
-			<div class="space-y-3">
-				{#if workflowsError && onRetryWorkflows}
-					<div
-						class="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
-					>
-						<span>{m.Error()}</span>
-						<IconButton
-							icon={RefreshCw}
-							variant="ghost"
-							size="xs"
-							tooltip={m.Error()}
-							onclick={() => onRetryWorkflows()}
-						/>
+		{:else}
+			{#if workflowsError}
+				{@render workflowsErrorBanner()}
+			{/if}
+
+			{#if showWorkflows && workflows}
+				<div class="space-y-3">
+					<Pipeline.Workflows.SmallTable {workflows} />
+
+					<div class="flex items-center justify-between gap-2">
+						{#await scoreboardPromise}
+							<div></div>
+						{:then results}
+							{@const executionStats = results
+								? fromScoreboardRow(results)
+								: undefined}
+							{#if executionStats}
+								<PipelineExecutionStats
+									stats={executionStats}
+									layout="card-inline"
+								/>
+							{:else}
+								<div></div>
+							{/if}
+						{/await}
+
+						<BlueButton
+							compact
+							href={resolve('/my/pipelines/[...pipeline_path]', {
+								pipeline_path: getPath(pipeline, true)
+							})}
+						>
+							{m.view_all()}
+							<ArrowRightIcon />
+						</BlueButton>
 					</div>
-				{/if}
-
-				<Pipeline.Workflows.SmallTable {workflows} />
-
-				<div class="flex items-center justify-between gap-2">
-					{#await scoreboardPromise}
-						<!-- pending -->
-					{:then results}
-						{@const executionStats = results ? fromScoreboardRow(results) : undefined}
-						{#if executionStats}
-							<PipelineExecutionStats stats={executionStats} layout="card-inline" />
-						{/if}
-					{/await}
-
-					<BlueButton
-						compact
-						href={resolve('/my/pipelines/[...pipeline_path]', {
-							pipeline_path: getPath(pipeline, true)
-						})}
-					>
-						{m.view_all()}
-						<ArrowRightIcon />
-					</BlueButton>
 				</div>
-			</div>
+			{/if}
 		{/if}
 	</div>
 {/snippet}
 
 {#snippet emptyState()}
-	<div
-		class="flex h-8 w-fit items-center justify-start rounded-md bg-muted p-2 text-xs text-muted-foreground"
-	>
-		{m.Pipeline_summary_will_be_available_after_the_first_successful_run()}
+	<div class="flex items-center gap-2 text-xs text-muted-foreground opacity-50">
+		<InfoIcon size={12} />
+		<p>
+			{m.Pipeline_summary_will_be_available_after_the_first_successful_run()}
+		</p>
 	</div>
 {/snippet}
