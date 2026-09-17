@@ -1152,3 +1152,22 @@ wallet-shaped `ECDH-ES` P-256 JWE, and that each half fails alone:
 `ECDH-ES+A128KW` fails only the algorithm assertion, a P-384 `epk` fails only
 the curve assertion, and a session without the response event fails only the
 delivery assertion.
+
+## Case 012, SessionEncryption redirect-flow encrypted response
+
+`WS_RP_SM_SessionEncryption__012` moved from the session-encryption scenario to
+`pipeline.direct-post-jwt.response-transport`, because only that source exports
+`default_encryption_evidence` (`request_object` plus
+`presentation_response_http`), which is what the two distinguishing halves of
+the case need: the response is encrypted "using parameters provided in
+client_metadata" (`oid4vp.response_encryption` with `match_metadata_kid`), and
+the Verifier "is able to decrypt" it (`dcql.response_satisfies_constraints` in
+`credentials_match` mode, which only passes when the session exposes a
+decrypted `vp_token` keyed by the credential query ID).
+
+A live beta probe confirmed the `request_uri` POST returns a Request Object
+whose `client_metadata.jwks` kid equals the kid in the session metadata, so the
+kid match is a real cross-check rather than a tautology. Engine runs confirmed
+the definition passes on a metadata-keyed response, that a foreign `kid` fails
+only the client-metadata assertion, and that a session without a decrypted
+`vp_token` fails only the decryption assertion.

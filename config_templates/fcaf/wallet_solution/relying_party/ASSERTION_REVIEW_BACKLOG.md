@@ -104,7 +104,7 @@ confirm the exact resulting Request Object before an assertion is implemented.
 - [ ] `WS_RP_SM_SessionEncryption__008` (replacement metadata can request A256GCM)
 - [ ] `WS_RP_SM_SessionEncryption__009` (replacement metadata can advertise both supported `enc` values)
 - [ ] `WS_RP_SM_SessionEncryption__011` (captured response key identifier can be compared with the request metadata)
-- [ ] `WS_RP_SM_SessionEncryption__012` (published `direct_post.jwt` response encryption)
+- [x] `WS_RP_SM_SessionEncryption__012` (redirect-flow `direct_post.jwt`; metadata-keyed JWE the verifier decrypted)
 - [ ] `WS_RP_SH_Encoding_TextualEncoding_022` (raw presentation-response body preserves UTF-8 form encoding)
 
 ## Pending

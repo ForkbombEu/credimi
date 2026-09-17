@@ -61,6 +61,7 @@ steps:
     - WS_RP_IA_MainInteraction__049
     - WS_RP_IA_MainInteraction__052
     - WS_RP_IA_MainInteraction__054
+    - WS_RP_SM_SessionEncryption__012
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.direct-post-jwt.response-transport:
