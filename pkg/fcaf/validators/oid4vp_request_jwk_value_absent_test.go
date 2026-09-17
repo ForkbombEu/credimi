@@ -35,7 +35,10 @@ func TestOID4VPRequestJWKValueAbsentValidator(t *testing.T) {
 		{"value missing", withoutBareECDHES, map[string]any{"field": "alg"}, StatusError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			result := validator.Validate(context.Background(), Input{Value: tt.value, Params: tt.params})
+			result := validator.Validate(
+				context.Background(),
+				Input{Value: tt.value, Params: tt.params},
+			)
 			require.Equal(t, tt.status, result.Status)
 		})
 	}

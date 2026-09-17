@@ -95,8 +95,12 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 		}
 		if mediaType != params.MediaType {
 			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("request_uri retrieval media type is %q, expected %q", mediaType, params.MediaType),
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"request_uri retrieval media type is %q, expected %q",
+					mediaType,
+					params.MediaType,
+				),
 			}
 		}
 	}
@@ -104,8 +108,12 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 		accept, ok := caseInsensitiveHeader(headers, "accept")
 		if !ok || !strings.EqualFold(strings.TrimSpace(accept), params.Accept) {
 			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("request_uri retrieval Accept header is %q, expected %q", accept, params.Accept),
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"request_uri retrieval Accept header is %q, expected %q",
+					accept,
+					params.Accept,
+				),
 			}
 		}
 	}
@@ -116,11 +124,17 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 		}
 		for key, values := range form {
 			if !utf8.ValidString(key) {
-				return Result{Status: StatusFail, Message: "request_uri form contains an invalid UTF-8 key"}
+				return Result{
+					Status:  StatusFail,
+					Message: "request_uri form contains an invalid UTF-8 key",
+				}
 			}
 			for _, value := range values {
 				if !utf8.ValidString(value) {
-					return Result{Status: StatusFail, Message: "request_uri form contains an invalid UTF-8 value"}
+					return Result{
+						Status:  StatusFail,
+						Message: "request_uri form contains an invalid UTF-8 value",
+					}
 				}
 			}
 		}

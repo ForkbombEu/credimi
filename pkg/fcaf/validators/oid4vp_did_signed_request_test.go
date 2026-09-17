@@ -74,8 +74,12 @@ func didRequestEvidence(kid string, privateKey *ecdsa.PrivateKey, request string
 				"publicKeyJwk": map[string]any{
 					"kty": "EC",
 					"crv": "P-256",
-					"x":   base64.RawURLEncoding.EncodeToString(privateKey.X.FillBytes(make([]byte, 32))),
-					"y":   base64.RawURLEncoding.EncodeToString(privateKey.Y.FillBytes(make([]byte, 32))),
+					"x": base64.RawURLEncoding.EncodeToString(
+						privateKey.X.FillBytes(make([]byte, 32)),
+					),
+					"y": base64.RawURLEncoding.EncodeToString(
+						privateKey.Y.FillBytes(make([]byte, 32)),
+					),
 				},
 			}},
 		},

@@ -129,7 +129,10 @@ func TestOID4VPRequestURIRetrievalValidatorHTTPProperties(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := validator.Validate(context.Background(), Input{Value: tt.value, Params: tt.params})
+			result := validator.Validate(
+				context.Background(),
+				Input{Value: tt.value, Params: tt.params},
+			)
 			require.Equal(t, tt.status, result.Status)
 		})
 	}

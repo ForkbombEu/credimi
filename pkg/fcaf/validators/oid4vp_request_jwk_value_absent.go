@@ -53,12 +53,20 @@ func (OID4VPRequestJWKValueAbsentValidator) Validate(_ context.Context, input In
 	for index, value := range keys {
 		key, ok := normalizeJSONObject(value)
 		if !ok {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("client metadata JWK %d is not an object", index)}
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("client metadata JWK %d is not an object", index),
+			}
 		}
 		if key[params.Field] == params.Value {
 			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("client metadata JWK %d has prohibited %s value %v", index, params.Field, params.Value),
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"client metadata JWK %d has prohibited %s value %v",
+					index,
+					params.Field,
+					params.Value,
+				),
 			}
 		}
 	}

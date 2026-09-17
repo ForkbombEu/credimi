@@ -93,5 +93,8 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 			Message: "signed Request Object client_id does not use decentralized_identifier:did:",
 		}
 	}
-	return Result{Status: StatusPass, Message: "DID-published key verifies the decentralized identifier Request Object"}
+	return Result{
+		Status:  StatusPass,
+		Message: "DID-published key verifies the decentralized identifier Request Object",
+	}
 }

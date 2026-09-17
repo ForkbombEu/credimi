@@ -16,7 +16,14 @@ func TestOID4VPDistinctRequestEncryptionKeysValidator(t *testing.T) {
 	request := func(t *testing.T, x string, kid string) string {
 		t.Helper()
 		return testSignedRequest(t, map[string]any{"jwks": map[string]any{"keys": []any{
-			map[string]any{"kty": "EC", "crv": "P-256", "x": x, "y": "y-value", "use": "enc", "kid": kid},
+			map[string]any{
+				"kty": "EC",
+				"crv": "P-256",
+				"x":   x,
+				"y":   "y-value",
+				"use": "enc",
+				"kid": kid,
+			},
 		}}})
 	}
 	first := request(t, "key-one", "kid-one")
