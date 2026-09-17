@@ -1188,3 +1188,35 @@ form `%C3%AD` passes. Engine runs confirmed both, plus a JSON body failing the
 form media type. The source precondition asks for a non-ASCII credential, but
 with an encrypted response the credential bytes never reach the body, so the
 observable requirement is the form encoding itself.
+
+## Cases 007, 008, and 009, SessionEncryption content encryption
+
+All three check the RFC 7516 section 4.1.2 `enc` header of the Wallet response,
+so they moved to `pipeline.direct-post-jwt.response-transport`, whose
+`default_encryption_evidence` carries both the request object (for the
+advertised algorithms) and the raw response form (for the chosen algorithm).
+
+`oid4vp.response_encryption` gained a `metadata_enc_values_supported` parameter:
+it requires the request `client_metadata.encrypted_response_enc_values_supported`
+array to contain each listed value. The pre-existing `metadata_enc` parameter
+only reads the old draft scalar `authorization_encrypted_response_enc`, which
+beta Capture no longer emits, so it could not express these cases.
+
+Each case pairs the advertisement with the selection:
+
+- `007`: advertises A128GCM, response `enc` is A128GCM.
+- `008`: advertises A256GCM, response `enc` is A256GCM.
+- `009`: advertises both, response `enc` must be A256GCM.
+
+`007` and `008` are mutually exclusive on one run by construction, exactly as
+the FCAF profile split intends ("Wallet supports only A128GCM" versus "only
+A256GCM"); `008` and `009` agree. Engine runs confirmed an A128GCM response
+passes only `007`, an A256GCM response passes `008` and `009`, and an
+A128CBC-HS256 response fails all three.
+
+Beta Capture ignores a `client_metadata` override for
+`encrypted_response_enc_values_supported` just as it does for `jwks`: a live
+probe of `[A128GCM]`, `[A256GCM]`, `[A128GCM, A256GCM]`, and the legacy
+`authorization_encrypted_response_enc` all still emitted
+`[A128GCM, A256GCM, A128CBC-HS256]`. The advertisement assertions therefore
+check what the verifier really published rather than what was requested.

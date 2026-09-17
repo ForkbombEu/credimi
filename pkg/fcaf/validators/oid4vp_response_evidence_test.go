@@ -99,6 +99,19 @@ func TestOID4VPResponseEncryptionValidator(t *testing.T) {
 		},
 		"generated_jwks": jwks,
 	}
+	advertisedRequest := testSignedRequest(t, map[string]any{
+		"jwks": jwks,
+		"encrypted_response_enc_values_supported": []any{"A128GCM", "A256GCM"},
+	})
+	advertised := map[string]any{
+		"request_object": advertisedRequest,
+		"presentation_response_http": map[string]any{
+			"body": "response=" + testCompactJWE(
+				t,
+				map[string]any{"kid": "generated-kid", "enc": "A256GCM"},
+			),
+		},
+	}
 	for _, tt := range []struct {
 		name   string
 		value  any
@@ -117,6 +130,9 @@ func TestOID4VPResponseEncryptionValidator(t *testing.T) {
 		{"malformed protected header", map[string]any{"request_object": request, "presentation_response_http": map[string]any{"body": "response=%%%.a.b.c.d"}}, map[string]any{"expected_enc": "A128GCM"}, StatusFail},
 		{"contradictory metadata checks", valid, map[string]any{"metadata_enc": "A128GCM", "metadata_enc_absent": true}, StatusError},
 		{"no check", valid, nil, StatusError},
+		{"advertised enc values", advertised, map[string]any{"metadata_enc_values_supported": []any{"A128GCM", "A256GCM"}, "expected_enc": "A256GCM"}, StatusPass},
+		{"unadvertised enc value", advertised, map[string]any{"metadata_enc_values_supported": []any{"A192GCM"}}, StatusFail},
+		{"advertised enc values missing", valid, map[string]any{"metadata_enc_values_supported": []any{"A128GCM"}}, StatusFail},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(

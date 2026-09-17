@@ -1,5 +1,5 @@
 id: WS_RP_SM_SessionEncryption__009
-title: FCAF WS_RP_SM_SessionEncryption__009
+title: Prefer A256GCM when both GCM lengths are supported.
 source:
   path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__009.md
 suite:
@@ -11,21 +11,31 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.session-encryption
+- title: JSON Web Encryption (JWE)
+  section: 4.1.2
+  url: https://www.rfc-editor.org/rfc/rfc7516
+- ref: pipeline.direct-post-jwt.response-transport
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.direct-post-jwt.response-transport.outputs.capture_session
+  encryption_evidence:
+    from: pipeline.direct-post-jwt.response-transport.outputs.default_encryption_evidence
   visual_evidence:
-    from: pipeline.dcql.session-encryption.outputs.visual_evidence
+    from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_sessionencryption__009_jwe_verified
-  validator: jwt.header_field_equals
-  input: evidence.dcql_exchange
+- id: wallet_posted_an_encrypted_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.capture_session
+  params: {method: POST, require_response_parameter: true}
+- id: both_gcm_lengths_offered_and_a256gcm_selected
+  validator: oid4vp.response_encryption
+  input: evidence.encryption_evidence
   params:
-    field: alg
-- id: ws_rp_sm_sessionencryption__009_visual_evidence
+    metadata_enc_values_supported: [A128GCM, A256GCM]
+    expected_enc: A256GCM
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

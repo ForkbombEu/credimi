@@ -168,17 +168,19 @@ func (OID4VPResponseEncryptionValidator) ID() string { return "oid4vp.response_e
 
 func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
-		MatchMetadataKID      bool   `json:"match_metadata_kid"`
-		ExpectedEnc           string `json:"expected_enc"`
-		MetadataEnc           string `json:"metadata_enc"`
-		MetadataEncAbsent     bool   `json:"metadata_enc_absent"`
-		PreserveGeneratedJWKs bool   `json:"preserve_generated_jwks"`
+		MatchMetadataKID         bool     `json:"match_metadata_kid"`
+		ExpectedEnc              string   `json:"expected_enc"`
+		MetadataEnc              string   `json:"metadata_enc"`
+		MetadataEncAbsent        bool     `json:"metadata_enc_absent"`
+		MetadataEncValuesSupport []string `json:"metadata_enc_values_supported"`
+		PreserveGeneratedJWKs    bool     `json:"preserve_generated_jwks"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if !params.MatchMetadataKID && params.ExpectedEnc == "" && params.MetadataEnc == "" &&
 		!params.MetadataEncAbsent &&
+		len(params.MetadataEncValuesSupport) == 0 &&
 		!params.PreserveGeneratedJWKs {
 		return Result{
 			Status:  StatusError,
@@ -256,6 +258,33 @@ func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input
 		return Result{
 			Status:  StatusFail,
 			Message: "client metadata authorization_encrypted_response_enc is present",
+		}
+	}
+	if len(params.MetadataEncValuesSupport) > 0 {
+		advertised, ok := metadata["encrypted_response_enc_values_supported"].([]any)
+		if !ok {
+			return Result{
+				Status:  StatusFail,
+				Message: "client metadata encrypted_response_enc_values_supported is missing",
+			}
+		}
+		supported := make(map[string]bool, len(advertised))
+		for _, value := range advertised {
+			if text, ok := value.(string); ok {
+				supported[text] = true
+			}
+		}
+		for _, required := range params.MetadataEncValuesSupport {
+			if !supported[required] {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"client metadata encrypted_response_enc_values_supported is %v, expected to include %q",
+						advertised,
+						required,
+					),
+				}
+			}
 		}
 	}
 	if params.PreserveGeneratedJWKs &&
