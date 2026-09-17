@@ -343,6 +343,18 @@ External runner HTTP contract:
 
 The external runner service is implemented in `github.com/forkbombeu/credimi-extra`. If the contract changes, ask whether the sibling repository must change.
 
+Catalog list health probes:
+
+- `GET /api/mobile-runners` and `GET /api/mobile-devices` skip `disabled`
+  runners (`enabledMobileRunnerRecords`) and probe the remaining runners
+  concurrently through `probeMobileRunnerHealths`
+  (`pkg/internal/apis/handlers/mobile_runners_handlers.go`), bounded by
+  `mobileRunnerListProbeConcurrency` and `mobileRunnerListHealthTimeout`.
+- List probes use the short list timeout, not `walletAPKRunnerHealthTimeout`,
+  which stays reserved for the wallet-APK CI path.
+- A failed or malformed probe reports the runner as `offline` or
+  `misconfigured`; it never fails the whole list request.
+
 Temporal runner worker contract:
 
 - Task queue: `${runner_id}-TaskQueue`; this remains shared by all devices of

@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
@@ -719,6 +721,156 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) 
 		Event: router.Event{Request: req, Response: rec},
 	}
 	require.NoError(t, HandleListMobileDevices()(event))
+
+	var response ListMobileDevicesPublicResponseSchema
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Len(t, response.Devices, 1)
+	require.False(t, response.Devices[0].IsOnline)
+	require.Nil(t, response.Devices[0].QueueLength)
+}
+
+func TestListMobileDevicesSkipsDisabledRunnersWithoutProbing(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	ensureMobileRunnerAccessFields(t, app)
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	ownerID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, ownerID, "disabled-host", "https://disabled.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/disabled-host")
+	require.NoError(t, err)
+	runner.Set("disabled", true)
+	require.NoError(t, app.Save(runner))
+
+	devices, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(devices)
+	device.Set("owner", ownerID)
+	device.Set("runner", runner.Id)
+	device.Set("name", "pixel")
+	device.Set("type", "android_phone")
+	device.Set("online", true)
+	require.NoError(t, app.Save(device))
+
+	originalHealth := checkMobileRunnerHealth
+	checkMobileRunnerHealth = func(_ context.Context, runnerURL string) (bool, []MobileRunnerHealthDevice, error) {
+		t.Fatalf("unexpected health probe for disabled runner %q", runnerURL)
+
+		return false, nil, nil
+	}
+	t.Cleanup(func() { checkMobileRunnerHealth = originalHealth })
+
+	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
+	rec := httptest.NewRecorder()
+	event := &core.RequestEvent{
+		App:   app,
+		Auth:  user,
+		Event: router.Event{Request: req, Response: rec},
+	}
+	require.NoError(t, HandleListMobileDevices()(event))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response ListMobileDevicesPublicResponseSchema
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Empty(t, response.Devices)
+}
+
+func TestProbeMobileRunnerHealthsRunsConcurrentlyWithShortDeadline(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	collection, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	const runnerCount = 4
+	records := make([]*core.Record, 0, runnerCount)
+	for i := range runnerCount {
+		record := core.NewRecord(collection)
+		record.Set("owner", orgID)
+		record.Set("name", fmt.Sprintf("slow-runner-%d", i))
+		record.Set("type", "android_emulator")
+		record.Set("ip", fmt.Sprintf("https://slow-%d.example", i))
+		records = append(records, record)
+	}
+
+	started := make(chan struct{}, runnerCount)
+	release := make(chan struct{})
+	deadlines := make(chan time.Duration, runnerCount)
+
+	originalHealth := checkMobileRunnerHealth
+	checkMobileRunnerHealth = func(ctx context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+		deadline, ok := ctx.Deadline()
+		require.True(t, ok, "list probes must carry a deadline")
+		deadlines <- time.Until(deadline)
+		started <- struct{}{}
+		<-release
+
+		return true, nil, nil
+	}
+	t.Cleanup(func() { checkMobileRunnerHealth = originalHealth })
+
+	done := make(chan []mobileRunnerHealth, 1)
+	go func() { done <- probeMobileRunnerHealths(context.Background(), records) }()
+
+	// All probes must be in flight before any of them returns: a sequential
+	// implementation would block on the first one forever.
+	for range runnerCount {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatal("probes did not run concurrently")
+		}
+	}
+	close(release)
+
+	healths := <-done
+	require.Len(t, healths, runnerCount)
+	for _, health := range healths {
+		require.True(t, health.online)
+		require.NoError(t, health.err)
+	}
+	for range runnerCount {
+		remaining := <-deadlines
+		require.Positive(t, remaining)
+		require.LessOrEqual(t, remaining, mobileRunnerListHealthTimeout)
+	}
+}
+
+func TestListMobileDevicesReportsMisconfiguredRunnerAsOffline(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	ownerID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, ownerID, "malformed-host", "192.168.1.10:8050", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/malformed-host")
+	require.NoError(t, err)
+
+	devices, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(devices)
+	device.Set("owner", ownerID)
+	device.Set("runner", runner.Id)
+	device.Set("name", "pixel")
+	device.Set("type", "android_phone")
+	device.Set("online", true)
+	require.NoError(t, app.Save(device))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
+	rec := httptest.NewRecorder()
+	event := &core.RequestEvent{
+		App:   app,
+		Auth:  user,
+		Event: router.Event{Request: req, Response: rec},
+	}
+	require.NoError(t, HandleListMobileDevices()(event))
+	require.Equal(t, http.StatusOK, rec.Code)
 
 	var response ListMobileDevicesPublicResponseSchema
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
