@@ -1090,3 +1090,20 @@ A live beta probe confirmed the default Capture header is
 `{alg: ES256, typ: oauth-authz-req+jwt}`. Engine runs confirmed the definition
 passes on that JWS, fails when the header is rewritten to `ES384`, and fails
 when no response event was captured.
+
+## Case 001, SessionEncryption unsigned encrypted response
+
+`WS_RP_SM_SessionEncryption__001` keeps the session-encryption scenario and now
+asserts the source requirement instead of a valueless `alg` header check: the
+session ran with `response_mode: direct_post.jwt`, the Wallet response is a
+compact JWE, its protected header carries `enc`, and it carries no `cty`. The
+`cty` check is the RFC 7519 section 5.2 signal for nested signing, which is the
+only observable way to reject a signed-then-encrypted response without the
+verifier decryption key. Do not assert `typ` absence: RFC 7519 allows `typ:
+JWT` on a compliant encrypted JWT.
+
+A live beta probe confirmed the session exposes top-level `direct_post.jwt` and
+publishes one `use: enc` ECDH-ES P-256 JWK; `raw.presentation_response` only
+appears once a Wallet has answered, so engine runs used a wallet-shaped compact
+JWE built against that published JWK. The validators never decrypt, so the
+structural fixture exercises the same code path a live response would.
