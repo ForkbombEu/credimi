@@ -95,19 +95,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <TemporalI18nProvider>
 	<div class="-mx-2 overflow-hidden">
 		<div class="overflow-x-auto">
-			<table class="w-full text-xs">
+			<table class="w-full table-fixed text-xs">
 				<thead class=" bg-slate-100">
 					<tr>
 						<th class="rounded-l-sm">{m.Status()}</th>
 						<th>Device</th>
 						<th>{m.Results()}</th>
-						<th>{m.Date()}</th>
-						<th>{m.start()}</th>
-						<th>{m.end()}</th>
-						<th>{m.Duration()}</th>
-						<th>{m.Children()}</th>
-						<th>{m.details()}</th>
-						<th class="rounded-r-sm text-right!">{m.Actions()}</th>
+						<th class="w-24 whitespace-nowrap">{m.Date()}</th>
+						<th class="w-12 whitespace-nowrap">{m.start()}</th>
+						<th class="w-20 whitespace-nowrap">{m.end()}</th>
+						<th class="w-16 whitespace-nowrap">{m.Duration()}</th>
+						<th class="w-24">{m.Children()}</th>
+						<th class="w-14">{m.details()}</th>
+						<th class="w-10 rounded-r-sm text-right!">{m.Actions()}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -147,7 +147,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 							</td>
 							{@render timeCells(parts)}
-							<td class="text-muted-foreground">
+							<td class="whitespace-nowrap text-muted-foreground">
 								{#if workflow.duration}
 									{workflow.duration}
 								{:else}
@@ -220,21 +220,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </TemporalI18nProvider>
 
 {#snippet timeCells(parts: SplitExecutionTimes | undefined)}
-	<td class="text-muted-foreground">
+	<td class="whitespace-nowrap text-muted-foreground">
 		{#if parts}
 			{parts.date}
 		{:else}
 			{@render na()}
 		{/if}
 	</td>
-	<td class="text-muted-foreground">
+	<td class="whitespace-nowrap text-muted-foreground">
 		{#if parts}
 			{parts.start}
 		{:else}
 			{@render na()}
 		{/if}
 	</td>
-	<td class="text-muted-foreground">
+	<td class="whitespace-nowrap text-muted-foreground">
 		{#if parts}
 			{@const endClock = formatEndClock(parts)}
 			{#if endClock}
@@ -269,7 +269,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			</td>
 			{@render timeCells(childParts)}
-			<td class="text-muted-foreground">
+			<td class="whitespace-nowrap text-muted-foreground">
 				{#if child.duration}
 					{child.duration}
 				{:else}
