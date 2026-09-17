@@ -33,7 +33,8 @@ func TestOID4VPRequestURIRetrievalValidator(t *testing.T) {
 		{name: "matching post retrieval", value: map[string]any{
 			"request_uri": "https://beta-capture-wallet.credimi.io/openid4vp/sessions/session-id/request",
 			"raw": map[string]any{"request_uri_http": map[string]any{
-				"method": "POST", "headers": map[string]any{"Host": "beta-capture-wallet.credimi.io"},
+				"method":  "POST",
+				"headers": map[string]any{"Host": "beta-capture-wallet.credimi.io"},
 			}},
 		}, method: "POST", status: StatusPass},
 		{name: "wrong method", value: validSession, method: "POST", status: StatusFail},
@@ -43,7 +44,12 @@ func TestOID4VPRequestURIRetrievalValidator(t *testing.T) {
 				"method": "GET", "headers": map[string]any{"host": "example.invalid"},
 			}},
 		}, method: "GET", status: StatusFail},
-		{name: "missing capture", value: map[string]any{"request_uri": "https://beta-capture-wallet.credimi.io/request"}, method: "GET", status: StatusFail},
+		{
+			name:   "missing capture",
+			value:  map[string]any{"request_uri": "https://beta-capture-wallet.credimi.io/request"},
+			method: "GET",
+			status: StatusFail,
+		},
 	}
 
 	for _, tt := range tests {

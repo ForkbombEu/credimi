@@ -76,7 +76,10 @@ func TestOID4VPSessionEventCountValidator(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got := validator.Validate(context.Background(), Input{Value: tt.value, Params: tt.params})
+			got := validator.Validate(
+				context.Background(),
+				Input{Value: tt.value, Params: tt.params},
+			)
 			require.Equal(t, tt.status, got.Status, got.Message)
 		})
 	}

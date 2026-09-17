@@ -69,7 +69,8 @@ func LoadMaterials(testIDs []string) (
 			continue
 		}
 		sourcePath := filepath.Clean(definition.Source.Path)
-		if sourcePath == "." || filepath.IsAbs(sourcePath) || strings.HasPrefix(sourcePath, ".."+string(filepath.Separator)) {
+		if sourcePath == "." || filepath.IsAbs(sourcePath) ||
+			strings.HasPrefix(sourcePath, ".."+string(filepath.Separator)) {
 			warnings = append(warnings, fmt.Sprintf("FCAF source path for %s is invalid", id))
 			continue
 		}

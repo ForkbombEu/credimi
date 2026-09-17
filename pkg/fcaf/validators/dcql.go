@@ -239,7 +239,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "mdoc_claim_path_no_match":
 		return validateMDocClaimPathNoMatch(query, params.ExpectedClaimPath)
 	case "mdoc_claim_path_error":
-		return validateMDocClaimPathError(query, responseValue, errorValue, params.ExpectedClaimPath)
+		return validateMDocClaimPathError(
+			query,
+			responseValue,
+			errorValue,
+			params.ExpectedClaimPath,
+		)
 	case "vp_token_signed_presentation":
 		return validateVPTokenSignedPresentation(root, query, responseValue)
 	case "vp_token_json_object":
@@ -1287,7 +1292,10 @@ func validateMDocClaimPathError(
 	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) != 1 {
-		return Result{Status: StatusFail, Message: "dcql_query must contain exactly one credential query"}
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain exactly one credential query",
+		}
 	}
 	credential, ok := normalizeJSONObject(credentials[0])
 	if !ok || credential["format"] != "mso_mdoc" {
@@ -1295,7 +1303,10 @@ func validateMDocClaimPathError(
 	}
 	claims, ok := credential["claims"].([]any)
 	if !ok || len(claims) != 1 {
-		return Result{Status: StatusFail, Message: "mdoc credential query must contain exactly one claim"}
+		return Result{
+			Status:  StatusFail,
+			Message: "mdoc credential query must contain exactly one claim",
+		}
 	}
 	claim, ok := normalizeJSONObject(claims[0])
 	if !ok {
@@ -1303,7 +1314,10 @@ func validateMDocClaimPathError(
 	}
 	path, ok := claim["path"].([]any)
 	if !ok || !reflect.DeepEqual(path, expectedPath) {
-		return Result{Status: StatusFail, Message: "mdoc credential query does not contain the expected error path"}
+		return Result{
+			Status:  StatusFail,
+			Message: "mdoc credential query does not contain the expected error path",
+		}
 	}
 	return validateWalletErrorRequired(responseValue, errorValue)
 }

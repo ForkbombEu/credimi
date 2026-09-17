@@ -41,7 +41,10 @@ func (OID4VPSessionEventCountValidator) Validate(_ context.Context, input Input)
 	}
 	events, ok := session["events"].([]any)
 	if !ok {
-		return Result{Status: StatusFail, Message: "captured presentation session events are missing"}
+		return Result{
+			Status:  StatusFail,
+			Message: "captured presentation session events are missing",
+		}
 	}
 
 	count := 0

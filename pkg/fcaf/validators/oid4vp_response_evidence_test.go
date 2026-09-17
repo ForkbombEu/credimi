@@ -28,14 +28,24 @@ func TestHTTPResponseMediaTypeValidator(t *testing.T) {
 		{"missing parameter", map[string]any{"headers": map[string]any{}}, nil, StatusError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.status, validator.Validate(context.Background(), Input{Value: tt.value, Params: tt.params}).Status)
+			require.Equal(
+				t,
+				tt.status,
+				validator.Validate(
+					context.Background(),
+					Input{Value: tt.value, Params: tt.params},
+				).Status,
+			)
 		})
 	}
 }
 
 func TestOID4VPPresentationResponseHTTPValidator(t *testing.T) {
 	validator := OID4VPPresentationResponseHTTPValidator{}
-	valid := testPresentationSession("application/x-www-form-urlencoded; charset=utf-8", "response=compact")
+	valid := testPresentationSession(
+		"application/x-www-form-urlencoded; charset=utf-8",
+		"response=compact",
+	)
 	invalidUTF8 := testPresentationSession("application/x-www-form-urlencoded", "response=%FF")
 	for _, tt := range []struct {
 		name   string
@@ -54,7 +64,14 @@ func TestOID4VPPresentationResponseHTTPValidator(t *testing.T) {
 		{"no check", valid, nil, StatusError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.status, validator.Validate(context.Background(), Input{Value: tt.value, Params: tt.params}).Status)
+			require.Equal(
+				t,
+				tt.status,
+				validator.Validate(
+					context.Background(),
+					Input{Value: tt.value, Params: tt.params},
+				).Status,
+			)
 		})
 	}
 }
@@ -64,9 +81,24 @@ func TestOID4VPResponseEncryptionValidator(t *testing.T) {
 	jwks := map[string]any{"keys": []any{map[string]any{"kid": "generated-kid", "kty": "EC"}}}
 	request := testSignedRequest(t, map[string]any{"jwks": jwks})
 	jwe := testCompactJWE(t, map[string]any{"kid": "generated-kid", "enc": "A128GCM"})
-	valid := map[string]any{"request_object": request, "presentation_response_http": map[string]any{"body": "response=" + jwe}}
-	replacementRequest := testSignedRequest(t, map[string]any{"jwks": jwks, "authorization_encrypted_response_enc": "A256GCM"})
-	replacement := map[string]any{"request_object": replacementRequest, "presentation_response_http": map[string]any{"body": "response=" + testCompactJWE(t, map[string]any{"kid": "generated-kid", "enc": "A256GCM"})}, "generated_jwks": jwks}
+	valid := map[string]any{
+		"request_object":             request,
+		"presentation_response_http": map[string]any{"body": "response=" + jwe},
+	}
+	replacementRequest := testSignedRequest(
+		t,
+		map[string]any{"jwks": jwks, "authorization_encrypted_response_enc": "A256GCM"},
+	)
+	replacement := map[string]any{
+		"request_object": replacementRequest,
+		"presentation_response_http": map[string]any{
+			"body": "response=" + testCompactJWE(
+				t,
+				map[string]any{"kid": "generated-kid", "enc": "A256GCM"},
+			),
+		},
+		"generated_jwks": jwks,
+	}
 	for _, tt := range []struct {
 		name   string
 		value  any
@@ -87,13 +119,28 @@ func TestOID4VPResponseEncryptionValidator(t *testing.T) {
 		{"no check", valid, nil, StatusError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.status, validator.Validate(context.Background(), Input{Value: tt.value, Params: tt.params}).Status)
+			require.Equal(
+				t,
+				tt.status,
+				validator.Validate(
+					context.Background(),
+					Input{Value: tt.value, Params: tt.params},
+				).Status,
+			)
 		})
 	}
 }
 
 func testPresentationSession(contentType, body string) map[string]any {
-	return map[string]any{"raw": map[string]any{"presentation_response_http": map[string]any{"method": "POST", "headers": map[string]any{"Content-Type": contentType}, "body": body}}}
+	return map[string]any{
+		"raw": map[string]any{
+			"presentation_response_http": map[string]any{
+				"method":  "POST",
+				"headers": map[string]any{"Content-Type": contentType},
+				"body":    body,
+			},
+		},
+	}
 }
 
 func testSignedRequest(t *testing.T, metadata map[string]any) string {

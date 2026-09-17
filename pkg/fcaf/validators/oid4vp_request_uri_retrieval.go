@@ -41,7 +41,10 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 	}
 	parsedURI, err := url.ParseRequestURI(requestURI)
 	if err != nil || parsedURI.Scheme != "https" || parsedURI.Host == "" || parsedURI.Path == "" {
-		return Result{Status: StatusFail, Message: "presentation session request_uri is not an absolute HTTPS URI with a path"}
+		return Result{
+			Status:  StatusFail,
+			Message: "presentation session request_uri is not an absolute HTTPS URI with a path",
+		}
 	}
 
 	raw, ok := normalizeJSONObject(session["raw"])
@@ -54,7 +57,14 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 	}
 	method, ok := retrieval["method"].(string)
 	if !ok || method != params.Method {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("request_uri retrieval method is %q, expected %q", method, params.Method)}
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"request_uri retrieval method is %q, expected %q",
+				method,
+				params.Method,
+			),
+		}
 	}
 	headers, ok := normalizeJSONObject(retrieval["headers"])
 	if !ok {
@@ -62,7 +72,14 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 	}
 	host, ok := caseInsensitiveString(headers, "host")
 	if !ok || host != parsedURI.Host {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("request_uri retrieval Host header is %q, expected %q", host, parsedURI.Host)}
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"request_uri retrieval Host header is %q, expected %q",
+				host,
+				parsedURI.Host,
+			),
+		}
 	}
 
 	return Result{
@@ -86,13 +103,22 @@ func (OID4VPRequestURINotRetrievedValidator) Validate(_ context.Context, input I
 	}
 	if raw, ok := normalizeJSONObject(session["raw"]); ok {
 		if _, retrieved := raw["request_uri_http"]; retrieved {
-			return Result{Status: StatusFail, Message: "request_uri HTTP retrieval evidence was recorded"}
+			return Result{
+				Status:  StatusFail,
+				Message: "request_uri HTTP retrieval evidence was recorded",
+			}
 		}
 	}
 	if events, ok := session["events"].([]any); ok {
 		for _, event := range events {
-			if event, ok := normalizeJSONObject(event); ok && event["type"] == "vp_request_retrieved" {
-				return Result{Status: StatusFail, Message: "request_uri retrieval event was recorded"}
+			if event, ok := normalizeJSONObject(
+				event,
+			); ok &&
+				event["type"] == "vp_request_retrieved" {
+				return Result{
+					Status:  StatusFail,
+					Message: "request_uri retrieval event was recorded",
+				}
 			}
 		}
 	}

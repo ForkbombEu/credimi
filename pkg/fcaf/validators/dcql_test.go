@@ -1821,7 +1821,10 @@ func TestDCQLMDocClaimPathError(t *testing.T) {
 			path:         []any{"eu.europa.ec.eudi.pid.1", "Bob"},
 			expectedPath: []any{"eu.europa.ec.eudi.pid.1", "Bob"},
 			mutate: func(evidence map[string]any) {
-				delete(evidence["observed"].(map[string]any)["wallet_response"].(map[string]any), "value")
+				delete(
+					evidence["observed"].(map[string]any)["wallet_response"].(map[string]any),
+					"value",
+				)
 			},
 			expectedStatus: StatusFail,
 		},

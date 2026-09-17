@@ -32,7 +32,10 @@ func TestJOSEJWEProtectedHeaderValidator(t *testing.T) {
 		{name: "missing header", params: map[string]any{"field": "kid", "present": false}, status: StatusPass},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			result := validator.Validate(context.Background(), Input{Value: compactJWE, Params: tt.params})
+			result := validator.Validate(
+				context.Background(),
+				Input{Value: compactJWE, Params: tt.params},
+			)
 			require.Equal(t, tt.status, result.Status)
 		})
 	}

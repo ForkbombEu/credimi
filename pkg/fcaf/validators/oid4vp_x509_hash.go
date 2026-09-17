@@ -52,7 +52,13 @@ func (OID4VPX509HashClientIDValidator) Validate(_ context.Context, input Input) 
 	}
 	digest := sha256.Sum256(der)
 	if clientID != prefix+base64.RawURLEncoding.EncodeToString(digest[:]) {
-		return Result{Status: StatusFail, Message: "Request Object client_id does not match its x5c leaf hash"}
+		return Result{
+			Status:  StatusFail,
+			Message: "Request Object client_id does not match its x5c leaf hash",
+		}
 	}
-	return Result{Status: StatusPass, Message: "x509_hash client_id matches the x5c leaf certificate"}
+	return Result{
+		Status:  StatusPass,
+		Message: "x509_hash client_id matches the x5c leaf certificate",
+	}
 }

@@ -45,7 +45,14 @@ func (HTTPResponseMediaTypeValidator) Validate(_ context.Context, input Input) R
 		return Result{Status: StatusFail, Message: err.Error()}
 	}
 	if mediaType != params.MediaType {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("HTTP response media type is %q, expected %q", mediaType, params.MediaType)}
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"HTTP response media type is %q, expected %q",
+				mediaType,
+				params.MediaType,
+			),
+		}
 	}
 	return Result{Status: StatusPass, Message: "HTTP response media type matches"}
 }
@@ -69,7 +76,9 @@ func (OID4VPPresentationResponseHTTPValidator) Validate(_ context.Context, input
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
-	if params.Method == "" && params.MediaType == "" && !params.RequireResponseParameter && !params.ResponseOnly && !params.FormUTF8 {
+	if params.Method == "" && params.MediaType == "" && !params.RequireResponseParameter &&
+		!params.ResponseOnly &&
+		!params.FormUTF8 {
 		return Result{Status: StatusError, Message: "at least one response HTTP check is required"}
 	}
 	response, err := presentationResponseHTTP(input.Value)
@@ -79,7 +88,14 @@ func (OID4VPPresentationResponseHTTPValidator) Validate(_ context.Context, input
 	if params.Method != "" {
 		method, _ := response["method"].(string)
 		if method != params.Method {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("presentation response method is %q, expected %q", method, params.Method)}
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"presentation response method is %q, expected %q",
+					method,
+					params.Method,
+				),
+			}
 		}
 	}
 	headers, ok := normalizeJSONObject(response["headers"])
@@ -92,7 +108,14 @@ func (OID4VPPresentationResponseHTTPValidator) Validate(_ context.Context, input
 			return Result{Status: StatusFail, Message: err.Error()}
 		}
 		if mediaType != params.MediaType {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("presentation response media type is %q, expected %q", mediaType, params.MediaType)}
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"presentation response media type is %q, expected %q",
+					mediaType,
+					params.MediaType,
+				),
+			}
 		}
 	}
 	if params.RequireResponseParameter || params.ResponseOnly || params.FormUTF8 {
@@ -103,20 +126,32 @@ func (OID4VPPresentationResponseHTTPValidator) Validate(_ context.Context, input
 		if params.RequireResponseParameter {
 			responses := form["response"]
 			if len(responses) != 1 || responses[0] == "" {
-				return Result{Status: StatusFail, Message: "presentation response form must contain one non-empty response parameter"}
+				return Result{
+					Status:  StatusFail,
+					Message: "presentation response form must contain one non-empty response parameter",
+				}
 			}
 		}
 		if params.ResponseOnly && (len(form) != 1 || len(form["response"]) != 1) {
-			return Result{Status: StatusFail, Message: "presentation response form contains parameters other than response"}
+			return Result{
+				Status:  StatusFail,
+				Message: "presentation response form contains parameters other than response",
+			}
 		}
 		if params.FormUTF8 {
 			for key, values := range form {
 				if !utf8.ValidString(key) {
-					return Result{Status: StatusFail, Message: "presentation response form contains an invalid UTF-8 key"}
+					return Result{
+						Status:  StatusFail,
+						Message: "presentation response form contains an invalid UTF-8 key",
+					}
 				}
 				for _, value := range values {
 					if !utf8.ValidString(value) {
-						return Result{Status: StatusFail, Message: "presentation response form contains an invalid UTF-8 value"}
+						return Result{
+							Status:  StatusFail,
+							Message: "presentation response form contains an invalid UTF-8 value",
+						}
 					}
 				}
 			}
@@ -142,11 +177,19 @@ func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
-	if !params.MatchMetadataKID && params.ExpectedEnc == "" && params.MetadataEnc == "" && !params.MetadataEncAbsent && !params.PreserveGeneratedJWKs {
-		return Result{Status: StatusError, Message: "at least one response encryption check is required"}
+	if !params.MatchMetadataKID && params.ExpectedEnc == "" && params.MetadataEnc == "" &&
+		!params.MetadataEncAbsent &&
+		!params.PreserveGeneratedJWKs {
+		return Result{
+			Status:  StatusError,
+			Message: "at least one response encryption check is required",
+		}
 	}
 	if params.MetadataEnc != "" && params.MetadataEncAbsent {
-		return Result{Status: StatusError, Message: "metadata_enc and metadata_enc_absent are contradictory"}
+		return Result{
+			Status:  StatusError,
+			Message: "metadata_enc and metadata_enc_absent are contradictory",
+		}
 	}
 	evidence, ok := normalizeJSONObject(input.Value)
 	if !ok {
@@ -170,7 +213,10 @@ func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input
 	}
 	responses := form["response"]
 	if len(responses) != 1 || responses[0] == "" {
-		return Result{Status: StatusFail, Message: "presentation response form must contain one non-empty response parameter"}
+		return Result{
+			Status:  StatusFail,
+			Message: "presentation response form must contain one non-empty response parameter",
+		}
 	}
 	header, err := compactJWEProtectedHeader(responses[0])
 	if err != nil {
@@ -179,21 +225,45 @@ func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input
 	if params.MatchMetadataKID {
 		kid, _ := header["kid"].(string)
 		if kid == "" || !metadataContainsKID(metadata, kid) {
-			return Result{Status: StatusFail, Message: "JWE protected header kid does not match client metadata"}
+			return Result{
+				Status:  StatusFail,
+				Message: "JWE protected header kid does not match client metadata",
+			}
 		}
 	}
 	if params.ExpectedEnc != "" && header["enc"] != params.ExpectedEnc {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("JWE protected header enc is %v, expected %q", header["enc"], params.ExpectedEnc)}
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWE protected header enc is %v, expected %q",
+				header["enc"],
+				params.ExpectedEnc,
+			),
+		}
 	}
 	metadataEnc, metadataEncPresent := metadata["authorization_encrypted_response_enc"]
 	if params.MetadataEnc != "" && metadataEnc != params.MetadataEnc {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("client metadata authorization_encrypted_response_enc is %v, expected %q", metadataEnc, params.MetadataEnc)}
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"client metadata authorization_encrypted_response_enc is %v, expected %q",
+				metadataEnc,
+				params.MetadataEnc,
+			),
+		}
 	}
 	if params.MetadataEncAbsent && metadataEncPresent {
-		return Result{Status: StatusFail, Message: "client metadata authorization_encrypted_response_enc is present"}
+		return Result{
+			Status:  StatusFail,
+			Message: "client metadata authorization_encrypted_response_enc is present",
+		}
 	}
-	if params.PreserveGeneratedJWKs && !reflect.DeepEqual(metadata["jwks"], evidence["generated_jwks"]) {
-		return Result{Status: StatusFail, Message: "client metadata jwks differs from generated probe jwks"}
+	if params.PreserveGeneratedJWKs &&
+		!reflect.DeepEqual(metadata["jwks"], evidence["generated_jwks"]) {
+		return Result{
+			Status:  StatusFail,
+			Message: "client metadata jwks differs from generated probe jwks",
+		}
 	}
 	return Result{Status: StatusPass, Message: "response encryption evidence matches"}
 }

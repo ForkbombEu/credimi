@@ -80,7 +80,10 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 		return nil, fmt.Errorf("request object kid is not published by DID document")
 	})
 	if err != nil {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("DID Request Object verification failed: %v", err)}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("DID Request Object verification failed: %v", err),
+		}
 	}
 	return Result{Status: StatusPass, Message: "DID-published key verifies the Request Object"}
 }

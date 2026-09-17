@@ -31,7 +31,10 @@ func (JOSEJWEProtectedHeaderValidator) Validate(_ context.Context, input Input) 
 	}
 	compact, ok := input.Value.(string)
 	if !ok {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("input is %T, expected compact JWE", input.Value)}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected compact JWE", input.Value),
+		}
 	}
 	header, err := compactJWEProtectedHeader(compact)
 	if err != nil {
@@ -40,17 +43,42 @@ func (JOSEJWEProtectedHeaderValidator) Validate(_ context.Context, input Input) 
 	value, found := nestedJWEHeaderValue(header, params.Field)
 	if params.Present != nil {
 		if found != *params.Present {
-			return Result{Status: StatusFail, Message: fmt.Sprintf("JWE protected header field %q presence is %t, expected %t", params.Field, found, *params.Present)}
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"JWE protected header field %q presence is %t, expected %t",
+					params.Field,
+					found,
+					*params.Present,
+				),
+			}
 		}
-		return Result{Status: StatusPass, Message: fmt.Sprintf("JWE protected header field %q presence matches", params.Field)}
+		return Result{
+			Status:  StatusPass,
+			Message: fmt.Sprintf("JWE protected header field %q presence matches", params.Field),
+		}
 	}
 	if !found {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("JWE protected header field %q is missing", params.Field)}
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("JWE protected header field %q is missing", params.Field),
+		}
 	}
 	if !reflect.DeepEqual(value, params.Value) {
-		return Result{Status: StatusFail, Message: fmt.Sprintf("JWE protected header field %q is %v, expected %v", params.Field, value, params.Value)}
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWE protected header field %q is %v, expected %v",
+				params.Field,
+				value,
+				params.Value,
+			),
+		}
 	}
-	return Result{Status: StatusPass, Message: fmt.Sprintf("JWE protected header field %q matches", params.Field)}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("JWE protected header field %q matches", params.Field),
+	}
 }
 
 func nestedJWEHeaderValue(header map[string]any, field string) (any, bool) {
