@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { onMount } from 'svelte';
 import { resource, type ResourceReturn } from 'runed';
+import { onMount } from 'svelte';
 
 import { activeSheet } from './sheet-state.svelte.js';
 

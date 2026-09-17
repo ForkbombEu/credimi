@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
 	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import { getPath } from '$lib/utils';
+	import { resource } from 'runed';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
@@ -62,11 +63,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const scoreboardPromise = $derived.by(() =>
-		Scoreboard.Records.loadForPipeline(pipeline.id).catch((error) => {
-			console.error(error);
-			return undefined;
-		})
+	const scoreboard = resource(
+		() => pipeline.id,
+		(id) => Scoreboard.Records.loadForPipeline(id),
+		{}
 	);
 
 	// Variables for displaying UI elements
@@ -145,17 +145,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet afterDescription()}
-	{#await scoreboardPromise then results}
-		{#if results && Scoreboard.EntityDisplay.buildPipelineSummaryItems(results).length > 0}
-			<div class="flex items-start justify-between gap-4 pt-1">
-				<PipelineContentSummary {results} />
-			</div>
-		{:else}
-			{@render emptyState()}
-		{/if}
-	{:catch}
+	{#if scoreboard.current && Scoreboard.EntityDisplay.buildPipelineSummaryItems(scoreboard.current).length > 0}
+		<div class="flex items-start justify-between gap-4 pt-1">
+			<PipelineContentSummary results={scoreboard.current} />
+		</div>
+	{:else if !scoreboard.loading}
 		{@render emptyState()}
-	{/await}
+	{/if}
 {/snippet}
 
 {#snippet workflowsErrorBanner()}
@@ -189,25 +185,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			{#if showWorkflows && workflows}
+				{@const executionStats = scoreboard.current
+					? fromScoreboardRow(scoreboard.current)
+					: undefined}
 				<div class="space-y-3">
 					<Pipeline.Workflows.SmallTable {workflows} />
 
 					<div class="flex items-center justify-between gap-2">
-						{#await scoreboardPromise}
+						{#if executionStats}
+							<PipelineExecutionStats stats={executionStats} layout="card-inline" />
+						{:else}
 							<div></div>
-						{:then results}
-							{@const executionStats = results
-								? fromScoreboardRow(results)
-								: undefined}
-							{#if executionStats}
-								<PipelineExecutionStats
-									stats={executionStats}
-									layout="card-inline"
-								/>
-							{:else}
-								<div></div>
-							{/if}
-						{/await}
+						{/if}
 
 						<BlueButton
 							compact
