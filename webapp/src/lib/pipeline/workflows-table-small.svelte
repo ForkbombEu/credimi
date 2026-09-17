@@ -7,7 +7,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
-	import { ArrowRightIcon, EllipsisVerticalIcon } from '@lucide/svelte';
+	import {
+		ArrowRightIcon,
+		ChevronDownIcon,
+		ChevronUpIcon,
+		EllipsisVerticalIcon
+	} from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -146,11 +151,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{#if count > 0}
 									<button
 										type="button"
-										class="block max-w-full truncate text-left text-primary hover:underline"
+										class="flex max-w-full cursor-pointer items-center gap-1 text-left text-primary hover:underline"
 										aria-expanded={isExpanded}
 										onclick={() => toggleChildren(workflow.execution.runId)}
 									>
-										{m.count_children({ count })}
+										{#if isExpanded}
+											<ChevronUpIcon class="size-3 shrink-0" />
+										{:else}
+											<ChevronDownIcon class="size-3 shrink-0" />
+										{/if}
+										<span class="min-w-0 truncate"
+											>{m.count_children({ count })}</span
+										>
 									</button>
 								{:else}
 									<span class="text-muted-foreground opacity-50">—</span>
@@ -244,11 +256,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if nestedCount > 0}
 					<button
 						type="button"
-						class="block max-w-full truncate text-left text-primary hover:underline"
+						class="flex max-w-full cursor-pointer items-center gap-1 text-left text-primary hover:underline"
 						aria-expanded={nestedExpanded}
 						onclick={() => toggleChildren(child.execution.runId)}
 					>
-						{m.count_children({ count: nestedCount })}
+						{#if nestedExpanded}
+							<ChevronUpIcon class="size-3 shrink-0" />
+						{:else}
+							<ChevronDownIcon class="size-3 shrink-0" />
+						{/if}
+						<span class="min-w-0 truncate"
+							>{m.count_children({ count: nestedCount })}</span
+						>
 					</button>
 				{:else}
 					<span class="text-muted-foreground opacity-50">—</span>
