@@ -2133,6 +2133,220 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	require.Equal(t, true, result["recording"])
 }
 
+func TestMobileAutomationSetupHookMarksPlayStoreInstallForStoreSteps(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	internalHTTPActivity := registerInternalHTTPActivity(env)
+	setupActivity := activities.NewSetupMobileDeviceActivity()
+	listAppsActivity := activities.NewListInstalledAppsActivity()
+	recordActivity := activities.NewStartRecordingActivity()
+	env.RegisterActivityWithOptions(
+		setupActivity.Execute,
+		activity.RegisterOptions{Name: setupActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		recordActivity.Execute,
+		activity.RegisterOptions{Name: recordActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+
+			steps := []pipeline.StepDefinition{
+				{
+					StepSpec: pipeline.StepSpec{
+						ID:  "step-1",
+						Use: mobileAutomationStepUse,
+						With: pipeline.StepInputs{
+							Payload: map[string]any{
+								"action_id":  "action-1",
+								"version_id": mobileExternalSourceVersionID,
+							},
+						},
+					},
+				},
+			}
+			runData := map[string]any{}
+			wfDef := &pipeline.WorkflowDefinition{Steps: steps}
+
+			err := MobileAutomationSetupHook(
+				ctx,
+				wfDef,
+				map[string]any{
+					"app_url":                              "https://app.example",
+					"global_device_id":                     "tenant/runner-1/device-1",
+					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+				},
+				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any)
+			return map[string]any{
+				"play_store_install_used": deviceMap[mobilePlayStoreInstallDeviceKey],
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "test-mobile-automation-setup-marks-store-install"},
+	)
+
+	env.OnActivity(
+		internalHTTPActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			return ok &&
+				workflowengine.AsString(
+					payload["url"],
+				) == "https://app.example/api/canonify/identifier/validate"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"record": map[string]any{"category": walletActionCategoryInstallApp},
+		},
+	}}, nil)
+	env.OnActivity(
+		internalHTTPActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			return ok &&
+				workflowengine.AsString(payload["url"]) == "https://app.example/api/mobile-device"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"runner_id":  "tenant/runner-1",
+			"runner_url": "https://runner.example",
+			"type":       "physical",
+			"serial":     "serial-1",
+		},
+	}}, nil)
+	env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"screen_prepared":     true,
+			"original_stay_awake": "0",
+		}}, nil).Once()
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.example.before"}}, nil).Once()
+	env.OnActivity(
+		internalHTTPActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			return ok &&
+				workflowengine.AsString(
+					payload["url"],
+				) == "https://runner.example/credimi/installer-action"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"version_id": mobileExternalSourceVersionID,
+			"code":       "code-1",
+		},
+	}}, nil)
+	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"recording_process_pid": float64(11),
+			"ffmpeg_process_pid":    float64(12),
+			"log_process_pid":       float64(13),
+			"video_path":            "/tmp/video.mp4",
+			"log_path":              "/tmp/log.txt",
+		}}, nil)
+
+	env.ExecuteWorkflow("test-mobile-automation-setup-marks-store-install")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, true, result["play_store_install_used"])
+}
+
+func TestMobileAutomationCleanupHookClosesPlayStoreAfterStoreInstall(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	cleanupActivity := activities.NewCleanupDeviceActivity()
+	closeBySerial := map[string]any{}
+	reenableBySerial := map[string]any{}
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload := workflowengine.AsMap(input.Payload)
+			serial := workflowengine.AsString(payload["serial"])
+			closeBySerial[serial] = payload["close_play_store"]
+			reenableBySerial[serial] = payload["reenable_play_store"]
+			return workflowengine.ActivityResult{}, nil
+		},
+		activity.RegisterOptions{Name: cleanupActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+
+			return MobileAutomationCleanupHook(
+				ctx,
+				nil,
+				&ao,
+				map[string]any{"app_url": "https://app.example"},
+				map[string]any{
+					"run_identifier": "run-1",
+					"setted_devices": map[string]any{
+						"tenant/store": map[string]any{
+							"type":                          "android_phone",
+							"runner_id":                     "tenant/store-host",
+							"serial":                        "serial-store",
+							"runner_url":                    "https://runner-store.example",
+							"recording":                     false,
+							"installed":                     map[string]string{},
+							mobilePlayStoreInstallDeviceKey: true,
+						},
+						"tenant/disabled": map[string]any{
+							"type":                          "android_phone",
+							"runner_id":                     "tenant/disabled-host",
+							"serial":                        "serial-disabled",
+							"runner_url":                    "https://runner-disabled.example",
+							"recording":                     false,
+							"installed":                     map[string]string{},
+							"play_store_disabled":           true,
+							mobilePlayStoreInstallDeviceKey: true,
+						},
+						"tenant/plain": map[string]any{
+							"type":       "android_phone",
+							"runner_id":  "tenant/plain-host",
+							"serial":     "serial-plain",
+							"runner_url": "https://runner-plain.example",
+							"recording":  false,
+							"installed":  map[string]string{"ver-1": "pkg-plain"},
+						},
+					},
+				},
+				&map[string]any{},
+			)
+		},
+		workflow.RegisterOptions{Name: "test-mobile-cleanup-hook-close-play-store"},
+	)
+
+	env.ExecuteWorkflow("test-mobile-cleanup-hook-close-play-store")
+	require.NoError(t, env.GetWorkflowError())
+
+	require.Equal(t, true, closeBySerial["serial-store"])
+	require.Equal(t, false, reenableBySerial["serial-store"])
+	require.Equal(t, false, closeBySerial["serial-disabled"])
+	require.Equal(t, true, reenableBySerial["serial-disabled"])
+	require.Equal(t, false, closeBySerial["serial-plain"])
+}
+
 /*
 	 TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps covered removed external-install routing.
 		suite := testsuite.WorkflowTestSuite{}

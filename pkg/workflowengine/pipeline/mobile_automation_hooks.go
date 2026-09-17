@@ -34,6 +34,7 @@ const (
 	mobileExternalSourceVersionID          = "installed_from_external_source"
 	mobileExternalInstallConfigKey         = "detect_external_install"
 	walletActionCategoryInstallApp         = "install-app"
+	mobilePlayStoreInstallDeviceKey        = "play_store_install_used"
 )
 
 type mobileDeviceType string
@@ -537,6 +538,13 @@ func processStep(
 		); err != nil {
 			return err
 		}
+	}
+
+	// Steps installing from an external store (Play Store) leave the store UI
+	// open on the device; record it so cleanup can close it afterwards.
+	if payload.VersionID == mobileExternalSourceVersionID && !deviceType.IsIOS() &&
+		workflowengine.AsBool(input.step.With.Config[mobileExternalInstallConfigKey]) {
+		deviceMap[mobilePlayStoreInstallDeviceKey] = true
 	}
 
 	if err := fetchAndInstallAPK(fetchAndInstallAPKInput{
@@ -1673,12 +1681,14 @@ func cleanupDevice(
 	}
 	initialInstalledApps, trackInstalledApps := extractInitialInstalledApps(deviceMap)
 	reenablePlayStore := wasPlayStoreDisabled(deviceMap)
+	closePlayStore := shouldClosePlayStore(deviceMap, reenablePlayStore)
 	if !shouldRunDeviceCleanup(
 		deviceType,
 		packages,
 		initialInstalledApps,
 		trackInstalledApps,
 		reenablePlayStore,
+		closePlayStore,
 		deviceMap,
 	) {
 		deviceMap["cleaned"] = true
@@ -1713,6 +1723,7 @@ func cleanupDevice(
 		"initial_installed_apps": initialInstalledApps,
 		"track_installed_apps":   trackInstalledApps,
 		"reenable_play_store":    reenablePlayStore,
+		"close_play_store":       closePlayStore,
 		"manage_screen":          workflowengine.AsBool(deviceMap["screen_prepared"]),
 		"original_stay_awake":    workflowengine.AsString(deviceMap["original_stay_awake"]),
 	}
@@ -1903,18 +1914,29 @@ func wasPlayStoreDisabled(deviceMap map[string]any) bool {
 	return workflowengine.AsBool(deviceMap["play_store_disabled"])
 }
 
+// shouldClosePlayStore reports whether cleanup must force-stop the Play Store.
+// Only runs that installed the app from the store need it; when the store was
+// disabled for the whole run it was never opened, and cleanup re-enables it.
+func shouldClosePlayStore(deviceMap map[string]any, reenablePlayStore bool) bool {
+	if reenablePlayStore {
+		return false
+	}
+	return workflowengine.AsBool(deviceMap[mobilePlayStoreInstallDeviceKey])
+}
+
 func shouldRunDeviceCleanup(
 	deviceType string,
 	packages []string,
 	initialInstalledApps []string,
 	trackInstalledApps bool,
 	reenablePlayStore bool,
+	closePlayStore bool,
 	deviceMap map[string]any,
 ) bool {
 	if normalizeDeviceType(deviceType).IsManagedEmulator() {
 		return true
 	}
-	if reenablePlayStore || len(packages) > 0 || trackInstalledApps ||
+	if reenablePlayStore || closePlayStore || len(packages) > 0 || trackInstalledApps ||
 		len(initialInstalledApps) > 0 {
 		return true
 	}
