@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
+
 	import { ArrowRightIcon, EllipsisVerticalIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
@@ -28,6 +30,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { workflows }: Props = $props();
+
+	const PARENT_COLUMN_COUNT = 9;
+
+	let expandedRunId = $state<string | null>(null);
+
+	$effect(() => {
+		if (
+			expandedRunId &&
+			!workflows.some((workflow) => workflow.execution.runId === expandedRunId)
+		) {
+			expandedRunId = null;
+		}
+	});
+
+	function toggleChildren(runId: string) {
+		expandedRunId = expandedRunId === runId ? null : runId;
+	}
 </script>
 
 <TemporalI18nProvider>
@@ -42,6 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<th>{m.Start_time()}</th>
 						<th>{m.End_time()}</th>
 						<th>{m.Duration()}</th>
+						<th>{m.Children()}</th>
 						<th>{m.details()}</th>
 						<th class="rounded-r-sm text-right!">{m.Actions()}</th>
 					</tr>
@@ -50,6 +70,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#each workflows as workflow (workflow.execution.runId)}
 						{@const deviceNames = getExecutionDeviceNames(workflow)}
 						{@const artifacts = fromApiSummary(workflow)}
+						{@const children = (workflow.children ?? []) as WorkflowExecutionSummary[]}
+						{@const count = children.length}
+						{@const isExpanded =
+							expandedRunId === workflow.execution.runId && count > 0}
 						<tr>
 							<td>
 								<WorkflowStatusTag
@@ -99,6 +123,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 							</td>
 							<td>
+								{#if count > 0}
+									<button
+										type="button"
+										class="text-primary hover:underline"
+										aria-expanded={isExpanded}
+										onclick={() => toggleChildren(workflow.execution.runId)}
+									>
+										{m.count_children({ count })}
+									</button>
+								{:else}
+									<span class="text-muted-foreground opacity-50">—</span>
+								{/if}
+							</td>
+							<td>
 								{#if workflow.queue}
 									{@render na()}
 								{:else}
@@ -131,6 +169,71 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</DropdownMenu>
 							</td>
 						</tr>
+						{#if isExpanded}
+							<tr class="bg-slate-50">
+								<td colspan={PARENT_COLUMN_COUNT} class="px-2 py-2">
+									<table class="w-full text-xs">
+										<thead>
+											<tr>
+												<th class="rounded-l-sm">{m.Status()}</th>
+												<th>{m.Type()}</th>
+												<th>{m.Duration()}</th>
+												<th class="rounded-r-sm">{m.details()}</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each children as child (child.execution.runId)}
+												<tr>
+													<td>
+														<WorkflowStatusTag
+															status={child.status}
+															failureReason={child.failure_reason}
+															size="sm"
+														/>
+													</td>
+													<td>
+														<div class="flex min-w-0 flex-col gap-0.5">
+															<span class="truncate font-medium">
+																{child.type.name}
+															</span>
+															<span
+																class="truncate text-muted-foreground"
+															>
+																{child.displayName}
+															</span>
+														</div>
+													</td>
+													<td class="text-muted-foreground">
+														{#if child.duration}
+															{child.duration}
+														{:else}
+															{@render na()}
+														{/if}
+													</td>
+													<td>
+														<A
+															href={resolve(
+																'/my/tests/runs/[workflow_id]/[run_id]',
+																{
+																	workflow_id:
+																		child.execution.workflowId,
+																	run_id: child.execution.runId
+																}
+															)}
+														>
+															{m.View()}
+															<ArrowRightIcon
+																class="inline-block size-3 -translate-y-px"
+															/>
+														</A>
+													</td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</td>
+							</tr>
+						{/if}
 					{/each}
 				</tbody>
 			</table>

@@ -480,6 +480,8 @@
 	"Standard_version": "Versão padrão",
 	"JSON_configuration": "Configuração JSON",
 	"count_missing": "{count} missing",
+	"Children": "Children",
+	"count_children": "{count} children",
 	"Completed": "Completed",
 	"Configs": "Configs",
 	"count_valid": "{count} valid",

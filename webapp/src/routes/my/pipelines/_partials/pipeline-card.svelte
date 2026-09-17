@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
+	import type { ExecutionSummary } from '$lib/pipeline/workflows';
 
-	import { ArrowRightIcon, Pencil } from '@lucide/svelte';
+	import { ArrowRightIcon, Pencil, RefreshCw } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
@@ -25,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import { Skeleton } from '@/components/ui/skeleton';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -36,11 +37,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline', 'owner']>;
-		workflows?: WorkflowExecutionSummary[];
+		workflows?: ExecutionSummary[];
+		workflowsLoading?: boolean;
+		workflowsError?: Error;
+		onRetryWorkflows?: () => void;
 		onRun?: () => void;
 	};
 
-	let { pipeline = $bindable(), workflows, onRun }: Props = $props();
+	let {
+		pipeline = $bindable(),
+		workflows,
+		workflowsLoading = false,
+		workflowsError,
+		onRetryWorkflows,
+		onRun
+	}: Props = $props();
 
 	// Scheduling
 
@@ -62,7 +73,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
 	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
-	const showContent = $derived(workflows && workflows.length > 0);
+	const showWorkflows = $derived(Boolean(workflows && workflows.length > 0));
+	const showRunsSection = $derived(workflowsLoading || Boolean(workflowsError) || showWorkflows);
 
 	const avatar = $derived.by(() => {
 		const owner = pipeline.expand?.owner;
@@ -77,7 +89,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	badge={isPublic ? m.Public() : undefined}
 	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
 	{afterDescription}
-	content={showContent ? content : undefined}
+	content={showRunsSection ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
 	publishAction={isPublic ? undefined : publishAction}
 	hideSeparator
@@ -149,9 +161,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet content()}
-	<div class="space-y-3">
-		{#if workflows && workflows.length > 0}
-			<div class="space-y-3 pt-5">
+	<div class="space-y-3 pt-5">
+		{#if workflowsLoading}
+			<div class="space-y-2" aria-busy="true" aria-label={m.Loading()}>
+				<Skeleton class="h-8 w-full rounded-md" />
+				<Skeleton class="h-8 w-full rounded-md" />
+				<Skeleton class="h-8 w-3/4 rounded-md" />
+			</div>
+		{:else if workflowsError && !showWorkflows}
+			<div
+				class="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
+			>
+				<span>{m.Error()}</span>
+				{#if onRetryWorkflows}
+					<IconButton
+						icon={RefreshCw}
+						variant="ghost"
+						size="xs"
+						tooltip={m.Error()}
+						onclick={() => onRetryWorkflows()}
+					/>
+				{/if}
+			</div>
+		{:else if showWorkflows && workflows}
+			<div class="space-y-3">
+				{#if workflowsError && onRetryWorkflows}
+					<div
+						class="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
+					>
+						<span>{m.Error()}</span>
+						<IconButton
+							icon={RefreshCw}
+							variant="ghost"
+							size="xs"
+							tooltip={m.Error()}
+							onclick={() => onRetryWorkflows()}
+						/>
+					</div>
+				{/if}
+
 				<Pipeline.Workflows.SmallTable {workflows} />
 
 				<div class="flex items-center justify-between gap-2">
