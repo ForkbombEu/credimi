@@ -13,6 +13,8 @@ pre-commit = "latest"
 "github:max-sixty/worktrunk" = { version = "latest", bin = "wt" }
 "github:forkbombeu/stepci-captured-runner" = { version = "latest", bin = "stepci-captured-runner" }
 "github:forkbombeu/et-tu-cesr" = "latest"
+"npm:@nanonets/graft" = { version = "0.18.0", allow_builds = true }
 
 [tools."github:temporalio/cli"]
 version = "1.8.1"
+
