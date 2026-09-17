@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/pocketbase/pocketbase/core"
@@ -98,7 +97,6 @@ func TestComputeChildDisplayName(t *testing.T) {
 func TestSortExecutionSummaries(t *testing.T) {
 	t.Parallel()
 
-	loc := time.UTC
 	rootA := &WorkflowExecutionSummary{
 		StartTime: "2025-01-02T10:00:00Z",
 		EndTime:   "2025-01-02T10:30:00Z",
@@ -119,12 +117,12 @@ func TestSortExecutionSummaries(t *testing.T) {
 	}
 
 	list := []*WorkflowExecutionSummary{rootA, rootB}
-	sortExecutionSummaries(list, loc, false)
+	sortExecutionSummaries(list, false)
 
-	require.Equal(t, "03/01/2025, 10:00:00", list[0].StartTime)
-	require.Equal(t, "02/01/2025, 10:00:00", list[1].StartTime)
-	require.Equal(t, "02/01/2025, 08:00:00", list[1].Children[0].StartTime)
-	require.Equal(t, "02/01/2025, 09:00:00", list[1].Children[1].StartTime)
+	require.Equal(t, "2025-01-03T10:00:00Z", list[0].StartTime)
+	require.Equal(t, "2025-01-02T10:00:00Z", list[1].StartTime)
+	require.Equal(t, "2025-01-02T08:00:00Z", list[1].Children[0].StartTime)
+	require.Equal(t, "2025-01-02T09:00:00Z", list[1].Children[1].StartTime)
 }
 
 func TestBaseKey(t *testing.T) {

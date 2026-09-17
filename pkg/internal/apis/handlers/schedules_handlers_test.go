@@ -435,7 +435,7 @@ func TestListScheduledWorkflowsHappyPath(t *testing.T) {
 	require.Equal(t, "", schedules[0].DisplayName)
 	require.Equal(t, "", schedules[0].PipelineID)
 	require.Equal(t, "Dynamic Pipeline Workflow", schedules[0].WorkflowType.Name)
-	require.Equal(t, "17/02/2026, 12:00:00", schedules[0].NextActionTime)
+	require.Equal(t, "2026-02-17T12:00:00Z", schedules[0].NextActionTime)
 }
 
 func TestHandleScheduleNotFound(t *testing.T) {

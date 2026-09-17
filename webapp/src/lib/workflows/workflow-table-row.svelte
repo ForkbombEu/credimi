@@ -25,10 +25,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { DropdownMenuItem } from '@/components/ui-custom/dropdown-menu.svelte';
 
+	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
+	import { fromStore } from 'svelte/store';
+
 	import Button from '@/components/ui-custom/button.svelte';
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import * as Table from '@/components/ui/table';
 	import { localizeHref } from '@/i18n';
+	import { currentUser } from '@/pocketbase';
 
 	import type { WorkflowExecutionSummary } from './queries.types';
 	import type { HideColumnsProp } from './workflow-table.types';
@@ -57,6 +61,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		rowStart
 	}: Props = $props();
 
+	const user = fromStore(currentUser);
+	const timezone = $derived(user.current?.Timezone);
+
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
 
@@ -65,6 +72,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const href = $derived(
 		localizeHref(`/my/tests/runs/${workflow.execution.workflowId}/${workflow.execution.runId}`)
 	);
+
+	const startDisplay = $derived(formatExecutionTimestamp(workflow.startTime, timezone));
+	const endDisplay = $derived(formatExecutionTimestamp(workflow.endTime, timezone));
 </script>
 
 <tr
@@ -153,17 +163,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if !hideColumns.includes('start_time')}
 		<Table.Cell
-			class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
+			class={[
+				'font-mono text-right',
+				isChild && 'text-[10px] leading-[13px] text-muted-foreground'
+			]}
 		>
-			{@render na(workflow.startTime)}
+			{@render na(startDisplay)}
 		</Table.Cell>
 	{/if}
 
 	{#if !hideColumns.includes('end_time')}
 		<Table.Cell
-			class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
+			class={[
+				'font-mono text-right',
+				isChild && 'text-[10px] leading-[13px] text-muted-foreground'
+			]}
 		>
-			{@render na(workflow.endTime)}
+			{@render na(endDisplay)}
 		</Table.Cell>
 	{/if}
 

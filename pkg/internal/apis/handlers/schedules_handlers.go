@@ -326,7 +326,7 @@ func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
 			WorkflowType:   schedInfo.WorkflowType,
 			DisplayName:    displayName,
 			PipelineID:     pipelineID,
-			NextActionTime: schedInfo.NextActionTimes[0].Format("02/01/2006, 15:04:05"),
+			NextActionTime: schedInfo.NextActionTimes[0].UTC().Format(time.RFC3339),
 			Paused:         schedInfo.Paused,
 		}
 

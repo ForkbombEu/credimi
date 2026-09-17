@@ -42,7 +42,6 @@ type pipelineExecutionHistoryRequest struct {
 	TemporalClient     client.Client
 	Namespace          string
 	OwnerID            string
-	UserTimezone       string
 	PipelineRecord     *core.Record
 	PipelineIdentifier string
 	StatusFilter       string
@@ -107,7 +106,6 @@ func listPipelineExecutionHistory(
 		request.App,
 		request.TemporalClient,
 		request.Namespace,
-		request.UserTimezone,
 	)
 	summaries := make([]*pipelineWorkflowSummary, 0, len(executions))
 	for _, execution := range executions {
@@ -566,7 +564,6 @@ type pipelineExecutionSummaryBuilder struct {
 	app         core.App
 	client      client.Client
 	namespace   string
-	location    *time.Location
 	runnerCache map[string]map[string]any
 	runnerInfo  map[string]pipeline.PipelineDeviceInfo
 }
@@ -575,17 +572,11 @@ func newPipelineExecutionSummaryBuilder(
 	app core.App,
 	temporalClient client.Client,
 	namespace string,
-	userTimezone string,
 ) *pipelineExecutionSummaryBuilder {
-	location, err := time.LoadLocation(userTimezone)
-	if err != nil {
-		location = time.Local
-	}
 	return &pipelineExecutionSummaryBuilder{
 		app:         app,
 		client:      temporalClient,
 		namespace:   namespace,
-		location:    location,
 		runnerCache: map[string]map[string]any{},
 		runnerInfo:  map[string]pipeline.PipelineDeviceInfo{},
 	}
@@ -688,7 +679,6 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	}
 	summary.PipelineIdentifier = pipelineIdentifier
 	summary.PipelineName = resolvePipelineNameFromRecord(pipelineRecord, pipelineIdentifier)
-	localizePipelineWorkflowSummaries([]*pipelineWorkflowSummary{summary}, b.location)
 	return summary, nil
 }
 
@@ -723,24 +713,6 @@ func (b *pipelineExecutionSummaryBuilder) pipelineRunnerInfo(
 	info, _ := pipeline.ParsePipelineDeviceInfo(pipelineRecord.GetString("yaml"))
 	b.runnerInfo[pipelineRecord.Id] = info
 	return info
-}
-
-func localizePipelineWorkflowSummaries(list []*pipelineWorkflowSummary, loc *time.Location) {
-	for _, summary := range list {
-		if summary == nil {
-			continue
-		}
-
-		if t, err := utils.ParseTimeString(summary.StartTime); err == nil {
-			summary.StartTime = t.In(loc).Format("02/01/2006, 15:04:05")
-		}
-		if t, err := utils.ParseTimeString(summary.EndTime); err == nil {
-			summary.EndTime = t.In(loc).Format("02/01/2006, 15:04:05")
-		}
-		if len(summary.Children) > 0 {
-			localizeWorkflowExecutionSummaries(summary.Children, loc)
-		}
-	}
 }
 
 func buildWorkflowExecutionSummary(
@@ -1016,14 +988,12 @@ func appendQueuedPipelineSummaries(
 	app core.App,
 	response map[string][]*pipelineWorkflowSummary,
 	queuedByPipelineID map[string][]QueuedPipelineRunAggregate,
-	userTimezone string,
 	runnerCache map[string]map[string]any,
 ) {
 	for pipelineID, queuedRuns := range queuedByPipelineID {
 		queuedSummaries := buildQueuedPipelineSummaries(
 			app,
 			queuedRuns,
-			userTimezone,
 			runnerCache,
 		)
 		if len(queuedSummaries) == 0 {
@@ -1036,7 +1006,6 @@ func appendQueuedPipelineSummaries(
 func buildQueuedPipelineSummaries(
 	app core.App,
 	queuedRuns []QueuedPipelineRunAggregate,
-	userTimezone string,
 	runnerCache map[string]map[string]any,
 ) []*pipelineWorkflowSummary {
 	if len(queuedRuns) == 0 {
@@ -1063,7 +1032,6 @@ func buildQueuedPipelineSummaries(
 		summaries = append(summaries, buildQueuedPipelineSummary(
 			app,
 			queued,
-			userTimezone,
 			runnerCache,
 			resolveName(queued.PipelineIdentifier),
 		))
@@ -1075,11 +1043,10 @@ func buildQueuedPipelineSummaries(
 func buildQueuedPipelineSummary(
 	app core.App,
 	queued QueuedPipelineRunAggregate,
-	userTimezone string,
 	runnerCache map[string]map[string]any,
 	displayName string,
 ) *pipelineWorkflowSummary {
-	enqueuedAt := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
+	enqueuedAt := formatQueuedRunTime(queued.EnqueuedAt)
 	queue := &WorkflowQueueSummary{
 		TicketID:  queued.TicketID,
 		Position:  queued.Position + 1,
@@ -1141,15 +1108,11 @@ func resolvePipelineNameFromRecord(pipelineRecord *core.Record, fallback string)
 	return fallback
 }
 
-func formatQueuedRunTime(enqueuedAt time.Time, userTimezone string) string {
+func formatQueuedRunTime(enqueuedAt time.Time) string {
 	if enqueuedAt.IsZero() {
 		return ""
 	}
-	loc, err := time.LoadLocation(userTimezone)
-	if err != nil {
-		loc = time.Local
-	}
-	return enqueuedAt.In(loc).Format("02/01/2006, 15:04:05")
+	return enqueuedAt.UTC().Format(time.RFC3339)
 }
 
 func mapQueuedRunsToPipelines(
