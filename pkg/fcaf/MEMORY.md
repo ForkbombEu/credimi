@@ -1412,15 +1412,21 @@ array plus the unselected `Master of Science` index. Claims-path indices are
 compared numerically because YAML yields `int` and captured JSON yields
 `float64`.
 
-Known blocker, recorded 17/09/2026: `degreeSdJwtCredentialSignOptions` in
-`credimi-capture-wallet` uses `disclosureFrame: { _sd: Object.keys(...) }`, so
-`degrees` and `academic_programmes` are single top-level disclosures and the
-beta issuer metadata advertises them as whole claims. A conforming Wallet must
-therefore disclose each array in full, and per-element removal is not
-observable in the response. Both cases are `implemented issuer-blocked`: the
-definitions are correct and will fail until the sibling repository publishes
-per-element disclosure frames for those two claims. Do not weaken the
-assertions to make a run pass.
+Issuer prerequisite, resolved 17/09/2026: `degreeSdJwtCredentialSignOptions`
+previously used `disclosureFrame: { _sd: Object.keys(...) }`, so each array was
+one atomic disclosure and per-element removal left no trace in the response.
+`credimi-capture-wallet` master now signs `DEGREE_DISCLOSURE_FRAME`, which
+makes every `degrees` entry an array-element disclosure with separate `type`
+and `university` object disclosures, and every `academic_programmes` string an
+array-element disclosure. The indices in that frame must stay numeric:
+`@sd-jwt/core` matches array elements with `sd.includes(i)`, so the string
+indices Credo's `IDisclosureFrame` type suggests are silently ignored and
+collapse each array back into one disclosure.
+
+`oid4vp_dcql_array_selector_nested_disclosure_test.go` pins our reader against
+that exact frame: it builds presentations from real nested disclosures and
+requires a pass when only the retained values are revealed and a fail when the
+whole arrays are revealed. Keep it in step with the issuer frame.
 
 No mobile runner was available, so neither scenario was executed against the
-reference Wallet.
+reference Wallet; a run still needs real captured protocol and visual evidence.

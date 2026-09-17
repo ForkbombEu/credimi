@@ -92,7 +92,7 @@ Those are the heterogeneous JSON structures the DCQL claims-path tests need.
 | Capability | Status |
 | --- | --- |
 | Issue `urn:credimi:degree:1` with the heterogeneous `degrees` and `academic_programmes` structures. | Observed on beta 17/09/2026 |
-| Prove per-element claims-path removal inside those arrays. | Blocked: the credential's disclosure frame is top-level only, so the issuer metadata advertises `degrees` and `academic_programmes` as whole claims and a conforming Wallet discloses each array in full. Per-element disclosure frames are required in `credimi-capture-wallet`. |
+| Prove per-element claims-path removal inside those arrays. | Observed 17/09/2026: `degreeSdJwtCredentialSignOptions` signs a nested `DEGREE_DISCLOSURE_FRAME`, so every `degrees` entry is an array-element disclosure with separate `type` and `university` disclosures and every `academic_programmes` string is its own array-element disclosure. A Wallet can therefore reveal `degrees[0..1].type` without any `university`, and `academic_programmes[1][1]` without `academic_programmes[0][0]`. The issuer metadata still advertises the two claims at whole-claim granularity, which is display metadata only. |
 
 ### Issuer protocol surface
 

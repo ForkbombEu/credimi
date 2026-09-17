@@ -85,14 +85,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 
 ### Reclassified from pending
 
-- [ ] `WS_RP_SH_Encoding_TextualEncoding_008` and
-  `WS_RP_SH_Encoding_TextualEncoding_011` (both are implemented against
-  `urn:credimi:degree:1`, which carries the source-required heterogeneous
-  `degrees` and `academic_programmes` arrays; the credential's disclosure
-  frame is top-level only, so a conforming Wallet discloses each array whole
-  and per-element removal stays unobservable. Unblocking requires
-  `credimi-capture-wallet` to publish per-element disclosure frames for those
-  two claims; the Credimi definitions then pass unchanged)
 - [ ] `WS_RP_SH_Encoding_TextualEncoding_017` and
   `WS_RP_SH_Encoding_TextualEncoding_021` (the available Capture PID mdoc
   fixture uses `eu.europa.ec.eudi.pid.1`; it cannot produce the source-required
