@@ -173,6 +173,7 @@ func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input
 		MetadataEnc              string   `json:"metadata_enc"`
 		MetadataEncAbsent        bool     `json:"metadata_enc_absent"`
 		MetadataEncValuesSupport []string `json:"metadata_enc_values_supported"`
+		MetadataEncValuesOnly    bool     `json:"metadata_enc_values_exclusive"`
 		PreserveGeneratedJWKs    bool     `json:"preserve_generated_jwks"`
 	}](input.Params)
 	if err != nil {
@@ -185,6 +186,18 @@ func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input
 		return Result{
 			Status:  StatusError,
 			Message: "at least one response encryption check is required",
+		}
+	}
+	if params.MetadataEnc != "" && params.MetadataEncAbsent {
+		return Result{
+			Status:  StatusError,
+			Message: "metadata_enc and metadata_enc_absent are contradictory",
+		}
+	}
+	if params.MetadataEncValuesOnly && len(params.MetadataEncValuesSupport) == 0 {
+		return Result{
+			Status:  StatusError,
+			Message: "metadata_enc_values_exclusive requires metadata_enc_values_supported",
 		}
 	}
 	if params.MetadataEnc != "" && params.MetadataEncAbsent {
@@ -284,6 +297,16 @@ func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input
 						required,
 					),
 				}
+			}
+		}
+		if params.MetadataEncValuesOnly && len(supported) != len(params.MetadataEncValuesSupport) {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"client metadata encrypted_response_enc_values_supported is %v, expected only %v",
+					advertised,
+					params.MetadataEncValuesSupport,
+				),
 			}
 		}
 	}

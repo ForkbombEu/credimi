@@ -112,6 +112,19 @@ func TestOID4VPResponseEncryptionValidator(t *testing.T) {
 			),
 		},
 	}
+	restrictedRequest := testSignedRequest(t, map[string]any{
+		"jwks": jwks,
+		"encrypted_response_enc_values_supported": []any{"A128GCM"},
+	})
+	restricted := map[string]any{
+		"request_object": restrictedRequest,
+		"presentation_response_http": map[string]any{
+			"body": "response=" + testCompactJWE(
+				t,
+				map[string]any{"kid": "generated-kid", "enc": "A128GCM"},
+			),
+		},
+	}
 	for _, tt := range []struct {
 		name   string
 		value  any
@@ -133,6 +146,9 @@ func TestOID4VPResponseEncryptionValidator(t *testing.T) {
 		{"advertised enc values", advertised, map[string]any{"metadata_enc_values_supported": []any{"A128GCM", "A256GCM"}, "expected_enc": "A256GCM"}, StatusPass},
 		{"unadvertised enc value", advertised, map[string]any{"metadata_enc_values_supported": []any{"A192GCM"}}, StatusFail},
 		{"advertised enc values missing", valid, map[string]any{"metadata_enc_values_supported": []any{"A128GCM"}}, StatusFail},
+		{"exclusive advertised enc value", restricted, map[string]any{"metadata_enc_values_supported": []any{"A128GCM"}, "metadata_enc_values_exclusive": true, "expected_enc": "A128GCM"}, StatusPass},
+		{"exclusive check rejects extra advertised values", advertised, map[string]any{"metadata_enc_values_supported": []any{"A128GCM"}, "metadata_enc_values_exclusive": true}, StatusFail},
+		{"exclusive check without values", advertised, map[string]any{"metadata_enc_values_exclusive": true}, StatusError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(

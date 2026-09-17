@@ -1192,31 +1192,46 @@ observable requirement is the form encoding itself.
 ## Cases 007, 008, and 009, SessionEncryption content encryption
 
 All three check the RFC 7516 section 4.1.2 `enc` header of the Wallet response,
-so they moved to `pipeline.direct-post-jwt.response-transport`, whose
+so they use `pipeline.direct-post-jwt.response-transport`, whose
 `default_encryption_evidence` carries both the request object (for the
 advertised algorithms) and the raw response form (for the chosen algorithm).
+Each case must pair its own advertisement with the selection, because the
+profile differs per case:
 
-`oid4vp.response_encryption` gained a `metadata_enc_values_supported` parameter:
-it requires the request `client_metadata.encrypted_response_enc_values_supported`
-array to contain each listed value. The pre-existing `metadata_enc` parameter
-only reads the old draft scalar `authorization_encrypted_response_enc`, which
-beta Capture no longer emits, so it could not express these cases.
+- `007`: only A128GCM offered, response `enc` is A128GCM.
+- `008`: only A256GCM offered, response `enc` is A256GCM.
+- `009`: both offered, response `enc` must be A256GCM.
 
-Each case pairs the advertisement with the selection:
+`oid4vp.response_encryption` gained two parameters for this:
+`metadata_enc_values_supported` requires
+`client_metadata.encrypted_response_enc_values_supported` to contain each listed
+value, and `metadata_enc_values_exclusive` requires the advertised set to hold
+nothing else. The pre-existing `metadata_enc` parameter only reads the old draft
+scalar `authorization_encrypted_response_enc`, which beta Capture no longer
+emits, so it could not express any of these cases.
 
-- `007`: advertises A128GCM, response `enc` is A128GCM.
-- `008`: advertises A256GCM, response `enc` is A256GCM.
-- `009`: advertises both, response `enc` must be A256GCM.
+Only `009` is runnable today. Beta Capture generates one fixed advertisement,
+`[A128GCM, A256GCM, A128CBC-HS256]`, which satisfies `009` but neither `007` nor
+`008`. Probed override behaviour on `POST /openid4vp/sessions`:
 
-`007` and `008` are mutually exclusive on one run by construction, exactly as
-the FCAF profile split intends ("Wallet supports only A128GCM" versus "only
-A256GCM"); `008` and `009` agree. Engine runs confirmed an A128GCM response
-passes only `007`, an A256GCM response passes `008` and `009`, and an
-A128CBC-HS256 response fails all three.
+- `response_mode: direct_post` accepts a `client_metadata` override and honours
+  it: `{encrypted_response_enc_values_supported: [A128GCM]}` is emitted
+  verbatim, and `client_metadata: null` omits the parameter. That mode does not
+  encrypt the response, so it cannot serve these cases.
+- `response_mode: direct_post.jwt` rejects every override with HTTP 400
+  `invalid_client_metadata`, including an override carrying a Capture-generated
+  `jwks`, and rejects `client_metadata: null` with
+  `client_metadata_required_for_encrypted_response`.
+- A `client_metadata` nested inside `presentation_request` is accepted but
+  silently ignored.
 
-Beta Capture ignores a `client_metadata` override for
-`encrypted_response_enc_values_supported` just as it does for `jwks`: a live
-probe of `[A128GCM]`, `[A256GCM]`, `[A128GCM, A256GCM]`, and the legacy
-`authorization_encrypted_response_enc` all still emitted
-`[A128GCM, A256GCM, A128CBC-HS256]`. The advertisement assertions therefore
-check what the verifier really published rather than what was requested.
+So a restricted advertisement and an encrypted response cannot be combined:
+`007` and `008` are excluded and the generator invariant records them. Unblocking
+them needs Capture to accept a narrowed
+`encrypted_response_enc_values_supported` while keeping its own generated
+encryption JWK under `direct_post.jwt`.
+
+Engine runs confirmed the definitions are correct and ready: against the live
+advertisement, `009` passes with an A256GCM response while `007` and `008` fail
+on exclusivity; against synthetic request objects advertising exactly one value,
+`007` and `008` pass, and `008` still fails when the response uses A128GCM.

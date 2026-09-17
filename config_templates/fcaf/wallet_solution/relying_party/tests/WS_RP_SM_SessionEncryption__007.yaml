@@ -29,11 +29,12 @@ assertions:
   validator: oid4vp.presentation_response_http
   input: evidence.capture_session
   params: {method: POST, require_response_parameter: true}
-- id: a128gcm_is_advertised_and_used
+- id: only_a128gcm_is_offered_and_used
   validator: oid4vp.response_encryption
   input: evidence.encryption_evidence
   params:
     metadata_enc_values_supported: [A128GCM]
+    metadata_enc_values_exclusive: true
     expected_enc: A128GCM
 - id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty

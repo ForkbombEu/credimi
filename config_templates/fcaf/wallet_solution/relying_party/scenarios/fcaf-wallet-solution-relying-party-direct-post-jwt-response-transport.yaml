@@ -62,8 +62,6 @@ steps:
     - WS_RP_IA_MainInteraction__052
     - WS_RP_IA_MainInteraction__054
     - WS_RP_SM_SessionEncryption__012
-    - WS_RP_SM_SessionEncryption__007
-    - WS_RP_SM_SessionEncryption__008
     - WS_RP_SM_SessionEncryption__009
     - WS_RP_SH_Encoding_TextualEncoding_022
     suite: wallet_solution/relying_party
