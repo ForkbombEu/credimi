@@ -46,13 +46,19 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.Len(t, validationSteps, 1)
 	with, ok := validationSteps[0]["with"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, stringSlice(with["test_ids"]), 578)
+	require.Len(t, stringSlice(with["test_ids"]), 577)
 	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__006")
 	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__013")
 	require.NotContains(
 		t,
 		stringSlice(with["test_ids"]),
 		"WS_RP_SM_RpIntegrity__016",
+		"complete validation must omit tests without exact feasible evidence",
+	)
+	require.NotContains(
+		t,
+		stringSlice(with["test_ids"]),
+		"WS_RP_SM_RpIntegrity__018",
 		"complete validation must omit tests without exact feasible evidence",
 	)
 	require.Len(t, with["pipeline_outputs"], 172)
@@ -142,7 +148,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 		"WS_RP_IA_MainInteraction__015",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
-	require.Len(t, stringSlice(with["test_ids"]), 396)
+	require.Len(t, stringSlice(with["test_ids"]), 395)
 	require.NotContains(
 		t,
 		stringSlice(with["test_ids"]),
@@ -159,6 +165,12 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 		t,
 		stringSlice(with["test_ids"]),
 		"WS_RP_SM_RpIntegrity__016",
+		"happy flow must omit tests without exact feasible evidence",
+	)
+	require.NotContains(
+		t,
+		stringSlice(with["test_ids"]),
+		"WS_RP_SM_RpIntegrity__018",
 		"happy flow must omit tests without exact feasible evidence",
 	)
 	require.Len(t, with["pipeline_outputs"], 34)

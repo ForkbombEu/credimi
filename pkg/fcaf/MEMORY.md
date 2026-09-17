@@ -1053,3 +1053,12 @@ anchor. Capture exposes no intermediate/root certificate or trusted-root
 fixture. The generic RP-integrity scenario no longer runs this test: it would
 have produced an unrelated `iss` assertion and a false pass. Implement only
 when Capture supplies a complete chain plus a defined trust anchor.
+
+## Case 018, RpIntegrity x509_hash trust chain
+
+`WS_RP_SM_RpIntegrity__018` has the same unavailable prerequisite as 016:
+the required `x509_hash` Request Object must carry a complete `x5c` chain to a
+trusted root. The live beta Capture probe exposes only the non-self-issued leaf,
+and neither intermediate/root material nor a trust-anchor fixture is available.
+It is excluded from the generic RP-integrity scenario to prevent the unrelated
+`iss` assertion from producing a false pass.
