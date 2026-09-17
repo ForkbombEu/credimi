@@ -1054,3 +1054,16 @@ event; 023 covers acceptance of the `x509_hash` Client Identifier Prefix, where
 the response event plus screenshots evidence consent and a successful
 presentation. Case 020 additionally requires `vp_formats_supported` exclusively
 in `client_metadata`.
+
+## Case 028, RpIntegrity unsigned request
+
+`WS_RP_SM_RpIntegrity__028` uses the plain `redirect_uri` scenario, which is
+the only source that delivers request parameters without a Request Object. A
+live beta Capture probe of `request_delivery: plain` returned an
+`authorization_request` with neither `request` nor `request_uri`, and the
+deeplink carried the parameters inline, so both absence assertions fail if the
+verifier ever switches that source back to signed or by-reference delivery.
+Successful handling is proven by exactly one `vp_presentation_response_received`
+capture event. The session body keeps a bookkeeping top-level `request_uri`
+even for plain delivery, so absence must be asserted on `authorization_request`
+only.
