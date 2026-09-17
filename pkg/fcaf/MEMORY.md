@@ -1381,30 +1381,46 @@ Capture beta recorded the necessary raw POST method, headers, and body on
 so the scenarios require actual capture and visual evidence rather than
 fabricating the outcome.
 
-## Case TextualEncoding 008, degree array selector filtering
+## Cases TextualEncoding 008 and 011, degree claims-path selectors
 
-`WS_RP_SH_Encoding_TextualEncoding_008` previously bound to the shared
-`pipeline.dcql.encoding` PID `given_name` interaction, was owned by no
-scenario, and asserted `sdjwt.claim_utf8_string` without a `claim` param. That
-combination could never prove claims-path element filtering.
+Both cases previously bound the shared `pipeline.dcql.encoding` PID
+`given_name` interaction, were owned by no scenario, and asserted
+`sdjwt.claim_utf8_string` without a `claim` param. That combination could never
+prove claims-path element removal.
 
 The beta Capture issuer publishes `urn:credimi:degree:1` (configuration
 `urn:credimi:degree:1.sd-jwt.key-attestation-required`, confirmed on
-17/09/2026 through `GET /issuers` and the issuer metadata) whose
-`degrees` array carries two entries with `type` and one entry with only
-`university`. That is exactly the source precondition.
+17/09/2026 through `GET /issuers` and the issuer metadata). Its
+`degrees` array holds two entries with `type` plus one entry with only
+`university`, and `academic_programmes` holds `["Bachelor of Science"]` plus
+`["Master of Science", "Doctor of Philosophy"]`. Those are exactly the two
+source preconditions.
 
-`fcaf-wallet-solution-relying-party-dcql-degree-array-selector` issues that
-credential, then requests `path: [degrees, null, type]`. New validator
-`oid4vp.dcql_array_selector_filter` requires the session-bound query to be that
-exact degree selector and requires the returned SD-JWT presentation to disclose
-exactly `Bachelor of Science` and `Master of Science`, with the untyped entry
-removed. Unit tests cover the filtered pass, an unfiltered three-entry
-presentation, and a non-selector claim path.
+Two scenarios issue that credential and then request one selector each:
 
-The former `ASSERTION_REVIEW_BACKLOG.md` claim that beta cannot provision
-heterogeneous `degrees` arrays is stale and was corrected; case 011 can reuse
-the same credential for out-of-range index removal.
+- `dcql-degree-array-selector`: `path: [degrees, null, type]` for case 008.
+- `dcql-degree-index-selector`: `path: [academic_programmes, null, 1]` for
+  case 011.
 
-No mobile runner was available, so no reference Wallet run was performed; the
-scenario requires real captured protocol and visual evidence.
+`oid4vp.dcql_array_selector_filter` is parameterised by `vct`, `path`,
+`required_values`, and `forbidden_values`. It requires the session-bound query
+to carry that exact single-claim path, then requires the presented SD-JWT to
+disclose every retained value and none of the values that belong only to the
+removed element. For 008 the discriminator is the absent
+`University of Betelgeuse`; for 011 it is the absent `Bachelor of Science`
+array plus the unselected `Master of Science` index. Claims-path indices are
+compared numerically because YAML yields `int` and captured JSON yields
+`float64`.
+
+Known blocker, recorded 17/09/2026: `degreeSdJwtCredentialSignOptions` in
+`credimi-capture-wallet` uses `disclosureFrame: { _sd: Object.keys(...) }`, so
+`degrees` and `academic_programmes` are single top-level disclosures and the
+beta issuer metadata advertises them as whole claims. A conforming Wallet must
+therefore disclose each array in full, and per-element removal is not
+observable in the response. Both cases are `implemented issuer-blocked`: the
+definitions are correct and will fail until the sibling repository publishes
+per-element disclosure frames for those two claims. Do not weaken the
+assertions to make a run pass.
+
+No mobile runner was available, so neither scenario was executed against the
+reference Wallet.

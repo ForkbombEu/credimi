@@ -23,6 +23,17 @@ assertions:
 - id: wallet_filters_degree_entries_without_a_type
   validator: oid4vp.dcql_array_selector_filter
   input: evidence.dcql_exchange
+  params:
+    vct: urn:credimi:degree:1
+    path:
+    - degrees
+    - null
+    - type
+    required_values:
+    - Bachelor of Science
+    - Master of Science
+    forbidden_values:
+    - University of Betelgeuse
 - id: wallet_completes_the_degree_presentation
   validator: evidence.non_empty
   input: evidence.visual_evidence

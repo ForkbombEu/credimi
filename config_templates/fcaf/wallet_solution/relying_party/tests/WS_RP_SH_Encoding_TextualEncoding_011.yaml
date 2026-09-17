@@ -1,5 +1,5 @@
 id: WS_RP_SH_Encoding_TextualEncoding_011
-title: FCAF WS_RP_SH_Encoding_TextualEncoding_011
+title: Remove arrays without an element at the selected index.
 source:
   path: Shared/Encoding/WS_RP_SH_Encoding_TextualEncoding_011.md
 suite:
@@ -11,19 +11,30 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '7.2.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.encoding
+- ref: pipeline.dcql.degree-index-selector
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.encoding.outputs.dcql_exchange
+    from: pipeline.dcql.degree-index-selector.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.encoding.outputs.visual_evidence
+    from: pipeline.dcql.degree-index-selector.outputs.visual_evidence
 assertions:
-- id: ws_rp_sh_encoding_textualencoding_011_encoding_verified
-  validator: sdjwt.claim_utf8_string
+- id: wallet_drops_the_array_without_the_requested_index
+  validator: oid4vp.dcql_array_selector_filter
   input: evidence.dcql_exchange
-- id: ws_rp_sh_encoding_textualencoding_011_visual_evidence
+  params:
+    vct: urn:credimi:degree:1
+    path:
+    - academic_programmes
+    - null
+    - 1
+    required_values:
+    - Doctor of Philosophy
+    forbidden_values:
+    - Bachelor of Science
+    - Master of Science
+- id: wallet_completes_the_degree_presentation
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

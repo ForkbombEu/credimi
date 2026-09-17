@@ -81,6 +81,19 @@ metadata from `GET /issuers` instead of hard-coding them.
 credential. The former `broken` fixture toggle is not part of the published beta
 contract.
 
+Both issuer configurations also advertise a non-PID test credential,
+`urn:credimi:degree:1` (`urn:credimi:degree:1.sd-jwt.key-attestation-required`
+and `urn:credimi:degree:1.sd-jwt.jwt-proof`). Observed on beta 17/09/2026: it
+carries `degrees` with two `type`-bearing entries plus one entry holding only
+`university`, and `academic_programmes` as
+`[["Bachelor of Science"], ["Master of Science", "Doctor of Philosophy"]]`.
+Those are the heterogeneous JSON structures the DCQL claims-path tests need.
+
+| Capability | Status |
+| --- | --- |
+| Issue `urn:credimi:degree:1` with the heterogeneous `degrees` and `academic_programmes` structures. | Observed on beta 17/09/2026 |
+| Prove per-element claims-path removal inside those arrays. | Blocked: the credential's disclosure frame is top-level only, so the issuer metadata advertises `degrees` and `academic_programmes` as whole claims and a conforming Wallet discloses each array in full. Per-element disclosure frames are required in `credimi-capture-wallet`. |
+
 ### Issuer protocol surface
 
 | Endpoint | Published requirements | Status |
