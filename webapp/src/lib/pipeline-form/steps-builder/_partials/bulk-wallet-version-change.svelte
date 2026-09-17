@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
 	import { ExternalLinkIcon } from '@lucide/svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import { getHubItemData } from '$lib/hub';
@@ -17,7 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type SelectedVersion
 	} from '$pipeline-form/execution-target/types.js';
 	import { ItemCard, WithEmptyState, WithLabel } from '$pipeline-form/steps/_partials/index.js';
-	import { resource } from 'runed';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 
@@ -52,18 +52,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return { isExternal: false, recordId: null };
 	});
 
-	const walletVersions = resource(
-		() => (open && bulkContext ? bulkContext.wallet.id : null),
-		async (walletId) => {
-			if (!walletId) return null;
+	const walletId = $derived(open && bulkContext ? bulkContext.wallet.id : null);
 
+	const walletVersions = createQuery(() => ({
+		queryKey: ['wallet-versions', walletId] as const,
+		queryFn: async () => {
+			if (!walletId) return null;
 			return pb.collection('wallet_versions').getFullList<WalletVersionsResponse>({
 				filter: pb.filter('wallet = {:wallet}', { wallet: walletId }),
 				requestKey: null
 			});
 		},
-		{}
-	);
+		enabled: Boolean(walletId)
+	}));
 
 	function applyVersionAndClose(
 		version: SelectedVersion,
@@ -103,7 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</WithLabel>
 				</div>
 
-				{#if walletVersions.loading}
+				{#if walletVersions.isPending}
 					<p class="text-sm text-muted-foreground">{m.Loading()}</p>
 				{:else if walletVersions.error}
 					<p class="text-sm text-destructive">{walletVersions.error.message}</p>
@@ -129,7 +130,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</ItemCard>
 
 					<WithEmptyState
-						items={walletVersions.current ?? []}
+						items={walletVersions.data ?? []}
 						emptyText={m.No_wallet_versions_found()}
 						containerClass="[&>div>div]:p-0!"
 					>

@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Plain counter — no $state. Checked from setInterval callbacks
-// where Svelte reactivity doesn't apply.
-let count = 0;
+// Reactive counter — $state so TanStack Query option thunks re-run when
+// sheets open/close (used to gate query refetchInterval).
+let count = $state(0);
 
 export const activeSheet = {
 	get count() {
