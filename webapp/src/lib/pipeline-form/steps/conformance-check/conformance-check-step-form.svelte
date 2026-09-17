@@ -55,8 +55,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<TriangleAlert size={16} />
 			<T>{form.standardsWithTestSuites.error?.message}</T>
 		</EmptyState>
-	{:else if form.standardsWithTestSuites.current}
-		{@const standards = form.standardsWithTestSuites.current}
+	{:else if form.standardsWithTestSuites.data}
+		{@const standards = form.standardsWithTestSuites.data}
 
 		{#if hasSelection}
 			<div class="space-y-2 border-b p-4">
@@ -186,8 +186,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<SmallErrorDisplay error={form.standardsWithTestSuites.error} />
 	{/if} -->
 	<!-- {#if form.state === 'select-standard'}
-		<pre>{JSON.stringify(form.standardsWithTestSuites.current, null, 2)}</pre>
-	{#if form.standardsWithTestSuites.current}
-		<pre>{JSON.stringify(form.standardsWithTestSuites.current, null, 2)}</pre>
+		<pre>{JSON.stringify(form.standardsWithTestSuites.data, null, 2)}</pre>
+	{#if form.standardsWithTestSuites.data}
+		<pre>{JSON.stringify(form.standardsWithTestSuites.data, null, 2)}</pre>
 	{/if} -->
 </div>

@@ -7,7 +7,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
-	import { ArrowRightIcon, EllipsisVerticalIcon } from '@lucide/svelte';
+	import {
+		ArrowRightIcon,
+		ChevronDownIcon,
+		ChevronUpIcon,
+		EllipsisVerticalIcon
+	} from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import {
@@ -15,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		splitExecutionTimes,
 		type SplitExecutionTimes
 	} from '$lib/workflows/format-execution-time';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { fromStore } from 'svelte/store';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -38,24 +44,43 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { workflows }: Props = $props();
 
-	const PARENT_COLUMN_COUNT = 10;
-
 	const user = fromStore(currentUser);
 	const timezone = $derived(user.current?.Timezone);
 
-	let expandedRunId = $state<string | null>(null);
+	const expandedRunIds = new SvelteSet<string>();
 
 	$effect(() => {
-		if (
-			expandedRunId &&
-			!workflows.some((workflow) => workflow.execution.runId === expandedRunId)
-		) {
-			expandedRunId = null;
+		const validIds = collectRunIds(workflows);
+		for (const id of [...expandedRunIds]) {
+			if (!validIds.has(id)) {
+				expandedRunIds.delete(id);
+			}
 		}
 	});
 
+	function collectRunIds(
+		items: Array<{ execution: { runId: string }; children?: WorkflowExecutionSummary[] }>,
+		ids = new SvelteSet<string>()
+	): SvelteSet<string> {
+		for (const item of items) {
+			ids.add(item.execution.runId);
+			if (item.children?.length) {
+				collectRunIds(item.children, ids);
+			}
+		}
+		return ids;
+	}
+
 	function toggleChildren(runId: string) {
-		expandedRunId = expandedRunId === runId ? null : runId;
+		if (expandedRunIds.has(runId)) {
+			expandedRunIds.delete(runId);
+		} else {
+			expandedRunIds.add(runId);
+		}
+	}
+
+	function statusPadding(depth: number): string {
+		return `${depth * 1.5}rem`;
 	}
 
 	function parentTimeParts(workflow: ExecutionSummary): SplitExecutionTimes | undefined {
@@ -92,7 +117,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const children = (workflow.children ?? []) as WorkflowExecutionSummary[]}
 						{@const count = children.length}
 						{@const isExpanded =
-							expandedRunId === workflow.execution.runId && count > 0}
+							expandedRunIds.has(workflow.execution.runId) && count > 0}
 						{@const parts = parentTimeParts(workflow)}
 						<tr>
 							<td>
@@ -129,15 +154,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{@render na()}
 								{/if}
 							</td>
-							<td>
+							<td class="max-w-24">
 								{#if count > 0}
 									<button
 										type="button"
-										class="text-primary hover:underline"
+										class="flex max-w-full cursor-pointer items-center gap-1 text-left text-primary hover:underline"
 										aria-expanded={isExpanded}
 										onclick={() => toggleChildren(workflow.execution.runId)}
 									>
-										{m.count_children({ count })}
+										{#if isExpanded}
+											<ChevronUpIcon class="size-3 shrink-0" />
+										{:else}
+											<ChevronDownIcon class="size-3 shrink-0" />
+										{/if}
+										<span class="min-w-0 truncate"
+											>{m.count_children({ count })}</span
+										>
 									</button>
 								{:else}
 									<span class="text-muted-foreground opacity-50">—</span>
@@ -152,6 +184,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											workflow_id: workflow.execution.workflowId,
 											run_id: workflow.execution.runId
 										})}
+										class="whitespace-nowrap"
 									>
 										{m.View()}
 										<ArrowRightIcon
@@ -177,78 +210,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</td>
 						</tr>
 						{#if isExpanded}
-							<tr class="bg-slate-50">
-								<td colspan={PARENT_COLUMN_COUNT} class="px-2 py-2">
-									<table class="w-full text-xs">
-										<thead>
-											<tr>
-												<th class="rounded-l-sm">{m.Status()}</th>
-												<th>{m.Type()}</th>
-												<th>{m.Date()}</th>
-												<th>{m.start()}</th>
-												<th>{m.End_time()}</th>
-												<th>{m.Duration()}</th>
-												<th class="rounded-r-sm">{m.details()}</th>
-											</tr>
-										</thead>
-										<tbody>
-											{#each children as child (child.execution.runId)}
-												{@const childParts = splitExecutionTimes(
-													child.startTime,
-													child.endTime,
-													timezone
-												)}
-												<tr>
-													<td>
-														<WorkflowStatusTag
-															status={child.status}
-															failureReason={child.failure_reason}
-															size="sm"
-														/>
-													</td>
-													<td>
-														<div class="flex min-w-0 flex-col gap-0.5">
-															<span class="truncate font-medium">
-																{child.type.name}
-															</span>
-															<span
-																class="truncate text-muted-foreground"
-															>
-																{child.displayName}
-															</span>
-														</div>
-													</td>
-													{@render timeCells(childParts)}
-													<td class="text-muted-foreground">
-														{#if child.duration}
-															{child.duration}
-														{:else}
-															{@render na()}
-														{/if}
-													</td>
-													<td>
-														<A
-															href={resolve(
-																'/my/tests/runs/[workflow_id]/[run_id]',
-																{
-																	workflow_id:
-																		child.execution.workflowId,
-																	run_id: child.execution.runId
-																}
-															)}
-														>
-															{m.View()}
-															<ArrowRightIcon
-																class="inline-block size-3 -translate-y-px"
-															/>
-														</A>
-													</td>
-												</tr>
-											{/each}
-										</tbody>
-									</table>
-								</td>
-							</tr>
+							{@render childRows(children, 1)}
 						{/if}
 					{/each}
 				</tbody>
@@ -284,6 +246,75 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render na()}
 		{/if}
 	</td>
+{/snippet}
+
+{#snippet childRows(children: WorkflowExecutionSummary[], depth: number)}
+	{#each children as child (child.execution.runId)}
+		{@const nested = child.children ?? []}
+		{@const nestedCount = nested.length}
+		{@const nestedExpanded = expandedRunIds.has(child.execution.runId) && nestedCount > 0}
+		{@const childParts = splitExecutionTimes(child.startTime, child.endTime, timezone)}
+		<tr class="bg-slate-50">
+			<td style:padding-left={statusPadding(depth)}>
+				<WorkflowStatusTag
+					status={child.status}
+					failureReason={child.failure_reason}
+					size="sm"
+				/>
+			</td>
+			<td colspan="2">
+				<div class="flex min-w-0 items-baseline gap-1.5">
+					<span class="shrink-0 font-normal">{child.type.name}</span>
+					<span class="min-w-0 truncate text-muted-foreground">{child.displayName}</span>
+				</div>
+			</td>
+			{@render timeCells(childParts)}
+			<td class="text-muted-foreground">
+				{#if child.duration}
+					{child.duration}
+				{:else}
+					{@render na()}
+				{/if}
+			</td>
+			<td class="max-w-24">
+				{#if nestedCount > 0}
+					<button
+						type="button"
+						class="flex max-w-full cursor-pointer items-center gap-1 text-left text-primary hover:underline"
+						aria-expanded={nestedExpanded}
+						onclick={() => toggleChildren(child.execution.runId)}
+					>
+						{#if nestedExpanded}
+							<ChevronUpIcon class="size-3 shrink-0" />
+						{:else}
+							<ChevronDownIcon class="size-3 shrink-0" />
+						{/if}
+						<span class="min-w-0 truncate"
+							>{m.count_children({ count: nestedCount })}</span
+						>
+					</button>
+				{:else}
+					<span class="text-muted-foreground opacity-50">—</span>
+				{/if}
+			</td>
+			<td>
+				<A
+					href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+						workflow_id: child.execution.workflowId,
+						run_id: child.execution.runId
+					})}
+					class="whitespace-nowrap"
+				>
+					{m.View()}
+					<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
+				</A>
+			</td>
+			<td></td>
+		</tr>
+		{#if nestedExpanded}
+			{@render childRows(nested, depth + 1)}
+		{/if}
+	{/each}
 {/snippet}
 
 {#snippet na()}
