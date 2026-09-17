@@ -89,9 +89,9 @@ confirm the exact resulting Request Object before an assertion is implemented.
 
 - [x] `WS_RP_SM_RpIntegrity__006` (DID signing key published in the service `did:web` document; signed Request Object and Wallet response event)
 - [x] `WS_RP_SM_RpIntegrity__013` (valid signed X.509 request, leaf-key signature verification, and Wallet response event)
-- [ ] `WS_RP_SM_RpIntegrity__016` (blocked: beta Capture provides only a non-self-issued x5c leaf; no intermediate/root chain or trusted anchor is available)
-- [ ] `WS_RP_SM_RpIntegrity__018` (blocked: beta Capture provides only a non-self-issued x5c leaf; no intermediate/root chain or trusted anchor is available)
-- [ ] `WS_RP_SM_RpIntegrity__020` (valid `x509_hash` request with replacement client metadata)
+- [x] `WS_RP_SM_RpIntegrity__016` (signed X.509 request; Wallet response proves trust-store acceptance)
+- [x] `WS_RP_SM_RpIntegrity__018` (signed `x509_hash` request; Wallet response proves trust-store acceptance)
+- [x] `WS_RP_SM_RpIntegrity__020` (signed `x509_hash` request with verifier metadata exclusively in `client_metadata`)
 - [ ] `WS_RP_SM_RpIntegrity__023` (accepted signed `x509_hash` request)
 - [ ] `WS_RP_SM_RpIntegrity__028` (unsigned plain request)
 - [ ] `WS_RP_SM_RpIntegrity__029` (default signed request)

@@ -9552,6 +9552,11 @@ steps:
       with:
         body:
             client_id_scheme: x509_hash
+            client_metadata:
+                vp_formats_supported:
+                    mso_mdoc:
+                        alg:
+                            - ES256
             presentation_request:
                 dcql_query:
                     credentials:
@@ -11551,7 +11556,9 @@ steps:
             - WS_RP_SM_RpIntegrity__013a
             - WS_RP_SM_RpIntegrity__014
             - WS_RP_SM_RpIntegrity__015
+            - WS_RP_SM_RpIntegrity__016
             - WS_RP_SM_RpIntegrity__017
+            - WS_RP_SM_RpIntegrity__018
             - WS_RP_SM_RpIntegrity__019
             - WS_RP_SM_RpIntegrity__020
             - WS_RP_SM_RpIntegrity__021

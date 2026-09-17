@@ -22,6 +22,7 @@ steps:
         request_uri_method: get
         response_type: vp_token
         response_mode: direct_post
+        client_metadata: {vp_formats_supported: {mso_mdoc: {alg: [ES256]}}}
         presentation_request:
           nonce: fcaf-metadata-signed-x509-hash
           dcql_query:
@@ -54,7 +55,7 @@ steps:
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
-      test_ids: [WS_RP_MS_Metadata__111, WS_RP_SM_RpIntegrity__013]
+      test_ids: [WS_RP_MS_Metadata__111, WS_RP_SM_RpIntegrity__013, WS_RP_SM_RpIntegrity__016, WS_RP_SM_RpIntegrity__018, WS_RP_SM_RpIntegrity__020]
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.metadata.signed-x509-hash:

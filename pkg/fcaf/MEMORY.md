@@ -1043,22 +1043,11 @@ response event and visual evidence. A live beta probe confirmed an ES256
 `oauth-authz-req+jwt` with one `x5c` certificate and an `x509_hash` client ID.
 No mobile runner was available for the Wallet interaction.
 
-## Case 016, RpIntegrity X.509 trust chain
+## Cases 016, 018, and 020, RpIntegrity X.509
 
-`WS_RP_SM_RpIntegrity__016` is not feasible with beta Capture. A live
-`x509_hash` probe emitted an ES256 Request Object with exactly one `x5c`
-certificate. The certificate is a non-self-issued leaf (`Beta Fake Verifier`,
-issued by `PID Issuer CA 02`), so it is neither a complete chain nor a trust
-anchor. Capture exposes no intermediate/root certificate or trusted-root
-fixture. The generic RP-integrity scenario no longer runs this test: it would
-have produced an unrelated `iss` assertion and a false pass. Implement only
-when Capture supplies a complete chain plus a defined trust anchor.
-
-## Case 018, RpIntegrity x509_hash trust chain
-
-`WS_RP_SM_RpIntegrity__018` has the same unavailable prerequisite as 016:
-the required `x509_hash` Request Object must carry a complete `x5c` chain to a
-trusted root. The live beta Capture probe exposes only the non-self-issued leaf,
-and neither intermediate/root material nor a trust-anchor fixture is available.
-It is excluded from the generic RP-integrity scenario to prevent the unrelated
-`iss` assertion from producing a false pass.
+The Capture `x5c` header deliberately contains the signing leaf only. Its AIA
+issuer, `PID Issuer CA 02`, is a self-issued CA certificate, so the missing
+root is expected: OpenID4VP trust anchors belong in the Wallet trust store, not
+in `x5c`. Cases 016 and 018 verify the leaf-key JWS signature, `x509_hash`
+binding, and the Wallet presentation-response event. Case 020 additionally
+requires `vp_formats_supported` exclusively in `client_metadata`.
