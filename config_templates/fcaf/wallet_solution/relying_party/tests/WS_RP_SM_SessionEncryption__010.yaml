@@ -1,5 +1,5 @@
 id: WS_RP_SM_SessionEncryption__010
-title: FCAF WS_RP_SM_SessionEncryption__010
+title: Reject a verifier encryption JWK reused across authorization requests.
 source:
   path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__010.md
 suite:
@@ -11,21 +11,48 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.session-encryption
+- ref: pipeline.response-encryption.reused-jwk
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  first_request_object:
+    from: pipeline.response-encryption.reused-jwk.outputs.first_request_object
+  second_request_object:
+    from: pipeline.response-encryption.reused-jwk.outputs.second_request_object
+  second_capture_session:
+    from: pipeline.response-encryption.reused-jwk.outputs.second_capture_session
   visual_evidence:
-    from: pipeline.dcql.session-encryption.outputs.visual_evidence
+    from: pipeline.response-encryption.reused-jwk.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_sessionencryption__010_jwe_verified
-  validator: jwt.header_field_equals
-  input: evidence.dcql_exchange
-  params:
-    field: alg
-- id: ws_rp_sm_sessionencryption__010_visual_evidence
+- id: first_request_uses_the_reused_public_key_x
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.first_request_object
+  params: {field: x, value: 2HBwD9dMk-T3nLobOnvKGrXW0OJmXhyDZ92Yh_quEdA}
+- id: first_request_uses_the_reused_public_key_y
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.first_request_object
+  params: {field: y, value: SWCeVREJqSFRRXLrjTUIkMDtqn_88DbktyVKJc0ECEk}
+- id: first_request_allows_direct_ecdh_es
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.first_request_object
+  params: {field: alg, value: ECDH-ES}
+- id: second_request_reuses_the_first_public_key_x
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.second_request_object
+  params: {field: x, value: 2HBwD9dMk-T3nLobOnvKGrXW0OJmXhyDZ92Yh_quEdA}
+- id: second_request_reuses_the_first_public_key_y
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.second_request_object
+  params: {field: y, value: SWCeVREJqSFRRXLrjTUIkMDtqn_88DbktyVKJc0ECEk}
+- id: second_request_allows_direct_ecdh_es
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.second_request_object
+  params: {field: alg, value: ECDH-ES}
+- id: wallet_rejects_or_discontinues_the_reused_key_request
+  validator: dcql.response_satisfies_constraints
+  input: evidence.second_capture_session
+  params: {mode: request_rejected}
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

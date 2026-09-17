@@ -9801,6 +9801,112 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-per-request-keys-4f12992b-create-second-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: response-encryption-reused-jwk-183059b7-create-first-capture-session
+      use: http-request
+      with:
+        body:
+            allow_undecryptable_response: true
+            client_metadata:
+                jwks:
+                    keys:
+                        - alg: ECDH-ES
+                          crv: P-256
+                          kid: fcaf-reused-verifier-enc-key
+                          kty: EC
+                          use: enc
+                          x: 2HBwD9dMk-T3nLobOnvKGrXW0OJmXhyDZ92Yh_quEdA
+                          "y": SWCeVREJqSFRRXLrjTUIkMDtqn_88DbktyVKJc0ECEk
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: response-encryption-reused-jwk-first
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-reused-jwk-183059b7-exercise-first-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-reused-jwk-183059b7-create-first-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-reused-jwk-183059b7-create-second-capture-session
+      use: http-request
+      with:
+        body:
+            allow_undecryptable_response: true
+            client_metadata:
+                jwks:
+                    keys:
+                        - alg: ECDH-ES
+                          crv: P-256
+                          kid: fcaf-reused-verifier-enc-key
+                          kty: EC
+                          use: enc
+                          x: 2HBwD9dMk-T3nLobOnvKGrXW0OJmXhyDZ92Yh_quEdA
+                          "y": SWCeVREJqSFRRXLrjTUIkMDtqn_88DbktyVKJc0ECEk
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: response-encryption-reused-jwk-second
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-reused-jwk-183059b7-exercise-second-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-reused-jwk-183059b7-create-second-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-reused-jwk-183059b7-fetch-first-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-reused-jwk-183059b7-create-first-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: response-encryption-reused-jwk-183059b7-fetch-second-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-reused-jwk-183059b7-create-second-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: session-binding-invalid-nonce-0c3e8d16-create-capture-session
       use: http-request
       with:
@@ -11370,6 +11476,12 @@ steps:
                         presentation_response_http: ${{ response-encryption-per-request-keys-4f12992b-fetch-second-capture-session.outputs.body.raw.presentation_response_http | optional }}
                         request_object: ${{ response-encryption-per-request-keys-4f12992b-fetch-second-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-per-request-keys-4f12992b-exercise-wallet-for-second-request.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.response-encryption.reused-jwk:
+                output:
+                    first_request_object: ${{ response-encryption-reused-jwk-183059b7-fetch-first-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    second_capture_session: ${{ response-encryption-reused-jwk-183059b7-fetch-second-capture-session.outputs.body | optional }}
+                    second_request_object: ${{ response-encryption-reused-jwk-183059b7-fetch-second-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ response-encryption-reused-jwk-183059b7-exercise-second-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.session-binding.invalid-nonce:
                 output:
                     capture_session: ${{ session-binding-invalid-nonce-0c3e8d16-fetch-capture-session.outputs.body | optional }}

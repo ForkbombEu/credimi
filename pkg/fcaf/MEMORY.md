@@ -1340,3 +1340,23 @@ inventing `invalid_request`.
 Capture beta accepted and preserved this exact static key on 17/09/2026. No
 mobile runner was available to establish the reference Wallet's response; the
 scenario remains evidence-strict and fails without that error.
+
+## Case 010, SessionEncryption reused verifier JWK
+
+`WS_RP_SM_SessionEncryption__010` owns
+`fcaf-wallet-solution-relying-party-response-encryption-reused-jwk`. It creates
+two sequential Capture Wallet authorization requests, invokes the Wallet for
+each, and publishes the same valid static P-256 `use: enc` JWK with
+`alg: ECDH-ES` in both signed Request Objects. The `x`, `y`, and `alg`
+assertions prove the public key is reused while retaining a directly usable
+ECDH-ES encryption algorithm, so the precondition is not conflated with case
+006's non-bare-`ECDH-ES` error.
+
+The source permits `invalid_client_metadata`, an unspecified error, or
+discontinuation. `dcql.response_satisfies_constraints` therefore uses
+`request_rejected`; it permits a rejection or no presentation, rather than
+requiring a specific error code. Capture beta had already shown that
+`allow_undecryptable_response` preserves the same static encryption JWK across
+sessions. No mobile runner was available to establish the reference Wallet
+outcome, so the scenario fails without the required response or discontinuation
+evidence.
