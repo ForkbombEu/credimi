@@ -1360,3 +1360,23 @@ requiring a specific error code. Capture beta had already shown that
 sessions. No mobile runner was available to establish the reference Wallet
 outcome, so the scenario fails without the required response or discontinuation
 evidence.
+
+## Cases 042 and 044, ProtocolMessages request URI POST
+
+`WS_RP_MS_ProtocolMessages__042` and `WS_RP_MS_ProtocolMessages__044` share
+`fcaf-wallet-solution-relying-party-request-uri-post`. It creates a
+by-reference Authorization Request with `request_uri_method: post`, drives the
+Wallet interaction, and binds the exact resulting session to both tests.
+
+`oid4vp.request_uri_retrieval` now verifies the session-bound
+`raw.request_uri_http` evidence beyond its method and host: it validates the
+HTTPS request URI, POST method, form Content-Type, and exact
+`application/oauth-authz-req+jwt` Accept header for case 042. For case 044 it
+decodes the captured percent-encoded request body and requires every form name
+and value to be valid UTF-8. Unit tests cover valid evidence, a wrong Accept
+header, and an invalid UTF-8 percent-encoded value.
+
+Capture beta recorded the necessary raw POST method, headers, and body on
+17/09/2026. No mobile runner was available for the reference Wallet exchange,
+so the scenarios require actual capture and visual evidence rather than
+fabricating the outcome.

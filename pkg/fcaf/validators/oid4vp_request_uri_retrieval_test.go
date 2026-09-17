@@ -63,6 +63,78 @@ func TestOID4VPRequestURIRetrievalValidator(t *testing.T) {
 	}
 }
 
+func TestOID4VPRequestURIRetrievalValidatorHTTPProperties(t *testing.T) {
+	validator := OID4VPRequestURIRetrievalValidator{}
+	params := map[string]any{
+		"method":     "POST",
+		"media_type": "application/x-www-form-urlencoded",
+		"accept":     "application/oauth-authz-req+jwt",
+		"form_utf8":  true,
+	}
+	validSession := map[string]any{
+		"request_uri": "https://beta-capture-wallet.credimi.io/openid4vp/sessions/session-id/request",
+		"raw": map[string]any{"request_uri_http": map[string]any{
+			"method": "POST",
+			"headers": map[string]any{
+				"Host":         "beta-capture-wallet.credimi.io",
+				"Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+				"Accept":       "application/oauth-authz-req+jwt",
+			},
+			"body": "w%C3%A4llet_nonce=%E2%82%AC",
+		}},
+	}
+
+	tests := []struct {
+		name   string
+		value  any
+		params map[string]any
+		status Status
+	}{
+		{name: "valid POST evidence", value: validSession, params: params, status: StatusPass},
+		{
+			name: "wrong accept header",
+			value: map[string]any{
+				"request_uri": "https://beta-capture-wallet.credimi.io/openid4vp/sessions/session-id/request",
+				"raw": map[string]any{"request_uri_http": map[string]any{
+					"method": "POST",
+					"headers": map[string]any{
+						"Host":         "beta-capture-wallet.credimi.io",
+						"Content-Type": "application/x-www-form-urlencoded",
+						"Accept":       "application/json",
+					},
+					"body": "wallet_nonce=value",
+				}},
+			},
+			params: params,
+			status: StatusFail,
+		},
+		{
+			name: "invalid UTF-8 form value",
+			value: map[string]any{
+				"request_uri": "https://beta-capture-wallet.credimi.io/openid4vp/sessions/session-id/request",
+				"raw": map[string]any{"request_uri_http": map[string]any{
+					"method": "POST",
+					"headers": map[string]any{
+						"Host":         "beta-capture-wallet.credimi.io",
+						"Content-Type": "application/x-www-form-urlencoded",
+						"Accept":       "application/oauth-authz-req+jwt",
+					},
+					"body": "wallet_nonce=%FF",
+				}},
+			},
+			params: params,
+			status: StatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := validator.Validate(context.Background(), Input{Value: tt.value, Params: tt.params})
+			require.Equal(t, tt.status, result.Status)
+		})
+	}
+}
+
 func TestOID4VPRequestURINotRetrievedValidator(t *testing.T) {
 	validator := OID4VPRequestURINotRetrievedValidator{}
 

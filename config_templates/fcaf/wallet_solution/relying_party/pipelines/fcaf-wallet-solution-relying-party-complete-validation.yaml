@@ -9351,6 +9351,48 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: request-uri-post-8426f040-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: request-uri-post
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-uri-post-8426f040-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ request-uri-post-8426f040-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-uri-post-8426f040-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-uri-post-8426f040-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: response-encryption-a128gcm-57bacf6d-create-capture-session
       use: http-request
       with:
@@ -11423,6 +11465,10 @@ steps:
                     pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.request-uri.post:
+                output:
+                    capture_session: ${{ request-uri-post-8426f040-fetch-capture-session.outputs.body | optional }}
+                    visual_evidence: ${{ request-uri-post-8426f040-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.response-encryption-metadata:
                 output:
                     capture_session: ${{ response-encryption-metadata-7d34f50e-fetch-capture-session.outputs.body | optional }}
