@@ -1031,7 +1031,7 @@ one `vp_presentation_response_received` event and visual evidence.
 A live beta probe confirmed that a decentralized-identifier request exposes the
 signed Request Object through `request_uri`; the session JSON only exposes a
 decoded Authorization Request. No mobile runner was available to execute the
-Wallet interaction. Next candidate: `WS_RP_SM_RpIntegrity__016`.
+Wallet interaction.
 
 ## Case 013, RpIntegrity X.509
 
@@ -1042,3 +1042,14 @@ that same leaf certificate. The case also requires a single presentation
 response event and visual evidence. A live beta probe confirmed an ES256
 `oauth-authz-req+jwt` with one `x5c` certificate and an `x509_hash` client ID.
 No mobile runner was available for the Wallet interaction.
+
+## Case 016, RpIntegrity X.509 trust chain
+
+`WS_RP_SM_RpIntegrity__016` is not feasible with beta Capture. A live
+`x509_hash` probe emitted an ES256 Request Object with exactly one `x5c`
+certificate. The certificate is a non-self-issued leaf (`Beta Fake Verifier`,
+issued by `PID Issuer CA 02`), so it is neither a complete chain nor a trust
+anchor. Capture exposes no intermediate/root certificate or trusted-root
+fixture. The generic RP-integrity scenario no longer runs this test: it would
+have produced an unrelated `iss` assertion and a false pass. Implement only
+when Capture supplies a complete chain plus a defined trust anchor.
