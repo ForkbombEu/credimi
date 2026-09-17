@@ -65,8 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const scoreboard = resource(
 		() => pipeline.id,
-		(id) => Scoreboard.Records.loadForPipeline(id),
-		{}
+		(id) => Scoreboard.Records.loadForPipeline(id)
 	);
 
 	// Variables for displaying UI elements
