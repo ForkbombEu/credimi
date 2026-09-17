@@ -8325,6 +8325,13 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ did-metadata-b39af5a1-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: did-metadata-b39af5a1-fetch-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${{ did-metadata-b39af5a1-create-presentation.outputs.body.request_uri }}
+    - continue_on_error: true
       id: did-metadata-b39af5a1-fetch-did
       use: http-request
       with:
@@ -10911,12 +10918,12 @@ steps:
                     visual_evidence: ${{ default-x509-hash-metadata-6eed4e38-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.metadata.did:
                 output:
+                    capture_session: ${{ did-metadata-b39af5a1-fetch-session.outputs.body | optional }}
                     request_evidence:
                         did_document: ${{ did-metadata-b39af5a1-fetch-did.outputs.body | optional }}
-                        request_object: ${{ did-metadata-b39af5a1-fetch-session.outputs.body.raw.authorization_request_jwt | optional }}
-                    request_object: ${{ did-metadata-b39af5a1-fetch-session.outputs.body.raw.authorization_request_jwt | optional }}
+                        request_object: ${{ did-metadata-b39af5a1-fetch-request-object.outputs.body | optional }}
+                    request_object: ${{ did-metadata-b39af5a1-fetch-request-object.outputs.body | optional }}
                     visual_evidence: ${{ did-metadata-b39af5a1-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wallet_response: ${{ did-metadata-b39af5a1-fetch-session.outputs.body | optional }}
             pipeline.wallet.metadata.did-empty:
                 output:
                     dcql_exchange: ${{ did-empty-metadata-0b80b79f-fetch-session.outputs.body | optional }}

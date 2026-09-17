@@ -10,6 +10,7 @@ import (
 	"crypto/elliptic"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -33,7 +34,7 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 	if !ok {
 		return Result{Status: StatusFail, Message: "DID document is missing"}
 	}
-	_, err := jwt.Parse(request, func(token *jwt.Token) (any, error) {
+	token, err := jwt.Parse(request, func(token *jwt.Token) (any, error) {
 		kid, ok := token.Header["kid"].(string)
 		if !ok {
 			return nil, fmt.Errorf("request object kid is missing")
@@ -85,5 +86,12 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 			Message: fmt.Sprintf("DID Request Object verification failed: %v", err),
 		}
 	}
-	return Result{Status: StatusPass, Message: "DID-published key verifies the Request Object"}
+	clientID, ok := token.Claims.(jwt.MapClaims)["client_id"].(string)
+	if !ok || !strings.HasPrefix(clientID, "decentralized_identifier:did:") {
+		return Result{
+			Status:  StatusFail,
+			Message: "signed Request Object client_id does not use decentralized_identifier:did:",
+		}
+	}
+	return Result{Status: StatusPass, Message: "DID-published key verifies the decentralized identifier Request Object"}
 }

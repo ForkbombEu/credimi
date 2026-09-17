@@ -87,7 +87,7 @@ confirm the exact resulting Request Object before an assertion is implemented.
 
 #### Request integrity and response encryption
 
-- [ ] `WS_RP_SM_RpIntegrity__006` (DID signing key published in the service `did:web` document)
+- [x] `WS_RP_SM_RpIntegrity__006` (DID signing key published in the service `did:web` document; signed Request Object and Wallet response event)
 - [ ] `WS_RP_SM_RpIntegrity__013` (valid signed X.509 request)
 - [ ] `WS_RP_SM_RpIntegrity__016` (valid X.509 request and trust-chain evidence)
 - [ ] `WS_RP_SM_RpIntegrity__018` (valid `x509_hash` request and trust-chain evidence)

@@ -1018,3 +1018,17 @@ pre-final alias as unsupported is a live-run question, not a definition defect.
 
 An emulator is not connected, so none of these six has a live reference-Wallet
 result yet.
+
+## Case 006, RpIntegrity decentralized identifier
+
+`WS_RP_SM_RpIntegrity__006` now uses the DID metadata scenario rather than the
+generic RP-integrity scenario. It fetches the compact signed Request Object from
+the Capture `request_uri` and the verifier DID document, then verifies that the
+`kid` selects a P-256 DID key that validates the JWS. The validator also
+requires `client_id` to begin `decentralized_identifier:did:`. The test requires
+one `vp_presentation_response_received` event and visual evidence.
+
+A live beta probe confirmed that a decentralized-identifier request exposes the
+signed Request Object through `request_uri`; the session JSON only exposes a
+decoded Authorization Request. No mobile runner was available to execute the
+Wallet interaction. Next candidate: `WS_RP_SM_RpIntegrity__013`.

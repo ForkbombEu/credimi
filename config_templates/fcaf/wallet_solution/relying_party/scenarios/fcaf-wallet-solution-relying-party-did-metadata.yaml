@@ -31,20 +31,26 @@ steps:
   - id: fetch-session
     use: http-request
     with: {method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}", expected_status: 200}
+  - id: fetch-request-object
+    use: http-request
+    with:
+      method: GET
+      url: "${{ create-presentation.outputs.body.request_uri }}"
+      expected_status: 200
   - id: fetch-did
     use: http-request
     with: {method: GET, url: "${fixture.verifier_url}/openid4vp/did.json", expected_status: 200}
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
-      test_ids: [WS_RP_IA_Metadata__015]
+      test_ids: [WS_RP_IA_Metadata__015, WS_RP_SM_RpIntegrity__006]
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.metadata.did:
           output:
             request_evidence:
-              request_object: "${{ fetch-session.outputs.body.raw.authorization_request_jwt }}"
+              request_object: "${{ fetch-request-object.outputs.body }}"
               did_document: "${{ fetch-did.outputs.body }}"
-            request_object: "${{ fetch-session.outputs.body.raw.authorization_request_jwt }}"
-            wallet_response: "${{ fetch-session.outputs.body }}"
+            capture_session: "${{ fetch-session.outputs.body }}"
+            request_object: "${{ fetch-request-object.outputs.body }}"
             visual_evidence: "${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}"
