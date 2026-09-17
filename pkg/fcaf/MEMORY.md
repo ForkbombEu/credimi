@@ -1079,3 +1079,14 @@ by_reference` returned an ES256 `oauth-authz-req+jwt` at
 `raw.authorization_request_jwt`; engine runs confirmed the definition passes on
 that JWS, fails when the signature is tampered, and fails when no response
 event was captured.
+
+## Case 031, RpIntegrity ES256 signed request
+
+`WS_RP_SM_RpIntegrity__031` reuses the case 029 evidence and adds the HAIP §7
+algorithm requirement: `jwt.header_field_equals` pins header `alg` to `ES256`
+before `jose.jws_signed_request` verifies the signature, so a P-384 or RS256
+verifier switch fails loudly instead of passing on a valid-but-wrong signature.
+A live beta probe confirmed the default Capture header is
+`{alg: ES256, typ: oauth-authz-req+jwt}`. Engine runs confirmed the definition
+passes on that JWS, fails when the header is rewritten to `ES384`, and fails
+when no response event was captured.
