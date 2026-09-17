@@ -2509,6 +2509,73 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-cryptography-1a488a33-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-degree-array-selector-5794d6e6-create-degree-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-degree-array-selector-5794d6e6-obtain-degree-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-degree-array-selector-5794d6e6-create-degree-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-degree-array-selector-5794d6e6-create-degree-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - degree-type
+                          claims:
+                            - id: degree-type
+                              path:
+                                - degrees
+                                - null
+                                - type
+                          format: dc+sd-jwt
+                          id: degree
+                          meta:
+                            vct_values:
+                                - urn:credimi:degree:1
+                nonce: degree-array-selector
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-degree-array-selector-5794d6e6-present-degree-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ dcql-degree-array-selector-5794d6e6-create-degree-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-degree-array-selector-5794d6e6-fetch-degree-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-degree-array-selector-5794d6e6-create-degree-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-device-binding-f7c71f86-create-capture-session
       use: http-request
       with:
@@ -10877,6 +10944,10 @@ steps:
                     dcql_exchange: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body | optional }}
                     pid_sdjwt: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ dcql-cryptography-1a488a33-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.degree-array-selector:
+                output:
+                    dcql_exchange: ${{ dcql-degree-array-selector-5794d6e6-fetch-degree-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-degree-array-selector-5794d6e6-present-degree-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.device-binding:
                 output:
                     dcql_exchange: ${{ dcql-device-binding-f7c71f86-fetch-capture-session.outputs.body | optional }}
@@ -12135,6 +12206,7 @@ steps:
             - WS_RP_SH_Encoding_TextualEncoding_005
             - WS_RP_SH_Encoding_TextualEncoding_006
             - WS_RP_SH_Encoding_TextualEncoding_007
+            - WS_RP_SH_Encoding_TextualEncoding_008
             - WS_RP_SH_Encoding_TextualEncoding_009
             - WS_RP_SH_Encoding_TextualEncoding_010
             - WS_RP_SH_Encoding_TextualEncoding_012

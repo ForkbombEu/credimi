@@ -1,5 +1,5 @@
 id: WS_RP_SH_Encoding_TextualEncoding_008
-title: FCAF WS_RP_SH_Encoding_TextualEncoding_008
+title: Filter array elements without the selected key.
 source:
   path: Shared/Encoding/WS_RP_SH_Encoding_TextualEncoding_008.md
 suite:
@@ -11,19 +11,19 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '7.2.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.encoding
+- ref: pipeline.dcql.degree-array-selector
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.encoding.outputs.dcql_exchange
+    from: pipeline.dcql.degree-array-selector.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.encoding.outputs.visual_evidence
+    from: pipeline.dcql.degree-array-selector.outputs.visual_evidence
 assertions:
-- id: ws_rp_sh_encoding_textualencoding_008_encoding_verified
-  validator: sdjwt.claim_utf8_string
+- id: wallet_filters_degree_entries_without_a_type
+  validator: oid4vp.dcql_array_selector_filter
   input: evidence.dcql_exchange
-- id: ws_rp_sh_encoding_textualencoding_008_visual_evidence
+- id: wallet_completes_the_degree_presentation
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

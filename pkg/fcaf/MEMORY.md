@@ -1380,3 +1380,31 @@ Capture beta recorded the necessary raw POST method, headers, and body on
 17/09/2026. No mobile runner was available for the reference Wallet exchange,
 so the scenarios require actual capture and visual evidence rather than
 fabricating the outcome.
+
+## Case TextualEncoding 008, degree array selector filtering
+
+`WS_RP_SH_Encoding_TextualEncoding_008` previously bound to the shared
+`pipeline.dcql.encoding` PID `given_name` interaction, was owned by no
+scenario, and asserted `sdjwt.claim_utf8_string` without a `claim` param. That
+combination could never prove claims-path element filtering.
+
+The beta Capture issuer publishes `urn:credimi:degree:1` (configuration
+`urn:credimi:degree:1.sd-jwt.key-attestation-required`, confirmed on
+17/09/2026 through `GET /issuers` and the issuer metadata) whose
+`degrees` array carries two entries with `type` and one entry with only
+`university`. That is exactly the source precondition.
+
+`fcaf-wallet-solution-relying-party-dcql-degree-array-selector` issues that
+credential, then requests `path: [degrees, null, type]`. New validator
+`oid4vp.dcql_array_selector_filter` requires the session-bound query to be that
+exact degree selector and requires the returned SD-JWT presentation to disclose
+exactly `Bachelor of Science` and `Master of Science`, with the untyped entry
+removed. Unit tests cover the filtered pass, an unfiltered three-entry
+presentation, and a non-selector claim path.
+
+The former `ASSERTION_REVIEW_BACKLOG.md` claim that beta cannot provision
+heterogeneous `degrees` arrays is stale and was corrected; case 011 can reuse
+the same credential for out-of-range index removal.
+
+No mobile runner was available, so no reference Wallet run was performed; the
+scenario requires real captured protocol and visual evidence.
