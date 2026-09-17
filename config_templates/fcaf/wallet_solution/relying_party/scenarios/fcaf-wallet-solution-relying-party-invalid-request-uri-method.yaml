@@ -1,8 +1,5 @@
 name: FCAF invalid request_uri_method
 runtime:
-  fixture:
-    verifier_url: https://beta-capture-wallet.credimi.io
-  global_device_id: ""
 steps:
   - id: create-presentation
     use: http-request
@@ -23,7 +20,7 @@ steps:
             credentials:
               - id: pid-invalid-request-uri-method
                 format: dc+sd-jwt
-                meta: { vct_values: [urn:eudi:pid:1] }
+                meta: { vct_values: ["urn:eudi:pid:1"] }
                 claims:
                   - { path: [given_name] }
 

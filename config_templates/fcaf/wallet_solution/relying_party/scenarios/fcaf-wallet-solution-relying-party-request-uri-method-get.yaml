@@ -1,8 +1,5 @@
 name: FCAF wallet relying-party Request URI method GET
 runtime:
-  fixture:
-    verifier_url: https://beta-capture-wallet.credimi.io
-  global_device_id: ""
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m

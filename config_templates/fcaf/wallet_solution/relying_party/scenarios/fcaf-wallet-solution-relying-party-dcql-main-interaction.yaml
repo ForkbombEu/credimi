@@ -3,7 +3,6 @@ runtime:
     fixture:
         issuer_url: https://beta-capture-wallet.credimi.io
         log_checker: capture-wallet
-        verifier_url: https://beta-capture-wallet.credimi.io
     global_device_id: forkbomb-bv-andrea/usb/device
     temporal:
         activity_options:
@@ -37,7 +36,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - id: exercise-wallet
       use: mobile-automation
       with:
@@ -50,7 +49,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     - id: main-interaction-019-create-presentation
       use: http-request
       with:

@@ -1,8 +1,5 @@
 name: FCAF wallet relying-party Request Object by value
 runtime:
-    fixture:
-      verifier_url: https://beta-capture-wallet.credimi.io
-    global_device_id: ""
     temporal:
         activity_options:
             retry_policy:

@@ -1,8 +1,5 @@
 name: FCAF DCQL user-denied consent
 runtime:
-  fixture:
-    verifier_url: https://beta-capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
 steps:
   - id: create-presentation
     use: http-request
@@ -22,7 +19,7 @@ steps:
             credentials:
               - id: pid-consent-denied
                 format: dc+sd-jwt
-                meta: { vct_values: [urn:eudi:pid:1] }
+                meta: { vct_values: ["urn:eudi:pid:1"] }
                 claims:
                   - { path: [given_name] }
 

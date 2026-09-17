@@ -1,8 +1,5 @@
 name: FCAF DCQL union across multiple queries
 runtime:
-  fixture:
-    verifier_url: https://beta-capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
 steps:
   - id: create-presentation
     use: http-request
@@ -20,8 +17,8 @@ steps:
           nonce: fcaf-014-claims-union
           dcql_query:
             credentials:
-              - { id: pid-name, format: dc+sd-jwt, meta: { vct_values: [urn:eudi:pid:1] }, claims: [{ path: [given_name] }] }
-              - { id: pid-address, format: dc+sd-jwt, meta: { vct_values: [urn:eudi:pid:1] }, claims: [{ path: [address] }] }
+              - { id: pid-name, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }
+              - { id: pid-address, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [address] }] }
   - id: present-union
     use: mobile-automation
     with:

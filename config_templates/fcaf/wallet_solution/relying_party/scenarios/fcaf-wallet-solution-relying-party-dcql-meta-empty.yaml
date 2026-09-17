@@ -1,11 +1,12 @@
 name: 'FCAF ProtocolMessages 076: empty DCQL metadata'
-runtime: { global_device_id: forkbomb-bv-andrea/usb/device }
+runtime:
+
 steps:
 - id: create
   use: http-request
   with:
     method: POST
-    url: https://beta-capture-wallet.credimi.io/openid4vp/sessions
+    url: ${fixture.verifier_url}/openid4vp/sessions
     expected_status: 201
     headers: { Content-Type: application/json }
     body:
@@ -27,10 +28,10 @@ steps:
       deeplink: ${{ create.outputs.body.deeplink }}
 - id: session
   use: http-request
-  with: { method: GET, url: 'https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }
+  with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }
 - id: request
   use: http-request
-  with: { method: GET, url: 'https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}/request', expected_status: 200 }
+  with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ create.outputs.body.session_id }}/request', expected_status: 200 }
 - id: run-fcaf-validators
   use: fcaf-validation
   with:

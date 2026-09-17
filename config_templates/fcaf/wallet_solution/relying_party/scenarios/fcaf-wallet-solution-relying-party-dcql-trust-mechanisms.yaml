@@ -2,7 +2,6 @@ name: FCAF trust-mechanisms
 runtime:
   fixture:
     issuer_url: https://beta-capture-wallet.credimi.io
-    verifier_url: https://beta-capture-wallet.credimi.io
     log_checker: capture-wallet
   global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
@@ -16,7 +15,7 @@ steps:
   use: http-request
   with:
     method: POST
-    url: https://beta-capture-wallet.credimi.io/openid4vp/sessions
+    url: ${fixture.verifier_url}/openid4vp/sessions
     expected_status: 201
     headers:
       Content-Type: application/json
@@ -49,7 +48,7 @@ steps:
   use: http-request
   with:
     method: GET
-    url: https://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation

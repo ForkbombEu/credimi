@@ -1,8 +1,5 @@
 name: FCAF plain redirect-URI client identifier
 runtime:
-  fixture:
-    verifier_url: https://beta-capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -21,7 +18,7 @@ steps:
       body:
         request_delivery: plain
         client_id_scheme: redirect_uri
-        redirect_uri: https://beta-capture-wallet.credimi.io/openid4vp/redirect
+        redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
         response_type: vp_token
         response_mode: direct_post
         presentation_request:

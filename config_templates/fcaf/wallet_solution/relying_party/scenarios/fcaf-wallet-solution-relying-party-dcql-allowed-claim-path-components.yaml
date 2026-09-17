@@ -1,8 +1,5 @@
 name: FCAF DCQL allowed claim path components
 runtime:
-  fixture:
-    verifier_url: https://beta-capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
 steps:
   - id: evidence-request
     use: json-parse
@@ -27,7 +24,7 @@ steps:
             credentials:
               - id: pid-path-components
                 format: dc+sd-jwt
-                meta: { vct_values: [urn:eudi:pid:1] }
+                meta: { vct_values: ["urn:eudi:pid:1"] }
                 claims:
                   - { id: given-name, path: [given_name] }
                   - { id: all-nationalities, path: [nationality, null] }

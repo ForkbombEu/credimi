@@ -165,10 +165,9 @@ successful Wallet submission the response endpoint returns `200`,
 open; an invalid presentation still returns the normal `400` error. The concrete
 service URI `https://beta-capture-wallet.credimi.io/openid4vp/redirect` selects
 the service-hosted capture page. The upstream `{{base_url}}/openid4vp/redirect`
-template resolves to the same page, but Credimi scenarios MUST configure the
-concrete beta verifier URL, through the scenario's `fixture.verifier_url` where
-one exists, so the target is visible in the generated pipeline instead of
-depending on deployment-side resolution. A visit carrying the generated
+template resolves to the same page. Credimi resolves `${fixture.verifier_url}`
+to the beta Capture Wallet endpoint by default; scenarios MAY override it only
+when a test requires a different verifier. A visit carrying the generated
 `response_code` returns a `200` confirmation page and records
 `redirect_uri_visited_at`, `redirect_uri_visit_count`, a
 `vp_redirect_uri_visited` event whose `detail.visit_count` counts the visit, and

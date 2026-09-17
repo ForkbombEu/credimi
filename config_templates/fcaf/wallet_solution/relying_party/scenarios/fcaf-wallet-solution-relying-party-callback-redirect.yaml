@@ -1,6 +1,5 @@
 name: FCAF response endpoint callback redirect
 runtime:
-  fixture: {verifier_url: "https://beta-capture-wallet.credimi.io"}
   global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:

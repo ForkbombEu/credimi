@@ -13,7 +13,7 @@ const fixtureTokenPrefix = "${fixture."
 
 const (
 	DefaultIssuerURL   = "https://issuer-backend.eudiw.dev"
-	DefaultVerifierURL = "https://verifier-backend.eudiw.dev"
+	DefaultVerifierURL = "https://beta-capture-wallet.credimi.io"
 	DefaultLogChecker  = "eudiw"
 )
 
