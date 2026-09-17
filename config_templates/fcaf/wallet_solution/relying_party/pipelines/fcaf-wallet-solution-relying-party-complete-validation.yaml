@@ -10926,6 +10926,7 @@ steps:
                     wallet_engagement: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body | optional }}
             pipeline.wallet.metadata.default-x509-hash:
                 output:
+                    capture_session: ${{ default-x509-hash-metadata-6eed4e38-fetch-capture-session.outputs.body | optional }}
                     signed_request_object: ${{ default-x509-hash-metadata-6eed4e38-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ default-x509-hash-metadata-6eed4e38-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.metadata.did:

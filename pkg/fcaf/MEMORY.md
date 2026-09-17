@@ -1067,3 +1067,15 @@ Successful handling is proven by exactly one `vp_presentation_response_received`
 capture event. The session body keeps a bookkeeping top-level `request_uri`
 even for plain delivery, so absence must be asserted on `authorization_request`
 only.
+
+## Case 029, RpIntegrity signed request
+
+`WS_RP_SM_RpIntegrity__029` uses the default `x509_hash` scenario, which signs
+with the verifier default rather than an explicitly requested prefix, keeping it
+distinct from case 023. The scenario now also exports `capture_session`, so the
+Wallet-answers half is proven by one `vp_presentation_response_received` event
+instead of screenshots alone. A live beta probe of `request_delivery:
+by_reference` returned an ES256 `oauth-authz-req+jwt` at
+`raw.authorization_request_jwt`; engine runs confirmed the definition passes on
+that JWS, fails when the signature is tampered, and fails when no response
+event was captured.

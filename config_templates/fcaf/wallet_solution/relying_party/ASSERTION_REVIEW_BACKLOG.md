@@ -94,7 +94,7 @@ confirm the exact resulting Request Object before an assertion is implemented.
 - [x] `WS_RP_SM_RpIntegrity__020` (signed `x509_hash` request with verifier metadata exclusively in `client_metadata`)
 - [x] `WS_RP_SM_RpIntegrity__023` (accepted signed `x509_hash` request; consent and successful presentation)
 - [x] `WS_RP_SM_RpIntegrity__028` (unsigned plain request; Wallet answers with one Authorization Response)
-- [ ] `WS_RP_SM_RpIntegrity__029` (default signed request)
+- [x] `WS_RP_SM_RpIntegrity__029` (default signed request; verified signature and one Authorization Response)
 - [ ] `WS_RP_SM_RpIntegrity__031` (default ES256-signed request)
 - [ ] `WS_RP_SM_SessionEncryption__001` (captured encrypted `direct_post.jwt` response)
 - [ ] `WS_RP_SM_SessionEncryption__002` (generated or replacement verifier JWK)
