@@ -132,7 +132,8 @@ general-purpose identity provider.
 | `scopes` | String or string array. | Supported as input. |
 | `transaction_data` | Unconstrained JSON value. | Supported as input. Observed on 02/09/2026: when nested in `presentation_request`, it is preserved in the signed Request Object; supported Wallet types remain unknown. |
 | `verifier_info` | Unconstrained JSON value. | Supported as input. Observed on 02/09/2026: when nested in `presentation_request`, it is preserved in the signed Request Object; attestation generation and Wallet support remain unknown. |
-| `client_metadata` | Object replacing the generated verifier metadata, or `null` to omit it. | Supported, subject to response-mode constraints. |
+| `client_metadata` | Object whose members override individual generated verifier metadata members, or `null` to omit the parameter; top-level only. | Supported, subject to response-mode constraints. |
+| `allow_undecryptable_response` | `true` publishes the supplied `jwks` verbatim and waives the verifier-encryption-key check; requires a `client_metadata` object. | Supported; observed on beta 17/09/2026. |
 | `redirect_uri` | Absolute URI the Wallet opens after a successful presentation; the exact template `{{base_url}}/openid4vp/redirect` selects the service-hosted capture page. | Supported; the service appends a fresh 128-bit `response_code`. |
 
 `request_uri_method` is valid only with `request_delivery: "by_reference"`.
@@ -152,11 +153,59 @@ uses a separate `did:web` key published at `GET /openid4vp/did.json`.
 
 When `dcql_query` is `null`, Capture omits it from the Wallet-facing request;
 the service retains its normal query only as internal verification-session
-state, so a response may not validate. With `client_metadata`, an absent field
-uses generated metadata, an object replaces it, and `null` omits it. Omission
-is supported only with `direct_post`; a `direct_post.jwt` replacement must
-retain the generated verifier encryption JWK; a replacement without that key is
-rejected rather than weakening response encryption.
+state, so a response may not validate.
+
+`client_metadata` merges one level deep over the generated metadata: a member
+you supply wins, a member you omit keeps its generated value, and a member set
+to `null` is dropped from the Wallet-facing request. Because the merge is one
+level deep, supplying `jwks` replaces the whole key set rather than editing
+individual JWK members. Omitting the field entirely uses generated metadata, and
+`null` omits the parameter, which is supported only with `direct_post`.
+
+That merge is how the advertised response encryption is narrowed for a test
+requiring one specific JWE `enc`, while the generated `jwks` and
+`vp_formats_supported` survive untouched and the service still decrypts:
+
+```json
+{ "response_mode": "direct_post.jwt",
+  "client_metadata": { "encrypted_response_enc_values_supported": ["A128GCM"] } }
+```
+
+Observed on beta 17/09/2026: that body returned `201` advertising exactly
+`["A128GCM"]` with the generated `jwks` intact. The production deployment still
+returned the full `["A128GCM", "A256GCM", "A128CBC-HS256"]` list on the same
+date, so a scenario depending on a narrowed advertisement runs on beta only.
+
+For `direct_post.jwt` the merged metadata must still publish the session's
+generated verifier encryption public key. Keys are compared by RFC 7638
+thumbprint, which covers public key material only, so optional JOSE members such
+as `alg`, `use`, and `kid` may be altered or omitted. That key is minted inside
+the same `POST /openid4vp/sessions` call that returns it, so a caller cannot
+reproduce it: omit `jwks` to keep it, and expect `invalid_client_metadata` when
+`jwks` is replaced or nulled without the flag below.
+
+`allow_undecryptable_response: true` waives that check and publishes the supplied
+`jwks` verbatim, including a foreign, static, `alg`-less, or deliberately
+mismatched key. It exists only to build requests no Wallet should answer. The
+service can then no longer decrypt a `direct_post.jwt` response, a Wallet that
+answers anyway is captured as a decryption failure, and every such request
+records a `vp_undecryptable_response_allowed` event. Without a `client_metadata`
+object it is rejected with
+`allow_undecryptable_response_requires_client_metadata`.
+
+Observed on beta 17/09/2026: with the flag, a static P-256 `use: enc` key was
+published verbatim both without `alg` and with `alg: ECDH-ES+A256KW`; the same
+body without the flag returned `400 {"error":"invalid_client_metadata"}`. This
+is the only way to build the verifier-JWK negative preconditions used by
+`WS_RP_SM_SessionEncryption__002` and `WS_RP_SM_SessionEncryption__003`.
+
+A `client_metadata` value nested inside `presentation_request` is discarded
+without an error, and the generated metadata is used. `scheme`,
+`request_uri_method`, `client_id_scheme`, `request_delivery`, `response_mode`,
+`client_metadata`, and `redirect_uri` are top-level fields only; only
+`response_type`, `dcql_query`, `nonce`, `scopes`, `transaction_data`, and
+`verifier_info` are honoured in both positions, and a top-level `response_type`
+wins over a nested one.
 
 When a session sets `redirect_uri`, the service appends a fresh 128-bit
 `response_code` and returns the resulting URI in the creation response. After a

@@ -9393,6 +9393,247 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: response-encryption-a128gcm-57bacf6d-create-capture-session
+      use: http-request
+      with:
+        body:
+            client_metadata:
+                encrypted_response_enc_values_supported:
+                    - A128GCM
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: response-encryption-a128gcm
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-a128gcm-57bacf6d-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-a128gcm-57bacf6d-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-a128gcm-57bacf6d-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-a128gcm-57bacf6d-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: response-encryption-a256gcm-a9a43850-create-capture-session
+      use: http-request
+      with:
+        body:
+            client_metadata:
+                encrypted_response_enc_values_supported:
+                    - A256GCM
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: response-encryption-a256gcm
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-a256gcm-a9a43850-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-a256gcm-a9a43850-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-a256gcm-a9a43850-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-a256gcm-a9a43850-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: response-encryption-both-gcm-76a19a08-create-capture-session
+      use: http-request
+      with:
+        body:
+            client_metadata:
+                encrypted_response_enc_values_supported:
+                    - A128GCM
+                    - A256GCM
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: response-encryption-both-gcm
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-both-gcm-76a19a08-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-both-gcm-76a19a08-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-both-gcm-76a19a08-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-both-gcm-76a19a08-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: response-encryption-jwk-alg-mismatch-72932517-create-capture-session
+      use: http-request
+      with:
+        body:
+            allow_undecryptable_response: true
+            client_metadata:
+                jwks:
+                    keys:
+                        - alg: ECDH-ES+A256KW
+                          crv: P-256
+                          kid: fcaf-static-verifier-enc-key
+                          kty: EC
+                          use: enc
+                          x: 2HBwD9dMk-T3nLobOnvKGrXW0OJmXhyDZ92Yh_quEdA
+                          "y": SWCeVREJqSFRRXLrjTUIkMDtqn_88DbktyVKJc0ECEk
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: response-encryption-jwk-alg-mismatch
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-jwk-alg-mismatch-72932517-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-jwk-alg-mismatch-72932517-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-jwk-alg-mismatch-72932517-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-jwk-alg-mismatch-72932517-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: response-encryption-jwk-without-alg-3e14f10a-create-capture-session
+      use: http-request
+      with:
+        body:
+            allow_undecryptable_response: true
+            client_metadata:
+                jwks:
+                    keys:
+                        - crv: P-256
+                          kid: fcaf-static-verifier-enc-key
+                          kty: EC
+                          use: enc
+                          x: 2HBwD9dMk-T3nLobOnvKGrXW0OJmXhyDZ92Yh_quEdA
+                          "y": SWCeVREJqSFRRXLrjTUIkMDtqn_88DbktyVKJc0ECEk
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: response-encryption-jwk-without-alg
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-jwk-without-alg-3e14f10a-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-jwk-without-alg-3e14f10a-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-jwk-without-alg-3e14f10a-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-jwk-without-alg-3e14f10a-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: response-encryption-metadata-7d34f50e-metadata-probe
       use: http-request
       with:
@@ -10909,6 +11150,34 @@ steps:
                         presentation_response_http: ${{ response-encryption-metadata-7d34f50e-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
                         request_object: ${{ response-encryption-metadata-7d34f50e-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-metadata-7d34f50e-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.response-encryption.a128gcm:
+                output:
+                    capture_session: ${{ response-encryption-a128gcm-57bacf6d-fetch-capture-session.outputs.body | optional }}
+                    encryption_evidence:
+                        presentation_response_http: ${{ response-encryption-a128gcm-57bacf6d-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                    visual_evidence: ${{ response-encryption-a128gcm-57bacf6d-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.response-encryption.a256gcm:
+                output:
+                    capture_session: ${{ response-encryption-a256gcm-a9a43850-fetch-capture-session.outputs.body | optional }}
+                    encryption_evidence:
+                        presentation_response_http: ${{ response-encryption-a256gcm-a9a43850-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                    visual_evidence: ${{ response-encryption-a256gcm-a9a43850-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.response-encryption.both-gcm:
+                output:
+                    capture_session: ${{ response-encryption-both-gcm-76a19a08-fetch-capture-session.outputs.body | optional }}
+                    encryption_evidence:
+                        presentation_response_http: ${{ response-encryption-both-gcm-76a19a08-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                    visual_evidence: ${{ response-encryption-both-gcm-76a19a08-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.response-encryption.jwk-alg-mismatch:
+                output:
+                    capture_session: ${{ response-encryption-jwk-alg-mismatch-72932517-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ response-encryption-jwk-alg-mismatch-72932517-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ response-encryption-jwk-alg-mismatch-72932517-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.response-encryption.jwk-without-alg:
+                output:
+                    capture_session: ${{ response-encryption-jwk-without-alg-3e14f10a-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ response-encryption-jwk-without-alg-3e14f10a-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ response-encryption-jwk-without-alg-3e14f10a-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.engagement.haip-vp:
                 output:
                     create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
@@ -11580,9 +11849,12 @@ steps:
             - WS_RP_SM_SessionEncryption__001c
             - WS_RP_SM_SessionEncryption__001d
             - WS_RP_SM_SessionEncryption__001e
+            - WS_RP_SM_SessionEncryption__002
             - WS_RP_SM_SessionEncryption__003
             - WS_RP_SM_SessionEncryption__005
             - WS_RP_SM_SessionEncryption__006
+            - WS_RP_SM_SessionEncryption__007
+            - WS_RP_SM_SessionEncryption__008
             - WS_RP_SM_SessionEncryption__009
             - WS_RP_SM_SessionEncryption__010
             - WS_RP_SM_SessionEncryption__011

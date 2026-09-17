@@ -1108,34 +1108,49 @@ appears once a Wallet has answered, so engine runs used a wallet-shaped compact
 JWE built against that published JWK. The validators never decrypt, so the
 structural fixture exercises the same code path a live response would.
 
-## Case 002, SessionEncryption verifier JWK without alg
+## Cases 002 and 003, SessionEncryption verifier encryption JWK
 
-`WS_RP_SM_SessionEncryption__002` requires a `direct_post.jwt` request whose
-`client_metadata` JWK omits `alg`, after which the Wallet must return an error
-instead of a presentation. OID4VP section 8.3 states "The alg parameter MUST be
-present in the JWKs", so the request itself is malformed and `invalid_request`
-is the expected code, matching case `WS_RP_MS_ProtocolMessages__142`.
+Both require a `direct_post.jwt` request whose `client_metadata` publishes a
+deliberately unusable verifier encryption JWK, after which the Wallet must
+return an error instead of a presentation. OID4VP section 8.3 states "The alg
+parameter MUST be present in the JWKs" and "The JWE alg algorithm used MUST be
+equal to the alg value of the chosen jwk", so each request is malformed and
+`invalid_request` is the expected code, matching
+`WS_RP_MS_ProtocolMessages__142`.
 
-Beta Capture cannot emit that request. Probed behaviour:
+The capability that unblocked them is `allow_undecryptable_response: true`,
+which waives the verifier-encryption-key check and publishes the supplied
+`jwks` verbatim. Each case owns a scenario with a static, on-curve P-256
+`use: enc` key:
 
-- `client_metadata` is accepted only inside `presentation_request`; at the body
-  top level only `vp_formats_supported` passes, while `{}`, `jwks`, and
-  `encrypted_response_enc_values_supported` all return HTTP 400
-  `invalid_client_metadata`.
-- A nested `client_metadata.jwks` is accepted but ignored: Capture always
-  substitutes its own freshly generated `use: enc` key, which always carries
-  `alg: ECDH-ES`.
+- `002`: `fcaf-wallet-solution-relying-party-response-encryption-jwk-without-alg`
+  omits `alg` entirely.
+- `003`: `fcaf-wallet-solution-relying-party-response-encryption-jwk-alg-mismatch`
+  sets `alg: ECDH-ES+A256KW`. HAIP pins the JWE `alg` to bare `ECDH-ES`, so the
+  published value cannot be the `alg` the Wallet would use, and it must refuse
+  rather than silently substituting `ECDH-ES`.
 
-The case is therefore excluded from the session-encryption scenario and the
-generator invariant records it. Its definition already holds the real outcome
-assertions, so it can be selected again once a verifier can publish an
-`alg`-less JWK.
+Observed on beta 17/09/2026: both bodies returned `201`, published the key
+exactly as supplied, and recorded a `vp_undecryptable_response_allowed` event.
+Use a genuine curve point: an earlier placeholder was off-curve, which would
+have let a Wallet refuse for the wrong reason.
+
+`oid4vp.request_encryption_jwk` asserts the published key: `{field: alg,
+present: false}` for `002` and `{field: alg, value: ECDH-ES+A256KW}` for `003`.
+It selects the first `use: enc` key, falling back to the only published key.
+The refusal half reuses `oid4vp.session_event_count` with `count: 0` plus
+`oid4vp.error_response_required`. Engine runs confirmed each case passes only on
+its own scenario evidence, fails on the other's, and fails when the session
+recorded a presentation response.
+
+The captured shape of a real Wallet error is still unverified: no mobile runner
+was available, so the refusal fixtures used the established
+`oid4vp.error_response_required` contract rather than an observed error capture.
 
 Related finding, not fixed here:
-`fcaf-wallet-solution-relying-party-response-encryption-metadata.yaml` sends
-`client_metadata` with `jwks` at the body top level, which now returns HTTP 400,
-and its replacement-JWK purpose is unachievable while Capture overrides supplied
-keys. `WS_RP_MS_ProtocolMessages__130` depends on that scenario.
+`fcaf-wallet-solution-relying-party-response-encryption-metadata.yaml` still
+replaces `jwks` at the body top level without the new flag, so it returns HTTP
+400. `WS_RP_MS_ProtocolMessages__130` depends on that scenario.
 
 ## Case 005, SessionEncryption ECDH-ES on P-256
 
@@ -1210,28 +1225,27 @@ nothing else. The pre-existing `metadata_enc` parameter only reads the old draft
 scalar `authorization_encrypted_response_enc`, which beta Capture no longer
 emits, so it could not express any of these cases.
 
-Only `009` is runnable today. Beta Capture generates one fixed advertisement,
-`[A128GCM, A256GCM, A128CBC-HS256]`, which satisfies `009` but neither `007` nor
-`008`. Probed override behaviour on `POST /openid4vp/sessions`:
+Each case now owns a scenario that advertises exactly what its profile
+describes, because the previous shared source made the advertisement half
+vacuous: Capture's generated `[A128GCM, A256GCM, A128CBC-HS256]` contains every
+value, so containment passed for all three and each case degraded to a bare
+`enc` equality check.
 
-- `response_mode: direct_post` accepts a `client_metadata` override and honours
-  it: `{encrypted_response_enc_values_supported: [A128GCM]}` is emitted
-  verbatim, and `client_metadata: null` omits the parameter. That mode does not
-  encrypt the response, so it cannot serve these cases.
-- `response_mode: direct_post.jwt` rejects every override with HTTP 400
-  `invalid_client_metadata`, including an override carrying a Capture-generated
-  `jwks`, and rejects `client_metadata: null` with
-  `client_metadata_required_for_encrypted_response`.
-- A `client_metadata` nested inside `presentation_request` is accepted but
-  silently ignored.
+- `007`: `fcaf-wallet-solution-relying-party-response-encryption-a128gcm`
+- `008`: `fcaf-wallet-solution-relying-party-response-encryption-a256gcm`
+- `009`: `fcaf-wallet-solution-relying-party-response-encryption-both-gcm`
 
-So a restricted advertisement and an encrypted response cannot be combined:
-`007` and `008` are excluded and the generator invariant records them. Unblocking
-them needs Capture to accept a narrowed
-`encrypted_response_enc_values_supported` while keeping its own generated
-encryption JWK under `direct_post.jwt`.
+They rely on the one-level-deep `client_metadata` merge: supplying only
+`encrypted_response_enc_values_supported` narrows the advertisement while the
+generated `jwks` and `vp_formats_supported` survive, so the service still
+decrypts. Observed on beta 17/09/2026: `[A128GCM]`, `[A256GCM]`, and
+`[A128GCM, A256GCM]` were each emitted verbatim with the generated key intact,
+and every delivered Request Object carried the intended list. The production
+deployment still returned the full three-value list on that date, so these
+scenarios run on beta only.
 
-Engine runs confirmed the definitions are correct and ready: against the live
-advertisement, `009` passes with an A256GCM response while `007` and `008` fail
-on exclusivity; against synthetic request objects advertising exactly one value,
-`007` and `008` pass, and `008` still fails when the response uses A128GCM.
+All three use `metadata_enc_values_exclusive: true`, so a source whose
+advertisement drifts fails loudly instead of passing on containment. Engine runs
+confirmed each case passes on its own scenario evidence with the matching
+response `enc`, fails when the response uses the other GCM length, and fails
+when given another scenario's request object.

@@ -61,6 +61,7 @@ func DefaultRegistry() (*Registry, error) {
 		HTTPResponseMediaTypeValidator{},
 		OID4VPPresentationResponseHTTPValidator{},
 		OID4VPResponseEncryptionValidator{},
+		OID4VPRequestEncryptionJWKValidator{},
 		OID4VPResponseEndpointCallbackValidator{},
 		OID4VPRedirectURIVisitedValidator{},
 		OID4VPErrorResponseRequiredValidator{},

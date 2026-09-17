@@ -29,7 +29,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 613)
+	require.Len(t, definition.Steps, 628)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
@@ -46,23 +46,24 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.Len(t, validationSteps, 1)
 	with, ok := validationSteps[0]["with"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, stringSlice(with["test_ids"]), 576)
+	require.Len(t, stringSlice(with["test_ids"]), 579)
 	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__006")
 	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__013")
-	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_SessionEncryption__009")
-	for _, unemittable := range []string{
+	for _, restricted := range []string{
 		"WS_RP_SM_SessionEncryption__002",
+		"WS_RP_SM_SessionEncryption__003",
 		"WS_RP_SM_SessionEncryption__007",
 		"WS_RP_SM_SessionEncryption__008",
+		"WS_RP_SM_SessionEncryption__009",
 	} {
-		require.NotContains(
+		require.Contains(
 			t,
 			stringSlice(with["test_ids"]),
-			unemittable,
-			"complete validation must omit tests whose precondition no verifier can emit",
+			restricted,
+			"each response-encryption case needs its own verifier metadata scenario",
 		)
 	}
-	require.Len(t, with["pipeline_outputs"], 172)
+	require.Len(t, with["pipeline_outputs"], 177)
 
 	committed, err := os.ReadFile(filepath.Join(
 		root,
@@ -149,7 +150,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 		"WS_RP_IA_MainInteraction__015",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
-	require.Len(t, stringSlice(with["test_ids"]), 388)
+	require.Len(t, stringSlice(with["test_ids"]), 386)
 	require.NotContains(
 		t,
 		stringSlice(with["test_ids"]),

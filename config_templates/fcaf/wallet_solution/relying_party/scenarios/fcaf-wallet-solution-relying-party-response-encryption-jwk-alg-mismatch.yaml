@@ -1,4 +1,8 @@
-name: FCAF Session Encryption
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF verifier encryption JWK with mismatched alg
 runtime:
   fixture:
     issuer_url: https://beta-capture-wallet.credimi.io
@@ -20,13 +24,24 @@ steps:
     headers:
       Content-Type: application/json
     body:
-      scheme: openid4vp://
-      request_uri_method: post
+      scheme: haip-vp://
       request_delivery: by_reference
+      request_uri_method: post
       response_type: vp_token
       response_mode: direct_post.jwt
+      allow_undecryptable_response: true
+      client_metadata:
+        jwks:
+          keys:
+          - kty: EC
+            crv: P-256
+            x: 2HBwD9dMk-T3nLobOnvKGrXW0OJmXhyDZ92Yh_quEdA
+            y: SWCeVREJqSFRRXLrjTUIkMDtqn_88DbktyVKJc0ECEk
+            use: enc
+            kid: fcaf-static-verifier-enc-key
+            alg: ECDH-ES+A256KW
       presentation_request:
-        nonce: session-encryption
+        nonce: response-encryption-jwk-alg-mismatch
         dcql_query:
           credentials:
           - id: pid
@@ -54,21 +69,11 @@ steps:
   use: fcaf-validation
   with:
     test_ids:
-      - WS_RP_SM_SessionEncryption__001
-      - WS_RP_SM_SessionEncryption__005
-      - WS_RP_SM_SessionEncryption__006
-      - WS_RP_SM_SessionEncryption__010
-      - WS_RP_SM_SessionEncryption__011
-      - WS_RP_SM_SessionEncryption__001a
-      - WS_RP_SM_SessionEncryption__001b
-      - WS_RP_SM_SessionEncryption__001c
-      - WS_RP_SM_SessionEncryption__001d
-      - WS_RP_SM_SessionEncryption__001e
+    - WS_RP_SM_SessionEncryption__003
     suite: wallet_solution/relying_party
     pipeline_outputs:
-      pipeline.dcql.session-encryption:
+      pipeline.response-encryption.jwk-alg-mismatch:
         output:
-          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-          encrypted_response: ${{ fetch-capture-session.outputs.body.raw.presentation_response }}
-          session_checks: ${{ fetch-capture-session.outputs.body.checks }}
+          capture_session: ${{ fetch-capture-session.outputs.body }}
+          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

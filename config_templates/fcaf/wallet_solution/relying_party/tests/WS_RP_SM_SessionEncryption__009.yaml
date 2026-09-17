@@ -14,16 +14,16 @@ normative_references:
   section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - title: JSON Web Encryption (JWE)
-  section: 4.1.2
+  section: '4.1.2'
   url: https://www.rfc-editor.org/rfc/rfc7516
-- ref: pipeline.direct-post-jwt.response-transport
+- ref: pipeline.response-encryption.both-gcm
 evidence:
   capture_session:
-    from: pipeline.direct-post-jwt.response-transport.outputs.capture_session
+    from: pipeline.response-encryption.both-gcm.outputs.capture_session
   encryption_evidence:
-    from: pipeline.direct-post-jwt.response-transport.outputs.default_encryption_evidence
+    from: pipeline.response-encryption.both-gcm.outputs.encryption_evidence
   visual_evidence:
-    from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
+    from: pipeline.response-encryption.both-gcm.outputs.visual_evidence
 assertions:
 - id: wallet_posted_an_encrypted_response
   validator: oid4vp.presentation_response_http
@@ -34,6 +34,7 @@ assertions:
   input: evidence.encryption_evidence
   params:
     metadata_enc_values_supported: [A128GCM, A256GCM]
+    metadata_enc_values_exclusive: true
     expected_enc: A256GCM
 - id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
