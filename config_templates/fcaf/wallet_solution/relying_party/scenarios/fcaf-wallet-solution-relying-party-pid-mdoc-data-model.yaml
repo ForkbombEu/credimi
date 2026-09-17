@@ -176,6 +176,8 @@ steps:
 
         - WS_RP_SH_Encoding_TextualEncoding_014
         - WS_RP_SH_Encoding_TextualEncoding_015
+        - WS_RP_SH_Encoding_TextualEncoding_017
+        - WS_RP_SH_Encoding_TextualEncoding_021
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.pid.presentation.mdoc.all-claims-elements:

@@ -12286,9 +12286,11 @@ steps:
             - WS_RP_SH_Encoding_TextualEncoding_014
             - WS_RP_SH_Encoding_TextualEncoding_015
             - WS_RP_SH_Encoding_TextualEncoding_016
+            - WS_RP_SH_Encoding_TextualEncoding_017
             - WS_RP_SH_Encoding_TextualEncoding_018
             - WS_RP_SH_Encoding_TextualEncoding_019
             - WS_RP_SH_Encoding_TextualEncoding_020
+            - WS_RP_SH_Encoding_TextualEncoding_021
             - WS_RP_SH_Encoding_TextualEncoding_022
             - WS_RP_SM_DeviceBinding__002
             - WS_RP_SM_DeviceBinding__003

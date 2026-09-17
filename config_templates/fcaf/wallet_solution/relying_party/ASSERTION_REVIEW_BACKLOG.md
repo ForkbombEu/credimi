@@ -85,11 +85,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 
 ### Reclassified from pending
 
-- [ ] `WS_RP_SH_Encoding_TextualEncoding_017` and
-  `WS_RP_SH_Encoding_TextualEncoding_021` (the available Capture PID mdoc
-  fixture uses `eu.europa.ec.eudi.pid.1`; it cannot produce the source-required
-  positive `org.iso.18013.5.1.first_name` element, so an absent-namespace
-  request would test rejection rather than the required successful selection)
 - [ ] `WS_RP_SM_IssuerIntegrity__014` (Capture exposes the presented SD-JWT
   `x5c` header but no independently published trust-anchor certificate or
   fingerprint; chain position or self-signing cannot prove that the trust

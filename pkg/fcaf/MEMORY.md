@@ -1430,3 +1430,29 @@ whole arrays are revealed. Keep it in step with the issuer frame.
 
 No mobile runner was available, so neither scenario was executed against the
 reference Wallet; a run still needs real captured protocol and visual evidence.
+
+## Cases TextualEncoding 017 and 021, mdoc data element identifier
+
+Both cases ask only that the second component of an mdoc claims path pointer
+resolves a data element identifier inside the namespace named by the first
+component, and that the selected value comes back CBOR-encoded. The source
+`org.iso.18013.5.1` / `first_name` / `"Alice"` precondition is illustrative,
+exactly as in cases 014 and 015, which this repository already implements with
+`eu.europa.ec.eudi.pid.1` / `given_name`. The earlier backlog claim that the
+substitution was impossible treated the namespace literal as normative and was
+inconsistent with those two implemented rows; it has been removed.
+
+Both now bind `pipeline.pid.presentation.mdoc.all-claims-elements`, the same
+PID mdoc presentation that owns 014 and 015, and the scenario
+`pid-mdoc-data-model` owns all four test IDs. The assertions differ by the
+requirement each case states:
+
+- 017 requires the identifier to resolve (`mdoc.namespace_element_present`,
+  so an ErrorItem fails) and its value to carry CBOR major type 3
+  (`mdoc.element_cbor_type`).
+- 021 requires the selected value itself (`mdoc.element_utf8_string`) plus the
+  absence of an ErrorItem.
+
+No new wallet interaction, Maestro action, or evidence source was needed. Do
+not request a namespace the Capture PID mdoc does not carry: that would turn
+these positive selection cases into rejection cases.
