@@ -109,8 +109,9 @@ func TestIssuerTrustAnchorExcludedRejectsEmbeddedAnchor(t *testing.T) {
 	})
 	require.Equal(t, StatusFail, withRoot.Status, withRoot.Message)
 
-	// The beta Capture issuer currently signs a self-signed end-entity
-	// certificate, which is simultaneously the leaf and the trust anchor.
+	// A self-signed end-entity certificate is simultaneously the leaf and the
+	// trust anchor, and CheckSignatureFrom would miss it because the CA basic
+	// constraint is absent.
 	selfSignedLeaf := newTestCertificate(t, "issuer", false, nil)
 	selfSigned := validator.Validate(context.Background(), Input{
 		Value: trustAnchorEvidence(selfSignedLeaf),

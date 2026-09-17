@@ -55,6 +55,18 @@ If a required property is rejected before a signed request is delivered, mark th
 
 Use the metadata endpoints rather than hard-coding credential configuration identifiers, authorization-server settings, or issuer keys in a test.
 
+The deployments mount externally issued credential-signing certificates; the
+self-signed certificate that the source generates is only a local bootstrap
+fallback, so the repository source does not describe deployed certificate
+material. Observed on beta 17/09/2026:
+`GET /issuers/eu-pid-device-bound/credential-jwks.json` publishes a single
+`x5c` certificate with subject `CN = Beta Fake Issuer EU PID Device Bound` and
+issuer `CN = PID Issuer CA 02, O = EUDI Wallet Reference Implementation,
+C = EU`. The issuing CA is not part of `x5c`, which satisfies the HAIP 6.1.1
+trust-anchor exclusion rule. Production served no `credential-jwks.json` route
+on that date. Probe this endpoint instead of reading the signing code when a
+test depends on certificate shape.
+
 ## Issuer: OpenID4VCI capture sessions
 
 ### Session surface

@@ -85,17 +85,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 
 ### Reclassified from pending
 
-- [ ] `WS_RP_SM_IssuerIntegrity__014` (implemented with
-  `sdjwt.issuer_trust_anchor_excluded`: an excluded anchor is observable as an
-  `x5c` chain that carries no self-signed certificate and whose top-most
-  certificate is signed by a key the chain omits. The beta issuer currently
-  signs one self-signed end-entity certificate, so its `x5c` is its own trust
-  anchor and the assertion fails for issuer reasons. Unblocking needs
-  `credimi-capture-wallet` to sign the issuer certificate with a root it
-  withholds from `x5c`; the Credimi definition then passes unchanged. An
-  anchor that a trust list designates below a root stays indistinguishable
-  from a regular intermediate in the presentation alone)
-
 - [ ] `WS_RP_IA_MainInteraction__024` (requires an encrypted request that remains deliverable and user-confirmable; Capture does not publish encrypted Request Object delivery)
 - [ ] `WS_RP_IA_MainInteraction__040` (requires two same-type credentials with distinct values; no such issuer fixture is published)
 - [ ] `WS_RP_IA_MainInteraction__041` (requires two same-type credentials with distinct values; no such issuer fixture is published)

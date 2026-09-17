@@ -1478,13 +1478,20 @@ Case 014 now binds `pipeline.pid.presentation.sdjwt.all-claims`, the PID
 SD-JWT presentation that already feeds case 013, and `engagement-haip-vp` owns
 it. No new wallet interaction was needed.
 
-Issuer prerequisite, recorded 17/09/2026: `writeCertificate` in
-`credimi-capture-wallet` creates the issuer certificate with
-`authorityKey` set to its own public key and `basicConstraints: { ca: false }`,
-and `sdJwtCredentialSignOptions` publishes `x5c: [issuerCertificate]`. That
-single self-signed certificate is simultaneously leaf and trust anchor, so the
-case is `implemented issuer-blocked`. Unblocking needs a root CA that signs the
-issuer certificate and stays out of `x5c`. Note the SUT boundary: `x5c` content
-is chosen by the issuer, and the Wallet only forwards the credential as issued,
-so this case can only discriminate Wallet behaviour once the issued chain
-itself excludes the anchor.
+Issuer material, probed 17/09/2026: `writeCertificate` in
+`credimi-capture-wallet` generates a self-signed certificate, but that path is
+only the local bootstrap fallback. The deployments mount externally issued
+certificates, so reading `src/config.ts` alone gives the wrong picture.
+`GET https://beta-capture-wallet.credimi.io/issuers/eu-pid-device-bound/credential-jwks.json`
+returns one `x5c` certificate with subject
+`CN = Beta Fake Issuer EU PID Device Bound` and issuer
+`CN = PID Issuer CA 02, O = EUDI Wallet Reference Implementation, C = EU`. It
+is not self-signed and its CA is absent from `x5c`, which is exactly what this
+case requires, so the case is ready. Production exposes no
+`credential-jwks.json` route yet and was not probed; the scenarios target beta.
+
+Note the SUT boundary: `x5c` content is chosen by the issuer and the Wallet
+only forwards the credential as issued, so a run of this case confirms that
+the Wallet forwarded the issued chain unchanged rather than appending an
+anchor. Always probe the deployed issuer material before declaring a
+certificate-shaped case blocked.
