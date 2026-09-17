@@ -1043,11 +1043,14 @@ response event and visual evidence. A live beta probe confirmed an ES256
 `oauth-authz-req+jwt` with one `x5c` certificate and an `x509_hash` client ID.
 No mobile runner was available for the Wallet interaction.
 
-## Cases 016, 018, and 020, RpIntegrity X.509
+## Cases 016, 018, 020, and 023, RpIntegrity X.509
 
 The Capture `x5c` header deliberately contains the signing leaf only. Its AIA
 issuer, `PID Issuer CA 02`, is a self-issued CA certificate, so the missing
 root is expected: OpenID4VP trust anchors belong in the Wallet trust store, not
-in `x5c`. Cases 016 and 018 verify the leaf-key JWS signature, `x509_hash`
-binding, and the Wallet presentation-response event. Case 020 additionally
-requires `vp_formats_supported` exclusively in `client_metadata`.
+in `x5c`. Cases 016, 018, and 023 verify the leaf-key JWS signature, the
+`x509_hash` client-identifier binding, and the Wallet presentation-response
+event; 023 covers acceptance of the `x509_hash` Client Identifier Prefix, where
+the response event plus screenshots evidence consent and a successful
+presentation. Case 020 additionally requires `vp_formats_supported` exclusively
+in `client_metadata`.

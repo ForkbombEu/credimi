@@ -55,7 +55,7 @@ steps:
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
-      test_ids: [WS_RP_MS_Metadata__111, WS_RP_SM_RpIntegrity__013, WS_RP_SM_RpIntegrity__016, WS_RP_SM_RpIntegrity__018, WS_RP_SM_RpIntegrity__020]
+      test_ids: [WS_RP_MS_Metadata__111, WS_RP_SM_RpIntegrity__013, WS_RP_SM_RpIntegrity__016, WS_RP_SM_RpIntegrity__018, WS_RP_SM_RpIntegrity__020, WS_RP_SM_RpIntegrity__023]
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.metadata.signed-x509-hash:

@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__023
-title: FCAF WS_RP_SM_RpIntegrity__023
+title: Accept a signed x509_hash presentation request.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__023.md
 suite:
@@ -11,21 +11,28 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- ref: pipeline.wallet.metadata.signed-x509-hash
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  signed_request_object:
+    from: pipeline.wallet.metadata.signed-x509-hash.outputs.signed_request_object
+  capture_session:
+    from: pipeline.wallet.metadata.signed-x509-hash.outputs.capture_session
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.wallet.metadata.signed-x509-hash.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__023_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__023_visual_evidence
+- id: signature_verifies_with_x509_leaf_key
+  validator: jose.jws_signed_request
+  input: evidence.signed_request_object
+- id: client_id_uses_x509_hash_prefix
+  validator: oid4vp.x509_hash_client_id
+  input: evidence.signed_request_object
+- id: wallet_requests_consent_and_receives_presentation
+  validator: oid4vp.session_event_count
+  input: evidence.capture_session
+  params: {type: vp_presentation_response_received, count: 1}
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

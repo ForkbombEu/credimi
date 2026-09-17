@@ -92,7 +92,7 @@ confirm the exact resulting Request Object before an assertion is implemented.
 - [x] `WS_RP_SM_RpIntegrity__016` (signed X.509 request; Wallet response proves trust-store acceptance)
 - [x] `WS_RP_SM_RpIntegrity__018` (signed `x509_hash` request; Wallet response proves trust-store acceptance)
 - [x] `WS_RP_SM_RpIntegrity__020` (signed `x509_hash` request with verifier metadata exclusively in `client_metadata`)
-- [ ] `WS_RP_SM_RpIntegrity__023` (accepted signed `x509_hash` request)
+- [x] `WS_RP_SM_RpIntegrity__023` (accepted signed `x509_hash` request; consent and successful presentation)
 - [ ] `WS_RP_SM_RpIntegrity__028` (unsigned plain request)
 - [ ] `WS_RP_SM_RpIntegrity__029` (default signed request)
 - [ ] `WS_RP_SM_RpIntegrity__031` (default ES256-signed request)
