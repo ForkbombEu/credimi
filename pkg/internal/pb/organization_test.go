@@ -622,6 +622,12 @@ func ensureWorkerManagerPublicationFields(t testing.TB, app *tests.TestApp) {
 	if runners.Fields.GetByName("admin_managed") == nil {
 		runners.Fields.Add(&core.BoolField{Name: "admin_managed"})
 	}
+	if runners.Fields.GetByName("disabled") == nil {
+		runners.Fields.Add(&core.BoolField{Name: "disabled"})
+	}
+	if runners.Fields.GetByName("online") == nil {
+		runners.Fields.Add(&core.BoolField{Name: "online"})
+	}
 	require.NoError(t, app.Save(runners))
 }
 
@@ -646,6 +652,7 @@ func createWorkerManagerRunnerRecord(
 	record.Set("type", "android_emulator")
 	record.Set("published", published)
 	record.Set("admin_managed", adminManaged)
+	record.Set("online", true)
 	require.NoError(t, app.Save(record))
 
 	return record

@@ -7,6 +7,7 @@ package hooks
 import (
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -30,6 +31,9 @@ func listWorkerManagerRunnerURLs(app core.App, filter string) ([]string, error) 
 
 	runnerURLs := make([]string, 0, len(records))
 	for _, record := range records {
+		if !mobilerunnerlifecycle.EligibleForWorkerStart(record) {
+			continue
+		}
 		runnerURL := strings.TrimSpace(record.GetString("ip"))
 		if runnerURL == "" {
 			continue

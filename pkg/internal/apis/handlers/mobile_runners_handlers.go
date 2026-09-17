@@ -13,10 +13,13 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -203,6 +206,62 @@ var checkMobileRunnerHealth = checkMobileRunnerHealthHTTP
 
 var errMalformedMobileRunnerURL = errors.New("malformed mobile runner URL")
 
+// Selector lists must stay responsive, so they probe with a much shorter
+// deadline than the wallet-APK CI path and probe runners concurrently.
+const (
+	mobileRunnerListHealthTimeout    = 2 * time.Second
+	mobileRunnerListProbeConcurrency = 8
+)
+
+type mobileRunnerHealth struct {
+	online  bool
+	devices []MobileRunnerHealthDevice
+	err     error
+}
+
+// probeMobileRunnerHealths probes every record concurrently and returns
+// results index-aligned with records.
+func probeMobileRunnerHealths(
+	ctx context.Context,
+	records []*core.Record,
+) []mobileRunnerHealth {
+	results := make([]mobileRunnerHealth, len(records))
+	slots := make(chan struct{}, mobileRunnerListProbeConcurrency)
+	var wg sync.WaitGroup
+
+	for i, record := range records {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			slots <- struct{}{}
+			defer func() { <-slots }()
+
+			probeCtx, cancel := context.WithTimeout(ctx, mobileRunnerListHealthTimeout)
+			defer cancel()
+
+			online, devices, err := checkMobileRunnerHealth(probeCtx, mobileRunnerURL(record))
+			results[i] = mobileRunnerHealth{online: online, devices: devices, err: err}
+		}()
+	}
+	wg.Wait()
+
+	return results
+}
+
+func enabledMobileRunnerRecords(records []*core.Record) []*core.Record {
+	enabled := make([]*core.Record, 0, len(records))
+	for _, record := range records {
+		// Disabled runners are hidden from every catalog surface, and probing
+		// them would cost a health timeout each.
+		if record.GetBool("disabled") {
+			continue
+		}
+		enabled = append(enabled, record)
+	}
+
+	return enabled
+}
+
 func HandleListMobileRunners() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		callerOrgID := ""
@@ -243,16 +302,16 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 			Runners: make([]MobileRunnerListItem, 0, len(records)),
 		}
 		includeDetails := e.Request.URL.Query().Get("view") != "selector"
-		for _, record := range records {
-			if record.GetBool("disabled") {
-				continue
-			}
+		enabled := enabledMobileRunnerRecords(records)
+		healths := probeMobileRunnerHealths(e.Request.Context(), enabled)
+		for i, record := range enabled {
 			item, apiErr := mobileRunnerListItem(
 				e.Request.Context(),
 				e.App,
 				record,
 				callerOrgID,
 				includeDetails,
+				healths[i],
 			)
 			if apiErr != nil {
 				return apiErr
@@ -294,19 +353,12 @@ func HandleListMobileDevices() func(*core.RequestEvent) error {
 		}
 
 		response := ListMobileDevicesPublicResponseSchema{Devices: make([]MobileDeviceListItem, 0)}
-		for _, runner := range runners {
-			runnerOnline, _, healthErr := checkMobileRunnerHealth(
-				e.Request.Context(),
-				mobileRunnerURL(runner),
-			)
-			if healthErr != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"mobile_runner",
-					"failed_to_check_runner_health",
-					healthErr.Error(),
-				)
-			}
+		enabled := enabledMobileRunnerRecords(runners)
+		healths := probeMobileRunnerHealths(e.Request.Context(), enabled)
+		for i, runner := range enabled {
+			// A failed or misconfigured probe means offline, never a 500 that
+			// blanks the whole selector.
+			runnerOnline := healths[i].err == nil && healths[i].online
 			devices, err := e.App.FindRecordsByFilter(
 				"mobile_devices",
 				"runner = {:runner}",
@@ -461,6 +513,7 @@ func mobileRunnerListItem(
 	record *core.Record,
 	callerOrgID string,
 	includeDetails bool,
+	health mobileRunnerHealth,
 ) (MobileRunnerListItem, *apierror.APIError) {
 	runnerID, err := mobileRunnerIdentifier(app, record)
 	if err != nil {
@@ -473,20 +526,13 @@ func mobileRunnerListItem(
 	}
 
 	runnerURL := mobileRunnerURL(record)
-	online, devices, err := checkMobileRunnerHealth(ctx, runnerURL)
+	online := health.err == nil && health.online
+	devices := health.devices
 	healthStatus := "offline"
-	if err != nil {
-		if errors.Is(err, errMalformedMobileRunnerURL) {
-			healthStatus = "misconfigured"
-		} else {
-			return MobileRunnerListItem{}, apierror.New(
-				http.StatusInternalServerError,
-				"mobile_runner",
-				"failed_to_check_runner_health",
-				err.Error(),
-			)
-		}
-	} else if online {
+	switch {
+	case errors.Is(health.err, errMalformedMobileRunnerURL):
+		healthStatus = "misconfigured"
+	case online:
 		healthStatus = "online"
 	}
 
@@ -775,6 +821,12 @@ func HandleListMobileRunnerURLs() func(*core.RequestEvent) error {
 		}
 
 		for _, record := range records {
+			// Same rule as the worker-manager start paths: this endpoint only
+			// feeds the worker-manager workflow fallback, so disabled and
+			// offline runners must not be handed out for worker starts.
+			if !mobilerunnerlifecycle.EligibleForWorkerStart(record) {
+				continue
+			}
 			response.Runners = append(response.Runners, mobileRunnerURL(record))
 		}
 
