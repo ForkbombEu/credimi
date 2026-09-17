@@ -70,7 +70,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}),
 		{
 			initialValue: () => loadedWorkflows,
-			intervalMs: 10000
+			intervalMs: 10000,
+			deps: [() => params.status, () => params.page, () => params.limit]
 		}
 	);
 </script>
