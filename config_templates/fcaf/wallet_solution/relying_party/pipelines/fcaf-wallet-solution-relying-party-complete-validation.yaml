@@ -9706,6 +9706,90 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-metadata-7d34f50e-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: response-encryption-per-request-keys-4f12992b-create-first-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: per-request-keys-first
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-per-request-keys-4f12992b-exercise-wallet-for-first-request
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-per-request-keys-4f12992b-create-first-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-per-request-keys-4f12992b-fetch-first-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-per-request-keys-4f12992b-create-first-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: response-encryption-per-request-keys-4f12992b-create-second-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: per-request-keys-second
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-encryption-per-request-keys-4f12992b-exercise-wallet-for-second-request
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ response-encryption-per-request-keys-4f12992b-create-second-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: response-encryption-per-request-keys-4f12992b-fetch-second-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-per-request-keys-4f12992b-create-second-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: session-binding-valid-nonce-aa3a1f9c-create-presentation
       use: http-request
       with:
@@ -11178,6 +11262,18 @@ steps:
                     capture_session: ${{ response-encryption-jwk-without-alg-3e14f10a-fetch-capture-session.outputs.body | optional }}
                     request_object: ${{ response-encryption-jwk-without-alg-3e14f10a-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-jwk-without-alg-3e14f10a-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.response-encryption.per-request-keys:
+                output:
+                    first_encryption_evidence:
+                        presentation_response_http: ${{ response-encryption-per-request-keys-4f12992b-fetch-first-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                        request_object: ${{ response-encryption-per-request-keys-4f12992b-fetch-first-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    request_objects:
+                        - ${{ response-encryption-per-request-keys-4f12992b-fetch-first-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                        - ${{ response-encryption-per-request-keys-4f12992b-fetch-second-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    second_encryption_evidence:
+                        presentation_response_http: ${{ response-encryption-per-request-keys-4f12992b-fetch-second-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                        request_object: ${{ response-encryption-per-request-keys-4f12992b-fetch-second-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ response-encryption-per-request-keys-4f12992b-exercise-wallet-for-second-request.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.engagement.haip-vp:
                 output:
                     create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}

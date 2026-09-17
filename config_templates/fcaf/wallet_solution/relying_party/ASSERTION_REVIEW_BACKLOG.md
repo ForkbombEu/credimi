@@ -103,7 +103,7 @@ confirm the exact resulting Request Object before an assertion is implemented.
 - [x] `WS_RP_SM_SessionEncryption__007` (only A128GCM advertised and used)
 - [x] `WS_RP_SM_SessionEncryption__008` (only A256GCM advertised and used)
 - [x] `WS_RP_SM_SessionEncryption__009` (both GCM lengths advertised; A256GCM selected)
-- [ ] `WS_RP_SM_SessionEncryption__011` (captured response key identifier can be compared with the request metadata)
+- [x] `WS_RP_SM_SessionEncryption__011` (two requests with distinct ephemeral keys; each response encrypted to its own key)
 - [x] `WS_RP_SM_SessionEncryption__012` (redirect-flow `direct_post.jwt`; metadata-keyed JWE the verifier decrypted)
 - [x] `WS_RP_SH_Encoding_TextualEncoding_022` (raw `direct_post.jwt` POST body is form-encoded valid UTF-8)
 

@@ -1249,3 +1249,29 @@ advertisement drifts fails loudly instead of passing on containment. Engine runs
 confirmed each case passes on its own scenario evidence with the matching
 response `enc`, fails when the response uses the other GCM length, and fails
 when given another scenario's request object.
+
+## Case 011, SessionEncryption per-request ephemeral key
+
+`WS_RP_SM_SessionEncryption__011` needs two Authorization Requests carrying
+different verifier ephemeral encryption keys, and each response must be
+encrypted to its own request's key. It owns
+`fcaf-wallet-solution-relying-party-response-encryption-per-request-keys`, which
+creates two `direct_post.jwt` sessions, exercises the Wallet once per deeplink,
+and exports both request objects plus a per-session encryption evidence object.
+
+Capture mints a fresh encryption key per session, so no metadata override is
+needed: a probe on beta 17/09/2026 returned distinct `kid` and distinct key
+material for two consecutive sessions.
+
+The pairing is asserted with `oid4vp.response_encryption`
+(`match_metadata_kid`) once per session. That is only meaningful while the two
+published keys really differ, so the new
+`oid4vp.distinct_request_encryption_keys` validator asserts distinctness first.
+It compares the public key members (`kty`, `crv`, `x`, `y`, `n`, `e`) rather
+than `kid`, so a reused key relabelled with a new `kid` is still caught, and
+`minimum_keys` guards against a scenario that silently degrades to one request.
+
+Engine runs confirmed: both responses keyed to their own request pass; a second
+response reusing the first key fails only the second pairing assertion; and two
+identical request objects fail the distinctness assertion, so a verifier that
+stopped rotating keys cannot yield a false pass.
