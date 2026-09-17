@@ -9590,6 +9590,13 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ signed-x509-hash-metadata-ec05d944-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: signed-x509-hash-metadata-ec05d944-fetch-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${{ signed-x509-hash-metadata-ec05d944-create-presentation.outputs.body.request_uri }}
+    - continue_on_error: true
       id: supportive-redirect-uri-9f399357-create-presentation
       use: http-request
       with:
@@ -10944,8 +10951,8 @@ steps:
                     wallet_response: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body | optional }}
             pipeline.wallet.metadata.signed-x509-hash:
                 output:
-                    session_checks: ${{ signed-x509-hash-metadata-ec05d944-fetch-capture-session.outputs.body.checks | optional }}
-                    signed_request_object: ${{ signed-x509-hash-metadata-ec05d944-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    capture_session: ${{ signed-x509-hash-metadata-ec05d944-fetch-capture-session.outputs.body | optional }}
+                    signed_request_object: ${{ signed-x509-hash-metadata-ec05d944-fetch-request-object.outputs.body | optional }}
                     visual_evidence: ${{ signed-x509-hash-metadata-ec05d944-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.protocol.plain-redirect-uri:
                 output:

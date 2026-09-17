@@ -2409,7 +2409,6 @@ steps:
             - WS_RP_SM_RpIntegrity__010
             - WS_RP_SM_RpIntegrity__011
             - WS_RP_SM_RpIntegrity__012
-            - WS_RP_SM_RpIntegrity__013
             - WS_RP_SM_RpIntegrity__014
             - WS_RP_SM_RpIntegrity__015
             - WS_RP_SM_RpIntegrity__016

@@ -45,14 +45,20 @@ steps:
       method: GET
       url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
       expected_status: 200
+  - id: fetch-request-object
+    use: http-request
+    with:
+      method: GET
+      url: ${{ create-presentation.outputs.body.request_uri }}
+      expected_status: 200
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
-      test_ids: [WS_RP_MS_Metadata__111]
+      test_ids: [WS_RP_MS_Metadata__111, WS_RP_SM_RpIntegrity__013]
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.metadata.signed-x509-hash:
           output:
-            signed_request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
-            session_checks: ${{ fetch-capture-session.outputs.body.checks }}
+            signed_request_object: ${{ fetch-request-object.outputs.body }}
+            capture_session: ${{ fetch-capture-session.outputs.body }}
             visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

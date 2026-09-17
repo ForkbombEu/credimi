@@ -1031,4 +1031,14 @@ one `vp_presentation_response_received` event and visual evidence.
 A live beta probe confirmed that a decentralized-identifier request exposes the
 signed Request Object through `request_uri`; the session JSON only exposes a
 decoded Authorization Request. No mobile runner was available to execute the
-Wallet interaction. Next candidate: `WS_RP_SM_RpIntegrity__013`.
+Wallet interaction. Next candidate: `WS_RP_SM_RpIntegrity__016`.
+
+## Case 013, RpIntegrity X.509
+
+`WS_RP_SM_RpIntegrity__013` uses the `x509_hash` signed-request scenario. It
+retrieves the compact JWS from the Capture `request_uri`, verifies the JWS with
+the leaf key in its `x5c` chain, and checks the `x509_hash` client ID against
+that same leaf certificate. The case also requires a single presentation
+response event and visual evidence. A live beta probe confirmed an ES256
+`oauth-authz-req+jwt` with one `x5c` certificate and an `x509_hash` client ID.
+No mobile runner was available for the Wallet interaction.
