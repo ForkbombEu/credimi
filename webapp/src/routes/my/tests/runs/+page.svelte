@@ -6,9 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { SearchIcon, SparkleIcon, TestTubeIcon } from '@lucide/svelte';
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { Pipeline } from '$lib';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
-	import { PolledResource } from '$lib/utils/state.svelte.js';
+	import { activeSheet } from '$lib/utils/sheet-state.svelte.js';
 	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -62,18 +63,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const workflows = new PolledResource(
-		() =>
+	const queryClient = useQueryClient();
+
+	const workflows = createQuery(() => ({
+		queryKey: ['workflows', 'other', params.status, params.page, params.limit] as const,
+		queryFn: () =>
 			fetchWorkflows('other', {
 				status: params.status,
 				...pagination
 			}),
-		{
-			initialValue: () => loadedWorkflows,
-			intervalMs: 10000,
-			deps: [() => params.status, () => params.page, () => params.limit]
-		}
-	);
+		initialData: loadedWorkflows,
+		refetchInterval: activeSheet.count > 0 ? false : 10000
+	}));
+
+	$effect(() => {
+		queryClient.setQueryData(
+			['workflows', 'other', params.status, params.page, params.limit],
+			loadedWorkflows
+		);
+	});
 </script>
 
 <div class="grow space-y-8">
@@ -81,8 +89,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T tag="h3">{m.workflow_runs()}</T>
 	</div>
 
-	{#if workflows.current?.length > 0}
-		<WorkflowsTable workflows={workflows.current}>
+	{#if workflows.data?.length > 0}
+		<WorkflowsTable workflows={workflows.data}>
 			{#snippet header({ Th })}
 				<Th>
 					{m.QR_code()}
@@ -104,7 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</WorkflowsTable>
 	{/if}
 
-	{#if workflows.current?.length === 0}
+	{#if workflows.data?.length === 0}
 		{#if params.status}
 			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()}>
 				{#snippet bottom()}

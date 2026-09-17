@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { Pipeline } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import {
@@ -12,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fromScoreboardCache
 	} from '$lib/scoreboard/extras/from-scoreboard-row';
 	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
-	import { PolledResource } from '$lib/utils/state.svelte.js';
+	import { activeSheet } from '$lib/utils/sheet-state.svelte.js';
 	import { queryParameters } from 'sveltekit-search-params';
 
 	import SelectInputAny from '@/components/ui-custom/select-input-any.svelte';
@@ -64,22 +65,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}))
 	]);
 
-	const workflows = new PolledResource(
-		() =>
+	const queryClient = useQueryClient();
+
+	const workflows = createQuery(() => ({
+		queryKey: [
+			'pipeline-workflows',
+			pipeline.id,
+			params.status,
+			params.page,
+			params.limit
+		] as const,
+		queryFn: () =>
 			Pipeline.Workflows.list(pipeline.id, {
 				status: params.status,
 				limit: params.limit ?? undefined,
 				page: params.page ?? undefined
 			}),
-		{
-			initialValue: () => data.workflows,
-			intervalMs: 10000,
-			deps: [() => pipeline.id, () => params.status, () => params.page, () => params.limit]
-		}
-	);
+		initialData: data.workflows,
+		refetchInterval: activeSheet.count > 0 ? false : 10000
+	}));
+
+	$effect(() => {
+		queryClient.setQueryData(
+			['pipeline-workflows', pipeline.id, params.status, params.page, params.limit],
+			data.workflows
+		);
+	});
 
 	const executionStats = $derived(fromScoreboardCache(scoreboardCache) ?? emptyExecutionStats);
-	const currentItemCount = $derived(workflows.current?.length ?? 0);
+	const currentItemCount = $derived(workflows.data?.length ?? 0);
 </script>
 
 <div class="flex items-end justify-between gap-8">
@@ -141,4 +155,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</div>
 </div>
-<Pipeline.Workflows.Table workflows={workflows.current ?? []} hidePipelineColumn />
+<Pipeline.Workflows.Table workflows={workflows.data ?? []} hidePipelineColumn />

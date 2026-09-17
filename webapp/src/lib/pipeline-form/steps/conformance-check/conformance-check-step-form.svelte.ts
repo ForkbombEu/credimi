@@ -4,10 +4,10 @@
 
 import type { HubItem } from '$lib/hub';
 
+import { createQuery } from '@tanstack/svelte-query';
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { getPath } from '$lib/utils';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
-import { resource } from 'runed';
 import { tick } from 'svelte';
 
 import { m } from '@/i18n';
@@ -24,31 +24,33 @@ const OPENID4VCI_WALLET_ACTION_CATEGORY = WalletActionsCategoryOptions['get-cred
 export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceCheckStepForm> {
 	readonly Component = Component;
 
-	standardsWithTestSuites = resource(
-		() => {},
-		async () => {
+	standardsWithTestSuites = createQuery(() => ({
+		queryKey: ['standards-with-test-suites', 'pipeline'] as const,
+		queryFn: async () => {
 			const result = await getStandardsWithTestSuites({ surface: 'pipeline' });
 			if (result instanceof Error) throw result;
 			return result;
-		},
-		{}
-	);
+		}
+	}));
 
-	walletActions = resource(
-		() => this.getExecutionTarget()?.wallet?.id,
-		async (walletId) => {
-			if (!walletId) return null;
+	walletActions = createQuery(() => {
+		const walletId = this.getExecutionTarget()?.wallet?.id;
+		return {
+			queryKey: ['wallet-actions', walletId, OPENID4VCI_WALLET_ACTION_CATEGORY] as const,
+			queryFn: async () => {
+				if (!walletId) return null;
 
-			return pb.collection('wallet_actions').getFullList<WalletActionsResponse>({
-				filter: pb.filter('wallet = {:wallet} && category ~ {:category}', {
-					wallet: walletId,
-					category: OPENID4VCI_WALLET_ACTION_CATEGORY
-				}),
-				sort: 'created'
-			});
-		},
-		{}
-	);
+				return pb.collection('wallet_actions').getFullList<WalletActionsResponse>({
+					filter: pb.filter('wallet = {:wallet} && category ~ {:category}', {
+						wallet: walletId,
+						category: OPENID4VCI_WALLET_ACTION_CATEGORY
+					}),
+					sort: 'created'
+				});
+			},
+			enabled: Boolean(walletId)
+		};
+	});
 
 	data = $state<Partial<FormData>>({});
 
@@ -74,7 +76,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	state: FormState = $derived.by(() => {
 		const { standard, version, suite, test } = this.data;
-		if (this.standardsWithTestSuites.loading) {
+		if (this.standardsWithTestSuites.isPending) {
 			return 'loading';
 		} else if (this.standardsWithTestSuites.error) {
 			return 'error';
@@ -108,7 +110,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	hasWalletTests = $derived(this.availableTests.some((test) => isOpenIdWalletTest(test)));
 
-	genericCredentialActions = $derived(this.walletActions.current ?? []);
+	genericCredentialActions = $derived(this.walletActions.data ?? []);
 
 	selectedWalletAction = $derived.by(() => {
 		if (!this.data.action_id) return undefined;
@@ -124,7 +126,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 		const wallet = this.getExecutionTarget()?.wallet;
 
-		if (wallet && this.walletActions.loading) {
+		if (wallet && this.walletActions.isPending) {
 			return { kind: 'loading' };
 		}
 
@@ -143,7 +145,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		const walletTestsBlocked =
 			this.hasWalletTests &&
 			(!wallet ||
-				this.walletActions.loading ||
+				this.walletActions.isPending ||
 				getWalletTestBlockReason(wallet, this.walletActions));
 
 		return this.availableTests.map((test) => {
@@ -289,9 +291,9 @@ type Test = Suite['paths'][number];
 export function getWalletTestBlockReason(
 	wallet: HubItem | undefined,
 	walletActions: {
-		loading: boolean;
-		error: Error | undefined;
-		current: WalletActionsResponse[] | null | undefined;
+		isPending: boolean;
+		error: Error | null | undefined;
+		data: WalletActionsResponse[] | null | undefined;
 	}
 ): string | null {
 	if (!wallet) {
@@ -300,7 +302,7 @@ export function getWalletTestBlockReason(
 		});
 	}
 
-	if (walletActions.loading) {
+	if (walletActions.isPending) {
 		return null;
 	}
 
@@ -308,7 +310,7 @@ export function getWalletTestBlockReason(
 		return walletActions.error.message;
 	}
 
-	const actions = walletActions.current ?? [];
+	const actions = walletActions.data ?? [];
 
 	if (actions.length === 0) {
 		return m.Pipeline_form_wallet_missing_action_category({

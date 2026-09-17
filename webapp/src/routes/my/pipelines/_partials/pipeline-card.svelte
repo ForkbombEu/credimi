@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ExecutionSummary } from '$lib/pipeline/workflows';
 
 	import { ArrowRightIcon, InfoIcon, Pencil, RefreshCw } from '@lucide/svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { resolve } from '$app/paths';
 	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
@@ -19,7 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
 	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
 	import { getPath } from '$lib/utils';
-	import { resource } from 'runed';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
@@ -63,10 +63,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const scoreboard = resource(
-		() => pipeline.id,
-		(id) => Scoreboard.Records.loadForPipeline(id)
-	);
+	const scoreboard = createQuery(() => ({
+		queryKey: ['pipeline-scoreboard', pipeline.id],
+		queryFn: () => Scoreboard.Records.loadForPipeline(pipeline.id)
+	}));
 
 	// Variables for displaying UI elements
 
@@ -144,11 +144,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet afterDescription()}
-	{#if scoreboard.current && Scoreboard.EntityDisplay.buildPipelineSummaryItems(scoreboard.current).length > 0}
+	{#if scoreboard.data && Scoreboard.EntityDisplay.buildPipelineSummaryItems(scoreboard.data).length > 0}
 		<div class="flex items-start justify-between gap-4 pt-1">
-			<PipelineContentSummary results={scoreboard.current} />
+			<PipelineContentSummary results={scoreboard.data} />
 		</div>
-	{:else if !scoreboard.loading}
+	{:else if scoreboard.isFetched}
 		{@render emptyState()}
 	{/if}
 {/snippet}
@@ -184,8 +184,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			{#if showWorkflows && workflows}
-				{@const executionStats = scoreboard.current
-					? fromScoreboardRow(scoreboard.current)
+				{@const executionStats = scoreboard.data
+					? fromScoreboardRow(scoreboard.data)
 					: undefined}
 				<div class="space-y-3">
 					<Pipeline.Workflows.SmallTable {workflows} />

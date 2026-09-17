@@ -7,11 +7,11 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('./conformance-check-step-form.svelte', () => ({ default: class {} }));
 // Avoids uuid import failure when loading conformance-check-step-form module graph in Vitest.
 vi.mock('@forkbombeu/temporal-ui', () => ({}));
-vi.mock('runed', () => ({
-	resource: () => ({
-		loading: false,
-		error: undefined,
-		current: null
+vi.mock('@tanstack/svelte-query', () => ({
+	createQuery: () => ({
+		isPending: false,
+		error: null,
+		data: null
 	})
 }));
 const i18nMocks = vi.hoisted(() => ({
@@ -59,48 +59,48 @@ describe('getWalletTestBlockReason', () => {
 		{
 			name: 'no wallet',
 			wallet: undefined,
-			walletActions: { loading: false, error: undefined, current: [] },
+			walletActions: { isPending: false, error: undefined, data: [] },
 			expected: 'choose-wallet:get-credential-generic'
 		},
 		{
 			name: 'loading',
 			wallet,
-			walletActions: { loading: true, error: undefined, current: [] },
+			walletActions: { isPending: true, error: undefined, data: [] },
 			expected: null
 		},
 		{
 			name: 'error',
 			wallet,
 			walletActions: {
-				loading: false,
+				isPending: false,
 				error: new Error('wallet actions failed'),
-				current: []
+				data: []
 			},
 			expected: 'wallet actions failed'
 		},
 		{
-			name: 'current: []',
+			name: 'data: []',
 			wallet,
-			walletActions: { loading: false, error: undefined, current: [] },
+			walletActions: { isPending: false, error: undefined, data: [] },
 			expected: 'missing-action:TestWallet:get-credential-generic'
 		},
 		{
-			name: 'current: [one action]',
+			name: 'data: [one action]',
 			wallet,
 			walletActions: {
-				loading: false,
+				isPending: false,
 				error: undefined,
-				current: [action('a1')]
+				data: [action('a1')]
 			},
 			expected: null
 		},
 		{
-			name: 'current: [two actions]',
+			name: 'data: [two actions]',
 			wallet,
 			walletActions: {
-				loading: false,
+				isPending: false,
 				error: undefined,
-				current: [action('a1'), action('a2')]
+				data: [action('a1'), action('a2')]
 			},
 			expected: null
 		}
