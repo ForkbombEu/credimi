@@ -99,7 +99,7 @@ confirm the exact resulting Request Object before an assertion is implemented.
 - [x] `WS_RP_SM_SessionEncryption__001` (captured encrypted `direct_post.jwt` response; unsigned compact JWE)
 - [ ] `WS_RP_SM_SessionEncryption__002` (blocked: beta Capture always replaces a supplied `jwks` with its own generated `alg`-bearing key, so no request can carry a verifier JWK without `alg`)
 - [ ] `WS_RP_SM_SessionEncryption__003` (captured JWE algorithm and selected JWK)
-- [ ] `WS_RP_SM_SessionEncryption__005` (captured JWE protected header)
+- [x] `WS_RP_SM_SessionEncryption__005` (captured JWE protected header; ECDH-ES key agreement on P-256)
 - [ ] `WS_RP_SM_SessionEncryption__007` (captured A128GCM response encryption)
 - [ ] `WS_RP_SM_SessionEncryption__008` (replacement metadata can request A256GCM)
 - [ ] `WS_RP_SM_SessionEncryption__009` (replacement metadata can advertise both supported `enc` values)

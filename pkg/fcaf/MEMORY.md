@@ -1136,3 +1136,19 @@ Related finding, not fixed here:
 `client_metadata` with `jwks` at the body top level, which now returns HTTP 400,
 and its replacement-JWK purpose is unachievable while Capture overrides supplied
 keys. `WS_RP_MS_ProtocolMessages__130` depends on that scenario.
+
+## Case 005, SessionEncryption ECDH-ES on P-256
+
+`WS_RP_SM_SessionEncryption__005` asserts the RFC 7516 section 4.1.1 header
+`alg` is exactly `ECDH-ES` and the RFC 7518 section 6.2.1.1 ephemeral key uses
+`epk.crv: P-256`, plus the `direct_post.jwt` response mode and exactly one
+`vp_presentation_response_received` event so the encrypted response was really
+delivered. Pinning `alg` to bare `ECDH-ES` rejects the wrapped variants such as
+`ECDH-ES+A128KW`, which the source does not allow.
+
+A live beta probe confirmed the verifier publishes an `ECDH-ES` P-256 `use: enc`
+JWK for this scenario. Engine runs confirmed the definition passes on a
+wallet-shaped `ECDH-ES` P-256 JWE, and that each half fails alone:
+`ECDH-ES+A128KW` fails only the algorithm assertion, a P-384 `epk` fails only
+the curve assertion, and a session without the response event fails only the
+delivery assertion.
