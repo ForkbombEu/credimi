@@ -6,24 +6,12 @@ import type { EntityData } from '$lib/global';
 
 import { getPath } from '$lib/utils';
 
-import { pb } from '@/pocketbase';
-
 import type { Item, PocketbaseEntity } from './types';
 
 //
 
 export function getPocketbaseEntityHref(entity: PocketbaseEntity): string {
 	return `/hub/${entity.collectionName}/${getPath(entity)}`;
-}
-
-function avatarSrc(entity: PocketbaseEntity): string | undefined {
-	if ('logo' in entity && entity.logo) {
-		return pb.files.getURL(entity, entity.logo);
-	}
-	if ('logo_url' in entity && entity.logo_url) {
-		return entity.logo_url;
-	}
-	return undefined;
 }
 
 export function fromPocketbaseEntity(entity: PocketbaseEntity, kind?: EntityData): Item {
@@ -33,7 +21,7 @@ export function fromPocketbaseEntity(entity: PocketbaseEntity, kind?: EntityData
 		name,
 		href: getPocketbaseEntityHref(entity),
 		avatar: {
-			src: avatarSrc(entity),
+			src: 'logo_url' in entity ? entity.logo_url : undefined,
 			fallback: name.slice(0, 2),
 			alt: name
 		},

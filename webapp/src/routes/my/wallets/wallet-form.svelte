@@ -27,11 +27,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		onSuccess?: () => void;
+		organizationId: string;
 		walletId?: string;
 		initialData?: WalletsResponse;
 	};
 
-	let { onSuccess, initialData, walletId }: Props = $props();
+	let { onSuccess, initialData, organizationId, walletId }: Props = $props();
 
 	//
 
@@ -39,7 +40,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		collection: 'wallets',
 		recordId: walletId,
 		fieldsOptions: {
-			exclude: ['owner', 'conformance_checks']
+			hide: {
+				owner: organizationId
+			},
+			exclude: ['conformance_checks']
 		},
 		initialData: initialData,
 		onSuccess: onSuccess

@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			hideIcon: true
 		}),
 		fn: (row) => EntityDisplay.fromConformancePaths(row.conformance_checks ?? []),
-		sortField: 'use_case_verifications.name',
+		sortField: 'conformance_checks.0',
 		manualPillPositioning: true
 	});
 </script>

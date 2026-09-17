@@ -24,20 +24,21 @@ const AggregateScoreboardTaskQueue = "AggregateScoreboardTaskQueue"
 var aggregateScoreboardStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 type AggregatedPipelineStats struct {
-	PipelineID          string                  `json:"pipeline_id"`
-	PipelineName        string                  `json:"pipeline_name"`
-	DeviceTypes         []string                `json:"device_types"`
-	DeviceIDs           []string                `json:"device_ids"`
-	TotalRuns           int                     `json:"total_runs"`
-	TotalSuccesses      int                     `json:"total_successes"`
-	SuccessRate         float64                 `json:"success_rate"`
-	ManualExecutions    int                     `json:"manual_executions"`
-	ScheduledExecutions int                     `json:"scheduled_executions"`
-	CIExecutions        int                     `json:"ci_executions"`
-	MinExecutionTime    string                  `json:"min_execution_time"`
-	FirstExecutionDate  string                  `json:"first_execution_date"`
-	LastExecutionDate   string                  `json:"last_execution_date"`
-	LastExecution       *LatestExecutionDetails `json:"last_execution,omitempty"`
+	PipelineID              string                  `json:"pipeline_id"`
+	PipelineName            string                  `json:"pipeline_name"`
+	DeviceTypes             []string                `json:"device_types"`
+	DeviceIDs               []string                `json:"device_ids"`
+	TotalRuns               int                     `json:"total_runs"`
+	TotalSuccesses          int                     `json:"total_successes"`
+	SuccessRate             float64                 `json:"success_rate"`
+	ManualExecutions        int                     `json:"manual_executions"`
+	ScheduledExecutions     int                     `json:"scheduled_executions"`
+	CIExecutions            int                     `json:"ci_executions"`
+	MinExecutionTime        string                  `json:"min_execution_time"`
+	MinExecutionTimeSeconds int                     `json:"min_execution_time_seconds"`
+	FirstExecutionDate      string                  `json:"first_execution_date"`
+	LastExecutionDate       string                  `json:"last_execution_date"`
+	LastExecution           *LatestExecutionDetails `json:"last_execution,omitempty"`
 }
 
 type LatestExecutionDetails struct {
@@ -433,6 +434,11 @@ func (w *AggregateScoreboardWorkflow) updateDates(
 	if minTime, ok := pipeline["min_execution_time"].(string); ok && minTime != "" {
 		if shouldReplaceMinExecutionTime(stats.MinExecutionTime, minTime) {
 			stats.MinExecutionTime = minTime
+			if seconds, ok := jsonNumberAsInt(pipeline["min_execution_time_seconds"]); ok {
+				stats.MinExecutionTimeSeconds = seconds
+			} else if parsed, err := time.ParseDuration(minTime); err == nil {
+				stats.MinExecutionTimeSeconds = int(math.Round(parsed.Seconds()))
+			}
 		}
 	}
 }
@@ -663,5 +669,20 @@ func shouldReplaceMinExecutionTime(current string, candidate string) bool {
 		return false
 	default:
 		return candidate < current
+	}
+}
+
+func jsonNumberAsInt(value any) (int, bool) {
+	switch n := value.(type) {
+	case float64:
+		return int(math.Round(n)), true
+	case float32:
+		return int(math.Round(float64(n))), true
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	default:
+		return 0, false
 	}
 }

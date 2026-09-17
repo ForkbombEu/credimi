@@ -2,22 +2,46 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { SetOptional, Simplify } from 'type-fest';
+import type { PipelineExecutionArtifacts } from '$lib/pipeline/execution-artifacts';
 
-import type {
-	PipelineScoreboardCacheExpand,
-	PipelineScoreboardCacheResponse
-} from '@/pocketbase/types';
+import type { PipelineScoreboardCacheResponse } from '@/pocketbase/types';
 
 //
 
-export type ScoreboardRow = Simplify<
-	PipelineScoreboardCacheResponse<
-		string[],
-		unknown,
-		SetOptional<PipelineScoreboardCacheExpand, 'pipeline'>
-		// Generated types say that the pipeline field is always present
-		// but it's not always the case: pipelines can be "private"
-		// so they exist in the relation but are not visible to all users
-	>
->;
+export type ScoreboardExpandedEntity = {
+	id: string;
+	collectionName: string;
+	name?: string;
+	logo_url?: string;
+	published: boolean;
+	__canonified_path__: string;
+	wallet?: string;
+	credential_issuer?: string;
+	verifier?: string;
+	tag?: string;
+};
+
+export type ScoreboardExpandedData = {
+	pipeline?: ScoreboardExpandedEntity;
+	mobile_devices: Array<{
+		id: string;
+		device_id: string;
+		name: string;
+		runner_name: string;
+		description?: string;
+		type?: string;
+	}>;
+	wallets: ScoreboardExpandedEntity[];
+	wallet_versions: ScoreboardExpandedEntity[];
+	issuers: ScoreboardExpandedEntity[];
+	verifiers: ScoreboardExpandedEntity[];
+	credentials: ScoreboardExpandedEntity[];
+	use_case_verifications: ScoreboardExpandedEntity[];
+	custom_integrations: ScoreboardExpandedEntity[];
+	latest_execution?: {
+		created: string;
+		artifacts: PipelineExecutionArtifacts;
+	};
+};
+
+export type ScoreboardRow = PipelineScoreboardCacheResponse<string[], ScoreboardExpandedData>;

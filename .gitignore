@@ -28,3 +28,6 @@ coverage.svg
 #!/config_templates/**/metadata.yaml
 node_modules/
 /.gestalt/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

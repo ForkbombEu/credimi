@@ -48,7 +48,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet editForm({ record: wallet, closeSheet })}
-		<WalletForm walletId={wallet.id} initialData={wallet} onSuccess={() => closeSheet()} />
+		<WalletForm
+			organizationId={organization.id}
+			walletId={wallet.id}
+			initialData={wallet}
+			onSuccess={() => closeSheet()}
+		/>
 	{/snippet}
 
 	{#snippet records({ records })}
@@ -79,7 +84,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!--  -->
 
 {#snippet navbarRight()}
-	<WalletFormSheet />
+	<WalletFormSheet organizationId={organization.id} />
 {/snippet}
 
 {#snippet walletVersionsManager(props: { wallet: WalletsResponse; organizationId: string })}

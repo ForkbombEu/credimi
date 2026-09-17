@@ -434,6 +434,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		stats1.DeviceIDs,
 	)
 	require.Equal(t, "5s", stats1.MinExecutionTime)
+	require.Equal(t, 5, stats1.MinExecutionTimeSeconds)
 	expectedFirstTime := exec1.Info.GetStartTime().AsTime()
 	actualFirstTime, err := time.Parse(time.RFC3339Nano, stats1.FirstExecutionDate)
 	require.NoError(t, err)
@@ -460,6 +461,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		stats2.DeviceIDs,
 	)
 	require.Equal(t, "4m10s", stats2.MinExecutionTime)
+	require.Equal(t, 250, stats2.MinExecutionTimeSeconds)
 	expectedTime2 := exec4.Info.GetStartTime().AsTime()
 	actualTime2, err := time.Parse(time.RFC3339Nano, stats2.FirstExecutionDate)
 	require.NoError(t, err)
@@ -971,13 +973,14 @@ func ensureScoreboardDeviceRelation(t testing.TB, app *tests.TestApp) {
 	}
 }
 
-func createWalletRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
+func createWalletRecord(t testing.TB, app *tests.TestApp, orgID, name string) *core.Record {
 	walletsColl, err := app.FindCollectionByNameOrId("wallets")
 	require.NoError(t, err)
 
 	wallet := core.NewRecord(walletsColl)
 	wallet.Set("owner", orgID)
 	wallet.Set("name", name)
+	wallet.Set("published", true)
 	require.NoError(t, app.Save(wallet))
 
 	walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
@@ -1000,6 +1003,7 @@ func createWalletRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	actionRecord.Set("code", "my-code")
 	require.NoError(t, app.Save(actionRecord))
 	require.NoError(t, app.Save(versionRecord))
+	return wallet
 }
 
 func createVerifierRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
@@ -1009,6 +1013,7 @@ func createVerifierRecord(t testing.TB, app *tests.TestApp, orgID, name string) 
 	verifier := core.NewRecord(verifiersColl)
 	verifier.Set("owner", orgID)
 	verifier.Set("name", name)
+	verifier.Set("published", true)
 	verifier.Set("url", "https://verifier.example")
 	verifier.Set("standard_and_version", "testsuite/draft-01")
 	verifier.Set("format", []string{"SD-JWT"})
@@ -1022,6 +1027,7 @@ func createVerifierRecord(t testing.TB, app *tests.TestApp, orgID, name string) 
 	record := core.NewRecord(coll)
 	record.Set("name", "usecase123")
 	record.Set("owner", orgID)
+	record.Set("published", true)
 	record.Set("verifier", verifier.Id)
 	record.Set("yaml", "example code")
 	require.NoError(t, app.Save(record))
@@ -1030,11 +1036,11 @@ func createVerifierRecord(t testing.TB, app *tests.TestApp, orgID, name string) 
 func createIssuerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	issuersColl, err := app.FindCollectionByNameOrId("credential_issuers")
 	require.NoError(t, err)
-
 	issuer := core.NewRecord(issuersColl)
 	issuer.Set("url", "https://test-issuer.example.com")
 	issuer.Set("name", name)
 	issuer.Set("owner", orgID)
+	issuer.Set("published", true)
 	issuer.Set("imported", true)
 	require.NoError(t, app.Save(issuer))
 
@@ -1047,22 +1053,24 @@ func createIssuerRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	cred.Set("logo_url", "https://old.logo")
 	cred.Set("json", `not-json`)
 	cred.Set("owner", orgID)
+	cred.Set("published", true)
 	require.NoError(t, app.Save(cred))
 }
 
 func createCustomCheckRecord(t testing.TB, app *tests.TestApp, orgID, name string) {
 	customChecksColl, err := app.FindCollectionByNameOrId("custom_checks")
 	require.NoError(t, err)
-
 	check := core.NewRecord(customChecksColl)
 	check.Set("name", name)
 	check.Set("yaml", "example code")
 	check.Set("owner", orgID)
+	check.Set("published", true)
 	require.NoError(t, app.Save(check))
 }
 func TestSaveScoreboardResults(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://credimi.test"
 	ensureMobileDevicesCollection(t, app)
 	ensureScoreboardDeviceRelation(t, app)
 	orgID, err := getOrgIDfromName("userA's organization")
@@ -1075,7 +1083,12 @@ func TestSaveScoreboardResults(t *testing.T) {
 	runner := createRunnerRecord(t, app, orgID, "test-runner")
 	createDeviceRecord(t, app, orgID, runner.Id, "test-device")
 	createPipelineResult(t, app, orgID, pipeline.Id, "wf-new", "run-new")
-	createWalletRecord(t, app, orgID, "my-wallet")
+	publicWallet := createWalletRecord(t, app, orgID, "my-wallet")
+	publicWallet.Set("logo", []*filesystem.File{NewTestFile("wallet-logo.png", []byte("logo"))})
+	require.NoError(t, app.Save(publicWallet))
+	privateWallet := createWalletRecord(t, app, orgID, "private-wallet")
+	privateWallet.Set("published", false)
+	require.NoError(t, app.Save(privateWallet))
 	createVerifierRecord(t, app, orgID, "my-verifier")
 	createIssuerRecord(t, app, orgID, "my-issuer-1")
 	createIssuerRecord(t, app, orgID, "my-issuer-2")
@@ -1084,31 +1097,38 @@ func TestSaveScoreboardResults(t *testing.T) {
 	t.Run("success - saves results correctly", func(t *testing.T) {
 		aggregatedPipelines := []workflows.AggregatedPipelineStats{
 			{
-				PipelineID:          pipeline.Id,
-				PipelineName:        "Test Pipeline",
-				DeviceTypes:         []string{},
-				DeviceIDs:           []string{"usera-s-organization/test-runner/test-device"},
-				TotalRuns:           10,
-				TotalSuccesses:      8,
-				SuccessRate:         80.0,
-				ManualExecutions:    5,
-				ScheduledExecutions: 5,
-				CIExecutions:        2,
-				MinExecutionTime:    "1m30s",
-				FirstExecutionDate:  "2024-01-01T00:00:00Z",
-				LastExecutionDate:   "2024-01-02T00:00:00Z",
+				PipelineID:              pipeline.Id,
+				PipelineName:            "Test Pipeline",
+				DeviceTypes:             []string{},
+				DeviceIDs:               []string{"usera-s-organization/test-runner/test-device"},
+				TotalRuns:               10,
+				TotalSuccesses:          8,
+				SuccessRate:             80.0,
+				ManualExecutions:        5,
+				ScheduledExecutions:     5,
+				CIExecutions:            2,
+				MinExecutionTime:        "1m30s",
+				MinExecutionTimeSeconds: 90,
+				FirstExecutionDate:      "2024-01-01T00:00:00Z",
+				LastExecutionDate:       "2024-01-02T00:00:00Z",
 				LastExecution: &workflows.LatestExecutionDetails{
 					PipelineName: "Test Pipeline",
 					WorkflowID:   "wf-new",
 					RunID:        "run-new",
-					WalletUsed:   []string{"usera-s-organization/my-wallet"},
-					Verifiers:    []string{"usera-s-organization/my-verifier"},
+					WalletUsed: []string{
+						"usera-s-organization/my-wallet",
+						"usera-s-organization/private-wallet",
+					},
+					Verifiers: []string{"usera-s-organization/my-verifier"},
 					Issuers: []string{
 						"usera-s-organization/my-issuer-1",
 						"usera-s-organization/my-issuer-2",
 					},
-					WalletVersionUsed: []string{"installed_from_external_source",
-						"usera-s-organization/my-wallet/1-0-0"},
+					WalletVersionUsed: []string{
+						"installed_from_external_source",
+						"usera-s-organization/my-wallet/1-0-0",
+						"usera-s-organization/private-wallet/1-0-0",
+					},
 					MaestroScripts:       []string{"usera-s-organization/my-wallet/my-action"},
 					Credentials:          []string{"usera-s-organization/my-issuer-1/cred-3"},
 					UseCaseVerifications: []string{"usera-s-organization/my-verifier/usecase123"},
@@ -1164,6 +1184,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.Equal(t, 5, record.GetInt("scheduled_runs"))
 		require.Equal(t, 2, record.GetInt("CI_runs"))
 		require.Equal(t, "1m30s", record.GetString("minimum_running_time"))
+		require.Equal(t, 90, record.GetInt("minimum_running_time_seconds"))
 
 		deviceIDs := record.GetStringSlice("mobile_devices")
 		require.Len(t, deviceIDs, 1)
@@ -1171,6 +1192,29 @@ func TestSaveScoreboardResults(t *testing.T) {
 		deviceRecord, err := app.FindRecordById("mobile_devices", deviceIDs[0])
 		require.NoError(t, err)
 		require.Equal(t, "test-device", deviceRecord.GetString("name"))
+		var expandedData ScoreboardExpandedData
+		require.NoError(t, json.Unmarshal([]byte(record.GetString("expanded_data")), &expandedData))
+		require.NotNil(t, expandedData.Pipeline)
+		require.Equal(t, pipeline.Id, expandedData.Pipeline.ID)
+		require.Len(t, expandedData.Wallets, 1)
+		require.Equal(
+			t,
+			"https://credimi.test/api/files/wallets/"+publicWallet.Id+"/wallet-logo.png",
+			expandedData.Wallets[0].LogoURL,
+		)
+		require.Equal(t, publicWallet.Id, expandedData.Wallets[0].ID)
+		require.NotEqual(t, privateWallet.Id, expandedData.Wallets[0].ID)
+		require.Len(t, expandedData.MobileDevices, 1)
+		require.Equal(t, deviceIDs[0], expandedData.MobileDevices[0].ID)
+		require.Equal(
+			t,
+			"usera-s-organization/test-runner/test-device",
+			expandedData.MobileDevices[0].DeviceID,
+		)
+		require.Equal(t, "test-runner", expandedData.MobileDevices[0].RunnerName)
+		require.NotNil(t, expandedData.LatestExecution)
+		require.Len(t, expandedData.WalletVersions, 1)
+		require.Equal(t, publicWallet.Id, expandedData.WalletVersions[0].Wallet)
 
 		latestExecutionID := record.GetString("latest_execution")
 		require.NotEmpty(t, latestExecutionID, "latest_execution should not be empty")

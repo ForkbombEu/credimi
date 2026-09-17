@@ -81,9 +81,12 @@ func TestWorkerManagerRecordQueries(t *testing.T) {
 	require.NoError(t, err)
 	if collection.Fields.GetByName("admin_managed") == nil {
 		collection.Fields.Add(&core.BoolField{Name: "admin_managed"})
-		require.NoError(t, app.Save(collection))
 	}
-	newRunner := func(name, ip, port string, published, adminManaged bool) {
+	if collection.Fields.GetByName("disabled") == nil {
+		collection.Fields.Add(&core.BoolField{Name: "disabled"})
+	}
+	require.NoError(t, app.Save(collection))
+	newRunner := func(name, ip, port string, published, adminManaged, disabled, online bool) {
 		record := core.NewRecord(collection)
 		record.Set("owner", organizations[0].Id)
 		record.Set("name", name)
@@ -93,21 +96,26 @@ func TestWorkerManagerRecordQueries(t *testing.T) {
 		record.Set("port", port)
 		record.Set("published", published)
 		record.Set("admin_managed", adminManaged)
+		record.Set("disabled", disabled)
+		record.Set("online", online)
 		require.NoError(t, app.Save(record))
 	}
 
-	newRunner("admin-runner", "https://admin.test/", "8080", false, true)
-	newRunner("published-runner", "https://published.test", "", true, false)
-	newRunner("empty-runner", " ", "", true, false)
+	newRunner("admin-runner", "https://admin.test/", "8080", false, true, false, true)
+	newRunner("admin-disabled", "https://admin-disabled.test", "", false, true, true, true)
+	newRunner("admin-offline", "https://admin-offline.test", "", false, true, false, false)
+	newRunner("published-runner", "https://published.test", "", true, false, false, true)
+	newRunner("published-disabled", "https://published-disabled.test", "", true, false, true, true)
+	newRunner("published-offline", "https://published-offline.test", "", true, false, false, false)
+	newRunner("empty-runner", " ", "", true, false, false, true)
 
 	adminURLs, err := WorkerManagerAdminRunnerURLs(app)
 	require.NoError(t, err)
-	require.Contains(t, adminURLs, "https://admin.test:8080")
+	require.Equal(t, []string{"https://admin.test:8080"}, adminURLs)
 
 	publishedURLs, err := WorkerManagerPublishedNonAdminRunnerURLs(app)
 	require.NoError(t, err)
-	require.Contains(t, publishedURLs, "https://published.test")
-	require.NotContains(t, publishedURLs, "")
+	require.Equal(t, []string{"https://published.test"}, publishedURLs)
 }
 
 type fakeActivity struct {
@@ -212,6 +220,8 @@ func TestFetchNamespacesIncludesDefault(t *testing.T) {
 }
 
 func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
+	t.Setenv(TemporalWorkersDisabledEnv, "")
+
 	app := pocketbase.NewWithConfig(pocketbase.Config{
 		DefaultDataDir: t.TempDir(),
 	})
@@ -339,6 +349,31 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	}
 }
 
+func TestWorkersHookSkipsWhenTemporalWorkersDisabled(t *testing.T) {
+	t.Setenv(TemporalWorkersDisabledEnv, "1")
+
+	app := pocketbase.NewWithConfig(pocketbase.Config{
+		DefaultDataDir: t.TempDir(),
+	})
+
+	origFetch := fetchNamespacesFn
+	t.Cleanup(func() {
+		fetchNamespacesFn = origFetch
+	})
+	fetchNamespacesFn = func(_ core.App) ([]string, error) {
+		t.Fatal("fetchNamespaces should not be called when workers are disabled")
+		return nil, nil
+	}
+
+	WorkersHook(app)
+
+	serveErr := app.OnServe().Trigger(
+		&core.ServeEvent{App: app},
+		func(_ *core.ServeEvent) error { return nil },
+	)
+	require.NoError(t, serveErr)
+}
+
 func TestStartAllWorkersByNamespaceDefault(t *testing.T) {
 	workerCancels = sync.Map{}
 
@@ -381,6 +416,27 @@ func TestStartAllWorkersByNamespaceDefault(t *testing.T) {
 
 	StopAllWorkersByNamespace("default")
 	_, ok = workerCancels.Load("default")
+	require.False(t, ok)
+}
+
+func TestStartAllWorkersByNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T) {
+	t.Setenv(TemporalWorkersDisabledEnv, "1")
+	workerCancels = sync.Map{}
+
+	originalGetTemporalClient := getTemporalClient
+	t.Cleanup(func() {
+		getTemporalClient = originalGetTemporalClient
+		workerCancels = sync.Map{}
+	})
+
+	getTemporalClient = func(_ string) (client.Client, error) {
+		require.Fail(t, "getTemporalClient should not be called")
+		return nil, nil
+	}
+
+	StartAllWorkersByNamespace("default")
+
+	_, ok := workerCancels.Load("default")
 	require.False(t, ok)
 }
 
@@ -889,5 +945,32 @@ func TestStartWorkerManagerWorkflowInvokesExecute(t *testing.T) {
 	case <-called:
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for worker manager workflow")
+	}
+}
+
+func TestStartWorkerManagerWorkflowSkipsWhenTemporalWorkersDisabled(t *testing.T) {
+	t.Setenv(TemporalWorkersDisabledEnv, "1")
+
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origExec := executeWorkerManagerWorkflowFn
+	t.Cleanup(func() {
+		executeWorkerManagerWorkflowFn = origExec
+	})
+
+	called := make(chan struct{}, 1)
+	executeWorkerManagerWorkflowFn = func(_, _, _ string, _ []string) error {
+		called <- struct{}{}
+		return nil
+	}
+
+	StartWorkerManagerWorkflow(app, "org-1", "", []string{"https://runner-1"})
+
+	select {
+	case <-called:
+		t.Fatal("worker manager workflow should not be executed")
+	case <-time.After(100 * time.Millisecond):
 	}
 }

@@ -11,6 +11,7 @@ export {
 } from './from-pocketbase';
 
 export { fromConformancePaths } from './from-conformance';
+export { fromIssuanceItems, fromPresentationSummaryItems } from './from-issuance';
 export { buildPipelineSummaryItems } from './from-pipeline-summary';
 export { fromWalletRows } from './from-wallets';
 export type { WalletRow } from './from-wallets';

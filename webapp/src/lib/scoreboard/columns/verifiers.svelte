@@ -14,29 +14,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as EntityDisplay from '../entity-display';
 	import EntityHeader from './headers/entity-header.svelte';
 
+	// Presentations column: verifier logos only. Use-case nesting belongs in
+	// card/summary via fromPresentationSummaryItems, not this table column.
 	export const column = Column.define({
-		fn: (row) => {
-			const verifiers = row.expand.verifiers ?? [];
-			const useCaseVerifications = row.expand.use_case_verifications ?? [];
-
-			return verifiers.map((verifier) => {
-				const children = useCaseVerifications
-					.filter((verification) => verification.verifier === verifier.id)
-					.map((verification) => {
-						const entityItem = EntityDisplay.fromPocketbaseEntity(verification);
-						return {
-							label: entityItem.name,
-							href: entityItem.href,
-							avatar: entityItem.avatar
-						};
-					});
-
-				return {
-					...EntityDisplay.fromPocketbaseEntity(verifier, entities.verifiers),
-					children: children.length > 0 ? children : undefined
-				};
-			});
-		},
+		fn: (row) =>
+			EntityDisplay.fromPocketbaseEntities(
+				row.expanded_data?.verifiers ?? [],
+				entities.verifiers
+			),
 		id: 'verifiers',
 		header: renderComponent(EntityHeader, {
 			label: m.Presentations()

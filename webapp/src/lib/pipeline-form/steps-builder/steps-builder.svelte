@@ -7,7 +7,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
 
-	import { BlocksIcon, HelpCircle, PencilIcon, XIcon } from '@lucide/svelte';
+	import {
+		BlocksIcon,
+		EllipsisIcon,
+		HelpCircle,
+		PencilIcon,
+		RefreshCcwIcon,
+		XIcon
+	} from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import * as steps from '$pipeline-form/steps';
@@ -16,6 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { fly } from 'svelte/transition';
 
 	import Button from '@/components/ui-custom/button.svelte';
+	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import * as Resizable from '@/components/ui/resizable/index.js';
@@ -130,8 +138,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		disabled={builder.isManualMode}
 	>
 		{#snippet titleRight()}
-			{#if !builder.isManualMode}
-				<BulkWalletVersionChange {builder} />
+			{#if !builder.isManualMode && builder.canOfferChangeWalletVersion()}
+				<DropdownMenu
+					items={[
+						{
+							label: m.Change_wallet_version(),
+							onclick: () => builder.openChangeWalletVersion(),
+							icon: RefreshCcwIcon
+						}
+					]}
+				>
+					{#snippet trigger({ props })}
+						<IconButton {...props} icon={EllipsisIcon} size="xs" variant="ghost" />
+					{/snippet}
+				</DropdownMenu>
 			{/if}
 		{/snippet}
 
@@ -196,6 +216,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</Column>
 </Resizable.PaneGroup>
+
+<BulkWalletVersionChange {builder} bind:open={builder.changeWalletVersionDialogOpen} />
 
 <!--  -->
 

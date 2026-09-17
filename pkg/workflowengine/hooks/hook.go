@@ -46,6 +46,14 @@ import (
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		if TemporalWorkersDisabled() {
+			log.Printf(
+				"[WorkersHook] Skipping namespaces and workers (%s is set)",
+				TemporalWorkersDisabledEnv,
+			)
+			return se.Next()
+		}
+
 		namespaces, err := fetchNamespacesFn(app)
 		if err != nil {
 			log.Fatalf("Failed to fetch namespaces: %v", err)
@@ -517,6 +525,15 @@ func growBackoff(current, maxDuration time.Duration) time.Duration {
 var workerCancels sync.Map
 
 func StartAllWorkersByNamespace(namespace string) {
+	if TemporalWorkersDisabled() {
+		log.Printf(
+			"Skipping workers for namespace %s (%s is set)",
+			namespace,
+			TemporalWorkersDisabledEnv,
+		)
+		return
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	workerCancels.Store(namespace, cancel)
 
@@ -648,6 +665,15 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 }
 
 func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string, runnerURLs []string) {
+	if TemporalWorkersDisabled() {
+		log.Printf(
+			"[WorkerManagerWorkflow] Skipping for namespace %s (%s is set)",
+			namespace,
+			TemporalWorkersDisabledEnv,
+		)
+		return
+	}
+
 	go func() {
 		if err := executeWorkerManagerWorkflowFn(
 			namespace,

@@ -73,7 +73,7 @@ description: ""
 
 1. User navigates to `/scoreboard`
 2. SvelteKit `load` calls `Scoreboard.loadData()` from `$lib/scoreboard`
-3. Frontend queries PocketBase `pipeline_scoreboard_cache` with expanded relations
+3. Frontend queries PocketBase `pipeline_scoreboard_cache` (no relation expand; display uses `expanded_data`)
 4. `ScoreboardTable` renders a paginated, sortable TanStack table
 5. Rows link to Hub pipeline pages via entity display helpers
 

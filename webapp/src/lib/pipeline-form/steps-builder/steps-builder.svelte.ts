@@ -21,7 +21,12 @@ import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
 
-import { getBulkWalletVersionContext, getStepData, isStepEditable } from './_partials/index.js';
+import {
+	getBulkWalletVersionContext,
+	getStepData,
+	isChangeWalletVersionAvailable,
+	isStepEditable
+} from './_partials/index.js';
 import { isExecutionTargetLocked } from './execution-target-lock.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
@@ -66,6 +71,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	);
 
 	private formEffectCleanup: (() => void) | null = null;
+
+	changeWalletVersionDialogOpen = $state(false);
 
 	constructor(private props: Props) {
 		this.state.steps = props.steps;
@@ -158,7 +165,9 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 								intent,
 								steps: this.state.steps,
 								target: this.executionTarget
-							})
+							}),
+						canChangeWalletVersion: () => this.canOfferChangeWalletVersion(),
+						requestChangeWalletVersion: () => this.openChangeWalletVersion()
 					});
 				} catch (e) {
 					showPipelineFormError(e);
@@ -311,11 +320,30 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	//
 
+	canOfferChangeWalletVersion() {
+		const mode = this.state.mode;
+		const locked =
+			mode.id === 'form' &&
+			isExecutionTargetLocked({
+				intent: mode.intent,
+				steps: this.state.steps,
+				target: this.executionTarget
+			});
+		return isChangeWalletVersionAvailable(this.state.steps, { locked });
+	}
+
+	openChangeWalletVersion() {
+		this.changeWalletVersionDialogOpen = true;
+	}
+
 	applyBulkWalletVersion(version: SelectedVersion) {
 		const ctx = getBulkWalletVersionContext(this.state.steps);
 		if (!ctx) return;
 		this.stateManager.run((state) => {
 			state.steps = this.syncMobileStepVersions(state.steps, ctx.wallet.id, version);
+			if (state.mode.id === 'form') {
+				state.mode.form.applyBulkWalletVersion?.(ctx.wallet.id, version);
+			}
 		});
 	}
 

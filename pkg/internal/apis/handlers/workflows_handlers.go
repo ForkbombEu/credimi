@@ -250,7 +250,6 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 			e.App,
 			filteredExecutions,
 			namespace,
-			authRecord.GetString("Timezone"),
 			c,
 		)
 		hierarchy = paginateWorkflowExecutionSummaries(hierarchy, limit, itemOffset)
@@ -693,7 +692,6 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 			e.App,
 			execs.Executions,
 			namespace,
-			authRecord.GetString("Timezone"),
 			c,
 		)
 
@@ -1284,13 +1282,8 @@ func buildWorkflowExecutionHierarchy(
 	app core.App,
 	executions []*WorkflowExecution,
 	namespace string,
-	userTimezone string,
 	c client.Client,
 ) []*WorkflowExecutionSummary {
-	loc, err := time.LoadLocation(userTimezone)
-	if err != nil {
-		loc = time.Local
-	}
 	summaryMap := make(map[string]*WorkflowExecutionSummary)
 	for _, exec := range executions {
 		summary := buildWorkflowExecutionSummary(ctx, exec, c)
@@ -1345,14 +1338,12 @@ func buildWorkflowExecutionHierarchy(
 	}
 
 	sortWorkflowExecutionSummaries(roots, false)
-	localizeWorkflowExecutionSummaries(roots, loc)
 
 	return roots
 }
 
-func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location, ascending bool) {
+func sortExecutionSummaries(list []*WorkflowExecutionSummary, ascending bool) {
 	sortWorkflowExecutionSummaries(list, ascending)
-	localizeWorkflowExecutionSummaries(list, loc)
 }
 
 func sortWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, ascending bool) {
@@ -1367,21 +1358,6 @@ func sortWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, ascending 
 	for _, e := range list {
 		if len(e.Children) > 0 {
 			sortWorkflowExecutionSummaries(e.Children, !ascending)
-		}
-	}
-}
-
-func localizeWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location) {
-	for _, e := range list {
-		if t, err := utils.ParseTimeString(e.StartTime); err == nil {
-			e.StartTime = t.In(loc).Format("02/01/2006, 15:04:05")
-		}
-		if t, err := utils.ParseTimeString(e.EndTime); err == nil {
-			e.EndTime = t.In(loc).Format("02/01/2006, 15:04:05")
-		}
-
-		if len(e.Children) > 0 {
-			localizeWorkflowExecutionSummaries(e.Children, loc)
 		}
 	}
 }

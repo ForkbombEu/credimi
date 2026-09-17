@@ -19,13 +19,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletForm from './wallet-form.svelte';
 
 	type Props = {
+		organizationId: string;
 		walletId?: string;
 		initialData?: WalletsResponse;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		customTrigger?: Snippet<[{ sheetTriggerAttributes: any }]>;
 	};
 
-	let { walletId, initialData, customTrigger }: Props = $props();
+	let { organizationId, walletId, initialData, customTrigger }: Props = $props();
 </script>
 
 <Sheet>
@@ -52,6 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="space-y-6">
 			<T tag="h3">{walletId ? m.Edit_wallet() : m.Add_new_wallet()}</T>
 			<WalletForm
+				{organizationId}
 				{walletId}
 				{initialData}
 				onSuccess={() => {

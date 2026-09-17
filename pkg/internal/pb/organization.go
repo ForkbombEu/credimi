@@ -298,6 +298,15 @@ func organizationPublicationCollectionByName(
 // If not, it creates it.
 // It then starts all workers for that namespace in a goroutine.
 func ensureNamespaceAndWorkers(namespace string) {
+	if hooks.TemporalWorkersDisabled() {
+		log.Printf(
+			"Skipping namespace %s (%s is set)",
+			namespace,
+			hooks.TemporalWorkersDisabledEnv,
+		)
+		return
+	}
+
 	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
 	c, err := newNamespaceClient(client.Options{
 		HostPort: hostPort,

@@ -148,21 +148,22 @@ Main areas:
 Source of truth:
 
 - `Makefile`
-- `Procfile.dev`
+- `scripts/dev-ports.env` (classic port defaults)
+- `Procfile.dev` (classic template; `make dev` generates a runtime Procfile)
 - `docker-compose.yaml`
 
 Local dev process:
 
 - `make dev` starts infrastructure and runs the API/UI through `hivemind`.
-- Temporal is provided by Docker Compose in dev, with gRPC at `localhost:7233`.
-- PocketBase API runs at `localhost:8090`.
-- Webapp runs at `localhost:5100`.
+- `make dev.noworkers` is the same stack with `CREDIMI_TEMPORAL_WORKERS_DISABLED=1` so Temporal workers are not registered (faster boot; pipelines/workflows will not run).
+- Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`.
 - PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`.
+- Parallel worktrees: require Worktrunk for bootstrap. Cursor sandboxes use `.cursor/worktrees.json` → `make worktree-bootstrap`; CLI worktrees use `.config/wt.toml` pre-start. Ports live in gitignored `.env.worktree`. Checkout path is per-user (not committed). Primary `make dev` keeps classic ports without Worktrunk. See developer-setup “Parallel worktrees”.
 
-Procfile dev processes:
+Procfile dev processes (classic defaults; runtime Procfile substitutes worktree ports):
 
-- `API`: waits for Temporal at `localhost:7233`, then runs `go tool gow run -tags=credimi_extra main.go serve`.
-- `UI`: waits for PocketBase at `localhost:8090`, then runs `cd webapp && bun i && bun dev`.
+- `API`: waits for Temporal, then runs `go tool gow run -tags=credimi_extra main.go serve`.
+- `UI`: waits for PocketBase, then runs `cd webapp && bun i && bun dev`.
 
 WAF emulation:
 
@@ -177,12 +178,13 @@ Key environment variables:
 
 - `TEMPORAL_ADDRESS`: Temporal host and port.
 - `ADDRESS_UI`: UI reverse proxy target.
+- `CREDIMI_TEMPORAL_WORKERS_DISABLED`: when `1`/`true`/`yes`, skips Temporal namespace creation, worker registration and worker-manager workflow starts (used by `make dev.noworkers`).
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`: disables the mobile-runner semaphore path when configured.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: mobile-runner queue wait timeout.
 - `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities and internal result posting.
 - `CREDIMI_INTERNAL_APP_URL`: deployment-local Temporal-worker-to-Credimi base URL; callback consumers prefer it while persisted `app_url` remains public. It must be provisioned wherever workers execute.
 
-Do not commit local `pb_data/`, `.env`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
+Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
 
 ## Tenancy And Temporal
 
@@ -219,9 +221,9 @@ Queued mobile run path:
 - UI logic in `webapp/src/lib/pipeline/utils.ts` chooses `/api/pipeline/queue` when the YAML contains a `mobile-automation` step.
 - Queue handler: `pkg/internal/apis/handlers/pipeline_queue_handler.go`.
 - Queue endpoints require user auth:
-  - `POST /api/pipeline/queue` with `{ pipeline_identifier, yaml }`
-  - `GET /api/pipeline/queue/{ticket}?device_ids=...`
-  - `DELETE /api/pipeline/queue/{ticket}?device_ids=...`
+    - `POST /api/pipeline/queue` with `{ pipeline_identifier, yaml }`
+    - `GET /api/pipeline/queue/{ticket}?device_ids=...`
+    - `DELETE /api/pipeline/queue/{ticket}?device_ids=...`
 - `device_ids` accepts both `device_ids=a,b,c` and repeated params.
 - Queue statuses are `queued`, `starting`, `running`, `failed`, `canceled`, and `not_found`.
 - `position` is 0-based; the UI displays `position + 1`.
@@ -240,10 +242,10 @@ Grant/start path:
 - Semaphore runs `StartQueuedPipelineActivity` in `pkg/workflowengine/activities/queued_pipeline.go`.
 - The activity starts the pipeline workflow in the owner organization namespace.
 - Injected config keys:
-  - `mobile_device_semaphore_ticket_id`
-  - `mobile_device_semaphore_device_ids`
-  - `mobile_device_semaphore_leader_device_id`
-  - `mobile_device_semaphore_owner_namespace`
+    - `mobile_device_semaphore_ticket_id`
+    - `mobile_device_semaphore_device_ids`
+    - `mobile_device_semaphore_leader_device_id`
+    - `mobile_device_semaphore_owner_namespace`
 - The pipeline reports completion to the leader semaphore through `ReportMobileDeviceSemaphoreDoneActivity` in `pkg/workflowengine/pipeline/semaphore_done.go`.
 - `pipeline_results` creation after Temporal start is best-effort and retried.
 - The internal result handler is idempotent on `(workflow_id, run_id)`.
@@ -316,7 +318,7 @@ Runner host list shape:
 
 - `GET /api/mobile-runners`
 - Items include `path`, `is_owned`, `is_published`, `is_online`.
-Device selector list shape:
+  Device selector list shape:
 
 - `GET /api/mobile-devices`
 - Items include `path`, device `type`, `serial`, `is_owned`, `is_published`,
@@ -334,12 +336,24 @@ Internal lookup:
 External runner HTTP contract:
 
 - `POST {runner_url}/fetch-apk-and-action`
-  - Body: `{ instance_url, version_identifier, action_identifier, device_identifier }`
+    - Body: `{ instance_url, version_identifier, action_identifier, device_identifier }`
 - `POST {runner_url}/store-pipeline-result`
-  - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url }`
-  - Response: `{ result_urls: string[], screenshot_urls: string[] }`
+    - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url }`
+    - Response: `{ result_urls: string[], screenshot_urls: string[] }`
 
 The external runner service is implemented in `github.com/forkbombeu/credimi-extra`. If the contract changes, ask whether the sibling repository must change.
+
+Catalog list health probes:
+
+- `GET /api/mobile-runners` and `GET /api/mobile-devices` skip `disabled`
+  runners (`enabledMobileRunnerRecords`) and probe the remaining runners
+  concurrently through `probeMobileRunnerHealths`
+  (`pkg/internal/apis/handlers/mobile_runners_handlers.go`), bounded by
+  `mobileRunnerListProbeConcurrency` and `mobileRunnerListHealthTimeout`.
+- List probes use the short list timeout, not `walletAPKRunnerHealthTimeout`,
+  which stays reserved for the wallet-APK CI path.
+- A failed or malformed probe reports the runner as `offline` or
+  `misconfigured`; it never fails the whole list request.
 
 Temporal runner worker contract:
 
@@ -352,6 +366,35 @@ Temporal runner worker contract:
 - Runner workers must register workflow `mobile-automation`.
 - `mobile-automation` is denylisted from the pipeline worker in `pkg/workflowengine/registry/registry.go`.
 - Runner workers must register activities in `pkg/workflowengine/activities/mobileflow.go`.
+
+Worker-manager start eligibility:
+
+- A runner receives worker-manager starts only when it is not `disabled` and is
+  `online`. The rule lives in `mobilerunnerlifecycle.EligibleForWorkerStart`
+  (`pkg/internal/mobilerunnerlifecycle/worker_start.go`) and is applied by
+  `pkg/workflowengine/hooks/worker_manager_runners.go` (server startup and
+  organization create/update) and by `GET /api/mobile-runner/list-urls`, which
+  only feeds the worker-manager workflow fallback.
+- `RegisterMobileRunnerWorkerManagerHooks`
+  (`pkg/internal/pb/mobile_runner_worker_manager.go`) starts workers when a
+  runner update makes the runner startable, and only then; runners that were
+  already startable are not restarted on unrelated field writes.
+    - Non-admin runners are startable when `published`, not `disabled` and
+      `online`, and are dispatched to published organization namespaces.
+    - `admin_managed` runners ignore runner publication; they are startable
+      when not `disabled` and `online`, and are dispatched to `default` plus
+      every organization namespace, mirroring the startup hook and the runner's
+      own `fetchAdminNamespaces` behavior.
+- Redundant starts are safe: `POST {runner_url}/worker/{namespace}` is keyed by
+  namespace in the runner process store and answers `202 "already running"`,
+  so a server-side start that races the runner's own boot cannot create a
+  second worker.
+- Skipping offline runners is safe because a runner starts its own workers for
+  every visible namespace when it boots (`StartExistingWorkers` in
+  `credimi-runner`), and the lifecycle heartbeat flips `online` back to true,
+  which re-triggers the hook. PocketBase defers `OnRecordAfterUpdateSuccess`
+  until the heartbeat transaction commits, so the transactional write still
+  fires the start.
 
 ## Routes, DTOs, Auth, Errors
 
@@ -521,11 +564,11 @@ Color:
 - White is for cards, popovers, and inputs; never put content directly on a pure-white page background.
 - Status chips use exact semantic tokens; do not invent statuses without asking.
 - Score bands:
-  - `>= 80%`: Stable, green.
-  - `60-79%`: Flaky, amber.
-  - `30-59%`: Failing, orange.
-  - `< 30%`: Broken, red.
-  - no data: grey dash.
+    - `>= 80%`: Stable, green.
+    - `60-79%`: Flaky, amber.
+    - `30-59%`: Failing, orange.
+    - `< 30%`: Broken, red.
+    - no data: grey dash.
 - Gradients are forbidden except inside the provided Credimi wordmark SVG.
 
 Typography:
@@ -757,3 +800,53 @@ Ask the user before proceeding when:
 - a convention is present in code but not documented here and multiple interpretations are plausible
 
 If the behavior is present in `puria/md`, it is acceptable inspiration for this repository. If it is not present there, not documented here, and not clear from Credimi code, ask.
+
+Graft is optional for this repository.
+
+If the graft command is not available, ignore the Graft-specific instructions below and use the agent's normal repository exploration tools. Do not install or configure Graft automatically.
+
+If graft is available but the local graft/ graph does not exist, run graft build before using the Graft workflow.
+
+<!-- graft:start -->
+
+## Graft — repo context graph
+
+This repo is indexed in `graft/`: small linked markdown nodes that explain each
+system and carry exact file:line spans, kept in sync with the code through git.
+
+For ANY task here — understanding how something works, finding where code lives,
+or scoping a change — get context from the graph before grepping or opening
+source files. Re-ask freely (it's cheap) and reuse literal identifiers you
+already have (symbol, error string, file name) as the query. New to this repo?
+Run `graft map` first — a token-budgeted orientation (dir clusters, hubs,
+hotspots), no LLM, no key.
+
+- Run `graft ask "<your question>" --source` → ranked nodes with the relevant
+  code spans inlined (each hit's ≤8-line crux by default; `--full` for whole
+  definitions when the crux isn't enough). Match the tool to the task shape:
+  for understanding or editing, the top node IS the answer — cite its
+  `covers:` file:line spans and edit straight from `--source`. For
+  exhaustive tasks ("every occurrence / every caller of this pattern"), ranked
+  results are top-N, not complete — run `graft grep "<literal>"` instead
+  (exhaustive over indexed files, grouped by enclosing symbol), falling back
+  to raw `grep -rn` only for unindexed files.
+- `graft skeleton <file>` → every definition's signature + span, ~10× cheaper
+  than reading the file; use it to skim an API surface.
+- `graft callers <symbol>` gives precomputed, exact edges — who calls this.
+  Add `--direction out` for what it calls, or `--depth N` to walk
+  transitively for the full blast radius. For structural questions, skip
+  ranking and use this directly.
+- Or browse: `graft/INDEX.md` lists every node; follow the links.
+- Monorepos and folders of multiple repos rank fairly across sub-projects —
+  hits carry `[scope/]` labels naming which one they're from. Narrow with
+  `graft ask "<task>" --in <scope>/` once you know where you're working.
+
+If a returned span is truncated ("+N more lines"), open the file at that exact
+range before finalizing. Only open source files when a node genuinely lacks a
+needed detail, and then at the exact file:line the node points to — never
+re-read whole files.
+
+After big code changes, refresh the graph with `graft build` (deterministic,
+no API key, $0).
+
+<!-- graft:end -->

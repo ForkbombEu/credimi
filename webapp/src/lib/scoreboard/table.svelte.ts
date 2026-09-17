@@ -18,10 +18,10 @@ import type { ScoreboardRow } from './types';
 
 import * as Column from './column';
 import * as conformanceChecks from './columns/conformance-checks.svelte';
+import * as devices from './columns/devices.svelte';
 import * as issuers from './columns/issuers.svelte';
 import * as lastExecution from './columns/last-execution.svelte';
 import * as name from './columns/name.svelte';
-import * as runners from './columns/runners.svelte';
 import * as verifiers from './columns/verifiers.svelte';
 import * as videoScreenshot from './columns/video-screenshot.svelte';
 import * as wallets from './columns/wallets.svelte';
@@ -36,7 +36,7 @@ const columns = [
 	Column.build(issuers),
 	Column.build(verifiers),
 	Column.build(conformanceChecks),
-	Column.build(runners),
+	Column.build(devices),
 	Column.build(lastExecution)
 ];
 

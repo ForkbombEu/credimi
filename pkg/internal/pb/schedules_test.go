@@ -428,7 +428,7 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 	require.NoError(t, json.Unmarshal(encoded, &status))
 
 	require.Equal(t, displayName, status.DisplayName)
-	require.Equal(t, nextAction.Format("02/01/2006, 15:04:05"), status.NextActionTime)
+	require.Equal(t, nextAction.UTC().Format(time.RFC3339), status.NextActionTime)
 	require.True(t, status.Paused)
 	require.NotEmpty(t, status.Runners)
 }

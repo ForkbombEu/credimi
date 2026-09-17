@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -158,6 +159,27 @@ func TestEnsureNamespaceAndWorkersSkipsExisting(t *testing.T) {
 		return nil
 	}
 
+	startWorkersByNamespaceFn = func(_ string) {
+		require.Fail(t, "startWorkersByNamespace should not be called")
+	}
+
+	ensureNamespaceAndWorkers("tenant")
+}
+
+func TestEnsureNamespaceAndWorkersSkipsWhenTemporalWorkersDisabled(t *testing.T) {
+	t.Setenv(hooks.TemporalWorkersDisabledEnv, "1")
+
+	origClient := newNamespaceClient
+	origStart := startWorkersByNamespaceFn
+	t.Cleanup(func() {
+		newNamespaceClient = origClient
+		startWorkersByNamespaceFn = origStart
+	})
+
+	newNamespaceClient = func(_ client.Options) (client.NamespaceClient, error) {
+		require.Fail(t, "newNamespaceClient should not be called")
+		return nil, nil
+	}
 	startWorkersByNamespaceFn = func(_ string) {
 		require.Fail(t, "startWorkersByNamespace should not be called")
 	}
@@ -600,6 +622,12 @@ func ensureWorkerManagerPublicationFields(t testing.TB, app *tests.TestApp) {
 	if runners.Fields.GetByName("admin_managed") == nil {
 		runners.Fields.Add(&core.BoolField{Name: "admin_managed"})
 	}
+	if runners.Fields.GetByName("disabled") == nil {
+		runners.Fields.Add(&core.BoolField{Name: "disabled"})
+	}
+	if runners.Fields.GetByName("online") == nil {
+		runners.Fields.Add(&core.BoolField{Name: "online"})
+	}
 	require.NoError(t, app.Save(runners))
 }
 
@@ -624,6 +652,7 @@ func createWorkerManagerRunnerRecord(
 	record.Set("type", "android_emulator")
 	record.Set("published", published)
 	record.Set("admin_managed", adminManaged)
+	record.Set("online", true)
 	require.NoError(t, app.Save(record))
 
 	return record

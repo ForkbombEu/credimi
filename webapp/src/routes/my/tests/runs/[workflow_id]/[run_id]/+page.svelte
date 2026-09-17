@@ -11,10 +11,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
+	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import { onMount } from 'svelte';
+	import { fromStore } from 'svelte/store';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -22,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
-	import { toUserTimezone } from '@/utils/toUserTimezone';
+	import { currentUser } from '@/pocketbase';
 
 	import EudiwTop from './_partials/eudiw-top.svelte';
 	import EwcTop from './_partials/ewc-top.svelte';
@@ -41,6 +43,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { organization, workflow } = $derived(data);
 	let { memo, execution } = $derived(workflow);
 	let { id: workflowId, runId } = $derived(execution);
+
+	const user = fromStore(currentUser);
+	const timezone = $derived(user.current?.Timezone);
+	const startDisplay = $derived(formatExecutionTimestamp(execution.startTime, timezone) ?? '-');
+	const endDisplay = $derived(formatExecutionTimestamp(execution.endTime, timezone) ?? '-');
 
 	/* Iframe communication */
 
@@ -176,14 +183,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<tbody>
 				<tr>
 					<td class="italic"> Start </td>
-					<td class="pl-4">
-						{toUserTimezone(execution.startTime) ?? '-'}
+					<td class="pl-4 font-mono">
+						{startDisplay}
 					</td>
 				</tr>
 				<tr>
 					<td class="italic"> End </td>
-					<td class="pl-4">
-						{toUserTimezone(execution.endTime) ?? '-'}
+					<td class="pl-4 font-mono">
+						{endDisplay}
 					</td>
 				</tr>
 				<tr>

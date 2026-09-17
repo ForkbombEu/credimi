@@ -62,3 +62,11 @@ export function getBulkWalletVersionContext(
 
 	return { wallet, versionId, mobileIndices };
 }
+
+export function isChangeWalletVersionAvailable(
+	steps: EnrichedStep[],
+	{ locked }: { locked: boolean }
+): boolean {
+	const context = getBulkWalletVersionContext(steps);
+	return context !== null && (locked || context.mobileIndices.length > 1);
+}

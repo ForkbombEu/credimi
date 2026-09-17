@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
+	import type { ExecutionSummary } from '$lib/pipeline/workflows';
 
-	import { ArrowRightIcon, Pencil } from '@lucide/svelte';
+	import { ArrowRightIcon, InfoIcon, Pencil, RefreshCw } from '@lucide/svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { resolve } from '$app/paths';
 	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
@@ -25,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import { Skeleton } from '@/components/ui/skeleton';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -36,11 +38,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline', 'owner']>;
-		workflows?: WorkflowExecutionSummary[];
+		workflows?: ExecutionSummary[];
+		workflowsLoading?: boolean;
+		workflowsError?: Error;
+		onRetryWorkflows?: () => void;
 		onRun?: () => void;
 	};
 
-	let { pipeline = $bindable(), workflows, onRun }: Props = $props();
+	let {
+		pipeline = $bindable(),
+		workflows,
+		workflowsLoading = false,
+		workflowsError,
+		onRetryWorkflows,
+		onRun
+	}: Props = $props();
 
 	// Scheduling
 
@@ -51,18 +63,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const scoreboardPromise = $derived.by(() =>
-		Scoreboard.Records.loadForPipeline(pipeline.id).catch((error) => {
-			console.error(error);
-			return undefined;
-		})
-	);
+	const scoreboard = createQuery(() => ({
+		queryKey: ['pipeline-scoreboard', pipeline.id],
+		queryFn: () => Scoreboard.Records.loadForPipeline(pipeline.id)
+	}));
 
 	// Variables for displaying UI elements
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
 	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
-	const showContent = $derived(workflows && workflows.length > 0);
+	const showWorkflows = $derived(Boolean(workflows && workflows.length > 0));
+	const showRunsSection = $derived(workflowsLoading || Boolean(workflowsError) || showWorkflows);
 
 	const avatar = $derived.by(() => {
 		const owner = pipeline.expand?.owner;
@@ -77,7 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	badge={isPublic ? m.Public() : undefined}
 	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
 	{afterDescription}
-	content={showContent ? content : undefined}
+	content={showRunsSection ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
 	publishAction={isPublic ? undefined : publishAction}
 	hideSeparator
@@ -133,56 +144,80 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet afterDescription()}
-	{#await scoreboardPromise}
+	{#if scoreboard.data && Scoreboard.EntityDisplay.buildPipelineSummaryItems(scoreboard.data).length > 0}
+		<div class="flex items-start justify-between gap-4 pt-1">
+			<PipelineContentSummary results={scoreboard.data} />
+		</div>
+	{:else if scoreboard.isFetched}
 		{@render emptyState()}
-	{:then results}
-		{#if results && Scoreboard.EntityDisplay.buildPipelineSummaryItems(results).length > 0}
-			<div class="flex items-start justify-between gap-4 pt-1">
-				<PipelineContentSummary {results} />
-			</div>
-		{:else}
-			{@render emptyState()}
+	{/if}
+{/snippet}
+
+{#snippet workflowsErrorBanner()}
+	<div
+		class="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
+	>
+		<span>{m.Error()}</span>
+		{#if onRetryWorkflows}
+			<IconButton
+				icon={RefreshCw}
+				variant="ghost"
+				size="xs"
+				tooltip={m.Error()}
+				onclick={() => onRetryWorkflows()}
+			/>
 		{/if}
-	{:catch}
-		{@render emptyState()}
-	{/await}
+	</div>
 {/snippet}
 
 {#snippet content()}
-	<div class="space-y-3">
-		{#if workflows && workflows.length > 0}
-			<div class="space-y-3 pt-5">
-				<Pipeline.Workflows.SmallTable {workflows} />
+	<div class="space-y-3 pt-5">
+		{#if workflowsLoading}
+			<div class="space-y-2" aria-busy="true" aria-label={m.Loading()}>
+				<Skeleton class="h-8 w-full rounded-md" />
+				<Skeleton class="h-8 w-full rounded-md" />
+				<Skeleton class="h-8 w-3/4 rounded-md" />
+			</div>
+		{:else}
+			{#if workflowsError}
+				{@render workflowsErrorBanner()}
+			{/if}
 
-				<div class="flex items-center justify-between gap-2">
-					{#await scoreboardPromise}
-						<!-- pending -->
-					{:then results}
-						{@const executionStats = results ? fromScoreboardRow(results) : undefined}
+			{#if showWorkflows && workflows}
+				{@const executionStats = scoreboard.data
+					? fromScoreboardRow(scoreboard.data)
+					: undefined}
+				<div class="space-y-3">
+					<Pipeline.Workflows.SmallTable {workflows} />
+
+					<div class="flex items-center justify-between gap-2">
 						{#if executionStats}
 							<PipelineExecutionStats stats={executionStats} layout="card-inline" />
+						{:else}
+							<div></div>
 						{/if}
-					{/await}
 
-					<BlueButton
-						compact
-						href={resolve('/my/pipelines/[...pipeline_path]', {
-							pipeline_path: getPath(pipeline, true)
-						})}
-					>
-						{m.view_all()}
-						<ArrowRightIcon />
-					</BlueButton>
+						<BlueButton
+							compact
+							href={resolve('/my/pipelines/[...pipeline_path]', {
+								pipeline_path: getPath(pipeline, true)
+							})}
+						>
+							{m.view_all()}
+							<ArrowRightIcon />
+						</BlueButton>
+					</div>
 				</div>
-			</div>
+			{/if}
 		{/if}
 	</div>
 {/snippet}
 
 {#snippet emptyState()}
-	<div
-		class="flex h-8 w-fit items-center justify-start rounded-md bg-muted p-2 text-xs text-muted-foreground"
-	>
-		{m.Pipeline_summary_will_be_available_after_the_first_successful_run()}
+	<div class="flex items-center gap-2 text-xs text-muted-foreground opacity-50">
+		<InfoIcon size={12} />
+		<p>
+			{m.Pipeline_summary_will_be_available_after_the_first_successful_run()}
+		</p>
 	</div>
 {/snippet}

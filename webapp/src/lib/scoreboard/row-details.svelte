@@ -36,12 +36,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const conformanceItems = $derived(conformanceChecks.column.fn(record));
 	const customItems = $derived(customIntegrations.column.fn(record));
 	const stats = $derived(fromScoreboardRow(record));
-	const runners = $derived(record.expand?.mobile_devices ?? []);
+	const devices = $derived(record.expanded_data?.mobile_devices ?? []);
 
 	const artifacts = $derived(
-		record.expand.latest_execution
+		record.expanded_data?.latest_execution
 			? fromEnrichedRecord(
-					record.expand.latest_execution as Parameters<typeof fromEnrichedRecord>[0]
+					record.expanded_data.latest_execution as Parameters<
+						typeof fromEnrichedRecord
+					>[0]
 				)
 			: undefined
 	);
@@ -92,19 +94,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<span>{m.Min_running_time()}</span>
 			</p>
 		{/if}
-		{#if runners.length > 0}
+		{#if devices.length > 0}
 			<ul class="flex flex-col gap-1.5">
-				{#each runners as runner (runner)}
+				{#each devices as device (device)}
 					<li class="flex items-center gap-2 text-sm">
-						{#if runner.type?.startsWith('ios')}
+						{#if device.type?.startsWith('ios')}
 							<AppleIcon class="size-4 shrink-0 text-muted-foreground" />
 						{:else}
 							<SmartphoneIcon class="size-4 shrink-0 text-muted-foreground" />
 						{/if}
-						<span class="font-semibold">{runner.name.trim()}</span>
-						{#if platformLabel(runner.type)}
+						<span class="font-semibold">{device.name.trim()}</span>
+						{#if platformLabel(device.type)}
 							<span class="text-xs text-muted-foreground"
-								>{platformLabel(runner.type)}</span
+								>{platformLabel(device.type)}</span
 							>
 						{/if}
 					</li>

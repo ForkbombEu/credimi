@@ -14,6 +14,8 @@ import type {
 	WalletsResponse
 } from '@/pocketbase/types';
 
+import type { ScoreboardExpandedEntity } from '../types';
+
 //
 
 export type AvatarData = {
@@ -49,4 +51,5 @@ export type PocketbaseEntity =
 	| UseCasesVerificationsResponse
 	| CredentialsResponse
 	| CustomChecksResponse
+	| ScoreboardExpandedEntity
 	| PipelinesResponse;

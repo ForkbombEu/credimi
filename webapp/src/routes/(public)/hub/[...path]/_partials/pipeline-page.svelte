@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = Awaited<ReturnType<typeof getPipelineDetails>>;
 	let { pipeline, results }: Props = $props();
 
-	const runners = $derived(results?.expand.mobile_devices ?? []);
+	const devices = $derived(results?.expanded_data?.mobile_devices ?? []);
 </script>
 
 <LayoutWithToc sections={[s.description, s.pipeline_steps, s.workflow_yaml]}>
@@ -74,13 +74,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<p>{m.Min_running_time()}</p>
 					<p>{results?.minimum_running_time}</p>
 				</div>
-				{#if runners.length > 0}
+				{#if devices.length > 0}
 					<div class="stat">
-						<p>{m.Runners()}</p>
+						<p>{m.Devices()}</p>
 						<ul>
-							{#each runners as runner (runner.id)}
+							{#each devices as device (device.id)}
 								<li>
-									{runner.description}
+									{device.name.trim() || device.description}
 								</li>
 							{/each}
 						</ul>

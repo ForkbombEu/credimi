@@ -8,10 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import * as conformanceChecks from './columns/conformance-checks.svelte';
+	import * as devices from './columns/devices.svelte';
 	import * as issuers from './columns/issuers.svelte';
 	import * as lastExecution from './columns/last-execution.svelte';
 	import * as name from './columns/name.svelte';
-	import * as runners from './columns/runners.svelte';
 	import * as verifiers from './columns/verifiers.svelte';
 	import * as videoScreenshot from './columns/video-screenshot.svelte';
 	import * as wallets from './columns/wallets.svelte';
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{ id: wallets.column.id, label: m.Wallets() },
 		{ id: verifiers.column.id, label: m.Presentations() },
 		{ id: conformanceChecks.column.id, label: m.Conformance_Checks() },
-		{ id: runners.column.id, label: m.Runners() },
+		{ id: devices.column.id, label: m.Devices() },
 		{ id: lastExecution.column.id, label: m.scoreboard_last_run() }
 	];
 

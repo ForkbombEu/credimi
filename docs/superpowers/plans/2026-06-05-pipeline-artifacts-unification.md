@@ -571,7 +571,7 @@ import ExecutionArtifactsPreview from '$lib/pipeline/results/execution-artifacts
 import { fromEnrichedRecord } from '$lib/pipeline/execution-artifacts';
 
 export const column = Column.define({
-	fn: (row) => fromEnrichedRecord(row.expand.latest_successful_execution ?? {}),
+	fn: (row) => fromEnrichedRecord(row.expanded_data?.latest_execution ?? {}),
 	// ...
 });
 ```

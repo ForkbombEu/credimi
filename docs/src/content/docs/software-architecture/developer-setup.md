@@ -73,8 +73,57 @@ Copy ./webapp/env.example to
 make dev
 ```
 
+For a faster API/UI boot that skips Temporal worker registration (pipelines and workflows will not run):
+
+```bash
+make dev.noworkers
+```
+
+This sets `CREDIMI_TEMPORAL_WORKERS_DISABLED=1`. Temporal Docker still starts because the runtime Procfile waits on the Temporal port (classic `:7233`).
+
 > [!TIP]
 > Use `make help` to see all the commands available.
+
+## Parallel worktrees
+
+Parallel Credimi checkouts require [Worktrunk](https://worktrunk.dev/) for bootstrap (copy-ignored + unique ports). Classic ports stay centralized in `scripts/dev-ports.env` (`8090` / `5100` / `7233` / `8280`). Other worktrees override them with a gitignored `.env.worktree`.
+
+Checkout **location** is per user, not per repo. Do not commit a Worktrunk `worktree-path`. Set it in `~/.config/worktrunk/config.toml` if you use `wt switch` (see [Worktrunk config](https://worktrunk.dev/config/)). Cursor agent sandboxes usually live under `~/.cursor/worktrees/` and do not need that setting.
+
+Install Worktrunk once (needed for both flows below):
+
+```bash
+brew install worktrunk && wt config shell install
+```
+
+### Disposable Cursor sandboxes
+
+Intended flow: open an agent worktree, run `make dev`, check results, dispose.
+
+`.cursor/worktrees.json` runs `make worktree-bootstrap` when Cursor creates a worktree (`/worktree`, Agents Window, or CLI). Then in that checkout:
+
+```bash
+make dev
+```
+
+When finished, stop Compose with `make worktree-down`. To remove a disposable worktree and its containers, volumes, copied data, and branch from the primary checkout, run `make worktree-destroy WORKTREE=<branch>`. Language servers are often off by default under `~/.cursor/worktrees/`; turn on “Enable LSPs for Worktrees” if you need full IDE features while checking.
+
+### Worktrunk CLI worktrees
+
+```bash
+wt switch -c feat/my-thing
+make dev
+```
+
+`.config/wt.toml` runs the same bootstrap on pre-start and `make purge` on removal, so Worktrunk removals discard that worktree's containers, volumes, copied data, and generated runtime files.
+
+Bootstrap (also callable by hand) uses `wt step copy-ignored --require-include` for `.worktreeinclude` (`.env`, `webapp/.env`, `webapp/node_modules/`, `pb_data/`), writes unique ports into `.env.worktree` (Worktrunk `hash_port` seeds + collision walk), syncs PocketBase URLs in `webapp/.env`, initializes submodules, and runs `make tools` when `.bin` is missing.
+
+Edit `.env.worktree` to change ports; regenerators never overwrite an existing file.
+
+Prefer stopping PocketBase in the source worktree before copying `pb_data/` so SQLite is quiet during the copy.
+
+Primary checkout does not need Worktrunk for `make dev` (classic ports). Worktrunk is required for additional parallel worktrees.
 
 ## Temporal Visibility Search Attributes
 

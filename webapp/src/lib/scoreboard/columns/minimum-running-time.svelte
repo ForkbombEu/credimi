@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fn: (row) => row.minimum_running_time,
 		id: 'minimum_running_time',
 		header: m.Min_running_time(),
-		sortField: 'minimum_running_time'
+		sortField: 'minimum_running_time_seconds'
 	});
 </script>
 

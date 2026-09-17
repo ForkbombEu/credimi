@@ -8,7 +8,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { CalendarIcon, PauseIcon, PlayIcon, XIcon } from '@lucide/svelte';
+	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import { runWithLoading } from '$lib/utils';
+	import { fromStore } from 'svelte/store';
 
 	import type { IconComponent } from '@/components/types';
 
@@ -16,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
+	import { currentUser, pb } from '@/pocketbase';
 
 	import {
 		getScheduleState,
@@ -43,7 +45,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	const user = fromStore(currentUser);
+	const timezone = $derived(user.current?.Timezone);
 	const scheduleState = $derived(getScheduleState(schedule));
+	const nextActionTime = $derived(
+		formatExecutionTimestamp(schedule.__schedule_status__.next_action_time, timezone)
+	);
 
 	type ScheduleAction = {
 		type: 'cancel' | 'pause' | 'resume';
@@ -156,7 +163,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if scheduleState === 'active'}
 					<T>
 						<span class="font-medium">{m.next_run()}:</span><br />
-						{schedule.__schedule_status__.next_action_time}
+						{#if nextActionTime}
+							<span class="font-mono">{nextActionTime}</span>
+						{:else}
+							-
+						{/if}
 					</T>
 				{/if}
 

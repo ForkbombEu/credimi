@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.png';
 	import GlobalConfirm from '$lib/layout/global-confirm.svelte';
@@ -17,6 +19,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import './layout.css';
 
 	let { children } = $props();
+
+	const queryClient = new QueryClient({
+		defaultOptions: {
+			queries: {
+				enabled: browser
+			}
+		}
+	});
 </script>
 
 <svelte:head>
@@ -26,18 +36,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</title>
 </svelte:head>
 
-{@render children()}
+<QueryClientProvider client={queryClient}>
+	{@render children()}
 
-<Toaster richColors closeButton class="dark!" />
+	<Toaster richColors closeButton class="dark!" />
 
-<GlobalLoading />
+	<GlobalLoading />
 
-<GlobalConfirm />
+	<GlobalConfirm />
 
-<div style="display:none">
-	{#each locales as locale (locale)}
-		<a href={localizeHref(page.url.pathname, { locale })}>
-			{locale}
-		</a>
-	{/each}
-</div>
+	<div style="display:none">
+		{#each locales as locale (locale)}
+			<a href={localizeHref(page.url.pathname, { locale })}>
+				{locale}
+			</a>
+		{/each}
+	</div>
+</QueryClientProvider>

@@ -42,8 +42,9 @@ The older `/api/my/results` and `/api/all-results` endpoints described an OpenTe
 Primary read model for the scoreboard UI. One row per pipeline, with fields such as:
 
 - `total_runs`, `total_successes`, `success_rate`
-- `pipeline` relation (may be hidden when the pipeline is private)
-- Expanded relations for wallets, issuers, verifiers, credentials, runners, conformance checks, and latest successful execution artifacts
+- `pipeline` relation (used for published filtering and sorts)
+- `expanded_data` JSON snapshot for display: wallets, issuers, verifiers, credentials, devices, custom integrations, and latest execution artifacts
+- Relation ID fields remain for PocketBase filter/sort; they are not expanded in the public UI
 
 ### Frontend type
 
@@ -58,8 +59,9 @@ export type ScoreboardRow = PipelineScoreboardCacheResponse<...>;
 
 - Loads rows via `Scoreboard.loadData()` (`$lib/scoreboard/functions.ts`)
 - Renders `Scoreboard.Component` with a `Scoreboard.Instance` table controller
-- Columns include pipeline name, screenshot, success rate, wallets, issuers, credentials, verifiers, use-case verifications, conformance checks, custom integrations, runners, and minimum running time
-- Supports client-side pagination and sorting
+- Columns include pipeline name, evidence, wallets, issuance (issuers with nested credentials), presentations (verifier logos), conformance checks, devices, and last run
+- Supports server-side pagination and sorting on relation/scalar fields
+- Row details also show custom integrations and execution modes
 
 ### Homepage Section
 

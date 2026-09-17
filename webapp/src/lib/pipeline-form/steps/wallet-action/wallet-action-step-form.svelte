@@ -23,6 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		WithLabel
 	} from '$pipeline-form/steps/_partials/index.js';
 
+	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
@@ -39,7 +40,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 
 	const deviceCatalog = bindDeviceCatalogSearch({
-		search: form.deviceSearch
+		get search() {
+			return form.deviceSearch;
+		}
 	});
 </script>
 
@@ -71,10 +74,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						? undefined
 						: () => form.removeVersion()}
 				/>
+				{#snippet labelRight()}
+					{#if form.canChangeWalletVersion()}
+						<Button
+							variant="link"
+							class="h-fit p-0 text-xs"
+							onclick={() => form.requestChangeWalletVersion()}
+						>
+							{m.Change_wallet_version()}
+						</Button>
+					{/if}
+				{/snippet}
 			</WithLabel>
 		{/if}
 		{#if form.data.device}
-			<WithLabel label={'Device'}>
+			<WithLabel label="Device">
 				<ItemCard
 					title={getDeviceLabel(form.data.device)}
 					onDiscard={form.isExecutionTargetLocked()
@@ -156,7 +170,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</StepCollectionPicker>
 {:else if form.state === 'select-device'}
-	<WithLabel label={'Device'} class="p-4">
+	<WithLabel label="Device" class="p-4">
 		<SearchInput search={form.deviceSearch} />
 	</WithLabel>
 

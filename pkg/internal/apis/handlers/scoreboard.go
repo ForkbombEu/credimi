@@ -54,21 +54,22 @@ type StartAggregateScoreboardResponse struct {
 }
 
 type PipelineStatsResponse struct {
-	PipelineID          string   `json:"pipeline_id"`
-	PipelineName        string   `json:"pipeline_name"`
-	PipelineIdentifier  string   `json:"pipeline_identifier"`
-	DeviceTypes         []string `json:"device_types"`
-	DeviceIDs           []string `json:"device_ids"`
-	TotalRuns           int      `json:"total_runs"`
-	TotalSuccesses      int      `json:"total_successes"`
-	SuccessRate         float64  `json:"success_rate"`
-	ManualExecutions    int      `json:"manual_executions"`
-	ScheduledExecutions int      `json:"scheduled_executions"`
-	CIExecutions        int      `json:"ci_executions"`
-	MinExecutionTime    string   `json:"min_execution_time"`
-	FirstExecutionDate  string   `json:"first_execution_date"`
-	LastExecutionDate   string   `json:"last_execution_date"`
-	LastRun             *LastRun `json:"last_run,omitempty"`
+	PipelineID              string   `json:"pipeline_id"`
+	PipelineName            string   `json:"pipeline_name"`
+	PipelineIdentifier      string   `json:"pipeline_identifier"`
+	DeviceTypes             []string `json:"device_types"`
+	DeviceIDs               []string `json:"device_ids"`
+	TotalRuns               int      `json:"total_runs"`
+	TotalSuccesses          int      `json:"total_successes"`
+	SuccessRate             float64  `json:"success_rate"`
+	ManualExecutions        int      `json:"manual_executions"`
+	ScheduledExecutions     int      `json:"scheduled_executions"`
+	CIExecutions            int      `json:"ci_executions"`
+	MinExecutionTime        string   `json:"min_execution_time"`
+	MinExecutionTimeSeconds int      `json:"min_execution_time_seconds"`
+	FirstExecutionDate      string   `json:"first_execution_date"`
+	LastExecutionDate       string   `json:"last_execution_date"`
+	LastRun                 *LastRun `json:"last_run,omitempty"`
 }
 
 type LastRun struct {
@@ -78,18 +79,62 @@ type LastRun struct {
 }
 
 type PipelineStats struct {
-	PipelineName        string
-	DeviceIDs           []string
-	DeviceTypes         []string
-	TotalRuns           int
-	TotalSuccesses      int
-	SuccessRate         float64
-	ManualExecutions    int
-	ScheduledExecutions int
-	CIExecutions        int
-	MinExecutionTime    string
-	FirstExecutionDate  string
-	LastExecutionDate   string
+	PipelineName            string
+	DeviceIDs               []string
+	DeviceTypes             []string
+	TotalRuns               int
+	TotalSuccesses          int
+	SuccessRate             float64
+	ManualExecutions        int
+	ScheduledExecutions     int
+	CIExecutions            int
+	MinExecutionTime        string
+	MinExecutionTimeSeconds int
+	FirstExecutionDate      string
+	LastExecutionDate       string
+}
+
+// ScoreboardExpandedData is the display-safe relation snapshot consumed by the
+// public scoreboard. Keep this deliberately narrower than PocketBase exports:
+// the cache is public and must not embed relation fields such as secrets or YAML.
+type ScoreboardExpandedData struct {
+	Pipeline             *ScoreboardExpandedEntity         `json:"pipeline,omitempty"`
+	MobileDevices        []ScoreboardMobileDevice          `json:"mobile_devices"`
+	Wallets              []ScoreboardExpandedEntity        `json:"wallets"`
+	WalletVersions       []ScoreboardExpandedEntity        `json:"wallet_versions"`
+	Issuers              []ScoreboardExpandedEntity        `json:"issuers"`
+	Verifiers            []ScoreboardExpandedEntity        `json:"verifiers"`
+	Credentials          []ScoreboardExpandedEntity        `json:"credentials"`
+	UseCaseVerifications []ScoreboardExpandedEntity        `json:"use_case_verifications"`
+	CustomIntegrations   []ScoreboardExpandedEntity        `json:"custom_integrations"`
+	LatestExecution      *ScoreboardExpandedPipelineResult `json:"latest_execution,omitempty"`
+}
+
+type ScoreboardExpandedEntity struct {
+	ID               string `json:"id"`
+	CollectionName   string `json:"collectionName"`
+	Name             string `json:"name,omitempty"`
+	LogoURL          string `json:"logo_url,omitempty"`
+	Published        bool   `json:"published"`
+	CanonifiedPath   string `json:"__canonified_path__"`
+	Wallet           string `json:"wallet,omitempty"`
+	CredentialIssuer string `json:"credential_issuer,omitempty"`
+	Verifier         string `json:"verifier,omitempty"`
+	Tag              string `json:"tag,omitempty"`
+}
+
+type ScoreboardMobileDevice struct {
+	ID          string `json:"id"`
+	DeviceID    string `json:"device_id"`
+	Name        string `json:"name"`
+	RunnerName  string `json:"runner_name"`
+	Description string `json:"description,omitempty"`
+	Type        string `json:"type,omitempty"`
+}
+
+type ScoreboardExpandedPipelineResult struct {
+	Created   string                                     `json:"created"`
+	Artifacts pipelineresults.PipelineExecutionArtifacts `json:"artifacts"`
 }
 
 type LastExecutionDetails struct {
@@ -481,18 +526,19 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 					namespace,
 					pipelineRecord.GetString("canonified_name"),
 				),
-				DeviceTypes:         stats.DeviceTypes,
-				DeviceIDs:           stats.DeviceIDs,
-				TotalRuns:           stats.TotalRuns,
-				TotalSuccesses:      stats.TotalSuccesses,
-				SuccessRate:         stats.SuccessRate,
-				ManualExecutions:    stats.ManualExecutions,
-				ScheduledExecutions: stats.ScheduledExecutions,
-				CIExecutions:        stats.CIExecutions,
-				MinExecutionTime:    stats.MinExecutionTime,
-				FirstExecutionDate:  stats.FirstExecutionDate,
-				LastExecutionDate:   stats.LastExecutionDate,
-				LastRun:             lastRun,
+				DeviceTypes:             stats.DeviceTypes,
+				DeviceIDs:               stats.DeviceIDs,
+				TotalRuns:               stats.TotalRuns,
+				TotalSuccesses:          stats.TotalSuccesses,
+				SuccessRate:             stats.SuccessRate,
+				ManualExecutions:        stats.ManualExecutions,
+				ScheduledExecutions:     stats.ScheduledExecutions,
+				CIExecutions:            stats.CIExecutions,
+				MinExecutionTime:        stats.MinExecutionTime,
+				MinExecutionTimeSeconds: stats.MinExecutionTimeSeconds,
+				FirstExecutionDate:      stats.FirstExecutionDate,
+				LastExecutionDate:       stats.LastExecutionDate,
+				LastRun:                 lastRun,
 			})
 		}
 		return e.JSON(http.StatusOK, response)
@@ -679,6 +725,7 @@ func calculateStatsFromExecutions(
 	stats.FirstExecutionDate = firstTime
 	stats.LastExecutionDate = lastTime
 	stats.MinExecutionTime = formatDurationString(minDuration, minDurationSet)
+	stats.MinExecutionTimeSeconds = durationSeconds(minDuration, minDurationSet)
 
 	var lastRun *LastRun
 	if lastExec != nil {
@@ -878,6 +925,13 @@ func formatDurationString(d time.Duration, set bool) string {
 		seconds := int(d.Seconds()) % 60
 		return fmt.Sprintf("%dh%dm%ds", hours, minutes, seconds)
 	}
+}
+
+func durationSeconds(d time.Duration, set bool) int {
+	if !set {
+		return 0
+	}
+	return int(math.Round(d.Seconds()))
 }
 
 func extractFirstTwoParts(fullPath string) string {
@@ -1098,6 +1152,15 @@ func insertAggregatedResults(
 				)
 			}
 		}
+		expandedData, err := buildScoreboardExpandedData(app, record)
+		if err != nil {
+			saveErrors = append(
+				saveErrors,
+				fmt.Errorf("pipeline %s expanded data: %w", stats.PipelineID, err),
+			)
+			continue
+		}
+		record.Set("expanded_data", expandedData)
 
 		if err := app.Save(record); err != nil {
 			saveErrors = append(
@@ -1109,6 +1172,174 @@ func insertAggregatedResults(
 		count++
 	}
 	return count, saveErrors
+}
+
+func buildScoreboardExpandedData(
+	app core.App,
+	record *core.Record,
+) (ScoreboardExpandedData, error) {
+	data := ScoreboardExpandedData{
+		MobileDevices:        []ScoreboardMobileDevice{},
+		Wallets:              []ScoreboardExpandedEntity{},
+		WalletVersions:       []ScoreboardExpandedEntity{},
+		Issuers:              []ScoreboardExpandedEntity{},
+		Verifiers:            []ScoreboardExpandedEntity{},
+		Credentials:          []ScoreboardExpandedEntity{},
+		UseCaseVerifications: []ScoreboardExpandedEntity{},
+		CustomIntegrations:   []ScoreboardExpandedEntity{},
+	}
+
+	var err error
+	if data.Pipeline, err = scoreboardExpandedRecord(
+		app,
+		"pipelines",
+		record.GetString("pipeline"),
+	); err != nil {
+		return data, err
+	}
+	if data.MobileDevices, err = scoreboardExpandedDevices(
+		app,
+		record.GetStringSlice("mobile_devices"),
+	); err != nil {
+		return data, err
+	}
+	for _, target := range []struct {
+		collection string
+		ids        []string
+		out        *[]ScoreboardExpandedEntity
+	}{
+		{"wallets", record.GetStringSlice("wallets"), &data.Wallets},
+		{"wallet_versions", record.GetStringSlice("wallet_versions"), &data.WalletVersions},
+		{"credential_issuers", record.GetStringSlice("issuers"), &data.Issuers},
+		{"verifiers", record.GetStringSlice("verifiers"), &data.Verifiers},
+		{"credentials", record.GetStringSlice("credentials"), &data.Credentials},
+		{"use_cases_verifications", record.GetStringSlice("use_case_verifications"), &data.UseCaseVerifications},
+		{"custom_checks", record.GetStringSlice("custom_integrations"), &data.CustomIntegrations},
+	} {
+		if *target.out, err = scoreboardExpandedRecords(
+			app,
+			target.collection,
+			target.ids,
+		); err != nil {
+			return data, err
+		}
+	}
+
+	latestID := record.GetString("latest_execution")
+	if latestID != "" {
+		latest, err := app.FindRecordById("pipeline_results", latestID)
+		if err != nil {
+			return data, fmt.Errorf("find latest execution: %w", err)
+		}
+		data.LatestExecution = &ScoreboardExpandedPipelineResult{
+			Created:   latest.GetString("created"),
+			Artifacts: pipelineresults.BuildPipelineExecutionArtifacts(app, latest),
+		}
+	}
+
+	return data, nil
+}
+
+func scoreboardExpandedRecords(
+	app core.App,
+	collection string,
+	ids []string,
+) ([]ScoreboardExpandedEntity, error) {
+	entities := make([]ScoreboardExpandedEntity, 0, len(ids))
+	for _, id := range ids {
+		entity, err := scoreboardExpandedRecord(app, collection, id)
+		if err != nil {
+			return nil, err
+		}
+		if entity != nil {
+			entities = append(entities, *entity)
+		}
+	}
+	return entities, nil
+}
+
+func scoreboardExpandedRecord(
+	app core.App,
+	collection, id string,
+) (*ScoreboardExpandedEntity, error) {
+	if id == "" {
+		return nil, nil
+	}
+	record, err := app.FindRecordById(collection, id)
+	if err != nil {
+		return nil, fmt.Errorf("find %s %s: %w", collection, id, err)
+	}
+	isPublished := record.GetBool("published")
+	if collection == "wallet_versions" {
+		wallet, err := app.FindRecordById("wallets", record.GetString("wallet"))
+		if err != nil {
+			return nil, fmt.Errorf("find wallet for wallet version %s: %w", id, err)
+		}
+		isPublished = wallet.GetBool("published")
+	}
+	if !isPublished {
+		return nil, nil
+	}
+	template, ok := canonify.CanonifyPaths[collection]
+	if !ok {
+		return nil, fmt.Errorf("missing canonify path for collection %s", collection)
+	}
+	path, err := canonify.BuildPath(app, record, template, "")
+	if err != nil {
+		return nil, fmt.Errorf("build %s path: %w", collection, err)
+	}
+	return &ScoreboardExpandedEntity{
+		ID:               record.Id,
+		CollectionName:   collection,
+		Name:             record.GetString("name"),
+		LogoURL:          scoreboardLogoURL(app, collection, record),
+		Published:        record.GetBool("published"),
+		CanonifiedPath:   path,
+		Wallet:           record.GetString("wallet"),
+		CredentialIssuer: record.GetString("credential_issuer"),
+		Verifier:         record.GetString("verifier"),
+		Tag:              record.GetString("tag"),
+	}, nil
+}
+
+func scoreboardExpandedDevices(app core.App, ids []string) ([]ScoreboardMobileDevice, error) {
+	devices := make([]ScoreboardMobileDevice, 0, len(ids))
+	for _, id := range ids {
+		record, err := app.FindRecordById("mobile_devices", id)
+		if err != nil {
+			return nil, fmt.Errorf("find mobile device %s: %w", id, err)
+		}
+		deviceID, err := mobileDeviceIdentifier(app, record)
+		if err != nil {
+			return nil, fmt.Errorf("build mobile device %s identifier: %w", id, err)
+		}
+		runner, err := app.FindRecordById("mobile_runners", record.GetString("runner"))
+		if err != nil {
+			return nil, fmt.Errorf("find mobile device %s runner: %w", id, err)
+		}
+		devices = append(devices, ScoreboardMobileDevice{
+			ID:          record.Id,
+			DeviceID:    deviceID,
+			Name:        record.GetString("name"),
+			RunnerName:  runner.GetString("name"),
+			Description: record.GetString("description"),
+			Type:        record.GetString("type"),
+		})
+	}
+	return devices, nil
+}
+func scoreboardLogoURL(app core.App, collection string, record *core.Record) string {
+	if logoURL := record.GetString("logo_url"); logoURL != "" {
+		return logoURL
+	}
+	logo := record.GetString("logo")
+	if logo == "" {
+		return ""
+	}
+	return utils.JoinURL(
+		app.Settings().Meta.AppURL,
+		"api", "files", collection, record.Id, logo,
+	)
 }
 
 func hasFatalScoreboardSaveErrors(saveErrors []error) bool {
@@ -1128,6 +1359,7 @@ func setBasicFields(record *core.Record, stats workflows.AggregatedPipelineStats
 	record.Set("scheduled_runs", stats.ScheduledExecutions)
 	record.SetIfFieldExists("CI_runs", stats.CIExecutions)
 	record.Set("minimum_running_time", stats.MinExecutionTime)
+	record.SetIfFieldExists("minimum_running_time_seconds", stats.MinExecutionTimeSeconds)
 	record.Set("first_execution", stats.FirstExecutionDate)
 	record.Set("last_execution_date", stats.LastExecutionDate)
 }

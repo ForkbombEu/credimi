@@ -6,9 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Plus } from '@lucide/svelte';
-	import { Pipeline } from '$lib';
 	import { userOrganization } from '$lib/app-state';
-	import { PolledResource } from '$lib/utils/state.svelte.js';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -18,14 +16,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { IDS } from '../_partials/sidebar-data.svelte.js';
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import PipelineCard from './_partials/pipeline-card.svelte';
+	import PipelineListExecutionsSection from './_partials/pipeline-list-executions-section.svelte';
+	import { PipelineListExecutions } from './_partials/pipeline-list-executions.svelte.js';
 
 	//
 
 	setDashboardNavbar({ title: 'Pipelines', right: navbarRight });
 
-	const allWorkflows = new PolledResource(() => Pipeline.Workflows.listAllGroupedByPipelineId(), {
-		intervalMs: 10000
-	});
+	const executions = new PipelineListExecutions();
 </script>
 
 <!-- Your Pipelines Section -->
@@ -50,14 +48,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records })}
+			<PipelineListExecutionsSection
+				store={executions}
+				section="owned"
+				ids={records.map((pipeline) => pipeline.id)}
+			/>
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
-					{@const workflows = allWorkflows.current?.[pipeline.id]}
+					{@const entry = executions.getEntry(pipeline.id)}
 					{#if userOrganization.current}
 						<PipelineCard
 							bind:pipeline={records[index]}
-							{workflows}
-							onRun={() => allWorkflows.fetch()}
+							workflows={entry?.workflows}
+							workflowsLoading={Boolean(entry?.loading && !entry?.hydrated)}
+							workflowsError={entry?.error}
+							onRetryWorkflows={() => executions.retry(pipeline.id)}
+							onRun={() => executions.refreshAll()}
 						/>
 					{/if}
 				{/each}
@@ -94,15 +100,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records })}
+			<PipelineListExecutionsSection
+				store={executions}
+				section="public"
+				ids={records.map((pipeline) => pipeline.id)}
+			/>
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
 					{@const ownerOrg = pipeline.expand?.owner}
-					{@const workflows = allWorkflows.current?.[pipeline.id] ?? []}
+					{@const entry = executions.getEntry(pipeline.id)}
 					{#if ownerOrg}
 						<PipelineCard
 							bind:pipeline={records[index]}
-							{workflows}
-							onRun={() => allWorkflows.fetch()}
+							workflows={entry?.workflows}
+							workflowsLoading={Boolean(entry?.loading && !entry?.hydrated)}
+							workflowsError={entry?.error}
+							onRetryWorkflows={() => executions.retry(pipeline.id)}
+							onRun={() => executions.refreshAll()}
 						/>
 					{/if}
 				{/each}

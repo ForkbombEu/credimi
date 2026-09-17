@@ -30,6 +30,29 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+
+### 2026-09-17 - Workflow timestamp presentation ownership
+
+- status: resolved
+- owner: human maintainer (user chose long-term option in chat)
+- context: Pipeline/workflow list APIs localized `startTime`/`endTime`/`enqueuedAt` (and schedule `next_action_time`) to `DD/MM/YYYY, HH:mm:ss` server-side. Dense table UI wants Date + Start + End (`HH:mm`) with a next-day marker, without repeating the calendar date.
+- question: Should Credimi keep server-side prettified datetimes, add display-specific DTO fields, or send RFC3339 and let the webapp format?
+- options considered: (1) frontend-only parse of localized strings; (2) additive API display fields; (3) stop API prettifying, return RFC3339/ISO, UI owns formatting.
+- default risk: Changing string formats breaks clients that assumed localized datetimes; keeping prettifying locks table layout into the API.
+- decision: Option (3). List/summary APIs return RFC3339 instants; webapp formats Date/Start/End (and full timestamps elsewhere) in the user timezone.
+- follow-up: Keep legacy localized-string parse fallback in `parseExecutionTime` until no cached clients remain; consider documenting in AGENTS.md under Routes/DTOs.
+
+### 2026-09-17 - Webapp async fetch: TanStack Query vs custom Runed wrappers
+
+- status: resolved
+- owner: agent (per user handoff: least code to maintain; new dependency OK)
+- context: Pipeline card empty-state flash came from Runed `resource` refetching when `$effect` invalidated even if the source value was unchanged (`Object.is`). A growing Credimi stack (`hydratedResource` / `PolledResource` / source-equality gates) was accumulating in `webapp/src/lib/utils/state.svelte.ts`. User priority: maintainability over inventing a mini Query clone. Research: Runed removed source equality ([PR #248](https://github.com/svecosystem/runed/pull/248)); Solid `createResource` memos with `===`; TanStack Query Svelte v6 has explicit `queryKey`, `isPending` vs `isFetching`, `refetchInterval`.
+- question: Should Credimi adopt `@tanstack/svelte-query` for keyed/polled client fetches, keep expanding custom wrappers, or stay on Runed with upstream equality?
+- options considered: (1) adopt `@tanstack/svelte-query` and delete the custom wrappers; (2) keep growing `hydratedResource`/`PolledResource`; (3) contribute Runed source `Object.is` and stay on Runed for thin fetches.
+- default risk: Dual-maintaining Query and a fat wrapper; or locking into an undocumented Credimi async API.
+- decision: Option (1) — add `@tanstack/svelte-query`, provide `QueryClient` in `webapp/src/routes/+layout.svelte` (`queries.enabled: browser`), migrate pipeline scoreboard, polled workflow lists, bulk wallet versions, and conformance-check form fetches to `createQuery`. Delete `webapp/src/lib/utils/state.svelte.ts`. Preserve sheet pause via reactive `activeSheet.count` gating `refetchInterval`. Leave `PipelineListExecutions` as its dedicated multi-id store.
+- follow-up: Optionally document a one-liner convention in `webapp/AGENTS.md` once the migration is validated in UI; do not reintroduce Credimi resource wrappers without an HITL revisit.
+
 ### 2026-09-15 - FCAF acceptable JOSE algorithm set for ECCG ACM 5.2
 
 - status: resolved
@@ -163,3 +186,25 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - **Options considered:** (a) keep per-test apps + refreshed test data (chosen); (b) full suite-level shared app conversion; (c) hybrid shared app for read-only suites.
 - **Default risk:** Per-test apps re-create a fresh isolated DB per scenario (~10ms each); any future PocketBase upgrade with new core migrations re-introduces the ~10x per-app cost unless `make testdata.refresh` is run and `test_pb_data/data.db` recommitted.
 - **Owner:** puria — **Status:** resolved (decision: keep per-test apps; run `make testdata.refresh` after PocketBase or pb_migrations changes)
+
+### 2026-09-15 - Parallel worktree local-dev contract
+
+- status: resolved
+- owner: human maintainer
+- context: Multiple git worktrees need isolated Compose projects and host ports without editing tracked Procfile/compose per checkout. Recent Worktrunk-style tooling was reviewed in `.agents/research/2026-09-15-git-worktree-utilities.md`.
+- question: How should Credimi expose ports and bootstrap copies for parallel worktrees?
+- options considered: (1) port offset knob; (2) explicit ports in `.env.worktree` with classic defaults centralized; (3) adopt Coasts daemon for runtime isolation; (4) Worktrunk optional vs required.
+- default risk: Offset math is opaque; Coasts adds a large runtime before Compose parameterization is proven; keeping a plain-git copy shim duplicates Worktrunk.
+- decision: Keep classic ports in `scripts/dev-ports.env`. Override only via `.env.worktree`. Copy allowlist includes `.env`, `webapp/.env`, `webapp/node_modules/`, and `pb_data/`. Recreate `.bin` via `make tools`. **Require Worktrunk** for parallel worktrees (`wt step copy-ignored`, `hash_port` seeds); keep Credimi scripts for ports/Procfile/Compose/`sync-urls`. Primary checkout `make dev` remains Worktrunk-free. Do not enable Worktrunk commit/merge automation.
+- follow-up: Pilot two local worktrees; measure whether node_modules copy is worth keeping.
+
+### 2026-09-17 - Close Play Store after store-install pipeline runs
+
+- status: resolved
+- owner: puria
+- context: Pipelines that install the wallet from the Play Store leave the store UI open on shared physical devices. The gate signal already exists server-side (`markExternalInstallSteps` sets `with.config.detect_external_install` for `version_id: installed_from_external_source` steps whose wallet action category is `install-app`), but the adb execution lives in the private `credimi-extra` module (`mobile/cleanup.go`), consumed through `CleanupDeviceActivity`. `credimi-2` pins `credimi-extra v1.15.1` with no `replace` directive, so the server-side payload key is inert until extra is released and bumped.
+- question: Confirm the cross-repo contract for closing the Play Store: additive `close_play_store` cleanup-payload key decided server-side, with `adb shell am force-stop com.android.vending` executed by `credimi-extra`?
+- options considered: (a) server sets `close_play_store` in the existing cleanup payload and extra force-stops the store (implemented; one cleanup round-trip, mirrors `reenable_play_store`, server-side testable); (b) extra/runner closes the store unconditionally at every Android device cleanup (no server change, fires on runs that never opened the store); (c) append a Maestro step to every install action (no Go change, per-action authoring burden, skipped on failure paths).
+- default risk: `DecodePayload` is plain `json.Unmarshal`, so an un-updated extra ignores the new key silently — the feature is a no-op until `credimi-extra` is released and `go.mod` is bumped, and nothing surfaces that gap at runtime.
+- decision: Option (a) — the server decides the gate and sets an additive `close_play_store` key in the existing `CleanupDeviceActivity` payload; `credimi-extra` executes `adb shell am force-stop com.android.vending` in `mobile.CleanupDevice`. The gate stays narrow: only external-source steps whose wallet action category resolves to `install-app`, Android devices only, and skipped when `reenable_play_store` is set (a store disabled for the whole run was never opened). Inline `action_code` steps without a resolvable `action_id` remain excluded, consistent with `detect_external_install`.
+- follow-up: Maintainer must release `credimi-extra` and bump the `go.mod` requirement; release/version work was intentionally not performed by the agent. Until then the key is inert and deploying `credimi-2` alone is a safe no-op.

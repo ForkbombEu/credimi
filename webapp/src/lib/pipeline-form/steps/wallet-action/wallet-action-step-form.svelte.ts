@@ -149,4 +149,9 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	removeDevice() {
 		this.data.device = undefined;
 	}
+
+	applyBulkWalletVersion(walletId: string, version: SelectedVersion) {
+		if (this.data.wallet?.id !== walletId) return;
+		this.data.version = version;
+	}
 }

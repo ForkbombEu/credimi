@@ -19,7 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export const column = Column.define({
 		fn: (row) =>
 			fromEnrichedRecord(
-				(row.expand.latest_execution ?? {}) as Parameters<typeof fromEnrichedRecord>[0]
+				(row.expanded_data?.latest_execution ?? {}) as Parameters<
+					typeof fromEnrichedRecord
+				>[0]
 			),
 		id: 'evidence',
 		header: renderComponent(EntityHeader, {

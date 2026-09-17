@@ -14,17 +14,30 @@ vi.mock('$lib/layout/global-confirm.svelte', () => ({
 	confirm: vi.fn()
 }));
 
-vi.mock('../steps/wallet-action/index.js', () => ({
-	walletActionStepConfig: {
-		serialize: (data: { version: string | { __canonified_path__: string } }) => ({
-			action_id: 'org/w-a/action',
-			version_id:
-				data.version === 'installed_from_external_source'
-					? 'installed_from_external_source'
-					: (data.version as { __canonified_path__: string }).__canonified_path__
-		})
+vi.mock('../steps/wallet-action/index.js', () => {
+	class WalletActionStepForm {
+		data: Record<string, unknown> = {};
+
+		applyBulkWalletVersion(walletId: string, version: unknown) {
+			const wallet = this.data.wallet as { id?: string } | undefined;
+			if (wallet?.id !== walletId) return;
+			this.data.version = version;
+		}
 	}
-}));
+
+	return {
+		WalletActionStepForm,
+		walletActionStepConfig: {
+			serialize: (data: { version: string | { __canonified_path__: string } }) => ({
+				action_id: 'org/w-a/action',
+				version_id:
+					data.version === 'installed_from_external_source'
+						? 'installed_from_external_source'
+						: (data.version as { __canonified_path__: string }).__canonified_path__
+			})
+		}
+	};
+});
 
 import type { PipelineStepByType } from '$lib/pipeline/types.js';
 import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
@@ -32,8 +45,9 @@ import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/ty
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
 import { EXTERNAL_VERSION, GLOBAL_DEVICE } from '$pipeline-form/execution-target/types.js';
+import { WalletActionStepForm } from '$pipeline-form/steps/wallet-action/index.js';
 
-import { getBulkWalletVersionContext } from './_partials/index.js';
+import { getBulkWalletVersionContext, isChangeWalletVersionAvailable } from './_partials/index.js';
 import { StepsBuilder } from './steps-builder.svelte.js';
 
 const VALID_YAML = `name: test
@@ -241,6 +255,52 @@ describe('StepsBuilder bulk wallet version sync', () => {
 		return { wallet, version, device: GLOBAL_DEVICE, action };
 	}
 
+	it('shows the action only for matching steps when locked or more than one mobile step exists', () => {
+		const soleStep = mobileStep(stepData(walletA, EXTERNAL_VERSION), {
+			action_id: 'org/w-a/action',
+			version_id: EXTERNAL_VERSION
+		});
+		const matchingStep = mobileStep(stepData(walletA, EXTERNAL_VERSION), {
+			action_id: 'org/w-a/action',
+			version_id: EXTERNAL_VERSION
+		});
+		const otherWallet = mobileStep(stepData(walletB, EXTERNAL_VERSION), {
+			action_id: 'org/w-b/action',
+			version_id: EXTERNAL_VERSION
+		});
+
+		expect(isChangeWalletVersionAvailable([soleStep], { locked: false })).toBe(false);
+		expect(isChangeWalletVersionAvailable([soleStep], { locked: true })).toBe(true);
+		expect(isChangeWalletVersionAvailable([soleStep, matchingStep], { locked: false })).toBe(
+			true
+		);
+		expect(isChangeWalletVersionAvailable([soleStep, otherWallet], { locked: true })).toBe(
+			false
+		);
+	});
+
+	it('uses the open form lock state for the builder-level trigger', () => {
+		const soleStep = mobileStep(stepData(walletA, EXTERNAL_VERSION), {
+			action_id: 'org/w-a/action',
+			version_id: EXTERNAL_VERSION
+		});
+		const builder = new StepsBuilder({
+			steps: [soleStep],
+			yamlPreview: () => VALID_YAML
+		});
+
+		expect(builder.canOfferChangeWalletVersion()).toBe(false);
+
+		(builder as unknown as BuilderInternal).state.mode = {
+			id: 'form',
+			intent: 'add',
+			config: {} as never,
+			form: new WalletActionStepForm()
+		};
+
+		expect(builder.canOfferChangeWalletVersion()).toBe(true);
+	});
+
 	it('updates all mobile-automation steps with the same wallet and re-serializes with', () => {
 		const oldVersion = EXTERNAL_VERSION;
 		const newVersion = {
@@ -281,6 +341,37 @@ describe('StepsBuilder bulk wallet version sync', () => {
 			version_id: 'org/w-a/v2'
 		});
 		expect(result[2]).toBe(debugStep);
+	});
+
+	it('updates the open wallet-action form for the same wallet', () => {
+		const oldVersion = EXTERNAL_VERSION;
+		const newVersion = {
+			id: 'v2',
+			tag: '2.0',
+			__canonified_path__: 'org/w-a/v2'
+		} as unknown as WalletActionStepData['version'];
+		const step = mobileStep(stepData(walletA, oldVersion), {
+			action_id: 'org/w-a/action',
+			version_id: EXTERNAL_VERSION
+		});
+		const builder = new StepsBuilder({
+			steps: [step],
+			yamlPreview: () => VALID_YAML
+		});
+		const form = new WalletActionStepForm();
+		form.data = stepData(walletA, oldVersion);
+		(builder as unknown as BuilderInternal).state.mode = {
+			id: 'form',
+			intent: 'edit',
+			stepIndex: 0,
+			config: {} as never,
+			form
+		};
+
+		builder.applyBulkWalletVersion(newVersion);
+
+		expect(form.data.version).toBe(newVersion);
+		expect(builder.steps[0]![1]).toMatchObject({ version: newVersion });
 	});
 
 	it('does not apply bulk version when mobile steps use different wallets', () => {

@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Required Worktrunk project config for parallel Credimi worktrees.
+# Install: brew install worktrunk && wt config shell install
+# Do not enable Worktrunk commit/merge automation for Credimi agent workflows.
+
+[[pre-start]]
+bootstrap = "make worktree-bootstrap"
+
+[pre-remove]
+purge = "make purge"

@@ -9,6 +9,8 @@ type CreateInitFormOptionsInput<T> = {
 	initial?: T;
 	getExecutionTarget?: InitFormOptions<T>['getExecutionTarget'];
 	isExecutionTargetLocked?: InitFormOptions<T>['isExecutionTargetLocked'];
+	canChangeWalletVersion?: InitFormOptions<T>['canChangeWalletVersion'];
+	requestChangeWalletVersion?: InitFormOptions<T>['requestChangeWalletVersion'];
 };
 
 export function createInitFormOptions<T>(opts: CreateInitFormOptionsInput<T>): InitFormOptions<T> {

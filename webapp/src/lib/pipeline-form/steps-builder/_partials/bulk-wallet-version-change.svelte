@@ -8,7 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
 	import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
-	import { EllipsisIcon, ExternalLinkIcon, RefreshCcwIcon } from '@lucide/svelte';
+	import { ExternalLinkIcon } from '@lucide/svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import AndroidLogo from '$lib/components/android-logo.svelte';
 	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import { getHubItemData } from '$lib/hub';
@@ -17,13 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type SelectedVersion
 	} from '$pipeline-form/execution-target/types.js';
 	import { ItemCard, WithEmptyState, WithLabel } from '$pipeline-form/steps/_partials/index.js';
-	import { resource } from 'runed';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 
 	import Dialog from '@/components/ui-custom/dialog.svelte';
-	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
@@ -32,9 +30,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		builder: StepsBuilder;
+		open?: boolean;
 	};
 
-	let { builder }: Props = $props();
+	let { builder, open = $bindable(false) }: Props = $props();
 
 	const bulkContext = $derived(getBulkWalletVersionContext(builder.steps));
 
@@ -53,20 +52,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return { isExternal: false, recordId: null };
 	});
 
-	let walletVersionDialogOpen = $state(false);
+	const walletId = $derived(open && bulkContext ? bulkContext.wallet.id : null);
 
-	const walletVersions = resource(
-		() => (walletVersionDialogOpen && bulkContext ? bulkContext.wallet.id : null),
-		async (walletId) => {
+	const walletVersions = createQuery(() => ({
+		queryKey: ['wallet-versions', walletId] as const,
+		queryFn: async () => {
 			if (!walletId) return null;
-
 			return pb.collection('wallet_versions').getFullList<WalletVersionsResponse>({
 				filter: pb.filter('wallet = {:wallet}', { wallet: walletId }),
 				requestKey: null
 			});
 		},
-		{}
-	);
+		enabled: Boolean(walletId)
+	}));
 
 	function applyVersionAndClose(
 		version: SelectedVersion,
@@ -85,24 +83,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-{#if bulkContext}
-	<DropdownMenu
-		items={[
-			{
-				label: m.Change_wallet_version(),
-				onclick: () => (walletVersionDialogOpen = true),
-				icon: RefreshCcwIcon
-			}
-		]}
-	>
-		{#snippet trigger({ props })}
-			<IconButton {...props} icon={EllipsisIcon} size="xs" variant="ghost" />
-		{/snippet}
-	</DropdownMenu>
-{/if}
-
 <Dialog
-	bind:open={walletVersionDialogOpen}
+	bind:open
 	hideTrigger
 	title={m.Change_wallet_version_modal_title()}
 	description={m.Change_wallet_version_modal_description()}
@@ -122,7 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</WithLabel>
 				</div>
 
-				{#if walletVersions.loading}
+				{#if walletVersions.isPending}
 					<p class="text-sm text-muted-foreground">{m.Loading()}</p>
 				{:else if walletVersions.error}
 					<p class="text-sm text-destructive">{walletVersions.error.message}</p>
@@ -148,7 +130,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</ItemCard>
 
 					<WithEmptyState
-						items={walletVersions.current ?? []}
+						items={walletVersions.data ?? []}
 						emptyText={m.No_wallet_versions_found()}
 						containerClass="[&>div>div]:p-0!"
 					>

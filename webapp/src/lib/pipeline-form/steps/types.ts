@@ -10,7 +10,7 @@ import type {
 	PipelineStepType
 } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
-import type { ExecutionTarget } from '$pipeline-form/execution-target/types.js';
+import type { ExecutionTarget, SelectedVersion } from '$pipeline-form/execution-target/types.js';
 import type { Component } from 'svelte';
 import type { Simplify } from 'type-fest';
 
@@ -25,12 +25,18 @@ export type ExecutionTargetFormContext = {
 	isExecutionTargetLocked: () => boolean;
 };
 
+export type BulkWalletVersionFormContext = {
+	canChangeWalletVersion?: () => boolean;
+	requestChangeWalletVersion?: () => void;
+};
+
 export type InitFormOptions<T> = {
 	intent: FormIntent;
 	initial?: T;
 	/** Opens a different step form, replacing the current one. */
 	openStep?: (type: string) => void;
-} & ExecutionTargetFormContext;
+} & ExecutionTargetFormContext &
+	BulkWalletVersionFormContext;
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
 	use: ID;
@@ -56,6 +62,8 @@ export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {
 	canSave(): boolean;
 	getSubmitData(): Deserialized | undefined;
 	commit(data?: Deserialized): void;
+	/** Sync open form state after a pipeline-wide wallet version change. */
+	applyBulkWalletVersion?(walletId: string, version: SelectedVersion): void;
 }
 
 export interface CardData {
@@ -116,5 +124,13 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 
 	isExecutionTargetLocked() {
 		return this.opts?.isExecutionTargetLocked?.();
+	}
+
+	canChangeWalletVersion() {
+		return this.opts?.canChangeWalletVersion?.() ?? false;
+	}
+
+	requestChangeWalletVersion() {
+		this.opts?.requestChangeWalletVersion?.();
 	}
 }

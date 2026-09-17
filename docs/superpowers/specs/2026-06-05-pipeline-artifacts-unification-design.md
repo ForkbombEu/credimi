@@ -10,7 +10,7 @@
 Unify how pipeline execution artifacts (video, screenshot, log, report) are fetched and displayed across:
 
 1. **Pipeline workflows UI** — `GET /api/pipeline/list-executions` and `GET /api/pipeline/list-executions/{id}`
-2. **Scoreboard UI** — PocketBase `pipeline_scoreboard_cache` with expand `latest_successful_execution`
+2. **Scoreboard UI** — PocketBase `pipeline_scoreboard_cache` `expanded_data.latest_execution` (display snapshot; no relation expand)
 
 Grouping lives only in Go. The webapp uses one shared media preview component (two presentation variants) that composes the existing `PipelineReportSheet` for reports.
 
@@ -206,7 +206,7 @@ Handles **media artifacts only**. Composes existing `PipelineReportSheet` for re
 
 | Consumer | variant | Data source | Change |
 |----------|---------|-------------|--------|
-| `video-screenshot.svelte` | `preview` + `previewClass="size-8!"` | `fromEnrichedRecord(expand.latest_successful_execution)` | Remove client `groupExecutionArtifacts`; gain logs |
+| `video-screenshot.svelte` | `preview` + `previewClass="size-8!"` | `fromEnrichedRecord(expanded_data.latest_execution)` | Remove client `groupExecutionArtifacts`; gain logs |
 | `workflows-table.svelte` | `preview` | `fromApiSummary(workflow)` | Extract inline MediaPreview loop |
 | `workflows-table-small.svelte` | `compact` | `fromApiSummary(workflow)` | Extract inline IconButton loop |
 
@@ -237,7 +237,7 @@ Run: `go test -tags=unit ./pkg/internal/apis/handlers/... ./pkg/internal/pipelin
 
 - [ ] `GET /api/pipeline/list-executions` returns `results[]` + `report` for executions with files
 - [ ] `GET /api/pipeline/list-executions/{id}` returns same shape (unchanged behavior)
-- [ ] Scoreboard expand `latest_successful_execution` includes `artifacts` without client grouping
+- [x] Scoreboard reads latest-execution artifacts from `expanded_data.latest_execution` (no relation expand)
 - [ ] Logs appear in scoreboard (currently missing)
 - [ ] All three surfaces use `ExecutionArtifactsPreview` + `PipelineReportSheet`
 - [ ] Report sheet + print work from all surfaces

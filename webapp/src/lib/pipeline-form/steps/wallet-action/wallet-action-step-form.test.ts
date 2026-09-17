@@ -76,6 +76,42 @@ describe('WalletActionStepForm execution target', () => {
 
 		expect(form.isExecutionTargetLocked()).toBe(false);
 	});
+
+	it('delegates bulk wallet version availability and open requests', () => {
+		const requestChangeWalletVersion = vi.fn();
+		const form = new WalletActionStepForm(
+			createInitFormOptions({
+				intent: 'edit',
+				canChangeWalletVersion: () => true,
+				requestChangeWalletVersion
+			})
+		);
+
+		expect(form.canChangeWalletVersion()).toBe(true);
+		form.requestChangeWalletVersion();
+		expect(requestChangeWalletVersion).toHaveBeenCalledOnce();
+	});
+
+	it('applyBulkWalletVersion updates only the matching wallet', () => {
+		const form = new WalletActionStepForm(
+			createInitFormOptions({
+				intent: 'edit',
+				initial: {
+					wallet: { id: 'w1', name: 'W' } as never,
+					version: EXTERNAL_VERSION,
+					device: GLOBAL_DEVICE,
+					action: { id: 'a1', name: 'Old' } as never
+				}
+			})
+		);
+		const nextVersion = { id: 'v2', tag: '2.0' } as never;
+
+		form.applyBulkWalletVersion('other', nextVersion);
+		expect(form.data.version).toBe(EXTERNAL_VERSION);
+
+		form.applyBulkWalletVersion('w1', nextVersion);
+		expect(form.data.version).toBe(nextVersion);
+	});
 });
 
 describe('WalletActionStepForm edit intent', () => {

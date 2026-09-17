@@ -40,6 +40,7 @@ import {
 
 export type { WalletActionStepData } from './types.js';
 export { isWalletActionStepData } from './types.js';
+export { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 //
 
