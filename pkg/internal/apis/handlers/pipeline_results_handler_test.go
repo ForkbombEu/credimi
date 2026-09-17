@@ -284,7 +284,7 @@ func TestBuildWorkflowExecutionSummaryFailureReason(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistoryLimitZero(t *testing.T) {
-	app, _, pipelineRecord := setupPipelineResultsApp(t)
+	app, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	summaries, err := listPipelineExecutionHistory(
@@ -302,7 +302,7 @@ func TestListPipelineExecutionHistoryLimitZero(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistoryTemporalError(t *testing.T) {
-	app, _, pipelineRecord := setupPipelineResultsApp(t)
+	app, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	mockClient := &temporalmocks.Client{}
@@ -326,7 +326,7 @@ func TestListPipelineExecutionHistoryTemporalError(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistoryReturnsChildQueryError(t *testing.T) {
-	app, _, pipelineRecord := setupPipelineResultsApp(t)
+	app, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 	pipelineIdentifier := pipelineIdentifierForTest(t, app, pipelineRecord)
 
@@ -370,7 +370,7 @@ func TestListPipelineExecutionHistoryReturnsChildQueryError(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistoryFilters(t *testing.T) {
-	app, _, pipelineRecord := setupPipelineResultsApp(t)
+	app, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	orgID := pipelineRecord.GetString("owner")
@@ -458,7 +458,7 @@ func TestListPipelineExecutionHistoryFilters(t *testing.T) {
 }
 
 func TestListPipelineExecutionHistorySortsByParsedStartTime(t *testing.T) {
-	app, _, pipelineRecord := setupPipelineResultsApp(t)
+	app, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	orgID := pipelineRecord.GetString("owner")
@@ -627,7 +627,7 @@ func TestFormatQueuedRunTimePipelineResults(t *testing.T) {
 }
 
 func TestMapQueuedRunsToPipelinesPipelineResults(t *testing.T) {
-	app, _, pipelineRecord := setupPipelineResultsApp(t)
+	app, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 
 	org, err := app.FindRecordById("organizations", pipelineRecord.GetString("owner"))
@@ -693,7 +693,7 @@ func TestPipelineExecutionSummaryBuilderReadsGlobalRunner(t *testing.T) {
 		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	}
 
-	app, _, pipelineRecord := setupPipelineResultsApp(t)
+	app, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
 	pipelineRecord.Set("yaml", `
 name: pipeline123
@@ -984,7 +984,7 @@ func TestGetChildWorkflowsByParentsError(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-func setupPipelineResultsApp(t testing.TB) (*tests.TestApp, *core.Record, *core.Record) {
+func setupPipelineResultsApp(t testing.TB) (*tests.TestApp, *core.Record) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 
@@ -993,12 +993,12 @@ func setupPipelineResultsApp(t testing.TB) (*tests.TestApp, *core.Record, *core.
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+
 	require.NoError(t, err)
 
 	pipelineRecord := createPipelineRecord(t, app, orgID, "pipeline123")
 
-	return app, authRecord, pipelineRecord
+	return app, pipelineRecord
 }
 
 func createPipelineRecord(t testing.TB, app *tests.TestApp, orgID, name string) *core.Record {
