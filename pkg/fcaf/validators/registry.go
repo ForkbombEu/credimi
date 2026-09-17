@@ -117,6 +117,7 @@ func DefaultRegistry() (*Registry, error) {
 		SDJWTClaimCountrySubdivisionValidator{},
 		SDJWTDomesticNamespaceValidator{},
 		SDJWTIssuerX509HeaderValidator{},
+		SDJWTIssuerTrustAnchorExcludedValidator{},
 		SDJWTCNFConformsValidator{},
 		SDJWTKeyBindingMatchesCNFValidator{},
 		SDJWTKBJWTPresentValidator{},

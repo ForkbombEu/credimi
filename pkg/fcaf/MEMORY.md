@@ -1456,3 +1456,35 @@ requirement each case states:
 No new wallet interaction, Maestro action, or evidence source was needed. Do
 not request a namespace the Capture PID mdoc does not carry: that would turn
 these positive selection cases into rejection cases.
+
+## Case IssuerIntegrity 014, trust anchor excluded from x5c
+
+HAIP 6.1.1 requires the presented SD-JWT VC to carry the issuer signing
+certificate and its trust chain in `x5c` while omitting the trust anchor. The
+previous definition asserted a bare `dcql.response_satisfies_constraints` with
+no mode against the issuer-integrity scenario, and no scenario owned it.
+
+The observable form of an excluded anchor is structural, so no trust list is
+needed: `sdjwt.issuer_trust_anchor_excluded` requires that no certificate in
+`x5c` is self-signed and that each certificate is issued and signed by its
+successor, leaving the top-most certificate signed by a key the chain does not
+carry. Self-signing is detected by verifying a certificate against its own key
+rather than through `CheckSignatureFrom`, which also demands the CA basic
+constraint and would miss a self-signed end-entity certificate. Documented
+scope limit: an anchor that a trust list designates below a root cannot be
+distinguished from a regular intermediate by inspecting the presentation.
+
+Case 014 now binds `pipeline.pid.presentation.sdjwt.all-claims`, the PID
+SD-JWT presentation that already feeds case 013, and `engagement-haip-vp` owns
+it. No new wallet interaction was needed.
+
+Issuer prerequisite, recorded 17/09/2026: `writeCertificate` in
+`credimi-capture-wallet` creates the issuer certificate with
+`authorityKey` set to its own public key and `basicConstraints: { ca: false }`,
+and `sdJwtCredentialSignOptions` publishes `x5c: [issuerCertificate]`. That
+single self-signed certificate is simultaneously leaf and trust anchor, so the
+case is `implemented issuer-blocked`. Unblocking needs a root CA that signs the
+issuer certificate and stays out of `x5c`. Note the SUT boundary: `x5c` content
+is chosen by the issuer, and the Wallet only forwards the credential as issued,
+so this case can only discriminate Wallet behaviour once the issued chain
+itself excludes the anchor.

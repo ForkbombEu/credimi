@@ -12308,6 +12308,7 @@ steps:
             - WS_RP_SM_DeviceBinding__012c
             - WS_RP_SM_IssuerIntegrity__012
             - WS_RP_SM_IssuerIntegrity__013
+            - WS_RP_SM_IssuerIntegrity__014
             - WS_RP_SM_RpIntegrity_CryptographicSignature_002
             - WS_RP_SM_RpIntegrity_CryptographicSignature_003
             - WS_RP_SM_RpIntegrity_CryptographicSignature_004

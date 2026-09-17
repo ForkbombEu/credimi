@@ -229,3 +229,4 @@ steps:
             - WS_RP_SM_DeviceBinding__012b
             - WS_RP_SM_DeviceBinding__012c
             - WS_RP_SM_IssuerIntegrity__013
+            - WS_RP_SM_IssuerIntegrity__014
