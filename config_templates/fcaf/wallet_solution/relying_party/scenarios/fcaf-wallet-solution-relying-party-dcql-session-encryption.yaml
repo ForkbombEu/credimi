@@ -55,7 +55,6 @@ steps:
   with:
     test_ids:
       - WS_RP_SM_SessionEncryption__001
-      - WS_RP_SM_SessionEncryption__002
       - WS_RP_SM_SessionEncryption__003
       - WS_RP_SM_SessionEncryption__005
       - WS_RP_SM_SessionEncryption__006

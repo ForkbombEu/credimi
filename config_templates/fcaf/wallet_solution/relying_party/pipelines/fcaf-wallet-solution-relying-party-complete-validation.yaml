@@ -9552,11 +9552,6 @@ steps:
       with:
         body:
             client_id_scheme: x509_hash
-            client_metadata:
-                vp_formats_supported:
-                    mso_mdoc:
-                        alg:
-                            - ES256
             presentation_request:
                 dcql_query:
                     credentials:
@@ -11585,7 +11580,6 @@ steps:
             - WS_RP_SM_SessionEncryption__001c
             - WS_RP_SM_SessionEncryption__001d
             - WS_RP_SM_SessionEncryption__001e
-            - WS_RP_SM_SessionEncryption__002
             - WS_RP_SM_SessionEncryption__003
             - WS_RP_SM_SessionEncryption__005
             - WS_RP_SM_SessionEncryption__006

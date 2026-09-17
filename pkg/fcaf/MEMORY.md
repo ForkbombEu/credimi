@@ -1107,3 +1107,32 @@ publishes one `use: enc` ECDH-ES P-256 JWK; `raw.presentation_response` only
 appears once a Wallet has answered, so engine runs used a wallet-shaped compact
 JWE built against that published JWK. The validators never decrypt, so the
 structural fixture exercises the same code path a live response would.
+
+## Case 002, SessionEncryption verifier JWK without alg
+
+`WS_RP_SM_SessionEncryption__002` requires a `direct_post.jwt` request whose
+`client_metadata` JWK omits `alg`, after which the Wallet must return an error
+instead of a presentation. OID4VP section 8.3 states "The alg parameter MUST be
+present in the JWKs", so the request itself is malformed and `invalid_request`
+is the expected code, matching case `WS_RP_MS_ProtocolMessages__142`.
+
+Beta Capture cannot emit that request. Probed behaviour:
+
+- `client_metadata` is accepted only inside `presentation_request`; at the body
+  top level only `vp_formats_supported` passes, while `{}`, `jwks`, and
+  `encrypted_response_enc_values_supported` all return HTTP 400
+  `invalid_client_metadata`.
+- A nested `client_metadata.jwks` is accepted but ignored: Capture always
+  substitutes its own freshly generated `use: enc` key, which always carries
+  `alg: ECDH-ES`.
+
+The case is therefore excluded from the session-encryption scenario and the
+generator invariant records it. Its definition already holds the real outcome
+assertions, so it can be selected again once a verifier can publish an
+`alg`-less JWK.
+
+Related finding, not fixed here:
+`fcaf-wallet-solution-relying-party-response-encryption-metadata.yaml` sends
+`client_metadata` with `jwks` at the body top level, which now returns HTTP 400,
+and its replacement-JWK purpose is unachievable while Capture overrides supplied
+keys. `WS_RP_MS_ProtocolMessages__130` depends on that scenario.

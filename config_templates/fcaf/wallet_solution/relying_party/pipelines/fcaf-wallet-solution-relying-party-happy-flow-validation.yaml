@@ -2429,7 +2429,6 @@ steps:
             - WS_RP_SM_SessionEncryption__001c
             - WS_RP_SM_SessionEncryption__001d
             - WS_RP_SM_SessionEncryption__001e
-            - WS_RP_SM_SessionEncryption__002
             - WS_RP_SM_SessionEncryption__003
             - WS_RP_SM_SessionEncryption__005
             - WS_RP_SM_SessionEncryption__006
