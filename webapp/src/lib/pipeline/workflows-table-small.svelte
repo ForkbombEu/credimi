@@ -103,7 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<th>{m.Results()}</th>
 						<th>{m.Date()}</th>
 						<th>{m.start()}</th>
-						<th>{m.End_time()}</th>
+						<th>{m.end()}</th>
 						<th>{m.Duration()}</th>
 						<th>{m.Children()}</th>
 						<th>{m.details()}</th>
@@ -220,21 +220,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </TemporalI18nProvider>
 
 {#snippet timeCells(parts: SplitExecutionTimes | undefined)}
-	<td class="font-mono text-muted-foreground">
+	<td class="text-muted-foreground">
 		{#if parts}
 			{parts.date}
 		{:else}
 			{@render na()}
 		{/if}
 	</td>
-	<td class="font-mono text-muted-foreground">
+	<td class="text-muted-foreground">
 		{#if parts}
 			{parts.start}
 		{:else}
 			{@render na()}
 		{/if}
 	</td>
-	<td class="font-mono text-muted-foreground">
+	<td class="text-muted-foreground">
 		{#if parts}
 			{@const endClock = formatEndClock(parts)}
 			{#if endClock}
