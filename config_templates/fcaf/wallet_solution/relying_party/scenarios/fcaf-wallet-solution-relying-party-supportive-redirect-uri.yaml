@@ -25,7 +25,7 @@ steps:
         request_delivery: by_reference
         response_type: vp_token
         response_mode: direct_post
-        redirect_uri: https://verifier.eudiw.dev/
+        redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
         presentation_request:
           nonce: fcaf-supportive-redirect-uri
           dcql_query:
@@ -52,7 +52,7 @@ steps:
         appId: eu.europa.ec.euidi
         ---
         - stopApp
-                - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
         - waitForAnimationToEnd:
             timeout: 5000
         - tapOn:
@@ -86,9 +86,9 @@ steps:
             timeout: 30000
         - tapOn: "Close"
         - extendedWaitUntil:
-            visible: "Define your presentation request"
+            visible: "Presentation complete"
             timeout: 30000
-        - assertVisible: "Define your presentation request"
+        - assertVisible: "Presentation complete"
         - takeScreenshot: fcaf-supportive-redirect-uri-opened
 
   - id: get-presentation-result
@@ -109,6 +109,7 @@ steps:
           output:
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
             wallet_response: ${{ get-presentation-result.outputs.body }}
+            capture_session: ${{ get-presentation-result.outputs.body }}
             visual_evidence: ${{ submit-and-follow-redirect.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}
             submit-and-follow-redirect: ${{ submit-and-follow-redirect.outputs }}

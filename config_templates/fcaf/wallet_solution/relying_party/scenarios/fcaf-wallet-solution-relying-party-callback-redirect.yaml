@@ -19,7 +19,7 @@ steps:
         scheme: haip-vp://
         response_type: vp_token
         response_mode: direct_post.jwt
-        redirect_uri: https://verifier.eudiw.dev/
+        redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
         presentation_request:
           nonce: fcaf-callback-redirect
           dcql_query: {credentials: [{id: pid, format: dc+sd-jwt, meta: {vct_values: ['urn:eudi:pid:1']}, claims: [{path: [given_name]}]}]}
@@ -43,4 +43,5 @@ steps:
             callback_evidence:
               verifier_http: "${{ fetch-callback-session.outputs.body.raw.presentation_response_verifier_http }}"
               configured_redirect_uri: "${{ create-callback-session.outputs.body.redirect_uri }}"
+            capture_session: "${{ fetch-callback-session.outputs.body }}"
             visual_evidence: "${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}"

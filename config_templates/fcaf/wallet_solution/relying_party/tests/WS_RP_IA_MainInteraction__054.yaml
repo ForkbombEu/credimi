@@ -20,7 +20,7 @@ evidence:
   visual_evidence:
     from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: direct_post_jwt_response_is_posted_to_response_uri
+- id: authorization_response_is_delivered_by_post
   validator: oid4vp.presentation_response_http
   input: evidence.capture_session
   params:

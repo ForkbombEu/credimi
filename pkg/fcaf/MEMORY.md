@@ -361,24 +361,25 @@ deliver the required request and capture the Wallet's actual protocol result:
 - 129-132: the public result API returns only the decrypted Wallet response and
   does not expose the compact JWE. Therefore `kid`, explicit/default `enc`, and
   the original JWT payload structure cannot be asserted.
-- 133-134: proving the HTTP method, content type, and exact form body requires
-  capture at the Wallet-facing `response_uri`, which the public result API does
-  not expose.
+- 133-134: SUPERSEDED. `raw.presentation_response_http` now exposes the
+  Wallet-facing method, headers, and exact body, and both cases are implemented
+  on that evidence (see "Case 134" and "Response-transport assertion scope").
 - 135: the source does not define a transaction-data type/fixture the Wallet is
   expected to support. Wallet core 0.28.1 explicitly rejects every non-empty
   `transaction_data`, so inventing a type would test case 136 instead.
 - 136: the verifier must issue unsupported `transaction_data` and capture the
   Wallet error without opening credential selection.
-- 137-140: the verifier must send unknown, malformed, or empty scopes and
-  capture the exact `invalid_scope` response; case 140 must additionally prove
-  session termination.
+- 137-140: SUPERSEDED. `presentation_request.scope` reaches the signed request
+  and `observed.wallet_response.value.error` captures the Wallet error code, so
+  all four are implemented (see "Cases 137, 138, 139, 140, 142, 150").
 - 141-145: conflicting query/scope, missing query instructions, unsupported or
   insecure client identifiers, and conflicting stored client metadata all need
   custom signed requests plus exact Wallet error capture.
 - 146: the trusted-registry and locally stored verifier metadata state needed
   to trigger `invalid_client` requires a stateful mock verifier/registry.
-- 150: the public verifier rejects `format: vc+sd-jwt` during request creation
-  with HTTP 400 `UnsupportedFormat`, before a signed request reaches the Wallet.
+- 150: SUPERSEDED. Re-probed live on 16/09/2026: Capture accepts and preserves
+  `format: vc+sd-jwt` in the signed request, so 150 is implemented and awaits a
+  reference-Wallet run, not a mock verifier.
 - 153-159: all require signed requests containing unsupported or malformed
   `transaction_data` and exact Wallet error capture. Cases 154-157 also require
   a supported transaction-data schema that the suite does not define.
@@ -448,10 +449,12 @@ tracked in `TEST-AUTHOR-FEEDBACK.md` Issue 21.
 
 ## Cases 150 and 151
 
-150 is mock-verifier blocked. A live public-verifier probe on 15/07/2026
-rejected `format: vc+sd-jwt` during presentation creation with HTTP 400 and
-`{"error":"UnsupportedFormat"}`; the Wallet cannot produce the required
-`vp_formats_not_supported` response without receiving a signed request.
+150 is implemented, not mock-verifier blocked. The 15/07/2026 probe that
+rejected `format: vc+sd-jwt` with HTTP 400 `{"error":"UnsupportedFormat"}`
+described an older verifier. A 16/09/2026 beta probe accepted the format and
+preserved it in the signed Request Object, so the Wallet does receive the
+request; whether it answers `vp_formats_not_supported` for the pre-final
+`vc+sd-jwt` alias is a live reference-Wallet question.
 
 151 is not executable against the reference Wallet because its prerequisite
 requires a Wallet that supports `vc+sd-jwt` but does not support `mso_mdoc`.
@@ -908,25 +911,73 @@ Capture appends its own fresh `response_code` to the configured redirect URI, so
 the validator compares scheme, host, and path only. Direct probes confirmed the
 verifier-callback record shape, the `no-store` JSON error response, and the
 session-creation `redirect_uri` echo; the successful callback body itself still
-requires a live reference-Wallet run, as does confirmation that the exercised
-flow's screenshots actually capture the Wallet following the redirect.
+requires a live reference-Wallet run.
 
-`WS_RP_IA_MainInteraction__061` and `067` now share that scenario and expose
-the same callback evidence: 061 requires the JSON redirect response the Wallet
-must open unchanged, and 067 requires the callback to supply the configured
-redirect URI that the Wallet follows.
+`WS_RP_IA_MainInteraction__061` and `067` share that scenario: 061 requires the
+JSON redirect response the Wallet must open unchanged, and 067 requires the
+callback to supply the configured redirect URI that the Wallet follows.
 
-Two deliberate limits, both verified against the service rather than assumed:
+## Redirect-visit capture rework, 16/09/2026
 
-- Capture records no evidence of the Wallet's navigation. `GET
-  /openid4vp/redirect` returns 404, and opening a session's configured redirect
-  creates no session event or raw record. The Wallet-side half of 061 ("does not
-  append the Authorization Response to the redirect_uri") and of 067 ("triggers
-  the user agent to navigate") therefore rests on the Wallet-flow screenshots
-  and needs a live run to confirm the flow captures the browser state.
-- 061 does not assert `Cache-Control: no-store`. The service always sends it on
-  this response, so the check cannot fail against the fixture and would only pad
-  the assertion set; the suite certifies the Wallet, not the verifier's caching.
+The earlier limit recorded here - "Capture records no evidence of the Wallet's
+navigation: `GET /openid4vp/redirect` returns 404, and opening a session's
+configured redirect creates no session event or raw record" - is SUPERSEDED. It
+was true only because those scenarios configured `redirect_uri:
+https://verifier.eudiw.dev/`, an external URL, and because a bare
+`/openid4vp/redirect` without a valid `response_code` still 404s.
+
+Beta hosts a redirect capture page at
+`https://beta-capture-wallet.credimi.io/openid4vp/redirect`. Probed live with
+both that concrete URL and the upstream `{{base_url}}/openid4vp/redirect`
+template: session creation returns the URI with a fresh `response_code`, and a
+`GET` of that exact URI returns the
+`Presentation complete` page and records `redirect_uri_visited_at`,
+`redirect_uri_visit_count`, a `vp_redirect_uri_visited` event, and a
+`raw.redirect_uri_visits` envelope. An unknown, empty, or missing
+`response_code` returns 404 and records nothing, so a recorded visit identifies
+the exact URI that was opened. Guardrails and the full probe are in
+`CAPTURE_WALLET_API.md`.
+
+Consequently:
+
+- `scenarios/fcaf-wallet-solution-relying-party-callback-redirect.yaml` and
+  `scenarios/fcaf-wallet-solution-relying-party-supportive-redirect-uri.yaml`
+  now configure the concrete beta redirect page through
+  `${fixture.verifier_url}/openid4vp/redirect` and expose `capture_session`.
+  Scenarios must not use the `{{base_url}}` template: the generated pipeline has
+  to show the real target rather than rely on deployment-side resolution. The
+  supportive Maestro flow waits for `Presentation complete` instead of the
+  `verifier.eudiw.dev` landing page, and its `openLink` indentation, which made
+  the flow unparseable, is fixed.
+- New validator `oid4vp.redirect_uri_visited` requires the visit counter, the
+  timestamp, the retained envelope, and the capture event to agree, with
+  `min_visits` and `after_presentation_response` for ordering against
+  `vp_presentation_response_received`. Verified against two live sessions: a
+  response-then-visit session passes the ordering check, a visit-only session
+  fails it and passes without it.
+- `057`, `061`, `067` each gained that assertion, so the navigation half no
+  longer rests on `evidence.non_empty` screenshots. `061` additionally requires
+  `require_response_code` on the callback body.
+- `WS_RP_IA_Supportive__001` asserted only that a `vp_token` was posted, while
+  its subject is following the redirect. It now asserts the visit too.
+- `WS_RP_IA_MainInteraction__054`'s assertion id claimed the response URI was
+  proven; capture records no request target, so it is now
+  `authorization_response_is_delivered_by_post`.
+
+Remaining honest limits:
+
+- `raw.redirect_uri_visits` records method and redacted headers only, with no
+  request target or query, so the "does not append the Authorization Response to
+  the redirect_uri" half of 061 still rests on screenshots.
+- The callback body's `response_code` is required to be present, not equal to
+  the session-creation value: OID4VP 8.2 lets the Verifier generate the code
+  when it receives the response, and no live Wallet submission has been observed
+  to settle whether Capture reuses the creation-time code.
+- Any client can create a visit. No pipeline step may fetch a session's
+  configured redirect URI, or the evidence is fabricated.
+- 061 still does not assert `Cache-Control: no-store`. The service always sends
+  it, so the check cannot fail and would only pad the assertion set; the suite
+  certifies the Wallet, not the verifier's caching.
 
 ## Cases 137, 138, 139, 140, 142, 150
 

@@ -17,6 +17,8 @@ normative_references:
 evidence:
   callback_evidence:
     from: pipeline.callback.redirect.outputs.callback_evidence
+  capture_session:
+    from: pipeline.callback.redirect.outputs.capture_session
   visual_evidence:
     from: pipeline.callback.redirect.outputs.visual_evidence
 assertions:
@@ -27,6 +29,11 @@ assertions:
     status: 200
     media_type: application/json
     match_configured_redirect_uri: true
+- id: wallet_navigates_to_the_supplied_redirect_uri
+  validator: oid4vp.redirect_uri_visited
+  input: evidence.capture_session
+  params:
+    after_presentation_response: true
 - id: wallet_navigates_to_redirect_uri_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

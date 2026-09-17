@@ -162,15 +162,36 @@ When a session sets `redirect_uri`, the service appends a fresh 128-bit
 `response_code` and returns the resulting URI in the creation response. After a
 successful Wallet submission the response endpoint returns `200`,
 `Cache-Control: no-store`, and `{ "redirect_uri": "..." }`, which the Wallet must
-open; an invalid presentation still returns the normal `400` error. The exact
-template `{{base_url}}/openid4vp/redirect`, or the equivalent concrete service
-URI, selects the service-hosted capture page. It displays the received
-`response_code` for valid and invalid visits. A visit carrying the generated
+open; an invalid presentation still returns the normal `400` error. The concrete
+service URI `https://beta-capture-wallet.credimi.io/openid4vp/redirect` selects
+the service-hosted capture page. The upstream `{{base_url}}/openid4vp/redirect`
+template resolves to the same page, but Credimi scenarios MUST configure the
+concrete beta verifier URL, through the scenario's `fixture.verifier_url` where
+one exists, so the target is visible in the generated pipeline instead of
+depending on deployment-side resolution. A visit carrying the generated
 `response_code` returns a `200` confirmation page and records
 `redirect_uri_visited_at`, `redirect_uri_visit_count`, a
-`vp_redirect_uri_visited` event, and redacted request headers in
-`raw.redirect_uri_visits`. Those members are the published proof that the Wallet
-followed the redirect; a screenshot of the page is not equivalent.
+`vp_redirect_uri_visited` event whose `detail.visit_count` counts the visit, and
+redacted request headers in `raw.redirect_uri_visits`. Those members are the
+only protocol-level proof that the Wallet's user agent opened the
+verifier-supplied redirect; a screenshot of the page is not equivalent.
+
+Observed on 16/09/2026 against beta: session creation returns
+`…/openid4vp/redirect?response_code=<128-bit>` for both the concrete URL and
+the `{{base_url}}` template; a `GET` with that code returns
+`200 text/html`, `Cache-Control: no-store`, and the `Presentation complete`
+page. Contrary to the upstream document, a missing, empty, or unknown
+`response_code` returns `404` with the `Redirect page not found` page and
+records nothing, so a recorded visit proves the exact generated URI was opened.
+Each `GET` increments `redirect_uri_visit_count`, appends a
+`raw.redirect_uri_visits` entry, and adds another `vp_redirect_uri_visited`
+event, so assert `>= 1` or an exact count deliberately. `raw.redirect_uri_visits`
+entries carry only `method` and redacted headers: no request target or query is
+captured, so the capture cannot prove that the Wallet refrained from appending
+Authorization Response parameters to the redirect URI. A visit is also recorded
+for a session that never received a presentation, and any client can create one:
+never fetch a session's configured redirect URI from a pipeline step, or the
+evidence is fabricated.
 
 Observed on 03/09/2026: a DCQL credential that omits `meta` is accepted at
 session creation and preserved without `meta` in the signed Request Object.
@@ -257,5 +278,5 @@ test may depend on the UI being reachable.
 - Persist the created `session_id` only as a pipeline output needed to fetch protocol evidence. Do not put live session URLs or tokens in fixtures.
 - For verifier tests, bind validators to the exact scenario output containing the capture session/request/response. A different scenario's successful response is not fallback evidence.
 - For issuer tests, use the session, events, and observed wallet JWKS to prove the relevant issuance exchange; inspect their actual shape first.
-- When a test must prove that the Wallet opened the post-presentation redirect, set `redirect_uri` to `{{base_url}}/openid4vp/redirect` and bind the validator to `redirect_uri_visit_count`, `redirect_uri_visited_at`, the `vp_redirect_uri_visited` event, or `raw.redirect_uri_visits`. The capture page renders for invalid visits too, so a screenshot of it proves nothing.
+- When a test must prove that the Wallet opened the post-presentation redirect, set `redirect_uri` to `https://beta-capture-wallet.credimi.io/openid4vp/redirect` and bind the validator to `redirect_uri_visit_count`, `redirect_uri_visited_at`, the `vp_redirect_uri_visited` event, or `raw.redirect_uri_visits`. The capture page renders for invalid visits too, so a screenshot of it proves nothing.
 - Record a dated probe and update this document when a previously unknown capability becomes a test prerequisite.

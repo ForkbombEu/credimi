@@ -145,6 +145,34 @@ func TestOID4VPResponseEndpointCallbackValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name:   "redirect uri carries a response_code",
+			value:  testCallbackEvidence(200, "application/json", "no-store", redirectBody),
+			params: map[string]any{"require_response_code": true},
+			status: StatusPass,
+		},
+		{
+			name: "redirect uri without a response_code",
+			value: testCallbackEvidence(
+				200,
+				"application/json",
+				"no-store",
+				`{"redirect_uri":"https://verifier.eudiw.dev/"}`,
+			),
+			params: map[string]any{"require_response_code": true},
+			status: StatusFail,
+		},
+		{
+			name: "redirect uri with an empty response_code",
+			value: testCallbackEvidence(
+				200,
+				"application/json",
+				"no-store",
+				`{"redirect_uri":"https://verifier.eudiw.dev/?response_code="}`,
+			),
+			params: map[string]any{"require_response_code": true},
+			status: StatusFail,
+		},
+		{
 			name: "configured redirect uri missing",
 			value: map[string]any{
 				"verifier_http": map[string]any{"status": 200, "headers": map[string]any{}, "body": redirectBody},
@@ -188,7 +216,10 @@ func TestOID4VPResponseEndpointCallbackValidator(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got := validator.Validate(context.Background(), Input{Value: tt.value, Params: tt.params})
+			got := validator.Validate(
+				context.Background(),
+				Input{Value: tt.value, Params: tt.params},
+			)
 			require.Equal(t, tt.status, got.Status, got.Message)
 		})
 	}

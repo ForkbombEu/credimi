@@ -31,7 +31,7 @@ steps:
                             vct_values:
                                 - urn:eudi:pid:1
                 nonce: fcaf-callback-redirect
-            redirect_uri: https://verifier.eudiw.dev/
+            redirect_uri: https://beta-capture-wallet.credimi.io/openid4vp/redirect
             response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
@@ -13159,7 +13159,7 @@ steps:
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
                 nonce: fcaf-supportive-redirect-uri
-            redirect_uri: https://verifier.eudiw.dev/
+            redirect_uri: https://beta-capture-wallet.credimi.io/openid4vp/redirect
             request_delivery: by_reference
             request_uri_method: post
             response_mode: direct_post
@@ -13178,7 +13178,7 @@ steps:
             appId: eu.europa.ec.euidi
             ---
             - stopApp
-                    - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+            - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
             - waitForAnimationToEnd:
                 timeout: 5000
             - tapOn:
@@ -13212,9 +13212,9 @@ steps:
                 timeout: 30000
             - tapOn: "Close"
             - extendedWaitUntil:
-                visible: "Define your presentation request"
+                visible: "Presentation complete"
                 timeout: 30000
-            - assertVisible: "Define your presentation request"
+            - assertVisible: "Presentation complete"
             - takeScreenshot: fcaf-supportive-redirect-uri-opened
         parameters:
             DEEPLINK: ${{ supportive-redirect-uri-9f399357-create-presentation.outputs.body.deeplink }}
@@ -13644,6 +13644,7 @@ steps:
                     callback_evidence:
                         configured_redirect_uri: ${{ callback-redirect-298d09a0-create-callback-session.outputs.body.redirect_uri | optional }}
                         verifier_http: ${{ callback-redirect-298d09a0-fetch-callback-session.outputs.body.raw.presentation_response_verifier_http | optional }}
+                    capture_session: ${{ callback-redirect-298d09a0-fetch-callback-session.outputs.body | optional }}
                     visual_evidence: ${{ callback-redirect-298d09a0-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.credential-formats.mdoc-presentation:
                 output:
@@ -14636,6 +14637,7 @@ steps:
                     wallet_response: ${{ session-binding-valid-nonce-aa3a1f9c-get-presentation-result.outputs.body | optional }}
             pipeline.wallet.supportive.redirect-uri:
                 output:
+                    capture_session: ${{ supportive-redirect-uri-9f399357-get-presentation-result.outputs.body | optional }}
                     create-presentation: ${{ supportive-redirect-uri-9f399357-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ supportive-redirect-uri-9f399357-get-presentation-result.outputs.body | optional }}
                     get-presentation-result: ${{ supportive-redirect-uri-9f399357-get-presentation-result.outputs | optional }}
