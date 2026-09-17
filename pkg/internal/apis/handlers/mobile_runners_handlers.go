@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -775,6 +776,12 @@ func HandleListMobileRunnerURLs() func(*core.RequestEvent) error {
 		}
 
 		for _, record := range records {
+			// Same rule as the worker-manager start paths: this endpoint only
+			// feeds the worker-manager workflow fallback, so disabled and
+			// offline runners must not be handed out for worker starts.
+			if !mobilerunnerlifecycle.EligibleForWorkerStart(record) {
+				continue
+			}
 			response.Runners = append(response.Runners, mobileRunnerURL(record))
 		}
 

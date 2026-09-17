@@ -355,6 +355,35 @@ Temporal runner worker contract:
 - `mobile-automation` is denylisted from the pipeline worker in `pkg/workflowengine/registry/registry.go`.
 - Runner workers must register activities in `pkg/workflowengine/activities/mobileflow.go`.
 
+Worker-manager start eligibility:
+
+- A runner receives worker-manager starts only when it is not `disabled` and is
+  `online`. The rule lives in `mobilerunnerlifecycle.EligibleForWorkerStart`
+  (`pkg/internal/mobilerunnerlifecycle/worker_start.go`) and is applied by
+  `pkg/workflowengine/hooks/worker_manager_runners.go` (server startup and
+  organization create/update) and by `GET /api/mobile-runner/list-urls`, which
+  only feeds the worker-manager workflow fallback.
+- `RegisterMobileRunnerWorkerManagerHooks`
+  (`pkg/internal/pb/mobile_runner_worker_manager.go`) starts workers when a
+  runner update makes the runner startable, and only then; runners that were
+  already startable are not restarted on unrelated field writes.
+    - Non-admin runners are startable when `published`, not `disabled` and
+      `online`, and are dispatched to published organization namespaces.
+    - `admin_managed` runners ignore runner publication; they are startable
+      when not `disabled` and `online`, and are dispatched to `default` plus
+      every organization namespace, mirroring the startup hook and the runner's
+      own `fetchAdminNamespaces` behavior.
+- Redundant starts are safe: `POST {runner_url}/worker/{namespace}` is keyed by
+  namespace in the runner process store and answers `202 "already running"`,
+  so a server-side start that races the runner's own boot cannot create a
+  second worker.
+- Skipping offline runners is safe because a runner starts its own workers for
+  every visible namespace when it boots (`StartExistingWorkers` in
+  `credimi-runner`), and the lifecycle heartbeat flips `online` back to true,
+  which re-triggers the hook. PocketBase defers `OnRecordAfterUpdateSuccess`
+  until the heartbeat transaction commits, so the transactional write still
+  fires the start.
+
 ## Routes, DTOs, Auth, Errors
 
 Route wiring:

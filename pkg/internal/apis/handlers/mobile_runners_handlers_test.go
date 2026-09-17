@@ -820,7 +820,7 @@ func TestListMobileRunnerURLs(t *testing.T) {
 			TestAppFactory: setupMobileRunnerApp,
 		},
 		{
-			Name:           "multiple runners",
+			Name:           "only enabled online runners",
 			Method:         http.MethodGet,
 			URL:            "/api/mobile-runner/list-urls",
 			ExpectedStatus: 200,
@@ -829,31 +829,34 @@ func TestListMobileRunnerURLs(t *testing.T) {
 				`http://192.168.1.10`,
 				`https://192.168.1.11:9000`,
 			},
+			NotExpectedContent: []string{
+				`192.168.1.12`,
+				`192.168.1.13`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupMobileRunnerApp(t)
+				ensureMobileRunnerAccessFields(t, app)
 
 				coll, err := app.FindCollectionByNameOrId("mobile_runners")
 				require.NoError(t, err)
 
-				// Runner 1
-				r1 := core.NewRecord(coll)
-				r1.Set("owner", orgID)
-				r1.Set("serial", "SERIAL1")
-				r1.Set("ip", "http://192.168.1.10")
-				r1.Set("type", "android_emulator")
-				r1.Set("name", "runner-1")
+				newRunner := func(name, ip, port string, disabled, online bool) {
+					record := core.NewRecord(coll)
+					record.Set("owner", orgID)
+					record.Set("name", name)
+					record.Set("serial", strings.ToUpper(name))
+					record.Set("ip", ip)
+					record.Set("port", port)
+					record.Set("type", "android_emulator")
+					record.Set("disabled", disabled)
+					record.Set("online", online)
+					require.NoError(t, app.Save(record))
+				}
 
-				// Runner 2
-				r2 := core.NewRecord(coll)
-				r2.Set("owner", orgID)
-				r2.Set("serial", "SERIAL2")
-				r2.Set("ip", "https://192.168.1.11")
-				r2.Set("type", "android_phone")
-				r2.Set("port", "9000")
-				r2.Set("name", "runner-2")
-
-				require.NoError(t, app.Save(r1))
-				require.NoError(t, app.Save(r2))
+				newRunner("runner-1", "http://192.168.1.10", "", false, true)
+				newRunner("runner-2", "https://192.168.1.11", "9000", false, true)
+				newRunner("runner-disabled", "http://192.168.1.12", "", true, true)
+				newRunner("runner-offline", "http://192.168.1.13", "", false, false)
 
 				return app
 			},
