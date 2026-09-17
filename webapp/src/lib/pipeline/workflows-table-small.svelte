@@ -142,11 +142,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{@render na()}
 								{/if}
 							</td>
-							<td>
+							<td class="max-w-24">
 								{#if count > 0}
 									<button
 										type="button"
-										class="text-primary hover:underline"
+										class="block max-w-full truncate text-left text-primary hover:underline"
 										aria-expanded={isExpanded}
 										onclick={() => toggleChildren(workflow.execution.runId)}
 									>
@@ -165,6 +165,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											workflow_id: workflow.execution.workflowId,
 											run_id: workflow.execution.runId
 										})}
+										class="whitespace-nowrap"
 									>
 										{m.View()}
 										<ArrowRightIcon
@@ -213,13 +214,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				/>
 			</td>
 			<td colspan="2">
-				<div class="flex min-w-0 flex-col gap-0.5">
-					<span class="truncate font-medium">
-						{child.type.name}
-					</span>
-					<span class="truncate text-muted-foreground">
-						{child.displayName}
-					</span>
+				<div class="flex min-w-0 items-baseline gap-1.5">
+					<span class="shrink-0 font-normal">{child.type.name}</span>
+					<span class="min-w-0 truncate text-muted-foreground">{child.displayName}</span>
 				</div>
 			</td>
 			<td class="text-muted-foreground">
@@ -243,11 +240,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@render na()}
 				{/if}
 			</td>
-			<td>
+			<td class="max-w-24">
 				{#if nestedCount > 0}
 					<button
 						type="button"
-						class="text-primary hover:underline"
+						class="block max-w-full truncate text-left text-primary hover:underline"
 						aria-expanded={nestedExpanded}
 						onclick={() => toggleChildren(child.execution.runId)}
 					>
@@ -263,6 +260,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						workflow_id: child.execution.workflowId,
 						run_id: child.execution.runId
 					})}
+					class="whitespace-nowrap"
 				>
 					{m.View()}
 					<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
