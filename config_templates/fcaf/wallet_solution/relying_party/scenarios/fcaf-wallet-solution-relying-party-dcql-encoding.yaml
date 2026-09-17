@@ -65,7 +65,6 @@ steps:
     - WS_RP_SH_Encoding_TextualEncoding_010
     - WS_RP_SH_Encoding_TextualEncoding_012
     - WS_RP_SH_Encoding_TextualEncoding_013
-    - WS_RP_SH_Encoding_TextualEncoding_022
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.encoding:

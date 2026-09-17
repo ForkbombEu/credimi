@@ -1171,3 +1171,20 @@ kid match is a real cross-check rather than a tautology. Engine runs confirmed
 the definition passes on a metadata-keyed response, that a foreign `kid` fails
 only the client-metadata assertion, and that a session without a decrypted
 `vp_token` fails only the decryption assertion.
+
+## Case 022, TextualEncoding direct-post body UTF-8
+
+`WS_RP_SH_Encoding_TextualEncoding_022` requires a `direct_post.jwt` POST whose
+body names and values are UTF-8, so it moved from the `direct_post` encoding
+scenario to `pipeline.direct-post-jwt.response-transport`, the only source with
+both the required response mode and `raw.presentation_response_http`. The old
+`sdjwt.claim_utf8_string` assertion tested credential claims, not the POST body
+the source asks about.
+
+`form_utf8` is a real discriminator even though a `direct_post.jwt` body is
+base64url ASCII: `oid4vp.presentation_response_http` percent-decodes the form
+first, so a Latin-1 escape such as `state=Ana%20Mar%EDa` fails while the UTF-8
+form `%C3%AD` passes. Engine runs confirmed both, plus a JSON body failing the
+form media type. The source precondition asks for a non-ASCII credential, but
+with an encrypted response the credential bytes never reach the body, so the
+observable requirement is the form encoding itself.

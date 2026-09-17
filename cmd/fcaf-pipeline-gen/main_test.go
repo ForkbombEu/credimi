@@ -142,7 +142,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 		"WS_RP_IA_MainInteraction__015",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
-	require.Len(t, stringSlice(with["test_ids"]), 389)
+	require.Len(t, stringSlice(with["test_ids"]), 390)
 	require.NotContains(
 		t,
 		stringSlice(with["test_ids"]),
