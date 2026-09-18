@@ -1,0 +1,66 @@
+name: 'FCAF TextualEncoding 019: non-string mdoc claim-path component'
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_device_id: ''
+steps:
+- id: onboard-reference-wallet
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+    version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+- id: create-pid-mdoc-offer
+  use: credential-offer
+  with:
+    credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
+- id: obtain-pid-mdoc
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    parameters:
+      deeplink: ${{ create-pid-mdoc-offer.outputs }}
+- id: create-capture-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: openid4vp://
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-textual-encoding-019
+        dcql_query:
+          credentials:
+          - id: pid_mdoc
+            format: mso_mdoc
+            meta: { doctype_value: eu.europa.ec.eudi.pid.1 }
+            claims:
+            - path: [eu.europa.ec.eudi.pid.1, 123]
+- id: exercise-wallet
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+- id: fetch-capture-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_SH_Encoding_TextualEncoding_019]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.mdoc.claim-path-non-string:
+        output:
+          dcql_exchange: ${{ fetch-capture-session.outputs.body }}

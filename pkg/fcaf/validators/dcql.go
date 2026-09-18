@@ -78,6 +78,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_format_presentation",
 		"mdoc_claim_path_presentation",
 		"mdoc_claim_path_no_match",
+		"mdoc_claim_path_error",
 		"vp_token_signed_presentation",
 		"vp_token_json_object",
 		"vp_token_query_ids",
@@ -109,7 +110,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credential_format_presentation, mdoc_claim_path_presentation, mdoc_claim_path_no_match, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, claim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
+			Message: "mode must be credential_sets, credential_format_presentation, mdoc_claim_path_presentation, mdoc_claim_path_no_match, mdoc_claim_path_error, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, claim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
 		}
 	}
 
@@ -237,6 +238,13 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateMDocClaimPathPresentation(query, responseValue, params.ExpectedClaimPath)
 	case "mdoc_claim_path_no_match":
 		return validateMDocClaimPathNoMatch(query, params.ExpectedClaimPath)
+	case "mdoc_claim_path_error":
+		return validateMDocClaimPathError(
+			query,
+			responseValue,
+			errorValue,
+			params.ExpectedClaimPath,
+		)
 	case "vp_token_signed_presentation":
 		return validateVPTokenSignedPresentation(root, query, responseValue)
 	case "vp_token_json_object":
@@ -1272,6 +1280,46 @@ func validateMDocClaimPathNoMatch(query map[string]any, expectedPath []any) Resu
 		Status:  StatusFail,
 		Message: "mdoc credential query does not contain the expected absent namespace path",
 	}
+}
+
+func validateMDocClaimPathError(
+	query map[string]any,
+	responseValue, errorValue any,
+	expectedPath []any,
+) Result {
+	if len(expectedPath) == 0 {
+		return Result{Status: StatusError, Message: "expected_claim_path must not be empty"}
+	}
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain exactly one credential query",
+		}
+	}
+	credential, ok := normalizeJSONObject(credentials[0])
+	if !ok || credential["format"] != "mso_mdoc" {
+		return Result{Status: StatusFail, Message: "credential query format must be mso_mdoc"}
+	}
+	claims, ok := credential["claims"].([]any)
+	if !ok || len(claims) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "mdoc credential query must contain exactly one claim",
+		}
+	}
+	claim, ok := normalizeJSONObject(claims[0])
+	if !ok {
+		return Result{Status: StatusFail, Message: "mdoc claim is not an object"}
+	}
+	path, ok := claim["path"].([]any)
+	if !ok || !reflect.DeepEqual(path, expectedPath) {
+		return Result{
+			Status:  StatusFail,
+			Message: "mdoc credential query does not contain the expected error path",
+		}
+	}
+	return validateWalletErrorRequired(responseValue, errorValue)
 }
 
 func validateVPTokenSignedPresentation(

@@ -1,8 +1,7 @@
 name: FCAF Session Encryption
 runtime:
   fixture:
-    issuer_url: https://capture-wallet.credimi.io
-    verifier_url: https://capture-wallet.credimi.io
+    issuer_url: https://beta-capture-wallet.credimi.io
     log_checker: capture-wallet
   global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
@@ -16,16 +15,16 @@ steps:
   use: http-request
   with:
     method: POST
-    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    url: ${fixture.verifier_url}/openid4vp/sessions
     expected_status: 201
     headers:
       Content-Type: application/json
     body:
-      scheme: haip-vp://
+      scheme: openid4vp://
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: session-encryption
         dcql_query:
@@ -49,26 +48,26 @@ steps:
   use: http-request
   with:
     method: GET
-    url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
     test_ids:
       - WS_RP_SM_SessionEncryption__001
-      - WS_RP_SM_SessionEncryption__002
-      - WS_RP_SM_SessionEncryption__003
       - WS_RP_SM_SessionEncryption__005
-      - WS_RP_SM_SessionEncryption__006
-      - WS_RP_SM_SessionEncryption__007
-      - WS_RP_SM_SessionEncryption__008
-      - WS_RP_SM_SessionEncryption__009
-      - WS_RP_SM_SessionEncryption__010
-      - WS_RP_SM_SessionEncryption__011
-      - WS_RP_SM_SessionEncryption__012
+      - WS_RP_SM_SessionEncryption__001a
+      - WS_RP_SM_SessionEncryption__001b
+      - WS_RP_SM_SessionEncryption__001c
+      - WS_RP_SM_SessionEncryption__001d
+      - WS_RP_SM_SessionEncryption__001e
+      - WS_RP_SM_SessionEncryption__001f
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.session-encryption:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          encrypted_response: ${{ fetch-capture-session.outputs.body.observed.wallet_response.value.response }}
+          decrypted_response: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted }}
+          session_checks: ${{ fetch-capture-session.outputs.body.checks }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

@@ -25,8 +25,41 @@ type MDocPresentation struct {
 type MDocDocument struct {
 	DocType         string                            `json:"doc_type"`
 	DigestAlgorithm string                            `json:"digest_algorithm,omitempty"`
+	MSOStatus       *MDocCBORValue                    `json:"mso_status,omitempty"`
 	Namespaces      map[string]map[string]MDocElement `json:"namespaces"`
 	Errors          map[string]map[string]int64       `json:"errors,omitempty"`
+}
+
+// MDocCBORValue is a decoded CBOR value that keeps its wire shape: the major
+// type, an optional tag, and, for text-keyed maps, the same information for
+// every member. Status assertions are about the encoding, not only the value.
+type MDocCBORValue struct {
+	Value            any                      `json:"value"`
+	MajorType        uint8                    `json:"major_type"`
+	ContentMajorType uint8                    `json:"content_major_type"`
+	Tag              *uint64                  `json:"tag,omitempty"`
+	Raw              []byte                   `json:"raw"`
+	Members          map[string]MDocCBORValue `json:"members,omitempty"`
+}
+
+// Member resolves a path of text map keys, so a validator can address
+// `status_list` and `idx` without re-implementing CBOR traversal.
+func (v *MDocCBORValue) Member(path ...string) (*MDocCBORValue, bool) {
+	current := v
+	for _, key := range path {
+		if current == nil {
+			return nil, false
+		}
+		member, exists := current.Members[key]
+		if !exists {
+			return nil, false
+		}
+		current = &member
+	}
+	if current == nil {
+		return nil, false
+	}
+	return current, true
 }
 
 type MDocElement struct {
@@ -106,13 +139,14 @@ func ParseMDocPresentation(encoded any) (*MDocPresentation, error) {
 		if err != nil {
 			return nil, fmt.Errorf("decode mdoc document %d: %w", index, err)
 		}
-		digestAlgorithm, err := parseMDocDigestAlgorithm(document.IssuerSigned.IssuerAuth)
+		securityObject, err := parseMDocSecurityObject(document.IssuerSigned.IssuerAuth)
 		if err != nil {
 			return nil, fmt.Errorf("decode mdoc document %d issuerAuth: %w", index, err)
 		}
 		documents = append(documents, MDocDocument{
 			DocType:         document.DocType,
-			DigestAlgorithm: digestAlgorithm,
+			DigestAlgorithm: securityObject.digestAlgorithm,
+			MSOStatus:       securityObject.status,
 			Namespaces:      namespaces,
 			Errors:          document.Errors,
 		})
@@ -131,9 +165,14 @@ func ParseMDocPresentation(encoded any) (*MDocPresentation, error) {
 	}, nil
 }
 
-func parseMDocDigestAlgorithm(raw cbor.RawMessage) (string, error) {
+type mdocSecurityObject struct {
+	digestAlgorithm string
+	status          *MDocCBORValue
+}
+
+func parseMDocSecurityObject(raw cbor.RawMessage) (mdocSecurityObject, error) {
 	if len(raw) == 0 {
-		return "", nil
+		return mdocSecurityObject{}, nil
 	}
 	sign1Raw := raw
 	var tagged cbor.RawTag
@@ -142,17 +181,21 @@ func parseMDocDigestAlgorithm(raw cbor.RawMessage) (string, error) {
 	}
 	var sign1 []cbor.RawMessage
 	if err := mdocDecMode.Unmarshal(sign1Raw, &sign1); err != nil {
-		return "", fmt.Errorf("decode COSE_Sign1: %w", err)
+		return mdocSecurityObject{}, fmt.Errorf("decode COSE_Sign1: %w", err)
 	}
 	if len(sign1) != 4 {
-		return "", fmt.Errorf("COSE_Sign1 has %d entries, expected 4", len(sign1))
+		return mdocSecurityObject{}, fmt.Errorf(
+			"COSE_Sign1 has %d entries, expected 4",
+			len(sign1),
+		)
 	}
 	var payload []byte
 	if err := mdocDecMode.Unmarshal(sign1[2], &payload); err != nil {
-		return "", fmt.Errorf("decode COSE_Sign1 payload: %w", err)
+		return mdocSecurityObject{}, fmt.Errorf("decode COSE_Sign1 payload: %w", err)
 	}
 	var mso struct {
-		DigestAlgorithm string `cbor:"digestAlgorithm"`
+		DigestAlgorithm string          `cbor:"digestAlgorithm"`
+		Status          cbor.RawMessage `cbor:"status"`
 	}
 	msoBytes := payload
 	var wrapped []byte
@@ -160,12 +203,23 @@ func parseMDocDigestAlgorithm(raw cbor.RawMessage) (string, error) {
 		msoBytes = wrapped
 	}
 	if err := mdocDecMode.Unmarshal(msoBytes, &mso); err != nil {
-		return "", fmt.Errorf("decode Mobile Security Object: %w", err)
+		return mdocSecurityObject{}, fmt.Errorf("decode Mobile Security Object: %w", err)
 	}
 	if mso.DigestAlgorithm == "" {
-		return "", fmt.Errorf("mobile security object has no digestAlgorithm")
+		return mdocSecurityObject{}, fmt.Errorf("mobile security object has no digestAlgorithm")
 	}
-	return mso.DigestAlgorithm, nil
+	object := mdocSecurityObject{digestAlgorithm: mso.DigestAlgorithm}
+	if len(mso.Status) > 0 {
+		status, err := decodeMDocCBORValue(mso.Status)
+		if err != nil {
+			return mdocSecurityObject{}, fmt.Errorf(
+				"decode Mobile Security Object status: %w",
+				err,
+			)
+		}
+		object.status = &status
+	}
+	return object, nil
 }
 
 func (p *MDocPresentation) Document(docType string) (*MDocDocument, bool) {
@@ -178,6 +232,16 @@ func (p *MDocPresentation) Document(docType string) (*MDocDocument, bool) {
 		}
 	}
 	return nil, false
+}
+
+// SecurityObjectStatus returns the selected document's Mobile Security Object
+// `status` value, which carries the issuer's revocation information.
+func (p *MDocPresentation) SecurityObjectStatus() (*MDocCBORValue, bool) {
+	if p == nil || p.SelectedDocument < 0 || p.SelectedDocument >= len(p.Documents) {
+		return nil, false
+	}
+	status := p.Documents[p.SelectedDocument].MSOStatus
+	return status, status != nil
 }
 
 func (p *MDocPresentation) Element(namespace string, identifier string) (MDocElement, bool) {
@@ -249,6 +313,62 @@ func unwrapIssuerSignedItem(raw cbor.RawMessage) ([]byte, error) {
 		return nil, fmt.Errorf("issuer-signed item tag 24 content is not a byte string: %w", err)
 	}
 	return encoded, nil
+}
+
+// decodeMDocCBORValue decodes one CBOR value and, for text-keyed maps, every
+// member, keeping each major type so status assertions can check the encoding.
+func decodeMDocCBORValue(raw cbor.RawMessage) (MDocCBORValue, error) {
+	if len(raw) == 0 {
+		return MDocCBORValue{}, fmt.Errorf("empty CBOR value")
+	}
+	value := MDocCBORValue{
+		MajorType:        raw[0] >> 5,
+		ContentMajorType: raw[0] >> 5,
+		Raw:              append([]byte(nil), raw...),
+	}
+	content := cbor.RawMessage(value.Raw)
+	if value.MajorType == 6 {
+		var tagged cbor.RawTag
+		if err := mdocDecMode.Unmarshal(raw, &tagged); err != nil {
+			return MDocCBORValue{}, fmt.Errorf("decode tagged CBOR value: %w", err)
+		}
+		if len(tagged.Content) == 0 {
+			return MDocCBORValue{}, fmt.Errorf("tagged CBOR value has empty content")
+		}
+		value.Tag = &tagged.Number
+		value.ContentMajorType = tagged.Content[0] >> 5
+		content = tagged.Content
+	}
+	if err := mdocDecMode.Unmarshal(content, &value.Value); err != nil {
+		return MDocCBORValue{}, fmt.Errorf("decode CBOR value: %w", err)
+	}
+	if value.ContentMajorType != 5 {
+		return value, nil
+	}
+	members, textKeyed := decodeMDocCBORMapMembers(content)
+	if !textKeyed {
+		// A map with non-text keys carries no addressable members.
+		return value, nil
+	}
+	value.Members = make(map[string]MDocCBORValue, len(members))
+	for key, rawMember := range members {
+		member, err := decodeMDocCBORValue(rawMember)
+		if err != nil {
+			return MDocCBORValue{}, fmt.Errorf("decode CBOR map member %q: %w", key, err)
+		}
+		value.Members[key] = member
+	}
+	return value, nil
+}
+
+func decodeMDocCBORMapMembers(
+	content cbor.RawMessage,
+) (map[string]cbor.RawMessage, bool) {
+	var members map[string]cbor.RawMessage
+	if err := mdocDecMode.Unmarshal(content, &members); err != nil {
+		return nil, false
+	}
+	return members, true
 }
 
 func decodeMDocElement(identifier string, raw cbor.RawMessage) (MDocElement, error) {

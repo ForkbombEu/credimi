@@ -1,8 +1,5 @@
 name: FCAF DCQL claims without values
 runtime:
-    fixture:
-        verifier_url: https://capture-wallet.credimi.io
-    global_device_id: forkbomb-bv-andrea/usb/device
 steps:
     - id: create-presentation
       use: http-request
@@ -97,3 +94,4 @@ steps:
         suite: wallet_solution/relying_party
         test_ids:
             - WS_RP_MS_ProtocolMessages__116
+            - WS_RP_IA_MainInteraction__012a

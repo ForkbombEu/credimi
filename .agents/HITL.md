@@ -30,6 +30,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+
 ### 2026-09-17 - Workflow timestamp presentation ownership
 
 - status: resolved
@@ -52,6 +53,28 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: Option (1) — add `@tanstack/svelte-query`, provide `QueryClient` in `webapp/src/routes/+layout.svelte` (`queries.enabled: browser`), migrate pipeline scoreboard, polled workflow lists, bulk wallet versions, and conformance-check form fetches to `createQuery`. Delete `webapp/src/lib/utils/state.svelte.ts`. Preserve sheet pause via reactive `activeSheet.count` gating `refetchInterval`. Leave `PipelineListExecutions` as its dedicated multi-id store.
 - follow-up: Optionally document a one-liner convention in `webapp/AGENTS.md` once the migration is validated in UI; do not reintroduce Credimi resource wrappers without an HITL revisit.
 - amendment (2026-09-18): Removed `activeSheet` / sheet-state pause. Root cause of FCAF Close failures was Credimi `ui-custom/sheet.svelte` asymmetric `bind:open` rejecting `false`; fixed with plain `bind:open` + `beforeClose` reopen. Polling no longer pauses for open sheets.
+
+### 2026-09-15 - FCAF acceptable JOSE algorithm set for ECCG ACM 5.2
+
+- status: resolved
+- owner: human maintainer
+- context: `WS_RP_SM_DeviceBinding__012a` requires the KB-JWT `alg` to be on
+  the ECCG ACM 5.2 acceptable-algorithm list. The vendored FCAF source names
+  the external standard but does not reproduce that list, and the repository
+  has no canonical mapping from ECCG ACM mechanisms to JOSE identifiers. The
+  current beta Capture Wallet evidence is ES256, while the source explicitly
+  identifies EdDSA as unacceptable in the related RP-integrity negative case.
+- question: Which JOSE `alg` values are the canonical acceptable set for this
+  FCAF assertion?
+- options considered: (1) encode only ES256, matching current beta evidence;
+  (2) encode a maintainer-approved JOSE mapping of ECCG ACM 5.2; (3) keep the
+  test blocked until the source repository publishes the mapping.
+- default risk: Guessing an allowlist can reject a conforming Wallet or accept
+  a disallowed algorithm while reporting a conformance pass.
+- decision: For the current beta Capture Wallet definition, require the
+  observed acceptable JOSE algorithm `ES256`. Revisit a broader mapping only
+  when a second supported Wallet algorithm is added to the beta fixture.
+- follow-up: Add the ES256 predicate to `WS_RP_SM_DeviceBinding__012a`.
 
 ### 2026-08-28 - FCAF runner-to-device identifier mapping
 

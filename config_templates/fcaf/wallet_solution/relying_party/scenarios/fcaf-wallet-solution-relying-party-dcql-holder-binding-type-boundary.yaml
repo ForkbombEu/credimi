@@ -1,6 +1,5 @@
 name: FCAF wallet relying-party DCQL holder binding type boundary
 runtime:
-  global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -13,51 +12,59 @@ steps:
     use: http-request
     with:
       method: POST
-      url: ${fixture.verifier_url}/ui/presentations
-      expected_status: 200
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
       headers:
         Content-Type: application/json
       body:
-        type: vp_token
-        nonce: fcaf-081-valid-true
-        dcql_query:
-          credentials:
-            - id: pididentity01
-              format: dc+sd-jwt
-              meta:
-                vct_values:
-                  - urn:eudi:pid:1
-              require_cryptographic_holder_binding: true
-              claims:
-                - path:
-                    - given_name
-                - path:
-                    - family_name
+        scheme: haip-vp://
+        request_delivery: by_reference
+        response_type: vp_token
+        response_mode: direct_post
+        presentation_request:
+          nonce: fcaf-081-valid-true
+          dcql_query:
+            credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                    - urn:eudi:pid:1
+                require_cryptographic_holder_binding: true
+                claims:
+                  - path:
+                      - given_name
+                  - path:
+                      - family_name
 
   - id: create-valid-false
     use: http-request
     with:
       method: POST
-      url: ${fixture.verifier_url}/ui/presentations
-      expected_status: 200
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
       headers:
         Content-Type: application/json
       body:
-        type: vp_token
-        nonce: fcaf-081-valid-false
-        dcql_query:
-          credentials:
-            - id: pididentity01
-              format: dc+sd-jwt
-              meta:
-                vct_values:
-                  - urn:eudi:pid:1
-              require_cryptographic_holder_binding: false
-              claims:
-                - path:
-                    - given_name
-                - path:
-                    - family_name
+        scheme: haip-vp://
+        request_delivery: by_reference
+        response_type: vp_token
+        response_mode: direct_post
+        presentation_request:
+          nonce: fcaf-081-valid-false
+          dcql_query:
+            credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                    - urn:eudi:pid:1
+                require_cryptographic_holder_binding: false
+                claims:
+                  - path:
+                      - given_name
+                  - path:
+                      - family_name
 
   - id: evidence-number-zero
     use: json-parse
@@ -148,21 +155,15 @@ steps:
     with:
       version_id: installed_from_external_source
       parameters:
-        CLIENT_ID_VALID_TRUE: ${{ create-valid-true.outputs.body.client_id }}
-        REQUEST_URI_VALID_TRUE: ${{ create-valid-true.outputs.body.request_uri }}
-        CLIENT_ID_VALID_FALSE: ${{ create-valid-false.outputs.body.client_id }}
-        REQUEST_URI_VALID_FALSE: ${{ create-valid-false.outputs.body.request_uri }}
+        DEEPLINK_VALID_TRUE: ${{ create-valid-true.outputs.body.deeplink }}
+        DEEPLINK_VALID_FALSE: ${{ create-valid-false.outputs.body.deeplink }}
       action_code: |
         appId: eu.europa.ec.euidi
         ---
         - extendedWaitUntil:
             visible: "Home|Documents|Welcome, .*"
             timeout: 30000
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID_VALID_TRUE) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI_VALID_TRUE)}
-        - openLink:
-            link: ${output.authorizationRequest}
-            autoVerify: false
-            browser: false
+        - openLink: { link: ${env.DEEPLINK_VALID_TRUE}, autoVerify: false, browser: false }
         - extendedWaitUntil:
             visible: "DATA SHARING REQUEST"
             timeout: 100000
@@ -179,11 +180,7 @@ steps:
             timeout: 30000
         - takeScreenshot: fcaf-081-valid-true
         - tapOn: "Close"
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID_VALID_FALSE) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI_VALID_FALSE)}
-        - openLink:
-            link: ${output.authorizationRequest}
-            autoVerify: false
-            browser: false
+        - openLink: { link: ${env.DEEPLINK_VALID_FALSE}, autoVerify: false, browser: false }
         - extendedWaitUntil:
             visible: "DATA SHARING REQUEST"
             timeout: 100000
@@ -359,14 +356,14 @@ steps:
     use: http-request
     with:
       method: GET
-      url: ${fixture.verifier_url}/ui/presentations/${{ create-valid-true.outputs.body.transaction_id }}
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-valid-true.outputs.body.session_id }}
       expected_status: 200
 
   - id: get-valid-false
     use: http-request
     with:
       method: GET
-      url: ${fixture.verifier_url}/ui/presentations/${{ create-valid-false.outputs.body.transaction_id }}
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-valid-false.outputs.body.session_id }}
       expected_status: 200
 
   - id: run-fcaf-validators

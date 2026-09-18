@@ -16,7 +16,7 @@ import (
 
 const (
 	defaultCatalogRoot = "config_templates/fcaf/wallet_solution/relying_party"
-	defaultSourceRoot  = "config_templates/fcaf_sources/wallet_solution/relying_party/implementation"
+	defaultSourceRoot  = "config_templates/fcaf_sources/wallet_solution/relying_party"
 )
 
 type SourceDetails struct {
@@ -64,7 +64,17 @@ func LoadMaterials(testIDs []string) (
 		return definitions, sources, warnings
 	}
 	for _, id := range testIDs {
-		data, err := os.ReadFile(filepath.Join(sourceRoot, filepath.Base(id)+".md"))
+		definition, ok := definitions[id]
+		if !ok {
+			continue
+		}
+		sourcePath := filepath.Clean(definition.Source.Path)
+		if sourcePath == "." || filepath.IsAbs(sourcePath) ||
+			strings.HasPrefix(sourcePath, ".."+string(filepath.Separator)) {
+			warnings = append(warnings, fmt.Sprintf("FCAF source path for %s is invalid", id))
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(sourceRoot, sourcePath))
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("load FCAF source for %s: %v", id, err))
 			continue

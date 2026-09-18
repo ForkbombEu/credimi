@@ -1,11 +1,12 @@
 name: 'FCAF ProtocolMessages 072: non-boolean DCQL multiple'
-runtime: { global_device_id: forkbomb-bv-andrea/usb/device }
+runtime:
+
 steps:
 - id: create
   use: http-request
   with:
     method: POST
-    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    url: ${fixture.verifier_url}/openid4vp/sessions
     expected_status: 201
     headers: { Content-Type: application/json }
     body:
@@ -17,7 +18,7 @@ steps:
           - id: pid
             format: dc+sd-jwt
             multiple: not-a-boolean
-            meta: { vct_values: [urn:eudi:pid:1] }
+            meta: { vct_values: ["urn:eudi:pid:1"] }
             claims: [{ path: [given_name] }]
 - id: wallet
   use: mobile-automation
@@ -43,10 +44,10 @@ steps:
       - takeScreenshot: protocol-messages-072
 - id: session
   use: http-request
-  with: { method: GET, url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }
+  with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }
 - id: request
   use: http-request
-  with: { method: GET, url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${{ create.outputs.body.session_id }}/request', expected_status: 200 }
+  with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ create.outputs.body.session_id }}/request', expected_status: 200 }
 - id: run-fcaf-validators
   use: fcaf-validation
   with:

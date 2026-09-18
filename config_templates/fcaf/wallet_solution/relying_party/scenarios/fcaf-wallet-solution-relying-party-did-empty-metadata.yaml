@@ -1,0 +1,50 @@
+name: FCAF empty decentralized identifier metadata
+runtime:
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: {maximum_attempts: 1}
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers: {Content-Type: application/json}
+      body:
+        client_id_scheme: decentralized_identifier
+        response_type: vp_token
+        response_mode: direct_post
+        client_metadata: {}
+        presentation_request:
+          nonce: fcaf-did-empty-metadata
+          dcql_query: {credentials: [{id: pid_mdoc, format: mso_mdoc, meta: {doctype_value: eu.europa.ec.eudi.pid.1}, claims: [{path: [eu.europa.ec.eudi.pid.1, given_name]}]}]}
+  - id: exercise-wallet
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+      version_id: installed_from_external_source
+      parameters: {deeplink: "${{ create-presentation.outputs.body.deeplink }}"}
+  - id: fetch-session
+    use: http-request
+    with: {method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}", expected_status: 200}
+  - id: fetch-did
+    use: http-request
+    with: {method: GET, url: "${fixture.verifier_url}/openid4vp/did.json", expected_status: 200}
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      test_ids: [WS_RP_IA_Metadata__016]
+      suite: wallet_solution/relying_party
+      pipeline_outputs:
+        pipeline.wallet.metadata.did-empty:
+          output:
+            request_object: "${{ fetch-session.outputs.body.raw.authorization_request_jwt }}"
+            request_evidence:
+              request_object: "${{ fetch-session.outputs.body.raw.authorization_request_jwt }}"
+              did_document: "${{ fetch-did.outputs.body }}"
+            dcql_exchange: "${{ fetch-session.outputs.body }}"
+            visual_evidence: "${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}"

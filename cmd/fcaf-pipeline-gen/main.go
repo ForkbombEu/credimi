@@ -148,6 +148,7 @@ var happyFlowScenarioNames = []string{
 	"fcaf-wallet-solution-relying-party-engagement-haip-vp.yaml",
 	"fcaf-wallet-solution-relying-party-pid-mdoc-data-model.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-protocol-messages.yaml",
+	"fcaf-wallet-solution-relying-party-direct-post-jwt-response-transport.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-metadata.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-main-interaction.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml",

@@ -344,6 +344,53 @@ type SDJWTKBJWTPresentValidator struct{}
 
 func (SDJWTKBJWTPresentValidator) ID() string { return "sdjwt.kb_jwt_present" }
 
+// SDJWTKBJWTAlgorithmEqualsValidator verifies the precise JOSE algorithm
+// emitted by a Wallet fixture after the KB-JWT structural checks succeed.
+type SDJWTKBJWTAlgorithmEqualsValidator struct{}
+
+func (SDJWTKBJWTAlgorithmEqualsValidator) ID() string {
+	return "sdjwt.kb_jwt_algorithm_equals"
+}
+
+func (SDJWTKBJWTAlgorithmEqualsValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Algorithm string `json:"algorithm"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Algorithm == "" {
+		return Result{Status: StatusError, Message: "algorithm is required"}
+	}
+	presentations, ok := sdjwtPresentations(input.Value)
+	if !ok || len(presentations) == 0 {
+		return Result{Status: StatusFail, Message: "SD-JWT presentation evidence is missing"}
+	}
+	for index, presentation := range presentations {
+		result := validateSDJWTKBJWTStructure(presentation)
+		if result.Status != StatusPass {
+			result.Message = fmt.Sprintf("presentation[%d]: %s", index, result.Message)
+			return result
+		}
+		algorithm, _ := result.Details["alg"].(string)
+		if algorithm != params.Algorithm {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"presentation[%d] KB-JWT alg is %q, expected %q",
+					index,
+					algorithm,
+					params.Algorithm,
+				),
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("all KB-JWTs use %q", params.Algorithm),
+	}
+}
+
 func (SDJWTKBJWTPresentValidator) Validate(_ context.Context, input Input) Result {
 	presentations, ok := sdjwtPresentations(input.Value)
 	if !ok || len(presentations) == 0 {

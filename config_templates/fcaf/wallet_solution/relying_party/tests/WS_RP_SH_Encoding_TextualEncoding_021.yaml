@@ -1,5 +1,5 @@
 id: WS_RP_SH_Encoding_TextualEncoding_021
-title: FCAF WS_RP_SH_Encoding_TextualEncoding_021
+title: Select the mdoc data element value referenced by the second path component.
 source:
   path: Shared/Encoding/WS_RP_SH_Encoding_TextualEncoding_021.md
 suite:
@@ -11,18 +11,35 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '7'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.encoding
+- ref: pipeline.pid.presentation.mdoc.all-claims-elements
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.encoding.outputs.dcql_exchange
+    from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.fetch-capture-session
+  pid_mdoc:
+    from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
   visual_evidence:
-    from: pipeline.dcql.encoding.outputs.visual_evidence
+    from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.visual_evidence
 assertions:
-- id: ws_rp_sh_encoding_textualencoding_021_encoding_verified
-  validator: sdjwt.claim_utf8_string
+- id: ws_rp_sh_encoding_textualencoding_021_query_selects_one_namespace_and_element
+  validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
+  params:
+    mode: mdoc_claim_path_presentation
+    expected_claim_path: [eu.europa.ec.eudi.pid.1, given_name]
+- id: ws_rp_sh_encoding_textualencoding_021_selected_element_value_is_cbor_encoded_text
+  validator: mdoc.element_utf8_string
+  input: evidence.pid_mdoc
+  params:
+    namespace: eu.europa.ec.eudi.pid.1
+    element: given_name
+- id: ws_rp_sh_encoding_textualencoding_021_selected_element_is_returned_without_an_error_item
+  validator: mdoc.namespace_element_present
+  input: evidence.pid_mdoc
+  params:
+    namespace: eu.europa.ec.eudi.pid.1
+    element: given_name
 - id: ws_rp_sh_encoding_textualencoding_021_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

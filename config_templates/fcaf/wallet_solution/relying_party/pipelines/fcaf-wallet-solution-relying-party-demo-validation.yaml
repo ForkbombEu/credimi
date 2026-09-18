@@ -108,7 +108,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp
       use: mobile-automation
@@ -123,7 +123,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.session_id }}
     - id: run-complete-fcaf-validation
       use: fcaf-validation
       with:

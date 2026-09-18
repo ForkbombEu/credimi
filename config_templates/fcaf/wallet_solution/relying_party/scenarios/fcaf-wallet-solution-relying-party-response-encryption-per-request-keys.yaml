@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF per-request response encryption keys
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: create-first-capture-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: per-request-keys-first
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: exercise-wallet-for-first-request
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-first-capture-session.outputs.body.deeplink }}
+- id: fetch-first-capture-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-first-capture-session.outputs.body.session_id }}
+    expected_status: 200
+- id: create-second-capture-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: per-request-keys-second
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: exercise-wallet-for-second-request
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-second-capture-session.outputs.body.deeplink }}
+- id: fetch-second-capture-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-second-capture-session.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_SM_SessionEncryption__011
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.response-encryption.per-request-keys:
+        output:
+          request_objects:
+          - ${{ fetch-first-capture-session.outputs.body.raw.authorization_request_jwt }}
+          - ${{ fetch-second-capture-session.outputs.body.raw.authorization_request_jwt }}
+          first_encryption_evidence:
+            request_object: ${{ fetch-first-capture-session.outputs.body.raw.authorization_request_jwt }}
+            presentation_response_http: ${{ fetch-first-capture-session.outputs.body.raw.presentation_response_http }}
+          second_encryption_evidence:
+            request_object: ${{ fetch-second-capture-session.outputs.body.raw.authorization_request_jwt }}
+            presentation_response_http: ${{ fetch-second-capture-session.outputs.body.raw.presentation_response_http }}
+          visual_evidence: ${{ exercise-wallet-for-second-request.outputs.flow_output.maestro_screenshot_urls }}
