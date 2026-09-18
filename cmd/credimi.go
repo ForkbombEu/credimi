@@ -32,7 +32,7 @@ func Start() {
 	routes.Setup(app)
 
 	app.RootCmd.AddCommand(cli.NewPipelineCmd())
-	app.RootCmd.AddCommand(cli.NewFCAFCommand())
+	app.RootCmd.AddCommand(cli.NewFCAFCommand(app))
 
 	godotenv.Load()
 	if err := app.Start(); err != nil {

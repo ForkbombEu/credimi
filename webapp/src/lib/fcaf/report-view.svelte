@@ -27,10 +27,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		report: Report;
 		reportUrl: string;
 		pdfUrl: string | undefined;
-		maestroScreenshotUrls: string[];
 	};
 
-	let { report, reportUrl, pdfUrl, maestroScreenshotUrls }: Props = $props();
+	let { report, reportUrl, pdfUrl }: Props = $props();
 
 	let selectedFilter = $state<string>('all');
 	let search = $state('');
@@ -40,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const searching = $derived(searchQuery !== '');
 
 	const display = $derived(
-		prepareReportDisplay(report, maestroScreenshotUrls, {
+		prepareReportDisplay(report, {
 			filter: selectedFilter,
 			searchQuery
 		})
@@ -120,9 +119,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{test.status ?? 'unknown'}
 			</span>
 		</div>
-		{#if test.assertions?.length || test.validators?.length}
+		{#if (test.assertions ?? test.validators)?.length}
 			<div class="mt-3 space-y-2 border-t pt-3 text-sm">
-				{#each test.validators ?? test.assertions ?? [] as validator (validator.id)}
+				{#each test.assertions ?? test.validators ?? [] as validator (validator.id)}
 					<div class="flex justify-between gap-3">
 						<span>{validator.validator ?? validator.id}</span>
 						<strong class={statusClass(validator.status)}
@@ -199,7 +198,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 
-		{#if report.summary}
+		{#if display.summaryFilters.length}
 			<div class="mt-3 flex flex-wrap items-center gap-1.5">
 				<span class="text-xs font-medium text-muted-foreground">Filter:</span>
 				<button
@@ -211,18 +210,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				>
 					All ({display.totalTests})
 				</button>
-				{#each display.summaryEntries as [label, count] (label)}
-					{@const dot = statusDotClass(label)}
+				{#each display.summaryFilters as filter (filter.key)}
+					{@const dot = statusDotClass(filter.key)}
 					<button
 						class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors
-						{selectedFilter === label
+						{selectedFilter === filter.key
 							? 'bg-primary text-primary-foreground'
 							: 'border bg-muted/50 text-muted-foreground hover:bg-muted'}"
-						onclick={() => (selectedFilter = selectedFilter === label ? 'all' : label)}
+						onclick={() =>
+							(selectedFilter = selectedFilter === filter.key ? 'all' : filter.key)}
 					>
 						<span class="inline-block size-2 rounded-full {dot}" aria-hidden="true"
 						></span>
-						{label} ({count})
+						{filter.label} ({filter.count})
 					</button>
 				{/each}
 			</div>
@@ -341,7 +341,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{#each group.tests as test (test.test_id)}
 										{@render testCard(
 											test,
-											screenshotsForTest(display.allScreenshots, test)
+											screenshotsForTest(
+												report.presentation?.screenshots ?? [],
+												test
+											)
 										)}
 									{/each}
 								</div>
