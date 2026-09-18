@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/dsl"
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
+	"github.com/forkbombeu/credimi/pkg/fcaf/taxonomy"
 )
 
 type Metadata struct {
@@ -178,7 +179,7 @@ func BuildDocument(input Input) Document {
 		group.Tests = append(group.Tests, entry)
 	}
 
-	for _, code := range categoryOrder {
+	for _, code := range taxonomy.CategoryOrder {
 		groups, ok := categoryGroups[code]
 		if !ok {
 			continue
@@ -188,8 +189,7 @@ func BuildDocument(input Input) Document {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		meta := categoryByCode[code]
-		category := Category{Code: code, Name: meta.name, Color: meta.color}
+		category := Category{Code: code, Name: categoryName(code), Color: categoryColor(code)}
 		for _, key := range keys {
 			category.Groups = append(category.Groups, *groups[key])
 		}
