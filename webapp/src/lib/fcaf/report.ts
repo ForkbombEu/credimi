@@ -85,11 +85,6 @@ export function loadReport(url: string): Promise<Report | undefined> {
 	return cached;
 }
 
-/** Test-only: clear the in-memory report fetch cache. */
-export function clearReportCache() {
-	reportCache.clear();
-}
-
 export function statusIsPassed(status = ''): boolean {
 	return (status ?? '').startsWith('pass');
 }
@@ -135,7 +130,7 @@ export function screenshotLabel(url: string): string {
 		.trim();
 }
 
-export function uniqueScreenshots(screenshots: Screenshot[]): Screenshot[] {
+function uniqueScreenshots(screenshots: Screenshot[]): Screenshot[] {
 	const seen = new Set<string>();
 	return screenshots.filter((screenshot) => {
 		const key = screenshot.label.toLowerCase();
@@ -202,7 +197,7 @@ export function screenshotsForTest(screenshots: Screenshot[], test: TestResult):
 	return matching;
 }
 
-export function screenshotsWithoutTest(
+function screenshotsWithoutTest(
 	screenshots: Screenshot[],
 	tests: TestResult[]
 ): Screenshot[] {

@@ -25,11 +25,6 @@ export type CatalogCategoryGroup = {
 	tests: FCAFTestCatalogEntry[];
 };
 
-/** @deprecated Use CatalogSubgroup */
-export type FCAFSubgroupTests = CatalogSubgroup;
-/** @deprecated Use CatalogCategoryGroup */
-export type FCAFGroupedTests = CatalogCategoryGroup;
-
 export function groupAllTests(): CatalogCategoryGroup[] {
 	return groupCatalogTests(FCAF_TESTS);
 }
@@ -71,6 +66,3 @@ export function groupCatalogTests(tests: FCAFTestCatalogEntry[]): CatalogCategor
 		};
 	});
 }
-
-/** @deprecated Use groupCatalogTests */
-export const groupTests = groupCatalogTests;
