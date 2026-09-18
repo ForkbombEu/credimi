@@ -51,6 +51,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: Dual-maintaining Query and a fat wrapper; or locking into an undocumented Credimi async API.
 - decision: Option (1) — add `@tanstack/svelte-query`, provide `QueryClient` in `webapp/src/routes/+layout.svelte` (`queries.enabled: browser`), migrate pipeline scoreboard, polled workflow lists, bulk wallet versions, and conformance-check form fetches to `createQuery`. Delete `webapp/src/lib/utils/state.svelte.ts`. Preserve sheet pause via reactive `activeSheet.count` gating `refetchInterval`. Leave `PipelineListExecutions` as its dedicated multi-id store.
 - follow-up: Optionally document a one-liner convention in `webapp/AGENTS.md` once the migration is validated in UI; do not reintroduce Credimi resource wrappers without an HITL revisit.
+- amendment (2026-09-18): Removed `activeSheet` / sheet-state pause. Root cause of FCAF Close failures was Credimi `ui-custom/sheet.svelte` asymmetric `bind:open` rejecting `false`; fixed with plain `bind:open` + `beforeClose` reopen. Polling no longer pauses for open sheets.
 
 ### 2026-08-28 - FCAF runner-to-device identifier mapping
 

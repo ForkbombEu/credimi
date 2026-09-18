@@ -5,6 +5,7 @@
 import type { HubItem } from '$lib/hub';
 
 import { createQuery } from '@tanstack/svelte-query';
+import { queryClient } from '$lib/query-client';
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { getPath } from '$lib/utils';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
@@ -21,17 +22,23 @@ import { getTestName, isOpenIdWalletTest } from './utils';
 
 const OPENID4VCI_WALLET_ACTION_CATEGORY = WalletActionsCategoryOptions['get-credential-generic'];
 
+/** Explicit client: this form is constructed inside `$effect.root()`, not component init. */
+const queryClientAccessor = () => queryClient;
+
 export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceCheckStepForm> {
 	readonly Component = Component;
 
-	standardsWithTestSuites = createQuery(() => ({
-		queryKey: ['standards-with-test-suites', 'pipeline'] as const,
-		queryFn: async () => {
-			const result = await getStandardsWithTestSuites({ surface: 'pipeline' });
-			if (result instanceof Error) throw result;
-			return result;
-		}
-	}));
+	standardsWithTestSuites = createQuery(
+		() => ({
+			queryKey: ['standards-with-test-suites', 'pipeline'] as const,
+			queryFn: async () => {
+				const result = await getStandardsWithTestSuites({ surface: 'pipeline' });
+				if (result instanceof Error) throw result;
+				return result;
+			}
+		}),
+		queryClientAccessor
+	);
 
 	walletActions = createQuery(() => {
 		const walletId = this.getExecutionTarget()?.wallet?.id;
@@ -50,7 +57,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 			},
 			enabled: Boolean(walletId)
 		};
-	});
+	}, queryClientAccessor);
 
 	data = $state<Partial<FormData>>({});
 

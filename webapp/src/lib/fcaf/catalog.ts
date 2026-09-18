@@ -2,44 +2,42 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { FCAF_CATEGORY_ORDER, parseFCAFTestId, type FCAFCategory } from '$lib/fcaf/categories.js';
-import { FCAF_TESTS, type FCAFTestCatalogEntry } from '$lib/fcaf/tests.generated.js';
-
-//
+import { FCAF_CATEGORY_ORDER, parseFCAFTestId, type FCAFCategory } from './categories.js';
+import { FCAF_TESTS, type FCAFTestCatalogEntry } from './tests.generated.js';
 
 /**
  * Tests grouped under one FCAF category, mirroring the generated report:
  * category (Data model, Interaction, ...) > subgroup (Address data, ...).
  */
-export type FCAFSubgroupTests = {
+export type CatalogSubgroup = {
 	key: string;
 	label: string;
 	tests: FCAFTestCatalogEntry[];
 };
 
-export type FCAFGroupedTests = {
+export type CatalogCategoryGroup = {
 	/** Category code (DM, MS, IA, ...). */
 	key: string;
 	label: string;
 	color: FCAFCategory;
-	groups: FCAFSubgroupTests[];
+	groups: CatalogSubgroup[];
 	/** Flat test list for the whole category, for counts and filtering. */
 	tests: FCAFTestCatalogEntry[];
 };
 
-export function groupAllTests(): FCAFGroupedTests[] {
-	return groupTests(FCAF_TESTS);
+export function groupAllTests(): CatalogCategoryGroup[] {
+	return groupCatalogTests(FCAF_TESTS);
 }
 
-export function groupSelectedTests(testIds: string[]): FCAFGroupedTests[] {
+export function groupSelectedTests(testIds: string[]): CatalogCategoryGroup[] {
 	const selected = new Set(testIds);
-	return groupTests(FCAF_TESTS.filter((test) => selected.has(test.id)));
+	return groupCatalogTests(FCAF_TESTS.filter((test) => selected.has(test.id)));
 }
 
-export function groupTests(tests: FCAFTestCatalogEntry[]): FCAFGroupedTests[] {
+export function groupCatalogTests(tests: FCAFTestCatalogEntry[]): CatalogCategoryGroup[] {
 	const byCategory = new Map<
 		string,
-		{ color: FCAFCategory; groups: Map<string, FCAFSubgroupTests> }
+		{ color: FCAFCategory; groups: Map<string, CatalogSubgroup> }
 	>();
 	for (const test of tests) {
 		const parsed = parseFCAFTestId(test.id);

@@ -5,11 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { FCAFTestCatalogEntry } from '$lib/fcaf/tests.generated.js';
 	import type { SelfProp } from '$lib/renderable';
 
 	import { ChevronRightIcon } from '@lucide/svelte';
-	import { FCAF_SUITE } from '$lib/fcaf/tests.generated.js';
+	import { FCAF } from '$lib';
 	import { WithLabel } from '$pipeline-form/steps/_partials/index.js';
 
 	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
@@ -19,8 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import type { FCAFValidationStepForm } from './fcaf-validation-step-form.svelte.js';
-
-	import { groupTests } from './grouping.js';
 
 	//
 
@@ -44,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				)
 			: form.availableTests;
 
-		return groupTests(filtered);
+		return FCAF.groupCatalogTests(filtered);
 	});
 
 	function isOpen(key: string): boolean {
@@ -55,20 +52,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		openGroups[key] = !(openGroups[key] ?? false);
 	}
 
-	function groupSelectedCount(tests: FCAFTestCatalogEntry[]): number {
+	function groupSelectedCount(tests: FCAF.TestCatalogEntry[]): number {
 		return tests.filter((test) => selectedIds.includes(test.id)).length;
 	}
 
-	function groupAllSelected(tests: FCAFTestCatalogEntry[]): boolean {
+	function groupAllSelected(tests: FCAF.TestCatalogEntry[]): boolean {
 		return tests.length > 0 && groupSelectedCount(tests) === tests.length;
 	}
 
-	function groupPartial(tests: FCAFTestCatalogEntry[]): boolean {
+	function groupPartial(tests: FCAF.TestCatalogEntry[]): boolean {
 		const count = groupSelectedCount(tests);
 		return count > 0 && count < tests.length;
 	}
 
-	function toggleGroup(tests: FCAFTestCatalogEntry[]) {
+	function toggleGroup(tests: FCAF.TestCatalogEntry[]) {
 		const ids = tests.map((test) => test.id);
 		const selected = selectedIds;
 		if (ids.every((id) => selected.includes(id))) {
@@ -220,7 +217,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</WithLabel>
 
 	<div class="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-		<span>{m.Suite()}: <code class="font-mono">{FCAF_SUITE}</code></span>
+		<span>{m.Suite()}: <code class="font-mono">{FCAF.SUITE}</code></span>
 		<span class="ml-2">· {form.pipelineOutputsCount} evidence sources compiled</span>
 	</div>
 

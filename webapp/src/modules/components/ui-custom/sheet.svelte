@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		contentClass?: string;
 		trigger?: Snippet<[{ sheetTriggerAttributes: GenericRecord; openSheet: () => void }]>;
 		children?: Snippet;
-		content?: Snippet<[{ closeSheet: () => void | Promise<void> }]>;
+		content?: Snippet<[{ closeSheet: () => Promise<void> }]>;
 		hideTrigger?: boolean;
 		beforeClose?: (prevent: () => void) => void | Promise<void>;
 		onOpenChange?: (open: boolean) => void;
@@ -50,53 +50,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function openSheet() {
 		isOpen = true;
+		onOpenChange?.(true);
 	}
 
-	/** Close the sheet, honoring beforeClose. */
-	function closeSheet(): void | Promise<void> {
+	async function wasClosePrevented() {
 		let prevented = false;
-		const result = beforeClose(() => {
+		await beforeClose(() => {
 			prevented = true;
 		});
+		return prevented;
+	}
 
-		const apply = () => {
-			if (!prevented) {
-				isOpen = false;
-				onOpenChange?.(false);
-			}
-		};
-
-		if (result != null && typeof (result as Promise<void>).then === 'function') {
-			return Promise.resolve(result).then(apply);
-		}
-		apply();
+	async function closeSheet() {
+		if (await wasClosePrevented()) return;
+		isOpen = false;
+		onOpenChange?.(false);
 	}
 
 	/** bits-ui writes `open` via bind first; reopen if beforeClose prevents. */
-	function handleOpenChange(next: boolean) {
+	async function handleOpenChange(next: boolean) {
 		if (next) {
 			onOpenChange?.(true);
 			return;
 		}
 
-		let prevented = false;
-		const result = beforeClose(() => {
-			prevented = true;
-		});
-
-		const apply = () => {
-			if (prevented) {
-				isOpen = true;
-				return;
-			}
-			onOpenChange?.(false);
-		};
-
-		if (result != null && typeof (result as Promise<void>).then === 'function') {
-			void Promise.resolve(result).then(apply);
+		if (await wasClosePrevented()) {
+			isOpen = true;
 			return;
 		}
-		apply();
+		onOpenChange?.(false);
 	}
 </script>
 

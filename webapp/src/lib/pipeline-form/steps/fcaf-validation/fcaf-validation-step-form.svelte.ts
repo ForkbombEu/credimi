@@ -4,12 +4,7 @@
 
 import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/types';
 
-import {
-	FCAF_PIPELINE_OUTPUTS,
-	FCAF_SUITE,
-	FCAF_TESTS,
-	type FCAFTestCatalogEntry
-} from '$lib/fcaf/tests.generated.js';
+import { FCAF } from '$lib';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 import { SvelteSet } from 'svelte/reactivity';
 import { parse, stringify } from 'yaml';
@@ -26,7 +21,7 @@ export type FCAFValidationFormData = {
 
 function defaultFCAFValidationYaml(): string {
 	return stringify({
-		suite: FCAF_SUITE,
+		suite: FCAF.SUITE,
 		test_ids: [],
 		pipeline_outputs: {}
 	});
@@ -35,12 +30,12 @@ function defaultFCAFValidationYaml(): string {
 function filterPipelineOutputsFor(testIds: string[]): Record<string, unknown> {
 	const selected = new SvelteSet(testIds);
 	const needed = new SvelteSet<string>();
-	for (const test of FCAF_TESTS) {
+	for (const test of FCAF.TESTS) {
 		if (!selected.has(test.id)) continue;
 		for (const source of test.sources) needed.add(source);
 	}
 
-	const outputs = FCAF_PIPELINE_OUTPUTS as Record<string, unknown>;
+	const outputs = FCAF.PIPELINE_OUTPUTS as Record<string, unknown>;
 	const filtered: Record<string, unknown> = {};
 	for (const source of needed) {
 		if (source in outputs) filtered[source] = outputs[source];
@@ -54,7 +49,7 @@ export class FCAFValidationStepForm extends BaseForm<
 > {
 	readonly Component = Component;
 
-	readonly availableTests: FCAFTestCatalogEntry[] = FCAF_TESTS;
+	readonly availableTests: FCAF.TestCatalogEntry[] = FCAF.TESTS;
 
 	data = $state<FCAFValidationFormData>({
 		yaml: defaultFCAFValidationYaml()

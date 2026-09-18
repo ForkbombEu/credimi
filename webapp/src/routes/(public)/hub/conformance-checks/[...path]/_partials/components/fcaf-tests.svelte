@@ -5,10 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { FCAFGroupedTests } from '$lib/pipeline-form/steps/fcaf-validation/grouping.js';
-
 	import { ChevronRightIcon } from '@lucide/svelte';
-	import { groupAllTests } from '$lib/pipeline-form/steps/fcaf-validation/grouping.js';
+	import { FCAF } from '$lib';
 
 	import { Input } from '@/components/ui/input';
 	import { m } from '@/i18n';
@@ -20,9 +18,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const searching = $derived(search.trim() !== '');
 
-	const groups: FCAFGroupedTests[] = $derived.by(() => {
+	const groups: FCAF.CatalogCategoryGroup[] = $derived.by(() => {
 		const query = search.trim().toLowerCase();
-		const all = groupAllTests();
+		const all = FCAF.groupAllTests();
 		if (!query) return all;
 		return all
 			.map((group) => ({
