@@ -1,0 +1,32 @@
+{
+  "categories": [
+    { "code": "DM", "label": "Data model" },
+    { "code": "MS", "label": "Message structure" },
+    { "code": "IA", "label": "Interaction" },
+    { "code": "SM", "label": "Security mechanisms" },
+    { "code": "SH", "label": "Shared" },
+    { "code": "UC", "label": "Use cases" },
+    { "code": "OTHER", "label": "Other" }
+  ],
+  "subgroup_labels": {
+    "addressdata": "Address data",
+    "identifyingdata": "Identifying data",
+    "credentialmetadata": "Credential metadata",
+    "protocolmessages": "Protocol messages",
+    "metadata": "Metadata",
+    "credentialformats": "Credential formats",
+    "maininteraction": "Main interaction",
+    "engagement": "Engagement",
+    "protocolflow": "Protocol flow",
+    "supportive": "Supportive",
+    "rpintegrity": "RP integrity",
+    "trustmechanisms": "Trust mechanisms",
+    "sessionencryption": "Session encryption",
+    "devicebinding": "Device binding",
+    "sessionbinding": "Session binding",
+    "issuerintegrity": "Issuer integrity",
+    "encoding": "Encoding",
+    "cryptography": "Cryptography",
+    "presentation": "Presentation"
+  }
+}

@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/reportgeneration"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
@@ -415,7 +416,16 @@ func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr
 		}
-		file, err := filesystem.NewFileFromBytes([]byte(input.JSON), "fcaf-assessment.json")
+		enrichedJSON, _, err := reportgeneration.EnrichReportJSON(e.App, record, []byte(input.JSON))
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"report",
+				"failed to enrich FCAF report",
+				err.Error(),
+			)
+		}
+		file, err := filesystem.NewFileFromBytes(enrichedJSON, "fcaf-assessment.json")
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -438,7 +448,7 @@ func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
 			e.Request.Context(),
 			e.App,
 			record,
-			[]byte(input.JSON),
+			enrichedJSON,
 		)
 		if err != nil {
 			return apierror.New(

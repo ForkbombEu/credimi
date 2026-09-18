@@ -993,7 +993,6 @@ func setupPipelineResultsApp(t testing.TB) (*tests.TestApp, *core.Record) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-
 	require.NoError(t, err)
 
 	pipelineRecord := createPipelineRecord(t, app, orgID, "pipeline123")

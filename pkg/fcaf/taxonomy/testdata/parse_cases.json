@@ -1,0 +1,66 @@
+[
+  {
+    "name": "data model single underscore",
+    "test_id": "WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001",
+    "code": "DM",
+    "subgroup": "addressdata",
+    "label": "Address data",
+    "category_label": "Data model"
+  },
+  {
+    "name": "interaction double underscore",
+    "test_id": "WS_RP_IA_MainInteraction__003",
+    "code": "IA",
+    "subgroup": "maininteraction",
+    "label": "Main interaction",
+    "category_label": "Interaction"
+  },
+  {
+    "name": "credential metadata lowercased segment",
+    "test_id": "WS_RP_DM_Credentialmetadata_X_001",
+    "code": "DM",
+    "subgroup": "credentialmetadata",
+    "label": "Credential metadata",
+    "category_label": "Data model"
+  },
+  {
+    "name": "credential metadata camel segment",
+    "test_id": "WS_RP_DM_CredentialMetadata_X_001",
+    "code": "DM",
+    "subgroup": "credentialmetadata",
+    "label": "Credential metadata",
+    "category_label": "Data model"
+  },
+  {
+    "name": "rp integrity acronym",
+    "test_id": "WS_RP_SM_RpIntegrity_Signed_001",
+    "code": "SM",
+    "subgroup": "rpintegrity",
+    "label": "RP integrity",
+    "category_label": "Security mechanisms"
+  },
+  {
+    "name": "unknown category falls back to other",
+    "test_id": "WS_RP_TEST__001",
+    "code": "OTHER",
+    "subgroup": "other",
+    "label": "Other",
+    "category_label": "Other"
+  },
+  {
+    "name": "non ws rp prefix falls back to other",
+    "test_id": "SOMETHING_ELSE",
+    "code": "OTHER",
+    "subgroup": "other",
+    "label": "Other",
+    "category_label": "Other"
+  },
+  {
+    "name": "empty identifier falls back to other",
+    "test_id": "",
+    "code": "OTHER",
+    "subgroup": "other",
+    "label": "Other",
+    "category_label": "Other"
+  }
+]

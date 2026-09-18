@@ -2,48 +2,34 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { parseFCAFTestId } from './categories';
 
+type ParseCase = {
+	name: string;
+	test_id: string;
+	code: string;
+	subgroup: string;
+	label: string;
+	category_label: string;
+};
+
+const casesPath = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	'../../../../pkg/fcaf/taxonomy/testdata/parse_cases.json'
+);
+const cases = JSON.parse(readFileSync(casesPath, 'utf8')) as ParseCase[];
+
 describe('parseFCAFTestId', () => {
-	it('maps DM identifiers to the data model category', () => {
-		const { category, key, label } = parseFCAFTestId(
-			'WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001'
-		);
-		expect(category.code).toBe('DM');
-		expect(category.label).toBe('Data model');
-		expect(key).toBe('addressdata');
-		expect(label).toBe('Address data');
-	});
-
-	it('handles double-underscore interaction identifiers', () => {
-		const { category, label } = parseFCAFTestId('WS_RP_IA_MainInteraction__003');
-		expect(category.code).toBe('IA');
-		expect(label).toBe('Main interaction');
-	});
-
-	it('normalizes credential metadata casing variants', () => {
-		expect(parseFCAFTestId('WS_RP_DM_Credentialmetadata_X_001').label).toBe(
-			'Credential metadata'
-		);
-		expect(parseFCAFTestId('WS_RP_DM_CredentialMetadata_X_001').label).toBe(
-			'Credential metadata'
-		);
-	});
-
-	it('maps RpIntegrity to the RP integrity label', () => {
-		expect(parseFCAFTestId('WS_RP_SM_RpIntegrity_ABC_001').label).toBe('RP integrity');
-	});
-
-	it('falls back to Other for unknown prefixes', () => {
-		const { category, label } = parseFCAFTestId('SOMETHING_ELSE');
-		expect(category.code).toBe('OTHER');
-		expect(label).toBe('Other');
-	});
-
-	it('falls back to Other for missing identifiers', () => {
-		expect(parseFCAFTestId(undefined).category.code).toBe('OTHER');
-		expect(parseFCAFTestId('').category.code).toBe('OTHER');
+	it.each(cases)('$name', (tc) => {
+		const parsed = parseFCAFTestId(tc.test_id || undefined);
+		expect(parsed.category.code).toBe(tc.code);
+		expect(parsed.category.label).toBe(tc.category_label);
+		expect(parsed.key).toBe(tc.subgroup);
+		expect(parsed.label).toBe(tc.label);
 	});
 });

@@ -8,14 +8,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"net/url"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/dsl"
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
+	"github.com/forkbombeu/credimi/pkg/fcaf/taxonomy"
 )
 
 type Metadata struct {
@@ -117,6 +116,8 @@ func BuildDocument(input Input) Document {
 	categoryGroups := map[string]map[string]*TestGroup{}
 	referencedEvidence := map[string]struct{}{}
 	assignedImages := map[string]struct{}{}
+	presentationScreenshots := input.Report.Presentation != nil &&
+		len(input.Report.Presentation.Screenshots) > 0
 	for _, execution := range input.Report.ExecutedTests {
 		code, subgroup, label := parseTestID(execution.TestID)
 		groups, ok := categoryGroups[code]
@@ -151,36 +152,34 @@ func BuildDocument(input Input) Document {
 				Referenced: true,
 			})
 		}
-		for _, item := range execution.Evidence {
-			for _, reference := range item.Visual {
-				filename := ReferenceFilename(reference)
-				if filename == "" {
+		if presentationScreenshots {
+			for _, screenshot := range input.Report.Presentation.Screenshots {
+				if !containsString(screenshot.TestIDs, execution.TestID) {
 					continue
 				}
-				image, found := imagesByFilename[filename]
-				if !found {
-					continue
-				}
-				appendImageUnique(&entry.Images, image)
-				assignedImages[image.Filename] = struct{}{}
+				appendReferencedImage(
+					&entry.Images,
+					assignedImages,
+					imagesByFilename,
+					screenshot.URL,
+				)
 			}
-		}
-		// Match the webapp sheet association for tests without bound visual
-		// evidence: a single stored screenshot belongs to every test, and
-		// otherwise screenshots attach by shared words between their
-		// filename and the test id or title.
-		if len(entry.Images) == 0 {
-			for _, image := range images {
-				if len(images) == 1 || screenshotMatchesTest(image.Filename, execution) {
-					appendImageUnique(&entry.Images, image)
-					assignedImages[image.Filename] = struct{}{}
+		} else {
+			for _, item := range execution.Evidence {
+				for _, reference := range item.Visual {
+					appendReferencedImage(
+						&entry.Images,
+						assignedImages,
+						imagesByFilename,
+						reference,
+					)
 				}
 			}
 		}
 		group.Tests = append(group.Tests, entry)
 	}
 
-	for _, code := range categoryOrder {
+	for _, code := range taxonomy.CategoryOrder {
 		groups, ok := categoryGroups[code]
 		if !ok {
 			continue
@@ -190,8 +189,7 @@ func BuildDocument(input Input) Document {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		meta := categoryByCode[code]
-		category := Category{Code: code, Name: meta.name, Color: meta.color}
+		category := Category{Code: code, Name: categoryName(code), Color: categoryColor(code)}
 		for _, key := range keys {
 			category.Groups = append(category.Groups, *groups[key])
 		}
@@ -223,6 +221,24 @@ func BuildDocument(input Input) Document {
 	return document
 }
 
+func appendReferencedImage(
+	images *[]ImageAsset,
+	assignedImages map[string]struct{},
+	imagesByFilename map[string]ImageAsset,
+	reference string,
+) {
+	filename := ReferenceFilename(reference)
+	if filename == "" {
+		return
+	}
+	image, found := imagesByFilename[filename]
+	if !found {
+		return
+	}
+	appendImageUnique(images, image)
+	assignedImages[image.Filename] = struct{}{}
+}
+
 func appendImageUnique(images *[]ImageAsset, image ImageAsset) {
 	for _, existing := range *images {
 		if existing.Filename == image.Filename {
@@ -232,23 +248,9 @@ func appendImageUnique(images *[]ImageAsset, image ImageAsset) {
 	*images = append(*images, image)
 }
 
-func screenshotLabel(filename string) string {
-	if decoded, err := url.PathUnescape(filename); err == nil {
-		filename = decoded
-	}
-	name := strings.TrimSuffix(filename, filepath.Ext(filename))
-	name = strings.NewReplacer("_", " ", "-", " ").Replace(name)
-	return strings.ToLower(strings.Join(strings.Fields(name), " "))
-}
-
-func screenshotMatchesTest(filename string, test engine.ExecutedTest) bool {
-	label := screenshotLabel(filename)
-	if label == "" {
-		return false
-	}
-	searchable := strings.ToLower(test.TestID + " " + test.Title)
-	for _, word := range strings.Fields(label) {
-		if len(word) > 3 && strings.Contains(searchable, word) {
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
 			return true
 		}
 	}
