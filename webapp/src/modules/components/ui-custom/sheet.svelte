@@ -53,29 +53,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onOpenChange?.(true);
 	}
 
-	async function closeSheet() {
+	async function wasClosePrevented() {
 		let prevented = false;
 		await beforeClose(() => {
 			prevented = true;
 		});
-		if (!prevented) {
-			isOpen = false;
-			onOpenChange?.(false);
+		return prevented;
+	}
+
+	async function closeSheet() {
+		if (await wasClosePrevented()) return;
+		isOpen = false;
+		onOpenChange?.(false);
+	}
+
+	/** bits-ui writes `open` via bind first; reopen if beforeClose prevents. */
+	async function handleOpenChange(next: boolean) {
+		if (next) {
+			onOpenChange?.(true);
+			return;
 		}
+
+		if (await wasClosePrevented()) {
+			isOpen = true;
+			return;
+		}
+		onOpenChange?.(false);
 	}
 </script>
 
-<Sheet.Root
-	bind:open={
-		() => isOpen,
-		(v) => {
-			if (v === true) {
-				isOpen = v;
-				onOpenChange?.(true);
-			} else closeSheet();
-		}
-	}
->
+<Sheet.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
 	{#if !hideTrigger}
 		<Sheet.Trigger>
 			{#snippet child({ props })}

@@ -7,8 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { activeSheet } from '$lib/utils/sheet-state.svelte';
-
 	import type { GenericRecord } from '@/utils/types';
 
 	import Sheet from '@/components/ui-custom/sheet.svelte';
@@ -24,17 +22,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { reportUrl, pdfUrl, maestroScreenshotUrls, sheetTrigger }: Props = $props();
-
-	// Do not bind/sync sheet open $state on this parent — bits-ui Close no-ops when
-	// parent re-renders during open. Fetch runs when sheet content mounts (on open).
-	function handleSheetOpenChange(open: boolean) {
-		if (open) activeSheet.open();
-		else activeSheet.close();
-	}
 </script>
 
 {#if reportUrl}
-	<Sheet title="FCAF assessment" class="sm:max-w-3xl" onOpenChange={handleSheetOpenChange}>
+	<Sheet title="FCAF assessment" class="sm:max-w-3xl">
 		{#snippet trigger({ sheetTriggerAttributes: props, openSheet })}
 			{@render sheetTrigger({ props, openSheet })}
 		{/snippet}
