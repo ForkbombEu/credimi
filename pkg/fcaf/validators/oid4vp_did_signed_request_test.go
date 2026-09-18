@@ -51,6 +51,43 @@ func TestOID4VPDIDSignedRequestValidator(t *testing.T) {
 	}
 }
 
+// TestOID4VPDIDSignedRequestRejectsMalformedCoordinates keeps the published
+// document from choosing the size of the uncompressed-point buffer: only an
+// exact pair of P-256 coordinates is accepted.
+func TestOID4VPDIDSignedRequestRejectsMalformedCoordinates(t *testing.T) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	const kid = "did:web:verifier.example#key-1"
+	request := signedDIDRequestObject(
+		t,
+		privateKey,
+		kid,
+		"decentralized_identifier:did:web:verifier.example",
+	)
+	validator := OID4VPDIDSignedRequestValidator{}
+
+	for name, coordinate := range map[string][]byte{
+		"short":  make([]byte, 16),
+		"long":   make([]byte, 33),
+		"empty":  {},
+		"padded": make([]byte, 1024),
+	} {
+		t.Run(name, func(t *testing.T) {
+			evidence := didRequestEvidence(kid, privateKey, request)
+			document, _ := evidence["did_document"].(map[string]any)
+			methods, _ := document["verificationMethod"].([]any)
+			method, _ := methods[0].(map[string]any)
+			jwk, _ := method["publicKeyJwk"].(map[string]any)
+			jwk["y"] = base64.RawURLEncoding.EncodeToString(coordinate)
+
+			result := validator.Validate(context.Background(), Input{Value: evidence})
+
+			require.Equal(t, StatusFail, result.Status, result.Message)
+		})
+	}
+}
+
 func signedDIDRequestObject(
 	t *testing.T,
 	privateKey *ecdsa.PrivateKey,

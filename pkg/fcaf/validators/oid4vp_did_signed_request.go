@@ -60,16 +60,16 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 			if !xok || !yok {
 				return nil, fmt.Errorf("did method EC coordinates are missing")
 			}
-			xb, err := base64.RawURLEncoding.DecodeString(x)
+			xb, err := decodeP256Coordinate("x", x)
 			if err != nil {
-				return nil, fmt.Errorf("decode DID x coordinate: %w", err)
+				return nil, err
 			}
-			yb, err := base64.RawURLEncoding.DecodeString(y)
+			yb, err := decodeP256Coordinate("y", y)
 			if err != nil {
-				return nil, fmt.Errorf("decode DID y coordinate: %w", err)
+				return nil, err
 			}
-			encoded := make([]byte, 1, 1+len(xb)+len(yb))
-			encoded[0] = 4
+			encoded := make([]byte, 0, 1+2*p256CoordinateBytes)
+			encoded = append(encoded, 4)
 			encoded = append(encoded, xb...)
 			encoded = append(encoded, yb...)
 			key, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), encoded)
@@ -97,4 +97,27 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 		Status:  StatusPass,
 		Message: "DID-published key verifies the decentralized identifier Request Object",
 	}
+}
+
+// p256CoordinateBytes is the fixed length of a P-256 affine coordinate, so an
+// uncompressed point is always 1+2*p256CoordinateBytes bytes.
+const p256CoordinateBytes = 32
+
+// decodeP256Coordinate rejects a JWK coordinate that is not exactly one P-256
+// coordinate, which keeps the uncompressed-point buffer a fixed size instead of
+// one derived from the published document.
+func decodeP256Coordinate(name string, encoded string) ([]byte, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("decode DID %s coordinate: %w", name, err)
+	}
+	if len(decoded) != p256CoordinateBytes {
+		return nil, fmt.Errorf(
+			"DID %s coordinate is %d bytes, expected %d",
+			name,
+			len(decoded),
+			p256CoordinateBytes,
+		)
+	}
+	return decoded, nil
 }
