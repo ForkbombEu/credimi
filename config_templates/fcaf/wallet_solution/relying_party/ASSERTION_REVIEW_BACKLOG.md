@@ -44,10 +44,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
   `eu-eaap://` deeplink, but the reference Android Wallet has no registered
   handler for that scheme, so invocation cannot be evidenced)
 
-- [ ] `WS_RP_SM_SessionEncryption__001f` (requires the decrypted
-  Authorization Response as the exact unsigned JWT; beta exposes the encrypted
-  JWE and verification outcome but not that plaintext JWT artifact)
-
 - [ ] `WS_RP_IA_ProtocolFlow__002d` (requires a reference Wallet profile that
   does not support `request_uri_method=post`; beta has only the post-supporting
   reference Wallet)

@@ -46,7 +46,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.Len(t, validationSteps, 1)
 	with, ok := validationSteps[0]["with"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, stringSlice(with["test_ids"]), 610)
+	require.Len(t, stringSlice(with["test_ids"]), 611)
 	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__006")
 	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__013")
 	for _, restricted := range []string{
@@ -150,7 +150,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 		"WS_RP_IA_MainInteraction__015",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
-	require.Len(t, stringSlice(with["test_ids"]), 384)
+	require.Len(t, stringSlice(with["test_ids"]), 385)
 	require.NotContains(
 		t,
 		stringSlice(with["test_ids"]),

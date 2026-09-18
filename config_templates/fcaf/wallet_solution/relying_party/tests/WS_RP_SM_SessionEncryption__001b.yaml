@@ -1,12 +1,33 @@
 id: WS_RP_SM_SessionEncryption__001b
-title: Use the expected content-encryption algorithm for an Authorization Response.
-source: { path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__001b.md }
-suite: { sut: wallet_solution, role: relying_party, section: security_mechanisms.session_encryption }
-applicability: { profile: EUDI_generic, presentation_flow: redirects }
+title: Use an appropriate content-encryption algorithm for an Authorization Response.
+source:
+  path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__001b.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: security_mechanisms.session_encryption
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
 normative_references:
-  - { title: OpenID for Verifiable Presentations 1.0, section: "6.1", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+- title: OpenID for Verifiable Presentations 1.0
+  section: '8.3'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: JSON Web Algorithms (JWA)
+  section: '5.1'
+  url: https://www.rfc-editor.org/rfc/rfc7518
+- ref: pipeline.dcql.session-encryption
 evidence:
-  encrypted_response: { from: pipeline.dcql.session-encryption.outputs.encrypted_response }
+  encrypted_response:
+    from: pipeline.dcql.session-encryption.outputs.encrypted_response
 assertions:
-  - { id: content_encryption_is_a128cbc_hs256, validator: jose.jwe_protected_header, input: evidence.encrypted_response, params: { field: enc, value: A128CBC-HS256 } }
-verdict: { pass_when: all_assertions_pass }
+- id: content_encryption_is_a256gcm_or_a128gcm
+  validator: jose.jwe_protected_header
+  input: evidence.encrypted_response
+  params:
+    field: enc
+    allowed:
+    - A256GCM
+    - A128GCM
+verdict:
+  pass_when: all_assertions_pass

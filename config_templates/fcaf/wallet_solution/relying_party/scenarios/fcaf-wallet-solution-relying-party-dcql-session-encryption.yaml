@@ -61,11 +61,13 @@ steps:
       - WS_RP_SM_SessionEncryption__001c
       - WS_RP_SM_SessionEncryption__001d
       - WS_RP_SM_SessionEncryption__001e
+      - WS_RP_SM_SessionEncryption__001f
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.session-encryption:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-          encrypted_response: ${{ fetch-capture-session.outputs.body.raw.presentation_response }}
+          encrypted_response: ${{ fetch-capture-session.outputs.body.observed.wallet_response.value.response }}
+          decrypted_response: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted }}
           session_checks: ${{ fetch-capture-session.outputs.body.checks }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

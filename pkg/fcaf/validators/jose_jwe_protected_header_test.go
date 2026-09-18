@@ -41,6 +41,34 @@ func TestJOSEJWEProtectedHeaderValidator(t *testing.T) {
 	}
 }
 
+// TestJOSEJWEProtectedHeaderAllowedValues covers the "one of" requirement the
+// session-encryption cases need: OpenID4VP permits either GCM length, so a
+// single expected value would fail a conformant Wallet.
+func TestJOSEJWEProtectedHeaderAllowedValues(t *testing.T) {
+	validator := JOSEJWEProtectedHeaderValidator{}
+	allowed := map[string]any{"field": "enc", "allowed": []any{"A256GCM", "A128GCM"}}
+
+	for _, enc := range []string{"A256GCM", "A128GCM"} {
+		result := validator.Validate(context.Background(), Input{
+			Value:  testCompactJWE(t, map[string]any{"alg": "ECDH-ES", "enc": enc}),
+			Params: allowed,
+		})
+		require.Equalf(t, StatusPass, result.Status, "%s: %s", enc, result.Message)
+	}
+
+	rejected := validator.Validate(context.Background(), Input{
+		Value:  testCompactJWE(t, map[string]any{"alg": "ECDH-ES", "enc": "A128CBC-HS256"}),
+		Params: allowed,
+	})
+	require.Equal(t, StatusFail, rejected.Status, rejected.Message)
+
+	missing := validator.Validate(context.Background(), Input{
+		Value:  testCompactJWE(t, map[string]any{"alg": "ECDH-ES"}),
+		Params: allowed,
+	})
+	require.Equal(t, StatusFail, missing.Status, missing.Message)
+}
+
 func testCompactJWE(t *testing.T, header map[string]any) string {
 	t.Helper()
 	encoded, err := json.Marshal(header)

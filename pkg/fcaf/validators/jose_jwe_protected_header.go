@@ -21,6 +21,7 @@ func (JOSEJWEProtectedHeaderValidator) Validate(_ context.Context, input Input) 
 	params, err := DecodeParams[struct {
 		Field   string `json:"field"`
 		Value   any    `json:"value"`
+		Allowed []any  `json:"allowed"`
 		Present *bool  `json:"present"`
 	}](input.Params)
 	if err != nil {
@@ -62,6 +63,29 @@ func (JOSEJWEProtectedHeaderValidator) Validate(_ context.Context, input Input) 
 		return Result{
 			Status:  StatusFail,
 			Message: fmt.Sprintf("JWE protected header field %q is missing", params.Field),
+		}
+	}
+	if len(params.Allowed) > 0 {
+		for _, allowed := range params.Allowed {
+			if reflect.DeepEqual(value, allowed) {
+				return Result{
+					Status: StatusPass,
+					Message: fmt.Sprintf(
+						"JWE protected header field %q is the allowed value %v",
+						params.Field,
+						value,
+					),
+				}
+			}
+		}
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWE protected header field %q is %v, expected one of %v",
+				params.Field,
+				value,
+				params.Allowed,
+			),
 		}
 	}
 	if !reflect.DeepEqual(value, params.Value) {

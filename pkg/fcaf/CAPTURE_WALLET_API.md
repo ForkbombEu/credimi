@@ -370,6 +370,29 @@ not shown as dedicated fields in the operator UI, so read them from the session
 record. Inspect the session record and events; never substitute a screenshot for
 missing callback evidence.
 
+`raw.presentation_response` is the parsed form body, so for `direct_post.jwt` it
+is `{ "response": "<compact JWE>" }`, not the JWE itself; bind
+`observed.wallet_response.value.response` when a validator needs the compact
+serialization.
+
+`raw.presentation_response_decrypted` is the decrypted Authorization Response as
+a JSON object, and `raw.decoded_presentations` the decoded credentials. Neither
+appears in the published OpenAPI document, but both are declared in
+`src/types.ts` and assigned in `captureVpResponse` (`src/server.ts`), which sets
+`presentation_response_decrypted` whenever validation produced an authorization
+response, independently of whether verification then succeeded. Source-verified
+18/09/2026 at commit `dc24580`; reported present in a live beta capture by a
+maintainer the same day.
+
+Scope limit for `direct_post.jwt`: `normalizeAuthorizationResponse`
+(`src/openid4vp-validation.ts`) decodes a three-part plaintext with `decodeJwt`
+and otherwise `JSON.parse`s it, so the member holds the *claims* either way and
+cannot by itself distinguish a JSON plaintext from a nested signed JWT. Pair it
+with a `cty`-absent assertion on the JWE protected header when a test needs the
+unsigned-JWT property. The service exposes the parsed object, never the
+plaintext bytes, so byte-level checks such as duplicate member names or the
+exact encoding cannot be evidenced from it.
+
 ## Browser-only routes
 
 `/`, `/ui/help`, `/ui/sessions`, `/ui/sessions/{sessionId}`,

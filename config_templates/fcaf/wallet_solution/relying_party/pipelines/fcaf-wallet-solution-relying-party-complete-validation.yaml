@@ -12088,7 +12088,8 @@ steps:
             pipeline.dcql.session-encryption:
                 output:
                     dcql_exchange: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body | optional }}
-                    encrypted_response: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.raw.presentation_response | optional }}
+                    decrypted_response: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.raw.presentation_response_decrypted | optional }}
+                    encrypted_response: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.observed.wallet_response.value.response | optional }}
                     session_checks: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.checks | optional }}
                     visual_evidence: ${{ dcql-session-encryption-210827bd-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.standard-all:
@@ -13134,6 +13135,7 @@ steps:
             - WS_RP_SM_SessionEncryption__001c
             - WS_RP_SM_SessionEncryption__001d
             - WS_RP_SM_SessionEncryption__001e
+            - WS_RP_SM_SessionEncryption__001f
             - WS_RP_SM_SessionEncryption__002
             - WS_RP_SM_SessionEncryption__003
             - WS_RP_SM_SessionEncryption__005

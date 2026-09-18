@@ -1610,3 +1610,52 @@ service is still unverified, so a live run may fail before the presentation.
 
 The generated complete aggregate now contains 709 steps, 610 test IDs, and 197
 pipeline outputs.
+
+## SessionEncryption 001f, and two defects it exposed
+
+001f asks for the Shared_JSON cases to be run on the decrypted Authorization
+Response. The backlog called it blocked because beta "exposes the encrypted JWE
+and verification outcome but not that plaintext JWT artifact". Wrong:
+`captureVpResponse` in `credimi-capture-wallet/src/server.ts` sets
+`raw.presentation_response_decrypted` from the validated authorization response,
+independently of the verification outcome, so the decrypted Authorization
+Response is available. The scenario now exposes it as
+`pipeline.dcql.session-encryption.outputs.decrypted_response`.
+
+The upstream `Shared_JSON` family does not exist as source files; only 001f and
+`WS_RP_MS_CredentialFormats__045c` reference it. 045c set the precedent of
+reducing it to a concrete structural assertion, so 001f asserts that the
+decrypted response is a JSON object carrying `vp_token`. It also keeps a
+`cty`-absent assertion on the JWE header, which is required rather than
+decorative: `normalizeAuthorizationResponse` decodes a three-part plaintext
+with `decodeJwt`, so the decrypted member alone cannot distinguish a JSON
+plaintext from a nested signed JWT. Byte-level Shared_JSON checks (duplicate
+member names, exact encoding) stay out of reach: Capture exposes the parsed
+object, not the plaintext bytes.
+
+Verifying 001f through the engine exposed two pre-existing defects in the same
+family, both fixed here:
+
+- The scenario bound `encrypted_response` to `raw.presentation_response`, which
+  is the parsed form body `{ "response": "<compact JWE>" }`. `jose.*` validators
+  need the compact string, so 001, 001a, 001b, 001c and 001d would all have
+  failed on evidence shape in a live run. The binding is now
+  `observed.wallet_response.value.response`, matching the
+  metadata-direct-post-jwt scenario. Confirmed by engine run: the whole family
+  fails with the old object shape and passes with the string.
+- 001b asserted `enc == A128CBC-HS256`, while its source requires `A256GCM` or
+  `A128GCM` — it would have failed a conformant Wallet and passed a
+  non-conformant one. `jose.jwe_protected_header` gained an `allowed` list
+  param and 001b now accepts either GCM length.
+
+001f is verified against the shipped definition: pass for an unsigned JWE with
+a JSON authorization response, fail for a nested signed JWT (`cty: JWT`), fail
+for a non-object or `vp_token`-less decrypted response, blocked when Capture
+recorded no decrypted response. No reference-Wallet run.
+
+Inventory note: the `SessionEncryption` lettered sub-cases (001a–001f) have no
+`implementation-inventory.csv` rows; only the numeric parents do. That gap is
+pre-existing and was left as is rather than adding a lone 001f row.
+
+The generated complete aggregate now contains 709 steps, 611 test IDs, and 197
+pipeline outputs.
