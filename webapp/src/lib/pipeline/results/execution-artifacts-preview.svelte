@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { BadgeCheckIcon, FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { FCAF } from '$lib';
 	import MediaPreview from '$lib/components/media-preview.svelte';
 	import { mergeProps } from 'bits-ui';
 
@@ -18,7 +19,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
 
-	import FCAFReportSheet from './fcaf-report-sheet.svelte';
 	import PipelineReportSheet from './pipeline-report-sheet.svelte';
 
 	type PreviewIcon = 'image' | 'video' | 'file' | 'document' | 'fcaf';
@@ -103,7 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				})}
 			{/snippet}
 		</PipelineReportSheet>
-		<FCAFReportSheet
+		<FCAF.ReportSheet
 			reportUrl={artifacts.fcafReport}
 			pdfUrl={artifacts.fcafReportPdf}
 			maestroScreenshotUrls={artifacts.maestro_screenshots ?? []}
@@ -116,7 +116,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					extraProps: props
 				})}
 			{/snippet}
-		</FCAFReportSheet>
+		</FCAF.ReportSheet>
 	</div>
 {:else if emptyState}
 	{@render emptyState()}
