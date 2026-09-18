@@ -97,6 +97,60 @@ func TestResolvePipelineExecutionArtifacts(t *testing.T) {
 	require.Empty(t, missing.Results)
 }
 
+func TestRefreshScoreboardLatestExecutionArtifacts(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	app.Settings().Meta.AppURL = "https://app.test"
+	ensurePipelineResultReportField(t, app)
+	ensurePipelineResultFCAFReportField(t, app)
+	ensureScoreboardExpandedDataField(t, app)
+
+	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	result := createPipelineResultRecord(t, app, resultsColl)
+	require.NoError(t, app.Save(result))
+	setPipelineResultFCAFReport(t, app, result.Id, "fcaf_assessment_old.json")
+
+	scoreboardColl, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+	cache := core.NewRecord(scoreboardColl)
+	cache.Set("pipeline", result.GetString("pipeline"))
+	cache.Set("latest_execution", result.Id)
+	cache.Set("total_runs", 1)
+	cache.Set("first_execution", result.GetString("created"))
+	cache.Set("expanded_data", map[string]any{
+		"latest_execution": map[string]any{
+			"created": result.GetString("created"),
+			"artifacts": map[string]any{
+				"fcaf_report": "https://stale.example/api/files/pipeline_results/" +
+					result.Id + "/fcaf_assessment_old.json",
+			},
+		},
+	})
+	require.NoError(t, app.Save(cache))
+
+	setPipelineResultFCAFReport(t, app, result.Id, "fcaf_assessment_new.json")
+	n, err := RefreshScoreboardLatestExecutionArtifacts(app, result.Id)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+
+	reloaded, err := app.FindRecordById("pipeline_scoreboard_cache", cache.Id)
+	require.NoError(t, err)
+	expanded, err := decodeScoreboardExpandedData(reloaded)
+	require.NoError(t, err)
+	latest, ok := expanded["latest_execution"].(map[string]any)
+	require.True(t, ok)
+	artifacts, ok := latest["artifacts"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(
+		t,
+		"https://app.test/api/files/pipeline_results/"+result.Id+"/fcaf_assessment_new.json",
+		artifacts["fcaf_report"],
+	)
+}
+
 func ensurePipelineResultReportField(t testing.TB, app *tests.TestApp) {
 	t.Helper()
 
@@ -104,6 +158,31 @@ func ensurePipelineResultReportField(t testing.TB, app *tests.TestApp) {
 	require.NoError(t, err)
 	if collection.Fields.GetByName("report") == nil {
 		collection.Fields.Add(&core.FileField{Name: "report", MaxSelect: 1})
+	}
+	require.NoError(t, app.Save(collection))
+}
+
+func ensurePipelineResultFCAFReportField(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	if collection.Fields.GetByName("fcaf_report") == nil {
+		collection.Fields.Add(&core.FileField{Name: "fcaf_report", MaxSelect: 1})
+	}
+	if collection.Fields.GetByName("fcaf_report_pdf") == nil {
+		collection.Fields.Add(&core.FileField{Name: "fcaf_report_pdf", MaxSelect: 1})
+	}
+	require.NoError(t, app.Save(collection))
+}
+
+func ensureScoreboardExpandedDataField(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
+	require.NoError(t, err)
+	if collection.Fields.GetByName("expanded_data") == nil {
+		collection.Fields.Add(&core.JSONField{Name: "expanded_data"})
 	}
 	require.NoError(t, app.Save(collection))
 }
@@ -177,6 +256,25 @@ func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, 
 	).Bind(dbx.Params{
 		"report": mustMarshalJSONStringArray(t, []string{report}),
 		"id":     recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func setPipelineResultFCAFReport(
+	t testing.TB,
+	app *tests.TestApp,
+	recordID string,
+	fcafReport string,
+) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET fcaf_report = {:fcaf_report}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"fcaf_report": mustMarshalJSONStringArray(t, []string{fcafReport}),
+		"id":          recordID,
 	}).Execute()
 	require.NoError(t, err)
 }

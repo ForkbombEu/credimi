@@ -23,10 +23,11 @@ type fcafPresentationBackfillOptions struct {
 }
 
 type fcafPresentationBackfillSummary struct {
-	scanned int
-	updated int
-	skipped int
-	errors  int
+	scanned             int
+	updated             int
+	skipped             int
+	scoreboardRefreshed int
+	errors              int
 }
 
 func newFCAFBackfillPresentationCommand(app core.App) *cobra.Command {
@@ -49,11 +50,12 @@ func newFCAFBackfillPresentationCommand(app core.App) *cobra.Command {
 			}
 			fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"summary%s: scanned=%d updated=%d skipped=%d errors=%d\n",
+				"summary%s: scanned=%d updated=%d skipped=%d scoreboard_refreshed=%d errors=%d\n",
 				suffix,
 				summary.scanned,
 				summary.updated,
 				summary.skipped,
+				summary.scoreboardRefreshed,
 				summary.errors,
 			)
 			return err
@@ -115,8 +117,12 @@ func backfillFCAFPresentations(
 			)
 			continue
 		}
-		if !fcafReportNeedsPresentationBackfill(report) {
+		needsPresentation := fcafReportNeedsPresentationBackfill(report)
+		if !needsPresentation {
 			summary.skipped++
+			if !options.dryRun {
+				_ = refreshScoreboardArtifactsAfterBackfill(&summary, errOut, app, record)
+			}
 			continue
 		}
 		if options.dryRun {
@@ -191,6 +197,9 @@ func backfillFCAFPresentations(
 		}
 		summary.updated++
 		fmt.Fprintf(out, "updated pipeline_results/%s\n", record.Id)
+		if err := refreshScoreboardArtifactsAfterBackfill(&summary, errOut, app, record); err != nil {
+			continue
+		}
 	}
 
 	if summary.errors > 0 {
@@ -221,6 +230,26 @@ func readFCAFReport(
 
 func fcafReportNeedsPresentationBackfill(report engine.Report) bool {
 	return report.Presentation == nil
+}
+
+func refreshScoreboardArtifactsAfterBackfill(
+	summary *fcafPresentationBackfillSummary,
+	errOut io.Writer,
+	app core.App,
+	record *core.Record,
+) error {
+	n, err := reportgeneration.RefreshScoreboardLatestExecutionArtifacts(app, record.Id)
+	if err != nil {
+		recordBackfillError(
+			summary,
+			errOut,
+			record,
+			fmt.Errorf("refresh scoreboard artifacts: %w", err),
+		)
+		return err
+	}
+	summary.scoreboardRefreshed += n
+	return nil
 }
 
 func recordBackfillError(

@@ -50,6 +50,12 @@ func EnrichReportJSON(app core.App, record *core.Record, rawJSON []byte) ([]byte
 	return enriched, &report, nil
 }
 
+// RefreshScoreboardLatestExecutionArtifacts rewrites scoreboard cache artifact URLs after
+// an in-place FCAF report file replacement.
+func RefreshScoreboardLatestExecutionArtifacts(app core.App, pipelineResultID string) (int, error) {
+	return pipelineresults.RefreshScoreboardLatestExecutionArtifacts(app, pipelineResultID)
+}
+
 // GeneratePipelineFCAFReportPDF renders an FCAF report PDF for a pipeline result.
 func GeneratePipelineFCAFReportPDF(
 	ctx context.Context,
