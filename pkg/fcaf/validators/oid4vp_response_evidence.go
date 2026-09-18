@@ -167,157 +167,236 @@ type OID4VPResponseEncryptionValidator struct{}
 func (OID4VPResponseEncryptionValidator) ID() string { return "oid4vp.response_encryption" }
 
 func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input) Result {
-	params, err := DecodeParams[struct {
-		MatchMetadataKID         bool     `json:"match_metadata_kid"`
-		ExpectedEnc              string   `json:"expected_enc"`
-		MetadataEnc              string   `json:"metadata_enc"`
-		MetadataEncAbsent        bool     `json:"metadata_enc_absent"`
-		MetadataEncValuesSupport []string `json:"metadata_enc_values_supported"`
-		MetadataEncValuesOnly    bool     `json:"metadata_enc_values_exclusive"`
-		PreserveGeneratedJWKs    bool     `json:"preserve_generated_jwks"`
-	}](input.Params)
+	params, err := DecodeParams[oid4vpResponseEncryptionParams](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
-	if !params.MatchMetadataKID && params.ExpectedEnc == "" && params.MetadataEnc == "" &&
-		!params.MetadataEncAbsent &&
-		len(params.MetadataEncValuesSupport) == 0 &&
-		!params.PreserveGeneratedJWKs {
-		return Result{
+	if result := params.validate(); result != nil {
+		return *result
+	}
+	captured, result := decodeResponseEncryptionEvidence(input.Value)
+	if result != nil {
+		return *result
+	}
+	for _, check := range []func(responseEncryptionEvidence) *Result{
+		params.checkProtectedHeader,
+		params.checkMetadataEnc,
+		params.checkMetadataEncValues,
+		params.checkGeneratedJWKs,
+	} {
+		if result := check(captured); result != nil {
+			return *result
+		}
+	}
+	return Result{Status: StatusPass, Message: "response encryption evidence matches"}
+}
+
+type oid4vpResponseEncryptionParams struct {
+	MatchMetadataKID         bool     `json:"match_metadata_kid"`
+	ExpectedEnc              string   `json:"expected_enc"`
+	MetadataEnc              string   `json:"metadata_enc"`
+	MetadataEncAbsent        bool     `json:"metadata_enc_absent"`
+	MetadataEncValuesSupport []string `json:"metadata_enc_values_supported"`
+	MetadataEncValuesOnly    bool     `json:"metadata_enc_values_exclusive"`
+	PreserveGeneratedJWKs    bool     `json:"preserve_generated_jwks"`
+}
+
+func (p oid4vpResponseEncryptionParams) validate() *Result {
+	if !p.MatchMetadataKID && p.ExpectedEnc == "" && p.MetadataEnc == "" &&
+		!p.MetadataEncAbsent &&
+		len(p.MetadataEncValuesSupport) == 0 &&
+		!p.PreserveGeneratedJWKs {
+		return &Result{
 			Status:  StatusError,
 			Message: "at least one response encryption check is required",
 		}
 	}
-	if params.MetadataEnc != "" && params.MetadataEncAbsent {
-		return Result{
+	if p.MetadataEnc != "" && p.MetadataEncAbsent {
+		return &Result{
 			Status:  StatusError,
 			Message: "metadata_enc and metadata_enc_absent are contradictory",
 		}
 	}
-	if params.MetadataEncValuesOnly && len(params.MetadataEncValuesSupport) == 0 {
-		return Result{
+	if p.MetadataEncValuesOnly && len(p.MetadataEncValuesSupport) == 0 {
+		return &Result{
 			Status:  StatusError,
 			Message: "metadata_enc_values_exclusive requires metadata_enc_values_supported",
 		}
 	}
-	if params.MetadataEnc != "" && params.MetadataEncAbsent {
-		return Result{
-			Status:  StatusError,
-			Message: "metadata_enc and metadata_enc_absent are contradictory",
+	return nil
+}
+
+// responseEncryptionEvidence holds the three artifacts every check needs: the
+// verifier client metadata from the signed request, the protected header of the
+// response JWE, and the probe's generated key set.
+type responseEncryptionEvidence struct {
+	metadata      map[string]any
+	header        map[string]any
+	generatedJWKs any
+}
+
+func decodeResponseEncryptionEvidence(
+	value any,
+) (responseEncryptionEvidence, *Result) {
+	captured, ok := normalizeJSONObject(value)
+	if !ok {
+		return responseEncryptionEvidence{}, &Result{
+			Status:  StatusFail,
+			Message: "response encryption evidence is not an object",
 		}
 	}
-	evidence, ok := normalizeJSONObject(input.Value)
-	if !ok {
-		return Result{Status: StatusFail, Message: "response encryption evidence is not an object"}
-	}
-	requestObject, ok := evidence["request_object"].(string)
+	requestObject, ok := captured["request_object"].(string)
 	if !ok || requestObject == "" {
-		return Result{Status: StatusFail, Message: "signed request object is missing"}
+		return responseEncryptionEvidence{}, &Result{
+			Status:  StatusFail,
+			Message: "signed request object is missing",
+		}
 	}
 	metadata, err := requestClientMetadata(requestObject)
 	if err != nil {
-		return Result{Status: StatusFail, Message: err.Error()}
+		return responseEncryptionEvidence{}, &Result{
+			Status:  StatusFail,
+			Message: err.Error(),
+		}
 	}
-	response, ok := normalizeJSONObject(evidence["presentation_response_http"])
+	response, ok := normalizeJSONObject(captured["presentation_response_http"])
 	if !ok {
-		return Result{Status: StatusFail, Message: "presentation response HTTP evidence is missing"}
+		return responseEncryptionEvidence{}, &Result{
+			Status:  StatusFail,
+			Message: "presentation response HTTP evidence is missing",
+		}
 	}
 	form, err := responseForm(response)
 	if err != nil {
-		return Result{Status: StatusFail, Message: err.Error()}
+		return responseEncryptionEvidence{}, &Result{
+			Status:  StatusFail,
+			Message: err.Error(),
+		}
 	}
 	responses := form["response"]
 	if len(responses) != 1 || responses[0] == "" {
-		return Result{
+		return responseEncryptionEvidence{}, &Result{
 			Status:  StatusFail,
 			Message: "presentation response form must contain one non-empty response parameter",
 		}
 	}
 	header, err := compactJWEProtectedHeader(responses[0])
 	if err != nil {
-		return Result{Status: StatusFail, Message: err.Error()}
+		return responseEncryptionEvidence{}, &Result{
+			Status:  StatusFail,
+			Message: err.Error(),
+		}
 	}
-	if params.MatchMetadataKID {
-		kid, _ := header["kid"].(string)
-		if kid == "" || !metadataContainsKID(metadata, kid) {
-			return Result{
+	return responseEncryptionEvidence{
+		metadata:      metadata,
+		header:        header,
+		generatedJWKs: captured["generated_jwks"],
+	}, nil
+}
+
+func (p oid4vpResponseEncryptionParams) checkProtectedHeader(
+	captured responseEncryptionEvidence,
+) *Result {
+	if p.MatchMetadataKID {
+		kid, _ := captured.header["kid"].(string)
+		if kid == "" || !metadataContainsKID(captured.metadata, kid) {
+			return &Result{
 				Status:  StatusFail,
 				Message: "JWE protected header kid does not match client metadata",
 			}
 		}
 	}
-	if params.ExpectedEnc != "" && header["enc"] != params.ExpectedEnc {
-		return Result{
+	if p.ExpectedEnc != "" && captured.header["enc"] != p.ExpectedEnc {
+		return &Result{
 			Status: StatusFail,
 			Message: fmt.Sprintf(
 				"JWE protected header enc is %v, expected %q",
-				header["enc"],
-				params.ExpectedEnc,
+				captured.header["enc"],
+				p.ExpectedEnc,
 			),
 		}
 	}
-	metadataEnc, metadataEncPresent := metadata["authorization_encrypted_response_enc"]
-	if params.MetadataEnc != "" && metadataEnc != params.MetadataEnc {
-		return Result{
+	return nil
+}
+
+func (p oid4vpResponseEncryptionParams) checkMetadataEnc(
+	captured responseEncryptionEvidence,
+) *Result {
+	metadataEnc, present := captured.metadata["authorization_encrypted_response_enc"]
+	if p.MetadataEnc != "" && metadataEnc != p.MetadataEnc {
+		return &Result{
 			Status: StatusFail,
 			Message: fmt.Sprintf(
 				"client metadata authorization_encrypted_response_enc is %v, expected %q",
 				metadataEnc,
-				params.MetadataEnc,
+				p.MetadataEnc,
 			),
 		}
 	}
-	if params.MetadataEncAbsent && metadataEncPresent {
-		return Result{
+	if p.MetadataEncAbsent && present {
+		return &Result{
 			Status:  StatusFail,
 			Message: "client metadata authorization_encrypted_response_enc is present",
 		}
 	}
-	if len(params.MetadataEncValuesSupport) > 0 {
-		advertised, ok := metadata["encrypted_response_enc_values_supported"].([]any)
-		if !ok {
-			return Result{
-				Status:  StatusFail,
-				Message: "client metadata encrypted_response_enc_values_supported is missing",
-			}
+	return nil
+}
+
+func (p oid4vpResponseEncryptionParams) checkMetadataEncValues(
+	captured responseEncryptionEvidence,
+) *Result {
+	if len(p.MetadataEncValuesSupport) == 0 {
+		return nil
+	}
+	advertised, ok := captured.metadata["encrypted_response_enc_values_supported"].([]any)
+	if !ok {
+		return &Result{
+			Status:  StatusFail,
+			Message: "client metadata encrypted_response_enc_values_supported is missing",
 		}
-		supported := make(map[string]bool, len(advertised))
-		for _, value := range advertised {
-			if text, ok := value.(string); ok {
-				supported[text] = true
-			}
+	}
+	supported := make(map[string]bool, len(advertised))
+	for _, value := range advertised {
+		if text, ok := value.(string); ok {
+			supported[text] = true
 		}
-		for _, required := range params.MetadataEncValuesSupport {
-			if !supported[required] {
-				return Result{
-					Status: StatusFail,
-					Message: fmt.Sprintf(
-						"client metadata encrypted_response_enc_values_supported is %v, expected to include %q",
-						advertised,
-						required,
-					),
-				}
-			}
-		}
-		if params.MetadataEncValuesOnly && len(supported) != len(params.MetadataEncValuesSupport) {
-			return Result{
+	}
+	for _, required := range p.MetadataEncValuesSupport {
+		if !supported[required] {
+			return &Result{
 				Status: StatusFail,
 				Message: fmt.Sprintf(
-					"client metadata encrypted_response_enc_values_supported is %v, expected only %v",
+					"client metadata encrypted_response_enc_values_supported is %v, expected to include %q",
 					advertised,
-					params.MetadataEncValuesSupport,
+					required,
 				),
 			}
 		}
 	}
-	if params.PreserveGeneratedJWKs &&
-		!reflect.DeepEqual(metadata["jwks"], evidence["generated_jwks"]) {
-		return Result{
+	if p.MetadataEncValuesOnly && len(supported) != len(p.MetadataEncValuesSupport) {
+		return &Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"client metadata encrypted_response_enc_values_supported is %v, expected only %v",
+				advertised,
+				p.MetadataEncValuesSupport,
+			),
+		}
+	}
+	return nil
+}
+
+func (p oid4vpResponseEncryptionParams) checkGeneratedJWKs(
+	captured responseEncryptionEvidence,
+) *Result {
+	if p.PreserveGeneratedJWKs &&
+		!reflect.DeepEqual(captured.metadata["jwks"], captured.generatedJWKs) {
+		return &Result{
 			Status:  StatusFail,
 			Message: "client metadata jwks differs from generated probe jwks",
 		}
 	}
-	return Result{Status: StatusPass, Message: "response encryption evidence matches"}
+	return nil
 }
 
 func presentationResponseHTTP(value any) (map[string]any, error) {
