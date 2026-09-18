@@ -35,6 +35,7 @@ func (OID4VPDCQLArraySelectorFilterValidator) Validate(
 		Path            []any    `json:"path"`
 		RequiredValues  []string `json:"required_values"`
 		ForbiddenValues []string `json:"forbidden_values"`
+		ForbiddenClaims []string `json:"forbidden_claims"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -49,10 +50,13 @@ func (OID4VPDCQLArraySelectorFilterValidator) Validate(
 	if !ok || claim == "" {
 		return Result{Status: StatusError, Message: "path param must start with a claim name"}
 	}
-	if len(params.RequiredValues) == 0 || len(params.ForbiddenValues) == 0 {
+	if len(params.RequiredValues) == 0 {
+		return Result{Status: StatusError, Message: "required_values param is required"}
+	}
+	if len(params.ForbiddenValues) == 0 && len(params.ForbiddenClaims) == 0 {
 		return Result{
 			Status:  StatusError,
-			Message: "required_values and forbidden_values params are required",
+			Message: "forbidden_values or forbidden_claims param is required",
 		}
 	}
 
@@ -140,6 +144,17 @@ func (OID4VPDCQLArraySelectorFilterValidator) Validate(
 					"claim %q still discloses %q, so the unsatisfiable element was not removed",
 					claim,
 					value,
+				),
+			}
+		}
+	}
+	for _, forbidden := range params.ForbiddenClaims {
+		if _, disclosed := presentation.Claims[forbidden]; disclosed {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"presented credential discloses unrequested claim %q",
+					forbidden,
 				),
 			}
 		}

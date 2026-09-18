@@ -1,0 +1,51 @@
+id: WS_RP_IA_MainInteraction__034a
+title: Disclose two requested SD-JWT VC claims only.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__034a.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+  credential_format: ietf_sd_jwt_vc
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '7.1'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- ref: pipeline.interaction.pid-sdjwt-two-claims
+evidence:
+  dcql_exchange:
+    from: pipeline.interaction.pid-sdjwt-two-claims.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.interaction.pid-sdjwt-two-claims.outputs.visual_evidence
+assertions:
+- id: wallet_discloses_only_the_two_requested_pid_claims
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
+  params:
+    mode: claims_subset
+    forbidden_paths:
+    - - address
+    - - birth_family_name
+    - - birth_given_name
+    - - birthdate
+    - - date_of_expiry
+    - - date_of_issuance
+    - - document_number
+    - - email
+    - - issuing_authority
+    - - issuing_country
+    - - issuing_jurisdiction
+    - - nationalities
+    - - personal_administrative_number
+    - - phone_number
+    - - picture
+    - - place_of_birth
+    - - sex
+- id: two_pid_claims_presentation_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

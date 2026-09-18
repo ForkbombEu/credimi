@@ -1,0 +1,64 @@
+id: WS_RP_IA_MainInteraction__034b
+title: Disclose two requested mdoc elements only.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__034b.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+  credential_format: iso_mdoc
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '7.2'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- ref: pipeline.interaction.pid-mdoc-two-elements
+evidence:
+  dcql_exchange:
+    from: pipeline.interaction.pid-mdoc-two-elements.outputs.dcql_exchange
+  pid_mdoc:
+    from: pipeline.interaction.pid-mdoc-two-elements.outputs.pid_mdoc
+  visual_evidence:
+    from: pipeline.interaction.pid-mdoc-two-elements.outputs.visual_evidence
+assertions:
+- id: exactly_two_mdoc_elements_are_requested
+  validator: oid4vp.dcql_requested_claim_paths
+  input: evidence.dcql_exchange
+  params:
+    format: mso_mdoc
+    paths:
+    - - eu.europa.ec.eudi.pid.1
+      - given_name
+    - - eu.europa.ec.eudi.pid.1
+      - family_name
+- id: requested_mdoc_element_paths_are_presented
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
+  params:
+    mode: mdoc_claim_path_presentation
+    expected_claim_path:
+    - eu.europa.ec.eudi.pid.1
+    - given_name
+- id: both_requested_mdoc_element_paths_are_presented
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
+  params:
+    mode: mdoc_claim_path_presentation
+    expected_claim_path:
+    - eu.europa.ec.eudi.pid.1
+    - family_name
+- id: wallet_discloses_only_the_two_requested_mdoc_elements
+  validator: mdoc.exact_namespace_elements
+  input: evidence.pid_mdoc
+  params:
+    namespace: eu.europa.ec.eudi.pid.1
+    elements:
+    - given_name
+    - family_name
+- id: two_mdoc_elements_presentation_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

@@ -43,13 +43,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_IA_Engagement__001b` (the beta Capture service can generate an
   `eu-eaap://` deeplink, but the reference Android Wallet has no registered
   handler for that scheme, so invocation cannot be evidenced)
-- [ ] `WS_RP_IA_MainInteraction__012c_UF`,
-  `WS_RP_IA_MainInteraction__012d_UF`, and
-  `WS_RP_IA_MainInteraction__034a` through `034i_UF` (the public beta
-  service has no documented, deterministic `default_credential_A` fixture
-  with the required absent claims and selectively disclosable array/object
-  members; generic PID presentations cannot prove these exact selections or
-  non-selections)
 - [ ] `WS_RP_MS_CredentialFormats__029a` through `029g` and
   `WS_RP_MS_CredentialFormats__033a` through `033h` (beta accepts
   `status_list_enabled: true`, but does not expose an issued status-bearing

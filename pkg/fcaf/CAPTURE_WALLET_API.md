@@ -105,6 +105,7 @@ Those are the heterogeneous JSON structures the DCQL claims-path tests need.
 | --- | --- |
 | Issue `urn:credimi:degree:1` with the heterogeneous `degrees` and `academic_programmes` structures. | Observed on beta 17/09/2026 |
 | Prove per-element claims-path removal inside those arrays. | Observed 17/09/2026: `degreeSdJwtCredentialSignOptions` signs a nested `DEGREE_DISCLOSURE_FRAME`, so every `degrees` entry is an array-element disclosure with separate `type` and `university` disclosures and every `academic_programmes` string is its own array-element disclosure. A Wallet can therefore reveal `degrees[0..1].type` without any `university`, and `academic_programmes[1][1]` without `academic_programmes[0][0]`. The issuer metadata still advertises the two claims at whole-claim granularity, which is display metadata only. |
+| Prove per-property disclosure inside the degree `address` object. | Source-verified 18/09/2026: `credimi-capture-wallet` commit `dc24580` extends `DEGREE_DISCLOSURE_FRAME` with `address: { _sd: ["street_address", "locality", "postal_code"] }`, so the top-level `address` disclosure carries one nested object disclosure per property and a Wallet can reveal `address.street_address` without `locality` or `postal_code`. The PID SD-JWT `address` remains one atomic disclosure, so an object-property test must bind the degree credential. |
 
 ### Issuer protocol surface
 

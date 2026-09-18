@@ -1495,3 +1495,71 @@ only forwards the credential as issued, so a run of this case confirms that
 the Wallet forwarded the issued chain unchanged rather than appending an
 anchor. Always probe the deployed issuer material before declaring a
 certificate-shaped case blocked.
+
+## MainInteraction 012c, 012d, and 034a–i
+
+`default_credential_A` is an illustrative source fixture name, not a required
+credential identifier. The implementation binds the compatible Capture Wallet
+fixtures directly:
+
+- PID SD-JWT VC: 012c, 034a, and 034h.
+- PID mdoc: 012d, 034b, and 034i.
+- Degree SD-JWT VC: 034c, 034d, 034e, 034f, and 034g.
+
+The PID SD-JWT flow issues a fresh PID and exercises unavailable top-level
+claims as `unavailable_claim`; the mdoc flow issues a fresh PID mdoc and uses
+`[eu.europa.ec.eudi.pid.1, unavailable_element]`. The degree flow issues
+`urn:credimi:degree:1` and uses its independently disclosable `degrees` array:
+indices 0, 1, and 2, plus the `null` selector.
+
+Case 034b adds `mdoc.exact_namespace_elements`, which requires exactly the
+requested namespace and element identifiers and rejects extra namespaces or
+elements. This is necessary because presence-only assertions cannot establish
+the source requirement that no other mdoc data element was disclosed.
+
+Case 034d is implemented against the Capture Wallet degree credential. The
+`DEGREE_DISCLOSURE_FRAME` in `credimi-capture-wallet` commit `dc24580` added
+`address: { _sd: ["street_address", "locality", "postal_code"] }`, so the
+top-level `address` disclosure now carries one nested object disclosure per
+property and a Wallet can reveal `street_address` alone. The PID SD-JWT
+`address` stays atomic, so 034d must bind the degree credential, not the PID.
+
+Case 034d adds `oid4vp.dcql_object_property_filter`: it requires the
+session-bound query to carry the exact two-component object path, then requires
+the presented object claim to disclose every requested property and none of its
+siblings. `oid4vp.dcql_array_selector_filter` cannot express this because it
+compares string leaves rather than object membership, and a missing sibling
+value is indistinguishable from a sibling whose value repeats elsewhere.
+
+Assertion review of 012c, 012d and 034a–i, 18/09/2026, two defects found and
+fixed:
+
+- The degree selector cases (034c, 034e, 034f, 034g) forbade top-level values
+  such as `Arthur Dent` and `42 Market Street`. `oid4vp.dcql_array_selector_filter`
+  matches `forbidden_values` against the string leaves of the selected claim
+  only, so those entries could never fail; 034e had no working negative check
+  at all. Verified: the previous 034e params return `pass` for a presentation
+  that also discloses `name` and `nationalities`. Both selector validators now
+  take `forbidden_claims`, a list of sibling top-level claims that must stay
+  undisclosed, and require at least one negative check. Never forbid a value
+  that cannot appear inside the selected claim: it reads as a check and asserts
+  nothing.
+- 012c/034h and 012d/034i had structurally identical assertion sets, so the
+  mixed available-plus-unavailable request was never distinguished from the
+  single unavailable request. `oid4vp.dcql_requested_claim_paths` now pins the
+  exact requested claims-path set (and optional format) per case, and 034b pins
+  its two-element request the same way. Each case's assertions now fail against
+  the neighbouring case's evidence.
+
+Reviewed and left unchanged: 034a's `claims_subset` forbidden_paths cover every
+other selectively disclosable PID claim; `mdoc_claim_path_no_match` inspects
+the query only, so pairing it with `request_rejected` is not redundant, while
+for SD-JWT `claims_path_no_match` already requires an empty response and
+`request_rejected` only widens the accepted outcome to `invalid_request`.
+Section numbers in `normative_references` could not be re-checked: the FCAF
+source Markdown was unreachable from this machine.
+
+The generated complete aggregate contains 699 steps, 595 test IDs, and 195
+pipeline outputs. All eleven new scenarios need a reference-Wallet execution to
+advance from implemented/verifier-blocked to ready; no mobile runner was
+available while the definitions were added.

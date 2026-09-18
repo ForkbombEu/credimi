@@ -8583,6 +8583,569 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-obtain-degree-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-degree-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-middle-degree-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - middle_degree
+                          claims:
+                            - id: middle_degree
+                              path:
+                                - degrees
+                                - 1
+                          format: dc+sd-jwt
+                          id: degree
+                          meta:
+                            vct_values:
+                                - urn:credimi:degree:1
+                nonce: fcaf-ia-034c
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-present-middle-degree
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-middle-degree-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-fetch-middle-degree-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-middle-degree-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - all_degrees
+                          claims:
+                            - id: all_degrees
+                              path:
+                                - degrees
+                                - null
+                          format: dc+sd-jwt
+                          id: degree
+                          meta:
+                            vct_values:
+                                - urn:credimi:degree:1
+                nonce: fcaf-ia-034e
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-present-all-degrees
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-fetch-all-degrees-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - first_degree
+                          claims:
+                            - id: first_degree
+                              path:
+                                - degrees
+                                - 0
+                          format: dc+sd-jwt
+                          id: degree
+                          meta:
+                            vct_values:
+                                - urn:credimi:degree:1
+                nonce: fcaf-ia-034f
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-present-first-degree
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-fetch-first-degree-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - last_degree
+                          claims:
+                            - id: last_degree
+                              path:
+                                - degrees
+                                - 2
+                          format: dc+sd-jwt
+                          id: degree
+                          meta:
+                            vct_values:
+                                - urn:credimi:degree:1
+                nonce: fcaf-ia-034g
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-present-last-degree
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-fetch-last-degree-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-address-property-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - address_street
+                          claims:
+                            - id: address_street
+                              path:
+                                - address
+                                - street_address
+                          format: dc+sd-jwt
+                          id: degree
+                          meta:
+                            vct_values:
+                                - urn:credimi:degree:1
+                nonce: fcaf-ia-034d
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-present-address-property
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-address-property-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-fetch-address-property-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-address-property-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-create-pid-mdoc-offer
+      use: credential-offer
+      with:
+        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-obtain-pid-mdoc
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ interaction-pid-mdoc-6b049464-create-pid-mdoc-offer.outputs }}
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-create-missing-element-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - unavailable_element
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-ia-012d
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-present-missing-element
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ interaction-pid-mdoc-6b049464-create-missing-element-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-fetch-missing-element-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-pid-mdoc-6b049464-create-missing-element-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-create-two-element-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - family_name
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-ia-034b
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-present-two-element-presentation
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-pid-mdoc-6b049464-create-two-element-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-fetch-two-element-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-pid-mdoc-6b049464-create-two-element-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-create-element-and-missing-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - unavailable_element
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-ia-034i
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-present-element-and-missing
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ interaction-pid-mdoc-6b049464-create-element-and-missing-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-pid-mdoc-6b049464-fetch-element-and-missing-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-pid-mdoc-6b049464-create-element-and-missing-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-create-pid-issuance-session
+      use: http-request
+      with:
+        body:
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-obtain-pid-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ interaction-pid-sdjwt-ec048f5c-create-pid-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-create-missing-claim-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - unavailable_claim
+                          claims:
+                            - id: unavailable_claim
+                              path:
+                                - unavailable_claim
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-ia-012c
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-present-missing-claim
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ interaction-pid-sdjwt-ec048f5c-create-missing-claim-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-fetch-missing-claim-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-pid-sdjwt-ec048f5c-create-missing-claim-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-create-two-claim-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - given_name
+                              - family_name
+                          claims:
+                            - id: given_name
+                              path:
+                                - given_name
+                            - id: family_name
+                              path:
+                                - family_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-ia-034a
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-present-two-claim-presentation
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-pid-sdjwt-ec048f5c-create-two-claim-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-fetch-two-claim-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-pid-sdjwt-ec048f5c-create-two-claim-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-create-claim-and-missing-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - given_name
+                              - unavailable_claim
+                          claims:
+                            - id: given_name
+                              path:
+                                - given_name
+                            - id: unavailable_claim
+                              path:
+                                - unavailable_claim
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-ia-034h
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-present-claim-and-missing
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ interaction-pid-sdjwt-ec048f5c-create-claim-and-missing-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: interaction-pid-sdjwt-ec048f5c-fetch-claim-and-missing-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-pid-sdjwt-ec048f5c-create-claim-and-missing-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: invalid-request-uri-method-f8c49ad9-create-presentation
       use: http-request
       with:
@@ -11563,6 +12126,51 @@ steps:
                         presentation_response_http: ${{ direct-post-jwt-response-transport-57ec17f1-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
                         request_object: ${{ direct-post-jwt-response-transport-57ec17f1-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ direct-post-jwt-response-transport-57ec17f1-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.degree-address-property:
+                output:
+                    dcql_exchange: ${{ interaction-degree-sdjwt-d51c1dad-fetch-address-property-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-degree-sdjwt-d51c1dad-present-address-property.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.degree-all-elements:
+                output:
+                    dcql_exchange: ${{ interaction-degree-sdjwt-d51c1dad-fetch-all-degrees-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-degree-sdjwt-d51c1dad-present-all-degrees.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.degree-first-element:
+                output:
+                    dcql_exchange: ${{ interaction-degree-sdjwt-d51c1dad-fetch-first-degree-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-degree-sdjwt-d51c1dad-present-first-degree.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.degree-last-element:
+                output:
+                    dcql_exchange: ${{ interaction-degree-sdjwt-d51c1dad-fetch-last-degree-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-degree-sdjwt-d51c1dad-present-last-degree.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.degree-middle-element:
+                output:
+                    dcql_exchange: ${{ interaction-degree-sdjwt-d51c1dad-fetch-middle-degree-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-degree-sdjwt-d51c1dad-present-middle-degree.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.pid-mdoc-element-and-missing:
+                output:
+                    dcql_exchange: ${{ interaction-pid-mdoc-6b049464-fetch-element-and-missing-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-pid-mdoc-6b049464-present-element-and-missing.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.pid-mdoc-missing-element:
+                output:
+                    dcql_exchange: ${{ interaction-pid-mdoc-6b049464-fetch-missing-element-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-pid-mdoc-6b049464-present-missing-element.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.pid-mdoc-two-elements:
+                output:
+                    dcql_exchange: ${{ interaction-pid-mdoc-6b049464-fetch-two-element-presentation.outputs.body | optional }}
+                    pid_mdoc: ${{ interaction-pid-mdoc-6b049464-fetch-two-element-presentation.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    visual_evidence: ${{ interaction-pid-mdoc-6b049464-present-two-element-presentation.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.pid-sdjwt-claim-and-missing:
+                output:
+                    dcql_exchange: ${{ interaction-pid-sdjwt-ec048f5c-fetch-claim-and-missing-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-pid-sdjwt-ec048f5c-present-claim-and-missing.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.pid-sdjwt-missing-claim:
+                output:
+                    dcql_exchange: ${{ interaction-pid-sdjwt-ec048f5c-fetch-missing-claim-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-pid-sdjwt-ec048f5c-present-missing-claim.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.interaction.pid-sdjwt-two-claims:
+                output:
+                    dcql_exchange: ${{ interaction-pid-sdjwt-ec048f5c-fetch-two-claim-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ interaction-pid-sdjwt-ec048f5c-present-two-claim-presentation.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.mdoc.absent-namespace:
                 output:
                     dcql_exchange: ${{ mdoc-absent-namespace-8c8f84c8-fetch-capture-session.outputs.body | optional }}
@@ -11954,6 +12562,8 @@ steps:
             - WS_RP_IA_MainInteraction__012
             - WS_RP_IA_MainInteraction__012a
             - WS_RP_IA_MainInteraction__012b
+            - WS_RP_IA_MainInteraction__012c_UF
+            - WS_RP_IA_MainInteraction__012d_UF
             - WS_RP_IA_MainInteraction__013
             - WS_RP_IA_MainInteraction__014
             - WS_RP_IA_MainInteraction__015
@@ -11976,6 +12586,15 @@ steps:
             - WS_RP_IA_MainInteraction__032
             - WS_RP_IA_MainInteraction__033
             - WS_RP_IA_MainInteraction__034
+            - WS_RP_IA_MainInteraction__034a
+            - WS_RP_IA_MainInteraction__034b
+            - WS_RP_IA_MainInteraction__034c
+            - WS_RP_IA_MainInteraction__034d
+            - WS_RP_IA_MainInteraction__034e
+            - WS_RP_IA_MainInteraction__034f
+            - WS_RP_IA_MainInteraction__034g
+            - WS_RP_IA_MainInteraction__034h_UF
+            - WS_RP_IA_MainInteraction__034i_UF
             - WS_RP_IA_MainInteraction__035
             - WS_RP_IA_MainInteraction__036
             - WS_RP_IA_MainInteraction__037
