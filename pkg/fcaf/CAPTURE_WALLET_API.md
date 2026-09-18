@@ -93,6 +93,26 @@ metadata from `GET /issuers` instead of hard-coding them.
 credential. The former `broken` fixture toggle is not part of the published beta
 contract.
 
+Observed on beta 18/09/2026: `POST /sessions` accepts `status_list_enabled: true`
+for both `urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required` (session
+`4f19b380-0837-475b-8191-0efcf3752294`) and
+`urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required` (session
+`4f3566ae-3b8c-4480-829a-b26c8633d7b7`); `status_list_allocation_ids` stays
+`null` until issuance completes. Both PID formats are therefore issuable through
+the Capture session endpoint, so an mdoc status test does not need the
+Credimi-side `credential-offer` record.
+
+Source-verified 18/09/2026, the resulting credential shapes:
+`credimi-capture-wallet` puts `status: { status_list: { uri, idx } }` in the
+SD-JWT VC payload outside its disclosure frame, so the claim is always present
+in a presentation; for mdoc it passes `statusInfo: { index, uri }` to Credo,
+which `Mdoc.sign` maps to the Mobile Security Object `status.status_list` map
+with `idx` and `uri` members (`packages/core/src/modules/mdoc/Mdoc.ts`), the
+ISO/IEC 18013-5 `Status` structure. The Wallet forwards both unmodified, which
+is what `WS_RP_MS_CredentialFormats__029a`–`029g` and `033a`–`033h` assert.
+Not yet observed: a completed issuance against the beta status-list service, so
+status-list allocation at issuance time remains unverified.
+
 Both issuer configurations also advertise a non-PID test credential,
 `urn:credimi:degree:1` (`urn:credimi:degree:1.sd-jwt.key-attestation-required`
 and `urn:credimi:degree:1.sd-jwt.jwt-proof`). Observed on beta 17/09/2026: it

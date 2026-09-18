@@ -43,12 +43,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_IA_Engagement__001b` (the beta Capture service can generate an
   `eu-eaap://` deeplink, but the reference Android Wallet has no registered
   handler for that scheme, so invocation cannot be evidenced)
-- [ ] `WS_RP_MS_CredentialFormats__029a` through `029g` and
-  `WS_RP_MS_CredentialFormats__033a` through `033h` (beta accepts
-  `status_list_enabled: true`, but does not expose an issued status-bearing
-  SD-JWT or mdoc MSO as a reusable Capture artifact. A test would require an
-  unverified Wallet issuance-and-presentation fixture rather than direct
-  protocol evidence)
 
 - [ ] `WS_RP_SM_SessionEncryption__001f` (requires the decrypted
   Authorization Response as the exact unsigned JWT; beta exposes the encrypted

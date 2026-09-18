@@ -56,6 +56,142 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ callback-redirect-298d09a0-create-callback-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: credential-status-list-13040d21-create-status-sdjwt-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-status-list-13040d21-obtain-status-sdjwt-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ credential-status-list-13040d21-create-status-sdjwt-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-status-list-13040d21-create-status-sdjwt-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - given_name
+                              - family_name
+                          claims:
+                            - id: given_name
+                              path:
+                                - given_name
+                            - id: family_name
+                              path:
+                                - family_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-credential-status-sdjwt
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: credential-status-list-13040d21-present-status-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ credential-status-list-13040d21-create-status-sdjwt-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-status-list-13040d21-fetch-status-sdjwt-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-status-list-13040d21-create-status-sdjwt-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-status-list-13040d21-create-status-mdoc-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-status-list-13040d21-obtain-status-mdoc-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ credential-status-list-13040d21-create-status-mdoc-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-status-list-13040d21-create-status-mdoc-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - family_name
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-credential-status-mdoc
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: credential-status-list-13040d21-present-status-mdoc
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ credential-status-list-13040d21-create-status-mdoc-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-status-list-13040d21-fetch-status-mdoc-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-status-list-13040d21-create-status-mdoc-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-all-credentials-without-credent-5818b47e-create-presentation
       use: http-request
       with:
@@ -11321,6 +11457,14 @@ steps:
                     fetch-capture-session: ${{ dcql-credential-formats-3cfeac03-credential-formats-039-fetch-capture-session.outputs | optional }}
                     oid4vp_exchange: ${{ dcql-credential-formats-3cfeac03-credential-formats-039-fetch-capture-session.outputs.body | optional }}
                     visual_evidence: ${{ dcql-credential-formats-3cfeac03-credential-formats-039-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.credential-status.mdoc:
+                output:
+                    pid_mdoc: ${{ credential-status-list-13040d21-fetch-status-mdoc-presentation.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    visual_evidence: ${{ credential-status-list-13040d21-present-status-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.credential-status.sdjwt:
+                output:
+                    pid_sdjwt: ${{ credential-status-list-13040d21-fetch-status-sdjwt-presentation.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    visual_evidence: ${{ credential-status-list-13040d21-present-status-sdjwt.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.all-credentials-without-credential-sets:
                 output:
                     create-presentation: ${{ dcql-all-credentials-without-credent-5818b47e-create-presentation.outputs | optional }}
@@ -12639,10 +12783,25 @@ steps:
             - WS_RP_IA_Supportive__006
             - WS_RP_IA_Supportive__007
             - WS_RP_MS_CredentialFormats__029
+            - WS_RP_MS_CredentialFormats__029a
+            - WS_RP_MS_CredentialFormats__029b
+            - WS_RP_MS_CredentialFormats__029c
+            - WS_RP_MS_CredentialFormats__029d
+            - WS_RP_MS_CredentialFormats__029e
+            - WS_RP_MS_CredentialFormats__029f
+            - WS_RP_MS_CredentialFormats__029g
             - WS_RP_MS_CredentialFormats__030
             - WS_RP_MS_CredentialFormats__031
             - WS_RP_MS_CredentialFormats__032
             - WS_RP_MS_CredentialFormats__033
+            - WS_RP_MS_CredentialFormats__033a
+            - WS_RP_MS_CredentialFormats__033b
+            - WS_RP_MS_CredentialFormats__033c
+            - WS_RP_MS_CredentialFormats__033d
+            - WS_RP_MS_CredentialFormats__033e
+            - WS_RP_MS_CredentialFormats__033f
+            - WS_RP_MS_CredentialFormats__033g
+            - WS_RP_MS_CredentialFormats__033h
             - WS_RP_MS_CredentialFormats__034
             - WS_RP_MS_CredentialFormats__035
             - WS_RP_MS_CredentialFormats__036

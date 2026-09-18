@@ -50,7 +50,7 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 	cat, err := Load("../../../config_templates/fcaf/wallet_solution/relying_party")
 
 	require.NoError(t, err)
-	require.Len(t, cat.Tests, 595)
+	require.Len(t, cat.Tests, 610)
 
 	registry, err := validators.DefaultRegistry()
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 
 	selected, err := cat.ResolveSelectedTests(nil, "wallet_solution/relying_party", nil)
 	require.NoError(t, err)
-	require.Len(t, selected, 595)
+	require.Len(t, selected, 610)
 }
 
 func TestEmbeddedValidationStepsExposeDirectTestEvidence(t *testing.T) {

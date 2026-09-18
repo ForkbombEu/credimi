@@ -1556,10 +1556,57 @@ other selectively disclosable PID claim; `mdoc_claim_path_no_match` inspects
 the query only, so pairing it with `request_rejected` is not redundant, while
 for SD-JWT `claims_path_no_match` already requires an empty response and
 `request_rejected` only widens the accepted outcome to `invalid_request`.
-Section numbers in `normative_references` could not be re-checked: the FCAF
-source Markdown was unreachable from this machine.
+Section numbers in `normative_references` were not re-checked against the
+source. Read the repo's own mirror at
+`config_templates/fcaf_sources/wallet_solution/relying_party/`: the upstream
+repository's `site` branch carries no `docs/fcaf/suts/**` and pinned blob URLs
+404.
 
 The generated complete aggregate contains 699 steps, 595 test IDs, and 195
 pipeline outputs. All eleven new scenarios need a reference-Wallet execution to
 advance from implemented/verifier-blocked to ready; no mobile runner was
 available while the definitions were added.
+
+## CredentialFormats 029a–029g and 033a–033h, status pass-through
+
+These fifteen cases were listed as blocked on the grounds that beta exposes no
+reusable status-bearing Capture artifact. That reasoning was wrong: the source
+tests assert what the Wallet presents, not what the issuer stores, so the
+evidence is an ordinary presentation of a credential issued with
+`status_list_enabled: true`. The backlog entry is removed.
+
+Scenario `fcaf-wallet-solution-relying-party-credential-status-list.yaml` issues
+both PID formats through `POST /sessions` with `status_list_enabled: true`
+(`urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required` and
+`urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required`, both accepted on
+beta 18/09/2026), presents each one, and exposes
+`pipeline.credential-status.sdjwt.outputs.pid_sdjwt` and
+`pipeline.credential-status.mdoc.outputs.pid_mdoc`. The mdoc flow does not need
+the `credential-offer` record the other mdoc scenarios use, because the status
+toggle exists only on the Capture session.
+
+The 029 family reads the SD-JWT payload: Capture keeps `status` outside the
+disclosure frame, so it is always present. New validators
+`sdjwt.claim_non_negative_integer` and `sdjwt.claim_uri` cover the `idx` and
+`uri` shapes; `sdjwt.claim_present` and `sdjwt.claim_object` cover the rest
+through dotted paths such as `status.status_list.idx`.
+
+The 033 family needs the Mobile Security Object, which the evidence layer used
+to discard: `parseMDocDigestAlgorithm` read only `digestAlgorithm`. It is now
+`parseMDocSecurityObject`, and `MDocDocument.MSOStatus` holds the `status`
+value as an `MDocCBORValue`, a recursive decode that keeps every member's CBOR
+major type and tag. That fidelity is the point: 033b, 033d, 033f and 033g are
+assertions about the encoding, so a Go-value check would not catch a Wallet
+that re-encoded `idx` as a text string. Validators
+`mdoc.mso_status_member_present`, `mdoc.mso_status_cbor_type` and
+`mdoc.mso_status_uri` address members by path, `[]` meaning `status` itself.
+
+Verified 18/09/2026 by running the shipped definitions through the FCAF engine
+against synthetic evidence: all fifteen pass with a status-bearing SD-JWT and
+mdoc; all fifteen fail when the status is stripped; only 029f and 033f fail
+when `idx` is re-encoded as text; only 029g and 033h fail for a relative `uri`.
+No reference-Wallet run: a completed issuance against the beta status-list
+service is still unverified, so a live run may fail before the presentation.
+
+The generated complete aggregate now contains 709 steps, 610 test IDs, and 197
+pipeline outputs.
