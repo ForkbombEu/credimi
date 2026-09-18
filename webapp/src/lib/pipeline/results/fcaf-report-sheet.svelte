@@ -260,7 +260,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let selectedFilter = $state<string>('all');
 	let search = $state('');
 	let openGroups = $state<Record<string, boolean>>({});
-	let sheetOpen = $state(false);
 
 	const searchQuery = $derived(search.trim().toLowerCase());
 	const searching = $derived(searchQuery !== '');
@@ -283,19 +282,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		openGroups = {};
 	}
 
-	$effect(() => {
-		if (sheetOpen) {
-			activeSheet.open();
-		} else {
-			activeSheet.close();
-		}
-	});
-	// Fetch lazily: only once the sheet is opened, not for every run row that has a report.
+	// Cache per mounted instance (row expanded). Avoid binding sheet open state on
+	// this parent — syncing $state during open leaves bits-ui stuck and Close no-ops.
 	let cachedReport: Promise<Report | undefined> | undefined;
 
 	const reportPromise = $derived.by(() => {
 		if (!reportUrl) return undefined;
-		if (!sheetOpen) return cachedReport;
 		return (cachedReport ??= fetch(reportUrl)
 			.then(async (response) => {
 				if (!response.ok) throw new Error(`FCAF report request failed: ${response.status}`);
@@ -303,6 +295,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			})
 			.catch(() => undefined));
 	});
+
+	function handleSheetOpenChange(open: boolean) {
+		if (open) activeSheet.open();
+		else activeSheet.close();
+	}
 
 	function statusClass(status = '') {
 		if (['passed', 'pass'].includes(status)) return 'text-green-700';
@@ -326,7 +323,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if reportUrl}
-	<Sheet title="FCAF assessment" class="sm:max-w-3xl" bind:open={sheetOpen}>
+	<Sheet title="FCAF assessment" class="sm:max-w-3xl" onOpenChange={handleSheetOpenChange}>
 		{#snippet trigger({ sheetTriggerAttributes: props, openSheet })}
 			{@render sheetTrigger({ props, openSheet })}
 		{/snippet}
