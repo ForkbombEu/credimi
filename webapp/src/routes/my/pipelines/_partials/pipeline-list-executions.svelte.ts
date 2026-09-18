@@ -5,7 +5,6 @@
 import type { ExecutionSummary } from '$lib/pipeline/workflows';
 
 import { Pipeline } from '$lib';
-import { activeSheet } from '$lib/utils/sheet-state.svelte.js';
 import { Effect } from 'effect';
 import { onMount } from 'svelte';
 
@@ -45,7 +44,6 @@ export class PipelineListExecutions {
 		public: []
 	});
 	#entries = $state<Record<string, PipelineListExecutionsEntry>>({});
-	#paused = $state(false);
 	#refreshAllInFlight = false;
 
 	constructor() {
@@ -92,16 +90,8 @@ export class PipelineListExecutions {
 		return uniqueIds([...this.#sections.owned, ...this.#sections.public]);
 	}
 
-	pause() {
-		this.#paused = true;
-	}
-
-	resume() {
-		this.#paused = false;
-	}
-
 	async refreshAll() {
-		if (this.#paused || activeSheet.count > 0 || this.#refreshAllInFlight) return;
+		if (this.#refreshAllInFlight) return;
 		const ids = this.ids;
 		if (ids.length === 0) return;
 		this.#refreshAllInFlight = true;

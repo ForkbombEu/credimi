@@ -5,12 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
-	import { browser } from '$app/environment';
+	import { QueryClientProvider } from '@tanstack/svelte-query';
 	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.png';
 	import GlobalConfirm from '$lib/layout/global-confirm.svelte';
 	import GlobalLoading from '$lib/layout/global-loading.svelte';
+	import { queryClient } from '$lib/query-client';
 
 	import { appName } from '@/brand';
 	import { Toaster } from '@/components/ui/sonner';
@@ -19,14 +19,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import './layout.css';
 
 	let { children } = $props();
-
-	const queryClient = new QueryClient({
-		defaultOptions: {
-			queries: {
-				enabled: browser
-			}
-		}
-	});
 </script>
 
 <svelte:head>

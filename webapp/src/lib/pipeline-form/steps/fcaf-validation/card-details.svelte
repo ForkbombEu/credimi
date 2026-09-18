@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CardDetailsComponentProps } from '$pipeline-form/steps';
 
 	import { ChevronRightIcon } from '@lucide/svelte';
+	import { FCAF } from '$lib';
 
 	import { m } from '@/i18n';
 
@@ -15,13 +16,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		getFCAFValidationTestIDs,
 		type FCAFValidationFormData
 	} from './fcaf-validation-step-form.svelte.js';
-	import { groupSelectedTests } from './grouping.js';
 
 	//
 
 	let { data }: CardDetailsComponentProps<FCAFValidationFormData> = $props();
 
-	const groups = $derived(groupSelectedTests(getFCAFValidationTestIDs(data.yaml)));
+	const groups = $derived(FCAF.groupSelectedTests(getFCAFValidationTestIDs(data.yaml)));
 	let openGroups = $state<Record<string, boolean>>({});
 
 	function isOpen(key: string): boolean {

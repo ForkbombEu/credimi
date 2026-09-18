@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { Pipeline } from '$lib';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
-	import { activeSheet } from '$lib/utils/sheet-state.svelte.js';
 	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -73,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				...pagination
 			}),
 		initialData: loadedWorkflows,
-		refetchInterval: activeSheet.count > 0 ? false : 10000
+		refetchInterval: 10000
 	}));
 
 	$effect(() => {

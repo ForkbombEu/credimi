@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { FCAF_TESTS } from '$lib/fcaf/tests.generated.js';
+import { FCAF } from '$lib';
 import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
 import { describe, expect, it } from 'vitest';
 
@@ -85,7 +85,7 @@ describe('FCAF validation test selection', () => {
 
 	it('filters pipeline_outputs to only the selected test sources', () => {
 		const form = new FCAFValidationStepForm(createInitFormOptions({ intent: 'add' }));
-		const test = FCAF_TESTS[0];
+		const test = FCAF.TESTS[0];
 
 		form.setTestIds([test.id]);
 

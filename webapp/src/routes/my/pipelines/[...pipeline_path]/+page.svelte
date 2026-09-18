@@ -13,7 +13,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fromScoreboardCache
 	} from '$lib/scoreboard/extras/from-scoreboard-row';
 	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
-	import { activeSheet } from '$lib/utils/sheet-state.svelte.js';
 	import { queryParameters } from 'sveltekit-search-params';
 
 	import SelectInputAny from '@/components/ui-custom/select-input-any.svelte';
@@ -82,7 +81,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				page: params.page ?? undefined
 			}),
 		initialData: data.workflows,
-		refetchInterval: activeSheet.count > 0 ? false : 10000
+		refetchInterval: 10000
 	}));
 
 	$effect(() => {
