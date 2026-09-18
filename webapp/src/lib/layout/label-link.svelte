@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { label, href, published, class: classValue, textToCopy }: Props = $props();
 </script>
 
-<T class={['gap-1 font-medium text-balance', classValue]}>
+<T class={['gap-1 leading-snug font-medium text-balance', classValue]}>
 	{#if published && href}
 		<A class="underline underline-offset-2 hover:no-underline!" {href}>
 			{label}

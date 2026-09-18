@@ -107,7 +107,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet actions()}
 		<Pipeline.Device.RunNowButton {pipeline} {onRun} />
+	{/snippet}
 
+	{#snippet secondaryActions()}
 		{#if !schedule}
 			<SchedulePipelineForm {pipeline} />
 		{:else}

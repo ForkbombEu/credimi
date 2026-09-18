@@ -96,13 +96,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet runButtonGroup()}
 	<ButtonGroup.Root>
+		<!-- Compact below card `@[48rem]`; full label + device subline above. -->
 		<Button
 			onclick={handleRunNow}
 			disabled={runDisabled}
-			class={{ 'w-[174px] justify-start': !deviceRequired }}
+			aria-label={m.Run_now()}
+			class={[
+				'size-9 shrink-0 justify-center p-0 @[48rem]:h-9 @[48rem]:w-auto @[48rem]:px-4 @[48rem]:py-2',
+				!deviceRequired && '@[48rem]:w-[174px] @[48rem]:justify-start'
+			]}
 		>
 			<PlayIcon />
-			<div class="flex w-[90px] flex-col -space-y-0.5 text-left">
+			<div class="hidden w-[90px] flex-col -space-y-0.5 text-left @[48rem]:flex">
 				<p>{m.Run_now()}</p>
 				{#if deviceSubline}
 					<small class="truncate text-[9px] opacity-80">
@@ -145,9 +150,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</span>
 		{#snippet content()}
 			{#if isChecking}
-				<p>{'Checking device status'}</p>
+				<p>Checking device status</p>
 			{:else if isDeviceOffline}
-				<p>{'The selected device is offline'}</p>
+				<p>The selected device is offline</p>
 			{/if}
 		{/snippet}
 	</Tooltip>
