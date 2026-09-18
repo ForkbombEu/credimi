@@ -7,12 +7,22 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('./conformance-check-step-form.svelte', () => ({ default: class {} }));
 // Avoids uuid import failure when loading conformance-check-step-form module graph in Vitest.
 vi.mock('@forkbombeu/temporal-ui', () => ({}));
+vi.mock('$lib/query-client', () => ({
+	queryClient: {}
+}));
 vi.mock('@tanstack/svelte-query', () => ({
-	createQuery: () => ({
-		isPending: false,
-		error: null,
-		data: null
-	})
+	createQuery: (_options: unknown, queryClient?: () => unknown) => {
+		if (typeof queryClient !== 'function') {
+			throw new Error(
+				'ConformanceCheckStepForm must pass an explicit QueryClient (form is built outside component init)'
+			);
+		}
+		return {
+			isPending: false,
+			error: null,
+			data: null
+		};
+	}
 }));
 const i18nMocks = vi.hoisted(() => ({
 	Pipeline_form_choose_wallet_before_openid4vci_wallet_check: ({
