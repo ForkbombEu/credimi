@@ -4,26 +4,19 @@
 
 import { FCAF_CATEGORY_ORDER, parseFCAFTestId, type FCAFCategory } from './categories.js';
 
-export type Validator = {
-	id?: string;
-	status?: string;
-	message?: string;
-	validator?: string;
-};
-
-export type ExecutedEvidence = {
-	name?: string;
-	source_node?: string;
-	visual?: string[];
-};
-
 export type TestResult = {
 	test_id?: string;
 	title?: string;
 	status?: string;
 	assertions?: Array<{ id?: string; status?: string; message?: string; validator?: string }>;
-	validators?: Validator[];
-	evidence?: ExecutedEvidence[];
+	/** @deprecated historical reports only; prefer assertions */
+	validators?: Array<{ id?: string; status?: string; message?: string; validator?: string }>;
+};
+
+export type PresentationScreenshot = {
+	url: string;
+	label: string;
+	test_ids?: string[];
 };
 
 export type Report = {
@@ -32,6 +25,11 @@ export type Report = {
 	summary?: Record<string, number>;
 	evidence?: Record<string, unknown>;
 	executed_tests?: TestResult[];
+	presentation?: {
+		deeplink?: string;
+		screenshots?: PresentationScreenshot[];
+		summary_filters?: Array<{ key: string; label: string; count: number }>;
+	};
 };
 
 export type Screenshot = {
@@ -66,7 +64,7 @@ export type ReportDisplay = {
 	groupedCategories: CategoryGroup[];
 	unassignedScreenshots: Screenshot[];
 	checkedDeeplink: string | undefined;
-	summaryEntries: Array<[string, number]>;
+	summaryFilters: Array<{ key: string; label: string; count: number }>;
 };
 
 const reportCache = new Map<string, Promise<Report | undefined>>();
@@ -105,107 +103,15 @@ export function statusDotClass(status = ''): string {
 	return 'bg-amber-500';
 }
 
-export function evidenceScreenshotUrls(value: unknown): string[] {
-	const urls: string[] = [];
-	const visit = (current: unknown) => {
-		if (typeof current === 'string' && /\.(?:png|jpe?g|webp)(?:\?|$)/i.test(current)) {
-			urls.push(current);
-			return;
-		}
-		if (Array.isArray(current)) current.forEach(visit);
-		else if (current && typeof current === 'object') {
-			Object.values(current as Record<string, unknown>).forEach(visit);
-		}
-	};
-	visit(value);
-	return [...new Set(urls)];
-}
-
-export function screenshotLabel(url: string): string {
-	const filename = decodeURIComponent(url.split('?')[0].split('/').pop() ?? url);
-	return filename
-		.replace(/\.[^.]+$/, '')
-		.replace(/[_-]+/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim();
-}
-
-function uniqueScreenshots(screenshots: Screenshot[]): Screenshot[] {
-	const seen = new Set<string>();
-	return screenshots.filter((screenshot) => {
-		const key = screenshot.label.toLowerCase();
-		if (seen.has(key)) return false;
-		seen.add(key);
-		return true;
-	});
-}
-
-export function dedupeBurstScreenshots(screenshots: Screenshot[]): Screenshot[] {
-	const burst =
-		/^(.+)(?:_screenshot_\d+_action_[A-Za-z0-9_]+\.yaml\d+|_step_\d+_[A-Za-z0-9_]+)\.png$/;
-	const lastOfBurst = new Map<string, Screenshot>();
-	for (const screenshot of screenshots) {
-		const filename = screenshot.url.split('?')[0].split('/').pop() ?? '';
-		const match = burst.exec(decodeURIComponent(filename));
-		if (match) lastOfBurst.set(match[1], screenshot);
-	}
-	return screenshots.filter((screenshot) => {
-		const filename = screenshot.url.split('?')[0].split('/').pop() ?? '';
-		const match = burst.exec(decodeURIComponent(filename));
-		if (!match) return true;
-		return lastOfBurst.get(match[1]) === screenshot;
-	});
-}
-
-function visualUrlsForTest(test: TestResult): string[] {
-	const urls: string[] = [];
-	const seen = new Set<string>();
-	for (const item of test.evidence ?? []) {
-		for (const url of item.visual ?? []) {
-			const normalized = url.split('?')[0];
-			if (!seen.has(normalized)) {
-				seen.add(normalized);
-				urls.push(normalized);
-			}
-		}
-	}
-	return urls;
-}
-
-export function screenshotsForTest(screenshots: Screenshot[], test: TestResult): Screenshot[] {
-	if (screenshots.length === 0) return [];
-
-	// Prefer the per-test visual evidence recorded by the report engine:
-	// the flat evidence map keeps only one record per evidence name.
-	const visual = visualUrlsForTest(test);
-	if (visual.length > 0) {
-		const byUrl = new Map(screenshots.map((s) => [s.url.split('?')[0], s]));
-		return visual
-			.map((url) => byUrl.get(url))
-			.filter((screenshot): screenshot is Screenshot => Boolean(screenshot));
-	}
-	if (screenshots.length === 1) return screenshots;
-
-	const searchable = `${test.test_id ?? ''} ${test.title ?? ''}`.toLowerCase();
-	const matching = screenshots.filter(({ label }) => {
-		const words = label
-			.toLowerCase()
-			.split(/\s+/)
-			.filter((word) => word.length > 3);
-		return words.some((word) => searchable.includes(word));
-	});
-	return matching;
-}
-
-function screenshotsWithoutTest(
-	screenshots: Screenshot[],
-	tests: TestResult[]
+export function screenshotsForTest(
+	screenshots: PresentationScreenshot[],
+	test: TestResult
 ): Screenshot[] {
-	if (tests.length <= 1) return [];
-	const assigned = new Set(
-		tests.flatMap((test) => screenshotsForTest(screenshots, test).map(({ url }) => url))
-	);
-	return screenshots.filter(({ url }) => !assigned.has(url));
+	const testId = test.test_id;
+	if (!testId) return [];
+	return screenshots
+		.filter(({ test_ids }) => test_ids?.includes(testId) ?? false)
+		.map(({ url, label }) => ({ url, label }));
 }
 
 export function sourceUrl(testId: string | undefined): string | undefined {
@@ -215,23 +121,6 @@ export function sourceUrl(testId: string | undefined): string | undefined {
 		.replace(/[^a-z0-9]+/g, '_')
 		.replace(/^_+|_+$/g, '');
 	return `https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/ws_rp/#${anchor}`;
-}
-
-export function evidenceDeeplink(value: unknown): string | undefined {
-	if (value && typeof value === 'object') {
-		for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-			if (key === 'deeplink' && typeof nested === 'string') return nested;
-			const found = evidenceDeeplink(nested);
-			if (found) return found;
-		}
-	}
-	if (Array.isArray(value)) {
-		for (const nested of value) {
-			const found = evidenceDeeplink(nested);
-			if (found) return found;
-		}
-	}
-	return undefined;
 }
 
 export function groupExecutedTests(tests: TestResult[]): CategoryGroup[] {
@@ -286,24 +175,12 @@ export function testMatchesSearch(test: TestResult, query: string): boolean {
 	return haystack.includes(query);
 }
 
-export function collectScreenshots(report: Report, maestroScreenshotUrls: string[]): Screenshot[] {
-	const evidenceScreenshots = evidenceScreenshotUrls(report.evidence);
-	return dedupeBurstScreenshots(
-		uniqueScreenshots(
-			[...new Set([...maestroScreenshotUrls, ...evidenceScreenshots])].map((url) => ({
-				url,
-				label: screenshotLabel(url)
-			}))
-		)
-	);
-}
-
 export function prepareReportDisplay(
 	report: Report,
-	maestroScreenshotUrls: string[],
 	options: { filter: string; searchQuery: string }
 ): ReportDisplay {
-	const allScreenshots = collectScreenshots(report, maestroScreenshotUrls);
+	const presentationScreenshots = report.presentation?.screenshots ?? [];
+	const allScreenshots = presentationScreenshots.map(({ url, label }) => ({ url, label }));
 	const executedTests = report.executed_tests ?? [];
 	const totalTests = executedTests.length;
 	const passedTests = executedTests.filter((t) => statusIsPassed(t.status)).length;
@@ -311,13 +188,15 @@ export function prepareReportDisplay(
 	const otherTests = totalTests - passedTests - failedTests;
 	const filteredTests = executedTests.filter(
 		(t) =>
-			(options.filter === 'all' || (t.status ?? '').startsWith(options.filter)) &&
+			(options.filter === 'all' || t.status === options.filter) &&
 			testMatchesSearch(t, options.searchQuery)
 	);
 	const groupedCategories = groupExecutedTests(filteredTests);
-	const unassignedScreenshots = screenshotsWithoutTest(allScreenshots, executedTests);
-	const checkedDeeplink = evidenceDeeplink(report.evidence);
-	const summaryEntries = Object.entries(report.summary ?? {}).filter(([, count]) => count > 0);
+	const unassignedScreenshots = presentationScreenshots
+		.filter(({ test_ids }) => !test_ids?.length)
+		.map(({ url, label }) => ({ url, label }));
+	const checkedDeeplink = report.presentation?.deeplink;
+	const summaryFilters = report.presentation?.summary_filters ?? [];
 
 	return {
 		allScreenshots,
@@ -330,6 +209,6 @@ export function prepareReportDisplay(
 		groupedCategories,
 		unassignedScreenshots,
 		checkedDeeplink,
-		summaryEntries
+		summaryFilters
 	};
 }

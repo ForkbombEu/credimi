@@ -16,3 +16,4 @@ package pkg
 //go:generate go run generate_client/generate_client.go
 //go:generate sh -c "cd .. && go run main.go pipeline schema -o schemas/pipeline/pipeline_schema.json"
 //go:generate sh -c "cd .. && go run ./cmd/fcaf-pipeline-gen"
+//go:generate sh -c "cd .. && go run ./cmd/fcaf-taxonomy-gen"

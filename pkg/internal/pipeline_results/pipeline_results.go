@@ -5,6 +5,7 @@
 package pipelineresults
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -195,6 +196,93 @@ func ComputePipelineFCAFReportURLFromRecord(app core.App, record *core.Record) s
 
 func ComputePipelineFCAFReportPDFURLFromRecord(app core.App, record *core.Record) string {
 	return computePipelineResultFileURL(app, record, "fcaf_report_pdf")
+}
+
+// RefreshScoreboardLatestExecutionArtifacts rewrites scoreboard cache artifact URLs for
+// rows whose latest_execution points at the given pipeline_results record. Call this after
+// in-place file replacements (e.g. FCAF presentation backfill) so persisted absolute URLs
+// match the current AppURL and filenames.
+func RefreshScoreboardLatestExecutionArtifacts(app core.App, pipelineResultID string) (int, error) {
+	if app == nil || strings.TrimSpace(pipelineResultID) == "" {
+		return 0, nil
+	}
+
+	latest, err := app.FindRecordById("pipeline_results", pipelineResultID)
+	if err != nil {
+		return 0, fmt.Errorf("find pipeline result %q: %w", pipelineResultID, err)
+	}
+
+	caches, err := app.FindRecordsByFilter(
+		"pipeline_scoreboard_cache",
+		"latest_execution = {:id}",
+		"",
+		-1,
+		0,
+		map[string]any{"id": pipelineResultID},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("find scoreboard caches for %q: %w", pipelineResultID, err)
+	}
+	if len(caches) == 0 {
+		return 0, nil
+	}
+
+	snapshot := scoreboardLatestExecutionSnapshot{
+		Created:   latest.GetString("created"),
+		Artifacts: BuildPipelineExecutionArtifacts(app, latest),
+	}
+
+	updated := 0
+	for _, cache := range caches {
+		expanded, err := decodeScoreboardExpandedData(cache)
+		if err != nil {
+			return updated, fmt.Errorf(
+				"decode scoreboard expanded_data for %q: %w",
+				cache.Id,
+				err,
+			)
+		}
+		expanded["latest_execution"] = snapshot
+		cache.Set("expanded_data", expanded)
+		if err := app.Save(cache); err != nil {
+			return updated, fmt.Errorf("save scoreboard cache %q: %w", cache.Id, err)
+		}
+		updated++
+	}
+	return updated, nil
+}
+
+type scoreboardLatestExecutionSnapshot struct {
+	Created   string                     `json:"created"`
+	Artifacts PipelineExecutionArtifacts `json:"artifacts"`
+}
+
+func decodeScoreboardExpandedData(record *core.Record) (map[string]any, error) {
+	expanded := map[string]any{}
+	if record == nil {
+		return expanded, nil
+	}
+	raw := record.Get("expanded_data")
+	if raw == nil {
+		return expanded, nil
+	}
+	if s, ok := raw.(string); ok && strings.TrimSpace(s) == "" {
+		return expanded, nil
+	}
+	if b, ok := raw.([]byte); ok && len(b) == 0 {
+		return expanded, nil
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(encoded) == 0 || string(encoded) == "null" {
+		return expanded, nil
+	}
+	if err := json.Unmarshal(encoded, &expanded); err != nil {
+		return nil, err
+	}
+	return expanded, nil
 }
 
 func computePipelineResultFileURL(app core.App, record *core.Record, field string) string {

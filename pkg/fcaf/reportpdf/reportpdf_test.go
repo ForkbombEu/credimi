@@ -85,6 +85,7 @@ func TestBuildDocumentAttachesPerTestVisualEvidence(t *testing.T) {
 				},
 			},
 		},
+		Presentation: &engine.Presentation{},
 		Evidence: engine.EvidenceMap{
 			"visual_evidence": {
 				Type:  "json.array",
@@ -117,16 +118,33 @@ func TestBuildDocumentAttachesPerTestVisualEvidence(t *testing.T) {
 	require.NotEmpty(t, document.JSONSHA256)
 }
 
-func TestBuildDocumentFallsBackToWordMatchAssociation(t *testing.T) {
+func TestBuildDocumentUsesPresentationTestIDsForScreenshotAssignment(t *testing.T) {
 	report := engine.Report{
 		ExecutedTests: []engine.ExecutedTest{
 			{
-				TestID: "WS_RP_DM_Credentialmetadata_Documentnumber__001",
+				TestID: "WS_RP_TEST__001",
+				Title:  "Credential metadata",
 				Status: "passed",
+				Evidence: []engine.ExecutedEvidence{{
+					Name:   "visual_evidence",
+					Visual: []string{"https://app.test/evidence-only.png"},
+				}},
 			},
 			{
-				TestID: "WS_RP_IA_Engagement__001",
+				TestID: "WS_RP_TEST__002",
 				Status: "passed",
+			},
+		},
+		Presentation: &engine.Presentation{
+			Screenshots: []engine.PresentationScreenshot{
+				{
+					URL:     "https://app.test/presentation%20assigned.png?token=x",
+					TestIDs: []string{"WS_RP_TEST__002"},
+				},
+				{
+					URL:   "https://app.test/credential-metadata.png",
+					Label: "credential metadata",
+				},
 			},
 		},
 	}
@@ -134,26 +152,28 @@ func TestBuildDocumentFallsBackToWordMatchAssociation(t *testing.T) {
 	document := BuildDocument(Input{
 		Report: report,
 		Images: []ImageAsset{
-			{Filename: "scenario_obtain_pid_credential_added_x.png", Data: []byte("image")},
-			{Filename: "scenario_engagement_complete_y.png", Data: []byte("image")},
+			{Filename: "presentation assigned.png", Data: []byte("image")},
+			{Filename: "credential-metadata.png", Data: []byte("image")},
+			{Filename: "evidence-only.png", Data: []byte("image")},
 		},
 	})
 
-	// "credential" matches the Credentialmetadata test id; "engagement"
-	// matches the Engagement test id — mirroring the webapp sheet.
-	require.Len(t, document.Categories[0].Groups[0].Tests[0].Images, 1)
+	tests := document.Categories[0].Groups[0].Tests
+	require.Empty(t, tests[0].Images)
+	require.Len(t, tests[1].Images, 1)
 	require.Equal(
 		t,
-		"scenario_obtain_pid_credential_added_x.png",
-		document.Categories[0].Groups[0].Tests[0].Images[0].Filename,
+		"presentation assigned.png",
+		tests[1].Images[0].Filename,
 	)
-	require.Len(t, document.Categories[1].Groups[0].Tests[0].Images, 1)
-	require.Equal(
+	require.ElementsMatch(
 		t,
-		"scenario_engagement_complete_y.png",
-		document.Categories[1].Groups[0].Tests[0].Images[0].Filename,
+		[]ImageAsset{
+			{Filename: "credential-metadata.png", Data: []byte("image")},
+			{Filename: "evidence-only.png", Data: []byte("image")},
+		},
+		document.Unassigned,
 	)
-	require.Empty(t, document.Unassigned)
 }
 
 func TestBuildDocumentKeepsScenarioEvidenceSeparate(t *testing.T) {
