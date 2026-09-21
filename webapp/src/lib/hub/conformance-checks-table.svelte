@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { StandardsWithTestSuites } from '$lib/standards';
+	import type { StandardsWithTestSuites } from '$lib/conformance';
 
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';

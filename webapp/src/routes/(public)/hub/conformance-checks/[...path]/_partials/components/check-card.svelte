@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Standard, Suite, Version } from '$lib/standards';
+	import type { Standard, Suite, Version } from '$lib/conformance';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref } from '@/i18n';

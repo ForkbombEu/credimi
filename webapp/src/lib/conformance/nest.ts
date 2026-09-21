@@ -7,7 +7,7 @@ import type { Standard, Suite, Version } from './types';
 
 /**
  * Group flat `conformance_checks` rows into the nested standards → versions →
- * suites tree used by start-checks and pipeline pickers.
+ * suites tree used by hub, start-checks, and pipeline pickers.
  *
  * Path identity: each suite `paths[]` entry is the record `path`
  * (`standard/version/suite/stem`). Suite `files[]` keeps the on-disk filename

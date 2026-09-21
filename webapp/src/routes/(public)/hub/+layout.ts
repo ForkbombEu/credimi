@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-import { getStandardsWithTestSuites } from '$lib/standards';
+import { getStandardsWithTestSuites } from '$lib/conformance';
 import { getUserOrganization } from '$lib/utils';
 
 export const load = async ({ fetch }) => {

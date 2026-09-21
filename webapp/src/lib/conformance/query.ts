@@ -21,7 +21,7 @@ export type ListAllError = ClientResponseError | ZodError;
 export type StandardsWithTestSuites = ListAllResponse;
 
 /**
- * Nested standards tree for start-checks / pipeline pickers.
+ * Nested standards tree for hub, start-checks, and pipeline pickers.
  * Source: PocketBase `conformance_checks` (grouped client-side).
  */
 export function listAll(
@@ -38,8 +38,7 @@ export function listAll(
 }
 
 /**
- * Promise-shaped helper for SvelteKit loaders that historically used
- * `$lib/standards.getStandardsWithTestSuites`.
+ * Promise-shaped helper for SvelteKit loaders (hub layout, start-checks).
  */
 export async function getStandardsWithTestSuites(
 	options: { fetch?: typeof fetch; surface?: TemplateSurface } = {}

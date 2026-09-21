@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * Blueprints-backed nested standards listing.
+ * Blueprints-backed nested standards listing (`/api/template/blueprints`).
  *
- * Start-checks and pipeline conformance pickers use `$lib/conformance`
- * (`pb.collection('conformance_checks')`). Hub/marketplace keep this module
- * until #1400.
+ * Hub, marketplace, start-checks, and pipeline pickers use `$lib/conformance`
+ * (`pb.collection('conformance_checks')`). This module remains for
+ * `getStandardsAndVersionsFlatOptionsList` until #1402 removes blueprints.
  */
 
 import type { ClientResponseError } from 'pocketbase';
