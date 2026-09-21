@@ -21,28 +21,14 @@ export const QUEUED_STATUS = 'Queued';
 export type Status = Workflow.WorkflowStatus | typeof QUEUED_STATUS;
 export type ExecutionDeviceRecord = Pick<MobileDevicesResponse, 'name'>;
 
+/** Pipeline list/overview summary: shared API fields plus pipeline-only extras. */
 export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	pipeline_identifier?: string;
 	pipeline_name?: string;
 	global_device_id?: string;
 	device_ids?: string[];
-	enqueuedAt?: string;
 	device_records?: Array<ExecutionDeviceRecord>;
 	progress?: PipelineProgress;
-	queue?: {
-		ticket_id: string;
-		position: number;
-		line_len: number;
-		device_ids: string[];
-	};
-	report?: string;
-	fcaf_report?: string;
-	fcaf_report_pdf?: string;
-	results?: Array<{
-		video: string;
-		screenshot: string;
-		log: string;
-	}>;
 }
 
 export function getExecutionDeviceNames(

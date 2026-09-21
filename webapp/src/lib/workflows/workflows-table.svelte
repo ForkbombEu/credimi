@@ -74,11 +74,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Table.Head>{m.Status()}</Table.Head>
 				{/if}
 				{@render header?.({ Th: Table.Head })}
-				{#if !hideColumns.includes('start_time')}
-					<Table.Head class="text-right">{m.Start_time()}</Table.Head>
+				{#if !hideColumns.includes('date')}
+					<Table.Head class="text-right">{m.Date()}</Table.Head>
 				{/if}
-				{#if !hideColumns.includes('end_time')}
-					<Table.Head class="text-right">{m.End_time()}</Table.Head>
+				{#if !hideColumns.includes('start')}
+					<Table.Head class="text-right">{m.start()}</Table.Head>
+				{/if}
+				{#if !hideColumns.includes('end')}
+					<Table.Head class="text-right">{m.end()}</Table.Head>
 				{/if}
 				{#if !hideColumns.includes('duration')}
 					<Table.Head class="text-right">{m.Duration()}</Table.Head>
@@ -89,7 +92,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each workflows as workflow (workflow.execution.runId)}
+			{#each workflows as workflow, index (workflow.execution.runId)}
 				<WorkflowTableRow
 					{workflow}
 					{row}
@@ -97,6 +100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{actions}
 					{disableLink}
 					{rowStart}
+					defaultExpanded={workflow.status === 'Running' || index === 0}
 				/>
 			{:else}
 				<Table.Row class="hover:bg-transparent">
