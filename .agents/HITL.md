@@ -30,6 +30,28 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-21 - Nested picker metadata from flat catalog rows (#1399)
+
+- status: open
+- owner: human maintainer
+- context: #1399 cuts start-checks and pipeline pickers to `pb.collection('conformance_checks')`. v1 rows expose path/title/standard/version/suite/file/visible_in only — not standard.yaml/version.yaml/suite metadata (name, URLs, logo, description, disabled).
+- question: Should nested FE trees keep UID-as-name + empty URL/logo fallbacks until catalog rows grow metadata (or #1400), or should pickers temporarily join blueprints metadata?
+- options considered: (1) UID fallbacks only (shipped); (2) dual-fetch blueprints for labels; (3) extend catalog projection with meta fields in a follow-up.
+- default risk: Option (1) weakens picker/scoreboard labels (suite logos via `Conformance.Standards.Store`) until enrichment; path/`check_id` identity stays correct.
+- decision: Option (1) for #1399. Do not dual-fetch; do not change hub (#1400).
+- follow-up: Enrich catalog records or picker display in a later slice; empty suites without check files no longer appear (catalog is check-row based).
+
+### 2026-09-21 - Blueprints nested metadata storage (#1398)
+
+- status: resolved (agent default for #1398)
+- owner: agent
+- context: Flat `conformance_checks` rows cannot represent empty suites or full standard/version/suite.yaml metadata required by `/api/template/blueprints`.
+- question: Where should nested blueprints metadata live after the catalog adapter replaces the handler filesystem walk?
+- options considered: (1) re-read YAML metadata per blueprints request; (2) store nested tree only in the in-memory catalog snapshot beside flat checks; (3) widen PB collection schema for nested JSON.
+- default risk: Option (1) reintroduces a duplicate walk; option (3) couples PB schema to a compatibility DTO.
+- decision: Option (2). `LoadWalk`/`loadFromDir` builds checks + nested `Blueprints` once; `Catalog.Blueprints(surface)` projects/filters with no per-request FS walk. PB collection remains the flat query cache.
+- follow-up: None for #1398; FE cutover stays later tickets.
+
 ### 2026-09-21 - Conformance catalog query cache storage (#1397)
 
 - status: resolved (agent default for #1397)
@@ -40,7 +62,6 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: Option (3) leaves rows in `data.db` between rebuilds; mitigated by boot rebuild, internal rebuild endpoint, null write rules, and model hooks.
 - decision: Option (3). Document refresh as process restart or `POST /api/conformance-catalog/rebuild` with internal admin key. Do not treat collection rows as SoT.
 - follow-up: Later tickets may revisit true ephemeral storage if product requires zero durable rows; not blocking #1397.
-
 
 ### 2026-09-17 - Workflow timestamp presentation ownership
 
@@ -142,7 +163,6 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: Temporary implementation files may live beside the FCAF test YAML for now, under the test catalog folder, and must be deleted during implementation once consumed.
 - follow-up: Implementation agents must keep the temporary folder clearly named and remove it before finalizing production-ready FCAF catalog work unless the maintainer explicitly keeps it.
 
-
 ## 2026-08-30 — Scoreboard success-rate sparkline
 
 - **Question:** Should the public scoreboard success-rate column show a sparkline of execution trends?
@@ -158,6 +178,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - **Options considered:** Keep new formatter versions and regenerated schema (repo-owned entrypoints produce them); pin old formatters/suppress deprecations; hand-revert schema JSON.
 - **Default risk:** Formatting churn touches files outside the upgrade scope; the schema JSON change relaxes pipeline-schema validation for mdoc namespace objects; full `-race` suite now needs >10m.
 - **Owner:** puria — **Status:** open
+
 ### 2026-09-10 — Temporal callbacks behind Cloudflare WAF
 
 - status: resolved

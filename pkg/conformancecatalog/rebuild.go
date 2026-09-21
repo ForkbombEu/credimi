@@ -22,7 +22,7 @@ func Rebuild(app core.App, templatesDir string) error {
 		templatesDir = TemplatesDir()
 	}
 
-	checks, err := LoadWalk(templatesDir)
+	checks, blueprints, err := loadFromDir(templatesDir)
 	if err != nil {
 		return err
 	}
@@ -68,6 +68,6 @@ func Rebuild(app core.App, templatesDir string) error {
 		return err
 	}
 
-	Default().replaceSnapshot(checks, templatesDir)
+	Default().replaceSnapshot(checks, blueprints, templatesDir)
 	return nil
 }

@@ -68,11 +68,12 @@ type Check struct {
 
 // Catalog holds the in-memory snapshot of checks loaded from disk.
 type Catalog struct {
-	mu      sync.RWMutex
-	checks  []Check
-	byID    map[string]Check
-	byPath  map[string]Check
-	rootDir string
+	mu         sync.RWMutex
+	checks     []Check
+	blueprints Blueprints
+	byID       map[string]Check
+	byPath     map[string]Check
+	rootDir    string
 }
 
 var (
@@ -92,6 +93,27 @@ func (c *Catalog) Snapshot() []Check {
 	out := make([]Check, len(c.checks))
 	copy(out, c.checks)
 	return out
+}
+
+// Blueprints returns the nested blueprints tree, optionally filtered by surface
+// ("manual" | "pipeline"). Empty surface returns the full tree.
+// Data comes from the last Rebuild/LoadFromDir — no per-request filesystem walk.
+func (c *Catalog) Blueprints(surface string) Blueprints {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return ProjectBlueprints(c.blueprints, surface)
+}
+
+// LoadFromDir walks templatesDir, replaces the in-memory checks + blueprints
+// snapshot, and does not touch PocketBase. Useful for unit tests and request
+// handlers that need a snapshot without a full Rebuild transaction.
+func (c *Catalog) LoadFromDir(templatesDir string) error {
+	checks, blueprints, err := loadFromDir(templatesDir)
+	if err != nil {
+		return err
+	}
+	c.replaceSnapshot(checks, blueprints, templatesDir)
+	return nil
 }
 
 // GetByID returns a check by stable record id.
@@ -127,20 +149,6 @@ func PathID(path string) string {
 	return hex.EncodeToString(sum[:])[:15]
 }
 
-type standardMeta struct {
-	UID      string `yaml:"uid"`
-	Disabled bool   `yaml:"disabled"`
-}
-
-type versionMeta struct {
-	UID string `yaml:"uid"`
-}
-
-type suiteMeta struct {
-	UID       string   `yaml:"uid"`
-	VisibleIn []string `yaml:"visible_in"`
-}
-
 type checkFileMeta struct {
 	Title string `yaml:"title"`
 	Name  string `yaml:"name"`
@@ -149,12 +157,20 @@ type checkFileMeta struct {
 // LoadWalk walks templatesDir and returns classic conformance checks.
 // Layout matches /api/template/blueprints: standard/version/suite/file.
 func LoadWalk(templatesDir string) ([]Check, error) {
+	checks, _, err := loadFromDir(templatesDir)
+	return checks, err
+}
+
+// loadFromDir walks once and builds both the flat check list and nested blueprints.
+func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 	entries, err := os.ReadDir(templatesDir)
 	if err != nil {
-		return nil, fmt.Errorf("read templates dir: %w", err)
+		return nil, nil, fmt.Errorf("read templates dir: %w", err)
 	}
 
 	var checks []Check
+	blueprints := make(Blueprints, 0)
+
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -166,9 +182,9 @@ func LoadWalk(templatesDir string) ([]Check, error) {
 		standardUID := entry.Name()
 		standardPath := filepath.Join(templatesDir, standardUID)
 
-		stdMeta := standardMeta{UID: standardUID}
+		stdMeta := StandardMetadata{UID: standardUID}
 		if err := readYAML(filepath.Join(standardPath, "standard.yaml"), &stdMeta); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if stdMeta.UID == "" {
 			stdMeta.UID = standardUID
@@ -176,9 +192,10 @@ func LoadWalk(templatesDir string) ([]Check, error) {
 
 		versionEntries, err := os.ReadDir(standardPath)
 		if err != nil {
-			return nil, fmt.Errorf("read standard dir %s: %w", standardPath, err)
+			return nil, nil, fmt.Errorf("read standard dir %s: %w", standardPath, err)
 		}
 
+		var versions []Version
 		for _, vEntry := range versionEntries {
 			if !vEntry.IsDir() {
 				continue
@@ -189,9 +206,9 @@ func LoadWalk(templatesDir string) ([]Check, error) {
 				continue
 			}
 
-			verMeta := versionMeta{UID: versionUID}
+			verMeta := VersionMetadata{UID: versionUID}
 			if err := readYAML(filepath.Join(versionPath, "version.yaml"), &verMeta); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if verMeta.UID == "" {
 				verMeta.UID = versionUID
@@ -199,9 +216,10 @@ func LoadWalk(templatesDir string) ([]Check, error) {
 
 			suiteEntries, err := os.ReadDir(versionPath)
 			if err != nil {
-				return nil, fmt.Errorf("read version dir %s: %w", versionPath, err)
+				return nil, nil, fmt.Errorf("read version dir %s: %w", versionPath, err)
 			}
 
+			var suites []Suite
 			for _, sEntry := range suiteEntries {
 				if !sEntry.IsDir() {
 					continue
@@ -212,9 +230,9 @@ func LoadWalk(templatesDir string) ([]Check, error) {
 					continue
 				}
 
-				sMeta := suiteMeta{UID: suiteUID}
+				sMeta := SuiteMetadata{UID: suiteUID}
 				if err := readYAML(filepath.Join(suitePath, "metadata.yaml"), &sMeta); err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				if sMeta.UID == "" {
 					sMeta.UID = suiteUID
@@ -224,9 +242,11 @@ func LoadWalk(templatesDir string) ([]Check, error) {
 
 				fileEntries, err := os.ReadDir(suitePath)
 				if err != nil {
-					return nil, fmt.Errorf("read suite dir %s: %w", suitePath, err)
+					return nil, nil, fmt.Errorf("read suite dir %s: %w", suitePath, err)
 				}
 
+				files := []string{}
+				paths := []string{}
 				for _, f := range fileEntries {
 					if f.IsDir() || f.Name() == "metadata.yaml" {
 						continue
@@ -235,6 +255,9 @@ func LoadWalk(templatesDir string) ([]Check, error) {
 					stem := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 					path := fmt.Sprintf("%s/%s/%s/%s", stdMeta.UID, verMeta.UID, sMeta.UID, stem)
 					filePath := filepath.Join(suitePath, fileName)
+
+					files = append(files, fileName)
+					paths = append(paths, path)
 
 					checks = append(checks, Check{
 						ID:               PathID(path),
@@ -252,11 +275,27 @@ func LoadWalk(templatesDir string) ([]Check, error) {
 						StandardDisabled: stdMeta.Disabled,
 					})
 				}
+
+				suites = append(suites, Suite{
+					SuiteMetadata: sMeta,
+					Files:         files,
+					Paths:         paths,
+				})
 			}
+
+			versions = append(versions, Version{
+				VersionMetadata: verMeta,
+				Suites:          suites,
+			})
 		}
+
+		blueprints = append(blueprints, Standard{
+			StandardMetadata: stdMeta,
+			Versions:         versions,
+		})
 	}
 
-	return checks, nil
+	return checks, blueprints, nil
 }
 
 func normalizeVisibleIn(visibleIn []string) []string {
@@ -319,7 +358,7 @@ func readYAML(path string, out any) error {
 	return nil
 }
 
-func (c *Catalog) replaceSnapshot(checks []Check, rootDir string) {
+func (c *Catalog) replaceSnapshot(checks []Check, blueprints Blueprints, rootDir string) {
 	byID := make(map[string]Check, len(checks))
 	byPath := make(map[string]Check, len(checks))
 	for _, ch := range checks {
@@ -329,6 +368,7 @@ func (c *Catalog) replaceSnapshot(checks []Check, rootDir string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.checks = checks
+	c.blueprints = blueprints
 	c.byID = byID
 	c.byPath = byPath
 	c.rootDir = rootDir
