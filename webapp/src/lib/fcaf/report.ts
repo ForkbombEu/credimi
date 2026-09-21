@@ -207,7 +207,7 @@ export function prepareReportDisplay(
 	const unassignedScreenshots = presentationScreenshots
 		.filter(({ test_ids }) => !test_ids?.length)
 		.map(({ url, label }) => ({ url, label }));
-	const checkedDeeplink = report.presentation?.deeplink || legacyDeeplink(report.evidence);
+	const checkedDeeplink = report.presentation?.deeplink ?? legacyDeeplink(report.evidence);
 	const summaryFilters =
 		report.presentation?.summary_filters?.length ? report.presentation.summary_filters : legacySummaryFilters(report);
 
