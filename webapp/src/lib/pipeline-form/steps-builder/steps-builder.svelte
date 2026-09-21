@@ -220,7 +220,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<EmptyState text={m.Pipeline_steps_will_appear_here()} />
 			{/if}
 
-			<div class="border-t pt-4">
+			<div class="!mt-6 border-t pt-4">
 				<h3 class="text-sm font-medium">{m.Follow_ups()}</h3>
 			</div>
 
@@ -243,7 +243,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</div>
 			{:else}
-				<EmptyState text={m.no_follow_ups_hint()} />
+				<EmptyState text={m.no_follow_ups_hint()} padded={false} />
 			{/if}
 		</div>
 	</Column>
