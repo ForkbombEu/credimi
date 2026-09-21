@@ -175,9 +175,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if suite.uid === OPENID_SUITE_UID && form.selectedStandardId === OPENID_WALLETVP_STANDARD_ID}
 						<OpenidSuiteTable suiteFiles={suite.files} suiteUid={suite.uid} />
 					{:else}
-						{#each suite.files as fileId (fileId)}
+						{#each suite.files as fileId, i (fileId)}
 							{@const value = `${suite.uid}/${fileId}`}
-							{@const label = fileId.split('.').slice(0, -1).join('.')}
+							{@const label =
+								suite.titles[i] || fileId.split('.').slice(0, -1).join('.')}
 							<Label class="flex items-center gap-2  font-mono text-xs">
 								<Checkbox {value} />
 								<span>{label}</span>

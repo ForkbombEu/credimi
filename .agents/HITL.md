@@ -54,15 +54,16 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-21 - Nested picker metadata from flat catalog rows (#1399)
 
-- status: open
+- status: partial (FE display titles restored; authored suite/standard meta still open)
 - owner: human maintainer
 - context: #1399 cuts start-checks and pipeline pickers to `pb.collection('conformance_checks')`. v1 rows expose path/title/standard/version/suite/file/visible_in (plus facets after #1402) — not standard.yaml/version.yaml/suite metadata (name, URLs, logo, description, disabled).
 - question: Should nested FE trees keep UID-as-name + empty URL/logo fallbacks until catalog rows grow metadata (or #1400)?
 - options considered: (1) UID fallbacks only (shipped); (2) ~~dual-fetch blueprints for labels~~ **superseded** — `/api/template/blueprints` removed in #1402; (3) extend catalog projection with meta fields in a follow-up.
 - default risk: Option (1) weakens picker/scoreboard labels (suite logos via `Conformance.Standards.Store`) until enrichment; path/`check_id` identity stays correct.
 - decision: Option (1) for #1399. Do not dual-fetch; hub cutover proceeded in later tickets without blueprints.
-- follow-up: Enrich catalog records or picker display in a later slice; empty suites without check files no longer appear (catalog is check-row based).
+- follow-up: Project authored standard/version/suite names, logos, URLs, and descriptions from on-disk YAML into catalog rows (or a dedicated meta projection) — do not reintroduce blueprints. Empty suites without check files remain absent (catalog is check-row based); resurrect only if product requires them.
 - amendment (2026-09-21): Option (2) is obsolete after #1402 deleted the blueprints API and nesting path.
+- amendment (2026-09-21, cleanup): Nest now surfaces catalog `title` on suite `titles[]` and uses humanized UIDs for standard/version/suite `name`. Hub browse, start-checks lists, and pipeline pickers use those titles. Logos, homepage/repository/help, authored descriptions, and exact YAML display names remain empty / humanized until catalog enrichment (option 3).
 
 ### 2026-09-21 - Blueprints nested metadata storage (#1398)
 

@@ -33,7 +33,9 @@ const suiteMetadataSchema = z.object({
 
 export const suiteSchema = suiteMetadataSchema.extend({
 	files: z.array(z.string()),
-	paths: z.array(z.string())
+	paths: z.array(z.string()),
+	/** Catalog check titles aligned with `paths` / `files` (same index). */
+	titles: z.array(z.string())
 });
 
 export const versionSchema = versionMetadataSchema.extend({

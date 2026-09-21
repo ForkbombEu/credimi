@@ -11,10 +11,12 @@ import type { Standard, Suite, Version } from './types';
  *
  * Path identity: each suite `paths[]` entry is the record `path`
  * (`standard/version/suite/stem`). Suite `files[]` keeps the on-disk filename
- * (with extension) for placeholders / start-check submission.
+ * (with extension) for placeholders / start-check submission. Suite `titles[]`
+ * mirrors those rows with catalog `title` for browse/picker labels.
  *
- * Rich standard/version/suite metadata (URLs, logos, descriptions) is not on
- * the v1 catalog row; UIDs are used as display names until enriched later.
+ * Standard/version/suite display names use a humanized UID fallback — rich
+ * YAML metadata (logo, URLs, authored names, descriptions) is not on v1 catalog
+ * rows. Empty suites without check files do not appear (catalog is check-row based).
  */
 export function nestChecks(records: ConformanceCheckRecord[]): Standard[] {
 	const byStandard = new Map<string, Map<string, Map<string, ConformanceCheckRecord[]>>>();
@@ -47,25 +49,26 @@ export function nestChecks(records: ConformanceCheckRecord[]): Standard[] {
 			for (const [suiteUid, checks] of suitesMap) {
 				suites.push({
 					uid: suiteUid,
-					name: suiteUid,
+					name: displayNameFromUid(suiteUid),
 					homepage: '',
 					repository: '',
 					help: '',
 					description: '',
 					files: checks.map((c) => c.file),
-					paths: checks.map((c) => c.path)
+					paths: checks.map((c) => c.path),
+					titles: checks.map((c) => c.title)
 				});
 			}
 			versions.push({
 				uid: versionUid,
-				name: versionUid,
+				name: displayNameFromUid(versionUid),
 				latest_update: '',
 				suites
 			});
 		}
 		standards.push({
 			uid: standardUid,
-			name: standardUid,
+			name: displayNameFromUid(standardUid),
 			description: '',
 			standard_url: '',
 			latest_update: '',
@@ -75,4 +78,36 @@ export function nestChecks(records: ConformanceCheckRecord[]): Standard[] {
 	}
 
 	return standards;
+}
+
+/** Humanize a path UID for display when authored metadata is not on the catalog row. */
+export function displayNameFromUid(uid: string): string {
+	return uid
+		.split(/[_-]+/)
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(' ');
+}
+
+/**
+ * Resolve a check display title from suite parallel arrays, falling back to the
+ * path stem when the path is missing from the suite.
+ */
+export function titleForCheckPath(
+	suite: Pick<Suite, 'paths' | 'titles'>,
+	pathOrStem: string
+): string {
+	const exact = suite.paths.indexOf(pathOrStem);
+	if (exact >= 0) {
+		const title = suite.titles[exact];
+		if (title) return title;
+	}
+	const bySuffix = suite.paths.findIndex(
+		(p) => p.endsWith(`/${pathOrStem}`) || p.split('/').at(-1) === pathOrStem
+	);
+	if (bySuffix >= 0) {
+		const title = suite.titles[bySuffix];
+		if (title) return title;
+	}
+	return pathOrStem.split('/').at(-1) ?? pathOrStem;
 }

@@ -95,7 +95,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 			throw new Error(m.Pipeline_form_conformance_check_path_not_found());
 		}
 		return {
-			title: getTestName(test),
+			title: getTestName(test, suite),
 			copyText: test,
 			avatar: suite.logo,
 			meta: {

@@ -148,7 +148,11 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		return { kind: 'none' };
 	});
 
-	selectedTestName = $derived(this.data.test ? getTestName(this.data.test) : '');
+	selectedTestName = $derived(
+		this.data.test
+			? getTestName(this.data.test, this.data.suite ?? undefined)
+			: ''
+	);
 
 	testOptions: TestOption[] = $derived.by(() => {
 		const wallet = this.getExecutionTarget()?.wallet;
@@ -159,7 +163,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 				getWalletTestBlockReason(wallet, this.walletActions));
 
 		return this.availableTests.map((test) => {
-			const testName = getTestName(test);
+			const testName = getTestName(test, this.data.suite ?? undefined);
 
 			if (!isOpenIdWalletTest(test)) {
 				return { test, testName, enabled: true };

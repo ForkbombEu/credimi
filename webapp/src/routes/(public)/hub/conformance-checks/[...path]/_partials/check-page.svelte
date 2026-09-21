@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
 	import { ArrowRightIcon } from '@lucide/svelte';
+	import { titleForCheckPath } from '$lib/conformance';
 	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import { onMount } from 'svelte';
@@ -32,6 +33,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = Extract<PageData, { type: 'file-page' }> & { namespace: string | undefined };
 
 	let { standard, version, suite, file, basePath, namespace }: Props = $props();
+
+	const checkTitle = $derived(titleForCheckPath(suite, file));
 
 	//
 
@@ -60,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<A class="block" href={basePath}>
 			{standard.name} / {version.name} / {suite.name}
 		</A>
-		<T tag="h1" class="text-balance">{file.replaceAll('+', ' • ')}</T>
+		<T tag="h1" class="text-balance">{checkTitle}</T>
 	{/snippet}
 
 	{#snippet content()}

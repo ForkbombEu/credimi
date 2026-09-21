@@ -194,7 +194,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{:else if suite.files.length > 0}
 								<ChildrenCell
 									items={suite.paths.map((p, i) => ({
-										title: suite.files[i].replace('.yaml', ''),
+										title: suite.titles[i] || suite.files[i]?.replace('.yaml', '') || p,
 										href: `/hub/conformance-checks/${p}`
 									}))}
 								/>

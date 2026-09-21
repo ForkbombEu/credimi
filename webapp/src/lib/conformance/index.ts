@@ -9,7 +9,7 @@ export type { ListAllResponse, StandardsWithTestSuites } from './query';
 
 export { listAll, getStandardsWithTestSuites } from './query';
 export { listChecks } from './client';
-export { nestChecks } from './nest';
+export { displayNameFromUid, nestChecks, titleForCheckPath } from './nest';
 export { CONFORMANCE_CHECKS_COLLECTION } from './record';
 export {
 	FCAF_STANDARD,
