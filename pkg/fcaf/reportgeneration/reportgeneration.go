@@ -37,6 +37,9 @@ func EnrichReportJSON(app core.App, record *core.Record, rawJSON []byte) ([]byte
 	if err := json.Unmarshal(rawJSON, &root); err != nil {
 		return nil, nil, fmt.Errorf("decode FCAF report object: %w", err)
 	}
+	if root == nil {
+		return nil, nil, fmt.Errorf("decode FCAF report object: root must be a JSON object")
+	}
 	var report engine.Report
 	if err := json.Unmarshal(rawJSON, &report); err != nil {
 		return nil, nil, fmt.Errorf("decode FCAF report: %w", err)

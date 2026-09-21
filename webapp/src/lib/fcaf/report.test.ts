@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	checksForTest,
 	groupExecutedTests,
 	prepareReportDisplay,
 	screenshotsForTest,
@@ -27,6 +28,36 @@ describe('status helpers', () => {
 		expect(statusIsFailed('failed')).toBe(true);
 		expect(statusIsFailed('error')).toBe(true);
 		expect(statusIsFailed('passed')).toBe(false);
+	});
+});
+
+describe('checksForTest', () => {
+	it('prefers non-empty assertions over validators', () => {
+		expect(
+			checksForTest({
+				assertions: [{ id: 'a', validator: 'assert' }],
+				validators: [{ id: 'v', validator: 'legacy' }]
+			})
+		).toEqual([{ id: 'a', validator: 'assert' }]);
+	});
+
+	it('falls back to validators when assertions is empty', () => {
+		expect(
+			checksForTest({
+				assertions: [],
+				validators: [{ id: 'v', validator: 'legacy' }]
+			})
+		).toEqual([{ id: 'v', validator: 'legacy' }]);
+	});
+
+	it('falls back to validators when assertions is missing', () => {
+		expect(checksForTest({ validators: [{ id: 'v', validator: 'legacy' }] })).toEqual([
+			{ id: 'v', validator: 'legacy' }
+		]);
+	});
+
+	it('returns an empty list when neither is present', () => {
+		expect(checksForTest({})).toEqual([]);
 	});
 });
 
@@ -65,8 +96,7 @@ describe('prepareReportDisplay', () => {
 		suite: 'ws_rp',
 		summary: { passed: 99, failed: 99 },
 		evidence: {
-			deeplink: 'legacy://ignored',
-			shot: 'https://example.com/legacy-ignored.png'
+			deeplink: 'legacy://ignored'
 		},
 		presentation: {
 			deeplink: 'openid4vp://request',

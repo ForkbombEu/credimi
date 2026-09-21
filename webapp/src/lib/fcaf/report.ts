@@ -92,6 +92,16 @@ export function loadReport(url: string): Promise<Report | undefined> {
 	return cached;
 }
 
+export type TestCheck = NonNullable<TestResult['assertions']>[number];
+
+/** Prefer non-empty assertions; fall back to historical validators. */
+export function checksForTest(test: TestResult): TestCheck[] {
+	if ((test.assertions?.length ?? 0) > 0) {
+		return test.assertions ?? [];
+	}
+	return test.validators ?? [];
+}
+
 export function statusIsPassed(status = ''): boolean {
 	return (status ?? '').startsWith('pass');
 }

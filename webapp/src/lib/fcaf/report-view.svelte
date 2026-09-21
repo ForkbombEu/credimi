@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 
 	import {
+		checksForTest,
 		prepareReportDisplay,
 		screenshotsForTest,
 		sourceUrl,
@@ -87,6 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet testCard(test: TestResult, testScreenshots: Screenshot[])}
+	{@const checks = checksForTest(test)}
 	<div class="rounded border p-4">
 		<div class="flex items-start justify-between gap-4">
 			<div class="min-w-0">
@@ -119,9 +121,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{test.status ?? 'unknown'}
 			</span>
 		</div>
-		{#if (test.assertions ?? test.validators)?.length}
+		{#if checks.length}
 			<div class="mt-3 space-y-2 border-t pt-3 text-sm">
-				{#each test.assertions ?? test.validators ?? [] as validator (validator.id)}
+				{#each checks as validator (validator.id)}
 					<div class="flex justify-between gap-3">
 						<span>{validator.validator ?? validator.id}</span>
 						<strong class={statusClass(validator.status)}
