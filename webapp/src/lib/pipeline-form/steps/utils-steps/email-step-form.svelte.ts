@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
+import { BaseForm, type InitFormOptions, type SubmitTarget } from '$pipeline-form/steps/types';
 
 import { appName } from '@/brand';
+import { pb } from '@/pocketbase';
 
 import Component from './email-step-form.svelte';
 import { formatPlaceholder as fmt, Placeholder } from './placeholders/utils';
@@ -15,7 +16,7 @@ export class EmailStepForm extends BaseForm<EmailFormData, EmailStepForm> {
 	readonly Component = Component;
 
 	data = $state<EmailFormData>({
-		recipient: '',
+		recipient: defaultRecipient(),
 		subject: `${appName} | Pipeline "${fmt(Placeholder.PIPELINE_NAME)}" result: ${fmt(Placeholder.RESULT)}`,
 		body: defaultBody()
 	});
@@ -39,8 +40,8 @@ export class EmailStepForm extends BaseForm<EmailFormData, EmailStepForm> {
 		return this.isValid ? this.data : undefined;
 	}
 
-	submit() {
-		this.commit();
+	submit(target: SubmitTarget = 'step') {
+		this.commit(undefined, target);
 	}
 }
 
@@ -52,6 +53,10 @@ export type EmailFormData = {
 	body: string;
 	sender?: string;
 };
+
+function defaultRecipient() {
+	return pb.authStore.record?.email?.trim() ?? '';
+}
 
 export function defaultBody() {
 	return `Hi!

@@ -26,7 +26,7 @@ export function listAll(
 
 	return Task.tryOrElse(
 		(err) => err as ClientResponseError,
-		() => pb.send(path, { method: 'GET', fetch: fetchFn })
+		() => pb.send(path, { method: 'GET', fetch: fetchFn, requestKey: null })
 	).andThen((response) => {
 		const res = listAllResponseSchema.safeParse(response);
 		if (res.success) return Task.resolve(res.data);

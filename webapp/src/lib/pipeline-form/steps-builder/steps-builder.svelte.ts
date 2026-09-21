@@ -5,6 +5,7 @@
 import type { PipelineStep, PipelineStepByType } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
 import type { SelectedVersion } from '$pipeline-form/execution-target/types.js';
+import type { EnrichedFollowUp } from '$pipeline-form/functions.js';
 import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
@@ -35,9 +36,12 @@ import Component from './steps-builder.svelte';
 
 type Props = {
 	steps: EnrichedStep[];
+	followUps?: EnrichedFollowUp[];
 	yamlPreview: () => string;
 	isSavedManualPipeline?: boolean;
 };
+
+type FormSection = 'steps' | 'follow-ups';
 
 type BuilderMode =
 	| { id: 'idle' }
@@ -45,6 +49,7 @@ type BuilderMode =
 			id: 'form';
 			intent: pipelinestep.FormIntent;
 			stepIndex?: number;
+			section?: FormSection;
 			config: pipelinestep.AnyConfig;
 			form: pipelinestep.Form;
 	  }
@@ -52,8 +57,15 @@ type BuilderMode =
 
 type State = {
 	steps: EnrichedStep[];
+	followUps: EnrichedFollowUp[];
 	mode: BuilderMode;
 	manualLocked: boolean;
+};
+
+type CreatedCardRef = {
+	section: 'steps' | 'follow-ups';
+	index: number;
+	token: number;
 };
 
 export class StepsBuilder implements Renderable<StepsBuilder> {
@@ -61,6 +73,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	private state = $state<State>({
 		steps: [],
+		followUps: [],
 		mode: { id: 'idle' },
 		manualLocked: false
 	});
@@ -74,8 +87,13 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	changeWalletVersionDialogOpen = $state(false);
 
+	createdCard = $state<CreatedCardRef | null>(null);
+
+	private createdCardToken = 0;
+
 	constructor(private props: Props) {
 		this.state.steps = props.steps;
+		this.state.followUps = props.followUps ?? [];
 	}
 
 	// Shortcuts
@@ -86,6 +104,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	get steps() {
 		return this.state.steps;
+	}
+
+	get followUps() {
+		return this.state.followUps;
 	}
 
 	executionTarget = $derived(resolveExecutionTarget(this.state.steps));
@@ -143,13 +165,27 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const config = pipelinestep.getConfigByType(step[0].use);
 		const data = getStepData(step);
 		if (!config || !data) return;
-		this.openForm('edit', config, { initial: data, stepIndex: index });
+		this.openForm('edit', config, { initial: data, stepIndex: index, section: 'steps' });
+	}
+
+	initEditFollowUp(index: number) {
+		if (this.state.mode.id === 'form') {
+			this.exitFormState();
+		}
+		const followUp = this.state.followUps[index];
+		if (!followUp) return;
+		const step = followUp.step;
+		if (!isStepEditable(step)) return;
+		const config = pipelinestep.getConfigByType(step[0].use);
+		const data = getStepData(step);
+		if (!config || !data) return;
+		this.openForm('edit', config, { initial: data, stepIndex: index, section: 'follow-ups' });
 	}
 
 	private openForm(
 		intent: pipelinestep.FormIntent,
 		config: pipelinestep.AnyConfig,
-		opts: { initial?: GenericRecord; stepIndex?: number }
+		opts: { initial?: GenericRecord; stepIndex?: number; section?: FormSection }
 	) {
 		this.stateManager.run((state) => {
 			const effectCleanup = $effect.root(() => {
@@ -173,26 +209,41 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 					showPipelineFormError(e);
 					return;
 				}
-				form.onSubmit((formData) => {
+				form.onSubmit((formData, target) => {
 					try {
 						this.stateManager.run((inner) => {
 							if (inner.mode.id !== 'form') return;
 
 							if (inner.mode.intent === 'add') {
-								const step: PipelineStep = {
-									use: config.use as never,
-									id: '',
-									continue_on_error: false,
-									with: config.serialize(formData)
-								};
-								inner.steps.push([step, formData as GenericRecord]);
+								const step = this.createStep(config, formData);
+								if (target === 'follow-up') {
+									if (!this.isFollowUpStep(step)) return;
+									inner.followUps.push({
+										step: [step, formData as GenericRecord],
+										condition: 'always'
+									});
+									this.markCreatedCard('follow-ups', inner.followUps.length - 1);
+								} else {
+									inner.steps.push([step, formData as GenericRecord]);
+									this.markCreatedCard('steps', inner.steps.length - 1);
+								}
 							} else {
 								const editIndex = inner.mode.stepIndex;
 								if (editIndex === undefined) return;
-								const tuple = inner.steps[editIndex];
-								if (!tuple || tuple[0].use === 'debug') return;
-								tuple[0].with = config.serialize(formData);
-								tuple[1] = formData as GenericRecord;
+
+								if (inner.mode.section === 'follow-ups') {
+									const followUp = inner.followUps[editIndex];
+									if (!followUp) return;
+									const [pipelineStep] = followUp.step;
+									if (pipelineStep.use === 'debug') return;
+									pipelineStep.with = config.serialize(formData);
+									followUp.step[1] = formData as GenericRecord;
+								} else {
+									const tuple = inner.steps[editIndex];
+									if (!tuple || tuple[0].use === 'debug') return;
+									tuple[0].with = config.serialize(formData);
+									tuple[1] = formData as GenericRecord;
+								}
 							}
 
 							inner.mode = { id: 'idle' };
@@ -206,6 +257,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 					id: 'form',
 					intent,
 					stepIndex: opts.stepIndex,
+					section: opts.section,
 					config,
 					form
 				};
@@ -214,9 +266,29 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		});
 	}
 
+	private createStep(config: pipelinestep.AnyConfig, formData: unknown): PipelineStep {
+		return {
+			use: config.use as never,
+			id: '',
+			continue_on_error: false,
+			with: config.serialize(formData)
+		};
+	}
+
+	private isFollowUpStep(
+		step: PipelineStep
+	): step is Extract<PipelineStep, { use: 'email' | 'http-request' }> {
+		return step.use === 'email' || step.use === 'http-request';
+	}
+
+	private markCreatedCard(section: CreatedCardRef['section'], index: number) {
+		this.createdCard = { section, index, token: ++this.createdCardToken };
+	}
+
 	addDebugStep() {
 		this.stateManager.run((state) => {
 			state.steps.push([{ use: 'debug' }, {}]);
+			this.markCreatedCard('steps', state.steps.length - 1);
 		});
 	}
 
@@ -224,6 +296,13 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			state.steps.splice(index, 1);
+		});
+	}
+
+	deleteFollowUp(index: number) {
+		if (this.isFormMode) return;
+		this.stateManager.run((state) => {
+			state.followUps.splice(index, 1);
 		});
 	}
 
@@ -237,6 +316,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				pipelineStep.id = '';
 			}
 			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
+			this.markCreatedCard('steps', index + 1);
 		});
 	}
 
@@ -245,6 +325,14 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			const step = state.steps[index];
 			if (!step || step[0].use == 'debug') return;
 			step[0].continue_on_error = continueOnError;
+		});
+	}
+
+	setFollowUpCondition(index: number, condition: EnrichedFollowUp['condition']) {
+		this.stateManager.run((state) => {
+			const followUp = state.followUps[index];
+			if (!followUp) return;
+			followUp.condition = condition;
 		});
 	}
 

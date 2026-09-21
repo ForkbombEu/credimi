@@ -28,7 +28,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		step: EnrichedStep;
 		topRight?: Snippet;
+		bottom?: Snippet;
 		onContinueOnErrorChange?: (checked: boolean) => void;
+		showContinueOnError?: boolean;
 		readonly?: boolean;
 		editing?: boolean;
 	};
@@ -36,7 +38,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let {
 		step,
 		topRight,
+		bottom,
 		onContinueOnErrorChange,
+		showContinueOnError = true,
 		readonly = false,
 		editing = false
 	}: Props = $props();
@@ -150,7 +154,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	{#if step[0].use !== 'debug'}
+	{#if showContinueOnError && step[0].use !== 'debug'}
 		<Label
 			class={[
 				'flex items-center gap-1 bg-slate-50 px-3 py-1',
@@ -158,12 +162,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			]}
 		>
 			<Checkbox
-				class="flex size-[10px] items-center justify-center disabled:cursor-default"
+				class="flex size-2.5 items-center justify-center disabled:cursor-default"
 				checked={step[0].continue_on_error}
 				disabled={readonly}
 				onCheckedChange={(checked) => onContinueOnErrorChange?.(checked)}
 			/>
 			<span class="text-xs text-slate-500">{m.Continue_on_error()}</span>
 		</Label>
+	{:else if bottom}
+		{@render bottom()}
 	{/if}
 </div>

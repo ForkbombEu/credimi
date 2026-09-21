@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Render, type SelfProp } from '$lib/renderable';
 	import * as steps from '$pipeline-form/steps';
 	import { String } from 'effect';
+	import { tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
 
@@ -38,11 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ManualEditorColumn,
 		StepCard
 	} from './_partials/index.js';
-	import {
-		applyStepsBuilderPaneLayout,
-		STEPS_BUILDER_PANE_LAYOUT as LAYOUT,
-		type PaneHandle
-	} from './pane-layout.js';
+	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 
 	//
 
@@ -55,24 +52,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let rightPane: PaneHandle | null = $state(null);
 
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
+	const editingSection = $derived(
+		formMode?.intent === 'edit' ? (formMode.section ?? 'steps') : undefined
+	);
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
 	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
 	const stepDocsUrl = $derived(formMode?.config.docsUrl);
 	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
 
-	let lastAppliedManualMode: boolean | null = $state(null);
+	let lastAppliedManualMode: boolean | null = null;
+	let lastFocusedCardToken = 0;
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
-		const panesReady = addStepPane && stepsPane && rightPane;
-		if (!panesReady) return;
+		if (!addStepPane || !stepsPane || !rightPane) return;
 		if (lastAppliedManualMode === isManual) return;
 
 		lastAppliedManualMode = isManual;
-		applyStepsBuilderPaneLayout(
-			{ addStep: addStepPane, stepsSequence: stepsPane, right: rightPane },
-			isManual
-		);
+		if (isManual) {
+			const layout = LAYOUT.manual;
+			addStepPane.resize(layout.addStep);
+			stepsPane.resize(layout.stepsSequence);
+			rightPane.resize(layout.editor);
+		} else {
+			const layout = LAYOUT.blocks;
+			addStepPane.resize(layout.addStep);
+			stepsPane.resize(layout.stepsSequence);
+			rightPane.resize(layout.right);
+		}
+	});
+
+	$effect(() => {
+		const createdCard = builder.createdCard;
+		if (!createdCard || createdCard.token === lastFocusedCardToken) return;
+
+		lastFocusedCardToken = createdCard.token;
+		void tick().then(() => {
+			const selector = `[data-card-section="${createdCard.section}"][data-card-index="${createdCard.index}"]`;
+			const card = document.querySelector<HTMLElement>(selector);
+			card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			card?.focus({ preventScroll: true });
+		});
 	});
 </script>
 
@@ -155,19 +175,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		{/snippet}
 
-		{#if builder.steps.length > 0}
-			<div class="space-y-3 p-4">
-				{#each builder.steps as step, index (step)}
-					<div animate:flip={{ duration: 300 }}>
-						<StepCard {builder} {step} {index} editing={editingIndex === index} />
-					</div>
-				{/each}
+		<div class="space-y-4 p-4">
+			{#if builder.steps.length > 0}
+				<div class="space-y-3">
+					{#each builder.steps as step, index (step)}
+						<div
+							animate:flip={{ duration: 300 }}
+							data-card-section="steps"
+							data-card-index={index}
+							tabindex="-1"
+						>
+							<StepCard
+								{builder}
+								{step}
+								{index}
+								editing={editingSection === 'steps' && editingIndex === index}
+							/>
+						</div>
+					{/each}
+				</div>
+			{:else if builder.isSavedManualPipeline}
+				<EmptyState text={m.pipeline_manually_saved_no_cards()} />
+			{:else}
+				<EmptyState text={m.Pipeline_steps_will_appear_here()} />
+			{/if}
+
+			<div class="border-t pt-4">
+				<h3 class="text-sm font-medium">{m.Follow_ups()}</h3>
 			</div>
-		{:else if builder.isSavedManualPipeline}
-			<EmptyState text={m.pipeline_manually_saved_no_cards()} />
-		{:else}
-			<EmptyState text={m.Pipeline_steps_will_appear_here()} />
-		{/if}
+
+			{#if builder.followUps.length > 0}
+				<div class="space-y-3">
+					{#each builder.followUps as followUp, index (followUp)}
+						<div
+							animate:flip={{ duration: 300 }}
+							data-card-section="follow-ups"
+							data-card-index={index}
+							tabindex="-1"
+						>
+							<StepCard
+								{builder}
+								step={followUp.step}
+								{index}
+								followUpCondition={followUp.condition}
+								editing={editingSection === 'follow-ups' && editingIndex === index}
+							/>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<EmptyState text={m.no_follow_ups_hint()} />
+			{/if}
+		</div>
 	</Column>
 
 	<Resizable.Handle class="hover:bg-primary" />

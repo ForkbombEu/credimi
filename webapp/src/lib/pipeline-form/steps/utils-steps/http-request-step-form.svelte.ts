@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
+import { BaseForm, type InitFormOptions, type SubmitTarget } from '$pipeline-form/steps/types';
 
 import Component from './http-request-step-form.svelte';
 import { formatPlaceholder, Placeholder } from './placeholders/utils';
@@ -37,8 +37,8 @@ export class HttpRequestStepForm extends BaseForm<HttpRequestFormData, HttpReque
 		return this.isValid ? this.data : undefined;
 	}
 
-	submit() {
-		this.commit();
+	submit(target: SubmitTarget = 'step') {
+		this.commit(undefined, target);
 	}
 }
 

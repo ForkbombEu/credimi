@@ -45,8 +45,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<PlaceholderButtons />
 
 	{#if form.intent === 'add'}
-		<Button class="w-full" disabled={!form.isValid} onclick={() => form.submit()}>
-			<T>{m.Add_step()}</T>
-		</Button>
+		<div class="space-y-2">
+			<Button class="w-full" disabled={!form.isValid} onclick={() => form.submit()}>
+				<T>{m.Add_step()}</T>
+			</Button>
+			<Button
+				variant="outline"
+				class="w-full"
+				disabled={!form.isValid}
+				onclick={() => form.submit('follow-up')}
+			>
+				<T>{m.Add_as_follow_up()}</T>
+			</Button>
+		</div>
 	{/if}
 </div>

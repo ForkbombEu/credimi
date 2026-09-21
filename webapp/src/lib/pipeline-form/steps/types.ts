@@ -20,6 +20,8 @@ import { showPipelineFormError } from '$pipeline-form/errors.js';
 
 export type FormIntent = 'add' | 'edit';
 
+export type SubmitTarget = 'step' | 'follow-up';
+
 export type ExecutionTargetFormContext = {
 	getExecutionTarget: () => ExecutionTarget | undefined;
 	isExecutionTargetLocked: () => boolean;
@@ -58,10 +60,10 @@ export type CardDetailsComponentProps<Deserialized = unknown> = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {
 	readonly intent: FormIntent;
-	onSubmit: (handler: (step: Deserialized) => void) => void;
+	onSubmit: (handler: (step: Deserialized, target: SubmitTarget) => void) => void;
 	canSave(): boolean;
 	getSubmitData(): Deserialized | undefined;
-	commit(data?: Deserialized): void;
+	commit(data?: Deserialized, target?: SubmitTarget): void;
 	/** Sync open form state after a pipeline-wide wallet version change. */
 	applyBulkWalletVersion?(walletId: string, version: SelectedVersion): void;
 }
@@ -88,21 +90,21 @@ export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T>
 	abstract Component: Renderable<T>['Component'];
 
 	readonly intent: FormIntent;
-	protected handleSubmit: (step: Deserialized) => void = () => {};
+	protected handleSubmit: (step: Deserialized, target: SubmitTarget) => void = () => {};
 
 	constructor(private readonly opts?: InitFormOptions<Deserialized>) {
 		this.intent = opts?.intent ?? 'add';
 	}
 
-	onSubmit(handler: (data: Deserialized) => void) {
+	onSubmit(handler: (data: Deserialized, target: SubmitTarget) => void) {
 		this.handleSubmit = handler;
 	}
 
-	commit(data?: Deserialized) {
+	commit(data?: Deserialized, target: SubmitTarget = 'step') {
 		try {
 			const payload = data ?? this.getSubmitData();
 			if (payload !== undefined) {
-				this.handleSubmit(payload);
+				this.handleSubmit(payload, target);
 			}
 		} catch (error) {
 			showPipelineFormError(error);
