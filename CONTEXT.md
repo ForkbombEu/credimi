@@ -31,3 +31,17 @@ _Avoid_: Child pipeline (unless a nested pipeline step), grandchild, step (as th
 **Pipeline run**:
 One execution of a pipeline workflow (or a queued ticket awaiting start), shown as a parent row in the list SmallTable.
 _Avoid_: Calling a child workflow a pipeline run on the list card
+
+## FCAF (wallet-solution relying-party)
+
+**FCAF assessment report**:
+The persisted assessment artifact for a pipeline run (the `fcaf_report` JSON). It records suite selection, executed tests, evidence, and summary counts.
+_Avoid_: FCAF result, conformance JSON, engine report (as the product name), validation output
+
+**FCAF presentation**:
+The display projection nested inside an FCAF assessment report (deeplink, screenshot index with test links, summary filters aligned to executed status). Callers render from it; they do not scrape raw evidence.
+_Avoid_: Report view model, display helpers, UI report shape
+
+**FCAF taxonomy**:
+The stable grouping of tests derived from the test identifier prefix (category and subgroup). It is the source of truth for area ordering in the sheet and PDF.
+_Avoid_: suite.section, YAML section labels
