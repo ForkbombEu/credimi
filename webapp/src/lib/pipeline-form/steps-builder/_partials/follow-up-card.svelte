@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 </script>
 
-<StepCardDisplay step={followUp.step} {editing} showContinueOnError={false}>
+<StepCardDisplay step={followUp.step} {editing}>
 	{#snippet topRight()}
 		<div
 			class={[
@@ -63,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/snippet}
 
-	{#snippet bottom()}
+	{#snippet footer()}
 		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 bg-slate-50 px-3 py-1.5">
 			<div class="inline-flex rounded-md border bg-background p-0.5">
 				{#each conditionOptions as option (option.value)}

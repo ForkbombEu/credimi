@@ -8,6 +8,16 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 Domain language for Credimi product concepts. Implementation details do not belong here.
 
+## Pipeline editor (surface)
+
+**Pipeline Composer**:
+The product surface for creating and editing a pipeline (cards, YAML preview, and manual YAML edit).
+_Avoid_: Steps builder (as user-facing name), pipeline form (as product name)
+
+**Steps builder**:
+Implementation name for the three-pane control inside Pipeline Composer. Not used in product UI copy.
+_Avoid_: Using Steps builder in user-facing strings
+
 ## Pipeline editor (wallet version)
 
 **Change wallet version**:

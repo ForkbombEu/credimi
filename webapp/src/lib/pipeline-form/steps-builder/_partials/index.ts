@@ -7,6 +7,7 @@ export * from './utils.js';
 
 export { default as BulkWalletVersionChange } from './bulk-wallet-version-change.svelte';
 export { default as Column } from './column.svelte';
+export { default as ContinueOnErrorFooter } from './continue-on-error-footer.svelte';
 export { default as EmptyState } from './empty-state.svelte';
 export { default as ManualEditorColumn } from './manual-editor-column.svelte';
 export { default as FollowUpCard } from './follow-up-card.svelte';
