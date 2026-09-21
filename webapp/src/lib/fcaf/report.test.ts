@@ -222,6 +222,30 @@ describe('prepareReportDisplay', () => {
 		]);
 		expect(display.unassignedScreenshots).toEqual([]);
 	});
+
+	it('keeps stored presentation summary filters when they are present', () => {
+		const display = prepareReportDisplay(
+			{
+				evidence: {
+					visual_evidence: {
+						artifacts: ['https://example.com/fallback.png']
+					}
+				},
+				presentation: {
+					summary_filters: [{ key: 'failed', label: 'Failed', count: 7 }]
+				},
+				executed_tests: [
+					{
+						test_id: 'WS_RP_DM_AddressData_001',
+						status: 'passed',
+						assertions: [{ evidence_keys: ['visual_evidence'] }]
+					}
+				]
+			},
+			{ filter: 'all', searchQuery: '' }
+		);
+		expect(display.summaryFilters).toEqual([{ key: 'failed', label: 'Failed', count: 7 }]);
+	});
 });
 
 describe('sourceUrl', () => {
