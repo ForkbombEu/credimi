@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/utils"
-	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -57,7 +56,7 @@ type fcafReport struct {
 }
 
 // NewFCAFCommand runs the reusable FCAF pipeline YAML files sequentially.
-func NewFCAFCommand(app core.App) *cobra.Command {
+func NewFCAFCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "fcaf",
 		Short: "Run FCAF wallet pipelines and collect evidence",
@@ -101,7 +100,6 @@ func NewFCAFCommand(app core.App) *cobra.Command {
 		StringVarP(&instanceURL, "instance", "i", "http://localhost:8090", "URL of the Credimi instance")
 	cmd.AddCommand(run)
 	cmd.AddCommand(syncCmd)
-	cmd.AddCommand(newFCAFBackfillPresentationCommand(app))
 	return cmd
 }
 
