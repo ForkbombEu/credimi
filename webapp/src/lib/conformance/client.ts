@@ -34,6 +34,29 @@ export type ListChecksOptions = {
 	facets?: CatalogFacets;
 };
 
+/** Facet field order for PB equality filters (stable join order). */
+export const CATALOG_FACET_KEYS = ['protocol', 'sut', 'role', 'provider'] as const;
+
+export type PbFilterFn = (raw: string, params?: Record<string, unknown>) => string;
+
+/**
+ * Append PocketBase equality filters for each set catalog facet.
+ * Skips missing/empty values; preserves {@link CATALOG_FACET_KEYS} order.
+ */
+export function appendFacetFilters(
+	filters: string[],
+	facets: CatalogFacets | undefined,
+	filterFn: PbFilterFn
+): void {
+	if (!facets) return;
+	for (const key of CATALOG_FACET_KEYS) {
+		const value = facets[key];
+		if (value) {
+			filters.push(filterFn(`${key} = {:${key}}`, { [key]: value }));
+		}
+	}
+}
+
 /**
  * Shared conformance catalog client: lists flat checks from
  * `pb.collection('conformance_checks')`. Nested pickers group client-side.
@@ -59,18 +82,7 @@ export function listChecks(
 	if (standard) {
 		filters.push(pb.filter('standard = {:standard}', { standard }));
 	}
-	if (facets?.protocol) {
-		filters.push(pb.filter('protocol = {:protocol}', { protocol: facets.protocol }));
-	}
-	if (facets?.sut) {
-		filters.push(pb.filter('sut = {:sut}', { sut: facets.sut }));
-	}
-	if (facets?.role) {
-		filters.push(pb.filter('role = {:role}', { role: facets.role }));
-	}
-	if (facets?.provider) {
-		filters.push(pb.filter('provider = {:provider}', { provider: facets.provider }));
-	}
+	appendFacetFilters(filters, facets, (raw, params) => pb.filter(raw, params));
 	if (filters.length > 0) {
 		listOptions.filter = filters.join(' && ');
 	}
