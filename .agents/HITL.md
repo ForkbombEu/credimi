@@ -45,23 +45,25 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 - status: open
 - owner: human maintainer
-- context: #1399 cuts start-checks and pipeline pickers to `pb.collection('conformance_checks')`. v1 rows expose path/title/standard/version/suite/file/visible_in only — not standard.yaml/version.yaml/suite metadata (name, URLs, logo, description, disabled).
-- question: Should nested FE trees keep UID-as-name + empty URL/logo fallbacks until catalog rows grow metadata (or #1400), or should pickers temporarily join blueprints metadata?
-- options considered: (1) UID fallbacks only (shipped); (2) dual-fetch blueprints for labels; (3) extend catalog projection with meta fields in a follow-up.
+- context: #1399 cuts start-checks and pipeline pickers to `pb.collection('conformance_checks')`. v1 rows expose path/title/standard/version/suite/file/visible_in (plus facets after #1402) — not standard.yaml/version.yaml/suite metadata (name, URLs, logo, description, disabled).
+- question: Should nested FE trees keep UID-as-name + empty URL/logo fallbacks until catalog rows grow metadata (or #1400)?
+- options considered: (1) UID fallbacks only (shipped); (2) ~~dual-fetch blueprints for labels~~ **superseded** — `/api/template/blueprints` removed in #1402; (3) extend catalog projection with meta fields in a follow-up.
 - default risk: Option (1) weakens picker/scoreboard labels (suite logos via `Conformance.Standards.Store`) until enrichment; path/`check_id` identity stays correct.
-- decision: Option (1) for #1399. Do not dual-fetch; do not change hub (#1400).
+- decision: Option (1) for #1399. Do not dual-fetch; hub cutover proceeded in later tickets without blueprints.
 - follow-up: Enrich catalog records or picker display in a later slice; empty suites without check files no longer appear (catalog is check-row based).
+- amendment (2026-09-21): Option (2) is obsolete after #1402 deleted the blueprints API and nesting path.
 
 ### 2026-09-21 - Blueprints nested metadata storage (#1398)
 
-- status: resolved (agent default for #1398)
+- status: superseded (#1402)
 - owner: agent
-- context: Flat `conformance_checks` rows cannot represent empty suites or full standard/version/suite.yaml metadata required by `/api/template/blueprints`.
+- context: Flat `conformance_checks` rows cannot represent empty suites or full standard/version/suite.yaml metadata formerly required by `/api/template/blueprints`.
 - question: Where should nested blueprints metadata live after the catalog adapter replaces the handler filesystem walk?
 - options considered: (1) re-read YAML metadata per blueprints request; (2) store nested tree only in the in-memory catalog snapshot beside flat checks; (3) widen PB collection schema for nested JSON.
 - default risk: Option (1) reintroduces a duplicate walk; option (3) couples PB schema to a compatibility DTO.
-- decision: Option (2). `LoadWalk`/`loadFromDir` builds checks + nested `Blueprints` once; `Catalog.Blueprints(surface)` projects/filters with no per-request FS walk. PB collection remains the flat query cache.
-- follow-up: None for #1398; FE cutover stays later tickets.
+- decision (historical #1398): Option (2). `LoadWalk`/`loadFromDir` built checks + nested `Blueprints` once; `Catalog.Blueprints(surface)` projected/filtered with no per-request FS walk. PB collection remained the flat query cache.
+- supersession (2026-09-21, #1402): Blueprints nesting and `/api/template/blueprints` were deleted. Catalog surface is flat `conformance_checks` rows (+ facet fields) only. Do not restore nested blueprints snapshot or the blueprints HTTP adapter. Durable decisions that remain: filesystem SoT, PB projection as query cache (see #1397), UID/facet fields on checks (see #1402).
+- follow-up: None — blueprints path closed.
 
 ### 2026-09-21 - Conformance catalog query cache storage (#1397)
 
@@ -71,7 +73,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - question: Where should the PocketBase-queryable projection live?
 - options considered: (1) ATTACH + view collection; (2) custom routes reimplementing PB list envelope against `:memory:`; (3) base collection table fully replaced on Rebuild/boot, filesystem remains SoT, writes rejected.
 - default risk: Option (3) leaves rows in `data.db` between rebuilds; mitigated by boot rebuild, internal rebuild endpoint, null write rules, and model hooks.
-- decision: Option (3). Document refresh as process restart or `POST /api/conformance-catalog/rebuild` with internal admin key. Do not treat collection rows as SoT.
+- decision: Option (3). Document refresh as process restart (boot rebuild) or `POST /api/conformance-catalog/rebuild` with `X-Api-Key` = `CREDIMI_INTERNAL_ADMIN_KEY`. Do not treat collection rows as SoT. Refresh path is noted in `AGENTS.md` Dev Runtime and package comments under `pkg/conformancecatalog`.
 - follow-up: Later tickets may revisit true ephemeral storage if product requires zero durable rows; not blocking #1397.
 
 ### 2026-09-17 - Workflow timestamp presentation ownership

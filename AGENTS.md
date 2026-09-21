@@ -174,6 +174,12 @@ Persistence:
 - PocketBase SQLite data lives in `pb_data/`.
 - Dev Temporal state also uses local project data/infrastructure and must be treated as disposable dev state.
 
+Conformance catalog refresh:
+
+- Filesystem under `config_templates` is the durable SoT; `conformance_checks` is a PocketBase query-cache projection replaced on rebuild (not a second catalog of record).
+- Boot rebuild: starting the API process rebuilds the in-memory snapshot and replaces collection rows.
+- Manual refresh after local template edits: `POST /api/conformance-catalog/rebuild` with `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` (same internal admin key as other Temporal-trusted routes). Package entrypoint: `pkg/conformancecatalog`.
+
 Key environment variables:
 
 - `TEMPORAL_ADDRESS`: Temporal host and port.
@@ -181,7 +187,7 @@ Key environment variables:
 - `CREDIMI_TEMPORAL_WORKERS_DISABLED`: when `1`/`true`/`yes`, skips Temporal namespace creation, worker registration and worker-manager workflow starts (used by `make dev.noworkers`).
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`: disables the mobile-runner semaphore path when configured.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: mobile-runner queue wait timeout.
-- `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities and internal result posting.
+- `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities, internal result posting, and `POST /api/conformance-catalog/rebuild`.
 - `CREDIMI_INTERNAL_APP_URL`: deployment-local Temporal-worker-to-Credimi base URL; callback consumers prefer it while persisted `app_url` remains public. It must be provisioned wherever workers execute.
 
 Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
