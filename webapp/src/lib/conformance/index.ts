@@ -10,6 +10,13 @@ export { listAll, getStandardsWithTestSuites } from './query';
 export { listChecks } from './client';
 export { nestChecks } from './nest';
 export { CONFORMANCE_CHECKS_COLLECTION } from './record';
+export {
+	FCAF_STANDARD,
+	fcafTestIdFromPath,
+	toFcafCatalogEntry,
+	listFcafTests,
+	getFcafTests
+} from './fcaf.js';
 
 export * as Check from './check.js';
 export * as Standards from './standard/index.js';

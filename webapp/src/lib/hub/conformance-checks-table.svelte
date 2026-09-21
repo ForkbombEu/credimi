@@ -59,7 +59,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</ContentWrapper>
 				</Table.Cell>
 				<Table.Cell class="px-4">
-					{#if suite.files.length > 0}
+					{#if standard.uid === 'fcaf'}
+						<span class="text-xs text-muted-foreground">
+							{suite.paths.length} {m.Tests()}
+						</span>
+					{:else if suite.files.length > 0}
 						<ChildrenCell
 							items={suite.paths.map((p, i) => ({
 								title: suite.files[i].replace('.yaml', ''),

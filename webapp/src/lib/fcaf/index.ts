@@ -8,21 +8,22 @@
  *
  * Keep this barrel small: only what outside callers need. Report helpers and
  * ReportView stay private to `$lib/fcaf`.
+ *
+ * Test listing comes from `$lib/conformance` (PocketBase catalog). Suite and
+ * pipeline_outputs defaults remain generated from the aggregate pipeline YAML.
  */
 
 export {
-	groupAllTests,
 	groupSelectedTests,
 	groupCatalogTests,
 	type CatalogCategoryGroup,
-	type CatalogSubgroup
+	type CatalogSubgroup,
+	type FCAFTestCatalogEntry as TestCatalogEntry
 } from './catalog.js';
 
 export {
 	FCAF_PIPELINE_OUTPUTS as PIPELINE_OUTPUTS,
-	FCAF_SUITE as SUITE,
-	FCAF_TESTS as TESTS,
-	type FCAFTestCatalogEntry as TestCatalogEntry
+	FCAF_SUITE as SUITE
 } from './tests.generated.js';
 
 import ReportSheet from './report-sheet.svelte';

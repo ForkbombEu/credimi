@@ -2,13 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package conformancecatalog loads classic conformance checks from config_templates
-// into an in-process snapshot and projects them into a PocketBase collection used as
-// an ephemeral query cache (filter/sort/pagination via native PB records API).
+// Package conformancecatalog loads classic conformance checks and FCAF test
+// definitions from config_templates into an in-process snapshot and projects
+// them into a PocketBase collection used as an ephemeral query cache
+// (filter/sort/pagination via native PB records API).
 //
 // Durable source of truth remains the filesystem under config_templates. The
 // conformance_checks collection rows are always replaced on Rebuild and must not be
 // treated as a second catalog of record (create/update/delete are rejected).
+//
+// Classic layout: standard/version/suite/<check file>.
+// FCAF layout: fcaf/<version>/<suite>/tests/<id>.yaml — path identity is
+// fcaf/<version>/<suite>/<test_id> (final segment = FCAF test id).
 //
 // Refresh after local template edits: restart the process (boot rebuild) or call
 // Rebuild / POST /api/conformance-catalog/rebuild with the internal admin API key.
@@ -240,40 +245,38 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 
 				visibleIn := normalizeVisibleIn(sMeta.VisibleIn)
 
-				fileEntries, err := os.ReadDir(suitePath)
-				if err != nil {
-					return nil, nil, fmt.Errorf("read suite dir %s: %w", suitePath, err)
-				}
-
-				files := []string{}
-				paths := []string{}
-				for _, f := range fileEntries {
-					if f.IsDir() || f.Name() == "metadata.yaml" {
-						continue
+				var suiteChecks []Check
+				var files []string
+				var paths []string
+				if hasFCAFTestsDir(stdMeta.UID, suitePath) {
+					suiteChecks, err = loadFCAFSuiteTests(
+						suitePath,
+						stdMeta.UID,
+						verMeta.UID,
+						sMeta.UID,
+						visibleIn,
+						stdMeta.Disabled,
+					)
+					if err != nil {
+						return nil, nil, err
 					}
-					fileName := f.Name()
-					stem := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-					path := fmt.Sprintf("%s/%s/%s/%s", stdMeta.UID, verMeta.UID, sMeta.UID, stem)
-					filePath := filepath.Join(suitePath, fileName)
-
-					files = append(files, fileName)
-					paths = append(paths, path)
-
-					checks = append(checks, Check{
-						ID:               PathID(path),
-						Path:             path,
-						Title:            titleForCheck(filePath, stem),
-						Standard:         stdMeta.UID,
-						Version:          verMeta.UID,
-						Suite:            sMeta.UID,
-						File:             fileName,
-						VisibleIn:        append([]string(nil), visibleIn...),
-						Protocol:         "",
-						SUT:              "",
-						Role:             "",
-						Provider:         "",
-						StandardDisabled: stdMeta.Disabled,
-					})
+				} else {
+					suiteChecks, err = loadClassicSuiteChecks(
+						suitePath,
+						stdMeta.UID,
+						verMeta.UID,
+						sMeta.UID,
+						visibleIn,
+						stdMeta.Disabled,
+					)
+					if err != nil {
+						return nil, nil, err
+					}
+				}
+				for _, ch := range suiteChecks {
+					files = append(files, ch.File)
+					paths = append(paths, ch.Path)
+					checks = append(checks, ch)
 				}
 
 				suites = append(suites, Suite{
@@ -296,6 +299,127 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 	}
 
 	return checks, blueprints, nil
+}
+
+// hasFCAFTestsDir reports whether this suite stores FCAF definitions under tests/.
+// Classic suites keep check YAML at the suite root; FCAF uses tests/*.yaml.
+func hasFCAFTestsDir(standardUID, suitePath string) bool {
+	if standardUID != "fcaf" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(suitePath, "tests"))
+	return err == nil && info.IsDir()
+}
+
+func loadClassicSuiteChecks(
+	suitePath, standardUID, versionUID, suiteUID string,
+	visibleIn []string,
+	standardDisabled bool,
+) ([]Check, error) {
+	fileEntries, err := os.ReadDir(suitePath)
+	if err != nil {
+		return nil, fmt.Errorf("read suite dir %s: %w", suitePath, err)
+	}
+
+	var checks []Check
+	for _, f := range fileEntries {
+		if f.IsDir() || f.Name() == "metadata.yaml" {
+			continue
+		}
+		fileName := f.Name()
+		stem := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+		path := fmt.Sprintf("%s/%s/%s/%s", standardUID, versionUID, suiteUID, stem)
+		filePath := filepath.Join(suitePath, fileName)
+
+		checks = append(checks, Check{
+			ID:               PathID(path),
+			Path:             path,
+			Title:            titleForCheck(filePath, stem),
+			Standard:         standardUID,
+			Version:          versionUID,
+			Suite:            suiteUID,
+			File:             fileName,
+			VisibleIn:        append([]string(nil), visibleIn...),
+			Protocol:         "",
+			SUT:              "",
+			Role:             "",
+			Provider:         "",
+			StandardDisabled: standardDisabled,
+		})
+	}
+	return checks, nil
+}
+
+type fcafTestFileMeta struct {
+	ID    string `yaml:"id"`
+	Title string `yaml:"title"`
+	Suite struct {
+		SUT  string `yaml:"sut"`
+		Role string `yaml:"role"`
+	} `yaml:"suite"`
+}
+
+// loadFCAFSuiteTests indexes FCAF definitions from suite/tests/*.yaml.
+// Path identity is fcaf/<version>/<suite>/<test_id> so nest/pickers stay stable;
+// the final path segment is the FCAF test id used by fcaf-validation.test_ids.
+func loadFCAFSuiteTests(
+	suitePath, standardUID, versionUID, suiteUID string,
+	visibleIn []string,
+	standardDisabled bool,
+) ([]Check, error) {
+	testsDir := filepath.Join(suitePath, "tests")
+	entries, err := os.ReadDir(testsDir)
+	if err != nil {
+		return nil, fmt.Errorf("read FCAF tests dir %s: %w", testsDir, err)
+	}
+
+	var checks []Check
+	for _, f := range entries {
+		if f.IsDir() {
+			continue
+		}
+		fileName := f.Name()
+		ext := strings.ToLower(filepath.Ext(fileName))
+		if ext != ".yaml" && ext != ".yml" {
+			continue
+		}
+
+		filePath := filepath.Join(testsDir, fileName)
+		meta := fcafTestFileMeta{}
+		if err := readYAML(filePath, &meta); err != nil {
+			return nil, err
+		}
+		testID := strings.TrimSpace(meta.ID)
+		if testID == "" {
+			testID = strings.TrimSuffix(fileName, filepath.Ext(fileName))
+		}
+		if testID == "" {
+			continue
+		}
+
+		path := fmt.Sprintf("%s/%s/%s/%s", standardUID, versionUID, suiteUID, testID)
+		title := strings.TrimSpace(meta.Title)
+		if title == "" {
+			title = testID
+		}
+
+		checks = append(checks, Check{
+			ID:               PathID(path),
+			Path:             path,
+			Title:            title,
+			Standard:         standardUID,
+			Version:          versionUID,
+			Suite:            suiteUID,
+			File:             fileName,
+			VisibleIn:        append([]string(nil), visibleIn...),
+			Protocol:         "",
+			SUT:              strings.TrimSpace(meta.Suite.SUT),
+			Role:             strings.TrimSpace(meta.Suite.Role),
+			Provider:         "",
+			StandardDisabled: standardDisabled,
+		})
+	}
+	return checks, nil
 }
 
 func normalizeVisibleIn(visibleIn []string) []string {

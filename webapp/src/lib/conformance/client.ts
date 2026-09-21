@@ -21,6 +21,8 @@ export type ListChecksOptions = {
 	fetch?: typeof fetch;
 	/** When set, keep only rows whose `visible_in` includes this surface. */
 	surface?: TemplateSurface;
+	/** When set, keep only rows for this standard uid (e.g. `fcaf`). */
+	standard?: string;
 };
 
 /**
@@ -30,7 +32,7 @@ export type ListChecksOptions = {
 export function listChecks(
 	options: ListChecksOptions = {}
 ): Task.Task<ConformanceCheckRecord[], ListChecksError> {
-	const { fetch: fetchFn = fetch, surface } = options;
+	const { fetch: fetchFn = fetch, surface, standard } = options;
 
 	const listOptions: {
 		fetch: typeof fetch;
@@ -41,9 +43,16 @@ export function listChecks(
 		sort: 'standard,version,suite,path'
 	};
 
+	const filters: string[] = [];
 	if (surface) {
 		// Multi-select "contains" — matches blueprints surface filtering.
-		listOptions.filter = pb.filter('visible_in ~ {:surface}', { surface });
+		filters.push(pb.filter('visible_in ~ {:surface}', { surface }));
+	}
+	if (standard) {
+		filters.push(pb.filter('standard = {:standard}', { standard }));
+	}
+	if (filters.length > 0) {
+		listOptions.filter = filters.join(' && ');
 	}
 
 	// Collection may be missing from generated TypedPocketBase until typegen runs.

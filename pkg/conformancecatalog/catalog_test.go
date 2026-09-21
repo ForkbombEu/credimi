@@ -72,6 +72,49 @@ func writeFixtureTree(t *testing.T, root string) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(suitePipe, "metadata.yaml"), metaPipe, 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(suitePipe, "pipe_only.yaml"), []byte("{}\n"), 0o644))
+
+	// FCAF: tests live under suite/tests/, not suite root (ignore root junk).
+	fcafDir := filepath.Join(root, "fcaf")
+	require.NoError(t, os.MkdirAll(fcafDir, 0o755))
+	fcafStd, err := yaml.Marshal(map[string]any{"uid": "fcaf", "name": "FCAF"})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(fcafDir, "standard.yaml"), fcafStd, 0o644))
+
+	fcafVersion := filepath.Join(fcafDir, "wallet_solution")
+	require.NoError(t, os.MkdirAll(fcafVersion, 0o755))
+	fcafVer, err := yaml.Marshal(map[string]any{"uid": "wallet_solution", "name": "Wallet Solution"})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(fcafVersion, "version.yaml"), fcafVer, 0o644))
+
+	fcafSuite := filepath.Join(fcafVersion, "relying_party")
+	require.NoError(t, os.MkdirAll(fcafSuite, 0o755))
+	fcafMeta, err := yaml.Marshal(map[string]any{
+		"uid":        "relying_party",
+		"name":       "Relying Party",
+		"visible_in": []string{"pipeline"},
+	})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(fcafSuite, "metadata.yaml"), fcafMeta, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(fcafSuite, "IGNORE_ME.md"), []byte("# junk\n"), 0o644))
+
+	fcafTests := filepath.Join(fcafSuite, "tests")
+	require.NoError(t, os.MkdirAll(fcafTests, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(fcafTests, "WS_RP_DM_Example_001.yaml"), []byte(`
+id: WS_RP_DM_Example_001
+title: Example FCAF test
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: data_model.example
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(fcafTests, "WS_RP_IA_Example_002.yaml"), []byte(`
+id: WS_RP_IA_Example_002
+title: Another FCAF test
+suite:
+  sut: wallet_solution
+  role: relying_party
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(fcafTests, "notes.txt"), []byte("skip me\n"), 0o644))
 }
 
 func TestPathIDStable(t *testing.T) {
@@ -89,16 +132,12 @@ func TestLoadWalkTitlesAndVisibility(t *testing.T) {
 
 	checks, err := LoadWalk(root)
 	require.NoError(t, err)
-	require.Len(t, checks, 4)
+	require.Len(t, checks, 6)
 
 	byPath := map[string]Check{}
 	for _, ch := range checks {
 		byPath[ch.Path] = ch
 		require.Equal(t, PathID(ch.Path), ch.ID)
-		require.Empty(t, ch.Protocol)
-		require.Empty(t, ch.SUT)
-		require.Empty(t, ch.Role)
-		require.Empty(t, ch.Provider)
 	}
 
 	require.Equal(t, "Named Check One", byPath["openid4vp/draft-24/ewc/check_one"].Title)
@@ -110,6 +149,24 @@ func TestLoadWalkTitlesAndVisibility(t *testing.T) {
 
 	for _, ch := range checks {
 		require.NotEqual(t, "fcaf_sources", ch.Standard)
+	}
+
+	fcafOne := byPath["fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001"]
+	require.Equal(t, "Example FCAF test", fcafOne.Title)
+	require.Equal(t, "WS_RP_DM_Example_001.yaml", fcafOne.File)
+	require.Equal(t, []string{SurfacePipeline}, fcafOne.VisibleIn)
+	require.Equal(t, "wallet_solution", fcafOne.SUT)
+	require.Equal(t, "relying_party", fcafOne.Role)
+	require.Equal(t, "fcaf", fcafOne.Standard)
+	require.Equal(t, "wallet_solution", fcafOne.Version)
+	require.Equal(t, "relying_party", fcafOne.Suite)
+
+	fcafTwo := byPath["fcaf/wallet_solution/relying_party/WS_RP_IA_Example_002"]
+	require.Equal(t, "Another FCAF test", fcafTwo.Title)
+
+	for path := range byPath {
+		require.NotContains(t, path, "IGNORE_ME")
+		require.NotContains(t, path, "notes")
 	}
 }
 
@@ -126,14 +183,19 @@ func TestRebuildProjectsIntoCollection(t *testing.T) {
 
 	records, err := app.FindAllRecords(CollectionName)
 	require.NoError(t, err)
-	require.Len(t, records, 4)
+	require.Len(t, records, 6)
 
 	snap := Default().Snapshot()
-	require.Len(t, snap, 4)
+	require.Len(t, snap, 6)
 
 	one := byPathRecord(t, records, "openid4vp/draft-24/ewc/check_one")
 	require.Equal(t, "Named Check One", one.GetString("title"))
 	require.Equal(t, PathID("openid4vp/draft-24/ewc/check_one"), one.Id)
+
+	fcaf := byPathRecord(t, records, "fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001")
+	require.Equal(t, "Example FCAF test", fcaf.GetString("title"))
+	require.Equal(t, "wallet_solution", fcaf.GetString("sut"))
+	require.Equal(t, "relying_party", fcaf.GetString("role"))
 
 	require.NoError(t, os.WriteFile(
 		filepath.Join(root, "openid4vp", "draft-24", "ewc", "check_three.yaml"),
@@ -143,7 +205,7 @@ func TestRebuildProjectsIntoCollection(t *testing.T) {
 	require.NoError(t, Rebuild(app, root))
 	records, err = app.FindAllRecords(CollectionName)
 	require.NoError(t, err)
-	require.Len(t, records, 5)
+	require.Len(t, records, 7)
 }
 
 func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
@@ -187,7 +249,7 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	body := rec.Body.String()
 	require.Contains(t, body, `"page":1`)
 	require.Contains(t, body, `"perPage":2`)
-	require.Contains(t, body, `"totalItems":4`)
+	require.Contains(t, body, `"totalItems":6`)
 	require.Contains(t, body, `"items":`)
 
 	rec = serve(http.MethodGet,
@@ -195,6 +257,13 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 		"")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":4`)
+
+	rec = serve(http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`standard="fcaf"`),
+		"")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), `"totalItems":2`)
+	require.Contains(t, rec.Body.String(), `WS_RP_DM_Example_001`)
 
 	manualRecords, err := app.FindRecordsByFilter(CollectionName, `visible_in ~ {:surface}`, "-path", 0, 0, map[string]any{"surface": SurfaceManual})
 	require.NoError(t, err, "FindRecordsByFilter visible_in")
@@ -206,6 +275,9 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":3`)
 
+	pipelineRecords, err := app.FindRecordsByFilter(CollectionName, `visible_in ~ {:surface}`, "-path", 0, 0, map[string]any{"surface": SurfacePipeline})
+	require.NoError(t, err)
+	require.Len(t, pipelineRecords, 5)
 	id := PathID("openid4vp/draft-24/ewc/check_one")
 	rec = serve(http.MethodGet, "/api/collections/conformance_checks/records/"+id, "")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
