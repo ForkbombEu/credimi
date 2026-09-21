@@ -1040,7 +1040,7 @@
 	"Open_in_new_page": "Open in new page",
 	"pipeline_artifact_video_tooltip": "View video",
 	"pipeline_artifact_screenshot_tooltip": "View screenshot",
-	"pipeline_artifact_log_tooltip": "View logs",
+	"pipeline_artifact_log_tooltip": "This workflow has logs available",
 	"pipeline_artifact_report_tooltip": "View report",
 	"extra_wallet_metadata_extractor": "Wallet Metadata Extractor",
 	"extra_wallet_metadata_extractor_description": "Fake Issuer and Verifier: extract Wallet Metadata (via GUI or REST)",
