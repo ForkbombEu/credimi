@@ -25,7 +25,56 @@ that is incomplete or incorrect.
 The lists below are the active review state; test-definition totals are kept in
 the baseline above and validated by the FCAF catalog loader.
 
-## Blocked
+## Reclassified after Capture Wallet API refresh
+
+The current Capture Wallet contract adds named PID fixtures, status-reference
+fixtures, Request Object mutations, request-delivery behaviours, configurable
+verifier responses, and DC API session creation. The following source tests are
+**constructible but unimplemented**. Each remains pending until its exact source
+scenario, delivered request, reference-Wallet behaviour, and protocol evidence
+are verified on beta; none is a conformance pass merely because the API accepts
+its setup.
+
+### Constructible pending beta evidence
+
+- **Request Object header, payload, outer-parameter, and signature controls:**
+  `WS_RP_MS_ProtocolMessages__003_UF`, `006`, `007`, `009`, `010`, `016`,
+  `033`, `034`, `049`, `051`, and `WS_RP_SM_RpIntegrity__027`. Use
+  `request_mutation` or `request_behavior.signature=corrupt` and bind evidence
+  to the delivered JAR, outer request, and Wallet outcome.
+- **Wallet nonce and Request URI response controls:**
+  `WS_RP_MS_ProtocolMessages__046`, `048`,
+  `WS_RP_MS_Metadata__139`, `140`, and `WS_RP_IA_Supportive__002`. Use
+  `request_behavior.wallet_nonce` or `request_uri_response`; these require
+  `request_uri_method=post` where the source requires it.
+- **Response URI, response body, and unknown-parameter controls:**
+  `WS_RP_IA_MainInteraction__053`, `055`, `056`,
+  `WS_RP_IA_Metadata__010`, and `WS_RP_MS_ProtocolMessages__124`–`128`, `132`.
+  Use a delivery mutation or `response_scenario` and retain the captured HTTP
+  request and verifier response as evidence.
+- **Named credential fixtures:** `WS_RP_IA_MainInteraction__032`, `040`, `041`,
+  `WS_RP_MS_CredentialFormats__033`, `044`, and
+  `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. The required under-18,
+  distinct-PID, status-list, and degree-array inputs are now published
+  fixtures. Multi-credential tests still need a clean issuance sequence and
+  evidence that every required fixture is simultaneously present in the Wallet.
+- **Status-reference fixtures:** `WS_RP_MS_Metadata__081`–`090` and
+  `WS_RP_MS_CredentialFormats__030`, `031`. `status_reference` expresses the
+  valid, missing-member, negative-index, and malformed-URI SD-JWT status shapes
+  needed by these cases. Only malformed variants require
+  `FCAF_SCENARIOS_ENABLED=true`; every candidate still needs an actual issuance
+  and Wallet result proving that the selected fixture reaches the Wallet.
+
+### Available but deferred by selected scope
+
+Capture now supports `dc_api` and `dc_api.jwt`, so the following are not
+service-blocked: `WS_RP_IA_Engagement__002`,
+`WS_RP_IA_ProtocolFlow__003a`, `003b_UF`, and
+`WS_RP_SM_RpIntegrity__002`–`005`, `022`. They remain deferred because the
+current FCAF work selection excludes Digital Credentials API cases. Do not
+implement them without a scope change.
+
+## Still blocked
 
 The beta contract supplies only the capabilities documented in
 `CAPTURE_WALLET_API.md`. These items require an input, credential fixture,
@@ -47,13 +96,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_IA_ProtocolFlow__002d` (requires a reference Wallet profile that
   does not support `request_uri_method=post`; beta has only the post-supporting
   reference Wallet)
-- [ ] `WS_RP_IA_ProtocolFlow__003a` (Digital Credentials API flow; beta
-  Capture exposes only redirect-based OpenID4VP delivery)
-- [ ] `WS_RP_IA_ProtocolFlow__003b_UF` (Digital Credentials API flow; beta
-  Capture exposes only redirect-based OpenID4VP delivery)
-- [ ] `WS_RP_MS_ProtocolMessages__003_UF` (requires a signed Request Object
-  whose JOSE `typ` is controllably invalid; beta only produces its fixed signed
-  request type)
 - [ ] `WS_RP_SM_RpIntegrity__013b_UF` (requires a Request Object with a
   controlled invalid JWS signature)
 - [ ] `WS_RP_SM_RpIntegrity__013c_UF` (requires a Request Object signed with a
@@ -69,8 +111,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 ### Reclassified from pending
 
 - [ ] `WS_RP_IA_MainInteraction__024` (requires an encrypted request that remains deliverable and user-confirmable; Capture does not publish encrypted Request Object delivery)
-- [ ] `WS_RP_IA_MainInteraction__040` (requires two same-type credentials with distinct values; no such issuer fixture is published)
-- [ ] `WS_RP_IA_MainInteraction__041` (requires two same-type credentials with distinct values; no such issuer fixture is published)
 - [ ] `WS_RP_IA_Metadata__012` (requires Static Discovery with a controlled SIOPv2 `aud`; it is not a supported client identifier scheme)
 - [ ] `WS_RP_IA_Metadata__013` (requires a controlled invalid Static Discovery `aud`; it is not a supported client identifier scheme)
 - [ ] `WS_RP_IA_Supportive__006` (requires deliberately exhausting the Wallet device; this is neither a verifier nor an issuer capability)
@@ -84,10 +124,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_SM_RpIntegrity_CryptographicSignature_003` (requires a COSE `-7` signed presentation request)
 - [ ] `WS_RP_SM_RpIntegrity_CryptographicSignature_004` (requires a COSE `-9` signed presentation request)
 - [ ] `WS_RP_SM_RpIntegrity__001` (requires a controllable invalid `verifier_info` attestation)
-- [ ] `WS_RP_SM_RpIntegrity__002` (Digital Credentials API request; outside the selected FCAF scope)
-- [ ] `WS_RP_SM_RpIntegrity__003` (Digital Credentials API request; outside the selected FCAF scope)
-- [ ] `WS_RP_SM_RpIntegrity__004` (Digital Credentials API request; outside the selected FCAF scope)
-- [ ] `WS_RP_SM_RpIntegrity__005` (Digital Credentials API request; outside the selected FCAF scope)
 - [ ] `WS_RP_SM_RpIntegrity__007` (requires a DID document whose verification method deliberately excludes the signing key)
 - [ ] `WS_RP_SM_RpIntegrity__008` (requires a controlled verifier attestation `cnf` key)
 - [ ] `WS_RP_SM_RpIntegrity__009` (requires a controlled verifier attestation `cnf` key)
@@ -99,11 +135,9 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_SM_RpIntegrity__017` (requires an incomplete or untrusted X.509 chain)
 - [ ] `WS_RP_SM_RpIntegrity__019` (requires a broken or untrusted `x509_hash` chain)
 - [ ] `WS_RP_SM_RpIntegrity__021` (requires verifier metadata outside `client_metadata` to be delivered in the Request Object)
-- [ ] `WS_RP_SM_RpIntegrity__022` (Digital Credentials API request; outside the selected FCAF scope)
 - [ ] `WS_RP_SM_RpIntegrity__024` (requires a Wallet profile that rejects every non-`x509_hash` client identifier, contrary to the supported DID and SAN schemes)
 - [ ] `WS_RP_SM_RpIntegrity__025` (requires injecting a trust-anchor certificate into `x5c`)
 - [ ] `WS_RP_SM_RpIntegrity__026` (requires a self-signed request certificate)
-- [ ] `WS_RP_SM_RpIntegrity__027` (requires an invalid Request Object signature)
 - [ ] `WS_RP_SM_RpIntegrity__030` (requires a multi-signed Request Object)
 - [ ] `WS_RP_SM_RpIntegrity__032` (requires an RS384-signed Request Object)
 - [ ] `WS_RP_SM_RpIntegrity__033` (requires a COSE `-7` signed Request Object)
@@ -129,48 +163,23 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_UC_Presentation__004` (requires an independently controlled second-device invocation path)
 - [ ] `WS_RP_IA_MainInteraction__046` (requires a credential/presentation fixture exceeding user-agent URL limits)
 
-- [ ] `WS_RP_MS_ProtocolMessages__006` (needs a retrievable Request Object signed without a `typ` JOSE header)
-- [ ] `WS_RP_MS_ProtocolMessages__007` (needs a retrievable Request Object signed with an invalid `typ` JOSE header)
-- [ ] `WS_RP_MS_ProtocolMessages__009` (needs a signed Request Object with independently controlled `client_id` and `iss` claims)
-- [ ] `WS_RP_MS_ProtocolMessages__010` (needs a signed Request Object with the required `client_id` claim omitted)
 - [ ] `WS_RP_MS_ProtocolMessages__011` (needs a wallet configuration that does not support POST `request_uri` retrieval)
 - [ ] `WS_RP_MS_ProtocolMessages__013` (needs two available credentials that satisfy one DCQL credential query)
-- [ ] `WS_RP_MS_ProtocolMessages__016` (needs a signed or referenced Authorization Request with a controllable unknown top-level parameter)
 - [ ] `WS_RP_MS_ProtocolMessages__017` (needs a wallet configuration without `transaction_data` support and a verifier callback capture)
 - [ ] `WS_RP_MS_ProtocolMessages__018` (needs a verifier-supported valid `transaction_data` type and matching wallet capability)
 - [ ] `WS_RP_MS_ProtocolMessages__020` (needs a verifier-supported scope value with a defined DCQL mapping)
 - [ ] `WS_RP_MS_ProtocolMessages__030` (needs a scope-only request with a controlled unknown scope value)
-- [ ] `WS_RP_MS_ProtocolMessages__033` (needs a signed or referenced request with a controllable invalid state value)
-- [ ] `WS_RP_MS_ProtocolMessages__034` (needs a signed request with `require_cryptographic_holder_binding=false` and no state)
 - [ ] `WS_RP_MS_ProtocolMessages__039` (needs an unsigned request with a malformed or non-HTTPS `redirect_uri:` client identifier)
 - [ ] `WS_RP_MS_ProtocolMessages__040` (needs a `redirect_uri:` client identifier request without `redirect_uri`)
 - [ ] `WS_RP_MS_ProtocolMessages__041` (needs a direct_post.jwt request with `redirect_uri:` client identifier and no `response_uri`)
 - [ ] `WS_RP_MS_ProtocolMessages__043` (needs a controllable HTTP request_uri endpoint)
-- [ ] `WS_RP_MS_ProtocolMessages__046` (needs a returned signed Request Object with missing or mismatched `wallet_nonce`)
-- [ ] `WS_RP_MS_ProtocolMessages__048` (needs a Request URI response with a controllable wrong Content-Type)
-- [ ] `WS_RP_MS_ProtocolMessages__049` (needs independently controllable conflicting outer and Request Object parameters)
-- [ ] `WS_RP_MS_ProtocolMessages__051` (client_id in deeplink and request object must differ)
 
-### Issuer status-list control
+### Remaining issuer status-list controls
 
-`status_list_enabled` now allocates a Token Status List reference, but the
-published contract does not expose control over credential format, status-list
-claim omission, index encoding, URI encoding, or the CBOR map shape required by
-the following source tests.
-
-- [ ] `WS_RP_MS_Metadata__081` (needs an issuer-controlled JOSE referenced status token)
-- [ ] `WS_RP_MS_Metadata__082` (needs a JOSE referenced token with the status claim omitted)
-- [ ] `WS_RP_MS_Metadata__083` (needs a JOSE referenced token with controllable status_list values)
-- [ ] `WS_RP_MS_Metadata__084` (needs a JOSE referenced token without status_list)
-- [ ] `WS_RP_MS_Metadata__085` (needs a JOSE referenced token with controllable status_list.idx)
-- [ ] `WS_RP_MS_Metadata__086` (needs a JOSE referenced token with negative status_list.idx)
-- [ ] `WS_RP_MS_Metadata__087` (needs a JOSE referenced token with status_list.idx omitted)
-- [ ] `WS_RP_MS_Metadata__088` (needs a JOSE referenced token with a controllable status_list.uri)
-- [ ] `WS_RP_MS_Metadata__089` (needs malformed status_list.uri variants in an issued JOSE token)
-- [ ] `WS_RP_MS_Metadata__090` (needs a JOSE referenced token with status_list.uri omitted)
-- [ ] `WS_RP_MS_Metadata__091` (needs an issuer-controlled COSE referenced status token)
-- [ ] `WS_RP_MS_Metadata__092` (needs a COSE referenced token with an empty status map)
-- [ ] `WS_RP_MS_Metadata__093` (needs a COSE referenced token with controllable status_list fields)
+`status_reference` now provides the SD-JWT status shapes moved to the
+constructible list above. Capture still cannot create the COSE/ISO mdoc shapes,
+custom CBOR labels, or OpenID Federation and verifier-attestation fixtures
+required by the following source tests.
 - [ ] `WS_RP_MS_Metadata__094` (needs a COSE referenced token without status_list)
 - [ ] `WS_RP_MS_Metadata__095` (needs a COSE token with controlled unsigned status_list.idx encoding)
 - [ ] `WS_RP_MS_Metadata__096` (needs malformed COSE status_list.idx encodings)
@@ -204,33 +213,20 @@ the following source tests.
 - [ ] `WS_RP_MS_Metadata__135` (needs a verifier to return an unencrypted Request Object after encryption negotiation)
 - [ ] `WS_RP_MS_Metadata__136` (needs POST wallet metadata for a verifier signing-capable client identifier prefix)
 - [ ] `WS_RP_MS_Metadata__137` (needs POST wallet metadata for a redirect_uri-prefixed request)
-- [ ] `WS_RP_MS_Metadata__139` (needs a verifier to return a mismatched wallet_nonce)
-- [ ] `WS_RP_MS_Metadata__140` (needs a verifier to omit wallet_nonce after the Wallet posts one)
 
-- [ ] `WS_RP_IA_Engagement__002`        (W3C API)
 - [ ] `WS_RP_IA_MainInteraction__006`   (credential with no hb)
 - [ ] `WS_RP_IA_MainInteraction__008`   (credential with no hb)
 - [ ] `WS_RP_IA_MainInteraction__010`   (credential with no hb)
-- [ ] `WS_RP_IA_MainInteraction__032`   (PID with `over 18` set to false)
 - [ ] `WS_RP_IA_MainInteraction__033`   (multiple credentials (same type) with different values)
-- [ ] `WS_RP_IA_MainInteraction__053`   (response_uri must be missing)
-- [ ] `WS_RP_IA_MainInteraction__055`   (redirect_uri must be present with response_mode=direct_post.jwt)
-- [ ] `WS_RP_IA_MainInteraction__056`   (response_uri must be wrong)
 - [ ] `WS_RP_IA_MainInteraction__060`   (IMPOSSIBLE, credo does not support fragment/query)
 - [ ] `WS_RP_IA_MainInteraction__064`
 - [ ] `WS_RP_IA_MainInteraction__065`
 - [ ] `WS_RP_IA_MainInteraction__066`
-- [ ] `WS_RP_IA_Metadata__010`          (redirect_uri must be present with response_mode=direct_post.jwt)
 - [ ] `WS_RP_IA_Metadata__011`          (dynamic discovery)
 - [ ] `WS_RP_IA_Metadata__014`          (support openid_federation prefix for client_id)
-- [ ] `WS_RP_IA_Supportive__002`        (wrong request_uri)
 - [ ] `WS_RP_MS_CredentialFormats__029` (issue jwt with status.status_list)
-- [ ] `WS_RP_MS_CredentialFormats__030` (issue sd-jwt with status.status_list)
-- [ ] `WS_RP_MS_CredentialFormats__031` (issue sd-jwt vc with status.status_list)
 - [ ] `WS_RP_MS_CredentialFormats__032` (issue cwt with status.status_list)
-- [ ] `WS_RP_MS_CredentialFormats__033` (issue iso mdoc with status.status_list)
 - [ ] `WS_RP_MS_CredentialFormats__041` (multiple mdoc credentials with different values)
-- [ ] `WS_RP_MS_CredentialFormats__044` (requires credential with status)
 - [ ] `WS_RP_MS_CredentialFormats__046` (requires credential with no key-binding)
 - [ ] `WS_RP_MS_CredentialFormats__048` (strange json encoding vc, not to be done)
 - [ ] `WS_RP_MS_Metadata__105`
@@ -238,12 +234,6 @@ the following source tests.
 - [ ] `WS_RP_MS_Metadata__107`
 - [ ] `WS_RP_MS_Metadata__109`
 - [ ] `WS_RP_MS_ProtocolMessages__002`
-- [ ] `WS_RP_MS_ProtocolMessages__124` (verifier needs to add unknown param to A.R. when response_mode=direct_post.jwt)
-- [ ] `WS_RP_MS_ProtocolMessages__125` (verifier response_uri return 200 + plain text body)
-- [ ] `WS_RP_MS_ProtocolMessages__126` (verifier response_uri return 400 + json body)
-- [ ] `WS_RP_MS_ProtocolMessages__127` (verifier needs to add unknown param to response after the wallet POST to response_uri)
-- [ ] `WS_RP_MS_ProtocolMessages__128` (verifier needs to add unknown param to A.R. and response after the wallet POST to response_uri)
-- [ ] `WS_RP_MS_ProtocolMessages__132` (verifier needs to capture compact jwe after decryption)
 - [ ] `WS_RP_MS_ProtocolMessages__135` (wallet shoudl support transaction_data)
 - [ ] `WS_RP_MS_ProtocolMessages__141` (wallet does not have scope to dcql mapping)
 - [ ] `WS_RP_MS_ProtocolMessages__143` (client_id prefix unsupported, at the moment not settable)
@@ -266,5 +256,3 @@ the following source tests.
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_007` (requires a Wallet profile with another supported hash algorithm and a defined client-metadata representation)
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_008` (requires a verifier to use and expose a non-SHA-256 hashing function)
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_010` (requires an issuer fixture using a non-SHA-256 credential digest algorithm)
-- [ ] `WS_RP_SH_Encoding_TextualEncoding_002` (requires a credential with a param that is an array of objects with length > 1)
-- [ ] `WS_RP_SH_Encoding_TextualEncoding_003` (requires a credential with a param that is an array of elements with length > 1)

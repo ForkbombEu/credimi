@@ -6,417 +6,432 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Capture Wallet API capability reference
 
-Capture Wallet is a stateful [OpenID4VCI 1.0](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) credential issuer and [OpenID4VP 1.0](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) verifier used to capture Wallet protocol evidence per session. Its base URL is deployment-configured (`--issuer-base-url`): production is `https://capture-wallet.credimi.io`, and FCAF scenarios currently target the beta deployment `https://beta-capture-wallet.credimi.io`. This reference answers a narrow FCAF implementation question: can the service create, deliver, and observe the protocol exchange needed by a test?
+This Credimi reference tracks the published Capture Wallet API and records the
+additional deployment facts required to decide whether an FCAF test is
+implementable. The upstream API and the applicable OpenID specifications remain
+the wire-contract authorities.
+Synced from the upstream [Capture Wallet API reference](https://github.com/ForkbombEu/credimi-capture-wallet/blob/master/CAPTURE_WALLET_API.md).
 
-It is not a substitute for the OpenID4VCI, OpenID4VP, DCQL, or FCAF specifications. A service accepting a session-creation body does not prove that the same property reached the Wallet in its signed request, nor that the service captured the Wallet response.
 
-## Sources and confidence
 
-Published contract source: the upstream [Capture Wallet API reference](https://github.com/ForkbombEu/credimi-capture-wallet/blob/master/CAPTURE_WALLET_API.md), the deployment's [interactive documentation](https://beta-capture-wallet.credimi.io/docs), and the linked OpenAPI document. Entries marked **published** below come from that contract. Entries marked **observed** come from the named local evidence record. Do not treat an unlisted field or behaviour as supported.
+## Published service contract
 
-| Status | Meaning |
+The Capture Wallet service is a stateful [OpenID4VCI 1.0](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) credential issuer and [OpenID4VP 1.0](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) verifier. It issues deterministic PID and degree test credentials and captures wallet protocol evidence per session.
+
+This is a companion to the machine-readable [OpenAPI document](/openapi.json). The OpenAPI document and the applicable OpenID specifications are authoritative for wire-level details. Use the issuer metadata rather than hard-coding credential configuration IDs, endpoints, or keys.
+
+## Base URL and conventions
+
+The base URL is configured by `--issuer-base-url`; production uses `https://capture-wallet.credimi.io`. Paths below are relative to that URL.
+
+- Issuer configuration IDs are `eu-pid-device-bound` and `eu-pid-jwt-proof-only`.
+- `sessionId` is a UUID returned by a session-creation response.
+- JSON is the default representation unless a route states another media type.
+- Unknown session IDs return `404` with an error object. Invalid protocol input normally returns `400`.
+- Session and event responses are evidence records: their `observed`, `checks`, `raw`, and event `detail` members can grow as the service captures more protocol information. Do not rely on undocumented members.
+- Never store access tokens, DPoP proofs, credential offers containing pre-authorized codes, or raw presentation payloads in logs or fixtures.
+
+## Service and discovery
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/healthz` | Readiness response: `{ "status": "ok" }`. |
+| `GET` | `/openapi.json` | OpenAPI 3.1 contract for the public REST and protocol surface. |
+| `GET` | `/docs` | Interactive API documentation. |
+| `GET` | `/issuers` | Lists the always-on issuer configurations, metadata URLs, warnings, and credential configuration IDs. |
+| `GET` | `/oid4vci/requests` | Bounded chronological OpenID4VCI request ledger. Sensitive fields are redacted to presence/length metadata. |
+
+For each `{issuerConfigurationId}`:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/.well-known/openid-credential-issuer/issuers/{issuerConfigurationId}` | OpenID4VCI credential issuer metadata. Send `Accept: application/jwt` for signed metadata; JSON is the default. |
+| `GET` | `/.well-known/oauth-authorization-server/issuers/{issuerConfigurationId}` | OAuth authorization-server metadata for the issuer. |
+| `GET` | `/.well-known/jwt-vc-issuer/issuers/{issuerConfigurationId}` | JWT VC issuer metadata. |
+| `GET` | `/issuers/{issuerConfigurationId}/jwks.json` | Authorization-server signing JWKS. |
+| `GET` | `/issuers/{issuerConfigurationId}/credential-jwks.json` | Credential-signing JWKS. |
+
+## OpenID4VCI issuance capture
+
+### Create and inspect a session
+
+`POST /sessions` creates an issuance session. Its optional JSON body is:
+
+| Field | Values | Default |
+| --- | --- | --- |
+| `issuer_configuration_id` | `eu-pid-device-bound`, `eu-pid-jwt-proof-only` | `eu-pid-device-bound` |
+| `flow` | `pre_authorized_code`, `authorization_code` | `authorization_code` |
+| `credential_offer_mode` | `credential_offer`, `credential_offer_uri` | `credential_offer` |
+| `credential_configuration_id` | A configuration advertised by the selected issuer metadata | First configuration for the issuer |
+| `status_list_enabled` | Boolean; allocate and embed a Token Status List reference in each issued credential | `false` |
+| `fixture_id` | Predefined PID claim set the issued credential carries | `pid_default` |
+| `status_reference` | Shape of the `status` claim in the issued SD-JWT VC; anything but `valid` is test-only | `valid` |
+
+It returns `201` with `session_id`, issuer and authorization-server identifiers, the selected flow and configuration, `fixture_id`, `offer_url`, `deeplink`, and `status: "created"`. A configuration belonging to another issuer is rejected.
+
+`fixture_id` names a predefined PID claim set; an unknown value is rejected with `unsupported_fixture_id` and the supported list. Every fixture is a fully valid, normally signed PID and differs from the baseline along one value axis, which is what the DCQL value-matching tests need: `pid_default`, `pid_person_b` (a second complete identity), `pid_under_18` (`age_over_18: false`), `pid_family_name_uppercase`, `pid_family_name_trailing_space`, `pid_locality_diacritics`, `pid_locality_no_diacritics`, `pid_multiple_nationalities`, and `pid_expiry_2032`. Each carries a distinct `document_number`. There is no caller-supplied claim override, so an issued credential always corresponds to a named fixture, and the selected one is recorded as `fixture_id` in the issuance capture.
+
+`status_reference` shapes the `status` claim of an issued SD-JWT VC. `valid` embeds the allocated Token Status List reference and is the default. The other values are the deliberately malformed structures the revocation-metadata tests require, and are refused with `status_reference_not_enabled` unless the deployment sets `FCAF_SCENARIOS_ENABLED`:
+
+| `status_reference` | Issued `status` claim |
 | --- | --- |
-| Supported | Published as an input or endpoint. Still inspect the delivered request and captured response for the individual test. |
-| Observed | Verified in a dated Credimi evidence record; it may differ across deployments. |
-| Unknown | Not established by the published contract or local evidence. It requires a probe before it can justify a test implementation. |
-| Blocked | The current service or reference wallet is known not to produce the required evidence. |
+| `valid` | `{"status_list":{"uri":"…","idx":42}}` |
+| `status_without_status_list` | `{}` — the claim is present without a `status_list` member |
+| `negative_index` | `idx` is `-1` |
+| `missing_index` | `status_list` carries only `uri` |
+| `malformed_uri` | `uri` is not a parseable URI |
+| `missing_uri` | `status_list` carries only `idx` |
 
-### Service conventions
+A malformed fixture requires `status_list_enabled: true`, otherwise it is refused with `status_reference_requires_status_list`: the reference is always allocated from the configured Status List service first, and the fixture only reshapes that real allocation. It is refused with `status_reference_unsupported_for_mdoc` for an mdoc configuration, and the selected value is recorded as `status_reference` in the issuance capture.
 
-- `sessionId` is a UUID returned by a session-creation response. JSON is the default representation unless a route states another media type.
-- An unknown session ID returns `404` with an error object. Invalid protocol input normally returns `400`.
-- Session and event responses are evidence records: their `observed`, `checks`, `raw`, and event `detail` members can gain fields as the service captures more protocol information. Never depend on an undocumented member.
-- Never store access tokens, DPoP proofs, credential offers containing pre-authorized codes, or raw presentation payloads in logs, fixtures, or test output.
+An issued credential with no `status` claim at all is `status_list_enabled: false`, which is the default and needs no fixture.
 
-## Decision sequence for an FCAF test
+[FCAF_FIXTURES.md](FCAF_FIXTURES.md) catalogues every credential, claim-set fixture, and status-list fixture together with the conformance tests each serves.
 
-Classify the test at all three boundaries, in order:
-
-1. **Session input:** can `POST /sessions` or `POST /openid4vp/sessions` express the requested setup?
-2. **Wallet delivery:** can `GET /openid4vp/sessions/{sessionId}/request` or the session/deeplink evidence prove that the exact resulting Authorization Request contains the required property?
-3. **Evidence capture:** can the relevant session record or events prove the Wallet's protocol response, rather than only its UI state?
-
-If a required property is rejected before a signed request is delivered, mark the case verifier-blocked; do not create synthetic Wallet evidence. If the Wallet is shown the request but does not submit the required response, record a reference-wallet failure or discontinuation only when the FCAF source permits it.
-
-## Shared service and metadata
-
-| Endpoint | Capability | Status |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| `GET /healthz` | Readiness response `{ "status": "ok" }`. | Supported |
-| `GET /openapi.json` | OpenAPI 3.1 contract for the public REST and protocol surface. | Supported |
-| `GET /docs` | Interactive API documentation. | Supported |
-| `GET /issuers` | Lists the always-on issuer configurations, metadata URLs, warnings, and credential configuration IDs. | Supported |
-| `GET /oid4vci/requests` | Bounded chronological OpenID4VCI request ledger. Sensitive values are redacted to presence/length metadata. | Supported |
-| `GET /.well-known/openid-credential-issuer/issuers/{issuerConfigurationId}` | OpenID4VCI issuer metadata; send `Accept: application/jwt` for signed metadata. | Supported |
-| `GET /.well-known/oauth-authorization-server/issuers/{issuerConfigurationId}` | OAuth authorization-server metadata. | Supported |
-| `GET /.well-known/jwt-vc-issuer/issuers/{issuerConfigurationId}` | JWT VC issuer metadata. | Supported |
-| `GET /issuers/{issuerConfigurationId}/jwks.json` | Authorization-server signing JSON Web Key Set. | Supported |
-| `GET /issuers/{issuerConfigurationId}/credential-jwks.json` | Credential-signing JSON Web Key Set. | Supported |
+| `GET` | `/sessions/{sessionId}` | Full current issuance capture, including status, observed information, checks, and events. |
+| `GET` | `/sessions/{sessionId}/offer` | Credential Offer object. Returns `409` while no offer is available. |
+| `GET` | `/sessions/{sessionId}/deeplink` | `{ deeplink, credential_offer }`; records a deeplink-generation event. |
+| `GET` | `/sessions/{sessionId}/jwks` | Verified wallet holder-binding JWKS. Returns `409` until a holder key has been observed. |
+| `GET` | `/sessions/{sessionId}/events` | Chronological issuance events (`at`, `type`, `detail`). |
 
-Use the metadata endpoints rather than hard-coding credential configuration identifiers, authorization-server settings, or issuer keys in a test.
+### Issuer protocol endpoints
 
-The deployments mount externally issued credential-signing certificates; the
-self-signed certificate that the source generates is only a local bootstrap
-fallback, so the repository source does not describe deployed certificate
-material. Observed on beta 17/09/2026:
-`GET /issuers/eu-pid-device-bound/credential-jwks.json` publishes a single
-`x5c` certificate with subject `CN = Beta Fake Issuer EU PID Device Bound` and
-issuer `CN = PID Issuer CA 02, O = EUDI Wallet Reference Implementation,
-C = EU`. The issuing CA is not part of `x5c`, which satisfies the HAIP 6.1.1
-trust-anchor exclusion rule. Production served no `credential-jwks.json` route
-on that date. Probe this endpoint instead of reading the signing code when a
-test depends on certificate shape.
+| Method | Path | Required input | Result |
+| --- | --- | --- | --- |
+| `GET` | `/issuers/{issuerConfigurationId}/offers/{credentialOfferId}` | Credential-offer ID from an offer-by-reference deeplink | Credential Offer object. |
+| `POST` | `/issuers/{issuerConfigurationId}/par` | DPoP header; form `response_type=code`, `client_id`, `redirect_uri`, `scope`, `code_challenge`, `code_challenge_method=S256`; optional `issuer_state`, `state` | `201` with `request_uri` and `expires_in`. |
+| `GET` | `/issuers/{issuerConfigurationId}/authorize` | Query `client_id` and `request_uri` | Starts the auto-approved authorization-code flow with redirects. |
+| `GET` | `/issuers/{issuerConfigurationId}/redirect` | Chained OAuth callback parameters | Redirects back to the wallet with the issuer authorization code. |
+| `POST` | `/issuers/{issuerConfigurationId}/token` | DPoP header plus either pre-authorized-code or authorization-code form grant | DPoP-bound access token, expiry, credential nonce, and nonce expiry. |
+| `POST` | `/issuers/{issuerConfigurationId}/nonce` | No body | Fresh `c_nonce`. |
+| `POST` | `/issuers/{issuerConfigurationId}/credential` | `Authorization: DPoP …`, DPoP header, and a Credential Request | Credential response containing `credentials[].credential`. |
 
-## Issuer: OpenID4VCI capture sessions
+The token endpoint accepts either:
 
-### Session surface
+- `grant_type=urn:ietf:params:oauth:grant-type:pre-authorized_code` and `pre-authorized_code`, with optional `tx_code`; or
+- `grant_type=authorization_code`, `code`, `code_verifier`, and `redirect_uri`, with optional `client_id`.
 
-| Endpoint | Inputs / output | Status |
+The credential request normally uses `application/json` with `credential_configuration_id` and one `proofs.jwt` or `proofs.attestation` entry. For encrypted credential requests, send an `application/jwt` compact JWE; the encrypted response is also a compact JWE. The selected issuer's metadata determines supported proof and encryption capabilities.
+
+## OpenID4VP presentation capture
+
+### Create and inspect a session
+
+`POST /openid4vp/sessions` creates a verifier session. Its optional JSON body accepts:
+
+| Field | Values / shape | Default |
 | --- | --- | --- |
-| `POST /sessions` | Optional JSON: `issuer_configuration_id` (`eu-pid-device-bound`, the default, or `eu-pid-jwt-proof-only`), `flow` (`pre_authorized_code` or `authorization_code`, default `authorization_code`), `credential_offer_mode` (`credential_offer`, the default, or `credential_offer_uri`), a metadata-advertised `credential_configuration_id` (default: the issuer's first configuration), and `status_list_enabled` (boolean, default `false`). Returns `201` with `session_id`, the selected issuer and authorization-server identifiers, the selected flow and configuration, `offer_url`, `deeplink`, and `status: "created"`. A configuration belonging to another issuer is rejected. | Supported |
-| `GET /sessions/{sessionId}` | Current issuance capture containing `observed`, `checks`, and `events` in addition to session state. | Supported |
-| `GET /sessions/{sessionId}/offer` | Credential Offer object; returns `409` while no offer is available. | Supported |
-| `GET /sessions/{sessionId}/deeplink` | `deeplink` and `credential_offer`; records a deeplink-generation event. | Supported |
-| `GET /sessions/{sessionId}/jwks` | Verified Wallet holder-binding JWKS observed from the credential-proof header; returns `409` until a holder key has been observed. | Supported |
-| `GET /sessions/{sessionId}/events` | Chronological events with timestamp, type, and arbitrary detail. | Supported |
+| `scheme` | URL-scheme prefix, such as `openid4vp://` | `openid4vp://` |
+| `request_uri_method` | Any string; OpenID4VP defines case-sensitive `get`, `post` | `get` |
+| `client_id_scheme` | `x509_hash`, `x509_san_dns`, `decentralized_identifier`, `redirect_uri` | `x509_hash` |
+| `request_delivery` | `by_reference`, `by_value`, `plain` | `by_reference` |
+| `response_type` | `vp_token`, `vp_token id_token`, `code` | `vp_token` |
+| `response_mode` | `direct_post`, `direct_post.jwt`, `dc_api`, `dc_api.jwt` | `direct_post.jwt` |
+| `presentation_request` | Request-object claim overrides | — |
+| `dcql_query` | DCQL query object, or `null` to omit the parameter | Default query |
+| `scopes` | A string or string array | — |
+| `transaction_data` | JSON value | — |
+| `verifier_info` | JSON value | — |
+| `client_metadata` | Object whose members override generated verifier metadata, or `null` to omit the parameter; top-level only | Generated verifier metadata |
+| `redirect_uri` | Absolute URI for the Wallet to open after a successful presentation; use `{{base_url}}/openid4vp/redirect` for a capture redirect page | — |
+| `allow_undecryptable_response` | `true` to publish a `client_metadata` object that omits the verifier encryption key | `false` |
+| `request_mutation` | Deliberate JSON Pointer edits to the wallet-facing request; test-only | — |
+| `request_behavior` | Request-delivery behaviour that is not a payload value; test-only | — |
+| `response_scenario` | HTTP response the verifier returns after a presentation; test-only | — |
 
-The service has two always-on issuer configurations, `eu-pid-device-bound` and
-`eu-pid-jwt-proof-only`. Obtain their credential configuration IDs and protocol
-metadata from `GET /issuers` instead of hard-coding them.
+`request_uri_method` is valid only with `request_delivery: "by_reference"`. The service preserves any supplied string in the deeplink, including values other than the OpenID4VP-defined, case-sensitive `get` and `post`, exclusively to create malformed requests for wallet negative tests. `by_value` supplies a signed Request Object in `request`; `plain` supplies the Authorization Request's URL-encoded parameters directly in the deeplink and omits `request`, `request_uri`, and `request_uri_method`. `response_type`, top-level DCQL, scopes, transaction data, and verifier information are used to construct the wallet-facing request. Inspect the returned `authorization_request` to confirm the exact claims.
 
-| Issuer configuration ID | Reference EUDI Wallet version |
-| --- | --- |
-| `eu-pid-device-bound` | Version 39 and later |
-| `eu-pid-jwt-proof-only` | Version 38 |
+`scheme`, `request_uri_method`, `client_id_scheme`, `request_delivery`, `response_mode`, `client_metadata`, and `redirect_uri` are top-level fields only. They select how the service builds, signs, and delivers the request instead of being request-object claims, so nesting any of them inside `presentation_request` has no effect and is not reported as an error. In particular, a `client_metadata` value inside `presentation_request` is discarded and the generated verifier metadata is used. Only `response_type`, `dcql_query`, `nonce`, `scopes`, `transaction_data`, and `verifier_info` are honoured in both positions, and a top-level `response_type` wins over a nested one.
 
-`status_list_enabled: true` allocates and embeds a Token Status List reference in each issued
-credential. The former `broken` fixture toggle is not part of the published beta
-contract.
+`client_id_scheme: "x509_san_dns"` signs the request with the existing verifier certificate and uses its DNS Subject Alternative Name as the Client Identifier value. `client_id_scheme: "decentralized_identifier"` signs with a separate `did:web` key and publishes its DID Document at `/openid4vp/did.json`. `client_id_scheme: "redirect_uri"` creates an unsigned request and therefore requires `request_delivery: "plain"`; signed and by-reference delivery are rejected. The default remains the certificate hash prefix, `x509_hash`.
 
-Observed on beta 18/09/2026: `POST /sessions` accepts `status_list_enabled: true`
-for both `urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required` (session
-`4f19b380-0837-475b-8191-0efcf3752294`) and
-`urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required` (session
-`4f3566ae-3b8c-4480-829a-b26c8633d7b7`); `status_list_allocation_ids` stays
-`null` until issuance completes. Both PID formats are therefore issuable through
-the Capture session endpoint, so an mdoc status test does not need the
-Credimi-side `credential-offer` record.
+When `dcql_query` is `null`, the service omits it from the wallet-facing request. Credo retains the normal default query only as internal verification-session state; a wallet response to this deliberately incomplete request may not validate.
 
-Source-verified 18/09/2026, the resulting credential shapes:
-`credimi-capture-wallet` puts `status: { status_list: { uri, idx } }` in the
-SD-JWT VC payload outside its disclosure frame, so the claim is always present
-in a presentation; for mdoc it passes `statusInfo: { index, uri }` to Credo,
-which `Mdoc.sign` maps to the Mobile Security Object `status.status_list` map
-with `idx` and `uri` members (`packages/core/src/modules/mdoc/Mdoc.ts`), the
-ISO/IEC 18013-5 `Status` structure. The Wallet forwards both unmodified, which
-is what `WS_RP_MS_CredentialFormats__029a`–`029g` and `033a`–`033h` assert.
-Not yet observed: a completed issuance against the beta status-list service, so
-status-list allocation at issuance time remains unverified.
+If `client_metadata` is absent, the service uses its generated metadata. `null` omits the parameter entirely, which is intentionally limited to `direct_post`.
 
-Both issuer configurations also advertise a non-PID test credential,
-`urn:credimi:degree:1` (`urn:credimi:degree:1.sd-jwt.key-attestation-required`
-and `urn:credimi:degree:1.sd-jwt.jwt-proof`). Observed on beta 17/09/2026: it
-carries `degrees` with two `type`-bearing entries plus one entry holding only
-`university`, and `academic_programmes` as
-`[["Bachelor of Science"], ["Master of Science", "Doctor of Philosophy"]]`.
-Those are the heterogeneous JSON structures the DCQL claims-path tests need.
-
-| Capability | Status |
-| --- | --- |
-| Issue `urn:credimi:degree:1` with the heterogeneous `degrees` and `academic_programmes` structures. | Observed on beta 17/09/2026 |
-| Prove per-element claims-path removal inside those arrays. | Observed 17/09/2026: `degreeSdJwtCredentialSignOptions` signs a nested `DEGREE_DISCLOSURE_FRAME`, so every `degrees` entry is an array-element disclosure with separate `type` and `university` disclosures and every `academic_programmes` string is its own array-element disclosure. A Wallet can therefore reveal `degrees[0..1].type` without any `university`, and `academic_programmes[1][1]` without `academic_programmes[0][0]`. The issuer metadata still advertises the two claims at whole-claim granularity, which is display metadata only. |
-| Prove per-property disclosure inside the degree `address` object. | Source-verified 18/09/2026: `credimi-capture-wallet` commit `dc24580` extends `DEGREE_DISCLOSURE_FRAME` with `address: { _sd: ["street_address", "locality", "postal_code"] }`, so the top-level `address` disclosure carries one nested object disclosure per property and a Wallet can reveal `address.street_address` without `locality` or `postal_code`. The PID SD-JWT `address` remains one atomic disclosure, so an object-property test must bind the degree credential. |
-
-### Issuer protocol surface
-
-| Endpoint | Published requirements | Status |
-| --- | --- | --- |
-| `GET /issuers/{issuerConfigurationId}/offers/{credentialOfferId}` | Retrieves the Credential Offer referenced by an offer-by-reference (`credential_offer_uri`) deeplink. | Supported |
-| `POST /issuers/{issuerConfigurationId}/par` | DPoP header and form `response_type=code`, `client_id`, `redirect_uri`, `scope`, `code_challenge`, and `code_challenge_method=S256`; optional `issuer_state` and `state`. Returns `request_uri` and expiry. | Supported |
-| `GET /issuers/{issuerConfigurationId}/authorize` | `client_id` and `request_uri`; begins the auto-approved authorization-code flow. | Supported |
-| `GET /issuers/{issuerConfigurationId}/redirect` | Chained OAuth callback; redirects to the Wallet with the issuer authorization code. | Supported |
-| `POST /issuers/{issuerConfigurationId}/token` | DPoP header plus either a pre-authorized-code or authorization-code form grant; returns a DPoP token and credential nonce. | Supported |
-| `POST /issuers/{issuerConfigurationId}/nonce` | No body; returns a fresh `c_nonce`. | Supported |
-| `POST /issuers/{issuerConfigurationId}/credential` | DPoP access token, DPoP header, and either an `application/json` Credential Request carrying `credential_configuration_id` and one `proofs.jwt` or `proofs.attestation` entry, or a compact-JWE `application/jwt` request; returns a credential response with `credentials[].credential`, optionally as a compact JWE. | Supported |
-
-For the token endpoint, use either the pre-authorized-code grant (with optional
-`tx_code`) or the authorization-code grant (with `code`, `code_verifier`, and
-`redirect_uri`). The selected issuer metadata determines supported proof and
-credential-response encryption capabilities. The service records issuance
-capture evidence, but the exact `observed`, `checks`, and event-detail shapes
-are intentionally open-ended in the public schema. Inspect an actual session
-before a validator depends on a particular field.
-
-### Test-only chained OAuth server
-
-The authorization-code issuance flow uses an internal, auto-approving OAuth
-server between Credo and the issuer. It is test-service infrastructure, not a
-general-purpose identity provider.
-
-| Endpoint | Capability | Status |
-| --- | --- | --- |
-| `GET /.well-known/oauth-authorization-server/authorization-servers/{issuerConfigurationId}` | Fake OAuth server metadata. | Supported |
-| `GET /authorization-servers/{issuerConfigurationId}/authorize` | Validates Credo's authorization request and immediately redirects with a code. | Supported |
-| `POST /authorization-servers/{issuerConfigurationId}/token` | Exchanges the chained code; requires configured client credentials, PKCE verifier, redirect URI, and client ID. | Supported |
-
-## Verifier: OpenID4VP capture sessions
-
-### Session creation
-
-`POST /openid4vp/sessions` creates a session and returns `201` with `session_id`, delivery settings, `request_uri`, `response_uri`, `deeplink`, `authorization_request`, and `status: "created"`.
-
-| Field | Published values / shape | Status |
-| --- | --- | --- |
-| `scheme` | URL-scheme prefix matching `scheme://`; defaults to `openid4vp://`. | Supported |
-| `request_uri_method` | Any string; OpenID4VP defines the case-sensitive values `get` and `post`; defaults to `get`. | Published, including deliberate malformed values for Wallet negative tests; production lag observed 14/09/2026. |
-| `client_id_scheme` | `x509_hash`, `x509_san_dns`, `decentralized_identifier`, or `redirect_uri`; defaults to `x509_hash`. | Supported, subject to delivery constraints. |
-| `request_delivery` | `by_reference`, `by_value`, or `plain`; defaults to `by_reference`. | Supported |
-| `response_type` | `vp_token`, `vp_token id_token`, or `code`; default `vp_token`. | Supported |
-| `response_mode` | `direct_post` or `direct_post.jwt`; default `direct_post.jwt`. | Supported |
-| `presentation_request` | Request-object claim overrides. | Supported as input; delivery semantics must be inspected. |
-| `dcql_query` | DCQL query object, or `null` to omit the parameter; defaults to the service's default query. | Supported as input; delivery semantics must be inspected. |
-| `scopes` | String or string array. | Supported as input. |
-| `transaction_data` | Unconstrained JSON value. | Supported as input. Observed on 02/09/2026: when nested in `presentation_request`, it is preserved in the signed Request Object; supported Wallet types remain unknown. |
-| `verifier_info` | Unconstrained JSON value. | Supported as input. Observed on 02/09/2026: when nested in `presentation_request`, it is preserved in the signed Request Object; attestation generation and Wallet support remain unknown. |
-| `client_metadata` | Object whose members override individual generated verifier metadata members, or `null` to omit the parameter; top-level only. | Supported, subject to response-mode constraints. |
-| `allow_undecryptable_response` | `true` publishes the supplied `jwks` verbatim and waives the verifier-encryption-key check; requires a `client_metadata` object. | Supported; observed on beta 17/09/2026. |
-| `redirect_uri` | Absolute URI the Wallet opens after a successful presentation; the exact template `{{base_url}}/openid4vp/redirect` selects the service-hosted capture page. | Supported; the service appends a fresh 128-bit `response_code`. |
-
-`request_uri_method` is valid only with `request_delivery: "by_reference"`.
-The published contract states that the service preserves any supplied string in
-the deeplink, including values other than the OpenID4VP-defined, case-sensitive
-`get` and `post`, exclusively to create malformed requests for Wallet negative
-tests. A beta probe on 14/09/2026 accepted `DELETE`, created session
-`697125c6-1c20-4e98-81b9-c3b9356a857c`, and returned the value in the deeplink.
-Production still returned `400 {"error":"unsupported_request_uri_method"}` at
-that time.
-`by_value` delivers a signed Request Object in `request`; `plain` delivers
-URL-encoded Authorization Request parameters in the deeplink and omits
-`request`, `request_uri`, and `request_uri_method`. `client_id_scheme:
-"redirect_uri"` requires unsigned `plain` delivery. `x509_san_dns` uses the
-verifier certificate DNS Subject Alternative Name; `decentralized_identifier`
-uses a separate `did:web` key published at `GET /openid4vp/did.json`.
-
-When `dcql_query` is `null`, Capture omits it from the Wallet-facing request;
-the service retains its normal query only as internal verification-session
-state, so a response may not validate.
-
-`client_metadata` merges one level deep over the generated metadata: a member
-you supply wins, a member you omit keeps its generated value, and a member set
-to `null` is dropped from the Wallet-facing request. Because the merge is one
-level deep, supplying `jwks` replaces the whole key set rather than editing
-individual JWK members. Omitting the field entirely uses generated metadata, and
-`null` omits the parameter, which is supported only with `direct_post`.
-
-That merge is how the advertised response encryption is narrowed for a test
-requiring one specific JWE `enc`, while the generated `jwks` and
-`vp_formats_supported` survive untouched and the service still decrypts:
+An object overrides individual members of the generated metadata rather than replacing the whole object. A member you supply wins, a member you omit keeps its generated value, and a member set to `null` is dropped from the wallet-facing request. The merge is one level deep, so supplying `jwks` replaces the entire key set instead of editing individual JWK members. This is how the advertised response encryption is narrowed for wallet tests that require a specific JWE `enc`:
 
 ```json
 { "response_mode": "direct_post.jwt",
   "client_metadata": { "encrypted_response_enc_values_supported": ["A128GCM"] } }
 ```
 
-Observed on beta 17/09/2026: that body returned `201` advertising exactly
-`["A128GCM"]` with the generated `jwks` intact. The production deployment still
-returned the full `["A128GCM", "A256GCM", "A128CBC-HS256"]` list on the same
-date, so a scenario depending on a narrowed advertisement runs on beta only.
+The generated `jwks` and `vp_formats_supported` survive that request untouched, so the Wallet has exactly one content-encryption choice and the service still decrypts the response.
 
-For `direct_post.jwt` the merged metadata must still publish the session's
-generated verifier encryption public key. Keys are compared by RFC 7638
-thumbprint, which covers public key material only, so optional JOSE members such
-as `alg`, `use`, and `kid` may be altered or omitted. That key is minted inside
-the same `POST /openid4vp/sessions` call that returns it, so a caller cannot
-reproduce it: omit `jwks` to keep it, and expect `invalid_client_metadata` when
-`jwks` is replaced or nulled without the flag below.
+For `direct_post.jwt`, the merged metadata must still publish the session's generated verifier encryption public key. Keys are compared by RFC 7638 thumbprint, which covers the public key material only, so optional JOSE members such as `alg`, `use`, and `kid` may be altered or omitted. Because that key is minted inside the same `POST /openid4vp/sessions` call that returns it, a caller cannot reproduce it: omit `jwks` to keep it, and expect `invalid_client_metadata` when `jwks` is replaced or set to `null` without the flag below.
 
-`allow_undecryptable_response: true` waives that check and publishes a supplied
-replacement `jwks` verbatim, including a foreign, static, `alg`-less, or
-deliberately mismatched key. Set `"jwks": null` to omit `jwks` entirely, or set
-`"jwks": {"keys":[]}` to publish an empty key set; both require the flag.
-It exists only to build requests no Wallet should answer. The service can then
-no longer decrypt a `direct_post.jwt` response, a Wallet that answers anyway is
-captured as a decryption failure, and every such request records a
-`vp_undecryptable_response_allowed` event. Without a `client_metadata` object
-it is rejected with `allow_undecryptable_response_requires_client_metadata`.
+`allow_undecryptable_response: true` waives that check and publishes the supplied `jwks` verbatim, including a foreign or static key. It exists only to build requests that no wallet should answer, such as advertising a key the Verifier does not hold, omitting the key entirely, or reusing one key across sessions. The service can then no longer decrypt a `direct_post.jwt` response, and a wallet that answers anyway is captured as a decryption failure. It requires a `client_metadata` object and is otherwise rejected with `allow_undecryptable_response_requires_client_metadata`. Whenever a `direct_post.jwt` request goes out without the verifier encryption key, the session records a `vp_undecryptable_response_allowed` event.
 
-Observed on beta 17/09/2026: with the flag, a static P-256 `use: enc` key was
-published verbatim both without `alg` and with `alg: ECDH-ES+A256KW`; the same
-body without the flag returned `400 {"error":"invalid_client_metadata"}`.
-`"jwks": null` omitted the member from the signed Request Object (session
-`bca854ad-9d91-4ea4-a53e-065aa6916a34`), while an empty metadata object retained
-the generated key. A single static P-256 `use: enc` key with
-`alg: ECDH-ES+A256KW` has no JWK whose `alg` is bare `ECDH-ES`, so it constructs
-the source precondition for `WS_RP_SM_SessionEncryption__006` and the
-static-key-reuse precondition for `WS_RP_SM_SessionEncryption__010`; it does not
-prove a Wallet outcome without a Wallet interaction.
+The `201` response includes `session_id`, delivery and response settings, `deeplink`, `authorization_request`, and `status: "created"`. A redirect session also includes `request_uri`, `request_uri_method`, `response_uri`, and `scheme`; a DC API session omits those and includes `dc_api_request` instead.
 
-A `client_metadata` value nested inside `presentation_request` is discarded
-without an error, and the generated metadata is used. `scheme`,
-`request_uri_method`, `client_id_scheme`, `request_delivery`, `response_mode`,
-`client_metadata`, and `redirect_uri` are top-level fields only; only
-`response_type`, `dcql_query`, `nonce`, `scopes`, `transaction_data`, and
-`verifier_info` are honoured in both positions, and a top-level `response_type`
-wins over a nested one.
+When `redirect_uri` is supplied, the service appends a fresh 128-bit `response_code` query parameter and returns the resulting URI in the session-creation response. After a successful wallet submission, the response endpoint returns `200`, `Cache-Control: no-store`, and `{ "redirect_uri": "..." }`; the Wallet must redirect the user agent to it. Invalid presentations retain the normal `400` error response. The exact template `{{base_url}}/openid4vp/redirect`, or the equivalent concrete service URI, creates a service-hosted capture page. It displays the received `response_code` for both valid and invalid visits. A valid visit must include the generated `response_code`; it returns a `200` confirmation page and records `redirect_uri_visited_at`, `redirect_uri_visit_count`, a `vp_redirect_uri_visited` event, and redacted request headers in `raw.redirect_uri_visits`.
 
-Observed on beta 17/09/2026: omitting `nonce` entirely generates a service
-nonce, but setting `presentation_request.nonce` to `null` omits the claim from
-the signed Request Object (session `302c9402-d95a-427d-b93b-cbde2f01301e`).
-A non-empty supplied nonce is preserved verbatim, including `fcaf nonce/!`
-(session `9b24ae01-8c79-4283-9cef-d38a93a7ddbf`). These controls make the missing-
-and malformed-nonce request preconditions for `WS_RP_SM_SessionBinding__002`
-and `WS_RP_SM_SessionBinding__003` constructible.
-
-When a session sets `redirect_uri`, the service appends a fresh 128-bit
-`response_code` and returns the resulting URI in the creation response. After a
-successful Wallet submission the response endpoint returns `200`,
-`Cache-Control: no-store`, and `{ "redirect_uri": "..." }`, which the Wallet must
-open; an invalid presentation still returns the normal `400` error. The concrete
-service URI `https://beta-capture-wallet.credimi.io/openid4vp/redirect` selects
-the service-hosted capture page. The upstream `{{base_url}}/openid4vp/redirect`
-template resolves to the same page. Credimi resolves `${fixture.verifier_url}`
-to the beta Capture Wallet endpoint by default; scenarios MAY override it only
-when a test requires a different verifier. A visit carrying the generated
-`response_code` returns a `200` confirmation page and records
-`redirect_uri_visited_at`, `redirect_uri_visit_count`, a
-`vp_redirect_uri_visited` event whose `detail.visit_count` counts the visit, and
-redacted request headers in `raw.redirect_uri_visits`. Those members are the
-only protocol-level proof that the Wallet's user agent opened the
-verifier-supplied redirect; a screenshot of the page is not equivalent.
-
-Observed on 16/09/2026 against beta: session creation returns
-`…/openid4vp/redirect?response_code=<128-bit>` for both the concrete URL and
-the `{{base_url}}` template; a `GET` with that code returns
-`200 text/html`, `Cache-Control: no-store`, and the `Presentation complete`
-page. Contrary to the upstream document, a missing, empty, or unknown
-`response_code` returns `404` with the `Redirect page not found` page and
-records nothing, so a recorded visit proves the exact generated URI was opened.
-Each `GET` increments `redirect_uri_visit_count`, appends a
-`raw.redirect_uri_visits` entry, and adds another `vp_redirect_uri_visited`
-event, so assert `>= 1` or an exact count deliberately. `raw.redirect_uri_visits`
-entries carry only `method` and redacted headers: no request target or query is
-captured, so the capture cannot prove that the Wallet refrained from appending
-Authorization Response parameters to the redirect URI. A visit is also recorded
-for a session that never received a presentation, and any client can create one:
-never fetch a session's configured redirect URI from a pipeline step, or the
-evidence is fabricated.
-
-Observed on 03/09/2026: a DCQL credential that omits `meta` is accepted at
-session creation and preserved without `meta` in the signed Request Object.
-An explicitly empty `meta: {}` object is likewise accepted and preserved.
-An empty `trusted_authorities: []` array is also accepted and preserved.
-On 03/09/2026, a `trusted_authorities` entry with `type: unsupported` and a
-string `values` array was accepted and preserved in the signed Request Object.
-On 03/09/2026, a `trusted_authorities` entry with a string `values` array but
-no `type` was also accepted and preserved in the signed Request Object.
-On 07/09/2026, a nested claim path containing a null selector,
-`["address", null, "street_address"]`, was accepted and preserved unchanged in
-the returned Authorization Request (Capture session `eb00f511-2fc2-4746-baaf-aea6961d3f71`).
-On 07/09/2026, the same was observed for the integer-selector path
-`["address", "street_address", 0]` (Capture session
-`846a712e-19b2-4234-ad85-26bf51b07867`).
-On 07/09/2026, Capture also preserved the unsupported Boolean component in
-`["address", "street_address", false]` (Capture session
-`d3c78b51-3d53-4e03-87f9-84b003e70384`).
-On 07/09/2026, Capture preserved the nested missing-member path
-`["address", "unavailable_address_member"]` (Capture session
-`bb38af67-df85-4654-88b4-56b2699be424`).
-On 07/09/2026, Capture accepted and preserved the mdoc path with an absent
-namespace, `["org.iso.18013.5.1", "first_name"]`, under
-`format: mso_mdoc` and `doctype_value: eu.europa.ec.eudi.pid.1` (Capture
-session `13aa1df4-e5b8-432f-b208-5454d71bbea0`).
-
-`additionalProperties` are accepted by the public request schema, but that does **not** establish that an unknown property appears in the signed Authorization Request. Retrieve and decode the request before using an unknown field as test evidence.
-
-### Delivery and response endpoints
-
-| Endpoint | Capability | Status |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| `GET /openid4vp/sessions/{sessionId}` | Current presentation capture with `authorization_request`, `observed`, `checks`, `events`, and raw protocol evidence. | Supported |
-| `GET /openid4vp/sessions/{sessionId}/deeplink` | Returned deeplink and decoded `authorization_request`; records a deeplink event. | Supported |
-| `GET /openid4vp/sessions/{sessionId}/request` | Retrieves the signed request object as `application/oauth-authz-req+jwt` and marks it as retrieved. | Supported |
-| `POST /openid4vp/sessions/{sessionId}/request` | Retrieves the signed request when `request_uri_method: post`; accepts form `wallet_nonce` and additional fields. | Supported |
-| `POST /openid4vp/sessions/{sessionId}/response` | Captures and verifies a form-encoded Wallet response for that session; `200` means valid, and `400` returns `invalid_presentation` with the verification errors. | Supported |
-| `POST /openid4vp/response` | Alternative form-encoded direct-post endpoint; required `state` identifies the session. | Supported |
-| `GET /openid4vp/sessions/{sessionId}/events` | Chronological protocol capture events. | Supported |
-| `GET /openid4vp/did.json` | Verifier `did:web` Document used by `client_id_scheme: "decentralized_identifier"`. | Supported |
-| `GET /openid4vp/redirect?response_code=...` | Service-hosted capture redirect page created from the `redirect_uri` template; records the visit on the session. | Supported |
+| `GET` | `/openid4vp/did.json` | Verifier `did:web` Document used by `client_id_scheme: "decentralized_identifier"`. |
+| `GET` | `/openid4vp/sessions/{sessionId}` | Full current presentation capture. |
+| `GET` | `/openid4vp/sessions/{sessionId}/deeplink` | `{ deeplink, authorization_request }`; records a deeplink event. |
+| `GET` | `/openid4vp/sessions/{sessionId}/events` | Chronological presentation events. |
+| `GET` | `/openid4vp/redirect?response_code=...` | Service-hosted capture redirect page created from the `redirect_uri` template. |
 
-The session's `raw` object provides the protocol-evidence surface required for
-assertions. `raw.authorization_request_jwt` is the exact signed Request Object
-returned to the Wallet. `raw.request_uri_http` records the Wallet's Request URI
-retrieval method and redacted headers, and adds the exact POST body when one was
-received. The capture is attached to the session-specific `/request` endpoint;
-the published schema does not expose a separate raw request-target or query
-field.
+### Deliberate request mutations
 
-Observed on beta 17/09/2026: the raw record for session
-`627e4f90-b955-43c5-bd3e-c03edd1b2487` preserved a POST method, the
-`application/x-www-form-urlencoded` and `application/oauth-authz-req+jwt`
-headers, and the exact percent-encoded body
-`wallet_nonce=%FF&extra=%E2%82%AC`. The capture can therefore distinguish
-invalid UTF-8 form values from correctly UTF-8-encoded values; it can support
-the evidence requirements for `WS_RP_MS_ProtocolMessages__042` and
-`WS_RP_MS_ProtocolMessages__044`.
+`request_mutation` produces the malformed, incomplete, or self-contradicting Authorization
+Requests that FCAF negative tests require, as data rather than as named scenarios. It is refused
+with `request_mutation_not_enabled` unless the deployment sets `FCAF_SCENARIOS_ENABLED=true`, and
+with `invalid_request_mutation` when the shape, a target name, or a pointer is not valid.
 
-The direct-post endpoints return `200` only when the presentation was captured
-and verified. A failed verifier check and a Wallet's decision to send no
-response are distinct outcomes. `raw.presentation_response_http` and
-`raw.presentation_response_verifier_http` provide machine-readable,
-sensitive-value-redacted HTTP evidence for valid and invalid responses; the
-former retains the exact received method, headers, and body, and the latter the
-verifier reply's status, headers, and body. These envelopes are intentionally
-not shown as dedicated fields in the operator UI, so read them from the session
-record. Inspect the session record and events; never substitute a screenshot for
-missing callback evidence.
+```json
+{
+  "request_mutation": {
+    "request_object": { "unset": ["/response_uri"], "set": { "/state": null } },
+    "request_object_header": { "set": { "/typ": "jwt" } },
+    "outer_request": { "set": { "/client_id": "x509_hash:other" } },
+    "verification_applies": false
+  }
+}
+```
 
-`raw.presentation_response` is the parsed form body, so for `direct_post.jwt` it
-is `{ "response": "<compact JWE>" }`, not the JWE itself; bind
-`observed.wallet_response.value.response` when a validator needs the compact
-serialization.
+| Target | Edits |
+| --- | --- |
+| `request_object` | The signed Request Object payload. |
+| `request_object_header` | The Request Object JOSE header. |
+| `outer_request` | The deeplink query parameters, or the DC API `data` member. |
 
-`raw.presentation_response_decrypted` is the decrypted Authorization Response as
-a JSON object, and `raw.decoded_presentations` the decoded credentials. Neither
-appears in the published OpenAPI document, but both are declared in
-`src/types.ts` and assigned in `captureVpResponse` (`src/server.ts`), which sets
-`presentation_response_decrypted` whenever validation produced an authorization
-response, independently of whether verification then succeeded. Source-verified
-18/09/2026 at commit `dc24580`; reported present in a live beta capture by a
-maintainer the same day.
+Members are addressed by RFC 6901 JSON Pointer; dotted paths are rejected, because protocol object
+keys such as the mdoc namespace `eu.europa.ec.eudi.pid.1` and the credential format `dc+sd-jwt`
+contain dots and plus signs. `set` writes any JSON value, including `null` and a wrong type;
+`unset` removes the member, which `null` does not. Writes precede removals.
 
-Scope limit for `direct_post.jwt`: `normalizeAuthorizationResponse`
-(`src/openid4vp-validation.ts`) decodes a three-part plaintext with `decodeJwt`
-and otherwise `JSON.parse`s it, so the member holds the *claims* either way and
-cannot by itself distinguish a JSON plaintext from a nested signed JWT. Pair it
-with a `cty`-absent assertion on the JWE protected header when a test needs the
-unsigned-JWT property. The service exposes the parsed object, never the
-plaintext bytes, so byte-level checks such as duplicate member names or the
-exact encoding cannot be evidenced from it.
+The mutation applies to the wallet-facing copy only. `authorization_request` keeps the request the
+service generated and remains the basis of presentation verification, including the nonce, state,
+and client identifier it expects; the Request Object is signed twice when a mutation is present, so
+the copy the verifier reasons about is never the mutated one. Evidence:
+
+| Field | Content |
+| --- | --- |
+| `authorization_request` | The generated request, unmutated. |
+| `request_mutation` | The mutation as supplied. |
+| `raw.authorization_request_delivered` | The mutated Request Object payload that was signed and served. |
+| `raw.authorization_request_jwt` | The signed Request Object as served to the Wallet. |
+| `raw.outer_request_delivered` | The delivered outer parameters, recorded for every session. |
+| `vp_request_mutation_applied` event | The pointers touched and the recorded `verification_applies`. |
+
+`verification_applies` is captured as evidence and never enforced; the verifier keeps its normal
+checks in all cases.
+
+### Request-delivery behaviours
+
+`request_behavior` selects a variation that is not a payload value, so no pointer edit can express
+it. It is gated by the same `FCAF_SCENARIOS_ENABLED` flag, refused with
+`request_behavior_not_enabled` when the flag is off and `invalid_request_behavior` when the shape
+is not valid, recorded under `request_behavior`, and logged as `vp_request_behavior_applied`.
+
+| Behaviour | Effect |
+| --- | --- |
+| `{"signature":"corrupt"}` | The delivered Request Object carries a signature that does not verify. The request is signed by the normal path first and the signature value is then invalidated, so the JWS stays well formed and the Wallet rejects it on the signature. Applies to `request_uri` retrieval, a `by_value` deeplink, the DC API `request` member, and a `wallet_nonce` re-sign. Refused with `signature_behavior_requires_a_signed_request` for the `redirect_uri` client identifier prefix. |
+| `{"wallet_nonce":"echo"\|"mismatch"\|"omit"}` | How the POST Request URI flow answers the supplied `wallet_nonce`: echo it, return a fresh unrelated value, or leave the parameter out. `echo` is the default. The `vp_request_retrieved` event records `wallet_nonce_present`, `wallet_nonce_behavior`, and `wallet_nonce_returned`. |
+| `{"request_uri_response":{"status":…,"content_type":"…","body":"…"}}` | Serve the Request URI with a wrong status, media type, or body; each member is optional. The Request Object is still generated and kept in `raw.authorization_request_jwt`, and the response actually delivered is recorded in `raw.request_uri_response_http`. |
+
+### Verifier response scenarios
+
+`response_scenario` controls the HTTP response returned to the Wallet after it submits an
+Authorization Response, at both `POST /openid4vp/sessions/{sessionId}/response` and
+`POST /openid4vp/response`. It is gated by `FCAF_SCENARIOS_ENABLED`, refused with
+`response_scenario_not_enabled` when the flag is off and `invalid_response_scenario` when the shape
+is not valid.
+
+| Member | Effect |
+| --- | --- |
+| `status` | The delivered HTTP status, 100 to 599. |
+| `content_type` | The delivered media type, for example `text/plain`. |
+| `body` | The exact delivered body, replacing the normal JSON body. |
+| `extra_parameters` | Members merged into the normal JSON body, for an unrecognised response parameter or an error member. |
+
+The scenario is applied at the HTTP boundary and nowhere else. The verification result, session
+status, and `checks` are recorded before it and are unaffected: a test-selected `400` does not mark
+a valid presentation invalid, and a test-selected `200` does not mark an invalid one verified. The
+delivered response is recorded in `raw.presentation_response_verifier_http`, the selection in
+`response_scenario`, and a `vp_response_scenario_selected` event is logged at session creation.
+
+### Digital Credentials API presentation
+
+`response_mode: "dc_api"` or `"dc_api.jwt"` presents over the W3C Digital Credentials API, as
+defined in OpenID4VP 1.0 Appendix A. The response mode alone selects the flow; there is no
+separate transport field.
+
+`request_delivery` decides how the request reaches the browser rather than how it reaches a
+wallet: `by_value` — the default for DC API — produces a signed Request Object carrying `client_id`
+and `expected_origins`, `plain` produces unsigned request parameters with neither, and
+`by_reference` is rejected with `request_delivery_unsupported_for_dc_api`.
+`client_id_scheme: "redirect_uri"` is rejected with `client_id_scheme_unsupported_for_dc_api`
+because a signed DC API request requires a `client_id`, and `request_uri_method` is rejected with
+`request_uri_method_unsupported_for_dc_api`. A DC API request carries no `request_uri`,
+`request_uri_method`, `response_uri`, `redirect_uri`, `state`, or `aud`.
+
+`dc_api_request` in the `201` response is the browser invocation payload:
+
+```json
+{
+  "deeplink": "https://capture-wallet.credimi.io/ui/openid4vp/sessions/sess_123/dc_api_presentation",
+  "dc_api_request": {
+    "protocol": "openid4vp-v1-signed",
+    "data": { "request": "eyJhbGciOiJFUzI1NiIsInR5cCI6Im9hdXRoLWF1dGh6LXJlcStqd3QiLC..." }
+  }
+}
+```
+
+Pass it as one entry of `navigator.credentials.get({ digital: { requests: [ ... ] } })`. For
+`plain` delivery the protocol is `openid4vp-v1-unsigned` and `data` holds the Authorization
+Request parameters themselves.
+
+`deeplink` keeps its field name and string type, but for DC API it is the HTTPS URL of this
+service's presentation page rather than a wallet invocation URL. It is built from the configured
+public base URL (`PUBLIC_BASE_URL`, defaulting to `issuer_base_url`) and never from a request
+`Host` header. The operator UI renders the usual QR code for it; scanning that code opens a
+webpage, and the wallet is invoked only from the button press on that page.
+
+| Method | Path | Input | Result |
+| --- | --- | --- | --- |
+| `GET` | `/ui/openid4vp/sessions/{sessionId}/dc_api_presentation` | — | Unauthenticated presentation page carrying only this session's `dc_api_request`. Requires `GUI_ENABLED`. |
+| `POST` | `/openid4vp/sessions/{sessionId}/response` | The wallet's Authorization Response as JSON or form | Same endpoint as the redirect flows, with no `state` required. |
+| `POST` | `/openid4vp/sessions/{sessionId}/dc_api_invocation` | `outcome` plus optional `error_name`, `error_message`, `response_returned`, `vp_token_present` | `202` and `{ "status": "dc_api_invocation_reported" }`; records why the invocation produced no Authorization Response. |
+
+`outcome` is one of `api_unavailable`, `rejected`, `no_vp_token`, or `failed`, and is captured
+under `dc_api.invocation` together with the reported `DOMException` name and message, whether a
+response object came back, whether it contained a `vp_token`, and the browser `Origin`. This is
+the evidence a HAIP wallet leaves when it refuses the unencrypted `dc_api` response mode, and it
+is deliberately distinct from a verification failure over a real response: `checks` stays
+untouched and the session status becomes `dc_api_invocation_reported`. A wallet refusal and an
+End-User cancellation are indistinguishable through the browser API, so `rejected` records what
+the browser reported without asserting which occurred.
+
+DC API verification is origin-bound: the expected SD-JWT VC Key Binding JWT audience is
+`origin:<origin>` and the mdoc session transcript uses the `OpenID4VPDCAPIHandover` over the bare
+origin, the request nonce, and — only for `dc_api.jwt` — the thumbprint of the verifier's
+response-encryption key. The origin is the session's configured one; a submission whose `Origin`
+header disagrees is refused with `403 unexpected_dc_api_origin`.
+
+A DC API presentation window lasts 10 minutes. A submission after the first captured presentation
+is refused with `409 vp_session_already_completed`, and one after the window closes with
+`400 vp_session_expired`. `GET` and `POST /openid4vp/sessions/{sessionId}/request` return
+`404 vp_request_uri_not_available_for_dc_api`, so a DC API session never records a request_uri
+retrieval. Redirect sessions keep their existing behaviour, including recording repeated wallet
+submissions.
+
+### Wallet-facing request and response endpoints
+
+| Method | Path | Input | Result |
+| --- | --- | --- | --- |
+| `GET` | `/openid4vp/sessions/{sessionId}/request` | — | Signed request object with media type `application/oauth-authz-req+jwt`; marks the request as retrieved. |
+| `POST` | `/openid4vp/sessions/{sessionId}/request` | Form payload; `wallet_nonce` is recognized and other fields are captured | Signed request object. Use only for a session with `request_uri_method: post`. |
+| `POST` | `/openid4vp/sessions/{sessionId}/response` | Form-encoded wallet response | Captures and verifies the response for that session. `200` means valid; `400` returns `invalid_presentation` and verification errors. |
+| `POST` | `/openid4vp/response` | Form-encoded wallet response with required `state` | Alternative direct-post endpoint; `state` selects the session. |
+
+Raw form payloads are preserved in the presentation capture for fidelity. Treat them as sensitive evidence.
+
+The session record additionally exposes `raw.authorization_request_jwt`, the exact signed Request Object returned to the Wallet, and `raw.request_uri_http`, the Wallet's Request URI retrieval method, headers with sensitive values redacted, and exact POST body when received. `raw.presentation_response_http` contains the received presentation response HTTP `method`, headers with sensitive values redacted, and exact body. `raw.presentation_response_verifier_http` captures the verifier reply's status, redacted headers, and exact body. The HTTP envelopes are retained for valid and invalid responses and are intentionally not shown as dedicated fields in the operator UI.
+
+## Test-only chained OAuth server
+
+The authorization-code issuance flow uses an internal, auto-approving OAuth server between Credo and the issuer. These are test-service endpoints, not a general-purpose identity provider.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/.well-known/oauth-authorization-server/authorization-servers/{issuerConfigurationId}` | Metadata for the fake OAuth server. |
+| `GET` | `/authorization-servers/{issuerConfigurationId}/authorize` | Validates Credo's authorization request and immediately redirects with a code. |
+| `POST` | `/authorization-servers/{issuerConfigurationId}/token` | Exchanges the chained code. Requires the configured client credentials, PKCE verifier, redirect URI, and client ID. |
 
 ## Browser-only routes
 
-`/`, `/ui/help`, `/ui/sessions`, `/ui/sessions/{sessionId}`,
-`/ui/openid4vp/sessions`, `/ui/openid4vp/sessions/{sessionId}`, `/favicon.svg`,
-and `/assets/*` render the server-rendered operator UI. They are not a stable
-programmatic contract; never bind a scenario or validator to them. A deployment
-can disable the GUI routes without disabling the API or protocol routes, so no
-test may depend on the UI being reachable.
+These routes support the server-rendered operator UI. They are not a stable programmatic contract; use the API routes above for integrations.
 
-## Known local limitations
+| Method | Path |
+| --- | --- |
+| `GET` | `/` |
+| `GET` | `/ui/help` |
+| `POST` | `/ui/sessions` |
+| `GET` | `/ui/sessions/{sessionId}` |
+| `POST` | `/ui/openid4vp/sessions` |
+| `GET` | `/ui/openid4vp/sessions/{sessionId}` |
+| `GET` | `/ui/openid4vp/sessions/{sessionId}/dc_api_presentation` |
+| `GET` | `/favicon.svg` |
+| `GET` | `/assets/style.css` |
+| `GET` | `/assets/credimi_logo.svg` |
+| `GET` | `/assets/credimi_logo_negative.svg` |
+| `GET` | `/assets/credimi_logo-transp.svg` |
+| `GET` | `/assets/credimi_logo-transp_white.svg` |
+
+GUI routes can be disabled with the service configuration; disabling them does not disable API or protocol routes.
+
+## Keeping this reference current
+
+When the public contract changes, update this file and `src/openapi.ts` in the same change. Add or update route-level tests for every changed protocol, metadata, or security boundary. For exact schemas, error objects, and media types, consult `/openapi.json` and the relevant OpenID specification.
+
+## Credimi FCAF deployment notes
+
+FCAF scenarios target `https://beta-capture-wallet.credimi.io`; the public
+contract describes the service surface, but beta deployment configuration can
+differ. In particular, `request_mutation`, `request_behavior`,
+`response_scenario`, and malformed `status_reference` fixtures are only usable
+when beta enables `FCAF_SCENARIOS_ENABLED=true`. A published input does not by
+itself prove that the Wallet received it or that the desired Wallet outcome was
+captured.
+
+Classify each FCAF candidate at three boundaries:
+
+1. **Session input:** can the session-creation API express the setup?
+2. **Wallet delivery:** does the returned/decrypted Request Object prove the
+   exact property reached the Wallet?
+3. **Evidence capture:** does the session record prove the required Wallet
+   response rather than merely UI state?
+
+If a required property is rejected before delivery, it remains
+verifier-blocked. If the Wallet is shown the request but sends no required
+response, record a reference-Wallet failure or discontinuation only when the
+source test permits it.
+
+### Beta observations retained for FCAF
+
+- On 17/09/2026, `GET /issuers/eu-pid-device-bound/credential-jwks.json`
+  published one leaf `x5c` certificate for `CN = Beta Fake Issuer EU PID Device
+  Bound`; its issuing CA was absent from `x5c`. Probe the deployed endpoint
+  rather than inferring certificate shape from service source.
+- On 17/09/2026, beta preserved a narrowed
+  `encrypted_response_enc_values_supported: ["A128GCM"]` advertisement while
+  retaining generated JWKs. Production returned the full advertised list on
+  the same date.
+- On 03/09/2026, beta preserved a DCQL credential without `meta`, an explicit
+  empty `meta`, and an empty `trusted_authorities` array in its signed Request
+  Object. On 07/09/2026 it also preserved null, integer, Boolean, and absent
+  claim-path selectors in the named FCAF probes recorded in git history.
+- On 18/09/2026, beta exposed
+  `raw.presentation_response_decrypted` and `raw.decoded_presentations` after
+  capture. They are parsed evidence, not byte-for-byte plaintext; a validator
+  requiring JWT serialization details must pair them with the captured compact
+  response and JOSE header evidence.
+
+### Known FCAF limitations
 
 | Area | Finding | Status / source |
 | --- | --- | --- |
-| Empty `credential_sets[].options` | The reference Android wallet displayed an error but did not POST `error=invalid_request`; the beta session captured only request retrieval. | Blocked for the required protocol assertion. [RI-WALLET-001](REFERENCE-WALLET-ISSUES.md) |
-| Positive PID verification | The beta verifier received a `vp_token` but rejected it because the PID issuer URI did not match the issuer certificate SAN. | Verifier-blocked acceptance, not a Wallet failure. [MOCK-VERIFIER-001](REFERENCE-WALLET-ISSUES.md) |
-| Invalid `request_uri_method` | The published contract preserves arbitrary values in the Wallet-facing deeplink; the production deployment still rejected `DELETE` at session creation on 14/09/2026. | Supported for `WS_RP_MS_ProtocolMessages__152` on beta; production deployment lag remains. |
+| Empty `credential_sets[].options` | The reference Android Wallet displayed an error but did not POST `error=invalid_request`; beta captured only request retrieval. | Blocked for the required protocol assertion. `REFERENCE-WALLET-ISSUES.md` RI-WALLET-001 |
+| Positive PID verification | Beta received a `vp_token` but rejected it because the PID issuer URI did not match the issuer certificate SAN. | Verifier-blocked acceptance, not a Wallet failure. `REFERENCE-WALLET-ISSUES.md` MOCK-VERIFIER-001 |
+| Invalid `request_uri_method` | The contract permits malformed values in the Wallet-facing deeplink; production rejected `DELETE` on 14/09/2026. | Supported for beta-only negative tests; production deployment lag remains. |
 
-`pkg/fcaf/MEMORY.md` additionally lists test-specific cases blocked because the public verifier validates malformed DCQL before it can create a signed request, or because it cannot expose the raw request/response feature required by the test. Treat that as coordination state and re-probe it when the service changes.
+## Safe scenario use
 
-## Safe use in scenarios
-
-- Use a source scenario under `config_templates/fcaf/wallet_solution/relying_party/scenarios/`; do not edit the generated aggregate pipeline directly.
-- Persist the created `session_id` only as a pipeline output needed to fetch protocol evidence. Do not put live session URLs or tokens in fixtures.
-- For verifier tests, bind validators to the exact scenario output containing the capture session/request/response. A different scenario's successful response is not fallback evidence.
-- For issuer tests, use the session, events, and observed wallet JWKS to prove the relevant issuance exchange; inspect their actual shape first.
-- When a test must prove that the Wallet opened the post-presentation redirect, set `redirect_uri` to `https://beta-capture-wallet.credimi.io/openid4vp/redirect` and bind the validator to `redirect_uri_visit_count`, `redirect_uri_visited_at`, the `vp_redirect_uri_visited` event, or `raw.redirect_uri_visits`. The capture page renders for invalid visits too, so a screenshot of it proves nothing.
-- Record a dated probe and update this document when a previously unknown capability becomes a test prerequisite.
+- Change source scenarios under
+  `config_templates/fcaf/wallet_solution/relying_party/scenarios/`, never the
+  generated aggregate pipeline.
+- Bind each validator to the exact scenario output that captured its request or
+  response; a successful result from another scenario is never fallback
+  evidence.
+- Do not store live session URLs, raw tokens, DPoP proofs, or credential offers
+  in fixtures or test output.
+- A redirect-page screenshot is not proof of a callback. Bind a redirect claim
+  to the session's recorded visit evidence.
+- Record a dated beta probe before treating a newly published or gated field as
+  executable FCAF evidence.
