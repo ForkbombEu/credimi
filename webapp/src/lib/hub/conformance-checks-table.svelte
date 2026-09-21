@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { createQuery } from '@tanstack/svelte-query';
 	import {
-		listAll,
+		getStandardsWithTestSuites,
 		listChecks,
 		type CatalogFacets,
 		type ConformanceCheckRecord,
@@ -49,17 +50,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		provider: ''
 	});
 
-	let facetOptions = $state<FacetOptions>({
-		protocol: [],
-		sut: [],
-		role: [],
-		provider: []
-	});
-
-	let displayedStandards = $state<StandardsWithTestSuites>([]);
-	let isLoading = $state(false);
-	let catalogRequestId = 0;
-
 	const activeFacets = $derived.by((): CatalogFacets => {
 		const facets: CatalogFacets = {};
 		for (const { key } of facetFields) {
@@ -71,6 +61,61 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const hasActiveFilters = $derived(Object.keys(activeFacets).length > 0);
 
+	const facetsQuery = createQuery(() => ({
+		queryKey: ['conformance-checks', 'pipeline', 'hub', 'facet-options'] as const,
+		queryFn: async () => {
+			const result = await listChecks({ surface: 'pipeline' });
+			if (result.isErr) throw result.error;
+			return result.value;
+		}
+	}));
+
+	const catalogQuery = createQuery(() => {
+		const facets = activeFacets;
+		const hasFilters = Object.keys(facets).length > 0;
+		const useSSR = !hasFilters && standardsWithTestSuites.length > 0;
+
+		return {
+			queryKey: ['conformance-checks', 'pipeline', 'hub', facets] as const,
+			enabled: !useSSR,
+			queryFn: async () => {
+				const result = await getStandardsWithTestSuites({
+					surface: 'pipeline',
+					...(hasFilters ? { facets } : {})
+				});
+				if (result instanceof Error) throw result;
+				return result;
+			}
+		};
+	});
+
+	const facetOptions = $derived.by((): FacetOptions => {
+		const records: ConformanceCheckRecord[] = facetsQuery.data ?? [];
+		const distinct = (field: FacetField) =>
+			[
+				...new Set(
+					records.map((record) => record[field]).filter((value) => value.length > 0)
+				)
+			].sort();
+
+		return {
+			protocol: distinct('protocol'),
+			sut: distinct('sut'),
+			role: distinct('role'),
+			provider: distinct('provider')
+		};
+	});
+
+	const displayedStandards = $derived.by((): StandardsWithTestSuites => {
+		if (catalogQuery.data) return catalogQuery.data;
+		if (!hasActiveFilters && standardsWithTestSuites.length > 0) {
+			return standardsWithTestSuites;
+		}
+		return [];
+	});
+
+	const isLoading = $derived(catalogQuery.isFetching);
+
 	const rows = $derived(
 		displayedStandards.flatMap((standard) =>
 			standard.versions.flatMap((version) =>
@@ -79,76 +124,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		)
 	);
 
-	function collectFacetOptions(records: ConformanceCheckRecord[]) {
-		const distinct = (field: FacetField) =>
-			[...new Set(records.map((record) => record[field]).filter((value) => value.length > 0))].sort();
-
-		facetOptions = {
-			protocol: distinct('protocol'),
-			sut: distinct('sut'),
-			role: distinct('role'),
-			provider: distinct('provider')
-		};
-	}
-
 	function clearFilters() {
 		filters.protocol = '';
 		filters.sut = '';
 		filters.role = '';
 		filters.provider = '';
 	}
-
-	$effect(() => {
-		listChecks({ surface: 'pipeline' }).match({
-			Rejected: (reason) => {
-				console.error(reason);
-			},
-			Resolved: collectFacetOptions
-		});
-	});
-
-	$effect(() => {
-		const facets = activeFacets;
-		const hasFilters = Object.keys(facets).length > 0;
-		const requestId = ++catalogRequestId;
-
-		if (!hasFilters) {
-			if (standardsWithTestSuites.length > 0) {
-				displayedStandards = standardsWithTestSuites;
-				isLoading = false;
-				return;
-			}
-
-			isLoading = true;
-			listAll({ surface: 'pipeline' }).match({
-				Rejected: (reason) => {
-					if (requestId !== catalogRequestId) return;
-					console.error(reason);
-					isLoading = false;
-				},
-				Resolved: (standards) => {
-					if (requestId !== catalogRequestId) return;
-					displayedStandards = standards;
-					isLoading = false;
-				}
-			});
-			return;
-		}
-
-		isLoading = true;
-		listAll({ surface: 'pipeline', facets }).match({
-			Rejected: (reason) => {
-				if (requestId !== catalogRequestId) return;
-				console.error(reason);
-				isLoading = false;
-			},
-			Resolved: (standards) => {
-				if (requestId !== catalogRequestId) return;
-				displayedStandards = standards;
-				isLoading = false;
-			}
-		});
-	});
 </script>
 
 <div class="space-y-4 px-4 pb-4">
@@ -207,7 +188,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Table.Cell class="px-4">
 							{#if standard.uid === 'fcaf'}
 								<span class="text-xs text-muted-foreground">
-									{suite.paths.length} {m.Tests()}
+									{suite.paths.length}
+									{m.Tests()}
 								</span>
 							{:else if suite.files.length > 0}
 								<ChildrenCell
