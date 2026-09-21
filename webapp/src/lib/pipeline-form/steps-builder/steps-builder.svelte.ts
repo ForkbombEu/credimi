@@ -209,24 +209,15 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 					showPipelineFormError(e);
 					return;
 				}
-				form.onSubmit((formData, target) => {
+				form.onSubmit((formData) => {
 					try {
 						this.stateManager.run((inner) => {
 							if (inner.mode.id !== 'form') return;
 
 							if (inner.mode.intent === 'add') {
 								const step = this.createStep(config, formData);
-								if (target === 'follow-up') {
-									if (!this.isFollowUpStep(step)) return;
-									inner.followUps.push({
-										step: [step, formData as GenericRecord],
-										condition: 'always'
-									});
-									this.markCreatedCard('follow-ups', inner.followUps.length - 1);
-								} else {
-									inner.steps.push([step, formData as GenericRecord]);
-									this.markCreatedCard('steps', inner.steps.length - 1);
-								}
+								inner.steps.push([step, formData as GenericRecord]);
+								this.markCreatedCard('steps', inner.steps.length - 1);
 							} else {
 								const editIndex = inner.mode.stepIndex;
 								if (editIndex === undefined) return;
@@ -273,6 +264,41 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			continue_on_error: false,
 			with: config.serialize(formData)
 		};
+	}
+
+	isFollowUpEligibleForm() {
+		const mode = this.state.mode;
+		return mode.id === 'form' && mode.intent === 'add' && this.isFollowUpConfig(mode.config);
+	}
+
+	addAsFollowUp() {
+		if (this.state.mode.id !== 'form' || this.state.mode.intent !== 'add') return;
+		const { config, form } = this.state.mode;
+		if (!this.isFollowUpConfig(config)) return;
+
+		try {
+			const formData = form.getSubmitData();
+			if (formData === undefined) return;
+
+			this.stateManager.run((inner) => {
+				if (inner.mode.id !== 'form' || inner.mode.intent !== 'add') return;
+				const step = this.createStep(config, formData);
+				if (!this.isFollowUpStep(step)) return;
+				inner.followUps.push({
+					step: [step, formData as GenericRecord],
+					condition: 'always'
+				});
+				this.markCreatedCard('follow-ups', inner.followUps.length - 1);
+				inner.mode = { id: 'idle' };
+			});
+			this.disposeFormEffect();
+		} catch (e) {
+			showPipelineFormError(e);
+		}
+	}
+
+	private isFollowUpConfig(config: pipelinestep.AnyConfig) {
+		return config.use === 'email' || config.use === 'http-request';
 	}
 
 	private isFollowUpStep(

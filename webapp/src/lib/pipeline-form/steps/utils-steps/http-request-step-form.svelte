@@ -11,8 +11,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
 	import Select from '@/components/ui-custom/select.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { Button } from '@/components/ui/button';
 	import { Input } from '@/components/ui/input';
 	import { m } from '@/i18n';
 
@@ -51,20 +49,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<PlaceholderButtons />
-
-	{#if form.intent === 'add'}
-		<div class="space-y-2">
-			<Button class="w-full" disabled={!form.isValid} onclick={() => form.submit()}>
-				<T>{m.Add_step()}</T>
-			</Button>
-			<Button
-				variant="outline"
-				class="w-full"
-				disabled={!form.isValid}
-				onclick={() => form.submit('follow-up')}
-			>
-				<T>{m.Add_as_follow_up()}</T>
-			</Button>
-		</div>
-	{/if}
 </div>

@@ -58,6 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
 	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
 	const stepDocsUrl = $derived(formMode?.config.docsUrl);
+	const showFollowUpAddActions = $derived(builder.isFollowUpEligibleForm());
 	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
 
 	let lastAppliedManualMode: boolean | null = null;
@@ -115,6 +116,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							onclick={() => formMode.form.commit()}
 						>
 							{m.Save()}
+						</Button>
+					</div>
+				{:else if showFollowUpAddActions && formMode}
+					<div class="mt-auto space-y-2 border-t p-4">
+						<Button
+							class="w-full"
+							disabled={!formMode.form.canSave()}
+							onclick={() => formMode.form.commit()}
+						>
+							{m.Add_step()}
+						</Button>
+						<Button
+							variant="outline"
+							class="w-full"
+							disabled={!formMode.form.canSave()}
+							onclick={() => builder.addAsFollowUp()}
+						>
+							{m.Add_as_follow_up()}
 						</Button>
 					</div>
 				{/if}

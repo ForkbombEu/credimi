@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { BaseForm, type InitFormOptions, type SubmitTarget } from '$pipeline-form/steps/types';
+import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 
 import { appName } from '@/brand';
 import { pb } from '@/pocketbase';
@@ -38,10 +38,6 @@ export class EmailStepForm extends BaseForm<EmailFormData, EmailStepForm> {
 
 	getSubmitData() {
 		return this.isValid ? this.data : undefined;
-	}
-
-	submit(target: SubmitTarget = 'step') {
-		this.commit(undefined, target);
 	}
 }
 
