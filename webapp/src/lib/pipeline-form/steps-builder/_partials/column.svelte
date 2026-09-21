@@ -21,6 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		minSize?: number;
 		order?: number;
 		pane?: PaneHandle | null;
+		scrollContainer?: HTMLElement | null;
 		title: string;
 		titleRight?: Snippet;
 	};
@@ -34,6 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		minSize,
 		order,
 		pane = $bindable<PaneHandle | null>(null),
+		scrollContainer = $bindable<HTMLElement | null>(null),
 		title,
 		titleRight
 	}: Props = $props();
@@ -49,7 +51,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render titleRight?.()}
 	</div>
 
-	<div class={['relative flex min-h-0 grow flex-col overflow-y-scroll', contentClass]}>
+	<div
+		bind:this={scrollContainer}
+		class={['relative flex min-h-0 grow flex-col overflow-y-scroll', contentClass]}
+	>
 		{#if disabled}
 			<div class="absolute inset-0 z-10 bg-white/40" aria-hidden="true"></div>
 		{/if}

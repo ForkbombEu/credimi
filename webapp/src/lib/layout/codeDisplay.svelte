@@ -15,6 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	type LineRange = {
+		/** Inclusive 0-based */
+		start: number;
+		/** Inclusive 0-based */
+		end: number;
+	};
+
 	type Props = {
 		content: string;
 		class?: string;
@@ -23,6 +30,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		theme?: BundledTheme;
 		containerClass?: string;
 		contentClass?: ClassValue;
+		/** Soft wash over these lines (0-based inclusive). */
+		highlightLines?: LineRange | null;
+		onLineClick?: (line: number) => void;
+		scroller?: HTMLElement | null;
 	};
 
 	let {
@@ -32,7 +43,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		language,
 		containerClass = '',
 		theme,
-		contentClass = ''
+		contentClass = '',
+		highlightLines = null,
+		onLineClick,
+		scroller = $bindable<HTMLElement | null>(null)
 	}: Props = $props();
 
 	//
@@ -40,6 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let isCopied = $state(false);
 	let highlighted = $state('');
 	let isDarkTheme = $state(true);
+	let containerEl: HTMLDivElement | undefined = $state();
 
 	const actualTheme: BundledTheme = $derived(
 		theme || (isDarkTheme ? 'catppuccin-frappe' : 'github-light')
@@ -47,8 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	async function updateHighlighting() {
 		const classes = ['p-4 w-0 grow overflow-scroll', clsx(contentClass)];
-		// Calculate classes outside `await` and `transformers`
-		// so that Svelte's reactivity system can track changes
+		const wash = highlightLines;
 
 		highlighted = await codeToHtml(content, {
 			lang: language,
@@ -57,6 +71,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{
 					pre(node) {
 						this.addClassToHast(node, classes);
+					},
+					line(node, line) {
+						const idx = line - 1;
+						node.properties = {
+							...node.properties,
+							'data-line': String(idx)
+						};
+						this.addClassToHast(node, 'code-display-line');
+						if (wash && idx >= wash.start && idx <= wash.end) {
+							this.addClassToHast(node, 'code-display-line-wash');
+						}
 					}
 				}
 			]
@@ -64,7 +89,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	$effect(() => {
-		updateHighlighting();
+		void updateHighlighting();
+	});
+
+	$effect(() => {
+		const html = highlighted;
+		const pre = html ? (containerEl?.querySelector('pre') ?? null) : null;
+		scroller = pre;
+
+		if (!pre || !onLineClick) return;
+
+		const handler = (event: MouseEvent) => {
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			const lineEl = target.closest('[data-line]');
+			if (!lineEl) return;
+			const line = Number(lineEl.getAttribute('data-line'));
+			if (!Number.isInteger(line)) return;
+			onLineClick(line);
+		};
+
+		pre.addEventListener('click', handler);
+		return () => {
+			pre.removeEventListener('click', handler);
+		};
 	});
 
 	async function copyToClipboard() {
@@ -81,16 +129,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
-	// function toggleTheme() {
-	// 	isDarkTheme = !isDarkTheme;
-	// }
-
 	const preClasses = $derived(
 		className || 'border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
 	);
 </script>
 
-<div class={['relative flex w-full overflow-hidden rounded-md border', containerClass]}>
+<div
+	bind:this={containerEl}
+	class={['relative flex w-full overflow-hidden rounded-md border', containerClass]}
+	class:code-display-clickable={Boolean(onLineClick)}
+>
 	{#if highlighted}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html highlighted}
@@ -123,23 +171,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<ClipboardCopy class="h-3 w-3 text-slate-600" size={16} />
 				{/if}
 			</Button>
-
-			<!-- {#if highlighted}
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					class="h-6 w-6 border border-slate-300/50 bg-white/90 p-0 opacity-80 shadow-sm backdrop-blur-sm hover:bg-white/100 hover:opacity-100"
-					onclick={toggleTheme}
-					title={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
-				>
-					{#if isDarkTheme}
-						<Sun class="h-3 w-3 text-slate-600" />
-					{:else}
-						<Moon class="h-3 w-3 text-slate-600" />
-					{/if}
-				</Button>
-			{/if} -->
 		</div>
 	{/if}
 {/snippet}
+
+<style>
+	:global(.code-display-line-wash) {
+		background-color: color-mix(in oklab, var(--brand-primary, #3730a3) 16%, transparent);
+		display: inline-block;
+		width: 100%;
+	}
+
+	:global(.code-display-clickable .code-display-line) {
+		cursor: pointer;
+	}
+</style>
