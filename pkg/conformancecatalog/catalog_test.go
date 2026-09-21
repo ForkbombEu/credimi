@@ -132,11 +132,52 @@ func TestPathIDStable(t *testing.T) {
 	require.Len(t, a, 15)
 }
 
-func TestLoadWalkTitlesAndVisibility(t *testing.T) {
+func TestBootRebuildSkipsMissingTemplatesDir(t *testing.T) {
+	app, err := tests.NewTestApp()
+	require.NoError(t, err)
+	t.Cleanup(app.Cleanup)
+
+	missing := filepath.Join(t.TempDir(), "no-such-templates")
+	require.NoError(t, bootRebuild(app, missing))
+}
+
+func TestBootRebuildFailsWhenTemplatesDirCorrupt(t *testing.T) {
+	app, err := tests.NewTestApp()
+	require.NoError(t, err)
+	t.Cleanup(app.Cleanup)
+
+	root := t.TempDir()
+	// Present but unreadable as a catalog: a file where a standard dir is expected
+	// is fine; inject a standard dir with broken YAML so LoadFromDir errors.
+	std := filepath.Join(root, "broken")
+	require.NoError(t, os.MkdirAll(std, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(std, "standard.yaml"), []byte(":\n:\n"), 0o644))
+
+	err = bootRebuild(app, root)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "boot rebuild")
+}
+
+func TestBootRebuildSucceedsFromFixture(t *testing.T) {
+	app, err := tests.NewTestApp()
+	require.NoError(t, err)
+	t.Cleanup(app.Cleanup)
+
+	root := t.TempDir()
+	writeFixtureTree(t, root)
+	require.NoError(t, bootRebuild(app, root))
+
+	records, err := app.FindAllRecords(CollectionName)
+	require.NoError(t, err)
+	require.Len(t, records, 6)
+	require.Len(t, Default().Snapshot(), 6)
+}
+
+func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	root := t.TempDir()
 	writeFixtureTree(t, root)
 
-	checks, err := LoadWalk(root)
+	checks, err := LoadFromDir(root)
 	require.NoError(t, err)
 	require.Len(t, checks, 6)
 

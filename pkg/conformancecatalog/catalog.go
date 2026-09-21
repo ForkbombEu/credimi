@@ -90,13 +90,13 @@ type suiteYAML struct {
 	Provider  string   `yaml:"provider"`
 }
 
-// Catalog holds the in-memory snapshot of checks loaded from disk.
+// Catalog holds the in-memory snapshot of checks loaded from disk (kept in sync
+// with the PocketBase projection by Rebuild). Production list/get traffic uses
+// the collection; Snapshot remains the dual-layer seam for rebuild responses
+// and tests.
 type Catalog struct {
-	mu      sync.RWMutex
-	checks  []Check
-	byID    map[string]Check
-	byPath  map[string]Check
-	rootDir string
+	mu     sync.RWMutex
+	checks []Check
 }
 
 var (
@@ -116,34 +116,6 @@ func (c *Catalog) Snapshot() []Check {
 	out := make([]Check, len(c.checks))
 	copy(out, c.checks)
 	return out
-}
-
-// LoadFromDir walks templatesDir, replaces the in-memory checks snapshot, and
-// does not touch PocketBase. Useful for unit tests and handlers that need a
-// snapshot without a full Rebuild transaction.
-func (c *Catalog) LoadFromDir(templatesDir string) error {
-	checks, err := loadFromDir(templatesDir)
-	if err != nil {
-		return err
-	}
-	c.replaceSnapshot(checks, templatesDir)
-	return nil
-}
-
-// GetByID returns a check by stable record id.
-func (c *Catalog) GetByID(id string) (Check, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	ch, ok := c.byID[id]
-	return ch, ok
-}
-
-// GetByPath returns a check by run path identity.
-func (c *Catalog) GetByPath(path string) (Check, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	ch, ok := c.byPath[path]
-	return ch, ok
 }
 
 // TemplatesDir resolves config_templates from ROOT_DIR (empty ROOT_DIR → ./config_templates).
@@ -172,14 +144,11 @@ type checkFileMeta struct {
 	Provider string `yaml:"provider"`
 }
 
-// LoadWalk walks templatesDir and returns flat conformance checks.
-// Layout: standard/version/suite/file (classic) or …/tests/<id>.yaml (FCAF).
-func LoadWalk(templatesDir string) ([]Check, error) {
-	return loadFromDir(templatesDir)
-}
-
-// loadFromDir walks once and builds the flat check list with facet fields.
-func loadFromDir(templatesDir string) ([]Check, error) {
+// LoadFromDir walks templatesDir once and returns flat conformance checks with
+// facet fields. Layout: standard/version/suite/file (classic) or
+// …/tests/<id>.yaml (FCAF). Does not touch PocketBase; Rebuild calls this then
+// projects into conformance_checks.
+func LoadFromDir(templatesDir string) ([]Check, error) {
 	entries, err := os.ReadDir(templatesDir)
 	if err != nil {
 		return nil, fmt.Errorf("read templates dir: %w", err)
@@ -492,19 +461,10 @@ func readYAML(path string, out any) error {
 	return nil
 }
 
-func (c *Catalog) replaceSnapshot(checks []Check, rootDir string) {
-	byID := make(map[string]Check, len(checks))
-	byPath := make(map[string]Check, len(checks))
-	for _, ch := range checks {
-		byID[ch.ID] = ch
-		byPath[ch.Path] = ch
-	}
+func (c *Catalog) replaceSnapshot(checks []Check) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.checks = checks
-	c.byID = byID
-	c.byPath = byPath
-	c.rootDir = rootDir
 }
 
 // IsProjecting reports whether a Rebuild is currently writing collection rows.

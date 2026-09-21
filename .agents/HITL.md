@@ -30,6 +30,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-21 - Conformance catalog boot rebuild soft-fail (#1397)
+
+- status: resolved (agent default for cleanup commit 4)
+- owner: agent
+- context: Spec #1397 requires catalog rebuild from filesystem on boot, but `Register` only logged a warning on rebuild failure, leaving durable `conformance_checks` rows potentially stale.
+- question: Should boot hard-fail on any rebuild error, or tolerate missing templates for test apps / empty checkouts?
+- options considered: (1) always return bootstrap error; (2) warn-only (shipped originally; rejected); (3) skip when templates dir is missing, fail bootstrap when the dir exists but ensure/rebuild errors.
+- default risk: Option (1) breaks PocketBase test apps without `config_templates`; option (2) silently serves stale rows after a failed production boot rebuild.
+- decision: Option (3). `bootRebuild` skips missing dirs with a warn log; ensure/rebuild failures return from `OnBootstrap`. Documented in `pkg/conformancecatalog/hooks.go`.
+- follow-up: None unless product wants hard-fail even when templates are absent.
+
 ### 2026-09-21 - Conformance catalog facet completeness (#1402)
 
 - status: open
@@ -61,7 +72,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - question: Where should nested blueprints metadata live after the catalog adapter replaces the handler filesystem walk?
 - options considered: (1) re-read YAML metadata per blueprints request; (2) store nested tree only in the in-memory catalog snapshot beside flat checks; (3) widen PB collection schema for nested JSON.
 - default risk: Option (1) reintroduces a duplicate walk; option (3) couples PB schema to a compatibility DTO.
-- decision (historical #1398): Option (2). `LoadWalk`/`loadFromDir` built checks + nested `Blueprints` once; `Catalog.Blueprints(surface)` projected/filtered with no per-request FS walk. PB collection remained the flat query cache.
+- decision (historical #1398): Option (2). `LoadFromDir` built checks + nested `Blueprints` once; `Catalog.Blueprints(surface)` projected/filtered with no per-request FS walk. PB collection remained the flat query cache.
 - supersession (2026-09-21, #1402): Blueprints nesting and `/api/template/blueprints` were deleted. Catalog surface is flat `conformance_checks` rows (+ facet fields) only. Do not restore nested blueprints snapshot or the blueprints HTTP adapter. Durable decisions that remain: filesystem SoT, PB projection as query cache (see #1397), UID/facet fields on checks (see #1402).
 - follow-up: None — blueprints path closed.
 

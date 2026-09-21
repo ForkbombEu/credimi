@@ -13,12 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadWalkIndexesRealFCAFTests(t *testing.T) {
+func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	require.True(t, ok)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "config_templates"))
 
-	checks, err := LoadWalk(root)
+	checks, err := LoadFromDir(root)
 	require.NoError(t, err)
 
 	var fcaf []Check
