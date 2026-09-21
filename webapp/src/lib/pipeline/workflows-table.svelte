@@ -66,7 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/snippet}
 
-	{#snippet row({ workflow, Td })}
+	{#snippet row({ workflow, Td, depth })}
 		{@const deviceNames = getExecutionDeviceNames(workflow)}
 
 		<Td>
@@ -74,6 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				status={workflow.status}
 				queueData={workflow.queue}
 				failureReason={workflow.failure_reason}
+				size={depth > 0 ? 'sm' : 'md'}
 			/>
 		</Td>
 
