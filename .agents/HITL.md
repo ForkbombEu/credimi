@@ -30,6 +30,18 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-21 - Conformance catalog query cache storage (#1397)
+
+- status: resolved (agent default for #1397)
+- owner: agent
+- context: #1396/#1397 prefer shared `:memory:` SQLite ATTACH for an ephemeral query cache over a durable second SoT in `pb_data`. Probe showed SQLite rejects `CREATE VIEW` that references an attached database, so a PB view collection over ATTACH is non-viable.
+- question: Where should the PocketBase-queryable projection live?
+- options considered: (1) ATTACH + view collection; (2) custom routes reimplementing PB list envelope against `:memory:`; (3) base collection table fully replaced on Rebuild/boot, filesystem remains SoT, writes rejected.
+- default risk: Option (3) leaves rows in `data.db` between rebuilds; mitigated by boot rebuild, internal rebuild endpoint, null write rules, and model hooks.
+- decision: Option (3). Document refresh as process restart or `POST /api/conformance-catalog/rebuild` with internal admin key. Do not treat collection rows as SoT.
+- follow-up: Later tickets may revisit true ephemeral storage if product requires zero durable rows; not blocking #1397.
+
+
 ### 2026-09-17 - Workflow timestamp presentation ownership
 
 - status: resolved
