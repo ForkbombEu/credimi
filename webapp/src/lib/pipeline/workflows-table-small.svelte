@@ -268,7 +268,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="flex min-w-0 items-baseline gap-1.5">
 					<span class="shrink-0 font-normal">{child.type.name}</span>
 					<span class="min-w-0 truncate text-muted-foreground">{child.displayName}</span>
-					{#if child.has_logs || true}
+					{#if child.has_logs}
 						<Tooltip>
 							{#snippet child({ props })}
 								<span
