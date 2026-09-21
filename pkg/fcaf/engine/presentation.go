@@ -80,27 +80,31 @@ func presentationScreenshots(report Report, maestroURLs []string) []Presentation
 			if !isPresentationEvidenceImage(reference) {
 				continue
 			}
-			normalized := normalizePresentationURL(reference)
-			if normalized == "" {
-				continue
-			}
-			if _, found := seen[normalized]; found {
-				continue
-			}
-			seen[normalized] = struct{}{}
-			urls = append(urls, normalized)
+			appendPresentationReference(&urls, seen, reference)
 		}
 	}
 	for _, test := range report.ExecutedTests {
-		for _, evidence := range test.Evidence {
-			for _, reference := range evidence.Visual {
-				normalized := normalizePresentationURL(reference)
+		for _, key := range presentationEvidenceKeys(test) {
+			record, found := report.Evidence[key]
+			if !found {
+				continue
+			}
+			for _, reference := range ImageReferenceURLs(record.Value) {
+				if !isPresentationEvidenceImage(reference) {
+					continue
+				}
+				normalized := appendPresentationReference(&urls, seen, reference)
 				if normalized == "" {
 					continue
 				}
-				if _, found := seen[normalized]; !found {
-					seen[normalized] = struct{}{}
-					urls = append(urls, normalized)
+				visualTestIDs[normalized] = appendUniqueString(visualTestIDs[normalized], test.TestID)
+			}
+		}
+		for _, evidence := range test.Evidence {
+			for _, reference := range evidence.Visual {
+				normalized := appendPresentationReference(&urls, seen, reference)
+				if normalized == "" {
+					continue
 				}
 				visualTestIDs[normalized] = appendUniqueString(
 					visualTestIDs[normalized],
@@ -122,6 +126,18 @@ func presentationScreenshots(report Report, maestroURLs []string) []Presentation
 		})
 	}
 	return dedupePresentationBursts(screenshots)
+}
+
+func appendPresentationReference(urls *[]string, seen map[string]struct{}, reference string) string {
+	normalized := normalizePresentationURL(reference)
+	if normalized == "" {
+		return ""
+	}
+	if _, found := seen[normalized]; !found {
+		seen[normalized] = struct{}{}
+		*urls = append(*urls, normalized)
+	}
+	return normalized
 }
 
 func dedupePresentationBursts(screenshots []PresentationScreenshot) []PresentationScreenshot {
@@ -207,6 +223,37 @@ func appendUniqueString(values []string, value string) []string {
 		}
 	}
 	return append(values, value)
+}
+
+func presentationEvidenceKeys(test ExecutedTest) []string {
+	seen := map[string]struct{}{}
+	keys := make([]string, 0)
+	for _, assertion := range test.Assertions {
+		for _, key := range assertion.EvidenceKeys {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			if _, found := seen[key]; found {
+				continue
+			}
+			seen[key] = struct{}{}
+			keys = append(keys, key)
+		}
+	}
+	for _, evidence := range test.Evidence {
+		key := strings.TrimSpace(evidence.Name)
+		if key == "" {
+			continue
+		}
+		if _, found := seen[key]; found {
+			continue
+		}
+		seen[key] = struct{}{}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func presentationSummaryFilters(report Report) []PresentationFilter {

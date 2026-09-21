@@ -176,6 +176,40 @@ func TestBuildDocumentUsesPresentationTestIDsForScreenshotAssignment(t *testing.
 	)
 }
 
+func TestBuildDocumentAssignsPresentationScreenshotBuiltFromEvidenceKey(t *testing.T) {
+	report := engine.Report{
+		Evidence: engine.EvidenceMap{
+			"visual_evidence": {
+				Value: map[string]any{
+					"artifacts": []any{"https://app.test/evidence-only.png?token=temporary"},
+				},
+			},
+		},
+		ExecutedTests: []engine.ExecutedTest{{
+			TestID: "WS_RP_TEST__001",
+			Status: "passed",
+			Assertions: []engine.ExecutedCheck{{
+				ID:           "visual",
+				Status:       "passed",
+				EvidenceKeys: []string{"visual_evidence"},
+			}},
+		}},
+	}
+	report.AttachPresentation(nil)
+
+	document := BuildDocument(Input{
+		Report: report,
+		Images: []ImageAsset{
+			{Filename: "evidence-only.png", Data: []byte("image")},
+		},
+	})
+
+	tests := document.Categories[0].Groups[0].Tests
+	require.Len(t, tests[0].Images, 1)
+	require.Equal(t, "evidence-only.png", tests[0].Images[0].Filename)
+	require.Empty(t, document.Unassigned)
+}
+
 func TestBuildDocumentKeepsScenarioEvidenceSeparate(t *testing.T) {
 	report := engine.Report{
 		ExecutedTests: []engine.ExecutedTest{

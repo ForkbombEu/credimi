@@ -117,7 +117,7 @@ func backfillFCAFPresentations(
 			)
 			continue
 		}
-		needsPresentation := fcafReportNeedsPresentationBackfill(report)
+		needsPresentation := fcafReportNeedsPresentationBackfill(app, record, report)
 		if !needsPresentation {
 			summary.skipped++
 			if !options.dryRun {
@@ -228,8 +228,19 @@ func readFCAFReport(
 	return data, nil
 }
 
-func fcafReportNeedsPresentationBackfill(report engine.Report) bool {
-	return report.Presentation == nil
+func fcafReportNeedsPresentationBackfill(app core.App, record *core.Record, report engine.Report) bool {
+	expected := report
+	reportgeneration.AttachPresentation(app, record, &expected)
+	return !presentationJSONEqual(report.Presentation, expected.Presentation)
+}
+
+func presentationJSONEqual(left *engine.Presentation, right *engine.Presentation) bool {
+	leftJSON, leftErr := json.Marshal(left)
+	rightJSON, rightErr := json.Marshal(right)
+	if leftErr != nil || rightErr != nil {
+		return false
+	}
+	return string(leftJSON) == string(rightJSON)
 }
 
 func refreshScoreboardArtifactsAfterBackfill(

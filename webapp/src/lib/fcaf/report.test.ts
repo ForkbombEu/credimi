@@ -166,23 +166,61 @@ describe('prepareReportDisplay', () => {
 		]);
 	});
 
-	it('does not scrape legacy fields when presentation is missing', () => {
+	it('renders historical reports when presentation is missing', () => {
 		const display = prepareReportDisplay(
 			{
-				summary: { passed: 1 },
 				evidence: {
-					deeplink: 'legacy://ignored',
-					shot: 'https://example.com/legacy-ignored.png'
+					session: {
+						deeplink: 'legacy://request',
+						artifacts: ['https://example.com/legacy-only.png']
+					}
 				},
-				executed_tests: [{ test_id: 'WS_RP_DM_AddressData_001', status: 'passed' }]
+				executed_tests: [
+					{
+						test_id: 'WS_RP_DM_AddressData_001',
+						status: 'passed',
+						assertions: [{ evidence_keys: ['session'] }]
+					}
+				]
 			},
 			{ filter: 'all', searchQuery: '' }
 		);
-		expect(display.allScreenshots).toEqual([]);
+		expect(display.allScreenshots).toEqual([
+			{ url: 'https://example.com/legacy-only.png', label: 'legacy only' }
+		]);
 		expect(display.unassignedScreenshots).toEqual([]);
-		expect(display.checkedDeeplink).toBeUndefined();
-		expect(display.summaryFilters).toEqual([]);
+		expect(display.checkedDeeplink).toBe('legacy://request');
+		expect(display.summaryFilters).toEqual([{ key: 'passed', label: 'Passed', count: 1 }]);
 		expect(display.executedTests).toHaveLength(1);
+	});
+
+	it('fills missing presentation fields from historical report data', () => {
+		const display = prepareReportDisplay(
+			{
+				evidence: {
+					visual_evidence: {
+						artifacts: ['https://example.com/fallback.png?token=temporary']
+					}
+				},
+				presentation: {
+					deeplink: 'openid4vp://request'
+				},
+				executed_tests: [
+					{
+						test_id: 'WS_RP_DM_AddressData_001',
+						status: 'passed',
+						assertions: [{ evidence_keys: ['visual_evidence'] }]
+					}
+				]
+			},
+			{ filter: 'all', searchQuery: '' }
+		);
+		expect(display.checkedDeeplink).toBe('openid4vp://request');
+		expect(display.summaryFilters).toEqual([{ key: 'passed', label: 'Passed', count: 1 }]);
+		expect(display.allScreenshots).toEqual([
+			{ url: 'https://example.com/fallback.png', label: 'fallback' }
+		]);
+		expect(display.unassignedScreenshots).toEqual([]);
 	});
 });
 

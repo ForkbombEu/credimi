@@ -144,6 +144,36 @@ func TestBuildPresentationCollectsNestedEvidenceImages(t *testing.T) {
 	}}, presentation.Screenshots)
 }
 
+func TestBuildPresentationAssignsEvidenceMapImagesByEvidenceKey(t *testing.T) {
+	report := Report{
+		Evidence: EvidenceMap{
+			"visual_evidence": {
+				Value: map[string]any{
+					"artifacts": []any{
+						"https://app.test/screens/evidence-only.png?token=temporary",
+					},
+				},
+			},
+		},
+		ExecutedTests: []ExecutedTest{{
+			TestID: "evidence-key-test",
+			Assertions: []ExecutedCheck{{
+				ID:           "visual",
+				Status:       "passed",
+				EvidenceKeys: []string{"visual_evidence"},
+			}},
+		}},
+	}
+
+	presentation := BuildPresentation(report, nil)
+
+	require.Equal(t, []PresentationScreenshot{{
+		URL:     "https://app.test/screens/evidence-only.png",
+		Label:   "evidence only",
+		TestIDs: []string{"evidence-key-test"},
+	}}, presentation.Screenshots)
+}
+
 func TestBuildPresentationKeepsLastScreenshotInBurst(t *testing.T) {
 	presentation := BuildPresentation(Report{
 		ExecutedTests: []ExecutedTest{{
