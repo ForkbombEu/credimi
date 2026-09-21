@@ -92,7 +92,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each workflows as workflow (workflow.execution.runId)}
+			{#each workflows as workflow, index (workflow.execution.runId)}
 				<WorkflowTableRow
 					{workflow}
 					{row}
@@ -100,6 +100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{actions}
 					{disableLink}
 					{rowStart}
+					defaultExpanded={workflow.status === 'Running' || index === 0}
 				/>
 			{:else}
 				<Table.Row class="hover:bg-transparent">
