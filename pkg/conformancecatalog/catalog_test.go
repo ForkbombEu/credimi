@@ -45,7 +45,13 @@ func writeFixtureTree(t *testing.T, root string) {
 
 	suiteBoth := filepath.Join(versionDir, "ewc")
 	require.NoError(t, os.MkdirAll(suiteBoth, 0o755))
-	metaBoth, err := yaml.Marshal(map[string]any{"uid": "ewc", "name": "EWC"})
+	metaBoth, err := yaml.Marshal(map[string]any{
+		"uid":      "ewc",
+		"name":     "EWC",
+		"protocol": "openid4vp",
+		"role":     "wallet",
+		"provider": "ewc",
+	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(suiteBoth, "metadata.yaml"), metaBoth, 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(suiteBoth, "check_one.yaml"), []byte("name: Named Check One\ndescription: x\n"), 0o644))
@@ -142,8 +148,12 @@ func TestLoadWalkTitlesAndVisibility(t *testing.T) {
 
 	require.Equal(t, "Named Check One", byPath["openid4vp/draft-24/ewc/check_one"].Title)
 	require.Equal(t, "Titled Check Two", byPath["openid4vp/draft-24/ewc/check_two"].Title)
+	require.Equal(t, "openid4vp", byPath["openid4vp/draft-24/ewc/check_one"].Protocol)
+	require.Equal(t, "wallet", byPath["openid4vp/draft-24/ewc/check_one"].Role)
+	require.Equal(t, "ewc", byPath["openid4vp/draft-24/ewc/check_one"].Provider)
 	require.Equal(t, "manual_only", byPath["openid4vp/draft-24/oidf/manual_only"].Title)
 	require.Equal(t, []string{SurfaceManual}, byPath["openid4vp/draft-24/oidf/manual_only"].VisibleIn)
+	require.Equal(t, "oidf", byPath["openid4vp/draft-24/oidf/manual_only"].Provider)
 	require.Equal(t, []string{SurfacePipeline}, byPath["openid4vp/draft-24/pipe/pipe_only"].VisibleIn)
 	require.ElementsMatch(t, []string{SurfaceManual, SurfacePipeline}, byPath["openid4vp/draft-24/ewc/check_one"].VisibleIn)
 
@@ -157,6 +167,7 @@ func TestLoadWalkTitlesAndVisibility(t *testing.T) {
 	require.Equal(t, []string{SurfacePipeline}, fcafOne.VisibleIn)
 	require.Equal(t, "wallet_solution", fcafOne.SUT)
 	require.Equal(t, "relying_party", fcafOne.Role)
+	require.Equal(t, "fcaf", fcafOne.Provider)
 	require.Equal(t, "fcaf", fcafOne.Standard)
 	require.Equal(t, "wallet_solution", fcafOne.Version)
 	require.Equal(t, "relying_party", fcafOne.Suite)
@@ -196,6 +207,12 @@ func TestRebuildProjectsIntoCollection(t *testing.T) {
 	require.Equal(t, "Example FCAF test", fcaf.GetString("title"))
 	require.Equal(t, "wallet_solution", fcaf.GetString("sut"))
 	require.Equal(t, "relying_party", fcaf.GetString("role"))
+	require.Equal(t, "fcaf", fcaf.GetString("provider"))
+
+	ewc := byPathRecord(t, records, "openid4vp/draft-24/ewc/check_one")
+	require.Equal(t, "openid4vp", ewc.GetString("protocol"))
+	require.Equal(t, "wallet", ewc.GetString("role"))
+	require.Equal(t, "ewc", ewc.GetString("provider"))
 
 	require.NoError(t, os.WriteFile(
 		filepath.Join(root, "openid4vp", "draft-24", "ewc", "check_three.yaml"),
@@ -264,6 +281,24 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":2`)
 	require.Contains(t, rec.Body.String(), `WS_RP_DM_Example_001`)
+
+	rec = serve(http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`protocol="openid4vp"`),
+		"")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), `"totalItems":2`)
+
+	rec = serve(http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`sut="wallet_solution" && role="relying_party"`),
+		"")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), `"totalItems":2`)
+
+	rec = serve(http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`provider="ewc"`),
+		"")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), `"totalItems":2`)
 
 	manualRecords, err := app.FindRecordsByFilter(CollectionName, `visible_in ~ {:surface}`, "-path", 0, 0, map[string]any{"surface": SurfaceManual})
 	require.NoError(t, err, "FindRecordsByFilter visible_in")

@@ -12,7 +12,7 @@ import (
 )
 
 // EnsureCollection creates the conformance_checks collection when missing.
-// list/view rules are open (empty string) to match public /api/template/blueprints.
+// list/view rules are open (empty string) to match public hub catalog listing.
 // create/update/delete rules are null so non-superuser writes are rejected; hooks
 // also reject writes outside Rebuild projection.
 func EnsureCollection(app core.App) (*core.Collection, error) {

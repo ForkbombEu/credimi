@@ -3,114 +3,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * Blueprints-backed nested standards listing (`/api/template/blueprints`).
- *
- * Hub, marketplace, start-checks, and pipeline pickers use `$lib/conformance`
- * (`pb.collection('conformance_checks')`). This module remains for
- * `getStandardsAndVersionsFlatOptionsList` until #1402 removes blueprints.
+ * Flat standard/version option lists for forms (verifiers, etc.).
+ * Backed by PocketBase `conformance_checks` via `$lib/conformance`.
  */
-
-import type { ClientResponseError } from 'pocketbase';
-
-import { Effect as _, Either, pipe } from 'effect';
-import { z, type ZodError } from 'zod/v3';
 
 import type { SelectOption } from '@/components/ui-custom/utils';
 
-import { pb } from '@/pocketbase';
+import { listAll, type TemplateSurface } from '$lib/conformance';
 
-/* Exports */
-
-export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseSchema>;
-export type TemplateSurface = 'manual' | 'pipeline';
-
-export function getStandardsWithTestSuites(
-	options: { fetch?: typeof fetch; surface?: TemplateSurface } = {}
-): Promise<StandardsWithTestSuites | Error> {
-	const { fetch: fetchFn = fetch, surface = 'manual' } = options;
-	const url = `/api/template/blueprints?surface=${surface}`;
-
-	return pipe(
-		_.tryPromise({
-			try: () =>
-				pb.send(url, {
-					method: 'GET',
-					fetch: fetchFn
-				}),
-			catch: (e) => e as ClientResponseError
-		}),
-		_.andThen((response) =>
-			_.try({
-				try: () => templateBlueprintsResponseSchema.parse(response),
-				catch: (e) => e as ZodError
-			})
-		),
-		_.either,
-		_.map((e) => {
-			if (Either.isLeft(e)) return e.left;
-			else return e.right;
-		}),
-		_.runPromise
-	);
-}
+export type { TemplateSurface };
 
 export async function getStandardsAndVersionsFlatOptionsList(
-	options = { fetch }
+	options: { fetch?: typeof fetch; surface?: TemplateSurface } = {}
 ): Promise<SelectOption<string>[]> {
-	const standards = await getStandardsWithTestSuites(options);
-	if (standards instanceof Error) return [];
-	return standards.flatMap((standard) =>
+	const { fetch: fetchFn = fetch, surface = 'manual' } = options;
+	const result = await listAll({ fetch: fetchFn, surface });
+	if (result.isErr) return [];
+	return result.value.flatMap((standard) =>
 		standard.versions.map((version) => ({
 			value: `${standard.uid}/${version.uid}`,
 			label: `${standard.name} – ${version.name}`
 		}))
 	);
 }
-
-/* Schemas */
-
-const standardMetadataSchema = z.object({
-	uid: z.string(),
-	name: z.string(),
-	description: z.string(),
-	standard_url: z.string(),
-	latest_update: z.string(),
-	external_links: z.record(z.array(z.string())).nullable(),
-	disabled: z.boolean().optional()
-});
-
-const versionMetadataSchema = z.object({
-	uid: z.string(),
-	name: z.string(),
-	latest_update: z.string(),
-	specification_url: z.string().optional()
-});
-
-const suiteMetadataSchema = z.object({
-	uid: z.string(),
-	name: z.string(),
-	homepage: z.string(),
-	repository: z.string(),
-	help: z.string(),
-	description: z.string(),
-	logo: z.string().optional()
-});
-
-const suiteSchema = suiteMetadataSchema.extend({
-	files: z.array(z.string()),
-	paths: z.array(z.string())
-});
-
-const versionSchema = versionMetadataSchema.extend({
-	suites: z.array(suiteSchema)
-});
-
-const standardSchema = standardMetadataSchema.extend({
-	versions: z.array(versionSchema)
-});
-
-const templateBlueprintsResponseSchema = z.array(standardSchema);
-
-export type Suite = z.infer<typeof suiteSchema>;
-export type Version = z.infer<typeof versionSchema>;
-export type Standard = z.infer<typeof standardSchema>;

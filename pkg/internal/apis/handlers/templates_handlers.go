@@ -5,7 +5,6 @@
 package handlers
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -26,12 +24,6 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL: "/api/template",
 	Routes: []routing.RouteDefinition{
 		{
-			Method:              http.MethodGet,
-			Path:                "/blueprints",
-			Handler:             HandleGetConfigsTemplates,
-			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
-		},
-		{
 			Method:        http.MethodPost,
 			Path:          "/placeholders",
 			Handler:       HandlePlaceholdersByFilenames,
@@ -43,33 +35,6 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 	AuthenticationRequired: true,
 }
-
-func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		surface := e.Request.URL.Query().Get("surface")
-		if surface != "" && surface != TemplateSurfaceManual && surface != TemplateSurfacePipeline {
-			return apierror.New(
-				http.StatusBadRequest,
-				"surface",
-				"invalid value for surface",
-				fmt.Sprintf(
-					"surface must be %q or %q",
-					TemplateSurfaceManual,
-					TemplateSurfacePipeline,
-				),
-			)
-		}
-
-		// Nested blueprints are projected from the conformance catalog snapshot
-		// (boot Rebuild / LoadFromDir) — no per-request filesystem walk.
-		return e.JSON(http.StatusOK, conformancecatalog.Default().Blueprints(surface))
-	}
-}
-
-const (
-	TemplateSurfaceManual   = conformancecatalog.SurfaceManual
-	TemplateSurfacePipeline = conformancecatalog.SurfacePipeline
-)
 
 type GetPlaceholdersByFilenamesRequestInput struct {
 	TestID    string   `json:"test_id"`
@@ -125,14 +90,3 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 		return e.JSON(http.StatusOK, placeholders)
 	}
 }
-
-// Compatibility aliases for existing handler tests and callers.
-type (
-	StandardMetadata = conformancecatalog.StandardMetadata
-	VersionMetadata  = conformancecatalog.VersionMetadata
-	SuiteMetadata    = conformancecatalog.SuiteMetadata
-	Suite            = conformancecatalog.Suite
-	Version          = conformancecatalog.Version
-	Standard         = conformancecatalog.Standard
-	Standards        = conformancecatalog.Blueprints
-)

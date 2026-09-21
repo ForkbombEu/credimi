@@ -49,7 +49,7 @@ const (
 	idNamespace = "credimi.conformance_check:"
 )
 
-// nonStandardTemplateDirs mirrors templates blueprints exclusions.
+// nonStandardTemplateDirs are skipped during the config_templates walk.
 var nonStandardTemplateDirs = map[string]struct{}{
 	"fcaf_sources": {},
 }
@@ -71,14 +71,32 @@ type Check struct {
 	StandardDisabled bool     `json:"-"`
 }
 
+// walk-only YAML shapes (not exposed as nested API DTOs).
+type standardYAML struct {
+	UID      string `yaml:"uid"`
+	Disabled bool   `yaml:"disabled"`
+}
+
+type versionYAML struct {
+	UID string `yaml:"uid"`
+}
+
+type suiteYAML struct {
+	UID       string   `yaml:"uid"`
+	VisibleIn []string `yaml:"visible_in"`
+	Protocol  string   `yaml:"protocol"`
+	SUT       string   `yaml:"sut"`
+	Role      string   `yaml:"role"`
+	Provider  string   `yaml:"provider"`
+}
+
 // Catalog holds the in-memory snapshot of checks loaded from disk.
 type Catalog struct {
-	mu         sync.RWMutex
-	checks     []Check
-	blueprints Blueprints
-	byID       map[string]Check
-	byPath     map[string]Check
-	rootDir    string
+	mu      sync.RWMutex
+	checks  []Check
+	byID    map[string]Check
+	byPath  map[string]Check
+	rootDir string
 }
 
 var (
@@ -100,24 +118,15 @@ func (c *Catalog) Snapshot() []Check {
 	return out
 }
 
-// Blueprints returns the nested blueprints tree, optionally filtered by surface
-// ("manual" | "pipeline"). Empty surface returns the full tree.
-// Data comes from the last Rebuild/LoadFromDir — no per-request filesystem walk.
-func (c *Catalog) Blueprints(surface string) Blueprints {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return ProjectBlueprints(c.blueprints, surface)
-}
-
-// LoadFromDir walks templatesDir, replaces the in-memory checks + blueprints
-// snapshot, and does not touch PocketBase. Useful for unit tests and request
-// handlers that need a snapshot without a full Rebuild transaction.
+// LoadFromDir walks templatesDir, replaces the in-memory checks snapshot, and
+// does not touch PocketBase. Useful for unit tests and handlers that need a
+// snapshot without a full Rebuild transaction.
 func (c *Catalog) LoadFromDir(templatesDir string) error {
-	checks, blueprints, err := loadFromDir(templatesDir)
+	checks, err := loadFromDir(templatesDir)
 	if err != nil {
 		return err
 	}
-	c.replaceSnapshot(checks, blueprints, templatesDir)
+	c.replaceSnapshot(checks, templatesDir)
 	return nil
 }
 
@@ -155,26 +164,28 @@ func PathID(path string) string {
 }
 
 type checkFileMeta struct {
-	Title string `yaml:"title"`
-	Name  string `yaml:"name"`
+	Title    string `yaml:"title"`
+	Name     string `yaml:"name"`
+	Protocol string `yaml:"protocol"`
+	SUT      string `yaml:"sut"`
+	Role     string `yaml:"role"`
+	Provider string `yaml:"provider"`
 }
 
-// LoadWalk walks templatesDir and returns classic conformance checks.
-// Layout matches /api/template/blueprints: standard/version/suite/file.
+// LoadWalk walks templatesDir and returns flat conformance checks.
+// Layout: standard/version/suite/file (classic) or …/tests/<id>.yaml (FCAF).
 func LoadWalk(templatesDir string) ([]Check, error) {
-	checks, _, err := loadFromDir(templatesDir)
-	return checks, err
+	return loadFromDir(templatesDir)
 }
 
-// loadFromDir walks once and builds both the flat check list and nested blueprints.
-func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
+// loadFromDir walks once and builds the flat check list with facet fields.
+func loadFromDir(templatesDir string) ([]Check, error) {
 	entries, err := os.ReadDir(templatesDir)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read templates dir: %w", err)
+		return nil, fmt.Errorf("read templates dir: %w", err)
 	}
 
 	var checks []Check
-	blueprints := make(Blueprints, 0)
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -187,9 +198,9 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 		standardUID := entry.Name()
 		standardPath := filepath.Join(templatesDir, standardUID)
 
-		stdMeta := StandardMetadata{UID: standardUID}
+		stdMeta := standardYAML{UID: standardUID}
 		if err := readYAML(filepath.Join(standardPath, "standard.yaml"), &stdMeta); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if stdMeta.UID == "" {
 			stdMeta.UID = standardUID
@@ -197,10 +208,9 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 
 		versionEntries, err := os.ReadDir(standardPath)
 		if err != nil {
-			return nil, nil, fmt.Errorf("read standard dir %s: %w", standardPath, err)
+			return nil, fmt.Errorf("read standard dir %s: %w", standardPath, err)
 		}
 
-		var versions []Version
 		for _, vEntry := range versionEntries {
 			if !vEntry.IsDir() {
 				continue
@@ -211,9 +221,9 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 				continue
 			}
 
-			verMeta := VersionMetadata{UID: versionUID}
+			verMeta := versionYAML{UID: versionUID}
 			if err := readYAML(filepath.Join(versionPath, "version.yaml"), &verMeta); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			if verMeta.UID == "" {
 				verMeta.UID = versionUID
@@ -221,10 +231,9 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 
 			suiteEntries, err := os.ReadDir(versionPath)
 			if err != nil {
-				return nil, nil, fmt.Errorf("read version dir %s: %w", versionPath, err)
+				return nil, fmt.Errorf("read version dir %s: %w", versionPath, err)
 			}
 
-			var suites []Suite
 			for _, sEntry := range suiteEntries {
 				if !sEntry.IsDir() {
 					continue
@@ -235,19 +244,23 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 					continue
 				}
 
-				sMeta := SuiteMetadata{UID: suiteUID}
+				sMeta := suiteYAML{UID: suiteUID}
 				if err := readYAML(filepath.Join(suitePath, "metadata.yaml"), &sMeta); err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				if sMeta.UID == "" {
 					sMeta.UID = suiteUID
 				}
 
 				visibleIn := normalizeVisibleIn(sMeta.VisibleIn)
+				suiteFacets := facetFields{
+					Protocol: sMeta.Protocol,
+					SUT:      sMeta.SUT,
+					Role:     sMeta.Role,
+					Provider: sMeta.Provider,
+				}
 
 				var suiteChecks []Check
-				var files []string
-				var paths []string
 				if hasFCAFTestsDir(stdMeta.UID, suitePath) {
 					suiteChecks, err = loadFCAFSuiteTests(
 						suitePath,
@@ -256,10 +269,8 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 						sMeta.UID,
 						visibleIn,
 						stdMeta.Disabled,
+						suiteFacets,
 					)
-					if err != nil {
-						return nil, nil, err
-					}
 				} else {
 					suiteChecks, err = loadClassicSuiteChecks(
 						suitePath,
@@ -268,37 +279,18 @@ func loadFromDir(templatesDir string) ([]Check, Blueprints, error) {
 						sMeta.UID,
 						visibleIn,
 						stdMeta.Disabled,
+						suiteFacets,
 					)
-					if err != nil {
-						return nil, nil, err
-					}
 				}
-				for _, ch := range suiteChecks {
-					files = append(files, ch.File)
-					paths = append(paths, ch.Path)
-					checks = append(checks, ch)
+				if err != nil {
+					return nil, err
 				}
-
-				suites = append(suites, Suite{
-					SuiteMetadata: sMeta,
-					Files:         files,
-					Paths:         paths,
-				})
+				checks = append(checks, suiteChecks...)
 			}
-
-			versions = append(versions, Version{
-				VersionMetadata: verMeta,
-				Suites:          suites,
-			})
 		}
-
-		blueprints = append(blueprints, Standard{
-			StandardMetadata: stdMeta,
-			Versions:         versions,
-		})
 	}
 
-	return checks, blueprints, nil
+	return checks, nil
 }
 
 // hasFCAFTestsDir reports whether this suite stores FCAF definitions under tests/.
@@ -315,6 +307,7 @@ func loadClassicSuiteChecks(
 	suitePath, standardUID, versionUID, suiteUID string,
 	visibleIn []string,
 	standardDisabled bool,
+	suiteFacets facetFields,
 ) ([]Check, error) {
 	fileEntries, err := os.ReadDir(suitePath)
 	if err != nil {
@@ -331,19 +324,28 @@ func loadClassicSuiteChecks(
 		path := fmt.Sprintf("%s/%s/%s/%s", standardUID, versionUID, suiteUID, stem)
 		filePath := filepath.Join(suitePath, fileName)
 
+		fileMeta := checkFileMeta{}
+		_ = readYAML(filePath, &fileMeta)
+		facets := resolveFacets(standardUID, suiteUID, suiteFacets, facetFields{
+			Protocol: fileMeta.Protocol,
+			SUT:      fileMeta.SUT,
+			Role:     fileMeta.Role,
+			Provider: fileMeta.Provider,
+		})
+
 		checks = append(checks, Check{
 			ID:               PathID(path),
 			Path:             path,
-			Title:            titleForCheck(filePath, stem),
+			Title:            titleFromMeta(fileMeta, stem),
 			Standard:         standardUID,
 			Version:          versionUID,
 			Suite:            suiteUID,
 			File:             fileName,
 			VisibleIn:        append([]string(nil), visibleIn...),
-			Protocol:         "",
-			SUT:              "",
-			Role:             "",
-			Provider:         "",
+			Protocol:         facets.Protocol,
+			SUT:              facets.SUT,
+			Role:             facets.Role,
+			Provider:         facets.Provider,
 			StandardDisabled: standardDisabled,
 		})
 	}
@@ -351,9 +353,11 @@ func loadClassicSuiteChecks(
 }
 
 type fcafTestFileMeta struct {
-	ID    string `yaml:"id"`
-	Title string `yaml:"title"`
-	Suite struct {
+	ID       string `yaml:"id"`
+	Title    string `yaml:"title"`
+	Protocol string `yaml:"protocol"`
+	Provider string `yaml:"provider"`
+	Suite    struct {
 		SUT  string `yaml:"sut"`
 		Role string `yaml:"role"`
 	} `yaml:"suite"`
@@ -366,6 +370,7 @@ func loadFCAFSuiteTests(
 	suitePath, standardUID, versionUID, suiteUID string,
 	visibleIn []string,
 	standardDisabled bool,
+	suiteFacets facetFields,
 ) ([]Check, error) {
 	testsDir := filepath.Join(suitePath, "tests")
 	entries, err := os.ReadDir(testsDir)
@@ -403,6 +408,13 @@ func loadFCAFSuiteTests(
 			title = testID
 		}
 
+		facets := resolveFacets(standardUID, suiteUID, suiteFacets, facetFields{
+			Protocol: meta.Protocol,
+			SUT:      meta.Suite.SUT,
+			Role:     meta.Suite.Role,
+			Provider: meta.Provider,
+		})
+
 		checks = append(checks, Check{
 			ID:               PathID(path),
 			Path:             path,
@@ -412,10 +424,10 @@ func loadFCAFSuiteTests(
 			Suite:            suiteUID,
 			File:             fileName,
 			VisibleIn:        append([]string(nil), visibleIn...),
-			Protocol:         "",
-			SUT:              strings.TrimSpace(meta.Suite.SUT),
-			Role:             strings.TrimSpace(meta.Suite.Role),
-			Provider:         "",
+			Protocol:         facets.Protocol,
+			SUT:              facets.SUT,
+			Role:             facets.Role,
+			Provider:         facets.Provider,
 			StandardDisabled: standardDisabled,
 		})
 	}
@@ -445,9 +457,7 @@ func normalizeVisibleIn(visibleIn []string) []string {
 	return out
 }
 
-func titleForCheck(filePath, stem string) string {
-	meta := checkFileMeta{}
-	_ = readYAML(filePath, &meta)
+func titleFromMeta(meta checkFileMeta, stem string) string {
 	if title := strings.TrimSpace(meta.Title); title != "" {
 		return title
 	}
@@ -482,7 +492,7 @@ func readYAML(path string, out any) error {
 	return nil
 }
 
-func (c *Catalog) replaceSnapshot(checks []Check, blueprints Blueprints, rootDir string) {
+func (c *Catalog) replaceSnapshot(checks []Check, rootDir string) {
 	byID := make(map[string]Check, len(checks))
 	byPath := make(map[string]Check, len(checks))
 	for _, ch := range checks {
@@ -492,7 +502,6 @@ func (c *Catalog) replaceSnapshot(checks []Check, blueprints Blueprints, rootDir
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.checks = checks
-	c.blueprints = blueprints
 	c.byID = byID
 	c.byPath = byPath
 	c.rootDir = rootDir

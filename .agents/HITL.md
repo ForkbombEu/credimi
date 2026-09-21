@@ -30,6 +30,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-21 - Conformance catalog facet completeness (#1402)
+
+- status: open
+- owner: human maintainer
+- context: #1402 removes `/api/template/blueprints` and populates `protocol`/`sut`/`role`/`provider` on `conformance_checks` so the hub can filter via PocketBase queries. v1 sources: (1) optional fields on suite `metadata.yaml` and classic check YAML; (2) FCAF in-file `suite.sut`/`suite.role` (+ provider default `fcaf`); (3) a small known-UID map for classic standards (`openid4vp_wallet` → protocol/role, etc.); (4) suite UID as provider fallback for non-FCAF.
+- question: Should maintainers backfill explicit facet fields into every suite/check YAML (and retire `knownStandardFacets`), or keep the UID map until a path-layout redesign lands?
+- options considered: (1) authored metadata everywhere (preferred long-term); (2) keep/grow UID map (not preferred); (3) parse standard UIDs heuristically (rejected as long-term model).
+- default risk: Classic suites without suite metadata facets still get protocol/role only when the standard UID is in the map; unknown/new standards may have empty protocol/role until metadata is added. Provider is usually suite UID, which is useful but not a curated taxonomy.
+- decision: Ship option mix (1)+(3-map) for #1402; do not invent a large YAML backfill in this ticket.
+- follow-up: Author `protocol`/`sut`/`role`/`provider` in suite metadata (or check files) for gaps; shrink/remove `knownStandardFacets` once coverage is complete; hub filter labels remain English literals until i18n keys are added.
+
 ### 2026-09-21 - Nested picker metadata from flat catalog rows (#1399)
 
 - status: open

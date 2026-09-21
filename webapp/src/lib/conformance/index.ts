@@ -4,6 +4,7 @@
 
 export type { Standard, Suite, Version } from './types';
 export type { ConformanceCheckRecord, TemplateSurface } from './record';
+export type { CatalogFacets } from './client';
 export type { ListAllResponse, StandardsWithTestSuites } from './query';
 
 export { listAll, getStandardsWithTestSuites } from './query';
