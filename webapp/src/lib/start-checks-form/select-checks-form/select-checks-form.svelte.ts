@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { StandardsWithTestSuites } from '$lib/standards';
+import type { StandardsWithTestSuites } from '$lib/conformance';
 
 import { getChecksConfigsFields } from '$start-checks-form/_utils';
 import { String } from 'effect';

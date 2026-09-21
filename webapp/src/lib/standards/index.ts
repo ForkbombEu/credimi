@@ -2,6 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+/**
+ * Blueprints-backed nested standards listing.
+ *
+ * Start-checks and pipeline conformance pickers use `$lib/conformance`
+ * (`pb.collection('conformance_checks')`). Hub/marketplace keep this module
+ * until #1400.
+ */
+
 import type { ClientResponseError } from 'pocketbase';
 
 import { Effect as _, Either, pipe } from 'effect';

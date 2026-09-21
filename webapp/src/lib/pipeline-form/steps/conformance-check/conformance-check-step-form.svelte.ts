@@ -5,8 +5,11 @@
 import type { HubItem } from '$lib/hub';
 
 import { createQuery } from '@tanstack/svelte-query';
+import {
+	getStandardsWithTestSuites,
+	type StandardsWithTestSuites
+} from '$lib/conformance/index.js';
 import { queryClient } from '$lib/query-client';
-import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { getPath } from '$lib/utils';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 import { tick } from 'svelte';
@@ -30,7 +33,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	standardsWithTestSuites = createQuery(
 		() => ({
-			queryKey: ['standards-with-test-suites', 'pipeline'] as const,
+			queryKey: ['conformance-checks', 'pipeline'] as const,
 			queryFn: async () => {
 				const result = await getStandardsWithTestSuites({ surface: 'pipeline' });
 				if (result instanceof Error) throw result;

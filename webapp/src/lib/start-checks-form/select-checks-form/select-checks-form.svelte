@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Suite } from '$lib/standards';
+	import type { Suite } from '$lib/conformance';
 
 	import { ArrowRight, GitBranch, HelpCircle, Home } from '@lucide/svelte';
 	import SectionCard from '$lib/layout/section-card.svelte';

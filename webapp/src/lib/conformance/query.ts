@@ -4,32 +4,47 @@
 
 import { ClientResponseError } from 'pocketbase';
 import * as Task from 'true-myth/task';
-import { z, ZodError } from 'zod';
+import { ZodError } from 'zod';
 
-import { pb } from '@/pocketbase';
+import type { TemplateSurface } from './record';
 
-import { standardSchema } from './types';
+import { listChecks } from './client';
+import { nestChecks } from './nest';
+import { standardSchema, type Standard } from './types';
 
 //
 
-const listAllResponseSchema = z.array(standardSchema);
+export type { TemplateSurface } from './record';
 
-export type ListAllResponse = z.infer<typeof listAllResponseSchema>;
-export type TemplateSurface = 'manual' | 'pipeline';
+export type ListAllResponse = Standard[];
+export type ListAllError = ClientResponseError | ZodError;
+export type StandardsWithTestSuites = ListAllResponse;
 
+/**
+ * Nested standards tree for start-checks / pipeline pickers.
+ * Source: PocketBase `conformance_checks` (grouped client-side).
+ */
 export function listAll(
 	options: { fetch?: typeof fetch; surface?: TemplateSurface } = {}
-): Task.Task<ListAllResponse, ClientResponseError | ZodError> {
+): Task.Task<ListAllResponse, ListAllError> {
 	const { fetch: fetchFn = fetch, surface = 'manual' } = options;
 
-	const path = `/api/template/blueprints?surface=${surface}`;
-
-	return Task.tryOrElse(
-		(err) => err as ClientResponseError,
-		() => pb.send(path, { method: 'GET', fetch: fetchFn })
-	).andThen((response) => {
-		const res = listAllResponseSchema.safeParse(response);
+	return listChecks({ fetch: fetchFn, surface }).andThen((records) => {
+		const nested = nestChecks(records);
+		const res = standardSchema.array().safeParse(nested);
 		if (res.success) return Task.resolve(res.data);
-		else return Task.reject(res.error);
+		return Task.reject(res.error);
 	});
+}
+
+/**
+ * Promise-shaped helper for SvelteKit loaders that historically used
+ * `$lib/standards.getStandardsWithTestSuites`.
+ */
+export async function getStandardsWithTestSuites(
+	options: { fetch?: typeof fetch; surface?: TemplateSurface } = {}
+): Promise<StandardsWithTestSuites | Error> {
+	const result = await listAll(options);
+	if (result.isErr) return result.error;
+	return result.value;
 }
