@@ -1,0 +1,170 @@
+name: FCAF Request Object header controls
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+steps:
+- id: create-invalid-typ
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: invalid-typ
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object_header:
+          set: { /typ: application/jwt }
+        verification_applies: false
+- id: reject-invalid-typ
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-invalid-typ.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-protocol-messages-003-uf
+- id: fetch-invalid-typ
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-invalid-typ.outputs.body.session_id }}
+    expected_status: 200
+- id: create-missing-typ
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: missing-typ
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object_header:
+          unset: [/typ]
+        verification_applies: false
+- id: reject-missing-typ
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-missing-typ.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-protocol-messages-006
+- id: fetch-missing-typ
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-missing-typ.outputs.body.session_id }}
+    expected_status: 200
+- id: create-wrong-typ
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: wrong-typ
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object_header:
+          set: { /typ: jwt }
+        verification_applies: false
+- id: reject-wrong-typ
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-wrong-typ.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-protocol-messages-007
+- id: fetch-wrong-typ
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-wrong-typ.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_MS_ProtocolMessages__003_UF, WS_RP_MS_ProtocolMessages__006, WS_RP_MS_ProtocolMessages__007]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.request-object-header-controls:
+        output:
+          invalid_typ_session: ${{ fetch-invalid-typ.outputs.body }}
+          invalid_typ_request_object: ${{ fetch-invalid-typ.outputs.body.raw.authorization_request_jwt }}
+          invalid_typ_delivered_request: ${{ fetch-invalid-typ.outputs.body.raw.authorization_request_delivered }}
+          invalid_typ_visual_evidence: ${{ reject-invalid-typ.outputs.flow_output.maestro_screenshot_urls }}
+          missing_typ_session: ${{ fetch-missing-typ.outputs.body }}
+          missing_typ_request_object: ${{ fetch-missing-typ.outputs.body.raw.authorization_request_jwt }}
+          missing_typ_delivered_request: ${{ fetch-missing-typ.outputs.body.raw.authorization_request_delivered }}
+          missing_typ_visual_evidence: ${{ reject-missing-typ.outputs.flow_output.maestro_screenshot_urls }}
+          wrong_typ_session: ${{ fetch-wrong-typ.outputs.body }}
+          wrong_typ_request_object: ${{ fetch-wrong-typ.outputs.body.raw.authorization_request_jwt }}
+          wrong_typ_delivered_request: ${{ fetch-wrong-typ.outputs.body.raw.authorization_request_delivered }}
+          wrong_typ_visual_evidence: ${{ reject-wrong-typ.outputs.flow_output.maestro_screenshot_urls }}

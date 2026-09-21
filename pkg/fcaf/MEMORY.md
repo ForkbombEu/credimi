@@ -1659,3 +1659,26 @@ pre-existing and was left as is rather than adding a lone 001f row.
 
 The generated complete aggregate now contains 709 steps, 611 test IDs, and 197
 pipeline outputs.
+
+## Request Object control cases
+
+`WS_RP_MS_ProtocolMessages__003_UF`, `006`, `007`, `009`, `010`, `016`,
+`033`, `034`, `049`, `051`, and `WS_RP_SM_RpIntegrity__027` now have concrete
+definitions. The four source scenarios are `request-object-header-controls`,
+`request-object-payload-controls`, `request-object-outer-controls`, and
+`rp-integrity-invalid-signature`.
+
+Their evidence comes from Capture Wallet's delivered JAR
+`raw.authorization_request_jwt`, delivered outer request where required,
+request-URI POST observations, final session outcome, and Maestro screenshots.
+The controls use `request_mutation` for JAR headers, JAR payloads, and outer
+parameters, and `request_behavior.signature: corrupt` for the signed-JAR
+integrity case. New validators distinguish missing JWT header fields, different
+JWT payload fields, and a well-formed JWS whose signature fails verification.
+
+`make fcaf-generate` and
+`go test ./cmd/fcaf-pipeline-gen ./pkg/fcaf/... ./pkg/internal/pipeline` pass.
+The complete aggregate now contains 742 steps, 612 test IDs, and 201 pipeline
+outputs. `adb devices` on 21/09/2026 listed no attached emulator, so none of
+these controls has reference-Wallet evidence yet; keep their inventory status
+as `implemented verifier-blocked`.

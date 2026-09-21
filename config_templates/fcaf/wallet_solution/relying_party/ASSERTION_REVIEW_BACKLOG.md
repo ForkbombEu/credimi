@@ -17,10 +17,9 @@ Review baseline: the local source mirror under
 against upstream `submitted` commit `2b223b56be0d0a073ee0cdc9db1d7fd31d9529a1`
 (13/08/2026), and the Capture Wallet contract in
 `pkg/fcaf/CAPTURE_WALLET_API.md`. The source mirror has 621 distinct
-`WS_RP_*` files and Credimi has 584 matching test definitions. The remaining
-source-test difference
-difference is listed below; it is deliberately separate from assertion work
-that is incomplete or incorrect.
+`WS_RP_*` files and Credimi has 595 matching test definitions. The remaining
+source-test difference is listed below; it is deliberately separate from
+assertion work that is incomplete or incorrect.
 
 The lists below are the active review state; test-definition totals are kept in
 the baseline above and validated by the FCAF catalog loader.
@@ -37,11 +36,11 @@ its setup.
 
 ### Constructible pending beta evidence
 
-- **Request Object header, payload, outer-parameter, and signature controls:**
-  `WS_RP_MS_ProtocolMessages__003_UF`, `006`, `007`, `009`, `010`, `016`,
-  `033`, `034`, `049`, `051`, and `WS_RP_SM_RpIntegrity__027`. Use
-  `request_mutation` or `request_behavior.signature=corrupt` and bind evidence
-  to the delivered JAR, outer request, and Wallet outcome.
+- **Implemented; beta evidence pending:** `WS_RP_MS_ProtocolMessages__003_UF`,
+  `006`, `007`, `009`, `010`, `016`, `033`, `034`, `049`, `051`, and
+  `WS_RP_SM_RpIntegrity__027`. The scenarios use `request_mutation` or
+  `request_behavior.signature=corrupt` and bind the delivered JAR, outer
+  request where applicable, retrieval, and Wallet outcome.
 - **Wallet nonce and Request URI response controls:**
   `WS_RP_MS_ProtocolMessages__046`, `048`,
   `WS_RP_MS_Metadata__139`, `140`, and `WS_RP_IA_Supportive__002`. Use

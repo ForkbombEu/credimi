@@ -1,0 +1,56 @@
+name: FCAF invalid Request Object signature
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+steps:
+- id: create-corrupt-signature
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: corrupt-signature
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_behavior:
+        signature: corrupt
+- id: reject-corrupt-signature
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-corrupt-signature.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-rp-integrity-027
+- id: fetch-corrupt-signature
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-corrupt-signature.outputs.body.session_id }}", expected_status: 200 }
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_SM_RpIntegrity__027]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.rp-integrity.invalid-signature:
+        output:
+          session: ${{ fetch-corrupt-signature.outputs.body }}
+          request_object: ${{ fetch-corrupt-signature.outputs.body.raw.authorization_request_jwt }}
+          visual_evidence: ${{ reject-corrupt-signature.outputs.flow_output.maestro_screenshot_urls }}

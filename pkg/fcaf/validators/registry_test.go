@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -411,6 +412,39 @@ func TestJOSEJWSSignedRequestValidator(t *testing.T) {
 	)
 }
 
+func TestJOSEJWSInvalidSignatureValidator(t *testing.T) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	now := time.Now()
+	certificateDER, err := x509.CreateCertificate(
+		rand.Reader,
+		&x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour)},
+		&x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour)},
+		&privateKey.PublicKey,
+		privateKey,
+	)
+	require.NoError(t, err)
+
+	request := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{"nonce": "nonce-1"})
+	request.Header["x5c"] = []string{base64.StdEncoding.EncodeToString(certificateDER)}
+	compactRequest, err := request.SignedString(privateKey)
+	require.NoError(t, err)
+	parts := strings.Split(compactRequest, ".")
+	require.Len(t, parts, 3)
+	if parts[2][0] == 'A' {
+		parts[2] = "B" + parts[2][1:]
+	} else {
+		parts[2] = "A" + parts[2][1:]
+	}
+
+	got := JOSEJWSInvalidSignatureValidator{}.Validate(
+		context.Background(),
+		Input{Value: strings.Join(parts, ".")},
+	)
+	require.Equal(t, StatusPass, got.Status)
+}
+
 func TestOID4VPNonceStateBindingValidator(t *testing.T) {
 	got := OID4VPNonceStateBindingValidator{}.Validate(context.Background(), Input{
 		Value: map[string]any{
@@ -762,6 +796,52 @@ func TestJWTPayloadFieldPresenceValidator(t *testing.T) {
 			require.Equal(t, tt.wantStatus, got.Status)
 		})
 	}
+}
+
+func TestJWTHeaderFieldPresenceValidator(t *testing.T) {
+	validator := JWTHeaderFieldPresenceValidator{}
+	require.Equal(
+		t,
+		StatusPass,
+		validator.Validate(
+			context.Background(),
+			Input{Value: "eyJhbGciOiJFUzI1NiJ9.e30.signature", Params: map[string]any{"field": "typ", "present": false}},
+		).Status,
+	)
+	require.Equal(
+		t,
+		StatusFail,
+		validator.Validate(
+			context.Background(),
+			Input{Value: "eyJ0eXAiOiJKV1QifQ.e30.signature", Params: map[string]any{"field": "typ", "present": false}},
+		).Status,
+	)
+}
+
+func TestJWTPayloadFieldsDifferValidator(t *testing.T) {
+	validator := JWTPayloadFieldsDifferValidator{}
+	require.Equal(
+		t,
+		StatusPass,
+		validator.Validate(
+			context.Background(),
+			Input{
+				Value:  "e30.eyJjbGllbnRfaWQiOiJjbGllbnQtMSIsImlzcyI6ImNsaWVudC0yIn0.signature",
+				Params: map[string]any{"first": "client_id", "second": "iss"},
+			},
+		).Status,
+	)
+	require.Equal(
+		t,
+		StatusFail,
+		validator.Validate(
+			context.Background(),
+			Input{
+				Value:  "e30.eyJjbGllbnRfaWQiOiJjbGllbnQtMSIsImlzcyI6ImNsaWVudC0xIn0.signature",
+				Params: map[string]any{"first": "client_id", "second": "iss"},
+			},
+		).Status,
+	)
 }
 
 func TestSDJWTClaimPresentValidator(t *testing.T) {

@@ -1,7 +1,7 @@
-id: WS_RP_MS_ProtocolMessages__006
-title: Reject a Request Object without a typ header
+id: WS_RP_MS_ProtocolMessages__003_UF
+title: Reject a signed Request Object with an invalid typ header
 source:
-  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__006.md
+  path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__003_UF.md
 suite:
   sut: wallet_solution
   role: relying_party
@@ -14,14 +14,17 @@ normative_references:
   section: '5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  session: { from: pipeline.protocol.request-object-header-controls.outputs.missing_typ_session }
-  request_object: { from: pipeline.protocol.request-object-header-controls.outputs.missing_typ_request_object }
-  visual_evidence: { from: pipeline.protocol.request-object-header-controls.outputs.missing_typ_visual_evidence }
+  session: { from: pipeline.protocol.request-object-header-controls.outputs.invalid_typ_session }
+  request_object: { from: pipeline.protocol.request-object-header-controls.outputs.invalid_typ_request_object }
+  visual_evidence: { from: pipeline.protocol.request-object-header-controls.outputs.invalid_typ_visual_evidence }
 assertions:
-- id: request_object_typ_is_absent
-  validator: jwt.header_field_presence
+- id: signed_request_has_valid_signature
+  validator: jose.jws_signed_request
   input: evidence.request_object
-  params: { field: typ, present: false }
+- id: request_object_typ_is_invalid
+  validator: jwt.header_field_equals
+  input: evidence.request_object
+  params: { field: typ, value: application/jwt }
 - id: wallet_retrieves_request_object
   validator: oid4vp.request_uri_retrieval
   input: evidence.session

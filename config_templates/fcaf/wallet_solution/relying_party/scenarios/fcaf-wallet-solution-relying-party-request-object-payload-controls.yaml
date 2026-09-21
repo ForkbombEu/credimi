@@ -1,0 +1,251 @@
+name: FCAF Request Object payload controls
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+steps:
+- id: create-different-iss
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: different-iss
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          set: { /iss: "https://issuer.example.invalid" }
+        verification_applies: false
+- id: exercise-different-iss
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-different-iss.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+- id: fetch-different-iss
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-different-iss.outputs.body.session_id }}
+    expected_status: 200
+- id: create-missing-client-id
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: missing-client-id
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          unset: [/client_id]
+        verification_applies: false
+- id: exercise-missing-client-id
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-missing-client-id.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-missing-client-id
+- id: fetch-missing-client-id
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-missing-client-id.outputs.body.session_id }}
+    expected_status: 200
+- id: create-unknown-parameter
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: unknown-parameter
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          set: { /unrecognized_parameter: ignored }
+        verification_applies: false
+- id: exercise-unknown-parameter
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-unknown-parameter.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+- id: fetch-unknown-parameter
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-unknown-parameter.outputs.body.session_id }}
+    expected_status: 200
+- id: create-invalid-state
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: invalid-state
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          set: { /state: "not safe/?" }
+        verification_applies: false
+- id: exercise-invalid-state
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-invalid-state.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-invalid-state
+- id: fetch-invalid-state
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-invalid-state.outputs.body.session_id }}
+    expected_status: 200
+- id: create-no-state-without-holder-binding
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: no-state-without-holder-binding
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          set: { /require_cryptographic_holder_binding: false }
+          unset: [/state]
+        verification_applies: false
+- id: exercise-no-state-without-holder-binding
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-no-state-without-holder-binding.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-no-state-without-holder-binding
+- id: fetch-no-state-without-holder-binding
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-no-state-without-holder-binding.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_MS_ProtocolMessages__009, WS_RP_MS_ProtocolMessages__010, WS_RP_MS_ProtocolMessages__016, WS_RP_MS_ProtocolMessages__033, WS_RP_MS_ProtocolMessages__034]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.request-object-payload-controls:
+        output:
+          different_iss_session: ${{ fetch-different-iss.outputs.body }}
+          different_iss_request_object: ${{ fetch-different-iss.outputs.body.raw.authorization_request_jwt }}
+          different_iss_delivered_request: ${{ fetch-different-iss.outputs.body.raw.authorization_request_delivered }}
+          different_iss_visual_evidence: ${{ exercise-different-iss.outputs.flow_output.maestro_screenshot_urls }}
+          missing_client_id_session: ${{ fetch-missing-client-id.outputs.body }}
+          missing_client_id_request_object: ${{ fetch-missing-client-id.outputs.body.raw.authorization_request_jwt }}
+          missing_client_id_delivered_request: ${{ fetch-missing-client-id.outputs.body.raw.authorization_request_delivered }}
+          missing_client_id_visual_evidence: ${{ exercise-missing-client-id.outputs.flow_output.maestro_screenshot_urls }}
+          unknown_parameter_session: ${{ fetch-unknown-parameter.outputs.body }}
+          unknown_parameter_request_object: ${{ fetch-unknown-parameter.outputs.body.raw.authorization_request_jwt }}
+          unknown_parameter_delivered_request: ${{ fetch-unknown-parameter.outputs.body.raw.authorization_request_delivered }}
+          unknown_parameter_visual_evidence: ${{ exercise-unknown-parameter.outputs.flow_output.maestro_screenshot_urls }}
+          invalid_state_session: ${{ fetch-invalid-state.outputs.body }}
+          invalid_state_request_object: ${{ fetch-invalid-state.outputs.body.raw.authorization_request_jwt }}
+          invalid_state_delivered_request: ${{ fetch-invalid-state.outputs.body.raw.authorization_request_delivered }}
+          invalid_state_visual_evidence: ${{ exercise-invalid-state.outputs.flow_output.maestro_screenshot_urls }}
+          no_state_without_holder_binding_session: ${{ fetch-no-state-without-holder-binding.outputs.body }}
+          no_state_without_holder_binding_request_object: ${{ fetch-no-state-without-holder-binding.outputs.body.raw.authorization_request_jwt }}
+          no_state_without_holder_binding_delivered_request: ${{ fetch-no-state-without-holder-binding.outputs.body.raw.authorization_request_delivered }}
+          no_state_without_holder_binding_visual_evidence: ${{ exercise-no-state-without-holder-binding.outputs.flow_output.maestro_screenshot_urls }}

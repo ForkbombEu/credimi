@@ -9956,6 +9956,555 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-by-value-f1c94061-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: request-object-header-controls-ed82443e-create-invalid-typ
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: invalid-typ
+            request_delivery: by_reference
+            request_mutation:
+                request_object_header:
+                    set:
+                        /typ: application/jwt
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-reject-invalid-typ
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-protocol-messages-003-uf
+        parameters:
+            DEEPLINK: ${{ request-object-header-controls-ed82443e-create-invalid-typ.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-fetch-invalid-typ
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-header-controls-ed82443e-create-invalid-typ.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-create-missing-typ
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: missing-typ
+            request_delivery: by_reference
+            request_mutation:
+                request_object_header:
+                    unset:
+                        - /typ
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-reject-missing-typ
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-protocol-messages-006
+        parameters:
+            DEEPLINK: ${{ request-object-header-controls-ed82443e-create-missing-typ.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-fetch-missing-typ
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-header-controls-ed82443e-create-missing-typ.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-create-wrong-typ
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: wrong-typ
+            request_delivery: by_reference
+            request_mutation:
+                request_object_header:
+                    set:
+                        /typ: jwt
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-reject-wrong-typ
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-protocol-messages-007
+        parameters:
+            DEEPLINK: ${{ request-object-header-controls-ed82443e-create-wrong-typ.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-fetch-wrong-typ
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-header-controls-ed82443e-create-wrong-typ.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-outer-controls-84cfd8b2-create-conflicting-nonce
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: request-object-nonce
+            request_delivery: by_reference
+            request_mutation:
+                outer_request:
+                    set:
+                        /nonce: outer-nonce
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-outer-controls-84cfd8b2-exercise-conflicting-nonce
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ request-object-outer-controls-84cfd8b2-create-conflicting-nonce.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-outer-controls-84cfd8b2-create-conflicting-nonce.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-outer-controls-84cfd8b2-create-conflicting-client-id
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: conflicting-client-id
+            request_delivery: by_reference
+            request_mutation:
+                outer_request:
+                    set:
+                        /client_id: outer-client
+                request_object:
+                    set:
+                        /client_id: request-object-client
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-outer-controls-84cfd8b2-reject-conflicting-client-id
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-protocol-messages-051
+        parameters:
+            DEEPLINK: ${{ request-object-outer-controls-84cfd8b2-create-conflicting-client-id.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-outer-controls-84cfd8b2-create-conflicting-client-id.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-create-different-iss
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: different-iss
+            request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    set:
+                        /iss: https://issuer.example.invalid
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-different-iss
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-different-iss.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-fetch-different-iss
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-payload-controls-aefde1c6-create-different-iss.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-create-missing-client-id
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: missing-client-id
+            request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    unset:
+                        - /client_id
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-missing-client-id
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-missing-client-id
+        parameters:
+            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-missing-client-id.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-fetch-missing-client-id
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-payload-controls-aefde1c6-create-missing-client-id.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-create-unknown-parameter
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: unknown-parameter
+            request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    set:
+                        /unrecognized_parameter: ignored
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-unknown-parameter
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-unknown-parameter.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-fetch-unknown-parameter
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-payload-controls-aefde1c6-create-unknown-parameter.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-create-invalid-state
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: invalid-state
+            request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    set:
+                        /state: not safe/?
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-invalid-state
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-invalid-state
+        parameters:
+            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-invalid-state.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-fetch-invalid-state
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-payload-controls-aefde1c6-create-invalid-state.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-create-no-state-without-holder-binding
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: no-state-without-holder-binding
+            request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    set:
+                        /require_cryptographic_holder_binding: false
+                    unset:
+                        - /state
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-no-state-without-holder-binding
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-no-state-without-holder-binding
+        parameters:
+            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-no-state-without-holder-binding.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-fetch-no-state-without-holder-binding
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-payload-controls-aefde1c6-create-no-state-without-holder-binding.outputs.body.session_id }}
+    - continue_on_error: true
       id: request-uri-method-default-9bc74bd3-create-presentation
       use: http-request
       with:
@@ -10781,6 +11330,61 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-encryption-reused-jwk-183059b7-create-second-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: corrupt-signature
+            request_behavior:
+                signature: corrupt
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: rp-integrity-invalid-signature-4f1ab386-reject-corrupt-signature
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-rp-integrity-027
+        parameters:
+            DEEPLINK: ${{ rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: rp-integrity-invalid-signature-4f1ab386-fetch-corrupt-signature
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature.outputs.body.session_id }}
     - continue_on_error: true
       id: session-binding-invalid-nonce-0c3e8d16-create-capture-session
       use: http-request
@@ -12360,6 +12964,52 @@ steps:
                     pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.protocol.request-object-header-controls:
+                output:
+                    invalid_typ_delivered_request: ${{ request-object-header-controls-ed82443e-fetch-invalid-typ.outputs.body.raw.authorization_request_delivered | optional }}
+                    invalid_typ_request_object: ${{ request-object-header-controls-ed82443e-fetch-invalid-typ.outputs.body.raw.authorization_request_jwt | optional }}
+                    invalid_typ_session: ${{ request-object-header-controls-ed82443e-fetch-invalid-typ.outputs.body | optional }}
+                    invalid_typ_visual_evidence: ${{ request-object-header-controls-ed82443e-reject-invalid-typ.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    missing_typ_delivered_request: ${{ request-object-header-controls-ed82443e-fetch-missing-typ.outputs.body.raw.authorization_request_delivered | optional }}
+                    missing_typ_request_object: ${{ request-object-header-controls-ed82443e-fetch-missing-typ.outputs.body.raw.authorization_request_jwt | optional }}
+                    missing_typ_session: ${{ request-object-header-controls-ed82443e-fetch-missing-typ.outputs.body | optional }}
+                    missing_typ_visual_evidence: ${{ request-object-header-controls-ed82443e-reject-missing-typ.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    wrong_typ_delivered_request: ${{ request-object-header-controls-ed82443e-fetch-wrong-typ.outputs.body.raw.authorization_request_delivered | optional }}
+                    wrong_typ_request_object: ${{ request-object-header-controls-ed82443e-fetch-wrong-typ.outputs.body.raw.authorization_request_jwt | optional }}
+                    wrong_typ_session: ${{ request-object-header-controls-ed82443e-fetch-wrong-typ.outputs.body | optional }}
+                    wrong_typ_visual_evidence: ${{ request-object-header-controls-ed82443e-reject-wrong-typ.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.protocol.request-object-outer-controls:
+                output:
+                    conflicting_client_id_outer_request: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id.outputs.body.raw.outer_request_delivered | optional }}
+                    conflicting_client_id_request_object: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id.outputs.body.raw.authorization_request_jwt | optional }}
+                    conflicting_client_id_session: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id.outputs.body | optional }}
+                    conflicting_client_id_visual_evidence: ${{ request-object-outer-controls-84cfd8b2-reject-conflicting-client-id.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    conflicting_nonce_outer_request: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce.outputs.body.raw.outer_request_delivered | optional }}
+                    conflicting_nonce_request_object: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce.outputs.body.raw.authorization_request_jwt | optional }}
+                    conflicting_nonce_session: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce.outputs.body | optional }}
+                    conflicting_nonce_visual_evidence: ${{ request-object-outer-controls-84cfd8b2-exercise-conflicting-nonce.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.protocol.request-object-payload-controls:
+                output:
+                    different_iss_delivered_request: ${{ request-object-payload-controls-aefde1c6-fetch-different-iss.outputs.body.raw.authorization_request_delivered | optional }}
+                    different_iss_request_object: ${{ request-object-payload-controls-aefde1c6-fetch-different-iss.outputs.body.raw.authorization_request_jwt | optional }}
+                    different_iss_session: ${{ request-object-payload-controls-aefde1c6-fetch-different-iss.outputs.body | optional }}
+                    different_iss_visual_evidence: ${{ request-object-payload-controls-aefde1c6-exercise-different-iss.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    invalid_state_delivered_request: ${{ request-object-payload-controls-aefde1c6-fetch-invalid-state.outputs.body.raw.authorization_request_delivered | optional }}
+                    invalid_state_request_object: ${{ request-object-payload-controls-aefde1c6-fetch-invalid-state.outputs.body.raw.authorization_request_jwt | optional }}
+                    invalid_state_session: ${{ request-object-payload-controls-aefde1c6-fetch-invalid-state.outputs.body | optional }}
+                    invalid_state_visual_evidence: ${{ request-object-payload-controls-aefde1c6-exercise-invalid-state.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    missing_client_id_delivered_request: ${{ request-object-payload-controls-aefde1c6-fetch-missing-client-id.outputs.body.raw.authorization_request_delivered | optional }}
+                    missing_client_id_request_object: ${{ request-object-payload-controls-aefde1c6-fetch-missing-client-id.outputs.body.raw.authorization_request_jwt | optional }}
+                    missing_client_id_session: ${{ request-object-payload-controls-aefde1c6-fetch-missing-client-id.outputs.body | optional }}
+                    missing_client_id_visual_evidence: ${{ request-object-payload-controls-aefde1c6-exercise-missing-client-id.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    no_state_without_holder_binding_delivered_request: ${{ request-object-payload-controls-aefde1c6-fetch-no-state-without-holder-binding.outputs.body.raw.authorization_request_delivered | optional }}
+                    no_state_without_holder_binding_request_object: ${{ request-object-payload-controls-aefde1c6-fetch-no-state-without-holder-binding.outputs.body.raw.authorization_request_jwt | optional }}
+                    no_state_without_holder_binding_session: ${{ request-object-payload-controls-aefde1c6-fetch-no-state-without-holder-binding.outputs.body | optional }}
+                    no_state_without_holder_binding_visual_evidence: ${{ request-object-payload-controls-aefde1c6-exercise-no-state-without-holder-binding.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    unknown_parameter_delivered_request: ${{ request-object-payload-controls-aefde1c6-fetch-unknown-parameter.outputs.body.raw.authorization_request_delivered | optional }}
+                    unknown_parameter_request_object: ${{ request-object-payload-controls-aefde1c6-fetch-unknown-parameter.outputs.body.raw.authorization_request_jwt | optional }}
+                    unknown_parameter_session: ${{ request-object-payload-controls-aefde1c6-fetch-unknown-parameter.outputs.body | optional }}
+                    unknown_parameter_visual_evidence: ${{ request-object-payload-controls-aefde1c6-exercise-unknown-parameter.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.request-uri.post:
                 output:
                     capture_session: ${{ request-uri-post-8426f040-fetch-capture-session.outputs.body | optional }}
@@ -12423,6 +13073,11 @@ steps:
                     second_capture_session: ${{ response-encryption-reused-jwk-183059b7-fetch-second-capture-session.outputs.body | optional }}
                     second_request_object: ${{ response-encryption-reused-jwk-183059b7-fetch-second-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-reused-jwk-183059b7-exercise-second-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.rp-integrity.invalid-signature:
+                output:
+                    request_object: ${{ rp-integrity-invalid-signature-4f1ab386-fetch-corrupt-signature.outputs.body.raw.authorization_request_jwt | optional }}
+                    session: ${{ rp-integrity-invalid-signature-4f1ab386-fetch-corrupt-signature.outputs.body | optional }}
+                    visual_evidence: ${{ rp-integrity-invalid-signature-4f1ab386-reject-corrupt-signature.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.session-binding.invalid-nonce:
                 output:
                     capture_session: ${{ session-binding-invalid-nonce-0c3e8d16-fetch-capture-session.outputs.body | optional }}
@@ -12882,6 +13537,7 @@ steps:
             - WS_RP_MS_Metadata__141
             - WS_RP_MS_ProtocolMessages__002
             - WS_RP_MS_ProtocolMessages__003
+            - WS_RP_MS_ProtocolMessages__003_UF
             - WS_RP_MS_ProtocolMessages__004
             - WS_RP_MS_ProtocolMessages__005
             - WS_RP_MS_ProtocolMessages__006
