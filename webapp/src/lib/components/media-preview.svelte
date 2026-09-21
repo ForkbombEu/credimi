@@ -61,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if image}
 		<LazyImage src={image} alt="Media" class="size-full object-cover" />
 	{/if}
-	<div class="absolute inset-0 flex items-center justify-center bg-black/30">
+	<div class="absolute inset-0 flex items-center justify-center bg-black/50">
 		<Icon src={iconComponent} class="size-4  text-white" />
 	</div>
 {/snippet}

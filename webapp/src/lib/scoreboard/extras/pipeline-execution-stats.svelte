@@ -49,15 +49,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<ExecutionModes {stats} tag="span" class="font-semibold text-slate-600" />
 	</div>
 {:else if layout === 'stat-box-success'}
-	<div class="flex h-20 w-[140px] flex-col items-start justify-between rounded-lg border p-3">
-		<T tag="h2" class={['mb-0! pb-0!', successClass]}>
+	<div class="flex h-20 flex-col items-start justify-between rounded-lg border p-3">
+		<T tag="h2" class={['mb-0! pb-0! whitespace-nowrap', successClass]}>
 			{stats.successes}/{stats.total} ({stats.percent}%)
 		</T>
 		<T class="text-sm">{label}</T>
 	</div>
 {:else}
-	<div class="flex h-20 w-[140px] flex-col items-start justify-between rounded-lg border p-3">
-		<div class="text-lg leading-tight font-semibold">
+	<div class="flex h-20 flex-col items-start justify-between rounded-lg border p-3">
+		<div class="text-lg leading-tight font-semibold whitespace-nowrap">
 			<ExecutionModes {stats} class="text-sm" />
 		</div>
 		<T class="text-sm">{label}</T>

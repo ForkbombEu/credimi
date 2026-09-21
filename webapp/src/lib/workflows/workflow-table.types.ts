@@ -6,8 +6,9 @@ type TableColumn =
 	| 'type'
 	| 'workflow'
 	| 'status'
-	| 'start_time'
-	| 'end_time'
+	| 'date'
+	| 'start'
+	| 'end'
 	| 'duration'
 	| 'actions';
 
