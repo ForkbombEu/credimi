@@ -102,6 +102,7 @@ func DefaultRegistry() (*Registry, error) {
 		SDJWTClaimNonNegativeIntegerValidator{},
 		SDJWTClaimURIValidator{},
 		OID4VPWalletNonceMatchValidator{},
+		OID4VPWalletNonceMismatchValidator{},
 		OID4VPRequestURIRetrievalValidator{},
 		OID4VPRequestURINotRetrievedValidator{},
 		OID4VPUnsupportedResponseTypeValidator{},

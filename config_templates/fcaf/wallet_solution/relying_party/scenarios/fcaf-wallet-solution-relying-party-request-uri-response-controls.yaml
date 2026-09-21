@@ -1,0 +1,116 @@
+name: FCAF Request URI response controls
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+steps:
+- id: create-wrong-content-type
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: request-uri-wrong-content-type
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_behavior:
+        request_uri_response:
+          content_type: application/json
+- id: reject-wrong-content-type
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-wrong-content-type.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-protocol-messages-048
+- id: fetch-wrong-content-type
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-wrong-content-type.outputs.body.session_id }}
+    expected_status: 200
+- id: create-http-error
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: request-uri-http-error
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_behavior:
+        request_uri_response:
+          status: 500
+- id: reject-http-error
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { DEEPLINK: "${{ create-http-error.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp: { stopApp: true, clearState: false }
+      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "50%,10%" }
+            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+      - takeScreenshot: fcaf-supportive-002
+- id: fetch-http-error
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-http-error.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_MS_ProtocolMessages__048, WS_RP_IA_Supportive__002]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.request-uri-response-controls:
+        output:
+          wrong_content_type_session: ${{ fetch-wrong-content-type.outputs.body }}
+          wrong_content_type_response: ${{ fetch-wrong-content-type.outputs.body.raw.request_uri_response_http }}
+          wrong_content_type_behavior: ${{ fetch-wrong-content-type.outputs.body.request_behavior.request_uri_response }}
+          wrong_content_type_visual_evidence: ${{ reject-wrong-content-type.outputs.flow_output.maestro_screenshot_urls }}
+          http_error_session: ${{ fetch-http-error.outputs.body }}
+          http_error_response: ${{ fetch-http-error.outputs.body.raw.request_uri_response_http }}
+          http_error_behavior: ${{ fetch-http-error.outputs.body.request_behavior.request_uri_response }}
+          http_error_visual_evidence: ${{ reject-http-error.outputs.flow_output.maestro_screenshot_urls }}

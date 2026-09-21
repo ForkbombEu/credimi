@@ -10775,6 +10775,118 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-uri-post-8426f040-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-create-wrong-content-type
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: request-uri-wrong-content-type
+            request_behavior:
+                request_uri_response:
+                    content_type: application/json
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-reject-wrong-content-type
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-protocol-messages-048
+        parameters:
+            DEEPLINK: ${{ request-uri-response-controls-77a90e75-create-wrong-content-type.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-fetch-wrong-content-type
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-uri-response-controls-77a90e75-create-wrong-content-type.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-create-http-error
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: request-uri-http-error
+            request_behavior:
+                request_uri_response:
+                    status: 500
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-reject-http-error
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-supportive-002
+        parameters:
+            DEEPLINK: ${{ request-uri-response-controls-77a90e75-create-http-error.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-fetch-http-error
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-uri-response-controls-77a90e75-create-http-error.outputs.body.session_id }}
+    - continue_on_error: true
       id: response-encryption-a128gcm-57bacf6d-create-capture-session
       use: http-request
       with:
@@ -11998,6 +12110,171 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-info-all-credentials-039537ba-create-capture-session.outputs.body.session_id }}/request
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-create-protocol-message-nonce-mismatch
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: protocol-message-nonce-mismatch
+            request_behavior:
+                wallet_nonce: mismatch
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-reject-protocol-message-nonce-mismatch
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-protocol-messages-046
+        parameters:
+            DEEPLINK: ${{ wallet-nonce-controls-5bb1d8ef-create-protocol-message-nonce-mismatch.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-fetch-protocol-message-nonce-mismatch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ wallet-nonce-controls-5bb1d8ef-create-protocol-message-nonce-mismatch.outputs.body.session_id }}
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-mismatch
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: metadata-nonce-mismatch
+            request_behavior:
+                wallet_nonce: mismatch
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-mismatch
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-metadata-139
+        parameters:
+            DEEPLINK: ${{ wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-mismatch.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-mismatch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-mismatch.outputs.body.session_id }}
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-omitted
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: metadata-nonce-omitted
+            request_behavior:
+                wallet_nonce: omit
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-omitted
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp: { stopApp: true, clearState: false }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "50%,10%" }
+                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
+            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
+            - takeScreenshot: fcaf-metadata-140
+        parameters:
+            DEEPLINK: ${{ wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-omitted.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-omitted
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-omitted.outputs.body.session_id }}
     - id: run-complete-fcaf-validation
       use: fcaf-validation
       with:
@@ -13010,6 +13287,33 @@ steps:
                     unknown_parameter_request_object: ${{ request-object-payload-controls-aefde1c6-fetch-unknown-parameter.outputs.body.raw.authorization_request_jwt | optional }}
                     unknown_parameter_session: ${{ request-object-payload-controls-aefde1c6-fetch-unknown-parameter.outputs.body | optional }}
                     unknown_parameter_visual_evidence: ${{ request-object-payload-controls-aefde1c6-exercise-unknown-parameter.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.protocol.request-uri-response-controls:
+                output:
+                    http_error_behavior: ${{ request-uri-response-controls-77a90e75-fetch-http-error.outputs.body.request_behavior.request_uri_response | optional }}
+                    http_error_response: ${{ request-uri-response-controls-77a90e75-fetch-http-error.outputs.body.raw.request_uri_response_http | optional }}
+                    http_error_session: ${{ request-uri-response-controls-77a90e75-fetch-http-error.outputs.body | optional }}
+                    http_error_visual_evidence: ${{ request-uri-response-controls-77a90e75-reject-http-error.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    wrong_content_type_behavior: ${{ request-uri-response-controls-77a90e75-fetch-wrong-content-type.outputs.body.request_behavior.request_uri_response | optional }}
+                    wrong_content_type_response: ${{ request-uri-response-controls-77a90e75-fetch-wrong-content-type.outputs.body.raw.request_uri_response_http | optional }}
+                    wrong_content_type_session: ${{ request-uri-response-controls-77a90e75-fetch-wrong-content-type.outputs.body | optional }}
+                    wrong_content_type_visual_evidence: ${{ request-uri-response-controls-77a90e75-reject-wrong-content-type.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.protocol.wallet-nonce-controls:
+                output:
+                    metadata_mismatch_nonce_evidence:
+                        request_object: ${{ wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-mismatch.outputs.body.raw.authorization_request_jwt | optional }}
+                        request_uri_payload: ${{ wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-mismatch.outputs.body.observed.request_uri_payload.value | optional }}
+                    metadata_mismatch_session: ${{ wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-mismatch.outputs.body | optional }}
+                    metadata_mismatch_visual_evidence: ${{ wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-mismatch.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    metadata_omitted_nonce_evidence:
+                        request_object: ${{ wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-omitted.outputs.body.raw.authorization_request_jwt | optional }}
+                        request_uri_payload: ${{ wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-omitted.outputs.body.observed.request_uri_payload.value | optional }}
+                    metadata_omitted_session: ${{ wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-omitted.outputs.body | optional }}
+                    metadata_omitted_visual_evidence: ${{ wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-omitted.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    protocol_message_mismatch_nonce_evidence:
+                        request_object: ${{ wallet-nonce-controls-5bb1d8ef-fetch-protocol-message-nonce-mismatch.outputs.body.raw.authorization_request_jwt | optional }}
+                        request_uri_payload: ${{ wallet-nonce-controls-5bb1d8ef-fetch-protocol-message-nonce-mismatch.outputs.body.observed.request_uri_payload.value | optional }}
+                    protocol_message_mismatch_session: ${{ wallet-nonce-controls-5bb1d8ef-fetch-protocol-message-nonce-mismatch.outputs.body | optional }}
+                    protocol_message_mismatch_visual_evidence: ${{ wallet-nonce-controls-5bb1d8ef-reject-protocol-message-nonce-mismatch.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.request-uri.post:
                 output:
                     capture_session: ${{ request-uri-post-8426f040-fetch-capture-session.outputs.body | optional }}

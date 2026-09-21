@@ -18,34 +18,11 @@ func (OID4VPWalletNonceMatchValidator) ID() string {
 }
 
 func (OID4VPWalletNonceMatchValidator) Validate(_ context.Context, input Input) Result {
-	evidence, ok := normalizeJSONObject(input.Value)
-	if !ok {
-		return Result{Status: StatusFail, Message: "input is not an object"}
-	}
-
-	requestURIPayload, ok := normalizeJSONObject(evidence["request_uri_payload"])
-	if !ok {
-		return Result{
-			Status:  StatusFail,
-			Message: "request_uri_payload is missing or not an object",
-		}
-	}
-	postedWalletNonce, ok := requestURIPayload["wallet_nonce"].(string)
-	if !ok || postedWalletNonce == "" {
-		return Result{
-			Status:  StatusFail,
-			Message: "request_uri POST wallet_nonce is missing or not a string",
-		}
-	}
-
-	requestObject, ok := evidence["request_object"].(string)
-	if !ok || requestObject == "" {
-		return Result{Status: StatusFail, Message: "request_object is missing or not a string"}
-	}
-	payload, err := compactJWTPart(requestObject, 1)
+	postedWalletNonce, payload, err := decodeWalletNonceEvidence(input.Value)
 	if err != nil {
 		return Result{Status: StatusFail, Message: err.Error()}
 	}
+
 	requestObjectWalletNonce, ok := payload["wallet_nonce"].(string)
 	if !ok || requestObjectWalletNonce == "" {
 		return Result{
@@ -68,4 +45,30 @@ func (OID4VPWalletNonceMatchValidator) Validate(_ context.Context, input Input) 
 		Status:  StatusPass,
 		Message: "request_uri POST and Request Object wallet_nonce values match exactly",
 	}
+}
+
+func decodeWalletNonceEvidence(value any) (string, map[string]any, error) {
+	evidence, ok := normalizeJSONObject(value)
+	if !ok {
+		return "", nil, fmt.Errorf("input is not an object")
+	}
+
+	requestURIPayload, ok := normalizeJSONObject(evidence["request_uri_payload"])
+	if !ok {
+		return "", nil, fmt.Errorf("request_uri_payload is missing or not an object")
+	}
+	postedWalletNonce, ok := requestURIPayload["wallet_nonce"].(string)
+	if !ok || postedWalletNonce == "" {
+		return "", nil, fmt.Errorf("request_uri POST wallet_nonce is missing or not a string")
+	}
+
+	requestObject, ok := evidence["request_object"].(string)
+	if !ok || requestObject == "" {
+		return "", nil, fmt.Errorf("request_object is missing or not a string")
+	}
+	payload, err := compactJWTPart(requestObject, 1)
+	if err != nil {
+		return "", nil, err
+	}
+	return postedWalletNonce, payload, nil
 }

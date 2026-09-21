@@ -108,8 +108,6 @@ steps:
       - WS_RP_MS_Metadata__135
       - WS_RP_MS_Metadata__136
       - WS_RP_MS_Metadata__137
-      - WS_RP_MS_Metadata__139
-      - WS_RP_MS_Metadata__140
       - WS_RP_MS_Metadata__141
     suite: wallet_solution/relying_party
     pipeline_outputs:

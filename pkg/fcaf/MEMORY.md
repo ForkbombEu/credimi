@@ -1682,3 +1682,18 @@ The complete aggregate now contains 742 steps, 612 test IDs, and 201 pipeline
 outputs. `adb devices` on 21/09/2026 listed no attached emulator, so none of
 these controls has reference-Wallet evidence yet; keep their inventory status
 as `implemented verifier-blocked`.
+
+## Request URI POST controls
+
+`WS_RP_MS_ProtocolMessages__046`, `048`, `WS_RP_MS_Metadata__139`, `140`, and
+`WS_RP_IA_Supportive__002` now use dedicated scenarios. The wallet-nonce
+controls return a signed Request Object whose nonce differs from, or is omitted
+after, the Wallet's POST Request URI retrieval. The Request URI response
+controls return `application/json` or HTTP 500. All flows require
+`request_uri_method: post`, capture the actual request or response plus the
+session and screenshot, and require the Wallet to discontinue without a
+presentation. `oid4vp.wallet_nonce_mismatches_request_object` proves the
+returned signed Request Object contains the selected mismatch or omission.
+
+`make fcaf-generate` produces 757 aggregate steps, 612 test IDs, and 203
+pipeline outputs. Reference-Wallet execution remains required.

@@ -41,11 +41,11 @@ its setup.
   `WS_RP_SM_RpIntegrity__027`. The scenarios use `request_mutation` or
   `request_behavior.signature=corrupt` and bind the delivered JAR, outer
   request where applicable, retrieval, and Wallet outcome.
-- **Wallet nonce and Request URI response controls:**
-  `WS_RP_MS_ProtocolMessages__046`, `048`,
-  `WS_RP_MS_Metadata__139`, `140`, and `WS_RP_IA_Supportive__002`. Use
-  `request_behavior.wallet_nonce` or `request_uri_response`; these require
-  `request_uri_method=post` where the source requires it.
+- **Implemented; beta evidence pending:** `WS_RP_MS_ProtocolMessages__046`,
+  `048`, `WS_RP_MS_Metadata__139`, `140`, and `WS_RP_IA_Supportive__002`.
+  The scenarios use `request_behavior.wallet_nonce` or
+  `request_uri_response`, require POST Request URI retrieval, and bind the
+  delivered request or response plus the Wallet outcome.
 - **Response URI, response body, and unknown-parameter controls:**
   `WS_RP_IA_MainInteraction__053`, `055`, `056`,
   `WS_RP_IA_Metadata__010`, and `WS_RP_MS_ProtocolMessages__124`–`128`, `132`.

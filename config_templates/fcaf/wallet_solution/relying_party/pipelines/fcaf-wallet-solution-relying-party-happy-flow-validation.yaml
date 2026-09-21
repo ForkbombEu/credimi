@@ -2324,8 +2324,6 @@ steps:
             - WS_RP_MS_Metadata__136
             - WS_RP_MS_Metadata__137
             - WS_RP_MS_Metadata__138
-            - WS_RP_MS_Metadata__139
-            - WS_RP_MS_Metadata__140
             - WS_RP_MS_Metadata__141
             - WS_RP_MS_ProtocolMessages__002
             - WS_RP_MS_ProtocolMessages__003
@@ -2347,9 +2345,7 @@ steps:
             - WS_RP_MS_ProtocolMessages__041
             - WS_RP_MS_ProtocolMessages__043
             - WS_RP_MS_ProtocolMessages__045
-            - WS_RP_MS_ProtocolMessages__046
             - WS_RP_MS_ProtocolMessages__047
-            - WS_RP_MS_ProtocolMessages__048
             - WS_RP_MS_ProtocolMessages__050
             - WS_RP_MS_ProtocolMessages__052
             - WS_RP_MS_ProtocolMessages__057
