@@ -1063,5 +1063,6 @@
 	"Failed_to_enable_pipeline_notifications": "Failed to enable pipeline notifications",
 	"Failed_to_disable_pipeline_notifications": "Failed to disable pipeline notifications",
 	"Notifications_blocked_hint": "Notifications are blocked for this site. Re-enable them in your browser site settings.",
-	"Push_notifications_unsupported": "Push notifications are not supported by this browser."
+	"Push_notifications_unsupported": "Push notifications are not supported by this browser.",
+	"Pipeline_executions": "Pipeline executions"
 }

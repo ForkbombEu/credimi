@@ -95,27 +95,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const currentItemCount = $derived(workflows.data?.length ?? 0);
 </script>
 
-<div class="flex items-end justify-between gap-8">
-	<div class="space-y-2">
-		<BackButton href="/my/pipelines" class="px-0!" />
+<div class="">
+	<BackButton href="/my/pipelines" class="px-0!" />
 
-		<div>
-			<T class="text-muted-foreground">{m.Pipeline()}</T>
-			<T tag="h2">{pipeline.name}</T>
+	<div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+		<div class="min-w-0 flex-1 basis-64 space-y-2">
+			<div>
+				<T tag="h2" class="break-words">{pipeline.name}</T>
+				<T class="text-muted-foreground">{m.Pipeline_executions()}</T>
+			</div>
 		</div>
-	</div>
 
-	<div class="flex flex-wrap gap-2 md:flex-nowrap">
-		<PipelineExecutionStats
-			stats={executionStats}
-			layout="stat-box-success"
-			label={m.scoreboard_success_rate()}
-		/>
-		<PipelineExecutionStats
-			stats={executionStats}
-			layout="stat-box-modes"
-			label={m.Execution_mode()}
-		/>
+		<div class="flex shrink-0 flex-wrap gap-2">
+			<PipelineExecutionStats
+				stats={executionStats}
+				layout="stat-box-success"
+				label={m.scoreboard_success_rate()}
+			/>
+			<PipelineExecutionStats
+				stats={executionStats}
+				layout="stat-box-modes"
+				label={m.Execution_mode()}
+			/>
+		</div>
 	</div>
 </div>
 
