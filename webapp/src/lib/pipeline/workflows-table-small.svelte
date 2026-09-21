@@ -11,7 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ArrowRightIcon,
 		ChevronDownIcon,
 		ChevronUpIcon,
-		EllipsisVerticalIcon
+		EllipsisVerticalIcon,
+		FileTextIcon
 	} from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
@@ -26,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
@@ -266,6 +268,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="flex min-w-0 items-baseline gap-1.5">
 					<span class="shrink-0 font-normal">{child.type.name}</span>
 					<span class="min-w-0 truncate text-muted-foreground">{child.displayName}</span>
+					{#if child.has_logs}
+						<Tooltip>
+							{#snippet child({ props })}
+								<span
+									{...props}
+									class="inline-flex shrink-0 -translate-x-px translate-y-px"
+								>
+									<FileTextIcon size={12} class="text-muted-foreground" />
+								</span>
+							{/snippet}
+							{#snippet content()}
+								<p>{m.pipeline_artifact_log_tooltip()}</p>
+							{/snippet}
+						</Tooltip>
+					{/if}
 				</div>
 			</td>
 			{@render timeCells(childParts)}

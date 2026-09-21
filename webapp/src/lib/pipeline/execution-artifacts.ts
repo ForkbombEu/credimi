@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
+
 export type PipelineExecutionArtifacts = {
 	results: Array<{ video: string; screenshot: string; log: string }>;
 	maestro_screenshots?: string[];
@@ -10,13 +12,9 @@ export type PipelineExecutionArtifacts = {
 	fcafReportPdf?: string;
 };
 
-export function fromApiSummary(summary: {
-	results?: PipelineExecutionArtifacts['results'];
-	maestro_screenshots?: string[];
-	report?: string;
-	fcaf_report?: string;
-	fcaf_report_pdf?: string;
-}): PipelineExecutionArtifacts | undefined {
+export function fromApiSummary(
+	summary: Partial<WorkflowExecutionSummary>
+): PipelineExecutionArtifacts | undefined {
 	const hasResults = (summary.results?.length ?? 0) > 0;
 	const hasReport = Boolean(summary.report);
 	const hasFCAFReport = Boolean(summary.fcaf_report);
