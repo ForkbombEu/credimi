@@ -36,6 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		BulkWalletVersionChange,
 		Column,
 		EmptyState,
+		FollowUpCard,
 		ManualEditorColumn,
 		StepCard
 	} from './_partials/index.js';
@@ -232,11 +233,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							data-card-index={index}
 							tabindex="-1"
 						>
-							<StepCard
+							<FollowUpCard
 								{builder}
-								step={followUp.step}
+								{followUp}
 								{index}
-								followUpCondition={followUp.condition}
 								editing={editingSection === 'follow-ups' && editingIndex === index}
 							/>
 						</div>
