@@ -153,6 +153,7 @@ steps:
                     wallet_engagement: ${{ fetch-capture-session.outputs.body }}
         suite: wallet_solution/relying_party
         test_ids:
+            - WS_RP_MS_Metadata__082
             - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001
             - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_002
             - WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_003

@@ -1194,6 +1194,280 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claims-without-values-174b98b6-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-full-match-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_default
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-full-match-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-full-match-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-age-trap-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_under_18
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-age-trap-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-age-trap-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-case-trap-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_family_name_uppercase
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-case-trap-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-case-trap-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-whitespace-trap-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_family_name_trailing_space
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-whitespace-trap-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-whitespace-trap-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-diacritics-trap-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_locality_diacritics
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-diacritics-trap-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-diacritics-trap-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-no-diacritics-trap-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_locality_no_diacritics
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-no-diacritics-trap-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-no-diacritics-trap-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-array-trap-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_multiple_nationalities
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-array-trap-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-array-trap-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-expiry-trap-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_expiry_2032
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-expiry-trap-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-expiry-trap-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-fixture-inventory-request
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: combined-value-constraints-inventory
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-present-fixture-inventory-request
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-fixture-inventory-request.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-fixture-inventory-request
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-fixture-inventory-request.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-combined-constraint-request
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - family_name
+                              values:
+                                - Rossi
+                            - path:
+                                - age_over_18
+                              values:
+                                - true
+                            - path:
+                                - address
+                                - locality
+                              values:
+                                - Roma
+                            - path:
+                                - nationalities
+                                - 0
+                              values:
+                                - IT
+                            - path:
+                                - date_of_expiry
+                              values:
+                                - "2031-01-01"
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: combined-value-constraints
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-present-combined-constraint-request
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-combined-constraint-request.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-combined-constraint-request
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-combined-constraint-request.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-credential-format-disallowed-c8dd9078-create
       use: http-request
       with:
@@ -12083,6 +12357,496 @@ steps:
         method: GET
         url: ${{ signed-x509-hash-metadata-ec05d944-create-presentation.outputs.body.request_uri }}
     - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-status-without-status-list-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_family_name_uppercase
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: status_without_status_list
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-status-without-status-list-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-status-without-status-list-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-status-without-status-list-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-CASE
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-status-without-status-list
+            request_uri_method: post
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-status-without-status-list
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions: { camera: allow, notifications: allow, all: unset }
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
+            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+            - takeScreenshot: fcaf-metadata-084
+        parameters:
+            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-status-without-status-list-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-negative-index-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_family_name_trailing_space
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: negative_index
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-negative-index-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-negative-index-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-negative-index-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-negative-index-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-negative-index-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-SPACE
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-negative-index
+            request_uri_method: post
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-negative-index
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions: { camera: allow, notifications: allow, all: unset }
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
+            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+            - takeScreenshot: fcaf-metadata-086
+        parameters:
+            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-negative-index-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-negative-index-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-negative-index-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-missing-index-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_locality_diacritics
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: missing_index
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-missing-index-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-index-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-missing-index-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-index-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-missing-index-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-UMLAUT
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-missing-index
+            request_uri_method: post
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-missing-index
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions: { camera: allow, notifications: allow, all: unset }
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
+            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+            - takeScreenshot: fcaf-metadata-087
+        parameters:
+            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-missing-index-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-missing-index-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-index-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-malformed-uri-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_locality_no_diacritics
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: malformed_uri
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-malformed-uri-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-malformed-uri-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-malformed-uri-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-malformed-uri-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-malformed-uri-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-NOUMLAUT
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-malformed-uri
+            request_uri_method: post
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-malformed-uri
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions: { camera: allow, notifications: allow, all: unset }
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
+            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+            - takeScreenshot: fcaf-metadata-089
+        parameters:
+            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-malformed-uri-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-malformed-uri-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-malformed-uri-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-missing-uri-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_multiple_nationalities
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: missing_uri
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-missing-uri-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-uri-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-missing-uri-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-uri-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-missing-uri-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-ARRAY
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-missing-uri
+            request_uri_method: post
+            response_mode: direct_post
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-missing-uri
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions: { camera: allow, notifications: allow, all: unset }
+            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - runFlow:
+                when: { visible: "Welcome back" }
+                commands:
+                  - tapOn: { point: "11%,40%" }
+                  - inputText: "123456"
+                  - hideKeyboard
+                  - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
+            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
+            - takeScreenshot: fcaf-metadata-090
+        parameters:
+            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-missing-uri-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-missing-uri-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-uri-probe.outputs.body.session_id }}
+    - continue_on_error: true
       id: supportive-redirect-uri-9f399357-create-presentation
       use: http-request
       with:
@@ -13052,6 +13816,11 @@ steps:
                     fetch-result: ${{ dcql-claims-without-values-174b98b6-fetch-result.outputs | optional }}
                     present-claim-without-values: ${{ dcql-claims-without-values-174b98b6-present-claim-without-values.outputs | optional }}
                     visual_evidence: ${{ dcql-claims-without-values-174b98b6-present-claim-without-values.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.combined-value-constraints:
+                output:
+                    dcql_exchange: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-combined-constraint-request.outputs.body | optional }}
+                    fixture_inventory: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-fixture-inventory-request.outputs.body | optional }}
+                    visual_evidence: ${{ dcql-combined-value-constraints-6bdb8a96-present-combined-constraint-request.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.credential-format-disallowed:
                 output:
                     dcql_exchange: ${{ dcql-credential-format-disallowed-c8dd9078-fetch.outputs.body | optional }}
@@ -13743,6 +14512,23 @@ steps:
                     issuance_session: ${{ pid-under-18-constraint-e7f0d444-fetch-under-18-issuance.outputs.body | optional }}
                     matching_exchange: ${{ pid-under-18-constraint-e7f0d444-fetch-under-18-match.outputs.body | optional }}
                     matching_visual_evidence: ${{ pid-under-18-constraint-e7f0d444-present-under-18-match.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.fixtures.status-reference:
+                output:
+                    malformed_uri_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-malformed-uri-issuance.outputs.body | optional }}
+                    malformed_uri_probe: ${{ status-reference-rejection-0adf5c5d-fetch-malformed-uri-probe.outputs.body | optional }}
+                    malformed_uri_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-malformed-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    missing_index_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-missing-index-issuance.outputs.body | optional }}
+                    missing_index_probe: ${{ status-reference-rejection-0adf5c5d-fetch-missing-index-probe.outputs.body | optional }}
+                    missing_index_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-missing-index.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    missing_uri_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-missing-uri-issuance.outputs.body | optional }}
+                    missing_uri_probe: ${{ status-reference-rejection-0adf5c5d-fetch-missing-uri-probe.outputs.body | optional }}
+                    missing_uri_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-missing-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    negative_index_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-negative-index-issuance.outputs.body | optional }}
+                    negative_index_probe: ${{ status-reference-rejection-0adf5c5d-fetch-negative-index-probe.outputs.body | optional }}
+                    negative_index_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-negative-index.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    status_without_status_list_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-status-without-status-list-issuance.outputs.body | optional }}
+                    status_without_status_list_probe: ${{ status-reference-rejection-0adf5c5d-fetch-status-without-status-list-probe.outputs.body | optional }}
+                    status_without_status_list_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-status-without-status-list.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.interaction.degree-address-property:
                 output:
                     dcql_exchange: ${{ interaction-degree-sdjwt-d51c1dad-fetch-address-property-presentation.outputs.body | optional }}

@@ -1814,3 +1814,143 @@ partially selected array, and a disclosed sibling or unaddressed element.
 pipeline outputs; the happy flow drops to 366 tests because the five cases it
 used to carry now live in dedicated fixture scenarios. `adb devices` listed no
 attached emulator, so reference-Wallet execution remains required.
+
+## Status-reference fixture cases
+
+`WS_RP_MS_Metadata__081`-`090` and `WS_RP_MS_CredentialFormats__030`, `031` now
+read real issuance evidence instead of a shared DCQL exchange.
+
+- 081, 083, 085, 088, 030 and 031 bind `pipeline.credential-status.sdjwt`,
+  whose issuance already sets `status_list_enabled: true`. Each asserts the
+  exact property its source states rather than a common shape: 081 the
+  `status_list` object, 083 both members, 085 the non-negative `idx`, 088 the
+  absolute `uri`, 030 the compact SD-JWT+KB serialization, 031 the SD-JWT VC
+  profile plus a valid status-list URI.
+- 082 binds `pipeline.pid.presentation.sdjwt.all-claims`, which issues without
+  `status_list_enabled` and therefore carries no `status` claim. The new
+  `sdjwt.claim_presence` validator states that absence directly; a presented
+  PID is what shows the Wallet stored it, which is the "local policy" outcome
+  the source allows.
+- 084, 086, 087, 089 and 090 own
+  `fcaf-wallet-solution-relying-party-status-reference-rejection`. Each issues
+  one malformed `status_reference` (`status_without_status_list`,
+  `negative_index`, `missing_index`, `malformed_uri`, `missing_uri`) on its own
+  claim-set fixture, then probes with a DCQL query constrained to that
+  fixture's exact `document_number`. A Wallet that rejected the token holds no
+  credential with that number, so the probe returns nothing; a Wallet that
+  stored it answers and the case fails. The probe is the rejection evidence,
+  because every PID shares one `vct` and a plain presentation could not tell
+  the fixtures apart.
+
+`claims_values_no_match` gained optional `expected_claim_path` and
+`expected_value` params. Without them a no-match result only proves the query
+was unsatisfiable; with them it proves the query asked for that one fixture.
+Existing 023, 027 and 107 keep the unpinned form.
+
+Fixture-to-case coupling to respect: the rejection scenario consumes
+`pid_family_name_uppercase`, `pid_family_name_trailing_space`,
+`pid_locality_diacritics`, `pid_locality_no_diacritics` and
+`pid_multiple_nationalities`, which `FCAF_FIXTURES.md` also earmarks for the
+`WS_RP_IA_MainInteraction__033` axes. If 033 is implemented later it must not
+issue those fixtures with a valid status on the same device run, or the
+rejection probes will find a legitimately stored credential and fail
+spuriously. `pid_expiry_2032` is still free.
+
+Known gap: source 089 lists five malformed-URI shapes and Capture expresses
+only the unparseable one. Recorded in `ASSERTION_REVIEW_BACKLOG.md`.
+
+Verified 22/09/2026 by running the shipped definitions through the FCAF engine
+against synthetic evidence: all 46 expectations met. The positives were
+re-run against a status claim without `status_list`, a negative `idx` and a
+relative `uri`, and only the cases whose source asserts that property fail.
+Each rejection case was re-run with the credential stored, with a probe
+targeting a different `document_number`, and with the wrong
+`status_reference`, and fails in each.
+
+`make fcaf-generate` produces 823 aggregate steps, 612 test IDs, and 204
+pipeline outputs; the happy flow drops to 355 tests because the twelve cases
+moved off the shared metadata and credential-format exchanges. `adb devices`
+listed no attached emulator, so reference-Wallet execution remains required,
+and the malformed variants additionally need beta to enable
+`FCAF_SCENARIOS_ENABLED`.
+
+## MainInteraction 033 assertion defect
+
+While reviewing the fixture coupling above, 033 turned out to be a false pass
+rather than a missing input. Its definition asserts only
+`dcql.response_satisfies_constraints` in `credentials_match` mode, which checks
+that some `vp_token` entry exists for the query id and never opens the returned
+presentation. The source requires the Wallet to release the one credential
+satisfying every value constraint and to exclude seven near-miss traps, so a
+Wallet that ignored value matching and released a trap passes today.
+
+The discriminator is the disclosed value, not the disclosed claim set: all eight
+fixtures are complete PIDs and disclose the same claims for the same query. No
+validator compares an SD-JWT claim against an expected value, so completing 033
+needs a new `oid4vp.dcql_value_constraints_satisfied` mode or an
+`sdjwt.claim_equals` validator. Full reasoning, the fixture-to-role table, and
+the `status`-outside-the-disclosure-frame caveat are in
+`config_templates/fcaf/wallet_solution/relying_party/ASSERTION_REVIEW_BACKLOG.md`
+under "Known assertion defects in shipped definitions". Resolve the probe
+fixture coupling before implementing 033.
+
+## MainInteraction 033 implemented, and the probe coupling closed with it
+
+033 now owns
+`fcaf-wallet-solution-relying-party-dcql-combined-value-constraints`. It issues
+all eight claim-set fixtures, proves the Wallet holds them through an
+unconstrained `multiple: true` inventory query
+(`oid4vp.distinct_presentations`, minimum 8), and then sends one query
+restricting five independent axes at once:
+
+| Restriction | Excludes |
+| --- | --- |
+| `family_name = Rossi` | `pid_family_name_uppercase`, `pid_family_name_trailing_space` |
+| `age_over_18 = true` | `pid_under_18` |
+| `address.locality = Roma` | `pid_locality_diacritics`, `pid_locality_no_diacritics` |
+| `nationalities[0] = IT` | `pid_multiple_nationalities` |
+| `date_of_expiry = 2031-01-01` | `pid_expiry_2032` |
+
+Only `pid_default` satisfies all five and each trap fails exactly one, so no
+single constraint can carry the verdict. Do not move the full match to
+`pid_locality_diacritics` and constrain locality to `München`: every other
+fixture would then fail the locality axis as well, and a Wallet checking only
+that one axis would pass.
+
+The new `oid4vp.dcql_value_constraints_satisfied` validator reads the
+restrictions from the delivered query rather than from the test YAML, so the
+assertion cannot drift from the request, and requires every released
+presentation to disclose each restricted claim with a value from that claim's
+list. `multiple: true` is required through `require_multiple`, because with
+`multiple` omitted the Wallet returns one credential and a released trap could
+hide behind the matching one.
+
+Issuing those fixtures is exactly what would have broken the status-reference
+probes, so they were reworked in the same change. Each probe now sets
+`multiple: true` and uses `oid4vp.malformed_status_credential_absent`, which
+requires the query to pin the fixture's `document_number`, then inspects the
+`status` claim of every returned credential and fails only on the malformed
+shape the issuer was asked to emit (`missing_status_list`, `negative_index`,
+`missing_index`, `malformed_uri`, `missing_uri`). A validly issued duplicate of
+the same fixture now passes instead of being mistaken for a retained rejected
+token. The earlier `claims_values_no_match` pinning stays in the codebase and
+remains the right tool where no legitimate duplicate can exist.
+
+Residual dependency: both 033 and the reworked probes rely on the reference
+Wallet returning every match for a `multiple: true` query. That behaviour has
+not been observed on the emulator; if it selects only one credential, 033 fails
+on its inventory assertion rather than silently degrading, which is the
+intended failure mode.
+
+Verified 22/09/2026 by running the shipped definitions through the FCAF engine
+against synthetic evidence: 44 of 44 expectations met. 033 passes when only the
+matching credential is released and fails for each trap released alongside it,
+for a trap released instead of it, for an empty response, and for a missing
+trap fixture. Each probe passes when the Wallet kept nothing and when only a
+validly issued duplicate is present, and fails when the malformed token is
+retained, when it is retained beside a valid duplicate, when the probe omits
+`multiple: true`, when it pins another credential, and when the issuer used the
+wrong `status_reference`.
+
+`make fcaf-generate` produces 845 aggregate steps, 612 test IDs, and 205
+pipeline outputs; the happy flow drops to 354 tests.

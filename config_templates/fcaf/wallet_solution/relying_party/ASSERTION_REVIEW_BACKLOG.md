@@ -64,12 +64,18 @@ its setup.
   and establish simultaneous possession through two value-constrained probes
   whose `document_number` values differ, so counting presentations can no
   longer be satisfied by one credential presented twice.
-- **Status-reference fixtures:** `WS_RP_MS_Metadata__081`–`090` and
-  `WS_RP_MS_CredentialFormats__030`, `031`. `status_reference` expresses the
-  valid, missing-member, negative-index, and malformed-URI SD-JWT status shapes
-  needed by these cases. Only malformed variants require
-  `FCAF_SCENARIOS_ENABLED=true`; every candidate still needs an actual issuance
-  and Wallet result proving that the selected fixture reaches the Wallet.
+- **Implemented; beta evidence pending:** `WS_RP_MS_Metadata__081`–`090` and
+  `WS_RP_MS_CredentialFormats__030`, `031`. The six accept cases and the two
+  storage cases read the existing `status_list_enabled` SD-JWT presentation;
+  082 reads the statusless PID presentation. The five rejection cases each
+  issue one malformed `status_reference` on a distinct claim-set fixture and
+  then probe for that fixture's exact `document_number`, so a Wallet that
+  stored the rejected token is detected rather than assumed absent. The
+  malformed variants need `FCAF_SCENARIOS_ENABLED=true`.
+  Open gap: 089 lists five malformed-URI shapes and `status_reference:
+  malformed_uri` expresses only the unparseable one. The missing-scheme,
+  unencoded-space, invalid-percent-encoding, illegal-character and empty-string
+  shapes need additional issuer fixtures.
 
 ### Available but deferred by selected scope
 
@@ -79,6 +85,93 @@ service-blocked: `WS_RP_IA_Engagement__002`,
 `WS_RP_SM_RpIntegrity__002`–`005`, `022`. They remain deferred because the
 current FCAF work selection excludes Digital Credentials API cases. Do not
 implement them without a scope change.
+
+## Resolved assertion defects
+
+Kept because the reasoning is the reviewable part: each entry records a
+definition that ran in the aggregate and reported a pass for the wrong reason,
+and what now decides it.
+
+### `WS_RP_IA_MainInteraction__033`: DCQL value matching was never checked
+
+**What the source asks.** The Wallet must hold eight credentials of the same
+type and receive one DCQL query carrying several value constraints at once.
+Exactly one credential satisfies all of them. Every other credential is a
+deliberate near miss that fails exactly one constraint. The Wallet must release
+the matching credential and must exclude all seven traps from the selection
+prompt. This is a test of value matching, not of query parsing.
+
+The Capture fixtures that realise those eight credentials are:
+
+| Role | `fixture_id` | Differs along |
+| --- | --- | --- |
+| A, full match | `pid_default` | baseline: `family_name` `Rossi`, locality `Roma`, `age_over_18` `true`, `nationalities` `["IT"]`, `date_of_expiry` `2031-01-01` |
+| B1, fails age | `pid_under_18` | `age_over_18: false` |
+| B2, fails data type | *none* | no PID or degree claim is numeric; see the blocked list |
+| B3, fails case | `pid_family_name_uppercase` | `family_name: "ROSSI"` |
+| B4, fails whitespace | `pid_family_name_trailing_space` | `family_name: "Rossi "` |
+| B5, fails encoding | `pid_locality_no_diacritics` | locality `Munchen` instead of `München` |
+| B6, fails array | `pid_multiple_nationalities` | `nationalities: ["FR","DE"]` |
+| B7, fails expiry bound | `pid_expiry_2032` | `date_of_expiry: 2032-01-01` |
+
+**What the definition asserted.** One `dcql.response_satisfies_constraints` in
+`credentials_match` mode over the shared `pipeline.dcql.main-interaction`
+exchange, plus a screenshot check.
+
+**Why that decided nothing.** `credentials_match` reads the captured
+`dcql_query`, checks the credential queries are well formed, and then requires
+`vp_token[<query id>]` to be non-empty. It never opens the returned
+presentation. It therefore could not see which credential came back, and in
+particular never compared a disclosed claim against the `values` restriction
+that selected it. A Wallet that ignored value matching entirely and released
+`pid_family_name_uppercase` produces a non-empty `vp_token` under the same
+query id and passed. The assertion answered "did the Wallet answer at all",
+while the source asks "did the Wallet answer with the one credential that
+satisfies every constraint".
+
+**What identifies the credential.** Not the set of disclosed claims: all eight
+fixtures are complete PIDs, so a query for `family_name`, `address.locality`
+and `nationalities` makes every one of them disclose exactly that same set. The
+discriminator is the disclosed **value**. A presentation disclosing
+`family_name: "Rossi"` is A and cannot be B3 (`"ROSSI"`) or B4 (`"Rossi "`);
+one disclosing locality `Roma` cannot be B5. Asserting every constrained claim
+carries a value from its `values` list is therefore both necessary and
+sufficient to name the released credential.
+
+**How it is decided now.** `fcaf-wallet-solution-relying-party-dcql-combined-value-constraints`
+issues the eight fixtures, proves they are all held through an unconstrained
+`multiple: true` inventory query (`oid4vp.distinct_presentations`, minimum 8),
+and then sends one query restricting five independent axes at once:
+`family_name = Rossi`, `age_over_18 = true`, `address.locality = Roma`,
+`nationalities[0] = IT` and `date_of_expiry = 2031-01-01`. Only `pid_default`
+satisfies all five and every trap fails exactly one, so no single constraint
+can carry the result. The new
+`oid4vp.dcql_value_constraints_satisfied` validator reads the restrictions from
+the delivered query itself and requires every released presentation to disclose
+each restricted claim with a value from that claim's list.
+
+**Why the query sets `multiple: true`.** With `multiple` omitted the Wallet
+returns one credential; releasing the match while also treating traps as
+matches would stay invisible. `multiple: true` makes the Wallet return every
+credential it considered a match, so a released trap cannot hide behind the
+matching one. The validator's `require_multiple` param refuses evidence
+gathered without it.
+
+**Caveat if minimal disclosure is asserted too.** "The Wallet disclosed only
+the requested claims" is a separate and worthwhile property, but `status` lives
+in the SD-JWT payload outside the issuer disclosure frame, so it is always
+present and must not be counted as an extra disclosure.
+
+**Interaction with the status-reference probes, resolved.** Implementing this
+case means issuing B3–B7, which are the same fixtures the
+malformed-`status_reference` rejection scenario probes by `document_number`. A
+fixture's `document_number` is a claim value rather than a per-issuance serial
+and the aggregate never clears wallet state, so those probes could no longer
+treat "a credential came back" as "the malformed token was kept". They now use
+`multiple: true` and `oid4vp.malformed_status_credential_absent`, which
+inspects the `status` claim of every returned credential and fails only on the
+malformed shape the issuer was asked to emit. A validly issued duplicate of the
+same fixture is therefore no longer mistaken for a retained rejected token.
 
 ## Still blocked
 
@@ -223,7 +316,6 @@ required by the following source tests.
 - [ ] `WS_RP_IA_MainInteraction__006`   (credential with no hb)
 - [ ] `WS_RP_IA_MainInteraction__008`   (credential with no hb)
 - [ ] `WS_RP_IA_MainInteraction__010`   (credential with no hb)
-- [ ] `WS_RP_IA_MainInteraction__033`   (multiple credentials (same type) with different values)
 - [ ] `WS_RP_IA_MainInteraction__060`   (IMPOSSIBLE, credo does not support fragment/query)
 - [ ] `WS_RP_IA_MainInteraction__064`
 - [ ] `WS_RP_IA_MainInteraction__065`

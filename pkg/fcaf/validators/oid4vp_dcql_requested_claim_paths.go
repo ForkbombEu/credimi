@@ -47,17 +47,9 @@ func (OID4VPDCQLRequestedClaimPathsValidator) Validate(
 		}
 	}
 
-	root, ok := normalizeJSONObject(input.Value)
-	if !ok {
-		return Result{Status: StatusFail, Message: "DCQL evidence is not an object"}
-	}
-	queryValue, found := findObjectKey(root, "dcql_query")
-	if !found {
-		return Result{Status: StatusFail, Message: "captured evidence does not contain dcql_query"}
-	}
-	query, ok := normalizeJSONObject(queryValue)
-	if !ok {
-		return Result{Status: StatusFail, Message: "captured dcql_query is not an object"}
+	_, query, result := capturedDCQLQuery(input.Value)
+	if result != nil {
+		return *result
 	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) != 1 {

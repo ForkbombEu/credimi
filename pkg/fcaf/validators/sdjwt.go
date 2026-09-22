@@ -46,6 +46,52 @@ func (SDJWTClaimPresentValidator) Validate(_ context.Context, input Input) Resul
 	return Result{Status: StatusPass, Message: fmt.Sprintf("claim %q is present", claim)}
 }
 
+// SDJWTClaimPresenceValidator asserts either presence or absence of a claim,
+// so a test whose requirement is that a claim was never issued can state that
+// directly instead of relying on a neighbouring positive assertion.
+type SDJWTClaimPresenceValidator struct{}
+
+func (SDJWTClaimPresenceValidator) ID() string { return "sdjwt.claim_presence" }
+
+func (SDJWTClaimPresenceValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Claim   string `json:"claim"`
+		Present bool   `json:"present"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Claim == "" {
+		return Result{Status: StatusError, Message: "claim param is required"}
+	}
+	if _, ok := input.Params["present"]; !ok {
+		return Result{Status: StatusError, Message: "present param is required"}
+	}
+	if _, ok := sdjwtPresentation(input.Value); !ok {
+		if _, ok := input.Value.(map[string]any); !ok {
+			return Result{
+				Status:  StatusFail,
+				Message: "evidence does not contain an SD-JWT presentation",
+			}
+		}
+	}
+	_, found := sdjwtClaim(input.Value, params.Claim)
+	expectation := "absent"
+	if params.Present {
+		expectation = "present"
+	}
+	if found != params.Present {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("claim %q is not %s", params.Claim, expectation),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("claim %q is %s", params.Claim, expectation),
+	}
+}
+
 type SDJWTClaimTypeValidator struct{}
 
 func (SDJWTClaimTypeValidator) ID() string { return "sdjwt.claim_type" }

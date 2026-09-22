@@ -223,41 +223,6 @@ func vctPresentations(root map[string]any, vct string, exchangeIndex int) ([]str
 // credentialQueryIDForVCT returns the id of the credential query that selects
 // the given vct.
 func credentialQueryIDForVCT(query map[string]any, vct string) (string, *Result) {
-	credentials, ok := query["credentials"].([]any)
-	if !ok || len(credentials) == 0 {
-		return "", &Result{
-			Status:  StatusFail,
-			Message: "dcql_query does not contain credentials",
-		}
-	}
-	for _, rawCredential := range credentials {
-		credential, ok := normalizeJSONObject(rawCredential)
-		if !ok {
-			continue
-		}
-		meta, ok := normalizeJSONObject(credential["meta"])
-		if !ok {
-			continue
-		}
-		values, ok := meta["vct_values"].([]any)
-		if !ok {
-			continue
-		}
-		for _, rawValue := range values {
-			if text, ok := rawValue.(string); ok && text == vct {
-				id, ok := credential["id"].(string)
-				if !ok || id == "" {
-					return "", &Result{
-						Status:  StatusFail,
-						Message: fmt.Sprintf("credential query for vct %q has no id", vct),
-					}
-				}
-				return id, nil
-			}
-		}
-	}
-	return "", &Result{
-		Status:  StatusFail,
-		Message: fmt.Sprintf("dcql_query has no credential query for vct %q", vct),
-	}
+	_, id, result := credentialQueryForVCT(query, vct)
+	return id, result
 }

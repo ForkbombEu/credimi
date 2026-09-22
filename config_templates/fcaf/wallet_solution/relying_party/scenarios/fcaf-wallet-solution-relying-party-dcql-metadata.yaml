@@ -54,16 +54,6 @@ steps:
   use: fcaf-validation
   with:
     test_ids:
-      - WS_RP_MS_Metadata__081
-      - WS_RP_MS_Metadata__082
-      - WS_RP_MS_Metadata__083
-      - WS_RP_MS_Metadata__084
-      - WS_RP_MS_Metadata__085
-      - WS_RP_MS_Metadata__086
-      - WS_RP_MS_Metadata__087
-      - WS_RP_MS_Metadata__088
-      - WS_RP_MS_Metadata__089
-      - WS_RP_MS_Metadata__090
       - WS_RP_MS_Metadata__091
       - WS_RP_MS_Metadata__092
       - WS_RP_MS_Metadata__093

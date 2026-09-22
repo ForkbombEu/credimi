@@ -151,7 +151,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "claims_path_no_match":
 		return validateClaimsPathNoMatch(query, responseValue, params.ExpectedClaimPath)
 	case "claims_values_no_match":
-		return validateClaimsValuesNoMatch(query, responseValue)
+		return validateClaimsValuesNoMatch(
+			query,
+			responseValue,
+			params.ExpectedClaimPath,
+			params.ExpectedValue,
+		)
 	case "claim_id_missing_with_claim_sets":
 		return validateMissingClaimIDWithClaimSets(query, responseValue, errorValue)
 	case "claims_without_id_without_claim_sets":
@@ -2693,7 +2698,17 @@ func validateClaimsPathNoMatch(
 	}
 }
 
-func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result {
+// validateClaimsValuesNoMatch requires every requested claim to carry a value
+// restriction and the wallet to return nothing. When expectedPath and
+// expectedValue are supplied it additionally pins the exact restriction, which
+// is what binds a no-match result to one named credential fixture rather than
+// to any unsatisfiable query.
+func validateClaimsValuesNoMatch(
+	query map[string]any,
+	responseValue any,
+	expectedPath []any,
+	expectedValue any,
+) Result {
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
 		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
@@ -2752,6 +2767,15 @@ func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result
 			}
 		}
 	}
+	if len(expectedPath) > 0 {
+		if result := requireClaimValueRestriction(
+			credentials,
+			expectedPath,
+			expectedValue,
+		); result != nil {
+			return *result
+		}
+	}
 	if !isEmptyDCQLValue(responseValue) {
 		return Result{
 			Status:  StatusFail,
@@ -2761,6 +2785,60 @@ func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result
 	return Result{
 		Status:  StatusPass,
 		Message: "wallet returned no credential for mismatched claim values",
+	}
+}
+
+// requireClaimValueRestriction finds the requested claim whose path equals the
+// expected one and requires its values to be exactly the expected value.
+func requireClaimValueRestriction(
+	credentials []any,
+	expectedPath []any,
+	expectedValue any,
+) *Result {
+	for _, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			continue
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok {
+			continue
+		}
+		for _, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				continue
+			}
+			if !equalClaimPath(claim["path"], expectedPath) {
+				continue
+			}
+			values, ok := claim["values"].([]any)
+			if !ok || len(values) != 1 {
+				return &Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"claims path %v does not carry exactly one value restriction",
+						expectedPath,
+					),
+				}
+			}
+			if !reflect.DeepEqual(values[0], expectedValue) {
+				return &Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"claims path %v is restricted to %v, expected %v",
+						expectedPath,
+						values[0],
+						expectedValue,
+					),
+				}
+			}
+			return nil
+		}
+	}
+	return &Result{
+		Status:  StatusFail,
+		Message: fmt.Sprintf("dcql_query does not request claims path %v", expectedPath),
 	}
 }
 
