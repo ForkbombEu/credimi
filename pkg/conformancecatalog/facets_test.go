@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestResolveFacetsPrecedenceAndKnownStandards(t *testing.T) {
+func TestResolveFacetsPrecedence(t *testing.T) {
 	t.Parallel()
 
 	got := resolveFacets("openid4vp_wallet", "ewc", facetFields{}, facetFields{})
-	require.Equal(t, "openid4vp", got.Protocol)
-	require.Equal(t, "wallet", got.Role)
-	require.Equal(t, "ewc", got.Provider)
+	require.Empty(t, got.Protocol)
+	require.Empty(t, got.Role)
 	require.Empty(t, got.SUT)
+	require.Equal(t, "ewc", got.Provider)
 
 	got = resolveFacets("openid4vp_wallet", "ewc", facetFields{
 		Protocol: "from-suite",

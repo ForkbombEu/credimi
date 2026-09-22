@@ -43,14 +43,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-21 - Conformance catalog facet completeness (#1402)
 
-- status: open
+- status: resolved (classic suite metadata backfill; map removed)
 - owner: human maintainer
-- context: #1402 removes `/api/template/blueprints` and populates `protocol`/`sut`/`role`/`provider` on `conformance_checks` so the hub can filter via PocketBase queries. v1 sources: (1) optional fields on suite `metadata.yaml` and classic check YAML; (2) FCAF in-file `suite.sut`/`suite.role` (+ provider default `fcaf`); (3) a small known-UID map for classic standards (`openid4vp_wallet` → protocol/role, etc.); (4) suite UID as provider fallback for non-FCAF.
+- context: #1402 removes `/api/template/blueprints` and populates `protocol`/`sut`/`role`/`provider` on `conformance_checks` so the hub can filter via PocketBase queries. Orthogonal axes: `protocol` (wire/spec family), `sut` (EUDI product class), `role` (party under test), `provider` (suite author/runner UID).
 - question: Should maintainers backfill explicit facet fields into every suite/check YAML (and retire `knownStandardFacets`), or keep the UID map until a path-layout redesign lands?
 - options considered: (1) authored metadata everywhere (preferred long-term); (2) keep/grow UID map (not preferred); (3) parse standard UIDs heuristically (rejected as long-term model).
-- default risk: Classic suites without suite metadata facets still get protocol/role only when the standard UID is in the map; unknown/new standards may have empty protocol/role until metadata is added. Provider is usually suite UID, which is useful but not a curated taxonomy.
-- decision: Ship option mix (1)+(3-map) for #1402; do not invent a large YAML backfill in this ticket.
-- follow-up: Author `protocol`/`sut`/`role`/`provider` in suite metadata (or check files) for gaps; shrink/remove `knownStandardFacets` once coverage is complete; hub filter labels remain English literals until i18n keys are added.
+- default risk: New classic suites without authored `protocol`/`role`/`provider` in suite `metadata.yaml` will have empty protocol/role until metadata is added; provider still falls back to suite UID / `fcaf`.
+- decision (2026-09-22): Honest shared table locked. Classic OpenID: author `protocol`/`role`/`provider` in suite `metadata.yaml` only; leave `sut` empty (do not twin role). vLEI: `protocol`/`provider` only. FCAF: keep in-file `suite.sut`/`suite.role`; provider defaults to `fcaf`; do not mass-edit FCAF YAMLs. Removed `knownStandardFacets`; resolve precedence is file → suite metadata → provider fallback.
+- follow-up: Hub filter labels remain English literals until i18n keys are added. Optional FCAF suite `metadata.yaml` `provider: fcaf` / `protocol` not required. #1399 meta denorm remains separate.
 
 ### 2026-09-21 - Nested picker metadata from flat catalog rows (#1399)
 
@@ -74,19 +74,19 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (1) re-read YAML metadata per blueprints request; (2) store nested tree only in the in-memory catalog snapshot beside flat checks; (3) widen PB collection schema for nested JSON.
 - default risk: Option (1) reintroduces a duplicate walk; option (3) couples PB schema to a compatibility DTO.
 - decision (historical #1398): Option (2). `LoadFromDir` built checks + nested `Blueprints` once; `Catalog.Blueprints(surface)` projected/filtered with no per-request FS walk. PB collection remained the flat query cache.
-- supersession (2026-09-21, #1402): Blueprints nesting and `/api/template/blueprints` were deleted. Catalog surface is flat `conformance_checks` rows (+ facet fields) only. Do not restore nested blueprints snapshot or the blueprints HTTP adapter. Durable decisions that remain: filesystem SoT, PB projection as query cache (see #1397), UID/facet fields on checks (see #1402).
+- supersession (2026-09-21, #1402): Blueprints nesting and `/api/template/blueprints` were deleted. Catalog surface is flat `conformance_checks` rows (+ facet fields) only. Do not restore nested blueprints snapshot or the blueprints HTTP adapter. Durable decisions that remain: filesystem SoT, process-private `:memory:` query cache + fake PB collection URL (see #1397), UID/facet fields on checks (see #1402).
 - follow-up: None — blueprints path closed.
 
 ### 2026-09-21 - Conformance catalog query cache storage (#1397)
 
-- status: resolved (agent default for #1397)
-- owner: agent
-- context: #1396/#1397 prefer shared `:memory:` SQLite ATTACH for an ephemeral query cache over a durable second SoT in `pb_data`. Probe showed SQLite rejects `CREATE VIEW` that references an attached database, so a PB view collection over ATTACH is non-viable.
+- status: resolved (human 2026-09-22 — reverse agent durable-table default)
+- owner: human maintainer
+- context: #1396/#1397 require an ephemeral SQLite query cache (`:memory:` / equivalent), not a durable second catalog in `pb_data`. Probe showed SQLite rejects permanent `CREATE VIEW` over ATTACH, so a PB view collection over ATTACH is non-viable. An earlier agent default wrote a replaceable base collection in `data.db` against the explicit ephemeral requirement.
 - question: Where should the PocketBase-queryable projection live?
-- options considered: (1) ATTACH + view collection; (2) custom routes reimplementing PB list envelope against `:memory:`; (3) base collection table fully replaced on Rebuild/boot, filesystem remains SoT, writes rejected.
-- default risk: Option (3) leaves rows in `data.db` between rebuilds; mitigated by boot rebuild, internal rebuild endpoint, null write rules, and model hooks.
-- decision: Option (3). Document refresh as process restart (boot rebuild) or `POST /api/conformance-catalog/rebuild` with `X-Api-Key` = `CREDIMI_INTERNAL_ADMIN_KEY`. Do not treat collection rows as SoT. Refresh path is noted in `AGENTS.md` Dev Runtime and package comments under `pkg/conformancecatalog`.
-- follow-up: Later tickets may revisit true ephemeral storage if product requires zero durable rows; not blocking #1397.
+- options considered: (1) ATTACH + view collection — impossible in SQLite; (2) ATTACH + per-connection TEMP VIEW shadowing — rejected as production hack; (3) durable base collection replaced on rebuild — rejected (not ephemeral); (4) process-private `:memory:` SQLite + Credimi-owned routes on the PocketBase collection URL, using `pocketbase/tools/search` for filter/sort/page; FE keeps `pb.collection('conformance_checks')`; no durable collection shell (codegen can stub types).
+- default risk: Option (4) means Credimi must keep the collection URL contract; Admin will not show a real collection; typegen must be patched/stubbed for the fake collection name.
+- decision: Option (4). Drop any `conformance_checks` collection shell. Serve list/get at `/api/collections/conformance_checks/records[/:id]`; reject writes. Rebuild fills `:memory:` only. Documented in `AGENTS.md` Dev Runtime and `pkg/conformancecatalog`.
+- follow-up: Facet completeness (#1402) and nested meta denormalization (#1399) remain separate.
 
 ### 2026-09-17 - Workflow timestamp presentation ownership
 

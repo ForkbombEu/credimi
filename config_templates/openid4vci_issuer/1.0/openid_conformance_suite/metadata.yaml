@@ -1,4 +1,7 @@
 name: OpenID Foundation Conformance Suite
+protocol: openid4vci
+role: issuer
+provider: openid_conformance_suite
 homepage: https://openid.net/certification/about-conformance-suite/
 repository: https://gitlab.com/openid/conformance-suite
 help: https://openid.net/certification/conformance-testing-for-openid-for-verifiable-credential-issuance/
