@@ -103,11 +103,16 @@ export function createPeerScrollFollow(options?: PeerScrollFollowOptions): PeerS
 		drivenSide = side;
 		const leader: 'cards' | 'yaml' = side === 'cards' ? 'yaml' : 'cards';
 		claimScrollLeader(leader);
-		clearDriven = watchDrivenScroll(el, behavior, () => {
-			if (drivenSide === side) drivenSide = null;
-			clearDriven = null;
-			claimScrollLeader(leader);
-		});
+		clearDriven = watchDrivenScroll(
+			el,
+			behavior,
+			() => {
+				if (drivenSide === side) drivenSide = null;
+				clearDriven = null;
+				claimScrollLeader(leader);
+			},
+			clock
+		);
 	}
 
 	function followPeerFromCards(behavior: ScrollBehavior) {

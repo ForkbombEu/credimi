@@ -240,20 +240,31 @@ export function resolveViewportYamlLine(
  * Mark a scroller as programmatically driven until scrollend (or timeout fallback).
  * Peer scroll handlers should ignore events while their side is driven.
  */
+export type DrivenScrollClock = {
+	setTimeout: (handler: () => void, timeout?: number) => ReturnType<typeof setTimeout>;
+	clearTimeout: (handle: ReturnType<typeof setTimeout>) => void;
+};
+
+const defaultDrivenClock: DrivenScrollClock = {
+	setTimeout: (...args) => globalThis.setTimeout(...args),
+	clearTimeout: (...args) => globalThis.clearTimeout(...args)
+};
+
 export function watchDrivenScroll(
 	el: HTMLElement,
 	behavior: ScrollBehavior,
-	onClear: () => void
+	onClear: () => void,
+	clock: DrivenScrollClock = defaultDrivenClock
 ): () => void {
 	let cleared = false;
 	const clear = () => {
 		if (cleared) return;
 		cleared = true;
 		el.removeEventListener('scrollend', clear);
-		clearTimeout(timer);
+		clock.clearTimeout(timer);
 		onClear();
 	};
 	el.addEventListener('scrollend', clear, { once: true });
-	const timer = setTimeout(clear, behavior === 'smooth' ? 650 : 120);
+	const timer = clock.setTimeout(clear, behavior === 'smooth' ? 650 : 120);
 	return clear;
 }

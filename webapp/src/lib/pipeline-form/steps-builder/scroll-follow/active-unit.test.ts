@@ -2,9 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { computeAlignedScrollTop, computeNearestScrollTop } from './active-unit.js';
+import {
+	computeAlignedScrollTop,
+	computeNearestScrollTop,
+	watchDrivenScroll
+} from './active-unit.js';
 
 describe('computeNearestScrollTop', () => {
 	const scroller = { top: 100, bottom: 500 }; // 400px tall
@@ -127,4 +131,80 @@ it('start barely moves a near-top card while center re-homes it', () => {
 	expect(computeAlignedScrollTop(200, 400, 2000, nearTop, scroller, 'nearest')).toBeNull();
 	expect(startTop).toBe(204); // only +4px
 	expect(centerTop).toBe(100); // -100px — enough to change which card owns center
+});
+
+describe('watchDrivenScroll', () => {
+	function fakeClock() {
+		let nextId = 1;
+		let now = 0;
+		const timers = new Map<number, { due: number; handler: () => void }>();
+		return {
+			setTimeout(handler: () => void, timeout = 0) {
+				const id = nextId++;
+				timers.set(id, { due: now + timeout, handler });
+				return id as unknown as ReturnType<typeof setTimeout>;
+			},
+			clearTimeout(handle: ReturnType<typeof setTimeout>) {
+				timers.delete(handle as unknown as number);
+			},
+			flush(ms: number) {
+				now += ms;
+				for (const [id, t] of [...timers.entries()]) {
+					if (t.due <= now) {
+						timers.delete(id);
+						t.handler();
+					}
+				}
+			},
+			pending() {
+				return timers.size;
+			}
+		};
+	}
+
+	function stubEl() {
+		const listeners = new Map<string, Set<EventListener>>();
+		return {
+			addEventListener(type: string, listener: EventListener) {
+				if (!listeners.has(type)) listeners.set(type, new Set());
+				listeners.get(type)!.add(listener);
+			},
+			removeEventListener(type: string, listener: EventListener) {
+				listeners.get(type)?.delete(listener);
+			},
+			dispatch(type: string) {
+				for (const listener of listeners.get(type) ?? []) {
+					listener(new Event(type));
+				}
+			},
+			listenerCount(type: string) {
+				return listeners.get(type)?.size ?? 0;
+			}
+		};
+	}
+
+	it('clears via injected clock after auto timeout (120ms)', () => {
+		const clock = fakeClock();
+		const el = stubEl();
+		const onClear = vi.fn();
+		watchDrivenScroll(el as unknown as HTMLElement, 'auto', onClear, clock);
+		expect(onClear).not.toHaveBeenCalled();
+		clock.flush(119);
+		expect(onClear).not.toHaveBeenCalled();
+		clock.flush(1);
+		expect(onClear).toHaveBeenCalledTimes(1);
+		expect(clock.pending()).toBe(0);
+	});
+
+	it('clears on scrollend before timeout and cancels the timer', () => {
+		const clock = fakeClock();
+		const el = stubEl();
+		const onClear = vi.fn();
+		watchDrivenScroll(el as unknown as HTMLElement, 'smooth', onClear, clock);
+		el.dispatch('scrollend');
+		expect(onClear).toHaveBeenCalledTimes(1);
+		expect(clock.pending()).toBe(0);
+		clock.flush(650);
+		expect(onClear).toHaveBeenCalledTimes(1);
+	});
 });
