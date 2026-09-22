@@ -3,13 +3,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package conformancecatalog loads classic conformance checks and FCAF test
-// definitions from config_templates into an in-process snapshot and projects
-// them into a PocketBase collection used as an ephemeral query cache
-// (filter/sort/pagination via native PB records API).
+// definitions from config_templates into an in-process snapshot and a
+// process-private :memory: SQLite query cache.
 //
-// Durable source of truth remains the filesystem under config_templates. The
-// conformance_checks collection rows are always replaced on Rebuild and must not be
-// treated as a second catalog of record (create/update/delete are rejected).
+// Durable source of truth remains the filesystem under config_templates.
+// There is no durable conformance_checks table in PocketBase data.db.
+//
+// Clients still call the PocketBase collection URL shape
+// (/api/collections/conformance_checks/records); Credimi owns those routes and
+// runs filter/sort/pagination via pocketbase/tools/search against the ephemeral
+// DB. Create/update/delete on that URL are rejected.
 //
 // Classic layout: standard/version/suite/<check file>.
 // FCAF layout: fcaf/<version>/<suite>/tests/<id>.yaml — path identity is
@@ -17,10 +20,6 @@
 //
 // Refresh after local template edits: restart the process (boot rebuild) or call
 // Rebuild / POST /api/conformance-catalog/rebuild with the internal admin API key.
-//
-// Note: a shared :memory: ATTACH + SQLite VIEW projection is not viable — SQLite
-// rejects views that reference attached databases. The PB collection table is
-// therefore the query cache, with ephemeral lifecycle (full replace on rebuild).
 package conformancecatalog
 
 import (
@@ -31,16 +30,16 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	// CollectionName is the PocketBase collection exposed to clients.
+	// CollectionName is the fake PocketBase collection name used in URLs and
+	// client code (pb.collection('conformance_checks')).
 	CollectionName = "conformance_checks"
 
-	// Stable collection id used by the migration and EnsureCollection.
+	// CollectionID is a stable id echoed in JSON for PocketBase client compatibility.
 	CollectionID = "pbc_conformance_checks_catalog"
 
 	SurfaceManual   = "manual"
@@ -91,9 +90,9 @@ type suiteYAML struct {
 }
 
 // Catalog holds the in-memory snapshot of checks loaded from disk (kept in sync
-// with the PocketBase projection by Rebuild). Production list/get traffic uses
-// the collection; Snapshot remains the dual-layer seam for rebuild responses
-// and tests.
+// with the ephemeral SQLite projection by Rebuild). Production list/get traffic
+// uses the :memory: cache via the fake collection routes; Snapshot remains the
+// dual-layer seam for rebuild responses and tests.
 type Catalog struct {
 	mu     sync.RWMutex
 	checks []Check
@@ -101,7 +100,6 @@ type Catalog struct {
 
 var (
 	defaultCatalog = &Catalog{}
-	projecting     atomic.Bool
 )
 
 // Default returns the process-wide catalog instance.
@@ -147,7 +145,7 @@ type checkFileMeta struct {
 // LoadFromDir walks templatesDir once and returns flat conformance checks with
 // facet fields. Layout: standard/version/suite/file (classic) or
 // …/tests/<id>.yaml (FCAF). Does not touch PocketBase; Rebuild calls this then
-// projects into conformance_checks.
+// projects into the process-private ephemeral store.
 func LoadFromDir(templatesDir string) ([]Check, error) {
 	entries, err := os.ReadDir(templatesDir)
 	if err != nil {
@@ -465,9 +463,4 @@ func (c *Catalog) replaceSnapshot(checks []Check) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.checks = checks
-}
-
-// IsProjecting reports whether a Rebuild is currently writing collection rows.
-func IsProjecting() bool {
-	return projecting.Load()
 }

@@ -58,8 +58,8 @@ export function appendFacetFilters(
 }
 
 /**
- * Shared conformance catalog client: lists flat checks from
- * `pb.collection('conformance_checks')`. Nested pickers group client-side.
+ * Shared conformance catalog client: lists flat checks from the fake
+ * PocketBase collection URL (`conformance_checks`). Nested pickers group client-side.
  */
 export function listChecks(
 	options: ListChecksOptions = {}

@@ -6,6 +6,7 @@ package conformancecatalog
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,7 +17,6 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -54,8 +54,22 @@ func writeFixtureTree(t *testing.T, root string) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(suiteBoth, "metadata.yaml"), metaBoth, 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(suiteBoth, "check_one.yaml"), []byte("name: Named Check One\ndescription: x\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(suiteBoth, "check_two.yaml"), []byte("title: Titled Check Two\n"), 0o644))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(suiteBoth, "check_one.yaml"),
+			[]byte("name: Named Check One\ndescription: x\n"),
+			0o644,
+		),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(suiteBoth, "check_two.yaml"),
+			[]byte("title: Titled Check Two\n"),
+			0o644,
+		),
+	)
 
 	suiteManual := filepath.Join(versionDir, "oidf")
 	require.NoError(t, os.MkdirAll(suiteManual, 0o755))
@@ -66,7 +80,14 @@ func writeFixtureTree(t *testing.T, root string) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(suiteManual, "metadata.yaml"), metaManual, 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(suiteManual, "manual_only.yaml"), []byte("session: {}\n"), 0o644))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(suiteManual, "manual_only.yaml"),
+			[]byte("session: {}\n"),
+			0o644,
+		),
+	)
 
 	suitePipe := filepath.Join(versionDir, "pipe")
 	require.NoError(t, os.MkdirAll(suitePipe, 0o755))
@@ -77,9 +98,11 @@ func writeFixtureTree(t *testing.T, root string) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(suitePipe, "metadata.yaml"), metaPipe, 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(suitePipe, "pipe_only.yaml"), []byte("{}\n"), 0o644))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(suitePipe, "pipe_only.yaml"), []byte("{}\n"), 0o644),
+	)
 
-	// FCAF: tests live under suite/tests/, not suite root (ignore root junk).
 	fcafDir := filepath.Join(root, "fcaf")
 	require.NoError(t, os.MkdirAll(fcafDir, 0o755))
 	fcafStd, err := yaml.Marshal(map[string]any{"uid": "fcaf", "name": "FCAF"})
@@ -88,7 +111,9 @@ func writeFixtureTree(t *testing.T, root string) {
 
 	fcafVersion := filepath.Join(fcafDir, "wallet_solution")
 	require.NoError(t, os.MkdirAll(fcafVersion, 0o755))
-	fcafVer, err := yaml.Marshal(map[string]any{"uid": "wallet_solution", "name": "Wallet Solution"})
+	fcafVer, err := yaml.Marshal(
+		map[string]any{"uid": "wallet_solution", "name": "Wallet Solution"},
+	)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(fcafVersion, "version.yaml"), fcafVer, 0o644))
 
@@ -101,7 +126,10 @@ func writeFixtureTree(t *testing.T, root string) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(fcafSuite, "metadata.yaml"), fcafMeta, 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(fcafSuite, "IGNORE_ME.md"), []byte("# junk\n"), 0o644))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(fcafSuite, "IGNORE_ME.md"), []byte("# junk\n"), 0o644),
+	)
 
 	fcafTests := filepath.Join(fcafSuite, "tests")
 	require.NoError(t, os.MkdirAll(fcafTests, 0o755))
@@ -120,7 +148,10 @@ suite:
   sut: wallet_solution
   role: relying_party
 `), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(fcafTests, "notes.txt"), []byte("skip me\n"), 0o644))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(fcafTests, "notes.txt"), []byte("skip me\n"), 0o644),
+	)
 }
 
 func TestPathIDStable(t *testing.T) {
@@ -147,8 +178,6 @@ func TestBootRebuildFailsWhenTemplatesDirCorrupt(t *testing.T) {
 	t.Cleanup(app.Cleanup)
 
 	root := t.TempDir()
-	// Present but unreadable as a catalog: a file where a standard dir is expected
-	// is fine; inject a standard dir with broken YAML so LoadFromDir errors.
 	std := filepath.Join(root, "broken")
 	require.NoError(t, os.MkdirAll(std, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(std, "standard.yaml"), []byte(":\n:\n"), 0o644))
@@ -166,11 +195,10 @@ func TestBootRebuildSucceedsFromFixture(t *testing.T) {
 	root := t.TempDir()
 	writeFixtureTree(t, root)
 	require.NoError(t, bootRebuild(app, root))
-
-	records, err := app.FindAllRecords(CollectionName)
-	require.NoError(t, err)
-	require.Len(t, records, 6)
 	require.Len(t, Default().Snapshot(), 6)
+
+	_, err = app.FindCollectionByNameOrId(CollectionName)
+	require.Error(t, err, "durable collection shell must not exist")
 }
 
 func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
@@ -193,10 +221,22 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	require.Equal(t, "wallet", byPath["openid4vp/draft-24/ewc/check_one"].Role)
 	require.Equal(t, "ewc", byPath["openid4vp/draft-24/ewc/check_one"].Provider)
 	require.Equal(t, "manual_only", byPath["openid4vp/draft-24/oidf/manual_only"].Title)
-	require.Equal(t, []string{SurfaceManual}, byPath["openid4vp/draft-24/oidf/manual_only"].VisibleIn)
+	require.Equal(
+		t,
+		[]string{SurfaceManual},
+		byPath["openid4vp/draft-24/oidf/manual_only"].VisibleIn,
+	)
 	require.Equal(t, "oidf", byPath["openid4vp/draft-24/oidf/manual_only"].Provider)
-	require.Equal(t, []string{SurfacePipeline}, byPath["openid4vp/draft-24/pipe/pipe_only"].VisibleIn)
-	require.ElementsMatch(t, []string{SurfaceManual, SurfacePipeline}, byPath["openid4vp/draft-24/ewc/check_one"].VisibleIn)
+	require.Equal(
+		t,
+		[]string{SurfacePipeline},
+		byPath["openid4vp/draft-24/pipe/pipe_only"].VisibleIn,
+	)
+	require.ElementsMatch(
+		t,
+		[]string{SurfaceManual, SurfacePipeline},
+		byPath["openid4vp/draft-24/ewc/check_one"].VisibleIn,
+	)
 
 	for _, ch := range checks {
 		require.NotEqual(t, "fcaf_sources", ch.Standard)
@@ -222,7 +262,7 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	}
 }
 
-func TestRebuildProjectsIntoCollection(t *testing.T) {
+func TestRebuildProjectsIntoEphemeralCache(t *testing.T) {
 	root := t.TempDir()
 	writeFixtureTree(t, root)
 
@@ -232,28 +272,25 @@ func TestRebuildProjectsIntoCollection(t *testing.T) {
 
 	Register(app)
 	require.NoError(t, Rebuild(app, root))
+	require.Len(t, Default().Snapshot(), 6)
 
-	records, err := app.FindAllRecords(CollectionName)
-	require.NoError(t, err)
-	require.Len(t, records, 6)
+	mux := catalogTestMux(t, app)
+	body := catalogListJSON(t, mux, "/api/collections/conformance_checks/records?perPage=100")
+	require.EqualValues(t, 6, body["totalItems"])
 
-	snap := Default().Snapshot()
-	require.Len(t, snap, 6)
+	items := body["items"].([]any)
+	one := findItemByPath(t, items, "openid4vp/draft-24/ewc/check_one")
+	require.Equal(t, "Named Check One", one["title"])
+	require.Equal(t, PathID("openid4vp/draft-24/ewc/check_one"), one["id"])
+	require.Equal(t, "openid4vp", one["protocol"])
+	require.Equal(t, "wallet", one["role"])
+	require.Equal(t, "ewc", one["provider"])
 
-	one := byPathRecord(t, records, "openid4vp/draft-24/ewc/check_one")
-	require.Equal(t, "Named Check One", one.GetString("title"))
-	require.Equal(t, PathID("openid4vp/draft-24/ewc/check_one"), one.Id)
-
-	fcaf := byPathRecord(t, records, "fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001")
-	require.Equal(t, "Example FCAF test", fcaf.GetString("title"))
-	require.Equal(t, "wallet_solution", fcaf.GetString("sut"))
-	require.Equal(t, "relying_party", fcaf.GetString("role"))
-	require.Equal(t, "fcaf", fcaf.GetString("provider"))
-
-	ewc := byPathRecord(t, records, "openid4vp/draft-24/ewc/check_one")
-	require.Equal(t, "openid4vp", ewc.GetString("protocol"))
-	require.Equal(t, "wallet", ewc.GetString("role"))
-	require.Equal(t, "ewc", ewc.GetString("provider"))
+	fcaf := findItemByPath(t, items, "fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001")
+	require.Equal(t, "Example FCAF test", fcaf["title"])
+	require.Equal(t, "wallet_solution", fcaf["sut"])
+	require.Equal(t, "relying_party", fcaf["role"])
+	require.Equal(t, "fcaf", fcaf["provider"])
 
 	require.NoError(t, os.WriteFile(
 		filepath.Join(root, "openid4vp", "draft-24", "ewc", "check_three.yaml"),
@@ -261,9 +298,8 @@ func TestRebuildProjectsIntoCollection(t *testing.T) {
 		0o644,
 	))
 	require.NoError(t, Rebuild(app, root))
-	records, err = app.FindAllRecords(CollectionName)
-	require.NoError(t, err)
-	require.Len(t, records, 7)
+	body = catalogListJSON(t, mux, "/api/collections/conformance_checks/records?perPage=100")
+	require.EqualValues(t, 7, body["totalItems"])
 }
 
 func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
@@ -277,17 +313,7 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	Register(app)
 	require.NoError(t, Rebuild(app, root))
 
-	baseRouter, err := apis.NewRouter(app)
-	require.NoError(t, err)
-	var mux http.Handler
-	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-	require.NoError(t, app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-		built, buildErr := e.Router.BuildMux()
-		require.NoError(t, buildErr)
-		mux = built
-		return nil
-	}))
-
+	mux := catalogTestMux(t, app)
 	serve := func(method, path, body string) *httptest.ResponseRecorder {
 		t.Helper()
 		rec := httptest.NewRecorder()
@@ -310,9 +336,13 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.Contains(t, body, `"totalItems":6`)
 	require.Contains(t, body, `"items":`)
 
-	rec = serve(http.MethodGet,
-		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`standard="openid4vp"`),
-		"")
+	rec = serve(
+		http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(
+			`standard="openid4vp"`,
+		),
+		"",
+	)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":4`)
 
@@ -323,15 +353,23 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.Contains(t, rec.Body.String(), `"totalItems":2`)
 	require.Contains(t, rec.Body.String(), `WS_RP_DM_Example_001`)
 
-	rec = serve(http.MethodGet,
-		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`protocol="openid4vp"`),
-		"")
+	rec = serve(
+		http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(
+			`protocol="openid4vp"`,
+		),
+		"",
+	)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":2`)
 
-	rec = serve(http.MethodGet,
-		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`sut="wallet_solution" && role="relying_party"`),
-		"")
+	rec = serve(
+		http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(
+			`sut="wallet_solution" && role="relying_party"`,
+		),
+		"",
+	)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":2`)
 
@@ -341,19 +379,26 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":2`)
 
-	manualRecords, err := app.FindRecordsByFilter(CollectionName, `visible_in ~ {:surface}`, "-path", 0, 0, map[string]any{"surface": SurfaceManual})
-	require.NoError(t, err, "FindRecordsByFilter visible_in")
-	require.Len(t, manualRecords, 3)
-
-	rec = serve(http.MethodGet,
-		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`visible_in ~ "manual"`)+"&sort=-path",
-		"")
+	rec = serve(
+		http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(
+			`visible_in ~ "manual"`,
+		)+"&sort=-path",
+		"",
+	)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":3`)
 
-	pipelineRecords, err := app.FindRecordsByFilter(CollectionName, `visible_in ~ {:surface}`, "-path", 0, 0, map[string]any{"surface": SurfacePipeline})
-	require.NoError(t, err)
-	require.Len(t, pipelineRecords, 5)
+	rec = serve(
+		http.MethodGet,
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(
+			`visible_in ~ "pipeline"`,
+		),
+		"",
+	)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), `"totalItems":5`)
+
 	id := PathID("openid4vp/draft-24/ewc/check_one")
 	rec = serve(http.MethodGet, "/api/collections/conformance_checks/records/"+id, "")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -376,29 +421,49 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	rec = serve(http.MethodDelete, "/api/collections/conformance_checks/records/"+id, "")
 	require.True(t, rec.Code == http.StatusForbidden || rec.Code == http.StatusBadRequest,
 		"delete status=%d body=%s", rec.Code, rec.Body.String())
-
-	collection, err := app.FindCollectionByNameOrId(CollectionName)
-	require.NoError(t, err)
-	record := core.NewRecord(collection)
-	record.Set("path", "should/not/save")
-	record.Set("title", "nope")
-	record.Set("standard", "s")
-	record.Set("version", "v")
-	record.Set("suite", "u")
-	record.Set("file", "f.yaml")
-	err = app.Save(record)
-	require.Error(t, err)
-	var apiErr *router.ApiError
-	require.ErrorAs(t, err, &apiErr)
 }
 
-func byPathRecord(t *testing.T, records []*core.Record, path string) *core.Record {
+func catalogTestMux(t *testing.T, app core.App) http.Handler {
 	t.Helper()
-	for _, r := range records {
-		if r.GetString("path") == path {
-			return r
+	baseRouter, err := apis.NewRouter(app)
+	require.NoError(t, err)
+	var mux http.Handler
+	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+	require.NoError(t, app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		rg := e.Router.Group("/api/collections/conformance_checks")
+		rg.GET("/records", RecordsListHTTP())
+		rg.GET("/records/{id}", RecordViewHTTP())
+		rg.POST("/records", RecordsWriteRejectHTTP())
+		rg.PATCH("/records/{id}", RecordsWriteRejectHTTP())
+		rg.DELETE("/records/{id}", RecordsWriteRejectHTTP())
+		built, buildErr := e.Router.BuildMux()
+		require.NoError(t, buildErr)
+		mux = built
+		return nil
+	}))
+	require.NotNil(t, mux)
+	return mux
+}
+
+func catalogListJSON(t *testing.T, mux http.Handler, path string) map[string]any {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	return body
+}
+
+func findItemByPath(t *testing.T, items []any, path string) map[string]any {
+	t.Helper()
+	for _, raw := range items {
+		item, ok := raw.(map[string]any)
+		require.True(t, ok)
+		if item["path"] == path {
+			return item
 		}
 	}
-	t.Fatalf("record with path %q not found", path)
+	t.Fatalf("item with path %q not found", path)
 	return nil
 }

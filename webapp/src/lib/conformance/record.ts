@@ -4,7 +4,11 @@
 
 import { z } from 'zod';
 
-/** PocketBase `conformance_checks` collection name (catalog facade). */
+/** Synthetic PocketBase collection name used in URLs only.
+ * Data is served by Credimi from an ephemeral catalog (no data.db collection).
+ * `generate.collections-models.ts` injects a stub for CollectionName; listChecks
+ * still casts until TypedPocketBase responses are regenerated.
+ */
 export const CONFORMANCE_CHECKS_COLLECTION = 'conformance_checks' as const;
 
 export const templateSurfaceSchema = z.enum(['manual', 'pipeline']);

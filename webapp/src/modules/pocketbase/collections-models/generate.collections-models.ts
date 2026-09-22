@@ -91,6 +91,9 @@ async function getCollectionsFromDb(): Promise<CollectionModel[]> {
 
 async function main() {
 	const models = await getCollectionsFromDb();
+	// Synthetic: Credimi owns /api/collections/conformance_checks/* from an
+	// ephemeral :memory: cache; there is no durable data.db collection.
+	injectSyntheticConformanceChecks(models);
 
 	/* Codegen */
 
@@ -137,6 +140,60 @@ import type { SetFieldType, Simplify } from 'type-fest';
 main().catch(console.error);
 
 /* Helper functions */
+
+/** Stub so CollectionName includes the fake catalog URL collection after typegen. */
+function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
+	if (models.some((m) => m.name === 'conformance_checks')) return;
+
+	const text = (name: string, required = true): CollectionField => ({
+		id: `conformance_checks_${name}`,
+		name,
+		type: 'text',
+		system: false,
+		required
+	});
+
+	models.push({
+		id: 'pbc_conformance_checks_catalog',
+		name: 'conformance_checks',
+		type: 'base',
+		system: false,
+		fields: [
+			{ id: 'conformance_checks_id', name: 'id', type: 'text', system: true, required: true },
+			text('path'),
+			text('title'),
+			text('standard'),
+			text('version'),
+			text('suite'),
+			text('file'),
+			{
+				id: 'conformance_checks_visible_in',
+				name: 'visible_in',
+				type: 'json',
+				system: false,
+				required: false
+			},
+			text('protocol', false),
+			text('sut', false),
+			text('role', false),
+			text('provider', false),
+			{
+				id: 'conformance_checks_created',
+				name: 'created',
+				type: 'autodate',
+				system: false,
+				required: false
+			},
+			{
+				id: 'conformance_checks_updated',
+				name: 'updated',
+				type: 'autodate',
+				system: false,
+				required: false
+			}
+		]
+	} as CollectionModel);
+}
 
 function sanitizeCollectionsModels(models: CollectionModel[]) {
 	// Hiding API rules to reduce leaked information

@@ -9,22 +9,26 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
 
-const writeRejectMessage = "conformance_checks is a read-only catalog projection of config_templates"
-
-// Register wires boot rebuild and write-rejection hooks.
+// Register wires boot rebuild (ephemeral catalog) and drops any durable
+// conformance_checks collection shell left from earlier projections.
 //
-// Boot: OnBootstrap ensures the collection exists and rebuilds from TemplatesDir().
+// List/get are served by Credimi routes that mimic the PocketBase collection
+// URL (/api/collections/conformance_checks/records) — see RecordsListHTTP.
+//
+// Boot: OnBootstrap drops the shell and rebuilds from TemplatesDir().
 // A missing templates directory is skipped (test apps / empty checkouts); if the
-// directory exists, ensure/rebuild failures fail bootstrap so the process does
-// not serve stale durable rows. Refresh without restart: Rebuild(app, "") or the
-// internal rebuild HTTP route.
+// directory exists, rebuild failures fail bootstrap. Refresh without restart:
+// Rebuild(app, "") or POST /api/conformance-catalog/rebuild.
 func Register(app core.App) {
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
 		if err := e.Next(); err != nil {
+			return err
+		}
+		if err := dropCollectionShell(e.App); err != nil {
+			e.App.Logger().Error("conformance catalog: drop collection shell failed", "error", err)
 			return err
 		}
 		if err := bootRebuild(e.App, TemplatesDir()); err != nil {
@@ -33,48 +37,11 @@ func Register(app core.App) {
 		}
 		return nil
 	})
-
-	reject := func(e *core.RecordEvent) error {
-		if e.Record == nil || e.Record.Collection().Name != CollectionName {
-			return e.Next()
-		}
-		if IsProjecting() {
-			return e.Next()
-		}
-		return apis.NewBadRequestError(writeRejectMessage, nil)
-	}
-
-	app.OnRecordCreateRequest(CollectionName).BindFunc(func(e *core.RecordRequestEvent) error {
-		if IsProjecting() {
-			return e.Next()
-		}
-		return e.BadRequestError(writeRejectMessage, nil)
-	})
-	app.OnRecordUpdateRequest(CollectionName).BindFunc(func(e *core.RecordRequestEvent) error {
-		if IsProjecting() {
-			return e.Next()
-		}
-		return e.BadRequestError(writeRejectMessage, nil)
-	})
-	app.OnRecordDeleteRequest(CollectionName).BindFunc(func(e *core.RecordRequestEvent) error {
-		if IsProjecting() {
-			return e.Next()
-		}
-		return e.BadRequestError(writeRejectMessage, nil)
-	})
-
-	app.OnRecordCreate(CollectionName).BindFunc(reject)
-	app.OnRecordUpdate(CollectionName).BindFunc(reject)
-	app.OnRecordDelete(CollectionName).BindFunc(reject)
 }
 
-// bootRebuild ensures the collection and rebuilds from templatesDir.
-// Missing templates dirs are non-fatal; any other ensure/rebuild error fails boot.
+// bootRebuild rebuilds from templatesDir into the ephemeral store.
+// Missing templates dirs are non-fatal; any other rebuild error fails boot.
 func bootRebuild(app core.App, templatesDir string) error {
-	if _, err := EnsureCollection(app); err != nil {
-		return fmt.Errorf("ensure collection: %w", err)
-	}
-
 	if _, err := os.Stat(templatesDir); err != nil {
 		if os.IsNotExist(err) {
 			app.Logger().Warn(

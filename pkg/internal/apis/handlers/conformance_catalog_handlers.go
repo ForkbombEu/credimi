@@ -15,8 +15,6 @@ import (
 )
 
 // ConformanceCatalogRoutes exposes catalog maintenance endpoints.
-// List/get of checks use the native PocketBase collection API:
-// GET /api/collections/conformance_checks/records
 var ConformanceCatalogRoutes = routing.RouteGroup{
 	BaseURL:                "/api/conformance-catalog",
 	AuthenticationRequired: false,
@@ -28,10 +26,52 @@ var ConformanceCatalogRoutes = routing.RouteGroup{
 			Method:      http.MethodPost,
 			Path:        "/rebuild",
 			Handler:     HandleConformanceCatalogRebuild,
-			Description: "Rebuild conformance_checks from config_templates (internal admin key)",
+			Description: "Rebuild ephemeral conformance catalog from config_templates (internal admin key)",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
+		},
+	},
+}
+
+// ConformanceChecksRecordsRoutes owns the PocketBase-shaped collection URL for
+// the ephemeral catalog (no durable data.db collection).
+var ConformanceChecksRecordsRoutes = routing.RouteGroup{
+	BaseURL:                "/api/collections/conformance_checks",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:      http.MethodGet,
+			Path:        "/records",
+			Handler:     conformancecatalog.RecordsListHTTP,
+			Description: "List conformance catalog checks (ephemeral; PB URL shape)",
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/records/{id}",
+			Handler:     conformancecatalog.RecordViewHTTP,
+			Description: "Get one conformance catalog check by id",
+		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/records",
+			Handler:     conformancecatalog.RecordsWriteRejectHTTP,
+			Description: "Reject creates on the read-only conformance catalog",
+		},
+		{
+			Method:      http.MethodPatch,
+			Path:        "/records/{id}",
+			Handler:     conformancecatalog.RecordsWriteRejectHTTP,
+			Description: "Reject updates on the read-only conformance catalog",
+		},
+		{
+			Method:      http.MethodDelete,
+			Path:        "/records/{id}",
+			Handler:     conformancecatalog.RecordsWriteRejectHTTP,
+			Description: "Reject deletes on the read-only conformance catalog",
 		},
 	},
 }
