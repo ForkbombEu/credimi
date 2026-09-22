@@ -87,6 +87,12 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	changeWalletVersionDialogOpen = $state(false);
 
+	/** View-bound scroll-follow hooks (reveal / edit-focus). Not product state. */
+	#composerScroll: {
+		onRevealStep?: (index: number) => void;
+		onEditFocus?: (stepIndex: number) => void;
+	} = {};
+
 	createdCard = $state<CreatedCardRef | null>(null);
 
 	private createdCardToken = 0;
@@ -94,6 +100,25 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	constructor(private props: Props) {
 		this.state.steps = props.steps;
 		this.state.followUps = props.followUps ?? [];
+	}
+
+	/**
+	 * Bind Pipeline Composer scroll-follow side effects without a mailbox `$state`.
+	 * Pass `{}` on teardown.
+	 */
+	bindComposerScroll(handlers: {
+		onRevealStep?: (index: number) => void;
+		onEditFocus?: (stepIndex: number) => void;
+	}) {
+		this.#composerScroll = handlers;
+	}
+
+	#requestReveal(index: number) {
+		this.#composerScroll.onRevealStep?.(index);
+	}
+
+	#requestEditFocus(stepIndex: number) {
+		this.#composerScroll.onEditFocus?.(stepIndex);
 	}
 
 	// Shortcuts
@@ -166,6 +191,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const data = getStepData(step);
 		if (!config || !data) return;
 		this.openForm('edit', config, { initial: data, stepIndex: index, section: 'steps' });
+		this.#requestEditFocus(index);
 	}
 
 	initEditFollowUp(index: number) {
@@ -215,7 +241,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 							if (inner.mode.id !== 'form') return;
 
 							if (inner.mode.intent === 'add') {
-								this.placeNewStep(inner, config, formData, 'steps');
+								if (!this.placeNewStep(inner, config, formData, 'steps')) return;
+								this.#requestReveal(inner.steps.length - 1);
 							} else {
 								const editIndex = inner.mode.stepIndex;
 								if (editIndex === undefined) return;
@@ -344,6 +371,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			state.steps.push([{ use: 'debug' }, {}]);
 			this.markCreatedCard('steps', state.steps.length - 1);
 		});
+		this.#requestReveal(this.steps.length - 1);
 	}
 
 	deleteStep(index: number) {
@@ -362,6 +390,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	cloneStep(index: number) {
 		if (this.isFormMode) return;
+		let insertedAt: number | null = null;
 		this.stateManager.run((state) => {
 			const source = state.steps[index];
 			if (!source) return;
@@ -370,8 +399,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				pipelineStep.id = '';
 			}
 			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
-			this.markCreatedCard('steps', index + 1);
+			insertedAt = index + 1;
+			this.markCreatedCard('steps', insertedAt);
 		});
+		if (insertedAt != null) this.#requestReveal(insertedAt);
 	}
 
 	setContinueOnError(index: number, continueOnError: boolean) {

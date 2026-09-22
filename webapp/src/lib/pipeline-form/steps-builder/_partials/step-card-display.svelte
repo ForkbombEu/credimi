@@ -8,10 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Component, Snippet } from 'svelte';
 
 	import { TriangleAlert } from '@lucide/svelte';
+	import { Comp } from '$lib/renderable';
 	import { showPipelineFormError } from '$pipeline-form/errors.js';
 	import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 	import * as steps from '$pipeline-form/steps';
-	import { Comp } from '$lib/renderable';
 
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
@@ -31,9 +31,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		footer?: Snippet | Comp<Component<any>>;
 		readonly?: boolean;
 		editing?: boolean;
+		selected?: boolean;
+		hovered?: boolean;
 	};
 
-	let { step, topRight, footer, readonly = false, editing = false }: Props = $props();
+	let {
+		step,
+		topRight,
+		footer,
+		readonly = false,
+		editing = false,
+		selected = false,
+		hovered = false
+	}: Props = $props();
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
@@ -57,7 +67,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		'group flex flex-col overflow-hidden rounded-md border bg-card',
 		classes.border,
 		!readonly && 'hover:ring',
-		editing && 'ring-2 ring-primary'
+		editing && 'ring-2 ring-primary',
+		selected && !editing && 'ring-1 ring-primary/50',
+		hovered && !editing && !selected && 'ring'
 	]}
 >
 	<div class={['h-1', classes?.bg]}></div>
