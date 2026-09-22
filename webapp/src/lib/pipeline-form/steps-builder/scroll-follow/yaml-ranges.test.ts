@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	findRangeForUnit,
+	findNearestUnitToLine,
 	findUnitAtLine,
 	firstStepStartLine,
 	mapYamlCardRanges
@@ -78,5 +79,31 @@ describe('mapYamlCardRanges', () => {
 		const yaml = `name: x\n\nsteps:\n  - use: debug\n\n  - id: email-0001\n    use: email\n`;
 		const ranges = mapYamlCardRanges(yaml);
 		expect(ranges.filter((r) => r.section === 'steps')).toHaveLength(2);
+	});
+});
+
+describe('findNearestUnitToLine', () => {
+	it('returns exact hits like findUnitAtLine', () => {
+		const ranges = mapYamlCardRanges(SAMPLE);
+		const first = findRangeForUnit(ranges, 'steps', 0)!;
+		expect(findNearestUnitToLine(ranges, first.startLine)?.index).toBe(0);
+	});
+
+	it('maps blank gaps between steps to the nearer range', () => {
+		const ranges = mapYamlCardRanges(SAMPLE);
+		const a = findRangeForUnit(ranges, 'steps', 0)!;
+		const b = findRangeForUnit(ranges, 'steps', 1)!;
+		expect(b.startLine - a.endLine).toBeGreaterThan(1);
+		const gap = a.endLine + 1;
+		expect(findUnitAtLine(ranges, gap)).toBeUndefined();
+		const nearest = findNearestUnitToLine(ranges, gap);
+		expect(nearest?.section).toBe('steps');
+		expect(nearest?.index).toBe(0);
+	});
+
+	it('clears above the first step', () => {
+		const ranges = mapYamlCardRanges(SAMPLE);
+		const start = firstStepStartLine(ranges)!;
+		expect(findNearestUnitToLine(ranges, start - 1)).toBeUndefined();
 	});
 });

@@ -113,6 +113,37 @@ export function findUnitAtLine(ranges: YamlCardRange[], line: number): YamlCardR
 	return ranges.find((r) => line >= r.startLine && line <= r.endLine);
 }
 
+/**
+ * Like findUnitAtLine, but blank/gap lines between card ranges resolve to the
+ * nearer neighbouring range so wash/activeUnit do not flicker off mid-scroll.
+ * Lines above the first step still return undefined (header clear).
+ */
+export function findNearestUnitToLine(
+	ranges: YamlCardRange[],
+	line: number
+): YamlCardRange | undefined {
+	if (ranges.length === 0) return undefined;
+	const hit = findUnitAtLine(ranges, line);
+	if (hit) return hit;
+
+	const first = ranges[0]!;
+	if (line < first.startLine) return undefined;
+
+	const last = ranges[ranges.length - 1]!;
+	if (line > last.endLine) return last;
+
+	for (let i = 0; i < ranges.length - 1; i++) {
+		const a = ranges[i]!;
+		const b = ranges[i + 1]!;
+		if (line > a.endLine && line < b.startLine) {
+			const distA = line - a.endLine;
+			const distB = b.startLine - line;
+			return distA <= distB ? a : b;
+		}
+	}
+	return undefined;
+}
+
 /** First step start line, or null if none — used to clear wash in name/runtime header. */
 export function firstStepStartLine(ranges: YamlCardRange[]): number | null {
 	const first = ranges.find((r) => r.section === 'steps');
