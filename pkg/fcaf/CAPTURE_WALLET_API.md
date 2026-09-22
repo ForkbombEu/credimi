@@ -130,9 +130,9 @@ The credential request normally uses `application/json` with `credential_configu
 | `response_type` | `vp_token`, `vp_token id_token`, `code` | `vp_token` |
 | `response_mode` | `direct_post`, `direct_post.jwt`, `dc_api`, `dc_api.jwt` | `direct_post.jwt` |
 | `presentation_request` | Request-object claim overrides | — |
-| `dcql_query` | DCQL query object, or `null` to omit the parameter | Default query |
+| `dcql_query` | DCQL query object, or `null` to omit the parameter from the wallet-facing request | Default query |
 | `scopes` | A string or string array | — |
-| `transaction_data` | JSON value | — |
+| `transaction_data` | Array of transaction data entries, or any other JSON value | — |
 | `verifier_info` | JSON value | — |
 | `client_metadata` | Object whose members override generated verifier metadata, or `null` to omit the parameter; top-level only | Generated verifier metadata |
 | `redirect_uri` | Absolute URI for the Wallet to open after a successful presentation; use `{{base_url}}/openid4vp/redirect` for a capture redirect page | — |
@@ -142,6 +142,12 @@ The credential request normally uses `application/json` with `credential_configu
 | `response_scenario` | HTTP response the verifier returns after a presentation; test-only | — |
 
 `request_uri_method` is valid only with `request_delivery: "by_reference"`. The service preserves any supplied string in the deeplink, including values other than the OpenID4VP-defined, case-sensitive `get` and `post`, exclusively to create malformed requests for wallet negative tests. `by_value` supplies a signed Request Object in `request`; `plain` supplies the Authorization Request's URL-encoded parameters directly in the deeplink and omits `request`, `request_uri`, and `request_uri_method`. `response_type`, top-level DCQL, scopes, transaction data, and verifier information are used to construct the wallet-facing request. Inspect the returned `authorization_request` to confirm the exact claims.
+
+`dcql_query: null` omits the query from the request the Wallet receives, which is how a Section 5.1 scope-based request is sent: combine it with `scopes`. The Verifier keeps a query regardless, because the Authorization Response is matched against the request object this service signs, so a presentation returned for a scope-only request still verifies. The kept query appears in `authorization_request` and the delivered request in `raw.authorization_request_delivered`. Scope values are caller-supplied and resolved by the Wallet's profile; this service defines none.
+
+A session that sent transaction data records `checks.transaction_data_verified`: `true` when the presentation was accepted, which includes the Section 8.4 binding Credo-TS verifies from the signed request object; `false` when the presentation was rejected with `invalid_transaction_data`; and `null` when no transaction data was sent, or when the presentation failed for an unrelated reason that says nothing about the binding. The binding requires the Wallet to return, in `transaction_data_hashes`, a hash of each base64url-encoded entry that applies to the presented Credential, using an algorithm the entry offered in `transaction_data_hashes_alg`.
+
+Entries of a `transaction_data` array that are JSON objects are base64url-encoded as OpenID4VP Section 5.1 requires, so a caller supplies the entry it wants the Wallet to decode; entries of any other type, strings included, are delivered exactly as supplied, and a `transaction_data` value that is not an array is passed through untouched. Use `request_mutation` on `/transaction_data` to deliver a parameter that bypasses encoding entirely.
 
 `scheme`, `request_uri_method`, `client_id_scheme`, `request_delivery`, `response_mode`, `client_metadata`, and `redirect_uri` are top-level fields only. They select how the service builds, signs, and delivers the request instead of being request-object claims, so nesting any of them inside `presentation_request` has no effect and is not reported as an error. In particular, a `client_metadata` value inside `presentation_request` is discarded and the generated verifier metadata is used. Only `response_type`, `dcql_query`, `nonce`, `scopes`, `transaction_data`, and `verifier_info` are honoured in both positions, and a top-level `response_type` wins over a nested one.
 
@@ -232,6 +238,8 @@ is not valid, recorded under `request_behavior`, and logged as `vp_request_behav
 | Behaviour | Effect |
 | --- | --- |
 | `{"signature":"corrupt"}` | The delivered Request Object carries a signature that does not verify. The request is signed by the normal path first and the signature value is then invalidated, so the JWS stays well formed and the Wallet rejects it on the signature. Applies to `request_uri` retrieval, a `by_value` deeplink, the DC API `request` member, and a `wallet_nonce` re-sign. Refused with `signature_behavior_requires_a_signed_request` for the `redirect_uri` client identifier prefix. |
+| `{"signing_key":"unrelated"}` | The Request Object is signed with a key that is not the one bound to the advertised client identifier; the certificate in `x5c` and the DID document are untouched. Requires a signed request. |
+| `{"certificate_chain":"unrelated_self_signed"\|"untrusted_root"\|"incomplete_chain"}` | A generated X.509 chain replaces `x5c`: one self-signed leaf, a leaf plus an untrusted generated root, or a leaf whose issuer is absent. The request is signed by that chain's leaf key and the `x509_hash` Client Identifier is recomputed from the new leaf, so the chain is the only defect. Requires `client_id_scheme: "x509_hash"`, otherwise `certificate_chain_requires_x509_hash_client_id`. Note that the delivered Client Identifier changes, so a presentation that does arrive fails audience verification. |
 | `{"wallet_nonce":"echo"\|"mismatch"\|"omit"}` | How the POST Request URI flow answers the supplied `wallet_nonce`: echo it, return a fresh unrelated value, or leave the parameter out. `echo` is the default. The `vp_request_retrieved` event records `wallet_nonce_present`, `wallet_nonce_behavior`, and `wallet_nonce_returned`. |
 | `{"request_uri_response":{"status":…,"content_type":"…","body":"…"}}` | Serve the Request URI with a wrong status, media type, or body; each member is optional. The Request Object is still generated and kept in `raw.authorization_request_jwt`, and the response actually delivered is recorded in `raw.request_uri_response_http`. |
 
@@ -412,6 +420,20 @@ source test permits it.
   capture. They are parsed evidence, not byte-for-byte plaintext; a validator
   requiring JWT serialization details must pair them with the captured compact
   response and JOSE header evidence.
+
+- Resynced from upstream master on 22/09/2026 (`6b94fa4`). The refresh adds
+  `request_behavior.signing_key`, `request_behavior.certificate_chain`,
+  Section 5.1 object encoding for `transaction_data` with the
+  `checks.transaction_data_verified` binding check, and the `dcql_query: null`
+  plus `scopes` scope-only request. None of the four has been probed on beta,
+  so treat them as published contract rather than executable evidence until a
+  dated probe exists. The tests they reclassify are listed in
+  `config_templates/fcaf/wallet_solution/relying_party/ASSERTION_REVIEW_BACKLOG.md`.
+- The `certificate_chain` behaviours recompute the `x509_hash` Client
+  Identifier from the replaced leaf. A request built with them therefore
+  carries a Client Identifier the verifier no longer expects, so a presentation
+  that does arrive fails audience verification; bind those cases to rejection
+  evidence only.
 
 ### Known FCAF limitations
 

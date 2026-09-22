@@ -77,6 +77,54 @@ its setup.
   unencoded-space, invalid-percent-encoding, illegal-character and empty-string
   shapes need additional issuer fixtures.
 
+### Reclassified by the 22/09/2026 Capture Wallet refresh
+
+`pkg/fcaf/CAPTURE_WALLET_API.md` was resynced from upstream master on
+22/09/2026. It adds four capabilities. None has been probed on beta yet, so
+every item below is constructible from the published contract and unverified in
+deployment.
+
+`request_behavior.signing_key: "unrelated"` signs the Request Object with a key
+that is not the one bound to the advertised client identifier, leaving `x5c` and
+the DID document untouched:
+
+- [ ] `WS_RP_SM_RpIntegrity__015` (X.509 request whose signature key is not the
+      `x5c` leaf key)
+- [ ] `WS_RP_MS_Metadata__132` (the same defect stated for the `x509_hash`
+      prefix)
+
+`request_behavior.certificate_chain` replaces `x5c` with a generated chain that
+is self-signed, rooted in an untrusted generated root, or missing its issuer,
+signs with that chain's leaf key, and recomputes the `x509_hash` Client
+Identifier so the chain is the only defect:
+
+- [ ] `WS_RP_SM_RpIntegrity__017` (`incomplete_chain` or `untrusted_root`)
+- [ ] `WS_RP_SM_RpIntegrity__019` (the same defect stated for `x509_hash`)
+- [ ] `WS_RP_SM_RpIntegrity__026` (`unrelated_self_signed`)
+
+  Caveat for all three: the delivered Client Identifier changes with the leaf,
+  so a presentation that does arrive fails audience verification. The
+  assertions must therefore require rejection and must not read a captured
+  presentation.
+
+`dcql_query: null` combined with `scopes` delivers a Section 5.1 scope-only
+Authorization Request:
+
+- [ ] `WS_RP_MS_ProtocolMessages__030` (scope-only request carrying a scope the
+      Wallet does not recognise; requires `invalid_scope`)
+
+  `WS_RP_MS_ProtocolMessages__020`, `WS_RP_MS_ProtocolMessages__141` and
+  `WS_RP_UC_Presentation__003` stay blocked: they need a scope the Wallet
+  resolves to a DCQL query, and the service deliberately defines no scope
+  values.
+
+Transaction data gained object encoding per Section 5.1 and a real binding
+check, `checks.transaction_data_verified`, which is `true` only when the
+Wallet returned a matching `transaction_data_hashes` entry. That removes the
+evidence gap but not the blocker: `WS_RP_MS_ProtocolMessages__017`, `018`,
+`135` and `154`–`159` still need a transaction-data type the reference Wallet
+supports.
+
 ### Available but deferred by selected scope
 
 Capture now supports `dc_api` and `dc_api.jwt`, so the following are not
@@ -230,13 +278,9 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_SM_RpIntegrity__011` (requires an untrusted verifier-attestation issuer)
 - [ ] `WS_RP_SM_RpIntegrity__012` (requires an invalid verifier-attestation signature)
 - [ ] `WS_RP_SM_RpIntegrity__014` (requires a signed X.509 request without `x5c`)
-- [ ] `WS_RP_SM_RpIntegrity__015` (requires an X.509 request signed by a key outside its `x5c` leaf)
-- [ ] `WS_RP_SM_RpIntegrity__017` (requires an incomplete or untrusted X.509 chain)
-- [ ] `WS_RP_SM_RpIntegrity__019` (requires a broken or untrusted `x509_hash` chain)
 - [ ] `WS_RP_SM_RpIntegrity__021` (requires verifier metadata outside `client_metadata` to be delivered in the Request Object)
 - [ ] `WS_RP_SM_RpIntegrity__024` (requires a Wallet profile that rejects every non-`x509_hash` client identifier, contrary to the supported DID and SAN schemes)
-- [ ] `WS_RP_SM_RpIntegrity__025` (requires injecting a trust-anchor certificate into `x5c`)
-- [ ] `WS_RP_SM_RpIntegrity__026` (requires a self-signed request certificate)
+- [ ] `WS_RP_SM_RpIntegrity__025` (requires injecting a trust-anchor certificate into `x5c`; the generated `certificate_chain` shapes remove or break trust rather than adding an anchor)
 - [ ] `WS_RP_SM_RpIntegrity__030` (requires a multi-signed Request Object)
 - [ ] `WS_RP_SM_RpIntegrity__032` (requires an RS384-signed Request Object)
 - [ ] `WS_RP_SM_RpIntegrity__033` (requires a COSE `-7` signed Request Object)
@@ -267,7 +311,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_MS_ProtocolMessages__017` (needs a wallet configuration without `transaction_data` support and a verifier callback capture)
 - [ ] `WS_RP_MS_ProtocolMessages__018` (needs a verifier-supported valid `transaction_data` type and matching wallet capability)
 - [ ] `WS_RP_MS_ProtocolMessages__020` (needs a verifier-supported scope value with a defined DCQL mapping)
-- [ ] `WS_RP_MS_ProtocolMessages__030` (needs a scope-only request with a controlled unknown scope value)
 - [ ] `WS_RP_MS_ProtocolMessages__039` (needs an unsigned request with a malformed or non-HTTPS `redirect_uri:` client identifier)
 - [ ] `WS_RP_MS_ProtocolMessages__040` (needs a `redirect_uri:` client identifier request without `redirect_uri`)
 - [ ] `WS_RP_MS_ProtocolMessages__041` (needs a direct_post.jwt request with `redirect_uri:` client identifier and no `response_uri`)
@@ -305,8 +348,7 @@ required by the following source tests.
 - [ ] `WS_RP_MS_Metadata__124` (needs a verifier attestation request with client_metadata-only non-key metadata)
 - [ ] `WS_RP_MS_Metadata__126` (needs an x509_san_dns request with SAN mismatch)
 - [ ] `WS_RP_MS_Metadata__128` (needs an x509_san_dns request with redirect URI hostname mismatch)
-- [ ] `WS_RP_MS_Metadata__130` (needs an x509_hash request with leaf certificate hash mismatch)
-- [ ] `WS_RP_MS_Metadata__132` (needs an x509_hash request signed by a different key)
+- [ ] `WS_RP_MS_Metadata__130` (needs an x509_hash request with leaf certificate hash mismatch; `request_behavior.certificate_chain` does not serve it, because the service recomputes the `x509_hash` Client Identifier from the replaced leaf, so the hash keeps matching)
 - [ ] `WS_RP_MS_Metadata__133` (needs an origin-prefixed request outside the Digital Credentials API)
 - [ ] `WS_RP_MS_Metadata__134` (needs verifier-issued encrypted Request Objects from POST wallet metadata)
 - [ ] `WS_RP_MS_Metadata__135` (needs a verifier to return an unencrypted Request Object after encryption negotiation)

@@ -1954,3 +1954,36 @@ wrong `status_reference`.
 
 `make fcaf-generate` produces 845 aggregate steps, 612 test IDs, and 205
 pipeline outputs; the happy flow drops to 354 tests.
+
+## Capture Wallet API resync, 22/09/2026
+
+`pkg/fcaf/CAPTURE_WALLET_API.md` was resynced from upstream master `6b94fa4`.
+The Credimi wrapper and the deployment-notes appendix were preserved; the body
+is upstream verbatim. Four capabilities are new:
+
+1. `request_behavior.signing_key: "unrelated"` — sign the Request Object with a
+   key that is not the one bound to the advertised client identifier.
+2. `request_behavior.certificate_chain:
+   "unrelated_self_signed" | "untrusted_root" | "incomplete_chain"` — replace
+   `x5c` with a generated chain. It recomputes the `x509_hash` Client
+   Identifier from the new leaf, so a presentation that does arrive fails
+   audience verification: bind these cases to rejection evidence only.
+3. `transaction_data` array entries that are JSON objects are base64url-encoded
+   per Section 5.1, and `checks.transaction_data_verified` records the Section
+   8.4 `transaction_data_hashes` binding.
+4. `dcql_query: null` with `scopes` delivers a scope-only request; the Verifier
+   keeps a query internally so a returned presentation still verifies.
+
+Six backlog entries were reclassified as constructible: `WS_RP_SM_RpIntegrity__015`
+and `WS_RP_MS_Metadata__132` on the signing-key behaviour, `WS_RP_SM_RpIntegrity__017`,
+`019` and `026` on the certificate-chain behaviour, and
+`WS_RP_MS_ProtocolMessages__030` on the scope-only request. None is implemented
+and none of the four capabilities has been probed on beta.
+
+Explicitly still blocked, with the reason now recorded: `WS_RP_MS_Metadata__130`
+(the recomputed `x509_hash` keeps matching, so no leaf-hash mismatch is
+possible), `WS_RP_SM_RpIntegrity__025` (the generated chains break trust rather
+than adding an anchor), the positive scope cases `WS_RP_MS_ProtocolMessages__020`,
+`141` and `WS_RP_UC_Presentation__003` (the service defines no scope values),
+and the transaction-data family, which gained evidence but still needs a
+transaction type the reference Wallet supports.
