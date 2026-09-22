@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { sameUnit, type ActiveUnit } from './active-unit.js';
-import { findNearestUnitToLine, findRangeForUnit, findUnitAtLine, type YamlCardRange } from './yaml-ranges.js';
+import {
+	findNearestUnitToLine,
+	findRangeForUnit,
+	findUnitAtLine,
+	type YamlCardRange
+} from './yaml-ranges.js';
 
 /** Inclusive 0-based line span for CodeDisplay washes. */
 export type LineRange = {
@@ -14,6 +19,8 @@ export type LineRange = {
 export type UnitHighlightInputs = {
 	getIsManual: () => boolean;
 	getEditingIndex: () => number | undefined;
+	/** Section being edited; defaults to steps when omitted. */
+	getEditingSection?: () => ActiveUnit['section'];
 	getRanges: () => YamlCardRange[];
 };
 
@@ -27,10 +34,11 @@ export function linesForUnit(unit: ActiveUnit | null, ranges: YamlCardRange[]): 
 export function resolveSelectedUnit(
 	isManual: boolean,
 	editingIndex: number | undefined,
-	pinnedUnit: ActiveUnit | null
+	pinnedUnit: ActiveUnit | null,
+	editingSection: ActiveUnit['section'] = 'steps'
 ): ActiveUnit | null {
 	if (isManual) return null;
-	if (editingIndex !== undefined) return { section: 'steps', index: editingIndex };
+	if (editingIndex !== undefined) return { section: editingSection, index: editingIndex };
 	return pinnedUnit;
 }
 
@@ -43,7 +51,12 @@ export class UnitHighlight {
 	pinnedUnit = $state.raw<ActiveUnit | null>(null);
 
 	selectedUnit = $derived.by(() =>
-		resolveSelectedUnit(this.#getIsManual(), this.#getEditingIndex(), this.pinnedUnit)
+		resolveSelectedUnit(
+			this.#getIsManual(),
+			this.#getEditingIndex(),
+			this.pinnedUnit,
+			this.#getEditingSection()
+		)
 	);
 
 	selectedLines = $derived.by(() => linesForUnit(this.selectedUnit, this.#getRanges()));
@@ -52,12 +65,14 @@ export class UnitHighlight {
 
 	#getIsManual: () => boolean;
 	#getEditingIndex: () => number | undefined;
+	#getEditingSection: () => ActiveUnit['section'];
 	#getRanges: () => YamlCardRange[];
 	#disposed = false;
 
 	constructor(inputs: UnitHighlightInputs) {
 		this.#getIsManual = inputs.getIsManual;
 		this.#getEditingIndex = inputs.getEditingIndex;
+		this.#getEditingSection = inputs.getEditingSection ?? (() => 'steps');
 		this.#getRanges = inputs.getRanges;
 	}
 

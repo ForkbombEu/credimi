@@ -38,14 +38,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		BulkWalletVersionChange,
 		Column,
 		EmptyState,
+		FollowUpCard,
 		ManualEditorColumn,
 		StepCard
 	} from './_partials/index.js';
-	import {
-		applyStepsBuilderPaneLayout,
-		STEPS_BUILDER_PANE_LAYOUT as LAYOUT,
-		type PaneHandle
-	} from './pane-layout.js';
+	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import { type ActiveUnit } from './scroll-follow/active-unit.js';
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
@@ -92,12 +89,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
+	const editingSection = $derived(
+		formMode?.intent === 'edit' ? (formMode.section ?? 'steps') : undefined
+	);
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
 	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
 	const stepDocsUrl = $derived(formMode?.config.docsUrl);
+	const showFollowUpAddActions = $derived(builder.isFollowUpEligibleForm());
 	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
 
-	let lastAppliedManualMode: boolean | null = $state(null);
+	let lastAppliedManualMode: boolean | null = null;
+	let lastFocusedCardToken = 0;
 
 	const EMPTY_YAML_RANGES: YamlCardRange[] = [];
 	const yamlRanges = $derived(
@@ -110,6 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const unitHighlight = new UnitHighlight({
 		getIsManual: () => builder.isManualMode,
 		getEditingIndex: () => editingIndex,
+		getEditingSection: () => editingSection ?? 'steps',
 		getRanges: () => yamlRanges
 	});
 
@@ -150,15 +153,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
-		const panesReady = addStepPane && stepsPane && rightPane;
-		if (!panesReady) return;
+		if (!addStepPane || !stepsPane || !rightPane) return;
 		if (lastAppliedManualMode === isManual) return;
 
 		lastAppliedManualMode = isManual;
-		applyStepsBuilderPaneLayout(
-			{ addStep: addStepPane, stepsSequence: stepsPane, right: rightPane },
-			isManual
-		);
+		if (isManual) {
+			const layout = LAYOUT.manual;
+			addStepPane.resize(layout.addStep);
+			stepsPane.resize(layout.stepsSequence);
+			rightPane.resize(layout.editor);
+		} else {
+			const layout = LAYOUT.blocks;
+			addStepPane.resize(layout.addStep);
+			stepsPane.resize(layout.stepsSequence);
+			rightPane.resize(layout.right);
+		}
+	});
+
+	$effect(() => {
+		const createdCard = builder.createdCard;
+		if (!createdCard || createdCard.token === lastFocusedCardToken) return;
+
+		lastFocusedCardToken = createdCard.token;
+		void tick().then(() => {
+			const selector = `[data-card-section="${createdCard.section}"][data-card-index="${createdCard.index}"]`;
+			const card = document.querySelector<HTMLElement>(selector);
+			card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			card?.focus({ preventScroll: true });
+		});
 	});
 
 	// Debounced re-follow when YAML text regenerates (not when activeUnit changes —
@@ -172,7 +194,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	function setScrollFollowEnabled(checked: boolean) {
-		peerScroll.setEnabled(checked, editingIndex);
+		peerScroll.setEnabled(checked, editingSection === 'steps' ? editingIndex : undefined);
 	}
 
 	function onYamlLineClick(line: number) {
@@ -205,6 +227,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							onclick={() => formMode.form.commit()}
 						>
 							{m.Save()}
+						</Button>
+					</div>
+				{:else if showFollowUpAddActions && formMode}
+					<div class="mt-auto space-y-2 border-t p-4">
+						<Button
+							class="w-full"
+							disabled={!formMode.form.canSave()}
+							onclick={() => formMode.form.commit()}
+						>
+							{m.Add_step()}
+						</Button>
+						<Button
+							variant="outline"
+							class="w-full"
+							disabled={!formMode.form.canSave()}
+							onclick={() => builder.addAsFollowUp()}
+						>
+							{m.Add_as_follow_up()}
 						</Button>
 					</div>
 				{/if}
@@ -266,8 +306,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		{/snippet}
 
-		{#if builder.steps.length > 0}
-			<div class="flex flex-col p-4">
+		<div class="space-y-4 p-4">
+			{#if builder.steps.length > 0}
 				<div class="space-y-3">
 					{#each builder.steps as step, index (step)}
 						<div
@@ -287,7 +327,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{builder}
 								{step}
 								{index}
-								editing={editingIndex === index}
+								editing={editingSection === 'steps' && editingIndex === index}
 								selected={unitHighlight.isCardSelected('steps', index)}
 								hovered={unitHighlight.isCardHovered('steps', index)}
 							/>
@@ -300,12 +340,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					style:height="{cardsEndPadPx}px"
 					aria-hidden="true"
 				></div>
+			{:else if builder.isSavedManualPipeline}
+				<EmptyState text={m.pipeline_manually_saved_no_cards()} />
+			{:else}
+				<EmptyState text={m.Pipeline_steps_will_appear_here()} />
+			{/if}
+
+			<div class="!mt-6 border-t pt-4">
+				<h3 class="text-sm font-medium">{m.Follow_ups()}</h3>
 			</div>
-		{:else if builder.isSavedManualPipeline}
-			<EmptyState text={m.pipeline_manually_saved_no_cards()} />
-		{:else}
-			<EmptyState text={m.Pipeline_steps_will_appear_here()} />
-		{/if}
+
+			{#if builder.followUps.length > 0}
+				<div class="space-y-3">
+					{#each builder.followUps as followUp, index (followUp)}
+						<div
+							animate:flip={{ duration: 300 }}
+							data-card-section="follow-ups"
+							data-card-index={index}
+							role="group"
+							tabindex="-1"
+							onmouseenter={() => {
+								unitHighlight.hoverCard({ section: 'follow-ups', index });
+							}}
+							onmouseleave={() => {
+								unitHighlight.clearHoverCard({ section: 'follow-ups', index });
+							}}
+						>
+							<FollowUpCard
+								{builder}
+								{followUp}
+								{index}
+								editing={editingSection === 'follow-ups' && editingIndex === index}
+								selected={unitHighlight.isCardSelected('follow-ups', index)}
+								hovered={unitHighlight.isCardHovered('follow-ups', index)}
+							/>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<EmptyState text={m.no_follow_ups_hint()} padded={false} />
+			{/if}
+		</div>
 	</Column>
 
 	<Resizable.Handle class="hover:bg-primary" />

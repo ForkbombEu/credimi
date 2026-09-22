@@ -36,6 +36,20 @@ _Avoid_: Calling step version “change wallet version”
 Mobile-automation steps that share the same wallet and the same serialized version id, which is the precondition for Change wallet version.
 _Avoid_: All steps, every step (unless they match)
 
+## Pipeline editor (follow-ups)
+
+**Follow-up**:
+An optional after-run action in the pipeline editor (email or HTTP only). In YAML it lives under `finally`. Product UI says Follow-up, not finally.
+_Avoid_: Final step, finally step, cleanup step (cleanup is a different engine concept), after-run step (UI jargon)
+
+**Follow-ups**:
+The editor section below the main steps separator that lists Follow-ups. Maps to the pipeline `finally` object (`always` / `on_success` / `on_failure`).
+_Avoid_: Finally section, final steps, When the run ends (rejected button-era wording)
+
+**Follow-up condition**:
+When a Follow-up runs relative to the pipeline outcome: Always, On success, or On failure. Always also covers canceled runs; cancel is not a separate UI control.
+_Avoid_: Both checkboxes, on cancel (as its own control)
+
 ## Pipeline executions (list)
 
 **Child workflow**:

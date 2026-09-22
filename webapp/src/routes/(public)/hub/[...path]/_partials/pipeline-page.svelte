@@ -26,7 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { entities } from '$lib/global';
-	import { StepCardDisplay } from '$lib/pipeline-form/steps-builder/_partials/index.js';
+	import { StepCardDisplay, ContinueOnErrorFooter } from '$lib/pipeline-form/steps-builder/_partials/index.js';
+	import { comp } from '$lib/renderable';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
@@ -102,7 +103,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<PageSection indexItem={s.pipeline_steps} empty={pipeline.steps.length === 0}>
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 			{#each pipeline.steps as step, index (index)}
-				<StepCardDisplay {step} readonly>
+				<StepCardDisplay
+					{step}
+					readonly
+					footer={comp(ContinueOnErrorFooter, { step, readonly: true })}
+				>
 					{#snippet topRight()}
 						<div class="pr-2 text-xs text-muted-foreground">
 							#{index + 1}
