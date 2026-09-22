@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
+	import type { Attachment } from 'svelte/attachments';
 
 	import {
 		BlocksIcon,
@@ -59,9 +60,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let addStepPane: PaneHandle | null = $state(null);
 	let stepsPane: PaneHandle | null = $state(null);
 	let rightPane: PaneHandle | null = $state(null);
-	let cardsScrollContainer: HTMLElement | null = $state(null);
 	/** Half-viewport end pad so the last (short) card can scroll to center. */
 	let cardsEndPadPx = $state(0);
+
+	function composeAttachments(...parts: Array<Attachment | undefined>): Attachment | undefined {
+		const active = parts.filter((part): part is Attachment => part != null);
+		if (active.length === 0) return undefined;
+		if (active.length === 1) return active[0];
+		return (node) => {
+			const cleanups = active
+				.map((attach) => attach(node))
+				.filter((cleanup): cleanup is () => void => typeof cleanup === 'function');
+			if (cleanups.length === 0) return;
+			return () => {
+				for (const cleanup of cleanups) cleanup();
+			};
+		};
+	}
+
+	const cardsEndPadAttach: Attachment = (el) => {
+		const update = () => {
+			cardsEndPadPx = Math.round(el.clientHeight * 0.3);
+		};
+		update();
+		const ro = new ResizeObserver(update);
+		ro.observe(el);
+		return () => {
+			ro.disconnect();
+			cardsEndPadPx = 0;
+		};
+	};
 
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
@@ -106,6 +134,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: peerScroll.yamlAttach(() => yamlRanges)
 	);
 
+	// Compose peer-scroll + end-pad; identity stable unless isManualMode flips.
+	const cardsScrollAttach = $derived(
+		composeAttachments(
+			!builder.isManualMode ? peerScroll.cardsAttach : undefined,
+			cardsEndPadAttach
+		)
+	);
+
 	$effect(() => () => {
 		builder.bindComposerScroll({});
 		peerScroll.dispose();
@@ -123,22 +159,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{ addStep: addStepPane, stepsSequence: stepsPane, right: rightPane },
 			isManual
 		);
-	});
-
-	// Keep end pad ~half the cards scrollport so last short cards can center.
-	$effect(() => {
-		const el = cardsScrollContainer;
-		if (!el) {
-			cardsEndPadPx = 0;
-			return;
-		}
-		const update = () => {
-			cardsEndPadPx = Math.round(el.clientHeight * 0.3);
-		};
-		update();
-		const ro = new ResizeObserver(update);
-		ro.observe(el);
-		return () => ro.disconnect();
 	});
 
 	// Debounced re-follow when YAML text regenerates (not when activeUnit changes —
@@ -222,8 +242,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Column
 		bind:pane={stepsPane}
-		bind:scrollContainer={cardsScrollContainer}
-		scrollAttach={!builder.isManualMode ? peerScroll.cardsAttach : undefined}
+		scrollAttach={cardsScrollAttach}
 		title={m.Steps_sequence()}
 		defaultSize={LAYOUT.blocks.stepsSequence}
 		order={2}

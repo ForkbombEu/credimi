@@ -137,22 +137,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return Number.isInteger(line) ? line : null;
 	}
 
-	// Re-run Shiki only when the document/theme changes — never on wash alone.
+	/** Shiki `<pre>` from `{@html}`; null when unhighlighted or not yet in the DOM. */
+	function findHighlightedPre(): HTMLElement | null {
+		if (!highlighted) return null;
+		return containerEl?.querySelector('pre') ?? null;
+	}
+
+	// Shiki: content/language/theme/contentClass only — never wash props.
 	$effect(() => {
-		const _content = content;
-		const _language = language;
-		const _theme = actualTheme;
-		const _contentClass = contentClass;
-		void _content;
-		void _language;
-		void _theme;
-		void _contentClass;
+		void content;
+		void language;
+		void actualTheme;
+		void contentClass;
 		void updateHighlighting();
 	});
 
+	// Attach stays stable across wash updates; `{@html}` blocks `{@attach}` on the real `<pre>`.
 	$effect(() => {
-		const html = highlighted;
-		const pre = html ? (containerEl?.querySelector('pre') ?? null) : null;
+		const pre = findHighlightedPre();
 		scroller = pre;
 
 		if (!pre) return;
@@ -209,19 +211,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	});
 
-	// Wash updates without rebuilding highlighted HTML
+	// Wash is frequent (hover); keep separate so attach/listeners stay stable.
 	$effect(() => {
 		const selected = selectedLines;
 		const hover = hoverLines;
-		const html = highlighted;
-		const pre = html ? (containerEl?.querySelector('pre') ?? null) : null;
-		if (!pre) return;
+		const pre = scroller;
+		if (!(pre instanceof HTMLElement)) return;
 		applyWashClasses(pre, selected, hover);
 	});
 
 	// Bottom pad so the last block can scroll to viewport center.
 	$effect(() => {
 		const ratio = endPadRatio;
+		// Prefer bindable scroller; fallback covers the unhighlighted plain `<pre>` branch.
 		const pre = scroller ?? containerEl?.querySelector('pre');
 		if (!pre || !(ratio > 0)) {
 			if (pre) pre.style.paddingBottom = '';
