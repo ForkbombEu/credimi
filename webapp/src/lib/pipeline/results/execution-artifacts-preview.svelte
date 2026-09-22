@@ -106,7 +106,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<FCAF.ReportSheet
 			reportUrl={artifacts.fcafReport}
 			pdfUrl={artifacts.fcafReportPdf}
-			maestroScreenshotUrls={artifacts.maestro_screenshots ?? []}
 		>
 			{#snippet sheetTrigger({ props })}
 				{@render artifactButton({

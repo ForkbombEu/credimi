@@ -5,13 +5,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-	collectScreenshots,
-	dedupeBurstScreenshots,
-	evidenceDeeplink,
-	evidenceScreenshotUrls,
+	checksForTest,
 	groupExecutedTests,
 	prepareReportDisplay,
-	screenshotLabel,
 	screenshotsForTest,
 	sourceUrl,
 	statusIsFailed,
@@ -35,38 +31,45 @@ describe('status helpers', () => {
 	});
 });
 
-describe('screenshot helpers', () => {
-	it('extracts image urls from nested evidence', () => {
+describe('checksForTest', () => {
+	it('prefers non-empty assertions over validators', () => {
 		expect(
-			evidenceScreenshotUrls({
-				a: 'https://example.com/a.png',
-				b: [{ c: 'https://example.com/b.jpg?x=1' }, 'skip.txt']
+			checksForTest({
+				assertions: [{ id: 'a', validator: 'assert' }],
+				validators: [{ id: 'v', validator: 'legacy' }]
 			})
-		).toEqual(['https://example.com/a.png', 'https://example.com/b.jpg?x=1']);
+		).toEqual([{ id: 'a', validator: 'assert' }]);
 	});
 
-	it('humanizes screenshot filenames', () => {
-		expect(screenshotLabel('https://x/foo_bar-baz.png')).toBe('foo bar baz');
+	it('falls back to validators when assertions is empty', () => {
+		expect(
+			checksForTest({
+				assertions: [],
+				validators: [{ id: 'v', validator: 'legacy' }]
+			})
+		).toEqual([{ id: 'v', validator: 'legacy' }]);
 	});
 
-	it('keeps the last frame of a maestro burst', () => {
-		const shots = [
-			{ url: '/run_screenshot_1_action_Tap.yaml1.png', label: 'a' },
-			{ url: '/run_screenshot_2_action_Tap.yaml2.png', label: 'b' }
-		];
-		expect(dedupeBurstScreenshots(shots)).toEqual([shots[1]]);
+	it('falls back to validators when assertions is missing', () => {
+		expect(checksForTest({ validators: [{ id: 'v', validator: 'legacy' }] })).toEqual([
+			{ id: 'v', validator: 'legacy' }
+		]);
 	});
 
-	it('prefers per-test visual evidence urls', () => {
+	it('returns an empty list when neither is present', () => {
+		expect(checksForTest({})).toEqual([]);
+	});
+});
+
+describe('screenshot helpers', () => {
+	it('selects presentation screenshots assigned to the test', () => {
 		const screenshots = [
-			{ url: '/a.png', label: 'a' },
-			{ url: '/b.png', label: 'b' }
+			{ url: '/a.png', label: 'a', test_ids: ['other-test'] },
+			{ url: '/b.png', label: 'b', test_ids: ['test-1', 'other-test'] },
+			{ url: '/unassigned.png', label: 'unassigned' }
 		];
-		const test: TestResult = {
-			test_id: 'WS_RP_DM_AddressData_001',
-			evidence: [{ visual: ['/b.png'] }]
-		};
-		expect(screenshotsForTest(screenshots, test)).toEqual([screenshots[1]]);
+		const test: TestResult = { test_id: 'test-1' };
+		expect(screenshotsForTest(screenshots, test)).toEqual([{ url: '/b.png', label: 'b' }]);
 	});
 });
 
@@ -91,17 +94,43 @@ describe('prepareReportDisplay', () => {
 	const report: Report = {
 		status: 'failed',
 		suite: 'ws_rp',
-		summary: { passed: 1, failed: 1 },
+		summary: { passed: 99, failed: 99 },
 		evidence: {
+			deeplink: 'legacy://ignored'
+		},
+		presentation: {
 			deeplink: 'openid4vp://request',
-			shot: 'https://example.com/shared.png'
+			screenshots: [
+				{
+					url: 'https://example.com/passed.png',
+					label: 'Passed evidence',
+					test_ids: ['WS_RP_DM_AddressData_Email_001']
+				},
+				{
+					url: 'https://example.com/failed.png',
+					label: 'Failed evidence',
+					test_ids: ['WS_RP_IA_MainInteraction__003']
+				},
+				{
+					url: 'https://example.com/unassigned.png',
+					label: 'Unassigned evidence'
+				},
+				{
+					url: 'https://example.com/also-unassigned.png',
+					label: 'Also unassigned',
+					test_ids: []
+				}
+			],
+			summary_filters: [
+				{ key: 'passed', label: 'Passed', count: 1 },
+				{ key: 'failed', label: 'Failed', count: 1 }
+			]
 		},
 		executed_tests: [
 			{
 				test_id: 'WS_RP_DM_AddressData_Email_001',
 				title: 'Email claim',
-				status: 'passed',
-				evidence: [{ visual: ['https://example.com/shared.png'] }]
+				status: 'passed'
 			},
 			{
 				test_id: 'WS_RP_IA_MainInteraction__003',
@@ -112,8 +141,8 @@ describe('prepareReportDisplay', () => {
 	};
 
 	it('builds filtered display data', () => {
-		const display = prepareReportDisplay(report, [], {
-			filter: 'fail',
+		const display = prepareReportDisplay(report, {
+			filter: 'failed',
 			searchQuery: ''
 		});
 		expect(display.totalTests).toBe(2);
@@ -122,16 +151,26 @@ describe('prepareReportDisplay', () => {
 		expect(display.filteredTests).toHaveLength(1);
 		expect(display.filteredTests[0].test_id).toBe('WS_RP_IA_MainInteraction__003');
 		expect(display.checkedDeeplink).toBe('openid4vp://request');
-		expect(display.summaryEntries).toEqual([
-			['passed', 1],
-			['failed', 1]
+		expect(display.summaryFilters).toEqual([
+			{ key: 'passed', label: 'Passed', count: 1 },
+			{ key: 'failed', label: 'Failed', count: 1 }
+		]);
+		expect(display.allScreenshots).toEqual([
+			{ url: 'https://example.com/passed.png', label: 'Passed evidence' },
+			{ url: 'https://example.com/failed.png', label: 'Failed evidence' },
+			{ url: 'https://example.com/unassigned.png', label: 'Unassigned evidence' },
+			{ url: 'https://example.com/also-unassigned.png', label: 'Also unassigned' }
+		]);
+		expect(display.unassignedScreenshots).toEqual([
+			{ url: 'https://example.com/unassigned.png', label: 'Unassigned evidence' },
+			{ url: 'https://example.com/also-unassigned.png', label: 'Also unassigned' }
 		]);
 	});
 
 	it('filters by search query', () => {
 		expect(testMatchesSearch(report.executed_tests![0], 'email')).toBe(true);
 		expect(testMatchesSearch(report.executed_tests![0], 'interaction')).toBe(false);
-		const display = prepareReportDisplay(report, [], {
+		const display = prepareReportDisplay(report, {
 			filter: 'all',
 			searchQuery: 'interaction'
 		});
@@ -139,12 +178,103 @@ describe('prepareReportDisplay', () => {
 		expect(display.groupedCategories[0].category.code).toBe('IA');
 	});
 
-	it('collects maestro and evidence screenshots', () => {
-		const shots = collectScreenshots(report, ['https://example.com/maestro.png']);
-		expect(shots.map((s) => s.url)).toEqual([
-			'https://example.com/maestro.png',
-			'https://example.com/shared.png'
+	it('uses exact presentation filter keys', () => {
+		const display = prepareReportDisplay(
+			{
+				presentation: {
+					summary_filters: [{ key: 'passed', label: 'Passed', count: 1 }]
+				},
+				executed_tests: [
+					{ test_id: 'WS_RP_DM_AddressData_001', status: 'passed' },
+					{ test_id: 'WS_RP_DM_AddressData_002', status: 'passed-with-warning' }
+				]
+			},
+			{ filter: 'passed', searchQuery: '' }
+		);
+		expect(display.filteredTests.map((test) => test.test_id)).toEqual([
+			'WS_RP_DM_AddressData_001'
 		]);
+	});
+
+	it('renders historical reports when presentation is missing', () => {
+		const display = prepareReportDisplay(
+			{
+				evidence: {
+					session: {
+						deeplink: 'legacy://request',
+						artifacts: ['https://example.com/legacy-only.png']
+					}
+				},
+				executed_tests: [
+					{
+						test_id: 'WS_RP_DM_AddressData_001',
+						status: 'passed',
+						assertions: [{ evidence_keys: ['session'] }]
+					}
+				]
+			},
+			{ filter: 'all', searchQuery: '' }
+		);
+		expect(display.allScreenshots).toEqual([
+			{ url: 'https://example.com/legacy-only.png', label: 'legacy only' }
+		]);
+		expect(display.unassignedScreenshots).toEqual([]);
+		expect(display.checkedDeeplink).toBe('legacy://request');
+		expect(display.summaryFilters).toEqual([{ key: 'passed', label: 'Passed', count: 1 }]);
+		expect(display.executedTests).toHaveLength(1);
+	});
+
+	it('fills missing presentation fields from historical report data', () => {
+		const display = prepareReportDisplay(
+			{
+				evidence: {
+					visual_evidence: {
+						artifacts: ['https://example.com/fallback.png?token=temporary']
+					}
+				},
+				presentation: {
+					deeplink: 'openid4vp://request'
+				},
+				executed_tests: [
+					{
+						test_id: 'WS_RP_DM_AddressData_001',
+						status: 'passed',
+						assertions: [{ evidence_keys: ['visual_evidence'] }]
+					}
+				]
+			},
+			{ filter: 'all', searchQuery: '' }
+		);
+		expect(display.checkedDeeplink).toBe('openid4vp://request');
+		expect(display.summaryFilters).toEqual([{ key: 'passed', label: 'Passed', count: 1 }]);
+		expect(display.allScreenshots).toEqual([
+			{ url: 'https://example.com/fallback.png', label: 'fallback' }
+		]);
+		expect(display.unassignedScreenshots).toEqual([]);
+	});
+
+	it('keeps stored presentation summary filters when they are present', () => {
+		const display = prepareReportDisplay(
+			{
+				evidence: {
+					visual_evidence: {
+						artifacts: ['https://example.com/fallback.png']
+					}
+				},
+				presentation: {
+					summary_filters: [{ key: 'failed', label: 'Failed', count: 7 }]
+				},
+				executed_tests: [
+					{
+						test_id: 'WS_RP_DM_AddressData_001',
+						status: 'passed',
+						assertions: [{ evidence_keys: ['visual_evidence'] }]
+					}
+				]
+			},
+			{ filter: 'all', searchQuery: '' }
+		);
+		expect(display.summaryFilters).toEqual([{ key: 'failed', label: 'Failed', count: 7 }]);
 	});
 });
 
@@ -154,9 +284,5 @@ describe('sourceUrl', () => {
 			'https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_001'
 		);
 		expect(sourceUrl(undefined)).toBeUndefined();
-	});
-
-	it('finds nested deeplinks', () => {
-		expect(evidenceDeeplink({ a: { deeplink: 'x://y' } })).toBe('x://y');
 	});
 });

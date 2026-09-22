@@ -19,6 +19,7 @@ type Report struct {
 	Evidence        EvidenceMap    `json:"evidence,omitempty"`
 	Summary         Summary        `json:"summary"`
 	Failures        []TestFailure  `json:"failures,omitempty"`
+	Presentation    *Presentation  `json:"presentation,omitempty"`
 }
 
 type TestResult struct {
