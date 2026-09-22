@@ -22,9 +22,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		step: EnrichedStep;
 		builder: StepsBuilder;
 		editing?: boolean;
+		selected?: boolean;
+		hovered?: boolean;
 	};
 
-	let { builder, step, index, editing = false }: Props = $props();
+	let {
+		builder,
+		step,
+		index,
+		editing = false,
+		selected = false,
+		hovered = false
+	}: Props = $props();
 
 	const editable = $derived(isStepEditable(step));
 	const actionsDisabled = $derived(builder.isFormMode);
@@ -33,6 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <StepCardDisplay
 	{step}
 	{editing}
+	{selected}
+	{hovered}
 	onContinueOnErrorChange={(checked) => builder.setContinueOnError(index, checked)}
 >
 	{#snippet topRight()}

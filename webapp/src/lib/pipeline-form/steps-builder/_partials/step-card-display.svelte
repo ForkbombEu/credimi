@@ -31,6 +31,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onContinueOnErrorChange?: (checked: boolean) => void;
 		readonly?: boolean;
 		editing?: boolean;
+		selected?: boolean;
+		hovered?: boolean;
 	};
 
 	let {
@@ -38,7 +40,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		topRight,
 		onContinueOnErrorChange,
 		readonly = false,
-		editing = false
+		editing = false,
+		selected = false,
+		hovered = false
 	}: Props = $props();
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
@@ -63,7 +67,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		'group flex flex-col overflow-hidden rounded-md border bg-card',
 		classes.border,
 		!readonly && 'hover:ring',
-		editing && 'ring-2 ring-primary'
+		editing && 'ring-2 ring-primary',
+		selected && !editing && 'ring-1 ring-primary/50',
+		hovered && !editing && !selected && 'ring'
 	]}
 >
 	<div class={['h-1', classes?.bg]}></div>

@@ -46,9 +46,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Resizable.Pane bind:this={pane} class={classes} {defaultSize} {minSize} {order}>
-	<div class="flex items-center justify-between border-b bg-slate-100 px-4 py-2">
-		<T class="font-semibold">{title}</T>
-		{@render titleRight?.()}
+	<div class="flex min-w-0 items-center justify-between gap-2 border-b bg-slate-100 px-4 py-2">
+		<T class="shrink-0 font-semibold">{title}</T>
+		<div class="min-w-0 shrink">
+			{@render titleRight?.()}
+		</div>
 	</div>
 
 	<div
