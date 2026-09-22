@@ -85,6 +85,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		getRanges: () => yamlRanges
 	});
 
+	builder.bindComposerScroll({
+		onRevealStep: (index) => {
+			if (builder.isManualMode) return;
+			const unit: ActiveUnit = { section: 'steps', index };
+			// Wait for the new card to mount before scrolling.
+			void tick().then(() => peerScroll.onReveal(unit));
+		},
+		onEditFocus: (stepIndex) => {
+			if (builder.isManualMode) return;
+			peerScroll.onEditFocus(stepIndex);
+		}
+	});
+
 	// Stable yaml attach — getter reads live ranges; do not recreate on every yaml regen.
 	const yamlPreviewEmpty = $derived(EffectString.isEmpty(builder.yamlPreview));
 	const yamlScrollAttach = $derived(
@@ -94,6 +107,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	$effect(() => () => {
+		builder.bindComposerScroll({});
 		peerScroll.dispose();
 		unitHighlight.dispose();
 	});
@@ -111,12 +125,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		);
 	});
 
-	// Edit selection drives wash; with scroll-follow also smooth-scroll YAML.
-	$effect(() => {
-		if (builder.isManualMode) return;
-		peerScroll.onEditFocus(editingIndex);
-	});
-
 	// Keep end pad ~half the cards scrollport so last short cards can center.
 	$effect(() => {
 		const el = cardsScrollContainer;
@@ -131,20 +139,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const ro = new ResizeObserver(update);
 		ro.observe(el);
 		return () => ro.disconnect();
-	});
-
-	// After add/clone, scroll the new card into view (independent of selection highlight).
-	$effect(() => {
-		const index = builder.revealStepIndex;
-		if (index == null || builder.isManualMode) return;
-		const cardsEl = cardsScrollContainer;
-		// Wait until the steps scroller exists (first card mount).
-		if (!cardsEl) return;
-		builder.revealStepIndex = null;
-		const unit: ActiveUnit = { section: 'steps', index };
-		void tick().then(() => {
-			peerScroll.onReveal(unit);
-		});
 	});
 
 	// Debounced re-follow when YAML text regenerates (not when activeUnit changes —

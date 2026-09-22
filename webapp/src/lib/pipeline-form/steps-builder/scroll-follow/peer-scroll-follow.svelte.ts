@@ -63,6 +63,7 @@ export class PeerScrollFollow {
 	#lastIntentSide: 'cards' | 'yaml' | null = null;
 	#leaderIdleTimer: ReturnType<typeof setTimeout> | null = null;
 	#peerFollowRaf: number | null = null;
+	#pendingReveal: ActiveUnit | null = null;
 	#disposed = false;
 
 	constructor(options?: PeerScrollFollowOptions) {
@@ -111,6 +112,12 @@ export class PeerScrollFollow {
 		el.addEventListener('touchstart', onUserIntent, { passive: true });
 		el.addEventListener('pointerdown', onUserIntent, { passive: true });
 		el.addEventListener('scroll', onScroll, { passive: true });
+
+		const pending = this.#pendingReveal;
+		if (pending) {
+			this.#pendingReveal = null;
+			this.#flushReveal(pending);
+		}
 
 		return () => {
 			el.removeEventListener('wheel', onUserIntent);
@@ -189,9 +196,17 @@ export class PeerScrollFollow {
 		if (this.enabled) this.#followPeerFromCards('smooth');
 	}
 
-	/** Center-scroll card; if enabled also peer-follow YAML. */
+	/** Center-scroll card; if enabled also peer-follow YAML. Queues if cards not bound yet. */
 	onReveal(unit: ActiveUnit) {
 		if (this.#disposed) return;
+		if (!this.#cardsEl) {
+			this.#pendingReveal = unit;
+			return;
+		}
+		this.#flushReveal(unit);
+	}
+
+	#flushReveal(unit: ActiveUnit) {
 		const cards = this.#cardsEl;
 		if (!cards) return;
 		scrollCardIntoView(cards, unit, 'smooth', { align: 'center', focus: false });
@@ -242,6 +257,7 @@ export class PeerScrollFollow {
 		}
 		this.#scrollLeader = null;
 		this.#lastIntentSide = null;
+		this.#pendingReveal = null;
 		this.#cardsEl = null;
 		this.#yamlEl = null;
 		this.#getRanges = null;

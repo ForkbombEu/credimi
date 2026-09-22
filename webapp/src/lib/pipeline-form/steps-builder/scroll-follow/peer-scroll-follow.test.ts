@@ -287,4 +287,21 @@ describe('PeerScrollFollow', () => {
 		expect(follow.activeUnit).toBeNull();
 		follow.dispose();
 	});
+
+	it('queues onReveal until cardsAttach then flushes', () => {
+		const clock = createFakeClock();
+		const follow = new PeerScrollFollow({ clock });
+		follow.setEnabled(true);
+
+		follow.onReveal({ section: 'steps', index: 0 });
+		expect(follow.activeUnit).toBeNull();
+
+		const cards = createCardsScroller([100]);
+		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
+		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+		follow.cardsAttach(cards as unknown as HTMLElement);
+
+		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
+		follow.dispose();
+	});
 });

@@ -74,11 +74,33 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	changeWalletVersionDialogOpen = $state(false);
 
-	/** After add/clone, UI scrolls this step into view then clears it. */
-	revealStepIndex = $state<number | null>(null);
+	/** View-bound scroll-follow hooks (reveal / edit-focus). Not product state. */
+	#composerScroll: {
+		onRevealStep?: (index: number) => void;
+		onEditFocus?: (stepIndex: number) => void;
+	} = {};
 
 	constructor(private props: Props) {
 		this.state.steps = props.steps;
+	}
+
+	/**
+	 * Bind Pipeline Composer scroll-follow side effects without a mailbox `$state`.
+	 * Pass `{}` on teardown.
+	 */
+	bindComposerScroll(handlers: {
+		onRevealStep?: (index: number) => void;
+		onEditFocus?: (stepIndex: number) => void;
+	}) {
+		this.#composerScroll = handlers;
+	}
+
+	#requestReveal(index: number) {
+		this.#composerScroll.onRevealStep?.(index);
+	}
+
+	#requestEditFocus(stepIndex: number) {
+		this.#composerScroll.onEditFocus?.(stepIndex);
 	}
 
 	// Shortcuts
@@ -147,6 +169,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const data = getStepData(step);
 		if (!config || !data) return;
 		this.openForm('edit', config, { initial: data, stepIndex: index });
+		this.#requestEditFocus(index);
 	}
 
 	private openForm(
@@ -189,7 +212,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 									with: config.serialize(formData)
 								};
 								inner.steps.push([step, formData as GenericRecord]);
-								this.revealStepIndex = inner.steps.length - 1;
+								this.#requestReveal(inner.steps.length - 1);
 							} else {
 								const editIndex = inner.mode.stepIndex;
 								if (editIndex === undefined) return;
@@ -222,7 +245,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.stateManager.run((state) => {
 			state.steps.push([{ use: 'debug' }, {}]);
 		});
-		this.revealStepIndex = this.steps.length - 1;
+		this.#requestReveal(this.steps.length - 1);
 	}
 
 	deleteStep(index: number) {
@@ -245,7 +268,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
 			insertedAt = index + 1;
 		});
-		if (insertedAt != null) this.revealStepIndex = insertedAt;
+		if (insertedAt != null) this.#requestReveal(insertedAt);
 	}
 
 	setContinueOnError(index: number, continueOnError: boolean) {
