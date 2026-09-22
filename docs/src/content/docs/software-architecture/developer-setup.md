@@ -117,7 +117,7 @@ make dev
 
 `.config/wt.toml` runs the same bootstrap on pre-start and `make purge` on removal, so Worktrunk removals discard that worktree's containers, volumes, copied data, and generated runtime files.
 
-Bootstrap (also callable by hand) uses `wt step copy-ignored --require-include` for `.worktreeinclude` (`.env`, `webapp/.env`, `webapp/node_modules/`, `pb_data/`), writes unique ports into `.env.worktree` (Worktrunk `hash_port` seeds + collision walk), syncs PocketBase URLs in `webapp/.env`, initializes submodules, and runs `make tools` when `.bin` is missing.
+Bootstrap (also callable by hand) uses `wt step copy-ignored --require-include` for `.worktreeinclude` (`.env`, `webapp/.env`, `webapp/node_modules/`, `pb_data/`), writes unique ports into `.env.worktree` (Worktrunk `hash_port` seeds + collision walk), syncs PocketBase URLs in `webapp/.env`, rewrites checkout `.env` `ROOT_DIR` to this worktree’s absolute path (do not leave the primary’s path after copy-ignored), initializes submodules, and runs `make tools` when `.bin` is missing. `make dev` also exports that same `ROOT_DIR` so the API process does not keep a stale dotenv value.
 
 Edit `.env.worktree` to change ports; regenerators never overwrite an existing file.
 
