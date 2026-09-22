@@ -1751,3 +1751,66 @@ nested decrypted payload, and a nested signed JWT).
 pipeline outputs. `adb devices` listed no attached emulator on 22/09/2026, so
 reference-Wallet execution remains required and the inventory rows stay
 `implemented verifier-blocked`.
+
+## Named credential fixture cases
+
+`WS_RP_IA_MainInteraction__032`, `040`, `041`,
+`WS_RP_MS_CredentialFormats__033`, `044`, and
+`WS_RP_SH_Encoding_TextualEncoding_002`, `003` now issue the named Capture
+fixture each one needs and prove it reached the Wallet before asserting
+behaviour.
+
+- `pid-under-18-constraint` owns 032. It issues `fixture_id: pid_under_18`,
+  then runs two requests against it. The first constrains
+  `age_over_18: false` plus `birthdate: 2012-03-04` and must return the PID,
+  which is what proves the fixture is in the Wallet. The second keeps the
+  birthdate and flips the constraint to `age_over_18: true`, a combination no
+  fixture can satisfy, and must return nothing. The contradictory pair is
+  deliberate: the aggregate shares one device, so a plain `age_over_18: true`
+  request would legitimately match a `pid_default` left by an earlier
+  scenario and the no-match assertion would be meaningless.
+- `pid-multiple-credentials` owns 040 and 041. It issues `pid_default` and
+  `pid_person_b`, then probes each through its own `family_name` value
+  constraint. `oid4vp.distinct_presentations` requires the two probes to
+  disclose different `document_number` values, which is the simultaneous
+  possession evidence the backlog demanded; counting presentations alone
+  cannot distinguish two credentials from one credential presented twice. The
+  probes use the ordinary single-credential consent flow, so no multi-select
+  Maestro behaviour has to be assumed. 040 then asserts
+  `multiple_default_false` and 041 the new `multiple_false` mode, which
+  requires `multiple` to be present and `false` rather than absent.
+- 033 and 044 join `credential-status-list`, whose mdoc and SD-JWT issuances
+  already set `status_list_enabled: true`. 033 requires the stored Referenced
+  Token to carry an MSO `status` element with a `status_list` member and the
+  PID doctype; 044 requires the presented SD-JWT `status` claim to contain a
+  `status_list` with a URI.
+- 002 joins `degree-array-selector`: the source path `[degrees, null, type]`
+  must disclose both entry types, with `name`, `nationalities` and `address`
+  left undisclosed. 003 owns the new `degree-array-index` scenario with
+  `[academic_programmes, 1]`. `nationalities` cannot serve the source's
+  `["nationalities", 1]` example because `DEGREE_DISCLOSURE_FRAME` makes it one
+  atomic disclosure, so per-index selection would leave no trace;
+  `academic_programmes` is disclosable per element.
+
+Defect found and fixed while verifying 033 and 044: `sdjwtPresentation` and
+`mdocPresentation` accepted only a compact token or a JSON *string* vp_token,
+while `credential-status-list` binds the decoded vp_token object the pipeline
+produces. Every `sdjwt.*` and `mdoc.*` assertion in the 029a-g and 033a-h
+families would therefore have failed on evidence shape in a live run, exactly
+like the SessionEncryption 001 binding defect. Both helpers now also accept
+`map[string]any` and delegate to the existing vp_token JSON parsers, and
+`sdjwtClaim` falls through to that path instead of stopping at a failed
+claims-map lookup. `TestSDJWTClaimResolvesDecodedVPToken` pins the shape.
+
+Verified 22/09/2026 by running the shipped definitions through the FCAF engine
+against synthetic evidence: all sixteen expectations met. Each case passes on
+conformant evidence and fails on its own defect only, including a presentation
+returned despite the failed constraint, the wrong `fixture_id`, the same
+credential probed twice, two presentations where one is required, an absent
+`multiple: false` flag, a missing status claim or MSO status element, a
+partially selected array, and a disclosed sibling or unaddressed element.
+
+`make fcaf-generate` produces 793 aggregate steps, 612 test IDs, and 203
+pipeline outputs; the happy flow drops to 366 tests because the five cases it
+used to carry now live in dedicated fixture scenarios. `adb devices` listed no
+attached emulator, so reference-Wallet execution remains required.

@@ -97,6 +97,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"trusted_authority_array_item_type",
 		"trusted_authority_empty_string_item",
 		"multiple_default_false",
+		"multiple_false",
 		"multiple_true",
 		"no_match",
 		"request_rejected",
@@ -261,6 +262,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"without_claims",
 		"without_claim_disclosures",
 		"multiple_default_false",
+		"multiple_false",
 		"multiple_true":
 		if params.Mode == "without_credential_sets" {
 			if _, exists := query["credential_sets"]; exists {
@@ -378,6 +380,28 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					return Result{
 						Status:  StatusFail,
 						Message: fmt.Sprintf("credentials[%d] contains multiple", index),
+					}
+				}
+				presentations, ok := presentation.([]any)
+				if !ok || len(presentations) != 1 {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"vp_token must contain exactly one presentation for credential query %q",
+							id,
+						),
+					}
+				}
+			}
+			if params.Mode == "multiple_false" {
+				multiple, exists := credential["multiple"].(bool)
+				if !exists || multiple {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"credentials[%d].multiple is not explicitly false",
+							index,
+						),
 					}
 				}
 				presentations, ok := presentation.([]any)

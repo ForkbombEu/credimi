@@ -56,12 +56,14 @@ its setup.
   response. Open limitation: 125 and 126 can only evidence the Wallet's own
   error visually, because the Wallet has already submitted its Authorization
   Response when the malformed reply arrives.
-- **Named credential fixtures:** `WS_RP_IA_MainInteraction__032`, `040`, `041`,
-  `WS_RP_MS_CredentialFormats__033`, `044`, and
-  `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. The required under-18,
-  distinct-PID, status-list, and degree-array inputs are now published
-  fixtures. Multi-credential tests still need a clean issuance sequence and
-  evidence that every required fixture is simultaneously present in the Wallet.
+- **Implemented; beta evidence pending:** `WS_RP_IA_MainInteraction__032`,
+  `040`, `041`, `WS_RP_MS_CredentialFormats__033`, `044`, and
+  `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. Each case now issues the
+  named fixture it needs and proves the fixture reached the Wallet before
+  asserting the behaviour. 040 and 041 issue `pid_default` and `pid_person_b`
+  and establish simultaneous possession through two value-constrained probes
+  whose `document_number` values differ, so counting presentations can no
+  longer be satisfied by one credential presented twice.
 - **Status-reference fixtures:** `WS_RP_MS_Metadata__081`–`090` and
   `WS_RP_MS_CredentialFormats__030`, `031`. `status_reference` expresses the
   valid, missing-member, negative-index, and malformed-URI SD-JWT status shapes

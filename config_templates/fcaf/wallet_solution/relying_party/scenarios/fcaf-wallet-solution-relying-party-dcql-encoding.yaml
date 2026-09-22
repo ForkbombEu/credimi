@@ -55,8 +55,6 @@ steps:
   with:
     test_ids:
     - WS_RP_SH_Encoding_TextualEncoding_001
-    - WS_RP_SH_Encoding_TextualEncoding_002
-    - WS_RP_SH_Encoding_TextualEncoding_003
     - WS_RP_SH_Encoding_TextualEncoding_004
     - WS_RP_SH_Encoding_TextualEncoding_005
     - WS_RP_SH_Encoding_TextualEncoding_006

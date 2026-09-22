@@ -897,6 +897,13 @@ func sdjwtPresentation(value any) (*evidence.SDJWTPresentation, bool) {
 		}
 		presentation, err = evidence.ParseSDJWTVPTokenJSON(typed)
 		return presentation, err == nil
+	case map[string]any:
+		encoded, err := json.Marshal(typed)
+		if err != nil {
+			return nil, false
+		}
+		presentation, err := evidence.ParseSDJWTVPTokenJSON(string(encoded))
+		return presentation, err == nil
 	default:
 		return nil, false
 	}
@@ -942,6 +949,15 @@ func sdjwtPresentations(value any) ([]*evidence.SDJWTPresentation, bool) {
 		return presentations, true
 	case string:
 		presentations, err := evidence.ParseSDJWTVPTokenPresentationsJSON(typed)
+		if err == nil && len(presentations) > 0 {
+			return presentations, true
+		}
+	case map[string]any:
+		encoded, err := json.Marshal(typed)
+		if err != nil {
+			return nil, false
+		}
+		presentations, err := evidence.ParseSDJWTVPTokenPresentationsJSON(string(encoded))
 		if err == nil && len(presentations) > 0 {
 			return presentations, true
 		}
@@ -1042,9 +1058,14 @@ func decodeClaimParam(params map[string]any) (string, error) {
 	return decoded.Claim, nil
 }
 
+// sdjwtClaim resolves a dotted claim path against evidence that is either a
+// decoded claims object, a compact SD-JWT presentation, or the decoded
+// vp_token object the capture pipeline binds.
 func sdjwtClaim(value any, claim string) (any, bool) {
 	if claims, ok := value.(map[string]any); ok {
-		return resolveObjectPath(claims, claim)
+		if resolved, found := resolveObjectPath(claims, claim); found {
+			return resolved, true
+		}
 	}
 	presentation, ok := sdjwtPresentation(value)
 	if !ok {

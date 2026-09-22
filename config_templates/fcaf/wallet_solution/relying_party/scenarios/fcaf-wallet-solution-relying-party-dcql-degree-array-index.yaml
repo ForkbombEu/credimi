@@ -1,8 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Forkbomb BV
-#
-# SPDX-License-Identifier: AGPL-3.0-or-later
-
-name: FCAF DCQL degree array selector
+name: FCAF DCQL degree array index selector
 runtime:
   fixture:
     issuer_url: https://beta-capture-wallet.credimi.io
@@ -48,7 +44,7 @@ steps:
       response_type: vp_token
       response_mode: direct_post
       presentation_request:
-        nonce: degree-array-selector
+        nonce: degree-array-index
         dcql_query:
           credentials:
           - id: degree
@@ -57,13 +53,12 @@ steps:
               vct_values:
               - urn:credimi:degree:1
             claims:
-            - id: degree-type
+            - id: second-programme-list
               path:
-              - degrees
-              - null
-              - type
+              - academic_programmes
+              - 1
             claim_sets:
-            - - degree-type
+            - - second-programme-list
 - id: present-degree-credential
   use: mobile-automation
   with:
@@ -81,11 +76,10 @@ steps:
   use: fcaf-validation
   with:
     test_ids:
-    - WS_RP_SH_Encoding_TextualEncoding_008
-    - WS_RP_SH_Encoding_TextualEncoding_002
+    - WS_RP_SH_Encoding_TextualEncoding_003
     suite: wallet_solution/relying_party
     pipeline_outputs:
-      pipeline.dcql.degree-array-selector:
+      pipeline.dcql.degree-array-index:
         output:
           dcql_exchange: ${{ fetch-degree-presentation.outputs.body }}
           visual_evidence: ${{ present-degree-credential.outputs.flow_output.maestro_screenshot_urls }}

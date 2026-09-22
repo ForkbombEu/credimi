@@ -6,6 +6,7 @@ package validators
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/mail"
 	"regexp"
@@ -788,6 +789,13 @@ func mdocPresentation(value any) (*evidence.MDocPresentation, bool) {
 			return presentation, true
 		}
 		presentation, err = evidence.ParseMDocVPTokenJSON(typed)
+		return presentation, err == nil
+	case map[string]any:
+		encoded, err := json.Marshal(typed)
+		if err != nil {
+			return nil, false
+		}
+		presentation, err := evidence.ParseMDocVPTokenJSON(string(encoded))
 		return presentation, err == nil
 	default:
 		return nil, false
