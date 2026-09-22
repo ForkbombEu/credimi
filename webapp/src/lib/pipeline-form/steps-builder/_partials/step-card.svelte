@@ -7,12 +7,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
+	import { comp } from '$lib/renderable';
 
 	import { ArrowDownIcon, ArrowUpIcon, CopyPlus, PencilIcon, TrashIcon } from '@lucide/svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
+	import ContinueOnErrorFooter from './continue-on-error-footer.svelte';
 	import { isStepEditable, StepCardDisplay } from './index.js';
 
 	//
@@ -33,7 +35,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <StepCardDisplay
 	{step}
 	{editing}
-	onContinueOnErrorChange={(checked) => builder.setContinueOnError(index, checked)}
+	footer={comp(ContinueOnErrorFooter, {
+		step,
+		onCheckedChange: (checked) => builder.setContinueOnError(index, checked)
+	})}
 >
 	{#snippet topRight()}
 		<div

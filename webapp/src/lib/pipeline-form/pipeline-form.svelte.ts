@@ -42,6 +42,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	constructor(private props: Props) {
 		this.stepsBuilder = new StepsBuilder({
 			steps: props.pipeline?.steps ?? [],
+			followUps: props.pipeline?.followUps ?? [],
 			yamlPreview: () => this.yamlString,
 			isSavedManualPipeline: props.pipeline?.record.manual === true
 		});
@@ -106,7 +107,8 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		createPipelineYaml(
 			this.metadataForm.value?.name ?? '',
 			this.stepsBuilder.steps.map(([step]) => step),
-			this.runtimeOptionsForm.value
+			this.runtimeOptionsForm.value,
+			this.stepsBuilder.followUps
 		)
 	);
 
@@ -227,8 +229,9 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			this.stepsBuilder.steps.map(([step]) => step),
 			pipeline?.steps.map(([step]) => step)
 		);
+		const followUpsChanged = !_.isEqual(this.stepsBuilder.followUps, pipeline?.followUps ?? []);
 
-		return stepsChanged || runtimeOptionsChanged || metadataChanged;
+		return stepsChanged || followUpsChanged || runtimeOptionsChanged || metadataChanged;
 	});
 
 	canSave = $derived.by(() => {
