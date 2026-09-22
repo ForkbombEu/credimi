@@ -30,9 +30,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		theme?: BundledTheme;
 		containerClass?: string;
 		contentClass?: ClassValue;
-		/** Soft wash over these lines (0-based inclusive). */
-		highlightLines?: LineRange | null;
+		/** Stronger wash over these lines (0-based inclusive). */
+		selectedLines?: LineRange | null;
+		/** Lighter wash over these lines (0-based inclusive). Selected wins when both apply. */
+		hoverLines?: LineRange | null;
 		onLineClick?: (line: number) => void;
+		onLineHover?: (line: number | null) => void;
+		/** Fraction of scroller height as bottom padding so the last block can center. */
+		endPadRatio?: number;
 		scroller?: HTMLElement | null;
 	};
 
@@ -44,8 +49,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		containerClass = '',
 		theme,
 		contentClass = '',
-		highlightLines = null,
+		selectedLines = null,
+		hoverLines = null,
 		onLineClick,
+		onLineHover,
+		endPadRatio = 0,
 		scroller = $bindable<HTMLElement | null>(null)
 	}: Props = $props();
 
@@ -55,16 +63,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let highlighted = $state('');
 	let isDarkTheme = $state(true);
 	let containerEl: HTMLDivElement | undefined = $state();
+	let highlightGeneration = 0;
+	let lastHoverLine: number | null = null;
 
 	const actualTheme: BundledTheme = $derived(
 		theme || (isDarkTheme ? 'catppuccin-frappe' : 'github-light')
 	);
 
 	async function updateHighlighting() {
-		const classes = ['p-4 w-0 grow overflow-scroll', clsx(contentClass)];
-		const wash = highlightLines;
+		const generation = ++highlightGeneration;
+		const classes = [
+			'p-4 w-full min-h-0 grow h-full overflow-auto code-display-scroller',
+			clsx(contentClass)
+		];
 
-		highlighted = await codeToHtml(content, {
+		const html = await codeToHtml(content, {
 			lang: language,
 			theme: actualTheme,
 			transformers: [
@@ -79,16 +92,57 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							'data-line': String(idx)
 						};
 						this.addClassToHast(node, 'code-display-line');
-						if (wash && idx >= wash.start && idx <= wash.end) {
-							this.addClassToHast(node, 'code-display-line-wash');
+						// Empty source lines are empty spans; flex would collapse them.
+						// NBSP keeps intentional blank rows one line tall.
+						if (!node.children || node.children.length === 0) {
+							node.children = [{ type: 'text', value: '\u00A0' }];
 						}
 					}
 				}
 			]
 		});
+
+		if (generation !== highlightGeneration) return;
+		highlighted = html;
 	}
 
+	function inRange(idx: number, wash: LineRange | null): boolean {
+		return wash != null && idx >= wash.start && idx <= wash.end;
+	}
+
+	function applyWashClasses(
+		pre: HTMLElement,
+		selected: LineRange | null,
+		hover: LineRange | null
+	) {
+		for (const el of pre.querySelectorAll<HTMLElement>('[data-line]')) {
+			const idx = Number(el.getAttribute('data-line'));
+			if (!Number.isInteger(idx)) continue;
+			const isSelected = inRange(idx, selected);
+			el.classList.toggle('code-display-line-wash-selected', isSelected);
+			el.classList.toggle('code-display-line-wash-hover', !isSelected && inRange(idx, hover));
+		}
+	}
+
+	function lineFromEvent(event: MouseEvent): number | null {
+		const target = event.target;
+		if (!(target instanceof Element)) return null;
+		const lineEl = target.closest('[data-line]');
+		if (!lineEl) return null;
+		const line = Number(lineEl.getAttribute('data-line'));
+		return Number.isInteger(line) ? line : null;
+	}
+
+	// Re-run Shiki only when the document/theme changes — never on wash alone.
 	$effect(() => {
+		const _content = content;
+		const _language = language;
+		const _theme = actualTheme;
+		const _contentClass = contentClass;
+		void _content;
+		void _language;
+		void _theme;
+		void _contentClass;
 		void updateHighlighting();
 	});
 
@@ -97,21 +151,85 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const pre = html ? (containerEl?.querySelector('pre') ?? null) : null;
 		scroller = pre;
 
-		if (!pre || !onLineClick) return;
+		if (!pre) return;
 
-		const handler = (event: MouseEvent) => {
-			const target = event.target;
-			if (!(target instanceof Element)) return;
-			const lineEl = target.closest('[data-line]');
-			if (!lineEl) return;
-			const line = Number(lineEl.getAttribute('data-line'));
-			if (!Number.isInteger(line)) return;
-			onLineClick(line);
-		};
+		const cleanups: Array<() => void> = [];
 
-		pre.addEventListener('click', handler);
+		if (onLineClick) {
+			const onClick = (event: MouseEvent) => {
+				const line = lineFromEvent(event);
+				if (line === null) return;
+				onLineClick(line);
+			};
+			pre.addEventListener('click', onClick);
+			cleanups.push(() => pre.removeEventListener('click', onClick));
+		}
+
+		if (onLineHover) {
+			const emitHover = (line: number | null) => {
+				if (line === lastHoverLine) return;
+				lastHoverLine = line;
+				onLineHover(line);
+			};
+
+			const onMove = (event: MouseEvent) => {
+				emitHover(lineFromEvent(event));
+			};
+
+			const onLeave = () => {
+				emitHover(null);
+			};
+
+			pre.addEventListener('mousemove', onMove);
+			pre.addEventListener('mouseover', onMove);
+			pre.addEventListener('mouseleave', onLeave);
+			cleanups.push(() => {
+				pre.removeEventListener('mousemove', onMove);
+				pre.removeEventListener('mouseover', onMove);
+				pre.removeEventListener('mouseleave', onLeave);
+				if (lastHoverLine !== null) {
+					lastHoverLine = null;
+					onLineHover(null);
+				}
+			});
+		}
+
+		if (cleanups.length === 0) return;
 		return () => {
-			pre.removeEventListener('click', handler);
+			for (const cleanup of cleanups) cleanup();
+		};
+	});
+
+	// Wash updates without rebuilding highlighted HTML
+	$effect(() => {
+		const selected = selectedLines;
+		const hover = hoverLines;
+		const html = highlighted;
+		const pre = html ? (containerEl?.querySelector('pre') ?? null) : null;
+		if (!pre) return;
+		applyWashClasses(pre, selected, hover);
+	});
+
+	// Bottom pad so the last block can scroll to viewport center.
+	$effect(() => {
+		const ratio = endPadRatio;
+		const pre = scroller ?? containerEl?.querySelector('pre');
+		if (!pre || !(ratio > 0)) {
+			if (pre) pre.style.paddingBottom = '';
+			return;
+		}
+		const update = () => {
+			// clientHeight includes padding — subtract current pad to avoid feedback growth.
+			const currentPad = parseFloat(getComputedStyle(pre).paddingBottom) || 0;
+			const viewH = Math.max(0, pre.clientHeight - currentPad);
+			pre.style.paddingBottom = `${Math.round(viewH * ratio)}px`;
+		};
+		update();
+		const ro = new ResizeObserver(update);
+		ro.observe(pre);
+		return () => {
+			ro.disconnect();
+			pre.style.paddingBottom = '';
 		};
 	});
 
@@ -136,8 +254,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	bind:this={containerEl}
-	class={['relative flex w-full overflow-hidden rounded-md border', containerClass]}
-	class:code-display-clickable={Boolean(onLineClick)}
+	class={[
+		'relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-md border',
+		containerClass
+	]}
+	class:code-display-clickable={Boolean(onLineClick || onLineHover)}
 >
 	{#if highlighted}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -145,7 +266,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render copyButton()}
 	{:else}
 		<pre
-			class={['relative', preClasses]}
+			class={['relative min-h-0 grow overflow-auto', preClasses]}
 			class:language-json={language === 'json'}
 			class:language-yaml={language === 'yaml'}>
 		{content}
@@ -176,10 +297,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 <style>
-	:global(.code-display-line-wash) {
-		background-color: color-mix(in oklab, var(--brand-primary, #3730a3) 16%, transparent);
-		display: inline-block;
+	/*
+	  Shiki puts a literal `\n` between each `.line` span. With `display: block` on
+	  those spans, the newlines become extra anonymous line boxes — a blank-looking
+	  gap between every row. Flex/grid on `code` ignores that inter-element whitespace.
+	  Empty lines stay one row tall via an NBSP injected in the line transformer.
+	  min-width/width:max-content lets the wash span the full scroll width of long lines.
+	*/
+	:global(.code-display-scroller > code) {
+		display: flex;
+		flex-direction: column;
+		min-width: 100%;
+		width: max-content;
+	}
+
+	:global(.code-display-line) {
+		display: block;
 		width: 100%;
+		min-height: 1.25em;
+		box-sizing: border-box;
+	}
+
+	:global(.code-display-line-wash-hover) {
+		background-color: rgb(255 255 255 / 0.08);
+	}
+
+	:global(.code-display-line-wash-selected) {
+		background-color: rgb(255 255 255 / 0.16);
 	}
 
 	:global(.code-display-clickable .code-display-line) {
