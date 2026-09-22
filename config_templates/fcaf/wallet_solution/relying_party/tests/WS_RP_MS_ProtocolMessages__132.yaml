@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__132
-title: FCAF WS_RP_MS_ProtocolMessages__132
+title: Carry the Authorization Response parameters at the top level of the encrypted JWT.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__132.md
 suite:
@@ -11,21 +11,34 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.protocol-messages-132.outputs.dcql_exchange
+    from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  encrypted_response:
+    from: pipeline.dcql.session-encryption.outputs.encrypted_response
+  decrypted_response:
+    from: pipeline.dcql.session-encryption.outputs.decrypted_response
   visual_evidence:
-    from: pipeline.dcql.protocol-messages-132.outputs.visual_evidence
+    from: pipeline.dcql.session-encryption.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__132_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
+- id: wallet_submitted_an_encrypted_authorization_response
+  validator: oid4vp.presentation_response_http
   input: evidence.dcql_exchange
   params:
-    mode: jwe_enc_verified
-- id: ws_rp_ms_protocolmessages__132_visual_evidence_stored
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+- id: encrypted_response_is_an_unsigned_jwt
+  validator: jose.jwe_protected_header
+  input: evidence.encrypted_response
+  params: { field: cty, present: false }
+- id: decrypted_payload_carries_the_response_parameters_at_the_top_level
+  validator: oid4vp.response_parameters_top_level
+  input: evidence.decrypted_response
+  params: { required: [vp_token] }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

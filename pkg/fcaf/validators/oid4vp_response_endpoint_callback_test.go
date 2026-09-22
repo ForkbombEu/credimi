@@ -214,6 +214,56 @@ func TestOID4VPResponseEndpointCallbackValidator(t *testing.T) {
 			},
 			status: StatusPass,
 		},
+		{
+			name:   "non-JSON body satisfies body_format not_json",
+			value:  testCallbackEvidence(200, "text/plain", "", "fcaf plain text response"),
+			params: map[string]any{"body_format": "not_json"},
+			status: StatusPass,
+		},
+		{
+			name:   "JSON body fails body_format not_json",
+			value:  testCallbackEvidence(200, "application/json", "", redirectBody),
+			params: map[string]any{"body_format": "not_json"},
+			status: StatusFail,
+		},
+		{
+			name:   "non-JSON body fails body_format json",
+			value:  testCallbackEvidence(200, "text/plain", "", "fcaf plain text response"),
+			params: map[string]any{"body_format": "json"},
+			status: StatusFail,
+		},
+		{
+			name: "required body member is present",
+			value: testCallbackEvidence(
+				200,
+				"application/json",
+				"",
+				`{"redirect_uri":"https://verifier.eudiw.dev/?response_code=refreshed","extra":1}`,
+			),
+			params: map[string]any{
+				"body_format":           "json",
+				"required_body_members": []any{"extra"},
+			},
+			status: StatusPass,
+		},
+		{
+			name:   "required body member is missing",
+			value:  testCallbackEvidence(200, "application/json", "", redirectBody),
+			params: map[string]any{"required_body_members": []any{"extra"}},
+			status: StatusFail,
+		},
+		{
+			name:   "unknown body_format is a definition error",
+			value:  testCallbackEvidence(200, "application/json", "", redirectBody),
+			params: map[string]any{"body_format": "xml"},
+			status: StatusError,
+		},
+		{
+			name:   "required members cannot be combined with a non-JSON body",
+			value:  testCallbackEvidence(200, "text/plain", "", "plain"),
+			params: map[string]any{"body_format": "not_json", "required_body_members": []any{"extra"}},
+			status: StatusError,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := validator.Validate(

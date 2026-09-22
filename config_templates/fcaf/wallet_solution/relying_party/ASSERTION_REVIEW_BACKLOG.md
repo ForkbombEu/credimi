@@ -46,11 +46,16 @@ its setup.
   The scenarios use `request_behavior.wallet_nonce` or
   `request_uri_response`, require POST Request URI retrieval, and bind the
   delivered request or response plus the Wallet outcome.
-- **Response URI, response body, and unknown-parameter controls:**
+- **Implemented; beta evidence pending:**
   `WS_RP_IA_MainInteraction__053`, `055`, `056`,
   `WS_RP_IA_Metadata__010`, and `WS_RP_MS_ProtocolMessages__124`–`128`, `132`.
-  Use a delivery mutation or `response_scenario` and retain the captured HTTP
-  request and verifier response as evidence.
+  `request_mutation` builds the missing, duplicated, and foreign-host Response
+  URI requests and the unrecognized request parameter; `response_scenario`
+  delivers the non-JSON, HTTP 400, and unrecognized-member verifier replies.
+  Every case binds the captured Wallet HTTP request and the delivered verifier
+  response. Open limitation: 125 and 126 can only evidence the Wallet's own
+  error visually, because the Wallet has already submitted its Authorization
+  Response when the malformed reply arrives.
 - **Named credential fixtures:** `WS_RP_IA_MainInteraction__032`, `040`, `041`,
   `WS_RP_MS_CredentialFormats__033`, `044`, and
   `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. The required under-18,

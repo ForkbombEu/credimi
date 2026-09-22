@@ -12,6 +12,11 @@ import (
 	"strings"
 )
 
+const (
+	callbackBodyJSON    = "json"
+	callbackBodyNotJSON = "not_json"
+)
+
 // OID4VPResponseEndpointCallbackValidator verifies the HTTP response the
 // verifier returns to the Wallet after a direct-post submission, captured in
 // the session's raw.presentation_response_verifier_http record.
@@ -23,17 +28,34 @@ func (OID4VPResponseEndpointCallbackValidator) ID() string {
 
 func (OID4VPResponseEndpointCallbackValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
-		Status                     int    `json:"status"`
-		MediaType                  string `json:"media_type"`
-		MatchConfiguredRedirectURI bool   `json:"match_configured_redirect_uri"`
-		RequireResponseCode        bool   `json:"require_response_code"`
-		RequireNoStore             bool   `json:"require_no_store"`
+		Status                     int      `json:"status"`
+		MediaType                  string   `json:"media_type"`
+		MatchConfiguredRedirectURI bool     `json:"match_configured_redirect_uri"`
+		RequireResponseCode        bool     `json:"require_response_code"`
+		RequireNoStore             bool     `json:"require_no_store"`
+		BodyFormat                 string   `json:"body_format"`
+		RequiredBodyMembers        []string `json:"required_body_members"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
+	switch params.BodyFormat {
+	case "", callbackBodyJSON, callbackBodyNotJSON:
+	default:
+		return Result{
+			Status:  StatusError,
+			Message: "body_format must be json or not_json",
+		}
+	}
+	if params.BodyFormat == callbackBodyNotJSON && len(params.RequiredBodyMembers) > 0 {
+		return Result{
+			Status:  StatusError,
+			Message: "required_body_members cannot be combined with body_format not_json",
+		}
+	}
 	if params.Status == 0 && params.MediaType == "" && !params.MatchConfiguredRedirectURI &&
-		!params.RequireResponseCode && !params.RequireNoStore {
+		!params.RequireResponseCode && !params.RequireNoStore && params.BodyFormat == "" &&
+		len(params.RequiredBodyMembers) == 0 {
 		return Result{Status: StatusError, Message: "at least one callback check is required"}
 	}
 
@@ -98,6 +120,16 @@ func (OID4VPResponseEndpointCallbackValidator) Validate(_ context.Context, input
 		}
 	}
 
+	if params.BodyFormat != "" || len(params.RequiredBodyMembers) > 0 {
+		if err := validateCallbackBody(
+			response,
+			params.BodyFormat,
+			params.RequiredBodyMembers,
+		); err != nil {
+			return Result{Status: StatusFail, Message: err.Error()}
+		}
+	}
+
 	if params.MatchConfiguredRedirectURI || params.RequireResponseCode {
 		if err := validateCallbackRedirectURI(
 			evidence,
@@ -110,6 +142,39 @@ func (OID4VPResponseEndpointCallbackValidator) Validate(_ context.Context, input
 	}
 
 	return Result{Status: StatusPass, Message: "verifier callback evidence matches"}
+}
+
+// validateCallbackBody checks the exact body the verifier delivered to the
+// Wallet. A Response Endpoint that processed the Authorization Response must
+// answer with a JSON object, so both the malformed-body and the
+// unrecognised-member cases are decided on the delivered bytes rather than on
+// the scenario the test requested.
+func validateCallbackBody(
+	response map[string]any,
+	format string,
+	requiredMembers []string,
+) error {
+	body, ok := response["body"].(string)
+	if !ok {
+		return fmt.Errorf("verifier callback body is missing")
+	}
+	payload := map[string]any{}
+	parseErr := json.Unmarshal([]byte(body), &payload)
+	if format == callbackBodyNotJSON {
+		if parseErr == nil {
+			return fmt.Errorf("verifier callback body is a JSON object, expected a non-JSON body")
+		}
+		return nil
+	}
+	if parseErr != nil {
+		return fmt.Errorf("verifier callback body is not a JSON object")
+	}
+	for _, member := range requiredMembers {
+		if _, exists := payload[member]; !exists {
+			return fmt.Errorf("verifier callback body does not contain %q", member)
+		}
+	}
+	return nil
 }
 
 // validateCallbackRedirectURI checks the redirect URI the verifier handed to

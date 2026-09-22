@@ -2235,15 +2235,11 @@ steps:
             - WS_RP_IA_MainInteraction__046
             - WS_RP_IA_MainInteraction__049
             - WS_RP_IA_MainInteraction__052
-            - WS_RP_IA_MainInteraction__053
             - WS_RP_IA_MainInteraction__054
-            - WS_RP_IA_MainInteraction__055
-            - WS_RP_IA_MainInteraction__056
             - WS_RP_IA_MainInteraction__060
             - WS_RP_IA_MainInteraction__064
             - WS_RP_IA_MainInteraction__065
             - WS_RP_IA_MainInteraction__066
-            - WS_RP_IA_Metadata__010
             - WS_RP_IA_Metadata__011
             - WS_RP_IA_Metadata__012
             - WS_RP_IA_Metadata__013
@@ -2354,9 +2350,13 @@ steps:
             - WS_RP_MS_ProtocolMessages__070
             - WS_RP_MS_ProtocolMessages__095
             - WS_RP_MS_ProtocolMessages__105
+            - WS_RP_MS_ProtocolMessages__127a
+            - WS_RP_MS_ProtocolMessages__127b
+            - WS_RP_MS_ProtocolMessages__127c
             - WS_RP_MS_ProtocolMessages__127d
             - WS_RP_MS_ProtocolMessages__129
             - WS_RP_MS_ProtocolMessages__131
+            - WS_RP_MS_ProtocolMessages__132
             - WS_RP_MS_ProtocolMessages__133
             - WS_RP_MS_ProtocolMessages__134
             - WS_RP_SH_Cryptography_CryptographicHash_001

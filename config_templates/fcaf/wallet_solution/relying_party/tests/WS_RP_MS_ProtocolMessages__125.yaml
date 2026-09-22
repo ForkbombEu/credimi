@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__125
-title: FCAF WS_RP_MS_ProtocolMessages__125
+title: Detect an HTTP 200 Response Endpoint reply whose body is not JSON.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__125.md
 suite:
@@ -11,21 +11,31 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages-125.outputs.dcql_exchange
+  session:
+    from: pipeline.protocol.verifier-response-controls.outputs.non_json_response_session
+  callback:
+    from: pipeline.protocol.verifier-response-controls.outputs.non_json_response_callback
   visual_evidence:
-    from: pipeline.dcql.protocol-messages-125.outputs.visual_evidence
+    from: pipeline.protocol.verifier-response-controls.outputs.non_json_response_visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__125_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: wallet_submitted_the_authorization_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.session
   params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__125_visual_evidence_stored
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+- id: verifier_delivered_http_200_with_a_non_json_body
+  validator: oid4vp.response_endpoint_callback
+  input: evidence.callback
+  params:
+    status: 200
+    media_type: text/plain
+    body_format: not_json
+- id: visual_evidence_of_the_wallet_error_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

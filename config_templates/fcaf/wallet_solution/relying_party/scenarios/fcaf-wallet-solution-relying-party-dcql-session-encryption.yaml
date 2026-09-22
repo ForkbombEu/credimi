@@ -62,6 +62,10 @@ steps:
       - WS_RP_SM_SessionEncryption__001d
       - WS_RP_SM_SessionEncryption__001e
       - WS_RP_SM_SessionEncryption__001f
+      - WS_RP_MS_ProtocolMessages__132
+      - WS_RP_MS_ProtocolMessages__127a
+      - WS_RP_MS_ProtocolMessages__127b
+      - WS_RP_MS_ProtocolMessages__127c
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.session-encryption:

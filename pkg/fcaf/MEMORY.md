@@ -1697,3 +1697,57 @@ returned signed Request Object contains the selected mismatch or omission.
 
 `make fcaf-generate` produces 757 aggregate steps, 612 test IDs, and 203
 pipeline outputs. Reference-Wallet execution remains required.
+
+## Response URI, verifier response, and unknown-parameter controls
+
+`WS_RP_IA_MainInteraction__053`, `055`, `056`, `WS_RP_IA_Metadata__010`, and
+`WS_RP_MS_ProtocolMessages__124`–`128`, `132` now have concrete definitions in
+three new scenarios plus the existing session-encryption exchange:
+
+- `response-uri-controls`: `request_mutation.request_object` unsets
+  `response_uri` (053), adds `redirect_uri` beside it (055 and 010), and points
+  `response_uri` at a foreign host under an `x509_san_dns` Client Identifier
+  (056). 053 and 056 accept rejection or discontinuation, 055 requires an
+  error without a presentation, and 010 requires exactly `invalid_request`.
+  The new `oid4vp.response_uri_client_id_mismatch` validator encodes the strict
+  matching rule from OID4VP 5.9.3: the FQDN of `response_uri` must equal the
+  Client Identifier without its prefix.
+- `unknown-parameter-controls`: an unrecognized signed-request parameter (124),
+  an unrecognized member merged into the verifier's HTTP 200 JSON reply through
+  `response_scenario.extra_parameters` (127), and both together (128). All
+  three require a matching presentation; 127 and 128 additionally require the
+  returned `redirect_uri` and a recorded redirect visit.
+- `verifier-response-controls`: `response_scenario` delivers HTTP 200 with a
+  `text/plain` body (125) and HTTP 400 with a JSON error body (126).
+  `oid4vp.response_endpoint_callback` gained `body_format` (`json`/`not_json`)
+  and `required_body_members`, so the delivered bytes are asserted rather than
+  the requested scenario.
+- 132 joins `dcql.session-encryption` instead of duplicating a direct_post.jwt
+  interaction. The new `oid4vp.response_parameters_top_level` validator
+  requires `vp_token` at the root of the decrypted payload and fails when any
+  response parameter is reachable inside a sibling sub-object.
+
+Deleting the six placeholder `dcql-protocol-messages-12x` scenarios orphaned
+`WS_RP_MS_ProtocolMessages__127a`, `127b`, and `127c`, whose preconditions
+require a successfully decrypted Authorization Response. They now bind
+`pipeline.dcql.session-encryption` and assert their own requirement
+(`vp_token_json_object`, `vp_token_presentation_arrays`, and
+`vp_token_signed_presentation`) instead of a shared `credentials_match`.
+
+Known evidence limit: 125 and 126 describe a Wallet error raised after the
+Authorization Response has already been submitted, so no protocol channel back
+to the verifier exists. Their definitions prove the submission and the exact
+delivered verifier reply and keep the screenshot as the only evidence of the
+Wallet's own error. Do not add a synthetic `invalid_request` assertion there.
+
+Verified 22/09/2026 by running the shipped definitions through the FCAF engine
+against synthetic evidence: all thirteen pass on conformant evidence, and each
+fails on its own defect only (presentation returned to a rejected request,
+unspecified error where `invalid_request` is required, undelivered mutation,
+missing unrecognized member, normal verifier reply, wrapped or partially
+nested decrypted payload, and a nested signed JWT).
+
+`make fcaf-generate` produces 763 aggregate steps, 612 test IDs, and 200
+pipeline outputs. `adb devices` listed no attached emulator on 22/09/2026, so
+reference-Wallet execution remains required and the inventory rows stay
+`implemented verifier-blocked`.
