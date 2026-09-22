@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Attachment } from 'svelte/attachments';
 	import type { ClassValue } from 'svelte/elements';
 
 	import { Check, ClipboardCopy } from '@lucide/svelte';
@@ -39,6 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/** Fraction of scroller height as bottom padding so the last block can center. */
 		endPadRatio?: number;
 		scroller?: HTMLElement | null;
+		/** Optional attachment for the Shiki `<pre>` scroller (e.g. peer scroll-follow). */
+		scrollerAttach?: Attachment;
 	};
 
 	let {
@@ -54,7 +57,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onLineClick,
 		onLineHover,
 		endPadRatio = 0,
-		scroller = $bindable<HTMLElement | null>(null)
+		scroller = $bindable<HTMLElement | null>(null),
+		scrollerAttach
 	}: Props = $props();
 
 	//
@@ -154,6 +158,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!pre) return;
 
 		const cleanups: Array<() => void> = [];
+
+		if (scrollerAttach) {
+			const detach = scrollerAttach(pre);
+			if (typeof detach === 'function') cleanups.push(detach);
+		}
 
 		if (onLineClick) {
 			const onClick = (event: MouseEvent) => {

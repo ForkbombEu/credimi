@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import * as steps from '$pipeline-form/steps';
-	import { String } from 'effect';
+	import { String as EffectString } from 'effect';
 	import { tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -46,11 +46,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type PaneHandle
 	} from './pane-layout.js';
 	import { type ActiveUnit } from './scroll-follow/active-unit.js';
-	import { createPeerScrollFollow } from './scroll-follow/peer-scroll-follow.js';
-	import {
-		createUnitHighlight,
-		type UnitHighlightSnapshot
-	} from './scroll-follow/unit-highlight.js';
+	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
+	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
 	import { mapYamlCardRanges, type YamlCardRange } from './scroll-follow/yaml-ranges.js';
 
 	//
@@ -65,7 +62,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let cardsScrollContainer: HTMLElement | null = $state(null);
 	/** Half-viewport end pad so the last (short) card can scroll to center. */
 	let cardsEndPadPx = $state(0);
-	let yamlScroller: HTMLElement | null = $state(null);
 
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
@@ -75,51 +71,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let lastAppliedManualMode: boolean | null = $state(null);
 
-	const peerScroll = createPeerScrollFollow();
-	const unitHighlight = createUnitHighlight();
-	let scrollFollowEnabled = $state(peerScroll.enabled);
-	let highlight = $state<UnitHighlightSnapshot>(unitHighlight.snapshot);
+	const EMPTY_YAML_RANGES: YamlCardRange[] = [];
+	const yamlRanges = $derived(
+		builder.isManualMode || EffectString.isEmpty(builder.yamlPreview)
+			? EMPTY_YAML_RANGES
+			: mapYamlCardRanges(builder.yamlPreview)
+	);
 
-	$effect(() => {
-		const sync = () => {
-			scrollFollowEnabled = peerScroll.enabled;
-			highlight = unitHighlight.snapshot;
-		};
-		sync();
-		const unsubFollow = peerScroll.subscribe(sync);
-		const unsubHighlight = unitHighlight.subscribe(sync);
-		return () => {
-			unsubFollow();
-			unsubHighlight();
-		};
+	const peerScroll = new PeerScrollFollow();
+	const unitHighlight = new UnitHighlight({
+		getIsManual: () => builder.isManualMode,
+		getEditingIndex: () => editingIndex,
+		getRanges: () => yamlRanges
 	});
+
+	// Stable yaml attach — getter reads live ranges; do not recreate on every yaml regen.
+	const yamlPreviewEmpty = $derived(EffectString.isEmpty(builder.yamlPreview));
+	const yamlScrollAttach = $derived(
+		builder.isManualMode || yamlPreviewEmpty
+			? undefined
+			: peerScroll.yamlAttach(() => yamlRanges)
+	);
 
 	$effect(() => () => {
 		peerScroll.dispose();
 		unitHighlight.dispose();
 	});
-
-	const EMPTY_YAML_RANGES: YamlCardRange[] = [];
-	const yamlRanges = $derived(
-		builder.isManualMode || String.isEmpty(builder.yamlPreview)
-			? EMPTY_YAML_RANGES
-			: mapYamlCardRanges(builder.yamlPreview)
-	);
-
-	$effect(() => {
-		unitHighlight.setManual(builder.isManualMode);
-	});
-
-	$effect(() => {
-		unitHighlight.setEditingIndex(editingIndex);
-	});
-
-	$effect(() => {
-		unitHighlight.setRanges(yamlRanges);
-	});
-
-	const selectedLines = $derived(highlight.selectedLines);
-	const hoverLines = $derived(highlight.hoverLines);
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
@@ -173,28 +150,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Debounced re-follow when YAML text regenerates (not when activeUnit changes —
 	// that dependency was yanking YAML to start-band ~130ms after each step change).
 	$effect(() => {
-		if (!scrollFollowEnabled || builder.isManualMode) return;
+		if (!peerScroll.enabled || builder.isManualMode) return;
 		const yaml = builder.yamlPreview;
 		const ranges = yamlRanges;
 		if (!yaml || ranges.length === 0) return;
 		return peerScroll.onYamlTextChanged();
-	});
-
-	// Bind whenever not manual so onReveal can center-scroll even with follow off.
-	// Handlers no-op while disabled.
-	$effect(() => {
-		if (builder.isManualMode) return;
-		const cardsEl = cardsScrollContainer;
-		if (!cardsEl) return;
-		return peerScroll.bindCards(cardsEl);
-	});
-
-	$effect(() => {
-		if (builder.isManualMode) return;
-		const yamlEl = yamlScroller;
-		if (!yamlEl) return;
-		// getRanges reads the live derived — do not rebind on every YAML regen.
-		return peerScroll.bindYaml(yamlEl, () => yamlRanges);
 	});
 
 	function setScrollFollowEnabled(checked: boolean) {
@@ -269,6 +229,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Column
 		bind:pane={stepsPane}
 		bind:scrollContainer={cardsScrollContainer}
+		scrollAttach={!builder.isManualMode ? peerScroll.cardsAttach : undefined}
 		title={m.Steps_sequence()}
 		defaultSize={LAYOUT.blocks.stepsSequence}
 		order={2}
@@ -314,10 +275,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{step}
 								{index}
 								editing={editingIndex === index}
-								selected={highlight.selectedUnit?.section === 'steps' &&
-									highlight.selectedUnit.index === index}
-								hovered={highlight.hoveredUnit?.section === 'steps' &&
-									highlight.hoveredUnit.index === index}
+								selected={unitHighlight.isCardSelected('steps', index)}
+								hovered={unitHighlight.isCardHovered('steps', index)}
 							/>
 						</div>
 					{/each}
@@ -354,7 +313,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						title={m.Scroll_follow()}
 					>
 						<Switch
-							checked={scrollFollowEnabled}
+							checked={peerScroll.enabled}
 							onCheckedChange={setScrollFollowEnabled}
 							class="shrink-0 scale-75"
 						/>
@@ -387,7 +346,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#if builder.mode.id === 'manual'}
 			<ManualEditorColumn editor={builder.mode.editor} />
-		{:else if String.isEmpty(builder.yamlPreview)}
+		{:else if EffectString.isEmpty(builder.yamlPreview)}
 			<EmptyState text={m.YAML_preview_will_appear_here()} />
 		{:else}
 			<CodeDisplay
@@ -395,12 +354,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				language="yaml"
 				containerClass="rounded-none h-full min-h-0 grow"
 				contentClass="text-sm"
-				{selectedLines}
-				{hoverLines}
+				selectedLines={unitHighlight.selectedLines}
+				hoverLines={unitHighlight.hoverLines}
 				endPadRatio={0.3}
 				onLineClick={onYamlLineClick}
 				onLineHover={onYamlLineHover}
-				bind:scroller={yamlScroller}
+				scrollerAttach={yamlScrollAttach}
 			/>
 		{/if}
 	</Column>

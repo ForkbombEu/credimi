@@ -7,9 +7,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { YamlCardRange } from './yaml-ranges.js';
 
 import {
-	createPeerScrollFollow,
+	PeerScrollFollow,
 	type PeerScrollFollowClock
-} from './peer-scroll-follow.js';
+} from './peer-scroll-follow.svelte.js';
 
 type FakeClock = PeerScrollFollowClock & {
 	flushRaf(): void;
@@ -74,28 +74,46 @@ function makeRect(rect: Rect): DOMRect {
 	} as DOMRect;
 }
 
+type ElementStub = {
+	getAttribute(name: string): string | null;
+	setAttribute(name: string, value: string): void;
+	appendChild(child: ElementStub): ElementStub;
+	querySelectorAll(selector: string): ElementStub[];
+	querySelector(selector: string): ElementStub | null;
+	addEventListener(type: string, listener: EventListener): void;
+	removeEventListener(type: string, listener: EventListener): void;
+	dispatchEvent(event: Event): boolean;
+	getBoundingClientRect(): DOMRect;
+	focus: ReturnType<typeof vi.fn>;
+	scrollTo: ReturnType<typeof vi.fn>;
+	clientHeight: number;
+	scrollHeight: number;
+	scrollTop: number;
+	readonly _children: ElementStub[];
+};
+
 /** Minimal Element stub for node vitest (no happy-dom/jsdom). */
-function createElementStub(attrs: Record<string, string> = {}) {
+function createElementStub(attrs: Record<string, string> = {}): ElementStub {
 	const listeners = new Map<string, Set<EventListener>>();
-	const children: ReturnType<typeof createElementStub>[] = [];
+	const children: ElementStub[] = [];
 	const store = { ...attrs };
 
-	const el = {
+	const el: ElementStub = {
 		getAttribute(name: string) {
 			return store[name] ?? null;
 		},
 		setAttribute(name: string, value: string) {
 			store[name] = value;
 		},
-		appendChild(child: ReturnType<typeof createElementStub>) {
+		appendChild(child: ElementStub) {
 			children.push(child);
 			return child;
 		},
 		querySelectorAll(selector: string) {
 			const wantSection = selector.includes('[data-card-section]');
 			const wantLine = selector.includes('[data-line]');
-			const out: ReturnType<typeof createElementStub>[] = [];
-			const walk = (node: ReturnType<typeof createElementStub>) => {
+			const out: ElementStub[] = [];
+			const walk = (node: ElementStub) => {
 				if (wantSection && node.getAttribute('data-card-section') != null) out.push(node);
 				if (wantLine && node.getAttribute('data-line') != null) out.push(node);
 				for (const c of node._children) walk(c);
@@ -112,7 +130,7 @@ function createElementStub(attrs: Record<string, string> = {}) {
 					el
 						.querySelectorAll('[data-card-section]')
 						.find(
-							(c) =>
+							(c: ElementStub) =>
 								c.getAttribute('data-card-section') === match[1] &&
 								c.getAttribute('data-card-index') === match[2]
 						) ?? null
@@ -123,7 +141,7 @@ function createElementStub(attrs: Record<string, string> = {}) {
 				return (
 					el
 						.querySelectorAll('[data-line]')
-						.find((c) => c.getAttribute('data-line') === lineMatch[1]) ?? null
+						.find((c: ElementStub) => c.getAttribute('data-line') === lineMatch[1]) ?? null
 				);
 			}
 			return null;
@@ -185,10 +203,7 @@ function createYamlScroller(lineTops: number[]) {
 	return scroller;
 }
 
-function stubScrollerGeometry(
-	el: ReturnType<typeof createElementStub>,
-	rect: Rect
-) {
+function stubScrollerGeometry(el: ElementStub, rect: Rect) {
 	el.clientHeight = rect.height;
 	el.scrollHeight = 2000;
 	el.scrollTop = 0;
@@ -201,35 +216,33 @@ const ranges: YamlCardRange[] = [
 	{ section: 'steps', index: 1, startLine: 3, endLine: 5 }
 ];
 
-describe('createPeerScrollFollow', () => {
+describe('PeerScrollFollow', () => {
 	it('does not steal leadership or change activeUnit without user intent', () => {
 		const clock = createFakeClock();
-		const follow = createPeerScrollFollow({ clock });
+		const follow = new PeerScrollFollow({ clock });
 		follow.setEnabled(true);
 
 		const scroller = createCardsScroller([100, 300, 500]);
-		const unbind = follow.bindCards(scroller as unknown as HTMLElement);
+		const unbind = follow.cardsAttach(scroller as unknown as HTMLElement);
 
 		expect(follow.activeUnit).toBeNull();
 		scroller.dispatchEvent(new Event('scroll'));
 		expect(follow.activeUnit).toBeNull();
 
-		unbind();
+		unbind?.();
 		follow.dispose();
 	});
 
 	it('updates activeUnit from cards scroll after cards intent', () => {
 		const clock = createFakeClock();
-		const follow = createPeerScrollFollow({ clock });
+		const follow = new PeerScrollFollow({ clock });
 		follow.setEnabled(true);
 
-		// Viewport center 200 → card centers 50 / 200 / 450 → card 1 wins.
-		// scrollTop must be > 2 so edge preference does not force the first card.
 		const scroller = createCardsScroller([50, 200, 450]);
 		scroller.scrollTop = 100;
 		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
-		follow.bindCards(scroller as unknown as HTMLElement);
-		follow.bindYaml(yaml as unknown as HTMLElement, () => ranges);
+		follow.cardsAttach(scroller as unknown as HTMLElement);
+		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
 
 		scroller.dispatchEvent(new Event('pointerdown'));
 		scroller.dispatchEvent(new Event('scroll'));
@@ -240,14 +253,13 @@ describe('createPeerScrollFollow', () => {
 
 	it('no-ops cards→yaml follow while yaml is scroll leader', () => {
 		const clock = createFakeClock();
-		const follow = createPeerScrollFollow({ clock });
+		const follow = new PeerScrollFollow({ clock });
 		follow.setEnabled(true);
 
 		const cards = createCardsScroller([100, 300]);
-		// Line 0 starts far below the viewport so start-align must scroll.
 		const yaml = createYamlScroller([800, 820, 840, 860, 880, 900]);
-		follow.bindCards(cards as unknown as HTMLElement);
-		follow.bindYaml(yaml as unknown as HTMLElement, () => ranges);
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
 
 		follow.followUnit({ section: 'steps', index: 0 }, 'cards');
 		expect(yaml.scrollTo).toHaveBeenCalled();
@@ -262,20 +274,17 @@ describe('createPeerScrollFollow', () => {
 		follow.dispose();
 	});
 
-	it('setEnabled(false) clears activeUnit and notifies subscribers', () => {
+	it('setEnabled(false) clears activeUnit', () => {
 		const clock = createFakeClock();
-		const follow = createPeerScrollFollow({ clock });
+		const follow = new PeerScrollFollow({ clock });
 		follow.setEnabled(true);
 		follow.followUnit({ section: 'steps', index: 0 }, 'cards');
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
 
-		const listener = vi.fn();
-		follow.subscribe(listener);
 		follow.setEnabled(false);
 
 		expect(follow.enabled).toBe(false);
 		expect(follow.activeUnit).toBeNull();
-		expect(listener).toHaveBeenCalled();
 		follow.dispose();
 	});
 });

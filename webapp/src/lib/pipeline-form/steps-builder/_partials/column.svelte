@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { PaneHandle } from '$pipeline-form/steps-builder/pane-layout.js';
 	import type { Snippet } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Resizable from '@/components/ui/resizable/index.js';
@@ -21,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		minSize?: number;
 		order?: number;
 		pane?: PaneHandle | null;
+		scrollAttach?: Attachment;
 		scrollContainer?: HTMLElement | null;
 		title: string;
 		titleRight?: Snippet;
@@ -35,6 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		minSize,
 		order,
 		pane = $bindable<PaneHandle | null>(null),
+		scrollAttach,
 		scrollContainer = $bindable<HTMLElement | null>(null),
 		title,
 		titleRight
@@ -55,6 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<div
 		bind:this={scrollContainer}
+		{@attach scrollAttach}
 		class={['relative flex min-h-0 grow flex-col overflow-y-scroll', contentClass]}
 	>
 		{#if disabled}
