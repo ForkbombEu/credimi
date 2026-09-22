@@ -45,24 +45,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		STEPS_BUILDER_PANE_LAYOUT as LAYOUT,
 		type PaneHandle
 	} from './pane-layout.js';
-	import {
-		resolveViewportActiveCard,
-		resolveViewportYamlLine,
-		sameUnit,
-		scrollCardIntoView,
-		scrollYamlLineIntoView,
-		watchDrivenScroll,
-		type ActiveUnit
-	} from './scroll-follow/active-unit.js';
-	import {
-		readScrollFollowEnabled,
-		writeScrollFollowEnabled
-	} from './scroll-follow/preference.js';
+	import { sameUnit, type ActiveUnit } from './scroll-follow/active-unit.js';
+	import { createPeerScrollFollow } from './scroll-follow/peer-scroll-follow.js';
 	import {
 		findNearestUnitToLine,
 		findRangeForUnit,
 		findUnitAtLine,
-		firstStepStartLine,
 		mapYamlCardRanges,
 		type YamlCardRange
 	} from './scroll-follow/yaml-ranges.js';
@@ -89,51 +77,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let lastAppliedManualMode: boolean | null = $state(null);
 
-	let scrollFollowEnabled = $state(readScrollFollowEnabled());
-	/** Viewport sync only — never drives wash/ring highlight. */
-	let activeUnit = $state<ActiveUnit | null>(null);
+	const peerScroll = createPeerScrollFollow();
+	let scrollFollowEnabled = $state(peerScroll.enabled);
 	/** Explicit user selection (YAML click). Edit focus is derived separately. */
 	let pinnedSelectedUnit = $state<ActiveUnit | null>(null);
 	/** Pointer hover from a step card or a YAML step range (independent of selection). */
 	let hoveredUnit = $state<ActiveUnit | null>(null);
-	/** Side currently being scrolled by peer-follow; its scroll events must not reverse-drive. */
-	let drivenSide: 'cards' | 'yaml' | null = null;
-	let clearDriven: (() => void) | null = null;
-	/**
-	 * Side the user is actively scrolling. Held through an idle window so peer
-	 * follow cannot reclaim leadership mid-gesture (which pushed YAML back).
-	 */
-	let scrollLeader: 'cards' | 'yaml' | null = null;
-	/** Last side the user actually gestured on (wheel/touch/pointer). Survives leader idle
-	 *  so momentum scroll can continue follow, while residual peer scrolls cannot steal. */
-	let lastIntentSide: 'cards' | 'yaml' | null = null;
-	let leaderIdleTimer: ReturnType<typeof setTimeout> | null = null;
-	/** Coalesce peer follow to one update per frame (avoids stacked smooth/jank). */
-	let peerFollowRaf: number | null = null;
 
-	const YAML_REGEN_DEBOUNCE_MS = 130;
-	const LEADER_IDLE_MS = 900;
+	$effect(() => {
+		const sync = () => {
+			scrollFollowEnabled = peerScroll.enabled;
+		};
+		sync();
+		return peerScroll.subscribe(sync);
+	});
 
-	function claimScrollLeader(side: 'cards' | 'yaml') {
-		scrollLeader = side;
-		if (leaderIdleTimer) clearTimeout(leaderIdleTimer);
-		leaderIdleTimer = setTimeout(() => {
-			scrollLeader = null;
-			leaderIdleTimer = null;
-		}, LEADER_IDLE_MS);
-	}
-
-	function schedulePeerFollow(from: 'cards' | 'yaml') {
-		if (peerFollowRaf != null) cancelAnimationFrame(peerFollowRaf);
-		peerFollowRaf = requestAnimationFrame(() => {
-			peerFollowRaf = null;
-			// Smooth peer follow both ways; RAF coalesces to one scrollTo per frame.
-			// Cards→YAML still uses start-band (see followPeerFromCards) so mid-gesture
-			// only animates when the line leaves the upper zone.
-			if (from === 'cards') followPeerFromCards('smooth');
-			else followPeerFromYaml('smooth');
-		});
-	}
+	$effect(() => () => peerScroll.dispose());
 
 	const yamlRanges = $derived(
 		builder.isManualMode || String.isEmpty(builder.yamlPreview)
@@ -180,11 +139,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Edit selection drives wash; with scroll-follow also smooth-scroll YAML.
 	$effect(() => {
 		if (builder.isManualMode) return;
-		if (editingIndex === undefined) return;
-		const next: ActiveUnit = { section: 'steps', index: editingIndex };
-		if (sameUnit(activeUnit, next)) return;
-		activeUnit = next;
-		if (scrollFollowEnabled) followPeerFromCards('smooth');
+		peerScroll.onEditFocus(editingIndex);
 	});
 
 	// Keep end pad ~half the cards scrollport so last short cards can center.
@@ -213,10 +168,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		builder.revealStepIndex = null;
 		const unit: ActiveUnit = { section: 'steps', index };
 		void tick().then(() => {
-			scrollCardIntoView(cardsEl, unit, 'smooth', { align: 'center', focus: false });
-			if (!scrollFollowEnabled) return;
-			activeUnit = unit;
-			followPeerFromCards('smooth');
+			peerScroll.onReveal(unit);
 		});
 	});
 
@@ -227,160 +179,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const yaml = builder.yamlPreview;
 		const ranges = yamlRanges;
 		if (!yaml || ranges.length === 0) return;
-
-		const timer = setTimeout(() => {
-			if (!activeUnit) return;
-			followPeerFromCards('smooth');
-		}, YAML_REGEN_DEBOUNCE_MS);
-
-		return () => clearTimeout(timer);
+		return peerScroll.onYamlTextChanged();
 	});
 
+	// Bind whenever not manual so onReveal can center-scroll even with follow off.
+	// Handlers no-op while disabled.
 	$effect(() => {
-		if (!scrollFollowEnabled || builder.isManualMode) return;
+		if (builder.isManualMode) return;
 		const cardsEl = cardsScrollContainer;
 		if (!cardsEl) return;
-
-		const onUserIntent = () => {
-			if (drivenSide === 'cards') clearDriven?.();
-			lastIntentSide = 'cards';
-			claimScrollLeader('cards');
-		};
-
-		const onScroll = () => {
-			if (drivenSide === 'cards') return;
-			// Only the user-intent side may own scroll-follow. Residual peer scrolls after
-			// leader idle used to claim here and yank YAML (start-band) mid-gesture.
-			if (scrollLeader === 'yaml') return;
-			if (scrollLeader !== 'cards' && lastIntentSide !== 'cards') return;
-			claimScrollLeader('cards');
-			const next = resolveViewportActiveCard(cardsEl, activeUnit);
-			if (!next || sameUnit(activeUnit, next)) return;
-			activeUnit = next;
-			schedulePeerFollow('cards');
-		};
-
-		cardsEl.addEventListener('wheel', onUserIntent, { passive: true });
-		cardsEl.addEventListener('touchstart', onUserIntent, { passive: true });
-		cardsEl.addEventListener('pointerdown', onUserIntent, { passive: true });
-		cardsEl.addEventListener('scroll', onScroll, { passive: true });
-		return () => {
-			cardsEl.removeEventListener('wheel', onUserIntent);
-			cardsEl.removeEventListener('touchstart', onUserIntent);
-			cardsEl.removeEventListener('pointerdown', onUserIntent);
-			cardsEl.removeEventListener('scroll', onScroll);
-		};
+		return peerScroll.bindCards(cardsEl);
 	});
 
 	$effect(() => {
-		if (!scrollFollowEnabled || builder.isManualMode) return;
+		if (builder.isManualMode) return;
 		const yamlEl = yamlScroller;
 		if (!yamlEl) return;
-
-		const onUserIntent = () => {
-			// User scrolling YAML cancels any peer-driven YAML animation and keeps leadership.
-			if (drivenSide === 'yaml') clearDriven?.();
-			lastIntentSide = 'yaml';
-			claimScrollLeader('yaml');
-		};
-
-		const onScroll = () => {
-			if (drivenSide === 'yaml') return;
-			if (scrollLeader === 'cards') return;
-			if (scrollLeader !== 'yaml' && lastIntentSide !== 'yaml') return;
-			// Refresh leader on momentum scroll after idle so wash keeps tracking.
-			claimScrollLeader('yaml');
-			const firstStep = firstStepStartLine(yamlRanges);
-			const line = resolveViewportYamlLine(yamlEl, firstStep);
-			if (line === null) {
-				activeUnit = null;
-				return;
-			}
-			const hit = findNearestUnitToLine(yamlRanges, line);
-			if (!hit) {
-				activeUnit = null;
-				return;
-			}
-			const next: ActiveUnit = { section: hit.section, index: hit.index };
-			if (sameUnit(activeUnit, next)) return;
-			activeUnit = next;
-			schedulePeerFollow('yaml');
-		};
-
-		yamlEl.addEventListener('wheel', onUserIntent, { passive: true });
-		yamlEl.addEventListener('touchstart', onUserIntent, { passive: true });
-		yamlEl.addEventListener('pointerdown', onUserIntent, { passive: true });
-		yamlEl.addEventListener('scroll', onScroll, { passive: true });
-		return () => {
-			yamlEl.removeEventListener('wheel', onUserIntent);
-			yamlEl.removeEventListener('touchstart', onUserIntent);
-			yamlEl.removeEventListener('pointerdown', onUserIntent);
-			yamlEl.removeEventListener('scroll', onScroll);
-		};
+		// getRanges reads the live derived — do not rebind on every YAML regen.
+		return peerScroll.bindYaml(yamlEl, () => yamlRanges);
 	});
 
 	function setScrollFollowEnabled(checked: boolean) {
-		scrollFollowEnabled = checked;
-		writeScrollFollowEnabled(checked);
-		if (!checked) {
-			activeUnit = null;
-			return;
-		}
-		if (editingIndex !== undefined) {
-			activeUnit = { section: 'steps', index: editingIndex };
-			followPeerFromCards('smooth');
-		}
-	}
-
-	function beginDriven(side: 'cards' | 'yaml', el: HTMLElement, behavior: ScrollBehavior) {
-		clearDriven?.();
-		drivenSide = side;
-		// Peer animation is on behalf of the opposite side — keep that side as leader
-		// through the animation and a short idle after scrollend.
-		const leader: 'cards' | 'yaml' = side === 'cards' ? 'yaml' : 'cards';
-		claimScrollLeader(leader);
-		clearDriven = watchDrivenScroll(el, behavior, () => {
-			if (drivenSide === side) drivenSide = null;
-			clearDriven = null;
-			claimScrollLeader(leader);
-		});
-	}
-
-	function followPeerFromCards(behavior: ScrollBehavior) {
-		// Never drive YAML while the user owns that scroller (regen/edit effects used
-		// to start-band yank mid YAML gesture).
-		if (scrollLeader === 'yaml') return;
-		const unit = activeUnit;
-		const yamlEl = yamlScroller;
-		if (!unit || !yamlEl) return;
-		const range = findRangeForUnit(yamlRanges, unit.section, unit.index);
-		if (!range) return;
-		beginDriven('yaml', yamlEl, behavior);
-		// Cards-led mid-gesture: start-band (only scroll when the line leaves the upper
-		// zone). Otherwise hard start-align (edit selection, enable toggle, regen).
-		const align = scrollLeader === 'cards' ? 'start-band' : 'start';
-		if (!scrollYamlLineIntoView(yamlEl, range.startLine, behavior, align)) {
-			clearDriven?.();
-		}
-	}
-
-	function followPeerFromYaml(behavior: ScrollBehavior) {
-		const unit = activeUnit;
-		const cardsEl = cardsScrollContainer;
-		if (!unit || !cardsEl) return;
-		beginDriven('cards', cardsEl, behavior);
-		// Mid-gesture: center each active card. nearest/start no-op when the new card is
-		// already near the top while the previous card still owns the viewport center —
-		// then the next off-screen unit leaps over the skipped visual step.
-		const align = 'center';
-		if (
-			!scrollCardIntoView(cardsEl, unit, behavior, {
-				align,
-				focus: behavior === 'smooth'
-			})
-		) {
-			clearDriven?.();
-		}
+		peerScroll.setEnabled(checked, editingIndex);
 	}
 
 	function onYamlLineClick(line: number) {
@@ -388,11 +208,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!hit) return;
 		const next: ActiveUnit = { section: hit.section, index: hit.index };
 		pinnedSelectedUnit = next;
-		activeUnit = next;
-		if (!scrollFollowEnabled) return;
-		lastIntentSide = 'yaml';
-		claimScrollLeader('yaml');
-		followPeerFromYaml('smooth');
+		peerScroll.followUnit(next, 'yaml');
 	}
 
 	function onYamlLineHover(line: number | null) {
