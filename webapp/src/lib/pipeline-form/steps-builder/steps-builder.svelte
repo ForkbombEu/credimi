@@ -45,15 +45,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		STEPS_BUILDER_PANE_LAYOUT as LAYOUT,
 		type PaneHandle
 	} from './pane-layout.js';
-	import { sameUnit, type ActiveUnit } from './scroll-follow/active-unit.js';
+	import { type ActiveUnit } from './scroll-follow/active-unit.js';
 	import { createPeerScrollFollow } from './scroll-follow/peer-scroll-follow.js';
 	import {
-		findNearestUnitToLine,
-		findRangeForUnit,
-		findUnitAtLine,
-		mapYamlCardRanges,
-		type YamlCardRange
-	} from './scroll-follow/yaml-ranges.js';
+		createUnitHighlight,
+		type UnitHighlightSnapshot
+	} from './scroll-follow/unit-highlight.js';
+	import { mapYamlCardRanges, type YamlCardRange } from './scroll-follow/yaml-ranges.js';
 
 	//
 
@@ -78,50 +76,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let lastAppliedManualMode: boolean | null = $state(null);
 
 	const peerScroll = createPeerScrollFollow();
+	const unitHighlight = createUnitHighlight();
 	let scrollFollowEnabled = $state(peerScroll.enabled);
-	/** Explicit user selection (YAML click). Edit focus is derived separately. */
-	let pinnedSelectedUnit = $state<ActiveUnit | null>(null);
-	/** Pointer hover from a step card or a YAML step range (independent of selection). */
-	let hoveredUnit = $state<ActiveUnit | null>(null);
+	let highlight = $state<UnitHighlightSnapshot>(unitHighlight.snapshot);
 
 	$effect(() => {
 		const sync = () => {
 			scrollFollowEnabled = peerScroll.enabled;
+			highlight = unitHighlight.snapshot;
 		};
 		sync();
-		return peerScroll.subscribe(sync);
+		const unsubFollow = peerScroll.subscribe(sync);
+		const unsubHighlight = unitHighlight.subscribe(sync);
+		return () => {
+			unsubFollow();
+			unsubHighlight();
+		};
 	});
 
-	$effect(() => () => peerScroll.dispose());
+	$effect(() => () => {
+		peerScroll.dispose();
+		unitHighlight.dispose();
+	});
 
+	const EMPTY_YAML_RANGES: YamlCardRange[] = [];
 	const yamlRanges = $derived(
 		builder.isManualMode || String.isEmpty(builder.yamlPreview)
-			? ([] as YamlCardRange[])
+			? EMPTY_YAML_RANGES
 			: mapYamlCardRanges(builder.yamlPreview)
 	);
 
-	/** Selected: edit focus or explicit YAML click — never scroll-follow activeUnit. */
-	const selectedUnit = $derived.by((): ActiveUnit | null => {
-		if (builder.isManualMode) return null;
-		if (editingIndex !== undefined) return { section: 'steps', index: editingIndex };
-		return pinnedSelectedUnit;
+	$effect(() => {
+		unitHighlight.setManual(builder.isManualMode);
 	});
 
-	const selectedLines = $derived.by(() => {
-		const unit = selectedUnit;
-		if (!unit) return null;
-		const range = findRangeForUnit(yamlRanges, unit.section, unit.index);
-		if (!range) return null;
-		return { start: range.startLine, end: range.endLine };
+	$effect(() => {
+		unitHighlight.setEditingIndex(editingIndex);
 	});
 
-	const hoverLines = $derived.by(() => {
-		const unit = hoveredUnit;
-		if (!unit) return null;
-		const range = findRangeForUnit(yamlRanges, unit.section, unit.index);
-		if (!range) return null;
-		return { start: range.startLine, end: range.endLine };
+	$effect(() => {
+		unitHighlight.setRanges(yamlRanges);
 	});
+
+	const selectedLines = $derived(highlight.selectedLines);
+	const hoverLines = $derived(highlight.hoverLines);
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
@@ -204,23 +202,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	function onYamlLineClick(line: number) {
-		const hit = findUnitAtLine(yamlRanges, line);
-		if (!hit) return;
-		const next: ActiveUnit = { section: hit.section, index: hit.index };
-		pinnedSelectedUnit = next;
-		peerScroll.followUnit(next, 'yaml');
+		const pinned = unitHighlight.pinYamlLine(line);
+		if (!pinned) return;
+		peerScroll.followUnit(pinned, 'yaml');
 	}
 
 	function onYamlLineHover(line: number | null) {
-		if (line === null) {
-			hoveredUnit = null;
-			return;
-		}
-		const hit = findNearestUnitToLine(yamlRanges, line);
-		if (!hit) return;
-		const next: ActiveUnit = { section: hit.section, index: hit.index };
-		if (sameUnit(hoveredUnit, next)) return;
-		hoveredUnit = next;
+		unitHighlight.hoverYamlLine(line);
 	}
 </script>
 
@@ -315,15 +303,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							role="group"
 							tabindex="-1"
 							onmouseenter={() => {
-								hoveredUnit = { section: 'steps', index };
+								unitHighlight.hoverCard({ section: 'steps', index });
 							}}
 							onmouseleave={() => {
-								if (
-									hoveredUnit?.section === 'steps' &&
-									hoveredUnit.index === index
-								) {
-									hoveredUnit = null;
-								}
+								unitHighlight.clearHoverCard({ section: 'steps', index });
 							}}
 						>
 							<StepCard
@@ -331,10 +314,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{step}
 								{index}
 								editing={editingIndex === index}
-								selected={selectedUnit?.section === 'steps' &&
-									selectedUnit.index === index}
-								hovered={hoveredUnit?.section === 'steps' &&
-									hoveredUnit.index === index}
+								selected={highlight.selectedUnit?.section === 'steps' &&
+									highlight.selectedUnit.index === index}
+								hovered={highlight.hoveredUnit?.section === 'steps' &&
+									highlight.hoveredUnit.index === index}
 							/>
 						</div>
 					{/each}
