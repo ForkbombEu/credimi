@@ -13,7 +13,7 @@ import {
 	watchDrivenScroll,
 	type ActiveUnit
 } from './active-unit.js';
-import { readScrollFollowEnabled, writeScrollFollowEnabled } from './preference.js';
+import { scrollFollowPreference } from './preference.js';
 import {
 	findNearestUnitToLine,
 	findRangeForUnit,
@@ -49,7 +49,6 @@ function defaultClock(): PeerScrollFollowClock {
  * Does not select or highlight a step (see UnitHighlight).
  */
 export class PeerScrollFollow {
-	enabled = $state(readScrollFollowEnabled());
 	activeUnit = $state.raw<ActiveUnit | null>(null);
 
 	#clock: PeerScrollFollowClock;
@@ -70,10 +69,14 @@ export class PeerScrollFollow {
 		this.#clock = options?.clock ?? defaultClock();
 	}
 
+	/** Shared persisted preference (rune-sync / localStorage). */
+	get enabled(): boolean {
+		return scrollFollowPreference.enabled;
+	}
+
 	setEnabled(next: boolean, editingIndex?: number) {
 		if (this.#disposed) return;
-		this.enabled = next;
-		writeScrollFollowEnabled(next);
+		scrollFollowPreference.enabled = next;
 		if (!next) {
 			this.activeUnit = null;
 			return;

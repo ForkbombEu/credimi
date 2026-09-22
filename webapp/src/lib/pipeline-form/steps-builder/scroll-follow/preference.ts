@@ -2,43 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { browser } from '$app/environment';
-
-import { createStorageHandlers } from '@/utils/storage';
+import { lsSync } from 'rune-sync/localstorage';
 
 const STORAGE_KEY = 'pipeline_composer_scroll_follow';
 
-type Stored = { enabled: boolean };
-
-const storage = createStorageHandlers<Stored>(
-	STORAGE_KEY,
-	new Proxy({} as Storage, {
-		get(_target, prop, receiver) {
-			const target = globalThis.localStorage;
-			if (target == null) return undefined;
-			const value = Reflect.get(target, prop, receiver);
-			return typeof value === 'function' ? value.bind(target) : value;
-		}
-	})
-);
-
-export function readScrollFollowEnabled(): boolean {
-	if (!browser) return true;
-	try {
-		const stored = storage.get();
-		// Default on when unset; honor an explicit stored preference.
-		if (stored == null) return true;
-		return stored.enabled === true;
-	} catch {
-		return true;
-	}
-}
-
-export function writeScrollFollowEnabled(enabled: boolean): void {
-	if (!browser) return;
-	try {
-		storage.set({ enabled });
-	} catch (error) {
-		console.error('Failed to persist scroll follow preference:', error);
-	}
-}
+/** Pipeline Composer scroll-follow toggle. Default on when unset. */
+export const scrollFollowPreference = lsSync<{ enabled: boolean }>(STORAGE_KEY, {
+	enabled: true
+});
