@@ -23,11 +23,14 @@ const storage = createStorageHandlers<Stored>(
 );
 
 export function readScrollFollowEnabled(): boolean {
-	if (!browser) return false;
+	if (!browser) return true;
 	try {
-		return storage.get()?.enabled === true;
+		const stored = storage.get();
+		// Default on when unset; honor an explicit stored preference.
+		if (stored == null) return true;
+		return stored.enabled === true;
 	} catch {
-		return false;
+		return true;
 	}
 }
 
