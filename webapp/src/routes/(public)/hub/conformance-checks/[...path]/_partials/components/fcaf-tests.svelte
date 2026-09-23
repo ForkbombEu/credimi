@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createQuery } from '@tanstack/svelte-query';
 	import { ChevronRightIcon } from '@lucide/svelte';
 	import { FCAF } from '$lib';
-	import { getFcafTests } from '$lib/conformance';
 
 	import { Input } from '@/components/ui/input';
 	import { m } from '@/i18n';
@@ -21,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const testsQuery = createQuery(() => ({
 		queryKey: ['conformance-checks', 'fcaf', 'hub'] as const,
 		queryFn: async () => {
-			const result = await getFcafTests({ surface: 'pipeline' });
+			const result = await FCAF.getFcafTests({ surface: 'pipeline' });
 			if (result instanceof Error) throw result;
 			return result;
 		}

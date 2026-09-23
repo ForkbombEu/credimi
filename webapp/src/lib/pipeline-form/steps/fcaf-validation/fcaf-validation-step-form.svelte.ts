@@ -6,7 +6,6 @@ import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/types';
 
 import { createQuery } from '@tanstack/svelte-query';
 import { FCAF } from '$lib';
-import { getFcafTests } from '$lib/conformance';
 import { queryClient } from '$lib/query-client';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 import { parse, stringify } from 'yaml';
@@ -48,7 +47,7 @@ export class FCAFValidationStepForm extends BaseForm<
 		() => ({
 			queryKey: ['conformance-checks', 'fcaf'] as const,
 			queryFn: async () => {
-				const result = await getFcafTests({ surface: 'pipeline' });
+				const result = await FCAF.getFcafTests({ surface: 'pipeline' });
 				if (result instanceof Error) throw result;
 				return result;
 			}

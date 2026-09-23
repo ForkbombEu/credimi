@@ -16,12 +16,7 @@ export {
 	listAll,
 	getStandardsWithTestSuites,
 	listChecks,
-	listSuites,
-	listFcafTests,
-	getFcafTests,
-	FCAF_STANDARD,
-	fcafTestIdFromPath,
-	toFcafCatalogEntry
+	listSuites
 } from './client';
 export {
 	HUB_SUITE_SORT_DEFAULT,

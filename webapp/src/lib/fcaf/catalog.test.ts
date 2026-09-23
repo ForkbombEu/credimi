@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ConformanceCheckRecord } from '$lib/conformance/record.js';
 import { describe, expect, it } from 'vitest';
 
-import { fcafTestIdFromPath, toFcafCatalogEntry } from './client';
-import type { ConformanceCheckRecord } from './record';
+import { fcafTestIdFromPath, toFcafCatalogEntry } from './catalog.js';
 
 const sample: ConformanceCheckRecord = {
 	id: 'abc123abc123abc',

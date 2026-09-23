@@ -9,16 +9,23 @@
  * Keep this barrel small: only what outside callers need. Report helpers and
  * ReportView stay private to `$lib/fcaf`.
  *
- * Test listing comes from `$lib/conformance` (PocketBase catalog). Suite and
- * pipeline_outputs defaults remain generated from the aggregate pipeline YAML.
+ * Test listing is the FCAF adapter over `$lib/conformance` `listChecks`.
+ * Suite and pipeline_outputs defaults remain generated from the aggregate
+ * pipeline YAML.
  */
 
 export {
+	FCAF_STANDARD,
+	fcafTestIdFromPath,
+	toFcafCatalogEntry,
+	listFcafTests,
+	getFcafTests,
 	groupSelectedTests,
 	groupCatalogTests,
 	type CatalogCategoryGroup,
 	type CatalogSubgroup,
-	type FCAFTestCatalogEntry as TestCatalogEntry
+	type FCAFTestCatalogEntry as TestCatalogEntry,
+	type ListFcafTestsOptions
 } from './catalog.js';
 
 export {
