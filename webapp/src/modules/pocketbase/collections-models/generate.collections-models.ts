@@ -11,8 +11,9 @@ import path from 'node:path';
 import { type CollectionModel } from 'pocketbase';
 
 import {
-	CHECK_CLIENT_COLUMNS,
-	SUITE_CLIENT_COLUMNS
+	CHECK_CLIENT_COLUMN_SPECS,
+	SUITE_CLIENT_COLUMN_SPECS,
+	type CatalogColumnKind
 } from '../../../lib/conformance/columns.js';
 import {
 	EXPORT_TYPE,
@@ -156,10 +157,7 @@ function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
 		name: 'conformance_checks',
 		type: 'base',
 		system: false,
-		fields: fieldsFromClientColumns('conformance_checks', CHECK_CLIENT_COLUMNS, {
-			json: new Set(['visible_in']),
-			required: new Set(['path', 'title', 'fs_standard', 'fs_version', 'suite', 'file'])
-		})
+		fields: fieldsFromClientColumns('conformance_checks', CHECK_CLIENT_COLUMN_SPECS)
 	} as CollectionModel);
 }
 
@@ -172,29 +170,36 @@ function injectSyntheticConformanceSuites(models: CollectionModel[]): void {
 		name: 'conformance_suites',
 		type: 'base',
 		system: false,
-		fields: fieldsFromClientColumns('conformance_suites', SUITE_CLIENT_COLUMNS, {
-			json: new Set(['members', 'visible_in']),
-			number: new Set(['component_rank', 'check_count']),
-			required: new Set(['standard', 'suite', 'component_rank', 'check_count', 'fs_standard', 'fs_version', 'path_prefix'])
-		})
+		fields: fieldsFromClientColumns('conformance_suites', SUITE_CLIENT_COLUMN_SPECS)
 	} as CollectionModel);
+}
+
+type ClientColumnSpec = {
+	readonly name: string;
+	readonly kind: CatalogColumnKind;
+	readonly optional: boolean;
+};
+
+/** Map ColumnKind → PocketBase CollectionField type (synthetic stubs only). */
+function pbFieldType(kind: CatalogColumnKind): 'text' | 'number' | 'json' {
+	switch (kind) {
+		case 'string':
+			return 'text';
+		case 'int':
+		case 'nonNegInt':
+			return 'number';
+		case 'stringArray':
+		case 'memberArray':
+			return 'json';
+	}
 }
 
 function fieldsFromClientColumns(
 	collection: string,
-	columns: readonly string[],
-	opts: {
-		json?: Set<string>;
-		number?: Set<string>;
-		required?: Set<string>;
-	}
+	columns: readonly ClientColumnSpec[]
 ): CollectionField[] {
-	const json = opts.json ?? new Set();
-	const number = opts.number ?? new Set();
-	const required = opts.required ?? new Set();
-
-	return columns.map((name) => {
-		if (name === 'id') {
+	return columns.map((col) => {
+		if (col.name === 'id') {
 			return {
 				id: `${collection}_id`,
 				name: 'id',
@@ -203,30 +208,12 @@ function fieldsFromClientColumns(
 				required: true
 			};
 		}
-		if (json.has(name)) {
-			return {
-				id: `${collection}_${name}`,
-				name,
-				type: 'json',
-				system: false,
-				required: false
-			};
-		}
-		if (number.has(name)) {
-			return {
-				id: `${collection}_${name}`,
-				name,
-				type: 'number',
-				system: false,
-				required: required.has(name)
-			};
-		}
 		return {
-			id: `${collection}_${name}`,
-			name,
-			type: 'text',
+			id: `${collection}_${col.name}`,
+			name: col.name,
+			type: pbFieldType(col.kind),
 			system: false,
-			required: required.has(name)
+			required: !col.optional
 		};
 	});
 }
