@@ -6,26 +6,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
-	import {
-		createColumnHelper,
-		getCoreRowModel,
-		type SortingState
-	} from '@tanstack/table-core';
+	import { createColumnHelper, getCoreRowModel, type SortingState } from '@tanstack/table-core';
 	import {
 		displayNameFromUid,
 		displayStandardName,
+		isHubDefaultSuiteSort,
 		listSuites,
+		suiteSortFromTableColumns,
 		type ConformanceSuiteRecord
 	} from '$lib/conformance';
 	import { entities, type EntityData } from '$lib/global/entities';
 	import EntityTag from '$lib/global/entity-tag.svelte';
 
 	import SortHeaderPill from '@/components/ui-custom/sort-header-pill.svelte';
-	import {
-		createSvelteTable,
-		FlexRender,
-		renderComponent
-	} from '@/components/ui/data-table';
+	import { createSvelteTable, FlexRender, renderComponent } from '@/components/ui/data-table';
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 
@@ -37,34 +31,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		/** SSR suite rows (pipeline surface, no facets). */
 		suites?: ConformanceSuiteRecord[];
-		/** Debounced text search (PocketBase `~` via listSuites). */
+		/** Debounced text search across suite display/identity fields. */
 		search?: string;
 	};
 
 	let { suites: initialSuites = [], search = '' }: Props = $props();
 
-	/** Server default when UI has no active column sort. */
-	const DEFAULT_SORT = 'component_rank,standard,suite';
-
-	/** Column id → PocketBase sort field. Component uses wallet-first rank. */
-	const SORT_FIELDS: Record<string, string> = {
-		standard: 'standard',
-		component: 'component_rank',
-		suite: 'suite_name'
-	};
-
-	/** Empty = no UI sort indicator; data still arrives in DEFAULT_SORT order. */
+	/** Empty = no UI sort indicator; data still arrives in hub-default order. */
 	let sorting = $state<SortingState>([]);
 
-	const sortString = $derived(buildSortString(sorting));
+	const sortIntent = $derived(suiteSortFromTableColumns(sorting));
 	const searchQuery = $derived(search.trim());
 
 	const useSSR = $derived(
-		sortString === DEFAULT_SORT && searchQuery === '' && initialSuites.length > 0
+		isHubDefaultSuiteSort(sortIntent) && searchQuery === '' && initialSuites.length > 0
 	);
 
 	const catalogQuery = createQuery(() => {
-		const sort = sortString;
+		const sort = sortIntent;
 		const q = searchQuery;
 
 		return {
@@ -150,18 +134,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			sorting = typeof updater === 'function' ? updater(sorting) : updater;
 		}
 	});
-
-	function buildSortString(state: SortingState): string {
-		if (state.length === 0) return DEFAULT_SORT;
-		return state
-			.map(({ id, desc }) => {
-				const field = SORT_FIELDS[id];
-				if (!field) return null;
-				return desc ? `-${field}` : field;
-			})
-			.filter((part): part is string => Boolean(part))
-			.join(',');
-	}
 
 	/** Prefer authored metadata `name` (suite_name); fall back to suite uid. */
 	function suiteLabel(suite: ConformanceSuiteRecord): string {
