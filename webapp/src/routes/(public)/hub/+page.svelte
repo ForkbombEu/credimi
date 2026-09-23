@@ -51,10 +51,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			case 'credential-issuers-and-credentials':
 				return {
 					filter: `type = 'credential_issuers'`,
-					sort: [['children_count', 'DESC']]
+					sort: [
+						['children_count', 'DESC'],
+						['name', 'ASC']
+					]
 				};
 			case 'verifiers-and-use-case-verifications':
-				return { filter: `type = 'verifiers'`, sort: [['children_count', 'DESC']] };
+				return {
+					filter: `type = 'verifiers'`,
+					sort: [
+						['children_count', 'DESC'],
+						['name', 'ASC']
+					]
+				};
 			case 'custom-integrations':
 				return { filter: `type = 'custom_checks'` };
 			case 'pipelines':
