@@ -306,12 +306,12 @@ func storeMobileFlowScreenshots(
 
 	activityOptions := mobileActivityOptions(input.ActivityOptions, pipelineTaskQueue)
 	storageCtx := workflow.WithActivityOptions(ctx, activityOptions)
-	httpActivity := activities.NewInternalHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity()
 	var storeResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(
 		storageCtx,
 		httpActivity.Name(),
-		workflowengine.ActivityInput{Payload: activities.InternalHTTPActivityPayload{
+		workflowengine.ActivityInput{Payload: activities.MobileRunnerHTTPActivityPayload{
 			Method: http.MethodPost,
 			URL: utils.JoinURL(
 				runnerURL,

@@ -66,3 +66,19 @@ func TestMobileRunnerHTTPActivityUsesQuickTunnelTransport(t *testing.T) {
 func TestMobileRunnerHTTPActivityNameIsDistinct(t *testing.T) {
 	require.NotEqual(t, NewInternalHTTPActivity().Name(), NewMobileRunnerHTTPActivity().Name())
 }
+
+// Every runner-directed call must go through the dedicated activity. Routing
+// one through the internal activity resolves it with the host resolver, which
+// fails while a quick-tunnel hostname is still propagating - and that failure
+// used to surface only mid-pipeline.
+func TestInternalHTTPActivityRejectsRunnerDestinations(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "secret-key")
+	_, err := NewInternalHTTPActivity().Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: InternalHTTPActivityPayload{
+			Method: http.MethodPost,
+			URL:    "https://demo.trycloudflare.com/credimi/execution-screenshots",
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mobile runner HTTP activity")
+}
