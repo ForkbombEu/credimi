@@ -42,7 +42,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflowsLoading?: boolean;
 		workflowsError?: Error;
 		onRetryWorkflows?: () => void;
+		/** Refresh this pipeline's runs after a successful start/queue. */
 		onRun?: () => void;
+		/** Refresh this pipeline's runs after a successful cancel. */
+		onCancel?: () => void;
 	};
 
 	let {
@@ -51,7 +54,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflowsLoading = false,
 		workflowsError,
 		onRetryWorkflows,
-		onRun
+		onRun,
+		onCancel
 	}: Props = $props();
 
 	// Scheduling
@@ -190,7 +194,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					? fromScoreboardRow(scoreboard.data)
 					: undefined}
 				<div class="space-y-3">
-					<Pipeline.Workflows.SmallTable {workflows} />
+					<Pipeline.Workflows.SmallTable {workflows} {onCancel} />
 
 					<div class="flex items-center justify-between gap-2">
 						{#if executionStats}

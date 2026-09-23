@@ -63,7 +63,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							workflowsLoading={Boolean(entry?.loading && !entry?.hydrated)}
 							workflowsError={entry?.error}
 							onRetryWorkflows={() => executions.retry(pipeline.id)}
-							onRun={() => executions.refreshAll()}
+							onRun={() => executions.retry(pipeline.id)}
+							onCancel={() => executions.retry(pipeline.id)}
 						/>
 					{/if}
 				{/each}
@@ -116,7 +117,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							workflowsLoading={Boolean(entry?.loading && !entry?.hydrated)}
 							workflowsError={entry?.error}
 							onRetryWorkflows={() => executions.retry(pipeline.id)}
-							onRun={() => executions.refreshAll()}
+							onRun={() => executions.retry(pipeline.id)}
+							onCancel={() => executions.retry(pipeline.id)}
 						/>
 					{/if}
 				{/each}
