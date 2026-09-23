@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IconComponent } from '@/components/types';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import { cn } from '@/components/ui/utils';
 
 	import T from './t.svelte';
 
@@ -25,10 +26,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
-	class={[
-		'flex flex-col items-center justify-center rounded-lg border p-10 text-center text-primary/40',
+	class={cn(
+		'flex flex-col items-center justify-center rounded-lg border bg-background p-10 text-center text-primary/40',
 		className
-	]}
+	)}
 >
 	<div class="mb-6 opacity-50">
 		<Icon src={icon} size={70} />
