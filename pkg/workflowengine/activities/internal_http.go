@@ -7,6 +7,7 @@ package activities
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -53,13 +54,14 @@ func (a *InternalHTTPActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	return executeInternalHTTPRequest(ctx, payload, &a.BaseActivity)
+	return executeInternalHTTPRequest(ctx, payload, &a.BaseActivity, nil)
 }
 
 func executeInternalHTTPRequest(
 	ctx context.Context,
 	payload InternalHTTPActivityPayload,
 	act *workflowengine.BaseActivity,
+	transport http.RoundTripper,
 ) (workflowengine.ActivityResult, error) {
 	authLevel := payload.AuthLevel
 	if authLevel == "" {
@@ -103,5 +105,6 @@ func executeInternalHTTPRequest(
 		httpPayload,
 		map[string]string{"Credimi-Api-Key": apiKey},
 		act,
+		transport,
 	)
 }

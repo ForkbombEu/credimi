@@ -349,7 +349,7 @@ Catalog availability and run-path health:
 - `GET /api/mobile-devices` reports `is_online` from heartbeat freshness, not
   from a probe: a runner counts as available when it is not `disabled`, its
   `online` flag is set, its stored URL is a usable http(s) URL, and
-  `last_heartbeat_at` is within `mobilerunnerlifecycle.SelectorHeartbeatTTL()`
+  `last_heartbeat_at` is within `mobilerunner.SelectorHeartbeatTTL()`
   (default 60s, two missed heartbeats, `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`).
   A probe answers only for the instant the page renders, which is already stale
   when the operator picks a device, and costs one timeout per runner per load.
@@ -370,12 +370,21 @@ Catalog availability and run-path health:
   candidate for `device_type`. An unreachable runner fails the run with
   `503 device runner is offline`. The helpers live in
   `pkg/internal/apis/handlers/mobile_runner_availability.go`.
-- Runner HTTP for `*.trycloudflare.com` hosts resolves through Cloudflare DNS
-  (`mobileRunnerHTTPClient` in
-  `pkg/internal/apis/handlers/mobile_runner_http.go`). A quick-tunnel hostname
-  exists only once cloudflared connects, so a resolver queried inside the
-  propagation window caches NXDOMAIN for the zone's 30 minute negative TTL and
-  every later call through it fails while the tunnel serves traffic.
+- Every Credimi-to-runner HTTP call goes through the `mobile-runner-http-request`
+  activity (`activities.NewMobileRunnerHTTPActivity`), never the generic
+  `internal-http-request`: `installer-action` and `pipeline-result` in
+  `mobile_automation_hooks.go`, and the worker-manager `POST {runner_url}/worker/{namespace}`.
+  It injects the same `CREDIMI_INTERNAL_ADMIN_KEY` credential and additionally
+  resolves `*.trycloudflare.com` through Cloudflare DNS, and it keeps
+  runner-directed calls identifiable in a run's Temporal history.
+- Runner availability rules and the runner HTTP client live in
+  `pkg/internal/mobilerunner` (heartbeat freshness, URL usability, quick-tunnel
+  transport). `pkg/internal/mobilerunnerlifecycle` keeps the worker-start
+  eligibility rule and the lifecycle monitor configuration.
+- A quick-tunnel hostname exists only once cloudflared connects, so a resolver
+  queried inside the propagation window caches NXDOMAIN for the zone's 30
+  minute negative TTL and every later call through it fails while the tunnel
+  serves traffic.
 
 Temporal runner worker contract:
 

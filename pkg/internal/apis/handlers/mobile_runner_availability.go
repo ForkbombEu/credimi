@@ -12,6 +12,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -125,7 +126,7 @@ func checkRunnerReachableHTTP(ctx context.Context, runnerURL string) (bool, erro
 		return false, err
 	}
 
-	resp, err := mobileRunnerHTTPClient(runnerURL).Do(req)
+	resp, err := mobilerunner.HTTPClient(runnerURL).Do(req)
 	if err != nil {
 		return false, nil
 	}

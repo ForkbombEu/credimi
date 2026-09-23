@@ -17,7 +17,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
-	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -712,7 +712,7 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHeartbeatIsStale(t *testing.T) {
 		t,
 		app,
 		runner,
-		time.Now().Add(-2*mobilerunnerlifecycle.DefaultSelectorHeartbeatTTL),
+		time.Now().Add(-2*mobilerunner.DefaultSelectorHeartbeatTTL),
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
@@ -917,29 +917,29 @@ func TestRecentlyAliveTracksHeartbeatFreshness(t *testing.T) {
 	markRunnerHeartbeat(t, app, runner, now.Add(-30*time.Second))
 	fresh, err := app.FindRecordById("mobile_runners", runner.Id)
 	require.NoError(t, err)
-	require.True(t, mobilerunnerlifecycle.RecentlyAlive(fresh, now))
+	require.True(t, mobilerunner.RecentlyAlive(fresh, now))
 
 	markRunnerHeartbeat(t, app, runner, now.Add(-90*time.Second))
 	stale, err := app.FindRecordById("mobile_runners", runner.Id)
 	require.NoError(t, err)
-	require.False(t, mobilerunnerlifecycle.RecentlyAlive(stale, now))
+	require.False(t, mobilerunner.RecentlyAlive(stale, now))
 }
 
 // A quick tunnel hostname is minted seconds before the first lookup, so a
 // resolver queried too early caches NXDOMAIN for half an hour and every later
 // runner call through it fails while the tunnel serves traffic.
 func TestMobileRunnerHTTPClientResolvesQuickTunnelsThroughCloudflare(t *testing.T) {
-	require.True(t, isQuickTunnelURL("https://demo.trycloudflare.com"))
-	require.False(t, isQuickTunnelURL("https://trycloudflare.com"))
-	require.False(t, isQuickTunnelURL("https://runner.example"))
-	require.False(t, isQuickTunnelURL("https://trycloudflare.com.attacker.example"))
+	require.True(t, mobilerunner.IsQuickTunnelURL("https://demo.trycloudflare.com"))
+	require.False(t, mobilerunner.IsQuickTunnelURL("https://trycloudflare.com"))
+	require.False(t, mobilerunner.IsQuickTunnelURL("https://runner.example"))
+	require.False(t, mobilerunner.IsQuickTunnelURL("https://trycloudflare.com.attacker.example"))
 
 	require.NotSame(
 		t,
 		http.DefaultClient,
-		mobileRunnerHTTPClient("https://demo.trycloudflare.com"),
+		mobilerunner.HTTPClient("https://demo.trycloudflare.com"),
 	)
-	require.Same(t, http.DefaultClient, mobileRunnerHTTPClient("https://runner.example"))
+	require.Same(t, http.DefaultClient, mobilerunner.HTTPClient("https://runner.example"))
 }
 
 func TestListMobileRunnersWithMalformedURL(t *testing.T) {

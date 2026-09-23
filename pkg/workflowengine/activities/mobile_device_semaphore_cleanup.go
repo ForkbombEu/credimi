@@ -130,7 +130,7 @@ func (a *CleanupMobileDeviceSemaphoreResourcesActivity) deleteTempRecord(
 		Method: http.MethodDelete,
 		URL:    url,
 		Body:   body,
-	}, &a.BaseActivity)
+	}, &a.BaseActivity, nil)
 	if err != nil {
 		return []string{fmt.Sprintf("%s %s cleanup failed: %v", resourceKind, recordID, err)}
 	}

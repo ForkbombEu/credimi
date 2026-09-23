@@ -38,6 +38,20 @@ func registerInternalHTTPActivity(
 	return internalHTTPActivity
 }
 
+// Runner-directed HTTP is its own activity, so a test that drives a step which
+// talks to a runner has to register it alongside the internal one.
+func registerMobileRunnerHTTPActivity(
+	env *testsuite.TestWorkflowEnvironment,
+) *activities.MobileRunnerHTTPActivity {
+	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
+	env.RegisterActivityWithOptions(
+		runnerHTTPActivity.Execute,
+		activity.RegisterOptions{Name: runnerHTTPActivity.Name()},
+	)
+
+	return runnerHTTPActivity
+}
+
 func (f *fakeActivity) Name() string {
 	return f.name
 }

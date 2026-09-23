@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -360,8 +361,8 @@ func HandleListMobileDevices() func(*core.RequestEvent) error {
 			// answers for the instant the page renders, which is already stale
 			// when the operator clicks, and it costs one timeout per runner on
 			// every load. The run path decides availability for real.
-			runnerOnline := mobilerunnerlifecycle.RecentlyAlive(runner, now) &&
-				mobileRunnerURLUsable(mobileRunnerURL(runner))
+			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
+				mobilerunner.URLUsable(mobileRunnerURL(runner))
 			devices, err := e.App.FindRecordsByFilter(
 				"mobile_devices",
 				"runner = {:runner}",
@@ -586,7 +587,7 @@ func checkMobileRunnerHealthHTTP(
 		return false, nil, errMalformedMobileRunnerURL
 	}
 
-	resp, err := mobileRunnerHTTPClient(runnerURL).Do(req)
+	resp, err := mobilerunner.HTTPClient(runnerURL).Do(req)
 	if err != nil {
 		return false, nil, nil
 	}

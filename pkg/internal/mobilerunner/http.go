@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package handlers
+package mobilerunner
 
 import (
 	"context"
@@ -25,24 +25,36 @@ const trycloudflareSuffix = ".trycloudflare.com"
 var cloudflareDNSServers = []string{"1.1.1.1:53", "1.0.0.1:53"}
 
 var (
-	quickTunnelClientOnce sync.Once
-	quickTunnelClient     *http.Client
+	quickTunnelTransportOnce sync.Once
+	quickTunnelTransport     http.RoundTripper
 )
 
-// mobileRunnerHTTPClient returns the client to use for a runner URL: the
+// HTTPClient returns the client to use for a runner URL: the
 // Cloudflare-resolving client for quick tunnels, the default client otherwise.
-func mobileRunnerHTTPClient(runnerURL string) *http.Client {
-	if !isQuickTunnelURL(runnerURL) {
+func HTTPClient(runnerURL string) *http.Client {
+	transport := Transport(runnerURL)
+	if transport == nil {
 		return http.DefaultClient
 	}
-	quickTunnelClientOnce.Do(func() {
-		quickTunnelClient = newQuickTunnelHTTPClient(cloudflareDNSServers)
-	})
 
-	return quickTunnelClient
+	return &http.Client{Transport: transport}
 }
 
-func isQuickTunnelURL(runnerURL string) bool {
+// Transport returns the round tripper a runner URL must be called through, or
+// nil when the default transport is correct. Callers that own their own client
+// (an activity setting its own timeout) use this instead of HTTPClient.
+func Transport(runnerURL string) http.RoundTripper {
+	if !IsQuickTunnelURL(runnerURL) {
+		return nil
+	}
+	quickTunnelTransportOnce.Do(func() {
+		quickTunnelTransport = newQuickTunnelTransport(cloudflareDNSServers)
+	})
+
+	return quickTunnelTransport
+}
+
+func IsQuickTunnelURL(runnerURL string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(runnerURL))
 	if err != nil {
 		return false
@@ -53,10 +65,10 @@ func isQuickTunnelURL(runnerURL string) bool {
 		len(hostname) > len(trycloudflareSuffix)
 }
 
-// mobileRunnerURLUsable reports whether a runner URL can be called at all.
-// A catalog surface that trusts heartbeats still has to exclude a runner whose
-// stored URL is malformed: it reports healthy while being uncallable.
-func mobileRunnerURLUsable(runnerURL string) bool {
+// URLUsable reports whether a runner URL can be called at all. A catalog
+// surface that trusts heartbeats still has to exclude a runner whose stored URL
+// is malformed: it reports healthy while being uncallable.
+func URLUsable(runnerURL string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(runnerURL))
 	if err != nil {
 		return false
@@ -65,9 +77,9 @@ func mobileRunnerURLUsable(runnerURL string) bool {
 	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
 
-func newQuickTunnelHTTPClient(servers []string) *http.Client {
+func newQuickTunnelTransport(servers []string) http.RoundTripper {
 	if len(servers) == 0 {
-		return http.DefaultClient
+		return nil
 	}
 	var next atomic.Uint32
 	resolver := &net.Resolver{
@@ -87,8 +99,7 @@ func newQuickTunnelHTTPClient(servers []string) *http.Client {
 	} else {
 		transport = &http.Transport{}
 	}
-	dialer := &net.Dialer{Resolver: resolver}
-	transport.DialContext = dialer.DialContext
+	transport.DialContext = (&net.Dialer{Resolver: resolver}).DialContext
 
-	return &http.Client{Transport: transport}
+	return transport
 }
