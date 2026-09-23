@@ -778,6 +778,11 @@ func TestPipelineRunWalletAPKInjectsGlobalDeviceID(t *testing.T) {
 	queueStub := &queueStub{}
 	installQueueStubs(t, queueStub)
 
+	// An explicitly chosen device is only accepted when its runner answers now.
+	origHealthCheck := pipelineCIRunnerHealthCheck
+	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
+	pipelineCIRunnerHealthCheck = func(context.Context, string) (bool, error) { return true, nil }
+
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -810,6 +815,7 @@ func TestPipelineRunWalletAPKInjectsGlobalDeviceID(t *testing.T) {
 				orgID,
 				walletAPKPipelineYAMLWithoutRunner(versionID),
 			)
+			createWalletAPKMobileRunner(t, app, orgID, "Runner Global", "android_phone", true)
 			return app
 		},
 	}
@@ -826,6 +832,60 @@ func TestPipelineRunWalletAPKInjectsGlobalDeviceID(t *testing.T) {
 	)
 }
 
+// A device is picked from a catalog that reports recent heartbeats, so the run
+// path is the only place that can prove the runner is answering right now.
+func TestPipelineRunWalletAPKRejectsExplicitDeviceOnOfflineRunner(t *testing.T) {
+	installWalletAPKURLDownloaderStub(t)
+	queueStub := &queueStub{}
+	installQueueStubs(t, queueStub)
+
+	origHealthCheck := pipelineCIRunnerHealthCheck
+	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
+	probed := 0
+	pipelineCIRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
+		probed++
+		require.Equal(t, "https://runner-global.example.test", runnerURL)
+		return false, nil
+	}
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	scenario := tests.ApiScenario{
+		Name:   "rejects an explicit device whose runner is unreachable",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/run-wallet-apk",
+		Headers: map[string]string{
+			"Content-Type":    "application/json",
+			"Credimi-Api-Key": walletAPKUserAPIKey,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"metadata":            walletAPKMetadata(),
+			"device_id":           "usera-s-organization/runner-global/device-1",
+			"apk_url":             "http://ci.example.test/wallet.apk",
+		}),
+		ExpectedStatus:  http.StatusServiceUnavailable,
+		ExpectedContent: []string{"device runner is offline"},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineWalletAPKApp(t)
+			seedWalletAPKUserAPIKey(t, app)
+			versionID := createWalletAPKVersion(t, app, orgID, "wallet-offline-runner", "1.0.0")
+			createWalletAPITestPipeline(
+				t,
+				app,
+				orgID,
+				walletAPKPipelineYAMLWithoutRunner(versionID),
+			)
+			createWalletAPKMobileRunner(t, app, orgID, "Runner Global", "android_phone", true)
+			return app
+		},
+	}
+	scenario.Test(t)
+
+	require.Equal(t, 1, probed)
+	require.Empty(t, queueStub.enqueueRequests)
+}
 func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	installWalletAPKURLDownloaderStub(t)
 	queueStub := &queueStub{}
