@@ -27,8 +27,6 @@ import (
 
 const pipelineCIMobileAutomationStepUse = "mobile-automation"
 
-var pipelineCIRunnerHealthCheck = checkPipelineCIRunnerHealth
-
 type tempRecordDeleteInput struct {
 	ExpectedOwnerID    string `json:"expected_owner_id"`
 	ExpectedIdentifier string `json:"expected_identifier"`
@@ -450,7 +448,13 @@ func resolvePipelineCIDeviceID(
 	if !hasStepRunner && !needsGlobalRunner {
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
-	if strings.TrimSpace(input.DeviceID) != "" {
+	if deviceID := strings.TrimSpace(input.DeviceID); deviceID != "" {
+		// A device picked from the catalog was reported available when the page
+		// rendered, which can be minutes old. The run must not start against a
+		// runner that is no longer answering, so its health is checked here.
+		if apiErr := requireMobileDeviceRunnerOnline(ctx, app, deviceID); apiErr != nil {
+			return "", hasStepRunner, needsGlobalRunner, apiErr
+		}
 		return input.DeviceID, hasStepRunner, needsGlobalRunner, nil
 	}
 	if strings.TrimSpace(input.DeviceType) == "" {
@@ -945,7 +949,7 @@ func selectPipelineCIDeviceByType(
 			(runner.GetString("owner") != ownerID && !runner.GetBool("published")) {
 			continue
 		}
-		online, apiErr := pipelineCIRunnerOnline(ctx, runner)
+		online, apiErr := mobileRunnerReachable(ctx, runner)
 		if apiErr != nil {
 			return "", apiErr
 		}
@@ -980,48 +984,6 @@ func selectPipelineCIDeviceByType(
 		)
 	}
 	return selectedDeviceID, nil
-}
-
-func pipelineCIRunnerOnline(ctx context.Context, record *core.Record) (bool, *apierror.APIError) {
-	runnerURL := mobileRunnerURL(record)
-	if runnerURL == "" {
-		return false, nil
-	}
-
-	online, err := pipelineCIRunnerHealthCheck(ctx, runnerURL)
-	if err != nil {
-		return false, apierror.New(
-			http.StatusInternalServerError,
-			"device_type",
-			"failed to check runner health",
-			err.Error(),
-		)
-	}
-
-	return online, nil
-}
-
-func checkPipelineCIRunnerHealth(ctx context.Context, runnerURL string) (bool, error) {
-	healthURL, err := url.JoinPath(runnerURL, "health")
-	if err != nil {
-		return false, err
-	}
-
-	healthCtx, cancel := context.WithTimeout(ctx, walletAPKRunnerHealthTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(healthCtx, http.MethodGet, healthURL, nil)
-	if err != nil {
-		return false, err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return false, nil
-	}
-	defer resp.Body.Close()
-
-	return resp.StatusCode == http.StatusOK, nil
 }
 
 func pipelineCIDeviceBacklog(ctx context.Context, deviceID string) (int, *apierror.APIError) {
