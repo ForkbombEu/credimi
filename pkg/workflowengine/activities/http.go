@@ -89,14 +89,18 @@ func (a *HTTPActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	return executeHTTPRequest(ctx, payload, nil, &a.BaseActivity)
+	return executeHTTPRequest(ctx, payload, nil, &a.BaseActivity, nil)
 }
 
+// executeHTTPRequest performs one request. transport is nil for every caller
+// that wants the default resolver and connection pool; a runner-directed call
+// passes its own so a quick-tunnel hostname is resolved where it exists.
 func executeHTTPRequest(
 	ctx context.Context,
 	payload HTTPActivityPayload,
 	injectedHeaders map[string]string,
 	act *workflowengine.BaseActivity,
+	transport http.RoundTripper,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 	url := payload.URL
@@ -184,7 +188,7 @@ func executeHTTPRequest(
 		Body:    payload.Body,
 	}
 
-	client := &http.Client{Timeout: timeout}
+	client := &http.Client{Timeout: timeout, Transport: transport}
 	stopHeartbeat := startHTTPActivityHeartbeat(ctx)
 	defer stopHeartbeat()
 	resp, err := client.Do(req)

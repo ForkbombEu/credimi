@@ -109,7 +109,7 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 	w := NewMobileAutomationWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 	mobileActivity := activities.NewRunMobileFlowActivity()
-	httpActivity := activities.NewInternalHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity()
 	env.RegisterActivityWithOptions(
 		mobileActivity.Execute,
 		activity.RegisterOptions{Name: mobileActivity.Name()},
@@ -131,7 +131,7 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 		httpActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			request, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+			request, err := workflowengine.DecodePayload[activities.MobileRunnerHTTPActivityPayload](
 				input.Payload,
 			)
 			if err != nil {

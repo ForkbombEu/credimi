@@ -23,9 +23,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		followUp: EnrichedFollowUp;
 		builder: StepsBuilder;
 		editing?: boolean;
+		selected?: boolean;
+		hovered?: boolean;
 	};
 
-	let { builder, followUp, index, editing = false }: Props = $props();
+	let {
+		builder,
+		followUp,
+		index,
+		editing = false,
+		selected = false,
+		hovered = false
+	}: Props = $props();
 
 	const editable = $derived(isStepEditable(followUp.step));
 	const actionsDisabled = $derived(builder.isFormMode);
@@ -37,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 </script>
 
-<StepCardDisplay step={followUp.step} {editing}>
+<StepCardDisplay step={followUp.step} {editing} {selected} {hovered}>
 	{#snippet topRight()}
 		<div
 			class={[

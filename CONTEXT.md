@@ -18,6 +18,10 @@ _Avoid_: Steps builder (as user-facing name), pipeline form (as product name)
 Implementation name for the three-pane control inside Pipeline Composer. Not used in product UI copy.
 _Avoid_: Using Steps builder in user-facing strings
 
+**Scroll follow**:
+In Pipeline Composer, the optional behaviour that keeps the cards pane and the YAML preview viewport peer-synced while scrolling. It does not select or highlight a step.
+_Avoid_: Scroll sync (as the product name), proportional scroll, peer sync (as user-facing copy), active unit
+
 ## Pipeline editor (wallet version)
 
 **Change wallet version**:
