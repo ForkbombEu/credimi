@@ -195,6 +195,8 @@
 	"Submit": "Soumettre",
 	"Select_a_value": "Sélectionnez une valeur",
 	"Search": "Recherche",
+	"Search_issuers_or_credentials": "Rechercher des émetteurs ou des credentials",
+	"Search_verifiers_or_use_case_verifications": "Rechercher des vérificateurs ou des use case verifications",
 	"No_results_found": "Aucun résultat trouvé",
 	"No_items_selected": "Aucun élément sélectionné",
 	"No_options_available": "Aucune option disponible",

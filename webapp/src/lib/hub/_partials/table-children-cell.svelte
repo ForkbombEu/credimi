@@ -14,8 +14,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	type NestedLink = Link & { dimmed?: boolean };
+
 	type Props = {
-		items: Link[];
+		items: NestedLink[];
 	};
 
 	let { items }: Props = $props();
@@ -27,7 +29,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			href={resolve(localizeHref(link.href ?? '') as '/')}
 			class={[
 				'rounded-full px-2 py-1 text-nowrap text-slate-500 transition hover:bg-slate-300',
-				'flex flex-nowrap items-center gap-1 text-xs'
+				'flex flex-nowrap items-center gap-1 text-xs',
+				link.dimmed && 'opacity-40'
 			]}
 		>
 			<span class="truncate">{link.title}</span>
