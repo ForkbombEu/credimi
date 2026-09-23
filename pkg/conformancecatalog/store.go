@@ -222,6 +222,68 @@ func marshalStringSlice(values []string) ([]byte, error) {
 	return json.Marshal(values)
 }
 
+// listEphemeralChecks reads every check row from the process-private cache.
+func listEphemeralChecks() ([]Check, error) {
+	db, err := catalogDB()
+	if err != nil {
+		return nil, err
+	}
+	var rows []*catalogRow
+	if err := db.Select(catalogSelectColumns...).
+		From(CollectionName).
+		OrderBy("path ASC").
+		All(&rows); err != nil {
+		return nil, fmt.Errorf("list ephemeral checks: %w", err)
+	}
+	out := make([]Check, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, checkFromRow(r))
+	}
+	return out, nil
+}
+
+// countEphemeralChecks returns the number of rows in the ephemeral checks table.
+func countEphemeralChecks() (int, error) {
+	db, err := catalogDB()
+	if err != nil {
+		return 0, err
+	}
+	var n int
+	if err := db.NewQuery("SELECT COUNT(*) FROM conformance_checks").Row(&n); err != nil {
+		return 0, fmt.Errorf("count ephemeral checks: %w", err)
+	}
+	return n, nil
+}
+
+func checkFromRow(r *catalogRow) Check {
+	if r == nil {
+		return Check{}
+	}
+	return Check{
+		ID:               r.ID,
+		Path:             r.Path,
+		Title:            r.Title,
+		Standard:         r.Standard,
+		Version:          r.Version,
+		Suite:            r.Suite,
+		File:             r.File,
+		VisibleIn:        append([]string(nil), r.VisibleIn...),
+		Protocol:         r.Protocol,
+		SUT:              r.SUT,
+		Role:             r.Role,
+		Provider:         r.Provider,
+		NormStandard:     r.NormStandard,
+		Component:        r.Component,
+		NormVersion:      r.NormVersion,
+		SuiteName:        r.SuiteName,
+		SuiteHomepage:    r.SuiteHomepage,
+		SuiteRepository:  r.SuiteRepository,
+		SuiteHelp:        r.SuiteHelp,
+		SuiteDescription: r.SuiteDescription,
+		SuiteLogo:        r.SuiteLogo,
+	}
+}
+
 // replaceEphemeralRows fully replaces process-private check and suite tables.
 func replaceEphemeralRows(checks []Check) error {
 	db, err := catalogDB()

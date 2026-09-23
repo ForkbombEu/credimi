@@ -66,7 +66,10 @@ func RebuildHTTP() func(e *core.RequestEvent) error {
 		if err := Rebuild(e.App, ""); err != nil {
 			return e.InternalServerError("conformance catalog rebuild failed", err)
 		}
-		n := len(Default().Snapshot())
+		n, err := countEphemeralChecks()
+		if err != nil {
+			return e.InternalServerError("conformance catalog count failed", err)
+		}
 		return e.JSON(http.StatusOK, map[string]any{
 			"ok":     true,
 			"count":  n,

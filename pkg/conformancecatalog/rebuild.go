@@ -10,9 +10,9 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// Rebuild walks templatesDir (or TemplatesDir() when empty), replaces the
-// in-memory snapshot, and fully replaces the process-private :memory: query
-// cache used by the fake PocketBase collection URL.
+// Rebuild walks templatesDir (or TemplatesDir() when empty) and fully replaces
+// the process-private :memory: query cache used by the fake PocketBase
+// collection URL. That cache is the sole post-rebuild projection.
 //
 // Refresh path for local template edits: call Rebuild, or POST
 // /api/conformance-catalog/rebuild with X-Api-Key = CREDIMI_INTERNAL_ADMIN_KEY,
@@ -34,7 +34,5 @@ func Rebuild(app core.App, templatesDir string) error {
 	if err := replaceEphemeralRows(checks); err != nil {
 		return fmt.Errorf("project ephemeral catalog: %w", err)
 	}
-
-	Default().replaceSnapshot(checks)
 	return nil
 }

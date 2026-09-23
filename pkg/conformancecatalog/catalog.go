@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package conformancecatalog loads classic conformance checks and FCAF test
-// definitions from config_templates into an in-process snapshot and a
-// process-private :memory: SQLite query cache.
+// definitions from config_templates into a process-private :memory: SQLite
+// query cache (the sole post-rebuild projection).
 //
 // Durable source of truth remains the filesystem under config_templates.
 // There is no durable conformance_checks table in PocketBase data.db.
@@ -32,7 +32,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -66,18 +65,18 @@ var nonStandardTemplateDirs = map[string]struct{}{
 // Suite* fields are denormalized from suite metadata.yaml so nest/pickers
 // can show authored names/logos/URLs without a second meta fetch (#1399).
 type Check struct {
-	ID               string   `json:"id"`
-	Path             string   `json:"path"`
-	Title            string   `json:"title"`
-	Standard         string   `json:"standard"` // FS top-level dir (durable path segment)
-	Version          string   `json:"version"`  // FS version segment (durable)
-	Suite            string   `json:"suite"`
-	File             string   `json:"file"`
-	VisibleIn        []string `json:"visible_in"`
-	Protocol         string   `json:"protocol"`
-	SUT              string   `json:"sut"`
-	Role             string   `json:"role"`
-	Provider         string   `json:"provider"`
+	ID        string   `json:"id"`
+	Path      string   `json:"path"`
+	Title     string   `json:"title"`
+	Standard  string   `json:"standard"` // FS top-level dir (durable path segment)
+	Version   string   `json:"version"`  // FS version segment (durable)
+	Suite     string   `json:"suite"`
+	File      string   `json:"file"`
+	VisibleIn []string `json:"visible_in"`
+	Protocol  string   `json:"protocol"`
+	SUT       string   `json:"sut"`
+	Role      string   `json:"role"`
+	Provider  string   `json:"provider"`
 	// Additive product projection (does not rewrite durable path / nest keys).
 	NormStandard     string `json:"norm_standard"`
 	Component        string `json:"component"`
@@ -146,31 +145,28 @@ func suiteDisplayFromYAML(s suiteYAML) suiteDisplayFields {
 	}
 }
 
-// Catalog holds the in-memory snapshot of checks loaded from disk (kept in sync
-// with the ephemeral SQLite projection by Rebuild). Production list/get traffic
-// uses the :memory: cache via the fake collection routes; Snapshot remains the
-// dual-layer seam for rebuild responses and tests.
-type Catalog struct {
-	mu     sync.RWMutex
-	checks []Check
-}
+// Catalog is a thin facade over the ephemeral query cache. It holds no
+// separate check slice — Rebuild writes only to :memory: SQLite, and Snapshot
+// reads that projection (for tests that still assert on []Check).
+type Catalog struct{}
 
-var (
-	defaultCatalog = &Catalog{}
-)
+var defaultCatalog = &Catalog{}
 
-// Default returns the process-wide catalog instance.
+// Default returns the process-wide catalog facade.
 func Default() *Catalog {
 	return defaultCatalog
 }
 
-// Snapshot returns a copy of the current in-memory checks.
+// Snapshot returns checks from the ephemeral :memory: cache (SELECT → []Check).
+// On cache errors it returns nil so callers observe an empty catalog rather
+// than a stale dual-written slice.
 func (c *Catalog) Snapshot() []Check {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	out := make([]Check, len(c.checks))
-	copy(out, c.checks)
-	return out
+	_ = c
+	checks, err := listEphemeralChecks()
+	if err != nil {
+		return nil
+	}
+	return checks
 }
 
 // TemplatesDir resolves config_templates from ROOT_DIR (empty ROOT_DIR → ./config_templates).
@@ -531,10 +527,4 @@ func readYAML(path string, out any) error {
 		return fmt.Errorf("unmarshal %s: %w", path, err)
 	}
 	return nil
-}
-
-func (c *Catalog) replaceSnapshot(checks []Check) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.checks = checks
 }
