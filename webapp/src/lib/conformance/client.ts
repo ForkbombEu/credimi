@@ -157,10 +157,7 @@ export function fcafTestIdFromPath(path: string): string {
 export function toFcafCatalogEntry(record: ConformanceCheckRecord): FCAFTestCatalogEntry {
 	return {
 		id: fcafTestIdFromPath(record.path),
-		title: record.title,
-		// Section is not on the v1 catalog row; category grouping uses the test id.
-		section: '',
-		sources: []
+		title: record.title
 	};
 }
 

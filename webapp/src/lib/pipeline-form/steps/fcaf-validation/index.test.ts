@@ -12,15 +12,11 @@ vi.mock('$lib/query-client', () => ({
 const mockedTests = [
 	{
 		id: 'WS_RP_IA_Engagement__001',
-		title: 'Engagement',
-		section: '',
-		sources: [] as string[]
+		title: 'Engagement'
 	},
 	{
 		id: 'WS_RP_SM_DeviceBinding__007',
-		title: 'Device binding',
-		section: '',
-		sources: [] as string[]
+		title: 'Device binding'
 	}
 ];
 

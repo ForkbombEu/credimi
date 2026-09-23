@@ -33,9 +33,7 @@ describe('fcaf catalog mapping', () => {
 	it('maps catalog rows to picker entries', () => {
 		expect(toFcafCatalogEntry(sample)).toEqual({
 			id: 'WS_RP_DM_Example_001',
-			title: 'Example FCAF test',
-			section: '',
-			sources: []
+			title: 'Example FCAF test'
 		});
 	});
 });

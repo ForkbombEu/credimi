@@ -4,12 +4,13 @@
 
 import { FCAF_CATEGORY_ORDER, parseFCAFTestId, type FCAFCategory } from './categories.js';
 
-/** Catalog entry for FCAF listing/picking (from conformance_checks or fixtures). */
+/**
+ * Catalog entry for FCAF listing/picking (from conformance_checks).
+ * Grouping uses the test id prefix (FCAF taxonomy); section/sources are not on this shape.
+ */
 export type FCAFTestCatalogEntry = {
 	id: string;
 	title: string;
-	section: string;
-	sources: string[];
 };
 
 /**
@@ -35,7 +36,7 @@ export type CatalogCategoryGroup = {
 export function groupSelectedTests(testIds: string[]): CatalogCategoryGroup[] {
 	// Card summaries only have selected ids; synthesize minimal entries for grouping.
 	return groupCatalogTests(
-		testIds.map((id) => ({ id, title: '', section: '', sources: [] }))
+		testIds.map((id) => ({ id, title: '' }))
 	);
 }
 
