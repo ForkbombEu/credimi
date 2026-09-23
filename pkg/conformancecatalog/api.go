@@ -20,18 +20,46 @@ const (
 	suitesWriteRejectMessage = "conformance_suites is a read-only catalog projection of config_templates"
 )
 
-// RecordsListHTTP serves GET /api/collections/conformance_checks/records
-// using PocketBase tools/search against the process-private :memory: catalog.
-func RecordsListHTTP() func(*core.RequestEvent) error {
+// collectionHTTP owns PocketBase-compatible list/get/write-reject for one
+// ephemeral fake-collection table (conformance check or conformance suite).
+type collectionHTTP[R any] struct {
+	table      string
+	columns    []string
+	fields     []string
+	attachMeta func(*R)
+	writeMsg   string
+}
+
+func checksCollectionHTTP() collectionHTTP[catalogRow] {
+	return collectionHTTP[catalogRow]{
+		table:      CollectionName,
+		columns:    catalogSelectColumns,
+		fields:     catalogSearchFields,
+		attachMeta: func(r *catalogRow) { r.withCollectionMeta() },
+		writeMsg:   writeRejectMessage,
+	}
+}
+
+func suitesCollectionHTTP() collectionHTTP[suiteRow] {
+	return collectionHTTP[suiteRow]{
+		table:      SuitesCollectionName,
+		columns:    suiteSelectColumns,
+		fields:     suiteSearchFields,
+		attachMeta: func(r *suiteRow) { r.withCollectionMeta() },
+		writeMsg:   suitesWriteRejectMessage,
+	}
+}
+
+func (c collectionHTTP[R]) list() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		db, err := catalogDB()
 		if err != nil {
 			return e.InternalServerError("conformance catalog unavailable", err)
 		}
 
-		rows := []*catalogRow{}
-		resolver := search.NewSimpleFieldResolver(catalogSearchFields...)
-		base := db.Select(catalogSelectColumns...).From(CollectionName)
+		rows := []*R{}
+		resolver := search.NewSimpleFieldResolver(c.fields...)
+		base := db.Select(c.columns...).From(c.table)
 
 		result, err := search.NewProvider(resolver).
 			Query(base).
@@ -42,103 +70,73 @@ func RecordsListHTTP() func(*core.RequestEvent) error {
 		}
 
 		for _, row := range rows {
-			row.withCollectionMeta()
+			c.attachMeta(row)
 		}
 		result.Items = rows
 		return e.JSON(http.StatusOK, result)
 	}
+}
+
+func (c collectionHTTP[R]) view() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		id := e.Request.PathValue("id")
+		if id == "" {
+			return e.NotFoundError("", nil)
+		}
+
+		db, err := catalogDB()
+		if err != nil {
+			return e.InternalServerError("conformance catalog unavailable", err)
+		}
+
+		row := new(R)
+		err = db.Select(c.columns...).
+			From(c.table).
+			AndWhere(dbx.HashExp{"id": id}).
+			One(row)
+		if err != nil {
+			return e.NotFoundError("", err)
+		}
+		c.attachMeta(row)
+		return e.JSON(http.StatusOK, row)
+	}
+}
+
+func (c collectionHTTP[R]) writeReject() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		return e.BadRequestError(c.writeMsg, nil)
+	}
+}
+
+// RecordsListHTTP serves GET /api/collections/conformance_checks/records
+// using PocketBase tools/search against the process-private :memory: catalog.
+func RecordsListHTTP() func(*core.RequestEvent) error {
+	return checksCollectionHTTP().list()
 }
 
 // RecordViewHTTP serves GET /api/collections/conformance_checks/records/{id}.
 func RecordViewHTTP() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		id := e.Request.PathValue("id")
-		if id == "" {
-			return e.NotFoundError("", nil)
-		}
-
-		db, err := catalogDB()
-		if err != nil {
-			return e.InternalServerError("conformance catalog unavailable", err)
-		}
-
-		row := &catalogRow{}
-		err = db.Select(catalogSelectColumns...).
-			From(CollectionName).
-			AndWhere(dbx.HashExp{"id": id}).
-			One(row)
-		if err != nil {
-			return e.NotFoundError("", err)
-		}
-		return e.JSON(http.StatusOK, row.withCollectionMeta())
-	}
+	return checksCollectionHTTP().view()
 }
 
 // RecordsWriteRejectHTTP rejects create/update/delete on the fake collection URL.
 func RecordsWriteRejectHTTP() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		return e.BadRequestError(writeRejectMessage, nil)
-	}
+	return checksCollectionHTTP().writeReject()
 }
 
 // SuitesListHTTP serves GET /api/collections/conformance_suites/records.
 func SuitesListHTTP() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		db, err := catalogDB()
-		if err != nil {
-			return e.InternalServerError("conformance catalog unavailable", err)
-		}
-
-		rows := []*suiteRow{}
-		resolver := search.NewSimpleFieldResolver(suiteSearchFields...)
-		base := db.Select(suiteSelectColumns...).From(SuitesCollectionName)
-
-		result, err := search.NewProvider(resolver).
-			Query(base).
-			CountCol("id").
-			ParseAndExec(e.Request.URL.Query().Encode(), &rows)
-		if err != nil {
-			return firstSearchAPIError(e, err)
-		}
-
-		for _, row := range rows {
-			row.withCollectionMeta()
-		}
-		result.Items = rows
-		return e.JSON(http.StatusOK, result)
-	}
+	return suitesCollectionHTTP().list()
 }
 
 // SuiteViewHTTP serves GET /api/collections/conformance_suites/records/{id}.
 func SuiteViewHTTP() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		id := e.Request.PathValue("id")
-		if id == "" {
-			return e.NotFoundError("", nil)
-		}
-
-		db, err := catalogDB()
-		if err != nil {
-			return e.InternalServerError("conformance catalog unavailable", err)
-		}
-
-		row := &suiteRow{}
-		err = db.Select(suiteSelectColumns...).
-			From(SuitesCollectionName).
-			AndWhere(dbx.HashExp{"id": id}).
-			One(row)
-		if err != nil {
-			return e.NotFoundError("", err)
-		}
-		return e.JSON(http.StatusOK, row.withCollectionMeta())
-	}
+	return suitesCollectionHTTP().view()
 }
 
 // SuitesWriteRejectHTTP rejects writes on the suites collection URL.
 func SuitesWriteRejectHTTP() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		return e.BadRequestError(suitesWriteRejectMessage, nil)
-	}
+	return suitesCollectionHTTP().writeReject()
 }
 
 func firstSearchAPIError(e *core.RequestEvent, err error) error {
