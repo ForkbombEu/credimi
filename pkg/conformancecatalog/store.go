@@ -147,56 +147,19 @@ func catalogDB() (*dbx.DB, error) {
 
 func ensureEphemeralSchema(db *sql.DB) error {
 	// Ephemeral only: drop+create so column additions always match this binary.
-	_, err := db.ExecContext(context.Background(), `
+	// Column lists come from schema.go (single SoT with SELECT/INSERT).
+	sqlText := fmt.Sprintf(`
 DROP TABLE IF EXISTS conformance_suites;
 DROP TABLE IF EXISTS conformance_checks;
-CREATE TABLE conformance_checks (
-	id TEXT PRIMARY KEY NOT NULL,
-	path TEXT NOT NULL,
-	title TEXT NOT NULL,
-	standard TEXT NOT NULL,
-	version TEXT NOT NULL,
-	suite TEXT NOT NULL,
-	file TEXT NOT NULL,
-	visible_in TEXT NOT NULL DEFAULT '[]',
-	protocol TEXT NOT NULL DEFAULT '',
-	sut TEXT NOT NULL DEFAULT '',
-	role TEXT NOT NULL DEFAULT '',
-	provider TEXT NOT NULL DEFAULT '',
-	norm_standard TEXT NOT NULL DEFAULT '',
-	component TEXT NOT NULL DEFAULT '',
-	norm_version TEXT NOT NULL DEFAULT '',
-	created TEXT NOT NULL DEFAULT '',
-	updated TEXT NOT NULL DEFAULT ''
-);
+%s;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_conformance_checks_path ON conformance_checks (path);
-CREATE TABLE conformance_suites (
-	id TEXT PRIMARY KEY NOT NULL,
-	standard TEXT NOT NULL,
-	component TEXT NOT NULL DEFAULT '',
-	component_rank INTEGER NOT NULL DEFAULT 9,
-	version TEXT NOT NULL DEFAULT '',
-	suite TEXT NOT NULL,
-	provider TEXT NOT NULL DEFAULT '',
-	suite_name TEXT NOT NULL DEFAULT '',
-	suite_homepage TEXT NOT NULL DEFAULT '',
-	suite_repository TEXT NOT NULL DEFAULT '',
-	suite_help TEXT NOT NULL DEFAULT '',
-	suite_description TEXT NOT NULL DEFAULT '',
-	suite_logo TEXT NOT NULL DEFAULT '',
-	check_count INTEGER NOT NULL DEFAULT 0,
-	check_paths TEXT NOT NULL DEFAULT '[]',
-	check_titles TEXT NOT NULL DEFAULT '[]',
-	check_files TEXT NOT NULL DEFAULT '[]',
-	visible_in TEXT NOT NULL DEFAULT '[]',
-	fs_standard TEXT NOT NULL DEFAULT '',
-	fs_version TEXT NOT NULL DEFAULT '',
-	path_prefix TEXT NOT NULL,
-	created TEXT NOT NULL DEFAULT '',
-	updated TEXT NOT NULL DEFAULT ''
-);
+%s;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_conformance_suites_path_prefix ON conformance_suites (path_prefix);
-`)
+`,
+		createTableSQL(CollectionName, checkColumns),
+		createTableSQL(SuitesCollectionName, suiteColumns),
+	)
+	_, err := db.ExecContext(context.Background(), sqlText)
 	if err != nil {
 		return fmt.Errorf("ensure ephemeral schema: %w", err)
 	}
@@ -292,18 +255,7 @@ func replaceEphemeralRows(loaded LoadedCatalog) error {
 		if err != nil {
 			return fmt.Errorf("marshal visible_in for %s: %w", ch.Path, err)
 		}
-		_, err = tx.NewQuery(`
-INSERT INTO conformance_checks (
-	id, path, title, standard, version, suite, file, visible_in,
-	protocol, sut, role, provider,
-	norm_standard, component, norm_version,
-	created, updated
-) VALUES (
-	{:id}, {:path}, {:title}, {:standard}, {:version}, {:suite}, {:file}, {:visible_in},
-	{:protocol}, {:sut}, {:role}, {:provider},
-	{:norm_standard}, {:component}, {:norm_version},
-	{:created}, {:updated}
-)`).Bind(dbx.Params{
+		_, err = tx.NewQuery(insertSQL(CollectionName, checkColumns)).Bind(dbx.Params{
 			"id":            ch.ID,
 			"path":          ch.Path,
 			"title":         ch.Title,
@@ -344,18 +296,7 @@ INSERT INTO conformance_checks (
 		if err != nil {
 			return fmt.Errorf("marshal check_files for %s: %w", s.PathPrefix, err)
 		}
-		_, err = tx.NewQuery(`
-INSERT INTO conformance_suites (
-	id, standard, component, component_rank, version, suite, provider,
-	suite_name, suite_homepage, suite_repository, suite_help, suite_description, suite_logo,
-	check_count, check_paths, check_titles, check_files, visible_in,
-	fs_standard, fs_version, path_prefix, created, updated
-) VALUES (
-	{:id}, {:standard}, {:component}, {:component_rank}, {:version}, {:suite}, {:provider},
-	{:suite_name}, {:suite_homepage}, {:suite_repository}, {:suite_help}, {:suite_description}, {:suite_logo},
-	{:check_count}, {:check_paths}, {:check_titles}, {:check_files}, {:visible_in},
-	{:fs_standard}, {:fs_version}, {:path_prefix}, {:created}, {:updated}
-)`).Bind(dbx.Params{
+		_, err = tx.NewQuery(insertSQL(SuitesCollectionName, suiteColumns)).Bind(dbx.Params{
 			"id":                s.ID,
 			"standard":          s.Standard,
 			"component":         s.Component,

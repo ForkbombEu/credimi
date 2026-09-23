@@ -14,8 +14,8 @@ import (
 // are the product projection.
 type SuiteRecord struct {
 	ID               string   `json:"id"`
-	Standard         string   `json:"standard"`  // normalized product standard
-	Component        string   `json:"component"` // wallet | issuer | verifier | ""
+	Standard         string   `json:"standard"`       // normalized product standard
+	Component        string   `json:"component"`      // wallet | issuer | verifier | ""
 	ComponentRank    int      `json:"component_rank"` // wallet=0, issuer=1, verifier=2, else=9
 	Version          string   `json:"version"`        // normalized profile version (may be "")
 	Suite            string   `json:"suite"`          // suite uid

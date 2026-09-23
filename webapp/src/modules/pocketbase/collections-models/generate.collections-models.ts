@@ -11,6 +11,10 @@ import path from 'node:path';
 import { type CollectionModel } from 'pocketbase';
 
 import {
+	CHECK_CLIENT_COLUMNS,
+	SUITE_CLIENT_COLUMNS
+} from '../../../lib/conformance/columns.js';
+import {
 	EXPORT_TYPE,
 	formatCode,
 	GENERATED,
@@ -147,56 +151,15 @@ main().catch(console.error);
 function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
 	if (models.some((m) => m.name === 'conformance_checks')) return;
 
-	const text = (name: string, required = true): CollectionField => ({
-		id: `conformance_checks_${name}`,
-		name,
-		type: 'text',
-		system: false,
-		required
-	});
-
 	models.push({
 		id: 'pbc_conformance_checks_catalog',
 		name: 'conformance_checks',
 		type: 'base',
 		system: false,
-		fields: [
-			{ id: 'conformance_checks_id', name: 'id', type: 'text', system: true, required: true },
-			text('path'),
-			text('title'),
-			text('standard'),
-			text('version'),
-			text('suite'),
-			text('file'),
-			{
-				id: 'conformance_checks_visible_in',
-				name: 'visible_in',
-				type: 'json',
-				system: false,
-				required: false
-			},
-			text('protocol', false),
-			text('sut', false),
-			text('role', false),
-			text('provider', false),
-			text('norm_standard', false),
-			text('component', false),
-			text('norm_version', false),
-			{
-				id: 'conformance_checks_created',
-				name: 'created',
-				type: 'autodate',
-				system: false,
-				required: false
-			},
-			{
-				id: 'conformance_checks_updated',
-				name: 'updated',
-				type: 'autodate',
-				system: false,
-				required: false
-			}
-		]
+		fields: fieldsFromClientColumns('conformance_checks', CHECK_CLIENT_COLUMNS, {
+			json: new Set(['visible_in']),
+			required: new Set(['path', 'title', 'standard', 'version', 'suite', 'file'])
+		})
 	} as CollectionModel);
 }
 
@@ -204,93 +167,68 @@ function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
 function injectSyntheticConformanceSuites(models: CollectionModel[]): void {
 	if (models.some((m) => m.name === 'conformance_suites')) return;
 
-	const text = (name: string, required = true): CollectionField => ({
-		id: `conformance_suites_${name}`,
-		name,
-		type: 'text',
-		system: false,
-		required
-	});
-
 	models.push({
 		id: 'pbc_conformance_suites_catalog',
 		name: 'conformance_suites',
 		type: 'base',
 		system: false,
-		fields: [
-			{ id: 'conformance_suites_id', name: 'id', type: 'text', system: true, required: true },
-			text('standard'),
-			text('component', false),
-			{
-				id: 'conformance_suites_component_rank',
-				name: 'component_rank',
-				type: 'number',
-				system: false,
-				required: true
-			},
-			text('version', false),
-			text('suite'),
-			text('provider', false),
-			text('suite_name', false),
-			text('suite_homepage', false),
-			text('suite_repository', false),
-			text('suite_help', false),
-			text('suite_description', false),
-			text('suite_logo', false),
-			{
-				id: 'conformance_suites_check_count',
-				name: 'check_count',
-				type: 'number',
-				system: false,
-				required: true
-			},
-			{
-				id: 'conformance_suites_check_paths',
-				name: 'check_paths',
-				type: 'json',
-				system: false,
-				required: false
-			},
-			{
-				id: 'conformance_suites_check_titles',
-				name: 'check_titles',
-				type: 'json',
-				system: false,
-				required: false
-			},
-			{
-				id: 'conformance_suites_check_files',
-				name: 'check_files',
-				type: 'json',
-				system: false,
-				required: false
-			},
-			{
-				id: 'conformance_suites_visible_in',
-				name: 'visible_in',
-				type: 'json',
-				system: false,
-				required: false
-			},
-			text('fs_standard'),
-			text('fs_version'),
-			text('path_prefix'),
-			{
-				id: 'conformance_suites_created',
-				name: 'created',
-				type: 'autodate',
-				system: false,
-				required: false
-			},
-			{
-				id: 'conformance_suites_updated',
-				name: 'updated',
-				type: 'autodate',
-				system: false,
-				required: false
-			}
-		]
+		fields: fieldsFromClientColumns('conformance_suites', SUITE_CLIENT_COLUMNS, {
+			json: new Set(['check_paths', 'check_titles', 'check_files', 'visible_in']),
+			number: new Set(['component_rank', 'check_count']),
+			required: new Set(['standard', 'suite', 'component_rank', 'check_count', 'fs_standard', 'fs_version', 'path_prefix'])
+		})
 	} as CollectionModel);
+}
+
+function fieldsFromClientColumns(
+	collection: string,
+	columns: readonly string[],
+	opts: {
+		json?: Set<string>;
+		number?: Set<string>;
+		required?: Set<string>;
+	}
+): CollectionField[] {
+	const json = opts.json ?? new Set();
+	const number = opts.number ?? new Set();
+	const required = opts.required ?? new Set();
+
+	return columns.map((name) => {
+		if (name === 'id') {
+			return {
+				id: `${collection}_id`,
+				name: 'id',
+				type: 'text',
+				system: true,
+				required: true
+			};
+		}
+		if (json.has(name)) {
+			return {
+				id: `${collection}_${name}`,
+				name,
+				type: 'json',
+				system: false,
+				required: false
+			};
+		}
+		if (number.has(name)) {
+			return {
+				id: `${collection}_${name}`,
+				name,
+				type: 'number',
+				system: false,
+				required: required.has(name)
+			};
+		}
+		return {
+			id: `${collection}_${name}`,
+			name,
+			type: 'text',
+			system: false,
+			required: required.has(name)
+		};
+	});
 }
 
 function sanitizeCollectionsModels(models: CollectionModel[]) {

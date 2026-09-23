@@ -16,59 +16,9 @@ import (
 )
 
 const (
-	writeRejectMessage      = "conformance_checks is a read-only catalog projection of config_templates"
+	writeRejectMessage       = "conformance_checks is a read-only catalog projection of config_templates"
 	suitesWriteRejectMessage = "conformance_suites is a read-only catalog projection of config_templates"
 )
-
-var catalogSelectColumns = []string{
-	"id",
-	"path",
-	"title",
-	"standard",
-	"version",
-	"suite",
-	"file",
-	"visible_in",
-	"protocol",
-	"sut",
-	"role",
-	"provider",
-	"norm_standard",
-	"component",
-	"norm_version",
-	"created",
-	"updated",
-}
-
-var catalogSearchFields = catalogSelectColumns
-
-var suiteSelectColumns = []string{
-	"id",
-	"standard",
-	"component",
-	"component_rank",
-	"version",
-	"suite",
-	"provider",
-	"suite_name",
-	"suite_homepage",
-	"suite_repository",
-	"suite_help",
-	"suite_description",
-	"suite_logo",
-	"check_count",
-	"check_paths",
-	"check_titles",
-	"check_files",
-	"visible_in",
-	"fs_standard",
-	"fs_version",
-	"path_prefix",
-	"created",
-	"updated",
-}
-
-var suiteSearchFields = suiteSelectColumns
 
 // RecordsListHTTP serves GET /api/collections/conformance_checks/records
 // using PocketBase tools/search against the process-private :memory: catalog.
