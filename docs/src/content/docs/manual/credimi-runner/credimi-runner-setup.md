@@ -42,8 +42,8 @@ credimi-runner-service
 ```
 
 :::tip
-See the detailed [Step-by-step Walkthrough](./credimi-runner-setup-explained.md) and 
-in-depth [Devices and Emulators config](https://github.com/ForkbombEu/credimi-runner/blob/main/README.md)
+See the detailed [Step-by-step Walkthrough](./credimi-runner-setup-explained.md)
+for device and emulator configuration.
 :::
 
 
