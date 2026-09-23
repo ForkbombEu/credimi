@@ -179,7 +179,7 @@ Conformance catalog refresh:
 - Filesystem under `config_templates` is the durable SoT.
 - Query cache is a process-private `:memory:` SQLite DB (not rows in `pb_data`).
 - Clients use the PocketBase URL shape `/api/collections/conformance_checks/records`; Credimi owns those routes and runs filter/sort/pagination via `pocketbase/tools/search`. There is no durable `conformance_checks` collection shell.
-- Boot rebuild: starting the API process rebuilds the in-memory snapshot and ephemeral query cache.
+- Boot rebuild: starting the API process rebuilds the ephemeral `:memory:` query cache (sole live projection; see `docs/adr/0001-ephemeral-catalog-sole-projection.md`).
 - Manual refresh after local template edits: `POST /api/conformance-catalog/rebuild` with `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` (same internal admin key as other Temporal-trusted routes). Package entrypoint: `pkg/conformancecatalog`.
 
 Key environment variables:
