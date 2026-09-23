@@ -6,6 +6,9 @@
  * After pocketbase-typegen, inject ephemeral catalog collections that do not
  * exist in data.db (served by Credimi from :memory:). Idempotent.
  *
+ * Record type bodies come from catalog-pb-records.ts
+ * (`go generate ./pkg/conformancecatalog`).
+ *
  *	bun run src/modules/pocketbase/types/generate.catalog-pb-types.ts
  */
 import fs from 'node:fs/promises';
@@ -15,55 +18,14 @@ import { formatCode, GENERATED, logCodegenResult } from '@/utils/codegen';
 
 const MARKER = '/* CREDIMI_EPHEMERAL_CATALOG */';
 
-const RECORD_TYPES = `
-${MARKER}
-export type ConformanceChecksRecord = {
-	id: string
-	path: string
-	title: string
-	standard: string
-	version: string
-	suite: string
-	file: string
-	visible_in?: string[]
-	protocol?: string
-	sut?: string
-	role?: string
-	provider?: string
-	norm_standard?: string
-	component?: string
-	norm_version?: string
-}
-export type ConformanceChecksResponse = Required<ConformanceChecksRecord> & BaseSystemFields
-
-export type ConformanceSuitesRecord = {
-	id: string
-	standard: string
-	component?: string
-	component_rank?: number
-	version?: string
-	suite: string
-	provider?: string
-	suite_name?: string
-	suite_homepage?: string
-	suite_repository?: string
-	suite_help?: string
-	suite_description?: string
-	suite_logo?: string
-	check_count: number
-	check_paths?: string[]
-	check_titles?: string[]
-	check_files?: string[]
-	visible_in?: string[]
-	fs_standard: string
-	fs_version: string
-	path_prefix: string
-}
-export type ConformanceSuitesResponse = Required<ConformanceSuitesRecord> & BaseSystemFields
-`;
-
 async function main() {
-	const filePath = path.join(import.meta.dirname, `index.${GENERATED}.ts`);
+	const dir = import.meta.dirname;
+	const filePath = path.join(dir, `index.${GENERATED}.ts`);
+	const recordsPath = path.join(dir, 'catalog-pb-records.ts');
+
+	const recordsSource = await fs.readFile(recordsPath, 'utf8');
+	const recordTypes = extractRecordTypes(recordsSource);
+
 	let source = await fs.readFile(filePath, 'utf8');
 
 	if (source.includes(MARKER)) {
@@ -86,7 +48,10 @@ async function main() {
 	}
 	source = source.replace(
 		'// Types containing all Records and Responses, useful for creating typing helper functions',
-		`${RECORD_TYPES}
+		`${MARKER}
+${recordTypes}
+export type ConformanceChecksResponse = Required<ConformanceChecksRecord> & BaseSystemFields
+export type ConformanceSuitesResponse = Required<ConformanceSuitesRecord> & BaseSystemFields
 
 // Types containing all Records and Responses, useful for creating typing helper functions`
 	);
@@ -103,6 +68,15 @@ async function main() {
 	const formatted = await formatCode(source);
 	await fs.writeFile(filePath, formatted);
 	logCodegenResult('catalog PB types into index.generated', filePath);
+}
+
+/** Strip SPDX/header comments; keep export type … bodies for injection. */
+function extractRecordTypes(source: string): string {
+	const start = source.indexOf('export type ConformanceChecksRecord');
+	if (start < 0) {
+		throw new Error('catalog-pb-records.ts missing ConformanceChecksRecord');
+	}
+	return source.slice(start).trimEnd();
 }
 
 main().catch((err) => {

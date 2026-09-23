@@ -9,60 +9,82 @@ import (
 	"strings"
 )
 
+// ColumnKind is the FE wire kind for a Client=true column (Zod + PB typegen).
+type ColumnKind string
+
+const (
+	ColumnKindString      ColumnKind = "string"
+	ColumnKindInt         ColumnKind = "int"
+	ColumnKindNonNegInt   ColumnKind = "nonNegInt"
+	ColumnKindStringArray ColumnKind = "stringArray"
+)
+
+// ClientColumn is one Client-facing catalog wire field (exported for go generate).
+type ClientColumn struct {
+	Name     string
+	Kind     ColumnKind
+	Optional bool
+	// Default is a TypeScript literal pasted into z.….default(<Default>) when Optional.
+	// Examples: "''", "[]", "9". Empty means no .default().
+	Default string
+}
+
 // columnSpec is one persisted catalog column. This table is the Go source of
-// truth for ephemeral DDL, SELECT lists, and INSERT column order. Client-facing
-// Zod / typegen stubs must stay aligned with Client=true columns (see schema_test
-// and webapp/src/lib/conformance/columns.ts).
+// truth for ephemeral DDL, SELECT lists, INSERT column order, and (for
+// Client=true) FE Zod / PB record type generation.
 type columnSpec struct {
-	Name    string
-	SQLType string // SQLITE column type + constraints (without the name)
-	Client  bool   // exposed on FE Zod / synthetic CollectionModel (not created/updated)
+	Name     string
+	SQLType  string // SQLITE column type + constraints (without the name)
+	Client   bool   // exposed on FE Zod / synthetic CollectionModel (not created/updated)
+	Kind     ColumnKind
+	Optional bool
+	Default  string
 }
 
 // checkColumns defines conformance_checks ephemeral + list/get wire fields.
 var checkColumns = []columnSpec{
-	{Name: "id", SQLType: "TEXT PRIMARY KEY NOT NULL", Client: true},
-	{Name: "path", SQLType: "TEXT NOT NULL", Client: true},
-	{Name: "title", SQLType: "TEXT NOT NULL", Client: true},
-	{Name: "standard", SQLType: "TEXT NOT NULL", Client: true},
-	{Name: "version", SQLType: "TEXT NOT NULL", Client: true},
-	{Name: "suite", SQLType: "TEXT NOT NULL", Client: true},
-	{Name: "file", SQLType: "TEXT NOT NULL", Client: true},
-	{Name: "visible_in", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true},
-	{Name: "protocol", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "sut", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "role", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "provider", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "norm_standard", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "component", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "norm_version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
+	{Name: "id", SQLType: "TEXT PRIMARY KEY NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "path", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "title", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "standard", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "version", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "suite", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "file", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "visible_in", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
+	{Name: "protocol", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "sut", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "role", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "provider", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "norm_standard", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "component", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "norm_version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
 	{Name: "created", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false},
 	{Name: "updated", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false},
 }
 
 // suiteColumns defines conformance_suites ephemeral + list/get wire fields.
 var suiteColumns = []columnSpec{
-	{Name: "id", SQLType: "TEXT PRIMARY KEY NOT NULL", Client: true},
-	{Name: "standard", SQLType: "TEXT NOT NULL", Client: true},
-	{Name: "component", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "component_rank", SQLType: "INTEGER NOT NULL DEFAULT 9", Client: true},
-	{Name: "version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "suite", SQLType: "TEXT NOT NULL", Client: true},
-	{Name: "provider", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "suite_name", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "suite_homepage", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "suite_repository", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "suite_help", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "suite_description", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "suite_logo", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "check_count", SQLType: "INTEGER NOT NULL DEFAULT 0", Client: true},
-	{Name: "check_paths", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true},
-	{Name: "check_titles", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true},
-	{Name: "check_files", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true},
-	{Name: "visible_in", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true},
-	{Name: "fs_standard", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "fs_version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true},
-	{Name: "path_prefix", SQLType: "TEXT NOT NULL", Client: true},
+	{Name: "id", SQLType: "TEXT PRIMARY KEY NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "standard", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "component", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "component_rank", SQLType: "INTEGER NOT NULL DEFAULT 9", Client: true, Kind: ColumnKindNonNegInt, Optional: true, Default: "9"},
+	{Name: "version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "suite", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
+	{Name: "provider", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "suite_name", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "suite_homepage", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "suite_repository", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "suite_help", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "suite_description", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "suite_logo", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
+	{Name: "check_count", SQLType: "INTEGER NOT NULL DEFAULT 0", Client: true, Kind: ColumnKindNonNegInt},
+	{Name: "check_paths", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
+	{Name: "check_titles", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
+	{Name: "check_files", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
+	{Name: "visible_in", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
+	{Name: "fs_standard", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString},
+	{Name: "fs_version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString},
+	{Name: "path_prefix", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
 	{Name: "created", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false},
 	{Name: "updated", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false},
 }
@@ -71,6 +93,22 @@ func columnNames(cols []columnSpec) []string {
 	out := make([]string, len(cols))
 	for i, c := range cols {
 		out[i] = c.Name
+	}
+	return out
+}
+
+func clientColumns(cols []columnSpec) []ClientColumn {
+	out := make([]ClientColumn, 0, len(cols))
+	for _, c := range cols {
+		if !c.Client {
+			continue
+		}
+		out = append(out, ClientColumn{
+			Name:     c.Name,
+			Kind:     c.Kind,
+			Optional: c.Optional,
+			Default:  c.Default,
+		})
 	}
 	return out
 }
@@ -120,5 +158,11 @@ func CheckClientColumnNames() []string { return clientColumnNames(checkColumns) 
 
 // SuiteClientColumnNames is the FE Zod / typegen field set for suites.
 func SuiteClientColumnNames() []string { return clientColumnNames(suiteColumns) }
+
+// CheckClientColumns returns Client wire specs for checks (go generate).
+func CheckClientColumns() []ClientColumn { return clientColumns(checkColumns) }
+
+// SuiteClientColumns returns Client wire specs for suites (go generate).
+func SuiteClientColumns() []ClientColumn { return clientColumns(suiteColumns) }
 
 //go:generate go run gen_columns.go

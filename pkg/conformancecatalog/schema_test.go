@@ -59,6 +59,38 @@ func TestClientColumnNamesOmitTimestamps(t *testing.T) {
 	require.Contains(t, suites, "path_prefix")
 }
 
+func TestClientColumnsHaveKinds(t *testing.T) {
+	t.Parallel()
+	for _, c := range CheckClientColumns() {
+		require.NotEmpty(t, c.Kind, c.Name)
+		if c.Optional && c.Default == "" {
+			t.Fatalf("%s: optional client column needs Default literal", c.Name)
+		}
+	}
+	for _, c := range SuiteClientColumns() {
+		require.NotEmpty(t, c.Kind, c.Name)
+		if c.Optional && c.Default == "" {
+			t.Fatalf("%s: optional client column needs Default literal", c.Name)
+		}
+	}
+	rank := findClientColumn(SuiteClientColumns(), "component_rank")
+	require.Equal(t, ColumnKindNonNegInt, rank.Kind)
+	require.True(t, rank.Optional)
+	require.Equal(t, "9", rank.Default)
+	count := findClientColumn(SuiteClientColumns(), "check_count")
+	require.Equal(t, ColumnKindNonNegInt, count.Kind)
+	require.False(t, count.Optional)
+}
+
+func findClientColumn(cols []ClientColumn, name string) ClientColumn {
+	for _, c := range cols {
+		if c.Name == name {
+			return c
+		}
+	}
+	return ClientColumn{}
+}
+
 func dbTagNames(t reflect.Type) []string {
 	var out []string
 	for i := 0; i < t.NumField(); i++ {
