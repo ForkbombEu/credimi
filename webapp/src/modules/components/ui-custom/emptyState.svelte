@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={cn(
-		'flex flex-col items-center justify-center rounded-lg border bg-background p-10 text-center text-primary/40',
+		'flex flex-col items-center justify-center rounded-lg border p-10 text-center text-primary/40',
 		className
 	)}
 >

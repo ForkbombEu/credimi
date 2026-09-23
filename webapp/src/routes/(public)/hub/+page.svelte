@@ -102,7 +102,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	collection="hub_items"
 	queryOptions={{ perPage: 25, searchFields: ['name'], ...queryOptions }}
 	hide={['pagination']}
-	emptyStateClassName="rounded-t-none border-0"
+	emptyStateClassName="rounded-t-none border-0 bg-background"
 	onMount={(m) => {
 		manager = m as CollectionManager<'hub_items'>;
 	}}
