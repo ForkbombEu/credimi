@@ -42,6 +42,11 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 		require.Equal(t, "relying_party", ch.Role, ch.Path)
 		require.Equal(t, "fcaf", ch.Provider, ch.Path)
 		require.Empty(t, ch.Protocol, ch.Path)
+		require.Equal(t, "FCAF Functional Conformance Assessment", ch.SuiteName, ch.Path)
+		require.NotEmpty(t, ch.SuiteLogo, ch.Path)
+		require.Equal(t, "openid4vp", ch.NormStandard, ch.Path)
+		require.Equal(t, "wallet", ch.Component, ch.Path)
+		require.Empty(t, ch.NormVersion, ch.Path)
 	}
 }
 
@@ -77,6 +82,15 @@ func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 		require.Equal(t, want.Role, ch.Role, ch.Path)
 		require.Empty(t, ch.SUT, "classic sut must stay empty: %s", ch.Path)
 		require.Equal(t, ch.Suite, ch.Provider, "provider should match suite uid: %s", ch.Path)
+		require.NotEmpty(t, ch.SuiteName, "authored suite name expected: %s", ch.Path)
+
+		id := NormalizePathIdentity(ch.Standard, ch.Version, ch.Suite)
+		require.Equal(t, id.Standard, ch.NormStandard, ch.Path)
+		require.Equal(t, id.Component, ch.Component, ch.Path)
+		require.Equal(t, id.Version, ch.NormVersion, ch.Path)
+		if want.Role != "" {
+			require.Equal(t, want.Role, ch.Component, "component should match classic role: %s", ch.Path)
+		}
 	}
 	require.Greater(t, classic, 0, "expected classic suite checks from config_templates")
 }

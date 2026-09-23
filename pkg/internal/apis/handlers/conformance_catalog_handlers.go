@@ -76,6 +76,47 @@ var ConformanceChecksRecordsRoutes = routing.RouteGroup{
 	},
 }
 
+// ConformanceSuitesRecordsRoutes owns the PocketBase-shaped suite projection URL.
+var ConformanceSuitesRecordsRoutes = routing.RouteGroup{
+	BaseURL:                "/api/collections/conformance_suites",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:      http.MethodGet,
+			Path:        "/records",
+			Handler:     conformancecatalog.SuitesListHTTP,
+			Description: "List conformance catalog suites (ephemeral; PB URL shape)",
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/records/{id}",
+			Handler:     conformancecatalog.SuiteViewHTTP,
+			Description: "Get one conformance catalog suite by id",
+		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/records",
+			Handler:     conformancecatalog.SuitesWriteRejectHTTP,
+			Description: "Reject creates on the read-only conformance suites catalog",
+		},
+		{
+			Method:      http.MethodPatch,
+			Path:        "/records/{id}",
+			Handler:     conformancecatalog.SuitesWriteRejectHTTP,
+			Description: "Reject updates on the read-only conformance suites catalog",
+		},
+		{
+			Method:      http.MethodDelete,
+			Path:        "/records/{id}",
+			Handler:     conformancecatalog.SuitesWriteRejectHTTP,
+			Description: "Reject deletes on the read-only conformance suites catalog",
+		},
+	},
+}
+
 func HandleConformanceCatalogRebuild() func(*core.RequestEvent) error {
 	return conformancecatalog.RebuildHTTP()
 }

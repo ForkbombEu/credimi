@@ -1030,5 +1030,11 @@
 	"Failed_to_enable_pipeline_notifications": "Échec de l’activation des notifications de pipeline",
 	"Failed_to_disable_pipeline_notifications": "Échec de la désactivation des notifications de pipeline",
 	"Notifications_blocked_hint": "Les notifications sont bloquées pour ce site. Réactivez-les dans les paramètres du site de votre navigateur.",
-	"Push_notifications_unsupported": "Ce navigateur ne prend pas en charge les notifications push."
+	"Push_notifications_unsupported": "Ce navigateur ne prend pas en charge les notifications push.",
+	"Protocol": "Protocole",
+	"SUT": "SUT",
+	"Role": "Rôle",
+	"Component": "Composant",
+	"Provider": "Fournisseur",
+	"Clear_filters": "Effacer les filtres"
 }

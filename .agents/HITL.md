@@ -30,6 +30,36 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-23 - Normalize conformance catalog paths (FCAF-as-suite, 2×3→4)
+
+- status: open (partially settled)
+- owner: human maintainer
+- context: Boss domain cut — 2 standards (OpenID4VP, OpenID4VCI), 3 components (wallet, issuer, verifier), 4 derived combinations; FCAF is a Commission test suite family, not a standard. Today path identity is four segments mirroring `config_templates`: `openid4vp_wallet|openid4vp_verifier|openid4vci_wallet|openid4vci_issuer|fcaf|vlei` / version / suite / check. FCAF uses `fcaf/wallet_solution/relying_party/<test_id>` (SUT as version, FCAF party as suite). Classic `role` already holds component values; FCAF `role: relying_party` pollutes the same facet. Hub/pipeline/scoreboard/`parsePath` all assume exactly four segments and durable path strings in YAML + execution history.
+- question: What is the target path identity, and how do we migrate filesystem + stored references?
+- options considered:
+  (A) `{standard}/{version}/{suite}/{check}` with `standard ∈ {openid4vp,openid4vci,…}`, component as projected field (not a path segment); FCAF suites become suites under the matching standard (e.g. OpenID4VP × wallet).
+  (B) Five-segment paths inserting component: `{standard}/{component}/{version}/{suite}/{check}` — breaks `parsePath` and every URL.
+  (C) Keep filesystem layout; projection/rewrite maps old FS paths → normalized identity (aliases for old paths).
+  (D) Physical move of `config_templates` to match (A), plus redirect/alias table for old paths in pipelines/scoreboard.
+- default risk: Path strings are identifiers in pipeline YAML, Temporal/search, scoreboard `conformance_checks`, hub URLs, and FCAF `test_ids` pairing. Silent rename without aliases breaks historical runs and saved pipelines. Coupling FS path to identity makes (A)+(D) a large mechanical move; (C) risks two sources of truth if incomplete — especially if `path` stays FS-shaped while `standard`/`version`/`suite` become normalized and diverge from path segments (`nestChecks` / hub URLs / `parsePath` assume they align).
+- decision (2026-09-23, partial): **Do not rename filesystem paths or durable path strings for now.** Normalize **only in the in-memory catalog projection** (ephemeral rows / logical suite·check collections). Physical `config_templates` layout and stored pipeline/scoreboard path references stay as today until a later explicit cutover.
+- follow-up: Still decide whether ephemeral `path` stays FS-identical while normalized dimensions live in other columns (`standard`/`component`/…), and how hub URLs + nest group when those diverge. Related: drop/rename hub `role` facet to `component`; suites vs checks projections (#1396 grill).
+- update (2026-09-23, agent): Additive check columns `norm_standard` / `component` / `norm_version`; FS `standard`/`version`/`suite`/`path` unchanged. Suites projection at `conformance_suites`. FCAF relying_party pack → OpenID4VP×wallet with **empty** `norm_version` (no pinned profile; FS `wallet_solution` is SUT, not standard version). Hub facets: Standard/Component/Version/Provider.
+- update (2026-09-23, agent): Hub suite cell uses existing suite `metadata.yaml` `name` → `suite_name` (column header already i18n `Suite` → "Test suite"). **Do not add a second label field** unless product wants a short display name distinct from full `name`.
+
+### 2026-09-23 - Suite hub label: reuse metadata `name` vs new field
+
+- status: open
+- owner: human maintainer
+- context: Hub Test suite column needs a proper human label. Suite `metadata.yaml` already authors `name` (denormed as `suite_name`). Earlier polish briefly showed raw `provider` UID instead because full names felt repetitive next to a provider subtitle.
+- question: Should hub use existing `name`, or add a new metadata field (e.g. `label` / `short_name`)?
+- options considered:
+  (A) Reuse `name` as the Suite cell primary label (recommended default).
+  (B) Add `label`/`short_name` in metadata for denser table text; keep `name` for suite page titles.
+  (C) Derive from `provider` UID only (rejected for product-facing hub — looks like an identifier).
+- default risk: (B) duplicates authorship burden across every suite `metadata.yaml` for little gain if `name` is already good; (C) looks unfinished next to logos.
+- decision: pending human — agent defaulted to (A) for hub table; FCAF `metadata.yaml` `name` updated from "Relying Party" → "FCAF Functional Conformance Assessment" (display-only; path/uid unchanged).
+- follow-up: Confirm short-name field still unwanted; polish other suite `name`s if hub density needs it.
 ### 2026-09-21 - Conformance catalog boot rebuild soft-fail (#1397)
 
 - status: resolved (agent default for cleanup commit 4)
@@ -50,20 +80,21 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (1) authored metadata everywhere (preferred long-term); (2) keep/grow UID map (not preferred); (3) parse standard UIDs heuristically (rejected as long-term model).
 - default risk: New classic suites without authored `protocol`/`role`/`provider` in suite `metadata.yaml` will have empty protocol/role until metadata is added; provider still falls back to suite UID / `fcaf`.
 - decision (2026-09-22): Honest shared table locked. Classic OpenID: author `protocol`/`role`/`provider` in suite `metadata.yaml` only; leave `sut` empty (do not twin role). vLEI: `protocol`/`provider` only. FCAF: keep in-file `suite.sut`/`suite.role`; provider defaults to `fcaf`; do not mass-edit FCAF YAMLs. Removed `knownStandardFacets`; resolve precedence is file → suite metadata → provider fallback.
-- follow-up: Hub filter labels remain English literals until i18n keys are added. Optional FCAF suite `metadata.yaml` `provider: fcaf` / `protocol` not required. #1399 meta denorm remains separate.
+- follow-up: Hub facet filter field labels use paraglide (`Protocol`/`SUT`/`Role`/`Provider`/`Clear_filters`); option values remain UID literals until product wants humanized facet values. FCAF suite `metadata.yaml` now authors `provider: fcaf` (protocol still omitted). #1399 meta denorm remains separate.
 
 ### 2026-09-21 - Nested picker metadata from flat catalog rows (#1399)
 
-- status: partial (FE display titles restored; authored suite/standard meta still open)
+- status: partial (suite meta denorm landed; standard/version authored names still open)
 - owner: human maintainer
-- context: #1399 cuts start-checks and pipeline pickers to `pb.collection('conformance_checks')`. v1 rows expose path/title/standard/version/suite/file/visible_in (plus facets after #1402) — not standard.yaml/version.yaml/suite metadata (name, URLs, logo, description, disabled).
+- context: #1399 cuts start-checks and pipeline pickers to `pb.collection('conformance_checks')`. Check rows carry facets plus denormalized suite display fields from suite `metadata.yaml`.
 - question: Should nested FE trees keep UID-as-name + empty URL/logo fallbacks until catalog rows grow metadata (or #1400)?
-- options considered: (1) UID fallbacks only (shipped); (2) ~~dual-fetch blueprints for labels~~ **superseded** — `/api/template/blueprints` removed in #1402; (3) extend catalog projection with meta fields in a follow-up.
-- default risk: Option (1) weakens picker/scoreboard labels (suite logos via `Conformance.Standards.Store`) until enrichment; path/`check_id` identity stays correct.
-- decision: Option (1) for #1399. Do not dual-fetch; hub cutover proceeded in later tickets without blueprints.
-- follow-up: Project authored standard/version/suite names, logos, URLs, and descriptions from on-disk YAML into catalog rows (or a dedicated meta projection) — do not reintroduce blueprints. Empty suites without check files remain absent (catalog is check-row based); resurrect only if product requires them.
+- options considered: (1) UID fallbacks only (shipped initially); (2) ~~dual-fetch blueprints~~ superseded by #1402; (3) denorm suite/standard/version meta onto check rows; (4) separate meta projection (rejected for v1 — dual-fetch pain).
+- default risk: Denorm duplicates suite strings across FCAF rows; acceptable in process-private `:memory:` cache. Standard/version names remain humanized UIDs until a follow-up.
+- decision (2026-09-22): Option (3) suite-first. Project `suite_name`/`suite_logo`/`suite_homepage`/`suite_repository`/`suite_help`/`suite_description` onto each check; `nestChecks` prefers them over humanized suite UIDs. Empty suites stay absent.
+- follow-up: Optionally denorm standard.yaml / version.yaml authored names next if pickers still look UID-y. Do not resurrect empty suites or blueprints.
 - amendment (2026-09-21): Option (2) is obsolete after #1402 deleted the blueprints API and nesting path.
-- amendment (2026-09-21, cleanup): Nest now surfaces catalog `title` on suite `titles[]` and uses humanized UIDs for standard/version/suite `name`. Hub browse, start-checks lists, and pipeline pickers use those titles. Logos, homepage/repository/help, authored descriptions, and exact YAML display names remain empty / humanized until catalog enrichment (option 3).
+- amendment (2026-09-21, cleanup): Nest surfaces catalog `title` on suite `titles[]` and humanized UIDs for standard/version (and suite when suite_name empty).
+- amendment (2026-09-22): Suite display denorm shipped as above.
 
 ### 2026-09-21 - Blueprints nested metadata storage (#1398)
 

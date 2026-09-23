@@ -1030,5 +1030,11 @@
 	"Failed_to_enable_pipeline_notifications": "Kunne ikke aktivere pipeline-notifikationer",
 	"Failed_to_disable_pipeline_notifications": "Kunne ikke deaktivere pipeline-notifikationer",
 	"Notifications_blocked_hint": "Notifikationer er blokeret for dette websted. Aktivér dem igen i browserens webstedsindstillinger.",
-	"Push_notifications_unsupported": "Denne browser understøtter ikke push-notifikationer."
+	"Push_notifications_unsupported": "Denne browser understøtter ikke push-notifikationer.",
+	"Protocol": "Protokol",
+	"SUT": "SUT",
+	"Role": "Rolle",
+	"Component": "Komponent",
+	"Provider": "Udbyder",
+	"Clear_filters": "Ryd filtre"
 }

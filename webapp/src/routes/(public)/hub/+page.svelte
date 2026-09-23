@@ -132,7 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
 				{#if params.tab === 'conformance-checks'}
 					<div class="rounded-lg rounded-tr-none bg-white pt-4">
-						<ConformanceChecksTable standardsWithTestSuites={data.conformanceChecks} />
+						<ConformanceChecksTable suites={data.conformanceSuites} />
 					</div>
 				{:else}
 					{@render children()}

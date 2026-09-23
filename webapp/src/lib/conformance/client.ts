@@ -10,17 +10,30 @@ import { pb } from '@/pocketbase';
 
 import {
 	CONFORMANCE_CHECKS_COLLECTION,
+	CONFORMANCE_SUITES_COLLECTION,
 	conformanceCheckRecordSchema,
+	conformanceSuiteRecordSchema,
 	type ConformanceCheckRecord,
+	type ConformanceSuiteRecord,
 	type TemplateSurface
 } from './record';
 
 export type ListChecksError = ClientResponseError | ZodError;
+export type ListSuitesError = ClientResponseError | ZodError;
 
+/** Check-grain facets (start-checks / legacy filters). */
 export type CatalogFacets = {
 	protocol?: string;
 	sut?: string;
 	role?: string;
+	provider?: string;
+};
+
+/** Suite-grain hub facets (normalized product axes). */
+export type SuiteFacets = {
+	standard?: string;
+	component?: string;
+	version?: string;
 	provider?: string;
 };
 
@@ -34,8 +47,18 @@ export type ListChecksOptions = {
 	facets?: CatalogFacets;
 };
 
-/** Facet field order for PB equality filters (stable join order). */
+export type ListSuitesOptions = {
+	fetch?: typeof fetch;
+	surface?: TemplateSurface;
+	facets?: SuiteFacets;
+	sort?: string;
+};
+
+/** Facet field order for check-grain PB equality filters. */
 export const CATALOG_FACET_KEYS = ['protocol', 'sut', 'role', 'provider'] as const;
+
+/** Facet field order for suite-grain hub filters. */
+export const SUITE_FACET_KEYS = ['standard', 'component', 'version', 'provider'] as const;
 
 export type PbFilterFn = (raw: string, params?: Record<string, unknown>) => string;
 
@@ -50,6 +73,23 @@ export function appendFacetFilters(
 ): void {
 	if (!facets) return;
 	for (const key of CATALOG_FACET_KEYS) {
+		const value = facets[key];
+		if (value) {
+			filters.push(filterFn(`${key} = {:${key}}`, { [key]: value }));
+		}
+	}
+}
+
+/**
+ * Append suite-projection facet filters in {@link SUITE_FACET_KEYS} order.
+ */
+export function appendSuiteFacetFilters(
+	filters: string[],
+	facets: SuiteFacets | undefined,
+	filterFn: PbFilterFn
+): void {
+	if (!facets) return;
+	for (const key of SUITE_FACET_KEYS) {
 		const value = facets[key];
 		if (value) {
 			filters.push(filterFn(`${key} = {:${key}}`, { [key]: value }));
@@ -95,6 +135,50 @@ export function listChecks(
 		() => catalog.collection(CONFORMANCE_CHECKS_COLLECTION).getFullList(listOptions)
 	).andThen((rows) => {
 		const parsed = conformanceCheckRecordSchema.array().safeParse(rows);
+		if (parsed.success) return Task.resolve(parsed.data);
+		return Task.reject(parsed.error);
+	});
+}
+
+/**
+ * Suite-grain catalog for the hub table. Sort defaults to product axes so
+ * server-side `sort=` matches the displayed columns.
+ */
+export function listSuites(
+	options: ListSuitesOptions = {}
+): Task.Task<ConformanceSuiteRecord[], ListSuitesError> {
+	const {
+		fetch: fetchFn = fetch,
+		surface,
+		facets,
+		sort = 'standard,component,version,suite'
+	} = options;
+
+	const listOptions: {
+		fetch: typeof fetch;
+		sort: string;
+		filter?: string;
+	} = {
+		fetch: fetchFn,
+		sort
+	};
+
+	const filters: string[] = [];
+	if (surface) {
+		filters.push(pb.filter('visible_in ~ {:surface}', { surface }));
+	}
+	appendSuiteFacetFilters(filters, facets, (raw, params) => pb.filter(raw, params));
+	if (filters.length > 0) {
+		listOptions.filter = filters.join(' && ');
+	}
+
+	const catalog = pb as PocketBase;
+
+	return Task.tryOrElse(
+		(err) => err as ClientResponseError,
+		() => catalog.collection(CONFORMANCE_SUITES_COLLECTION).getFullList(listOptions)
+	).andThen((rows) => {
+		const parsed = conformanceSuiteRecordSchema.array().safeParse(rows);
 		if (parsed.success) return Task.resolve(parsed.data);
 		return Task.reject(parsed.error);
 	});

@@ -14,6 +14,9 @@
 // runs filter/sort/pagination via pocketbase/tools/search against the ephemeral
 // DB. Create/update/delete on that URL are rejected.
 //
+// Suite-grain hub rows are projected to /api/collections/conformance_suites/records
+// with normalized standard/component/version (FS path identity stays on checks).
+//
 // Classic layout: standard/version/suite/<check file>.
 // FCAF layout: fcaf/<version>/<suite>/tests/<id>.yaml — path identity is
 // fcaf/<version>/<suite>/<test_id> (final segment = FCAF test id).
@@ -42,6 +45,12 @@ const (
 	// CollectionID is a stable id echoed in JSON for PocketBase client compatibility.
 	CollectionID = "pbc_conformance_checks_catalog"
 
+	// SuitesCollectionName is the fake PocketBase collection for suite-grain rows.
+	SuitesCollectionName = "conformance_suites"
+
+	// SuitesCollectionID is echoed in suite list/get JSON for PB client compatibility.
+	SuitesCollectionID = "pbc_conformance_suites_catalog"
+
 	SurfaceManual   = "manual"
 	SurfacePipeline = "pipeline"
 
@@ -54,12 +63,14 @@ var nonStandardTemplateDirs = map[string]struct{}{
 }
 
 // Check is one catalog entry derived from a template file.
+// Suite* fields are denormalized from suite metadata.yaml so nest/pickers
+// can show authored names/logos/URLs without a second meta fetch (#1399).
 type Check struct {
 	ID               string   `json:"id"`
 	Path             string   `json:"path"`
 	Title            string   `json:"title"`
-	Standard         string   `json:"standard"`
-	Version          string   `json:"version"`
+	Standard         string   `json:"standard"` // FS top-level dir (durable path segment)
+	Version          string   `json:"version"`  // FS version segment (durable)
 	Suite            string   `json:"suite"`
 	File             string   `json:"file"`
 	VisibleIn        []string `json:"visible_in"`
@@ -67,7 +78,26 @@ type Check struct {
 	SUT              string   `json:"sut"`
 	Role             string   `json:"role"`
 	Provider         string   `json:"provider"`
-	StandardDisabled bool     `json:"-"`
+	// Additive product projection (does not rewrite durable path / nest keys).
+	NormStandard     string `json:"norm_standard"`
+	Component        string `json:"component"`
+	NormVersion      string `json:"norm_version"`
+	SuiteName        string `json:"suite_name"`
+	SuiteHomepage    string `json:"suite_homepage"`
+	SuiteRepository  string `json:"suite_repository"`
+	SuiteHelp        string `json:"suite_help"`
+	SuiteDescription string `json:"suite_description"`
+	SuiteLogo        string `json:"suite_logo"`
+	StandardDisabled bool   `json:"-"`
+}
+
+// withNormalizedIdentity fills NormStandard / Component / NormVersion from FS segments.
+func (ch Check) withNormalizedIdentity() Check {
+	id := NormalizePathIdentity(ch.Standard, ch.Version, ch.Suite)
+	ch.NormStandard = id.Standard
+	ch.Component = id.Component
+	ch.NormVersion = id.Version
+	return ch
 }
 
 // walk-only YAML shapes (not exposed as nested API DTOs).
@@ -81,12 +111,39 @@ type versionYAML struct {
 }
 
 type suiteYAML struct {
-	UID       string   `yaml:"uid"`
-	VisibleIn []string `yaml:"visible_in"`
-	Protocol  string   `yaml:"protocol"`
-	SUT       string   `yaml:"sut"`
-	Role      string   `yaml:"role"`
-	Provider  string   `yaml:"provider"`
+	UID         string   `yaml:"uid"`
+	Name        string   `yaml:"name"`
+	Homepage    string   `yaml:"homepage"`
+	Repository  string   `yaml:"repository"`
+	Help        string   `yaml:"help"`
+	Description string   `yaml:"description"`
+	Logo        string   `yaml:"logo"`
+	VisibleIn   []string `yaml:"visible_in"`
+	Protocol    string   `yaml:"protocol"`
+	SUT         string   `yaml:"sut"`
+	Role        string   `yaml:"role"`
+	Provider    string   `yaml:"provider"`
+}
+
+// suiteDisplayFields are authored suite metadata denormalized onto each check.
+type suiteDisplayFields struct {
+	Name        string
+	Homepage    string
+	Repository  string
+	Help        string
+	Description string
+	Logo        string
+}
+
+func suiteDisplayFromYAML(s suiteYAML) suiteDisplayFields {
+	return suiteDisplayFields{
+		Name:        strings.TrimSpace(s.Name),
+		Homepage:    strings.TrimSpace(s.Homepage),
+		Repository:  strings.TrimSpace(s.Repository),
+		Help:        strings.TrimSpace(s.Help),
+		Description: strings.TrimSpace(s.Description),
+		Logo:        strings.TrimSpace(s.Logo),
+	}
 }
 
 // Catalog holds the in-memory snapshot of checks loaded from disk (kept in sync
@@ -226,6 +283,7 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 					Role:     sMeta.Role,
 					Provider: sMeta.Provider,
 				}
+				suiteDisplay := suiteDisplayFromYAML(sMeta)
 
 				var suiteChecks []Check
 				if hasFCAFTestsDir(stdMeta.UID, suitePath) {
@@ -237,6 +295,7 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 						visibleIn,
 						stdMeta.Disabled,
 						suiteFacets,
+						suiteDisplay,
 					)
 				} else {
 					suiteChecks, err = loadClassicSuiteChecks(
@@ -247,6 +306,7 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 						visibleIn,
 						stdMeta.Disabled,
 						suiteFacets,
+						suiteDisplay,
 					)
 				}
 				if err != nil {
@@ -275,6 +335,7 @@ func loadClassicSuiteChecks(
 	visibleIn []string,
 	standardDisabled bool,
 	suiteFacets facetFields,
+	suiteDisplay suiteDisplayFields,
 ) ([]Check, error) {
 	fileEntries, err := os.ReadDir(suitePath)
 	if err != nil {
@@ -313,8 +374,14 @@ func loadClassicSuiteChecks(
 			SUT:              facets.SUT,
 			Role:             facets.Role,
 			Provider:         facets.Provider,
+			SuiteName:        suiteDisplay.Name,
+			SuiteHomepage:    suiteDisplay.Homepage,
+			SuiteRepository:  suiteDisplay.Repository,
+			SuiteHelp:        suiteDisplay.Help,
+			SuiteDescription: suiteDisplay.Description,
+			SuiteLogo:        suiteDisplay.Logo,
 			StandardDisabled: standardDisabled,
-		})
+		}.withNormalizedIdentity())
 	}
 	return checks, nil
 }
@@ -338,6 +405,7 @@ func loadFCAFSuiteTests(
 	visibleIn []string,
 	standardDisabled bool,
 	suiteFacets facetFields,
+	suiteDisplay suiteDisplayFields,
 ) ([]Check, error) {
 	testsDir := filepath.Join(suitePath, "tests")
 	entries, err := os.ReadDir(testsDir)
@@ -395,8 +463,14 @@ func loadFCAFSuiteTests(
 			SUT:              facets.SUT,
 			Role:             facets.Role,
 			Provider:         facets.Provider,
+			SuiteName:        suiteDisplay.Name,
+			SuiteHomepage:    suiteDisplay.Homepage,
+			SuiteRepository:  suiteDisplay.Repository,
+			SuiteHelp:        suiteDisplay.Help,
+			SuiteDescription: suiteDisplay.Description,
+			SuiteLogo:        suiteDisplay.Logo,
 			StandardDisabled: standardDisabled,
-		})
+		}.withNormalizedIdentity())
 	}
 	return checks, nil
 }

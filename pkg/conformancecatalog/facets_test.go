@@ -48,4 +48,12 @@ func TestResolveFacetsPrecedence(t *testing.T) {
 	require.Equal(t, "relying_party", got.Role)
 	require.Equal(t, "fcaf", got.Provider)
 	require.Empty(t, got.Protocol)
+
+	got = resolveFacets("fcaf", "relying_party", facetFields{
+		Provider: "fcaf",
+	}, facetFields{
+		SUT:  "wallet_solution",
+		Role: "relying_party",
+	})
+	require.Equal(t, "fcaf", got.Provider)
 }

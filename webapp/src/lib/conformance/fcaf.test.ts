@@ -19,7 +19,16 @@ const sample: ConformanceCheckRecord = {
 	protocol: '',
 	sut: 'wallet_solution',
 	role: 'relying_party',
-	provider: ''
+	provider: 'fcaf',
+	norm_standard: 'openid4vp',
+	component: 'wallet',
+	norm_version: '',
+	suite_name: 'FCAF Functional Conformance Assessment',
+	suite_homepage: '',
+	suite_repository: '',
+	suite_help: '',
+	suite_description: '',
+	suite_logo: ''
 };
 
 describe('fcaf catalog mapping', () => {

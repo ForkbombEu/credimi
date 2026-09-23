@@ -14,9 +14,10 @@ import type { Standard, Suite, Version } from './types';
  * (with extension) for placeholders / start-check submission. Suite `titles[]`
  * mirrors those rows with catalog `title` for browse/picker labels.
  *
- * Standard/version/suite display names use a humanized UID fallback — rich
- * YAML metadata (logo, URLs, authored names, descriptions) is not on v1 catalog
- * rows. Empty suites without check files do not appear (catalog is check-row based).
+ * Suite display fields prefer denormalized catalog columns (`suite_name`,
+ * `suite_logo`, URLs, description) from suite metadata.yaml (#1399). Standard
+ * and version names still use a humanized UID fallback until those axes are
+ * denormalized. Empty suites without check files do not appear.
  */
 export function nestChecks(records: ConformanceCheckRecord[]): Standard[] {
 	const byStandard = new Map<string, Map<string, Map<string, ConformanceCheckRecord[]>>>();
@@ -47,13 +48,22 @@ export function nestChecks(records: ConformanceCheckRecord[]): Standard[] {
 		for (const [versionUid, suitesMap] of versionsMap) {
 			const suites: Suite[] = [];
 			for (const [suiteUid, checks] of suitesMap) {
+				const meta = checks[0];
+				const suiteName = meta?.suite_name?.trim();
+				const suiteHomepage = meta?.suite_homepage?.trim() ?? '';
+				const suiteRepository = meta?.suite_repository?.trim() ?? '';
+				const suiteHelp = meta?.suite_help?.trim() ?? '';
+				const suiteDescription = meta?.suite_description?.trim() ?? '';
+				const suiteLogo = meta?.suite_logo?.trim() ?? '';
+
 				suites.push({
 					uid: suiteUid,
-					name: displayNameFromUid(suiteUid),
-					homepage: '',
-					repository: '',
-					help: '',
-					description: '',
+					name: suiteName || displayNameFromUid(suiteUid),
+					homepage: suiteHomepage,
+					repository: suiteRepository,
+					help: suiteHelp,
+					description: suiteDescription,
+					...(suiteLogo ? { logo: suiteLogo } : {}),
 					files: checks.map((c) => c.file),
 					paths: checks.map((c) => c.path),
 					titles: checks.map((c) => c.title)
@@ -87,6 +97,16 @@ export function displayNameFromUid(uid: string): string {
 		.filter(Boolean)
 		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
 		.join(' ');
+}
+
+/** Display labels for normalized product standards. */
+const STANDARD_DISPLAY_NAMES: Record<string, string> = {
+	openid4vp: 'OpenID4VP',
+	openid4vci: 'OpenID4VCI'
+};
+
+export function displayStandardName(uid: string): string {
+	return STANDARD_DISPLAY_NAMES[uid] ?? displayNameFromUid(uid);
 }
 
 /**

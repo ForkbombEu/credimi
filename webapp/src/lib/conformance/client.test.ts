@@ -6,9 +6,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	appendFacetFilters,
+	appendSuiteFacetFilters,
 	CATALOG_FACET_KEYS,
+	SUITE_FACET_KEYS,
 	type CatalogFacets,
-	type PbFilterFn
+	type PbFilterFn,
+	type SuiteFacets
 } from './client';
 
 /** Deterministic stand-in for `pb.filter` — no live PocketBase needed. */
@@ -86,5 +89,36 @@ describe('appendFacetFilters', () => {
 			{ raw: 'sut = {:sut}', params: { sut: 'wallet_solution' } },
 			{ raw: 'provider = {:provider}', params: { provider: 'ewc' } }
 		]);
+	});
+});
+
+describe('appendSuiteFacetFilters', () => {
+	it('emits equality filters in standard → component → version → provider order', () => {
+		const facets: SuiteFacets = {
+			standard: 'openid4vp',
+			component: 'wallet',
+			version: 'draft-24',
+			provider: 'openid_conformance_suite'
+		};
+		const filters: string[] = [];
+		appendSuiteFacetFilters(filters, facets, stubFilter);
+
+		expect(SUITE_FACET_KEYS).toEqual(['standard', 'component', 'version', 'provider']);
+		expect(filters).toEqual([
+			'standard = "openid4vp"',
+			'component = "wallet"',
+			'version = "draft-24"',
+			'provider = "openid_conformance_suite"'
+		]);
+	});
+
+	it('omits empty suite facet values', () => {
+		const filters: string[] = [];
+		appendSuiteFacetFilters(
+			filters,
+			{ standard: 'openid4vci', component: '', version: undefined, provider: 'webuild' },
+			stubFilter
+		);
+		expect(filters).toEqual(['standard = "openid4vci"', 'provider = "webuild"']);
 	});
 });

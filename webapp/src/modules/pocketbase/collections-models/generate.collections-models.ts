@@ -91,9 +91,11 @@ async function getCollectionsFromDb(): Promise<CollectionModel[]> {
 
 async function main() {
 	const models = await getCollectionsFromDb();
-	// Synthetic: Credimi owns /api/collections/conformance_checks/* from an
-	// ephemeral :memory: cache; there is no durable data.db collection.
+	// Synthetic: Credimi owns /api/collections/conformance_checks/* and
+	// /api/collections/conformance_suites/* from an ephemeral :memory: cache;
+	// there is no durable data.db collection.
 	injectSyntheticConformanceChecks(models);
+	injectSyntheticConformanceSuites(models);
 
 	/* Codegen */
 
@@ -177,6 +179,15 @@ function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
 			text('sut', false),
 			text('role', false),
 			text('provider', false),
+			text('norm_standard', false),
+			text('component', false),
+			text('norm_version', false),
+			text('suite_name', false),
+			text('suite_homepage', false),
+			text('suite_repository', false),
+			text('suite_help', false),
+			text('suite_description', false),
+			text('suite_logo', false),
 			{
 				id: 'conformance_checks_created',
 				name: 'created',
@@ -186,6 +197,92 @@ function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
 			},
 			{
 				id: 'conformance_checks_updated',
+				name: 'updated',
+				type: 'autodate',
+				system: false,
+				required: false
+			}
+		]
+	} as CollectionModel);
+}
+
+/** Stub so CollectionName includes the fake suites catalog URL collection. */
+function injectSyntheticConformanceSuites(models: CollectionModel[]): void {
+	if (models.some((m) => m.name === 'conformance_suites')) return;
+
+	const text = (name: string, required = true): CollectionField => ({
+		id: `conformance_suites_${name}`,
+		name,
+		type: 'text',
+		system: false,
+		required
+	});
+
+	models.push({
+		id: 'pbc_conformance_suites_catalog',
+		name: 'conformance_suites',
+		type: 'base',
+		system: false,
+		fields: [
+			{ id: 'conformance_suites_id', name: 'id', type: 'text', system: true, required: true },
+			text('standard'),
+			text('component', false),
+			text('version', false),
+			text('suite'),
+			text('provider', false),
+			text('suite_name', false),
+			text('suite_homepage', false),
+			text('suite_repository', false),
+			text('suite_help', false),
+			text('suite_description', false),
+			text('suite_logo', false),
+			{
+				id: 'conformance_suites_check_count',
+				name: 'check_count',
+				type: 'number',
+				system: false,
+				required: true
+			},
+			{
+				id: 'conformance_suites_check_paths',
+				name: 'check_paths',
+				type: 'json',
+				system: false,
+				required: false
+			},
+			{
+				id: 'conformance_suites_check_titles',
+				name: 'check_titles',
+				type: 'json',
+				system: false,
+				required: false
+			},
+			{
+				id: 'conformance_suites_check_files',
+				name: 'check_files',
+				type: 'json',
+				system: false,
+				required: false
+			},
+			{
+				id: 'conformance_suites_visible_in',
+				name: 'visible_in',
+				type: 'json',
+				system: false,
+				required: false
+			},
+			text('fs_standard'),
+			text('fs_version'),
+			text('path_prefix'),
+			{
+				id: 'conformance_suites_created',
+				name: 'created',
+				type: 'autodate',
+				system: false,
+				required: false
+			},
+			{
+				id: 'conformance_suites_updated',
 				name: 'updated',
 				type: 'autodate',
 				system: false,

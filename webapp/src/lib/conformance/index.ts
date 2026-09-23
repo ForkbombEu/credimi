@@ -3,14 +3,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export type { Standard, Suite, Version } from './types';
-export type { ConformanceCheckRecord, TemplateSurface } from './record';
-export type { CatalogFacets } from './client';
+export type {
+	ConformanceCheckRecord,
+	ConformanceSuiteRecord,
+	TemplateSurface
+} from './record';
+export type { CatalogFacets, SuiteFacets } from './client';
 export type { ListAllResponse, StandardsWithTestSuites } from './query';
 
 export { listAll, getStandardsWithTestSuites } from './query';
-export { listChecks } from './client';
-export { displayNameFromUid, nestChecks, titleForCheckPath } from './nest';
-export { CONFORMANCE_CHECKS_COLLECTION } from './record';
+export { listChecks, listSuites } from './client';
+export { displayNameFromUid, displayStandardName, nestChecks, titleForCheckPath } from './nest';
+export { CONFORMANCE_CHECKS_COLLECTION, CONFORMANCE_SUITES_COLLECTION } from './record';
 export {
 	FCAF_STANDARD,
 	fcafTestIdFromPath,

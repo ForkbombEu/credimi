@@ -46,11 +46,15 @@ func writeFixtureTree(t *testing.T, root string) {
 	suiteBoth := filepath.Join(versionDir, "ewc")
 	require.NoError(t, os.MkdirAll(suiteBoth, 0o755))
 	metaBoth, err := yaml.Marshal(map[string]any{
-		"uid":      "ewc",
-		"name":     "EWC",
-		"protocol": "openid4vp",
-		"role":     "wallet",
-		"provider": "ewc",
+		"uid":         "ewc",
+		"name":        "EWC Interoperability Test Bed",
+		"homepage":    "https://eudiwalletconsortium.org/",
+		"repository":  "https://github.com/EWC-consortium",
+		"description": "EWC ITB fixture",
+		"logo":        "https://example.test/ewc.png",
+		"protocol":    "openid4vp",
+		"role":        "wallet",
+		"provider":    "ewc",
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(suiteBoth, "metadata.yaml"), metaBoth, 0o644))
@@ -121,7 +125,9 @@ func writeFixtureTree(t *testing.T, root string) {
 	require.NoError(t, os.MkdirAll(fcafSuite, 0o755))
 	fcafMeta, err := yaml.Marshal(map[string]any{
 		"uid":        "relying_party",
-		"name":       "Relying Party",
+		"name":       "FCAF Functional Conformance Assessment",
+		"provider":   "fcaf",
+		"logo":       "https://example.test/fcaf.png",
 		"visible_in": []string{"pipeline"},
 	})
 	require.NoError(t, err)
@@ -220,6 +226,21 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	require.Equal(t, "openid4vp", byPath["openid4vp/draft-24/ewc/check_one"].Protocol)
 	require.Equal(t, "wallet", byPath["openid4vp/draft-24/ewc/check_one"].Role)
 	require.Equal(t, "ewc", byPath["openid4vp/draft-24/ewc/check_one"].Provider)
+	require.Equal(
+		t,
+		"EWC Interoperability Test Bed",
+		byPath["openid4vp/draft-24/ewc/check_one"].SuiteName,
+	)
+	require.Equal(
+		t,
+		"https://eudiwalletconsortium.org/",
+		byPath["openid4vp/draft-24/ewc/check_one"].SuiteHomepage,
+	)
+	require.Equal(
+		t,
+		"https://example.test/ewc.png",
+		byPath["openid4vp/draft-24/ewc/check_one"].SuiteLogo,
+	)
 	require.Equal(t, "manual_only", byPath["openid4vp/draft-24/oidf/manual_only"].Title)
 	require.Equal(
 		t,
@@ -249,6 +270,8 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	require.Equal(t, "wallet_solution", fcafOne.SUT)
 	require.Equal(t, "relying_party", fcafOne.Role)
 	require.Equal(t, "fcaf", fcafOne.Provider)
+	require.Equal(t, "FCAF Functional Conformance Assessment", fcafOne.SuiteName)
+	require.Equal(t, "https://example.test/fcaf.png", fcafOne.SuiteLogo)
 	require.Equal(t, "fcaf", fcafOne.Standard)
 	require.Equal(t, "wallet_solution", fcafOne.Version)
 	require.Equal(t, "relying_party", fcafOne.Suite)
@@ -285,12 +308,16 @@ func TestRebuildProjectsIntoEphemeralCache(t *testing.T) {
 	require.Equal(t, "openid4vp", one["protocol"])
 	require.Equal(t, "wallet", one["role"])
 	require.Equal(t, "ewc", one["provider"])
+	require.Equal(t, "EWC Interoperability Test Bed", one["suite_name"])
+	require.Equal(t, "https://example.test/ewc.png", one["suite_logo"])
 
 	fcaf := findItemByPath(t, items, "fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001")
 	require.Equal(t, "Example FCAF test", fcaf["title"])
 	require.Equal(t, "wallet_solution", fcaf["sut"])
 	require.Equal(t, "relying_party", fcaf["role"])
 	require.Equal(t, "fcaf", fcaf["provider"])
+	require.Equal(t, "FCAF Functional Conformance Assessment", fcaf["suite_name"])
+	require.Equal(t, "https://example.test/fcaf.png", fcaf["suite_logo"])
 
 	require.NoError(t, os.WriteFile(
 		filepath.Join(root, "openid4vp", "draft-24", "ewc", "check_three.yaml"),
@@ -421,6 +448,25 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	rec = serve(http.MethodDelete, "/api/collections/conformance_checks/records/"+id, "")
 	require.True(t, rec.Code == http.StatusForbidden || rec.Code == http.StatusBadRequest,
 		"delete status=%d body=%s", rec.Code, rec.Body.String())
+
+	// Suites projection: filter/sort against suite rows (normalized axes).
+	suiteBody := catalogListJSON(t, mux, "/api/collections/conformance_suites/records?perPage=100&sort=standard,component,version,suite")
+	suiteItems, ok := suiteBody["items"].([]any)
+	require.True(t, ok)
+	require.NotEmpty(t, suiteItems)
+	suite := suiteItems[0].(map[string]any)
+	require.Equal(t, "openid4vp", suite["standard"])
+	require.Equal(t, "openid4vp", suite["fs_standard"])
+	require.Equal(t, "draft-24", suite["version"])
+	require.NotEmpty(t, suite["path_prefix"])
+	require.GreaterOrEqual(t, int(suite["check_count"].(float64)), 1)
+
+	rec = serve(http.MethodGet, "/api/collections/conformance_suites/records/"+suite["id"].(string), "")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	rec = serve(http.MethodPost, "/api/collections/conformance_suites/records", `{"suite":"x"}`)
+	require.True(t, rec.Code == http.StatusForbidden || rec.Code == http.StatusBadRequest,
+		"suite create status=%d body=%s", rec.Code, rec.Body.String())
 }
 
 func catalogTestMux(t *testing.T, app core.App) http.Handler {
@@ -436,6 +482,14 @@ func catalogTestMux(t *testing.T, app core.App) http.Handler {
 		rg.POST("/records", RecordsWriteRejectHTTP())
 		rg.PATCH("/records/{id}", RecordsWriteRejectHTTP())
 		rg.DELETE("/records/{id}", RecordsWriteRejectHTTP())
+
+		sg := e.Router.Group("/api/collections/conformance_suites")
+		sg.GET("/records", SuitesListHTTP())
+		sg.GET("/records/{id}", SuiteViewHTTP())
+		sg.POST("/records", SuitesWriteRejectHTTP())
+		sg.PATCH("/records/{id}", SuitesWriteRejectHTTP())
+		sg.DELETE("/records/{id}", SuitesWriteRejectHTTP())
+
 		built, buildErr := e.Router.BuildMux()
 		require.NoError(t, buildErr)
 		mux = built

@@ -27,7 +27,44 @@ export const conformanceCheckRecordSchema = z.object({
 	protocol: z.string().optional().default(''),
 	sut: z.string().optional().default(''),
 	role: z.string().optional().default(''),
-	provider: z.string().optional().default('')
+	provider: z.string().optional().default(''),
+	norm_standard: z.string().optional().default(''),
+	component: z.string().optional().default(''),
+	norm_version: z.string().optional().default(''),
+	suite_name: z.string().optional().default(''),
+	suite_homepage: z.string().optional().default(''),
+	suite_repository: z.string().optional().default(''),
+	suite_help: z.string().optional().default(''),
+	suite_description: z.string().optional().default(''),
+	suite_logo: z.string().optional().default('')
 });
 
 export type ConformanceCheckRecord = z.infer<typeof conformanceCheckRecordSchema>;
+
+/** Suite-grain catalog row from `/api/collections/conformance_suites/records`. */
+export const CONFORMANCE_SUITES_COLLECTION = 'conformance_suites' as const;
+
+export const conformanceSuiteRecordSchema = z.object({
+	id: z.string(),
+	standard: z.string(),
+	component: z.string().optional().default(''),
+	version: z.string().optional().default(''),
+	suite: z.string(),
+	provider: z.string().optional().default(''),
+	suite_name: z.string().optional().default(''),
+	suite_homepage: z.string().optional().default(''),
+	suite_repository: z.string().optional().default(''),
+	suite_help: z.string().optional().default(''),
+	suite_description: z.string().optional().default(''),
+	suite_logo: z.string().optional().default(''),
+	check_count: z.number().int().nonnegative(),
+	check_paths: z.array(z.string()).optional().default([]),
+	check_titles: z.array(z.string()).optional().default([]),
+	check_files: z.array(z.string()).optional().default([]),
+	visible_in: z.array(z.string()).optional().default([]),
+	fs_standard: z.string(),
+	fs_version: z.string(),
+	path_prefix: z.string()
+});
+
+export type ConformanceSuiteRecord = z.infer<typeof conformanceSuiteRecordSchema>;

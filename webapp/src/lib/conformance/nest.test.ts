@@ -9,10 +9,8 @@ import type { ConformanceCheckRecord } from './record';
 import { displayNameFromUid, nestChecks, titleForCheckPath } from './nest';
 
 function check(
-	partial: Pick<ConformanceCheckRecord, 'path' | 'standard' | 'version' | 'suite' | 'file'> & {
-		title?: string;
-		id?: string;
-	}
+	partial: Pick<ConformanceCheckRecord, 'path' | 'standard' | 'version' | 'suite' | 'file'> &
+		Partial<ConformanceCheckRecord>
 ): ConformanceCheckRecord {
 	return {
 		id: partial.id ?? partial.path,
@@ -22,6 +20,15 @@ function check(
 		sut: '',
 		role: '',
 		provider: '',
+		norm_standard: '',
+		component: '',
+		norm_version: '',
+		suite_name: '',
+		suite_homepage: '',
+		suite_repository: '',
+		suite_help: '',
+		suite_description: '',
+		suite_logo: '',
 		...partial
 	};
 }
@@ -76,6 +83,32 @@ describe('nestChecks', () => {
 		expect(issuer?.name).toBe('Openid4vci Issuer');
 		expect(issuer?.versions[0]?.suites[0]?.paths).toEqual(['openid4vci_issuer/1.0/suite_x/c']);
 		expect(issuer?.versions[0]?.suites[0]?.titles).toEqual(['Issuer Check C']);
+	});
+
+	it('prefers denormalized suite metadata over humanized UIDs', () => {
+		const nested = nestChecks([
+			check({
+				path: 'openid4vp_wallet/draft-23/ewc/check_one',
+				standard: 'openid4vp_wallet',
+				version: 'draft-23',
+				suite: 'ewc',
+				file: 'check_one.yaml',
+				title: 'Check One',
+				suite_name: 'EWC Interoperability Test Bed',
+				suite_homepage: 'https://eudiwalletconsortium.org/',
+				suite_repository: 'https://github.com/EWC-consortium',
+				suite_help: 'https://example.test/help',
+				suite_description: 'EWC ITB',
+				suite_logo: 'https://example.test/ewc.png'
+			})
+		]);
+		const suite = nested[0]?.versions[0]?.suites[0];
+		expect(suite?.name).toBe('EWC Interoperability Test Bed');
+		expect(suite?.homepage).toBe('https://eudiwalletconsortium.org/');
+		expect(suite?.repository).toBe('https://github.com/EWC-consortium');
+		expect(suite?.help).toBe('https://example.test/help');
+		expect(suite?.description).toBe('EWC ITB');
+		expect(suite?.logo).toBe('https://example.test/ewc.png');
 	});
 
 	it('preserves check_id path strings used by pipeline serialize', () => {

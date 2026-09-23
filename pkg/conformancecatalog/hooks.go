@@ -16,7 +16,8 @@ import (
 // conformance_checks collection shell left from earlier projections.
 //
 // List/get are served by Credimi routes that mimic the PocketBase collection
-// URL (/api/collections/conformance_checks/records) — see RecordsListHTTP.
+// URL (/api/collections/conformance_checks/records and
+// /api/collections/conformance_suites/records) — see RecordsListHTTP / SuitesListHTTP.
 //
 // Boot: OnBootstrap drops the shell and rebuilds from TemplatesDir().
 // A missing templates directory is skipped (test apps / empty checkouts); if the
