@@ -38,7 +38,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet content()}
 		<PageSection indexItem={s.description}>
-			<p>{standard.description}</p>
 			<p>{suite.description}</p>
 		</PageSection>
 

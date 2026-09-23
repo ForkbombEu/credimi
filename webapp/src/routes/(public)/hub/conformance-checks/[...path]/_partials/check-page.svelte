@@ -69,7 +69,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet content()}
 		<div class="flex flex-col items-start gap-12 md:flex-row">
 			<PageSection indexItem={s.description}>
-				<p>{standard.description}</p>
 				<p>{suite.description}</p>
 			</PageSection>
 

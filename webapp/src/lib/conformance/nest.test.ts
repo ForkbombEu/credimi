@@ -152,7 +152,7 @@ describe('nestSuites', () => {
 		expect(nested[0]?.versions[0]?.suites[0]?.members[0]?.title).toBe('Wallet Check');
 	});
 
-	it('leaves logo and description empty when suite rows lack them', () => {
+	it('leaves suite logo and description empty when suite rows lack them', () => {
 		const nested = nestSuites([
 			suite({
 				fs_standard: 'vlei',
@@ -164,8 +164,9 @@ describe('nestSuites', () => {
 		]);
 		const standard = nested[0];
 		const nestedSuite = standard?.versions[0]?.suites[0];
-		expect(standard?.description).toBe('');
-		expect(standard?.standard_url).toBe('');
+		expect(standard).toMatchObject({ uid: 'vlei', name: 'Vlei' });
+		expect(standard).not.toHaveProperty('description');
+		expect(standard).not.toHaveProperty('standard_url');
 		expect(nestedSuite?.description).toBe('');
 		expect(nestedSuite?.homepage).toBe('');
 		expect(nestedSuite?.logo).toBeUndefined();

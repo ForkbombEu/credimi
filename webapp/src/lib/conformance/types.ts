@@ -4,21 +4,16 @@
 
 import { z } from 'zod';
 
-const standardMetadataSchema = z.object({
+/** Filesystem path-axis node: uid + display name only (not authored standard.yaml). */
+const nestStandardSchema = z.object({
 	uid: z.string(),
-	name: z.string(),
-	description: z.string(),
-	standard_url: z.string(),
-	latest_update: z.string(),
-	external_links: z.record(z.string(), z.array(z.string())).nullable(),
-	disabled: z.boolean().optional()
+	name: z.string()
 });
 
-const versionMetadataSchema = z.object({
+/** Filesystem path-axis node: uid + display name only (not authored version.yaml). */
+const nestVersionSchema = z.object({
 	uid: z.string(),
-	name: z.string(),
-	latest_update: z.string(),
-	specification_url: z.string().optional()
+	name: z.string()
 });
 
 const suiteMetadataSchema = z.object({
@@ -41,11 +36,11 @@ export const suiteSchema = suiteMetadataSchema.extend({
 	members: z.array(suiteMemberSchema)
 });
 
-export const versionSchema = versionMetadataSchema.extend({
+export const versionSchema = nestVersionSchema.extend({
 	suites: z.array(suiteSchema)
 });
 
-export const standardSchema = standardMetadataSchema.extend({
+export const standardSchema = nestStandardSchema.extend({
 	versions: z.array(versionSchema)
 });
 

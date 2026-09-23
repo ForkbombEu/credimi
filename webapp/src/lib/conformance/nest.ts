@@ -12,10 +12,11 @@ import type { Standard, Suite, Version } from './types';
  * Dual browse axes (intentional): the hub suite **table** sorts/filters on product
  * fields (`standard` / `component` / `version`); this nest groups on filesystem
  * axes (`fs_standard` / `fs_version` / `suite`) so `/hub/conformance-checks/{path}`
- * stays path-stable (ADR-0002). Load nest only where detail/pickers need it — not
- * on the hub table route. Suite display metadata and member checks come from the
- * suite row (`members`). Empty suites without checks do not appear in the catalog
- * projection.
+ * stays path-stable (ADR-0002). Nest standard/version nodes are path-axis labels
+ * (uid + display name), not authored standard.yaml / version.yaml metadata.
+ * Load nest only where detail/pickers need it — not on the hub table route.
+ * Suite display metadata and member checks come from the suite row (`members`).
+ * Empty suites without checks do not appear in the catalog projection.
  */
 export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 	const byStandard = new Map<string, Map<string, ConformanceSuiteRecord[]>>();
@@ -63,17 +64,12 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 			versions.push({
 				uid: versionUid,
 				name: displayNameFromUid(versionUid),
-				latest_update: '',
 				suites
 			});
 		}
 		standards.push({
 			uid: standardUid,
 			name: displayNameFromUid(standardUid),
-			description: '',
-			standard_url: '',
-			latest_update: '',
-			external_links: null,
 			versions
 		});
 	}
