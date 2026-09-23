@@ -11766,6 +11766,135 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-uri-controls-48310ca6-create-invalid-response-uri.outputs.body.session_id }}
     - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-create-incomplete-chain
+      use: http-request
+      with:
+        body:
+            client_id_scheme: x509_hash
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: rp-integrity-incomplete-chain
+            request_behavior:
+                certificate_chain: incomplete_chain
+            request_delivery: by_reference
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-incomplete-chain
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ rp-integrity-certificate-chain-ed1def1e-create-incomplete-chain.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-fetch-incomplete-chain
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ rp-integrity-certificate-chain-ed1def1e-create-incomplete-chain.outputs.body.session_id }}
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-create-untrusted-root
+      use: http-request
+      with:
+        body:
+            client_id_scheme: x509_hash
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: rp-integrity-untrusted-root
+            request_behavior:
+                certificate_chain: untrusted_root
+            request_delivery: by_reference
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-untrusted-root
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ rp-integrity-certificate-chain-ed1def1e-create-untrusted-root.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-fetch-untrusted-root
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ rp-integrity-certificate-chain-ed1def1e-create-untrusted-root.outputs.body.session_id }}
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-create-self-signed-leaf
+      use: http-request
+      with:
+        body:
+            client_id_scheme: x509_hash
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: rp-integrity-self-signed-leaf
+            request_behavior:
+                certificate_chain: unrelated_self_signed
+            request_delivery: by_reference
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-self-signed-leaf
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ rp-integrity-certificate-chain-ed1def1e-create-self-signed-leaf.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-fetch-self-signed-leaf
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ rp-integrity-certificate-chain-ed1def1e-create-self-signed-leaf.outputs.body.session_id }}
+    - continue_on_error: true
       id: rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature
       use: http-request
       with:
@@ -14336,6 +14465,20 @@ steps:
                     second_capture_session: ${{ response-encryption-reused-jwk-183059b7-fetch-second-capture-session.outputs.body | optional }}
                     second_request_object: ${{ response-encryption-reused-jwk-183059b7-fetch-second-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-reused-jwk-183059b7-exercise-second-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.rp-integrity.certificate-chain:
+                output:
+                    incomplete_chain_request_behavior: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-incomplete-chain.outputs.body.request_behavior | optional }}
+                    incomplete_chain_request_object: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-incomplete-chain.outputs.body.raw.authorization_request_jwt | optional }}
+                    incomplete_chain_session: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-incomplete-chain.outputs.body | optional }}
+                    incomplete_chain_visual_evidence: ${{ rp-integrity-certificate-chain-ed1def1e-reject-incomplete-chain.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    self_signed_leaf_request_behavior: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-self-signed-leaf.outputs.body.request_behavior | optional }}
+                    self_signed_leaf_request_object: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-self-signed-leaf.outputs.body.raw.authorization_request_jwt | optional }}
+                    self_signed_leaf_session: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-self-signed-leaf.outputs.body | optional }}
+                    self_signed_leaf_visual_evidence: ${{ rp-integrity-certificate-chain-ed1def1e-reject-self-signed-leaf.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    untrusted_root_request_behavior: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-untrusted-root.outputs.body.request_behavior | optional }}
+                    untrusted_root_request_object: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-untrusted-root.outputs.body.raw.authorization_request_jwt | optional }}
+                    untrusted_root_session: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-untrusted-root.outputs.body | optional }}
+                    untrusted_root_visual_evidence: ${{ rp-integrity-certificate-chain-ed1def1e-reject-untrusted-root.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.rp-integrity.invalid-signature:
                 output:
                     request_object: ${{ rp-integrity-invalid-signature-4f1ab386-fetch-corrupt-signature.outputs.body.raw.authorization_request_jwt | optional }}

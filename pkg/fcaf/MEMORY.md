@@ -2091,3 +2091,44 @@ Residual risk: the migrated steps that previously used the shorter
 `50%,10%`-then-inputText unlock now use the generic action's sequence. All of
 them are `reference Wallet run pending`, so no green run regressed, but the
 first emulator run should confirm the unlock path before these are trusted.
+
+## RpIntegrity 017, 019 and 026, certificate chain defects
+
+All three own
+`fcaf-wallet-solution-relying-party-rp-integrity-certificate-chain`, one
+session per `request_behavior.certificate_chain` value. The new
+`oid4vp.request_certificate_chain` validator decodes the delivered `x5c` and
+requires the exact defect, so the three cases are not interchangeable:
+
+| Shape | Requires |
+| --- | --- |
+| `incomplete` | every certificate signed by its successor, and the top-most one NOT self-signed, so its issuer is absent |
+| `untrusted_root` | at least two certificates, the chain links, the top-most IS self-signed, and the leaf is not |
+| `self_signed_leaf` | exactly one certificate, signing itself |
+
+Each case also asserts `jose.jws_signed_request`: the capture verifier signs
+with the replaced chain's own leaf key, so the signature verifies and the chain
+is provably the only defect. That is what separates these from
+`WS_RP_SM_RpIntegrity__015` and `WS_RP_MS_Metadata__132`, where the signature
+is the defect and the chain is untouched. 019 additionally pins the recomputed
+`x509_hash` Client Identifier to the delivered leaf.
+
+Outcome assertions follow each source rather than a house style: 017 and 019
+require `invalid_request` without a presentation, while 026 uses
+`request_rejected`, because its source accepts `invalid_client`, an
+unspecified error, or discontinuation. The documented caveat that the delivered
+Client Identifier moves with the leaf is satisfied, because no assertion reads
+a captured presentation.
+
+Verified 22/09/2026 by running the shipped definitions through the FCAF engine
+against real generated chains: 15 of 15 expectations met. All three pass on
+conformant evidence and fail when the chain shapes are swapped between cases,
+when the Wallet releases a credential, and when the Client Identifier still
+hashes the original verifier certificate (only 019 fails that one, which is the
+assertion 130 would need and cannot have). A silent discontinuation passes 026
+and fails 017 and 019, exactly as their sources require.
+
+`make fcaf-generate` produces 857 aggregate steps, 612 test IDs, and 207
+pipeline outputs; the happy flow drops to 349 tests. The mobile steps use the
+shared `fcaf-expect-request-rejected` action. No emulator was attached, and
+`request_behavior` needs beta to enable `FCAF_SCENARIOS_ENABLED`.

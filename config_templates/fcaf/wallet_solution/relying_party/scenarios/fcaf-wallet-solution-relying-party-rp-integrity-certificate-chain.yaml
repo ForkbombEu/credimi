@@ -1,0 +1,158 @@
+name: FCAF Request Object certificate chain defects
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+# B, the leaf's issuer is absent from x5c
+- id: create-incomplete-chain
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_delivery: by_reference
+      client_id_scheme: x509_hash
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: rp-integrity-incomplete-chain
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_behavior:
+        certificate_chain: incomplete_chain
+- id: reject-incomplete-chain
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-incomplete-chain.outputs.body.deeplink }}"
+- id: fetch-incomplete-chain
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-incomplete-chain.outputs.body.session_id }}
+    expected_status: 200
+# C, the chain terminates in a generated root the Wallet does not trust
+- id: create-untrusted-root
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_delivery: by_reference
+      client_id_scheme: x509_hash
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: rp-integrity-untrusted-root
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_behavior:
+        certificate_chain: untrusted_root
+- id: reject-untrusted-root
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-untrusted-root.outputs.body.deeplink }}"
+- id: fetch-untrusted-root
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-untrusted-root.outputs.body.session_id }}
+    expected_status: 200
+# D, a single self-signed leaf certificate
+- id: create-self-signed-leaf
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_delivery: by_reference
+      client_id_scheme: x509_hash
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: rp-integrity-self-signed-leaf
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_behavior:
+        certificate_chain: unrelated_self_signed
+- id: reject-self-signed-leaf
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-self-signed-leaf.outputs.body.deeplink }}"
+- id: fetch-self-signed-leaf
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-self-signed-leaf.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_SM_RpIntegrity__017
+    - WS_RP_SM_RpIntegrity__019
+    - WS_RP_SM_RpIntegrity__026
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.rp-integrity.certificate-chain:
+        output:
+          incomplete_chain_session: ${{ fetch-incomplete-chain.outputs.body }}
+          incomplete_chain_request_object: ${{ fetch-incomplete-chain.outputs.body.raw.authorization_request_jwt }}
+          incomplete_chain_request_behavior: ${{ fetch-incomplete-chain.outputs.body.request_behavior }}
+          incomplete_chain_visual_evidence: ${{ reject-incomplete-chain.outputs.flow_output.maestro_screenshot_urls }}
+          untrusted_root_session: ${{ fetch-untrusted-root.outputs.body }}
+          untrusted_root_request_object: ${{ fetch-untrusted-root.outputs.body.raw.authorization_request_jwt }}
+          untrusted_root_request_behavior: ${{ fetch-untrusted-root.outputs.body.request_behavior }}
+          untrusted_root_visual_evidence: ${{ reject-untrusted-root.outputs.flow_output.maestro_screenshot_urls }}
+          self_signed_leaf_session: ${{ fetch-self-signed-leaf.outputs.body }}
+          self_signed_leaf_request_object: ${{ fetch-self-signed-leaf.outputs.body.raw.authorization_request_jwt }}
+          self_signed_leaf_request_behavior: ${{ fetch-self-signed-leaf.outputs.body.request_behavior }}
+          self_signed_leaf_visual_evidence: ${{ reject-self-signed-leaf.outputs.flow_output.maestro_screenshot_urls }}

@@ -71,6 +71,7 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPDistinctPresentationsValidator{},
 		OID4VPDCQLValueConstraintsSatisfiedValidator{},
 		OID4VPMalformedStatusCredentialAbsentValidator{},
+		OID4VPRequestCertificateChainValidator{},
 		OID4VPResponseEndpointCallbackValidator{},
 		OID4VPResponseParametersTopLevelValidator{},
 		OID4VPResponseURIClientIDMismatchValidator{},

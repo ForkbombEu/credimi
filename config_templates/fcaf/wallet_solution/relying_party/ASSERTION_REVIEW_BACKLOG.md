@@ -104,14 +104,26 @@ is self-signed, rooted in an untrusted generated root, or missing its issuer,
 signs with that chain's leaf key, and recomputes the `x509_hash` Client
 Identifier so the chain is the only defect:
 
-- [ ] `WS_RP_SM_RpIntegrity__017` (`incomplete_chain` or `untrusted_root`)
-- [ ] `WS_RP_SM_RpIntegrity__019` (the same defect stated for `x509_hash`)
-- [ ] `WS_RP_SM_RpIntegrity__026` (`unrelated_self_signed`)
+- **Implemented; beta evidence pending:** `WS_RP_SM_RpIntegrity__017`, `019`
+  and `026` share
+  `fcaf-wallet-solution-relying-party-rp-integrity-certificate-chain`, one
+  session per behaviour. The new `oid4vp.request_certificate_chain` validator
+  decodes the delivered `x5c` and requires the exact defect: `incomplete` for
+  017 (the chain links but its top-most certificate is not self-signed, so its
+  issuer is absent), `untrusted_root` for 019 (the chain links and does
+  terminate in a self-signed root that the Wallet has no reason to trust), and
+  `self_signed_leaf` for 026 (a single certificate signing itself). Each case
+  also requires the signature to verify against the delivered leaf, so the
+  chain is provably the only defect, and 019 additionally pins the recomputed
+  `x509_hash` Client Identifier.
 
-  Caveat for all three: the delivered Client Identifier changes with the leaf,
-  so a presentation that does arrive fails audience verification. The
-  assertions must therefore require rejection and must not read a captured
-  presentation.
+  Outcome assertions follow the sources exactly: 017 and 019 require
+  `invalid_request` without a presentation, while 026 accepts an error or a
+  discontinuation through `request_rejected`, because its source lists
+  `invalid_client`, an unspecified error, and discontinuation as equally
+  acceptable. The caveat that the delivered Client Identifier changes with the
+  leaf is therefore satisfied: none of the three reads a captured presentation,
+  and the audience mismatch cannot mask a wrong verdict.
 
 `dcql_query: null` combined with `scopes` delivers a Section 5.1 scope-only
 Authorization Request:

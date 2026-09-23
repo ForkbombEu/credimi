@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__017
-title: FCAF WS_RP_SM_RpIntegrity__017
+title: Reject a Request Object whose X.509 trust chain is incomplete.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__017.md
 suite:
@@ -11,21 +11,34 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.rp-integrity.certificate-chain.outputs.incomplete_chain_session
+  request_object:
+    from: pipeline.rp-integrity.certificate-chain.outputs.incomplete_chain_request_object
+  request_behavior:
+    from: pipeline.rp-integrity.certificate-chain.outputs.incomplete_chain_request_behavior
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.rp-integrity.certificate-chain.outputs.incomplete_chain_visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__017_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__017_visual_evidence
+- id: verifier_delivered_the_incomplete_chain
+  validator: json.field_equals
+  input: evidence.request_behavior
+  params: { field: certificate_chain, value: incomplete_chain }
+- id: delivered_x5c_has_the_incomplete_defect
+  validator: oid4vp.request_certificate_chain
+  input: evidence.request_object
+  params: { shape: incomplete }
+- id: signature_verifies_against_the_delivered_leaf
+  validator: jose.jws_signed_request
+  input: evidence.request_object
+- id: wallet_returns_invalid_request_without_a_presentation
+  validator: oid4vp.error_response_required
+  input: evidence.session
+  params: { code: invalid_request }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:
