@@ -8,20 +8,26 @@ export type {
 	ConformanceSuiteRecord,
 	TemplateSurface
 } from './record';
-export type { CatalogFacets, SuiteFacets } from './client';
-export type { ListAllResponse, StandardsWithTestSuites } from './query';
+export type {
+	CatalogFacets,
+	SuiteFacets,
+	ListAllResponse,
+	StandardsWithTestSuites
+} from './client';
 
-export { listAll, getStandardsWithTestSuites } from './query';
-export { listChecks, listSuites } from './client';
-export { displayNameFromUid, displayStandardName, nestChecks, titleForCheckPath } from './nest';
-export { CONFORMANCE_CHECKS_COLLECTION, CONFORMANCE_SUITES_COLLECTION } from './record';
 export {
+	listAll,
+	getStandardsWithTestSuites,
+	listChecks,
+	listSuites,
+	listFcafTests,
+	getFcafTests,
 	FCAF_STANDARD,
 	fcafTestIdFromPath,
-	toFcafCatalogEntry,
-	listFcafTests,
-	getFcafTests
-} from './fcaf.js';
+	toFcafCatalogEntry
+} from './client';
+export { displayNameFromUid, displayStandardName, nestChecks, titleForCheckPath } from './nest';
+export { CONFORMANCE_CHECKS_COLLECTION, CONFORMANCE_SUITES_COLLECTION } from './record';
 
 export * as Check from './check.js';
 export * as Standards from './standard/index.js';

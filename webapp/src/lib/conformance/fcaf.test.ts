@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { fcafTestIdFromPath, toFcafCatalogEntry } from './fcaf';
+import { fcafTestIdFromPath, toFcafCatalogEntry } from './client';
 import type { ConformanceCheckRecord } from './record';
 
 const sample: ConformanceCheckRecord = {

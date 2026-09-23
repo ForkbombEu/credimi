@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { TemplateSurface } from './query';
+import type { ListAllOptions } from './client';
 import type { Standard } from './types';
 
-import { listAll } from './query';
+import { listAll } from './client';
 
 //
 
@@ -21,7 +21,7 @@ export function get() {
 	return readonlyView;
 }
 
-export function load(options: { surface?: TemplateSurface } = {}) {
+export function load(options: Pick<ListAllOptions, 'surface'> = {}) {
 	listAll(options).match({
 		Rejected: (reason) => {
 			console.error(reason);
