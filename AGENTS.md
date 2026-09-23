@@ -358,15 +358,18 @@ Catalog availability and run-path health:
   equivalent. It skips `disabled` runners (`enabledMobileRunnerRecords`) and
   probes concurrently through `probeMobileRunnerHealths`, bounded by
   `mobileRunnerListProbeConcurrency` and `mobileRunnerListHealthTimeout`.
-- List probes use the short list timeout, not `walletAPKRunnerHealthTimeout`,
-  which stays reserved for the wallet-APK CI path.
+- List probes bound each attempt with the short list timeout; the run-path
+  probe uses `runnerHealthTimeout`.
 - A failed or malformed probe reports the runner as `offline` or
   `misconfigured`; it never fails the whole list request.
-- Starting a run checks the chosen runner live, for both selection styles:
-  `resolvePipelineCIDeviceID` and `resolvePipelineRunWalletAPKDeviceID` call
-  `requirePipelineCIDeviceRunnerOnline` for an explicit `device_id`, and
-  `selectPipelineCIDeviceByType` probes each candidate for `device_type`. An
-  unreachable runner fails the run with `503 device runner is offline`.
+- Starting a run checks the chosen runners live, on every path:
+  `enqueuePipelineRun` calls `requireMobileDeviceRunnersOnline` for every
+  device resolved from the YAML (one probe per distinct runner, after the
+  access check and before the semaphore), and the CI endpoints call it for an
+  explicit `device_id` while `selectPipelineCIDeviceByType` probes each
+  candidate for `device_type`. An unreachable runner fails the run with
+  `503 device runner is offline`. The helpers live in
+  `pkg/internal/apis/handlers/mobile_runner_availability.go`.
 - Runner HTTP for `*.trycloudflare.com` hosts resolves through Cloudflare DNS
   (`mobileRunnerHTTPClient` in
   `pkg/internal/apis/handlers/mobile_runner_http.go`). A quick-tunnel hostname

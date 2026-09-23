@@ -779,9 +779,9 @@ func TestPipelineRunWalletAPKInjectsGlobalDeviceID(t *testing.T) {
 	installQueueStubs(t, queueStub)
 
 	// An explicitly chosen device is only accepted when its runner answers now.
-	origHealthCheck := pipelineCIRunnerHealthCheck
-	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
-	pipelineCIRunnerHealthCheck = func(context.Context, string) (bool, error) { return true, nil }
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	checkRunnerReachable = func(context.Context, string) (bool, error) { return true, nil }
 
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
@@ -839,10 +839,10 @@ func TestPipelineRunWalletAPKRejectsExplicitDeviceOnOfflineRunner(t *testing.T) 
 	queueStub := &queueStub{}
 	installQueueStubs(t, queueStub)
 
-	origHealthCheck := pipelineCIRunnerHealthCheck
-	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
 	probed := 0
-	pipelineCIRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
+	checkRunnerReachable = func(_ context.Context, runnerURL string) (bool, error) {
 		probed++
 		require.Equal(t, "https://runner-global.example.test", runnerURL)
 		return false, nil
@@ -893,9 +893,9 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 
 	origQueueState := queryMobileDeviceSemaphoreState
 	t.Cleanup(func() { queryMobileDeviceSemaphoreState = origQueueState })
-	origHealthCheck := pipelineCIRunnerHealthCheck
-	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
-	pipelineCIRunnerHealthCheck = func(_ context.Context, runnerURL string) (bool, error) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	checkRunnerReachable = func(_ context.Context, runnerURL string) (bool, error) {
 		return !strings.Contains(runnerURL, "offline-runner"), nil
 	}
 	queryMobileDeviceSemaphoreState = func(
@@ -973,9 +973,9 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 }
 
 func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T) {
-	origHealthCheck := pipelineCIRunnerHealthCheck
-	t.Cleanup(func() { pipelineCIRunnerHealthCheck = origHealthCheck })
-	pipelineCIRunnerHealthCheck = func(_ context.Context, _ string) (bool, error) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	checkRunnerReachable = func(_ context.Context, _ string) (bool, error) {
 		return false, nil
 	}
 

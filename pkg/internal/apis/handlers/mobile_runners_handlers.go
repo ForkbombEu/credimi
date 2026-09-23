@@ -578,7 +578,7 @@ func checkMobileRunnerHealthHTTP(
 		return false, nil, errMalformedMobileRunnerURL
 	}
 
-	healthCtx, cancel := context.WithTimeout(ctx, walletAPKRunnerHealthTimeout)
+	healthCtx, cancel := context.WithTimeout(ctx, runnerHealthTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(healthCtx, http.MethodGet, healthURL, nil)

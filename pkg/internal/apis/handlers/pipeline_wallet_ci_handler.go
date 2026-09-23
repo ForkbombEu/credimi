@@ -31,7 +31,6 @@ const walletAPKCleanupConfigKey = "temp_wallet_version"
 const walletAPKMobileAutomationStepUse = "mobile-automation"
 const walletAPKMaxBytes = int64(1000 << 20)
 const walletAPKDownloadTimeout = 30 * time.Second
-const walletAPKRunnerHealthTimeout = 10 * time.Second
 
 var walletAPKURLDownloader = downloadWalletAPKFromURL
 
@@ -733,7 +732,7 @@ func resolvePipelineRunWalletAPKDeviceID(
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
 	if deviceID := strings.TrimSpace(input.DeviceID); deviceID != "" {
-		if apiErr := requirePipelineCIDeviceRunnerOnline(ctx, app, deviceID); apiErr != nil {
+		if apiErr := requireMobileDeviceRunnerOnline(ctx, app, deviceID); apiErr != nil {
 			return "", hasStepRunner, needsGlobalRunner, apiErr
 		}
 		return input.DeviceID, hasStepRunner, needsGlobalRunner, nil

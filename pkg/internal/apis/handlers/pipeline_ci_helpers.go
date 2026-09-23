@@ -27,8 +27,6 @@ import (
 
 const pipelineCIMobileAutomationStepUse = "mobile-automation"
 
-var pipelineCIRunnerHealthCheck = checkPipelineCIRunnerHealth
-
 type tempRecordDeleteInput struct {
 	ExpectedOwnerID    string `json:"expected_owner_id"`
 	ExpectedIdentifier string `json:"expected_identifier"`
@@ -454,7 +452,7 @@ func resolvePipelineCIDeviceID(
 		// A device picked from the catalog was reported available when the page
 		// rendered, which can be minutes old. The run must not start against a
 		// runner that is no longer answering, so its health is checked here.
-		if apiErr := requirePipelineCIDeviceRunnerOnline(ctx, app, deviceID); apiErr != nil {
+		if apiErr := requireMobileDeviceRunnerOnline(ctx, app, deviceID); apiErr != nil {
 			return "", hasStepRunner, needsGlobalRunner, apiErr
 		}
 		return input.DeviceID, hasStepRunner, needsGlobalRunner, nil
@@ -471,48 +469,6 @@ func resolvePipelineCIDeviceID(
 	}
 	deviceID, apiErr := selectPipelineCIDeviceByType(ctx, app, ownerID, input.DeviceType)
 	return deviceID, hasStepRunner, needsGlobalRunner, apiErr
-}
-
-// requirePipelineCIDeviceRunnerOnline rejects a run whose chosen device is
-// hosted by a runner that does not answer its health endpoint right now.
-func requirePipelineCIDeviceRunnerOnline(
-	ctx context.Context,
-	app core.App,
-	deviceID string,
-) *apierror.APIError {
-	record, err := canonify.Resolve(app, canonify.NormalizePath(deviceID))
-	if err != nil || record == nil || record.Collection() == nil ||
-		record.Collection().Name != mobileDevicesCollection {
-		return apierror.New(
-			http.StatusNotFound,
-			"device_id",
-			"mobile_device_not_found",
-			"mobile device "+deviceID+" not found",
-		)
-	}
-	runner, runnerErr := app.FindRecordById("mobile_runners", record.GetString("runner"))
-	if runnerErr != nil {
-		return apierror.New(
-			http.StatusNotFound,
-			"device_id",
-			"mobile_runner_not_found",
-			"mobile device runner not found",
-		)
-	}
-	online, apiErr := pipelineCIRunnerOnline(ctx, runner)
-	if apiErr != nil {
-		return apiErr
-	}
-	if !online {
-		return apierror.New(
-			http.StatusServiceUnavailable,
-			"device_id",
-			"device runner is offline",
-			"mobile device "+deviceID+" is hosted by a runner that is not reachable",
-		)
-	}
-
-	return nil
 }
 
 func parsePipelineCIWorkflow(
@@ -993,7 +949,7 @@ func selectPipelineCIDeviceByType(
 			(runner.GetString("owner") != ownerID && !runner.GetBool("published")) {
 			continue
 		}
-		online, apiErr := pipelineCIRunnerOnline(ctx, runner)
+		online, apiErr := mobileRunnerReachable(ctx, runner)
 		if apiErr != nil {
 			return "", apiErr
 		}
@@ -1028,48 +984,6 @@ func selectPipelineCIDeviceByType(
 		)
 	}
 	return selectedDeviceID, nil
-}
-
-func pipelineCIRunnerOnline(ctx context.Context, record *core.Record) (bool, *apierror.APIError) {
-	runnerURL := mobileRunnerURL(record)
-	if runnerURL == "" {
-		return false, nil
-	}
-
-	online, err := pipelineCIRunnerHealthCheck(ctx, runnerURL)
-	if err != nil {
-		return false, apierror.New(
-			http.StatusInternalServerError,
-			"device_type",
-			"failed to check runner health",
-			err.Error(),
-		)
-	}
-
-	return online, nil
-}
-
-func checkPipelineCIRunnerHealth(ctx context.Context, runnerURL string) (bool, error) {
-	healthURL, err := url.JoinPath(runnerURL, "health")
-	if err != nil {
-		return false, err
-	}
-
-	healthCtx, cancel := context.WithTimeout(ctx, walletAPKRunnerHealthTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(healthCtx, http.MethodGet, healthURL, nil)
-	if err != nil {
-		return false, err
-	}
-
-	resp, err := mobileRunnerHTTPClient(runnerURL).Do(req)
-	if err != nil {
-		return false, nil
-	}
-	defer resp.Body.Close()
-
-	return resp.StatusCode == http.StatusOK, nil
 }
 
 func pipelineCIDeviceBacklog(ctx context.Context, deviceID string) (int, *apierror.APIError) {
