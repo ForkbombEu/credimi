@@ -161,13 +161,13 @@ export function toFcafCatalogEntry(record: ConformanceCheckRecord): FCAFTestCata
 	};
 }
 
-export type ListFcafTestsOptions = Omit<ListChecksOptions, 'standard'>;
+export type ListFcafTestsOptions = Omit<ListChecksOptions, 'fs_standard'>;
 
 /** List FCAF tests from the shared conformance catalog (not static codegen). */
 export function listFcafTests(
 	options: ListFcafTestsOptions = {}
 ): Task.Task<FCAFTestCatalogEntry[], ListChecksError> {
-	return listChecks({ ...options, standard: FCAF_STANDARD }).map((records) =>
+	return listChecks({ ...options, fs_standard: FCAF_STANDARD }).map((records) =>
 		records.map(toFcafCatalogEntry)
 	);
 }

@@ -12,6 +12,7 @@
 // Clients use PocketBase collection URL shapes:
 //   - /api/collections/conformance_checks/records (check grain)
 //   - /api/collections/conformance_suites/records (suite grain; display metadata)
+//
 // Credimi owns those routes and runs filter/sort/pagination via
 // pocketbase/tools/search against the ephemeral DB. Writes are rejected.
 // List/get auth is public (same posture as the former blueprints/hub listing).
@@ -64,22 +65,22 @@ var nonStandardTemplateDirs = map[string]struct{}{
 // Lean check grain: path, title, facets, and identity only. Suite display
 // metadata (name, logo, URLs) lives on the suite projection (ADR-0002).
 type Check struct {
-	ID        string   `json:"id"`
-	Path      string   `json:"path"`
-	Title     string   `json:"title"`
-	Standard  string   `json:"standard"` // FS top-level dir (durable path segment)
-	Version   string   `json:"version"`  // FS version segment (durable)
-	Suite     string   `json:"suite"`
-	File      string   `json:"file"`
-	VisibleIn []string `json:"visible_in"`
-	Protocol  string   `json:"protocol"`
-	SUT       string   `json:"sut"`
-	Role      string   `json:"role"`
-	Provider  string   `json:"provider"`
-	// Additive product projection (does not rewrite durable path / nest keys).
-	NormStandard     string `json:"norm_standard"`
+	ID         string   `json:"id"`
+	Path       string   `json:"path"`
+	Title      string   `json:"title"`
+	FSStandard string   `json:"fs_standard"` // FS top-level dir (durable path segment)
+	FSVersion  string   `json:"fs_version"`  // FS version segment (durable)
+	Suite      string   `json:"suite"`
+	File       string   `json:"file"`
+	VisibleIn  []string `json:"visible_in"`
+	Protocol   string   `json:"protocol"`
+	SUT        string   `json:"sut"`
+	Role       string   `json:"role"`
+	Provider   string   `json:"provider"`
+	// Product projection — same wire names as SuiteRecord (ADR-0002 dual axes).
+	Standard         string `json:"standard"`
 	Component        string `json:"component"`
-	NormVersion      string `json:"norm_version"`
+	Version          string `json:"version"`
 	StandardDisabled bool   `json:"-"`
 }
 
@@ -94,12 +95,12 @@ func suitePathPrefix(fsStd, fsVer, suite string) string {
 	return fmt.Sprintf("%s/%s/%s", fsStd, fsVer, suite)
 }
 
-// withNormalizedIdentity fills NormStandard / Component / NormVersion from FS segments.
+// withNormalizedIdentity fills Standard / Component / Version from FS segments.
 func (ch Check) withNormalizedIdentity() Check {
-	id := NormalizePathIdentity(ch.Standard, ch.Version, ch.Suite)
-	ch.NormStandard = id.Standard
+	id := NormalizePathIdentity(ch.FSStandard, ch.FSVersion, ch.Suite)
+	ch.Standard = id.Standard
 	ch.Component = id.Component
-	ch.NormVersion = id.Version
+	ch.Version = id.Version
 	return ch
 }
 
@@ -366,8 +367,8 @@ func loadClassicSuiteChecks(
 			ID:               PathID(path),
 			Path:             path,
 			Title:            titleFromMeta(fileMeta, stem),
-			Standard:         standardUID,
-			Version:          versionUID,
+			FSStandard:       standardUID,
+			FSVersion:        versionUID,
 			Suite:            suiteUID,
 			File:             fileName,
 			VisibleIn:        append([]string(nil), visibleIn...),
@@ -448,8 +449,8 @@ func loadFCAFSuiteTests(
 			ID:               PathID(path),
 			Path:             path,
 			Title:            title,
-			Standard:         standardUID,
-			Version:          versionUID,
+			FSStandard:       standardUID,
+			FSVersion:        versionUID,
 			Suite:            suiteUID,
 			File:             fileName,
 			VisibleIn:        append([]string(nil), visibleIn...),

@@ -11,8 +11,8 @@ const sample: ConformanceCheckRecord = {
 	id: 'abc123abc123abc',
 	path: 'fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001',
 	title: 'Example FCAF test',
-	standard: 'fcaf',
-	version: 'wallet_solution',
+	fs_standard: 'fcaf',
+	fs_version: 'wallet_solution',
 	suite: 'relying_party',
 	file: 'WS_RP_DM_Example_001.yaml',
 	visible_in: ['pipeline'],
@@ -20,9 +20,9 @@ const sample: ConformanceCheckRecord = {
 	sut: 'wallet_solution',
 	role: 'relying_party',
 	provider: 'fcaf',
-	norm_standard: 'openid4vp',
+	standard: 'openid4vp',
 	component: 'wallet',
-	norm_version: ''
+	version: ''
 };
 
 describe('fcaf catalog mapping', () => {

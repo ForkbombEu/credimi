@@ -12,8 +12,8 @@ export const conformanceCheckRecordSchema = z.object({
 	id: z.string(),
 	path: z.string(),
 	title: z.string(),
-	standard: z.string(),
-	version: z.string(),
+	fs_standard: z.string(),
+	fs_version: z.string(),
 	suite: z.string(),
 	file: z.string(),
 	visible_in: z.array(z.string()).optional().default([]),
@@ -21,9 +21,9 @@ export const conformanceCheckRecordSchema = z.object({
 	sut: z.string().optional().default(''),
 	role: z.string().optional().default(''),
 	provider: z.string().optional().default(''),
-	norm_standard: z.string().optional().default(''),
+	standard: z.string().optional().default(''),
 	component: z.string().optional().default(''),
-	norm_version: z.string().optional().default(''),
+	version: z.string().optional().default(''),
 });
 
 export type ConformanceCheckRecord = z.infer<typeof conformanceCheckRecordSchema>;

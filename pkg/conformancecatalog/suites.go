@@ -82,26 +82,26 @@ func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 
 	for _, ch := range checks {
 		key := suiteAggKey{
-			standard:  ch.NormStandard,
+			standard:  ch.Standard,
 			component: ch.Component,
-			version:   ch.NormVersion,
+			version:   ch.Version,
 			suite:     ch.Suite,
-			fsStd:     ch.Standard,
-			fsVer:     ch.Version,
+			fsStd:     ch.FSStandard,
+			fsVer:     ch.FSVersion,
 		}
 		a, ok := byKey[key]
 		if !ok {
-			prefix := suitePathPrefix(ch.Standard, ch.Version, ch.Suite)
+			prefix := suitePathPrefix(ch.FSStandard, ch.FSVersion, ch.Suite)
 			disp := suiteDisplayFields{}
 			if display != nil {
 				disp = display[prefix]
 			}
 			a = &agg{
 				meta: SuiteRecord{
-					Standard:         ch.NormStandard,
+					Standard:         ch.Standard,
 					Component:        ch.Component,
 					ComponentRank:    ComponentRank(ch.Component),
-					Version:          ch.NormVersion,
+					Version:          ch.Version,
 					Suite:            ch.Suite,
 					Provider:         ch.Provider,
 					SuiteName:        disp.Name,
@@ -110,8 +110,8 @@ func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 					SuiteHelp:        disp.Help,
 					SuiteDescription: disp.Description,
 					SuiteLogo:        disp.Logo,
-					FSStandard:       ch.Standard,
-					FSVersion:        ch.Version,
+					FSStandard:       ch.FSStandard,
+					FSVersion:        ch.FSVersion,
 					PathPrefix:       prefix,
 				},
 				vis:      map[string]struct{}{},

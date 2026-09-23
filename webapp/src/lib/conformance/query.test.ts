@@ -101,7 +101,7 @@ describe('compileCheckListQuery', () => {
 		const compiled = compileCheckListQuery(
 			{
 				surface: 'manual',
-				standard: 'fcaf',
+				fs_standard: 'fcaf',
 				facets: {
 					protocol: 'openid4vp',
 					sut: 'wallet_solution',
@@ -113,11 +113,11 @@ describe('compileCheckListQuery', () => {
 		);
 
 		expect(CATALOG_FACET_KEYS).toEqual(['protocol', 'sut', 'role', 'provider']);
-		expect(compiled.sort).toBe('standard,version,suite,path');
+		expect(compiled.sort).toBe('fs_standard,fs_version,suite,path');
 		expect(compiled.filter).toBe(
 			[
 				'visible_in ~ "manual"',
-				'standard = "fcaf"',
+				'fs_standard = "fcaf"',
 				'protocol = "openid4vp"',
 				'sut = "wallet_solution"',
 				'role = "wallet"',
@@ -134,7 +134,7 @@ describe('compileCheckListQuery', () => {
 
 		expect(compiled).toEqual({
 			filter: 'protocol = "openid4vp" && provider = "ewc"',
-			sort: 'standard,version,suite,path'
+			sort: 'fs_standard,fs_version,suite,path'
 		});
 	});
 

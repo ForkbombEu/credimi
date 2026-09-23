@@ -29,7 +29,8 @@ func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
 
 	checkInsert := insertSQL(CollectionName, checkColumns)
 	require.Contains(t, checkInsert, "INSERT INTO conformance_checks")
-	require.Contains(t, checkInsert, "{:norm_version}")
+	require.Contains(t, checkInsert, "{:version}")
+	require.Contains(t, checkInsert, "{:fs_standard}")
 	require.Contains(t, checkInsert, "{:updated}")
 
 	suiteInsert := insertSQL(SuitesCollectionName, suiteColumns)

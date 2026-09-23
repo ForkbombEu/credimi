@@ -92,23 +92,23 @@ func (m memberArray) MarshalJSON() ([]byte, error) {
 
 // catalogRow is the list/get record shape returned on the fake PB collection URL.
 type catalogRow struct {
-	ID           string      `db:"id"            json:"id"`
-	Path         string      `db:"path"          json:"path"`
-	Title        string      `db:"title"         json:"title"`
-	Standard     string      `db:"standard"      json:"standard"`
-	Version      string      `db:"version"       json:"version"`
-	Suite        string      `db:"suite"         json:"suite"`
-	File         string      `db:"file"          json:"file"`
-	VisibleIn    stringArray `db:"visible_in"    json:"visible_in"`
-	Protocol     string      `db:"protocol"      json:"protocol"`
-	SUT          string      `db:"sut"           json:"sut"`
-	Role         string      `db:"role"          json:"role"`
-	Provider     string      `db:"provider"      json:"provider"`
-	NormStandard string      `db:"norm_standard" json:"norm_standard"`
-	Component    string      `db:"component"     json:"component"`
-	NormVersion  string      `db:"norm_version"  json:"norm_version"`
-	Created      string      `db:"created"       json:"created"`
-	Updated      string      `db:"updated"       json:"updated"`
+	ID         string      `db:"id"          json:"id"`
+	Path       string      `db:"path"        json:"path"`
+	Title      string      `db:"title"       json:"title"`
+	FSStandard string      `db:"fs_standard" json:"fs_standard"`
+	FSVersion  string      `db:"fs_version"  json:"fs_version"`
+	Suite      string      `db:"suite"       json:"suite"`
+	File       string      `db:"file"        json:"file"`
+	VisibleIn  stringArray `db:"visible_in"  json:"visible_in"`
+	Protocol   string      `db:"protocol"    json:"protocol"`
+	SUT        string      `db:"sut"         json:"sut"`
+	Role       string      `db:"role"        json:"role"`
+	Provider   string      `db:"provider"    json:"provider"`
+	Standard   string      `db:"standard"    json:"standard"`
+	Component  string      `db:"component"   json:"component"`
+	Version    string      `db:"version"     json:"version"`
+	Created    string      `db:"created"     json:"created"`
+	Updated    string      `db:"updated"     json:"updated"`
 
 	// PocketBase client compatibility fields (not stored).
 	CollectionID   string `db:"-" json:"collectionId"`
@@ -241,21 +241,21 @@ func checkFromRow(r *catalogRow) Check {
 		return Check{}
 	}
 	return Check{
-		ID:           r.ID,
-		Path:         r.Path,
-		Title:        r.Title,
-		Standard:     r.Standard,
-		Version:      r.Version,
-		Suite:        r.Suite,
-		File:         r.File,
-		VisibleIn:    append([]string(nil), r.VisibleIn...),
-		Protocol:     r.Protocol,
-		SUT:          r.SUT,
-		Role:         r.Role,
-		Provider:     r.Provider,
-		NormStandard: r.NormStandard,
-		Component:    r.Component,
-		NormVersion:  r.NormVersion,
+		ID:         r.ID,
+		Path:       r.Path,
+		Title:      r.Title,
+		FSStandard: r.FSStandard,
+		FSVersion:  r.FSVersion,
+		Suite:      r.Suite,
+		File:       r.File,
+		VisibleIn:  append([]string(nil), r.VisibleIn...),
+		Protocol:   r.Protocol,
+		SUT:        r.SUT,
+		Role:       r.Role,
+		Provider:   r.Provider,
+		Standard:   r.Standard,
+		Component:  r.Component,
+		Version:    r.Version,
 	}
 }
 
@@ -286,23 +286,23 @@ func replaceEphemeralRows(loaded LoadedCatalog) error {
 			return fmt.Errorf("marshal visible_in for %s: %w", ch.Path, err)
 		}
 		_, err = tx.NewQuery(insertSQL(CollectionName, checkColumns)).Bind(dbx.Params{
-			"id":            ch.ID,
-			"path":          ch.Path,
-			"title":         ch.Title,
-			"standard":      ch.Standard,
-			"version":       ch.Version,
-			"suite":         ch.Suite,
-			"file":          ch.File,
-			"visible_in":    string(vis),
-			"protocol":      ch.Protocol,
-			"sut":           ch.SUT,
-			"role":          ch.Role,
-			"provider":      ch.Provider,
-			"norm_standard": ch.NormStandard,
-			"component":     ch.Component,
-			"norm_version":  ch.NormVersion,
-			"created":       now,
-			"updated":       now,
+			"id":          ch.ID,
+			"path":        ch.Path,
+			"title":       ch.Title,
+			"fs_standard": ch.FSStandard,
+			"fs_version":  ch.FSVersion,
+			"suite":       ch.Suite,
+			"file":        ch.File,
+			"visible_in":  string(vis),
+			"protocol":    ch.Protocol,
+			"sut":         ch.SUT,
+			"role":        ch.Role,
+			"provider":    ch.Provider,
+			"standard":    ch.Standard,
+			"component":   ch.Component,
+			"version":     ch.Version,
+			"created":     now,
+			"updated":     now,
 		}).Execute()
 		if err != nil {
 			return fmt.Errorf("insert ephemeral check %s: %w", ch.Path, err)

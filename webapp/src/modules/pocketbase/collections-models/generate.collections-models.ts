@@ -158,7 +158,7 @@ function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
 		system: false,
 		fields: fieldsFromClientColumns('conformance_checks', CHECK_CLIENT_COLUMNS, {
 			json: new Set(['visible_in']),
-			required: new Set(['path', 'title', 'standard', 'version', 'suite', 'file'])
+			required: new Set(['path', 'title', 'fs_standard', 'fs_version', 'suite', 'file'])
 		})
 	} as CollectionModel);
 }

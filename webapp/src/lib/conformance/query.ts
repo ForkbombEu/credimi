@@ -43,7 +43,7 @@ export type SuiteListIntent = {
 export type CheckListIntent = {
 	surface?: TemplateSurface;
 	/** Filesystem standard uid (e.g. `fcaf`). */
-	standard?: string;
+	fs_standard?: string;
 	facets?: CatalogFacets;
 };
 
@@ -66,7 +66,7 @@ export const SUITE_FACET_KEYS = ['standard', 'component', 'version', 'provider']
 export const HUB_SUITE_SORT_DEFAULT: SuiteSortIntent = { kind: 'default' };
 
 const HUB_SUITE_DEFAULT_SORT_STRING = 'component_rank,standard,suite';
-const CHECK_DEFAULT_SORT_STRING = 'standard,version,suite,path';
+const CHECK_DEFAULT_SORT_STRING = 'fs_standard,fs_version,suite,path';
 
 /** PocketBase sort fields behind domain {@link SuiteSortColumn} values. */
 const SUITE_SORT_PB_FIELD: Record<SuiteSortColumn, string> = {
@@ -134,8 +134,8 @@ export function compileCheckListQuery(
 	if (intent.surface) {
 		filters.push(filterFn('visible_in ~ {:surface}', { surface: intent.surface }));
 	}
-	if (intent.standard) {
-		filters.push(filterFn('standard = {:standard}', { standard: intent.standard }));
+	if (intent.fs_standard) {
+		filters.push(filterFn('fs_standard = {:fs_standard}', { fs_standard: intent.fs_standard }));
 	}
 	appendFacetFilters(filters, intent.facets, filterFn);
 

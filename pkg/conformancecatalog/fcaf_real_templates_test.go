@@ -21,7 +21,7 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 
 	var fcaf []Check
 	for _, ch := range loaded.Checks {
-		if ch.Standard == "fcaf" {
+		if ch.FSStandard == "fcaf" {
 			fcaf = append(fcaf, ch)
 		}
 	}
@@ -42,9 +42,9 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 		require.Equal(t, "relying_party", ch.Role, ch.Path)
 		require.Equal(t, "fcaf", ch.Provider, ch.Path)
 		require.Empty(t, ch.Protocol, ch.Path)
-		require.Equal(t, "openid4vp", ch.NormStandard, ch.Path)
+		require.Equal(t, "openid4vp", ch.Standard, ch.Path)
 		require.Equal(t, "wallet", ch.Component, ch.Path)
-		require.Empty(t, ch.NormVersion, ch.Path)
+		require.Empty(t, ch.Version, ch.Path)
 	}
 
 	disp := loaded.SuiteDisplay["fcaf/wallet_solution/relying_party"]
@@ -81,21 +81,21 @@ func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 
 	var classic []Check
 	for _, ch := range loaded.Checks {
-		if ch.Standard == "fcaf" {
+		if ch.FSStandard == "fcaf" {
 			continue
 		}
 		classic = append(classic, ch)
-		want, ok := wantByStandard[ch.Standard]
-		require.True(t, ok, "unexpected standard %q path=%s", ch.Standard, ch.Path)
+		want, ok := wantByStandard[ch.FSStandard]
+		require.True(t, ok, "unexpected standard %q path=%s", ch.FSStandard, ch.Path)
 		require.Equal(t, want.Protocol, ch.Protocol, ch.Path)
 		require.Equal(t, want.Role, ch.Role, ch.Path)
 		require.Empty(t, ch.SUT, "classic sut must stay empty: %s", ch.Path)
 		require.Equal(t, ch.Suite, ch.Provider, "provider should match suite uid: %s", ch.Path)
 
-		id := NormalizePathIdentity(ch.Standard, ch.Version, ch.Suite)
-		require.Equal(t, id.Standard, ch.NormStandard, ch.Path)
+		id := NormalizePathIdentity(ch.FSStandard, ch.FSVersion, ch.Suite)
+		require.Equal(t, id.Standard, ch.Standard, ch.Path)
 		require.Equal(t, id.Component, ch.Component, ch.Path)
-		require.Equal(t, id.Version, ch.NormVersion, ch.Path)
+		require.Equal(t, id.Version, ch.Version, ch.Path)
 		if want.Role != "" {
 			require.Equal(t, want.Role, ch.Component, "component should match classic role: %s", ch.Path)
 		}

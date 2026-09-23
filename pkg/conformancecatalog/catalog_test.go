@@ -245,7 +245,7 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	)
 
 	for _, ch := range loaded.Checks {
-		require.NotEqual(t, "fcaf_sources", ch.Standard)
+		require.NotEqual(t, "fcaf_sources", ch.FSStandard)
 	}
 
 	fcafOne := byPath["fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001"]
@@ -255,8 +255,11 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	require.Equal(t, "wallet_solution", fcafOne.SUT)
 	require.Equal(t, "relying_party", fcafOne.Role)
 	require.Equal(t, "fcaf", fcafOne.Provider)
-	require.Equal(t, "fcaf", fcafOne.Standard)
-	require.Equal(t, "wallet_solution", fcafOne.Version)
+	require.Equal(t, "fcaf", fcafOne.FSStandard)
+	require.Equal(t, "wallet_solution", fcafOne.FSVersion)
+	require.Equal(t, "openid4vp", fcafOne.Standard)
+	require.Equal(t, "wallet", fcafOne.Component)
+	require.Empty(t, fcafOne.Version)
 	require.Equal(t, "relying_party", fcafOne.Suite)
 
 	fcafTwo := byPath["fcaf/wallet_solution/relying_party/WS_RP_IA_Example_002"]
@@ -369,7 +372,7 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	rec = serve(
 		http.MethodGet,
 		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(
-			`standard="openid4vp"`,
+			`fs_standard="openid4vp"`,
 		),
 		"",
 	)
@@ -377,7 +380,7 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.Contains(t, rec.Body.String(), `"totalItems":4`)
 
 	rec = serve(http.MethodGet,
-		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`standard="fcaf"`),
+		"/api/collections/conformance_checks/records?filter="+url.QueryEscape(`fs_standard="fcaf"`),
 		"")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), `"totalItems":2`)
@@ -439,7 +442,7 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, rec.Code)
 
 	rec = serve(http.MethodPost, "/api/collections/conformance_checks/records",
-		`{"path":"x","title":"y","standard":"a","version":"b","suite":"c","file":"d.yaml"}`)
+		`{"path":"x","title":"y","fs_standard":"a","fs_version":"b","suite":"c","file":"d.yaml"}`)
 	require.True(t, rec.Code == http.StatusForbidden || rec.Code == http.StatusBadRequest,
 		"create status=%d body=%s", rec.Code, rec.Body.String())
 

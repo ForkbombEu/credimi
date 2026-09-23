@@ -11,8 +11,8 @@ export const CHECK_CLIENT_COLUMNS = [
 	'id',
 	'path',
 	'title',
-	'standard',
-	'version',
+	'fs_standard',
+	'fs_version',
 	'suite',
 	'file',
 	'visible_in',
@@ -20,9 +20,9 @@ export const CHECK_CLIENT_COLUMNS = [
 	'sut',
 	'role',
 	'provider',
-	'norm_standard',
+	'standard',
 	'component',
-	'norm_version',
+	'version',
 ] as const;
 
 export type CheckClientColumn = (typeof CHECK_CLIENT_COLUMNS)[number];

@@ -13,8 +13,8 @@ export type ConformanceChecksRecord = {
 	id: string
 	path: string
 	title: string
-	standard: string
-	version: string
+	fs_standard: string
+	fs_version: string
 	suite: string
 	file: string
 	visible_in?: string[]
@@ -22,9 +22,9 @@ export type ConformanceChecksRecord = {
 	sut?: string
 	role?: string
 	provider?: string
-	norm_standard?: string
+	standard?: string
 	component?: string
-	norm_version?: string
+	version?: string
 }
 
 export type ConformanceSuitesRecord = {
