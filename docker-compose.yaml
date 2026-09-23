@@ -78,7 +78,7 @@ services:
     healthcheck:
       # auto-setup listens on the service DNS name (TEMPORAL_ADDRESS), not 127.0.0.1.
       test:
-        ["CMD-SHELL", "temporal operator cluster health | grep -q SERVING"]
+        ["CMD-SHELL", "temporal operator cluster health | grep -Fxq SERVING"]
       interval: 10s
       timeout: 5s
       retries: 12
