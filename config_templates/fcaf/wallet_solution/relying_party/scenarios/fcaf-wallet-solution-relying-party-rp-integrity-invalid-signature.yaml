@@ -25,21 +25,10 @@ steps:
 - id: reject-corrupt-signature
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-corrupt-signature.outputs.body.deeplink }}" }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp: { stopApp: true, clearState: false }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "50%,10%" }
-            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-      - takeScreenshot: fcaf-rp-integrity-027
+    parameters:
+      deeplink: "${{ create-corrupt-signature.outputs.body.deeplink }}"
 - id: fetch-corrupt-signature
   use: http-request
   with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-corrupt-signature.outputs.body.session_id }}", expected_status: 200 }

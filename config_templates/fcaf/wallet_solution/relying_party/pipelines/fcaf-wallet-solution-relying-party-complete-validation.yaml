@@ -1487,15 +1487,9 @@ steps:
       id: dcql-credential-format-disallowed-c8dd9078-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credential-format-disallowed
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-format-disallowed-c8dd9078-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-format-disallowed-c8dd9078-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-format-disallowed-c8dd9078-fetch
@@ -1525,15 +1519,9 @@ steps:
       id: dcql-credential-format-missing-b1b0b25b-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credential-format-missing
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-format-missing-b1b0b25b-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-format-missing-b1b0b25b-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-format-missing-b1b0b25b-fetch
@@ -1863,15 +1851,9 @@ steps:
       id: dcql-credential-id-duplicate-0ca7fa96-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credential-id-duplicate
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-id-duplicate-0ca7fa96-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-id-duplicate-0ca7fa96-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-duplicate-0ca7fa96-fetch
@@ -1902,15 +1884,9 @@ steps:
       id: dcql-credential-id-empty-6d3e76ff-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credential-id-empty
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-id-empty-6d3e76ff-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-id-empty-6d3e76ff-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-empty-6d3e76ff-fetch
@@ -1941,15 +1917,9 @@ steps:
       id: dcql-credential-id-invalid-966ca275-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credential-id-invalid
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-id-invalid-966ca275-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-id-invalid-966ca275-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-invalid-966ca275-fetch
@@ -1979,15 +1949,9 @@ steps:
       id: dcql-credential-id-missing-b9fe0583-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credential-id-missing
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-id-missing-b9fe0583-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-id-missing-b9fe0583-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-missing-b9fe0583-fetch
@@ -2018,15 +1982,9 @@ steps:
       id: dcql-credential-id-non-string-222522d5-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credential-id-non-string
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-id-non-string-222522d5-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-id-non-string-222522d5-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-non-string-222522d5-fetch
@@ -2058,15 +2016,9 @@ steps:
       id: dcql-credential-sets-empty-84f34308-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credential-sets-empty
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-sets-empty-84f34308-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-sets-empty-84f34308-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-empty-84f34308-fetch
@@ -2653,25 +2605,9 @@ steps:
       id: dcql-credentials-empty-8a34dae1-reject-empty-credentials
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - tapOn: { text: "EUDI Wallet", optional: true }
-            - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credentials-empty
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credentials-empty-8a34dae1-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credentials-empty-8a34dae1-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credentials-empty-8a34dae1-fetch-capture-session
@@ -2698,15 +2634,9 @@ steps:
       id: dcql-credentials-malformed-e90a2f4e-reject
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credentials-malformed
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credentials-malformed-e90a2f4e-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credentials-malformed-e90a2f4e-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credentials-malformed-e90a2f4e-fetch
@@ -2805,25 +2735,9 @@ steps:
       id: dcql-credentials-missing-377a6829-reject-missing-credentials
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - tapOn: { text: "EUDI Wallet", optional: true }
-            - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credentials-missing
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credentials-missing-377a6829-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credentials-missing-377a6829-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credentials-missing-377a6829-fetch-capture-session
@@ -2849,25 +2763,9 @@ steps:
       id: dcql-credentials-non-array-f11dc532-reject-non-array-credentials
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - tapOn: { text: "EUDI Wallet", optional: true }
-            - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-dcql-credentials-non-array
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credentials-non-array-f11dc532-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credentials-non-array-f11dc532-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credentials-non-array-f11dc532-fetch-capture-session
@@ -4878,25 +4776,9 @@ steps:
       id: dcql-meta-format-mismatch-dbb8d5c5-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - tapOn: { text: "EUDI Wallet", optional: true }
-            - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: protocol-messages-074
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-meta-format-mismatch-dbb8d5c5-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-meta-format-mismatch-dbb8d5c5-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-meta-format-mismatch-dbb8d5c5-session
@@ -4936,25 +4818,9 @@ steps:
       id: dcql-meta-omitted-3812c5e1-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - tapOn: { text: "EUDI Wallet", optional: true }
-            - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: protocol-messages-075
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-meta-omitted-3812c5e1-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-meta-omitted-3812c5e1-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-meta-omitted-3812c5e1-session
@@ -5138,25 +5004,9 @@ steps:
       id: dcql-multiple-non-boolean-c494241c-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - tapOn: { text: "EUDI Wallet", optional: true }
-            - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: protocol-messages-072
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-multiple-non-boolean-c494241c-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-multiple-non-boolean-c494241c-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-multiple-non-boolean-c494241c-session
@@ -10303,35 +10153,9 @@ steps:
       id: pid-under-18-constraint-e7f0d444-reject-over-18-constraint
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-main-interaction-032
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ pid-under-18-constraint-e7f0d444-create-over-18-constraint.outputs.body.deeplink }}
+            deeplink: ${{ pid-under-18-constraint-e7f0d444-create-over-18-constraint.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-under-18-constraint-e7f0d444-fetch-over-18-constraint
@@ -10461,21 +10285,9 @@ steps:
       id: request-object-header-controls-ed82443e-reject-invalid-typ
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-protocol-messages-003-uf
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-object-header-controls-ed82443e-create-invalid-typ.outputs.body.deeplink }}
+            deeplink: ${{ request-object-header-controls-ed82443e-create-invalid-typ.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-header-controls-ed82443e-fetch-invalid-typ
@@ -10519,21 +10331,9 @@ steps:
       id: request-object-header-controls-ed82443e-reject-missing-typ
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-protocol-messages-006
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-object-header-controls-ed82443e-create-missing-typ.outputs.body.deeplink }}
+            deeplink: ${{ request-object-header-controls-ed82443e-create-missing-typ.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-header-controls-ed82443e-fetch-missing-typ
@@ -10577,21 +10377,9 @@ steps:
       id: request-object-header-controls-ed82443e-reject-wrong-typ
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-protocol-messages-007
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-object-header-controls-ed82443e-create-wrong-typ.outputs.body.deeplink }}
+            deeplink: ${{ request-object-header-controls-ed82443e-create-wrong-typ.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-header-controls-ed82443e-fetch-wrong-typ
@@ -10684,21 +10472,9 @@ steps:
       id: request-object-outer-controls-84cfd8b2-reject-conflicting-client-id
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-protocol-messages-051
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-object-outer-controls-84cfd8b2-create-conflicting-client-id.outputs.body.deeplink }}
+            deeplink: ${{ request-object-outer-controls-84cfd8b2-create-conflicting-client-id.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id
@@ -10788,21 +10564,9 @@ steps:
       id: request-object-payload-controls-aefde1c6-exercise-missing-client-id
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-missing-client-id
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-missing-client-id.outputs.body.deeplink }}
+            deeplink: ${{ request-object-payload-controls-aefde1c6-create-missing-client-id.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-payload-controls-aefde1c6-fetch-missing-client-id
@@ -10892,21 +10656,9 @@ steps:
       id: request-object-payload-controls-aefde1c6-exercise-invalid-state
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-invalid-state
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-invalid-state.outputs.body.deeplink }}
+            deeplink: ${{ request-object-payload-controls-aefde1c6-create-invalid-state.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-payload-controls-aefde1c6-fetch-invalid-state
@@ -10952,21 +10704,9 @@ steps:
       id: request-object-payload-controls-aefde1c6-exercise-no-state-without-holder-binding
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-no-state-without-holder-binding
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-no-state-without-holder-binding.outputs.body.deeplink }}
+            deeplink: ${{ request-object-payload-controls-aefde1c6-create-no-state-without-holder-binding.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-payload-controls-aefde1c6-fetch-no-state-without-holder-binding
@@ -11278,21 +11018,9 @@ steps:
       id: request-uri-response-controls-77a90e75-reject-wrong-content-type
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-protocol-messages-048
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-uri-response-controls-77a90e75-create-wrong-content-type.outputs.body.deeplink }}
+            deeplink: ${{ request-uri-response-controls-77a90e75-create-wrong-content-type.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-response-controls-77a90e75-fetch-wrong-content-type
@@ -11334,21 +11062,9 @@ steps:
       id: request-uri-response-controls-77a90e75-reject-http-error
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-supportive-002
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ request-uri-response-controls-77a90e75-create-http-error.outputs.body.deeplink }}
+            deeplink: ${{ request-uri-response-controls-77a90e75-create-http-error.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-response-controls-77a90e75-fetch-http-error
@@ -11947,21 +11663,9 @@ steps:
       id: response-uri-controls-48310ca6-reject-missing-response-uri
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-main-interaction-053
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ response-uri-controls-48310ca6-create-missing-response-uri.outputs.body.deeplink }}
+            deeplink: ${{ response-uri-controls-48310ca6-create-missing-response-uri.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-uri-controls-48310ca6-fetch-missing-response-uri
@@ -12004,21 +11708,9 @@ steps:
       id: response-uri-controls-48310ca6-reject-redirect-uri-present
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-metadata-010
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ response-uri-controls-48310ca6-create-redirect-uri-present.outputs.body.deeplink }}
+            deeplink: ${{ response-uri-controls-48310ca6-create-redirect-uri-present.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-uri-controls-48310ca6-fetch-redirect-uri-present
@@ -12062,21 +11754,9 @@ steps:
       id: response-uri-controls-48310ca6-reject-invalid-response-uri
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-main-interaction-056
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ response-uri-controls-48310ca6-create-invalid-response-uri.outputs.body.deeplink }}
+            deeplink: ${{ response-uri-controls-48310ca6-create-invalid-response-uri.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-uri-controls-48310ca6-fetch-invalid-response-uri
@@ -12117,21 +11797,9 @@ steps:
       id: rp-integrity-invalid-signature-4f1ab386-reject-corrupt-signature
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-rp-integrity-027
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature.outputs.body.deeplink }}
+            deeplink: ${{ rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: rp-integrity-invalid-signature-4f1ab386-fetch-corrupt-signature
@@ -12460,35 +12128,9 @@ steps:
       id: status-reference-rejection-0adf5c5d-probe-status-without-status-list
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-metadata-084
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-probe.outputs.body.deeplink }}
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-status-without-status-list-probe
@@ -12558,35 +12200,9 @@ steps:
       id: status-reference-rejection-0adf5c5d-probe-negative-index
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-metadata-086
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-negative-index-probe.outputs.body.deeplink }}
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-negative-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-negative-index-probe
@@ -12656,35 +12272,9 @@ steps:
       id: status-reference-rejection-0adf5c5d-probe-missing-index
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-metadata-087
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-missing-index-probe.outputs.body.deeplink }}
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-missing-index-probe
@@ -12754,35 +12344,9 @@ steps:
       id: status-reference-rejection-0adf5c5d-probe-malformed-uri
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-metadata-089
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-malformed-uri-probe.outputs.body.deeplink }}
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-malformed-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-malformed-uri-probe
@@ -12852,35 +12416,9 @@ steps:
       id: status-reference-rejection-0adf5c5d-probe-missing-uri
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-metadata-090
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ status-reference-rejection-0adf5c5d-create-missing-uri-probe.outputs.body.deeplink }}
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-missing-uri-probe
@@ -13544,21 +13082,9 @@ steps:
       id: wallet-nonce-controls-5bb1d8ef-reject-protocol-message-nonce-mismatch
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-protocol-messages-046
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ wallet-nonce-controls-5bb1d8ef-create-protocol-message-nonce-mismatch.outputs.body.deeplink }}
+            deeplink: ${{ wallet-nonce-controls-5bb1d8ef-create-protocol-message-nonce-mismatch.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: wallet-nonce-controls-5bb1d8ef-fetch-protocol-message-nonce-mismatch
@@ -13599,21 +13125,9 @@ steps:
       id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-mismatch
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-metadata-139
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-mismatch.outputs.body.deeplink }}
+            deeplink: ${{ wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-mismatch.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-mismatch
@@ -13654,21 +13168,9 @@ steps:
       id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-omitted
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "50%,10%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: fcaf-metadata-140
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-omitted.outputs.body.deeplink }}
+            deeplink: ${{ wallet-nonce-controls-5bb1d8ef-create-metadata-nonce-omitted.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: wallet-nonce-controls-5bb1d8ef-fetch-metadata-nonce-omitted

@@ -68,36 +68,10 @@ steps:
 - id: probe-status-without-status-list
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
     version_id: installed_from_external_source
     parameters:
-      DEEPLINK: ${{ create-status-without-status-list-probe.outputs.body.deeplink }}
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions: { camera: allow, notifications: allow, all: unset }
-      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-      - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-      - takeScreenshot: fcaf-metadata-084
+      deeplink: "${{ create-status-without-status-list-probe.outputs.body.deeplink }}"
 - id: fetch-status-without-status-list-probe
   use: http-request
   with:
@@ -161,36 +135,10 @@ steps:
 - id: probe-negative-index
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
     version_id: installed_from_external_source
     parameters:
-      DEEPLINK: ${{ create-negative-index-probe.outputs.body.deeplink }}
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions: { camera: allow, notifications: allow, all: unset }
-      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-      - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-      - takeScreenshot: fcaf-metadata-086
+      deeplink: "${{ create-negative-index-probe.outputs.body.deeplink }}"
 - id: fetch-negative-index-probe
   use: http-request
   with:
@@ -254,36 +202,10 @@ steps:
 - id: probe-missing-index
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
     version_id: installed_from_external_source
     parameters:
-      DEEPLINK: ${{ create-missing-index-probe.outputs.body.deeplink }}
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions: { camera: allow, notifications: allow, all: unset }
-      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-      - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-      - takeScreenshot: fcaf-metadata-087
+      deeplink: "${{ create-missing-index-probe.outputs.body.deeplink }}"
 - id: fetch-missing-index-probe
   use: http-request
   with:
@@ -347,36 +269,10 @@ steps:
 - id: probe-malformed-uri
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
     version_id: installed_from_external_source
     parameters:
-      DEEPLINK: ${{ create-malformed-uri-probe.outputs.body.deeplink }}
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions: { camera: allow, notifications: allow, all: unset }
-      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-      - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-      - takeScreenshot: fcaf-metadata-089
+      deeplink: "${{ create-malformed-uri-probe.outputs.body.deeplink }}"
 - id: fetch-malformed-uri-probe
   use: http-request
   with:
@@ -440,36 +336,10 @@ steps:
 - id: probe-missing-uri
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
     version_id: installed_from_external_source
     parameters:
-      DEEPLINK: ${{ create-missing-uri-probe.outputs.body.deeplink }}
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions: { camera: allow, notifications: allow, all: unset }
-      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-      - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-      - takeScreenshot: fcaf-metadata-090
+      deeplink: "${{ create-missing-uri-probe.outputs.body.deeplink }}"
 - id: fetch-missing-uri-probe
   use: http-request
   with:

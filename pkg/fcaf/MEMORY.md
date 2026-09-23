@@ -2061,3 +2061,33 @@ Deployment note: a shared action is not self-contained. The target instance
 must hold a `wallet_actions` record for it before the aggregate can run, per
 `config_templates/fcaf/imports/forkbomb-bv-andrea/README.md`. Inline
 `action_code` needs no import, which is why bespoke one-off flows stay inline.
+
+## Shared rejection actions rolled out across the scenarios
+
+`fcaf-expect-no-matching-document` was added alongside
+`fcaf-expect-request-rejected`, and the three duplicated inline shapes were
+migrated to them:
+
+- 32 steps in 23 scenarios now use `fcaf-expect-request-rejected`. They came
+  from three inline variants of the same flow: the 17-use one with a
+  post-`openLink` unlock, a 9-use one with neither unlock nor settle wait, and
+  a 6-use one that unlocked before `openLink` and handled the browser chooser.
+  The shared action is their union, so every migrated step gains the handling
+  it was missing.
+- 6 steps in 2 scenarios now use `fcaf-expect-no-matching-document`.
+
+Inline `action_code` steps dropped from 95 to 58. The generated aggregate is
+unchanged at 848 steps, 612 test IDs and 206 pipeline outputs, with identical
+test-ID and pipeline-output sets, so this is a pure refactor.
+
+Deliberately left inline: `dcql-claims-path-no-match`,
+`dcql-claims-values-no-match`, `dcql-no-matching-credentials` and
+`dcql-trusted-authorities-no-match` also end on the "requested document is not
+available" screen, but their flows are 40-60 lines and do more before that
+point. Folding them into the shared action would change what they exercise, not
+just where the code lives.
+
+Residual risk: the migrated steps that previously used the shorter
+`50%,10%`-then-inputText unlock now use the generic action's sequence. All of
+them are `reference Wallet run pending`, so no green run regressed, but the
+first emulator run should confirm the unlock path before these are trusted.

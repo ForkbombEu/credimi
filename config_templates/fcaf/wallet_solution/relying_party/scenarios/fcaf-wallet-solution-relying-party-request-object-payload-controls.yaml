@@ -67,21 +67,10 @@ steps:
 - id: exercise-missing-client-id
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-missing-client-id.outputs.body.deeplink }}" }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp: { stopApp: true, clearState: false }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "50%,10%" }
-            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-      - takeScreenshot: fcaf-missing-client-id
+    parameters:
+      deeplink: "${{ create-missing-client-id.outputs.body.deeplink }}"
 - id: fetch-missing-client-id
   use: http-request
   with:
@@ -151,21 +140,10 @@ steps:
 - id: exercise-invalid-state
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-invalid-state.outputs.body.deeplink }}" }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp: { stopApp: true, clearState: false }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "50%,10%" }
-            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-      - takeScreenshot: fcaf-invalid-state
+    parameters:
+      deeplink: "${{ create-invalid-state.outputs.body.deeplink }}"
 - id: fetch-invalid-state
   use: http-request
   with:
@@ -200,21 +178,10 @@ steps:
 - id: exercise-no-state-without-holder-binding
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-no-state-without-holder-binding.outputs.body.deeplink }}" }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp: { stopApp: true, clearState: false }
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents", timeout: 100000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "50%,10%" }
-            - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-      - extendedWaitUntil: { visible: "Error|invalid request|Something went wrong|Home|Documents", timeout: 30000 }
-      - takeScreenshot: fcaf-no-state-without-holder-binding
+    parameters:
+      deeplink: "${{ create-no-state-without-holder-binding.outputs.body.deeplink }}"
 - id: fetch-no-state-without-holder-binding
   use: http-request
   with:
