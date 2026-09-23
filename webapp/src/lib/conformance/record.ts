@@ -48,6 +48,7 @@ export const conformanceSuiteRecordSchema = z.object({
 	id: z.string(),
 	standard: z.string(),
 	component: z.string().optional().default(''),
+	component_rank: z.number().int().nonnegative().optional().default(9),
 	version: z.string().optional().default(''),
 	suite: z.string(),
 	provider: z.string().optional().default(''),

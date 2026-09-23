@@ -227,6 +227,13 @@ function injectSyntheticConformanceSuites(models: CollectionModel[]): void {
 			{ id: 'conformance_suites_id', name: 'id', type: 'text', system: true, required: true },
 			text('standard'),
 			text('component', false),
+			{
+				id: 'conformance_suites_component_rank',
+				name: 'component_rank',
+				type: 'number',
+				system: false,
+				required: true
+			},
 			text('version', false),
 			text('suite'),
 			text('provider', false),

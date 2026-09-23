@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from '@lucide/svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		createColumnHelper,
@@ -21,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { entities, type EntityData } from '$lib/global/entities';
 	import EntityTag from '$lib/global/entity-tag.svelte';
 
+	import SortHeaderPill from '@/components/ui-custom/sort-header-pill.svelte';
 	import {
 		createSvelteTable,
 		FlexRender,
@@ -41,23 +41,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { suites: initialSuites = [] }: Props = $props();
 
-	/** Stable API default (includes version tie-break even though Version is not UI-sortable). */
-	const DEFAULT_SORT = 'standard,component,version,suite';
+	/** Server default when UI has no active column sort. */
+	const DEFAULT_SORT = 'component_rank,standard,suite';
 
-	const DEFAULT_SORTING: SortingState = [
-		{ id: 'standard', desc: false },
-		{ id: 'component', desc: false },
-		{ id: 'suite', desc: false }
-	];
-
-	/** Column id → PocketBase sort field. Suite sorts by authored name. */
+	/** Column id → PocketBase sort field. Component uses wallet-first rank. */
 	const SORT_FIELDS: Record<string, string> = {
 		standard: 'standard',
-		component: 'component',
+		component: 'component_rank',
 		suite: 'suite_name'
 	};
 
-	let sorting = $state<SortingState>([...DEFAULT_SORTING]);
+	/** Empty = no UI sort indicator; data still arrives in DEFAULT_SORT order. */
+	let sorting = $state<SortingState>([]);
 
 	const sortString = $derived(buildSortString(sorting));
 
@@ -149,16 +144,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	function isDefaultSorting(state: SortingState): boolean {
-		if (state.length !== DEFAULT_SORTING.length) return false;
-		return state.every(
-			(entry, index) =>
-				entry.id === DEFAULT_SORTING[index].id && entry.desc === DEFAULT_SORTING[index].desc
-		);
-	}
-
 	function buildSortString(state: SortingState): string {
-		if (state.length === 0 || isDefaultSorting(state)) return DEFAULT_SORT;
+		if (state.length === 0) return DEFAULT_SORT;
 		return state
 			.map(({ id, desc }) => {
 				const field = SORT_FIELDS[id];
@@ -192,12 +179,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function versionLabel(version: string): string {
 		return version.trim() || '—';
 	}
-
-	function sortIcon(sorted: false | 'asc' | 'desc') {
-		if (sorted === 'asc') return ArrowUpIcon;
-		if (sorted === 'desc') return ArrowDownIcon;
-		return ArrowUpDownIcon;
-	}
 </script>
 
 <div class="space-y-4 px-4 pb-4">
@@ -210,17 +191,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<Table.Head class="px-4">
 								{#if !header.isPlaceholder}
 									{#if header.column.getCanSort()}
-										{@const SortIcon = sortIcon(header.column.getIsSorted())}
 										<button
 											type="button"
-											class="inline-flex items-center gap-1 text-left hover:cursor-pointer"
+											class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
 											onclick={header.column.getToggleSortingHandler()}
 										>
 											<FlexRender
 												content={header.column.columnDef.header}
 												context={header.getContext()}
 											/>
-											<SortIcon class="size-3.5 shrink-0 text-muted-foreground" />
+											<SortHeaderPill {header} {table} />
 										</button>
 									{:else}
 										<FlexRender

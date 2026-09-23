@@ -17,8 +17,9 @@ type SuiteRecord struct {
 	ID               string   `json:"id"`
 	Standard         string   `json:"standard"`  // normalized product standard
 	Component        string   `json:"component"` // wallet | issuer | verifier | ""
-	Version          string   `json:"version"`   // normalized profile version (may be "")
-	Suite            string   `json:"suite"`     // suite uid
+	ComponentRank    int      `json:"component_rank"` // wallet=0, issuer=1, verifier=2, else=9
+	Version          string   `json:"version"`        // normalized profile version (may be "")
+	Suite            string   `json:"suite"`          // suite uid
 	Provider         string   `json:"provider"`
 	SuiteName        string   `json:"suite_name"`
 	SuiteHomepage    string   `json:"suite_homepage"`
@@ -34,6 +35,21 @@ type SuiteRecord struct {
 	FSStandard       string   `json:"fs_standard"`
 	FSVersion        string   `json:"fs_version"`
 	PathPrefix       string   `json:"path_prefix"` // fs_standard/fs_version/suite for hub URLs
+}
+
+// ComponentRank returns the hub default sort priority for a component uid.
+// wallet → issuer → verifier; unknown/empty last.
+func ComponentRank(component string) int {
+	switch strings.TrimSpace(component) {
+	case "wallet":
+		return 0
+	case "issuer":
+		return 1
+	case "verifier":
+		return 2
+	default:
+		return 9
+	}
 }
 
 type suiteAggKey struct {
@@ -76,6 +92,7 @@ func ProjectSuites(checks []Check) []SuiteRecord {
 				meta: SuiteRecord{
 					Standard:         ch.NormStandard,
 					Component:        ch.Component,
+					ComponentRank:    ComponentRank(ch.Component),
 					Version:          ch.NormVersion,
 					Suite:            ch.Suite,
 					Provider:         ch.Provider,
@@ -135,16 +152,16 @@ func ProjectSuites(checks []Check) []SuiteRecord {
 
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
+		if a.ComponentRank != b.ComponentRank {
+			return a.ComponentRank < b.ComponentRank
+		}
 		if c := strings.Compare(a.Standard, b.Standard); c != 0 {
 			return c < 0
 		}
-		if c := strings.Compare(a.Component, b.Component); c != 0 {
+		if c := strings.Compare(a.Suite, b.Suite); c != 0 {
 			return c < 0
 		}
 		if c := strings.Compare(a.Version, b.Version); c != 0 {
-			return c < 0
-		}
-		if c := strings.Compare(a.Suite, b.Suite); c != 0 {
 			return c < 0
 		}
 		return a.PathPrefix < b.PathPrefix

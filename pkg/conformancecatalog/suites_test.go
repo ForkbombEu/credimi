@@ -98,7 +98,59 @@ func TestProjectSuitesGroupsByNormalizedAxes(t *testing.T) {
 	fcaf := byPrefix["fcaf/wallet_solution/relying_party"]
 	require.Equal(t, "openid4vp", fcaf.Standard)
 	require.Equal(t, "wallet", fcaf.Component)
+	require.Equal(t, 0, fcaf.ComponentRank)
 	require.Empty(t, fcaf.Version)
 	require.Equal(t, "fcaf", fcaf.Provider)
 	require.Equal(t, 1, fcaf.CheckCount)
+}
+
+func TestComponentRankOrder(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, 0, ComponentRank("wallet"))
+	require.Equal(t, 1, ComponentRank("issuer"))
+	require.Equal(t, 2, ComponentRank("verifier"))
+	require.Equal(t, 9, ComponentRank(""))
+	require.Equal(t, 9, ComponentRank("unknown"))
+}
+
+func TestProjectSuitesSortsWalletIssuerVerifierThenStandardSuite(t *testing.T) {
+	t.Parallel()
+
+	checks := []Check{
+		{
+			Path: "openid4vp_verifier/1.0/webuild/a", Title: "A",
+			Standard: "openid4vp_verifier", Version: "1.0", Suite: "webuild", File: "a.yaml",
+			NormStandard: "openid4vp", Component: "verifier", NormVersion: "1.0",
+			VisibleIn: []string{"pipeline"},
+		},
+		{
+			Path: "openid4vci_issuer/1.0/webuild/a", Title: "A",
+			Standard: "openid4vci_issuer", Version: "1.0", Suite: "webuild", File: "a.yaml",
+			NormStandard: "openid4vci", Component: "issuer", NormVersion: "1.0",
+			VisibleIn: []string{"pipeline"},
+		},
+		{
+			Path: "openid4vci_wallet/1.0/ewc/a", Title: "A",
+			Standard: "openid4vci_wallet", Version: "1.0", Suite: "ewc", File: "a.yaml",
+			NormStandard: "openid4vci", Component: "wallet", NormVersion: "1.0",
+			VisibleIn: []string{"pipeline"},
+		},
+		{
+			Path: "openid4vp_wallet/1.0/ewc/a", Title: "A",
+			Standard: "openid4vp_wallet", Version: "1.0", Suite: "ewc", File: "a.yaml",
+			NormStandard: "openid4vp", Component: "wallet", NormVersion: "1.0",
+			VisibleIn: []string{"pipeline"},
+		},
+	}
+
+	suites := ProjectSuites(checks)
+	require.Len(t, suites, 4)
+	require.Equal(t, []string{"wallet", "wallet", "issuer", "verifier"}, []string{
+		suites[0].Component, suites[1].Component, suites[2].Component, suites[3].Component,
+	})
+	require.Equal(t, "openid4vci", suites[0].Standard)
+	require.Equal(t, "openid4vp", suites[1].Standard)
+	require.Equal(t, "ewc", suites[0].Suite)
+	require.Equal(t, "ewc", suites[1].Suite)
 }

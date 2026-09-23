@@ -52,6 +52,7 @@ var suiteSelectColumns = []string{
 	"id",
 	"standard",
 	"component",
+	"component_rank",
 	"version",
 	"suite",
 	"provider",

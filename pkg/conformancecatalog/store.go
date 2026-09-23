@@ -100,6 +100,7 @@ type suiteRow struct {
 	ID               string      `db:"id"                json:"id"`
 	Standard         string      `db:"standard"          json:"standard"`
 	Component        string      `db:"component"         json:"component"`
+	ComponentRank    int         `db:"component_rank"    json:"component_rank"`
 	Version          string      `db:"version"           json:"version"`
 	Suite            string      `db:"suite"             json:"suite"`
 	Provider         string      `db:"provider"          json:"provider"`
@@ -185,6 +186,7 @@ CREATE TABLE conformance_suites (
 	id TEXT PRIMARY KEY NOT NULL,
 	standard TEXT NOT NULL,
 	component TEXT NOT NULL DEFAULT '',
+	component_rank INTEGER NOT NULL DEFAULT 9,
 	version TEXT NOT NULL DEFAULT '',
 	suite TEXT NOT NULL,
 	provider TEXT NOT NULL DEFAULT '',
@@ -308,12 +310,12 @@ INSERT INTO conformance_checks (
 		}
 		_, err = tx.NewQuery(`
 INSERT INTO conformance_suites (
-	id, standard, component, version, suite, provider,
+	id, standard, component, component_rank, version, suite, provider,
 	suite_name, suite_homepage, suite_repository, suite_help, suite_description, suite_logo,
 	check_count, check_paths, check_titles, check_files, visible_in,
 	fs_standard, fs_version, path_prefix, created, updated
 ) VALUES (
-	{:id}, {:standard}, {:component}, {:version}, {:suite}, {:provider},
+	{:id}, {:standard}, {:component}, {:component_rank}, {:version}, {:suite}, {:provider},
 	{:suite_name}, {:suite_homepage}, {:suite_repository}, {:suite_help}, {:suite_description}, {:suite_logo},
 	{:check_count}, {:check_paths}, {:check_titles}, {:check_files}, {:visible_in},
 	{:fs_standard}, {:fs_version}, {:path_prefix}, {:created}, {:updated}
@@ -321,6 +323,7 @@ INSERT INTO conformance_suites (
 			"id":                s.ID,
 			"standard":          s.Standard,
 			"component":         s.Component,
+			"component_rank":    s.ComponentRank,
 			"version":           s.Version,
 			"suite":             s.Suite,
 			"provider":          s.Provider,

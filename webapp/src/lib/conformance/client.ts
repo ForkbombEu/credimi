@@ -141,8 +141,8 @@ export function listChecks(
 }
 
 /**
- * Suite-grain catalog for the hub table. Sort defaults to product axes so
- * server-side `sort=` matches the displayed columns.
+ * Suite-grain catalog for the hub table.
+ * Default sort: wallet→issuer→verifier, then standard, then suite uid.
  */
 export function listSuites(
 	options: ListSuitesOptions = {}
@@ -151,7 +151,7 @@ export function listSuites(
 		fetch: fetchFn = fetch,
 		surface,
 		facets,
-		sort = 'standard,component,version,suite'
+		sort = 'component_rank,standard,suite'
 	} = options;
 
 	const listOptions: {

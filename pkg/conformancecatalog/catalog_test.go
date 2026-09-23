@@ -450,14 +450,19 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 		"delete status=%d body=%s", rec.Code, rec.Body.String())
 
 	// Suites projection: filter/sort against suite rows (normalized axes).
-	suiteBody := catalogListJSON(t, mux, "/api/collections/conformance_suites/records?perPage=100&sort=standard,component,version,suite")
+	suiteBody := catalogListJSON(t, mux, "/api/collections/conformance_suites/records?perPage=100&sort=component_rank,standard,suite")
 	suiteItems, ok := suiteBody["items"].([]any)
 	require.True(t, ok)
 	require.NotEmpty(t, suiteItems)
 	suite := suiteItems[0].(map[string]any)
+	// Default sort is wallet→issuer→verifier, then standard, then suite.
+	// Fixture's only wallet-ranked suite is the FCAF relying_party pack.
 	require.Equal(t, "openid4vp", suite["standard"])
-	require.Equal(t, "openid4vp", suite["fs_standard"])
-	require.Equal(t, "draft-24", suite["version"])
+	require.Equal(t, "wallet", suite["component"])
+	require.EqualValues(t, 0, suite["component_rank"])
+	require.Equal(t, "fcaf", suite["fs_standard"])
+	require.Equal(t, "wallet_solution", suite["fs_version"])
+	require.Equal(t, "relying_party", suite["suite"])
 	require.NotEmpty(t, suite["path_prefix"])
 	require.GreaterOrEqual(t, int(suite["check_count"].(float64)), 1)
 
