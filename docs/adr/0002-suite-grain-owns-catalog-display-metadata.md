@@ -17,3 +17,6 @@ Filesystem fields (`fs_standard` / `fs_version` / `path_prefix`) drive the neste
 detail/picker tree so hub URLs stay FS-path-stable. Hub routes load each
 projection only where needed (table vs conformance-checks detail); they do not
 dual-fetch on every hub layout.
+
+Both grains share those wire names for the same axes (see ADR-0003). Suite
+display metadata still lives only on the suite grain.

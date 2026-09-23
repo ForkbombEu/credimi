@@ -35,12 +35,20 @@ _Avoid_: Calling a child workflow a pipeline run on the list card
 ## Conformance catalog
 
 **Conformance check**:
-One runnable catalog entry identified by a durable filesystem-shaped path (standard/version/suite/stem). It carries title and browse/filter facets; it does not own suite display metadata.
+One runnable catalog entry identified by a durable filesystem-shaped path (filesystem-axis standard/version/suite/stem). It carries title, browse/filter facets, and a product-axis projection; it does not own suite display metadata.
 _Avoid_: Blueprint row, template file (unless referring to the on-disk YAML), test (unless FCAF test id)
 
 **Conformance suite**:
-A suite under a standard×version (and product component when projected), with authored display metadata and its member checks. The hub suite table browses product axes; nested pickers and hub detail group on filesystem path axes so URLs stay path-stable. Checks are the leaves. Nest standard/version nodes are path-axis labels (uid + display name), not carriers of authored standard.yaml / version.yaml metadata.
+A suite under a product-axis standard×component×version, with authored display metadata and its member checks. The hub suite table browses product axes; nested pickers and hub detail group on filesystem axes so URLs stay path-stable. Checks are the leaves. Nest standard/version nodes are filesystem-axis labels (uid + display name), not carriers of authored standard.yaml / version.yaml metadata.
 _Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks, dual-fetching both projections on every hub layout, treating nest Standard/Version as authored catalog metadata
+
+**Product axis**:
+The normalized standard × component × version used to browse and filter the hub suite table and projected onto checks for facet filters. Same meaning on both catalog grains.
+_Avoid_: Filesystem path segment, nest uid (when meaning product)
+
+**Filesystem axis**:
+The durable path segments (filesystem standard / filesystem version / suite, and suite path prefix) that keep hub URLs and nest trees path-stable. Same meaning on both catalog grains.
+_Avoid_: Product standard or version when meaning a path segment; unqualified “standard” for an FS dir
 
 ## FCAF (wallet-solution relying-party)
 
