@@ -32,7 +32,11 @@ func AttachPresentation(app core.App, record *core.Record, report *engine.Report
 }
 
 // EnrichReportJSON attaches presentation while preserving unknown JSON fields.
-func EnrichReportJSON(app core.App, record *core.Record, rawJSON []byte) ([]byte, *engine.Report, error) {
+func EnrichReportJSON(
+	app core.App,
+	record *core.Record,
+	rawJSON []byte,
+) ([]byte, *engine.Report, error) {
 	var root map[string]any
 	if err := json.Unmarshal(rawJSON, &root); err != nil {
 		return nil, nil, fmt.Errorf("decode FCAF report object: %w", err)
