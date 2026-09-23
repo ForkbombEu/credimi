@@ -18,6 +18,17 @@ services:
       - 9200
     volumes:
       - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      # Wait until HTTP + auth succeed; yellow is enough for single-node visibility.
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS -u \"elastic:$${ELASTIC_PASSWORD}\" \"http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s\" >/dev/null",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
   postgresql:
     container_name: temporal-postgresql
     environment:
@@ -28,10 +39,20 @@ services:
       - 5432
     volumes:
       - /var/lib/postgresql/data
+    healthcheck:
+      # Probe TCP (-h localhost), not the Unix socket: during initdb pg_isready
+      # on the socket can report ready while clients still get "starting up".
+      test: ["CMD-SHELL", "pg_isready -h localhost -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
   temporal:
     depends_on:
-      - postgresql
-      - elasticsearch
+      postgresql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -52,6 +73,16 @@ services:
       - ${TEMPORAL_PORT:-7233}:7233
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
+    # Recover from one-shot schema-setup races if Postgres/ES health still flaps.
+    restart: on-failure
+    healthcheck:
+      # auto-setup listens on the service DNS name (TEMPORAL_ADDRESS), not 127.0.0.1.
+      test:
+        ["CMD-SHELL", "temporal operator cluster health | grep -q SERVING"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     logging:
       driver: local
       options:
@@ -60,7 +91,8 @@ services:
   temporal_ui:
     container_name: temporal-ui
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
@@ -70,7 +102,8 @@ services:
       - ${TEMPORAL_UI_PORT:-8280}:8280
   temporal_setup:
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
     image: temporalio/admin-tools:${TEMPORAL_ADMIN_TOOLS_VERSION}
@@ -85,7 +118,8 @@ services:
       - ./scripts:/scripts:ro
   credimi:
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     build:
       context: .
       dockerfile: Dockerfile
