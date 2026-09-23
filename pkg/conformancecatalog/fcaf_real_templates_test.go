@@ -16,11 +16,11 @@ import (
 func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 	root := realTemplatesDir(t)
 
-	checks, err := LoadFromDir(root)
+	loaded, err := LoadFromDir(root)
 	require.NoError(t, err)
 
 	var fcaf []Check
-	for _, ch := range checks {
+	for _, ch := range loaded.Checks {
 		if ch.Standard == "fcaf" {
 			fcaf = append(fcaf, ch)
 		}
@@ -42,11 +42,20 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 		require.Equal(t, "relying_party", ch.Role, ch.Path)
 		require.Equal(t, "fcaf", ch.Provider, ch.Path)
 		require.Empty(t, ch.Protocol, ch.Path)
-		require.Equal(t, "FCAF Functional Conformance Assessment", ch.SuiteName, ch.Path)
-		require.NotEmpty(t, ch.SuiteLogo, ch.Path)
 		require.Equal(t, "openid4vp", ch.NormStandard, ch.Path)
 		require.Equal(t, "wallet", ch.Component, ch.Path)
 		require.Empty(t, ch.NormVersion, ch.Path)
+	}
+
+	disp := loaded.SuiteDisplay["fcaf/wallet_solution/relying_party"]
+	require.Equal(t, "FCAF Functional Conformance Assessment", disp.Name)
+	require.NotEmpty(t, disp.Logo)
+
+	suites := ProjectSuites(fcaf, loaded.SuiteDisplay)
+	require.NotEmpty(t, suites)
+	for _, s := range suites {
+		require.Equal(t, "FCAF Functional Conformance Assessment", s.SuiteName, s.PathPrefix)
+		require.NotEmpty(t, s.SuiteLogo, s.PathPrefix)
 	}
 }
 
@@ -56,7 +65,7 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 	root := realTemplatesDir(t)
 
-	checks, err := LoadFromDir(root)
+	loaded, err := LoadFromDir(root)
 	require.NoError(t, err)
 
 	wantByStandard := map[string]struct {
@@ -70,19 +79,18 @@ func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 		"vlei":               {Protocol: "vlei"},
 	}
 
-	var classic int
-	for _, ch := range checks {
+	var classic []Check
+	for _, ch := range loaded.Checks {
 		if ch.Standard == "fcaf" {
 			continue
 		}
-		classic++
+		classic = append(classic, ch)
 		want, ok := wantByStandard[ch.Standard]
 		require.True(t, ok, "unexpected standard %q path=%s", ch.Standard, ch.Path)
 		require.Equal(t, want.Protocol, ch.Protocol, ch.Path)
 		require.Equal(t, want.Role, ch.Role, ch.Path)
 		require.Empty(t, ch.SUT, "classic sut must stay empty: %s", ch.Path)
 		require.Equal(t, ch.Suite, ch.Provider, "provider should match suite uid: %s", ch.Path)
-		require.NotEmpty(t, ch.SuiteName, "authored suite name expected: %s", ch.Path)
 
 		id := NormalizePathIdentity(ch.Standard, ch.Version, ch.Suite)
 		require.Equal(t, id.Standard, ch.NormStandard, ch.Path)
@@ -92,7 +100,13 @@ func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 			require.Equal(t, want.Role, ch.Component, "component should match classic role: %s", ch.Path)
 		}
 	}
-	require.Greater(t, classic, 0, "expected classic suite checks from config_templates")
+	require.Greater(t, len(classic), 0, "expected classic suite checks from config_templates")
+
+	suites := ProjectSuites(classic, loaded.SuiteDisplay)
+	require.NotEmpty(t, suites)
+	for _, s := range suites {
+		require.NotEmpty(t, s.SuiteName, "authored suite name expected: %s", s.PathPrefix)
+	}
 }
 
 func realTemplatesDir(t *testing.T) string {

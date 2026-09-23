@@ -22,13 +22,7 @@ const sample: ConformanceCheckRecord = {
 	provider: 'fcaf',
 	norm_standard: 'openid4vp',
 	component: 'wallet',
-	norm_version: '',
-	suite_name: 'FCAF Functional Conformance Assessment',
-	suite_homepage: '',
-	suite_repository: '',
-	suite_help: '',
-	suite_description: '',
-	suite_logo: ''
+	norm_version: ''
 };
 
 describe('fcaf catalog mapping', () => {

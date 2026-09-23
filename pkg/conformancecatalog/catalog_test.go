@@ -211,12 +211,12 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	root := t.TempDir()
 	writeFixtureTree(t, root)
 
-	checks, err := LoadFromDir(root)
+	loaded, err := LoadFromDir(root)
 	require.NoError(t, err)
-	require.Len(t, checks, 6)
+	require.Len(t, loaded.Checks, 6)
 
 	byPath := map[string]Check{}
-	for _, ch := range checks {
+	for _, ch := range loaded.Checks {
 		byPath[ch.Path] = ch
 		require.Equal(t, PathID(ch.Path), ch.ID)
 	}
@@ -226,21 +226,6 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	require.Equal(t, "openid4vp", byPath["openid4vp/draft-24/ewc/check_one"].Protocol)
 	require.Equal(t, "wallet", byPath["openid4vp/draft-24/ewc/check_one"].Role)
 	require.Equal(t, "ewc", byPath["openid4vp/draft-24/ewc/check_one"].Provider)
-	require.Equal(
-		t,
-		"EWC Interoperability Test Bed",
-		byPath["openid4vp/draft-24/ewc/check_one"].SuiteName,
-	)
-	require.Equal(
-		t,
-		"https://eudiwalletconsortium.org/",
-		byPath["openid4vp/draft-24/ewc/check_one"].SuiteHomepage,
-	)
-	require.Equal(
-		t,
-		"https://example.test/ewc.png",
-		byPath["openid4vp/draft-24/ewc/check_one"].SuiteLogo,
-	)
 	require.Equal(t, "manual_only", byPath["openid4vp/draft-24/oidf/manual_only"].Title)
 	require.Equal(
 		t,
@@ -259,7 +244,7 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 		byPath["openid4vp/draft-24/ewc/check_one"].VisibleIn,
 	)
 
-	for _, ch := range checks {
+	for _, ch := range loaded.Checks {
 		require.NotEqual(t, "fcaf_sources", ch.Standard)
 	}
 
@@ -270,8 +255,6 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	require.Equal(t, "wallet_solution", fcafOne.SUT)
 	require.Equal(t, "relying_party", fcafOne.Role)
 	require.Equal(t, "fcaf", fcafOne.Provider)
-	require.Equal(t, "FCAF Functional Conformance Assessment", fcafOne.SuiteName)
-	require.Equal(t, "https://example.test/fcaf.png", fcafOne.SuiteLogo)
 	require.Equal(t, "fcaf", fcafOne.Standard)
 	require.Equal(t, "wallet_solution", fcafOne.Version)
 	require.Equal(t, "relying_party", fcafOne.Suite)
@@ -283,6 +266,19 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 		require.NotContains(t, path, "IGNORE_ME")
 		require.NotContains(t, path, "notes")
 	}
+
+	suites := ProjectSuites(loaded.Checks, loaded.SuiteDisplay)
+	byPrefix := map[string]SuiteRecord{}
+	for _, s := range suites {
+		byPrefix[s.PathPrefix] = s
+	}
+	ewc := byPrefix["openid4vp/draft-24/ewc"]
+	require.Equal(t, "EWC Interoperability Test Bed", ewc.SuiteName)
+	require.Equal(t, "https://eudiwalletconsortium.org/", ewc.SuiteHomepage)
+	require.Equal(t, "https://example.test/ewc.png", ewc.SuiteLogo)
+	fcafSuite := byPrefix["fcaf/wallet_solution/relying_party"]
+	require.Equal(t, "FCAF Functional Conformance Assessment", fcafSuite.SuiteName)
+	require.Equal(t, "https://example.test/fcaf.png", fcafSuite.SuiteLogo)
 }
 
 func TestRebuildProjectsIntoEphemeralCache(t *testing.T) {
@@ -308,16 +304,23 @@ func TestRebuildProjectsIntoEphemeralCache(t *testing.T) {
 	require.Equal(t, "openid4vp", one["protocol"])
 	require.Equal(t, "wallet", one["role"])
 	require.Equal(t, "ewc", one["provider"])
-	require.Equal(t, "EWC Interoperability Test Bed", one["suite_name"])
-	require.Equal(t, "https://example.test/ewc.png", one["suite_logo"])
+	_, hasSuiteName := one["suite_name"]
+	require.False(t, hasSuiteName, "lean checks must not carry suite_name")
 
 	fcaf := findItemByPath(t, items, "fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001")
 	require.Equal(t, "Example FCAF test", fcaf["title"])
 	require.Equal(t, "wallet_solution", fcaf["sut"])
 	require.Equal(t, "relying_party", fcaf["role"])
 	require.Equal(t, "fcaf", fcaf["provider"])
-	require.Equal(t, "FCAF Functional Conformance Assessment", fcaf["suite_name"])
-	require.Equal(t, "https://example.test/fcaf.png", fcaf["suite_logo"])
+
+	suiteBody := catalogListJSON(t, mux, "/api/collections/conformance_suites/records?perPage=100")
+	suiteItems := suiteBody["items"].([]any)
+	ewcSuite := findSuiteByPrefix(t, suiteItems, "openid4vp/draft-24/ewc")
+	require.Equal(t, "EWC Interoperability Test Bed", ewcSuite["suite_name"])
+	require.Equal(t, "https://example.test/ewc.png", ewcSuite["suite_logo"])
+	fcafSuite := findSuiteByPrefix(t, suiteItems, "fcaf/wallet_solution/relying_party")
+	require.Equal(t, "FCAF Functional Conformance Assessment", fcafSuite["suite_name"])
+	require.Equal(t, "https://example.test/fcaf.png", fcafSuite["suite_logo"])
 
 	require.NoError(t, os.WriteFile(
 		filepath.Join(root, "openid4vp", "draft-24", "ewc", "check_three.yaml"),
@@ -524,5 +527,18 @@ func findItemByPath(t *testing.T, items []any, path string) map[string]any {
 		}
 	}
 	t.Fatalf("item with path %q not found", path)
+	return nil
+}
+
+func findSuiteByPrefix(t *testing.T, items []any, pathPrefix string) map[string]any {
+	t.Helper()
+	for _, raw := range items {
+		item, ok := raw.(map[string]any)
+		require.True(t, ok)
+		if item["path_prefix"] == pathPrefix {
+			return item
+		}
+	}
+	t.Fatalf("suite with path_prefix %q not found", pathPrefix)
 	return nil
 }

@@ -10,7 +10,7 @@ import { ZodError } from 'zod';
 
 import { pb } from '@/pocketbase';
 
-import { nestChecks } from './nest';
+import { nestSuites } from './nest';
 import {
 	CONFORMANCE_CHECKS_COLLECTION,
 	CONFORMANCE_SUITES_COLLECTION,
@@ -219,18 +219,18 @@ export type StandardsWithTestSuites = ListAllResponse;
 export type ListAllOptions = {
 	fetch?: typeof fetch;
 	surface?: TemplateSurface;
-	facets?: CatalogFacets;
+	facets?: SuiteFacets;
 };
 
 /**
  * Nested standards tree for hub, start-checks, and pipeline pickers.
- * Source: PocketBase `conformance_checks` (grouped client-side).
+ * Source: PocketBase `conformance_suites` (grouped on fs_* axes, ADR-0002).
  */
 export function listAll(options: ListAllOptions = {}): Task.Task<ListAllResponse, ListAllError> {
 	const { fetch: fetchFn = fetch, surface = 'manual', facets } = options;
 
-	return listChecks({ fetch: fetchFn, surface, facets }).andThen((records) => {
-		const nested = nestChecks(records);
+	return listSuites({ fetch: fetchFn, surface, facets }).andThen((records) => {
+		const nested = nestSuites(records);
 		const res = standardSchema.array().safeParse(nested);
 		if (res.success) return Task.resolve(res.data);
 		return Task.reject(res.error);

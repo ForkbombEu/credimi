@@ -36,12 +36,6 @@ var catalogSelectColumns = []string{
 	"norm_standard",
 	"component",
 	"norm_version",
-	"suite_name",
-	"suite_homepage",
-	"suite_repository",
-	"suite_help",
-	"suite_description",
-	"suite_logo",
 	"created",
 	"updated",
 }

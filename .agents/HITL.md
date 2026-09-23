@@ -84,7 +84,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-21 - Nested picker metadata from flat catalog rows (#1399)
 
-- status: partial (suite meta denorm landed; standard/version authored names still open)
+- status: superseded (see `docs/adr/0002-suite-grain-owns-catalog-display-metadata.md`)
 - owner: human maintainer
 - context: #1399 cuts start-checks and pipeline pickers to `pb.collection('conformance_checks')`. Check rows carry facets plus denormalized suite display fields from suite `metadata.yaml`.
 - question: Should nested FE trees keep UID-as-name + empty URL/logo fallbacks until catalog rows grow metadata (or #1400)?
@@ -95,6 +95,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - amendment (2026-09-21): Option (2) is obsolete after #1402 deleted the blueprints API and nesting path.
 - amendment (2026-09-21, cleanup): Nest surfaces catalog `title` on suite `titles[]` and humanized UIDs for standard/version (and suite when suite_name empty).
 - amendment (2026-09-22): Suite display denorm shipped as above.
+- amendment (2026-09-23): Superseded. Suite collection owns display meta; nest/pickers build from suite rows (`fs_*` grouping). Do not re-denorm suite fields onto checks — see ADR-0002.
 
 ### 2026-09-21 - Blueprints nested metadata storage (#1398)
 

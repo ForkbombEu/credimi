@@ -62,8 +62,8 @@ var nonStandardTemplateDirs = map[string]struct{}{
 }
 
 // Check is one catalog entry derived from a template file.
-// Suite* fields are denormalized from suite metadata.yaml so nest/pickers
-// can show authored names/logos/URLs without a second meta fetch (#1399).
+// Lean check grain: path, title, facets, and identity only. Suite display
+// metadata (name, logo, URLs) lives on the suite projection (ADR-0002).
 type Check struct {
 	ID        string   `json:"id"`
 	Path      string   `json:"path"`
@@ -81,13 +81,18 @@ type Check struct {
 	NormStandard     string `json:"norm_standard"`
 	Component        string `json:"component"`
 	NormVersion      string `json:"norm_version"`
-	SuiteName        string `json:"suite_name"`
-	SuiteHomepage    string `json:"suite_homepage"`
-	SuiteRepository  string `json:"suite_repository"`
-	SuiteHelp        string `json:"suite_help"`
-	SuiteDescription string `json:"suite_description"`
-	SuiteLogo        string `json:"suite_logo"`
 	StandardDisabled bool   `json:"-"`
+}
+
+// LoadedCatalog is the filesystem walk result: lean checks plus suite display
+// keyed for suite projection (ADR-0002).
+type LoadedCatalog struct {
+	Checks       []Check
+	SuiteDisplay map[string]suiteDisplayFields // key = fs_standard/fs_version/suite
+}
+
+func suitePathPrefix(fsStd, fsVer, suite string) string {
+	return fmt.Sprintf("%s/%s/%s", fsStd, fsVer, suite)
 }
 
 // withNormalizedIdentity fills NormStandard / Component / NormVersion from FS segments.
@@ -124,7 +129,8 @@ type suiteYAML struct {
 	Provider    string   `yaml:"provider"`
 }
 
-// suiteDisplayFields are authored suite metadata denormalized onto each check.
+// suiteDisplayFields are authored suite metadata keyed for suite projection
+// (ADR-0002), not denormalized onto checks.
 type suiteDisplayFields struct {
 	Name        string
 	Homepage    string
@@ -195,17 +201,19 @@ type checkFileMeta struct {
 	Provider string `yaml:"provider"`
 }
 
-// LoadFromDir walks templatesDir once and returns flat conformance checks with
-// facet fields. Layout: standard/version/suite/file (classic) or
-// …/tests/<id>.yaml (FCAF). Does not touch PocketBase; Rebuild calls this then
-// projects into the process-private ephemeral store.
-func LoadFromDir(templatesDir string) ([]Check, error) {
+// LoadFromDir walks templatesDir once and returns lean checks plus suite display
+// metadata. Layout: standard/version/suite/file (classic) or …/tests/<id>.yaml
+// (FCAF). Does not touch PocketBase; Rebuild calls this then projects into the
+// process-private ephemeral store.
+func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 	entries, err := os.ReadDir(templatesDir)
 	if err != nil {
-		return nil, fmt.Errorf("read templates dir: %w", err)
+		return LoadedCatalog{}, fmt.Errorf("read templates dir: %w", err)
 	}
 
-	var checks []Check
+	loaded := LoadedCatalog{
+		SuiteDisplay: map[string]suiteDisplayFields{},
+	}
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -220,7 +228,7 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 
 		stdMeta := standardYAML{UID: standardUID}
 		if err := readYAML(filepath.Join(standardPath, "standard.yaml"), &stdMeta); err != nil {
-			return nil, err
+			return LoadedCatalog{}, err
 		}
 		if stdMeta.UID == "" {
 			stdMeta.UID = standardUID
@@ -228,7 +236,7 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 
 		versionEntries, err := os.ReadDir(standardPath)
 		if err != nil {
-			return nil, fmt.Errorf("read standard dir %s: %w", standardPath, err)
+			return LoadedCatalog{}, fmt.Errorf("read standard dir %s: %w", standardPath, err)
 		}
 
 		for _, vEntry := range versionEntries {
@@ -243,7 +251,7 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 
 			verMeta := versionYAML{UID: versionUID}
 			if err := readYAML(filepath.Join(versionPath, "version.yaml"), &verMeta); err != nil {
-				return nil, err
+				return LoadedCatalog{}, err
 			}
 			if verMeta.UID == "" {
 				verMeta.UID = versionUID
@@ -251,7 +259,7 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 
 			suiteEntries, err := os.ReadDir(versionPath)
 			if err != nil {
-				return nil, fmt.Errorf("read version dir %s: %w", versionPath, err)
+				return LoadedCatalog{}, fmt.Errorf("read version dir %s: %w", versionPath, err)
 			}
 
 			for _, sEntry := range suiteEntries {
@@ -266,7 +274,7 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 
 				sMeta := suiteYAML{UID: suiteUID}
 				if err := readYAML(filepath.Join(suitePath, "metadata.yaml"), &sMeta); err != nil {
-					return nil, err
+					return LoadedCatalog{}, err
 				}
 				if sMeta.UID == "" {
 					sMeta.UID = suiteUID
@@ -279,7 +287,8 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 					Role:     sMeta.Role,
 					Provider: sMeta.Provider,
 				}
-				suiteDisplay := suiteDisplayFromYAML(sMeta)
+				loaded.SuiteDisplay[suitePathPrefix(stdMeta.UID, verMeta.UID, sMeta.UID)] =
+					suiteDisplayFromYAML(sMeta)
 
 				var suiteChecks []Check
 				if hasFCAFTestsDir(stdMeta.UID, suitePath) {
@@ -291,7 +300,6 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 						visibleIn,
 						stdMeta.Disabled,
 						suiteFacets,
-						suiteDisplay,
 					)
 				} else {
 					suiteChecks, err = loadClassicSuiteChecks(
@@ -302,18 +310,17 @@ func LoadFromDir(templatesDir string) ([]Check, error) {
 						visibleIn,
 						stdMeta.Disabled,
 						suiteFacets,
-						suiteDisplay,
 					)
 				}
 				if err != nil {
-					return nil, err
+					return LoadedCatalog{}, err
 				}
-				checks = append(checks, suiteChecks...)
+				loaded.Checks = append(loaded.Checks, suiteChecks...)
 			}
 		}
 	}
 
-	return checks, nil
+	return loaded, nil
 }
 
 // hasFCAFTestsDir reports whether this suite stores FCAF definitions under tests/.
@@ -331,7 +338,6 @@ func loadClassicSuiteChecks(
 	visibleIn []string,
 	standardDisabled bool,
 	suiteFacets facetFields,
-	suiteDisplay suiteDisplayFields,
 ) ([]Check, error) {
 	fileEntries, err := os.ReadDir(suitePath)
 	if err != nil {
@@ -370,12 +376,6 @@ func loadClassicSuiteChecks(
 			SUT:              facets.SUT,
 			Role:             facets.Role,
 			Provider:         facets.Provider,
-			SuiteName:        suiteDisplay.Name,
-			SuiteHomepage:    suiteDisplay.Homepage,
-			SuiteRepository:  suiteDisplay.Repository,
-			SuiteHelp:        suiteDisplay.Help,
-			SuiteDescription: suiteDisplay.Description,
-			SuiteLogo:        suiteDisplay.Logo,
 			StandardDisabled: standardDisabled,
 		}.withNormalizedIdentity())
 	}
@@ -401,7 +401,6 @@ func loadFCAFSuiteTests(
 	visibleIn []string,
 	standardDisabled bool,
 	suiteFacets facetFields,
-	suiteDisplay suiteDisplayFields,
 ) ([]Check, error) {
 	testsDir := filepath.Join(suitePath, "tests")
 	entries, err := os.ReadDir(testsDir)
@@ -459,12 +458,6 @@ func loadFCAFSuiteTests(
 			SUT:              facets.SUT,
 			Role:             facets.Role,
 			Provider:         facets.Provider,
-			SuiteName:        suiteDisplay.Name,
-			SuiteHomepage:    suiteDisplay.Homepage,
-			SuiteRepository:  suiteDisplay.Repository,
-			SuiteHelp:        suiteDisplay.Help,
-			SuiteDescription: suiteDisplay.Description,
-			SuiteLogo:        suiteDisplay.Logo,
 			StandardDisabled: standardDisabled,
 		}.withNormalizedIdentity())
 	}

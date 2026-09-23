@@ -5,7 +5,6 @@
 package conformancecatalog
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 )
@@ -62,9 +61,10 @@ type suiteAggKey struct {
 }
 
 // ProjectSuites aggregates check rows into suite-grain records for the hub table.
+// Suite display fields are looked up by PathPrefix from display (nil map = empty).
 // Suite row identity includes normalized standard/component/version plus suite uid,
 // and keeps FS standard/version so the same suite under two profiles stays distinct.
-func ProjectSuites(checks []Check) []SuiteRecord {
+func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []SuiteRecord {
 	type agg struct {
 		meta     SuiteRecord
 		vis      map[string]struct{}
@@ -88,6 +88,11 @@ func ProjectSuites(checks []Check) []SuiteRecord {
 		}
 		a, ok := byKey[key]
 		if !ok {
+			prefix := suitePathPrefix(ch.Standard, ch.Version, ch.Suite)
+			disp := suiteDisplayFields{}
+			if display != nil {
+				disp = display[prefix]
+			}
 			a = &agg{
 				meta: SuiteRecord{
 					Standard:         ch.NormStandard,
@@ -96,15 +101,15 @@ func ProjectSuites(checks []Check) []SuiteRecord {
 					Version:          ch.NormVersion,
 					Suite:            ch.Suite,
 					Provider:         ch.Provider,
-					SuiteName:        ch.SuiteName,
-					SuiteHomepage:    ch.SuiteHomepage,
-					SuiteRepository:  ch.SuiteRepository,
-					SuiteHelp:        ch.SuiteHelp,
-					SuiteDescription: ch.SuiteDescription,
-					SuiteLogo:        ch.SuiteLogo,
+					SuiteName:        disp.Name,
+					SuiteHomepage:    disp.Homepage,
+					SuiteRepository:  disp.Repository,
+					SuiteHelp:        disp.Help,
+					SuiteDescription: disp.Description,
+					SuiteLogo:        disp.Logo,
 					FSStandard:       ch.Standard,
 					FSVersion:        ch.Version,
-					PathPrefix:       fmt.Sprintf("%s/%s/%s", ch.Standard, ch.Version, ch.Suite),
+					PathPrefix:       prefix,
 				},
 				vis:      map[string]struct{}{},
 				provider: ch.Provider,
@@ -121,12 +126,6 @@ func ProjectSuites(checks []Check) []SuiteRecord {
 		if a.provider == "" && ch.Provider != "" {
 			a.provider = ch.Provider
 			a.meta.Provider = ch.Provider
-		}
-		if a.meta.SuiteName == "" && ch.SuiteName != "" {
-			a.meta.SuiteName = ch.SuiteName
-		}
-		if a.meta.SuiteLogo == "" && ch.SuiteLogo != "" {
-			a.meta.SuiteLogo = ch.SuiteLogo
 		}
 	}
 

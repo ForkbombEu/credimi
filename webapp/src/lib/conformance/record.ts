@@ -14,7 +14,7 @@ export const CONFORMANCE_CHECKS_COLLECTION = 'conformance_checks' as const;
 export const templateSurfaceSchema = z.enum(['manual', 'pipeline']);
 export type TemplateSurface = z.infer<typeof templateSurfaceSchema>;
 
-/** Flat catalog row projected by pkg/conformancecatalog. */
+/** Flat catalog row projected by pkg/conformancecatalog (lean check; suite meta on suites). */
 export const conformanceCheckRecordSchema = z.object({
 	id: z.string(),
 	path: z.string(),
@@ -30,13 +30,7 @@ export const conformanceCheckRecordSchema = z.object({
 	provider: z.string().optional().default(''),
 	norm_standard: z.string().optional().default(''),
 	component: z.string().optional().default(''),
-	norm_version: z.string().optional().default(''),
-	suite_name: z.string().optional().default(''),
-	suite_homepage: z.string().optional().default(''),
-	suite_repository: z.string().optional().default(''),
-	suite_help: z.string().optional().default(''),
-	suite_description: z.string().optional().default(''),
-	suite_logo: z.string().optional().default('')
+	norm_version: z.string().optional().default('')
 });
 
 export type ConformanceCheckRecord = z.infer<typeof conformanceCheckRecordSchema>;

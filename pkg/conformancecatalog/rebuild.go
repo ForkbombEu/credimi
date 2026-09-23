@@ -26,12 +26,12 @@ func Rebuild(app core.App, templatesDir string) error {
 		templatesDir = TemplatesDir()
 	}
 
-	checks, err := LoadFromDir(templatesDir)
+	loaded, err := LoadFromDir(templatesDir)
 	if err != nil {
 		return err
 	}
 
-	if err := replaceEphemeralRows(checks); err != nil {
+	if err := replaceEphemeralRows(loaded); err != nil {
 		return fmt.Errorf("project ephemeral catalog: %w", err)
 	}
 	return nil

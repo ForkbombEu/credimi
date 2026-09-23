@@ -2,42 +2,34 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { ConformanceCheckRecord } from './record';
+import type { ConformanceSuiteRecord } from './record';
 import type { Standard, Suite, Version } from './types';
 
 /**
- * Group flat `conformance_checks` rows into the nested standards → versions →
- * suites tree used by hub, start-checks, and pipeline pickers.
+ * Group suite-grain catalog rows into the nested standards → versions → suites
+ * tree used by hub, start-checks, and pipeline pickers.
  *
- * Path identity: each suite `paths[]` entry is the record `path`
- * (`standard/version/suite/stem`). Suite `files[]` keeps the on-disk filename
- * (with extension) for placeholders / start-check submission. Suite `titles[]`
- * mirrors those rows with catalog `title` for browse/picker labels.
- *
- * Suite display fields prefer denormalized catalog columns (`suite_name`,
- * `suite_logo`, URLs, description) from suite metadata.yaml (#1399). Standard
- * and version names still use a humanized UID fallback until those axes are
- * denormalized. Empty suites without check files do not appear.
+ * Grouping uses filesystem axes (`fs_standard` / `fs_version` / `suite`) so nest
+ * URLs stay path-stable (ADR-0002). Suite display metadata comes from the suite
+ * row; member checks come from `check_paths` / `check_titles` / `check_files`.
+ * Empty suites without checks do not appear in the catalog projection.
  */
-export function nestChecks(records: ConformanceCheckRecord[]): Standard[] {
-	const byStandard = new Map<string, Map<string, Map<string, ConformanceCheckRecord[]>>>();
+export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
+	const byStandard = new Map<string, Map<string, ConformanceSuiteRecord[]>>();
 
 	for (const record of records) {
-		let byVersion = byStandard.get(record.standard);
+		const fsStandard = record.fs_standard;
+		const fsVersion = record.fs_version;
+		let byVersion = byStandard.get(fsStandard);
 		if (!byVersion) {
 			byVersion = new Map();
-			byStandard.set(record.standard, byVersion);
+			byStandard.set(fsStandard, byVersion);
 		}
-		let bySuite = byVersion.get(record.version);
-		if (!bySuite) {
-			bySuite = new Map();
-			byVersion.set(record.version, bySuite);
-		}
-		const checks = bySuite.get(record.suite);
-		if (checks) {
-			checks.push(record);
+		const suites = byVersion.get(fsVersion);
+		if (suites) {
+			suites.push(record);
 		} else {
-			bySuite.set(record.suite, [record]);
+			byVersion.set(fsVersion, [record]);
 		}
 	}
 
@@ -45,30 +37,28 @@ export function nestChecks(records: ConformanceCheckRecord[]): Standard[] {
 
 	for (const [standardUid, versionsMap] of byStandard) {
 		const versions: Version[] = [];
-		for (const [versionUid, suitesMap] of versionsMap) {
-			const suites: Suite[] = [];
-			for (const [suiteUid, checks] of suitesMap) {
-				const meta = checks[0];
-				const suiteName = meta?.suite_name?.trim();
-				const suiteHomepage = meta?.suite_homepage?.trim() ?? '';
-				const suiteRepository = meta?.suite_repository?.trim() ?? '';
-				const suiteHelp = meta?.suite_help?.trim() ?? '';
-				const suiteDescription = meta?.suite_description?.trim() ?? '';
-				const suiteLogo = meta?.suite_logo?.trim() ?? '';
+		for (const [versionUid, suiteRows] of versionsMap) {
+			const suites: Suite[] = suiteRows.map((row) => {
+				const suiteName = row.suite_name?.trim();
+				const suiteHomepage = row.suite_homepage?.trim() ?? '';
+				const suiteRepository = row.suite_repository?.trim() ?? '';
+				const suiteHelp = row.suite_help?.trim() ?? '';
+				const suiteDescription = row.suite_description?.trim() ?? '';
+				const suiteLogo = row.suite_logo?.trim() ?? '';
 
-				suites.push({
-					uid: suiteUid,
-					name: suiteName || displayNameFromUid(suiteUid),
+				return {
+					uid: row.suite,
+					name: suiteName || displayNameFromUid(row.suite),
 					homepage: suiteHomepage,
 					repository: suiteRepository,
 					help: suiteHelp,
 					description: suiteDescription,
 					...(suiteLogo ? { logo: suiteLogo } : {}),
-					files: checks.map((c) => c.file),
-					paths: checks.map((c) => c.path),
-					titles: checks.map((c) => c.title)
-				});
-			}
+					files: [...row.check_files],
+					paths: [...row.check_paths],
+					titles: [...row.check_titles]
+				};
+			});
 			versions.push({
 				uid: versionUid,
 				name: displayNameFromUid(versionUid),

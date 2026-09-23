@@ -182,12 +182,6 @@ function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
 			text('norm_standard', false),
 			text('component', false),
 			text('norm_version', false),
-			text('suite_name', false),
-			text('suite_homepage', false),
-			text('suite_repository', false),
-			text('suite_help', false),
-			text('suite_description', false),
-			text('suite_logo', false),
 			{
 				id: 'conformance_checks_created',
 				name: 'created',

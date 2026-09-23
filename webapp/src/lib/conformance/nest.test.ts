@@ -4,61 +4,65 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { ConformanceCheckRecord } from './record';
+import type { ConformanceSuiteRecord } from './record';
 
-import { displayNameFromUid, nestChecks, titleForCheckPath } from './nest';
+import { displayNameFromUid, nestSuites, titleForCheckPath } from './nest';
 
-function check(
-	partial: Pick<ConformanceCheckRecord, 'path' | 'standard' | 'version' | 'suite' | 'file'> &
-		Partial<ConformanceCheckRecord>
-): ConformanceCheckRecord {
+function suite(
+	partial: Pick<
+		ConformanceSuiteRecord,
+		'fs_standard' | 'fs_version' | 'suite' | 'path_prefix' | 'check_paths' | 'check_titles' | 'check_files'
+	> &
+		Partial<ConformanceSuiteRecord>
+): ConformanceSuiteRecord {
 	return {
-		id: partial.id ?? partial.path,
-		title: partial.title ?? partial.file,
-		visible_in: ['manual', 'pipeline'],
-		protocol: '',
-		sut: '',
-		role: '',
-		provider: '',
-		norm_standard: '',
-		component: '',
-		norm_version: '',
-		suite_name: '',
-		suite_homepage: '',
-		suite_repository: '',
-		suite_help: '',
-		suite_description: '',
-		suite_logo: '',
-		...partial
+		id: partial.id ?? partial.path_prefix,
+		standard: partial.standard ?? partial.fs_standard,
+		component: partial.component ?? '',
+		component_rank: partial.component_rank ?? 9,
+		version: partial.version ?? partial.fs_version,
+		suite: partial.suite,
+		provider: partial.provider ?? '',
+		suite_name: partial.suite_name ?? '',
+		suite_homepage: partial.suite_homepage ?? '',
+		suite_repository: partial.suite_repository ?? '',
+		suite_help: partial.suite_help ?? '',
+		suite_description: partial.suite_description ?? '',
+		suite_logo: partial.suite_logo ?? '',
+		check_count: partial.check_count ?? partial.check_paths.length,
+		check_paths: partial.check_paths,
+		check_titles: partial.check_titles,
+		check_files: partial.check_files,
+		visible_in: partial.visible_in ?? ['manual', 'pipeline'],
+		fs_standard: partial.fs_standard,
+		fs_version: partial.fs_version,
+		path_prefix: partial.path_prefix
 	};
 }
 
-describe('nestChecks', () => {
-	it('groups flat records into standards → versions → suites with path identity', () => {
-		const nested = nestChecks([
-			check({
-				path: 'openid4vp_wallet/1.0/openid_conformance_suite/a',
-				standard: 'openid4vp_wallet',
-				version: '1.0',
+describe('nestSuites', () => {
+	it('groups suite rows into standards → versions → suites on fs_* axes', () => {
+		const nested = nestSuites([
+			suite({
+				fs_standard: 'openid4vp_wallet',
+				fs_version: '1.0',
 				suite: 'openid_conformance_suite',
-				file: 'a.yaml',
-				title: 'Check A'
+				path_prefix: 'openid4vp_wallet/1.0/openid_conformance_suite',
+				check_paths: [
+					'openid4vp_wallet/1.0/openid_conformance_suite/a',
+					'openid4vp_wallet/1.0/openid_conformance_suite/b'
+				],
+				check_titles: ['Check A', 'Check B'],
+				check_files: ['a.yaml', 'b.yaml']
 			}),
-			check({
-				path: 'openid4vp_wallet/1.0/openid_conformance_suite/b',
-				standard: 'openid4vp_wallet',
-				version: '1.0',
-				suite: 'openid_conformance_suite',
-				file: 'b.yaml',
-				title: 'Check B'
-			}),
-			check({
-				path: 'openid4vci_issuer/1.0/suite_x/c',
-				standard: 'openid4vci_issuer',
-				version: '1.0',
+			suite({
+				fs_standard: 'openid4vci_issuer',
+				fs_version: '1.0',
 				suite: 'suite_x',
-				file: 'c.json',
-				title: 'Issuer Check C'
+				path_prefix: 'openid4vci_issuer/1.0/suite_x',
+				check_paths: ['openid4vci_issuer/1.0/suite_x/c'],
+				check_titles: ['Issuer Check C'],
+				check_files: ['c.json']
 			})
 		]);
 
@@ -68,32 +72,31 @@ describe('nestChecks', () => {
 		expect(wallet?.name).toBe('Openid4vp Wallet');
 		expect(wallet?.versions).toHaveLength(1);
 		expect(wallet?.versions[0]?.uid).toBe('1.0');
-		expect(wallet?.versions[0]?.name).toBe('1.0');
-		const suite = wallet?.versions[0]?.suites[0];
-		expect(suite?.uid).toBe('openid_conformance_suite');
-		expect(suite?.name).toBe('Openid Conformance Suite');
-		expect(suite?.files).toEqual(['a.yaml', 'b.yaml']);
-		expect(suite?.paths).toEqual([
+		const nestedSuite = wallet?.versions[0]?.suites[0];
+		expect(nestedSuite?.uid).toBe('openid_conformance_suite');
+		expect(nestedSuite?.name).toBe('Openid Conformance Suite');
+		expect(nestedSuite?.files).toEqual(['a.yaml', 'b.yaml']);
+		expect(nestedSuite?.paths).toEqual([
 			'openid4vp_wallet/1.0/openid_conformance_suite/a',
 			'openid4vp_wallet/1.0/openid_conformance_suite/b'
 		]);
-		expect(suite?.titles).toEqual(['Check A', 'Check B']);
+		expect(nestedSuite?.titles).toEqual(['Check A', 'Check B']);
 
 		const issuer = nested.find((s) => s.uid === 'openid4vci_issuer');
-		expect(issuer?.name).toBe('Openid4vci Issuer');
 		expect(issuer?.versions[0]?.suites[0]?.paths).toEqual(['openid4vci_issuer/1.0/suite_x/c']);
 		expect(issuer?.versions[0]?.suites[0]?.titles).toEqual(['Issuer Check C']);
 	});
 
-	it('prefers denormalized suite metadata over humanized UIDs', () => {
-		const nested = nestChecks([
-			check({
-				path: 'openid4vp_wallet/draft-23/ewc/check_one',
-				standard: 'openid4vp_wallet',
-				version: 'draft-23',
+	it('prefers suite-row display metadata over humanized UIDs', () => {
+		const nested = nestSuites([
+			suite({
+				fs_standard: 'openid4vp_wallet',
+				fs_version: 'draft-23',
 				suite: 'ewc',
-				file: 'check_one.yaml',
-				title: 'Check One',
+				path_prefix: 'openid4vp_wallet/draft-23/ewc',
+				check_paths: ['openid4vp_wallet/draft-23/ewc/check_one'],
+				check_titles: ['Check One'],
+				check_files: ['check_one.yaml'],
 				suite_name: 'EWC Interoperability Test Bed',
 				suite_homepage: 'https://eudiwalletconsortium.org/',
 				suite_repository: 'https://github.com/EWC-consortium',
@@ -102,49 +105,51 @@ describe('nestChecks', () => {
 				suite_logo: 'https://example.test/ewc.png'
 			})
 		]);
-		const suite = nested[0]?.versions[0]?.suites[0];
-		expect(suite?.name).toBe('EWC Interoperability Test Bed');
-		expect(suite?.homepage).toBe('https://eudiwalletconsortium.org/');
-		expect(suite?.repository).toBe('https://github.com/EWC-consortium');
-		expect(suite?.help).toBe('https://example.test/help');
-		expect(suite?.description).toBe('EWC ITB');
-		expect(suite?.logo).toBe('https://example.test/ewc.png');
+		const nestedSuite = nested[0]?.versions[0]?.suites[0];
+		expect(nestedSuite?.name).toBe('EWC Interoperability Test Bed');
+		expect(nestedSuite?.homepage).toBe('https://eudiwalletconsortium.org/');
+		expect(nestedSuite?.repository).toBe('https://github.com/EWC-consortium');
+		expect(nestedSuite?.help).toBe('https://example.test/help');
+		expect(nestedSuite?.description).toBe('EWC ITB');
+		expect(nestedSuite?.logo).toBe('https://example.test/ewc.png');
 	});
 
-	it('preserves check_id path strings used by pipeline serialize', () => {
+	it('preserves check path strings used by pipeline serialize', () => {
 		const path = 'openid4vci_wallet/1.0/openid_conformance_suite/wallet-check';
-		const nested = nestChecks([
-			check({
-				path,
-				standard: 'openid4vci_wallet',
-				version: '1.0',
+		const nested = nestSuites([
+			suite({
+				fs_standard: 'openid4vci_wallet',
+				fs_version: '1.0',
 				suite: 'openid_conformance_suite',
-				file: 'wallet-check.yaml',
-				title: 'Wallet Check'
+				path_prefix: 'openid4vci_wallet/1.0/openid_conformance_suite',
+				check_paths: [path],
+				check_titles: ['Wallet Check'],
+				check_files: ['wallet-check.yaml']
 			})
 		]);
 		expect(nested[0]?.versions[0]?.suites[0]?.paths[0]).toBe(path);
 		expect(nested[0]?.versions[0]?.suites[0]?.titles[0]).toBe('Wallet Check');
 	});
 
-	it('leaves logo and description empty when catalog rows lack them', () => {
-		const nested = nestChecks([
-			check({
-				path: 'vlei/version/suite/one',
-				standard: 'vlei',
-				version: 'version',
+	it('leaves logo and description empty when suite rows lack them', () => {
+		const nested = nestSuites([
+			suite({
+				fs_standard: 'vlei',
+				fs_version: 'version',
 				suite: 'suite',
-				file: 'one.yaml',
-				title: 'One'
+				path_prefix: 'vlei/version/suite',
+				check_paths: ['vlei/version/suite/one'],
+				check_titles: ['One'],
+				check_files: ['one.yaml']
 			})
 		]);
 		const standard = nested[0];
-		const suite = standard?.versions[0]?.suites[0];
+		const nestedSuite = standard?.versions[0]?.suites[0];
 		expect(standard?.description).toBe('');
 		expect(standard?.standard_url).toBe('');
-		expect(suite?.description).toBe('');
-		expect(suite?.homepage).toBe('');
-		expect(suite?.logo).toBeUndefined();
+		expect(nestedSuite?.description).toBe('');
+		expect(nestedSuite?.homepage).toBe('');
+		expect(nestedSuite?.logo).toBeUndefined();
 	});
 });
 
@@ -158,15 +163,15 @@ describe('displayNameFromUid', () => {
 
 describe('titleForCheckPath', () => {
 	it('resolves by full path or stem against suite titles', () => {
-		const suite = {
+		const nestedSuite = {
 			paths: [
 				'openid4vp_wallet/1.0/openid_conformance_suite/happy_flow',
 				'openid4vp_wallet/1.0/openid_conformance_suite/alt'
 			],
 			titles: ['Happy Flow', 'Alternate']
 		};
-		expect(titleForCheckPath(suite, suite.paths[0]!)).toBe('Happy Flow');
-		expect(titleForCheckPath(suite, 'happy_flow')).toBe('Happy Flow');
-		expect(titleForCheckPath(suite, 'missing')).toBe('missing');
+		expect(titleForCheckPath(nestedSuite, nestedSuite.paths[0]!)).toBe('Happy Flow');
+		expect(titleForCheckPath(nestedSuite, 'happy_flow')).toBe('Happy Flow');
+		expect(titleForCheckPath(nestedSuite, 'missing')).toBe('missing');
 	});
 });

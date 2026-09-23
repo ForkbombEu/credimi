@@ -32,6 +32,16 @@ _Avoid_: Child pipeline (unless a nested pipeline step), grandchild, step (as th
 One execution of a pipeline workflow (or a queued ticket awaiting start), shown as a parent row in the list SmallTable.
 _Avoid_: Calling a child workflow a pipeline run on the list card
 
+## Conformance catalog
+
+**Conformance check**:
+One runnable catalog entry identified by a durable filesystem-shaped path (standard/version/suite/stem). It carries title and browse/filter facets; it does not own suite display metadata.
+_Avoid_: Blueprint row, template file (unless referring to the on-disk YAML), test (unless FCAF test id)
+
+**Conformance suite**:
+A suite under a standard×version (and product component when projected), with authored display metadata and its member checks. Nested pickers and the hub suite table browse suites; checks are the leaves.
+_Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks
+
 ## FCAF (wallet-solution relying-party)
 
 **FCAF assessment report**:

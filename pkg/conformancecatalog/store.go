@@ -60,29 +60,23 @@ func (s stringArray) MarshalJSON() ([]byte, error) {
 
 // catalogRow is the list/get record shape returned on the fake PB collection URL.
 type catalogRow struct {
-	ID               string      `db:"id"                json:"id"`
-	Path             string      `db:"path"              json:"path"`
-	Title            string      `db:"title"             json:"title"`
-	Standard         string      `db:"standard"          json:"standard"`
-	Version          string      `db:"version"           json:"version"`
-	Suite            string      `db:"suite"             json:"suite"`
-	File             string      `db:"file"              json:"file"`
-	VisibleIn        stringArray `db:"visible_in"        json:"visible_in"`
-	Protocol         string      `db:"protocol"          json:"protocol"`
-	SUT              string      `db:"sut"               json:"sut"`
-	Role             string      `db:"role"              json:"role"`
-	Provider         string      `db:"provider"          json:"provider"`
-	NormStandard     string      `db:"norm_standard"     json:"norm_standard"`
-	Component        string      `db:"component"         json:"component"`
-	NormVersion      string      `db:"norm_version"      json:"norm_version"`
-	SuiteName        string      `db:"suite_name"        json:"suite_name"`
-	SuiteHomepage    string      `db:"suite_homepage"    json:"suite_homepage"`
-	SuiteRepository  string      `db:"suite_repository"  json:"suite_repository"`
-	SuiteHelp        string      `db:"suite_help"        json:"suite_help"`
-	SuiteDescription string      `db:"suite_description" json:"suite_description"`
-	SuiteLogo        string      `db:"suite_logo"        json:"suite_logo"`
-	Created          string      `db:"created"           json:"created"`
-	Updated          string      `db:"updated"           json:"updated"`
+	ID           string      `db:"id"            json:"id"`
+	Path         string      `db:"path"          json:"path"`
+	Title        string      `db:"title"         json:"title"`
+	Standard     string      `db:"standard"      json:"standard"`
+	Version      string      `db:"version"       json:"version"`
+	Suite        string      `db:"suite"         json:"suite"`
+	File         string      `db:"file"          json:"file"`
+	VisibleIn    stringArray `db:"visible_in"    json:"visible_in"`
+	Protocol     string      `db:"protocol"      json:"protocol"`
+	SUT          string      `db:"sut"           json:"sut"`
+	Role         string      `db:"role"          json:"role"`
+	Provider     string      `db:"provider"      json:"provider"`
+	NormStandard string      `db:"norm_standard" json:"norm_standard"`
+	Component    string      `db:"component"     json:"component"`
+	NormVersion  string      `db:"norm_version"  json:"norm_version"`
+	Created      string      `db:"created"       json:"created"`
+	Updated      string      `db:"updated"       json:"updated"`
 
 	// PocketBase client compatibility fields (not stored).
 	CollectionID   string `db:"-" json:"collectionId"`
@@ -172,12 +166,6 @@ CREATE TABLE conformance_checks (
 	norm_standard TEXT NOT NULL DEFAULT '',
 	component TEXT NOT NULL DEFAULT '',
 	norm_version TEXT NOT NULL DEFAULT '',
-	suite_name TEXT NOT NULL DEFAULT '',
-	suite_homepage TEXT NOT NULL DEFAULT '',
-	suite_repository TEXT NOT NULL DEFAULT '',
-	suite_help TEXT NOT NULL DEFAULT '',
-	suite_description TEXT NOT NULL DEFAULT '',
-	suite_logo TEXT NOT NULL DEFAULT '',
 	created TEXT NOT NULL DEFAULT '',
 	updated TEXT NOT NULL DEFAULT ''
 );
@@ -260,32 +248,26 @@ func checkFromRow(r *catalogRow) Check {
 		return Check{}
 	}
 	return Check{
-		ID:               r.ID,
-		Path:             r.Path,
-		Title:            r.Title,
-		Standard:         r.Standard,
-		Version:          r.Version,
-		Suite:            r.Suite,
-		File:             r.File,
-		VisibleIn:        append([]string(nil), r.VisibleIn...),
-		Protocol:         r.Protocol,
-		SUT:              r.SUT,
-		Role:             r.Role,
-		Provider:         r.Provider,
-		NormStandard:     r.NormStandard,
-		Component:        r.Component,
-		NormVersion:      r.NormVersion,
-		SuiteName:        r.SuiteName,
-		SuiteHomepage:    r.SuiteHomepage,
-		SuiteRepository:  r.SuiteRepository,
-		SuiteHelp:        r.SuiteHelp,
-		SuiteDescription: r.SuiteDescription,
-		SuiteLogo:        r.SuiteLogo,
+		ID:           r.ID,
+		Path:         r.Path,
+		Title:        r.Title,
+		Standard:     r.Standard,
+		Version:      r.Version,
+		Suite:        r.Suite,
+		File:         r.File,
+		VisibleIn:    append([]string(nil), r.VisibleIn...),
+		Protocol:     r.Protocol,
+		SUT:          r.SUT,
+		Role:         r.Role,
+		Provider:     r.Provider,
+		NormStandard: r.NormStandard,
+		Component:    r.Component,
+		NormVersion:  r.NormVersion,
 	}
 }
 
 // replaceEphemeralRows fully replaces process-private check and suite tables.
-func replaceEphemeralRows(checks []Check) error {
+func replaceEphemeralRows(loaded LoadedCatalog) error {
 	db, err := catalogDB()
 	if err != nil {
 		return err
@@ -305,7 +287,7 @@ func replaceEphemeralRows(checks []Check) error {
 	}
 
 	now := time.Now().UTC().Format("2006-01-02 15:04:05.000Z")
-	for _, ch := range checks {
+	for _, ch := range loaded.Checks {
 		vis, err := marshalStringSlice(ch.VisibleIn)
 		if err != nil {
 			return fmt.Errorf("marshal visible_in for %s: %w", ch.Path, err)
@@ -315,45 +297,37 @@ INSERT INTO conformance_checks (
 	id, path, title, standard, version, suite, file, visible_in,
 	protocol, sut, role, provider,
 	norm_standard, component, norm_version,
-	suite_name, suite_homepage, suite_repository, suite_help, suite_description, suite_logo,
 	created, updated
 ) VALUES (
 	{:id}, {:path}, {:title}, {:standard}, {:version}, {:suite}, {:file}, {:visible_in},
 	{:protocol}, {:sut}, {:role}, {:provider},
 	{:norm_standard}, {:component}, {:norm_version},
-	{:suite_name}, {:suite_homepage}, {:suite_repository}, {:suite_help}, {:suite_description}, {:suite_logo},
 	{:created}, {:updated}
 )`).Bind(dbx.Params{
-			"id":                ch.ID,
-			"path":              ch.Path,
-			"title":             ch.Title,
-			"standard":          ch.Standard,
-			"version":           ch.Version,
-			"suite":             ch.Suite,
-			"file":              ch.File,
-			"visible_in":        string(vis),
-			"protocol":          ch.Protocol,
-			"sut":               ch.SUT,
-			"role":              ch.Role,
-			"provider":          ch.Provider,
-			"norm_standard":     ch.NormStandard,
-			"component":         ch.Component,
-			"norm_version":      ch.NormVersion,
-			"suite_name":        ch.SuiteName,
-			"suite_homepage":    ch.SuiteHomepage,
-			"suite_repository":  ch.SuiteRepository,
-			"suite_help":        ch.SuiteHelp,
-			"suite_description": ch.SuiteDescription,
-			"suite_logo":        ch.SuiteLogo,
-			"created":           now,
-			"updated":           now,
+			"id":            ch.ID,
+			"path":          ch.Path,
+			"title":         ch.Title,
+			"standard":      ch.Standard,
+			"version":       ch.Version,
+			"suite":         ch.Suite,
+			"file":          ch.File,
+			"visible_in":    string(vis),
+			"protocol":      ch.Protocol,
+			"sut":           ch.SUT,
+			"role":          ch.Role,
+			"provider":      ch.Provider,
+			"norm_standard": ch.NormStandard,
+			"component":     ch.Component,
+			"norm_version":  ch.NormVersion,
+			"created":       now,
+			"updated":       now,
 		}).Execute()
 		if err != nil {
 			return fmt.Errorf("insert ephemeral check %s: %w", ch.Path, err)
 		}
 	}
 
-	for _, s := range ProjectSuites(checks) {
+	for _, s := range ProjectSuites(loaded.Checks, loaded.SuiteDisplay) {
 		vis, err := marshalStringSlice(s.VisibleIn)
 		if err != nil {
 			return fmt.Errorf("marshal suite visible_in for %s: %w", s.PathPrefix, err)
