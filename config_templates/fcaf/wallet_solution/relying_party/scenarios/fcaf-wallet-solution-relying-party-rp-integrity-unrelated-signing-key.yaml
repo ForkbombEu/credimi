@@ -1,0 +1,71 @@
+name: FCAF Request Object signed with an unrelated key
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+# request_behavior.signing_key signs the Request Object with a key that is not
+# the one bound to the advertised client identifier, leaving x5c and the
+# client_id untouched. The delivered request therefore still carries a leaf
+# certificate whose SHA-256 matches the x509_hash Client Identifier, and the
+# signature is the only defect.
+- id: create-unrelated-signing-key
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_delivery: by_reference
+      client_id_scheme: x509_hash
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: rp-integrity-unrelated-signing-key
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_behavior:
+        signing_key: unrelated
+- id: reject-unrelated-signing-key
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-unrelated-signing-key.outputs.body.deeplink }}
+- id: fetch-unrelated-signing-key
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-unrelated-signing-key.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_SM_RpIntegrity__015
+    - WS_RP_MS_Metadata__132
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.rp-integrity.unrelated-signing-key:
+        output:
+          session: ${{ fetch-unrelated-signing-key.outputs.body }}
+          request_object: ${{ fetch-unrelated-signing-key.outputs.body.raw.authorization_request_jwt }}
+          request_behavior: ${{ fetch-unrelated-signing-key.outputs.body.request_behavior }}
+          visual_evidence: ${{ reject-unrelated-signing-key.outputs.flow_output.maestro_screenshot_urls }}

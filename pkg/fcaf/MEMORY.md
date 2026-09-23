@@ -1987,3 +1987,77 @@ than adding an anchor), the positive scope cases `WS_RP_MS_ProtocolMessages__020
 `141` and `WS_RP_UC_Presentation__003` (the service defines no scope values),
 and the transaction-data family, which gained evidence but still needs a
 transaction type the reference Wallet supports.
+
+## RpIntegrity 015 and Metadata 132, unrelated signing key
+
+Both own
+`fcaf-wallet-solution-relying-party-rp-integrity-unrelated-signing-key`, the
+first scenario built on the capabilities the 22/09/2026 contract resync added.
+`request_behavior.signing_key: unrelated` signs the Request Object with a key
+that is not the one bound to the advertised client identifier while leaving
+`x5c` and `client_id` untouched, so the delivered JAR still carries a leaf
+certificate whose SHA-256 equals the `x509_hash` Client Identifier and the
+signature is the only defect.
+
+No new validator was needed: `jose.jws_invalid_signature` already verifies a
+compact JWS against its own `x5c` leaf and requires the failure to be a
+signature failure rather than any other parse error, and
+`oid4vp.x509_hash_client_id` already recomputes the leaf hash.
+
+The two sources state the same defect at different scopes, so the assertions
+differ deliberately. 015 takes the RFC 7515 angle: the delivered JAR carries an
+`x5c` chain and its signature fails against that leaf. 132 takes the Section
+5.9.3 angle and additionally pins `client_id` to the SHA-256 of the delivered
+leaf. That pin is also what separates 132 from `WS_RP_MS_Metadata__130`, which
+stays blocked because `request_behavior.certificate_chain` recomputes the
+Client Identifier and can never produce a leaf-hash mismatch. Both require
+`invalid_request` without a presentation, which their sources state explicitly;
+neither accepts silent discontinuation.
+
+Note that the audience caveat recorded for `certificate_chain` does not apply
+here: `signing_key` leaves the client identifier alone, so the verifier still
+expects the audience it advertised.
+
+Verified 22/09/2026 by running the shipped definitions through the FCAF engine
+against real ECDSA keys and X.509 certificates: 16 of 16 expectations met. Both
+pass on conformant evidence and fail when the JAR was signed by the bound key
+after all, when the Wallet released a credential, returned another error code,
+or only discontinued, and when the JAR carries no `x5c`. The two cases separate
+in both directions: a client identifier hashing a different certificate fails
+only 132, and an unapplied `signing_key` behaviour fails only 015.
+
+`make fcaf-generate` produces 848 aggregate steps, 612 test IDs, and 206
+pipeline outputs; the happy flow drops to 352 tests. No emulator was attached,
+and `request_behavior` additionally needs beta to enable
+`FCAF_SCENARIOS_ENABLED`.
+
+## Shared Maestro action for rejected requests
+
+`fcaf-expect-request-rejected` is a new wallet action in
+`config_templates/fcaf/imports/forkbomb-bv-andrea/wallet/`, registered in
+`wallet-actions.yaml` and referenced as
+`forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected`.
+
+`fcaf-exercise-wallet-generic` cannot serve negative cases. Its post-`openLink`
+wait is `Welcome back|Error|invalid request|Something went wrong|DATA SHARING
+REQUEST`, which a Wallet that silently returns to Home never satisfies, so a
+correct discontinuation times out at 100s and the step fails. Do not add
+`Home|Documents` to that wait: the Wallet is still showing Home the instant
+after `openLink`, so positive flows would match immediately, skip the
+`DATA SHARING REQUEST` consent block, and report success with no `vp_token`.
+That is why the two actions stay separate.
+
+The shared action is the union of the three inline shapes it replaces: unlock
+before `openLink`, browser-chooser handling, the discontinuation-tolerant wait,
+unlock after `openLink`, and a settle wait. Its unlock gesture is the one from
+`fcaf-exercise-wallet-generic` (`11%,40%`, inputText, hideKeyboard, `50%,10%`),
+not the shorter `50%,10%`-then-inputText sequence some inline blocks used,
+because the generic sequence is the one that has actually run green on the
+emulator. That is a behaviour change for the scenarios being migrated; all of
+them are currently `reference Wallet run pending`, so none had a green run to
+regress, but the first emulator run should confirm the unlock path.
+
+Deployment note: a shared action is not self-contained. The target instance
+must hold a `wallet_actions` record for it before the aggregate can run, per
+`config_templates/fcaf/imports/forkbomb-bv-andrea/README.md`. Inline
+`action_code` needs no import, which is why bespoke one-off flows stay inline.

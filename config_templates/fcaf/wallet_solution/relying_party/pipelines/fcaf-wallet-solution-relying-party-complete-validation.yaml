@@ -12141,6 +12141,49 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature.outputs.body.session_id }}
     - continue_on_error: true
+      id: rp-integrity-unrelated-signing-key-d22d08bc-create-unrelated-signing-key
+      use: http-request
+      with:
+        body:
+            client_id_scheme: x509_hash
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: rp-integrity-unrelated-signing-key
+            request_behavior:
+                signing_key: unrelated
+            request_delivery: by_reference
+            response_mode: direct_post
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: rp-integrity-unrelated-signing-key-d22d08bc-reject-unrelated-signing-key
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ rp-integrity-unrelated-signing-key-d22d08bc-create-unrelated-signing-key.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: rp-integrity-unrelated-signing-key-d22d08bc-fetch-unrelated-signing-key
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ rp-integrity-unrelated-signing-key-d22d08bc-create-unrelated-signing-key.outputs.body.session_id }}
+    - continue_on_error: true
       id: session-binding-invalid-nonce-0c3e8d16-create-capture-session
       use: http-request
       with:
@@ -14796,6 +14839,12 @@ steps:
                     request_object: ${{ rp-integrity-invalid-signature-4f1ab386-fetch-corrupt-signature.outputs.body.raw.authorization_request_jwt | optional }}
                     session: ${{ rp-integrity-invalid-signature-4f1ab386-fetch-corrupt-signature.outputs.body | optional }}
                     visual_evidence: ${{ rp-integrity-invalid-signature-4f1ab386-reject-corrupt-signature.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.rp-integrity.unrelated-signing-key:
+                output:
+                    request_behavior: ${{ rp-integrity-unrelated-signing-key-d22d08bc-fetch-unrelated-signing-key.outputs.body.request_behavior | optional }}
+                    request_object: ${{ rp-integrity-unrelated-signing-key-d22d08bc-fetch-unrelated-signing-key.outputs.body.raw.authorization_request_jwt | optional }}
+                    session: ${{ rp-integrity-unrelated-signing-key-d22d08bc-fetch-unrelated-signing-key.outputs.body | optional }}
+                    visual_evidence: ${{ rp-integrity-unrelated-signing-key-d22d08bc-reject-unrelated-signing-key.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.session-binding.invalid-nonce:
                 output:
                     capture_session: ${{ session-binding-invalid-nonce-0c3e8d16-fetch-capture-session.outputs.body | optional }}

@@ -2296,7 +2296,6 @@ steps:
             - WS_RP_MS_Metadata__127
             - WS_RP_MS_Metadata__128
             - WS_RP_MS_Metadata__130
-            - WS_RP_MS_Metadata__132
             - WS_RP_MS_Metadata__133
             - WS_RP_MS_Metadata__134
             - WS_RP_MS_Metadata__135
@@ -2383,7 +2382,6 @@ steps:
             - WS_RP_SM_RpIntegrity__011
             - WS_RP_SM_RpIntegrity__012
             - WS_RP_SM_RpIntegrity__014
-            - WS_RP_SM_RpIntegrity__015
             - WS_RP_SM_RpIntegrity__017
             - WS_RP_SM_RpIntegrity__019
             - WS_RP_SM_RpIntegrity__021

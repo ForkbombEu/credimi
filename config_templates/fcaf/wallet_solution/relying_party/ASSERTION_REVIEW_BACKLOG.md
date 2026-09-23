@@ -88,10 +88,16 @@ deployment.
 that is not the one bound to the advertised client identifier, leaving `x5c` and
 the DID document untouched:
 
-- [ ] `WS_RP_SM_RpIntegrity__015` (X.509 request whose signature key is not the
-      `x5c` leaf key)
-- [ ] `WS_RP_MS_Metadata__132` (the same defect stated for the `x509_hash`
-      prefix)
+- **Implemented; beta evidence pending:** `WS_RP_SM_RpIntegrity__015` and
+  `WS_RP_MS_Metadata__132` share
+  `fcaf-wallet-solution-relying-party-rp-integrity-unrelated-signing-key`.
+  015 requires the delivered JAR to carry an `x5c` chain and its signature to
+  fail against that leaf key, which is the RFC 7515 statement of its source.
+  132 additionally requires the `x509_hash` Client Identifier to equal the
+  SHA-256 of the delivered leaf, so the signing key is provably the only
+  defect; that assertion is what separates it from `WS_RP_MS_Metadata__130`,
+  whose leaf-hash mismatch stays unconstructible. Both require the Wallet to
+  answer `invalid_request` without a presentation, as their sources state.
 
 `request_behavior.certificate_chain` replaces `x5c` with a generated chain that
 is self-signed, rooted in an untrusted generated root, or missing its issuer,
