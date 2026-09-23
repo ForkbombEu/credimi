@@ -21,10 +21,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if suite.fs_standard === 'fcaf'}
-	<span class="text-xs text-muted-foreground">
-		{suite.check_count}
-		{m.Tests()}
-	</span>
+	<ChildrenCell
+		items={[
+			{
+				title: `${suite.check_count} ${m.Tests()}`,
+				href: `/hub/conformance-checks/${suite.path_prefix}`
+			}
+		]}
+	/>
 {:else if suite.check_files.length > 0}
 	<ChildrenCell
 		items={suite.check_paths.map((p, i) => ({
