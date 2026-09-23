@@ -30,6 +30,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-23 - Hub suite-grain facet UI vs #1402 check-grain facets
+
+- status: resolved (agent restore during PR review)
+- owner: agent
+- context: #1402 wired protocol/sut/role/provider filters on the check-grain hub table; suite-table rewrite dropped that UI while query helpers for SuiteFacets remained. Spec review of PR #1404 flagged missing “at least one product surface filters via PB”.
+- question: Which facet axes should the hub table expose?
+- options considered: (1) restore check-grain protocol/sut/role/provider on suite table; (2) suite-grain standard/component/version/provider (HITL normalize + ADR-0002); (3) leave search-only.
+- default risk: Leaving search-only fails #1402 AC; check-grain facets on suite rows would query the wrong collection.
+- decision: Option (2). Hub `conformance-checks-table.svelte` filters via `listSuites` + SuiteFacets.
+- follow-up: None for PR #1404; broader path-normalize facet rename remains under the open normalize-paths HITL.
+
 ### 2026-09-23 - Normalize conformance catalog paths (FCAF-as-suite, 2×3→4)
 
 - status: open (partially settled)
@@ -119,7 +130,8 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (1) ATTACH + view collection — impossible in SQLite; (2) ATTACH + per-connection TEMP VIEW shadowing — rejected as production hack; (3) durable base collection replaced on rebuild — rejected (not ephemeral); (4) process-private `:memory:` SQLite + Credimi-owned routes on the PocketBase collection URL, using `pocketbase/tools/search` for filter/sort/page; FE keeps `pb.collection('conformance_checks')`; no durable collection shell (codegen can stub types).
 - default risk: Option (4) means Credimi must keep the collection URL contract; Admin will not show a real collection; typegen must be patched/stubbed for the fake collection name.
 - decision: Option (4). Drop any `conformance_checks` collection shell. Serve list/get at `/api/collections/conformance_checks/records[/:id]`; reject writes. Rebuild fills `:memory:` only. Documented in `AGENTS.md` Dev Runtime and `pkg/conformancecatalog`.
-- follow-up: Facet completeness (#1402) and nested meta denormalization (#1399) remain separate.
+- follow-up: None — facets via suite-grain hub filters (#1402); suite display on suite projection (ADR-0002). Durable-shell cleanup removed 2026-09-23 (see update below).
+- update (2026-09-23): Removed in-branch durable-shell cleanup (`1790011000_*` migration + boot `dropCollectionShell`). No PB collection is created for the catalog; ephemeral `:memory:` + Credimi routes only. Historical main delete of the old real collection remains `1758704859_deleted_conformance_checks.js`.
 
 ### 2026-09-17 - Workflow timestamp presentation ownership
 

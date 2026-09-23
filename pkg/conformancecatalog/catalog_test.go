@@ -204,7 +204,7 @@ func TestBootRebuildSucceedsFromFixture(t *testing.T) {
 	require.Len(t, Default().Snapshot(), 6)
 
 	_, err = app.FindCollectionByNameOrId(CollectionName)
-	require.Error(t, err, "durable collection shell must not exist")
+	require.Error(t, err, "rebuild must not create a durable PocketBase collection")
 }
 
 func TestLoadFromDirTitlesAndVisibility(t *testing.T) {

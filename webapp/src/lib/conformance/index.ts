@@ -23,7 +23,12 @@ export {
 	fcafTestIdFromPath,
 	toFcafCatalogEntry
 } from './client';
-export { HUB_SUITE_SORT_DEFAULT, isHubDefaultSuiteSort, suiteSortFromTableColumns } from './query';
+export {
+	HUB_SUITE_SORT_DEFAULT,
+	isHubDefaultSuiteSort,
+	SUITE_FACET_KEYS,
+	suiteSortFromTableColumns
+} from './query';
 export { displayNameFromUid, displayStandardName, nestSuites, titleForCheckPath } from './nest';
 export { CONFORMANCE_CHECKS_COLLECTION, CONFORMANCE_SUITES_COLLECTION } from './record';
 

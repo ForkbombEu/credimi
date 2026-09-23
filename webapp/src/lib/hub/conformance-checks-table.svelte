@@ -12,8 +12,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		displayStandardName,
 		isHubDefaultSuiteSort,
 		listSuites,
+		SUITE_FACET_KEYS,
 		suiteSortFromTableColumns,
-		type ConformanceSuiteRecord
+		type ConformanceSuiteRecord,
+		type SuiteFacets
 	} from '$lib/conformance';
 	import { entities, type EntityData } from '$lib/global/entities';
 	import EntityTag from '$lib/global/entity-tag.svelte';
@@ -28,8 +30,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	type SuiteFacetKey = (typeof SUITE_FACET_KEYS)[number];
+
 	type Props = {
-		/** SSR suite rows (pipeline surface, no facets). */
+		/** SSR suite rows (pipeline surface; used when sort/search/facets are default). */
 		suites?: ConformanceSuiteRecord[];
 		/** Debounced text search across suite display/identity fields. */
 		search?: string;
@@ -40,30 +44,86 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/** Empty = no UI sort indicator; data still arrives in hub-default order. */
 	let sorting = $state<SortingState>([]);
 
+	let filters = $state<Record<SuiteFacetKey, string>>({
+		standard: '',
+		component: '',
+		version: '',
+		provider: ''
+	});
+
+	const facetFields: { key: SuiteFacetKey; label: string }[] = [
+		{ key: 'standard', label: m.Standard() },
+		{ key: 'component', label: m.Component() },
+		{ key: 'version', label: m.Version() },
+		{ key: 'provider', label: m.Provider() }
+	];
+
+	const selectClass =
+		'border-input bg-background flex h-9 min-w-[8rem] rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]';
+
 	const sortIntent = $derived(suiteSortFromTableColumns(sorting));
 	const searchQuery = $derived(search.trim());
 
+	const activeFacets = $derived.by((): SuiteFacets => {
+		const facets: SuiteFacets = {};
+		for (const key of SUITE_FACET_KEYS) {
+			const value = filters[key];
+			if (value) facets[key] = value;
+		}
+		return facets;
+	});
+
+	const hasActiveFilters = $derived(Object.keys(activeFacets).length > 0);
+
 	const useSSR = $derived(
-		isHubDefaultSuiteSort(sortIntent) && searchQuery === '' && initialSuites.length > 0
+		isHubDefaultSuiteSort(sortIntent) &&
+			searchQuery === '' &&
+			!hasActiveFilters &&
+			initialSuites.length > 0
 	);
+
+	const facetOptionsQuery = createQuery(() => ({
+		queryKey: ['conformance-suites', 'pipeline', 'hub', 'facet-options'] as const,
+		queryFn: async () => {
+			const result = await listSuites({ surface: 'pipeline' });
+			if (result.isErr) throw result.error;
+			return result.value;
+		}
+	}));
 
 	const catalogQuery = createQuery(() => {
 		const sort = sortIntent;
 		const q = searchQuery;
+		const facets = activeFacets;
 
 		return {
-			queryKey: ['conformance-suites', 'pipeline', 'hub', sort, q] as const,
+			queryKey: ['conformance-suites', 'pipeline', 'hub', sort, q, facets] as const,
 			enabled: !useSSR,
 			queryFn: async () => {
 				const result = await listSuites({
 					surface: 'pipeline',
 					sort,
-					search: q || undefined
+					search: q || undefined,
+					facets: Object.keys(facets).length > 0 ? facets : undefined
 				});
 				if (result.isErr) throw result.error;
 				return result.value;
 			}
 		};
+	});
+
+	const facetSourceSuites = $derived.by((): ConformanceSuiteRecord[] => {
+		if (facetOptionsQuery.data) return facetOptionsQuery.data;
+		if (initialSuites.length > 0) return initialSuites;
+		return [];
+	});
+
+	const facetOptions = $derived.by((): Record<SuiteFacetKey, string[]> => {
+		const options = {} as Record<SuiteFacetKey, string[]>;
+		for (const key of SUITE_FACET_KEYS) {
+			options[key] = distinctFacetValues(facetSourceSuites, key);
+		}
+		return options;
 	});
 
 	const displayedSuites = $derived.by((): ConformanceSuiteRecord[] => {
@@ -158,55 +218,112 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function versionLabel(version: string): string {
 		return version.trim() || '—';
 	}
+
+	/** Distinct non-empty values for facet selects (stable from unfiltered set). */
+	function distinctFacetValues(
+		records: ConformanceSuiteRecord[],
+		key: SuiteFacetKey
+	): string[] {
+		return [
+			...new Set(records.map((record) => record[key]).filter((value) => value.length > 0))
+		].sort((a, b) => a.localeCompare(b));
+	}
+
+	function facetOptionLabel(key: SuiteFacetKey, value: string): string {
+		switch (key) {
+			case 'standard':
+				return displayStandardName(value);
+			case 'component': {
+				const entity = entityForComponent(value);
+				return entity?.labels.singular ?? value;
+			}
+			case 'version':
+			case 'provider':
+				return value;
+		}
+	}
+
+	function clearFilters() {
+		filters.standard = '';
+		filters.component = '';
+		filters.version = '';
+		filters.provider = '';
+	}
 </script>
 
-<div class:opacity-60={isLoading}>
-	<Table.Table>
-		<Table.Header>
-			{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-				<Table.Row>
-					{#each headerGroup.headers as header (header.id)}
-						<Table.Head class="px-4">
-							{#if !header.isPlaceholder}
-								{#if header.column.getCanSort()}
-									<button
-										type="button"
-										class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
-										onclick={header.column.getToggleSortingHandler()}
-									>
+<div class="space-y-4">
+	<div class="flex flex-wrap items-end gap-3 px-4 pt-4">
+		{#each facetFields as { key, label } (key)}
+			<div class="flex flex-col gap-1">
+				<label class="text-muted-foreground text-xs" for={`facet-${key}`}>{label}</label>
+				<select id={`facet-${key}`} class={selectClass} bind:value={filters[key]}>
+					<option value="">{m.All()}</option>
+					{#each facetOptions[key] as value (value)}
+						<option {value}>{facetOptionLabel(key, value)}</option>
+					{/each}
+				</select>
+			</div>
+		{/each}
+
+		{#if hasActiveFilters}
+			<button
+				type="button"
+				class="text-primary text-sm underline-offset-4 hover:underline"
+				onclick={clearFilters}
+			>
+				{m.Clear_filters()}
+			</button>
+		{/if}
+	</div>
+
+	<div class:opacity-60={isLoading}>
+		<Table.Table>
+			<Table.Header>
+				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+					<Table.Row>
+						{#each headerGroup.headers as header (header.id)}
+							<Table.Head class="px-4">
+								{#if !header.isPlaceholder}
+									{#if header.column.getCanSort()}
+										<button
+											type="button"
+											class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
+											onclick={header.column.getToggleSortingHandler()}
+										>
+											<FlexRender
+												content={header.column.columnDef.header}
+												context={header.getContext()}
+											/>
+											<SortHeaderPill {header} {table} />
+										</button>
+									{:else}
 										<FlexRender
 											content={header.column.columnDef.header}
 											context={header.getContext()}
 										/>
-										<SortHeaderPill {header} {table} />
-									</button>
-								{:else}
-									<FlexRender
-										content={header.column.columnDef.header}
-										context={header.getContext()}
-									/>
+									{/if}
 								{/if}
-							{/if}
-						</Table.Head>
-					{/each}
-				</Table.Row>
-			{/each}
-		</Table.Header>
-		<Table.Body>
-			{#each table.getRowModel().rows as row (row.id)}
-				<Table.Row>
-					{#each row.getVisibleCells() as cell (cell.id)}
-						<Table.Cell class="px-4 align-top">
-							<div class="flex min-h-[41px] items-center">
-								<FlexRender
-									content={cell.column.columnDef.cell}
-									context={cell.getContext()}
-								/>
-							</div>
-						</Table.Cell>
-					{/each}
-				</Table.Row>
-			{/each}
-		</Table.Body>
-	</Table.Table>
+							</Table.Head>
+						{/each}
+					</Table.Row>
+				{/each}
+			</Table.Header>
+			<Table.Body>
+				{#each table.getRowModel().rows as row (row.id)}
+					<Table.Row>
+						{#each row.getVisibleCells() as cell (cell.id)}
+							<Table.Cell class="px-4 align-top">
+								<div class="flex min-h-[41px] items-center">
+									<FlexRender
+										content={cell.column.columnDef.cell}
+										context={cell.getContext()}
+									/>
+								</div>
+							</Table.Cell>
+						{/each}
+					</Table.Row>
+				{/each}
+			</Table.Body>
+		</Table.Table>
+	</div>
 </div>

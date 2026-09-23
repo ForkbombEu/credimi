@@ -6,8 +6,8 @@ import { z } from 'zod';
 
 /** Synthetic PocketBase collection name used in URLs only.
  * Data is served by Credimi from an ephemeral catalog (no data.db collection).
- * `generate.collections-models.ts` injects a stub for CollectionName; listChecks
- * still casts until TypedPocketBase responses are regenerated.
+ * `generate.collections-models.ts` stubs CollectionName; `generate:catalog-pb-types`
+ * injects CollectionRecords/Responses after pocketbase-typegen.
  */
 export const CONFORMANCE_CHECKS_COLLECTION = 'conformance_checks' as const;
 

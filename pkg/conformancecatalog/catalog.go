@@ -7,15 +7,14 @@
 // query cache (the sole post-rebuild projection).
 //
 // Durable source of truth remains the filesystem under config_templates.
-// There is no durable conformance_checks table in PocketBase data.db.
+// There is no durable catalog collection in PocketBase data.db.
 //
-// Clients still call the PocketBase collection URL shape
-// (/api/collections/conformance_checks/records); Credimi owns those routes and
-// runs filter/sort/pagination via pocketbase/tools/search against the ephemeral
-// DB. Create/update/delete on that URL are rejected.
-//
-// Suite-grain hub rows are projected to /api/collections/conformance_suites/records
-// with normalized standard/component/version (FS path identity stays on checks).
+// Clients use PocketBase collection URL shapes:
+//   - /api/collections/conformance_checks/records (check grain)
+//   - /api/collections/conformance_suites/records (suite grain; display metadata)
+// Credimi owns those routes and runs filter/sort/pagination via
+// pocketbase/tools/search against the ephemeral DB. Writes are rejected.
+// List/get auth is public (same posture as the former blueprints/hub listing).
 //
 // Classic layout: standard/version/suite/<check file>.
 // FCAF layout: fcaf/<version>/<suite>/tests/<id>.yaml — path identity is

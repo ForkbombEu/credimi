@@ -178,8 +178,10 @@ Conformance catalog refresh:
 
 - Filesystem under `config_templates` is the durable SoT.
 - Query cache is a process-private `:memory:` SQLite DB (not rows in `pb_data`).
-- Clients use the PocketBase URL shape `/api/collections/conformance_checks/records`; Credimi owns those routes and runs filter/sort/pagination via `pocketbase/tools/search`. There is no durable `conformance_checks` collection shell.
+- Clients use the PocketBase URL shapes `/api/collections/conformance_checks/records` (check grain) and `/api/collections/conformance_suites/records` (suite grain; display metadata lives here — see `docs/adr/0002-suite-grain-owns-catalog-display-metadata.md`). Credimi owns those routes and runs filter/sort/pagination via `pocketbase/tools/search`. There is no durable `conformance_checks` or `conformance_suites` collection shell in `data.db` (and no migration that creates one).
+- Auth posture: list/get on both fake collection URLs are public (`AuthenticationRequired: false`), matching the former public blueprints/hub listing. Writes are rejected. Rebuild requires `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY`.
 - Boot rebuild: starting the API process rebuilds the ephemeral `:memory:` query cache (sole live projection; see `docs/adr/0001-ephemeral-catalog-sole-projection.md`).
+- Webapp typegen: `generate:collections-models` injects synthetic collection stubs; after `pocketbase-typegen`, `generate:catalog-pb-types` injects `conformance_checks` / `conformance_suites` into `CollectionRecords` / `CollectionResponses` (they are not in `data.db`).
 - Manual refresh after local template edits: `POST /api/conformance-catalog/rebuild` with `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` (same internal admin key as other Temporal-trusted routes). Package entrypoint: `pkg/conformancecatalog`.
 
 Key environment variables:

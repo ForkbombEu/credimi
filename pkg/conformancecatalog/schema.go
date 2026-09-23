@@ -12,7 +12,7 @@ import (
 // columnSpec is one persisted catalog column. This table is the Go source of
 // truth for ephemeral DDL, SELECT lists, and INSERT column order. Client-facing
 // Zod / typegen stubs must stay aligned with Client=true columns (see schema_test
-// and webapp columns.generated.ts).
+// and webapp/src/lib/conformance/columns.ts).
 type columnSpec struct {
 	Name    string
 	SQLType string // SQLITE column type + constraints (without the name)

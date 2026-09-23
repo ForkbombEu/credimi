@@ -7,17 +7,6 @@ alwaysApply: true
 This repo is indexed in `graft/`: small linked markdown nodes that explain each
 system and carry exact file:line spans, kept in sync with the code through git.
 
-### Sandbox (required)
-
-Graft CLI may spawn detached `_update-check` / `_telemetry-flush` children. In a
-Cursor sandbox those children inherit `HTTP(S)_PROXY` / `ALL_PROXY`, hang on npm,
-and can fork-bomb the machine.
-
-Whenever you run any `graft …` command via the Shell tool, you MUST pass
-`required_permissions: ["all"]` so the process is unsandboxed (no proxy injection).
-Do not run `graft` under the default sandbox. Prefer one graft call at a time;
-avoid parallel `graft ask` storms.
-
 For ANY task here — understanding how something works, finding where code lives,
 or scoping a change — get context from the graph before grepping or opening
 source files. Re-ask freely (it's cheap) and reuse literal identifiers you

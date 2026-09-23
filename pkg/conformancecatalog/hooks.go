@@ -12,24 +12,21 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// Register wires boot rebuild (ephemeral catalog) and drops any durable
-// conformance_checks collection shell left from earlier projections.
+// Register wires boot rebuild of the ephemeral catalog.
 //
 // List/get are served by Credimi routes that mimic the PocketBase collection
 // URL (/api/collections/conformance_checks/records and
 // /api/collections/conformance_suites/records) — see RecordsListHTTP / SuitesListHTTP.
+// Both list/get route groups are public; writes are rejected. There is no durable
+// catalog collection shell in data.db.
 //
-// Boot: OnBootstrap drops the shell and rebuilds from TemplatesDir().
-// A missing templates directory is skipped (test apps / empty checkouts); if the
-// directory exists, rebuild failures fail bootstrap. Refresh without restart:
-// Rebuild(app, "") or POST /api/conformance-catalog/rebuild.
+// Boot: OnBootstrap rebuilds from TemplatesDir(). A missing templates directory
+// is skipped (test apps / empty checkouts); if the directory exists, rebuild
+// failures fail bootstrap. Refresh without restart: Rebuild(app, "") or
+// POST /api/conformance-catalog/rebuild.
 func Register(app core.App) {
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
 		if err := e.Next(); err != nil {
-			return err
-		}
-		if err := dropCollectionShell(e.App); err != nil {
-			e.App.Logger().Error("conformance catalog: drop collection shell failed", "error", err)
 			return err
 		}
 		if err := bootRebuild(e.App, TemplatesDir()); err != nil {

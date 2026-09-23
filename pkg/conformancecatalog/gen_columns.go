@@ -4,7 +4,7 @@
 
 //go:build ignore
 
-// Generates webapp/src/lib/conformance/columns.generated.ts from schema.go.
+// Generates webapp/src/lib/conformance/columns.ts from schema.go.
 //
 //	go generate ./pkg/conformancecatalog
 package main

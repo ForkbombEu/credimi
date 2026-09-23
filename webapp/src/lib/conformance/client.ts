@@ -4,7 +4,7 @@
 
 import type { FCAFTestCatalogEntry } from '$lib/fcaf/catalog.js';
 
-import PocketBase, { ClientResponseError } from 'pocketbase';
+import { ClientResponseError } from 'pocketbase';
 import * as Task from 'true-myth/task';
 import { ZodError } from 'zod';
 
@@ -63,12 +63,9 @@ export function listChecks(
 		...(compiled.filter ? { filter: compiled.filter } : {})
 	};
 
-	// Collection may be missing from generated TypedPocketBase until typegen runs.
-	const catalog = pb as PocketBase;
-
 	return Task.tryOrElse(
 		(err) => err as ClientResponseError,
-		() => catalog.collection(CONFORMANCE_CHECKS_COLLECTION).getFullList(listOptions)
+		() => pb.collection(CONFORMANCE_CHECKS_COLLECTION).getFullList(listOptions)
 	).andThen((rows) => {
 		const parsed = conformanceCheckRecordSchema.array().safeParse(rows);
 		if (parsed.success) return Task.resolve(parsed.data);
@@ -96,11 +93,9 @@ export function listSuites(
 		...(compiled.filter ? { filter: compiled.filter } : {})
 	};
 
-	const catalog = pb as PocketBase;
-
 	return Task.tryOrElse(
 		(err) => err as ClientResponseError,
-		() => catalog.collection(CONFORMANCE_SUITES_COLLECTION).getFullList(listOptions)
+		() => pb.collection(CONFORMANCE_SUITES_COLLECTION).getFullList(listOptions)
 	).andThen((rows) => {
 		const parsed = conformanceSuiteRecordSchema.array().safeParse(rows);
 		if (parsed.success) return Task.resolve(parsed.data);
