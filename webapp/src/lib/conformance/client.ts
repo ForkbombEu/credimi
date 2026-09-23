@@ -52,6 +52,8 @@ export type ListSuitesOptions = {
 	surface?: TemplateSurface;
 	facets?: SuiteFacets;
 	sort?: string;
+	/** PocketBase `~` match across suite display fields. */
+	search?: string;
 };
 
 /** Facet field order for check-grain PB equality filters. */
@@ -78,6 +80,24 @@ export function appendFacetFilters(
 			filters.push(filterFn(`${key} = {:${key}}`, { [key]: value }));
 		}
 	}
+}
+
+/**
+ * Append a suite text-search filter (`~`) across display and identity fields.
+ */
+export function appendSuiteSearchFilter(
+	filters: string[],
+	search: string | undefined,
+	filterFn: PbFilterFn
+): void {
+	const q = search?.trim();
+	if (!q) return;
+	filters.push(
+		filterFn(
+			'(suite_name ~ {:q} || suite ~ {:q} || standard ~ {:q} || component ~ {:q} || version ~ {:q} || provider ~ {:q})',
+			{ q }
+		)
+	);
 }
 
 /**
@@ -151,7 +171,8 @@ export function listSuites(
 		fetch: fetchFn = fetch,
 		surface,
 		facets,
-		sort = 'component_rank,standard,suite'
+		sort = 'component_rank,standard,suite',
+		search
 	} = options;
 
 	const listOptions: {
@@ -168,6 +189,7 @@ export function listSuites(
 		filters.push(pb.filter('visible_in ~ {:surface}', { surface }));
 	}
 	appendSuiteFacetFilters(filters, facets, (raw, params) => pb.filter(raw, params));
+	appendSuiteSearchFilter(filters, search, (raw, params) => pb.filter(raw, params));
 	if (filters.length > 0) {
 		listOptions.filter = filters.join(' && ');
 	}

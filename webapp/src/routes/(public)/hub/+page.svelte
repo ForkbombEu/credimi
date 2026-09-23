@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ConformanceChecksTable from '$lib/hub/conformance-checks-table.svelte';
 	import HubTable from '$lib/hub/hub-table.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import { Debounced } from 'runed';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -19,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionManager } from '@/collections-components/manager/collectionManager.svelte.js';
 	import PublicPageHeader from '@/components/layout/public-page-header.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import SearchInput from '@/components/ui-custom/search-input.svelte';
 	import { m } from '@/i18n';
 
 	//
@@ -43,6 +45,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	let manager: CollectionManager<'hub_items'> | undefined;
+
+	/** Suite-tab search; debounced like CollectionManager hub search (500ms). */
+	let suiteSearchText = $state('');
+	const debouncedSuiteSearch = new Debounced(() => suiteSearchText, 500);
 
 	const queryOptions: PocketbaseQueryOptions<'hub_items'> = $derived.by(() => {
 		switch (params.tab) {
@@ -98,7 +104,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									'shadow-md md:shadow-none': isActive
 								}
 							]}
-							onclick={() => (params.tab = tab.slug)}
+							onclick={() => {
+								params.tab = tab.slug;
+								suiteSearchText = '';
+							}}
 						>
 							<div
 								class={[
@@ -118,11 +127,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</div>
 
-				{#if params.tab !== 'conformance-checks'}
-					<div class="rounded-t-md bg-white px-4 pt-4 pb-6 md:rounded-t-none">
+				<div class="rounded-t-md bg-white px-4 pt-4 pb-6 md:rounded-t-none">
+					{#if params.tab === 'conformance-checks'}
+						<SearchInput bind:value={suiteSearchText} />
+					{:else}
 						<Search />
-					</div>
-				{/if}
+					{/if}
+				</div>
 			</div>
 		</div>
 	{/snippet}
@@ -131,8 +142,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="min-h-[300px] grow bg-secondary">
 			<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
 				{#if params.tab === 'conformance-checks'}
-					<div class="rounded-lg rounded-tr-none bg-white pt-4">
-						<ConformanceChecksTable suites={data.conformanceSuites} />
+					<div class="rounded-b-lg bg-white">
+						<ConformanceChecksTable
+							suites={data.conformanceSuites}
+							search={debouncedSuiteSearch.current}
+						/>
 					</div>
 				{:else}
 					{@render children()}

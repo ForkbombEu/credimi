@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	appendFacetFilters,
 	appendSuiteFacetFilters,
+	appendSuiteSearchFilter,
 	CATALOG_FACET_KEYS,
 	SUITE_FACET_KEYS,
 	type CatalogFacets,
@@ -120,5 +121,22 @@ describe('appendSuiteFacetFilters', () => {
 			stubFilter
 		);
 		expect(filters).toEqual(['standard = "openid4vci"', 'provider = "webuild"']);
+	});
+});
+
+describe('appendSuiteSearchFilter', () => {
+	it('emits a ~ OR across suite display fields', () => {
+		const filters: string[] = [];
+		appendSuiteSearchFilter(filters, '  ewc  ', stubFilter);
+		expect(filters).toEqual([
+			'(suite_name ~ "ewc" || suite ~ "ewc" || standard ~ "ewc" || component ~ "ewc" || version ~ "ewc" || provider ~ "ewc")'
+		]);
+	});
+
+	it('is a no-op for empty or whitespace search', () => {
+		const filters: string[] = ['standard = "openid4vp"'];
+		appendSuiteSearchFilter(filters, '   ', stubFilter);
+		appendSuiteSearchFilter(filters, undefined, stubFilter);
+		expect(filters).toEqual(['standard = "openid4vp"']);
 	});
 });

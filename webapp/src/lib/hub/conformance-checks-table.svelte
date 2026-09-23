@@ -37,9 +37,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		/** SSR suite rows (pipeline surface, no facets). */
 		suites?: ConformanceSuiteRecord[];
+		/** Debounced text search (PocketBase `~` via listSuites). */
+		search?: string;
 	};
 
-	let { suites: initialSuites = [] }: Props = $props();
+	let { suites: initialSuites = [], search = '' }: Props = $props();
 
 	/** Server default when UI has no active column sort. */
 	const DEFAULT_SORT = 'component_rank,standard,suite';
@@ -55,19 +57,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let sorting = $state<SortingState>([]);
 
 	const sortString = $derived(buildSortString(sorting));
+	const searchQuery = $derived(search.trim());
 
-	const useSSR = $derived(sortString === DEFAULT_SORT && initialSuites.length > 0);
+	const useSSR = $derived(
+		sortString === DEFAULT_SORT && searchQuery === '' && initialSuites.length > 0
+	);
 
 	const catalogQuery = createQuery(() => {
 		const sort = sortString;
+		const q = searchQuery;
 
 		return {
-			queryKey: ['conformance-suites', 'pipeline', 'hub', sort] as const,
+			queryKey: ['conformance-suites', 'pipeline', 'hub', sort, q] as const,
 			enabled: !useSSR,
 			queryFn: async () => {
 				const result = await listSuites({
 					surface: 'pipeline',
-					sort
+					sort,
+					search: q || undefined
 				});
 				if (result.isErr) throw result.error;
 				return result.value;
@@ -181,55 +188,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<div class="space-y-4 px-4 pb-4">
-	<div class:opacity-60={isLoading}>
-		<Table.Table>
-			<Table.Header>
-				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-					<Table.Row>
-						{#each headerGroup.headers as header (header.id)}
-							<Table.Head class="px-4">
-								{#if !header.isPlaceholder}
-									{#if header.column.getCanSort()}
-										<button
-											type="button"
-											class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
-											onclick={header.column.getToggleSortingHandler()}
-										>
-											<FlexRender
-												content={header.column.columnDef.header}
-												context={header.getContext()}
-											/>
-											<SortHeaderPill {header} {table} />
-										</button>
-									{:else}
+<div class:opacity-60={isLoading}>
+	<Table.Table>
+		<Table.Header>
+			{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+				<Table.Row>
+					{#each headerGroup.headers as header (header.id)}
+						<Table.Head class="px-4">
+							{#if !header.isPlaceholder}
+								{#if header.column.getCanSort()}
+									<button
+										type="button"
+										class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
+										onclick={header.column.getToggleSortingHandler()}
+									>
 										<FlexRender
 											content={header.column.columnDef.header}
 											context={header.getContext()}
 										/>
-									{/if}
-								{/if}
-							</Table.Head>
-						{/each}
-					</Table.Row>
-				{/each}
-			</Table.Header>
-			<Table.Body>
-				{#each table.getRowModel().rows as row (row.id)}
-					<Table.Row>
-						{#each row.getVisibleCells() as cell (cell.id)}
-							<Table.Cell class="px-4 align-top">
-								<div class="flex min-h-[41px] items-center">
+										<SortHeaderPill {header} {table} />
+									</button>
+								{:else}
 									<FlexRender
-										content={cell.column.columnDef.cell}
-										context={cell.getContext()}
+										content={header.column.columnDef.header}
+										context={header.getContext()}
 									/>
-								</div>
-							</Table.Cell>
-						{/each}
-					</Table.Row>
-				{/each}
-			</Table.Body>
-		</Table.Table>
-	</div>
+								{/if}
+							{/if}
+						</Table.Head>
+					{/each}
+				</Table.Row>
+			{/each}
+		</Table.Header>
+		<Table.Body>
+			{#each table.getRowModel().rows as row (row.id)}
+				<Table.Row>
+					{#each row.getVisibleCells() as cell (cell.id)}
+						<Table.Cell class="px-4 align-top">
+							<div class="flex min-h-[41px] items-center">
+								<FlexRender
+									content={cell.column.columnDef.cell}
+									context={cell.getContext()}
+								/>
+							</div>
+						</Table.Cell>
+					{/each}
+				</Table.Row>
+			{/each}
+		</Table.Body>
+	</Table.Table>
 </div>
