@@ -13039,6 +13039,39 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ unknown-parameter-controls-e7438d99-create-unknown-request-and-response-parameter.outputs.body.session_id }}
     - continue_on_error: true
+      id: unknown-scope-f9476deb-create-unknown-scope
+      use: http-request
+      with:
+        body:
+            dcql_query: null
+            presentation_request:
+                nonce: protocol-messages-unknown-scope
+            request_delivery: by_reference
+            response_mode: direct_post
+            response_type: vp_token
+            scopes:
+                - urn:credimi:fcaf:unknown-scope
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: unknown-scope-f9476deb-reject-unknown-scope
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ unknown-scope-f9476deb-create-unknown-scope.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: unknown-scope-f9476deb-fetch-unknown-scope
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ unknown-scope-f9476deb-create-unknown-scope.outputs.body.session_id }}
+    - continue_on_error: true
       id: verifier-info-all-credentials-039537ba-create-capture-session
       use: http-request
       with:
@@ -14375,6 +14408,11 @@ steps:
                         verifier_http: ${{ unknown-parameter-controls-e7438d99-fetch-unknown-response-parameter.outputs.body.raw.presentation_response_verifier_http | optional }}
                     unknown_response_parameter_session: ${{ unknown-parameter-controls-e7438d99-fetch-unknown-response-parameter.outputs.body | optional }}
                     unknown_response_parameter_visual_evidence: ${{ unknown-parameter-controls-e7438d99-exercise-unknown-response-parameter.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.protocol.unknown-scope:
+                output:
+                    request_object: ${{ unknown-scope-f9476deb-fetch-unknown-scope.outputs.body.raw.authorization_request_jwt | optional }}
+                    session: ${{ unknown-scope-f9476deb-fetch-unknown-scope.outputs.body | optional }}
+                    visual_evidence: ${{ unknown-scope-f9476deb-reject-unknown-scope.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.protocol.verifier-response-controls:
                 output:
                     http_error_response_callback:

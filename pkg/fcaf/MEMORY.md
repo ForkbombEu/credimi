@@ -2132,3 +2132,44 @@ and fails 017 and 019, exactly as their sources require.
 pipeline outputs; the happy flow drops to 349 tests. The mobile steps use the
 shared `fcaf-expect-request-rejected` action. No emulator was attached, and
 `request_behavior` needs beta to enable `FCAF_SCENARIOS_ENABLED`.
+
+## ProtocolMessages 030, scope-only request with an unknown scope
+
+030 owns `fcaf-wallet-solution-relying-party-unknown-scope`, the last of the
+six cases the 22/09/2026 contract resync reclassified.
+
+`dcql_query: null` plus `scopes` is the Section 5.1 scope-based request. Read
+the capture source before binding evidence here, because two copies of the
+request exist and only one was delivered:
+
+- `omitDcqlFromDelivery` removes `dcql_query` from `deliveredRequest` only.
+  `authorization_request` keeps the generated query, because Credo matches the
+  Authorization Response against the request object the service signs.
+- That same flag puts the session on the separately-signed path, so
+  `raw.authorization_request_jwt` is the delivered JWT, with no `dcql_query`
+  and a `scope` claim. `scopes` is joined with spaces into `scope`.
+- `raw.authorization_request_delivered` is populated only when a
+  `request_mutation` is present, so it must not be bound here. The delivered
+  JWT is the right evidence anyway: it is what the Wallet received and
+  verified.
+
+The assertions pin the absent query, the exact delivered scope, the Wallet's
+GET retrieval, and `invalid_scope` without a presentation. Nothing asserts on
+the query the Verifier retained; that would describe a message the Wallet never
+saw.
+
+Verified 22/09/2026 through the FCAF engine: 8 of 8 expectations met. The case
+passes on conformant evidence and fails when the delivered request still
+carried a query, when the scope was a recognised value, when no scope was
+delivered, when the Wallet never retrieved the request, when it answered with
+another error code or a credential, and when it only discontinued.
+
+Still blocked and unchanged: `WS_RP_MS_ProtocolMessages__020`, `141` and
+`WS_RP_UC_Presentation__003` need a scope the Wallet resolves to a DCQL query,
+and the service defines no scope values. The transaction-data family keeps its
+blocker too; `checks.transaction_data_verified` closed the evidence gap but the
+reference Wallet still supports no transaction-data type.
+
+`make fcaf-generate` produces 860 aggregate steps, 612 test IDs, and 208
+pipeline outputs; the happy flow drops to 348 tests. This closes every case the
+contract resync reclassified.

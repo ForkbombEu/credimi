@@ -1,0 +1,60 @@
+name: FCAF scope-only request carrying an unknown scope
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+# dcql_query: null omits the query from the request the Wallet receives, which
+# is how OpenID4VP Section 5.1 sends a scope-based request. The Verifier keeps
+# a query internally, because the Authorization Response is matched against the
+# request object this service signs; that copy is never delivered. `scopes` is
+# joined into the delivered `scope` claim, so the Wallet sees a request whose
+# only statement of what is wanted is a scope value no profile defines.
+- id: create-unknown-scope
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      scopes:
+        - urn:credimi:fcaf:unknown-scope
+      dcql_query: null
+      presentation_request:
+        nonce: protocol-messages-unknown-scope
+- id: reject-unknown-scope
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-unknown-scope.outputs.body.deeplink }}"
+- id: fetch-unknown-scope
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-unknown-scope.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_MS_ProtocolMessages__030
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.unknown-scope:
+        output:
+          session: ${{ fetch-unknown-scope.outputs.body }}
+          request_object: ${{ fetch-unknown-scope.outputs.body.raw.authorization_request_jwt }}
+          visual_evidence: ${{ reject-unknown-scope.outputs.flow_output.maestro_screenshot_urls }}

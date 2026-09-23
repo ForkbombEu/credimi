@@ -2313,7 +2313,6 @@ steps:
             - WS_RP_MS_ProtocolMessages__018
             - WS_RP_MS_ProtocolMessages__019
             - WS_RP_MS_ProtocolMessages__020
-            - WS_RP_MS_ProtocolMessages__030
             - WS_RP_MS_ProtocolMessages__032
             - WS_RP_MS_ProtocolMessages__035
             - WS_RP_MS_ProtocolMessages__036

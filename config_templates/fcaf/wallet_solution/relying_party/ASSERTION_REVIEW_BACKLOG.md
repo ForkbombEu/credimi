@@ -128,8 +128,14 @@ Identifier so the chain is the only defect:
 `dcql_query: null` combined with `scopes` delivers a Section 5.1 scope-only
 Authorization Request:
 
-- [ ] `WS_RP_MS_ProtocolMessages__030` (scope-only request carrying a scope the
-      Wallet does not recognise; requires `invalid_scope`)
+- **Implemented; beta evidence pending:** `WS_RP_MS_ProtocolMessages__030` owns
+  `fcaf-wallet-solution-relying-party-unknown-scope`. `dcql_query: null`
+  removes the query from the delivered Request Object while the Verifier keeps
+  one for its own verification, and `scopes` is joined into the delivered
+  `scope` claim. The assertions pin both halves of that precondition, the
+  Wallet's retrieval of the request, and `invalid_scope` without a
+  presentation. Nothing reads the query the Verifier retained; asserting on it
+  would describe a message the Wallet never saw.
 
   `WS_RP_MS_ProtocolMessages__020`, `WS_RP_MS_ProtocolMessages__141` and
   `WS_RP_UC_Presentation__003` stay blocked: they need a scope the Wallet

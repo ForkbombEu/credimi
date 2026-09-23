@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__030
-title: FCAF WS_RP_MS_ProtocolMessages__030
+title: Return invalid_scope for a scope-only request carrying an unknown scope.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__030.md
 suite:
@@ -11,21 +11,41 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- title: OpenID for Verifiable Presentations 1.0
+  section: '8.5'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: The OAuth 2.0 Authorization Framework
+  section: '4.1.2.1'
+  url: https://www.rfc-editor.org/rfc/rfc6749
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
+  session:
+    from: pipeline.protocol.unknown-scope.outputs.session
+  request_object:
+    from: pipeline.protocol.unknown-scope.outputs.request_object
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.protocol.unknown-scope.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__030_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: delivered_request_states_what_it_wants_only_as_a_scope
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params: { field: dcql_query, present: false }
+- id: delivered_scope_is_the_unrecognised_value
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
   params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__030_visual_evidence_stored
+    field: scope
+    value: "urn:credimi:fcaf:unknown-scope"
+- id: wallet_retrieved_the_delivered_request_object
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params: { method: GET }
+- id: wallet_returns_invalid_scope_without_a_presentation
+  validator: oid4vp.error_response_required
+  input: evidence.session
+  params: { code: invalid_scope }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:
