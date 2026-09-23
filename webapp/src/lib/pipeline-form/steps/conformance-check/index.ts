@@ -90,7 +90,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 	},
 
 	cardData: ({ suite, test, standard }) => {
-		const testPath = suite.paths.find((path) => path.endsWith(test));
+		const testPath = suite.members.find((m) => m.path.endsWith(test))?.path;
 		if (testPath === undefined) {
 			throw new Error(m.Pipeline_form_conformance_check_path_not_found());
 		}

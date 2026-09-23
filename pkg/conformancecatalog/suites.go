@@ -9,31 +9,36 @@ import (
 	"strings"
 )
 
+// SuiteMember is one check leaf on a suite-grain catalog row.
+type SuiteMember struct {
+	Path  string `json:"path"`
+	Title string `json:"title"`
+	File  string `json:"file"`
+}
+
 // SuiteRecord is one hub-table row: a suite under normalized standard×component×version.
 // FS* fields preserve durable path identity for hub links; Standard/Component/Version
 // are the product projection.
 type SuiteRecord struct {
-	ID               string   `json:"id"`
-	Standard         string   `json:"standard"`       // normalized product standard
-	Component        string   `json:"component"`      // wallet | issuer | verifier | ""
-	ComponentRank    int      `json:"component_rank"` // wallet=0, issuer=1, verifier=2, else=9
-	Version          string   `json:"version"`        // normalized profile version (may be "")
-	Suite            string   `json:"suite"`          // suite uid
-	Provider         string   `json:"provider"`
-	SuiteName        string   `json:"suite_name"`
-	SuiteHomepage    string   `json:"suite_homepage"`
-	SuiteRepository  string   `json:"suite_repository"`
-	SuiteHelp        string   `json:"suite_help"`
-	SuiteDescription string   `json:"suite_description"`
-	SuiteLogo        string   `json:"suite_logo"`
-	CheckCount       int      `json:"check_count"`
-	CheckPaths       []string `json:"check_paths"`
-	CheckTitles      []string `json:"check_titles"`
-	CheckFiles       []string `json:"check_files"`
-	VisibleIn        []string `json:"visible_in"`
-	FSStandard       string   `json:"fs_standard"`
-	FSVersion        string   `json:"fs_version"`
-	PathPrefix       string   `json:"path_prefix"` // fs_standard/fs_version/suite for hub URLs
+	ID               string        `json:"id"`
+	Standard         string        `json:"standard"`       // normalized product standard
+	Component        string        `json:"component"`      // wallet | issuer | verifier | ""
+	ComponentRank    int           `json:"component_rank"` // wallet=0, issuer=1, verifier=2, else=9
+	Version          string        `json:"version"`        // normalized profile version (may be "")
+	Suite            string        `json:"suite"`          // suite uid
+	Provider         string        `json:"provider"`
+	SuiteName        string        `json:"suite_name"`
+	SuiteHomepage    string        `json:"suite_homepage"`
+	SuiteRepository  string        `json:"suite_repository"`
+	SuiteHelp        string        `json:"suite_help"`
+	SuiteDescription string        `json:"suite_description"`
+	SuiteLogo        string        `json:"suite_logo"`
+	CheckCount       int           `json:"check_count"`
+	Members          []SuiteMember `json:"members"`
+	VisibleIn        []string      `json:"visible_in"`
+	FSStandard       string        `json:"fs_standard"`
+	FSVersion        string        `json:"fs_version"`
+	PathPrefix       string        `json:"path_prefix"` // fs_standard/fs_version/suite for hub URLs
 }
 
 // ComponentRank returns the hub default sort priority for a component uid.
@@ -68,9 +73,7 @@ func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 	type agg struct {
 		meta     SuiteRecord
 		vis      map[string]struct{}
-		paths    []string
-		titles   []string
-		files    []string
+		members  []SuiteMember
 		provider string
 	}
 
@@ -117,9 +120,11 @@ func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 			byKey[key] = a
 			order = append(order, key)
 		}
-		a.paths = append(a.paths, ch.Path)
-		a.titles = append(a.titles, ch.Title)
-		a.files = append(a.files, ch.File)
+		a.members = append(a.members, SuiteMember{
+			Path:  ch.Path,
+			Title: ch.Title,
+			File:  ch.File,
+		})
 		for _, v := range ch.VisibleIn {
 			a.vis[v] = struct{}{}
 		}
@@ -141,10 +146,8 @@ func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 		rec := a.meta
 		rec.ID = PathID(rec.PathPrefix)
 		rec.Provider = a.provider
-		rec.CheckCount = len(a.paths)
-		rec.CheckPaths = a.paths
-		rec.CheckTitles = a.titles
-		rec.CheckFiles = a.files
+		rec.CheckCount = len(a.members)
+		rec.Members = a.members
 		rec.VisibleIn = vis
 		out = append(out, rec)
 	}

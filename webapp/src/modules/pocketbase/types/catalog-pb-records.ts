@@ -42,9 +42,7 @@ export type ConformanceSuitesRecord = {
 	suite_description?: string
 	suite_logo?: string
 	check_count: number
-	check_paths?: string[]
-	check_titles?: string[]
-	check_files?: string[]
+	members?: { path: string; title: string; file: string }[]
 	visible_in?: string[]
 	fs_standard: string
 	fs_version: string

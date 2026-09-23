@@ -116,7 +116,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	availableVersions = $derived(this.data.standard?.versions ?? []);
 	availableSuites = $derived(this.data.version?.suites ?? []);
-	availableTests = $derived(this.data.suite?.paths ?? []);
+	availableTests = $derived(this.data.suite?.members.map((m) => m.path) ?? []);
 
 	hasWalletTests = $derived(this.availableTests.some((test) => isOpenIdWalletTest(test)));
 
@@ -300,7 +300,7 @@ export type FormState =
 type Standard = StandardsWithTestSuites[number];
 type Version = Standard['versions'][number];
 type Suite = Version['suites'][number];
-type Test = Suite['paths'][number];
+type Test = Suite['members'][number]['path'];
 
 export function getWalletTestBlockReason(
 	wallet: HubItem | undefined,

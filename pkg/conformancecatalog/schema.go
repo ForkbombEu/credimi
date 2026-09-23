@@ -17,6 +17,7 @@ const (
 	ColumnKindInt         ColumnKind = "int"
 	ColumnKindNonNegInt   ColumnKind = "nonNegInt"
 	ColumnKindStringArray ColumnKind = "stringArray"
+	ColumnKindMemberArray ColumnKind = "memberArray"
 )
 
 // ClientColumn is one Client-facing catalog wire field (exported for go generate).
@@ -78,9 +79,7 @@ var suiteColumns = []columnSpec{
 	{Name: "suite_description", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
 	{Name: "suite_logo", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
 	{Name: "check_count", SQLType: "INTEGER NOT NULL DEFAULT 0", Client: true, Kind: ColumnKindNonNegInt},
-	{Name: "check_paths", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
-	{Name: "check_titles", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
-	{Name: "check_files", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
+	{Name: "members", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindMemberArray, Optional: true, Default: "[]"},
 	{Name: "visible_in", SQLType: "TEXT NOT NULL DEFAULT '[]'", Client: true, Kind: ColumnKindStringArray, Optional: true, Default: "[]"},
 	{Name: "fs_standard", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString},
 	{Name: "fs_version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString},

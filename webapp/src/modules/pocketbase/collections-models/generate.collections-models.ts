@@ -173,7 +173,7 @@ function injectSyntheticConformanceSuites(models: CollectionModel[]): void {
 		type: 'base',
 		system: false,
 		fields: fieldsFromClientColumns('conformance_suites', SUITE_CLIENT_COLUMNS, {
-			json: new Set(['check_paths', 'check_titles', 'check_files', 'visible_in']),
+			json: new Set(['members', 'visible_in']),
 			number: new Set(['component_rank', 'check_count']),
 			required: new Set(['standard', 'suite', 'component_rank', 'check_count', 'fs_standard', 'fs_version', 'path_prefix'])
 		})

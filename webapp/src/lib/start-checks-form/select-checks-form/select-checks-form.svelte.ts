@@ -64,12 +64,12 @@ export class SelectChecksForm {
 	availableSuites = $derived(this.selectedVersion?.suites ?? []);
 
 	availableSuitesWithTests = $derived(
-		this.availableSuites.filter((suite) => suite.files.length > 0)
+		this.availableSuites.filter((suite) => suite.members.length > 0)
 	);
 	selectedSuites = $state<string[]>([]);
 
 	availableSuitesWithoutTests = $derived(
-		this.availableSuites.filter((suite) => suite.files.length === 0)
+		this.availableSuites.filter((suite) => suite.members.length === 0)
 	);
 	selectedTests = $state<string[]>([]);
 

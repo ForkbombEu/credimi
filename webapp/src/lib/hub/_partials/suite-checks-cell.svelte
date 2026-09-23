@@ -29,11 +29,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		]}
 	/>
-{:else if suite.check_files.length > 0}
+{:else if suite.members.length > 0}
 	<ChildrenCell
-		items={suite.check_paths.map((p, i) => ({
-			title: suite.check_titles[i] || suite.check_files[i]?.replace('.yaml', '') || p,
-			href: `/hub/conformance-checks/${p}`
+		items={suite.members.map((m) => ({
+			title: m.title || m.file.replace('.yaml', '') || m.path,
+			href: `/hub/conformance-checks/${m.path}`
 		}))}
 	/>
 {:else}

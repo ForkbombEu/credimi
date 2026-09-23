@@ -5,11 +5,14 @@
 //go:build ignore
 
 // Generates FE catalog wire artifacts from schema.go:
+//
 //   - webapp/src/lib/conformance/columns.ts
+//
 //   - webapp/src/lib/conformance/record.schemas.ts
+//
 //   - webapp/src/modules/pocketbase/types/catalog-pb-records.ts
 //
-//	go generate ./pkg/conformancecatalog
+//     go generate ./pkg/conformancecatalog
 package main
 
 import (
@@ -131,6 +134,8 @@ func zodBase(kind conformancecatalog.ColumnKind) string {
 		return "z.number().int().nonnegative()"
 	case conformancecatalog.ColumnKindStringArray:
 		return "z.array(z.string())"
+	case conformancecatalog.ColumnKindMemberArray:
+		return "z.array(z.object({ path: z.string(), title: z.string(), file: z.string() }))"
 	default:
 		panic(fmt.Sprintf("unknown column kind %q", kind))
 	}
@@ -155,6 +160,8 @@ func tsType(kind conformancecatalog.ColumnKind) string {
 		return "number"
 	case conformancecatalog.ColumnKindStringArray:
 		return "string[]"
+	case conformancecatalog.ColumnKindMemberArray:
+		return "{ path: string; title: string; file: string }[]"
 	default:
 		panic(fmt.Sprintf("unknown column kind %q", kind))
 	}

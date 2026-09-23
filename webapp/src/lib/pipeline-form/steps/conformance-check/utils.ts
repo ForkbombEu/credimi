@@ -12,7 +12,7 @@ const OPENID_WALLET_CONFORMANCE_SUITE_PREFIXES = [
 	'openid4vp_wallet/1.0/openid_conformance_suite'
 ] as const;
 
-export function getTestName(test: string, suite?: Pick<Suite, 'paths' | 'titles'>): string {
+export function getTestName(test: string, suite?: Pick<Suite, 'members'>): string {
 	if (suite) return titleForCheckPath(suite, test);
 	return getLastPathSegment(test);
 }

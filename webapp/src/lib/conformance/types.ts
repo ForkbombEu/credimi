@@ -31,11 +31,14 @@ const suiteMetadataSchema = z.object({
 	logo: z.string().optional()
 });
 
+export const suiteMemberSchema = z.object({
+	path: z.string(),
+	title: z.string(),
+	file: z.string()
+});
+
 export const suiteSchema = suiteMetadataSchema.extend({
-	files: z.array(z.string()),
-	paths: z.array(z.string()),
-	/** Catalog check titles aligned with `paths` / `files` (same index). */
-	titles: z.array(z.string())
+	members: z.array(suiteMemberSchema)
 });
 
 export const versionSchema = versionMetadataSchema.extend({
@@ -46,6 +49,7 @@ export const standardSchema = standardMetadataSchema.extend({
 	versions: z.array(versionSchema)
 });
 
+export type SuiteMember = z.infer<typeof suiteMemberSchema>;
 export type Suite = z.infer<typeof suiteSchema>;
 export type Version = z.infer<typeof versionSchema>;
 export type Standard = z.infer<typeof standardSchema>;

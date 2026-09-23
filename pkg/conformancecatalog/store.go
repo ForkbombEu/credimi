@@ -26,7 +26,7 @@ var (
 	errMem  error
 )
 
-// stringArray is a JSON string[] column for visible_in / check_* arrays.
+// stringArray is a JSON string[] column for visible_in.
 type stringArray []string
 
 func (s *stringArray) Scan(value any) error {
@@ -56,6 +56,38 @@ func (s stringArray) MarshalJSON() ([]byte, error) {
 		return []byte("[]"), nil
 	}
 	return json.Marshal([]string(s))
+}
+
+// memberArray is a JSON []SuiteMember column for suite members.
+type memberArray []SuiteMember
+
+func (m *memberArray) Scan(value any) error {
+	switch v := value.(type) {
+	case nil:
+		*m = memberArray{}
+		return nil
+	case []byte:
+		if len(v) == 0 {
+			*m = memberArray{}
+			return nil
+		}
+		return json.Unmarshal(v, (*[]SuiteMember)(m))
+	case string:
+		if v == "" {
+			*m = memberArray{}
+			return nil
+		}
+		return json.Unmarshal([]byte(v), (*[]SuiteMember)(m))
+	default:
+		return fmt.Errorf("memberArray: unsupported Scan type %T", value)
+	}
+}
+
+func (m memberArray) MarshalJSON() ([]byte, error) {
+	if m == nil {
+		return []byte("[]"), nil
+	}
+	return json.Marshal([]SuiteMember(m))
 }
 
 // catalogRow is the list/get record shape returned on the fake PB collection URL.
@@ -105,9 +137,7 @@ type suiteRow struct {
 	SuiteDescription string      `db:"suite_description" json:"suite_description"`
 	SuiteLogo        string      `db:"suite_logo"        json:"suite_logo"`
 	CheckCount       int         `db:"check_count"       json:"check_count"`
-	CheckPaths       stringArray `db:"check_paths"       json:"check_paths"`
-	CheckTitles      stringArray `db:"check_titles"      json:"check_titles"`
-	CheckFiles       stringArray `db:"check_files"       json:"check_files"`
+	Members          memberArray `db:"members"           json:"members"`
 	VisibleIn        stringArray `db:"visible_in"        json:"visible_in"`
 	FSStandard       string      `db:"fs_standard"       json:"fs_standard"`
 	FSVersion        string      `db:"fs_version"        json:"fs_version"`
@@ -284,17 +314,12 @@ func replaceEphemeralRows(loaded LoadedCatalog) error {
 		if err != nil {
 			return fmt.Errorf("marshal suite visible_in for %s: %w", s.PathPrefix, err)
 		}
-		paths, err := marshalStringSlice(s.CheckPaths)
+		members, err := json.Marshal(s.Members)
 		if err != nil {
-			return fmt.Errorf("marshal check_paths for %s: %w", s.PathPrefix, err)
+			return fmt.Errorf("marshal members for %s: %w", s.PathPrefix, err)
 		}
-		titles, err := marshalStringSlice(s.CheckTitles)
-		if err != nil {
-			return fmt.Errorf("marshal check_titles for %s: %w", s.PathPrefix, err)
-		}
-		files, err := marshalStringSlice(s.CheckFiles)
-		if err != nil {
-			return fmt.Errorf("marshal check_files for %s: %w", s.PathPrefix, err)
+		if s.Members == nil {
+			members = []byte("[]")
 		}
 		_, err = tx.NewQuery(insertSQL(SuitesCollectionName, suiteColumns)).Bind(dbx.Params{
 			"id":                s.ID,
@@ -311,9 +336,7 @@ func replaceEphemeralRows(loaded LoadedCatalog) error {
 			"suite_description": s.SuiteDescription,
 			"suite_logo":        s.SuiteLogo,
 			"check_count":       s.CheckCount,
-			"check_paths":       string(paths),
-			"check_titles":      string(titles),
-			"check_files":       string(files),
+			"members":           string(members),
 			"visible_in":        string(vis),
 			"fs_standard":       s.FSStandard,
 			"fs_version":        s.FSVersion,

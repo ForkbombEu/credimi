@@ -47,8 +47,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<FcafTests />
 			{:else}
 				<div class="space-y-2">
-					{#each suite.paths as path (path)}
-						<CheckCard {standard} {version} {suite} test={path} />
+					{#each suite.members as member (member.path)}
+						<CheckCard {standard} {version} {suite} test={member.path} />
 					{/each}
 				</div>
 			{/if}

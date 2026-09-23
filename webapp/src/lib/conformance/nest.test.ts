@@ -11,7 +11,7 @@ import { displayNameFromUid, nestSuites, titleForCheckPath } from './nest';
 function suite(
 	partial: Pick<
 		ConformanceSuiteRecord,
-		'fs_standard' | 'fs_version' | 'suite' | 'path_prefix' | 'check_paths' | 'check_titles' | 'check_files'
+		'fs_standard' | 'fs_version' | 'suite' | 'path_prefix' | 'members'
 	> &
 		Partial<ConformanceSuiteRecord>
 ): ConformanceSuiteRecord {
@@ -29,10 +29,8 @@ function suite(
 		suite_help: partial.suite_help ?? '',
 		suite_description: partial.suite_description ?? '',
 		suite_logo: partial.suite_logo ?? '',
-		check_count: partial.check_count ?? partial.check_paths.length,
-		check_paths: partial.check_paths,
-		check_titles: partial.check_titles,
-		check_files: partial.check_files,
+		check_count: partial.check_count ?? partial.members.length,
+		members: partial.members,
 		visible_in: partial.visible_in ?? ['manual', 'pipeline'],
 		fs_standard: partial.fs_standard,
 		fs_version: partial.fs_version,
@@ -48,21 +46,31 @@ describe('nestSuites', () => {
 				fs_version: '1.0',
 				suite: 'openid_conformance_suite',
 				path_prefix: 'openid4vp_wallet/1.0/openid_conformance_suite',
-				check_paths: [
-					'openid4vp_wallet/1.0/openid_conformance_suite/a',
-					'openid4vp_wallet/1.0/openid_conformance_suite/b'
-				],
-				check_titles: ['Check A', 'Check B'],
-				check_files: ['a.yaml', 'b.yaml']
+				members: [
+					{
+						path: 'openid4vp_wallet/1.0/openid_conformance_suite/a',
+						title: 'Check A',
+						file: 'a.yaml'
+					},
+					{
+						path: 'openid4vp_wallet/1.0/openid_conformance_suite/b',
+						title: 'Check B',
+						file: 'b.yaml'
+					}
+				]
 			}),
 			suite({
 				fs_standard: 'openid4vci_issuer',
 				fs_version: '1.0',
 				suite: 'suite_x',
 				path_prefix: 'openid4vci_issuer/1.0/suite_x',
-				check_paths: ['openid4vci_issuer/1.0/suite_x/c'],
-				check_titles: ['Issuer Check C'],
-				check_files: ['c.json']
+				members: [
+					{
+						path: 'openid4vci_issuer/1.0/suite_x/c',
+						title: 'Issuer Check C',
+						file: 'c.json'
+					}
+				]
 			})
 		]);
 
@@ -75,16 +83,27 @@ describe('nestSuites', () => {
 		const nestedSuite = wallet?.versions[0]?.suites[0];
 		expect(nestedSuite?.uid).toBe('openid_conformance_suite');
 		expect(nestedSuite?.name).toBe('Openid Conformance Suite');
-		expect(nestedSuite?.files).toEqual(['a.yaml', 'b.yaml']);
-		expect(nestedSuite?.paths).toEqual([
-			'openid4vp_wallet/1.0/openid_conformance_suite/a',
-			'openid4vp_wallet/1.0/openid_conformance_suite/b'
+		expect(nestedSuite?.members).toEqual([
+			{
+				path: 'openid4vp_wallet/1.0/openid_conformance_suite/a',
+				title: 'Check A',
+				file: 'a.yaml'
+			},
+			{
+				path: 'openid4vp_wallet/1.0/openid_conformance_suite/b',
+				title: 'Check B',
+				file: 'b.yaml'
+			}
 		]);
-		expect(nestedSuite?.titles).toEqual(['Check A', 'Check B']);
 
 		const issuer = nested.find((s) => s.uid === 'openid4vci_issuer');
-		expect(issuer?.versions[0]?.suites[0]?.paths).toEqual(['openid4vci_issuer/1.0/suite_x/c']);
-		expect(issuer?.versions[0]?.suites[0]?.titles).toEqual(['Issuer Check C']);
+		expect(issuer?.versions[0]?.suites[0]?.members).toEqual([
+			{
+				path: 'openid4vci_issuer/1.0/suite_x/c',
+				title: 'Issuer Check C',
+				file: 'c.json'
+			}
+		]);
 	});
 
 	it('prefers suite-row display metadata over humanized UIDs', () => {
@@ -94,9 +113,13 @@ describe('nestSuites', () => {
 				fs_version: 'draft-23',
 				suite: 'ewc',
 				path_prefix: 'openid4vp_wallet/draft-23/ewc',
-				check_paths: ['openid4vp_wallet/draft-23/ewc/check_one'],
-				check_titles: ['Check One'],
-				check_files: ['check_one.yaml'],
+				members: [
+					{
+						path: 'openid4vp_wallet/draft-23/ewc/check_one',
+						title: 'Check One',
+						file: 'check_one.yaml'
+					}
+				],
 				suite_name: 'EWC Interoperability Test Bed',
 				suite_homepage: 'https://eudiwalletconsortium.org/',
 				suite_repository: 'https://github.com/EWC-consortium',
@@ -122,13 +145,11 @@ describe('nestSuites', () => {
 				fs_version: '1.0',
 				suite: 'openid_conformance_suite',
 				path_prefix: 'openid4vci_wallet/1.0/openid_conformance_suite',
-				check_paths: [path],
-				check_titles: ['Wallet Check'],
-				check_files: ['wallet-check.yaml']
+				members: [{ path, title: 'Wallet Check', file: 'wallet-check.yaml' }]
 			})
 		]);
-		expect(nested[0]?.versions[0]?.suites[0]?.paths[0]).toBe(path);
-		expect(nested[0]?.versions[0]?.suites[0]?.titles[0]).toBe('Wallet Check');
+		expect(nested[0]?.versions[0]?.suites[0]?.members[0]?.path).toBe(path);
+		expect(nested[0]?.versions[0]?.suites[0]?.members[0]?.title).toBe('Wallet Check');
 	});
 
 	it('leaves logo and description empty when suite rows lack them', () => {
@@ -138,9 +159,7 @@ describe('nestSuites', () => {
 				fs_version: 'version',
 				suite: 'suite',
 				path_prefix: 'vlei/version/suite',
-				check_paths: ['vlei/version/suite/one'],
-				check_titles: ['One'],
-				check_files: ['one.yaml']
+				members: [{ path: 'vlei/version/suite/one', title: 'One', file: 'one.yaml' }]
 			})
 		]);
 		const standard = nested[0];
@@ -162,15 +181,22 @@ describe('displayNameFromUid', () => {
 });
 
 describe('titleForCheckPath', () => {
-	it('resolves by full path or stem against suite titles', () => {
+	it('resolves by full path or stem against suite members', () => {
 		const nestedSuite = {
-			paths: [
-				'openid4vp_wallet/1.0/openid_conformance_suite/happy_flow',
-				'openid4vp_wallet/1.0/openid_conformance_suite/alt'
-			],
-			titles: ['Happy Flow', 'Alternate']
+			members: [
+				{
+					path: 'openid4vp_wallet/1.0/openid_conformance_suite/happy_flow',
+					title: 'Happy Flow',
+					file: 'happy_flow.yaml'
+				},
+				{
+					path: 'openid4vp_wallet/1.0/openid_conformance_suite/alt',
+					title: 'Alternate',
+					file: 'alt.yaml'
+				}
+			]
 		};
-		expect(titleForCheckPath(nestedSuite, nestedSuite.paths[0]!)).toBe('Happy Flow');
+		expect(titleForCheckPath(nestedSuite, nestedSuite.members[0]!.path)).toBe('Happy Flow');
 		expect(titleForCheckPath(nestedSuite, 'happy_flow')).toBe('Happy Flow');
 		expect(titleForCheckPath(nestedSuite, 'missing')).toBe('missing');
 	});

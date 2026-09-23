@@ -14,8 +14,8 @@ import type { Standard, Suite, Version } from './types';
  * axes (`fs_standard` / `fs_version` / `suite`) so `/hub/conformance-checks/{path}`
  * stays path-stable (ADR-0002). Load nest only where detail/pickers need it — not
  * on the hub table route. Suite display metadata and member checks come from the
- * suite row (`check_paths` / `check_titles` / `check_files`). Empty suites without
- * checks do not appear in the catalog projection.
+ * suite row (`members`). Empty suites without checks do not appear in the catalog
+ * projection.
  */
 export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 	const byStandard = new Map<string, Map<string, ConformanceSuiteRecord[]>>();
@@ -57,9 +57,7 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 					help: suiteHelp,
 					description: suiteDescription,
 					...(suiteLogo ? { logo: suiteLogo } : {}),
-					files: [...row.check_files],
-					paths: [...row.check_paths],
-					titles: [...row.check_titles]
+					members: row.members.map((m) => ({ ...m }))
 				};
 			});
 			versions.push({
@@ -103,24 +101,18 @@ export function displayStandardName(uid: string): string {
 }
 
 /**
- * Resolve a check display title from suite parallel arrays, falling back to the
- * path stem when the path is missing from the suite.
+ * Resolve a check display title from suite members, falling back to the path
+ * stem when the path is missing from the suite.
  */
 export function titleForCheckPath(
-	suite: Pick<Suite, 'paths' | 'titles'>,
+	suite: Pick<Suite, 'members'>,
 	pathOrStem: string
 ): string {
-	const exact = suite.paths.indexOf(pathOrStem);
-	if (exact >= 0) {
-		const title = suite.titles[exact];
-		if (title) return title;
-	}
-	const bySuffix = suite.paths.findIndex(
-		(p) => p.endsWith(`/${pathOrStem}`) || p.split('/').at(-1) === pathOrStem
+	const exact = suite.members.find((m) => m.path === pathOrStem);
+	if (exact?.title) return exact.title;
+	const bySuffix = suite.members.find(
+		(m) => m.path.endsWith(`/${pathOrStem}`) || m.path.split('/').at(-1) === pathOrStem
 	);
-	if (bySuffix >= 0) {
-		const title = suite.titles[bySuffix];
-		if (title) return title;
-	}
+	if (bySuffix?.title) return bySuffix.title;
 	return pathOrStem.split('/').at(-1) ?? pathOrStem;
 }

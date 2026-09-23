@@ -33,7 +33,7 @@ func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
 	require.Contains(t, checkInsert, "{:updated}")
 
 	suiteInsert := insertSQL(SuitesCollectionName, suiteColumns)
-	require.Contains(t, suiteInsert, "{:check_paths}")
+	require.Contains(t, suiteInsert, "{:members}")
 	require.Contains(t, suiteInsert, "{:fs_standard}")
 }
 
