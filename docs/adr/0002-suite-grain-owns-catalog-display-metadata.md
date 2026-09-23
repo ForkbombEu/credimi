@@ -9,3 +9,11 @@ This supersedes the v1 HITL #1399 choice to denorm suite meta onto each `conform
 - **Keep check denorm** — preserves nest-from-checks; rejected as ongoing schema and locality tax.
 - **Lean checks + join suite meta on the client** — two fetches; rejected when suite rows already include members.
 - **Nest from suite rows only (chosen)** — one suite-grain read for browse; checks remain for path/facet list use.
+
+## Dual browse axes
+
+Product fields (`standard` / `component` / `version`) drive the hub suite **table**.
+Filesystem fields (`fs_standard` / `fs_version` / `path_prefix`) drive the nested
+detail/picker tree so hub URLs stay FS-path-stable. Hub routes load each
+projection only where needed (table vs conformance-checks detail); they do not
+dual-fetch on every hub layout.

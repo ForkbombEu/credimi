@@ -5,13 +5,18 @@
 import type { Merge } from 'type-fest';
 
 import { error } from '@sveltejs/kit';
+import { getStandardsWithTestSuites } from '$lib/conformance';
 import { Hub } from '$lib';
 
 //
 
-export const load = async ({ params, parent }) => {
+export const load = async ({ params, fetch }) => {
 	const { path } = params;
-	const { conformanceChecks } = await parent();
+
+	const conformanceChecks = await getStandardsWithTestSuites({ fetch, surface: 'pipeline' });
+	if (conformanceChecks instanceof Error) {
+		error(500, { message: conformanceChecks.message });
+	}
 
 	const chunks = path.split('/');
 	if (chunks.length < 3) error(404);

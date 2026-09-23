@@ -46,6 +46,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - follow-up: Still decide whether ephemeral `path` stays FS-identical while normalized dimensions live in other columns (`standard`/`component`/…), and how hub URLs + nest group when those diverge. Related: drop/rename hub `role` facet to `component`; suites vs checks projections (#1396 grill).
 - update (2026-09-23, agent): Additive check columns `norm_standard` / `component` / `norm_version`; FS `standard`/`version`/`suite`/`path` unchanged. Suites projection at `conformance_suites`. FCAF relying_party pack → OpenID4VP×wallet with **empty** `norm_version` (no pinned profile; FS `wallet_solution` is SUT, not standard version). Hub facets: Standard/Component/Version/Provider.
 - update (2026-09-23, agent): Hub suite cell uses existing suite `metadata.yaml` `name` → `suite_name` (column header already i18n `Suite` → "Test suite"). **Do not add a second label field** unless product wants a short display name distinct from full `name`.
+- update (2026-09-23, human): Nest/detail grouping when FS ≠ product stays **FS nest (A)**. Hub table = product suites; detail/pickers = FS nest; load each only on the route that needs it (ADR-0002 dual browse). Product nest deferred.
 
 ### 2026-09-23 - Suite hub label: reuse metadata `name` vs new field
 

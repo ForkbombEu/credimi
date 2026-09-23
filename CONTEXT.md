@@ -39,8 +39,8 @@ One runnable catalog entry identified by a durable filesystem-shaped path (stand
 _Avoid_: Blueprint row, template file (unless referring to the on-disk YAML), test (unless FCAF test id)
 
 **Conformance suite**:
-A suite under a standard×version (and product component when projected), with authored display metadata and its member checks. Nested pickers and the hub suite table browse suites; checks are the leaves.
-_Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks
+A suite under a standard×version (and product component when projected), with authored display metadata and its member checks. The hub suite table browses product axes; nested pickers and hub detail group on filesystem path axes so URLs stay path-stable. Checks are the leaves.
+_Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks, dual-fetching both projections on every hub layout
 
 ## FCAF (wallet-solution relying-party)
 

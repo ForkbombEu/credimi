@@ -7,12 +7,15 @@ import type { Standard, Suite, Version } from './types';
 
 /**
  * Group suite-grain catalog rows into the nested standards → versions → suites
- * tree used by hub, start-checks, and pipeline pickers.
+ * tree used by hub detail, start-checks, and pipeline pickers.
  *
- * Grouping uses filesystem axes (`fs_standard` / `fs_version` / `suite`) so nest
- * URLs stay path-stable (ADR-0002). Suite display metadata comes from the suite
- * row; member checks come from `check_paths` / `check_titles` / `check_files`.
- * Empty suites without checks do not appear in the catalog projection.
+ * Dual browse axes (intentional): the hub suite **table** sorts/filters on product
+ * fields (`standard` / `component` / `version`); this nest groups on filesystem
+ * axes (`fs_standard` / `fs_version` / `suite`) so `/hub/conformance-checks/{path}`
+ * stays path-stable (ADR-0002). Load nest only where detail/pickers need it — not
+ * on the hub table route. Suite display metadata and member checks come from the
+ * suite row (`check_paths` / `check_titles` / `check_files`). Empty suites without
+ * checks do not appear in the catalog projection.
  */
 export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 	const byStandard = new Map<string, Map<string, ConformanceSuiteRecord[]>>();
