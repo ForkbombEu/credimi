@@ -195,6 +195,8 @@
 	"Submit": "Indsend",
 	"Select_a_value": "Vælg en værdi",
 	"Search": "Søge",
+	"Search_issuers_or_credentials": "Søg issuers eller credentials",
+	"Search_verifiers_or_use_case_verifications": "Søg verifiers eller use case verifications",
 	"No_results_found": "Ingen resultater fundet",
 	"No_items_selected": "Ingen elementer valgt",
 	"No_options_available": "Ingen tilgængelige muligheder",

@@ -195,6 +195,8 @@
 	"Submit": "Entregar",
 	"Select_a_value": "Seleccione un valor",
 	"Search": "Buscar",
+	"Search_issuers_or_credentials": "Buscar issuers o credentials",
+	"Search_verifiers_or_use_case_verifications": "Buscar verifiers o use case verifications",
 	"No_results_found": "No se encontraron resultados",
 	"No_items_selected": "No hay elemento seleccionado",
 	"No_options_available": "No hay opciones disponibles",

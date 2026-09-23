@@ -21,9 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		class?: string;
 		containerClass?: string;
+		placeholder?: string;
 	};
 
-	let { class: className, containerClass = '' }: Props = $props();
+	let { class: className, containerClass = '', placeholder = m.Search() }: Props = $props();
 
 	const { manager } = $derived(getCollectionManagerContext());
 
@@ -42,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="relative flex {containerClass}">
-	<Input bind:value={searchText} placeholder={m.Search()} class={className} />
+	<Input bind:value={searchText} {placeholder} class={className} />
 	{#if String.isString(searchText)}
 		<Button
 			onclick={() => {
