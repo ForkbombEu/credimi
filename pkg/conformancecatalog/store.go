@@ -196,13 +196,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_conformance_suites_path_prefix ON conforma
 	return nil
 }
 
-func marshalStringSlice(values []string) ([]byte, error) {
-	if values == nil {
-		return []byte("[]"), nil
-	}
-	return json.Marshal(values)
-}
-
 // listEphemeralChecks reads every check row from the process-private cache.
 func listEphemeralChecks() ([]Check, error) {
 	db, err := catalogDB()
@@ -280,71 +273,23 @@ func replaceEphemeralRows(loaded LoadedCatalog) error {
 	}
 
 	now := time.Now().UTC().Format("2006-01-02 15:04:05.000Z")
+	timestamps := dbx.Params{"created": now, "updated": now}
 	for _, ch := range loaded.Checks {
-		vis, err := marshalStringSlice(ch.VisibleIn)
+		params, err := bindParams(checkColumns, ch, timestamps)
 		if err != nil {
-			return fmt.Errorf("marshal visible_in for %s: %w", ch.Path, err)
+			return fmt.Errorf("bind ephemeral check %s: %w", ch.Path, err)
 		}
-		_, err = tx.NewQuery(insertSQL(CollectionName, checkColumns)).Bind(dbx.Params{
-			"id":          ch.ID,
-			"path":        ch.Path,
-			"title":       ch.Title,
-			"fs_standard": ch.FSStandard,
-			"fs_version":  ch.FSVersion,
-			"suite":       ch.Suite,
-			"file":        ch.File,
-			"visible_in":  string(vis),
-			"protocol":    ch.Protocol,
-			"sut":         ch.SUT,
-			"role":        ch.Role,
-			"provider":    ch.Provider,
-			"standard":    ch.Standard,
-			"component":   ch.Component,
-			"version":     ch.Version,
-			"created":     now,
-			"updated":     now,
-		}).Execute()
-		if err != nil {
+		if _, err := tx.NewQuery(insertSQL(CollectionName, checkColumns)).Bind(params).Execute(); err != nil {
 			return fmt.Errorf("insert ephemeral check %s: %w", ch.Path, err)
 		}
 	}
 
 	for _, s := range ProjectSuites(loaded.Checks, loaded.SuiteDisplay) {
-		vis, err := marshalStringSlice(s.VisibleIn)
+		params, err := bindParams(suiteColumns, s, timestamps)
 		if err != nil {
-			return fmt.Errorf("marshal suite visible_in for %s: %w", s.PathPrefix, err)
+			return fmt.Errorf("bind ephemeral suite %s: %w", s.PathPrefix, err)
 		}
-		members, err := json.Marshal(s.Members)
-		if err != nil {
-			return fmt.Errorf("marshal members for %s: %w", s.PathPrefix, err)
-		}
-		if s.Members == nil {
-			members = []byte("[]")
-		}
-		_, err = tx.NewQuery(insertSQL(SuitesCollectionName, suiteColumns)).Bind(dbx.Params{
-			"id":                s.ID,
-			"standard":          s.Standard,
-			"component":         s.Component,
-			"component_rank":    s.ComponentRank,
-			"version":           s.Version,
-			"suite":             s.Suite,
-			"provider":          s.Provider,
-			"suite_name":        s.SuiteName,
-			"suite_homepage":    s.SuiteHomepage,
-			"suite_repository":  s.SuiteRepository,
-			"suite_help":        s.SuiteHelp,
-			"suite_description": s.SuiteDescription,
-			"suite_logo":        s.SuiteLogo,
-			"check_count":       s.CheckCount,
-			"members":           string(members),
-			"visible_in":        string(vis),
-			"fs_standard":       s.FSStandard,
-			"fs_version":        s.FSVersion,
-			"path_prefix":       s.PathPrefix,
-			"created":           now,
-			"updated":           now,
-		}).Execute()
-		if err != nil {
+		if _, err := tx.NewQuery(insertSQL(SuitesCollectionName, suiteColumns)).Bind(params).Execute(); err != nil {
 			return fmt.Errorf("insert ephemeral suite %s: %w", s.PathPrefix, err)
 		}
 	}
