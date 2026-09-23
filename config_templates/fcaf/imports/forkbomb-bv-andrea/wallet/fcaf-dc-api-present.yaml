@@ -1,0 +1,74 @@
+appId: com.android.chrome
+name: FCAF invoke the wallet through the Digital Credentials API
+tags:
+  - fcaf
+  - dc-api
+  - present
+---
+# DC API presentation is browser-mediated, not deeplink-mediated: the capture
+# service serves an HTTPS page and the wallet is invoked only from a button
+# press on it, through navigator.credentials.get({ digital: ... }).
+#
+# Every terminal state below is also reported to the verifier by the page
+# itself, through POST /openid4vp/sessions/{id}/dc_api_invocation, so the
+# assertions read dc_api.invocation rather than this screen. The waits exist to
+# keep the step deterministic and to capture the screenshot.
+- launchApp:
+    appId: com.android.chrome
+    stopApp: true
+    clearState: false
+    permissions:
+      all: unset
+- openLink:
+    link: "${presentation_url}"
+    autoVerify: false
+    browser: true
+- runFlow:
+    when:
+      visible: "Accept & continue|Use without an account|No thanks|Got it"
+    commands:
+      - tapOn:
+          text: "Accept & continue|Use without an account|No thanks|Got it"
+          optional: true
+- extendedWaitUntil:
+    visible: "Present credential|does not expose the Digital Credentials API"
+    timeout: 60000
+- takeScreenshot: dc-api-presentation-page
+- runFlow:
+    when:
+      visible: "Present credential"
+    commands:
+      - tapOn:
+          text: "Present credential"
+      # The platform credential sheet and the wallet take over here. Both are
+      # optional: a wallet that refuses the request never shows them, and that
+      # refusal is the expected result of several cases.
+      - extendedWaitUntil:
+          visible: "Welcome back|Share|Cancel|Continue|wallet|did not complete|answered without a presentation|Presentation accepted"
+          timeout: 120000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+            - tapOn:
+                point: "11%,40%"
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn:
+                point: "50%,10%"
+      - runFlow:
+          when:
+            visible: "Share"
+          commands:
+            - tapOn:
+                text: "Share"
+                optional: true
+            - runFlow:
+                when:
+                  visible: "PIN|verify your identity"
+                commands:
+                  - inputText: "123456"
+- extendedWaitUntil:
+    visible: "Presentation accepted|did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|does not expose the Digital Credentials API"
+    timeout: 120000
+- takeScreenshot: dc-api-invocation-outcome

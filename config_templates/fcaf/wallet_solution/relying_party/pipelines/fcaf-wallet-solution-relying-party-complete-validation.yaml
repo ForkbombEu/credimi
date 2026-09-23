@@ -192,6 +192,168 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-status-list-13040d21-create-status-mdoc-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dc-api-invalid-signature-32532cf2-create-dc-api-invalid-signature
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: dc-api-invalid-signature
+            request_behavior:
+                signature: corrupt
+            request_delivery: by_value
+            response_mode: dc_api.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dc-api-invalid-signature-32532cf2-invoke-dc-api-invalid-signature
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+        parameters:
+            presentation_url: ${{ dc-api-invalid-signature-32532cf2-create-dc-api-invalid-signature.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dc-api-invalid-signature-32532cf2-fetch-dc-api-invalid-signature
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dc-api-invalid-signature-32532cf2-create-dc-api-invalid-signature.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dc-api-signed-encrypted-34d23faf-create-dc-api-signed-encrypted
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: dc-api-signed-encrypted
+            request_delivery: by_value
+            response_mode: dc_api.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dc-api-signed-encrypted-34d23faf-invoke-dc-api-signed-encrypted
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+        parameters:
+            presentation_url: ${{ dc-api-signed-encrypted-34d23faf-create-dc-api-signed-encrypted.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dc-api-signed-encrypted-34d23faf-fetch-dc-api-signed-encrypted
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dc-api-signed-encrypted-34d23faf-create-dc-api-signed-encrypted.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dc-api-unencrypted-f995d5b2-create-dc-api-unencrypted
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: dc-api-unencrypted
+            request_delivery: by_value
+            response_mode: dc_api
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dc-api-unencrypted-f995d5b2-invoke-dc-api-unencrypted
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+        parameters:
+            presentation_url: ${{ dc-api-unencrypted-f995d5b2-create-dc-api-unencrypted.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dc-api-unencrypted-f995d5b2-fetch-dc-api-unencrypted
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dc-api-unencrypted-f995d5b2-create-dc-api-unencrypted.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dc-api-unsigned-a813364d-create-dc-api-unsigned
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: dc-api-unsigned
+            request_delivery: plain
+            response_mode: dc_api.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dc-api-unsigned-a813364d-invoke-dc-api-unsigned
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+        parameters:
+            presentation_url: ${{ dc-api-unsigned-a813364d-create-dc-api-unsigned.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dc-api-unsigned-a813364d-fetch-dc-api-unsigned
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dc-api-unsigned-a813364d-create-dc-api-unsigned.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-all-credentials-without-credent-5818b47e-create-presentation
       use: http-request
       with:
@@ -13412,6 +13574,34 @@ steps:
                 output:
                     pid_sdjwt: ${{ credential-status-list-13040d21-fetch-status-sdjwt-presentation.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ credential-status-list-13040d21-present-status-sdjwt.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dc-api.invalid-signature:
+                output:
+                    encrypted_response: ${{ dc-api-invalid-signature-32532cf2-fetch-dc-api-invalid-signature.outputs.body.observed.wallet_response.value.response | optional }}
+                    pid_sdjwt: ${{ dc-api-invalid-signature-32532cf2-fetch-dc-api-invalid-signature.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    request_object: ${{ dc-api-invalid-signature-32532cf2-fetch-dc-api-invalid-signature.outputs.body.dc_api.request.data.request | optional }}
+                    session: ${{ dc-api-invalid-signature-32532cf2-fetch-dc-api-invalid-signature.outputs.body | optional }}
+                    visual_evidence: ${{ dc-api-invalid-signature-32532cf2-invoke-dc-api-invalid-signature.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dc-api.signed-encrypted:
+                output:
+                    encrypted_response: ${{ dc-api-signed-encrypted-34d23faf-fetch-dc-api-signed-encrypted.outputs.body.observed.wallet_response.value.response | optional }}
+                    pid_sdjwt: ${{ dc-api-signed-encrypted-34d23faf-fetch-dc-api-signed-encrypted.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    request_object: ${{ dc-api-signed-encrypted-34d23faf-fetch-dc-api-signed-encrypted.outputs.body.dc_api.request.data.request | optional }}
+                    session: ${{ dc-api-signed-encrypted-34d23faf-fetch-dc-api-signed-encrypted.outputs.body | optional }}
+                    visual_evidence: ${{ dc-api-signed-encrypted-34d23faf-invoke-dc-api-signed-encrypted.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dc-api.unencrypted:
+                output:
+                    encrypted_response: ${{ dc-api-unencrypted-f995d5b2-fetch-dc-api-unencrypted.outputs.body.observed.wallet_response.value.response | optional }}
+                    pid_sdjwt: ${{ dc-api-unencrypted-f995d5b2-fetch-dc-api-unencrypted.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    request_object: ${{ dc-api-unencrypted-f995d5b2-fetch-dc-api-unencrypted.outputs.body.dc_api.request.data.request | optional }}
+                    session: ${{ dc-api-unencrypted-f995d5b2-fetch-dc-api-unencrypted.outputs.body | optional }}
+                    visual_evidence: ${{ dc-api-unencrypted-f995d5b2-invoke-dc-api-unencrypted.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dc-api.unsigned:
+                output:
+                    encrypted_response: ${{ dc-api-unsigned-a813364d-fetch-dc-api-unsigned.outputs.body.observed.wallet_response.value.response | optional }}
+                    pid_sdjwt: ${{ dc-api-unsigned-a813364d-fetch-dc-api-unsigned.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    request_object: ${{ dc-api-unsigned-a813364d-fetch-dc-api-unsigned.outputs.body.dc_api.request.data.request | optional }}
+                    session: ${{ dc-api-unsigned-a813364d-fetch-dc-api-unsigned.outputs.body | optional }}
+                    visual_evidence: ${{ dc-api-unsigned-a813364d-invoke-dc-api-unsigned.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.all-credentials-without-credential-sets:
                 output:
                     create-presentation: ${{ dcql-all-credentials-without-credent-5818b47e-create-presentation.outputs | optional }}
@@ -14884,6 +15074,8 @@ steps:
             - WS_RP_IA_ProtocolFlow__002b
             - WS_RP_IA_ProtocolFlow__002c
             - WS_RP_IA_ProtocolFlow__002e_UF
+            - WS_RP_IA_ProtocolFlow__003a
+            - WS_RP_IA_ProtocolFlow__003b_UF
             - WS_RP_IA_Supportive__001
             - WS_RP_IA_Supportive__002
             - WS_RP_IA_Supportive__006

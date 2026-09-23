@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__003
-title: FCAF WS_RP_SM_RpIntegrity__003
+title: Process an unsigned DC API request according to the configured profile.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__003.md
 suite:
@@ -8,24 +8,32 @@ suite:
   section: security_mechanisms.rp_integrity
 applicability:
   profile: EUDI_generic
-  presentation_flow: redirects
+  presentation_flow: digital_credentials_api
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: 'A.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- title: OpenID for Verifiable Presentations 1.0
+  section: '5.9.3'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.dc-api.unsigned.outputs.session
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.dc-api.unsigned.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__003_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: verifier_delivered_an_unsigned_dc_api_request
+  validator: oid4vp.dc_api_invocation
+  input: evidence.session
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__003_visual_evidence
+    protocol: openid4vp-v1-unsigned
+    invoked: true
+- id: wallet_completed_the_presentation_without_a_signature_to_validate
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params:
+    mode: credentials_match
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

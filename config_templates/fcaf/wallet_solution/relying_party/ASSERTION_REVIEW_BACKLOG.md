@@ -149,14 +149,28 @@ evidence gap but not the blocker: `WS_RP_MS_ProtocolMessages__017`, `018`,
 `135` and `154`–`159` still need a transaction-data type the reference Wallet
 supports.
 
-### Available but deferred by selected scope
+### Implemented after the Digital Credentials API scope change
 
-Capture now supports `dc_api` and `dc_api.jwt`, so the following are not
-service-blocked: `WS_RP_IA_Engagement__002`,
-`WS_RP_IA_ProtocolFlow__003a`, `003b_UF`, and
-`WS_RP_SM_RpIntegrity__002`–`005`, `022`. They remain deferred because the
-current FCAF work selection excludes Digital Credentials API cases. Do not
-implement them without a scope change.
+Capture supports `dc_api` and `dc_api.jwt`, and the user authorised widening
+the work selection, so `WS_RP_IA_Engagement__002`,
+`WS_RP_IA_ProtocolFlow__003a`, `003b_UF` and `WS_RP_SM_RpIntegrity__002`–`005`,
+`022` are now implemented across four scenarios: `dc-api-signed-encrypted`,
+`dc-api-unencrypted`, `dc-api-unsigned` and `dc-api-invalid-signature`.
+
+Two facts shaped the assertions:
+
+- A DC API request carries no `response_uri`, `redirect_uri`, `state` or
+  `aud`; the browser origin replaces them. `WS_RP_IA_Engagement__002` therefore
+  asserts the presence of `expected_origins` and the absence of the redirect
+  parameters, not merely that a request was delivered.
+- The Key Binding JWT audience becomes `origin:<browser origin>` instead of
+  the Client Identifier. The SD-JWT parser stores the Key Binding payload
+  beside the claims, so no `sdjwt.claim_*` validator could read it; that is why
+  `WS_RP_SM_RpIntegrity__022` uses the new
+  `sdjwt.kb_jwt_claim_string_prefix`.
+
+The remaining blocker is the reference Wallet, not the service: none of these
+can report a real verdict until an emulator is attached.
 
 ## Resolved assertion defects
 

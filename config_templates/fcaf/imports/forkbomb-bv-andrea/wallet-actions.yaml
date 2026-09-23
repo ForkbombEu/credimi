@@ -42,6 +42,10 @@ actions:
     category: verify-credential
     tags: fcaf, expect, no-match
     file: wallet/fcaf-expect-no-matching-document.yaml
+  - name: fcaf-dc-api-present
+    category: verify-credential
+    tags: fcaf, dc-api, present
+    file: wallet/fcaf-dc-api-present.yaml
   - name: fcaf-submit-request-object-by-value
     category: verify-credential
     tags: fcaf, request-object, by-value

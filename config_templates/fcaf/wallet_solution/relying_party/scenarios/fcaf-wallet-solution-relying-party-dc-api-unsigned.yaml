@@ -1,0 +1,66 @@
+name: FCAF DC API unsigned request
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+# request_delivery plain produces the openid4vp-v1-unsigned protocol: request
+# parameters with no client_id and no expected_origins, so whether the flow
+# proceeds is decided by the wallet's configured profile.
+- id: create-dc-api-unsigned
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      response_mode: dc_api.jwt
+      request_delivery: plain
+      response_type: vp_token
+      presentation_request:
+        nonce: dc-api-unsigned
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: invoke-dc-api-unsigned
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+    version_id: installed_from_external_source
+    parameters:
+      presentation_url: "${{ create-dc-api-unsigned.outputs.body.deeplink }}"
+- id: fetch-dc-api-unsigned
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-dc-api-unsigned.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_SM_RpIntegrity__003
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dc-api.unsigned:
+        output:
+          session: ${{ fetch-dc-api-unsigned.outputs.body }}
+          encrypted_response: ${{ fetch-dc-api-unsigned.outputs.body.observed.wallet_response.value.response }}
+          pid_sdjwt: ${{ fetch-dc-api-unsigned.outputs.body.observed.wallet_response.value.vp_token }}
+          request_object: ${{ fetch-dc-api-unsigned.outputs.body.dc_api.request.data.request }}
+          visual_evidence: ${{ invoke-dc-api-unsigned.outputs.flow_output.maestro_screenshot_urls }}

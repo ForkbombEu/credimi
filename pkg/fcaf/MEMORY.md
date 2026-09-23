@@ -33,7 +33,13 @@ Recent commits:
 
 ## Current scope
 
-Implement mandatory wallet-solution/relying-party tests one at a time. Skip TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests. Keep reusable YAML in the repository, not SQLite.
+Implement mandatory wallet-solution/relying-party tests one at a time. Skip TSL/MTSL, W3C Digital Credentials API, and CAW tests. Keep reusable YAML in the repository, not SQLite.
+
+Scope change, 22/09/2026: the OpenID4VP Digital Credentials API (`dc_api` and
+`dc_api.jwt` response modes) is now **in scope**. The user authorised it after
+the Capture Wallet refresh showed the service already supports those response
+modes. This only covers the OpenID4VP DC API; the separate W3C Digital
+Credentials API tests stay out of scope.
 
 ## Aggregate validation architecture
 
@@ -2173,3 +2179,72 @@ reference Wallet still supports no transaction-data type.
 `make fcaf-generate` produces 860 aggregate steps, 612 test IDs, and 208
 pipeline outputs; the happy flow drops to 348 tests. This closes every case the
 contract resync reclassified.
+
+## Digital Credentials API batch, eight tests across four scenarios
+
+22/09/2026, after the user authorised the scope change. The eight cases the
+backlog listed as "available but deferred by selected scope" are implemented:
+`WS_RP_IA_Engagement__002`, `WS_RP_IA_ProtocolFlow__003a`, `003b_UF`, and
+`WS_RP_SM_RpIntegrity__002`–`005`, `022`.
+
+Four scenarios, split by the request the Verifier offers, because a single
+scenario cannot both deliver a valid signature and a broken one:
+
+- `dc-api-signed-encrypted`: `openid4vp-v1-signed` with `dc_api.jwt`. Owns
+  `IA_Engagement__002`, `IA_ProtocolFlow__003a`, `SM_RpIntegrity__004`, `022`.
+- `dc-api-unencrypted`: `openid4vp-v1-signed` with the plain `dc_api` response
+  mode, an unhappy flow. Owns `IA_ProtocolFlow__003b_UF`.
+- `dc-api-unsigned`: `openid4vp-v1-unsigned`. Owns `SM_RpIntegrity__003`.
+- `dc-api-invalid-signature`: signed request with a corrupted signature. Owns
+  `SM_RpIntegrity__002` and `005`.
+
+`002` and `005` share a scenario but not an assertion set: `002` pins that the
+delivered signature does not verify and that the Wallet refused, `005` pins
+that no presentation flow started at all.
+
+Five DC API facts decided the definitions, all read from the capture source at
+`6b94fa4`, not assumed:
+
+- The DC API has no URL to open. The wallet is invoked from the presentation
+  page by the button labelled "Present credential" (`id="dc-api-present"`),
+  which is why the batch adds the shared action `fcaf-dc-api-present` instead
+  of reusing `fcaf-exercise-wallet-generic`.
+- The page reports the outcome server-side to
+  `POST /openid4vp/sessions/{id}/dc_api_invocation`, so a refusal is real
+  evidence rather than a timeout. Outcomes are `api_unavailable`, `rejected`,
+  `no_vp_token` and `failed`, alongside `response_returned` and
+  `vp_token_present`.
+- `api_unavailable` means the browser never exposed the API. It is an
+  environment failure and must never read as a Wallet verdict. The harness
+  caught exactly this: the first cut of `oid4vp.dc_api_invocation` passed
+  `invoked: true` on `api_unavailable`, so `IA_Engagement__002` and
+  `IA_ProtocolFlow__003a` would have reported green on a browser with no
+  wallet at all. The validator now fails that outcome explicitly.
+- A DC API request carries no `response_uri`, `redirect_uri`, `state` or
+  `aud`. `IA_Engagement__002` asserts their absence and the presence of
+  `expected_origins`, which is what distinguishes DC API engagement from the
+  redirect engagement the other scenarios exercise.
+- The Key Binding JWT audience is `origin:<browser origin>`, not the Client
+  Identifier. `evidence.SDJWTPresentation.KeyBinding` sits beside `Claims`, so
+  every existing `sdjwt.claim_*` validator is blind to it; hence the new
+  `sdjwt.kb_jwt_claim_string_prefix`.
+
+`IA_ProtocolFlow__003a` needed one more distinction: `dc_api.jwt` must produce
+a plain JWE, not a signed-then-encrypted nested JWT, so it asserts the absence
+of `cty` in the JWE protected header.
+
+Verified 22/09/2026 through the FCAF engine: 32 of 32 expectations met across
+fourteen evidence shapes, including the nested-JWT response, a Client
+Identifier audience, a request object whose signature does not verify, an
+`api_unavailable` browser, a Wallet that answered an unencrypted request
+anyway, a signed request delivered where the unsigned one was expected, a
+non-DC-API session, and a session with no expected origin.
+
+All eight stay `implemented verifier-blocked`: no emulator is attached, so
+none has reference-Wallet evidence. Deploying them also needs the
+`fcaf-dc-api-present` action record on the target instance, like the other
+shared actions.
+
+`make fcaf-generate` produces 872 aggregate steps, 614 test IDs, and 212
+pipeline outputs. The catalog grows to 614 because `IA_ProtocolFlow__003a` and
+`003b_UF` had no test YAML before this batch.

@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__004
-title: FCAF WS_RP_SM_RpIntegrity__004
+title: Validate a DC API Request Object signature and proceed.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__004.md
 suite:
@@ -8,24 +8,34 @@ suite:
   section: security_mechanisms.rp_integrity
 applicability:
   profile: EUDI_generic
-  presentation_flow: redirects
+  presentation_flow: digital_credentials_api
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: 'A.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- title: OpenID for Verifiable Presentations 1.0
+  section: '5.9.3'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.dc-api.signed-encrypted.outputs.session
+  request_object:
+    from: pipeline.dc-api.signed-encrypted.outputs.request_object
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.dc-api.signed-encrypted.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__004_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: delivered_request_object_signature_verifies
+  validator: jose.jws_signed_request
+  input: evidence.request_object
+- id: client_id_is_the_hash_of_the_delivered_leaf_certificate
+  validator: oid4vp.x509_hash_client_id
+  input: evidence.request_object
+- id: wallet_completed_the_presentation
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__004_visual_evidence
+    mode: credentials_match
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

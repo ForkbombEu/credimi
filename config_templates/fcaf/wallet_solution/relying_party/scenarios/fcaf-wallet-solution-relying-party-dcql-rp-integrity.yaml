@@ -58,10 +58,6 @@ steps:
       - WS_RP_SM_RpIntegrity_CryptographicSignature_003
       - WS_RP_SM_RpIntegrity_CryptographicSignature_004
       - WS_RP_SM_RpIntegrity__001
-      - WS_RP_SM_RpIntegrity__002
-      - WS_RP_SM_RpIntegrity__003
-      - WS_RP_SM_RpIntegrity__004
-      - WS_RP_SM_RpIntegrity__005
       - WS_RP_SM_RpIntegrity__007
       - WS_RP_SM_RpIntegrity__008
       - WS_RP_SM_RpIntegrity__009
@@ -70,7 +66,6 @@ steps:
       - WS_RP_SM_RpIntegrity__012
       - WS_RP_SM_RpIntegrity__014
       - WS_RP_SM_RpIntegrity__021
-      - WS_RP_SM_RpIntegrity__022
       - WS_RP_SM_RpIntegrity__024
       - WS_RP_SM_RpIntegrity__025
       - WS_RP_SM_RpIntegrity__027

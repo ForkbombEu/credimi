@@ -42,7 +42,7 @@ func (OID4VPDistinctPresentationsValidator) Validate(_ context.Context, input In
 		return Result{Status: StatusError, Message: "vct param is required"}
 	}
 	if params.Claim == "" {
-		return Result{Status: StatusError, Message: "claim param is required"}
+		return Result{Status: StatusError, Message: claimParamRequired}
 	}
 	minimum := params.Minimum
 	if minimum == 0 {

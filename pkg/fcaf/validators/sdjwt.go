@@ -16,6 +16,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -31,6 +32,10 @@ import (
 )
 
 type SDJWTClaimPresentValidator struct{}
+
+// claimParamRequired reports a definition error: a claim validator with no
+// claim to read cannot decide anything.
+const claimParamRequired = "claim param is required"
 
 func (SDJWTClaimPresentValidator) ID() string { return "sdjwt.claim_present" }
 
@@ -62,7 +67,7 @@ func (SDJWTClaimPresenceValidator) Validate(_ context.Context, input Input) Resu
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Claim == "" {
-		return Result{Status: StatusError, Message: "claim param is required"}
+		return Result{Status: StatusError, Message: claimParamRequired}
 	}
 	if _, ok := input.Params["present"]; !ok {
 		return Result{Status: StatusError, Message: "present param is required"}
@@ -138,7 +143,7 @@ func (SDJWTClaimStringPrefixValidator) Validate(_ context.Context, input Input) 
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Claim == "" {
-		return Result{Status: StatusError, Message: "claim param is required"}
+		return Result{Status: StatusError, Message: claimParamRequired}
 	}
 	if params.Prefix == "" {
 		return Result{Status: StatusError, Message: "prefix param is required"}
@@ -1099,7 +1104,7 @@ func decodeClaimParam(params map[string]any) (string, error) {
 		return "", err
 	}
 	if decoded.Claim == "" {
-		return "", fmt.Errorf("claim param is required")
+		return "", errors.New(claimParamRequired)
 	}
 	return decoded.Claim, nil
 }

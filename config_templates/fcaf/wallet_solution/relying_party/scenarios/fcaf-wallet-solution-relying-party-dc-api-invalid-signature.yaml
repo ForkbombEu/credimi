@@ -1,0 +1,68 @@
+name: FCAF DC API request with an invalid signature
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+# The JWS stays well formed and only its signature value is invalidated, so
+# the wallet has to reject on the signature rather than on parsing.
+- id: create-dc-api-invalid-signature
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      response_mode: dc_api.jwt
+      request_delivery: by_value
+      response_type: vp_token
+      request_behavior:
+        signature: corrupt
+      presentation_request:
+        nonce: dc-api-invalid-signature
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: invoke-dc-api-invalid-signature
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+    version_id: installed_from_external_source
+    parameters:
+      presentation_url: "${{ create-dc-api-invalid-signature.outputs.body.deeplink }}"
+- id: fetch-dc-api-invalid-signature
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-dc-api-invalid-signature.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_SM_RpIntegrity__002
+    - WS_RP_SM_RpIntegrity__005
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dc-api.invalid-signature:
+        output:
+          session: ${{ fetch-dc-api-invalid-signature.outputs.body }}
+          encrypted_response: ${{ fetch-dc-api-invalid-signature.outputs.body.observed.wallet_response.value.response }}
+          pid_sdjwt: ${{ fetch-dc-api-invalid-signature.outputs.body.observed.wallet_response.value.vp_token }}
+          request_object: ${{ fetch-dc-api-invalid-signature.outputs.body.dc_api.request.data.request }}
+          visual_evidence: ${{ invoke-dc-api-invalid-signature.outputs.flow_output.maestro_screenshot_urls }}

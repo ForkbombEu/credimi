@@ -47,8 +47,8 @@ The public wallet action exports included here are:
 - `choose-eudi-wallet`
 - `fcaf-engagement-haip-vp`
 
-The FCAF scenarios additionally share two terminal flows for negative cases.
-They must exist as `wallet_actions` records before the aggregate pipeline runs:
+The FCAF scenarios additionally share three flows. They must exist as
+`wallet_actions` records before the aggregate pipeline runs:
 
 - `fcaf-expect-request-rejected`: the Wallet answers with an error screen or
   returns to Home. `fcaf-exercise-wallet-generic` cannot serve these cases,
@@ -56,6 +56,11 @@ They must exist as `wallet_actions` records before the aggregate pipeline runs:
   so that a positive flow cannot skip the consent screen.
 - `fcaf-expect-no-matching-document`: the Wallet reports that it holds no
   credential satisfying the request.
+- `fcaf-dc-api-present`: the Digital Credentials API flow. There is no link to
+  open, so this taps the presentation page's "Present credential" button and
+  then either completes the consent screen or records the Wallet's refusal.
+  The page reports the outcome to the service either way, so both endings are
+  evidence.
 
 The remaining wallet files are local reusable Maestro helpers. The files are
 not database records and contain no instance-specific PocketBase IDs. Importers

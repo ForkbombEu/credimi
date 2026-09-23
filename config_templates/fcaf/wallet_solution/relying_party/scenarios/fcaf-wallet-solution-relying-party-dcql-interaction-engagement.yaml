@@ -54,7 +54,6 @@ steps:
   use: fcaf-validation
   with:
     test_ids:
-      - WS_RP_IA_Engagement__002
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.interaction-engagement:

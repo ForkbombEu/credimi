@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__022
-title: FCAF WS_RP_SM_RpIntegrity__022
+title: Bind the presentation to the origin audience and read metadata from client_metadata.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__022.md
 suite:
@@ -8,24 +8,44 @@ suite:
   section: security_mechanisms.rp_integrity
 applicability:
   profile: EUDI_generic
-  presentation_flow: redirects
+  presentation_flow: digital_credentials_api
+  credential_format: ietf_sd_jwt_vc
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: 'A.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- title: OpenID for Verifiable Presentations 1.0
+  section: '5.9.3'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.dc-api.signed-encrypted.outputs.session
+  request_object:
+    from: pipeline.dc-api.signed-encrypted.outputs.request_object
+  pid_sdjwt:
+    from: pipeline.dc-api.signed-encrypted.outputs.pid_sdjwt
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.dc-api.signed-encrypted.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__022_rp_integrity
+- id: delivered_request_carries_no_redirect_audience
   validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+  input: evidence.request_object
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__022_visual_evidence
+    field: aud
+    present: false
+- id: non_key_verifier_metadata_travels_in_client_metadata
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params:
+    field: client_metadata
+    present: true
+- id: key_binding_audience_is_the_origin_prefixed_value
+  validator: sdjwt.kb_jwt_claim_string_prefix
+  input: evidence.pid_sdjwt
+  params:
+    claim: aud
+    prefix: 'origin:'
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

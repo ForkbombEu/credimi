@@ -57,7 +57,7 @@ func (OID4VPMalformedStatusCredentialAbsentValidator) Validate(
 		return Result{Status: StatusError, Message: "vct param is required"}
 	}
 	if params.Claim == "" {
-		return Result{Status: StatusError, Message: "claim param is required"}
+		return Result{Status: StatusError, Message: claimParamRequired}
 	}
 	if params.Value == nil {
 		return Result{Status: StatusError, Message: "value param is required"}

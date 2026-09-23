@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__005
-title: FCAF WS_RP_SM_RpIntegrity__005
+title: Parse a DC API Request Object and then reject its invalid signature.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__005.md
 suite:
@@ -8,24 +8,47 @@ suite:
   section: security_mechanisms.rp_integrity
 applicability:
   profile: EUDI_generic
-  presentation_flow: redirects
+  presentation_flow: digital_credentials_api
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: 'A.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- title: JSON Web Signature (JWS)
+  section: '5.2'
+  url: https://www.rfc-editor.org/rfc/rfc7515
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.dc-api.invalid-signature.outputs.session
+  request_object:
+    from: pipeline.dc-api.invalid-signature.outputs.request_object
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.dc-api.invalid-signature.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__005_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: delivered_request_object_carries_an_x5c_chain
+  validator: jwt.header_field_presence
+  input: evidence.request_object
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__005_visual_evidence
+    field: x5c
+    present: true
+- id: delivered_request_object_is_parseable_and_names_the_verifier
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params:
+    field: client_id
+    present: true
+- id: delivered_signature_does_not_verify
+  validator: jose.jws_invalid_signature
+  input: evidence.request_object
+- id: wallet_did_not_start_the_presentation_flow
+  validator: oid4vp.dc_api_invocation
+  input: evidence.session
+  params:
+    allowed_outcomes:
+      - rejected
+      - no_vp_token
+      - failed
+    vp_token_present: false
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:
