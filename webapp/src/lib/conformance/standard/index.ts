@@ -15,11 +15,11 @@ export * as Store from '../store.svelte.js';
 
 /**
  * Ensure nest browse is loaded, then resolve a filesystem check path
- * (`standard/version/suite/test`).
+ * (`standard/version/suite/test`). Catalog surface is required (feeds Store.load).
  */
 export async function resolveCheckPath(
 	checkId: string,
-	options: Pick<ListAllOptions, 'surface' | 'fetch'> = {}
+	options: Pick<ListAllOptions, 'surface' | 'fetch'>
 ): Promise<ResolvedCheckPath | null> {
 	const standards = await Store.load(options);
 	return resolveCheckPathFromNest(standards, checkId);

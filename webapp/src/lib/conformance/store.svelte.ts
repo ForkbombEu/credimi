@@ -27,20 +27,17 @@ export function get() {
 	return readonlyView;
 }
 
-function surfaceKey(options: Pick<ListAllOptions, 'surface'>): string {
-	return options.surface ?? 'manual';
-}
-
 /**
  * Sole client Filesystem-axis nest projection (ADR-0004). Awaitable nest browse
  * load — idempotent per surface; concurrent callers share one in-flight fetch.
  * Rejects on catalog errors (no fire-and-forget). Client callers must load via
  * this Store; SSR / non-hydrating reads use getStandardsWithTestSuites.
+ * Catalog surface is required (no silent default).
  */
 export async function load(
-	options: Pick<ListAllOptions, 'surface' | 'fetch'> = {}
+	options: Pick<ListAllOptions, 'surface' | 'fetch'>
 ): Promise<readonly Standard[]> {
-	const key = surfaceKey(options);
+	const key = options.surface;
 	if (loadedSurface === key) return get().standards;
 	if (inflight && inflightSurface === key) return inflight;
 

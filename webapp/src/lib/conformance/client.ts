@@ -108,7 +108,8 @@ export type StandardsWithTestSuites = ListAllResponse;
 
 export type ListAllOptions = {
 	fetch?: typeof fetch;
-	surface?: TemplateSurface;
+	/** Catalog surface — required; no silent default (ADR-0004). */
+	surface: TemplateSurface;
 	facets?: SuiteFacets;
 };
 
@@ -117,8 +118,8 @@ export type ListAllOptions = {
  * (ADR-0004): client callers use Store.load; SSR / non-hydrating reads use
  * {@link getStandardsWithTestSuites}.
  */
-export function listAll(options: ListAllOptions = {}): Task.Task<ListAllResponse, ListAllError> {
-	const { fetch: fetchFn = fetch, surface = 'manual', facets } = options;
+export function listAll(options: ListAllOptions): Task.Task<ListAllResponse, ListAllError> {
+	const { fetch: fetchFn = fetch, surface, facets } = options;
 
 	return listSuites({ fetch: fetchFn, surface, facets }).andThen((records) => {
 		const nested = nestSuites(records);
@@ -129,11 +130,11 @@ export function listAll(options: ListAllOptions = {}): Task.Task<ListAllResponse
 }
 
 /**
- * Sole SSR / non-hydrating nest one-shot (ADR-0004). Accepts either Catalog
- * surface. Does not hydrate Store.
+ * Sole SSR / non-hydrating nest one-shot (ADR-0004). Catalog surface is
+ * required at the call site. Does not hydrate Store.
  */
 export async function getStandardsWithTestSuites(
-	options: ListAllOptions = {}
+	options: ListAllOptions
 ): Promise<StandardsWithTestSuites | Error> {
 	const result = await listAll(options);
 	if (result.isErr) return result.error;
