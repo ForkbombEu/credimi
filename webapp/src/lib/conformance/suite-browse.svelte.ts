@@ -4,7 +4,7 @@
 
 import type { SortingState } from '@tanstack/table-core';
 
-import { createQuery } from '@tanstack/svelte-query';
+import { createQuery, keepPreviousData } from '@tanstack/svelte-query';
 
 import type { CatalogSurface, ConformanceSuiteRecord } from './record';
 
@@ -120,6 +120,19 @@ export function shouldUseSSRSuiteBrowse(options: {
 }
 
 /**
+ * Keep the previous catalog page (or SSR seed) visible while a new search/filter
+ * fetch is in flight — avoids flashing an empty table/empty state.
+ */
+export function suiteCatalogPlaceholderData(
+	previousData: ConformanceSuiteRecord[] | undefined,
+	initialSuites: readonly ConformanceSuiteRecord[]
+): ConformanceSuiteRecord[] | undefined {
+	const kept = keepPreviousData(previousData);
+	if (kept !== undefined) return kept;
+	return initialSuites.length > 0 ? [...initialSuites] : undefined;
+}
+
+/**
  * Product-axis suite browse for the hub table: filter/sort/search state, SSR gate,
  * cascading facet options (narrowed by other active facets), and filtered catalog
  * query. Not a Filesystem nest projection (that remains {@link ./store.svelte.ts}).
@@ -179,10 +192,13 @@ export class SuiteBrowse {
 			const sort = this.sortIntent;
 			const q = this.searchQuery;
 			const facets = this.activeFacets;
+			const initialSuites = this.props.initialSuites;
 
 			return {
 				queryKey: ['conformance-suites', surface, 'hub', sort, q, facets] as const,
 				enabled: !this.useSSR,
+				placeholderData: (previousData: ConformanceSuiteRecord[] | undefined) =>
+					suiteCatalogPlaceholderData(previousData, initialSuites),
 				queryFn: async () => {
 					const result = await listHubSuites({
 						surface,

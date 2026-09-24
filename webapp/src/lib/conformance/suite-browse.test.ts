@@ -13,6 +13,7 @@ import {
 	dynamicSuiteFacetOptions,
 	emptySuiteFacetFilters,
 	shouldUseSSRSuiteBrowse,
+	suiteCatalogPlaceholderData,
 	suitesMatchingOtherFacets
 } from './suite-browse.svelte';
 
@@ -190,5 +191,22 @@ describe('suitesMatchingOtherFacets', () => {
 			'a',
 			'b'
 		]);
+	});
+});
+
+describe('suiteCatalogPlaceholderData', () => {
+	it('keeps previous query data while a new fetch is in flight', () => {
+		const previous = [suite({ id: 'prev' })];
+		const initial = [suite({ id: 'ssr' })];
+		expect(suiteCatalogPlaceholderData(previous, initial)?.map((r) => r.id)).toEqual(['prev']);
+	});
+
+	it('falls back to SSR rows when there is no previous query data', () => {
+		const initial = [suite({ id: 'ssr' })];
+		expect(suiteCatalogPlaceholderData(undefined, initial)?.map((r) => r.id)).toEqual(['ssr']);
+	});
+
+	it('returns undefined when neither previous nor SSR rows exist', () => {
+		expect(suiteCatalogPlaceholderData(undefined, [])).toBeUndefined();
 	});
 });
