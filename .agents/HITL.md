@@ -30,6 +30,39 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-24 - CatalogSurface rename vs TemplateSurface
+
+- status: resolved (agent during PR #1404 review fixes)
+- owner: agent
+- context: FE type was `TemplateSurface` while CONTEXT.md and ADRs use **Catalog surface**.
+- question: Align the TypeScript name with domain language?
+- options considered: (1) rename to `CatalogSurface`; (2) keep TemplateSurface + comments.
+- default risk: Dual vocabulary invites wrong mental model (template file vs browse filter).
+- decision: Option (1). `catalogSurfaceSchema` / `CatalogSurface`.
+- follow-up: None.
+
+### 2026-09-24 - Product-axis UID maps vs #1402 long-term authorship
+
+- status: resolved for PR #1404 (interim accepted); open for later cutover
+- owner: human maintainer
+- context: Spec review of #1404 noted product `standard`/`component` still come from `classicFSPrefix` / `fcafPackIdentity` in `NormalizePathIdentity`, while #1402 says “filename/UID parsing is not the long-term model.” Check facets (`protocol`/`role`/`provider`) are authored; hub filters suite-grain product axes.
+- question: Author product axes into suite metadata now, or keep projection maps until path-normalize HITL closes?
+- options considered: (1) document maps as accepted interim; (2) author product axes in every suite `metadata.yaml` with map fallback.
+- default risk: (2) before path-normalize lands duplicates authorship and may churn again.
+- decision: Option (1) for this PR. Maps remain the sole product-axis projector until the open normalize-paths HITL chooses a durable model.
+- follow-up: When normalizing paths, prefer authored metadata and shrink/delete the UID maps.
+
+### 2026-09-24 - Hub deep links: FS path vs getOne by record id (#1396 US5)
+
+- status: resolved (agent during PR #1404 review fixes)
+- owner: agent
+- context: #1396 US5 asks getOne by stable record id for hub detail/deep links; hub routes remain `/hub/conformance-checks/...` FS paths (US25 / ADR-0002).
+- question: Switch hub URLs to catalog record ids?
+- options considered: (1) keep FS path URLs; API getOne stays available; (2) id-based hub routes.
+- default risk: (2) breaks marketplace redirects and path-stable URLs without a redirect table.
+- decision: Option (1). List/get-by-id capability shipped; hub deep links stay filesystem-axis paths.
+- follow-up: None unless product wants id URLs later.
+
 ### 2026-09-23 - Hub suite-grain facet UI vs #1402 check-grain facets
 
 - status: resolved (agent restore during PR review)
@@ -58,6 +91,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - update (2026-09-23, agent): Additive check columns `norm_standard` / `component` / `norm_version`; FS `standard`/`version`/`suite`/`path` unchanged. Suites projection at `conformance_suites`. FCAF relying_party pack → OpenID4VP×wallet with **empty** `norm_version` (no pinned profile; FS `wallet_solution` is SUT, not standard version). Hub facets: Standard/Component/Version/Provider.
 - update (2026-09-23, agent): Hub suite cell uses existing suite `metadata.yaml` `name` → `suite_name` (column header already i18n `Suite` → "Test suite"). **Do not add a second label field** unless product wants a short display name distinct from full `name`.
 - update (2026-09-23, human): Nest/detail grouping when FS ≠ product stays **FS nest (A)**. Hub table = product suites; detail/pickers = FS nest; load each only on the route that needs it (ADR-0002 dual browse). Product nest deferred.
+- update (2026-09-24, agent): Product-axis projection via UID maps (`classicFSPrefix` / `fcafPackIdentity`) is the accepted interim for PR #1404; see HITL “Product-axis UID maps vs #1402 long-term authorship”.
 
 ### 2026-09-23 - Suite hub label: reuse metadata `name` vs new field
 
