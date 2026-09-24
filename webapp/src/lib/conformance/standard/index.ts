@@ -10,7 +10,11 @@ import { resolveCheckPathFromNest, type ResolvedCheckPath } from './resolve-chec
 import { resolveSuite } from './resolve-suite.js';
 
 export { resolveSuite };
-export { resolveCheckPathFromNest, type ResolvedCheckPath } from './resolve-check-path.js';
+export {
+	resolveCheckPathFromNest,
+	type ResolvedCheckPath,
+	type ResolvedNestPath
+} from './resolve-check-path.js';
 export * as Store from '../store.svelte.js';
 
 /**
@@ -22,5 +26,12 @@ export async function resolveCheckPath(
 	options: Pick<ListNestOptions, 'surface' | 'fetch'>
 ): Promise<ResolvedCheckPath | null> {
 	const standards = await Store.load(options);
-	return resolveCheckPathFromNest(standards, checkId);
+	const resolved = resolveCheckPathFromNest(standards, checkId);
+	if (!resolved?.file) return null;
+	return {
+		standard: resolved.standard,
+		version: resolved.version,
+		suite: resolved.suite,
+		test: resolved.file
+	};
 }
