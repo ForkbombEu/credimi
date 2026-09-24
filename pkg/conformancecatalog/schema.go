@@ -30,9 +30,17 @@ type ClientColumn struct {
 	Default string
 }
 
+// GrainColumn is one persisted catalog column exposed for Go record generate
+// (ADR-0009). Includes Client=false timestamps.
+type GrainColumn struct {
+	Name string
+	Kind ColumnKind
+}
+
 // columnSpec is one persisted catalog column. This table is the Go source of
-// truth for ephemeral DDL, SELECT lists, INSERT column order, and (for
-// Client=true) FE wire emit: columns.ts (incl. pbType), Zod, and PB record bodies.
+// truth for ephemeral DDL, SELECT lists, INSERT column order, Go grain records
+// (ADR-0009), and (for Client=true) FE wire emit: columns.ts (incl. pbType),
+// Zod, and PB record bodies.
 type columnSpec struct {
 	Name     string
 	SQLType  string // SQLITE column type + constraints (without the name)
@@ -59,8 +67,8 @@ var checkColumns = []columnSpec{
 	{Name: "standard", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
 	{Name: "component", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
 	{Name: "version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString, Optional: true, Default: "''"},
-	{Name: "created", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false},
-	{Name: "updated", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false},
+	{Name: "created", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false, Kind: ColumnKindString},
+	{Name: "updated", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false, Kind: ColumnKindString},
 }
 
 // suiteColumns defines conformance_suites ephemeral + list/get wire fields.
@@ -84,8 +92,8 @@ var suiteColumns = []columnSpec{
 	{Name: "fs_standard", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString},
 	{Name: "fs_version", SQLType: "TEXT NOT NULL DEFAULT ''", Client: true, Kind: ColumnKindString},
 	{Name: "path_prefix", SQLType: "TEXT NOT NULL", Client: true, Kind: ColumnKindString},
-	{Name: "created", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false},
-	{Name: "updated", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false},
+	{Name: "created", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false, Kind: ColumnKindString},
+	{Name: "updated", SQLType: "TEXT NOT NULL DEFAULT ''", Client: false, Kind: ColumnKindString},
 }
 
 func columnNames(cols []columnSpec) []string {
@@ -151,6 +159,20 @@ var (
 	catalogSearchFields  = catalogSelectColumns
 	suiteSearchFields    = suiteSelectColumns
 )
+
+func grainColumns(cols []columnSpec) []GrainColumn {
+	out := make([]GrainColumn, len(cols))
+	for i, c := range cols {
+		out[i] = GrainColumn{Name: c.Name, Kind: c.Kind}
+	}
+	return out
+}
+
+// CheckGrainColumns returns all check-grain columns for Go record generate.
+func CheckGrainColumns() []GrainColumn { return grainColumns(checkColumns) }
+
+// SuiteGrainColumns returns all suite-grain columns for Go record generate.
+func SuiteGrainColumns() []GrainColumn { return grainColumns(suiteColumns) }
 
 // CheckClientColumnNames is the FE Zod / typegen field set for checks.
 func CheckClientColumnNames() []string { return clientColumnNames(checkColumns) }

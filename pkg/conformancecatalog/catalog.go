@@ -61,34 +61,9 @@ var nonStandardTemplateDirs = map[string]struct{}{
 	"fcaf_sources": {},
 }
 
-// Check is one catalog entry derived from a template file.
-// Lean check grain: path, title, facets, and identity only. Suite display
-// metadata (name, logo, URLs) lives on the suite projection (ADR-0002).
-// Check is the sole scan/bind domain type for conformance_checks (columnSpec SoT).
-// HTTP list/get wraps it in checkHTTPRecord for PocketBase collection meta.
-type Check struct {
-	ID         string      `db:"id"          json:"id"`
-	Path       string      `db:"path"        json:"path"`
-	Title      string      `db:"title"       json:"title"`
-	FSStandard string      `db:"fs_standard" json:"fs_standard"` // FS top-level dir (durable path segment)
-	FSVersion  string      `db:"fs_version"  json:"fs_version"`  // FS version segment (durable)
-	Suite      string      `db:"suite"       json:"suite"`
-	File       string      `db:"file"        json:"file"`
-	VisibleIn  stringArray `db:"visible_in"  json:"visible_in"`
-	Protocol   string      `db:"protocol"    json:"protocol"`
-	SUT        string      `db:"sut"         json:"sut"`
-	Role       string      `db:"role"        json:"role"`
-	Provider   string      `db:"provider"    json:"provider"`
-	// Product projection — same wire names as SuiteRecord (ADR-0002 dual axes).
-	Standard  string `db:"standard"  json:"standard"`
-	Component string `db:"component" json:"component"`
-	Version   string `db:"version"   json:"version"`
-	Created   string `db:"created"   json:"created"`
-	Updated   string `db:"updated"   json:"updated"`
-}
-
 // LoadedCatalog is the filesystem walk result: lean checks and projected suite
 // rows (ADR-0002, ADR-0006). Suite display metadata stays internal to the walk.
+// Check / SuiteRecord types are generated from columnSpec (ADR-0009).
 type LoadedCatalog struct {
 	Checks []Check
 	Suites []SuiteRecord

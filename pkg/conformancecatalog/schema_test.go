@@ -5,7 +5,6 @@
 package conformancecatalog
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,16 +37,6 @@ func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
 	require.Contains(t, suiteInsert, "{:fs_standard}")
 }
 
-func TestCheckDBTagsMatchCheckColumns(t *testing.T) {
-	t.Parallel()
-	require.Equal(t, columnNames(checkColumns), dbTagNames(reflect.TypeOf(Check{})))
-}
-
-func TestSuiteRecordDBTagsMatchSuiteColumns(t *testing.T) {
-	t.Parallel()
-	require.Equal(t, columnNames(suiteColumns), dbTagNames(reflect.TypeOf(SuiteRecord{})))
-}
-
 func TestClientColumnNamesOmitTimestamps(t *testing.T) {
 	t.Parallel()
 	checks := CheckClientColumnNames()
@@ -58,6 +47,16 @@ func TestClientColumnNamesOmitTimestamps(t *testing.T) {
 	require.NotContains(t, suites, "updated")
 	require.Contains(t, checks, "path")
 	require.Contains(t, suites, "path_prefix")
+}
+
+func TestGrainColumnsHaveKinds(t *testing.T) {
+	t.Parallel()
+	for _, c := range CheckGrainColumns() {
+		require.NotEmpty(t, c.Kind, c.Name)
+	}
+	for _, c := range SuiteGrainColumns() {
+		require.NotEmpty(t, c.Kind, c.Name)
+	}
 }
 
 func TestClientColumnsHaveKinds(t *testing.T) {
@@ -90,17 +89,4 @@ func findClientColumn(cols []ClientColumn, name string) ClientColumn {
 		}
 	}
 	return ClientColumn{}
-}
-
-func dbTagNames(t reflect.Type) []string {
-	var out []string
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		tag := f.Tag.Get("db")
-		if tag == "" || tag == "-" {
-			continue
-		}
-		out = append(out, tag)
-	}
-	return out
 }
