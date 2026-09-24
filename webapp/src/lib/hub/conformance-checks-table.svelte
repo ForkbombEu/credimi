@@ -48,7 +48,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const facetFields: { key: SuiteFacetKey; label: string }[] = [
 		{ key: 'standard', label: m.Standard() },
 		{ key: 'component', label: m.Component() },
-		{ key: 'version', label: m.Version() },
 		{ key: 'provider', label: m.Provider() }
 	];
 
@@ -153,7 +152,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				const entity = entityForComponent(value);
 				return entity?.labels.singular ?? value;
 			}
-			case 'version':
 			case 'provider':
 				return value;
 		}

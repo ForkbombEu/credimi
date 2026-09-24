@@ -38,7 +38,6 @@ describe('compileSuiteListQuery', () => {
 				facets: {
 					standard: 'openid4vp',
 					component: 'wallet',
-					version: 'draft-24',
 					provider: 'openid_conformance_suite'
 				},
 				search: '  ewc  '
@@ -46,14 +45,13 @@ describe('compileSuiteListQuery', () => {
 			stubFilter
 		);
 
-		expect(SUITE_FACET_KEYS).toEqual(['standard', 'component', 'version', 'provider']);
+		expect(SUITE_FACET_KEYS).toEqual(['standard', 'component', 'provider']);
 		expect(compiled.sort).toBe('component_rank,standard,suite');
 		expect(compiled.filter).toBe(
 			[
 				'visible_in ~ "pipeline"',
 				'standard = "openid4vp"',
 				'component = "wallet"',
-				'version = "draft-24"',
 				'provider = "openid_conformance_suite"',
 				'(suite_name ~ "ewc" || suite ~ "ewc" || standard ~ "ewc" || component ~ "ewc" || version ~ "ewc" || provider ~ "ewc" || members ~ "ewc")'
 			].join(' && ')
@@ -67,7 +65,6 @@ describe('compileSuiteListQuery', () => {
 				facets: {
 					standard: 'openid4vci',
 					component: '',
-					version: undefined,
 					provider: 'webuild'
 				},
 				search: '   '

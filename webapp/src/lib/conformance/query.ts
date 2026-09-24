@@ -8,7 +8,6 @@ import type { CatalogSurface } from './record';
 export type SuiteFacets = {
 	standard?: string;
 	component?: string;
-	version?: string;
 	provider?: string;
 };
 
@@ -54,7 +53,7 @@ export type CompiledListQuery = {
 export type FilterCompiler = (raw: string, params?: Record<string, unknown>) => string;
 
 /** Facet field order for suite-grain hub filters. */
-export const SUITE_FACET_KEYS = ['standard', 'component', 'version', 'provider'] as const;
+export const SUITE_FACET_KEYS = ['standard', 'component', 'provider'] as const;
 
 /** Hub table default: wallet→issuer→verifier, then standard, then suite uid. */
 export const HUB_SUITE_SORT_DEFAULT: SuiteSortIntent = { kind: 'default' };
