@@ -69,11 +69,11 @@ type suiteAggKey struct {
 	fsVer     string
 }
 
-// ProjectSuites aggregates check rows into suite-grain records for the hub table.
+// projectSuites aggregates check rows into suite-grain records for the hub table.
 // Suite display fields are looked up by PathPrefix from display (nil map = empty).
 // Suite row identity includes normalized standard/component/version plus suite uid,
 // and keeps FS standard/version so the same suite under two profiles stays distinct.
-func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []SuiteRecord {
+func projectSuites(checks []Check, display map[string]suiteDisplayFields) []SuiteRecord {
 	type agg struct {
 		meta     SuiteRecord
 		vis      map[string]struct{}

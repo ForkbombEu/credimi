@@ -87,11 +87,11 @@ type Check struct {
 	Updated   string `db:"updated"   json:"updated"`
 }
 
-// LoadedCatalog is the filesystem walk result: lean checks plus suite display
-// keyed for suite projection (ADR-0002).
+// LoadedCatalog is the filesystem walk result: lean checks and projected suite
+// rows (ADR-0002, ADR-0006). Suite display metadata stays internal to the walk.
 type LoadedCatalog struct {
-	Checks       []Check
-	SuiteDisplay map[string]suiteDisplayFields // key = fs_standard/fs_version/suite
+	Checks []Check
+	Suites []SuiteRecord
 }
 
 func suitePathPrefix(fsStd, fsVer, suite string) string {
@@ -185,19 +185,19 @@ type checkFileMeta struct {
 	Provider string `yaml:"provider"`
 }
 
-// LoadFromDir walks templatesDir once and returns lean checks plus suite display
-// metadata. Layout: standard/version/suite/file (classic) or …/tests/<id>.yaml
-// (FCAF). Does not touch PocketBase; Rebuild calls this then projects into the
-// process-private ephemeral store.
+// LoadFromDir walks templatesDir once and returns lean checks plus projected
+// suite-grain rows. Layout: standard/version/suite/file (classic) or
+// …/tests/<id>.yaml (FCAF). Suite display from metadata.yaml is applied during
+// projection and is not part of the returned value. Does not touch PocketBase;
+// Rebuild inserts the returned rows into the process-private ephemeral store.
 func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 	entries, err := os.ReadDir(templatesDir)
 	if err != nil {
 		return LoadedCatalog{}, fmt.Errorf("read templates dir: %w", err)
 	}
 
-	loaded := LoadedCatalog{
-		SuiteDisplay: map[string]suiteDisplayFields{},
-	}
+	var checks []Check
+	suiteDisplay := map[string]suiteDisplayFields{}
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -271,7 +271,7 @@ func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 					Role:     sMeta.Role,
 					Provider: sMeta.Provider,
 				}
-				loaded.SuiteDisplay[suitePathPrefix(stdMeta.UID, verMeta.UID, sMeta.UID)] =
+				suiteDisplay[suitePathPrefix(stdMeta.UID, verMeta.UID, sMeta.UID)] =
 					suiteDisplayFromYAML(sMeta)
 
 				var suiteChecks []Check
@@ -297,12 +297,15 @@ func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 				if err != nil {
 					return LoadedCatalog{}, err
 				}
-				loaded.Checks = append(loaded.Checks, suiteChecks...)
+				checks = append(checks, suiteChecks...)
 			}
 		}
 	}
 
-	return loaded, nil
+	return LoadedCatalog{
+		Checks: checks,
+		Suites: projectSuites(checks, suiteDisplay),
+	}, nil
 }
 
 // hasFCAFTestsDir reports whether this suite stores FCAF definitions under tests/.

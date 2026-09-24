@@ -248,7 +248,7 @@ func replaceEphemeralRows(loaded LoadedCatalog) error {
 		}
 	}
 
-	for _, s := range ProjectSuites(loaded.Checks, loaded.SuiteDisplay) {
+	for _, s := range loaded.Suites {
 		params, err := bindParams(suiteColumns, s, timestamps)
 		if err != nil {
 			return fmt.Errorf("bind ephemeral suite %s: %w", s.PathPrefix, err)

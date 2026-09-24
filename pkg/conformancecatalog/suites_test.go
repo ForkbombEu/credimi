@@ -81,7 +81,7 @@ func TestProjectSuitesGroupsByNormalizedAxes(t *testing.T) {
 		},
 	}
 
-	suites := ProjectSuites(checks, display)
+	suites := projectSuites(checks, display)
 	require.Len(t, suites, 3)
 
 	byPrefix := map[string]SuiteRecord{}
@@ -159,7 +159,7 @@ func TestProjectSuitesSortsWalletIssuerVerifierThenStandardSuite(t *testing.T) {
 		},
 	}
 
-	suites := ProjectSuites(checks, nil)
+	suites := projectSuites(checks, nil)
 	require.Len(t, suites, 4)
 	require.Equal(t, []string{"wallet", "wallet", "issuer", "verifier"}, []string{
 		suites[0].Component, suites[1].Component, suites[2].Component, suites[3].Component,

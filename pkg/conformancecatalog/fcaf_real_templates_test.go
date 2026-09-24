@@ -47,13 +47,14 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 		require.Empty(t, ch.Version, ch.Path)
 	}
 
-	disp := loaded.SuiteDisplay["fcaf/wallet_solution/relying_party"]
-	require.Equal(t, "FCAF Functional Conformance Assessment", disp.Name)
-	require.NotEmpty(t, disp.Logo)
-
-	suites := ProjectSuites(fcaf, loaded.SuiteDisplay)
-	require.NotEmpty(t, suites)
-	for _, s := range suites {
+	var fcafSuites []SuiteRecord
+	for _, s := range loaded.Suites {
+		if s.FSStandard == "fcaf" {
+			fcafSuites = append(fcafSuites, s)
+		}
+	}
+	require.NotEmpty(t, fcafSuites)
+	for _, s := range fcafSuites {
 		require.Equal(t, "FCAF Functional Conformance Assessment", s.SuiteName, s.PathPrefix)
 		require.NotEmpty(t, s.SuiteLogo, s.PathPrefix)
 	}
@@ -102,9 +103,15 @@ func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 	}
 	require.Greater(t, len(classic), 0, "expected classic suite checks from config_templates")
 
-	suites := ProjectSuites(classic, loaded.SuiteDisplay)
-	require.NotEmpty(t, suites)
-	for _, s := range suites {
+	var classicSuites []SuiteRecord
+	for _, s := range loaded.Suites {
+		if s.FSStandard == "fcaf" {
+			continue
+		}
+		classicSuites = append(classicSuites, s)
+	}
+	require.NotEmpty(t, classicSuites)
+	for _, s := range classicSuites {
 		require.NotEmpty(t, s.SuiteName, "authored suite name expected: %s", s.PathPrefix)
 	}
 }

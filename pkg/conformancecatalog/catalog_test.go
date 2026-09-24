@@ -272,9 +272,8 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 		require.NotContains(t, path, "notes")
 	}
 
-	suites := ProjectSuites(loaded.Checks, loaded.SuiteDisplay)
 	byPrefix := map[string]SuiteRecord{}
-	for _, s := range suites {
+	for _, s := range loaded.Suites {
 		byPrefix[s.PathPrefix] = s
 	}
 	ewc := byPrefix["openid4vp/draft-24/ewc"]
