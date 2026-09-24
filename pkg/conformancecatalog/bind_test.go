@@ -23,7 +23,7 @@ func TestBindParamsCheckKeysMatchColumns(t *testing.T) {
 		FSVersion:  "v1",
 		Suite:      "suite",
 		File:       "check.yaml",
-		VisibleIn:  []string{"pipeline"},
+		VisibleIn:  stringArray{"pipeline"},
 		Protocol:   "oid4vp",
 		SUT:        "wallet",
 		Role:       "holder",

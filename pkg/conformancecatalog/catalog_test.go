@@ -232,18 +232,18 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	require.Equal(
 		t,
 		[]string{SurfaceManual},
-		byPath["openid4vp/draft-24/oidf/manual_only"].VisibleIn,
+		[]string(byPath["openid4vp/draft-24/oidf/manual_only"].VisibleIn),
 	)
 	require.Equal(t, "oidf", byPath["openid4vp/draft-24/oidf/manual_only"].Provider)
 	require.Equal(
 		t,
 		[]string{SurfacePipeline},
-		byPath["openid4vp/draft-24/pipe/pipe_only"].VisibleIn,
+		[]string(byPath["openid4vp/draft-24/pipe/pipe_only"].VisibleIn),
 	)
 	require.ElementsMatch(
 		t,
 		[]string{SurfaceManual, SurfacePipeline},
-		byPath["openid4vp/draft-24/ewc/check_one"].VisibleIn,
+		[]string(byPath["openid4vp/draft-24/ewc/check_one"].VisibleIn),
 	)
 
 	for _, ch := range loaded.Checks {
@@ -253,7 +253,7 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 	fcafOne := byPath["fcaf/wallet_solution/relying_party/WS_RP_DM_Example_001"]
 	require.Equal(t, "Example FCAF test", fcafOne.Title)
 	require.Equal(t, "WS_RP_DM_Example_001.yaml", fcafOne.File)
-	require.Equal(t, []string{SurfacePipeline}, fcafOne.VisibleIn)
+	require.Equal(t, []string{SurfacePipeline}, []string(fcafOne.VisibleIn))
 	require.Equal(t, "wallet_solution", fcafOne.SUT)
 	require.Equal(t, "relying_party", fcafOne.Role)
 	require.Equal(t, "fcaf", fcafOne.Provider)

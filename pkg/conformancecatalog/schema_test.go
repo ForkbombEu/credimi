@@ -38,9 +38,9 @@ func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
 	require.Contains(t, suiteInsert, "{:fs_standard}")
 }
 
-func TestCatalogRowDBTagsMatchCheckColumns(t *testing.T) {
+func TestCheckDBTagsMatchCheckColumns(t *testing.T) {
 	t.Parallel()
-	require.Equal(t, columnNames(checkColumns), dbTagNames(reflect.TypeOf(catalogRow{})))
+	require.Equal(t, columnNames(checkColumns), dbTagNames(reflect.TypeOf(Check{})))
 }
 
 func TestSuiteRowDBTagsMatchSuiteColumns(t *testing.T) {

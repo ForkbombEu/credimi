@@ -64,24 +64,27 @@ var nonStandardTemplateDirs = map[string]struct{}{
 // Check is one catalog entry derived from a template file.
 // Lean check grain: path, title, facets, and identity only. Suite display
 // metadata (name, logo, URLs) lives on the suite projection (ADR-0002).
+// Check is the sole scan/bind domain type for conformance_checks (columnSpec SoT).
+// HTTP list/get wraps it in checkHTTPRecord for PocketBase collection meta.
 type Check struct {
-	ID         string   `json:"id"`
-	Path       string   `json:"path"`
-	Title      string   `json:"title"`
-	FSStandard string   `json:"fs_standard"` // FS top-level dir (durable path segment)
-	FSVersion  string   `json:"fs_version"`  // FS version segment (durable)
-	Suite      string   `json:"suite"`
-	File       string   `json:"file"`
-	VisibleIn  []string `json:"visible_in"`
-	Protocol   string   `json:"protocol"`
-	SUT        string   `json:"sut"`
-	Role       string   `json:"role"`
-	Provider   string   `json:"provider"`
+	ID         string      `db:"id"          json:"id"`
+	Path       string      `db:"path"        json:"path"`
+	Title      string      `db:"title"       json:"title"`
+	FSStandard string      `db:"fs_standard" json:"fs_standard"` // FS top-level dir (durable path segment)
+	FSVersion  string      `db:"fs_version"  json:"fs_version"`  // FS version segment (durable)
+	Suite      string      `db:"suite"       json:"suite"`
+	File       string      `db:"file"        json:"file"`
+	VisibleIn  stringArray `db:"visible_in"  json:"visible_in"`
+	Protocol   string      `db:"protocol"    json:"protocol"`
+	SUT        string      `db:"sut"         json:"sut"`
+	Role       string      `db:"role"        json:"role"`
+	Provider   string      `db:"provider"    json:"provider"`
 	// Product projection — same wire names as SuiteRecord (ADR-0002 dual axes).
-	Standard         string `json:"standard"`
-	Component        string `json:"component"`
-	Version          string `json:"version"`
-	StandardDisabled bool   `json:"-"`
+	Standard  string `db:"standard"  json:"standard"`
+	Component string `db:"component" json:"component"`
+	Version   string `db:"version"   json:"version"`
+	Created   string `db:"created"   json:"created"`
+	Updated   string `db:"updated"   json:"updated"`
 }
 
 // LoadedCatalog is the filesystem walk result: lean checks plus suite display
@@ -106,8 +109,7 @@ func (ch Check) withNormalizedIdentity() Check {
 
 // walk-only YAML shapes (not exposed as nested API DTOs).
 type standardYAML struct {
-	UID      string `yaml:"uid"`
-	Disabled bool   `yaml:"disabled"`
+	UID string `yaml:"uid"`
 }
 
 type versionYAML struct {
@@ -280,7 +282,6 @@ func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 						verMeta.UID,
 						sMeta.UID,
 						visibleIn,
-						stdMeta.Disabled,
 						suiteFacets,
 					)
 				} else {
@@ -290,7 +291,6 @@ func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 						verMeta.UID,
 						sMeta.UID,
 						visibleIn,
-						stdMeta.Disabled,
 						suiteFacets,
 					)
 				}
@@ -318,7 +318,6 @@ func hasFCAFTestsDir(standardUID, suitePath string) bool {
 func loadClassicSuiteChecks(
 	suitePath, standardUID, versionUID, suiteUID string,
 	visibleIn []string,
-	standardDisabled bool,
 	suiteFacets facetFields,
 ) ([]Check, error) {
 	fileEntries, err := os.ReadDir(suitePath)
@@ -346,19 +345,18 @@ func loadClassicSuiteChecks(
 		})
 
 		checks = append(checks, Check{
-			ID:               PathID(path),
-			Path:             path,
-			Title:            titleFromMeta(fileMeta, stem),
-			FSStandard:       standardUID,
-			FSVersion:        versionUID,
-			Suite:            suiteUID,
-			File:             fileName,
-			VisibleIn:        append([]string(nil), visibleIn...),
-			Protocol:         facets.Protocol,
-			SUT:              facets.SUT,
-			Role:             facets.Role,
-			Provider:         facets.Provider,
-			StandardDisabled: standardDisabled,
+			ID:         PathID(path),
+			Path:       path,
+			Title:      titleFromMeta(fileMeta, stem),
+			FSStandard: standardUID,
+			FSVersion:  versionUID,
+			Suite:      suiteUID,
+			File:       fileName,
+			VisibleIn:  append(stringArray(nil), visibleIn...),
+			Protocol:   facets.Protocol,
+			SUT:        facets.SUT,
+			Role:       facets.Role,
+			Provider:   facets.Provider,
 		}.withNormalizedIdentity())
 	}
 	return checks, nil
@@ -381,7 +379,6 @@ type fcafTestFileMeta struct {
 func loadFCAFSuiteTests(
 	suitePath, standardUID, versionUID, suiteUID string,
 	visibleIn []string,
-	standardDisabled bool,
 	suiteFacets facetFields,
 ) ([]Check, error) {
 	testsDir := filepath.Join(suitePath, "tests")
@@ -428,19 +425,18 @@ func loadFCAFSuiteTests(
 		})
 
 		checks = append(checks, Check{
-			ID:               PathID(path),
-			Path:             path,
-			Title:            title,
-			FSStandard:       standardUID,
-			FSVersion:        versionUID,
-			Suite:            suiteUID,
-			File:             fileName,
-			VisibleIn:        append([]string(nil), visibleIn...),
-			Protocol:         facets.Protocol,
-			SUT:              facets.SUT,
-			Role:             facets.Role,
-			Provider:         facets.Provider,
-			StandardDisabled: standardDisabled,
+			ID:         PathID(path),
+			Path:       path,
+			Title:      title,
+			FSStandard: standardUID,
+			FSVersion:  versionUID,
+			Suite:      suiteUID,
+			File:       fileName,
+			VisibleIn:  append(stringArray(nil), visibleIn...),
+			Protocol:   facets.Protocol,
+			SUT:        facets.SUT,
+			Role:       facets.Role,
+			Provider:   facets.Provider,
 		}.withNormalizedIdentity())
 	}
 	return checks, nil

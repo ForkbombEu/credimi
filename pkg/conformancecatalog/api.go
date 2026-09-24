@@ -30,12 +30,12 @@ type collectionHTTP[R any] struct {
 	writeMsg   string
 }
 
-func checksCollectionHTTP() collectionHTTP[catalogRow] {
-	return collectionHTTP[catalogRow]{
+func checksCollectionHTTP() collectionHTTP[checkHTTPRecord] {
+	return collectionHTTP[checkHTTPRecord]{
 		table:      CollectionName,
 		columns:    catalogSelectColumns,
 		fields:     catalogSearchFields,
-		attachMeta: func(r *catalogRow) { r.withCollectionMeta() },
+		attachMeta: func(r *checkHTTPRecord) { r.withCollectionMeta() },
 		writeMsg:   writeRejectMessage,
 	}
 }

@@ -90,32 +90,14 @@ func (m memberArray) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]SuiteMember(m))
 }
 
-// catalogRow is the list/get record shape returned on the fake PB collection URL.
-type catalogRow struct {
-	ID         string      `db:"id"          json:"id"`
-	Path       string      `db:"path"        json:"path"`
-	Title      string      `db:"title"       json:"title"`
-	FSStandard string      `db:"fs_standard" json:"fs_standard"`
-	FSVersion  string      `db:"fs_version"  json:"fs_version"`
-	Suite      string      `db:"suite"       json:"suite"`
-	File       string      `db:"file"        json:"file"`
-	VisibleIn  stringArray `db:"visible_in"  json:"visible_in"`
-	Protocol   string      `db:"protocol"    json:"protocol"`
-	SUT        string      `db:"sut"         json:"sut"`
-	Role       string      `db:"role"        json:"role"`
-	Provider   string      `db:"provider"    json:"provider"`
-	Standard   string      `db:"standard"    json:"standard"`
-	Component  string      `db:"component"   json:"component"`
-	Version    string      `db:"version"     json:"version"`
-	Created    string      `db:"created"     json:"created"`
-	Updated    string      `db:"updated"     json:"updated"`
-
-	// PocketBase client compatibility fields (not stored).
+// checkHTTPRecord is the list/get JSON shape: Check plus PocketBase collection meta.
+type checkHTTPRecord struct {
+	Check
 	CollectionID   string `db:"-" json:"collectionId"`
 	CollectionName string `db:"-" json:"collectionName"`
 }
 
-func (r *catalogRow) withCollectionMeta() *catalogRow {
+func (r *checkHTTPRecord) withCollectionMeta() *checkHTTPRecord {
 	r.CollectionID = CollectionID
 	r.CollectionName = CollectionName
 	return r
@@ -202,7 +184,7 @@ func listEphemeralChecks() ([]Check, error) {
 	if err != nil {
 		return nil, err
 	}
-	var rows []*catalogRow
+	var rows []*Check
 	if err := db.Select(catalogSelectColumns...).
 		From(CollectionName).
 		OrderBy("path ASC").
@@ -211,7 +193,10 @@ func listEphemeralChecks() ([]Check, error) {
 	}
 	out := make([]Check, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, checkFromRow(r))
+		if r == nil {
+			continue
+		}
+		out = append(out, *r)
 	}
 	return out, nil
 }
@@ -227,29 +212,6 @@ func countEphemeralChecks() (int, error) {
 		return 0, fmt.Errorf("count ephemeral checks: %w", err)
 	}
 	return n, nil
-}
-
-func checkFromRow(r *catalogRow) Check {
-	if r == nil {
-		return Check{}
-	}
-	return Check{
-		ID:         r.ID,
-		Path:       r.Path,
-		Title:      r.Title,
-		FSStandard: r.FSStandard,
-		FSVersion:  r.FSVersion,
-		Suite:      r.Suite,
-		File:       r.File,
-		VisibleIn:  append([]string(nil), r.VisibleIn...),
-		Protocol:   r.Protocol,
-		SUT:        r.SUT,
-		Role:       r.Role,
-		Provider:   r.Provider,
-		Standard:   r.Standard,
-		Component:  r.Component,
-		Version:    r.Version,
-	}
 }
 
 // replaceEphemeralRows fully replaces process-private check and suite tables.
