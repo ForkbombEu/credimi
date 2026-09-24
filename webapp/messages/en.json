@@ -196,6 +196,8 @@
 	"Submit": "Submit",
 	"Select_a_value": "Select a value",
 	"Search": "Search",
+	"Search_issuers_or_credentials": "Search issuers or credentials",
+	"Search_verifiers_or_use_case_verifications": "Search verifiers or use case verifications",
 	"No_results_found": "No results found",
 	"No_items_selected": "No items selected",
 	"No_options_available": "No options available",
