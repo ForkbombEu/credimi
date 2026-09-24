@@ -6,7 +6,7 @@ import type { SortingState } from '@tanstack/table-core';
 
 import { createQuery } from '@tanstack/svelte-query';
 
-import type { ConformanceSuiteRecord } from './record';
+import type { ConformanceSuiteRecord, TemplateSurface } from './record';
 
 import { listHubSuites } from './client';
 import {
@@ -21,7 +21,9 @@ import {
 export type SuiteFacetKey = (typeof SUITE_FACET_KEYS)[number];
 
 export type SuiteBrowseProps = {
-	/** SSR suite rows (pipeline surface; used when sort/search/facets are default). */
+	/** Catalog surface — required (ADR-0008); hub table passes `pipeline`. */
+	surface: TemplateSurface;
+	/** SSR suite rows (used when sort/search/facets are default). */
 	get initialSuites(): ConformanceSuiteRecord[];
 	/** Debounced text search across suite display/identity fields. */
 	get search(): string;
@@ -85,6 +87,9 @@ export function shouldUseSSRSuiteBrowse(options: {
  * facet-options fetch, and filtered catalog query. Not a Filesystem nest projection
  * (that remains {@link ./store.svelte.ts}).
  *
+ * Public interface: props (incl. Catalog surface), sorting/filters state, and
+ * derived browse outputs. TanStack queries and SSR policy stay private.
+ *
  * Queries are created in the constructor after `props` is assigned — class field
  * initializers run before parameter properties, and `createQuery` eagerly reads
  * derived search/SSR state.
@@ -97,16 +102,16 @@ export class SuiteBrowse {
 
 	filters = $state<Record<SuiteFacetKey, string>>(emptySuiteFacetFilters());
 
-	readonly sortIntent = $derived(suiteSortFromTableColumns(this.sorting));
-	readonly searchQuery = $derived.by(() => this.props.search.trim());
+	private readonly sortIntent = $derived(suiteSortFromTableColumns(this.sorting));
+	private readonly searchQuery = $derived.by(() => this.props.search.trim());
 
-	readonly activeFacets = $derived.by((): SuiteFacets =>
+	private readonly activeFacets = $derived.by((): SuiteFacets =>
 		activeSuiteFacetsFromFilters(this.filters)
 	);
 
 	readonly hasActiveFilters = $derived(Object.keys(this.activeFacets).length > 0);
 
-	readonly useSSR = $derived.by(() =>
+	private readonly useSSR = $derived.by(() =>
 		shouldUseSSRSuiteBrowse({
 			sort: this.sortIntent,
 			searchQuery: this.searchQuery,
@@ -115,18 +120,19 @@ export class SuiteBrowse {
 		})
 	);
 
-	readonly facetOptionsQuery: ReturnType<
+	private readonly facetOptionsQuery: ReturnType<
 		typeof createQuery<ConformanceSuiteRecord[], Error>
 	>;
-	readonly catalogQuery: ReturnType<typeof createQuery<ConformanceSuiteRecord[], Error>>;
+	private readonly catalogQuery: ReturnType<typeof createQuery<ConformanceSuiteRecord[], Error>>;
 
 	constructor(props: SuiteBrowseProps) {
 		this.props = props;
+		const surface = props.surface;
 
 		this.facetOptionsQuery = createQuery(() => ({
-			queryKey: ['conformance-suites', 'pipeline', 'hub', 'facet-options'] as const,
+			queryKey: ['conformance-suites', surface, 'hub', 'facet-options'] as const,
 			queryFn: async () => {
-				const result = await listHubSuites({ surface: 'pipeline' });
+				const result = await listHubSuites({ surface });
 				if (result.isErr) throw result.error;
 				return result.value;
 			}
@@ -138,11 +144,11 @@ export class SuiteBrowse {
 			const facets = this.activeFacets;
 
 			return {
-				queryKey: ['conformance-suites', 'pipeline', 'hub', sort, q, facets] as const,
+				queryKey: ['conformance-suites', surface, 'hub', sort, q, facets] as const,
 				enabled: !this.useSSR,
 				queryFn: async () => {
 					const result = await listHubSuites({
-						surface: 'pipeline',
+						surface,
 						sort,
 						search: q || undefined,
 						facets: Object.keys(facets).length > 0 ? facets : undefined
@@ -154,7 +160,7 @@ export class SuiteBrowse {
 		});
 	}
 
-	readonly facetSourceSuites = $derived.by((): ConformanceSuiteRecord[] => {
+	private readonly facetSourceSuites = $derived.by((): ConformanceSuiteRecord[] => {
 		if (this.facetOptionsQuery.data) return this.facetOptionsQuery.data;
 		if (this.props.initialSuites.length > 0) return this.props.initialSuites;
 		return [];

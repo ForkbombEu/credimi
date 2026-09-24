@@ -35,6 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { suites: initialSuites = [], search = '' }: Props = $props();
 
 	const browse = new SuiteBrowse({
+		surface: 'pipeline',
 		get initialSuites() {
 			return initialSuites;
 		},
