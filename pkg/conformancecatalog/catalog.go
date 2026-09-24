@@ -153,12 +153,6 @@ func suiteDisplayFromYAML(s suiteYAML) suiteDisplayFields {
 	}
 }
 
-// Snapshot returns checks from the ephemeral :memory: cache (SELECT → []Check).
-// Cache errors are surfaced — callers must not treat a failed read as an empty catalog.
-func Snapshot() ([]Check, error) {
-	return listEphemeralChecks()
-}
-
 // TemplatesDir resolves config_templates from ROOT_DIR (empty ROOT_DIR → ./config_templates).
 func TemplatesDir() string {
 	root := os.Getenv("ROOT_DIR")

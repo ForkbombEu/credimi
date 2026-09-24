@@ -157,29 +157,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_conformance_suites_path_prefix ON conforma
 	return nil
 }
 
-// listEphemeralChecks reads every check row from the process-private cache.
-func listEphemeralChecks() ([]Check, error) {
-	db, err := catalogDB()
-	if err != nil {
-		return nil, err
-	}
-	var rows []*Check
-	if err := db.Select(catalogSelectColumns...).
-		From(CollectionName).
-		OrderBy("path ASC").
-		All(&rows); err != nil {
-		return nil, fmt.Errorf("list ephemeral checks: %w", err)
-	}
-	out := make([]Check, 0, len(rows))
-	for _, r := range rows {
-		if r == nil {
-			continue
-		}
-		out = append(out, *r)
-	}
-	return out, nil
-}
-
 // countEphemeralChecks returns the number of rows in the ephemeral checks table.
 func countEphemeralChecks() (int, error) {
 	db, err := catalogDB()

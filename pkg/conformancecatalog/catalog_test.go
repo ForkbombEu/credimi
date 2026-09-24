@@ -201,9 +201,9 @@ func TestBootRebuildSucceedsFromFixture(t *testing.T) {
 	root := t.TempDir()
 	writeFixtureTree(t, root)
 	require.NoError(t, bootRebuild(app, root))
-	checks, err := Snapshot()
+	n, err := countEphemeralChecks()
 	require.NoError(t, err)
-	require.Len(t, checks, 6)
+	require.Equal(t, 6, n)
 
 	_, err = app.FindCollectionByNameOrId(CollectionName)
 	require.Error(t, err, "rebuild must not create a durable PocketBase collection")
@@ -295,9 +295,6 @@ func TestRebuildProjectsIntoEphemeralCache(t *testing.T) {
 
 	Register(app)
 	require.NoError(t, Rebuild(root))
-	checks, err := Snapshot()
-	require.NoError(t, err)
-	require.Len(t, checks, 6)
 
 	mux := catalogTestMux(t, app)
 	body := catalogListJSON(t, mux, "/api/collections/conformance_checks/records?perPage=100")
