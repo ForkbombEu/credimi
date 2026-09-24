@@ -57,7 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<div class="rounded-md border">
+<div class="rounded-md border bg-background">
 	<div class="border-b p-2">
 		<Input bind:value={search} placeholder={m.Search()} />
 	</div>
