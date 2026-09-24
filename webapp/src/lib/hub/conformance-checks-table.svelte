@@ -57,7 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const columnHelper = createColumnHelper<ConformanceSuiteRecord>();
 
-	const columns = [
+	const columns = $derived([
 		columnHelper.accessor('suite_name', {
 			id: 'suite',
 			header: m.Suite(),
@@ -95,15 +95,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			id: 'checks',
 			header: m.Checks(),
 			enableSorting: false,
-			cell: ({ row }) => renderComponent(SuiteChecksCell, { suite: row.original })
+			cell: ({ row }) =>
+				renderComponent(SuiteChecksCell, { suite: row.original, search })
 		})
-	];
+	]);
 
 	const table = createSvelteTable({
 		get data() {
 			return browse.displayedSuites;
 		},
-		columns,
+		get columns() {
+			return columns;
+		},
 		getCoreRowModel: getCoreRowModel(),
 		getRowId: (row) => row.id,
 		manualSorting: true,

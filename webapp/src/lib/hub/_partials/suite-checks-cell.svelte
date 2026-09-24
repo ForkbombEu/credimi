@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { ConformanceSuiteRecord } from '$lib/conformance';
+	import { annotateNestedHubItemsForSearch } from '$lib/hub/nested-hub-search';
 
 	import { m } from '@/i18n';
 
@@ -15,9 +16,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		suite: ConformanceSuiteRecord;
+		search?: string;
 	};
 
-	let { suite }: Props = $props();
+	let { suite, search = '' }: Props = $props();
+
+	const memberLinks = $derived.by(() => {
+		if (suite.members.length === 0) return [];
+
+		const items = suite.members.map((member) => {
+			const title = member.title || member.file.replace('.yaml', '') || member.path;
+			return {
+				name: [member.title, member.file, member.path].filter(Boolean).join(' '),
+				title,
+				href: `/hub/conformance-checks/${member.path}`
+			};
+		});
+
+		return annotateNestedHubItemsForSearch(items, search).map(({ title, href, dimmed }) => ({
+			title,
+			href,
+			dimmed
+		}));
+	});
 </script>
 
 {#if suite.fs_standard === 'fcaf'}
@@ -30,12 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		]}
 	/>
 {:else if suite.members.length > 0}
-	<ChildrenCell
-		items={suite.members.map((m) => ({
-			title: m.title || m.file.replace('.yaml', '') || m.path,
-			href: `/hub/conformance-checks/${m.path}`
-		}))}
-	/>
+	<ChildrenCell items={memberLinks} />
 {:else}
 	<span class="text-xs text-muted-foreground">
 		{suite.check_count}

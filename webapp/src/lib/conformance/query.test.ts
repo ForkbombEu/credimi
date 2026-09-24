@@ -55,7 +55,7 @@ describe('compileSuiteListQuery', () => {
 				'component = "wallet"',
 				'version = "draft-24"',
 				'provider = "openid_conformance_suite"',
-				'(suite_name ~ "ewc" || suite ~ "ewc" || standard ~ "ewc" || component ~ "ewc" || version ~ "ewc" || provider ~ "ewc")'
+				'(suite_name ~ "ewc" || suite ~ "ewc" || standard ~ "ewc" || component ~ "ewc" || version ~ "ewc" || provider ~ "ewc" || members ~ "ewc")'
 			].join(' && ')
 		);
 	});
