@@ -193,6 +193,29 @@ func countEphemeralChecks() (int, error) {
 	return n, nil
 }
 
+// Rebuild walks templatesDir (or TemplatesDir() when empty) and fully replaces
+// the process-private :memory: query cache used by the fake PocketBase
+// collection URL. That cache is the sole post-rebuild projection.
+//
+// Refresh path for local template edits: call Rebuild, or POST
+// /api/conformance-catalog/rebuild with X-Api-Key = CREDIMI_INTERNAL_ADMIN_KEY,
+// or restart the process (Register hooks rebuild on bootstrap).
+func Rebuild(templatesDir string) error {
+	if templatesDir == "" {
+		templatesDir = TemplatesDir()
+	}
+
+	loaded, err := LoadFromDir(templatesDir)
+	if err != nil {
+		return err
+	}
+
+	if err := replaceEphemeralRows(loaded); err != nil {
+		return fmt.Errorf("project ephemeral catalog: %w", err)
+	}
+	return nil
+}
+
 // replaceEphemeralRows fully replaces process-private check and suite tables.
 func replaceEphemeralRows(loaded LoadedCatalog) error {
 	db, err := catalogDB()
