@@ -16,15 +16,61 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Process-private shared-memory catalog DB. Not attached to PocketBase data.db.
+// Process-default shared-memory catalog URI. Not attached to PocketBase data.db.
+// Tests open private caches with a distinct URI via openCatalogCache.
 const catalogMemoryURI = "file:credimi_conformance_catalog?mode=memory&cache=shared"
 
+// catalogCache is one ephemeral :memory: query-cache handle (sole post-rebuild
+// projection for that handle). Production uses the process default behind
+// Rebuild / catalogDB; tests construct private handles with openCatalogCache.
+type catalogCache struct {
+	sql *sql.DB
+	dbx *dbx.DB
+}
+
 var (
-	memOnce sync.Once
-	memSQL  *sql.DB
-	memDBX  *dbx.DB
-	errMem  error
+	defaultOnce  sync.Once
+	defaultCache *catalogCache
+	defaultErr   error
 )
+
+func openCatalogCache(uri string) (*catalogCache, error) {
+	sqlDB, err := sql.Open("sqlite", uri)
+	if err != nil {
+		return nil, err
+	}
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	if err := sqlDB.PingContext(context.Background()); err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	if err := ensureEphemeralSchema(sqlDB); err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	return &catalogCache{
+		sql: sqlDB,
+		dbx: dbx.NewFromDB(sqlDB, "sqlite"),
+	}, nil
+}
+
+func (c *catalogCache) Close() error {
+	if c == nil || c.sql == nil {
+		return nil
+	}
+	return c.sql.Close()
+}
+
+func defaultCatalog() (*catalogCache, error) {
+	defaultOnce.Do(func() {
+		defaultCache, defaultErr = openCatalogCache(catalogMemoryURI)
+	})
+	if defaultErr != nil {
+		return nil, defaultErr
+	}
+	return defaultCache, nil
+}
 
 // stringArray is a JSON string[] column for visible_in.
 type stringArray []string
@@ -116,24 +162,13 @@ func (r *suiteHTTPRecord) withCollectionMeta() *suiteHTTPRecord {
 	return r
 }
 
+// catalogDB returns the process-default cache's dbx handle (HTTP list/get facade).
 func catalogDB() (*dbx.DB, error) {
-	memOnce.Do(func() {
-		memSQL, errMem = sql.Open("sqlite", catalogMemoryURI)
-		if errMem != nil {
-			return
-		}
-		memSQL.SetMaxOpenConns(1)
-		memSQL.SetMaxIdleConns(1)
-		if errMem = memSQL.PingContext(context.Background()); errMem != nil {
-			return
-		}
-		memDBX = dbx.NewFromDB(memSQL, "sqlite")
-		errMem = ensureEphemeralSchema(memSQL)
-	})
-	if errMem != nil {
-		return nil, errMem
+	c, err := defaultCatalog()
+	if err != nil {
+		return nil, err
 	}
-	return memDBX, nil
+	return c.dbx, nil
 }
 
 func ensureEphemeralSchema(db *sql.DB) error {
@@ -157,22 +192,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_conformance_suites_path_prefix ON conforma
 	return nil
 }
 
-// countEphemeralChecks returns the number of rows in the ephemeral checks table.
-func countEphemeralChecks() (int, error) {
-	db, err := catalogDB()
-	if err != nil {
-		return 0, err
-	}
+func (c *catalogCache) countChecks() (int, error) {
 	var n int
-	if err := db.NewQuery("SELECT COUNT(*) FROM conformance_checks").Row(&n); err != nil {
+	if err := c.dbx.NewQuery("SELECT COUNT(*) FROM conformance_checks").Row(&n); err != nil {
 		return 0, fmt.Errorf("count ephemeral checks: %w", err)
 	}
 	return n, nil
 }
 
+// countEphemeralChecks returns the check count on the process-default cache
+// (rebuild HTTP response; boot tests).
+func countEphemeralChecks() (int, error) {
+	c, err := defaultCatalog()
+	if err != nil {
+		return 0, err
+	}
+	return c.countChecks()
+}
+
 // Rebuild walks templatesDir (or TemplatesDir() when empty) and fully replaces
-// the process-private :memory: query cache used by the fake PocketBase
-// collection URL. That cache is the sole post-rebuild projection.
+// the process-default :memory: query cache used by the fake PocketBase
+// collection URL. That cache is the sole post-rebuild projection for the
+// default handle (ADR-0001).
 //
 // Refresh path for local template edits: call Rebuild, or POST
 // /api/conformance-catalog/rebuild with X-Api-Key = CREDIMI_INTERNAL_ADMIN_KEY,
@@ -187,20 +228,19 @@ func Rebuild(templatesDir string) error {
 		return err
 	}
 
-	if err := replaceEphemeralRows(loaded); err != nil {
+	c, err := defaultCatalog()
+	if err != nil {
+		return err
+	}
+	if err := c.replaceEphemeralRows(loaded); err != nil {
 		return fmt.Errorf("project ephemeral catalog: %w", err)
 	}
 	return nil
 }
 
-// replaceEphemeralRows fully replaces process-private check and suite tables.
-func replaceEphemeralRows(loaded LoadedCatalog) error {
-	db, err := catalogDB()
-	if err != nil {
-		return err
-	}
-
-	tx, err := db.Begin()
+// replaceEphemeralRows fully replaces check and suite tables on this handle.
+func (c *catalogCache) replaceEphemeralRows(loaded LoadedCatalog) error {
+	tx, err := c.dbx.Begin()
 	if err != nil {
 		return err
 	}
