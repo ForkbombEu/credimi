@@ -21,6 +21,6 @@ export async function resolveCheckPath(
 	checkId: string,
 	options: Pick<ListAllOptions, 'surface' | 'fetch'> = {}
 ): Promise<ResolvedCheckPath | null> {
-	await Store.load(options);
-	return resolveCheckPathFromNest(Store.get().standards, checkId);
+	const standards = await Store.load(options);
+	return resolveCheckPathFromNest(standards, checkId);
 }

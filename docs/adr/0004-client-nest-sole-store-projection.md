@@ -1,0 +1,3 @@
+# Client Filesystem-axis nest has one Store projection
+
+On the client, the Filesystem-axis nest (suite-grain rows grouped for pickers, path resolve, and scoreboard) is owned by `webapp/src/lib/conformance/store.svelte.ts`. Client callers — including TanStack queries — must `Store.load` rather than a parallel `listAll` / `getStandardsWithTestSuites`. We rejected QueryClient-as-SoT (awkward for sync `resolveSuite` / scoreboard) and a third nest-browse module (only one real client adapter today). SSR route loaders stay independent one-shots with `event.fetch` and do not hydrate Store (ADR-0002: load each projection only where needed).

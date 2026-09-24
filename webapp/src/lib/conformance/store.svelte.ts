@@ -14,7 +14,7 @@ const standards = $state<Standard[]>([]);
 /** Surface key last successfully loaded into {@link standards}. */
 let loadedSurface: string | undefined;
 /** In-flight load for dedupe (hooks + deserialize share one fetch). */
-let inflight: Promise<void> | undefined;
+let inflight: Promise<readonly Standard[]> | undefined;
 let inflightSurface: string | undefined;
 
 const readonlyView = {
@@ -32,12 +32,16 @@ function surfaceKey(options: Pick<ListAllOptions, 'surface'>): string {
 }
 
 /**
- * Awaitable nest browse load. Idempotent per surface; concurrent callers share
- * one in-flight fetch. Rejects on catalog errors (no fire-and-forget).
+ * Sole client Filesystem-axis nest projection. Awaitable nest browse load —
+ * idempotent per surface; concurrent callers share one in-flight fetch.
+ * Rejects on catalog errors (no fire-and-forget). TanStack / other client
+ * callers must load via this Store, not a parallel {@link listAll}.
  */
-export async function load(options: Pick<ListAllOptions, 'surface' | 'fetch'> = {}): Promise<void> {
+export async function load(
+	options: Pick<ListAllOptions, 'surface' | 'fetch'> = {}
+): Promise<readonly Standard[]> {
 	const key = surfaceKey(options);
-	if (loadedSurface === key) return;
+	if (loadedSurface === key) return get().standards;
 	if (inflight && inflightSurface === key) return inflight;
 
 	inflightSurface = key;
@@ -47,6 +51,7 @@ export async function load(options: Pick<ListAllOptions, 'surface' | 'fetch'> = 
 		standards.length = 0;
 		standards.push(...result.value);
 		loadedSurface = key;
+		return get().standards;
 	})().finally(() => {
 		inflight = undefined;
 		inflightSurface = undefined;
