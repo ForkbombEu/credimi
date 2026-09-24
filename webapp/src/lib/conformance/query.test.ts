@@ -5,7 +5,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-	CATALOG_FACET_KEYS,
 	compileCheckListQuery,
 	compileSuiteListQuery,
 	HUB_SUITE_SORT_DEFAULT,
@@ -97,43 +96,18 @@ describe('compileSuiteListQuery', () => {
 });
 
 describe('compileCheckListQuery', () => {
-	it('compiles surface, FS standard, and catalog facets', () => {
+	it('compiles surface and FS standard with default check sort', () => {
 		const compiled = compileCheckListQuery(
-			{
-				surface: 'manual',
-				fs_standard: 'fcaf',
-				facets: {
-					protocol: 'openid4vp',
-					sut: 'wallet_solution',
-					role: 'wallet',
-					provider: 'ewc'
-				}
-			},
+			{ surface: 'manual', fs_standard: 'fcaf' },
 			stubFilter
 		);
 
-		expect(CATALOG_FACET_KEYS).toEqual(['protocol', 'sut', 'role', 'provider']);
 		expect(compiled.sort).toBe('fs_standard,fs_version,suite,path');
-		expect(compiled.filter).toBe(
-			[
-				'visible_in ~ "manual"',
-				'fs_standard = "fcaf"',
-				'protocol = "openid4vp"',
-				'sut = "wallet_solution"',
-				'role = "wallet"',
-				'provider = "ewc"'
-			].join(' && ')
-		);
+		expect(compiled.filter).toBe('visible_in ~ "manual" && fs_standard = "fcaf"');
 	});
 
-	it('omits unset facets and still applies default check sort', () => {
-		const compiled = compileCheckListQuery(
-			{ facets: { protocol: 'openid4vp', sut: '', role: undefined, provider: 'ewc' } },
-			stubFilter
-		);
-
-		expect(compiled).toEqual({
-			filter: 'protocol = "openid4vp" && provider = "ewc"',
+	it('applies default check sort with no filter when intent is empty', () => {
+		expect(compileCheckListQuery({}, stubFilter)).toEqual({
 			sort: 'fs_standard,fs_version,suite,path'
 		});
 	});
@@ -145,14 +119,11 @@ describe('compileCheckListQuery', () => {
 			return stubFilter(raw, params);
 		};
 
-		compileCheckListQuery(
-			{ facets: { sut: 'wallet_solution', provider: 'ewc' } },
-			recordingFilter
-		);
+		compileCheckListQuery({ surface: 'pipeline', fs_standard: 'fcaf' }, recordingFilter);
 
 		expect(calls).toEqual([
-			{ raw: 'sut = {:sut}', params: { sut: 'wallet_solution' } },
-			{ raw: 'provider = {:provider}', params: { provider: 'ewc' } }
+			{ raw: 'visible_in ~ {:surface}', params: { surface: 'pipeline' } },
+			{ raw: 'fs_standard = {:fs_standard}', params: { fs_standard: 'fcaf' } }
 		]);
 	});
 });

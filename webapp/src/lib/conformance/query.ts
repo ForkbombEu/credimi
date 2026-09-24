@@ -4,14 +4,6 @@
 
 import type { TemplateSurface } from './record';
 
-/** Check-grain facets (start-checks / legacy filters). */
-export type CatalogFacets = {
-	protocol?: string;
-	sut?: string;
-	role?: string;
-	provider?: string;
-};
-
 /** Suite-grain hub facets (normalized product axes). */
 export type SuiteFacets = {
 	standard?: string;
@@ -39,12 +31,15 @@ export type SuiteListIntent = {
 	sort?: SuiteSortIntent;
 };
 
-/** Domain intent for listing check-grain catalog rows. */
+/**
+ * Domain intent for listing check-grain catalog rows.
+ * Production check use is FCAF listing (`fs_standard: 'fcaf'`); product facets
+ * live on suite grain ({@link SuiteFacets}).
+ */
 export type CheckListIntent = {
 	surface?: TemplateSurface;
 	/** Filesystem standard uid (e.g. `fcaf`). */
 	fs_standard?: string;
-	facets?: CatalogFacets;
 };
 
 /** Adapter-ready list options after compiling a domain intent. */
@@ -55,9 +50,6 @@ export type CompiledListQuery = {
 
 /** Injected filter compiler (PocketBase `pb.filter` or a test stub). */
 export type FilterCompiler = (raw: string, params?: Record<string, unknown>) => string;
-
-/** Facet field order for check-grain equality filters. */
-export const CATALOG_FACET_KEYS = ['protocol', 'sut', 'role', 'provider'] as const;
 
 /** Facet field order for suite-grain hub filters. */
 export const SUITE_FACET_KEYS = ['standard', 'component', 'version', 'provider'] as const;
@@ -137,7 +129,6 @@ export function compileCheckListQuery(
 	if (intent.fs_standard) {
 		filters.push(filterFn('fs_standard = {:fs_standard}', { fs_standard: intent.fs_standard }));
 	}
-	appendFacetFilters(filters, intent.facets, filterFn);
 
 	return {
 		...(filters.length > 0 ? { filter: filters.join(' && ') } : {}),
@@ -154,20 +145,6 @@ function compileSuiteSort(sort: SuiteSortIntent | undefined): string {
 			return desc ? `-${field}` : field;
 		})
 		.join(',');
-}
-
-function appendFacetFilters(
-	filters: string[],
-	facets: CatalogFacets | undefined,
-	filterFn: FilterCompiler
-): void {
-	if (!facets) return;
-	for (const key of CATALOG_FACET_KEYS) {
-		const value = facets[key];
-		if (value) {
-			filters.push(filterFn(`${key} = {:${key}}`, { [key]: value }));
-		}
-	}
 }
 
 function appendSuiteFacetFilters(

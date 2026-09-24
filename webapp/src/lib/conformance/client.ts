@@ -12,7 +12,6 @@ import { nestSuites } from './nest';
 import {
 	compileCheckListQuery,
 	compileSuiteListQuery,
-	type CatalogFacets,
 	type CheckListIntent,
 	type SuiteFacets,
 	type SuiteListIntent
@@ -28,7 +27,7 @@ import {
 } from './record';
 import { standardSchema, type Standard } from './types';
 
-export type { CatalogFacets, SuiteFacets } from './query';
+export type { SuiteFacets } from './query';
 
 export type ListChecksError = ClientResponseError | ZodError;
 export type ListSuitesError = ClientResponseError | ZodError;
