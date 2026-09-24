@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
-	class="mx-auto mb-8 flex max-w-7xl flex-col items-center justify-center gap-4 px-4 pt-10 text-primary md:px-8"
+	class="mx-auto mb-8 flex max-w-7xl flex-col items-center justify-center gap-2 px-4 pt-10 text-primary md:px-8"
 >
 	<div class="flex items-center gap-2">
 		<Icon src={entityData.icon} class="size-10" />

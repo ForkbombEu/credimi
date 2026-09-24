@@ -137,17 +137,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				/>
 
 				<div
-					class="mb-8 flex flex-col gap-2 overflow-auto md:mb-0 md:flex-row md:items-stretch md:gap-0"
+					class="mb-4 flex flex-col gap-2 overflow-auto sm:grid sm:grid-cols-2 sm:gap-2 lg:mb-0 lg:flex lg:flex-row lg:items-stretch lg:gap-0"
 				>
 					{#each sections as tab (tab.slug)}
 						{@const isActive = params.tab === tab.slug}
 						<button
 							class={[
-								'group rounded-md md:rounded-t-md md:rounded-b-none md:p-2',
+								'group cursor-pointer rounded-md lg:rounded-t-md lg:rounded-b-none lg:p-2',
 								'flex items-stretch',
 								{
 									'bg-white text-primary': isActive,
-									'shadow-md md:shadow-none': isActive
+									'shadow-md lg:shadow-none': isActive
 								}
 							]}
 							onclick={() => {
@@ -178,8 +178,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					class={[
 						'rounded-t-md bg-white px-4 pt-4 pb-6',
 						{
-							'md:rounded-tl-none': isFirstTab,
-							'md:rounded-tr-none': isLastTab
+							'lg:rounded-tl-none': isFirstTab,
+							'lg:rounded-tr-none': isLastTab
 						}
 					]}
 				>
