@@ -14,8 +14,7 @@ export {
 	SUITE_FACET_KEYS,
 	suiteSortFromTableColumns
 } from './query';
-export { displayNameFromUid, displayStandardName, nestSuites, titleForCheckPath } from './nest';
-export { CONFORMANCE_CHECKS_COLLECTION, CONFORMANCE_SUITES_COLLECTION } from './record';
+export { displayNameFromUid, displayStandardName, titleForCheckPath } from './nest';
 
 export * as Check from './check.js';
 export * as Standards from './standard/index.js';
