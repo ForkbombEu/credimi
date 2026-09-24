@@ -32,8 +32,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -82,52 +80,6 @@ func (ch Check) withNormalizedIdentity() Check {
 	return ch
 }
 
-// walk-only YAML shapes (not exposed as nested API DTOs).
-type standardYAML struct {
-	UID string `yaml:"uid"`
-}
-
-type versionYAML struct {
-	UID string `yaml:"uid"`
-}
-
-type suiteYAML struct {
-	UID         string   `yaml:"uid"`
-	Name        string   `yaml:"name"`
-	Homepage    string   `yaml:"homepage"`
-	Repository  string   `yaml:"repository"`
-	Help        string   `yaml:"help"`
-	Description string   `yaml:"description"`
-	Logo        string   `yaml:"logo"`
-	VisibleIn   []string `yaml:"visible_in"`
-	Protocol    string   `yaml:"protocol"`
-	SUT         string   `yaml:"sut"`
-	Role        string   `yaml:"role"`
-	Provider    string   `yaml:"provider"`
-}
-
-// suiteDisplayFields are authored suite metadata keyed for suite projection
-// (ADR-0002), not denormalized onto checks.
-type suiteDisplayFields struct {
-	Name        string
-	Homepage    string
-	Repository  string
-	Help        string
-	Description string
-	Logo        string
-}
-
-func suiteDisplayFromYAML(s suiteYAML) suiteDisplayFields {
-	return suiteDisplayFields{
-		Name:        strings.TrimSpace(s.Name),
-		Homepage:    strings.TrimSpace(s.Homepage),
-		Repository:  strings.TrimSpace(s.Repository),
-		Help:        strings.TrimSpace(s.Help),
-		Description: strings.TrimSpace(s.Description),
-		Logo:        strings.TrimSpace(s.Logo),
-	}
-}
-
 // TemplatesDir resolves config_templates from ROOT_DIR (empty ROOT_DIR → ./config_templates).
 func TemplatesDir() string {
 	root := os.Getenv("ROOT_DIR")
@@ -143,15 +95,6 @@ func TemplatesDir() string {
 func PathID(path string) string {
 	sum := sha256.Sum256([]byte(idNamespace + path))
 	return hex.EncodeToString(sum[:])[:15]
-}
-
-type checkFileMeta struct {
-	Title    string `yaml:"title"`
-	Name     string `yaml:"name"`
-	Protocol string `yaml:"protocol"`
-	SUT      string `yaml:"sut"`
-	Role     string `yaml:"role"`
-	Provider string `yaml:"provider"`
 }
 
 // LoadFromDir walks templatesDir once and returns lean checks plus projected
@@ -277,122 +220,7 @@ func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 	}, nil
 }
 
-// hasFCAFTestsDir reports whether this suite stores FCAF definitions under tests/.
-// Classic suites keep check YAML at the suite root; FCAF uses tests/*.yaml.
-func hasFCAFTestsDir(standardUID, suitePath string) bool {
-	if standardUID != "fcaf" {
-		return false
-	}
-	info, err := os.Stat(filepath.Join(suitePath, "tests"))
-	return err == nil && info.IsDir()
-}
-
-func loadClassicSuiteChecks(
-	suitePath, standardUID, versionUID, suiteUID string,
-	visibleIn []string,
-	suiteFacets facetFields,
-) ([]Check, error) {
-	fileEntries, err := os.ReadDir(suitePath)
-	if err != nil {
-		return nil, fmt.Errorf("read suite dir %s: %w", suitePath, err)
-	}
-
-	var checks []Check
-	for _, f := range fileEntries {
-		if f.IsDir() || f.Name() == "metadata.yaml" {
-			continue
-		}
-		fileName := f.Name()
-		stem := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-		filePath := filepath.Join(suitePath, fileName)
-
-		fileMeta := checkFileMeta{}
-		_ = readYAML(filePath, &fileMeta)
-		facets := resolveFacets(standardUID, suiteUID, suiteFacets, facetFields{
-			Protocol: fileMeta.Protocol,
-			SUT:      fileMeta.SUT,
-			Role:     fileMeta.Role,
-			Provider: fileMeta.Provider,
-		})
-
-		checks = append(checks, newSuiteCheck(
-			standardUID, versionUID, suiteUID, stem, fileName,
-			titleFromMeta(fileMeta, stem), visibleIn, facets,
-		))
-	}
-	return checks, nil
-}
-
-type fcafTestFileMeta struct {
-	ID       string `yaml:"id"`
-	Title    string `yaml:"title"`
-	Protocol string `yaml:"protocol"`
-	Provider string `yaml:"provider"`
-	Suite    struct {
-		SUT  string `yaml:"sut"`
-		Role string `yaml:"role"`
-	} `yaml:"suite"`
-}
-
-// loadFCAFSuiteTests indexes FCAF definitions from suite/tests/*.yaml.
-// Path identity is fcaf/<version>/<suite>/<test_id> so nest/pickers stay stable;
-// the final path segment is the FCAF test id used by fcaf-validation.test_ids.
-func loadFCAFSuiteTests(
-	suitePath, standardUID, versionUID, suiteUID string,
-	visibleIn []string,
-	suiteFacets facetFields,
-) ([]Check, error) {
-	testsDir := filepath.Join(suitePath, "tests")
-	entries, err := os.ReadDir(testsDir)
-	if err != nil {
-		return nil, fmt.Errorf("read FCAF tests dir %s: %w", testsDir, err)
-	}
-
-	var checks []Check
-	for _, f := range entries {
-		if f.IsDir() {
-			continue
-		}
-		fileName := f.Name()
-		ext := strings.ToLower(filepath.Ext(fileName))
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-
-		filePath := filepath.Join(testsDir, fileName)
-		meta := fcafTestFileMeta{}
-		if err := readYAML(filePath, &meta); err != nil {
-			return nil, err
-		}
-		testID := strings.TrimSpace(meta.ID)
-		if testID == "" {
-			testID = strings.TrimSuffix(fileName, filepath.Ext(fileName))
-		}
-		if testID == "" {
-			continue
-		}
-
-		title := strings.TrimSpace(meta.Title)
-		if title == "" {
-			title = testID
-		}
-
-		facets := resolveFacets(standardUID, suiteUID, suiteFacets, facetFields{
-			Protocol: meta.Protocol,
-			SUT:      meta.Suite.SUT,
-			Role:     meta.Suite.Role,
-			Provider: meta.Provider,
-		})
-
-		checks = append(checks, newSuiteCheck(
-			standardUID, versionUID, suiteUID, testID, fileName,
-			title, visibleIn, facets,
-		))
-	}
-	return checks, nil
-}
-
-// newSuiteCheck builds one lean check row after a layout adapter has resolved
+// newSuiteCheck builds one lean check row after a layout loader has resolved
 // path stem, file name, title, and facets (classic vs FCAF stay separate).
 func newSuiteCheck(
 	fsStandard, fsVersion, suite, stem, fileName, title string,
@@ -437,39 +265,4 @@ func normalizeVisibleIn(visibleIn []string) []string {
 		return []string{SurfaceManual, SurfacePipeline}
 	}
 	return out
-}
-
-func titleFromMeta(meta checkFileMeta, stem string) string {
-	if title := strings.TrimSpace(meta.Title); title != "" {
-		return title
-	}
-	if name := strings.TrimSpace(meta.Name); name != "" {
-		return name
-	}
-	return filenameTitle(stem)
-}
-
-func filenameTitle(stem string) string {
-	if stem == "" {
-		return "untitled"
-	}
-	return stem
-}
-
-func readYAML(path string, out any) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("read %s: %w", path, err)
-	}
-	if err := yaml.Unmarshal(data, out); err != nil {
-		// Check files may not be YAML metadata-first; ignore parse errors for title extraction.
-		if _, ok := out.(*checkFileMeta); ok {
-			return nil
-		}
-		return fmt.Errorf("unmarshal %s: %w", path, err)
-	}
-	return nil
 }
