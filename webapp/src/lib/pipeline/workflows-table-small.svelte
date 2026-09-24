@@ -42,9 +42,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		workflows: ExecutionSummary[];
+		/** Called after a successful cancel from the row actions menu. */
+		onCancel?: () => void;
 	};
 
-	let { workflows }: Props = $props();
+	let { workflows, onCancel }: Props = $props();
 
 	const user = fromStore(currentUser);
 	const timezone = $derived(user.current?.Timezone);
@@ -197,7 +199,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</td>
 							<td class="text-right">
 								<DropdownMenu
-									items={makeDropdownActions(workflow)}
+									items={makeDropdownActions(workflow, { onSettled: onCancel })}
 									triggerVariants={{ variant: 'ghost', size: 'icon-sm' }}
 								>
 									{#snippet trigger({ props })}

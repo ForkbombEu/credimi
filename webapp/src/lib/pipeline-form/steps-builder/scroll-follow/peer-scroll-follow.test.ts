@@ -6,10 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { YamlCardRange } from './yaml-ranges.js';
 
-import {
-	PeerScrollFollow,
-	type PeerScrollFollowClock
-} from './peer-scroll-follow.svelte.js';
+import { PeerScrollFollow, type PeerScrollFollowClock } from './peer-scroll-follow.svelte.js';
 
 type FakeClock = PeerScrollFollowClock & {
 	flushRaf(): void;
@@ -141,7 +138,8 @@ function createElementStub(attrs: Record<string, string> = {}): ElementStub {
 				return (
 					el
 						.querySelectorAll('[data-line]')
-						.find((c: ElementStub) => c.getAttribute('data-line') === lineMatch[1]) ?? null
+						.find((c: ElementStub) => c.getAttribute('data-line') === lineMatch[1]) ??
+					null
 				);
 			}
 			return null;
