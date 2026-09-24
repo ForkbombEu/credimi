@@ -103,115 +103,41 @@ func PathID(path string) string {
 // projection and is not part of the returned value. Does not touch PocketBase;
 // Rebuild inserts the returned rows into the process-private ephemeral store.
 func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
-	entries, err := os.ReadDir(templatesDir)
+	suites, err := enumerateSuites(templatesDir)
 	if err != nil {
-		return LoadedCatalog{}, fmt.Errorf("read templates dir: %w", err)
+		return LoadedCatalog{}, err
 	}
 
 	var checks []Check
 	suiteDisplay := map[string]suiteDisplayFields{}
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		if _, skip := nonStandardTemplateDirs[entry.Name()]; skip {
-			continue
-		}
+	for _, s := range suites {
+		suiteDisplay[suitePathPrefix(s.standardUID, s.versionUID, s.suiteUID)] = s.display
 
-		standardUID := entry.Name()
-		standardPath := filepath.Join(templatesDir, standardUID)
-
-		stdMeta := standardYAML{UID: standardUID}
-		if err := readYAML(filepath.Join(standardPath, "standard.yaml"), &stdMeta); err != nil {
+		var suiteChecks []Check
+		if hasFCAFTestsDir(s.standardUID, s.suitePath) {
+			suiteChecks, err = loadFCAFSuiteTests(
+				s.suitePath,
+				s.standardUID,
+				s.versionUID,
+				s.suiteUID,
+				s.visibleIn,
+				s.suiteFacets,
+			)
+		} else {
+			suiteChecks, err = loadClassicSuiteChecks(
+				s.suitePath,
+				s.standardUID,
+				s.versionUID,
+				s.suiteUID,
+				s.visibleIn,
+				s.suiteFacets,
+			)
+		}
+		if err != nil {
 			return LoadedCatalog{}, err
 		}
-		if stdMeta.UID == "" {
-			stdMeta.UID = standardUID
-		}
-
-		versionEntries, err := os.ReadDir(standardPath)
-		if err != nil {
-			return LoadedCatalog{}, fmt.Errorf("read standard dir %s: %w", standardPath, err)
-		}
-
-		for _, vEntry := range versionEntries {
-			if !vEntry.IsDir() {
-				continue
-			}
-			versionUID := vEntry.Name()
-			versionPath := filepath.Join(standardPath, versionUID)
-			if _, err := os.Stat(filepath.Join(versionPath, "version.yaml")); err != nil {
-				continue
-			}
-
-			verMeta := versionYAML{UID: versionUID}
-			if err := readYAML(filepath.Join(versionPath, "version.yaml"), &verMeta); err != nil {
-				return LoadedCatalog{}, err
-			}
-			if verMeta.UID == "" {
-				verMeta.UID = versionUID
-			}
-
-			suiteEntries, err := os.ReadDir(versionPath)
-			if err != nil {
-				return LoadedCatalog{}, fmt.Errorf("read version dir %s: %w", versionPath, err)
-			}
-
-			for _, sEntry := range suiteEntries {
-				if !sEntry.IsDir() {
-					continue
-				}
-				suiteUID := sEntry.Name()
-				suitePath := filepath.Join(versionPath, suiteUID)
-				if _, err := os.Stat(filepath.Join(suitePath, "metadata.yaml")); err != nil {
-					continue
-				}
-
-				sMeta := suiteYAML{UID: suiteUID}
-				if err := readYAML(filepath.Join(suitePath, "metadata.yaml"), &sMeta); err != nil {
-					return LoadedCatalog{}, err
-				}
-				if sMeta.UID == "" {
-					sMeta.UID = suiteUID
-				}
-
-				visibleIn := normalizeVisibleIn(sMeta.VisibleIn)
-				suiteFacets := facetFields{
-					Protocol: sMeta.Protocol,
-					SUT:      sMeta.SUT,
-					Role:     sMeta.Role,
-					Provider: sMeta.Provider,
-				}
-				suiteDisplay[suitePathPrefix(stdMeta.UID, verMeta.UID, sMeta.UID)] =
-					suiteDisplayFromYAML(sMeta)
-
-				var suiteChecks []Check
-				if hasFCAFTestsDir(stdMeta.UID, suitePath) {
-					suiteChecks, err = loadFCAFSuiteTests(
-						suitePath,
-						stdMeta.UID,
-						verMeta.UID,
-						sMeta.UID,
-						visibleIn,
-						suiteFacets,
-					)
-				} else {
-					suiteChecks, err = loadClassicSuiteChecks(
-						suitePath,
-						stdMeta.UID,
-						verMeta.UID,
-						sMeta.UID,
-						visibleIn,
-						suiteFacets,
-					)
-				}
-				if err != nil {
-					return LoadedCatalog{}, err
-				}
-				checks = append(checks, suiteChecks...)
-			}
-		}
+		checks = append(checks, suiteChecks...)
 	}
 
 	return LoadedCatalog{

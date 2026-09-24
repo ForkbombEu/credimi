@@ -59,7 +59,7 @@ func loadFCAFSuiteTests(
 
 		filePath := filepath.Join(testsDir, fileName)
 		meta := fcafTestFileMeta{}
-		if err := readYAML(filePath, &meta); err != nil {
+		if err := readRequiredYAML(filePath, &meta); err != nil {
 			return nil, err
 		}
 		testID := strings.TrimSpace(meta.ID)

@@ -31,8 +31,7 @@ func loadClassicSuiteChecks(
 		stem := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 		filePath := filepath.Join(suitePath, fileName)
 
-		fileMeta := checkFileMeta{}
-		_ = readYAML(filePath, &fileMeta)
+		fileMeta := readBestEffortCheckMeta(filePath)
 		facets := resolveFacets(standardUID, suiteUID, suiteFacets, facetFields{
 			Protocol: fileMeta.Protocol,
 			SUT:      fileMeta.SUT,

@@ -84,7 +84,10 @@ func filenameTitle(stem string) string {
 	return stem
 }
 
-func readYAML(path string, out any) error {
+// readRequiredYAML loads authored YAML (standard/version/suite/FCAF defs).
+// Missing file is OK (callers Stat-gate when the file is mandatory). Unmarshal
+// errors fail closed.
+func readRequiredYAML(path string, out any) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -93,11 +96,21 @@ func readYAML(path string, out any) error {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
 	if err := yaml.Unmarshal(data, out); err != nil {
-		// Check files may not be YAML metadata-first; ignore parse errors for title extraction.
-		if _, ok := out.(*checkFileMeta); ok {
-			return nil
-		}
 		return fmt.Errorf("unmarshal %s: %w", path, err)
 	}
 	return nil
+}
+
+// readBestEffortCheckMeta extracts title/facets from a classic check file.
+// Missing or non-metadata-first YAML yields zero values (fail open).
+func readBestEffortCheckMeta(path string) checkFileMeta {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return checkFileMeta{}
+	}
+	var meta checkFileMeta
+	if err := yaml.Unmarshal(data, &meta); err != nil {
+		return checkFileMeta{}
+	}
+	return meta
 }
