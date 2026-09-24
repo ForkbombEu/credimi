@@ -334,13 +334,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</div>
 					{/each}
 				</div>
+				<!-- Lets peer-follow center the last short card (e.g. debug). -->
+				<div
+					class="pointer-events-none shrink-0"
+					style:height="{cardsEndPadPx}px"
+					aria-hidden="true"
+				></div>
 			{:else if builder.isSavedManualPipeline}
-				<EmptyState text={m.pipeline_manually_saved_no_cards()} padded={false} />
+				<EmptyState text={m.pipeline_manually_saved_no_cards()} />
 			{:else}
-				<EmptyState text={m.Pipeline_steps_will_appear_here()} padded={false} />
+				<EmptyState text={m.Pipeline_steps_will_appear_here()} />
 			{/if}
 
-			<div class="border-t pt-4">
+			<div class="!mt-6 border-t pt-4">
 				<h3 class="text-sm font-medium">{m.Follow_ups()}</h3>
 			</div>
 
@@ -374,13 +380,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{:else}
 				<EmptyState text={m.no_follow_ups_hint()} padded={false} />
 			{/if}
-
-			<!-- End pad after all content so peer-follow can center short cards without a gap before Follow-ups. -->
-			<div
-				class="pointer-events-none shrink-0"
-				style:height="{cardsEndPadPx}px"
-				aria-hidden="true"
-			></div>
 		</div>
 	</Column>
 

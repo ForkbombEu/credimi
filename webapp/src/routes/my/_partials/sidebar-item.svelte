@@ -25,19 +25,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { item }: Props = $props();
 
 	const isActive = $derived(deLocalizeHref(page.url.pathname) == item.url);
-	const sidebar = Sidebar.useSidebar();
 </script>
 
 <Sidebar.MenuItem style={`padding-left: ${(item.indent ?? 0) * 16}px`}>
 	<Sidebar.MenuButton {isActive}>
 		{#snippet child({ props })}
-			<a
-				href={localizeHref(item.url)}
-				{...props}
-				onclick={() => {
-					sidebar.setOpenMobile(false);
-				}}
-			>
+			<a href={localizeHref(item.url)} {...props}>
 				{#if item.component}
 					<item.component title={item.title} />
 				{:else}
