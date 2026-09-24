@@ -43,13 +43,17 @@ A suite under a product-axis standard×component×version, with authored display
 _Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks, dual-fetching both projections on every hub layout, treating nest Standard/Version as authored catalog metadata
 
 **Product axis**:
-The normalized standard × component × version used to browse and filter the hub suite table and projected onto checks for facet filters. Same meaning on both catalog grains. Hub Product-axis suite-table orchestration (list, facets, SSR policy) lives in `webapp/src/lib/conformance/suite-browse.svelte.ts`; the Filesystem-axis nest remains Store-only.
-_Avoid_: Filesystem path segment, nest uid (when meaning product)
+The normalized standard × component × version used to browse and filter the hub suite table and projected onto checks for facet filters. Same meaning on both catalog grains.
+_Avoid_: Filesystem path segment, nest uid (when meaning product); dual-fetching Product-axis suite table and Filesystem-axis nest on every hub layout
 
 
 **Filesystem axis**:
 The durable path segments (filesystem standard / filesystem version / suite, and suite path prefix) that keep hub URLs and nest trees path-stable. Same meaning on both catalog grains.
 _Avoid_: Product standard or version when meaning a path segment; unqualified “standard” for an FS dir
+
+**Catalog surface**:
+Which product UI may browse a Conformance suite: `manual` (start-checks) or `pipeline` (hub and pipeline pickers). Authored per suite; omit to show in both. It is a browse filter, not a runtime execution mode.
+_Avoid_: Pipeline editor manual mode, show_in_pipeline_gui, treating surface as a Temporal or workflow setting
 
 ## FCAF (wallet-solution relying-party)
 

@@ -32,10 +32,10 @@ function surfaceKey(options: Pick<ListAllOptions, 'surface'>): string {
 }
 
 /**
- * Sole client Filesystem-axis nest projection. Awaitable nest browse load —
- * idempotent per surface; concurrent callers share one in-flight fetch.
- * Rejects on catalog errors (no fire-and-forget). TanStack / other client
- * callers must load via this Store, not a parallel {@link listAll}.
+ * Sole client Filesystem-axis nest projection (ADR-0004). Awaitable nest browse
+ * load — idempotent per surface; concurrent callers share one in-flight fetch.
+ * Rejects on catalog errors (no fire-and-forget). Client callers must load via
+ * this Store; SSR / non-hydrating reads use getStandardsWithTestSuites.
  */
 export async function load(
 	options: Pick<ListAllOptions, 'surface' | 'fetch'> = {}

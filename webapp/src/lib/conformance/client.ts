@@ -113,8 +113,9 @@ export type ListAllOptions = {
 };
 
 /**
- * Nested standards tree for hub, start-checks, and pipeline pickers.
- * Source: PocketBase `conformance_suites` (grouped on fs_* axes, ADR-0002).
+ * Package-internal nest compose (listSuites → nestSuites). Not barrel-exported
+ * (ADR-0004): client callers use Store.load; SSR / non-hydrating reads use
+ * {@link getStandardsWithTestSuites}.
  */
 export function listAll(options: ListAllOptions = {}): Task.Task<ListAllResponse, ListAllError> {
 	const { fetch: fetchFn = fetch, surface = 'manual', facets } = options;
@@ -127,7 +128,10 @@ export function listAll(options: ListAllOptions = {}): Task.Task<ListAllResponse
 	});
 }
 
-/** Promise-shaped helper for SvelteKit loaders (hub detail, start-checks). */
+/**
+ * Sole SSR / non-hydrating nest one-shot (ADR-0004). Accepts either Catalog
+ * surface. Does not hydrate Store.
+ */
 export async function getStandardsWithTestSuites(
 	options: ListAllOptions = {}
 ): Promise<StandardsWithTestSuites | Error> {

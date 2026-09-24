@@ -4,19 +4,10 @@
 
 export type { Standard, Suite, Version } from './types';
 export type { ConformanceCheckRecord, ConformanceSuiteRecord, TemplateSurface } from './record';
-export type {
-	SuiteFacets,
-	ListAllResponse,
-	StandardsWithTestSuites
-} from './client';
+export type { SuiteFacets, StandardsWithTestSuites } from './client';
 export type { CheckListIntent, SuiteListIntent, SuiteSortColumn, SuiteSortIntent } from './query';
 
-export {
-	listAll,
-	getStandardsWithTestSuites,
-	listChecks,
-	listSuites
-} from './client';
+export { getStandardsWithTestSuites, listChecks, listSuites } from './client';
 export {
 	HUB_SUITE_SORT_DEFAULT,
 	isHubDefaultSuiteSort,
