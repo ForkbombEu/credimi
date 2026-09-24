@@ -12,6 +12,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '$lib/conformance';
 	import { entities, type EntityData } from '$lib/global/entities';
 
+	import { XIcon } from '@lucide/svelte';
+
+	import { Button } from '@/components/ui/button';
 	import { m } from '@/i18n';
 
 	//
@@ -72,12 +75,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/each}
 
 	{#if browse.hasActiveFilters}
-		<button
+		<Button
+			variant="ghost"
 			type="button"
-			class="text-primary text-sm underline-offset-4 hover:underline"
+			class="h-9 gap-1.5 px-2 text-primary hover:text-primary"
 			onclick={browse.clearFilters}
 		>
+			<XIcon class="size-4 shrink-0" aria-hidden="true" />
 			{m.Clear_filters()}
-		</button>
+		</Button>
 	{/if}
 </div>

@@ -50,7 +50,7 @@ export function activeSuiteFacetsFromFilters(
 	return facets;
 }
 
-/** Distinct non-empty values for facet selects (stable from unfiltered set). */
+/** Distinct non-empty values for facet selects. */
 export function distinctSuiteFacetValues(
 	records: readonly ConformanceSuiteRecord[],
 	key: SuiteFacetKey
@@ -61,6 +61,44 @@ export function distinctSuiteFacetValues(
 		if (value.length > 0 && !values.includes(value)) values.push(value);
 	}
 	return values.sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Suites matching every active facet except `exceptKey` (for cascading option lists).
+ * The excluded axis stays free so its select still lists all values available under
+ * the other constraints.
+ */
+export function suitesMatchingOtherFacets(
+	records: readonly ConformanceSuiteRecord[],
+	filters: Record<SuiteFacetKey, string>,
+	exceptKey: SuiteFacetKey
+): ConformanceSuiteRecord[] {
+	return records.filter((record) => {
+		for (const key of SUITE_FACET_KEYS) {
+			if (key === exceptKey) continue;
+			const selected = filters[key];
+			if (selected && record[key] !== selected) return false;
+		}
+		return true;
+	});
+}
+
+/**
+ * Per-axis facet options from the unfiltered suite set, narrowed by every *other*
+ * active facet (classic faceted-search cascading).
+ */
+export function dynamicSuiteFacetOptions(
+	records: readonly ConformanceSuiteRecord[],
+	filters: Record<SuiteFacetKey, string>
+): Record<SuiteFacetKey, string[]> {
+	const options = {} as Record<SuiteFacetKey, string[]>;
+	for (const key of SUITE_FACET_KEYS) {
+		options[key] = distinctSuiteFacetValues(
+			suitesMatchingOtherFacets(records, filters, key),
+			key
+		);
+	}
+	return options;
 }
 
 /**
@@ -83,8 +121,8 @@ export function shouldUseSSRSuiteBrowse(options: {
 
 /**
  * Product-axis suite browse for the hub table: filter/sort/search state, SSR gate,
- * facet-options fetch, and filtered catalog query. Not a Filesystem nest projection
- * (that remains {@link ./store.svelte.ts}).
+ * cascading facet options (narrowed by other active facets), and filtered catalog
+ * query. Not a Filesystem nest projection (that remains {@link ./store.svelte.ts}).
  *
  * Public interface: props (incl. Catalog surface), sorting/filters state, and
  * derived browse outputs. TanStack queries and SSR policy stay private.
@@ -157,6 +195,10 @@ export class SuiteBrowse {
 				}
 			};
 		});
+
+		$effect(() => {
+			this.pruneUnavailableFilters();
+		});
 	}
 
 	private readonly facetSourceSuites = $derived.by((): ConformanceSuiteRecord[] => {
@@ -165,13 +207,9 @@ export class SuiteBrowse {
 		return [];
 	});
 
-	readonly facetOptions = $derived.by((): Record<SuiteFacetKey, string[]> => {
-		const options = {} as Record<SuiteFacetKey, string[]>;
-		for (const key of SUITE_FACET_KEYS) {
-			options[key] = distinctSuiteFacetValues(this.facetSourceSuites, key);
-		}
-		return options;
-	});
+	readonly facetOptions = $derived.by((): Record<SuiteFacetKey, string[]> =>
+		dynamicSuiteFacetOptions(this.facetSourceSuites, this.filters)
+	);
 
 	/** provider slug → short label from suite rows (providers.yaml projected). */
 	readonly providerLabels = $derived.by((): Record<string, string> => {
@@ -195,5 +233,22 @@ export class SuiteBrowse {
 
 	clearFilters = () => {
 		this.filters = emptySuiteFacetFilters();
+	};
+
+	/**
+	 * Drop facet selections that are no longer available under the other active
+	 * filters (keeps selects coherent after cascading option changes).
+	 */
+	private pruneUnavailableFilters = () => {
+		const options = this.facetOptions;
+		let next: Record<SuiteFacetKey, string> | undefined;
+		for (const key of SUITE_FACET_KEYS) {
+			const selected = this.filters[key];
+			if (selected && !options[key].includes(selected)) {
+				if (!next) next = { ...this.filters };
+				next[key] = '';
+			}
+		}
+		if (next) this.filters = next;
 	};
 }

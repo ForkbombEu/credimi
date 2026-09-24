@@ -10,8 +10,10 @@ import { HUB_SUITE_SORT_DEFAULT } from './query';
 import {
 	activeSuiteFacetsFromFilters,
 	distinctSuiteFacetValues,
+	dynamicSuiteFacetOptions,
 	emptySuiteFacetFilters,
-	shouldUseSSRSuiteBrowse
+	shouldUseSSRSuiteBrowse,
+	suitesMatchingOtherFacets
 } from './suite-browse.svelte';
 
 function suite(partial: Partial<ConformanceSuiteRecord>): ConformanceSuiteRecord {
@@ -112,6 +114,81 @@ describe('distinctSuiteFacetValues', () => {
 		expect(distinctSuiteFacetValues(records, 'standard')).toEqual([
 			'openid4vci',
 			'openid4vp'
+		]);
+	});
+});
+
+describe('dynamicSuiteFacetOptions', () => {
+	const records = [
+		suite({
+			id: '1',
+			standard: 'openid4vci',
+			component: 'wallet',
+			provider: 'ewc'
+		}),
+		suite({
+			id: '2',
+			standard: 'openid4vci',
+			component: 'issuer',
+			provider: 'webuild'
+		}),
+		suite({
+			id: '3',
+			standard: 'openid4vp',
+			component: 'wallet',
+			provider: 'ewc'
+		}),
+		suite({
+			id: '4',
+			standard: 'openid4vp',
+			component: 'verifier',
+			provider: 'openid'
+		})
+	];
+
+	it('lists all values when no filters are active', () => {
+		expect(dynamicSuiteFacetOptions(records, emptySuiteFacetFilters())).toEqual({
+			standard: ['openid4vci', 'openid4vp'],
+			component: ['issuer', 'verifier', 'wallet'],
+			provider: ['ewc', 'openid', 'webuild']
+		});
+	});
+
+	it('narrows other axes from the selected facet, keeping the selected axis open', () => {
+		const filters = emptySuiteFacetFilters();
+		filters.standard = 'openid4vci';
+		expect(dynamicSuiteFacetOptions(records, filters)).toEqual({
+			standard: ['openid4vci', 'openid4vp'],
+			component: ['issuer', 'wallet'],
+			provider: ['ewc', 'webuild']
+		});
+	});
+
+	it('intersects multiple active facets for remaining axes', () => {
+		const filters = emptySuiteFacetFilters();
+		filters.standard = 'openid4vp';
+		filters.component = 'wallet';
+		expect(dynamicSuiteFacetOptions(records, filters)).toEqual({
+			standard: ['openid4vci', 'openid4vp'],
+			component: ['verifier', 'wallet'],
+			provider: ['ewc']
+		});
+	});
+});
+
+describe('suitesMatchingOtherFacets', () => {
+	it('ignores the excluded facet when matching', () => {
+		const records = [
+			suite({ id: 'a', standard: 'openid4vci', provider: 'ewc' }),
+			suite({ id: 'b', standard: 'openid4vci', provider: 'webuild' }),
+			suite({ id: 'c', standard: 'openid4vp', provider: 'ewc' })
+		];
+		const filters = emptySuiteFacetFilters();
+		filters.standard = 'openid4vci';
+		filters.provider = 'ewc';
+		expect(suitesMatchingOtherFacets(records, filters, 'provider').map((r) => r.id)).toEqual([
+			'a',
+			'b'
 		]);
 	});
 });
