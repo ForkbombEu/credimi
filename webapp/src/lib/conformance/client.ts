@@ -4,7 +4,7 @@
 
 import { ClientResponseError } from 'pocketbase';
 import * as Task from 'true-myth/task';
-import { ZodError } from 'zod';
+import { ZodError, type ZodType } from 'zod';
 
 import { pb } from '@/pocketbase';
 
@@ -13,6 +13,8 @@ import {
 	compileCheckListQuery,
 	compileSuiteListQuery,
 	type CheckListIntent,
+	type CompiledListQuery,
+	type FilterCompiler,
 	type SuiteFacets,
 	type SuiteListIntent
 } from './query';
@@ -40,15 +42,23 @@ export type ListSuitesOptions = SuiteListIntent & {
 	fetch?: typeof fetch;
 };
 
+/** Grain-specific compile / collection / schema for {@link listGrainRecords}. */
+type GrainListStrategy<TIntent, TRecord> = {
+	compile: (intent: TIntent, filter: FilterCompiler) => CompiledListQuery;
+	collection: string;
+	schema: ZodType<TRecord>;
+};
+
 /**
- * Shared conformance catalog client: flat checks, suite rows, and nested browse
- * tree — PocketBase adapter over compiled domain intents.
+ * Shared catalog list: compile intent → PocketBase getFullList → Zod parse.
+ * Grain differences stay in the strategy; callers use typed wrappers.
  */
-export function listChecks(
-	options: ListChecksOptions = {}
-): Task.Task<ConformanceCheckRecord[], ListChecksError> {
+function listGrainRecords<TIntent extends object, TRecord>(
+	options: TIntent & { fetch?: typeof fetch },
+	strategy: GrainListStrategy<TIntent, TRecord>
+): Task.Task<TRecord[], ClientResponseError | ZodError> {
 	const { fetch: fetchFn = fetch, ...intent } = options;
-	const compiled = compileCheckListQuery(intent, (raw, params) => pb.filter(raw, params));
+	const compiled = strategy.compile(intent as TIntent, (raw, params) => pb.filter(raw, params));
 
 	const listOptions: {
 		fetch: typeof fetch;
@@ -62,11 +72,25 @@ export function listChecks(
 
 	return Task.tryOrElse(
 		(err) => err as ClientResponseError,
-		() => pb.collection(CONFORMANCE_CHECKS_COLLECTION).getFullList(listOptions)
+		() => pb.collection(strategy.collection).getFullList(listOptions)
 	).andThen((rows) => {
-		const parsed = conformanceCheckRecordSchema.array().safeParse(rows);
+		const parsed = strategy.schema.array().safeParse(rows);
 		if (parsed.success) return Task.resolve(parsed.data);
 		return Task.reject(parsed.error);
+	});
+}
+
+/**
+ * Shared conformance catalog client: flat checks, suite rows, and nested browse
+ * tree — PocketBase adapter over compiled domain intents.
+ */
+export function listChecks(
+	options: ListChecksOptions = {}
+): Task.Task<ConformanceCheckRecord[], ListChecksError> {
+	return listGrainRecords(options, {
+		compile: compileCheckListQuery,
+		collection: CONFORMANCE_CHECKS_COLLECTION,
+		schema: conformanceCheckRecordSchema
 	});
 }
 
@@ -77,26 +101,10 @@ export function listChecks(
 export function listSuites(
 	options: ListSuitesOptions = {}
 ): Task.Task<ConformanceSuiteRecord[], ListSuitesError> {
-	const { fetch: fetchFn = fetch, ...intent } = options;
-	const compiled = compileSuiteListQuery(intent, (raw, params) => pb.filter(raw, params));
-
-	const listOptions: {
-		fetch: typeof fetch;
-		sort: string;
-		filter?: string;
-	} = {
-		fetch: fetchFn,
-		sort: compiled.sort,
-		...(compiled.filter ? { filter: compiled.filter } : {})
-	};
-
-	return Task.tryOrElse(
-		(err) => err as ClientResponseError,
-		() => pb.collection(CONFORMANCE_SUITES_COLLECTION).getFullList(listOptions)
-	).andThen((rows) => {
-		const parsed = conformanceSuiteRecordSchema.array().safeParse(rows);
-		if (parsed.success) return Task.resolve(parsed.data);
-		return Task.reject(parsed.error);
+	return listGrainRecords(options, {
+		compile: compileSuiteListQuery,
+		collection: CONFORMANCE_SUITES_COLLECTION,
+		schema: conformanceSuiteRecordSchema
 	});
 }
 
