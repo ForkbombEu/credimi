@@ -16,7 +16,7 @@ func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
 	require.Equal(t, columnNames(checkColumns), catalogSelectColumns)
 	require.Equal(t, columnNames(suiteColumns), suiteSelectColumns)
 
-	checkDDL := createTableSQL(CollectionName, checkColumns)
+	checkDDL := createTableSQL(ChecksCollectionName, checkColumns)
 	require.Contains(t, checkDDL, "CREATE TABLE conformance_checks")
 	require.Contains(t, checkDDL, "path TEXT NOT NULL")
 	require.NotContains(t, checkDDL, "suite_name")
@@ -26,7 +26,7 @@ func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
 	require.Contains(t, suiteDDL, "suite_name TEXT NOT NULL DEFAULT ''")
 	require.Contains(t, suiteDDL, "path_prefix TEXT NOT NULL")
 
-	checkInsert := insertSQL(CollectionName, checkColumns)
+	checkInsert := insertSQL(ChecksCollectionName, checkColumns)
 	require.Contains(t, checkInsert, "INSERT INTO conformance_checks")
 	require.Contains(t, checkInsert, "{:version}")
 	require.Contains(t, checkInsert, "{:fs_standard}")

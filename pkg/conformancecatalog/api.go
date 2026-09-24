@@ -32,7 +32,7 @@ type collectionHTTP[R any] struct {
 
 func checksCollectionHTTP() collectionHTTP[checkHTTPRecord] {
 	return collectionHTTP[checkHTTPRecord]{
-		table:      CollectionName,
+		table:      ChecksCollectionName,
 		columns:    catalogSelectColumns,
 		fields:     catalogSearchFields,
 		attachMeta: func(r *checkHTTPRecord) { r.withCollectionMeta() },

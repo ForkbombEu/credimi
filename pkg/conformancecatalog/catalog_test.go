@@ -205,7 +205,7 @@ func TestBootRebuildSucceedsFromFixture(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 6, n)
 
-	_, err = app.FindCollectionByNameOrId(CollectionName)
+	_, err = app.FindCollectionByNameOrId(ChecksCollectionName)
 	require.Error(t, err, "rebuild must not create a durable PocketBase collection")
 }
 

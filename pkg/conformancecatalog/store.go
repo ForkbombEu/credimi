@@ -99,7 +99,7 @@ type checkHTTPRecord struct {
 
 func (r *checkHTTPRecord) withCollectionMeta() *checkHTTPRecord {
 	r.CollectionID = CollectionID
-	r.CollectionName = CollectionName
+	r.CollectionName = ChecksCollectionName
 	return r
 }
 
@@ -147,7 +147,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_conformance_checks_path ON conformance_che
 %s;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_conformance_suites_path_prefix ON conformance_suites (path_prefix);
 `,
-		createTableSQL(CollectionName, checkColumns),
+		createTableSQL(ChecksCollectionName, checkColumns),
 		createTableSQL(SuitesCollectionName, suiteColumns),
 	)
 	_, err := db.ExecContext(context.Background(), sqlText)
@@ -220,7 +220,7 @@ func replaceEphemeralRows(loaded LoadedCatalog) error {
 		if err != nil {
 			return fmt.Errorf("bind ephemeral check %s: %w", ch.Path, err)
 		}
-		if _, err := tx.NewQuery(insertSQL(CollectionName, checkColumns)).Bind(params).Execute(); err != nil {
+		if _, err := tx.NewQuery(insertSQL(ChecksCollectionName, checkColumns)).Bind(params).Execute(); err != nil {
 			return fmt.Errorf("insert ephemeral check %s: %w", ch.Path, err)
 		}
 	}

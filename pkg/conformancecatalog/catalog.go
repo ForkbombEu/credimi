@@ -37,9 +37,9 @@ import (
 )
 
 const (
-	// CollectionName is the fake PocketBase collection name used in URLs and
+	// ChecksCollectionName is the fake PocketBase collection name used in URLs and
 	// client code (pb.collection('conformance_checks')).
-	CollectionName = "conformance_checks"
+	ChecksCollectionName = "conformance_checks"
 
 	// CollectionID is a stable id echoed in JSON for PocketBase client compatibility.
 	CollectionID = "pbc_conformance_checks_catalog"
