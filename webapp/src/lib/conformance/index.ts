@@ -17,9 +17,10 @@ export {
 	listFcafTests,
 	toFcafCatalogEntry
 } from './fcaf-list';
-export { displayStandardName, titleForCheckPath } from './nest';
+export { titleForCheckPath } from './nest';
 export {
 	displayNameFromUid,
+	displayStandardName,
 	entityForComponent,
 	suiteHubHref,
 	suiteLogo,

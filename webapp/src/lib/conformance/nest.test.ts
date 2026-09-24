@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ConformanceSuiteRecord } from './record';
 
-import { displayNameFromUid, nestSuites, titleForCheckPath } from './nest';
+import { nestSuites, titleForCheckPath } from './nest';
 
 function suite(
 	partial: Pick<
@@ -174,14 +174,6 @@ describe('nestSuites', () => {
 		expect(nestedSuite?.description).toBe('');
 		expect(nestedSuite?.homepage).toBe('');
 		expect(nestedSuite?.logo).toBeUndefined();
-	});
-});
-
-describe('displayNameFromUid', () => {
-	it('humanizes underscore and hyphen UIDs', () => {
-		expect(displayNameFromUid('openid4vp_wallet')).toBe('Openid4vp Wallet');
-		expect(displayNameFromUid('draft-24')).toBe('Draft 24');
-		expect(displayNameFromUid('1.0')).toBe('1.0');
 	});
 });
 

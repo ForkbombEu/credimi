@@ -15,6 +15,17 @@ export function displayNameFromUid(uid: string): string {
 		.join(' ');
 }
 
+/** Display labels for normalized product standards (hub Product-axis). */
+const STANDARD_DISPLAY_NAMES: Record<string, string> = {
+	openid4vp: 'OpenID4VP',
+	openid4vci: 'OpenID4VCI'
+};
+
+/** Prefer authored product-standard labels; fall back to humanized uid. */
+export function displayStandardName(uid: string): string {
+	return STANDARD_DISPLAY_NAMES[uid] ?? displayNameFromUid(uid);
+}
+
 /** Prefer authored `suite_name`; fall back to humanized suite uid. */
 export function suiteTitle(
 	suite: Pick<ConformanceSuiteRecord, 'suite_name' | 'suite'>

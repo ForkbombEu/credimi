@@ -8,6 +8,7 @@ import { entities } from '$lib/global/entities';
 
 import {
 	displayNameFromUid,
+	displayStandardName,
 	entityForComponent,
 	suiteHubHref,
 	suiteLogo,
@@ -20,6 +21,17 @@ describe('displayNameFromUid', () => {
 		expect(displayNameFromUid('openid4vp_wallet')).toBe('Openid4vp Wallet');
 		expect(displayNameFromUid('draft-24')).toBe('Draft 24');
 		expect(displayNameFromUid('1.0')).toBe('1.0');
+	});
+});
+
+describe('displayStandardName', () => {
+	it('uses authored product-standard labels when present', () => {
+		expect(displayStandardName('openid4vp')).toBe('OpenID4VP');
+		expect(displayStandardName('openid4vci')).toBe('OpenID4VCI');
+	});
+
+	it('falls back to humanized uid for unknown standards', () => {
+		expect(displayStandardName('vlei')).toBe('Vlei');
 	});
 });
 

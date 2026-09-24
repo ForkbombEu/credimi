@@ -11,8 +11,6 @@ import {
 } from './suite-present';
 import type { Standard, Suite, Version } from './types';
 
-export { displayNameFromUid } from './suite-present';
-
 /**
  * Group suite-grain catalog rows into the nested standards → versions → suites
  * tree used by hub detail, start-checks, and pipeline pickers.
@@ -84,16 +82,6 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 	}
 
 	return standards;
-}
-
-/** Display labels for normalized product standards. */
-const STANDARD_DISPLAY_NAMES: Record<string, string> = {
-	openid4vp: 'OpenID4VP',
-	openid4vci: 'OpenID4VCI'
-};
-
-export function displayStandardName(uid: string): string {
-	return STANDARD_DISPLAY_NAMES[uid] ?? displayNameFromUid(uid);
 }
 
 /**
