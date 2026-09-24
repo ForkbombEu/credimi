@@ -329,7 +329,6 @@ func loadClassicSuiteChecks(
 		}
 		fileName := f.Name()
 		stem := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-		path := fmt.Sprintf("%s/%s/%s/%s", standardUID, versionUID, suiteUID, stem)
 		filePath := filepath.Join(suitePath, fileName)
 
 		fileMeta := checkFileMeta{}
@@ -341,20 +340,10 @@ func loadClassicSuiteChecks(
 			Provider: fileMeta.Provider,
 		})
 
-		checks = append(checks, Check{
-			ID:         PathID(path),
-			Path:       path,
-			Title:      titleFromMeta(fileMeta, stem),
-			FSStandard: standardUID,
-			FSVersion:  versionUID,
-			Suite:      suiteUID,
-			File:       fileName,
-			VisibleIn:  append(stringArray(nil), visibleIn...),
-			Protocol:   facets.Protocol,
-			SUT:        facets.SUT,
-			Role:       facets.Role,
-			Provider:   facets.Provider,
-		}.withNormalizedIdentity())
+		checks = append(checks, newSuiteCheck(
+			standardUID, versionUID, suiteUID, stem, fileName,
+			titleFromMeta(fileMeta, stem), visibleIn, facets,
+		))
 	}
 	return checks, nil
 }
@@ -408,7 +397,6 @@ func loadFCAFSuiteTests(
 			continue
 		}
 
-		path := fmt.Sprintf("%s/%s/%s/%s", standardUID, versionUID, suiteUID, testID)
 		title := strings.TrimSpace(meta.Title)
 		if title == "" {
 			title = testID
@@ -421,22 +409,36 @@ func loadFCAFSuiteTests(
 			Provider: meta.Provider,
 		})
 
-		checks = append(checks, Check{
-			ID:         PathID(path),
-			Path:       path,
-			Title:      title,
-			FSStandard: standardUID,
-			FSVersion:  versionUID,
-			Suite:      suiteUID,
-			File:       fileName,
-			VisibleIn:  append(stringArray(nil), visibleIn...),
-			Protocol:   facets.Protocol,
-			SUT:        facets.SUT,
-			Role:       facets.Role,
-			Provider:   facets.Provider,
-		}.withNormalizedIdentity())
+		checks = append(checks, newSuiteCheck(
+			standardUID, versionUID, suiteUID, testID, fileName,
+			title, visibleIn, facets,
+		))
 	}
 	return checks, nil
+}
+
+// newSuiteCheck builds one lean check row after a layout adapter has resolved
+// path stem, file name, title, and facets (classic vs FCAF stay separate).
+func newSuiteCheck(
+	fsStandard, fsVersion, suite, stem, fileName, title string,
+	visibleIn []string,
+	facets facetFields,
+) Check {
+	path := fmt.Sprintf("%s/%s/%s/%s", fsStandard, fsVersion, suite, stem)
+	return Check{
+		ID:         PathID(path),
+		Path:       path,
+		Title:      title,
+		FSStandard: fsStandard,
+		FSVersion:  fsVersion,
+		Suite:      suite,
+		File:       fileName,
+		VisibleIn:  append(stringArray(nil), visibleIn...),
+		Protocol:   facets.Protocol,
+		SUT:        facets.SUT,
+		Role:       facets.Role,
+		Provider:   facets.Provider,
+	}.withNormalizedIdentity()
 }
 
 func normalizeVisibleIn(visibleIn []string) []string {
