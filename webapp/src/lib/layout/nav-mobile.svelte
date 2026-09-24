@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Sheet.Root bind:open>
 	<Sheet.Trigger>
 		{#snippet child({ props })}
-			<Button variant="ghost" size="icon" class="md:hidden" {...props}>
+			<Button variant="ghost" size="icon" class="lg:hidden" {...props}>
 				<Icon src={Menu} />
 			</Button>
 		{/snippet}

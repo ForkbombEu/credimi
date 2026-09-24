@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<AppLogo />
 			</Button>
 
-			<div class="hidden md:flex md:flex-row md:items-center md:gap-1">
+			<div class="hidden lg:flex lg:flex-row lg:items-center lg:gap-1">
 				{#each leftItems as item (item)}
 					<NavLink link={item} variant="desktop" />
 				{/each}
@@ -98,7 +98,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet right()}
 		<div class="flex items-center gap-2">
-			<div class="hidden md:flex md:flex-row">
+			<div class="hidden lg:flex lg:flex-row">
 				{#each rightItems as item (item)}
 					<NavLink link={item} variant="desktop" />
 				{/each}
@@ -112,7 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Button>
 			{/if}
 
-			<div class="md:hidden">
+			<div class="lg:hidden">
 				<MobileNav items={allItems} {extras} />
 			</div>
 		</div>
