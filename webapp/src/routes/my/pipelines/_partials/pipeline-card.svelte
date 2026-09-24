@@ -5,10 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { ExecutionSummary } from '$lib/pipeline/workflows';
-
 	import { ArrowRightIcon, InfoIcon, Pencil, RefreshCw } from '@lucide/svelte';
-	import { createQuery } from '@tanstack/svelte-query';
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { resolve } from '$app/paths';
 	import { Pipeline, Scoreboard } from '$lib';
 	import { userOrganization } from '$lib/app-state';
@@ -16,6 +14,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import PublishedSwitch from '$lib/layout/published-switch.svelte';
+	import {
+		invalidatePipelineListWorkflows,
+		PIPELINE_LIST_WORKFLOWS_FAST_POLL_MS,
+		PIPELINE_LIST_WORKFLOWS_IDLE_POLL_MS,
+		PIPELINE_LIST_WORKFLOWS_LIMIT,
+		PIPELINE_LIST_WORKFLOWS_MUTATION_BOOST_MS,
+		pipelineListWorkflowsQueryKey,
+		workflowsNeedFastPoll
+	} from '$lib/pipeline/list-workflows-query';
 	import { fromScoreboardRow } from '$lib/scoreboard/extras/from-scoreboard-row';
 	import PipelineContentSummary from '$lib/scoreboard/extras/pipeline-content-summary.svelte';
 	import PipelineExecutionStats from '$lib/scoreboard/extras/pipeline-execution-stats.svelte';
@@ -38,25 +45,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline', 'owner']>;
-		workflows?: ExecutionSummary[];
-		workflowsLoading?: boolean;
-		workflowsError?: Error;
-		onRetryWorkflows?: () => void;
-		/** Refresh this pipeline's runs after a successful start/queue. */
-		onRun?: () => void;
-		/** Refresh this pipeline's runs after a successful cancel. */
-		onCancel?: () => void;
 	};
 
-	let {
-		pipeline = $bindable(),
-		workflows,
-		workflowsLoading = false,
-		workflowsError,
-		onRetryWorkflows,
-		onRun,
-		onCancel
-	}: Props = $props();
+	let { pipeline = $bindable() }: Props = $props();
+
+	const queryClient = useQueryClient();
+
+	/** Until this timestamp, poll fast even if the list has not yet shown Running/queue. */
+	let fastPollUntil = $state(0);
 
 	// Scheduling
 
@@ -72,9 +68,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queryFn: () => Scoreboard.Records.loadForPipeline(pipeline.id)
 	}));
 
+	const workflowsQuery = createQuery(() => {
+		// Re-bind interval options when a mutation boost starts.
+		void fastPollUntil;
+		return {
+			queryKey: pipelineListWorkflowsQueryKey(pipeline.id),
+			queryFn: () =>
+				Pipeline.Workflows.list(pipeline.id, {
+					limit: PIPELINE_LIST_WORKFLOWS_LIMIT,
+					page: 0
+				}),
+			refetchInterval: (query) => {
+				if (Date.now() < fastPollUntil || workflowsNeedFastPoll(query.state.data)) {
+					return PIPELINE_LIST_WORKFLOWS_FAST_POLL_MS;
+				}
+				return PIPELINE_LIST_WORKFLOWS_IDLE_POLL_MS;
+			}
+		};
+	});
+
+	function refreshWorkflows() {
+		fastPollUntil = Date.now() + PIPELINE_LIST_WORKFLOWS_MUTATION_BOOST_MS;
+		void invalidatePipelineListWorkflows(queryClient, pipeline.id);
+	}
+
 	// Variables for displaying UI elements
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
+	const workflows = $derived(workflowsQuery.data);
+	const workflowsLoading = $derived(workflowsQuery.isPending);
+	const workflowsError = $derived(workflowsQuery.isError ? workflowsQuery.error : undefined);
 	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
 	const showWorkflows = $derived(Boolean(workflows && workflows.length > 0));
 	const showRunsSection = $derived(workflowsLoading || Boolean(workflowsError) || showWorkflows);
@@ -110,7 +133,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet actions()}
-		<Pipeline.Device.RunNowButton {pipeline} {onRun} />
+		<Pipeline.Device.RunNowButton {pipeline} onRun={refreshWorkflows} />
 	{/snippet}
 
 	{#snippet secondaryActions()}
@@ -164,15 +187,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
 	>
 		<span>{m.Error()}</span>
-		{#if onRetryWorkflows}
-			<IconButton
-				icon={RefreshCw}
-				variant="ghost"
-				size="xs"
-				tooltip={m.Error()}
-				onclick={() => onRetryWorkflows()}
-			/>
-		{/if}
+		<IconButton
+			icon={RefreshCw}
+			variant="ghost"
+			size="xs"
+			tooltip={m.Error()}
+			onclick={() => void workflowsQuery.refetch()}
+		/>
 	</div>
 {/snippet}
 
@@ -194,7 +215,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					? fromScoreboardRow(scoreboard.data)
 					: undefined}
 				<div class="space-y-3">
-					<Pipeline.Workflows.SmallTable {workflows} {onCancel} />
+					<Pipeline.Workflows.SmallTable {workflows} onCancel={refreshWorkflows} />
 
 					<div class="flex items-center justify-between gap-2">
 						{#if executionStats}
