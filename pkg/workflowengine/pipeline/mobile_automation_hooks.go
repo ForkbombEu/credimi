@@ -1048,7 +1048,7 @@ func fetchAndInstallAPK(
 	}
 
 	req := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
+		Payload: activities.MobileRunnerHTTPActivityPayload{
 			Method: http.MethodPost,
 			URL: utils.JoinURL(
 				input.runnerURL,
@@ -1065,8 +1065,8 @@ func fetchAndInstallAPK(
 	}
 
 	var res workflowengine.ActivityResult
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	if err := workflow.ExecuteActivity(input.ctx, internalHTTPActivity.Name(), req).
+	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
+	if err := workflow.ExecuteActivity(input.ctx, runnerHTTPActivity.Name(), req).
 		Get(input.ctx, &res); err != nil {
 		return err
 	}
@@ -2182,7 +2182,7 @@ func heartbeatAwareCleanupContext(ctx workflow.Context) workflow.Context {
 func storeRecordingResults(
 	input storeRecordingResultsInput,
 ) error {
-	httpActivity := activities.NewInternalHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity()
 	var storeResult workflowengine.ActivityResult
 	body := map[string]any{
 		"video_path":        input.videoPath,
@@ -2199,7 +2199,7 @@ func storeRecordingResults(
 		input.ctx,
 		httpActivity.Name(),
 		workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
+			Payload: activities.MobileRunnerHTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					input.runnerURL,

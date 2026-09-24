@@ -170,6 +170,12 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.InternalHTTPActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
+	"mobile-runner-http-request": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewMobileRunnerHTTPActivity() },
+		PayloadType: reflect.TypeOf(activities.MobileRunnerHTTPActivityPayload{}),
+		OutputKind:  workflowengine.OutputMap,
+	},
 	"pipeline-evidence-extraction": {
 		Kind:        TaskActivity,
 		NewFunc:     func() any { return activities.NewPipelineEvidenceExtractionActivity() },

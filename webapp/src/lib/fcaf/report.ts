@@ -218,8 +218,9 @@ export function prepareReportDisplay(
 		.filter(({ test_ids }) => !test_ids?.length)
 		.map(({ url, label }) => ({ url, label }));
 	const checkedDeeplink = report.presentation?.deeplink ?? legacyDeeplink(report.evidence);
-	const summaryFilters =
-		report.presentation?.summary_filters?.length ? report.presentation.summary_filters : legacySummaryFilters(report);
+	const summaryFilters = report.presentation?.summary_filters?.length
+		? report.presentation.summary_filters
+		: legacySummaryFilters(report);
 
 	return {
 		allScreenshots,
@@ -259,7 +260,9 @@ function mergePresentationScreenshots(
 			continue;
 		}
 		existing.label = screenshot.label || existing.label;
-		existing.test_ids = [...new Set([...(existing.test_ids ?? []), ...(screenshot.test_ids ?? [])])];
+		existing.test_ids = [
+			...new Set([...(existing.test_ids ?? []), ...(screenshot.test_ids ?? [])])
+		];
 	}
 	return [...merged.values()];
 }
@@ -274,7 +277,9 @@ function legacyPresentationScreenshots(report: Report): LegacyScreenshot[] {
 				screenshots.set(screenshot.url, screenshot);
 				continue;
 			}
-			existing.test_ids = [...new Set([...(existing.test_ids ?? []), ...(screenshot.test_ids ?? [])])];
+			existing.test_ids = [
+				...new Set([...(existing.test_ids ?? []), ...(screenshot.test_ids ?? [])])
+			];
 		}
 	}
 	for (const test of report.executed_tests ?? []) {
@@ -346,7 +351,9 @@ function dedupeLegacyScreenshots(screenshots: LegacyScreenshot[]): LegacyScreens
 			deduped.set(screenshot.url, screenshot);
 			continue;
 		}
-		existing.test_ids = [...new Set([...(existing.test_ids ?? []), ...(screenshot.test_ids ?? [])])];
+		existing.test_ids = [
+			...new Set([...(existing.test_ids ?? []), ...(screenshot.test_ids ?? [])])
+		];
 	}
 	return [...deduped.values()];
 }
@@ -406,7 +413,9 @@ function nestedDeeplink(value: unknown): string | undefined {
 	return undefined;
 }
 
-function legacySummaryFilters(report: Report): Array<{ key: string; label: string; count: number }> {
+function legacySummaryFilters(
+	report: Report
+): Array<{ key: string; label: string; count: number }> {
 	const counts = new Map<string, number>();
 	for (const test of report.executed_tests ?? []) {
 		const key = test.status;

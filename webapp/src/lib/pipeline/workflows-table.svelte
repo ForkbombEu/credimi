@@ -23,15 +23,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		workflows: ExecutionSummary[];
 		hidePipelineColumn?: boolean;
+		/** Called after a successful cancel from the row actions menu. */
+		onCancel?: () => void;
 	};
 
-	let { workflows, hidePipelineColumn = false }: Props = $props();
+	let { workflows, hidePipelineColumn = false, onCancel }: Props = $props();
 </script>
 
 <WorkflowsTable
 	{workflows}
 	hideColumns={['status', 'type']}
-	actions={(w) => makeDropdownActions(w)}
+	actions={(w) => makeDropdownActions(w, { onSettled: onCancel })}
 	disableLink={(w) => w.queue !== undefined}
 >
 	{#snippet headerStart({ Th })}

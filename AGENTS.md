@@ -191,6 +191,7 @@ Key environment variables:
 - `CREDIMI_TEMPORAL_WORKERS_DISABLED`: when `1`/`true`/`yes`, skips Temporal namespace creation, worker registration and worker-manager workflow starts (used by `make dev.noworkers`).
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`: disables the mobile-runner semaphore path when configured.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: mobile-runner queue wait timeout.
+- `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`: how recent a runner heartbeat must be for its devices to be offered in catalog selectors (default 60s).
 - `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities, internal result posting, and `POST /api/conformance-catalog/rebuild`.
 - `CREDIMI_INTERNAL_APP_URL`: deployment-local Temporal-worker-to-Credimi base URL; callback consumers prefer it while persisted `app_url` remains public. It must be provisioned wherever workers execute.
 
@@ -353,17 +354,47 @@ External runner HTTP contract:
 
 The external runner service is implemented in `github.com/forkbombeu/credimi-extra`. If the contract changes, ask whether the sibling repository must change.
 
-Catalog list health probes:
+Catalog availability and run-path health:
 
-- `GET /api/mobile-runners` and `GET /api/mobile-devices` skip `disabled`
-  runners (`enabledMobileRunnerRecords`) and probe the remaining runners
-  concurrently through `probeMobileRunnerHealths`
-  (`pkg/internal/apis/handlers/mobile_runners_handlers.go`), bounded by
+- `GET /api/mobile-devices` reports `is_online` from heartbeat freshness, not
+  from a probe: a runner counts as available when it is not `disabled`, its
+  `online` flag is set, its stored URL is a usable http(s) URL, and
+  `last_heartbeat_at` is within `mobilerunner.SelectorHeartbeatTTL()`
+  (default 60s, two missed heartbeats, `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`).
+  A probe answers only for the instant the page renders, which is already stale
+  when the operator picks a device, and costs one timeout per runner per load.
+- `GET /api/mobile-runners` still probes: `health_status` and the per-runner
+  device details come from the live runner response and have no heartbeat
+  equivalent. It skips `disabled` runners (`enabledMobileRunnerRecords`) and
+  probes concurrently through `probeMobileRunnerHealths`, bounded by
   `mobileRunnerListProbeConcurrency` and `mobileRunnerListHealthTimeout`.
-- List probes use the short list timeout, not `walletAPKRunnerHealthTimeout`,
-  which stays reserved for the wallet-APK CI path.
+- List probes bound each attempt with the short list timeout; the run-path
+  probe uses `runnerHealthTimeout`.
 - A failed or malformed probe reports the runner as `offline` or
   `misconfigured`; it never fails the whole list request.
+- Starting a run checks the chosen runners live, on every path:
+  `enqueuePipelineRun` calls `requireMobileDeviceRunnersOnline` for every
+  device resolved from the YAML (one probe per distinct runner, after the
+  access check and before the semaphore), and the CI endpoints call it for an
+  explicit `device_id` while `selectPipelineCIDeviceByType` probes each
+  candidate for `device_type`. An unreachable runner fails the run with
+  `503 device runner is offline`. The helpers live in
+  `pkg/internal/apis/handlers/mobile_runner_availability.go`.
+- Every Credimi-to-runner HTTP call goes through the `mobile-runner-http-request`
+  activity (`activities.NewMobileRunnerHTTPActivity`), never the generic
+  `internal-http-request`: `installer-action` and `pipeline-result` in
+  `mobile_automation_hooks.go`, and the worker-manager `POST {runner_url}/worker/{namespace}`.
+  It injects the same `CREDIMI_INTERNAL_ADMIN_KEY` credential and additionally
+  resolves `*.trycloudflare.com` through Cloudflare DNS, and it keeps
+  runner-directed calls identifiable in a run's Temporal history.
+- Runner availability rules and the runner HTTP client live in
+  `pkg/internal/mobilerunner` (heartbeat freshness, URL usability, quick-tunnel
+  transport). `pkg/internal/mobilerunnerlifecycle` keeps the worker-start
+  eligibility rule and the lifecycle monitor configuration.
+- A quick-tunnel hostname exists only once cloudflared connects, so a resolver
+  queried inside the propagation window caches NXDOMAIN for the zone's 30
+  minute negative TTL and every later call through it fails while the tunnel
+  serves traffic.
 
 Temporal runner worker contract:
 

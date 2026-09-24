@@ -8,6 +8,20 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 Domain language for Credimi product concepts. Implementation details do not belong here.
 
+## Pipeline editor (surface)
+
+**Pipeline Composer**:
+The product surface for creating and editing a pipeline (cards, YAML preview, and manual YAML edit).
+_Avoid_: Steps builder (as user-facing name), pipeline form (as product name)
+
+**Steps builder**:
+Implementation name for the three-pane control inside Pipeline Composer. Not used in product UI copy.
+_Avoid_: Using Steps builder in user-facing strings
+
+**Scroll follow**:
+In Pipeline Composer, the optional behaviour that keeps the cards pane and the YAML preview viewport peer-synced while scrolling. It does not select or highlight a step.
+_Avoid_: Scroll sync (as the product name), proportional scroll, peer sync (as user-facing copy), active unit
+
 ## Pipeline editor (wallet version)
 
 **Change wallet version**:
@@ -22,6 +36,20 @@ _Avoid_: Calling step version “change wallet version”
 Mobile-automation steps that share the same wallet and the same serialized version id, which is the precondition for Change wallet version.
 _Avoid_: All steps, every step (unless they match)
 
+## Pipeline editor (follow-ups)
+
+**Follow-up**:
+An optional after-run action in the pipeline editor (email or HTTP only). In YAML it lives under `finally`. Product UI says Follow-up, not finally.
+_Avoid_: Final step, finally step, cleanup step (cleanup is a different engine concept), after-run step (UI jargon)
+
+**Follow-ups**:
+The editor section below the main steps separator that lists Follow-ups. Maps to the pipeline `finally` object (`always` / `on_success` / `on_failure`).
+_Avoid_: Finally section, final steps, When the run ends (rejected button-era wording)
+
+**Follow-up condition**:
+When a Follow-up runs relative to the pipeline outcome: Always, On success, or On failure. Always also covers canceled runs; cancel is not a separate UI control.
+_Avoid_: Both checkboxes, on cancel (as its own control)
+
 ## Pipeline executions (list)
 
 **Child workflow**:
@@ -31,6 +59,24 @@ _Avoid_: Child pipeline (unless a nested pipeline step), grandchild, step (as th
 **Pipeline run**:
 One execution of a pipeline workflow (or a queued ticket awaiting start), shown as a parent row in the list SmallTable.
 _Avoid_: Calling a child workflow a pipeline run on the list card
+
+## Hub (listing)
+
+**Hub item**:
+A discoverable Hub row for one entity (for example a credential issuer or a verifier).
+_Avoid_: Issuance (as the Hub tab or row name), listing card (as the domain name)
+
+**Nested Hub item**:
+A Hub item that belongs under another Hub item in the Issuers or Verifiers tabs (a credential under a credential issuer, or a use case verification under a verifier). Not a Temporal child workflow.
+_Avoid_: Children (in Hub copy), child (in Hub copy), issuance credential (as the relation name)
+
+**Credential issuer**:
+The Hub parent for credentials on the Issuers / Credentials tab.
+_Avoid_: Issuance, issuer-only wording that drops credentials when both are in scope
+
+**Use case verification**:
+The Hub nested item under a verifier on the Verifiers / Use case verifications tab.
+_Avoid_: Use case (alone when the Hub entity is meant), verification use case (inverted label)
 
 ## Conformance catalog
 
@@ -45,7 +91,6 @@ _Avoid_: Denormalizing suite display onto every check, blueprints nest, empty su
 **Product axis**:
 The normalized standard × component × version used to browse and filter the hub suite table and projected onto checks for facet filters. Same meaning on both catalog grains.
 _Avoid_: Filesystem path segment, nest uid (when meaning product); dual-fetching Product-axis suite table and Filesystem-axis nest on every hub layout
-
 
 **Filesystem axis**:
 The durable path segments (filesystem standard / filesystem version / suite, and suite path prefix) that keep hub URLs and nest trees path-stable. Same meaning on both catalog grains.

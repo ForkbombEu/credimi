@@ -15,7 +15,7 @@ Maestro is the UI automation layer used by Credimi for Wallet-side behavior.
 
 1. We refer to automation scripts in Maestro as *Maestro actions*. Scripts are in YAML, they can be executed in Maestro Studio, Maestro CLI and in **Credimi pipelines**.
 
-1. Credimi pipelines can be executed in a [Credimi-runner](https://github.com/ForkbombEu/credimi-runner) instance: we offer some machine/emulators hosted by us, you can host your own or use 3rd party services such as Maestro Cloud (ask as if you want to know more).
+1. Credimi pipelines can be executed on a [Credimi runner](../credimi-runner/): we offer some machine/emulators hosted by us, you can host your own or use 3rd party services such as Maestro Cloud (ask as if you want to know more).
 
 :::tip
 - Browse Maestro and StepCI [scripting recipes](../yaml-examples.md)

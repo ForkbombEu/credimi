@@ -14,6 +14,12 @@ export type ActivityOptions = t.ActivityOptions;
 
 export type PipelineStep = NonNullable<Pipeline['steps']>[number];
 
+export type PipelineFinally = NonNullable<Pipeline['finally']>;
+
+export type PipelineFinallyCondition = 'always' | 'on_success' | 'on_failure';
+
+export type PipelineFollowUpStep = t.FinallyStep;
+
 export type PipelineStepType = PipelineStep['use'];
 
 export type PipelineStepByType<T extends PipelineStepType> = Simplify<

@@ -21,7 +21,12 @@ import * as PipelineWorkflows from './workflows';
 
 //
 
-export async function run(pipeline: PipelinesResponse) {
+export type PipelineActionOptions = {
+	/** Called after a successful run start/queue or cancel. Use for per-pipeline list refresh. */
+	onSettled?: () => void;
+};
+
+export async function run(pipeline: PipelinesResponse, options?: PipelineActionOptions) {
 	const result = await runWithLoading({
 		fn: () => PipelineQueue.enqueue(pipeline),
 		showSuccessToast: false
@@ -38,6 +43,7 @@ export async function run(pipeline: PipelinesResponse) {
 
 	if (result.value.status === 'running' || result.value.status === 'starting') {
 		toast.success(m.Pipeline_started_successfully());
+		options?.onSettled?.();
 		return;
 	}
 
@@ -59,16 +65,24 @@ export async function run(pipeline: PipelinesResponse) {
 							result.value.ticket_id,
 							result.value.device_ids ?? []
 						);
-						if (response.isOk) toast.success(m.Pipeline_execution_canceled());
-						else toast.error(response.error);
+						if (response.isOk) {
+							toast.success(m.Pipeline_execution_canceled());
+							options?.onSettled?.();
+						} else {
+							toast.error(response.error);
+						}
 					}
 				}
 			}
 		);
+		options?.onSettled?.();
 	}
 }
 
-export async function cancel(workflow: PipelineWorkflows.ExecutionSummary) {
+export async function cancel(
+	workflow: PipelineWorkflows.ExecutionSummary,
+	options?: PipelineActionOptions
+) {
 	const { execution, queue } = workflow;
 	const result = await runWithLoading({
 		fn: async () => {
@@ -100,17 +114,21 @@ export async function cancel(workflow: PipelineWorkflows.ExecutionSummary) {
 
 	if (result.isOk) {
 		toast.success(m.Pipeline_execution_canceled());
+		options?.onSettled?.();
 	}
 }
 
 //
 
-export function makeDropdownActions(workflow: ExecutionSummary): DropdownMenuItem[] {
+export function makeDropdownActions(
+	workflow: ExecutionSummary,
+	options?: PipelineActionOptions
+): DropdownMenuItem[] {
 	return [
 		{
 			label: m.Cancel(),
 			icon: XIcon,
-			onclick: () => cancel(workflow),
+			onclick: () => cancel(workflow, options),
 			disabled: workflow.status !== 'Running' && !workflow.queue
 		}
 	];

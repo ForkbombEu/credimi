@@ -17,6 +17,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -647,10 +648,11 @@ func TestListMobileDevices(t *testing.T) {
 	device.Set("serial", "ABC123")
 	device.Set("online", true)
 	require.NoError(t, app.Save(device))
+	markRunnerHeartbeat(t, app, runner, time.Now())
 	originalHealth := checkMobileRunnerHealth
-	checkMobileRunnerHealth = func(_ context.Context, runnerURL string) (bool, []MobileRunnerHealthDevice, error) {
-		require.Equal(t, "https://runner.example", runnerURL)
-		return true, nil, nil
+	checkMobileRunnerHealth = func(context.Context, string) (bool, []MobileRunnerHealthDevice, error) {
+		t.Fatal("the device selector must not probe runners")
+		return false, nil, nil
 	}
 	t.Cleanup(func() { checkMobileRunnerHealth = originalHealth })
 
@@ -686,7 +688,7 @@ func TestListMobileDevices(t *testing.T) {
 	require.Equal(t, 2, *item.QueueLength)
 }
 
-func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) {
+func TestListMobileDevicesMarksDeviceOfflineWhenHeartbeatIsStale(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
 
@@ -706,12 +708,12 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHostIsUnreachable(t *testing.T) 
 	device.Set("type", "android_phone")
 	device.Set("online", true)
 	require.NoError(t, app.Save(device))
-
-	originalHealth := checkMobileRunnerHealth
-	checkMobileRunnerHealth = func(context.Context, string) (bool, []MobileRunnerHealthDevice, error) {
-		return false, nil, nil
-	}
-	t.Cleanup(func() { checkMobileRunnerHealth = originalHealth })
+	markRunnerHeartbeat(
+		t,
+		app,
+		runner,
+		time.Now().Add(-2*mobilerunner.DefaultSelectorHeartbeatTTL),
+	)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
 	rec := httptest.NewRecorder()
@@ -861,6 +863,8 @@ func TestListMobileDevicesReportsMisconfiguredRunnerAsOffline(t *testing.T) {
 	device.Set("type", "android_phone")
 	device.Set("online", true)
 	require.NoError(t, app.Save(device))
+	// A fresh heartbeat must not make an uncallable runner selectable.
+	markRunnerHeartbeat(t, app, runner, time.Now())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/mobile-devices", nil)
 	rec := httptest.NewRecorder()
@@ -877,6 +881,65 @@ func TestListMobileDevicesReportsMisconfiguredRunnerAsOffline(t *testing.T) {
 	require.Len(t, response.Devices, 1)
 	require.False(t, response.Devices[0].IsOnline)
 	require.Nil(t, response.Devices[0].QueueLength)
+}
+
+func markRunnerHeartbeat(
+	t testing.TB,
+	app *tests.TestApp,
+	runner *core.Record,
+	at time.Time,
+) {
+	t.Helper()
+
+	ensureMobileRunnerLifecycleFields(t, app)
+	record, err := app.FindRecordById("mobile_runners", runner.Id)
+	require.NoError(t, err)
+	record.Set("online", true)
+	record.Set("last_heartbeat_at", at.UTC().Format("2006-01-02 15:04:05.000Z"))
+	require.NoError(t, app.Save(record))
+}
+
+// The catalog must not be able to offer a device whose runner stopped
+// reporting, and must not pay a probe timeout per runner to say so.
+func TestRecentlyAliveTracksHeartbeatFreshness(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	ownerID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, ownerID, "beating-host", "https://runner.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/beating-host")
+	require.NoError(t, err)
+
+	now := time.Now()
+	markRunnerHeartbeat(t, app, runner, now.Add(-30*time.Second))
+	fresh, err := app.FindRecordById("mobile_runners", runner.Id)
+	require.NoError(t, err)
+	require.True(t, mobilerunner.RecentlyAlive(fresh, now))
+
+	markRunnerHeartbeat(t, app, runner, now.Add(-90*time.Second))
+	stale, err := app.FindRecordById("mobile_runners", runner.Id)
+	require.NoError(t, err)
+	require.False(t, mobilerunner.RecentlyAlive(stale, now))
+}
+
+// A quick tunnel hostname is minted seconds before the first lookup, so a
+// resolver queried too early caches NXDOMAIN for half an hour and every later
+// runner call through it fails while the tunnel serves traffic.
+func TestMobileRunnerHTTPClientResolvesQuickTunnelsThroughCloudflare(t *testing.T) {
+	require.True(t, mobilerunner.IsQuickTunnelURL("https://demo.trycloudflare.com"))
+	require.False(t, mobilerunner.IsQuickTunnelURL("https://trycloudflare.com"))
+	require.False(t, mobilerunner.IsQuickTunnelURL("https://runner.example"))
+	require.False(t, mobilerunner.IsQuickTunnelURL("https://trycloudflare.com.attacker.example"))
+
+	require.NotSame(
+		t,
+		http.DefaultClient,
+		mobilerunner.HTTPClient("https://demo.trycloudflare.com"),
+	)
+	require.Same(t, http.DefaultClient, mobilerunner.HTTPClient("https://runner.example"))
 }
 
 func TestListMobileRunnersWithMalformedURL(t *testing.T) {

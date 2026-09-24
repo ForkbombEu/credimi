@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { baseSections, entities } from '$lib/global';
-	import { HubItemCard } from '$lib/hub';
+	import { HubItemCard, resolveHubSearchQuery } from '$lib/hub';
 	import ConformanceChecksTable from '$lib/hub/conformance-checks-table.svelte';
 	import HubTable from '$lib/hub/hub-table.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
@@ -50,20 +50,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let suiteSearchText = $state('');
 	const debouncedSuiteSearch = new Debounced(() => suiteSearchText, 500);
 
+	const nestedSearchFields = [
+		'name',
+		'children_search'
+	] as PocketbaseQueryOptions<'hub_items'>['searchFields'];
+
+	/** View columns not yet in generated HubItemsRecord (migrations #1408 / #1412). */
+	const nestedHubSort = [
+		['children_count', 'DESC'],
+		['name', 'ASC']
+	] as PocketbaseQueryOptions<'hub_items'>['sort'];
+
 	const queryOptions: PocketbaseQueryOptions<'hub_items'> = $derived.by(() => {
 		switch (params.tab) {
 			case 'wallets':
 				return { filter: `type = 'wallets'` };
 			case 'credential-issuers-and-credentials':
-				return { filter: `type = 'credential_issuers'` };
+				return {
+					filter: `type = 'credential_issuers'`,
+					searchFields: nestedSearchFields,
+					sort: nestedHubSort
+				};
 			case 'verifiers-and-use-case-verifications':
-				return { filter: `type = 'verifiers'` };
+				return {
+					filter: `type = 'verifiers'`,
+					searchFields: nestedSearchFields,
+					sort: nestedHubSort
+				};
 			case 'custom-integrations':
 				return { filter: `type = 'custom_checks'` };
 			case 'pipelines':
 				return { filter: `type = 'pipelines'` };
 			default:
 				return {};
+		}
+	});
+
+	const searchPlaceholder = $derived.by(() => {
+		switch (params.tab) {
+			case 'credential-issuers-and-credentials':
+				return m.Search_issuers_or_credentials();
+			case 'verifiers-and-use-case-verifications':
+				return m.Search_verifiers_or_use_case_verifications();
+			default:
+				return m.Search();
 		}
 	});
 
@@ -78,6 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	collection="hub_items"
 	queryOptions={{ perPage: 25, searchFields: ['name'], ...queryOptions }}
 	hide={['pagination']}
+	emptyStateClassName="rounded-t-none border-0 bg-background"
 	onMount={(m) => {
 		manager = m as CollectionManager<'hub_items'>;
 	}}
@@ -131,7 +162,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if params.tab === 'conformance-checks'}
 						<SearchInput bind:value={suiteSearchText} />
 					{:else}
-						<Search />
+						<Search placeholder={searchPlaceholder} />
 					{/if}
 				</div>
 			</div>
@@ -155,7 +186,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/snippet}
 
-	{#snippet records({ records, Pagination })}
+	{#snippet records({ records, Pagination, manager: recordsManager })}
+		{@const searchQuery = resolveHubSearchQuery(recordsManager.query.getMergedOptions().search)}
 		{#if params.mode === 'cards' && params.tab !== 'conformance-checks'}
 			<div class="space-y-4">
 				<PageGrid>
@@ -167,7 +199,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{:else}
 			<div in:fly={{ y: 10 }} class="space-y-4 rounded-b-md">
-				<HubTable {records} />
+				<HubTable {records} {searchQuery} />
 				<Pagination />
 			</div>
 		{/if}

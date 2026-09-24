@@ -9,10 +9,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
 
 	import { ArrowDownIcon, ArrowUpIcon, CopyPlus, PencilIcon, TrashIcon } from '@lucide/svelte';
+	import { comp } from '$lib/renderable';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
+	import ContinueOnErrorFooter from './continue-on-error-footer.svelte';
 	import { isStepEditable, StepCardDisplay } from './index.js';
 
 	//
@@ -22,9 +24,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		step: EnrichedStep;
 		builder: StepsBuilder;
 		editing?: boolean;
+		selected?: boolean;
+		hovered?: boolean;
 	};
 
-	let { builder, step, index, editing = false }: Props = $props();
+	let {
+		builder,
+		step,
+		index,
+		editing = false,
+		selected = false,
+		hovered = false
+	}: Props = $props();
 
 	const editable = $derived(isStepEditable(step));
 	const actionsDisabled = $derived(builder.isFormMode);
@@ -33,7 +44,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <StepCardDisplay
 	{step}
 	{editing}
-	onContinueOnErrorChange={(checked) => builder.setContinueOnError(index, checked)}
+	{selected}
+	{hovered}
+	footer={comp(ContinueOnErrorFooter, {
+		step,
+		onCheckedChange: (checked) => builder.setContinueOnError(index, checked)
+	})}
 >
 	{#snippet topRight()}
 		<div

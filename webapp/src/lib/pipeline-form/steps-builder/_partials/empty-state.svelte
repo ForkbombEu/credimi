@@ -12,12 +12,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		text?: string;
 		children?: Snippet;
+		padded?: boolean;
 	};
 
-	let { text, children }: Props = $props();
+	let { text, children, padded = true }: Props = $props();
 </script>
 
-<div class="p-4">
+<div class={padded ? 'p-4' : undefined}>
 	<div
 		class="flex items-center justify-center gap-2 rounded-md bg-slate-100 p-4 text-sm text-muted-foreground"
 	>

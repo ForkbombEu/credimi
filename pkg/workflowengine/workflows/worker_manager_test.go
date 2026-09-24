@@ -42,10 +42,18 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				internalHTTPAct := activities.NewInternalHTTPActivity()
+				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
+				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
+					Name: runnerHTTPAct.Name(),
+				})
 				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
 					Name: internalHTTPAct.Name(),
 				})
 
+				env.OnActivity(runnerHTTPAct.Name(), mock.Anything, mock.Anything).Return(
+					workflowengine.ActivityResult{Output: map[string]any{"status": 202}},
+					nil,
+				).Maybe()
 				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
@@ -114,10 +122,18 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				internalHTTPAct := activities.NewInternalHTTPActivity()
+				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
+				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
+					Name: runnerHTTPAct.Name(),
+				})
 				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
 					Name: internalHTTPAct.Name(),
 				})
 
+				env.OnActivity(runnerHTTPAct.Name(), mock.Anything, mock.Anything).Return(
+					workflowengine.ActivityResult{Output: map[string]any{"status": 202}},
+					nil,
+				).Maybe()
 				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
@@ -179,38 +195,50 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				internalHTTPAct := activities.NewInternalHTTPActivity()
+				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
+				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
+					Name: runnerHTTPAct.Name(),
+				})
 				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
 					Name: internalHTTPAct.Name(),
 				})
 
+				// The list call stays internal; the per-runner starts are the
+				// runner-directed activity, and runner2 is the one that fails.
 				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
 							input.Payload,
 						)
 						require.NoError(t, err)
+						require.Equal(t, http.MethodGet, payload.Method)
+						require.Equal(
+							t,
+							"https://test-server.com/api/mobile-runner/list-urls",
+							payload.URL,
+						)
+						require.Equal(t, 200, payload.ExpectedStatus)
 
-						if payload.Method == http.MethodGet {
-							require.Equal(
-								t,
-								"https://test-server.com/api/mobile-runner/list-urls",
-								payload.URL,
-							)
-							require.Equal(t, 200, payload.ExpectedStatus)
-							return workflowengine.ActivityResult{
-								Output: map[string]any{
-									"status": "ok",
-									"body": map[string]any{
-										"runners": []any{
-											"https://runner1.test",
-											"https://runner2.test",
-											"https://runner3.test",
-										},
+						return workflowengine.ActivityResult{
+							Output: map[string]any{
+								"status": "ok",
+								"body": map[string]any{
+									"runners": []any{
+										"https://runner1.test",
+										"https://runner2.test",
+										"https://runner3.test",
 									},
 								},
-							}, nil
-						}
-
+							},
+						}, nil
+					},
+				)
+				env.OnActivity(runnerHTTPAct.Name(), mock.Anything, mock.Anything).Return(
+					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+						payload, err := workflowengine.DecodePayload[activities.MobileRunnerHTTPActivityPayload](
+							input.Payload,
+						)
+						require.NoError(t, err)
 						require.Equal(t, http.MethodPost, payload.Method)
 						require.Equal(t, 202, payload.ExpectedStatus)
 						body, ok := payload.Body.(map[string]any)
@@ -220,6 +248,7 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 						if payload.URL == "https://runner2.test/worker/test-namespace" {
 							return workflowengine.ActivityResult{}, errors.New("runner timeout")
 						}
+
 						return workflowengine.ActivityResult{}, nil
 					},
 				)

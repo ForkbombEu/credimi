@@ -290,7 +290,7 @@ generate-catalog-wire: ## Regenerate catalog FE wire from schema.go through bun 
 devtools: generate
 
 tools: generate $(BIN)
-	mise install
+	mise install -y
 	ln -sf "$$(mise which et-tu-cesr)" "$(BIN)/et-tu-cesr"
 	ln -sf "$$(mise which stepci-captured-runner)" "$(BIN)/stepci-captured-runner"
 	test -x "$(BIN)/et-tu-cesr" && test -x "$(BIN)/stepci-captured-runner"

@@ -18,15 +18,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import TableChildrenCell from './_partials/table-children-cell.svelte';
 	import { snippets } from './hub-table-snippets.svelte';
+	import { annotateNestedHubItemsForSearch } from './nested-hub-search';
 	import { isCredentialIssuer, isVerifier } from './utils';
 
 	//
 
+	type NestedLink = Link & { dimmed?: boolean };
+
 	type Props = {
 		records: HubItemsResponse[];
+		searchQuery?: string;
 	};
 
-	let { records }: Props = $props();
+	let { records, searchQuery = '' }: Props = $props();
 
 	/* Children data */
 
@@ -48,15 +52,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	function getChildrenLinks(record: HubItem): Link[] {
+	function getChildrenLinks(record: HubItem): NestedLink[] {
 		if (!isCredentialIssuer(record) && !isVerifier(record)) return [];
 
 		const type =
 			record.type === 'credential_issuers' ? 'credentials' : 'use_cases_verifications';
 
-		return (record.children ?? []).map((c) => ({
+		return annotateNestedHubItemsForSearch(record.children ?? [], searchQuery).map((c) => ({
 			title: c.name,
-			href: `/hub/${type}/${record.organization_canonified_name}/${record.canonified_name}/${c.canonified_name}`
+			href: `/hub/${type}/${record.organization_canonified_name}/${record.canonified_name}/${c.canonified_name}`,
+			dimmed: c.dimmed
 		}));
 	}
 </script>

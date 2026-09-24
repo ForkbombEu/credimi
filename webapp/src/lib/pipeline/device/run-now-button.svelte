@@ -70,21 +70,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	async function handleRunNow() {
 		if (runDisabled) return;
 
+		const runOptions = { onSettled: onRun };
+
 		if (!deviceRequired) {
-			await Pipeline.run(pipeline);
-			onRun?.();
+			await Pipeline.run(pipeline, runOptions);
 			return;
 		}
 
 		if (deviceType === 'specific') {
-			await Pipeline.run(pipeline);
-			onRun?.();
+			await Pipeline.run(pipeline, runOptions);
 			return;
 		}
 
 		if (Pipeline.Device.Binding.get(pipeline.id)) {
-			await Pipeline.run(pipeline);
-			onRun?.();
+			await Pipeline.run(pipeline, runOptions);
 			runPipelineAfterDeviceSelect = false;
 			return;
 		}

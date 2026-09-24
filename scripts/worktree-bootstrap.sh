@@ -13,11 +13,13 @@ Usage: scripts/worktree-bootstrap.sh [--classic]
 
 For parallel worktrees, requires Worktrunk (`wt`). Copies allowlisted
 gitignored paths via `wt step copy-ignored --require-include`, writes
-.env.worktree with unique ports, syncs webapp/.env URLs, initializes
-submodules, and ensures .bin tools exist.
+.env.worktree with unique ports, syncs webapp/.env URLs, rewrites checkout
+.env ROOT_DIR to this worktree path, trusts .mise.toml non-interactively,
+initializes submodules, and ensures .bin tools exist.
 
 On the primary checkout (or with --classic), only classic ports are written;
-Worktrunk is not required.
+Worktrunk is not required. ROOT_DIR sync and mise trust still run so a
+copied .env / new path cannot block bootstrap.
 USAGE
 }
 
@@ -62,6 +64,13 @@ else
 fi
 
 ./scripts/worktree-env.sh sync-urls
+./scripts/worktree-env.sh sync-root-dir
+
+# Each worktree has a distinct absolute path; mise trusts by path and would
+# otherwise prompt interactively during `make tools` (breaks `wt switch`).
+if command -v mise >/dev/null 2>&1; then
+	mise trust --yes "${ROOT_DIR}/.mise.toml"
+fi
 
 git submodule update --init --recursive
 
