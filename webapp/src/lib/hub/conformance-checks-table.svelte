@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { SearchIcon } from '@lucide/svelte';
 	import { createColumnHelper, getCoreRowModel } from '@tanstack/table-core';
 	import {
 		displayNameFromUid,
@@ -16,6 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { entities, type EntityData } from '$lib/global/entities';
 	import EntityTag from '$lib/global/entity-tag.svelte';
 
+	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import SortHeaderPill from '@/components/ui-custom/sort-header-pill.svelte';
 	import { createSvelteTable, FlexRender, renderComponent } from '@/components/ui/data-table';
 	import * as Table from '@/components/ui/table';
@@ -183,54 +185,62 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 
-	<div class:opacity-60={browse.isLoading}>
-		<Table.Table>
-			<Table.Header>
-				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-					<Table.Row>
-						{#each headerGroup.headers as header (header.id)}
-							<Table.Head class="px-4">
-								{#if !header.isPlaceholder}
-									{#if header.column.getCanSort()}
-										<button
-											type="button"
-											class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
-											onclick={header.column.getToggleSortingHandler()}
-										>
+	{#if search.trim() && browse.displayedSuites.length === 0 && !browse.isLoading}
+		<EmptyState
+			title={m.No_records_found()}
+			icon={SearchIcon}
+			className="rounded-none border-0"
+		/>
+	{:else}
+		<div class:opacity-60={browse.isLoading}>
+			<Table.Table>
+				<Table.Header>
+					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+						<Table.Row>
+							{#each headerGroup.headers as header (header.id)}
+								<Table.Head class="px-4">
+									{#if !header.isPlaceholder}
+										{#if header.column.getCanSort()}
+											<button
+												type="button"
+												class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
+												onclick={header.column.getToggleSortingHandler()}
+											>
+												<FlexRender
+													content={header.column.columnDef.header}
+													context={header.getContext()}
+												/>
+												<SortHeaderPill {header} {table} />
+											</button>
+										{:else}
 											<FlexRender
 												content={header.column.columnDef.header}
 												context={header.getContext()}
 											/>
-											<SortHeaderPill {header} {table} />
-										</button>
-									{:else}
-										<FlexRender
-											content={header.column.columnDef.header}
-											context={header.getContext()}
-										/>
+										{/if}
 									{/if}
-								{/if}
-							</Table.Head>
-						{/each}
-					</Table.Row>
-				{/each}
-			</Table.Header>
-			<Table.Body>
-				{#each table.getRowModel().rows as row (row.id)}
-					<Table.Row>
-						{#each row.getVisibleCells() as cell (cell.id)}
-							<Table.Cell class="px-4 align-top">
-								<div class="flex min-h-[41px] items-center">
-									<FlexRender
-										content={cell.column.columnDef.cell}
-										context={cell.getContext()}
-									/>
-								</div>
-							</Table.Cell>
-						{/each}
-					</Table.Row>
-				{/each}
-			</Table.Body>
-		</Table.Table>
-	</div>
+								</Table.Head>
+							{/each}
+						</Table.Row>
+					{/each}
+				</Table.Header>
+				<Table.Body>
+					{#each table.getRowModel().rows as row (row.id)}
+						<Table.Row>
+							{#each row.getVisibleCells() as cell (cell.id)}
+								<Table.Cell class="px-4 align-top">
+									<div class="flex min-h-[41px] items-center">
+										<FlexRender
+											content={cell.column.columnDef.cell}
+											context={cell.getContext()}
+										/>
+									</div>
+								</Table.Cell>
+							{/each}
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Table>
+		</div>
+	{/if}
 </div>
