@@ -7,7 +7,6 @@ package conformancecatalog
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -70,96 +69,6 @@ func defaultCatalog() (*catalogCache, error) {
 		return nil, defaultErr
 	}
 	return defaultCache, nil
-}
-
-// stringArray is a JSON string[] column for visible_in.
-type stringArray []string
-
-func (s *stringArray) Scan(value any) error {
-	switch v := value.(type) {
-	case nil:
-		*s = stringArray{}
-		return nil
-	case []byte:
-		if len(v) == 0 {
-			*s = stringArray{}
-			return nil
-		}
-		return json.Unmarshal(v, (*[]string)(s))
-	case string:
-		if v == "" {
-			*s = stringArray{}
-			return nil
-		}
-		return json.Unmarshal([]byte(v), (*[]string)(s))
-	default:
-		return fmt.Errorf("stringArray: unsupported Scan type %T", value)
-	}
-}
-
-func (s stringArray) MarshalJSON() ([]byte, error) {
-	if s == nil {
-		return []byte("[]"), nil
-	}
-	return json.Marshal([]string(s))
-}
-
-// memberArray is a JSON []SuiteMember column for suite members.
-type memberArray []SuiteMember
-
-func (m *memberArray) Scan(value any) error {
-	switch v := value.(type) {
-	case nil:
-		*m = memberArray{}
-		return nil
-	case []byte:
-		if len(v) == 0 {
-			*m = memberArray{}
-			return nil
-		}
-		return json.Unmarshal(v, (*[]SuiteMember)(m))
-	case string:
-		if v == "" {
-			*m = memberArray{}
-			return nil
-		}
-		return json.Unmarshal([]byte(v), (*[]SuiteMember)(m))
-	default:
-		return fmt.Errorf("memberArray: unsupported Scan type %T", value)
-	}
-}
-
-func (m memberArray) MarshalJSON() ([]byte, error) {
-	if m == nil {
-		return []byte("[]"), nil
-	}
-	return json.Marshal([]SuiteMember(m))
-}
-
-// checkHTTPRecord is the list/get JSON shape: Check plus PocketBase collection meta.
-type checkHTTPRecord struct {
-	Check
-	CollectionID   string `db:"-" json:"collectionId"`
-	CollectionName string `db:"-" json:"collectionName"`
-}
-
-func (r *checkHTTPRecord) withCollectionMeta() *checkHTTPRecord {
-	r.CollectionID = CollectionID
-	r.CollectionName = ChecksCollectionName
-	return r
-}
-
-// suiteHTTPRecord is the list/get JSON shape: SuiteRecord plus PocketBase collection meta.
-type suiteHTTPRecord struct {
-	SuiteRecord
-	CollectionID   string `db:"-" json:"collectionId"`
-	CollectionName string `db:"-" json:"collectionName"`
-}
-
-func (r *suiteHTTPRecord) withCollectionMeta() *suiteHTTPRecord {
-	r.CollectionID = SuitesCollectionID
-	r.CollectionName = SuitesCollectionName
-	return r
 }
 
 // catalogDB returns the process-default cache's dbx handle (HTTP list/get facade).

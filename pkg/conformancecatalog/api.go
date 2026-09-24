@@ -20,6 +20,32 @@ const (
 	suitesWriteRejectMessage = "conformance_suites is a read-only catalog projection of config_templates"
 )
 
+// checkHTTPRecord is the list/get JSON shape: Check plus PocketBase collection meta.
+type checkHTTPRecord struct {
+	Check
+	CollectionID   string `db:"-" json:"collectionId"`
+	CollectionName string `db:"-" json:"collectionName"`
+}
+
+func (r *checkHTTPRecord) withCollectionMeta() *checkHTTPRecord {
+	r.CollectionID = CollectionID
+	r.CollectionName = ChecksCollectionName
+	return r
+}
+
+// suiteHTTPRecord is the list/get JSON shape: SuiteRecord plus PocketBase collection meta.
+type suiteHTTPRecord struct {
+	SuiteRecord
+	CollectionID   string `db:"-" json:"collectionId"`
+	CollectionName string `db:"-" json:"collectionName"`
+}
+
+func (r *suiteHTTPRecord) withCollectionMeta() *suiteHTTPRecord {
+	r.CollectionID = SuitesCollectionID
+	r.CollectionName = SuitesCollectionName
+	return r
+}
+
 // collectionHTTP owns PocketBase-compatible list/get/write-reject for one
 // ephemeral fake-collection table (conformance check or conformance suite).
 type collectionHTTP[R any] struct {
