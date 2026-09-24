@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { HubItem } from '$lib/hub';
+import type { NestStandards } from '$lib/conformance';
 
 import { createQuery } from '@tanstack/svelte-query';
-import { type NestStandards } from '$lib/conformance/index.js';
-import * as Store from '$lib/conformance/store.svelte.js';
+import { Conformance } from '$lib';
 import { queryClient } from '$lib/query-client';
 import { getPath } from '$lib/utils';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
@@ -33,7 +33,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		() => ({
 			queryKey: ['conformance-checks', 'pipeline'] as const,
 			queryFn: async () => {
-				return Store.load({ surface: 'pipeline' });
+				return Conformance.Standards.Store.load({ surface: 'pipeline' });
 			}
 		}),
 		queryClientAccessor
