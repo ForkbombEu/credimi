@@ -70,18 +70,26 @@ func TestProjectSuitesGroupsByNormalizedAxes(t *testing.T) {
 
 	display := map[string]suiteDisplayFields{
 		"openid4vp_wallet/1.0/openid_conformance_suite": {
-			Name: "OpenID Foundation Conformance Suite",
-			Logo: "https://example.test/oidf.png",
+			Name:     "OpenID Foundation",
+			Subtitle: "Conformance Suite",
+			Logo:     "https://example.test/oidf.png",
 		},
 		"openid4vp_wallet/draft-24/openid_conformance_suite": {
-			Name: "OpenID Foundation Conformance Suite",
+			Name:     "OpenID Foundation",
+			Subtitle: "Conformance Suite",
 		},
 		"fcaf/wallet_solution/relying_party": {
-			Name: "FCAF Functional Conformance Assessment",
+			Name:     "FCAF",
+			Subtitle: "Functional Conformance Assessment",
 		},
 	}
 
-	suites := projectSuites(checks, display)
+	labels := map[string]string{
+		"openid_conformance_suite": "OpenID",
+		"fcaf":                     "FCAF",
+	}
+
+	suites := projectSuites(checks, display, labels)
 	require.Len(t, suites, 3)
 
 	byPrefix := map[string]SuiteRecord{}
@@ -101,13 +109,16 @@ func TestProjectSuitesGroupsByNormalizedAxes(t *testing.T) {
 	require.ElementsMatch(t, []string{"manual", "pipeline"}, s10.VisibleIn)
 	require.Equal(t, "openid4vp_wallet", s10.FSStandard)
 	require.Equal(t, PathID(s10.PathPrefix), s10.ID)
-	require.Equal(t, "OpenID Foundation Conformance Suite", s10.SuiteName)
+	require.Equal(t, "OpenID Foundation", s10.SuiteName)
+	require.Equal(t, "Conformance Suite", s10.SuiteSubtitle)
+	require.Equal(t, "OpenID", s10.ProviderLabel)
 	require.Equal(t, "https://example.test/oidf.png", s10.SuiteLogo)
 
 	s24 := byPrefix["openid4vp_wallet/draft-24/openid_conformance_suite"]
 	require.Equal(t, "draft-24", s24.Version)
 	require.Equal(t, 1, s24.CheckCount)
-	require.Equal(t, "OpenID Foundation Conformance Suite", s24.SuiteName)
+	require.Equal(t, "OpenID Foundation", s24.SuiteName)
+	require.Equal(t, "Conformance Suite", s24.SuiteSubtitle)
 
 	fcaf := byPrefix["fcaf/wallet_solution/relying_party"]
 	require.Equal(t, "openid4vp", fcaf.Standard)
@@ -115,8 +126,10 @@ func TestProjectSuitesGroupsByNormalizedAxes(t *testing.T) {
 	require.Equal(t, 0, fcaf.ComponentRank)
 	require.Empty(t, fcaf.Version)
 	require.Equal(t, "fcaf", fcaf.Provider)
+	require.Equal(t, "FCAF", fcaf.ProviderLabel)
 	require.Equal(t, 1, fcaf.CheckCount)
-	require.Equal(t, "FCAF Functional Conformance Assessment", fcaf.SuiteName)
+	require.Equal(t, "FCAF", fcaf.SuiteName)
+	require.Equal(t, "Functional Conformance Assessment", fcaf.SuiteSubtitle)
 }
 
 func TestComponentRankOrder(t *testing.T) {
@@ -159,7 +172,7 @@ func TestProjectSuitesSortsWalletIssuerVerifierThenStandardSuite(t *testing.T) {
 		},
 	}
 
-	suites := projectSuites(checks, nil)
+	suites := projectSuites(checks, nil, nil)
 	require.Len(t, suites, 4)
 	require.Equal(t, []string{"wallet", "wallet", "issuer", "verifier"}, []string{
 		suites[0].Component, suites[1].Component, suites[2].Component, suites[3].Component,

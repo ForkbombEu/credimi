@@ -1,4 +1,5 @@
-name: EUDIW Verifier testing tool
+name: EUDIW
+subtitle: Verifier testing tool
 protocol: openid4vp
 role: verifier
 provider: eudiw

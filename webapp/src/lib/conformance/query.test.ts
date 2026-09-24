@@ -53,7 +53,7 @@ describe('compileSuiteListQuery', () => {
 				'standard = "openid4vp"',
 				'component = "wallet"',
 				'provider = "openid_conformance_suite"',
-				'(suite_name ~ "ewc" || suite ~ "ewc" || standard ~ "ewc" || component ~ "ewc" || version ~ "ewc" || provider ~ "ewc" || members ~ "ewc")'
+				'(suite_name ~ "ewc" || suite_subtitle ~ "ewc" || suite ~ "ewc" || standard ~ "ewc" || component ~ "ewc" || version ~ "ewc" || provider ~ "ewc" || provider_label ~ "ewc" || members ~ "ewc")'
 			].join(' && ')
 		);
 	});

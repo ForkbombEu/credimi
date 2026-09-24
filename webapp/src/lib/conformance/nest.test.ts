@@ -23,7 +23,9 @@ function suite(
 		version: partial.version ?? partial.fs_version,
 		suite: partial.suite,
 		provider: partial.provider ?? '',
+		provider_label: partial.provider_label ?? '',
 		suite_name: partial.suite_name ?? '',
+		suite_subtitle: partial.suite_subtitle ?? '',
 		suite_homepage: partial.suite_homepage ?? '',
 		suite_repository: partial.suite_repository ?? '',
 		suite_help: partial.suite_help ?? '',
@@ -120,7 +122,8 @@ describe('nestSuites', () => {
 						file: 'check_one.yaml'
 					}
 				],
-				suite_name: 'EWC Interoperability Test Bed',
+				suite_name: 'EWC',
+				suite_subtitle: 'Interoperability Test Bed',
 				suite_homepage: 'https://eudiwalletconsortium.org/',
 				suite_repository: 'https://github.com/EWC-consortium',
 				suite_help: 'https://example.test/help',
@@ -129,7 +132,8 @@ describe('nestSuites', () => {
 			})
 		]);
 		const nestedSuite = nested[0]?.versions[0]?.suites[0];
-		expect(nestedSuite?.name).toBe('EWC Interoperability Test Bed');
+		expect(nestedSuite?.name).toBe('EWC');
+		expect(nestedSuite?.subtitle).toBe('Interoperability Test Bed');
 		expect(nestedSuite?.homepage).toBe('https://eudiwalletconsortium.org/');
 		expect(nestedSuite?.repository).toBe('https://github.com/EWC-consortium');
 		expect(nestedSuite?.help).toBe('https://example.test/help');

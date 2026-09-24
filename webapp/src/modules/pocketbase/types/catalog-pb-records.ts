@@ -35,7 +35,9 @@ export type ConformanceSuitesRecord = {
 	version?: string
 	suite: string
 	provider?: string
+	provider_label?: string
 	suite_name?: string
+	suite_subtitle?: string
 	suite_homepage?: string
 	suite_repository?: string
 	suite_help?: string

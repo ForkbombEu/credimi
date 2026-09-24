@@ -5,8 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { SuiteBrowse } from '$lib/conformance';
 	import { baseSections, entities } from '$lib/global';
 	import { HubItemCard, resolveHubSearchQuery } from '$lib/hub';
+	import SuiteFacetFilters from '$lib/hub/_partials/suite-facet-filters.svelte';
 	import ConformanceChecksTable from '$lib/hub/conformance-checks-table.svelte';
 	import HubTable from '$lib/hub/hub-table.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
@@ -49,6 +51,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/** Suite-tab search; debounced like CollectionManager hub search (500ms). */
 	let suiteSearchText = $state('');
 	const debouncedSuiteSearch = new Debounced(() => suiteSearchText, 500);
+
+	const suiteBrowse = new SuiteBrowse({
+		surface: 'pipeline',
+		get initialSuites() {
+			return data.conformanceSuites;
+		},
+		get search() {
+			return debouncedSuiteSearch.current;
+		}
+	});
 
 	const nestedSearchFields = [
 		'name',
@@ -138,6 +150,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							onclick={() => {
 								params.tab = tab.slug;
 								suiteSearchText = '';
+								suiteBrowse.clearFilters();
 							}}
 						>
 							<div
@@ -160,7 +173,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<div class="rounded-t-md bg-white px-4 pt-4 pb-6 md:rounded-t-none">
 					{#if params.tab === 'conformance-checks'}
-						<SearchInput bind:value={suiteSearchText} />
+						<div class="space-y-3">
+							<SearchInput bind:value={suiteSearchText} />
+							<SuiteFacetFilters browse={suiteBrowse} />
+						</div>
 					{:else}
 						<Search placeholder={searchPlaceholder} />
 					{/if}
@@ -175,7 +191,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if params.tab === 'conformance-checks'}
 					<div class="rounded-b-lg bg-white">
 						<ConformanceChecksTable
-							suites={data.conformanceSuites}
+							browse={suiteBrowse}
 							search={debouncedSuiteSearch.current}
 						/>
 					</div>

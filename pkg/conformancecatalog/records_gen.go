@@ -43,7 +43,9 @@ type SuiteRecord struct {
 	Version          string      `db:"version" json:"version"`
 	Suite            string      `db:"suite" json:"suite"`
 	Provider         string      `db:"provider" json:"provider"`
+	ProviderLabel    string      `db:"provider_label" json:"provider_label"`
 	SuiteName        string      `db:"suite_name" json:"suite_name"`
+	SuiteSubtitle    string      `db:"suite_subtitle" json:"suite_subtitle"`
 	SuiteHomepage    string      `db:"suite_homepage" json:"suite_homepage"`
 	SuiteRepository  string      `db:"suite_repository" json:"suite_repository"`
 	SuiteHelp        string      `db:"suite_help" json:"suite_help"`

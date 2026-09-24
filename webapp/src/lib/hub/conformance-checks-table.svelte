@@ -11,8 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		displayNameFromUid,
 		displayStandardName,
 		SuiteBrowse,
-		type ConformanceSuiteRecord,
-		type SuiteFacetKey
+		type ConformanceSuiteRecord
 	} from '$lib/conformance';
 	import { entities, type EntityData } from '$lib/global/entities';
 	import EntityTag from '$lib/global/entity-tag.svelte';
@@ -29,32 +28,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		/** SSR suite rows (pipeline surface; used when sort/search/facets are default). */
-		suites?: ConformanceSuiteRecord[];
-		/** Debounced text search across suite display/identity fields. */
+		/** Shared hub suite browse state (filters live in the page header). */
+		browse: SuiteBrowse;
+		/** Debounced text search (empty-state + check-cell highlight). */
 		search?: string;
 	};
 
-	let { suites: initialSuites = [], search = '' }: Props = $props();
-
-	const browse = new SuiteBrowse({
-		surface: 'pipeline',
-		get initialSuites() {
-			return initialSuites;
-		},
-		get search() {
-			return search;
-		}
-	});
-
-	const facetFields: { key: SuiteFacetKey; label: string }[] = [
-		{ key: 'standard', label: m.Standard() },
-		{ key: 'component', label: m.Component() },
-		{ key: 'provider', label: m.Provider() }
-	];
-
-	const selectClass =
-		'border-input bg-background flex h-9 min-w-[8rem] rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]';
+	let { browse, search = '' }: Props = $props();
 
 	const columnHelper = createColumnHelper<ConformanceSuiteRecord>();
 
@@ -66,6 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			cell: ({ row }) =>
 				renderComponent(TableNameCell, {
 					name: suiteLabel(row.original),
+					subtitle: suiteSubtitle(row.original),
 					href: `/hub/conformance-checks/${row.original.path_prefix}`,
 					logo: row.original.suite_logo || undefined
 				})
@@ -129,6 +110,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return displayNameFromUid(suite.suite);
 	}
 
+	function suiteSubtitle(suite: ConformanceSuiteRecord): string | undefined {
+		const subtitle = suite.suite_subtitle?.trim();
+		return subtitle || undefined;
+	}
+
 	function entityForComponent(component: string): EntityData | undefined {
 		switch (component.trim()) {
 			case 'wallet':
@@ -145,102 +131,63 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function versionLabel(version: string): string {
 		return version.trim() || '—';
 	}
-
-	function facetOptionLabel(key: SuiteFacetKey, value: string): string {
-		switch (key) {
-			case 'standard':
-				return displayStandardName(value);
-			case 'component': {
-				const entity = entityForComponent(value);
-				return entity?.labels.singular ?? value;
-			}
-			case 'provider':
-				return value;
-		}
-	}
 </script>
 
-<div class="space-y-4">
-	<div class="flex flex-wrap items-end gap-3 px-4 pt-4">
-		{#each facetFields as { key, label } (key)}
-			<div class="flex flex-col gap-1">
-				<label class="text-muted-foreground text-xs" for={`facet-${key}`}>{label}</label>
-				<select id={`facet-${key}`} class={selectClass} bind:value={browse.filters[key]}>
-					<option value="">{m.All()}</option>
-					{#each browse.facetOptions[key] as value (value)}
-						<option {value}>{facetOptionLabel(key, value)}</option>
-					{/each}
-				</select>
-			</div>
-		{/each}
-
-		{#if browse.hasActiveFilters}
-			<button
-				type="button"
-				class="text-primary text-sm underline-offset-4 hover:underline"
-				onclick={browse.clearFilters}
-			>
-				{m.Clear_filters()}
-			</button>
-		{/if}
-	</div>
-
-	{#if search.trim() && browse.displayedSuites.length === 0 && !browse.isLoading}
-		<EmptyState
-			title={m.No_records_found()}
-			icon={SearchIcon}
-			className="rounded-none border-0"
-		/>
-	{:else}
-		<div class:opacity-60={browse.isLoading}>
-			<Table.Table>
-				<Table.Header>
-					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-						<Table.Row>
-							{#each headerGroup.headers as header (header.id)}
-								<Table.Head class="px-4">
-									{#if !header.isPlaceholder}
-										{#if header.column.getCanSort()}
-											<button
-												type="button"
-												class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
-												onclick={header.column.getToggleSortingHandler()}
-											>
-												<FlexRender
-													content={header.column.columnDef.header}
-													context={header.getContext()}
-												/>
-												<SortHeaderPill {header} {table} />
-											</button>
-										{:else}
+{#if search.trim() && browse.displayedSuites.length === 0 && !browse.isLoading}
+	<EmptyState
+		title={m.No_records_found()}
+		icon={SearchIcon}
+		className="rounded-none border-0"
+	/>
+{:else}
+	<div class:opacity-60={browse.isLoading}>
+		<Table.Table>
+			<Table.Header>
+				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+					<Table.Row>
+						{#each headerGroup.headers as header (header.id)}
+							<Table.Head class="px-4">
+								{#if !header.isPlaceholder}
+									{#if header.column.getCanSort()}
+										<button
+											type="button"
+											class="group relative flex items-center gap-1 text-left hover:cursor-pointer"
+											onclick={header.column.getToggleSortingHandler()}
+										>
 											<FlexRender
 												content={header.column.columnDef.header}
 												context={header.getContext()}
 											/>
-										{/if}
-									{/if}
-								</Table.Head>
-							{/each}
-						</Table.Row>
-					{/each}
-				</Table.Header>
-				<Table.Body>
-					{#each table.getRowModel().rows as row (row.id)}
-						<Table.Row>
-							{#each row.getVisibleCells() as cell (cell.id)}
-								<Table.Cell class="px-4 align-top">
-									<div class="flex min-h-[41px] items-center">
+											<SortHeaderPill {header} {table} />
+										</button>
+									{:else}
 										<FlexRender
-											content={cell.column.columnDef.cell}
-											context={cell.getContext()}
+											content={header.column.columnDef.header}
+											context={header.getContext()}
 										/>
-									</div>
-								</Table.Cell>
-							{/each}
-						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Table>
-		</div>
-	{/if}
-</div>
+									{/if}
+								{/if}
+							</Table.Head>
+						{/each}
+					</Table.Row>
+				{/each}
+			</Table.Header>
+			<Table.Body>
+				{#each table.getRowModel().rows as row (row.id)}
+					<Table.Row>
+						{#each row.getVisibleCells() as cell (cell.id)}
+							<Table.Cell class="px-4 align-top">
+								<div class="flex min-h-[41px] items-center">
+									<FlexRender
+										content={cell.column.columnDef.cell}
+										context={cell.getContext()}
+									/>
+								</div>
+							</Table.Cell>
+						{/each}
+					</Table.Row>
+				{/each}
+			</Table.Body>
+		</Table.Table>
+	</div>
+{/if}

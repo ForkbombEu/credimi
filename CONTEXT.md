@@ -85,8 +85,12 @@ One runnable catalog entry identified by a durable filesystem-shaped path (files
 _Avoid_: Blueprint row, template file (unless referring to the on-disk YAML), test (unless FCAF test id)
 
 **Conformance suite**:
-A suite under a product-axis standard×component×version, with authored display metadata and its member checks. The hub suite table browses product axes; nested pickers and hub detail group on filesystem axes so URLs stay path-stable. Checks are the leaves. Nest standard/version nodes are filesystem-axis labels (uid + display name), not carriers of authored standard.yaml / version.yaml metadata.
-_Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks, dual-fetching both projections on every hub layout, treating nest Standard/Version as authored catalog metadata
+A suite under a product-axis standard×component×version, with authored display metadata (short title, optional subtitle, logo, links) and its member checks. The hub suite table browses product axes; nested pickers and hub detail group on filesystem axes so URLs stay path-stable. Checks are the leaves. Nest standard/version nodes are filesystem-axis labels (uid + display name), not carriers of authored standard.yaml / version.yaml metadata.
+_Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks, dual-fetching both projections on every hub layout, treating nest Standard/Version as authored catalog metadata, treating the suite title as the provider facet label
+
+**Provider**:
+The org/source facet identity for catalog browse filters. The durable wire value is a stable slug; the short human label is authored once in the provider registry and shown in compact UI (selects, chips).
+_Avoid_: Suite title, suite uid, using the provider slug as end-user copy
 
 **Product axis**:
 The normalized standard × component × version used to browse and filter the hub suite table and projected onto checks for facet filters. Same meaning on both catalog grains.

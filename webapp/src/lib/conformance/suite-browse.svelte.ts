@@ -173,6 +173,19 @@ export class SuiteBrowse {
 		return options;
 	});
 
+	/** provider slug → short label from suite rows (providers.yaml projected). */
+	readonly providerLabels = $derived.by((): Record<string, string> => {
+		const labels: Record<string, string> = {};
+		for (const row of this.facetSourceSuites) {
+			const slug = row.provider?.trim();
+			const label = row.provider_label?.trim();
+			if (slug && label && labels[slug] == null) {
+				labels[slug] = label;
+			}
+		}
+		return labels;
+	});
+
 	readonly displayedSuites = $derived.by((): ConformanceSuiteRecord[] => {
 		if (this.useSSR) return this.props.initialSuites;
 		return this.catalogQuery.data ?? [];

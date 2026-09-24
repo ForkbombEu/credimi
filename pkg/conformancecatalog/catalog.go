@@ -108,6 +108,11 @@ func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 		return LoadedCatalog{}, err
 	}
 
+	providerLabels, err := loadProviderLabels(templatesDir)
+	if err != nil {
+		return LoadedCatalog{}, err
+	}
+
 	var checks []Check
 	suiteDisplay := map[string]suiteDisplayFields{}
 
@@ -142,7 +147,7 @@ func LoadFromDir(templatesDir string) (LoadedCatalog, error) {
 
 	return LoadedCatalog{
 		Checks: checks,
-		Suites: projectSuites(checks, suiteDisplay),
+		Suites: projectSuites(checks, suiteDisplay, providerLabels),
 	}, nil
 }
 

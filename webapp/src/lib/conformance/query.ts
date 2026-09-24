@@ -164,10 +164,10 @@ function appendSuiteSearchFilter(
 	const q = search?.trim();
 	if (!q) return;
 	// `members` is JSON text (path/title/file); needed so queries like "RFC" hit
-	// EWC check filenames while suite_name stays "EWC Interoperability Test Bed".
+	// EWC check filenames while suite_name stays the short title (e.g. "EWC").
 	filters.push(
 		filterFn(
-			'(suite_name ~ {:q} || suite ~ {:q} || standard ~ {:q} || component ~ {:q} || version ~ {:q} || provider ~ {:q} || members ~ {:q})',
+			'(suite_name ~ {:q} || suite_subtitle ~ {:q} || suite ~ {:q} || standard ~ {:q} || component ~ {:q} || version ~ {:q} || provider ~ {:q} || provider_label ~ {:q} || members ~ {:q})',
 			{ q }
 		)
 	);

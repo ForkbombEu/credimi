@@ -7,6 +7,7 @@ package conformancecatalog
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -24,6 +25,7 @@ type versionYAML struct {
 type suiteYAML struct {
 	UID         string   `yaml:"uid"`
 	Name        string   `yaml:"name"`
+	Subtitle    string   `yaml:"subtitle"`
 	Homepage    string   `yaml:"homepage"`
 	Repository  string   `yaml:"repository"`
 	Help        string   `yaml:"help"`
@@ -40,6 +42,7 @@ type suiteYAML struct {
 // (ADR-0002), not denormalized onto checks.
 type suiteDisplayFields struct {
 	Name        string
+	Subtitle    string
 	Homepage    string
 	Repository  string
 	Help        string
@@ -50,12 +53,45 @@ type suiteDisplayFields struct {
 func suiteDisplayFromYAML(s suiteYAML) suiteDisplayFields {
 	return suiteDisplayFields{
 		Name:        strings.TrimSpace(s.Name),
+		Subtitle:    strings.TrimSpace(s.Subtitle),
 		Homepage:    strings.TrimSpace(s.Homepage),
 		Repository:  strings.TrimSpace(s.Repository),
 		Help:        strings.TrimSpace(s.Help),
 		Description: strings.TrimSpace(s.Description),
 		Logo:        strings.TrimSpace(s.Logo),
 	}
+}
+
+// providerYAMLEntry is one row in config_templates/providers.yaml.
+type providerYAMLEntry struct {
+	Label string `yaml:"label"`
+}
+
+// loadProviderLabels reads templatesDir/providers.yaml (slug → short label).
+// Missing file yields an empty map; unmarshal errors fail closed.
+func loadProviderLabels(templatesDir string) (map[string]string, error) {
+	path := filepath.Join(templatesDir, "providers.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]string{}, nil
+		}
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var raw map[string]providerYAMLEntry
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshal %s: %w", path, err)
+	}
+	out := make(map[string]string, len(raw))
+	for slug, entry := range raw {
+		slug = strings.TrimSpace(slug)
+		label := strings.TrimSpace(entry.Label)
+		if slug == "" || label == "" {
+			continue
+		}
+		out[slug] = label
+	}
+	return out, nil
 }
 
 type checkFileMeta struct {

@@ -42,9 +42,14 @@ type suiteAggKey struct {
 
 // projectSuites aggregates check rows into suite-grain records for the hub table.
 // Suite display fields are looked up by PathPrefix from display (nil map = empty).
+// providerLabels (from providers.yaml) fills ProviderLabel by provider slug.
 // Suite row identity includes normalized standard/component/version plus suite uid,
 // and keeps FS standard/version so the same suite under two profiles stays distinct.
-func projectSuites(checks []Check, display map[string]suiteDisplayFields) []SuiteRecord {
+func projectSuites(
+	checks []Check,
+	display map[string]suiteDisplayFields,
+	providerLabels map[string]string,
+) []SuiteRecord {
 	type agg struct {
 		meta     SuiteRecord
 		vis      map[string]struct{}
@@ -71,6 +76,10 @@ func projectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 			if display != nil {
 				disp = display[prefix]
 			}
+			providerLabel := ""
+			if providerLabels != nil {
+				providerLabel = providerLabels[ch.Provider]
+			}
 			a = &agg{
 				meta: SuiteRecord{
 					Standard:         ch.Standard,
@@ -79,7 +88,9 @@ func projectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 					Version:          ch.Version,
 					Suite:            ch.Suite,
 					Provider:         ch.Provider,
+					ProviderLabel:    providerLabel,
 					SuiteName:        disp.Name,
+					SuiteSubtitle:    disp.Subtitle,
 					SuiteHomepage:    disp.Homepage,
 					SuiteRepository:  disp.Repository,
 					SuiteHelp:        disp.Help,
@@ -106,6 +117,9 @@ func projectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 		if a.provider == "" && ch.Provider != "" {
 			a.provider = ch.Provider
 			a.meta.Provider = ch.Provider
+			if providerLabels != nil {
+				a.meta.ProviderLabel = providerLabels[ch.Provider]
+			}
 		}
 	}
 

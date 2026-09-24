@@ -1,4 +1,5 @@
-name: OpenID Foundation Conformance Suite
+name: OpenID Foundation
+subtitle: Conformance Suite
 protocol: openid4vp
 role: verifier
 provider: openid_conformance_suite

@@ -19,6 +19,7 @@ const nestVersionSchema = z.object({
 const suiteMetadataSchema = z.object({
 	uid: z.string(),
 	name: z.string(),
+	subtitle: z.string().optional(),
 	homepage: z.string(),
 	repository: z.string(),
 	help: z.string(),

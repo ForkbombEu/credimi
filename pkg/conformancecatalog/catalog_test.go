@@ -47,7 +47,8 @@ func writeFixtureTree(t *testing.T, root string) {
 	require.NoError(t, os.MkdirAll(suiteBoth, 0o755))
 	metaBoth, err := yaml.Marshal(map[string]any{
 		"uid":         "ewc",
-		"name":        "EWC Interoperability Test Bed",
+		"name":        "EWC",
+		"subtitle":    "Interoperability Test Bed",
 		"homepage":    "https://eudiwalletconsortium.org/",
 		"repository":  "https://github.com/EWC-consortium",
 		"description": "EWC ITB fixture",
@@ -74,6 +75,13 @@ func writeFixtureTree(t *testing.T, root string) {
 			0o644,
 		),
 	)
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "providers.yaml"), []byte(`
+ewc:
+  label: EWC
+fcaf:
+  label: FCAF
+`), 0o644))
 
 	suiteManual := filepath.Join(versionDir, "oidf")
 	require.NoError(t, os.MkdirAll(suiteManual, 0o755))
@@ -125,7 +133,8 @@ func writeFixtureTree(t *testing.T, root string) {
 	require.NoError(t, os.MkdirAll(fcafSuite, 0o755))
 	fcafMeta, err := yaml.Marshal(map[string]any{
 		"uid":        "relying_party",
-		"name":       "FCAF Functional Conformance Assessment",
+		"name":       "FCAF",
+		"subtitle":   "Functional Conformance Assessment",
 		"provider":   "fcaf",
 		"logo":       "https://example.test/fcaf.png",
 		"visible_in": []string{"pipeline"},
@@ -277,11 +286,15 @@ func TestLoadFromDirTitlesAndVisibility(t *testing.T) {
 		byPrefix[s.PathPrefix] = s
 	}
 	ewc := byPrefix["openid4vp/draft-24/ewc"]
-	require.Equal(t, "EWC Interoperability Test Bed", ewc.SuiteName)
+	require.Equal(t, "EWC", ewc.SuiteName)
+	require.Equal(t, "Interoperability Test Bed", ewc.SuiteSubtitle)
+	require.Equal(t, "EWC", ewc.ProviderLabel)
 	require.Equal(t, "https://eudiwalletconsortium.org/", ewc.SuiteHomepage)
 	require.Equal(t, "https://example.test/ewc.png", ewc.SuiteLogo)
 	fcafSuite := byPrefix["fcaf/wallet_solution/relying_party"]
-	require.Equal(t, "FCAF Functional Conformance Assessment", fcafSuite.SuiteName)
+	require.Equal(t, "FCAF", fcafSuite.SuiteName)
+	require.Equal(t, "Functional Conformance Assessment", fcafSuite.SuiteSubtitle)
+	require.Equal(t, "FCAF", fcafSuite.ProviderLabel)
 	require.Equal(t, "https://example.test/fcaf.png", fcafSuite.SuiteLogo)
 }
 
@@ -319,10 +332,13 @@ func TestRebuildProjectsIntoEphemeralCache(t *testing.T) {
 	suiteBody := catalogListJSON(t, mux, "/api/collections/conformance_suites/records?perPage=100")
 	suiteItems := suiteBody["items"].([]any)
 	ewcSuite := findSuiteByPrefix(t, suiteItems, "openid4vp/draft-24/ewc")
-	require.Equal(t, "EWC Interoperability Test Bed", ewcSuite["suite_name"])
+	require.Equal(t, "EWC", ewcSuite["suite_name"])
+	require.Equal(t, "Interoperability Test Bed", ewcSuite["suite_subtitle"])
+	require.Equal(t, "EWC", ewcSuite["provider_label"])
 	require.Equal(t, "https://example.test/ewc.png", ewcSuite["suite_logo"])
 	fcafSuite := findSuiteByPrefix(t, suiteItems, "fcaf/wallet_solution/relying_party")
-	require.Equal(t, "FCAF Functional Conformance Assessment", fcafSuite["suite_name"])
+	require.Equal(t, "FCAF", fcafSuite["suite_name"])
+	require.Equal(t, "Functional Conformance Assessment", fcafSuite["suite_subtitle"])
 	require.Equal(t, "https://example.test/fcaf.png", fcafSuite["suite_logo"])
 
 	require.NoError(t, os.WriteFile(

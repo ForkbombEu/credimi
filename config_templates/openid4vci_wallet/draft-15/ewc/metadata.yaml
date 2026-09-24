@@ -1,4 +1,5 @@
-name: EWC Interoperability Test Bed
+name: EWC
+subtitle: Interoperability Test Bed
 protocol: openid4vci
 role: wallet
 provider: ewc

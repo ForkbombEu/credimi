@@ -31,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="flex items-center gap-3">
 	<Avatar src={logo ?? ''} class="size-10 rounded-sm! border" fallback={name.slice(0, 2)} />
 
-	<div class="flex min-w-0 flex-col gap-0.5">
+	<div class="flex min-w-0 flex-col gap-0">
 		<div class="flex items-center gap-1">
 			<a href={resolve(localizeHref(href) as '/')} class="font-semibold hover:underline">
 				{name}

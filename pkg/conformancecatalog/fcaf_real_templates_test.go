@@ -55,7 +55,9 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 	}
 	require.NotEmpty(t, fcafSuites)
 	for _, s := range fcafSuites {
-		require.Equal(t, "FCAF Functional Conformance Assessment", s.SuiteName, s.PathPrefix)
+		require.Equal(t, "FCAF", s.SuiteName, s.PathPrefix)
+		require.Equal(t, "Functional Conformance Assessment", s.SuiteSubtitle, s.PathPrefix)
+		require.Equal(t, "FCAF", s.ProviderLabel, s.PathPrefix)
 		require.NotEmpty(t, s.SuiteLogo, s.PathPrefix)
 	}
 }

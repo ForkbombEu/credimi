@@ -24,6 +24,8 @@ func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
 	suiteDDL := createTableSQL(SuitesCollectionName, suiteColumns)
 	require.Contains(t, suiteDDL, "CREATE TABLE conformance_suites")
 	require.Contains(t, suiteDDL, "suite_name TEXT NOT NULL DEFAULT ''")
+	require.Contains(t, suiteDDL, "suite_subtitle TEXT NOT NULL DEFAULT ''")
+	require.Contains(t, suiteDDL, "provider_label TEXT NOT NULL DEFAULT ''")
 	require.Contains(t, suiteDDL, "path_prefix TEXT NOT NULL")
 
 	checkInsert := insertSQL(ChecksCollectionName, checkColumns)

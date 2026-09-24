@@ -34,6 +34,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{standard.name} • {version.name}
 		</T>
 		<T tag="h3">{suite.name}</T>
+		{#if suite.subtitle}
+			<p class="text-muted-foreground text-sm">{suite.subtitle}</p>
+		{/if}
 	{/snippet}
 
 	{#snippet content()}

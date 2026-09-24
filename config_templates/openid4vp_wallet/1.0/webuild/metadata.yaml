@@ -1,4 +1,5 @@
-name: WEBUILD Interoperability Test Bed
+name: WEBUILD
+subtitle: Interoperability Test Bed
 protocol: openid4vp
 role: wallet
 provider: webuild

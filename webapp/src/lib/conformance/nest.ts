@@ -44,6 +44,7 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 		for (const [versionUid, suiteRows] of versionsMap) {
 			const suites: Suite[] = suiteRows.map((row) => {
 				const suiteName = row.suite_name?.trim();
+				const suiteSubtitle = row.suite_subtitle?.trim() ?? '';
 				const suiteHomepage = row.suite_homepage?.trim() ?? '';
 				const suiteRepository = row.suite_repository?.trim() ?? '';
 				const suiteHelp = row.suite_help?.trim() ?? '';
@@ -53,6 +54,7 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 				return {
 					uid: row.suite,
 					name: suiteName || displayNameFromUid(row.suite),
+					...(suiteSubtitle ? { subtitle: suiteSubtitle } : {}),
 					homepage: suiteHomepage,
 					repository: suiteRepository,
 					help: suiteHelp,

@@ -1,4 +1,5 @@
-name: vLEI credential test
+name: vLEI
+subtitle: credential test
 protocol: vlei
 provider: vlei
 homepage: https://www.gleif.org/
