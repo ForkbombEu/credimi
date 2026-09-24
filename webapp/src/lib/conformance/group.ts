@@ -26,9 +26,9 @@ export function groupPathsBySuite(paths: string[]): GroupedPathsBySuite[] {
 		paths,
 		Array.map(parsePath),
 		Array.map((p) => ({
-			title: `${p.standard} • ${p.version} • ${p.suite}`,
-			standardUid: p.standard,
-			versionUid: p.version,
+			title: `${p.fsStandard} • ${p.fsVersion} • ${p.suite}`,
+			standardUid: p.fsStandard,
+			versionUid: p.fsVersion,
 			suiteUid: p.suite,
 			checkId: p.test,
 			joinedPath: p.joinedPath
