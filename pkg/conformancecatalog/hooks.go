@@ -22,7 +22,7 @@ import (
 //
 // Boot: OnBootstrap rebuilds from TemplatesDir(). A missing templates directory
 // is skipped (test apps / empty checkouts); if the directory exists, rebuild
-// failures fail bootstrap. Refresh without restart: Rebuild(app, "") or
+// failures fail bootstrap. Refresh without restart: Rebuild("") or
 // POST /api/conformance-catalog/rebuild.
 func Register(app core.App) {
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
@@ -51,7 +51,7 @@ func bootRebuild(app core.App, templatesDir string) error {
 		return fmt.Errorf("stat templates dir %q: %w", templatesDir, err)
 	}
 
-	if err := Rebuild(app, templatesDir); err != nil {
+	if err := Rebuild(templatesDir); err != nil {
 		return fmt.Errorf("boot rebuild from %q: %w", templatesDir, err)
 	}
 	return nil
@@ -60,7 +60,7 @@ func bootRebuild(app core.App, templatesDir string) error {
 // RebuildHTTP returns a handler that rebuilds the catalog (internal admin key).
 func RebuildHTTP() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		if err := Rebuild(e.App, ""); err != nil {
+		if err := Rebuild(""); err != nil {
 			return e.InternalServerError("conformance catalog rebuild failed", err)
 		}
 		n, err := countEphemeralChecks()

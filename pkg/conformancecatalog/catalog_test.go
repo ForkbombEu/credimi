@@ -201,7 +201,9 @@ func TestBootRebuildSucceedsFromFixture(t *testing.T) {
 	root := t.TempDir()
 	writeFixtureTree(t, root)
 	require.NoError(t, bootRebuild(app, root))
-	require.Len(t, Default().Snapshot(), 6)
+	checks, err := Snapshot()
+	require.NoError(t, err)
+	require.Len(t, checks, 6)
 
 	_, err = app.FindCollectionByNameOrId(CollectionName)
 	require.Error(t, err, "rebuild must not create a durable PocketBase collection")
@@ -293,8 +295,10 @@ func TestRebuildProjectsIntoEphemeralCache(t *testing.T) {
 	t.Cleanup(app.Cleanup)
 
 	Register(app)
-	require.NoError(t, Rebuild(app, root))
-	require.Len(t, Default().Snapshot(), 6)
+	require.NoError(t, Rebuild(root))
+	checks, err := Snapshot()
+	require.NoError(t, err)
+	require.Len(t, checks, 6)
 
 	mux := catalogTestMux(t, app)
 	body := catalogListJSON(t, mux, "/api/collections/conformance_checks/records?perPage=100")
@@ -330,7 +334,7 @@ func TestRebuildProjectsIntoEphemeralCache(t *testing.T) {
 		[]byte("name: Third\n"),
 		0o644,
 	))
-	require.NoError(t, Rebuild(app, root))
+	require.NoError(t, Rebuild(root))
 	body = catalogListJSON(t, mux, "/api/collections/conformance_checks/records?perPage=100")
 	require.EqualValues(t, 7, body["totalItems"])
 }
@@ -344,7 +348,7 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	t.Cleanup(app.Cleanup)
 
 	Register(app)
-	require.NoError(t, Rebuild(app, root))
+	require.NoError(t, Rebuild(root))
 
 	mux := catalogTestMux(t, app)
 	serve := func(method, path, body string) *httptest.ResponseRecorder {

@@ -6,8 +6,6 @@ package conformancecatalog
 
 import (
 	"fmt"
-
-	"github.com/pocketbase/pocketbase/core"
 )
 
 // Rebuild walks templatesDir (or TemplatesDir() when empty) and fully replaces
@@ -17,11 +15,7 @@ import (
 // Refresh path for local template edits: call Rebuild, or POST
 // /api/conformance-catalog/rebuild with X-Api-Key = CREDIMI_INTERNAL_ADMIN_KEY,
 // or restart the process (Register hooks rebuild on bootstrap).
-//
-// The app argument is retained for call-site compatibility; rebuild does not
-// write to PocketBase data.db.
-func Rebuild(app core.App, templatesDir string) error {
-	_ = app
+func Rebuild(templatesDir string) error {
 	if templatesDir == "" {
 		templatesDir = TemplatesDir()
 	}

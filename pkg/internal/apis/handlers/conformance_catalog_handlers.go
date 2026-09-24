@@ -25,7 +25,7 @@ var ConformanceCatalogRoutes = routing.RouteGroup{
 		{
 			Method:      http.MethodPost,
 			Path:        "/rebuild",
-			Handler:     HandleConformanceCatalogRebuild,
+			Handler:     conformancecatalog.RebuildHTTP,
 			Description: "Rebuild ephemeral conformance catalog from config_templates (internal admin key)",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
@@ -115,8 +115,4 @@ var ConformanceSuitesRecordsRoutes = routing.RouteGroup{
 			Description: "Reject deletes on the read-only conformance suites catalog",
 		},
 	},
-}
-
-func HandleConformanceCatalogRebuild() func(*core.RequestEvent) error {
-	return conformancecatalog.RebuildHTTP()
 }

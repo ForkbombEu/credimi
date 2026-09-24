@@ -151,28 +151,10 @@ func suiteDisplayFromYAML(s suiteYAML) suiteDisplayFields {
 	}
 }
 
-// Catalog is a thin facade over the ephemeral query cache. It holds no
-// separate check slice — Rebuild writes only to :memory: SQLite, and Snapshot
-// reads that projection (for tests that still assert on []Check).
-type Catalog struct{}
-
-var defaultCatalog = &Catalog{}
-
-// Default returns the process-wide catalog facade.
-func Default() *Catalog {
-	return defaultCatalog
-}
-
 // Snapshot returns checks from the ephemeral :memory: cache (SELECT → []Check).
-// On cache errors it returns nil so callers observe an empty catalog rather
-// than a stale dual-written slice.
-func (c *Catalog) Snapshot() []Check {
-	_ = c
-	checks, err := listEphemeralChecks()
-	if err != nil {
-		return nil
-	}
-	return checks
+// Cache errors are surfaced — callers must not treat a failed read as an empty catalog.
+func Snapshot() ([]Check, error) {
+	return listEphemeralChecks()
 }
 
 // TemplatesDir resolves config_templates from ROOT_DIR (empty ROOT_DIR → ./config_templates).
