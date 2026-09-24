@@ -109,6 +109,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
+	const isFirstTab = $derived(params.tab === sections[0]?.slug);
+	const isLastTab = $derived(params.tab === sections[sections.length - 1]?.slug);
+
 	$effect(() => {
 		if (manager && params.tab) {
 			manager.query.clearSearch();
@@ -171,7 +174,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</div>
 
-				<div class="rounded-t-md bg-white px-4 pt-4 pb-6 md:rounded-t-none">
+				<div
+					class={[
+						'rounded-t-md bg-white px-4 pt-4 pb-6',
+						{
+							'md:rounded-tl-none': isFirstTab,
+							'md:rounded-tr-none': isLastTab
+						}
+					]}
+				>
 					{#if params.tab === 'conformance-checks'}
 						<div class="space-y-3">
 							<SearchInput bind:value={suiteSearchText} />
