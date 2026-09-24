@@ -83,6 +83,8 @@ function listGrainRecords<TIntent extends object, TRecord>(
 /**
  * Shared conformance catalog client: flat checks, suite rows, and nested browse
  * tree — PocketBase adapter over compiled domain intents.
+ * Prefer {@link listHubSuites} / nest helpers on the public barrel; this stays
+ * for FCAF and other package-internal check listing (ADR-0010).
  */
 export function listChecks(
 	options: ListChecksOptions = {}
@@ -95,7 +97,8 @@ export function listChecks(
 }
 
 /**
- * Suite-grain catalog for the hub table.
+ * Suite-grain list (package-internal). Public hub Product-axis entry is
+ * {@link listHubSuites}; nest compose uses this via {@link listAll}.
  * Default sort intent: wallet→issuer→verifier, then standard, then suite uid.
  */
 export function listSuites(
@@ -106,6 +109,16 @@ export function listSuites(
 		collection: CONFORMANCE_SUITES_COLLECTION,
 		schema: conformanceSuiteRecordSchema
 	});
+}
+
+/**
+ * Hub Product-axis suite table use case (ADR-0010). Same options as
+ * {@link listSuites}; Catalog surface remains required at the call site (ADR-0008).
+ */
+export function listHubSuites(
+	options: ListSuitesOptions = {}
+): Task.Task<ConformanceSuiteRecord[], ListSuitesError> {
+	return listSuites(options);
 }
 
 // --- Browse tree (nested standards → versions → suites) ---

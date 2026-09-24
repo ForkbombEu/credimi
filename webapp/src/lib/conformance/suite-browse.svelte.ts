@@ -8,7 +8,7 @@ import { createQuery } from '@tanstack/svelte-query';
 
 import type { ConformanceSuiteRecord } from './record';
 
-import { listSuites } from './client';
+import { listHubSuites } from './client';
 import {
 	isHubDefaultSuiteSort,
 	SUITE_FACET_KEYS,
@@ -126,7 +126,7 @@ export class SuiteBrowse {
 		this.facetOptionsQuery = createQuery(() => ({
 			queryKey: ['conformance-suites', 'pipeline', 'hub', 'facet-options'] as const,
 			queryFn: async () => {
-				const result = await listSuites({ surface: 'pipeline' });
+				const result = await listHubSuites({ surface: 'pipeline' });
 				if (result.isErr) throw result.error;
 				return result.value;
 			}
@@ -141,7 +141,7 @@ export class SuiteBrowse {
 				queryKey: ['conformance-suites', 'pipeline', 'hub', sort, q, facets] as const,
 				enabled: !this.useSSR,
 				queryFn: async () => {
-					const result = await listSuites({
+					const result = await listHubSuites({
 						surface: 'pipeline',
 						sort,
 						search: q || undefined,

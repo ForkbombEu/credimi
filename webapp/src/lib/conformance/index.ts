@@ -7,7 +7,7 @@ export type { ConformanceCheckRecord, ConformanceSuiteRecord, TemplateSurface } 
 export type { SuiteFacets, StandardsWithTestSuites } from './client';
 export type { CheckListIntent, SuiteListIntent, SuiteSortColumn, SuiteSortIntent } from './query';
 
-export { getStandardsWithTestSuites, listChecks, listSuites } from './client';
+export { getStandardsWithTestSuites, listHubSuites } from './client';
 export {
 	HUB_SUITE_SORT_DEFAULT,
 	isHubDefaultSuiteSort,

@@ -9,7 +9,8 @@
  * Keep this barrel small: only what outside callers need. Report helpers and
  * ReportView stay private to `$lib/fcaf`.
  *
- * Test listing is the FCAF adapter over `$lib/conformance` `listChecks`.
+ * Test listing is the FCAF adapter over package-internal `listChecks`
+ * (`$lib/conformance/client`).
  * Suite and pipeline_outputs defaults remain generated from the aggregate
  * pipeline YAML.
  */
