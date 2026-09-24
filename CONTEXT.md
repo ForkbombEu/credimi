@@ -60,6 +60,24 @@ _Avoid_: Child pipeline (unless a nested pipeline step), grandchild, step (as th
 One execution of a pipeline workflow (or a queued ticket awaiting start), shown as a parent row in the list SmallTable.
 _Avoid_: Calling a child workflow a pipeline run on the list card
 
+## Hub (listing)
+
+**Hub item**:
+A discoverable Hub row for one entity (for example a credential issuer or a verifier).
+_Avoid_: Issuance (as the Hub tab or row name), listing card (as the domain name)
+
+**Nested Hub item**:
+A Hub item that belongs under another Hub item in the Issuers or Verifiers tabs (a credential under a credential issuer, or a use case verification under a verifier). Not a Temporal child workflow.
+_Avoid_: Children (in Hub copy), child (in Hub copy), issuance credential (as the relation name)
+
+**Credential issuer**:
+The Hub parent for credentials on the Issuers / Credentials tab.
+_Avoid_: Issuance, issuer-only wording that drops credentials when both are in scope
+
+**Use case verification**:
+The Hub nested item under a verifier on the Verifiers / Use case verifications tab.
+_Avoid_: Use case (alone when the Hub entity is meant), verification use case (inverted label)
+
 ## FCAF (wallet-solution relying-party)
 
 **FCAF assessment report**:

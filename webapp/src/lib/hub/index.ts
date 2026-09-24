@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export { Conformance } from './conformance/index.js';
+export * from './nested-hub-search';
 export * from './types';
 export * from './utils';
 

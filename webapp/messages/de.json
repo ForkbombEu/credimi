@@ -195,6 +195,8 @@
 	"Submit": "Absenden",
 	"Select_a_value": "Einen Wert auswählen ",
 	"Search": "Suchen",
+	"Search_issuers_or_credentials": "Issuer oder Credentials suchen",
+	"Search_verifiers_or_use_case_verifications": "Verifier oder Use-Case-Verifications suchen",
 	"No_results_found": "Keine Ergebnisse gefunden",
 	"No_items_selected": "Keine Elemente ausgewählt",
 	"No_options_available": "Keine Optionen verfügbar",
