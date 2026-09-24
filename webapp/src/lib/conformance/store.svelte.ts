@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { ListAllOptions } from './client';
+import type { ListNestOptions } from './client';
 import type { Standard } from './types';
 
-import { listAll } from './client';
+import { listNest } from './client';
 
 //
 
@@ -31,11 +31,11 @@ export function get() {
  * Sole client Filesystem-axis nest projection (ADR-0004). Awaitable nest browse
  * load — idempotent per surface; concurrent callers share one in-flight fetch.
  * Rejects on catalog errors (no fire-and-forget). Client callers must load via
- * this Store; SSR / non-hydrating reads use getStandardsWithTestSuites.
+ * this Store; SSR / non-hydrating reads use getNestStandards.
  * Catalog surface is required (no silent default).
  */
 export async function load(
-	options: Pick<ListAllOptions, 'surface' | 'fetch'>
+	options: Pick<ListNestOptions, 'surface' | 'fetch'>
 ): Promise<readonly Standard[]> {
 	const key = options.surface;
 	if (loadedSurface === key) return get().standards;
@@ -43,7 +43,7 @@ export async function load(
 
 	inflightSurface = key;
 	inflight = (async () => {
-		const result = await listAll(options);
+		const result = await listNest(options);
 		if (result.isErr) throw result.error;
 		standards.length = 0;
 		standards.push(...result.value);

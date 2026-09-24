@@ -23,9 +23,9 @@ import {
 	CONFORMANCE_SUITES_COLLECTION,
 	conformanceCheckRecordSchema,
 	conformanceSuiteRecordSchema,
+	type CatalogSurface,
 	type ConformanceCheckRecord,
-	type ConformanceSuiteRecord,
-	type TemplateSurface
+	type ConformanceSuiteRecord
 } from './record';
 import { standardSchema, type Standard } from './types';
 
@@ -41,6 +41,16 @@ export type ListChecksOptions = CheckListIntent & {
 export type ListSuitesOptions = SuiteListIntent & {
 	fetch?: typeof fetch;
 };
+
+/** Await a true-myth Task into Promise<T | Error> for loaders / queryFn. */
+export async function awaitTask<T>(task: Task.Task<T, unknown>): Promise<T | Error> {
+	const result = await task;
+	if (result.isErr) {
+		const err = result.error;
+		return err instanceof Error ? err : new Error(String(err));
+	}
+	return result.value;
+}
 
 /** Grain-specific compile / collection / schema for {@link listGrainRecords}. */
 type GrainListStrategy<TIntent, TRecord> = {
@@ -87,7 +97,7 @@ function listGrainRecords<TIntent extends object, TRecord>(
  * for FCAF and other package-internal check listing (ADR-0010).
  */
 export function listChecks(
-	options: ListChecksOptions = {}
+	options: ListChecksOptions
 ): Task.Task<ConformanceCheckRecord[], ListChecksError> {
 	return listGrainRecords(options, {
 		compile: compileCheckListQuery,
@@ -98,11 +108,11 @@ export function listChecks(
 
 /**
  * Suite-grain list (package-internal). Public hub Product-axis entry is
- * {@link listHubSuites}; nest compose uses this via {@link listAll}.
+ * {@link listHubSuites}; nest compose uses this via {@link listNest}.
  * Default sort intent: wallet→issuer→verifier, then standard, then suite uid.
  */
 export function listSuites(
-	options: ListSuitesOptions = {}
+	options: ListSuitesOptions
 ): Task.Task<ConformanceSuiteRecord[], ListSuitesError> {
 	return listGrainRecords(options, {
 		compile: compileSuiteListQuery,
@@ -116,30 +126,30 @@ export function listSuites(
  * {@link listSuites}; Catalog surface remains required at the call site (ADR-0008).
  */
 export function listHubSuites(
-	options: ListSuitesOptions = {}
+	options: ListSuitesOptions
 ): Task.Task<ConformanceSuiteRecord[], ListSuitesError> {
 	return listSuites(options);
 }
 
 // --- Browse tree (nested standards → versions → suites) ---
 
-export type ListAllResponse = Standard[];
-export type ListAllError = ClientResponseError | ZodError;
-export type StandardsWithTestSuites = ListAllResponse;
+/** Filesystem-axis nest tree (standards → versions → suites). */
+export type NestStandards = Standard[];
+export type ListNestError = ClientResponseError | ZodError;
 
-export type ListAllOptions = {
+export type ListNestOptions = {
 	fetch?: typeof fetch;
-	/** Catalog surface — required; no silent default (ADR-0004). */
-	surface: TemplateSurface;
+	/** Catalog surface — required; no silent default (ADR-0004 / ADR-0008). */
+	surface: CatalogSurface;
 	facets?: SuiteFacets;
 };
 
 /**
  * Package-internal nest compose (listSuites → nestSuites). Not barrel-exported
  * (ADR-0004): client callers use Store.load; SSR / non-hydrating reads use
- * {@link getStandardsWithTestSuites}.
+ * {@link getNestStandards}.
  */
-export function listAll(options: ListAllOptions): Task.Task<ListAllResponse, ListAllError> {
+export function listNest(options: ListNestOptions): Task.Task<NestStandards, ListNestError> {
 	const { fetch: fetchFn = fetch, surface, facets } = options;
 
 	return listSuites({ fetch: fetchFn, surface, facets }).andThen((records) => {
@@ -151,13 +161,11 @@ export function listAll(options: ListAllOptions): Task.Task<ListAllResponse, Lis
 }
 
 /**
- * Sole SSR / non-hydrating nest one-shot (ADR-0004). Catalog surface is
- * required at the call site. Does not hydrate Store.
+ * Sole SSR / non-hydrating Filesystem-axis nest one-shot (ADR-0004). Catalog
+ * surface is required at the call site. Does not hydrate Store.
  */
-export async function getStandardsWithTestSuites(
-	options: ListAllOptions
-): Promise<StandardsWithTestSuites | Error> {
-	const result = await listAll(options);
-	if (result.isErr) return result.error;
-	return result.value;
+export async function getNestStandards(
+	options: ListNestOptions
+): Promise<NestStandards | Error> {
+	return awaitTask(listNest(options));
 }

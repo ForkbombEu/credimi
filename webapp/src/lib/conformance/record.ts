@@ -18,8 +18,9 @@ import {
  */
 export const CONFORMANCE_CHECKS_COLLECTION = 'conformance_checks' as const;
 
-export const templateSurfaceSchema = z.enum(['manual', 'pipeline']);
-export type TemplateSurface = z.infer<typeof templateSurfaceSchema>;
+/** Catalog surface — which product UI may browse a suite (`manual` | `pipeline`). */
+export const catalogSurfaceSchema = z.enum(['manual', 'pipeline']);
+export type CatalogSurface = z.infer<typeof catalogSurfaceSchema>;
 
 export {
 	conformanceCheckRecordSchema,

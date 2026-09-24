@@ -5,7 +5,7 @@
 import type { HubItem } from '$lib/hub';
 
 import { createQuery } from '@tanstack/svelte-query';
-import { type StandardsWithTestSuites } from '$lib/conformance/index.js';
+import { type NestStandards } from '$lib/conformance/index.js';
 import * as Store from '$lib/conformance/store.svelte.js';
 import { queryClient } from '$lib/query-client';
 import { getPath } from '$lib/utils';
@@ -293,7 +293,7 @@ export type FormState =
 
 //
 
-type Standard = StandardsWithTestSuites[number];
+type Standard = NestStandards[number];
 type Version = Standard['versions'][number];
 type Suite = Version['suites'][number];
 type Test = Suite['members'][number]['path'];

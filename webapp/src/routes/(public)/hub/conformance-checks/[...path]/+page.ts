@@ -5,7 +5,7 @@
 import type { Merge } from 'type-fest';
 
 import { error } from '@sveltejs/kit';
-import { getStandardsWithTestSuites } from '$lib/conformance';
+import { getNestStandards } from '$lib/conformance';
 import { Hub } from '$lib';
 
 //
@@ -13,7 +13,7 @@ import { Hub } from '$lib';
 export const load = async ({ params, fetch }) => {
 	const { path } = params;
 
-	const conformanceChecks = await getStandardsWithTestSuites({ fetch, surface: 'pipeline' });
+	const conformanceChecks = await getNestStandards({ fetch, surface: 'pipeline' });
 	if (conformanceChecks instanceof Error) {
 		error(500, { message: conformanceChecks.message });
 	}

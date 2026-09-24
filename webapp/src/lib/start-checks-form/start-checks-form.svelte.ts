@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { type StandardsWithTestSuites } from '$lib/conformance';
+import { type NestStandards } from '$lib/conformance';
 
 import { type ConfigureChecksFormProps } from './configure-checks-form';
 import { SelectChecksForm, type SelectChecksSubmitData } from './select-checks-form';
@@ -10,7 +10,7 @@ import { SelectChecksForm, type SelectChecksSubmitData } from './select-checks-f
 //
 
 export type StartChecksFormProps = {
-	standardsWithTestSuites: StandardsWithTestSuites;
+	standardsWithTestSuites: NestStandards;
 };
 
 export class StartChecksForm {

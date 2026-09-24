@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export type { Standard, Suite, Version } from './types';
-export type { ConformanceCheckRecord, ConformanceSuiteRecord, TemplateSurface } from './record';
-export type { SuiteFacets, StandardsWithTestSuites } from './client';
+export type { CatalogSurface, ConformanceCheckRecord, ConformanceSuiteRecord } from './record';
+export type { NestStandards, SuiteFacets } from './client';
 export type { CheckListIntent, SuiteListIntent, SuiteSortColumn, SuiteSortIntent } from './query';
 
-export { getStandardsWithTestSuites, listHubSuites } from './client';
+export { getNestStandards, listHubSuites } from './client';
 export {
 	HUB_SUITE_SORT_DEFAULT,
 	isHubDefaultSuiteSort,

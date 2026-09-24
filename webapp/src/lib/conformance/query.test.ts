@@ -24,8 +24,9 @@ const stubFilter: FilterCompiler = (raw, params) => {
 };
 
 describe('compileSuiteListQuery', () => {
-	it('uses hub default sort with no filter when intent is empty', () => {
-		expect(compileSuiteListQuery({}, stubFilter)).toEqual({
+	it('always includes surface filter with hub default sort', () => {
+		expect(compileSuiteListQuery({ surface: 'pipeline' }, stubFilter)).toEqual({
+			filter: 'visible_in ~ "pipeline"',
 			sort: 'component_rank,standard,suite'
 		});
 	});
@@ -62,6 +63,7 @@ describe('compileSuiteListQuery', () => {
 	it('omits empty facet values and whitespace-only search', () => {
 		const compiled = compileSuiteListQuery(
 			{
+				surface: 'manual',
 				facets: {
 					standard: 'openid4vci',
 					component: '',
@@ -73,12 +75,15 @@ describe('compileSuiteListQuery', () => {
 			stubFilter
 		);
 
-		expect(compiled.filter).toBe('standard = "openid4vci" && provider = "webuild"');
+		expect(compiled.filter).toBe(
+			'visible_in ~ "manual" && standard = "openid4vci" && provider = "webuild"'
+		);
 	});
 
 	it('maps domain sort columns to PocketBase fields (suite → suite_name)', () => {
 		const compiled = compileSuiteListQuery(
 			{
+				surface: 'pipeline',
 				sort: {
 					kind: 'columns',
 					columns: [
@@ -106,8 +111,9 @@ describe('compileCheckListQuery', () => {
 		expect(compiled.filter).toBe('visible_in ~ "manual" && fs_standard = "fcaf"');
 	});
 
-	it('applies default check sort with no filter when intent is empty', () => {
-		expect(compileCheckListQuery({}, stubFilter)).toEqual({
+	it('always includes surface filter even without fs_standard', () => {
+		expect(compileCheckListQuery({ surface: 'pipeline' }, stubFilter)).toEqual({
+			filter: 'visible_in ~ "pipeline"',
 			sort: 'fs_standard,fs_version,suite,path'
 		});
 	});

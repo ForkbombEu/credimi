@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { ListAllOptions } from '../client.js';
+import type { ListNestOptions } from '../client.js';
 
 import * as Store from '../store.svelte.js';
 
@@ -19,7 +19,7 @@ export * as Store from '../store.svelte.js';
  */
 export async function resolveCheckPath(
 	checkId: string,
-	options: Pick<ListAllOptions, 'surface' | 'fetch'>
+	options: Pick<ListNestOptions, 'surface' | 'fetch'>
 ): Promise<ResolvedCheckPath | null> {
 	const standards = await Store.load(options);
 	return resolveCheckPathFromNest(standards, checkId);

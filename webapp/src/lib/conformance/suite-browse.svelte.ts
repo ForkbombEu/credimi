@@ -6,7 +6,7 @@ import type { SortingState } from '@tanstack/table-core';
 
 import { createQuery } from '@tanstack/svelte-query';
 
-import type { ConformanceSuiteRecord, TemplateSurface } from './record';
+import type { CatalogSurface, ConformanceSuiteRecord } from './record';
 
 import { listHubSuites } from './client';
 import {
@@ -22,7 +22,7 @@ export type SuiteFacetKey = (typeof SUITE_FACET_KEYS)[number];
 
 export type SuiteBrowseProps = {
 	/** Catalog surface — required (ADR-0008); hub table passes `pipeline`. */
-	surface: TemplateSurface;
+	surface: CatalogSurface;
 	/** SSR suite rows (used when sort/search/facets are default). */
 	get initialSuites(): ConformanceSuiteRecord[];
 	/** Debounced text search across suite display/identity fields. */

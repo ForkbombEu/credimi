@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { TemplateSurface } from './record';
+import type { CatalogSurface } from './record';
 
 /** Suite-grain hub facets (normalized product axes). */
 export type SuiteFacets = {
@@ -25,7 +25,8 @@ export type SuiteSortIntent =
 
 /** Domain intent for listing suite-grain catalog rows. */
 export type SuiteListIntent = {
-	surface?: TemplateSurface;
+	/** Catalog surface — required; no silent omit (ADR-0008 / ADR-0010). */
+	surface: CatalogSurface;
 	facets?: SuiteFacets;
 	search?: string;
 	sort?: SuiteSortIntent;
@@ -37,7 +38,8 @@ export type SuiteListIntent = {
  * live on suite grain ({@link SuiteFacets}).
  */
 export type CheckListIntent = {
-	surface?: TemplateSurface;
+	/** Catalog surface — required; no silent omit (ADR-0008 / ADR-0010). */
+	surface: CatalogSurface;
 	/** Filesystem standard uid (e.g. `fcaf`). */
 	fs_standard?: string;
 };
@@ -78,39 +80,35 @@ export function isHubDefaultSuiteSort(
 
 /**
  * Map TanStack / table column sort state into a suite sort intent.
- * Unknown column ids are dropped; an empty result is the hub default.
  */
 export function suiteSortFromTableColumns(
 	columns: ReadonlyArray<{ id: string; desc: boolean }>
 ): SuiteSortIntent {
-	if (columns.length === 0) return HUB_SUITE_SORT_DEFAULT;
-
-	const mapped: Array<{ column: SuiteSortColumn; desc?: boolean }> = [];
-	for (const { id, desc } of columns) {
-		if (!SUITE_SORT_COLUMNS.has(id)) continue;
-		mapped.push({ column: id as SuiteSortColumn, desc: desc || undefined });
-	}
-	if (mapped.length === 0) return HUB_SUITE_SORT_DEFAULT;
-	return { kind: 'columns', columns: mapped };
+	const known = columns
+		.filter((c) => SUITE_SORT_COLUMNS.has(c.id))
+		.map((c) => ({
+			column: c.id as SuiteSortColumn,
+			...(c.desc ? { desc: true as const } : {})
+		}));
+	if (known.length === 0) return HUB_SUITE_SORT_DEFAULT;
+	return { kind: 'columns', columns: known };
 }
 
 /**
  * Compile a suite list intent into filter/sort strings for a list adapter.
- * Dialect (`~`, `component_rank`, join with `&&`) stays inside this module.
  */
 export function compileSuiteListQuery(
 	intent: SuiteListIntent,
 	filterFn: FilterCompiler
 ): CompiledListQuery {
-	const filters: string[] = [];
-	if (intent.surface) {
-		filters.push(filterFn('visible_in ~ {:surface}', { surface: intent.surface }));
-	}
+	const filters: string[] = [
+		filterFn('visible_in ~ {:surface}', { surface: intent.surface })
+	];
 	appendSuiteFacetFilters(filters, intent.facets, filterFn);
 	appendSuiteSearchFilter(filters, intent.search, filterFn);
 
 	return {
-		...(filters.length > 0 ? { filter: filters.join(' && ') } : {}),
+		filter: filters.join(' && '),
 		sort: compileSuiteSort(intent.sort)
 	};
 }
@@ -122,16 +120,15 @@ export function compileCheckListQuery(
 	intent: CheckListIntent,
 	filterFn: FilterCompiler
 ): CompiledListQuery {
-	const filters: string[] = [];
-	if (intent.surface) {
-		filters.push(filterFn('visible_in ~ {:surface}', { surface: intent.surface }));
-	}
+	const filters: string[] = [
+		filterFn('visible_in ~ {:surface}', { surface: intent.surface })
+	];
 	if (intent.fs_standard) {
 		filters.push(filterFn('fs_standard = {:fs_standard}', { fs_standard: intent.fs_standard }));
 	}
 
 	return {
-		...(filters.length > 0 ? { filter: filters.join(' && ') } : {}),
+		filter: filters.join(' && '),
 		sort: CHECK_DEFAULT_SORT_STRING
 	};
 }
@@ -155,9 +152,8 @@ function appendSuiteFacetFilters(
 	if (!facets) return;
 	for (const key of SUITE_FACET_KEYS) {
 		const value = facets[key];
-		if (value) {
-			filters.push(filterFn(`${key} = {:${key}}`, { [key]: value }));
-		}
+		if (value == null || value === '') continue;
+		filters.push(filterFn(`${key} = {:${key}}`, { [key]: value }));
 	}
 }
 
