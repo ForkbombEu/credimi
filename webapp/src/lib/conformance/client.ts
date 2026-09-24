@@ -93,8 +93,8 @@ function listGrainRecords<TIntent extends object, TRecord>(
 /**
  * Shared conformance catalog client: flat checks, suite rows, and nested browse
  * tree — PocketBase adapter over compiled domain intents.
- * Prefer {@link listHubSuites} / nest helpers on the public barrel; this stays
- * for FCAF and other package-internal check listing (ADR-0010).
+ * Prefer {@link listHubSuites} / {@link listFcafTests} / nest helpers on the
+ * public barrel; grain lists stay package-internal (ADR-0010).
  */
 export function listChecks(
 	options: ListChecksOptions

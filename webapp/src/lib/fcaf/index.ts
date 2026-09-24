@@ -9,10 +9,10 @@
  * Keep this barrel small: only what outside callers need. Report helpers and
  * ReportView stay private to `$lib/fcaf`.
  *
- * Test listing is the FCAF adapter over package-internal `listChecks`
- * (`$lib/conformance/client`).
- * Suite and pipeline_outputs defaults remain generated from the aggregate
- * pipeline YAML.
+ * Test listing is the catalog use-case on `$lib/conformance` (`listFcafTests` /
+ * `getFcafTests`); this barrel re-exports it for `FCAF.getFcafTests` callers.
+ * Taxonomy grouping stays here. Suite and pipeline_outputs defaults remain
+ * generated from the aggregate pipeline YAML.
  */
 
 export {
@@ -21,12 +21,15 @@ export {
 	toFcafCatalogEntry,
 	listFcafTests,
 	getFcafTests,
+	type FCAFTestCatalogEntry as TestCatalogEntry,
+	type ListFcafTestsOptions
+} from '$lib/conformance';
+
+export {
 	groupSelectedTests,
 	groupCatalogTests,
 	type CatalogCategoryGroup,
-	type CatalogSubgroup,
-	type FCAFTestCatalogEntry as TestCatalogEntry,
-	type ListFcafTestsOptions
+	type CatalogSubgroup
 } from './catalog.js';
 
 export {

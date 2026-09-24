@@ -6,8 +6,16 @@ export type { Standard, Suite, Version } from './types';
 export type { CatalogSurface, ConformanceCheckRecord, ConformanceSuiteRecord } from './record';
 export type { NestStandards, SuiteFacets } from './client';
 export type { CheckListIntent, SuiteListIntent, SuiteSortColumn, SuiteSortIntent } from './query';
+export type { FCAFTestCatalogEntry, ListFcafTestsOptions } from './fcaf-list';
 
 export { getNestStandards, listHubSuites } from './client';
+export {
+	FCAF_STANDARD,
+	fcafTestIdFromPath,
+	getFcafTests,
+	listFcafTests,
+	toFcafCatalogEntry
+} from './fcaf-list';
 export {
 	HUB_SUITE_SORT_DEFAULT,
 	isHubDefaultSuiteSort,
