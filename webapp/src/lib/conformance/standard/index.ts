@@ -2,5 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ListAllOptions } from '../client.js';
+
+import * as Store from '../store.svelte.js';
+
+import { resolveCheckPathFromNest, type ResolvedCheckPath } from './resolve-check-path.js';
+import { resolveSuite } from './resolve-suite.js';
+
+export { resolveSuite };
+export { resolveCheckPathFromNest, type ResolvedCheckPath } from './resolve-check-path.js';
 export * as Store from '../store.svelte.js';
-export { resolveSuite } from './resolve-suite.js';
+
+/**
+ * Ensure nest browse is loaded, then resolve a filesystem check path
+ * (`standard/version/suite/test`).
+ */
+export async function resolveCheckPath(
+	checkId: string,
+	options: Pick<ListAllOptions, 'surface' | 'fetch'> = {}
+): Promise<ResolvedCheckPath | null> {
+	await Store.load(options);
+	return resolveCheckPathFromNest(Store.get().standards, checkId);
+}
