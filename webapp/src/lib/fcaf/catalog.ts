@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { FCAFTestCatalogEntry } from '$lib/conformance';
+
 import { FCAF_CATEGORY_ORDER, parseFCAFTestId, type FCAFCategory } from './categories.js';
-import { FCAF_TESTS, type FCAFTestCatalogEntry } from './tests.generated.js';
 
 /**
  * Tests grouped under one FCAF category, mirroring the generated report:
@@ -25,13 +26,9 @@ export type CatalogCategoryGroup = {
 	tests: FCAFTestCatalogEntry[];
 };
 
-export function groupAllTests(): CatalogCategoryGroup[] {
-	return groupCatalogTests(FCAF_TESTS);
-}
-
 export function groupSelectedTests(testIds: string[]): CatalogCategoryGroup[] {
-	const selected = new Set(testIds);
-	return groupCatalogTests(FCAF_TESTS.filter((test) => selected.has(test.id)));
+	// Card summaries only have selected ids; synthesize minimal entries for grouping.
+	return groupCatalogTests(testIds.map((id) => ({ id, title: '' })));
 }
 
 export function groupCatalogTests(tests: FCAFTestCatalogEntry[]): CatalogCategoryGroup[] {

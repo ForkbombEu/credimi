@@ -30,6 +30,143 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-24 - CatalogSurface rename vs TemplateSurface
+
+- status: resolved (agent during PR #1404 review fixes)
+- owner: agent
+- context: FE type was `TemplateSurface` while CONTEXT.md and ADRs use **Catalog surface**.
+- question: Align the TypeScript name with domain language?
+- options considered: (1) rename to `CatalogSurface`; (2) keep TemplateSurface + comments.
+- default risk: Dual vocabulary invites wrong mental model (template file vs browse filter).
+- decision: Option (1). `catalogSurfaceSchema` / `CatalogSurface`.
+- follow-up: None.
+
+### 2026-09-24 - Product-axis UID maps vs #1402 long-term authorship
+
+- status: resolved for PR #1404 (interim accepted); open for later cutover
+- owner: human maintainer
+- context: Spec review of #1404 noted product `standard`/`component` still come from `classicFSPrefix` / `fcafPackIdentity` in `NormalizePathIdentity`, while #1402 says “filename/UID parsing is not the long-term model.” Check facets (`protocol`/`role`/`provider`) are authored; hub filters suite-grain product axes.
+- question: Author product axes into suite metadata now, or keep projection maps until path-normalize HITL closes?
+- options considered: (1) document maps as accepted interim; (2) author product axes in every suite `metadata.yaml` with map fallback.
+- default risk: (2) before path-normalize lands duplicates authorship and may churn again.
+- decision: Option (1) for this PR. Maps remain the sole product-axis projector until the open normalize-paths HITL chooses a durable model.
+- follow-up: When normalizing paths, prefer authored metadata and shrink/delete the UID maps.
+
+### 2026-09-24 - Hub deep links: FS path vs getOne by record id (#1396 US5)
+
+- status: resolved (agent during PR #1404 review fixes)
+- owner: agent
+- context: #1396 US5 asks getOne by stable record id for hub detail/deep links; hub routes remain `/hub/conformance-checks/...` FS paths (US25 / ADR-0002).
+- question: Switch hub URLs to catalog record ids?
+- options considered: (1) keep FS path URLs; API getOne stays available; (2) id-based hub routes.
+- default risk: (2) breaks marketplace redirects and path-stable URLs without a redirect table.
+- decision: Option (1). List/get-by-id capability shipped; hub deep links stay filesystem-axis paths.
+- follow-up: None unless product wants id URLs later.
+
+### 2026-09-23 - Hub suite-grain facet UI vs #1402 check-grain facets
+
+- status: resolved (agent restore during PR review)
+- owner: agent
+- context: #1402 wired protocol/sut/role/provider filters on the check-grain hub table; suite-table rewrite dropped that UI while query helpers for SuiteFacets remained. Spec review of PR #1404 flagged missing “at least one product surface filters via PB”.
+- question: Which facet axes should the hub table expose?
+- options considered: (1) restore check-grain protocol/sut/role/provider on suite table; (2) suite-grain standard/component/version/provider (HITL normalize + ADR-0002); (3) leave search-only.
+- default risk: Leaving search-only fails #1402 AC; check-grain facets on suite rows would query the wrong collection.
+- decision: Option (2). Hub `conformance-checks-table.svelte` filters via `listSuites` + SuiteFacets.
+- follow-up: None for PR #1404; broader path-normalize facet rename remains under the open normalize-paths HITL.
+
+### 2026-09-23 - Normalize conformance catalog paths (FCAF-as-suite, 2×3→4)
+
+- status: open (partially settled)
+- owner: human maintainer
+- context: Boss domain cut — 2 standards (OpenID4VP, OpenID4VCI), 3 components (wallet, issuer, verifier), 4 derived combinations; FCAF is a Commission test suite family, not a standard. Today path identity is four segments mirroring `config_templates`: `openid4vp_wallet|openid4vp_verifier|openid4vci_wallet|openid4vci_issuer|fcaf|vlei` / version / suite / check. FCAF uses `fcaf/wallet_solution/relying_party/<test_id>` (SUT as version, FCAF party as suite). Classic `role` already holds component values; FCAF `role: relying_party` pollutes the same facet. Hub/pipeline/scoreboard/`parsePath` all assume exactly four segments and durable path strings in YAML + execution history.
+- question: What is the target path identity, and how do we migrate filesystem + stored references?
+- options considered:
+  (A) `{standard}/{version}/{suite}/{check}` with `standard ∈ {openid4vp,openid4vci,…}`, component as projected field (not a path segment); FCAF suites become suites under the matching standard (e.g. OpenID4VP × wallet).
+  (B) Five-segment paths inserting component: `{standard}/{component}/{version}/{suite}/{check}` — breaks `parsePath` and every URL.
+  (C) Keep filesystem layout; projection/rewrite maps old FS paths → normalized identity (aliases for old paths).
+  (D) Physical move of `config_templates` to match (A), plus redirect/alias table for old paths in pipelines/scoreboard.
+- default risk: Path strings are identifiers in pipeline YAML, Temporal/search, scoreboard `conformance_checks`, hub URLs, and FCAF `test_ids` pairing. Silent rename without aliases breaks historical runs and saved pipelines. Coupling FS path to identity makes (A)+(D) a large mechanical move; (C) risks two sources of truth if incomplete — especially if `path` stays FS-shaped while `standard`/`version`/`suite` become normalized and diverge from path segments (`nestChecks` / hub URLs / `parsePath` assume they align).
+- decision (2026-09-23, partial): **Do not rename filesystem paths or durable path strings for now.** Normalize **only in the in-memory catalog projection** (ephemeral rows / logical suite·check collections). Physical `config_templates` layout and stored pipeline/scoreboard path references stay as today until a later explicit cutover.
+- follow-up: Still decide whether ephemeral `path` stays FS-identical while normalized dimensions live in other columns (`standard`/`component`/…), and how hub URLs + nest group when those diverge. Related: drop/rename hub `role` facet to `component`; suites vs checks projections (#1396 grill).
+- update (2026-09-23, agent): Additive check columns `norm_standard` / `component` / `norm_version`; FS `standard`/`version`/`suite`/`path` unchanged. Suites projection at `conformance_suites`. FCAF relying_party pack → OpenID4VP×wallet with **empty** `norm_version` (no pinned profile; FS `wallet_solution` is SUT, not standard version). Hub facets: Standard/Component/Version/Provider.
+- update (2026-09-23, agent): Hub suite cell uses existing suite `metadata.yaml` `name` → `suite_name` (column header already i18n `Suite` → "Test suite"). **Do not add a second label field** unless product wants a short display name distinct from full `name`.
+- update (2026-09-23, human): Nest/detail grouping when FS ≠ product stays **FS nest (A)**. Hub table = product suites; detail/pickers = FS nest; load each only on the route that needs it (ADR-0002 dual browse). Product nest deferred.
+- update (2026-09-24, agent): Product-axis projection via UID maps (`classicFSPrefix` / `fcafPackIdentity`) is the accepted interim for PR #1404; see HITL “Product-axis UID maps vs #1402 long-term authorship”.
+
+### 2026-09-23 - Suite hub label: reuse metadata `name` vs new field
+
+- status: open
+- owner: human maintainer
+- context: Hub Test suite column needs a proper human label. Suite `metadata.yaml` already authors `name` (denormed as `suite_name`). Earlier polish briefly showed raw `provider` UID instead because full names felt repetitive next to a provider subtitle.
+- question: Should hub use existing `name`, or add a new metadata field (e.g. `label` / `short_name`)?
+- options considered:
+  (A) Reuse `name` as the Suite cell primary label (recommended default).
+  (B) Add `label`/`short_name` in metadata for denser table text; keep `name` for suite page titles.
+  (C) Derive from `provider` UID only (rejected for product-facing hub — looks like an identifier).
+- default risk: (B) duplicates authorship burden across every suite `metadata.yaml` for little gain if `name` is already good; (C) looks unfinished next to logos.
+- decision: pending human — agent defaulted to (A) for hub table; FCAF `metadata.yaml` `name` updated from "Relying Party" → "FCAF Functional Conformance Assessment" (display-only; path/uid unchanged).
+- follow-up: Confirm short-name field still unwanted; polish other suite `name`s if hub density needs it.
+### 2026-09-21 - Conformance catalog boot rebuild soft-fail (#1397)
+
+- status: resolved (agent default for cleanup commit 4)
+- owner: agent
+- context: Spec #1397 requires catalog rebuild from filesystem on boot, but `Register` only logged a warning on rebuild failure, leaving durable `conformance_checks` rows potentially stale.
+- question: Should boot hard-fail on any rebuild error, or tolerate missing templates for test apps / empty checkouts?
+- options considered: (1) always return bootstrap error; (2) warn-only (shipped originally; rejected); (3) skip when templates dir is missing, fail bootstrap when the dir exists but ensure/rebuild errors.
+- default risk: Option (1) breaks PocketBase test apps without `config_templates`; option (2) silently serves stale rows after a failed production boot rebuild.
+- decision: Option (3). `bootRebuild` skips missing dirs with a warn log; ensure/rebuild failures return from `OnBootstrap`. Documented in `pkg/conformancecatalog/hooks.go`.
+- follow-up: None unless product wants hard-fail even when templates are absent.
+
+### 2026-09-21 - Conformance catalog facet completeness (#1402)
+
+- status: resolved (classic suite metadata backfill; map removed)
+- owner: human maintainer
+- context: #1402 removes `/api/template/blueprints` and populates `protocol`/`sut`/`role`/`provider` on `conformance_checks` so the hub can filter via PocketBase queries. Orthogonal axes: `protocol` (wire/spec family), `sut` (EUDI product class), `role` (party under test), `provider` (suite author/runner UID).
+- question: Should maintainers backfill explicit facet fields into every suite/check YAML (and retire `knownStandardFacets`), or keep the UID map until a path-layout redesign lands?
+- options considered: (1) authored metadata everywhere (preferred long-term); (2) keep/grow UID map (not preferred); (3) parse standard UIDs heuristically (rejected as long-term model).
+- default risk: New classic suites without authored `protocol`/`role`/`provider` in suite `metadata.yaml` will have empty protocol/role until metadata is added; provider still falls back to suite UID / `fcaf`.
+- decision (2026-09-22): Honest shared table locked. Classic OpenID: author `protocol`/`role`/`provider` in suite `metadata.yaml` only; leave `sut` empty (do not twin role). vLEI: `protocol`/`provider` only. FCAF: keep in-file `suite.sut`/`suite.role`; provider defaults to `fcaf`; do not mass-edit FCAF YAMLs. Removed `knownStandardFacets`; resolve precedence is file → suite metadata → provider fallback.
+- follow-up: Hub facet filter field labels use paraglide (`Protocol`/`SUT`/`Role`/`Provider`/`Clear_filters`); option values remain UID literals until product wants humanized facet values. FCAF suite `metadata.yaml` now authors `provider: fcaf` (protocol still omitted). #1399 meta denorm remains separate.
+
+### 2026-09-21 - Nested picker metadata from flat catalog rows (#1399)
+
+- status: superseded (see `docs/adr/0002-suite-grain-owns-catalog-display-metadata.md`)
+- owner: human maintainer
+- context: #1399 cuts start-checks and pipeline pickers to `pb.collection('conformance_checks')`. Check rows carry facets plus denormalized suite display fields from suite `metadata.yaml`.
+- question: Should nested FE trees keep UID-as-name + empty URL/logo fallbacks until catalog rows grow metadata (or #1400)?
+- options considered: (1) UID fallbacks only (shipped initially); (2) ~~dual-fetch blueprints~~ superseded by #1402; (3) denorm suite/standard/version meta onto check rows; (4) separate meta projection (rejected for v1 — dual-fetch pain).
+- default risk: Denorm duplicates suite strings across FCAF rows; acceptable in process-private `:memory:` cache. Standard/version names remain humanized UIDs until a follow-up.
+- decision (2026-09-22): Option (3) suite-first. Project `suite_name`/`suite_logo`/`suite_homepage`/`suite_repository`/`suite_help`/`suite_description` onto each check; `nestChecks` prefers them over humanized suite UIDs. Empty suites stay absent.
+- follow-up: Optionally denorm standard.yaml / version.yaml authored names next if pickers still look UID-y. Do not resurrect empty suites or blueprints.
+- amendment (2026-09-21): Option (2) is obsolete after #1402 deleted the blueprints API and nesting path.
+- amendment (2026-09-21, cleanup): Nest surfaces catalog `title` on suite `titles[]` and humanized UIDs for standard/version (and suite when suite_name empty).
+- amendment (2026-09-22): Suite display denorm shipped as above.
+- amendment (2026-09-23): Superseded. Suite collection owns display meta; nest/pickers build from suite rows (`fs_*` grouping). Do not re-denorm suite fields onto checks — see ADR-0002.
+
+### 2026-09-21 - Blueprints nested metadata storage (#1398)
+
+- status: superseded (#1402)
+- owner: agent
+- context: Flat `conformance_checks` rows cannot represent empty suites or full standard/version/suite.yaml metadata formerly required by `/api/template/blueprints`.
+- question: Where should nested blueprints metadata live after the catalog adapter replaces the handler filesystem walk?
+- options considered: (1) re-read YAML metadata per blueprints request; (2) store nested tree only in the in-memory catalog snapshot beside flat checks; (3) widen PB collection schema for nested JSON.
+- default risk: Option (1) reintroduces a duplicate walk; option (3) couples PB schema to a compatibility DTO.
+- decision (historical #1398): Option (2). `LoadFromDir` built checks + nested `Blueprints` once; `Catalog.Blueprints(surface)` projected/filtered with no per-request FS walk. PB collection remained the flat query cache.
+- supersession (2026-09-21, #1402): Blueprints nesting and `/api/template/blueprints` were deleted. Catalog surface is flat `conformance_checks` rows (+ facet fields) only. Do not restore nested blueprints snapshot or the blueprints HTTP adapter. Durable decisions that remain: filesystem SoT, process-private `:memory:` query cache + fake PB collection URL (see #1397), UID/facet fields on checks (see #1402).
+- follow-up: None — blueprints path closed.
+
+### 2026-09-21 - Conformance catalog query cache storage (#1397)
+
+- status: resolved (human 2026-09-22 — reverse agent durable-table default)
+- owner: human maintainer
+- context: #1396/#1397 require an ephemeral SQLite query cache (`:memory:` / equivalent), not a durable second catalog in `pb_data`. Probe showed SQLite rejects permanent `CREATE VIEW` over ATTACH, so a PB view collection over ATTACH is non-viable. An earlier agent default wrote a replaceable base collection in `data.db` against the explicit ephemeral requirement.
+- question: Where should the PocketBase-queryable projection live?
+- options considered: (1) ATTACH + view collection — impossible in SQLite; (2) ATTACH + per-connection TEMP VIEW shadowing — rejected as production hack; (3) durable base collection replaced on rebuild — rejected (not ephemeral); (4) process-private `:memory:` SQLite + Credimi-owned routes on the PocketBase collection URL, using `pocketbase/tools/search` for filter/sort/page; FE keeps `pb.collection('conformance_checks')`; no durable collection shell (codegen can stub types).
+- default risk: Option (4) means Credimi must keep the collection URL contract; Admin will not show a real collection; typegen must be patched/stubbed for the fake collection name.
+- decision: Option (4). Drop any `conformance_checks` collection shell. Serve list/get at `/api/collections/conformance_checks/records[/:id]`; reject writes. Rebuild fills `:memory:` only. Documented in `AGENTS.md` Dev Runtime and `pkg/conformancecatalog`.
+- follow-up: None — facets via suite-grain hub filters (#1402); suite display on suite projection (ADR-0002). Durable-shell cleanup removed 2026-09-23 (see update below).
+- update (2026-09-23): Removed in-branch durable-shell cleanup (`1790011000_*` migration + boot `dropCollectionShell`). No PB collection is created for the catalog; ephemeral `:memory:` + Credimi routes only. Historical main delete of the old real collection remains `1758704859_deleted_conformance_checks.js`.
+
 ### 2026-09-17 - Workflow timestamp presentation ownership
 
 - status: resolved
@@ -130,7 +267,6 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: Temporary implementation files may live beside the FCAF test YAML for now, under the test catalog folder, and must be deleted during implementation once consumed.
 - follow-up: Implementation agents must keep the temporary folder clearly named and remove it before finalizing production-ready FCAF catalog work unless the maintainer explicitly keeps it.
 
-
 ## 2026-08-30 — Scoreboard success-rate sparkline
 
 - **Question:** Should the public scoreboard success-rate column show a sparkline of execution trends?
@@ -146,6 +282,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - **Options considered:** Keep new formatter versions and regenerated schema (repo-owned entrypoints produce them); pin old formatters/suppress deprecations; hand-revert schema JSON.
 - **Default risk:** Formatting churn touches files outside the upgrade scope; the schema JSON change relaxes pipeline-schema validation for mdoc namespace objects; full `-race` suite now needs >10m.
 - **Owner:** puria — **Status:** open
+
 ### 2026-09-10 — Temporal callbacks behind Cloudflare WAF
 
 - status: resolved

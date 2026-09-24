@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Suite } from '$lib/conformance';
+
+import { titleForCheckPath } from '$lib/conformance';
 import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
 
 const OPENID_WALLET_CONFORMANCE_SUITE_PREFIXES = [
@@ -9,7 +12,8 @@ const OPENID_WALLET_CONFORMANCE_SUITE_PREFIXES = [
 	'openid4vp_wallet/1.0/openid_conformance_suite'
 ] as const;
 
-export function getTestName(test: string): string {
+export function getTestName(test: string, suite?: Pick<Suite, 'members'>): string {
+	if (suite) return titleForCheckPath(suite, test);
 	return getLastPathSegment(test);
 }
 

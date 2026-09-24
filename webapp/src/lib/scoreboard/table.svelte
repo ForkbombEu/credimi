@@ -51,6 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import HorizontalScrollArea from '@/components/ui-custom/horizontal-scroll-area.svelte';
 	import SearchInput from '@/components/ui-custom/search-input.svelte';
+	import SortHeaderPill from '@/components/ui-custom/sort-header-pill.svelte';
 	import Button from '@/components/ui/button/button.svelte';
 	import { FlexRender } from '@/components/ui/data-table/index.js';
 	import * as DropdownMenu from '@/components/ui/dropdown-menu/index.js';
@@ -63,7 +64,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import HeaderContextProvider from './columns/headers/header-context-provider.svelte';
 	import RowDetails from './row-details.svelte';
-	import SortHeaderPill from './sort-header-pill.svelte';
 
 	//
 

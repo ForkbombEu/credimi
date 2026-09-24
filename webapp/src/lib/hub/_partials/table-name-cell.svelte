@@ -18,24 +18,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		logo?: string;
 		name: string;
+		/** Muted secondary line under the name (e.g. suite provider). */
+		subtitle?: string;
 		textToCopy?: string;
 		href: string;
 		children?: Snippet;
 	};
 
-	let { logo, name, textToCopy, href, children }: Props = $props();
+	let { logo, name, subtitle, textToCopy, href, children }: Props = $props();
 </script>
 
 <div class="flex items-center gap-3">
 	<Avatar src={logo ?? ''} class="size-10 rounded-sm! border" fallback={name.slice(0, 2)} />
 
-	<div class="flex items-center gap-1">
-		<a href={resolve(localizeHref(href) as '/')} class="font-semibold hover:underline">
-			{name}
-		</a>
+	<div class="flex min-w-0 flex-col gap-0">
+		<div class="flex items-center gap-1">
+			<a href={resolve(localizeHref(href) as '/')} class="font-semibold hover:underline">
+				{name}
+			</a>
 
-		{#if textToCopy}
-			<CopyButtonSmall {textToCopy} />
+			{#if textToCopy}
+				<CopyButtonSmall {textToCopy} />
+			{/if}
+		</div>
+
+		{#if subtitle}
+			<span class="text-xs text-muted-foreground">{subtitle}</span>
 		{/if}
 	</div>
 

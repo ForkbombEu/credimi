@@ -1,4 +1,6 @@
-name: Relying Party
+name: FCAF
+subtitle: Functional Conformance Assessment
+provider: fcaf
 homepage: https://conformance.eudi.dev/
 repository: https://github.com/eu-digital-identity-wallet/eudi-doc-functional-conformance-assessment
 help: https://conformance.eudi.dev/latest/fcaf/using-fcaf/

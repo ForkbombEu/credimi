@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Standard, Suite, Version } from '$lib/standards';
+	import { titleForCheckPath, type Standard, type Suite, type Version } from '$lib/conformance';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref } from '@/i18n';
@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { standard, version, suite, test }: Props = $props();
 
-	const testName = $derived(test.split('/').at(-1)?.replaceAll('+', ' • '));
+	const testName = $derived(titleForCheckPath(suite, test));
 	const href = $derived(localizeHref(`/hub/conformance-checks/${test}`));
 </script>
 

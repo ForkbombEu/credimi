@@ -78,6 +78,32 @@ _Avoid_: Issuance, issuer-only wording that drops credentials when both are in s
 The Hub nested item under a verifier on the Verifiers / Use case verifications tab.
 _Avoid_: Use case (alone when the Hub entity is meant), verification use case (inverted label)
 
+## Conformance catalog
+
+**Conformance check**:
+One runnable catalog entry identified by a durable filesystem-shaped path (filesystem-axis standard/version/suite/stem). It carries title, browse/filter facets, and a product-axis projection; it does not own suite display metadata.
+_Avoid_: Blueprint row, template file (unless referring to the on-disk YAML), test (unless FCAF test id)
+
+**Conformance suite**:
+A suite under a product-axis standard×component×version, with authored display metadata (short title, optional subtitle, logo, links) and its member checks. The hub suite table browses product axes; nested pickers and hub detail group on filesystem axes so URLs stay path-stable. Checks are the leaves. Nest standard/version nodes are filesystem-axis labels (uid + display name), not carriers of authored standard.yaml / version.yaml metadata.
+_Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks, dual-fetching both projections on every hub layout, treating nest Standard/Version as authored catalog metadata, treating the suite title as the provider facet label
+
+**Provider**:
+The org/source facet identity for catalog browse filters. The durable wire value is a stable slug; the short human label is authored once in the provider registry and shown in compact UI (selects, chips).
+_Avoid_: Suite title, suite uid, using the provider slug as end-user copy
+
+**Product axis**:
+The normalized standard × component × version used to browse and filter the hub suite table and projected onto checks for facet filters. Same meaning on both catalog grains.
+_Avoid_: Filesystem path segment, nest uid (when meaning product); dual-fetching Product-axis suite table and Filesystem-axis nest on every hub layout
+
+**Filesystem axis**:
+The durable path segments (filesystem standard / filesystem version / suite, and suite path prefix) that keep hub URLs and nest trees path-stable. Same meaning on both catalog grains.
+_Avoid_: Product standard or version when meaning a path segment; unqualified “standard” for an FS dir
+
+**Catalog surface**:
+Which product UI may browse a Conformance suite: `manual` (start-checks) or `pipeline` (hub and pipeline pickers). Authored per suite; omit to show in both. It is a browse filter, not a runtime execution mode.
+_Avoid_: Pipeline editor manual mode, show_in_pipeline_gui, treating surface as a Temporal or workflow setting
+
 ## FCAF (wallet-solution relying-party)
 
 **FCAF assessment report**:

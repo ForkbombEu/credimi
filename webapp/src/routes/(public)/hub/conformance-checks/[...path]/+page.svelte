@@ -11,8 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	let { conformanceChecks, organization, ...rest } = $derived(data);
+	let { organization, ...rest } = $derived(data);
 </script>
 
 {#if rest.type === 'collection-page'}

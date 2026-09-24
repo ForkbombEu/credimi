@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { StandardsWithTestSuites } from '$lib/standards';
+import type { NestStandards } from '$lib/conformance';
 
 import { getChecksConfigsFields } from '$start-checks-form/_utils';
 import { String } from 'effect';
@@ -18,7 +18,7 @@ export type SelectChecksSubmitData = {
 };
 
 export type SelectChecksFormProps = {
-	standards: StandardsWithTestSuites;
+	standards: NestStandards;
 	onSubmit: (data: SelectChecksSubmitData) => void | Promise<void>;
 };
 
@@ -64,12 +64,12 @@ export class SelectChecksForm {
 	availableSuites = $derived(this.selectedVersion?.suites ?? []);
 
 	availableSuitesWithTests = $derived(
-		this.availableSuites.filter((suite) => suite.files.length > 0)
+		this.availableSuites.filter((suite) => suite.members.length > 0)
 	);
 	selectedSuites = $state<string[]>([]);
 
 	availableSuitesWithoutTests = $derived(
-		this.availableSuites.filter((suite) => suite.files.length === 0)
+		this.availableSuites.filter((suite) => suite.members.length === 0)
 	);
 	selectedTests = $state<string[]>([]);
 

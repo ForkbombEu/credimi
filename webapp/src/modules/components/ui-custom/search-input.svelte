@@ -52,14 +52,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{...restProps}
 	/>
 	{#if value}
-		<div class="absolute top-0 right-0 p-1">
-			<IconButton
-				icon={XIcon}
-				variant="ghost"
-				size="sm"
-				aria-label={m.Clear()}
-				onclick={clear}
-			/>
-		</div>
+		<IconButton
+			icon={XIcon}
+			variant="ghost"
+			size="xs"
+			class="!absolute top-1 right-1 !size-7"
+			aria-label={m.Clear()}
+			onclick={clear}
+		/>
 	{/if}
 </div>

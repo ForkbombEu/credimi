@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { createQuery } from '@tanstack/svelte-query';
 	import { ChevronRightIcon } from '@lucide/svelte';
 	import { FCAF } from '$lib';
 
@@ -16,34 +17,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let search = $state('');
 	let openGroups = $state<Record<string, boolean>>({});
 
+	const testsQuery = createQuery(() => ({
+		queryKey: ['conformance-checks', 'fcaf', 'hub'] as const,
+		queryFn: async () => {
+			const result = await FCAF.getFcafTests({ surface: 'pipeline' });
+			if (result instanceof Error) throw result;
+			return result;
+		}
+	}));
+
 	const searching = $derived(search.trim() !== '');
 
 	const groups: FCAF.CatalogCategoryGroup[] = $derived.by(() => {
+		const tests = testsQuery.data ?? [];
 		const query = search.trim().toLowerCase();
-		const all = FCAF.groupAllTests();
-		if (!query) return all;
-		return all
-			.map((group) => ({
-				...group,
-				tests: group.tests.filter(
+		const filtered = query
+			? tests.filter(
 					(test) =>
 						test.id.toLowerCase().includes(query) ||
-						test.title.toLowerCase().includes(query) ||
-						test.section.toLowerCase().includes(query)
-				),
-				groups: group.groups
-					.map((subgroup) => ({
-						...subgroup,
-						tests: subgroup.tests.filter(
-							(test) =>
-								test.id.toLowerCase().includes(query) ||
-								test.title.toLowerCase().includes(query) ||
-								test.section.toLowerCase().includes(query)
-						)
-					}))
-					.filter((subgroup) => subgroup.tests.length > 0)
-			}))
-			.filter((group) => group.tests.length > 0);
+						test.title.toLowerCase().includes(query)
+				)
+			: tests;
+		return FCAF.groupCatalogTests(filtered);
 	});
 
 	const totalTests = $derived(groups.reduce((sum, group) => sum + group.tests.length, 0));
@@ -63,6 +58,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 	<div class="flex items-center justify-between gap-2 border-b px-3 py-2">
 		<span class="text-xs text-muted-foreground">{totalTests} {m.Tests()}</span>
+		{#if testsQuery.isPending}
+			<span class="text-xs text-muted-foreground">{m.Loading()}</span>
+		{:else if testsQuery.isError}
+			<span class="text-xs text-destructive">{m.Error()}</span>
+		{/if}
 	</div>
 	<div class="max-h-96 space-y-1 overflow-y-auto p-1">
 		{#each groups as group (group.key)}

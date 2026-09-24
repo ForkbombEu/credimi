@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Suite } from '$lib/standards';
+	import type { Suite } from '$lib/conformance';
 
 	import { ArrowRight, GitBranch, HelpCircle, Home } from '@lucide/svelte';
 	import SectionCard from '$lib/layout/section-card.svelte';
@@ -57,34 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					title={m.Test_suites()}
 					subtitle={m.Select_official_test_suites_subtitle()}
 					removeFlexRestrictions
-					headerHasFlexWrap
 				>
-					{#snippet headerActions()}
-						<div class="flex flex-wrap gap-2">
-							{#if form.selectedStandard?.standard_url}
-								<LinkExternal
-									href={form.selectedStandard.standard_url}
-									text="{form.selectedStandard.name} {m.Standard()}"
-									icon={HelpCircle}
-									title={m.Learn_about_standard({
-										name: form.selectedStandard.name
-									})}
-								/>
-							{/if}
-
-							{#if form.selectedVersion?.specification_url}
-								<LinkExternal
-									href={form.selectedVersion.specification_url}
-									text="{form.selectedVersion.name} {m.Spec()}"
-									icon={GitBranch}
-									title={m.View_specification({
-										name: form.selectedVersion.name
-									})}
-								/>
-							{/if}
-						</div>
-					{/snippet}
-
 					{#if form.availableSuitesWithoutTests.length > 0}
 						{@render SuitesWithoutTestsSelect()}
 					{/if}
@@ -106,24 +79,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<RadioGroup.Root bind:value={form.selectedStandardId} class="!gap-0" required>
 		{#each form.availableStandards as option (option.uid)}
 			{@const selected = form.selectedStandardId === option.uid}
-			{@const disabled = option.disabled}
 
 			<Label
 				class={[
 					'flex w-full flex-col items-start! justify-start! border-b-2 p-4 text-left! md:w-[400px]',
 					{
 						'border-b-primary bg-secondary ': selected,
-						'cursor-pointer border-b-transparent hover:bg-secondary/35':
-							!selected && !disabled,
-						'cursor-not-allowed border-b-transparent opacity-50': disabled
+						'cursor-pointer border-b-transparent hover:bg-secondary/35': !selected
 					}
 				]}
 			>
 				<div class="flex items-center gap-2">
-					<RadioGroup.Item value={option.uid} id={option.uid} {disabled} />
+					<RadioGroup.Item value={option.uid} id={option.uid} />
 					<span class="text-lg font-bold">{option.name}</span>
 				</div>
-				<p class="text-sm text-muted-foreground">{option.description}</p>
 			</Label>
 		{/each}
 	</RadioGroup.Root>
@@ -173,11 +142,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<div class="w-full space-y-3 overflow-auto">
 					{#if suite.uid === OPENID_SUITE_UID && form.selectedStandardId === OPENID_WALLETVP_STANDARD_ID}
-						<OpenidSuiteTable suiteFiles={suite.files} suiteUid={suite.uid} />
+						<OpenidSuiteTable
+							suiteFiles={suite.members.map((m) => m.file)}
+							suiteUid={suite.uid}
+						/>
 					{:else}
-						{#each suite.files as fileId (fileId)}
-							{@const value = `${suite.uid}/${fileId}`}
-							{@const label = fileId.split('.').slice(0, -1).join('.')}
+						{#each suite.members as member (member.path)}
+							{@const value = `${suite.uid}/${member.file}`}
+							{@const label =
+								member.title || member.file.split('.').slice(0, -1).join('.')}
 							<Label class="flex items-center gap-2  font-mono text-xs">
 								<Checkbox {value} />
 								<span>{label}</span>

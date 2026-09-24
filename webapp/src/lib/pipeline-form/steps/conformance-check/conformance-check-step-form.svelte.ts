@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { HubItem } from '$lib/hub';
+import type { NestStandards } from '$lib/conformance';
 
 import { createQuery } from '@tanstack/svelte-query';
+import { Conformance } from '$lib';
 import { queryClient } from '$lib/query-client';
-import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { getPath } from '$lib/utils';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
 import { tick } from 'svelte';
@@ -30,11 +31,9 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	standardsWithTestSuites = createQuery(
 		() => ({
-			queryKey: ['standards-with-test-suites', 'pipeline'] as const,
+			queryKey: ['conformance-checks', 'pipeline'] as const,
 			queryFn: async () => {
-				const result = await getStandardsWithTestSuites({ surface: 'pipeline' });
-				if (result instanceof Error) throw result;
-				return result;
+				return Conformance.Standards.Store.load({ surface: 'pipeline' });
 			}
 		}),
 		queryClientAccessor
@@ -113,7 +112,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 
 	availableVersions = $derived(this.data.standard?.versions ?? []);
 	availableSuites = $derived(this.data.version?.suites ?? []);
-	availableTests = $derived(this.data.suite?.paths ?? []);
+	availableTests = $derived(this.data.suite?.members.map((m) => m.path) ?? []);
 
 	hasWalletTests = $derived(this.availableTests.some((test) => isOpenIdWalletTest(test)));
 
@@ -145,7 +144,11 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 		return { kind: 'none' };
 	});
 
-	selectedTestName = $derived(this.data.test ? getTestName(this.data.test) : '');
+	selectedTestName = $derived(
+		this.data.test
+			? getTestName(this.data.test, this.data.suite ?? undefined)
+			: ''
+	);
 
 	testOptions: TestOption[] = $derived.by(() => {
 		const wallet = this.getExecutionTarget()?.wallet;
@@ -156,7 +159,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 				getWalletTestBlockReason(wallet, this.walletActions));
 
 		return this.availableTests.map((test) => {
-			const testName = getTestName(test);
+			const testName = getTestName(test, this.data.suite ?? undefined);
 
 			if (!isOpenIdWalletTest(test)) {
 				return { test, testName, enabled: true };
@@ -290,10 +293,10 @@ export type FormState =
 
 //
 
-type Standard = StandardsWithTestSuites[number];
+type Standard = NestStandards[number];
 type Version = Standard['versions'][number];
 type Suite = Version['suites'][number];
-type Test = Suite['paths'][number];
+type Test = Suite['members'][number]['path'];
 
 export function getWalletTestBlockReason(
 	wallet: HubItem | undefined,

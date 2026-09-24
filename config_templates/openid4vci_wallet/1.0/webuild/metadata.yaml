@@ -1,4 +1,8 @@
-name: WEBUILD Interoperability Test Bed
+name: WEBUILD
+subtitle: Interoperability Test Bed
+protocol: openid4vci
+role: wallet
+provider: webuild
 homepage: https://nxd.foundation/
 repository: https://github.com/NXD-Foundation
 description: This is the WEBUILD Interoperability Test Bed (ITB) and implements the conformance towards WE BUILD v1.0; build towards the Large Scale Pilot (LSP) usecases. The project is co-funded by the European Union.

@@ -174,6 +174,16 @@ Persistence:
 - PocketBase SQLite data lives in `pb_data/`.
 - Dev Temporal state also uses local project data/infrastructure and must be treated as disposable dev state.
 
+Conformance catalog refresh:
+
+- Filesystem under `config_templates` is the durable SoT.
+- Query cache is a process-private `:memory:` SQLite DB (not rows in `pb_data`).
+- Clients use the PocketBase URL shapes `/api/collections/conformance_checks/records` (check grain) and `/api/collections/conformance_suites/records` (suite grain; display metadata lives here — title/`suite_name`, optional `suite_subtitle`, logo/URLs; provider short labels from `config_templates/providers.yaml` as `provider_label` — see `docs/adr/0002-suite-grain-owns-catalog-display-metadata.md` and `docs/adr/0011-suite-title-subtitle-and-provider-labels.md`). Credimi owns those routes and runs filter/sort/pagination via `pocketbase/tools/search`. There is no durable `conformance_checks` or `conformance_suites` collection shell in `data.db` (and no migration that creates one).
+- Auth posture: list/get on both fake collection URLs are public (`AuthenticationRequired: false`), matching the former public blueprints/hub listing. Writes are rejected. Rebuild requires `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY`.
+- Boot rebuild: starting the API process rebuilds the ephemeral `:memory:` query cache (sole live projection; see `docs/adr/0001-ephemeral-catalog-sole-projection.md`).
+- Webapp typegen: `generate:collections-models` injects synthetic collection stubs from Go-emitted `columns.ts` (`pbType` included; no Kind remap); after `pocketbase-typegen`, `generate:catalog-pb-types` injects/upserts `conformance_checks` / `conformance_suites` into `CollectionRecords` / `CollectionResponses` (they are not in `data.db`). Client-column FE wire refresh: `make generate-catalog-wire` (see `docs/adr/0005-catalog-client-column-emit-owns-pb-type.md`).
+- Manual refresh after local template edits: `POST /api/conformance-catalog/rebuild` with `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` (same internal admin key as other Temporal-trusted routes). Package entrypoint: `pkg/conformancecatalog`.
+
 Key environment variables:
 
 - `TEMPORAL_ADDRESS`: Temporal host and port.
@@ -182,7 +192,7 @@ Key environment variables:
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`: disables the mobile-runner semaphore path when configured.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: mobile-runner queue wait timeout.
 - `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`: how recent a runner heartbeat must be for its devices to be offered in catalog selectors (default 60s).
-- `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities and internal result posting.
+- `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities, internal result posting, and `POST /api/conformance-catalog/rebuild`.
 - `CREDIMI_INTERNAL_APP_URL`: deployment-local Temporal-worker-to-Credimi base URL; callback consumers prefer it while persisted `app_url` remains public. It must be provisioned wherever workers execute.
 
 Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.

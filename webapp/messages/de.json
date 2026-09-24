@@ -1033,5 +1033,11 @@
 	"Failed_to_enable_pipeline_notifications": "Pipeline-Benachrichtigungen konnten nicht aktiviert werden",
 	"Failed_to_disable_pipeline_notifications": "Pipeline-Benachrichtigungen konnten nicht deaktiviert werden",
 	"Notifications_blocked_hint": "Benachrichtigungen sind für diese Website blockiert. Aktiviere sie in den Website-Einstellungen des Browsers erneut.",
-	"Push_notifications_unsupported": "Dieser Browser unterstützt keine Push-Benachrichtigungen."
+	"Push_notifications_unsupported": "Dieser Browser unterstützt keine Push-Benachrichtigungen.",
+	"Protocol": "Protokoll",
+	"SUT": "SUT",
+	"Role": "Rolle",
+	"Component": "Komponente",
+	"Provider": "Anbieter",
+	"Clear_filters": "Filter zurücksetzen"
 }

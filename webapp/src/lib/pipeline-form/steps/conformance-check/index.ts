@@ -62,40 +62,31 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 	makeId: ({ check_id }) => getLastPathSegment(check_id),
 
 	deserialize: async ({ check_id, parameters }) => {
-		const chunks = check_id.split('/');
-		if (chunks.length !== 4) throw new Error(m.Pipeline_form_invalid_check_id());
-
-		const [standardUid, versionUid, suiteUid, test] = chunks;
-		const conformanceChecksResponse = await Conformance.listAll({
+		const resolved = await Conformance.Standards.resolveCheckPath(check_id, {
 			surface: 'pipeline'
 		});
-		if (conformanceChecksResponse.isErr) throw conformanceChecksResponse.error;
-
-		const standard = conformanceChecksResponse.value.find(
-			(standard) => standard.uid === standardUid
-		);
-		const version = standard?.versions.find((version) => version.uid === versionUid);
-		const suite = version?.suites.find((suite) => suite.uid === suiteUid);
-
-		if (!standard || !version || !suite)
+		if (!resolved) {
+			const chunks = check_id.split('/');
+			if (chunks.length !== 4) throw new Error(m.Pipeline_form_invalid_check_id());
 			throw new Error(m.Pipeline_form_standard_version_or_suite_not_found());
+		}
 
 		return {
-			standard,
-			version,
-			suite,
-			test,
+			standard: resolved.standard,
+			version: resolved.version,
+			suite: resolved.suite,
+			test: resolved.test,
 			action_id: typeof parameters?.action_id === 'string' ? parameters.action_id : undefined
 		};
 	},
 
 	cardData: ({ suite, test, standard }) => {
-		const testPath = suite.paths.find((path) => path.endsWith(test));
+		const testPath = suite.members.find((m) => m.path.endsWith(test))?.path;
 		if (testPath === undefined) {
 			throw new Error(m.Pipeline_form_conformance_check_path_not_found());
 		}
 		return {
-			title: getTestName(test),
+			title: getTestName(test, suite),
 			copyText: test,
 			avatar: suite.logo,
 			meta: {

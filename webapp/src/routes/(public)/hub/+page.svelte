@@ -5,11 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { SuiteBrowse } from '$lib/conformance';
 	import { baseSections, entities } from '$lib/global';
 	import { HubItemCard, resolveHubSearchQuery } from '$lib/hub';
+	import SuiteFacetFilters from '$lib/hub/_partials/suite-facet-filters.svelte';
 	import ConformanceChecksTable from '$lib/hub/conformance-checks-table.svelte';
 	import HubTable from '$lib/hub/hub-table.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import { Debounced } from 'runed';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -19,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionManager } from '@/collections-components/manager/collectionManager.svelte.js';
 	import PublicPageHeader from '@/components/layout/public-page-header.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import SearchInput from '@/components/ui-custom/search-input.svelte';
 	import { m } from '@/i18n';
 
 	//
@@ -44,10 +48,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let manager: CollectionManager<'hub_items'> | undefined;
 
+	/** Suite-tab search; debounced like CollectionManager hub search (500ms). */
+	let suiteSearchText = $state('');
+	const debouncedSuiteSearch = new Debounced(() => suiteSearchText, 500);
+
+	const suiteBrowse = new SuiteBrowse({
+		surface: 'pipeline',
+		get initialSuites() {
+			return data.conformanceSuites;
+		},
+		get search() {
+			return debouncedSuiteSearch.current;
+		}
+	});
+
 	const nestedSearchFields = [
 		'name',
 		'children_search'
 	] as PocketbaseQueryOptions<'hub_items'>['searchFields'];
+
+	/** View columns not yet in generated HubItemsRecord (migrations #1408 / #1412). */
+	const nestedHubSort = [
+		['children_count', 'DESC'],
+		['name', 'ASC']
+	] as PocketbaseQueryOptions<'hub_items'>['sort'];
 
 	const queryOptions: PocketbaseQueryOptions<'hub_items'> = $derived.by(() => {
 		switch (params.tab) {
@@ -57,19 +81,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return {
 					filter: `type = 'credential_issuers'`,
 					searchFields: nestedSearchFields,
-					sort: [
-						['children_count', 'DESC'],
-						['name', 'ASC']
-					]
+					sort: nestedHubSort
 				};
 			case 'verifiers-and-use-case-verifications':
 				return {
 					filter: `type = 'verifiers'`,
 					searchFields: nestedSearchFields,
-					sort: [
-						['children_count', 'DESC'],
-						['name', 'ASC']
-					]
+					sort: nestedHubSort
 				};
 			case 'custom-integrations':
 				return { filter: `type = 'custom_checks'` };
@@ -91,103 +109,140 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
+	const isFirstTab = $derived(params.tab === sections[0]?.slug);
+	const isLastTab = $derived(params.tab === sections[sections.length - 1]?.slug);
+
 	$effect(() => {
-		if (manager && params.tab) {
-			manager.query.clearSearch();
-		}
+		if (params.tab === 'conformance-checks') return;
+		manager?.query.clearSearch();
 	});
 </script>
 
-<CollectionManagerComponent
-	collection="hub_items"
-	queryOptions={{ perPage: 25, searchFields: ['name'], ...queryOptions }}
-	hide={['pagination']}
-	emptyStateClassName="rounded-t-none border-0 bg-background"
-	onMount={(m) => {
-		manager = m as CollectionManager<'hub_items'>;
-	}}
->
-	{#snippet top({ Search })}
-		<div class="bg-secondary pb-0">
-			<div class="mx-auto max-w-7xl px-4 md:px-8">
-				<PublicPageHeader
-					entity="hub"
-					description={m.Explore_the_hub_and_try_credentials_wallets_and_services()}
-				/>
+<div class="bg-secondary pb-0">
+	<div class="mx-auto max-w-7xl px-4 md:px-8">
+		<PublicPageHeader
+			entity="hub"
+			description={m.Explore_the_hub_and_try_credentials_wallets_and_services()}
+		/>
 
-				<div
-					class="mb-8 flex flex-col gap-2 overflow-auto md:mb-0 md:flex-row md:items-stretch md:gap-0"
+		<div
+			class="mb-4 flex flex-col gap-2 overflow-auto sm:grid sm:grid-cols-2 sm:gap-2 lg:mb-0 lg:flex lg:flex-row lg:items-stretch lg:gap-0"
+		>
+			{#each sections as tab (tab.slug)}
+				{@const isActive = params.tab === tab.slug}
+				<button
+					class={[
+						'group cursor-pointer rounded-md lg:rounded-t-md lg:rounded-b-none lg:p-2',
+						'flex items-stretch',
+						{
+							'bg-white text-primary': isActive,
+							'shadow-md lg:shadow-none': isActive
+						}
+					]}
+					onclick={() => {
+						params.tab = tab.slug;
+						suiteSearchText = '';
+						suiteBrowse.clearFilters();
+					}}
 				>
-					{#each sections as tab (tab.slug)}
-						{@const isActive = params.tab === tab.slug}
-						<button
-							class={[
-								'group rounded-md md:rounded-t-md md:rounded-b-none md:p-2',
-								'flex items-stretch',
-								{
-									'bg-white text-primary': isActive,
-									'shadow-md md:shadow-none': isActive
-								}
-							]}
-							onclick={() => (params.tab = tab.slug)}
-						>
-							<div
-								class={[
-									'rounded-lg px-3 py-2 text-left leading-snug',
-									'flex grow items-center gap-2',
-									{
-										'bg-primary/10 group-hover:bg-primary/20': !isActive
-									}
-								]}
-							>
-								<Icon src={tab.icon} class={[tab.classes.text, 'shrink-0']} />
-								<div>
-									{tab.labels.plural}
-								</div>
-							</div>
-						</button>
-					{/each}
+					<div
+						class={[
+							'rounded-lg px-3 py-2 text-left leading-snug',
+							'flex grow items-center gap-2',
+							{
+								'bg-primary/10 group-hover:bg-primary/20': !isActive
+							}
+						]}
+					>
+						<Icon src={tab.icon} class={[tab.classes.text, 'shrink-0']} />
+						<div>
+							{tab.labels.plural}
+						</div>
+					</div>
+				</button>
+			{/each}
+		</div>
+
+		{#if params.tab === 'conformance-checks'}
+			<div
+				class={[
+					'rounded-t-md bg-white px-4 pt-4 pb-6',
+					{
+						'lg:rounded-tl-none': isFirstTab,
+						'lg:rounded-tr-none': isLastTab
+					}
+				]}
+			>
+				<div class="space-y-3">
+					<SearchInput bind:value={suiteSearchText} />
+					<SuiteFacetFilters browse={suiteBrowse} />
 				</div>
-
-				{#if params.tab !== 'conformance-checks'}
-					<div class="rounded-t-md bg-white px-4 pt-4 pb-6 md:rounded-t-none">
-						<Search placeholder={searchPlaceholder} />
-					</div>
-				{/if}
-			</div>
-		</div>
-	{/snippet}
-
-	{#snippet contentWrapper(children)}
-		<div class="min-h-[300px] grow bg-secondary">
-			<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
-				{#if params.tab === 'conformance-checks'}
-					<div class="rounded-lg rounded-tr-none bg-white pt-4">
-						<ConformanceChecksTable standardsWithTestSuites={data.conformanceChecks} />
-					</div>
-				{:else}
-					{@render children()}
-				{/if}
-			</div>
-		</div>
-	{/snippet}
-
-	{#snippet records({ records, Pagination, manager: recordsManager })}
-		{@const searchQuery = resolveHubSearchQuery(recordsManager.query.getMergedOptions().search)}
-		{#if params.mode === 'cards' && params.tab !== 'conformance-checks'}
-			<div class="space-y-4">
-				<PageGrid>
-					{#each records as record (record.id)}
-						<HubItemCard item={record} />
-					{/each}
-				</PageGrid>
-				<Pagination />
-			</div>
-		{:else}
-			<div in:fly={{ y: 10 }} class="space-y-4 rounded-b-md">
-				<HubTable {records} {searchQuery} />
-				<Pagination />
 			</div>
 		{/if}
-	{/snippet}
-</CollectionManagerComponent>
+	</div>
+</div>
+
+{#if params.tab === 'conformance-checks'}
+	<div class="min-h-[300px] grow bg-secondary">
+		<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
+			<div class="rounded-b-lg bg-white">
+				<ConformanceChecksTable browse={suiteBrowse} search={debouncedSuiteSearch.current} />
+			</div>
+		</div>
+	</div>
+{:else}
+	<CollectionManagerComponent
+		collection="hub_items"
+		queryOptions={{ perPage: 25, searchFields: ['name'], ...queryOptions }}
+		hide={['pagination']}
+		emptyStateClassName="rounded-t-none border-0 bg-background"
+		onMount={(m) => {
+			manager = m as CollectionManager<'hub_items'>;
+		}}
+	>
+		{#snippet top({ Search })}
+			<div class="bg-secondary pb-0">
+				<div class="mx-auto max-w-7xl px-4 md:px-8">
+					<div
+						class={[
+							'rounded-t-md bg-white px-4 pt-4 pb-6',
+							{
+								'lg:rounded-tl-none': isFirstTab,
+								'lg:rounded-tr-none': isLastTab
+							}
+						]}
+					>
+						<Search placeholder={searchPlaceholder} />
+					</div>
+				</div>
+			</div>
+		{/snippet}
+
+		{#snippet contentWrapper(children)}
+			<div class="min-h-[300px] grow bg-secondary">
+				<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
+					{@render children()}
+				</div>
+			</div>
+		{/snippet}
+
+		{#snippet records({ records, Pagination, manager: recordsManager })}
+			{@const searchQuery = resolveHubSearchQuery(recordsManager.query.getMergedOptions().search)}
+			{#if params.mode === 'cards'}
+				<div class="space-y-4">
+					<PageGrid>
+						{#each records as record (record.id)}
+							<HubItemCard item={record} />
+						{/each}
+					</PageGrid>
+					<Pagination />
+				</div>
+			{:else}
+				<div in:fly={{ y: 10 }} class="space-y-4 rounded-b-md">
+					<HubTable {records} {searchQuery} />
+					<Pagination />
+				</div>
+			{/if}
+		{/snippet}
+	</CollectionManagerComponent>
+{/if}

@@ -5,13 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { X } from '@lucide/svelte';
-	import { String } from 'effect';
 	import { Debounced } from 'runed';
 
-	import Button from '@/components/ui-custom/button.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { Input } from '@/components/ui/input';
+	import SearchInput from '@/components/ui-custom/search-input.svelte';
 	import { m } from '@/i18n';
 
 	import { getCollectionManagerContext } from './collectionManagerContext';
@@ -42,18 +38,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="relative flex {containerClass}">
-	<Input bind:value={searchText} {placeholder} class={className} />
-	{#if String.isString(searchText)}
-		<Button
-			onclick={() => {
-				manager.query.clearSearch();
-				searchText = '';
-			}}
-			class="absolute top-1 right-1 size-7"
-			variant="ghost"
-		>
-			<Icon src={X} size="" />
-		</Button>
-	{/if}
-</div>
+<SearchInput
+	bind:value={searchText}
+	{placeholder}
+	class={containerClass}
+	inputClass={className}
+	onclear={() => {
+		manager.query.clearSearch();
+		searchText = '';
+	}}
+/>

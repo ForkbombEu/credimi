@@ -1,0 +1,67 @@
+// SPDX-FileCopyrightText: 2026 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { describe, expect, it } from 'vitest';
+
+import type { Standard } from '../types';
+
+import { resolveCheckPathFromNest } from './resolve-check-path';
+
+const nest: Standard[] = [
+	{
+		uid: 'fcaf',
+		name: 'FCAF',
+		versions: [
+			{
+				uid: 'v1',
+				name: 'v1',
+				suites: [
+					{
+						uid: 'rp',
+						name: 'RP',
+						homepage: '',
+						repository: '',
+						help: '',
+						description: '',
+						logo: 'logo.svg',
+						members: [{ path: 'fcaf/v1/rp/t1.yaml', title: 'T1', file: 't1.yaml' }]
+					}
+				]
+			}
+		]
+	}
+];
+
+describe('resolveCheckPathFromNest', () => {
+	it('returns nest nodes for a three-segment suite path', () => {
+		const resolved = resolveCheckPathFromNest(nest, 'fcaf/v1/rp');
+		expect(resolved).toEqual({
+			standard: nest[0],
+			version: nest[0].versions[0],
+			suite: nest[0].versions[0].suites[0]
+		});
+		expect(resolved).not.toHaveProperty('file');
+	});
+
+	it('returns nest nodes plus file for a four-segment check path', () => {
+		const resolved = resolveCheckPathFromNest(nest, 'fcaf/v1/rp/t1');
+		expect(resolved).toEqual({
+			standard: nest[0],
+			version: nest[0].versions[0],
+			suite: nest[0].versions[0].suites[0],
+			file: 't1'
+		});
+	});
+
+	it('returns null for fewer than three segments', () => {
+		expect(resolveCheckPathFromNest(nest, 'fcaf/v1')).toBeNull();
+		expect(resolveCheckPathFromNest(nest, 'fcaf')).toBeNull();
+		expect(resolveCheckPathFromNest(nest, '')).toBeNull();
+	});
+
+	it('returns null when a nest node is missing', () => {
+		expect(resolveCheckPathFromNest(nest, 'fcaf/v1/missing')).toBeNull();
+		expect(resolveCheckPathFromNest(nest, 'fcaf/v1/missing/t1')).toBeNull();
+	});
+});

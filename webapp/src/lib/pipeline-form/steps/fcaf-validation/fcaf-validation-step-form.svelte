@@ -36,8 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			? form.availableTests.filter(
 					(test) =>
 						test.id.toLowerCase().includes(query) ||
-						test.title.toLowerCase().includes(query) ||
-						test.section.toLowerCase().includes(query)
+						test.title.toLowerCase().includes(query)
 				)
 			: form.availableTests;
 

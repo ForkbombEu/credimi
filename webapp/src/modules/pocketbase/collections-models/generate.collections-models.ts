@@ -11,6 +11,11 @@ import path from 'node:path';
 import { type CollectionModel } from 'pocketbase';
 
 import {
+	CHECK_CLIENT_COLUMN_SPECS,
+	SUITE_CLIENT_COLUMN_SPECS,
+	type CatalogColumnPbType
+} from '../../../lib/conformance/columns.js';
+import {
 	EXPORT_TYPE,
 	formatCode,
 	GENERATED,
@@ -91,6 +96,11 @@ async function getCollectionsFromDb(): Promise<CollectionModel[]> {
 
 async function main() {
 	const models = await getCollectionsFromDb();
+	// Synthetic: Credimi owns /api/collections/conformance_checks/* and
+	// /api/collections/conformance_suites/* from an ephemeral :memory: cache;
+	// there is no durable data.db collection.
+	injectSyntheticConformanceChecks(models);
+	injectSyntheticConformanceSuites(models);
 
 	/* Codegen */
 
@@ -137,6 +147,63 @@ import type { SetFieldType, Simplify } from 'type-fest';
 main().catch(console.error);
 
 /* Helper functions */
+
+/** Stub so CollectionName includes the fake catalog URL collection after typegen. */
+function injectSyntheticConformanceChecks(models: CollectionModel[]): void {
+	if (models.some((m) => m.name === 'conformance_checks')) return;
+
+	models.push({
+		id: 'pbc_conformance_checks_catalog',
+		name: 'conformance_checks',
+		type: 'base',
+		system: false,
+		fields: fieldsFromClientColumns('conformance_checks', CHECK_CLIENT_COLUMN_SPECS)
+	} as CollectionModel);
+}
+
+/** Stub so CollectionName includes the fake suites catalog URL collection. */
+function injectSyntheticConformanceSuites(models: CollectionModel[]): void {
+	if (models.some((m) => m.name === 'conformance_suites')) return;
+
+	models.push({
+		id: 'pbc_conformance_suites_catalog',
+		name: 'conformance_suites',
+		type: 'base',
+		system: false,
+		fields: fieldsFromClientColumns('conformance_suites', SUITE_CLIENT_COLUMN_SPECS)
+	} as CollectionModel);
+}
+
+type ClientColumnSpec = {
+	readonly name: string;
+	readonly optional: boolean;
+	readonly pbType: CatalogColumnPbType;
+};
+
+/** Stitch Go-emitted pbType into synthetic CollectionModel fields (no Kind map). */
+function fieldsFromClientColumns(
+	collection: string,
+	columns: readonly ClientColumnSpec[]
+): CollectionField[] {
+	return columns.map((col) => {
+		if (col.name === 'id') {
+			return {
+				id: `${collection}_id`,
+				name: 'id',
+				type: 'text',
+				system: true,
+				required: true
+			};
+		}
+		return {
+			id: `${collection}_${col.name}`,
+			name: col.name,
+			type: col.pbType,
+			system: false,
+			required: !col.optional
+		};
+	});
+}
 
 function sanitizeCollectionsModels(models: CollectionModel[]) {
 	// Hiding API rules to reduce leaked information
