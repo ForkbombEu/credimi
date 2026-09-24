@@ -46,6 +46,52 @@ func (SDJWTClaimPresentValidator) Validate(_ context.Context, input Input) Resul
 	return Result{Status: StatusPass, Message: fmt.Sprintf("claim %q is present", claim)}
 }
 
+// SDJWTClaimPresenceValidator asserts either presence or absence of a claim,
+// so a test whose requirement is that a claim was never issued can state that
+// directly instead of relying on a neighbouring positive assertion.
+type SDJWTClaimPresenceValidator struct{}
+
+func (SDJWTClaimPresenceValidator) ID() string { return "sdjwt.claim_presence" }
+
+func (SDJWTClaimPresenceValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Claim   string `json:"claim"`
+		Present bool   `json:"present"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Claim == "" {
+		return Result{Status: StatusError, Message: "claim param is required"}
+	}
+	if _, ok := input.Params["present"]; !ok {
+		return Result{Status: StatusError, Message: "present param is required"}
+	}
+	if _, ok := sdjwtPresentation(input.Value); !ok {
+		if _, ok := input.Value.(map[string]any); !ok {
+			return Result{
+				Status:  StatusFail,
+				Message: "evidence does not contain an SD-JWT presentation",
+			}
+		}
+	}
+	_, found := sdjwtClaim(input.Value, params.Claim)
+	expectation := "absent"
+	if params.Present {
+		expectation = "present"
+	}
+	if found != params.Present {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("claim %q is not %s", params.Claim, expectation),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("claim %q is %s", params.Claim, expectation),
+	}
+}
+
 type SDJWTClaimTypeValidator struct{}
 
 func (SDJWTClaimTypeValidator) ID() string { return "sdjwt.claim_type" }
@@ -343,6 +389,53 @@ func (SDJWTKeyBindingMatchesCNFValidator) ID() string { return "sdjwt.key_bindin
 type SDJWTKBJWTPresentValidator struct{}
 
 func (SDJWTKBJWTPresentValidator) ID() string { return "sdjwt.kb_jwt_present" }
+
+// SDJWTKBJWTAlgorithmEqualsValidator verifies the precise JOSE algorithm
+// emitted by a Wallet fixture after the KB-JWT structural checks succeed.
+type SDJWTKBJWTAlgorithmEqualsValidator struct{}
+
+func (SDJWTKBJWTAlgorithmEqualsValidator) ID() string {
+	return "sdjwt.kb_jwt_algorithm_equals"
+}
+
+func (SDJWTKBJWTAlgorithmEqualsValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Algorithm string `json:"algorithm"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Algorithm == "" {
+		return Result{Status: StatusError, Message: "algorithm is required"}
+	}
+	presentations, ok := sdjwtPresentations(input.Value)
+	if !ok || len(presentations) == 0 {
+		return Result{Status: StatusFail, Message: "SD-JWT presentation evidence is missing"}
+	}
+	for index, presentation := range presentations {
+		result := validateSDJWTKBJWTStructure(presentation)
+		if result.Status != StatusPass {
+			result.Message = fmt.Sprintf("presentation[%d]: %s", index, result.Message)
+			return result
+		}
+		algorithm, _ := result.Details["alg"].(string)
+		if algorithm != params.Algorithm {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"presentation[%d] KB-JWT alg is %q, expected %q",
+					index,
+					algorithm,
+					params.Algorithm,
+				),
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("all KB-JWTs use %q", params.Algorithm),
+	}
+}
 
 func (SDJWTKBJWTPresentValidator) Validate(_ context.Context, input Input) Result {
 	presentations, ok := sdjwtPresentations(input.Value)
@@ -850,6 +943,13 @@ func sdjwtPresentation(value any) (*evidence.SDJWTPresentation, bool) {
 		}
 		presentation, err = evidence.ParseSDJWTVPTokenJSON(typed)
 		return presentation, err == nil
+	case map[string]any:
+		encoded, err := json.Marshal(typed)
+		if err != nil {
+			return nil, false
+		}
+		presentation, err := evidence.ParseSDJWTVPTokenJSON(string(encoded))
+		return presentation, err == nil
 	default:
 		return nil, false
 	}
@@ -895,6 +995,15 @@ func sdjwtPresentations(value any) ([]*evidence.SDJWTPresentation, bool) {
 		return presentations, true
 	case string:
 		presentations, err := evidence.ParseSDJWTVPTokenPresentationsJSON(typed)
+		if err == nil && len(presentations) > 0 {
+			return presentations, true
+		}
+	case map[string]any:
+		encoded, err := json.Marshal(typed)
+		if err != nil {
+			return nil, false
+		}
+		presentations, err := evidence.ParseSDJWTVPTokenPresentationsJSON(string(encoded))
 		if err == nil && len(presentations) > 0 {
 			return presentations, true
 		}
@@ -995,9 +1104,14 @@ func decodeClaimParam(params map[string]any) (string, error) {
 	return decoded.Claim, nil
 }
 
+// sdjwtClaim resolves a dotted claim path against evidence that is either a
+// decoded claims object, a compact SD-JWT presentation, or the decoded
+// vp_token object the capture pipeline binds.
 func sdjwtClaim(value any, claim string) (any, bool) {
 	if claims, ok := value.(map[string]any); ok {
-		return resolveObjectPath(claims, claim)
+		if resolved, found := resolveObjectPath(claims, claim); found {
+			return resolved, true
+		}
 	}
 	presentation, ok := sdjwtPresentation(value)
 	if !ok {

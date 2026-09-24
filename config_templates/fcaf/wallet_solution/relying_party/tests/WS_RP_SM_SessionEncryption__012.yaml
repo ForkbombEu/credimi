@@ -1,5 +1,5 @@
 id: WS_RP_SM_SessionEncryption__012
-title: FCAF WS_RP_SM_SessionEncryption__012
+title: Encrypt the redirect-flow response for direct_post.jwt.
 source:
   path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__012.md
 suite:
@@ -11,21 +11,34 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.session-encryption
+- ref: pipeline.direct-post-jwt.response-transport
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.direct-post-jwt.response-transport.outputs.capture_session
+  encryption_evidence:
+    from: pipeline.direct-post-jwt.response-transport.outputs.default_encryption_evidence
   visual_evidence:
-    from: pipeline.dcql.session-encryption.outputs.visual_evidence
+    from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_sessionencryption__012_jwe_verified
-  validator: jwt.header_field_equals
-  input: evidence.dcql_exchange
-  params:
-    field: alg
-- id: ws_rp_sm_sessionencryption__012_visual_evidence
+- id: request_used_direct_post_jwt_response_mode
+  validator: json.field_equals
+  input: evidence.capture_session
+  params: {field: response_mode, value: direct_post.jwt}
+- id: wallet_posted_an_encrypted_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.capture_session
+  params: {method: POST, require_response_parameter: true}
+- id: response_uses_the_client_metadata_key
+  validator: oid4vp.response_encryption
+  input: evidence.encryption_evidence
+  params: {match_metadata_kid: true}
+- id: verifier_decrypted_the_presentation
+  validator: dcql.response_satisfies_constraints
+  input: evidence.capture_session
+  params: {mode: credentials_match}
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

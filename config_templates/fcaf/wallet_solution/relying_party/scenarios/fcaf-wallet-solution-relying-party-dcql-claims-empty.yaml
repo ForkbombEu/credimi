@@ -1,13 +1,11 @@
 name: FCAF wallet relying-party DCQL claims empty
 runtime:
-  global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
       start_to_close_timeout: 50m
       retry_policy:
         maximum_attempts: 1
-
 steps:
   - id: evidence-empty-claims-request
     use: json-parse

@@ -1,0 +1,99 @@
+name: FCAF verifier response controls
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+- id: create-non-json-response
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-response-non-json
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      response_scenario:
+        status: 200
+        content_type: text/plain
+        body: fcaf plain text response
+- id: exercise-non-json-response
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-non-json-response.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+- id: fetch-non-json-response
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-non-json-response.outputs.body.session_id }}
+    expected_status: 200
+- id: create-http-error-response
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-response-http-error
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      response_scenario:
+        status: 400
+        content_type: application/json
+        body: '{"error":"invalid_request","error_description":"fcaf verifier response control"}'
+- id: exercise-http-error-response
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-http-error-response.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+- id: fetch-http-error-response
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-http-error-response.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_MS_ProtocolMessages__125
+    - WS_RP_MS_ProtocolMessages__126
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.verifier-response-controls:
+        output:
+          non_json_response_session: ${{ fetch-non-json-response.outputs.body }}
+          non_json_response_callback:
+            verifier_http: ${{ fetch-non-json-response.outputs.body.raw.presentation_response_verifier_http }}
+          non_json_response_visual_evidence: ${{ exercise-non-json-response.outputs.flow_output.maestro_screenshot_urls }}
+          http_error_response_session: ${{ fetch-http-error-response.outputs.body }}
+          http_error_response_callback:
+            verifier_http: ${{ fetch-http-error-response.outputs.body.raw.presentation_response_verifier_http }}
+          http_error_response_visual_evidence: ${{ exercise-http-error-response.outputs.flow_output.maestro_screenshot_urls }}

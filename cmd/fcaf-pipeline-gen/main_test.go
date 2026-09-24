@@ -29,7 +29,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 576)
+	require.Len(t, definition.Steps, 848)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
@@ -46,8 +46,24 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.Len(t, validationSteps, 1)
 	with, ok := validationSteps[0]["with"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, stringSlice(with["test_ids"]), 559)
-	require.Len(t, with["pipeline_outputs"], 165)
+	require.Len(t, stringSlice(with["test_ids"]), 612)
+	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__006")
+	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__013")
+	for _, restricted := range []string{
+		"WS_RP_SM_SessionEncryption__002",
+		"WS_RP_SM_SessionEncryption__003",
+		"WS_RP_SM_SessionEncryption__007",
+		"WS_RP_SM_SessionEncryption__008",
+		"WS_RP_SM_SessionEncryption__009",
+	} {
+		require.Contains(
+			t,
+			stringSlice(with["test_ids"]),
+			restricted,
+			"each response-encryption case needs its own verifier metadata scenario",
+		)
+	}
+	require.Len(t, with["pipeline_outputs"], 206)
 
 	committed, err := os.ReadFile(filepath.Join(
 		root,
@@ -111,7 +127,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 113)
+	require.Len(t, definition.Steps, 118)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validationSteps := make([]map[string]any, 0, 1)
@@ -134,8 +150,38 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 		"WS_RP_IA_MainInteraction__015",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
-	require.Len(t, stringSlice(with["test_ids"]), 388)
-	require.Len(t, with["pipeline_outputs"], 33)
+	require.Len(t, stringSlice(with["test_ids"]), 352)
+	require.NotContains(
+		t,
+		stringSlice(with["test_ids"]),
+		"WS_RP_SM_RpIntegrity__006",
+		"happy flow must omit tests whose exact evidence source is not selected",
+	)
+	require.NotContains(
+		t,
+		stringSlice(with["test_ids"]),
+		"WS_RP_SM_RpIntegrity__013",
+		"happy flow must omit tests whose exact evidence source is not selected",
+	)
+	require.NotContains(
+		t,
+		stringSlice(with["test_ids"]),
+		"WS_RP_SM_RpIntegrity__016",
+		"happy flow must omit tests without exact feasible evidence",
+	)
+	require.NotContains(
+		t,
+		stringSlice(with["test_ids"]),
+		"WS_RP_SM_RpIntegrity__018",
+		"happy flow must omit tests without exact feasible evidence",
+	)
+	require.NotContains(
+		t,
+		stringSlice(with["test_ids"]),
+		"WS_RP_SM_RpIntegrity__020",
+		"happy flow must omit tests without exact feasible evidence",
+	)
+	require.Len(t, with["pipeline_outputs"], 34)
 
 	committed, err := os.ReadFile(filepath.Join(
 		root,

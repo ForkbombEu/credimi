@@ -1,5 +1,5 @@
 id: WS_RP_SH_Encoding_TextualEncoding_017
-title: FCAF WS_RP_SH_Encoding_TextualEncoding_017
+title: Resolve the mdoc data element identifier from the second path component.
 source:
   path: Shared/Encoding/WS_RP_SH_Encoding_TextualEncoding_017.md
 suite:
@@ -11,18 +11,36 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '7'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.encoding
+- ref: pipeline.pid.presentation.mdoc.all-claims-elements
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.encoding.outputs.dcql_exchange
+    from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.fetch-capture-session
+  pid_mdoc:
+    from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.pid_mdoc
   visual_evidence:
-    from: pipeline.dcql.encoding.outputs.visual_evidence
+    from: pipeline.pid.presentation.mdoc.all-claims-elements.outputs.visual_evidence
 assertions:
-- id: ws_rp_sh_encoding_textualencoding_017_encoding_verified
-  validator: sdjwt.claim_utf8_string
+- id: ws_rp_sh_encoding_textualencoding_017_second_path_component_is_a_data_element_identifier
+  validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
+  params:
+    mode: mdoc_claim_path_presentation
+    expected_claim_path: [eu.europa.ec.eudi.pid.1, given_name]
+- id: ws_rp_sh_encoding_textualencoding_017_identified_element_is_returned_without_an_error_item
+  validator: mdoc.namespace_element_present
+  input: evidence.pid_mdoc
+  params:
+    namespace: eu.europa.ec.eudi.pid.1
+    element: given_name
+- id: ws_rp_sh_encoding_textualencoding_017_identified_element_value_is_cbor_text
+  validator: mdoc.element_cbor_type
+  input: evidence.pid_mdoc
+  params:
+    namespace: eu.europa.ec.eudi.pid.1
+    element: given_name
+    major_type: 3
 - id: ws_rp_sh_encoding_textualencoding_017_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

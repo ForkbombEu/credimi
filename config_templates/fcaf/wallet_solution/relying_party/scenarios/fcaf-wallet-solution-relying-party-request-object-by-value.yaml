@@ -1,6 +1,5 @@
 name: FCAF wallet relying-party Request Object by value
 runtime:
-    global_device_id: ""
     temporal:
         activity_options:
             retry_policy:
@@ -12,41 +11,43 @@ steps:
       use: http-request
       with:
         body:
-            dcql_query:
-                credentials:
-                    - claims:
-                        - path:
-                            - eu.europa.ec.eudi.pid.1
-                            - given_name
-                        - path:
-                            - eu.europa.ec.eudi.pid.1
-                            - family_name
-                      format: mso_mdoc
-                      id: pid_mdoc
-                      meta:
-                        doctype_value: eu.europa.ec.eudi.pid.1
+            scheme: haip-vp://
             request_delivery: by_value
-            nonce: fcaf-request-object-by-value
-            type: vp_token
-        expected_status: 200
+            response_type: vp_token
+            response_mode: direct_post
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - family_name
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-request-object-by-value
+        expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.verifier_url}/ui/presentations
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - id: submit-request-object-by-value
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-submit-request-object-by-value
         parameters:
-            CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
-            REQUEST_OBJECT: ${{ create-presentation.outputs.body.request }}
+            deeplink: ${{ create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: get-presentation-result
       use: http-request
       with:
         expected_status: 200
         method: GET
-        url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
     - id: run-fcaf-validators
       use: fcaf-validation
       with:

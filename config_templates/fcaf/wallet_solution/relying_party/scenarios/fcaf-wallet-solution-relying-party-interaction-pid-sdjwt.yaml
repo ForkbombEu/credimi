@@ -1,0 +1,168 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF main-interaction PID SD-JWT VC
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: create-pid-issuance-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body: { issuer_configuration_id: eu-pid-device-bound }
+- id: obtain-pid-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-pid-issuance-session.outputs.body.deeplink }}
+- id: create-missing-claim-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-ia-012c
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ['urn:eudi:pid:1'] }
+            claims:
+            - id: unavailable_claim
+              path: [unavailable_claim]
+            claim_sets: [[unavailable_claim]]
+- id: present-missing-claim
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-missing-claim-presentation.outputs.body.deeplink }}
+- id: fetch-missing-claim-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-missing-claim-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: create-two-claim-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-ia-034a
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ['urn:eudi:pid:1'] }
+            claims:
+            - id: given_name
+              path: [given_name]
+            - id: family_name
+              path: [family_name]
+            claim_sets: [[given_name, family_name]]
+- id: present-two-claim-presentation
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-two-claim-presentation.outputs.body.deeplink }}
+- id: fetch-two-claim-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-two-claim-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: create-claim-and-missing-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-ia-034h
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ['urn:eudi:pid:1'] }
+            claims:
+            - id: given_name
+              path: [given_name]
+            - id: unavailable_claim
+              path: [unavailable_claim]
+            claim_sets: [[given_name, unavailable_claim]]
+- id: present-claim-and-missing
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-claim-and-missing-presentation.outputs.body.deeplink }}
+- id: fetch-claim-and-missing-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-claim-and-missing-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_IA_MainInteraction__012c_UF
+    - WS_RP_IA_MainInteraction__034a
+    - WS_RP_IA_MainInteraction__034h_UF
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.interaction.pid-sdjwt-missing-claim:
+        output:
+          dcql_exchange: ${{ fetch-missing-claim-presentation.outputs.body }}
+          visual_evidence: ${{ present-missing-claim.outputs.flow_output.maestro_screenshot_urls }}
+      pipeline.interaction.pid-sdjwt-two-claims:
+        output:
+          dcql_exchange: ${{ fetch-two-claim-presentation.outputs.body }}
+          visual_evidence: ${{ present-two-claim-presentation.outputs.flow_output.maestro_screenshot_urls }}
+      pipeline.interaction.pid-sdjwt-claim-and-missing:
+        output:
+          dcql_exchange: ${{ fetch-claim-and-missing-presentation.outputs.body }}
+          visual_evidence: ${{ present-claim-and-missing.outputs.flow_output.maestro_screenshot_urls }}

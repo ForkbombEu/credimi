@@ -1,6 +1,5 @@
 name: 'FCAF ProtocolMessages 136: Unsupported transaction_data error without credential selection'
 runtime:
-  global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -12,7 +11,7 @@ steps:
   use: http-request
   with:
     method: POST
-    url: https://capture-wallet.credimi.io/openid4vp/sessions
+    url: ${fixture.verifier_url}/openid4vp/sessions
     expected_status: 201
     headers:
       Content-Type: application/json
@@ -58,7 +57,7 @@ steps:
   use: http-request
   with:
     method: GET
-    url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation

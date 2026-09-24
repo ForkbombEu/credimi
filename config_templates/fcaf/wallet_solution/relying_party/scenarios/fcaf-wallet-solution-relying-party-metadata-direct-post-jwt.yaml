@@ -1,6 +1,5 @@
 name: FCAF wallet relying-party direct_post.jwt metadata
 runtime:
-  global_device_id: ""
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -13,44 +12,42 @@ steps:
     use: http-request
     with:
       method: POST
-      url: ${fixture.verifier_url}/ui/presentations
-      expected_status: 200
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
       headers:
         Content-Type: application/json
       body:
-        type: vp_token
-        nonce: fcaf-metadata-direct-post-jwt
-        responseMode: direct_post.jwt
-        dcql_query:
-          credentials:
-            - id: pid_mdoc
-              format: mso_mdoc
-              meta:
-                doctype_value: eu.europa.ec.eudi.pid.1
-              claims:
-                - path:
-                    - eu.europa.ec.eudi.pid.1
-                    - given_name
-                - path:
-                    - eu.europa.ec.eudi.pid.1
-                    - family_name
+        scheme: haip-vp://
+        request_delivery: by_reference
+        response_type: vp_token
+        response_mode: direct_post.jwt
+        presentation_request:
+          nonce: fcaf-metadata-direct-post-jwt
+          dcql_query:
+            credentials:
+              - id: pid_mdoc
+                format: mso_mdoc
+                meta:
+                  doctype_value: eu.europa.ec.eudi.pid.1
+                claims:
+                  - path:
+                      - eu.europa.ec.eudi.pid.1
+                      - given_name
+                  - path:
+                      - eu.europa.ec.eudi.pid.1
+                      - family_name
 
   - id: submit-direct-post-jwt
     use: mobile-automation
     with:
       version_id: installed_from_external_source
       parameters:
-        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
-        REQUEST_URI: ${{ create-presentation.outputs.body.request_uri }}
+        DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
       action_code: |
         appId: eu.europa.ec.euidi
         ---
         - stopApp
-        - evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI) + '&request_uri_method=get'}
-        - openLink:
-            link: ${output.authorizationRequest}
-            autoVerify: false
-            browser: false
+                - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
         - waitForAnimationToEnd:
             timeout: 5000
         - tapOn:
@@ -89,7 +86,7 @@ steps:
     use: http-request
     with:
       method: GET
-      url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
       expected_status: 200
 
   - id: run-fcaf-validators

@@ -6,9 +6,8 @@ tags:
   - by-value
 ---
 - stopApp
-- evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
 - openLink:
-    link: ${output.authorizationRequest}
+    link: "${deeplink}"
     autoVerify: false
     browser: false
 - waitForAnimationToEnd:

@@ -1,0 +1,25 @@
+id: WS_RP_SM_DeviceBinding__012a
+title: Present a key-binding JWT using beta Capture Wallet ES256.
+source:
+  path: SecurityMechanisms/DeviceBinding/WS_RP_SM_DeviceBinding__012a.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: security_mechanisms.device_binding
+applicability:
+  profile: EUDI_generic
+  credential_format: ietf_sd_jwt_vc
+normative_references:
+  - title: ECCG Agreed Cryptographic Mechanisms
+    section: '5.2'
+evidence:
+  pid_sdjwt_presentations:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt_presentations
+assertions:
+  - id: key_binding_jwt_uses_beta_capture_es256
+    validator: sdjwt.kb_jwt_algorithm_equals
+    input: evidence.pid_sdjwt_presentations
+    params:
+      algorithm: ES256
+verdict:
+  pass_when: all_assertions_pass

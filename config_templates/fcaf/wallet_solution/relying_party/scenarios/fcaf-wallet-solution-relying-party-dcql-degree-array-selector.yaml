@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF DCQL degree array selector
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: create-degree-issuance-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+- id: obtain-degree-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-degree-issuance-session.outputs.body.deeplink }}
+- id: create-degree-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: degree-array-selector
+        dcql_query:
+          credentials:
+          - id: degree
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:credimi:degree:1
+            claims:
+            - id: degree-type
+              path:
+              - degrees
+              - null
+              - type
+            claim_sets:
+            - - degree-type
+- id: present-degree-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-degree-presentation.outputs.body.deeplink }}
+- id: fetch-degree-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-degree-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_SH_Encoding_TextualEncoding_008
+    - WS_RP_SH_Encoding_TextualEncoding_002
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.degree-array-selector:
+        output:
+          dcql_exchange: ${{ fetch-degree-presentation.outputs.body }}
+          visual_evidence: ${{ present-degree-credential.outputs.flow_output.maestro_screenshot_urls }}

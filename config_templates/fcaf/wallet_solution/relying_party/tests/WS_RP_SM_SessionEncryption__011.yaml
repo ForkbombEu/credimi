@@ -1,5 +1,5 @@
 id: WS_RP_SM_SessionEncryption__011
-title: FCAF WS_RP_SM_SessionEncryption__011
+title: Use each request's own ephemeral verifier key.
 source:
   path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__011.md
 suite:
@@ -11,21 +11,32 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.session-encryption
+- ref: pipeline.response-encryption.per-request-keys
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  request_objects:
+    from: pipeline.response-encryption.per-request-keys.outputs.request_objects
+  first_encryption_evidence:
+    from: pipeline.response-encryption.per-request-keys.outputs.first_encryption_evidence
+  second_encryption_evidence:
+    from: pipeline.response-encryption.per-request-keys.outputs.second_encryption_evidence
   visual_evidence:
-    from: pipeline.dcql.session-encryption.outputs.visual_evidence
+    from: pipeline.response-encryption.per-request-keys.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_sessionencryption__011_jwe_verified
-  validator: jwt.header_field_equals
-  input: evidence.dcql_exchange
-  params:
-    field: alg
-- id: ws_rp_sm_sessionencryption__011_visual_evidence
+- id: each_request_published_its_own_ephemeral_key
+  validator: oid4vp.distinct_request_encryption_keys
+  input: evidence.request_objects
+  params: {minimum_keys: 2}
+- id: first_response_used_the_first_request_key
+  validator: oid4vp.response_encryption
+  input: evidence.first_encryption_evidence
+  params: {match_metadata_kid: true}
+- id: second_response_used_the_second_request_key
+  validator: oid4vp.response_encryption
+  input: evidence.second_encryption_evidence
+  params: {match_metadata_kid: true}
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__015
-title: FCAF WS_RP_SM_RpIntegrity__015
+title: Reject a signed Request Object whose signature key is not the x5c leaf key.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__015.md
 suite:
@@ -11,21 +11,37 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- title: JSON Web Signature (JWS)
+  section: '4.1.6'
+  url: https://www.rfc-editor.org/rfc/rfc7515
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.rp-integrity.unrelated-signing-key.outputs.session
+  request_object:
+    from: pipeline.rp-integrity.unrelated-signing-key.outputs.request_object
+  request_behavior:
+    from: pipeline.rp-integrity.unrelated-signing-key.outputs.request_behavior
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.rp-integrity.unrelated-signing-key.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__015_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__015_visual_evidence
+- id: verifier_signed_the_request_with_an_unrelated_key
+  validator: json.field_equals
+  input: evidence.request_behavior
+  params: { field: signing_key, value: unrelated }
+- id: delivered_request_carries_an_x5c_certificate_chain
+  validator: jwt.header_field_presence
+  input: evidence.request_object
+  params: { field: x5c, present: true }
+- id: signature_does_not_verify_against_the_x5c_leaf_key
+  validator: jose.jws_invalid_signature
+  input: evidence.request_object
+- id: wallet_returns_invalid_request_without_a_presentation
+  validator: oid4vp.error_response_required
+  input: evidence.session
+  params: { code: invalid_request }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

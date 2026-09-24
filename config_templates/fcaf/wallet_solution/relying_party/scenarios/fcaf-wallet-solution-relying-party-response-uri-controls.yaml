@@ -1,0 +1,141 @@
+name: FCAF Response URI controls
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+- id: create-missing-response-uri
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: response-uri-missing
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          unset: [/response_uri]
+        verification_applies: false
+- id: reject-missing-response-uri
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-missing-response-uri.outputs.body.deeplink }}"
+- id: fetch-missing-response-uri
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-missing-response-uri.outputs.body.session_id }}
+    expected_status: 200
+- id: create-redirect-uri-present
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: response-uri-with-redirect-uri
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          set: { /redirect_uri: "https://beta-capture-wallet.credimi.io/openid4vp/redirect" }
+        verification_applies: false
+- id: reject-redirect-uri-present
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-redirect-uri-present.outputs.body.deeplink }}"
+- id: fetch-redirect-uri-present
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-redirect-uri-present.outputs.body.session_id }}
+    expected_status: 200
+- id: create-invalid-response-uri
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      client_id_scheme: x509_san_dns
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: response-uri-foreign-host
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          set: { /response_uri: "https://fcaf-foreign-response-uri.example/openid4vp/response" }
+        verification_applies: false
+- id: reject-invalid-response-uri
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-invalid-response-uri.outputs.body.deeplink }}"
+- id: fetch-invalid-response-uri
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-invalid-response-uri.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_IA_MainInteraction__053
+    - WS_RP_IA_MainInteraction__055
+    - WS_RP_IA_Metadata__010
+    - WS_RP_IA_MainInteraction__056
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.response-uri-controls:
+        output:
+          missing_response_uri_session: ${{ fetch-missing-response-uri.outputs.body }}
+          missing_response_uri_request_object: ${{ fetch-missing-response-uri.outputs.body.raw.authorization_request_jwt }}
+          missing_response_uri_visual_evidence: ${{ reject-missing-response-uri.outputs.flow_output.maestro_screenshot_urls }}
+          redirect_uri_present_session: ${{ fetch-redirect-uri-present.outputs.body }}
+          redirect_uri_present_request_object: ${{ fetch-redirect-uri-present.outputs.body.raw.authorization_request_jwt }}
+          redirect_uri_present_visual_evidence: ${{ reject-redirect-uri-present.outputs.flow_output.maestro_screenshot_urls }}
+          invalid_response_uri_session: ${{ fetch-invalid-response-uri.outputs.body }}
+          invalid_response_uri_request_object: ${{ fetch-invalid-response-uri.outputs.body.raw.authorization_request_jwt }}
+          invalid_response_uri_visual_evidence: ${{ reject-invalid-response-uri.outputs.flow_output.maestro_screenshot_urls }}

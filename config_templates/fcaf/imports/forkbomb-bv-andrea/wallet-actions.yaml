@@ -34,6 +34,14 @@ actions:
     category: verify-credential
     tags: fcaf, exercise, generic
     file: wallet/fcaf-exercise-wallet-generic.yaml
+  - name: fcaf-expect-request-rejected
+    category: verify-credential
+    tags: fcaf, expect, rejected
+    file: wallet/fcaf-expect-request-rejected.yaml
+  - name: fcaf-expect-no-matching-document
+    category: verify-credential
+    tags: fcaf, expect, no-match
+    file: wallet/fcaf-expect-no-matching-document.yaml
   - name: fcaf-submit-request-object-by-value
     category: verify-credential
     tags: fcaf, request-object, by-value

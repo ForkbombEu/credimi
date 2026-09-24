@@ -1,0 +1,134 @@
+name: FCAF wallet nonce controls
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+steps:
+- id: create-protocol-message-nonce-mismatch
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: protocol-message-nonce-mismatch
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_behavior:
+        wallet_nonce: mismatch
+- id: reject-protocol-message-nonce-mismatch
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-protocol-message-nonce-mismatch.outputs.body.deeplink }}"
+- id: fetch-protocol-message-nonce-mismatch
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-protocol-message-nonce-mismatch.outputs.body.session_id }}
+    expected_status: 200
+- id: create-metadata-nonce-mismatch
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: metadata-nonce-mismatch
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_behavior:
+        wallet_nonce: mismatch
+- id: reject-metadata-nonce-mismatch
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-metadata-nonce-mismatch.outputs.body.deeplink }}"
+- id: fetch-metadata-nonce-mismatch
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-metadata-nonce-mismatch.outputs.body.session_id }}
+    expected_status: 200
+- id: create-metadata-nonce-omitted
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: metadata-nonce-omitted
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_behavior:
+        wallet_nonce: omit
+- id: reject-metadata-nonce-omitted
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-metadata-nonce-omitted.outputs.body.deeplink }}"
+- id: fetch-metadata-nonce-omitted
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-metadata-nonce-omitted.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids: [WS_RP_MS_ProtocolMessages__046, WS_RP_MS_Metadata__139, WS_RP_MS_Metadata__140]
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.wallet-nonce-controls:
+        output:
+          protocol_message_mismatch_session: ${{ fetch-protocol-message-nonce-mismatch.outputs.body }}
+          protocol_message_mismatch_nonce_evidence:
+            request_object: ${{ fetch-protocol-message-nonce-mismatch.outputs.body.raw.authorization_request_jwt }}
+            request_uri_payload: ${{ fetch-protocol-message-nonce-mismatch.outputs.body.observed.request_uri_payload.value }}
+          protocol_message_mismatch_visual_evidence: ${{ reject-protocol-message-nonce-mismatch.outputs.flow_output.maestro_screenshot_urls }}
+          metadata_mismatch_session: ${{ fetch-metadata-nonce-mismatch.outputs.body }}
+          metadata_mismatch_nonce_evidence:
+            request_object: ${{ fetch-metadata-nonce-mismatch.outputs.body.raw.authorization_request_jwt }}
+            request_uri_payload: ${{ fetch-metadata-nonce-mismatch.outputs.body.observed.request_uri_payload.value }}
+          metadata_mismatch_visual_evidence: ${{ reject-metadata-nonce-mismatch.outputs.flow_output.maestro_screenshot_urls }}
+          metadata_omitted_session: ${{ fetch-metadata-nonce-omitted.outputs.body }}
+          metadata_omitted_nonce_evidence:
+            request_object: ${{ fetch-metadata-nonce-omitted.outputs.body.raw.authorization_request_jwt }}
+            request_uri_payload: ${{ fetch-metadata-nonce-omitted.outputs.body.observed.request_uri_payload.value }}
+          metadata_omitted_visual_evidence: ${{ reject-metadata-nonce-omitted.outputs.flow_output.maestro_screenshot_urls }}

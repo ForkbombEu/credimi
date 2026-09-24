@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__150
-title: FCAF WS_RP_MS_ProtocolMessages__150
+title: Reject an unsupported credential format with vp_formats_not_supported.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__150.md
 suite:
@@ -11,21 +11,21 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.protocol-messages
 evidence:
-  dcql_exchange:
+  capture_session:
     from: pipeline.dcql.protocol-messages-150.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.protocol-messages-150.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__150_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: unsupported_format_returns_vp_formats_not_supported
+  validator: oid4vp.error_response_required
+  input: evidence.capture_session
   params:
-    mode: vp_formats_not_supported
-- id: ws_rp_ms_protocolmessages__150_visual_evidence_stored
+    code: vp_formats_not_supported
+- id: wallet_rejection_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

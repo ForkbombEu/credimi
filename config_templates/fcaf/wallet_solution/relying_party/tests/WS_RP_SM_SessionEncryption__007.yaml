@@ -1,5 +1,5 @@
 id: WS_RP_SM_SessionEncryption__007
-title: FCAF WS_RP_SM_SessionEncryption__007
+title: Encrypt the response content with A128GCM.
 source:
   path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__007.md
 suite:
@@ -11,21 +11,32 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.session-encryption
+- title: JSON Web Encryption (JWE)
+  section: '4.1.2'
+  url: https://www.rfc-editor.org/rfc/rfc7516
+- ref: pipeline.response-encryption.a128gcm
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.response-encryption.a128gcm.outputs.capture_session
+  encryption_evidence:
+    from: pipeline.response-encryption.a128gcm.outputs.encryption_evidence
   visual_evidence:
-    from: pipeline.dcql.session-encryption.outputs.visual_evidence
+    from: pipeline.response-encryption.a128gcm.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_sessionencryption__007_jwe_verified
-  validator: jwt.header_field_equals
-  input: evidence.dcql_exchange
+- id: wallet_posted_an_encrypted_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.capture_session
+  params: {method: POST, require_response_parameter: true}
+- id: only_a128gcm_is_offered_and_used
+  validator: oid4vp.response_encryption
+  input: evidence.encryption_evidence
   params:
-    field: alg
-- id: ws_rp_sm_sessionencryption__007_visual_evidence
+    metadata_enc_values_supported: [A128GCM]
+    metadata_enc_values_exclusive: true
+    expected_enc: A128GCM
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

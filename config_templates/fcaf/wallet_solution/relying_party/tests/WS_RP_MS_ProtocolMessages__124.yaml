@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__124
-title: FCAF WS_RP_MS_ProtocolMessages__124
+title: Ignore an unrecognized Authorization Request parameter under direct_post.jwt.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__124.md
 suite:
@@ -11,21 +11,36 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages-124.outputs.dcql_exchange
+  session:
+    from: pipeline.protocol.unknown-parameter-controls.outputs.unknown_request_parameter_session
+  request_object:
+    from: pipeline.protocol.unknown-parameter-controls.outputs.unknown_request_parameter_request_object
   visual_evidence:
-    from: pipeline.dcql.protocol-messages-124.outputs.visual_evidence
+    from: pipeline.protocol.unknown-parameter-controls.outputs.unknown_request_parameter_visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__124_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: delivered_request_uses_direct_post_jwt
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: response_mode, value: direct_post.jwt }
+- id: delivered_request_carries_the_unrecognized_parameter
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: fcaf_unrecognized_parameter, value: ignored-by-the-wallet }
+- id: wallet_submitted_the_authorization_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.session
   params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__124_visual_evidence_stored
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+- id: wallet_returned_the_requested_credential
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: credentials_match }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

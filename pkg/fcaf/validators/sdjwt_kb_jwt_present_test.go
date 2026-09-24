@@ -140,6 +140,39 @@ func TestSDJWTKBJWTPresentRejectsTrailingPayloadBytes(t *testing.T) {
 	require.Contains(t, result.Message, "trailing bytes")
 }
 
+func TestSDJWTKBJWTAlgorithmEqualsValidator(t *testing.T) {
+	tests := []struct {
+		name       string
+		algorithm  string
+		wantStatus Status
+	}{
+		{name: "accepts beta Capture Wallet ES256", algorithm: "ES256", wantStatus: StatusPass},
+		{name: "rejects another algorithm", algorithm: "ES384", wantStatus: StatusFail},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			presentation := newKeyBindingPresentation(t, keyBindingFixtureOptions{})
+			digest := sha256.Sum256([]byte(presentation.SDJWT))
+			presentation.KeyBindingJWT = unsignedJWT(t,
+				map[string]any{"alg": tt.algorithm, "typ": "kb+jwt"},
+				map[string]any{
+					"iat":     time.Now().Unix(),
+					"aud":     "x509_hash:verifier.example",
+					"nonce":   "fcaf-device-binding-012",
+					"sd_hash": base64.RawURLEncoding.EncodeToString(digest[:]),
+				},
+			)
+
+			result := SDJWTKBJWTAlgorithmEqualsValidator{}.Validate(
+				context.Background(),
+				Input{Value: presentation, Params: map[string]any{"algorithm": "ES256"}},
+			)
+			require.Equal(t, tt.wantStatus, result.Status, result.Message)
+		})
+	}
+}
+
 func testJSONBytes(t *testing.T, v map[string]any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(v)

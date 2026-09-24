@@ -50,7 +50,7 @@ steps:
 	require.Equal(t, "${fixture.unknown}/requests", wf.Steps[0].With.Payload["url"])
 }
 
-func TestApplyFixtureUsesRealServicesByDefault(t *testing.T) {
+func TestApplyFixtureUsesDefaultVerifier(t *testing.T) {
 	wf, err := ParseWorkflow(`name: fixture
 steps:
   - id: request
@@ -59,5 +59,6 @@ steps:
 `)
 	require.NoError(t, err)
 	require.NoError(t, ApplyFixture(wf))
+	require.Equal(t, "https://beta-capture-wallet.credimi.io", DefaultVerifierURL)
 	require.Equal(t, DefaultVerifierURL+"/requests", wf.Steps[0].With.Payload["url"])
 }

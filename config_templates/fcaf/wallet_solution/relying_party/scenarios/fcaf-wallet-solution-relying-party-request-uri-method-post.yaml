@@ -1,6 +1,5 @@
 name: FCAF wallet relying-party Request URI method POST
 runtime:
-  global_device_id: ""
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -13,45 +12,43 @@ steps:
     use: http-request
     with:
       method: POST
-      url: ${fixture.verifier_url}/ui/presentations
-      expected_status: 200
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
       headers:
         Content-Type: application/json
       body:
-        type: vp_token
-        nonce: fcaf-request-uri-method-post
+        scheme: openid4vp://
         request_uri_method: post
-        dcql_query:
-          credentials:
-            - id: pid_mdoc
-              format: mso_mdoc
-              meta:
-                doctype_value: eu.europa.ec.eudi.pid.1
-              claims:
-                - path:
-                    - eu.europa.ec.eudi.pid.1
-                    - given_name
-                - path:
-                    - eu.europa.ec.eudi.pid.1
-                    - family_name
+        request_delivery: by_reference
+        response_type: vp_token
+        response_mode: direct_post
+        presentation_request:
+          nonce: fcaf-request-uri-method-post
+          dcql_query:
+            credentials:
+              - id: pid_mdoc
+                format: mso_mdoc
+                meta:
+                  doctype_value: eu.europa.ec.eudi.pid.1
+                claims:
+                  - path:
+                      - eu.europa.ec.eudi.pid.1
+                      - given_name
+                  - path:
+                      - eu.europa.ec.eudi.pid.1
+                      - family_name
 
   - id: submit-request-uri-method-post
     use: mobile-automation
     with:
       version_id: installed_from_external_source
       parameters:
-        CLIENT_ID: ${{ create-presentation.outputs.body.client_id }}
-        REQUEST_URI: ${{ create-presentation.outputs.body.request_uri }}
-        REQUEST_URI_METHOD: ${{ create-presentation.outputs.body.request_uri_method }}
+        DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
       action_code: |
         appId: eu.europa.ec.euidi
         ---
         - stopApp
-        - evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI) + '&request_uri_method=' + encodeURIComponent(env.REQUEST_URI_METHOD)}
-        - openLink:
-            link: ${output.authorizationRequest}
-            autoVerify: false
-            browser: false
+                - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
         - waitForAnimationToEnd:
             timeout: 5000
         - tapOn:
@@ -90,7 +87,7 @@ steps:
     use: http-request
     with:
       method: GET
-      url: ${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
       expected_status: 200
 
   - id: run-fcaf-validators
@@ -102,11 +99,16 @@ steps:
         - WS_RP_MS_ProtocolMessages__005
         - WS_RP_MS_ProtocolMessages__023
         - WS_RP_MS_ProtocolMessages__031
+        - WS_RP_IA_ProtocolFlow__002b
+        - WS_RP_SM_RpIntegrity__013a
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.protocol.request-uri-method-post:
           output:
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
+            capture_session: ${{ get-presentation-result.outputs.body }}
+            signed_request_object: ${{ get-presentation-result.outputs.body.raw.authorization_request_jwt }}
+            session_checks: ${{ get-presentation-result.outputs.body.checks }}
             presentation_request: ${{ create-presentation.outputs.body }}
             request_object: ${{ create-presentation.outputs.body.request }}
             request_uri_payload: ${{ get-presentation-result.outputs.body.request_uri_payload }}

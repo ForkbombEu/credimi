@@ -1,0 +1,139 @@
+name: FCAF PID under-18 claim constraint
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: create-under-18-issuance
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+      fixture_id: pid_under_18
+- id: obtain-under-18-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-under-18-issuance.outputs.body.deeplink }}
+- id: fetch-under-18-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-under-18-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: create-under-18-match
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: pid-under-18-match
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - age_over_18
+              values:
+              - false
+            - path:
+              - birthdate
+              values:
+              - '2012-03-04'
+- id: present-under-18-match
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-under-18-match.outputs.body.deeplink }}
+- id: fetch-under-18-match
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-under-18-match.outputs.body.session_id }}
+    expected_status: 200
+- id: create-over-18-constraint
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_uri_method: post
+      response_mode: direct_post
+      presentation_request:
+        nonce: pid-over-18-constraint
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - age_over_18
+              values:
+              - true
+            - path:
+              - birthdate
+              values:
+              - '2012-03-04'
+- id: reject-over-18-constraint
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-over-18-constraint.outputs.body.deeplink }}"
+- id: fetch-over-18-constraint
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-over-18-constraint.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_IA_MainInteraction__032
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.fixtures.pid-under-18:
+        output:
+          issuance_session: ${{ fetch-under-18-issuance.outputs.body }}
+          matching_exchange: ${{ fetch-under-18-match.outputs.body }}
+          matching_visual_evidence: ${{ present-under-18-match.outputs.flow_output.maestro_screenshot_urls }}
+          constrained_exchange: ${{ fetch-over-18-constraint.outputs.body }}
+          constrained_visual_evidence: ${{ reject-over-18-constraint.outputs.flow_output.maestro_screenshot_urls }}

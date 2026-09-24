@@ -1,0 +1,250 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF main-interaction degree SD-JWT VC
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: create-degree-issuance-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+- id: obtain-degree-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-degree-issuance-session.outputs.body.deeplink }}
+- id: create-middle-degree-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-ia-034c
+        dcql_query:
+          credentials:
+          - id: degree
+            format: dc+sd-jwt
+            meta: { vct_values: ['urn:credimi:degree:1'] }
+            claims:
+            - id: middle_degree
+              path: [degrees, 1]
+            claim_sets: [[middle_degree]]
+- id: present-middle-degree
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-middle-degree-presentation.outputs.body.deeplink }}
+- id: fetch-middle-degree-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-middle-degree-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: create-all-degrees-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-ia-034e
+        dcql_query:
+          credentials:
+          - id: degree
+            format: dc+sd-jwt
+            meta: { vct_values: ['urn:credimi:degree:1'] }
+            claims:
+            - id: all_degrees
+              path: [degrees, null]
+            claim_sets: [[all_degrees]]
+- id: present-all-degrees
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-all-degrees-presentation.outputs.body.deeplink }}
+- id: fetch-all-degrees-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-all-degrees-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: create-first-degree-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-ia-034f
+        dcql_query:
+          credentials:
+          - id: degree
+            format: dc+sd-jwt
+            meta: { vct_values: ['urn:credimi:degree:1'] }
+            claims:
+            - id: first_degree
+              path: [degrees, 0]
+            claim_sets: [[first_degree]]
+- id: present-first-degree
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-first-degree-presentation.outputs.body.deeplink }}
+- id: fetch-first-degree-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-first-degree-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: create-last-degree-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-ia-034g
+        dcql_query:
+          credentials:
+          - id: degree
+            format: dc+sd-jwt
+            meta: { vct_values: ['urn:credimi:degree:1'] }
+            claims:
+            - id: last_degree
+              path: [degrees, 2]
+            claim_sets: [[last_degree]]
+- id: present-last-degree
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-last-degree-presentation.outputs.body.deeplink }}
+- id: fetch-last-degree-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-last-degree-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: create-address-property-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post
+      presentation_request:
+        nonce: fcaf-ia-034d
+        dcql_query:
+          credentials:
+          - id: degree
+            format: dc+sd-jwt
+            meta: { vct_values: ['urn:credimi:degree:1'] }
+            claims:
+            - id: address_street
+              path: [address, street_address]
+            claim_sets: [[address_street]]
+- id: present-address-property
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-address-property-presentation.outputs.body.deeplink }}
+- id: fetch-address-property-presentation
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-address-property-presentation.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_IA_MainInteraction__034c
+    - WS_RP_IA_MainInteraction__034d
+    - WS_RP_IA_MainInteraction__034e
+    - WS_RP_IA_MainInteraction__034f
+    - WS_RP_IA_MainInteraction__034g
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.interaction.degree-middle-element:
+        output:
+          dcql_exchange: ${{ fetch-middle-degree-presentation.outputs.body }}
+          visual_evidence: ${{ present-middle-degree.outputs.flow_output.maestro_screenshot_urls }}
+      pipeline.interaction.degree-all-elements:
+        output:
+          dcql_exchange: ${{ fetch-all-degrees-presentation.outputs.body }}
+          visual_evidence: ${{ present-all-degrees.outputs.flow_output.maestro_screenshot_urls }}
+      pipeline.interaction.degree-first-element:
+        output:
+          dcql_exchange: ${{ fetch-first-degree-presentation.outputs.body }}
+          visual_evidence: ${{ present-first-degree.outputs.flow_output.maestro_screenshot_urls }}
+      pipeline.interaction.degree-last-element:
+        output:
+          dcql_exchange: ${{ fetch-last-degree-presentation.outputs.body }}
+          visual_evidence: ${{ present-last-degree.outputs.flow_output.maestro_screenshot_urls }}
+      pipeline.interaction.degree-address-property:
+        output:
+          dcql_exchange: ${{ fetch-address-property-presentation.outputs.body }}
+          visual_evidence: ${{ present-address-property.outputs.flow_output.maestro_screenshot_urls }}

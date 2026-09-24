@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__048
-title: FCAF WS_RP_MS_ProtocolMessages__048
+title: Reject a Request URI response with an incorrect Content-Type
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__048.md
 suite:
@@ -11,21 +11,26 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.10.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+  session: { from: pipeline.protocol.request-uri-response-controls.outputs.wrong_content_type_session }
+  request_uri_response: { from: pipeline.protocol.request-uri-response-controls.outputs.wrong_content_type_response }
+  visual_evidence: { from: pipeline.protocol.request-uri-response-controls.outputs.wrong_content_type_visual_evidence }
 assertions:
-- id: ws_rp_ms_protocolmessages__048_dcql_protocol_valid
+- id: request_uri_response_has_wrong_content_type
+  validator: http.response_media_type
+  input: evidence.request_uri_response
+  params: { media_type: application/json }
+- id: wallet_retrieves_request_object_with_post
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params: { method: POST }
+- id: wallet_rejects_request_uri_response
   validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__048_visual_evidence_stored
+  input: evidence.session
+  params: { mode: request_rejected }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

@@ -1,0 +1,57 @@
+name: FCAF plain redirect-URI client identifier
+runtime:
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+  - id: create-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        request_delivery: plain
+        client_id_scheme: redirect_uri
+        redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
+        response_type: vp_token
+        response_mode: direct_post
+        presentation_request:
+          nonce: fcaf-plain-redirect-uri
+          dcql_query:
+            credentials:
+              - id: pid_mdoc
+                format: mso_mdoc
+                meta:
+                  doctype_value: eu.europa.ec.eudi.pid.1
+                claims:
+                  - path: [eu.europa.ec.eudi.pid.1, given_name]
+  - id: exercise-wallet
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-presentation.outputs.body.deeplink }}
+  - id: fetch-capture-session
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
+      expected_status: 200
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      test_ids: [WS_RP_MS_ProtocolMessages__038, WS_RP_SM_RpIntegrity__028]
+      suite: wallet_solution/relying_party
+      pipeline_outputs:
+        pipeline.wallet.protocol.plain-redirect-uri:
+          output:
+            authorization_request: ${{ create-presentation.outputs.body.authorization_request }}
+            wallet_response: ${{ fetch-capture-session.outputs.body }}
+            visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

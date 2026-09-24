@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__016
-title: FCAF WS_RP_MS_ProtocolMessages__016
+title: Ignore an unrecognized Request Object parameter
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__016.md
 suite:
@@ -11,21 +11,26 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+  session: { from: pipeline.protocol.request-object-payload-controls.outputs.unknown_parameter_session }
+  request_object: { from: pipeline.protocol.request-object-payload-controls.outputs.unknown_parameter_request_object }
+  visual_evidence: { from: pipeline.protocol.request-object-payload-controls.outputs.unknown_parameter_visual_evidence }
 assertions:
-- id: ws_rp_ms_protocolmessages__016_dcql_protocol_valid
+- id: request_object_contains_unknown_parameter
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: unrecognized_parameter, value: ignored }
+- id: wallet_retrieves_request_object
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params: { method: POST }
+- id: wallet_processes_request
   validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__016_visual_evidence_stored
+  input: evidence.session
+  params: { mode: credentials_match }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

@@ -1,29 +1,33 @@
 name: FCAF DCQL unchecked claim is omitted
-runtime: { global_device_id: forkbomb-bv-andrea/usb/device }
+runtime:
 steps:
   - id: create-presentation
     use: http-request
     with:
       method: POST
-      url: ${fixture.verifier_url}/ui/presentations
-      expected_status: 200
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
       headers: { Content-Type: application/json }
       body:
-        type: vp_token
-        nonce: fcaf-013-unchecked-claim
-        dcql_query:
-          credentials:
-            - id: pid
-              format: dc+sd-jwt
-              meta: { vct_values: [urn:eudi:pid:1] }
-              claims:
-                - { path: [given_name] }
-                - { path: [address] }
+        scheme: haip-vp://
+        request_delivery: by_reference
+        response_type: vp_token
+        response_mode: direct_post
+        presentation_request:
+          nonce: fcaf-013-unchecked-claim
+          dcql_query:
+            credentials:
+              - id: pid
+                format: dc+sd-jwt
+                meta: { vct_values: ["urn:eudi:pid:1"] }
+                claims:
+                  - { path: [given_name] }
+                  - { path: [address] }
   - id: present-with-unchecked-address
     use: mobile-automation
     with:
       version_id: installed_from_external_source
-      parameters: { CLIENT_ID: "${{ create-presentation.outputs.body.client_id }}", REQUEST_URI: "${{ create-presentation.outputs.body.request_uri }}" }
+      parameters: { DEEPLINK: "${{ create-presentation.outputs.body.deeplink }}" }
       action_code: |
         appId: eu.europa.ec.euidi
         ---
@@ -36,8 +40,7 @@ steps:
               - inputText: "123456"
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request_uri=' + encodeURIComponent(env.REQUEST_URI)}
-        - openLink: { link: ${output.authorizationRequest}, autoVerify: false, browser: false }
+        - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
         - runFlow:
             when: { visible: "EUDI Wallet" }
             commands: [{ tapOn: { text: "EUDI Wallet", optional: true } }]
@@ -67,7 +70,7 @@ steps:
         - tapOn: "Close"
   - id: fetch-result
     use: http-request
-    with: { method: GET, url: "${fixture.verifier_url}/ui/presentations/${{ create-presentation.outputs.body.transaction_id }}", expected_status: 200 }
+    with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}", expected_status: 200 }
 
   - id: run-fcaf-validators
     use: fcaf-validation
