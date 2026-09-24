@@ -103,35 +103,14 @@ func (r *checkHTTPRecord) withCollectionMeta() *checkHTTPRecord {
 	return r
 }
 
-// suiteRow is the suite-grain list/get shape for conformance_suites.
-type suiteRow struct {
-	ID               string      `db:"id"                json:"id"`
-	Standard         string      `db:"standard"          json:"standard"`
-	Component        string      `db:"component"         json:"component"`
-	ComponentRank    int         `db:"component_rank"    json:"component_rank"`
-	Version          string      `db:"version"           json:"version"`
-	Suite            string      `db:"suite"             json:"suite"`
-	Provider         string      `db:"provider"          json:"provider"`
-	SuiteName        string      `db:"suite_name"        json:"suite_name"`
-	SuiteHomepage    string      `db:"suite_homepage"    json:"suite_homepage"`
-	SuiteRepository  string      `db:"suite_repository"  json:"suite_repository"`
-	SuiteHelp        string      `db:"suite_help"        json:"suite_help"`
-	SuiteDescription string      `db:"suite_description" json:"suite_description"`
-	SuiteLogo        string      `db:"suite_logo"        json:"suite_logo"`
-	CheckCount       int         `db:"check_count"       json:"check_count"`
-	Members          memberArray `db:"members"           json:"members"`
-	VisibleIn        stringArray `db:"visible_in"        json:"visible_in"`
-	FSStandard       string      `db:"fs_standard"       json:"fs_standard"`
-	FSVersion        string      `db:"fs_version"        json:"fs_version"`
-	PathPrefix       string      `db:"path_prefix"       json:"path_prefix"`
-	Created          string      `db:"created"           json:"created"`
-	Updated          string      `db:"updated"           json:"updated"`
-
+// suiteHTTPRecord is the list/get JSON shape: SuiteRecord plus PocketBase collection meta.
+type suiteHTTPRecord struct {
+	SuiteRecord
 	CollectionID   string `db:"-" json:"collectionId"`
 	CollectionName string `db:"-" json:"collectionName"`
 }
 
-func (r *suiteRow) withCollectionMeta() *suiteRow {
+func (r *suiteHTTPRecord) withCollectionMeta() *suiteHTTPRecord {
 	r.CollectionID = SuitesCollectionID
 	r.CollectionName = SuitesCollectionName
 	return r

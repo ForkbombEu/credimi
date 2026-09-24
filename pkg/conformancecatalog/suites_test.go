@@ -94,7 +94,7 @@ func TestProjectSuitesGroupsByNormalizedAxes(t *testing.T) {
 	require.Equal(t, "wallet", s10.Component)
 	require.Equal(t, "1.0", s10.Version)
 	require.Equal(t, 2, s10.CheckCount)
-	require.Equal(t, []SuiteMember{
+	require.Equal(t, memberArray{
 		{Path: "openid4vp_wallet/1.0/openid_conformance_suite/a", Title: "A", File: "a.yaml"},
 		{Path: "openid4vp_wallet/1.0/openid_conformance_suite/b", Title: "B", File: "b.yaml"},
 	}, s10.Members)

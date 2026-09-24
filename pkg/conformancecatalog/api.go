@@ -40,12 +40,12 @@ func checksCollectionHTTP() collectionHTTP[checkHTTPRecord] {
 	}
 }
 
-func suitesCollectionHTTP() collectionHTTP[suiteRow] {
-	return collectionHTTP[suiteRow]{
+func suitesCollectionHTTP() collectionHTTP[suiteHTTPRecord] {
+	return collectionHTTP[suiteHTTPRecord]{
 		table:      SuitesCollectionName,
 		columns:    suiteSelectColumns,
 		fields:     suiteSearchFields,
-		attachMeta: func(r *suiteRow) { r.withCollectionMeta() },
+		attachMeta: func(r *suiteHTTPRecord) { r.withCollectionMeta() },
 		writeMsg:   suitesWriteRejectMessage,
 	}
 }

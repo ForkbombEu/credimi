@@ -43,9 +43,9 @@ func TestCheckDBTagsMatchCheckColumns(t *testing.T) {
 	require.Equal(t, columnNames(checkColumns), dbTagNames(reflect.TypeOf(Check{})))
 }
 
-func TestSuiteRowDBTagsMatchSuiteColumns(t *testing.T) {
+func TestSuiteRecordDBTagsMatchSuiteColumns(t *testing.T) {
 	t.Parallel()
-	require.Equal(t, columnNames(suiteColumns), dbTagNames(reflect.TypeOf(suiteRow{})))
+	require.Equal(t, columnNames(suiteColumns), dbTagNames(reflect.TypeOf(SuiteRecord{})))
 }
 
 func TestClientColumnNamesOmitTimestamps(t *testing.T) {

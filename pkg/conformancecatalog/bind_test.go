@@ -58,7 +58,7 @@ func TestBindParamsSuiteKeysMatchColumns(t *testing.T) {
 		Provider:      "forkbomb",
 		SuiteName:     "Suite",
 		CheckCount:    1,
-		Members:       []SuiteMember{{Path: "a/b/c/d.yaml", Title: "T", File: "d.yaml"}},
+		Members:       memberArray{{Path: "a/b/c/d.yaml", Title: "T", File: "d.yaml"}},
 		VisibleIn:     nil,
 		FSStandard:    "fcaf",
 		FSVersion:     "v1",

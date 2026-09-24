@@ -19,26 +19,30 @@ type SuiteMember struct {
 // SuiteRecord is one hub-table row: a suite under normalized standard×component×version.
 // FS* fields preserve durable path identity for hub links; Standard/Component/Version
 // are the product projection.
+// SuiteRecord is the sole scan/bind domain type for conformance_suites (columnSpec SoT).
+// HTTP list/get wraps it in suiteHTTPRecord for PocketBase collection meta.
 type SuiteRecord struct {
-	ID               string        `json:"id"`
-	Standard         string        `json:"standard"`       // normalized product standard
-	Component        string        `json:"component"`      // wallet | issuer | verifier | ""
-	ComponentRank    int           `json:"component_rank"` // wallet=0, issuer=1, verifier=2, else=9
-	Version          string        `json:"version"`        // normalized profile version (may be "")
-	Suite            string        `json:"suite"`          // suite uid
-	Provider         string        `json:"provider"`
-	SuiteName        string        `json:"suite_name"`
-	SuiteHomepage    string        `json:"suite_homepage"`
-	SuiteRepository  string        `json:"suite_repository"`
-	SuiteHelp        string        `json:"suite_help"`
-	SuiteDescription string        `json:"suite_description"`
-	SuiteLogo        string        `json:"suite_logo"`
-	CheckCount       int           `json:"check_count"`
-	Members          []SuiteMember `json:"members"`
-	VisibleIn        []string      `json:"visible_in"`
-	FSStandard       string        `json:"fs_standard"`
-	FSVersion        string        `json:"fs_version"`
-	PathPrefix       string        `json:"path_prefix"` // fs_standard/fs_version/suite for hub URLs
+	ID               string      `db:"id"                json:"id"`
+	Standard         string      `db:"standard"          json:"standard"`       // normalized product standard
+	Component        string      `db:"component"         json:"component"`      // wallet | issuer | verifier | ""
+	ComponentRank    int         `db:"component_rank"    json:"component_rank"` // wallet=0, issuer=1, verifier=2, else=9
+	Version          string      `db:"version"           json:"version"`        // normalized profile version (may be "")
+	Suite            string      `db:"suite"             json:"suite"`          // suite uid
+	Provider         string      `db:"provider"          json:"provider"`
+	SuiteName        string      `db:"suite_name"        json:"suite_name"`
+	SuiteHomepage    string      `db:"suite_homepage"    json:"suite_homepage"`
+	SuiteRepository  string      `db:"suite_repository"  json:"suite_repository"`
+	SuiteHelp        string      `db:"suite_help"        json:"suite_help"`
+	SuiteDescription string      `db:"suite_description" json:"suite_description"`
+	SuiteLogo        string      `db:"suite_logo"        json:"suite_logo"`
+	CheckCount       int         `db:"check_count"       json:"check_count"`
+	Members          memberArray `db:"members"           json:"members"`
+	VisibleIn        stringArray `db:"visible_in"        json:"visible_in"`
+	FSStandard       string      `db:"fs_standard"       json:"fs_standard"`
+	FSVersion        string      `db:"fs_version"        json:"fs_version"`
+	PathPrefix       string      `db:"path_prefix"       json:"path_prefix"` // fs_standard/fs_version/suite for hub URLs
+	Created          string      `db:"created"           json:"created"`
+	Updated          string      `db:"updated"           json:"updated"`
 }
 
 // ComponentRank returns the hub default sort priority for a component uid.
@@ -73,7 +77,7 @@ func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 	type agg struct {
 		meta     SuiteRecord
 		vis      map[string]struct{}
-		members  []SuiteMember
+		members  memberArray
 		provider string
 	}
 
@@ -148,7 +152,7 @@ func ProjectSuites(checks []Check, display map[string]suiteDisplayFields) []Suit
 		rec.Provider = a.provider
 		rec.CheckCount = len(a.members)
 		rec.Members = a.members
-		rec.VisibleIn = vis
+		rec.VisibleIn = stringArray(vis)
 		out = append(out, rec)
 	}
 
