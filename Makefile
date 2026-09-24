@@ -280,6 +280,13 @@ clean: ## 🧹 Clean files and caches
 generate: $(ROOT_DIR)/pkg/gen.go
 	$(GOGEN) $(ROOT_DIR)/pkg/gen.go
 
+# Go Client-column emit + bun CollectionModel / PB type injectors.
+# Requires webapp/pb_data/data.db for pocketbase-typegen (same as generate:types).
+# Does not alter plain `make generate` (Go-only) or webapp predev.
+generate-catalog-wire: ## Regenerate catalog FE wire from schema.go through bun injectors
+	$(GOGEN) ./pkg/conformancecatalog
+	cd $(WEBAPP) && bun run generate:collections-models && bun run generate:types
+
 devtools: generate
 
 tools: generate $(BIN)

@@ -32,7 +32,7 @@ type ClientColumn struct {
 
 // columnSpec is one persisted catalog column. This table is the Go source of
 // truth for ephemeral DDL, SELECT lists, INSERT column order, and (for
-// Client=true) FE Zod / PB record type generation.
+// Client=true) FE wire emit: columns.ts (incl. pbType), Zod, and PB record bodies.
 type columnSpec struct {
 	Name     string
 	SQLType  string // SQLITE column type + constraints (without the name)

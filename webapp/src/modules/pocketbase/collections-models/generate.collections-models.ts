@@ -13,7 +13,7 @@ import { type CollectionModel } from 'pocketbase';
 import {
 	CHECK_CLIENT_COLUMN_SPECS,
 	SUITE_CLIENT_COLUMN_SPECS,
-	type CatalogColumnKind
+	type CatalogColumnPbType
 } from '../../../lib/conformance/columns.js';
 import {
 	EXPORT_TYPE,
@@ -176,24 +176,11 @@ function injectSyntheticConformanceSuites(models: CollectionModel[]): void {
 
 type ClientColumnSpec = {
 	readonly name: string;
-	readonly kind: CatalogColumnKind;
 	readonly optional: boolean;
+	readonly pbType: CatalogColumnPbType;
 };
 
-/** Map ColumnKind → PocketBase CollectionField type (synthetic stubs only). */
-function pbFieldType(kind: CatalogColumnKind): 'text' | 'number' | 'json' {
-	switch (kind) {
-		case 'string':
-			return 'text';
-		case 'int':
-		case 'nonNegInt':
-			return 'number';
-		case 'stringArray':
-		case 'memberArray':
-			return 'json';
-	}
-}
-
+/** Stitch Go-emitted pbType into synthetic CollectionModel fields (no Kind map). */
 function fieldsFromClientColumns(
 	collection: string,
 	columns: readonly ClientColumnSpec[]
@@ -211,7 +198,7 @@ function fieldsFromClientColumns(
 		return {
 			id: `${collection}_${col.name}`,
 			name: col.name,
-			type: pbFieldType(col.kind),
+			type: col.pbType,
 			system: false,
 			required: !col.optional
 		};
