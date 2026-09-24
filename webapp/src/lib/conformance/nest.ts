@@ -3,7 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { ConformanceSuiteRecord } from './record';
+import {
+	displayNameFromUid,
+	suiteLogo,
+	suiteSubtitle,
+	suiteTitle
+} from './suite-present';
 import type { Standard, Suite, Version } from './types';
+
+export { displayNameFromUid } from './suite-present';
 
 /**
  * Group suite-grain catalog rows into the nested standards → versions → suites
@@ -43,23 +51,22 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 		const versions: Version[] = [];
 		for (const [versionUid, suiteRows] of versionsMap) {
 			const suites: Suite[] = suiteRows.map((row) => {
-				const suiteName = row.suite_name?.trim();
-				const suiteSubtitle = row.suite_subtitle?.trim() ?? '';
+				const subtitle = suiteSubtitle(row);
+				const logo = suiteLogo(row);
 				const suiteHomepage = row.suite_homepage?.trim() ?? '';
 				const suiteRepository = row.suite_repository?.trim() ?? '';
 				const suiteHelp = row.suite_help?.trim() ?? '';
 				const suiteDescription = row.suite_description?.trim() ?? '';
-				const suiteLogo = row.suite_logo?.trim() ?? '';
 
 				return {
 					uid: row.suite,
-					name: suiteName || displayNameFromUid(row.suite),
-					...(suiteSubtitle ? { subtitle: suiteSubtitle } : {}),
+					name: suiteTitle(row),
+					...(subtitle ? { subtitle } : {}),
 					homepage: suiteHomepage,
 					repository: suiteRepository,
 					help: suiteHelp,
 					description: suiteDescription,
-					...(suiteLogo ? { logo: suiteLogo } : {}),
+					...(logo ? { logo } : {}),
 					members: row.members.map((m) => ({ ...m }))
 				};
 			});
@@ -77,15 +84,6 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 	}
 
 	return standards;
-}
-
-/** Humanize a path UID for display when authored metadata is not on the catalog row. */
-export function displayNameFromUid(uid: string): string {
-	return uid
-		.split(/[_-]+/)
-		.filter(Boolean)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(' ');
 }
 
 /** Display labels for normalized product standards. */

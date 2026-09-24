@@ -7,10 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import {
 		displayStandardName,
+		entityForComponent,
 		SuiteBrowse,
 		type SuiteFacetKey
 	} from '$lib/conformance';
-	import { entities, type EntityData } from '$lib/global/entities';
 
 	import { XIcon } from '@lucide/svelte';
 
@@ -33,19 +33,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const selectClass =
 		'border-input bg-background flex h-9 min-w-[8rem] rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]';
-
-	function entityForComponent(component: string): EntityData | undefined {
-		switch (component.trim()) {
-			case 'wallet':
-				return entities.wallets;
-			case 'issuer':
-				return entities.credential_issuers;
-			case 'verifier':
-				return entities.verifiers;
-			default:
-				return undefined;
-		}
-	}
 
 	function facetOptionLabel(key: SuiteFacetKey, value: string): string {
 		switch (key) {

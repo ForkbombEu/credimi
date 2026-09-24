@@ -17,7 +17,15 @@ export {
 	listFcafTests,
 	toFcafCatalogEntry
 } from './fcaf-list';
-export { displayNameFromUid, displayStandardName, titleForCheckPath } from './nest';
+export { displayStandardName, titleForCheckPath } from './nest';
+export {
+	displayNameFromUid,
+	entityForComponent,
+	suiteHubHref,
+	suiteLogo,
+	suiteSubtitle,
+	suiteTitle
+} from './suite-present';
 export { SuiteBrowse } from './suite-browse.svelte.js';
 
 export * as Check from './check.js';

@@ -8,12 +8,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { SearchIcon } from '@lucide/svelte';
 	import { createColumnHelper, getCoreRowModel } from '@tanstack/table-core';
 	import {
-		displayNameFromUid,
 		displayStandardName,
+		entityForComponent,
+		suiteHubHref,
+		suiteLogo,
+		suiteSubtitle,
+		suiteTitle,
 		SuiteBrowse,
 		type ConformanceSuiteRecord
 	} from '$lib/conformance';
-	import { entities, type EntityData } from '$lib/global/entities';
 	import EntityTag from '$lib/global/entity-tag.svelte';
 
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
@@ -45,10 +48,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			enableSorting: true,
 			cell: ({ row }) =>
 				renderComponent(TableNameCell, {
-					name: suiteLabel(row.original),
+					name: suiteTitle(row.original),
 					subtitle: suiteSubtitle(row.original),
-					href: `/hub/conformance-checks/${row.original.path_prefix}`,
-					logo: row.original.suite_logo || undefined
+					href: suiteHubHref(row.original),
+					logo: suiteLogo(row.original)
 				})
 		}),
 		columnHelper.accessor('standard', {
@@ -102,31 +105,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				typeof updater === 'function' ? updater(browse.sorting) : updater;
 		}
 	});
-
-	/** Prefer authored metadata `name` (suite_name); fall back to suite uid. */
-	function suiteLabel(suite: ConformanceSuiteRecord): string {
-		const name = suite.suite_name?.trim();
-		if (name) return name;
-		return displayNameFromUid(suite.suite);
-	}
-
-	function suiteSubtitle(suite: ConformanceSuiteRecord): string | undefined {
-		const subtitle = suite.suite_subtitle?.trim();
-		return subtitle || undefined;
-	}
-
-	function entityForComponent(component: string): EntityData | undefined {
-		switch (component.trim()) {
-			case 'wallet':
-				return entities.wallets;
-			case 'issuer':
-				return entities.credential_issuers;
-			case 'verifier':
-				return entities.verifiers;
-			default:
-				return undefined;
-		}
-	}
 
 	function versionLabel(version: string): string {
 		return version.trim() || '—';
