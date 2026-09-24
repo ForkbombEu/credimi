@@ -30,6 +30,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-09-23 - Local Temporal Compose restart policy
+
+- status: resolved (agent default; maintainer may override)
+- owner: agent
+- context: `temporalio/auto-setup` could exit 1 during schema setup while Postgres was still “starting up”. Compose had no Postgres/ES healthchecks and Temporal used the default restart policy (`no`), so the container stayed dead while Temporal UI could still look up. Hardened with healthchecks + `depends_on: condition: service_healthy`.
+- question: Should local Temporal use `restart: on-failure` or `unless-stopped`?
+- options considered: (1) `on-failure` — retry after schema/DB race, do not restart after intentional `compose stop`; (2) `unless-stopped` — match `credimi` in `docker-compose.override.yml`, always come back unless stopped; (3) keep `no` and rely only on healthchecks.
+- default risk: `unless-stopped` can mask permanent misconfiguration by looping; `on-failure` may still leave a dead server after retries are exhausted if Compose max attempts are hit.
+- decision: Option (1) `on-failure` on `temporal` in `docker-compose.yaml`, with Postgres/ES/Temporal healthchecks and healthy depends for UI/setup/credimi.
+- follow-up: Maintainer can switch to `unless-stopped` if local-dev preference is “always revive Temporal”.
+
 ### 2026-09-17 - Workflow timestamp presentation ownership
 
 - status: resolved

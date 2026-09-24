@@ -81,6 +81,13 @@ make dev.noworkers
 
 This sets `CREDIMI_TEMPORAL_WORKERS_DISABLED=1`. Temporal Docker still starts because the runtime Procfile waits on the Temporal port (classic `:7233`).
 
+Compose starts Temporal only after Postgres and Elasticsearch pass healthchecks, and Temporal UI / `temporal_setup` wait until Temporal reports `SERVING`. A Temporal UI port that answers is not enough by itself: if gRPC is down, Credimi API calls that talk to Temporal fail (for example pipeline list-executions). Check the mapped gRPC port:
+
+```bash
+TEMPORAL_PORT="$(bash scripts/worktree-env.sh print | awk -F= '$1 == "TEMPORAL_PORT" { print $2 }')"
+temporal operator cluster health --address "127.0.0.1:${TEMPORAL_PORT}"
+```
+
 > [!TIP]
 > Use `make help` to see all the commands available.
 
