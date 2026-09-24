@@ -22,6 +22,7 @@ export type PipelineListExecutionsEntry = {
 };
 
 const POLL_INTERVAL_MS = 30_000;
+const TICKET_POLL_INTERVAL_MS = 3_000;
 const FETCH_CONCURRENCY = 5;
 const LIST_LIMIT = 5;
 
@@ -37,6 +38,8 @@ function uniqueIds(ids: string[]): string[] {
 /**
  * Page-level store for `/my/pipelines`: shared 30s tick, per-pipeline history
  * (`limit=5`), Effect concurrency cap, first-load skeleton via `loading`.
+ * Queued tickets also get a short status poll so cards leave "queued" when the
+ * semaphore starts the next run without waiting for the full refresh.
  */
 export class PipelineListExecutions {
 	#sections = $state<Record<PipelineListExecutionsSection, string[]>>({
@@ -45,6 +48,7 @@ export class PipelineListExecutions {
 	});
 	#entries = $state<Record<string, PipelineListExecutionsEntry>>({});
 	#refreshAllInFlight = false;
+	#ticketPollInFlight = false;
 
 	constructor() {
 		onMount(() => {
@@ -52,7 +56,13 @@ export class PipelineListExecutions {
 			const interval = setInterval(() => {
 				void this.refreshAll();
 			}, POLL_INTERVAL_MS);
-			return () => clearInterval(interval);
+			const ticketInterval = setInterval(() => {
+				void this.#pollQueuedTickets();
+			}, TICKET_POLL_INTERVAL_MS);
+			return () => {
+				clearInterval(interval);
+				clearInterval(ticketInterval);
+			};
 		});
 	}
 
@@ -107,6 +117,60 @@ export class PipelineListExecutions {
 		await this.#fetchIds([pipelineId], {
 			firstLoad: !this.#entries[pipelineId]?.hydrated
 		});
+	}
+
+	async #pollQueuedTickets() {
+		if (this.#ticketPollInFlight) return;
+
+		type QueuedTicket = {
+			pipelineId: string;
+			ticketId: string;
+			deviceIds: string[];
+		};
+		const tickets: QueuedTicket[] = [];
+		for (const pipelineId of this.ids) {
+			const workflows = this.#entries[pipelineId]?.workflows;
+			if (!workflows) continue;
+			for (const workflow of workflows) {
+				const queue = workflow.queue;
+				if (!queue?.ticket_id) continue;
+				tickets.push({
+					pipelineId,
+					ticketId: queue.ticket_id,
+					deviceIds: queue.device_ids ?? []
+				});
+			}
+		}
+		if (tickets.length === 0) return;
+
+		this.#ticketPollInFlight = true;
+		try {
+			const toRetry: string[] = [];
+			await Effect.runPromise(
+				Effect.forEach(
+					tickets,
+					({ pipelineId, ticketId, deviceIds }) =>
+						Effect.promise(async () => {
+							const result = await Pipeline.Queue.status(ticketId, deviceIds);
+							if (result.isErr) return;
+							if (result.value.status !== 'queued') {
+								toRetry.push(pipelineId);
+							}
+						}),
+					{ concurrency: FETCH_CONCURRENCY }
+				)
+			);
+
+			await Effect.runPromise(
+				Effect.forEach(
+					uniqueIds(toRetry),
+					(pipelineId) => Effect.promise(() => this.retry(pipelineId)),
+					{ concurrency: FETCH_CONCURRENCY }
+				)
+			);
+		} finally {
+			this.#ticketPollInFlight = false;
+		}
 	}
 
 	async #fetchIds(ids: string[], options: { firstLoad: boolean }) {
