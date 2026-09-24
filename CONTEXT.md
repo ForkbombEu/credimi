@@ -43,8 +43,9 @@ A suite under a product-axis standard×component×version, with authored display
 _Avoid_: Denormalizing suite display onto every check, blueprints nest, empty suite without checks, dual-fetching both projections on every hub layout, treating nest Standard/Version as authored catalog metadata
 
 **Product axis**:
-The normalized standard × component × version used to browse and filter the hub suite table and projected onto checks for facet filters. Same meaning on both catalog grains.
+The normalized standard × component × version used to browse and filter the hub suite table and projected onto checks for facet filters. Same meaning on both catalog grains. Hub Product-axis suite-table orchestration (list, facets, SSR policy) lives in `webapp/src/lib/conformance/suite-browse.svelte.ts`; the Filesystem-axis nest remains Store-only.
 _Avoid_: Filesystem path segment, nest uid (when meaning product)
+
 
 **Filesystem axis**:
 The durable path segments (filesystem standard / filesystem version / suite, and suite path prefix) that keep hub URLs and nest trees path-stable. Same meaning on both catalog grains.

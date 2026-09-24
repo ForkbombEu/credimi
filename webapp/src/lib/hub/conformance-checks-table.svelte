@@ -5,18 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createQuery } from '@tanstack/svelte-query';
-	import { createColumnHelper, getCoreRowModel, type SortingState } from '@tanstack/table-core';
+	import { createColumnHelper, getCoreRowModel } from '@tanstack/table-core';
 	import {
 		displayNameFromUid,
 		displayStandardName,
-		isHubDefaultSuiteSort,
-		listSuites,
-		SUITE_FACET_KEYS,
-		suiteSortFromTableColumns,
-		type ConformanceSuiteRecord,
-		type SuiteFacets
+		type ConformanceSuiteRecord
 	} from '$lib/conformance';
+	import { SuiteBrowse, type SuiteFacetKey } from '$lib/conformance/suite-browse.svelte';
 	import { entities, type EntityData } from '$lib/global/entities';
 	import EntityTag from '$lib/global/entity-tag.svelte';
 
@@ -30,8 +25,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type SuiteFacetKey = (typeof SUITE_FACET_KEYS)[number];
-
 	type Props = {
 		/** SSR suite rows (pipeline surface; used when sort/search/facets are default). */
 		suites?: ConformanceSuiteRecord[];
@@ -41,14 +34,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { suites: initialSuites = [], search = '' }: Props = $props();
 
-	/** Empty = no UI sort indicator; data still arrives in hub-default order. */
-	let sorting = $state<SortingState>([]);
-
-	let filters = $state<Record<SuiteFacetKey, string>>({
-		standard: '',
-		component: '',
-		version: '',
-		provider: ''
+	const browse = new SuiteBrowse({
+		get initialSuites() {
+			return initialSuites;
+		},
+		get search() {
+			return search;
+		}
 	});
 
 	const facetFields: { key: SuiteFacetKey; label: string }[] = [
@@ -60,78 +52,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const selectClass =
 		'border-input bg-background flex h-9 min-w-[8rem] rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]';
-
-	const sortIntent = $derived(suiteSortFromTableColumns(sorting));
-	const searchQuery = $derived(search.trim());
-
-	const activeFacets = $derived.by((): SuiteFacets => {
-		const facets: SuiteFacets = {};
-		for (const key of SUITE_FACET_KEYS) {
-			const value = filters[key];
-			if (value) facets[key] = value;
-		}
-		return facets;
-	});
-
-	const hasActiveFilters = $derived(Object.keys(activeFacets).length > 0);
-
-	const useSSR = $derived(
-		isHubDefaultSuiteSort(sortIntent) &&
-			searchQuery === '' &&
-			!hasActiveFilters &&
-			initialSuites.length > 0
-	);
-
-	const facetOptionsQuery = createQuery(() => ({
-		queryKey: ['conformance-suites', 'pipeline', 'hub', 'facet-options'] as const,
-		queryFn: async () => {
-			const result = await listSuites({ surface: 'pipeline' });
-			if (result.isErr) throw result.error;
-			return result.value;
-		}
-	}));
-
-	const catalogQuery = createQuery(() => {
-		const sort = sortIntent;
-		const q = searchQuery;
-		const facets = activeFacets;
-
-		return {
-			queryKey: ['conformance-suites', 'pipeline', 'hub', sort, q, facets] as const,
-			enabled: !useSSR,
-			queryFn: async () => {
-				const result = await listSuites({
-					surface: 'pipeline',
-					sort,
-					search: q || undefined,
-					facets: Object.keys(facets).length > 0 ? facets : undefined
-				});
-				if (result.isErr) throw result.error;
-				return result.value;
-			}
-		};
-	});
-
-	const facetSourceSuites = $derived.by((): ConformanceSuiteRecord[] => {
-		if (facetOptionsQuery.data) return facetOptionsQuery.data;
-		if (initialSuites.length > 0) return initialSuites;
-		return [];
-	});
-
-	const facetOptions = $derived.by((): Record<SuiteFacetKey, string[]> => {
-		const options = {} as Record<SuiteFacetKey, string[]>;
-		for (const key of SUITE_FACET_KEYS) {
-			options[key] = distinctFacetValues(facetSourceSuites, key);
-		}
-		return options;
-	});
-
-	const displayedSuites = $derived.by((): ConformanceSuiteRecord[] => {
-		if (useSSR) return initialSuites;
-		return catalogQuery.data ?? [];
-	});
-
-	const isLoading = $derived(catalogQuery.isFetching);
 
 	const columnHelper = createColumnHelper<ConformanceSuiteRecord>();
 
@@ -179,7 +99,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const table = createSvelteTable({
 		get data() {
-			return displayedSuites;
+			return browse.displayedSuites;
 		},
 		columns,
 		getCoreRowModel: getCoreRowModel(),
@@ -187,11 +107,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		manualSorting: true,
 		state: {
 			get sorting() {
-				return sorting;
+				return browse.sorting;
 			}
 		},
 		onSortingChange: (updater) => {
-			sorting = typeof updater === 'function' ? updater(sorting) : updater;
+			browse.sorting =
+				typeof updater === 'function' ? updater(browse.sorting) : updater;
 		}
 	});
 
@@ -219,16 +140,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return version.trim() || '—';
 	}
 
-	/** Distinct non-empty values for facet selects (stable from unfiltered set). */
-	function distinctFacetValues(
-		records: ConformanceSuiteRecord[],
-		key: SuiteFacetKey
-	): string[] {
-		return [
-			...new Set(records.map((record) => record[key]).filter((value) => value.length > 0))
-		].sort((a, b) => a.localeCompare(b));
-	}
-
 	function facetOptionLabel(key: SuiteFacetKey, value: string): string {
 		switch (key) {
 			case 'standard':
@@ -242,13 +153,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return value;
 		}
 	}
-
-	function clearFilters() {
-		filters.standard = '';
-		filters.component = '';
-		filters.version = '';
-		filters.provider = '';
-	}
 </script>
 
 <div class="space-y-4">
@@ -256,27 +160,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#each facetFields as { key, label } (key)}
 			<div class="flex flex-col gap-1">
 				<label class="text-muted-foreground text-xs" for={`facet-${key}`}>{label}</label>
-				<select id={`facet-${key}`} class={selectClass} bind:value={filters[key]}>
+				<select id={`facet-${key}`} class={selectClass} bind:value={browse.filters[key]}>
 					<option value="">{m.All()}</option>
-					{#each facetOptions[key] as value (value)}
+					{#each browse.facetOptions[key] as value (value)}
 						<option {value}>{facetOptionLabel(key, value)}</option>
 					{/each}
 				</select>
 			</div>
 		{/each}
 
-		{#if hasActiveFilters}
+		{#if browse.hasActiveFilters}
 			<button
 				type="button"
 				class="text-primary text-sm underline-offset-4 hover:underline"
-				onclick={clearFilters}
+				onclick={browse.clearFilters}
 			>
 				{m.Clear_filters()}
 			</button>
 		{/if}
 	</div>
 
-	<div class:opacity-60={isLoading}>
+	<div class:opacity-60={browse.isLoading}>
 		<Table.Table>
 			<Table.Header>
 				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
