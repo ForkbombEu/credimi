@@ -103,10 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				})}
 			{/snippet}
 		</PipelineReportSheet>
-		<FCAF.ReportSheet
-			reportUrl={artifacts.fcafReport}
-			pdfUrl={artifacts.fcafReportPdf}
-		>
+		<FCAF.ReportSheet reportUrl={artifacts.fcafReport} pdfUrl={artifacts.fcafReportPdf}>
 			{#snippet sheetTrigger({ props })}
 				{@render artifactButton({
 					tooltip: 'FCAF assessment report',

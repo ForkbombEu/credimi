@@ -26,7 +26,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { entities } from '$lib/global';
-	import { StepCardDisplay, ContinueOnErrorFooter } from '$lib/pipeline-form/steps-builder/_partials/index.js';
+	import {
+		StepCardDisplay,
+		ContinueOnErrorFooter
+	} from '$lib/pipeline-form/steps-builder/_partials/index.js';
 	import { comp } from '$lib/renderable';
 
 	import Button from '@/components/ui-custom/button.svelte';

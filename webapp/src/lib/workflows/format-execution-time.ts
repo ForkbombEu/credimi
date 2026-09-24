@@ -75,7 +75,9 @@ export function splitExecutionTimes(
 }
 
 /** Renders end clock with a next-day / multi-day marker when needed. */
-export function formatEndClock(parts: Pick<SplitExecutionTimes, 'end' | 'endDayOffset'>): string | undefined {
+export function formatEndClock(
+	parts: Pick<SplitExecutionTimes, 'end' | 'endDayOffset'>
+): string | undefined {
 	if (!parts.end) return undefined;
 	if (parts.endDayOffset <= 0) return parts.end;
 	if (parts.endDayOffset === 1) return `+${parts.end}`;

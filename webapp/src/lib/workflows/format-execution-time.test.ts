@@ -13,11 +13,7 @@ import {
 
 describe('splitExecutionTimes', () => {
 	it('splits same-day start and end without a next-day marker', () => {
-		const parts = splitExecutionTimes(
-			'2026-09-17T12:02:11Z',
-			'2026-09-17T12:07:44Z',
-			'UTC'
-		);
+		const parts = splitExecutionTimes('2026-09-17T12:02:11Z', '2026-09-17T12:07:44Z', 'UTC');
 		expect(parts).toEqual({
 			date: '17/09/2026',
 			start: '12:02',
@@ -28,11 +24,7 @@ describe('splitExecutionTimes', () => {
 	});
 
 	it('marks end on the next calendar day', () => {
-		const parts = splitExecutionTimes(
-			'2026-09-17T22:58:01Z',
-			'2026-09-18T00:03:12Z',
-			'UTC'
-		);
+		const parts = splitExecutionTimes('2026-09-17T22:58:01Z', '2026-09-18T00:03:12Z', 'UTC');
 		expect(parts).toEqual({
 			date: '17/09/2026',
 			start: '22:58',
@@ -43,11 +35,7 @@ describe('splitExecutionTimes', () => {
 	});
 
 	it('marks multi-day end offsets', () => {
-		const parts = splitExecutionTimes(
-			'2026-09-17T10:00:00Z',
-			'2026-09-19T11:30:00Z',
-			'UTC'
-		);
+		const parts = splitExecutionTimes('2026-09-17T10:00:00Z', '2026-09-19T11:30:00Z', 'UTC');
 		expect(parts?.endDayOffset).toBe(2);
 		expect(formatEndClock(parts!)).toBe('+2d 11:30');
 	});
