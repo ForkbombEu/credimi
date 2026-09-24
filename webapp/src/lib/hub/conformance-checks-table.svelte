@@ -9,9 +9,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import {
 		displayNameFromUid,
 		displayStandardName,
-		type ConformanceSuiteRecord
+		SuiteBrowse,
+		type ConformanceSuiteRecord,
+		type SuiteFacetKey
 	} from '$lib/conformance';
-	import { SuiteBrowse, type SuiteFacetKey } from '$lib/conformance/suite-browse.svelte';
 	import { entities, type EntityData } from '$lib/global/entities';
 	import EntityTag from '$lib/global/entity-tag.svelte';
 

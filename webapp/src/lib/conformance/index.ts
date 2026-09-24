@@ -7,6 +7,7 @@ export type { CatalogSurface, ConformanceCheckRecord, ConformanceSuiteRecord } f
 export type { NestStandards, SuiteFacets } from './client';
 export type { CheckListIntent, SuiteListIntent, SuiteSortColumn, SuiteSortIntent } from './query';
 export type { FCAFTestCatalogEntry, ListFcafTestsOptions } from './fcaf-list';
+export type { SuiteFacetKey } from './suite-browse.svelte.js';
 
 export { getNestStandards, listHubSuites } from './client';
 export {
@@ -16,13 +17,8 @@ export {
 	listFcafTests,
 	toFcafCatalogEntry
 } from './fcaf-list';
-export {
-	HUB_SUITE_SORT_DEFAULT,
-	isHubDefaultSuiteSort,
-	SUITE_FACET_KEYS,
-	suiteSortFromTableColumns
-} from './query';
 export { displayNameFromUid, displayStandardName, titleForCheckPath } from './nest';
+export { SuiteBrowse } from './suite-browse.svelte.js';
 
 export * as Check from './check.js';
 export * as Standards from './standard/index.js';
