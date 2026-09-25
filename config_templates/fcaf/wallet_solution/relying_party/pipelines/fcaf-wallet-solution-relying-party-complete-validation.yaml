@@ -3611,6 +3611,113 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-combined-constraint-request.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-numeric-type-trap-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:credimi:numeric-claims:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-obtain-numeric-type-trap-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-type-trap-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-numeric-inventory-request
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - kg
+                          format: dc+sd-jwt
+                          id: numeric
+                          meta:
+                            vct_values:
+                                - urn:credimi:numeric-claims:1
+                          multiple: true
+                nonce: combined-value-constraints-numeric-inventory
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-present-numeric-inventory-request
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-inventory-request.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-numeric-inventory-request
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-inventory-request.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-create-numeric-type-trap-request
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - kg
+                              values:
+                                - 70
+                          format: dc+sd-jwt
+                          id: numeric
+                          meta:
+                            vct_values:
+                                - urn:credimi:numeric-claims:1
+                nonce: combined-value-constraints-numeric-type
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-present-numeric-type-trap-request
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        parameters:
+            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-type-trap-request.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-numeric-type-trap-request
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-type-trap-request.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-credential-format-disallowed-c8dd9078-create
       use: http-request
       with:
@@ -21921,6 +22028,9 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-combined-constraint-request.outputs.body | optional }}
                     fixture_inventory: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-fixture-inventory-request.outputs.body | optional }}
+                    numeric_inventory: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-numeric-inventory-request.outputs.body | optional }}
+                    numeric_type_trap: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-numeric-type-trap-request.outputs.body | optional }}
+                    numeric_visual_evidence: ${{ dcql-combined-value-constraints-6bdb8a96-present-numeric-type-trap-request.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ dcql-combined-value-constraints-6bdb8a96-present-combined-constraint-request.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.credential-format-disallowed:
                 output:

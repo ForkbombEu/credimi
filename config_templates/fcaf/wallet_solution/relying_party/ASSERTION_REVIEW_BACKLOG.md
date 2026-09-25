@@ -150,21 +150,20 @@ becomes `origin:<browser origin>`, which is why `WS_RP_SM_RpIntegrity__022` uses
 The `fcaf-dc-api-present` action drives the full browser path on wallet
 2026.09.42, so these are now runnable.
 
-### Unblocked by the 25/09/2026 Capture Wallet refresh
-
-- [ ] `WS_RP_IA_MainInteraction__033` can complete its eight-credential trap
-  set. `fcaf-wallet-solution-relying-party-dcql-combined-value-constraints`
-  issues seven fixtures; the data-type trap has no PID or degree fixture with a
-  numeric claim, so it was omitted. Beta issued
-  `urn:credimi:numeric-claims:1.sd-jwt.key-attestation-required` on 25/09/2026,
-  which supplies that claim. Add the eighth credential and raise the
-  `oid4vp.distinct_presentations` minimum from 8 accordingly.
 
 ### Known gaps inside implemented coverage
 
 - `WS_RP_MS_ProtocolMessages__125` and `126` can only evidence the Wallet's own
   error visually: the Wallet has already submitted its Authorization Response
   when the malformed verifier reply arrives.
+- `WS_RP_IA_MainInteraction__033` covers its numeric data-type axis on a
+  separate credential type. The source's B2 trap is a PID-shaped credential
+  holding a float, which no PID or degree fixture provides, and OpenID4VP 6.4
+  restricts DCQL `values` to strings, integers and booleans, so a float
+  constraint cannot appear in the PID query at all: the verifier refuses it with
+  `Invalid integer: Received 70.5`. The axis therefore runs as its own pair of
+  requests against `urn:credimi:numeric-claims:1`. Revisit if Capture ever
+  issues a PID carrying a numeric claim.
 - `WS_RP_SH_Cryptography_CryptographicHash_010` is implemented and reports
   `not_applicable` against wallet 2026.09.42, which stored and presented a
   SHA-384 digested PID. Its source only requires withholding for a Wallet that

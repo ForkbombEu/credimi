@@ -278,6 +278,115 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-combined-constraint-request.outputs.body.session_id }}
     expected_status: 200
+# B2, fails the numeric data type. The source's trap is a credential holding a
+# float where the query constrains an integer. No PID or degree claim is
+# numeric, and OpenID4VP 6.4 restricts DCQL `values` to strings, integers and
+# booleans, so the axis cannot be expressed inside the PID query above: the
+# verifier refuses a float constraint with `Invalid integer: Received 70.5`.
+# It is therefore exercised on the only credential type that carries a numeric
+# claim, as its own pair of requests.
+- id: create-numeric-type-trap-issuance
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:credimi:numeric-claims:1.sd-jwt.key-attestation-required
+- id: obtain-numeric-type-trap-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-numeric-type-trap-issuance.outputs.body.deeplink }}
+# Possession evidence: an unconstrained query discloses the float the trap
+# below relies on, so withholding cannot be attributed to a missing credential.
+- id: create-numeric-inventory-request
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: combined-value-constraints-numeric-inventory
+        dcql_query:
+          credentials:
+          - id: numeric
+            format: dc+sd-jwt
+            multiple: true
+            meta:
+              vct_values:
+              - urn:credimi:numeric-claims:1
+            claims:
+            - path:
+              - kg
+- id: present-numeric-inventory-request
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-numeric-inventory-request.outputs.body.deeplink }}
+- id: fetch-numeric-inventory-request
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-numeric-inventory-request.outputs.body.session_id }}
+    expected_status: 200
+# The trap itself: an integer constraint against the float the wallet holds.
+- id: create-numeric-type-trap-request
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: combined-value-constraints-numeric-type
+        dcql_query:
+          credentials:
+          - id: numeric
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:credimi:numeric-claims:1
+            claims:
+            - path:
+              - kg
+              values:
+              - 70
+- id: present-numeric-type-trap-request
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-numeric-type-trap-request.outputs.body.deeplink }}
+- id: fetch-numeric-type-trap-request
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-numeric-type-trap-request.outputs.body.session_id }}
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -290,3 +399,6 @@ steps:
           fixture_inventory: ${{ fetch-fixture-inventory-request.outputs.body }}
           dcql_exchange: ${{ fetch-combined-constraint-request.outputs.body }}
           visual_evidence: ${{ present-combined-constraint-request.outputs.flow_output.maestro_screenshot_urls }}
+          numeric_inventory: ${{ fetch-numeric-inventory-request.outputs.body }}
+          numeric_type_trap: ${{ fetch-numeric-type-trap-request.outputs.body }}
+          numeric_visual_evidence: ${{ present-numeric-type-trap-request.outputs.flow_output.maestro_screenshot_urls }}

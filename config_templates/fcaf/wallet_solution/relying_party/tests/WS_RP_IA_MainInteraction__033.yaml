@@ -21,6 +21,12 @@ evidence:
     from: pipeline.dcql.combined-value-constraints.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.combined-value-constraints.outputs.visual_evidence
+  numeric_inventory:
+    from: pipeline.dcql.combined-value-constraints.outputs.numeric_inventory
+  numeric_type_trap:
+    from: pipeline.dcql.combined-value-constraints.outputs.numeric_type_trap
+  numeric_visual_evidence:
+    from: pipeline.dcql.combined-value-constraints.outputs.numeric_visual_evidence
 assertions:
 - id: wallet_holds_the_near_miss_credentials_it_must_exclude
   validator: oid4vp.distinct_presentations
@@ -39,5 +45,17 @@ assertions:
 - id: selection_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
+- id: wallet_holds_the_numeric_data_type_trap_credential
+  validator: json.field_presence
+  input: evidence.numeric_inventory
+  params:
+    field: decoded_presentations
+    present: true
+- id: integer_constraint_withholds_the_float_credential
+  validator: oid4vp.no_presentation_returned
+  input: evidence.numeric_type_trap
+- id: numeric_data_type_visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.numeric_visual_evidence
 verdict:
   pass_when: all_assertions_pass

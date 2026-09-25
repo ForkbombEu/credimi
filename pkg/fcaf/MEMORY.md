@@ -176,6 +176,30 @@ with both issuance assertions passing. Ownership moved off
 `fcaf-wallet-solution-relying-party-dcql-cryptography`, whose
 `jwt.payload_field_presence` on a `hash` field decided nothing about this test.
 
+### `WS_RP_IA_MainInteraction__033` numeric data-type axis, added 25/09/2026
+
+The source's B2 trap is a credential of the same type holding a float where the
+query constrains an integer. Two facts make that unbuildable as a PID:
+
+- No PID or degree fixture carries a numeric claim. Capture's numeric test
+  credential is a separate type, `urn:credimi:numeric-claims:1`, holding only
+  `kg: 70.5`; upstream states it is not a PID claim or a PID schema version.
+- OpenID4VP 6.4 restricts DCQL `values` to strings, integers and booleans, so a
+  float constraint cannot appear in the PID query at all. Credo refuses it at
+  session creation with `Invalid integer: Received 70.5`, which also rules out
+  a float-valued positive control.
+
+The axis therefore runs as its own pair of requests inside
+`fcaf-wallet-solution-relying-party-dcql-combined-value-constraints`. An
+unconstrained `multiple: true` query on the numeric type proves possession and
+discloses `kg: 70.5`; a second query constraining `kg` to the integer `70` must
+then be withheld. The seven-fixture PID query is untouched, so the deviation is
+contained to the one axis the PID fixtures cannot express.
+
+Observed on 2026.09.42: possession probe `presentation_validated` disclosing
+`70.5`, trap `request_retrieved` with no response. Both new assertions pass, so
+the reference Wallet matches numeric values by type as the source requires.
+
 ## Git state at handoff
 
 - Repository: `/home/puria/src/github.com/ForkbombEu/credimi/PR/1295`
