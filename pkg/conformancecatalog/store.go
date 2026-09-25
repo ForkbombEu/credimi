@@ -28,9 +28,9 @@ type catalogCache struct {
 }
 
 var (
-	defaultOnce  sync.Once
-	defaultCache *catalogCache
-	defaultErr   error
+	defaultOnce     sync.Once
+	defaultCache    *catalogCache
+	errDefaultCache error
 )
 
 func openCatalogCache(uri string) (*catalogCache, error) {
@@ -63,10 +63,10 @@ func (c *catalogCache) Close() error {
 
 func defaultCatalog() (*catalogCache, error) {
 	defaultOnce.Do(func() {
-		defaultCache, defaultErr = openCatalogCache(catalogMemoryURI)
+		defaultCache, errDefaultCache = openCatalogCache(catalogMemoryURI)
 	})
-	if defaultErr != nil {
-		return nil, defaultErr
+	if errDefaultCache != nil {
+		return nil, errDefaultCache
 	}
 	return defaultCache, nil
 }
@@ -169,7 +169,9 @@ func (c *catalogCache) replaceEphemeralRows(loaded LoadedCatalog) error {
 		if err != nil {
 			return fmt.Errorf("bind ephemeral check %s: %w", ch.Path, err)
 		}
-		if _, err := tx.NewQuery(insertSQL(ChecksCollectionName, checkColumns)).Bind(params).Execute(); err != nil {
+		if _, err := tx.NewQuery(insertSQL(ChecksCollectionName, checkColumns)).
+			Bind(params).
+			Execute(); err != nil {
 			return fmt.Errorf("insert ephemeral check %s: %w", ch.Path, err)
 		}
 	}
@@ -179,7 +181,9 @@ func (c *catalogCache) replaceEphemeralRows(loaded LoadedCatalog) error {
 		if err != nil {
 			return fmt.Errorf("bind ephemeral suite %s: %w", s.PathPrefix, err)
 		}
-		if _, err := tx.NewQuery(insertSQL(SuitesCollectionName, suiteColumns)).Bind(params).Execute(); err != nil {
+		if _, err := tx.NewQuery(insertSQL(SuitesCollectionName, suiteColumns)).
+			Bind(params).
+			Execute(); err != nil {
 			return fmt.Errorf("insert ephemeral suite %s: %w", s.PathPrefix, err)
 		}
 	}
