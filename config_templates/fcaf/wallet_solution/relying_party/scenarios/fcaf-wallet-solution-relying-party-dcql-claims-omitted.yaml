@@ -40,11 +40,11 @@ steps:
                 visible: "Home|Documents|Welcome, .*"
                 timeout: 30000
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - extendedWaitUntil:
@@ -53,6 +53,7 @@ steps:
             - tapOn:
                 point: "11%,39%"
             - inputText: "123456"
+            - hideKeyboard
             - tapOn: { point: "50%,10%" }
             - extendedWaitUntil:
                 visible: ".*successfully shared.*"

@@ -12,7 +12,7 @@ steps:
         scheme: haip-vp://
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-013-unchecked-claim
           dcql_query:
@@ -31,39 +31,42 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-                - launchApp: { stopApp: true, clearState: false }
+        - launchApp: { stopApp: true, clearState: false }
         - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Welcome, .*", timeout: 30000 }
         - runFlow:
             when: { visible: "Welcome back" }
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
-        - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
         - runFlow:
             when: { visible: "EUDI Wallet" }
             commands: [{ tapOn: { text: "EUDI Wallet", optional: true } }]
         - runFlow:
             when: { visible: "Just once" }
             commands: [{ tapOn: { text: "Just once", optional: true } }]
-        - extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
+        - extendedWaitUntil: { visible: "Welcome back|Data sharing request", timeout: 100000 }
         - runFlow:
             when: { visible: "Welcome back" }
             commands:
               - tapOn: { point: "11%,39%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+        - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
         - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false }
-        - assertVisible: "Given Name(s)"
-        - assertVisible: "Address"
-        - tapOn: "Address"
+        - assertVisible: "Given Name"
+        - assertVisible: "address"
+        - tapOn: "address"
         - takeScreenshot: fcaf-013-unchecked-address
         - tapOn: "Share"
         - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
         - tapOn: { point: "11%,39%" }
         - inputText: "123456"
+        - hideKeyboard
         - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
         - takeScreenshot: fcaf-013-unchecked-address-shared

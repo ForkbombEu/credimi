@@ -10,6 +10,96 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Reference wallet 2026.09.42-Demo (verified 25/09/2026)
+
+The Maestro actions were re-verified on `eu.europa.ec.euidi` 2026.09.42 build 42
+(AVD `credimi`, `emulator-5580`) against `https://beta-capture-wallet.credimi.io`.
+The reference wallet the actions were written for was 2026.06.38.
+
+UI contract changes fixed in `config_templates/fcaf/imports/forkbomb-bv-andrea/wallet/`
+and in every inline `action_code` under `scenarios/`:
+
+- Consent screen title is `Data sharing request`, no longer `DATA SHARING REQUEST`.
+  Maestro matches an element's full text, so the old uppercase selector never matches.
+- Credential-offer screen is `Issuance request` with `Accept` / `Cancel`; the `Add`
+  button is gone.
+- Claim labels are `Given Name`, `Family Name`, `Nationalities` and a lowercase
+  `address` group, not `Given Name(s)`, `Nationality`, `Address`.
+- The error screen headline is exactly `Oups! Something went wrong`; the bare
+  alternative `Something went wrong` never matched and only passed while the wallet
+  discontinued silently to Home. 2026.09.42 shows the error screen instead.
+- After a successful share the wallet stays on `Authentication successful` /
+  `You successfully shared the following information with` with `Close`; it does not
+  return to Home, so terminal waits must accept that screen.
+- The wallet is reachable through the Digital Credentials API now: Chrome asks
+  `Do you trust this site with your data?` (`Continue`), then the platform picker
+  (`Agree and continue`), then the wallet unlock and the normal consent screen.
+- A PIN keyboard left open covers the bottom action bar and hides `Share` / `Accept`
+  from the hierarchy. Every PIN entry needs `hideKeyboard`.
+- Stable ids that still hold: `request_screen_requested_document_N`,
+  `document_success_screen_document_N`, `request_screen_button`,
+  `biometric_screen_pin_text`, and the new `pin_text_field_0..5`.
+
+Verified green on 2026.09.42: `onboarding-1`, `unlock-wallet`,
+`getcredential-generic-credential-without-authentication`,
+`fcaf-exercise-wallet-generic`, `fcaf-expect-request-rejected`,
+`fcaf-expect-no-matching-document`, `fcaf-engagement-haip-vp`,
+`fcaf-submit-request-object-by-value`, `fcaf-dc-api-present`.
+
+### Latent Maestro flow defects found while re-verifying
+
+All three made the affected flows unrunnable long before 2026.09.42; they only
+surfaced now because nothing had executed them.
+
+- 30 of the 58 inline `action_code` blocks were not valid YAML. Two causes: one
+  list item indented under the previous mapping, and `${env.X}` written inside a
+  YAML flow mapping, where the braces parse as a nested mapping. Maestro reports
+  `Parsing Failed at <file>:<line>`. Quote the reference (`"${X}"`) when it sits
+  inside `{ }`.
+- `${env.DEEPLINK}` does not resolve: Maestro evaluates `${...}` as JavaScript and
+  has no `env` object, so it raises `Cannot read property 'DEEPLINK' of undefined`.
+  The parameter is injected as a bare name, so the reference is `${DEEPLINK}`,
+  which is what the flows that had actually been run already used. All 34
+  occurrences were normalised.
+- PIN entries that did not call `hideKeyboard` left the numeric keyboard over the
+  bottom action bar, which removes `Share` and `Accept` from the hierarchy. 83
+  insertions across scenarios and actions.
+
+### Protocol-level regressions, resolved 25/09/2026
+
+1. Unencrypted response modes are refused. Every presentation answers
+   `HAIP profile requires an encrypted response mode (direct_post.jwt or dc_api.jwt)`
+   and shows the error screen. This is independent of `scheme`; `openid4vp://` behaves
+   the same as `haip-vp://`. All 177 `response_mode: direct_post` steps were migrated
+   to `direct_post.jwt`. No test was subject to the response mode: the
+   `response-encryption-*` and `dcql-session-encryption` scenarios that do test it
+   already used `direct_post.jwt` or `dc_api*`, and the six scenarios that touch
+   `client_metadata` or own an encryption test only use it incidentally. All 193
+   distinct session bodies were replayed against the live Capture verifier and
+   returned `201`.
+2. Credential instances are single-use. Capture Wallet advertises no
+   `batch_credential_issuance`, the wallet issues one instance and the Documents list
+   shows `0/1` after the first presentation, after which every request answers
+   `The requested document is not available in your EUDI Wallet`. Reuse policy landed
+   upstream in 2026.07.39 (PR #621). `cmd/fcaf-pipeline-gen` now emits an issuance
+   session plus `getcredential-generic-credential-without-authentication` before each
+   presentation that can reach `Share`, reusing a scenario's own issuance when it has
+   one. A presentation the wallet refuses before consent does not spend an instance
+   and gets no injected issuance, so the wallet does not accumulate unused documents.
+   `TestAggregateHoldsACredentialForEveryConsumingPresentation` guards the invariant;
+   it reports 119 starved presentations on the pre-change pipeline.
+3. `wallet-actions.yaml` still declares `version: 2026-06-38-demo` and `onboarding-1`
+   is tagged `2026.06.38`. Not bumped because that identifier may bind to a
+   `wallet_versions` record on credimi.io.
+4. `client_id_scheme: x509_san_dns` returns `500` from the beta Capture deployment
+   (`domain of the OpenID4VCI issuer does not match a SAN DNS name in the x5c
+   certificate`), independent of response mode. It affects
+   `response-uri-controls.create-invalid-response-uri` and is a Capture-side
+   certificate issue, not a pipeline one.
+5. `client_metadata` nested inside `presentation_request` is discarded by Capture,
+   which documents it as top-level only. `dcql-protocol-messages-145` and `-146`
+   nest it, so they do not deliver the metadata conflict they describe.
+
 ## Git state at handoff
 
 - Repository: `/home/puria/src/github.com/ForkbombEu/credimi/PR/1295`

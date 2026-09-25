@@ -24,6 +24,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - evalScript: ${output.valuesValue = ['']}
         - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:'aki',values:output.valuesValue}]}]})}
@@ -37,6 +38,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-094-single
@@ -52,6 +54,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-094-mixed

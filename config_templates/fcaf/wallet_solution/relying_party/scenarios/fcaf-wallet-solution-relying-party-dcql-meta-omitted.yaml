@@ -11,7 +11,7 @@ steps:
     headers: { Content-Type: application/json }
     body:
       request_uri_method: post
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         dcql_query:
           credentials:

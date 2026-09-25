@@ -20,7 +20,7 @@ steps:
         scheme: haip-vp://
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-081-valid-true
           dcql_query:
@@ -49,7 +49,7 @@ steps:
         scheme: haip-vp://
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-081-valid-false
           dcql_query:
@@ -163,9 +163,9 @@ steps:
         - extendedWaitUntil:
             visible: "Home|Documents|Welcome, .*"
             timeout: 30000
-        - openLink: { link: ${env.DEEPLINK_VALID_TRUE}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK_VALID_TRUE}", autoVerify: false, browser: false }
         - extendedWaitUntil:
-            visible: "DATA SHARING REQUEST"
+            visible: "Data sharing request"
             timeout: 100000
         - tapOn: "Share"
         - extendedWaitUntil:
@@ -174,15 +174,16 @@ steps:
         - tapOn:
             point: "11%,39%"
         - inputText: "123456"
+        - hideKeyboard
         - tapOn: { point: "50%,10%" }
         - extendedWaitUntil:
             visible: ".*successfully shared.*"
             timeout: 30000
         - takeScreenshot: fcaf-081-valid-true
         - tapOn: "Close"
-        - openLink: { link: ${env.DEEPLINK_VALID_FALSE}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK_VALID_FALSE}", autoVerify: false, browser: false }
         - extendedWaitUntil:
-            visible: "DATA SHARING REQUEST"
+            visible: "Data sharing request"
             timeout: 100000
         - tapOn: "Share"
         - extendedWaitUntil:
@@ -191,6 +192,7 @@ steps:
         - tapOn:
             point: "11%,39%"
         - inputText: "123456"
+        - hideKeyboard
         - tapOn: { point: "50%,10%" }
         - extendedWaitUntil:
             visible: ".*successfully shared.*"
@@ -351,7 +353,6 @@ steps:
         - back
         - waitForAnimationToEnd:
             timeout: 2000
-
   - id: get-valid-true
     use: http-request
     with:

@@ -20,7 +20,7 @@ steps:
         scheme: haip-vp://
         request_delivery: by_value
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-supportive-signed-request-without-request-uri
           dcql_query:
@@ -44,7 +44,7 @@ steps:
         appId: eu.europa.ec.euidi
         ---
         - stopApp
-                - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
         - waitForAnimationToEnd:
             timeout: 5000
         - tapOn:
@@ -54,10 +54,9 @@ steps:
             text: "Just once"
             optional: true
         - extendedWaitUntil:
-            visible: "Oups! Something went wrong|invalid request|Something went wrong|Home|Documents"
+            visible: "Oups! Something went wrong|invalid request|Oups! Something went wrong|Home|Documents"
             timeout: 30000
         - takeScreenshot: fcaf-supportive-signed-request-without-request-uri-rejected
-
   - id: get-presentation-result
     use: http-request
     with:

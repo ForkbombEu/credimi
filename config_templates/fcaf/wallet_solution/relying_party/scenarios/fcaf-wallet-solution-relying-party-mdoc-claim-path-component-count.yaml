@@ -32,7 +32,7 @@ steps:
       scheme: openid4vp://
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-textual-encoding-018
         dcql_query:

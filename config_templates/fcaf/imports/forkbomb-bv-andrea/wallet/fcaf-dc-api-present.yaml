@@ -23,15 +23,22 @@ tags:
     link: "${presentation_url}"
     autoVerify: false
     browser: true
-- runFlow:
-    when:
-      visible: "Accept & continue|Use without an account|No thanks|Got it"
+# A cleared Chrome shows several first-run prompts in sequence, so one pass is
+# not enough to reach the presentation page.
+- repeat:
+    times: 4
     commands:
-      - tapOn:
-          text: "Accept & continue|Use without an account|No thanks|Got it"
-          optional: true
+      - runFlow:
+          when:
+            visible: "Accept & continue|Use without an account|No thanks|Got it"
+          commands:
+            - tapOn:
+                text: "Accept & continue|Use without an account|No thanks|Got it"
+                optional: true
+            - waitForAnimationToEnd:
+                timeout: 3000
 - extendedWaitUntil:
-    visible: "Present credential|does not expose the Digital Credentials API"
+    visible: "Present credential|.*does not expose the Digital Credentials API.*"
     timeout: 60000
 - takeScreenshot: dc-api-presentation-page
 - runFlow:
@@ -40,22 +47,47 @@ tags:
     commands:
       - tapOn:
           text: "Present credential"
-      # The platform credential sheet and the wallet take over here. Both are
-      # optional: a wallet that refuses the request never shows them, and that
-      # refusal is the expected result of several cases.
+      # The platform credential sheet and the wallet take over here. Every step
+      # is optional: a wallet that refuses the request never reaches the next
+      # screen, and that refusal is the expected result of several cases.
       - extendedWaitUntil:
-          visible: "Welcome back|Share|Cancel|Continue|wallet|did not complete|answered without a presentation|Presentation accepted"
+          visible: "Continue|Agree and continue|Welcome back|Share|Cancel|.*(did not complete|answered without a presentation|Presentation accepted).*"
           timeout: 120000
+      # Chrome asks once per origin whether the site may read the wallet.
+      - runFlow:
+          when:
+            visible: "Continue"
+          commands:
+            - tapOn:
+                text: "Continue"
+                optional: true
+            - extendedWaitUntil:
+                visible: "Agree and continue|Welcome back|Share|Cancel"
+                timeout: 60000
+      # Platform credential picker listing the matching wallet documents.
+      - runFlow:
+          when:
+            visible: "Agree and continue"
+          commands:
+            - tapOn:
+                text: "Agree and continue"
+                optional: true
+            - extendedWaitUntil:
+                visible: "Welcome back|Share|Cancel"
+                timeout: 60000
+      # The wallet is launched inside the credential-manager window, where a
+      # keyboard left open after PIN entry covers the consent action bar.
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
             - tapOn:
-                point: "11%,40%"
+                id: eu.europa.ec.euidi:id/pin_text_field_0
             - inputText: "123456"
             - hideKeyboard
-            - tapOn:
-                point: "50%,10%"
+            - extendedWaitUntil:
+                visible: "Share|Cancel|Oups! Something went wrong"
+                timeout: 60000
       - runFlow:
           when:
             visible: "Share"
@@ -67,8 +99,18 @@ tags:
                 when:
                   visible: "PIN|verify your identity"
                 commands:
+                  - tapOn:
+                      id: eu.europa.ec.euidi:id/pin_text_field_0
                   - inputText: "123456"
+                  - hideKeyboard
+            - extendedWaitUntil:
+                visible: ".*successfully shared.*|Oups! Something went wrong"
+                timeout: 60000
+            - takeScreenshot: dc-api-wallet-outcome
+            - tapOn:
+                text: "Close|TRY AGAIN"
+                optional: true
 - extendedWaitUntil:
-    visible: "Presentation accepted|did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|does not expose the Digital Credentials API"
+    visible: ".*(Presentation accepted|did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|does not expose the Digital Credentials API).*"
     timeout: 120000
 - takeScreenshot: dc-api-invocation-outcome

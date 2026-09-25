@@ -47,7 +47,7 @@ steps:
         appId: eu.europa.ec.euidi
         ---
         - stopApp
-                - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
         - waitForAnimationToEnd:
             timeout: 5000
         - tapOn:
@@ -66,6 +66,7 @@ steps:
               - tapOn:
                   point: "11%,40%"
               - inputText: "123456"
+              - hideKeyboard
         - extendedWaitUntil:
             visible: "Share"
             timeout: 30000
@@ -76,12 +77,12 @@ steps:
             visible: "verify your identity|PIN"
             timeout: 30000
         - inputText: "123456"
+        - hideKeyboard
         - extendedWaitUntil:
             visible: "Close"
             timeout: 30000
         - assertVisible: "Close"
         - takeScreenshot: fcaf-metadata-direct-post-jwt-submitted
-
   - id: get-presentation-result
     use: http-request
     with:

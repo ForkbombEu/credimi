@@ -42,6 +42,26 @@ const (
 	happyFlowValidationName = "FCAF wallet relying-party happy flow validation"
 )
 
+// The reference wallet consumes a credential instance per presentation and the
+// Capture issuer advertises no batch issuance, so every presentation that can
+// reach a successful share needs its own freshly issued PID. A presentation
+// that the wallet refuses before consent leaves its instance untouched, so the
+// generator only precedes the consuming presentations with an issuance pair.
+const (
+	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
+	issuanceActionID      = walletActionNamespace +
+		"getcredential-generic-credential-without-authentication"
+	onboardingActionID    = walletActionNamespace + "onboarding-1"
+	pidIssuerConfigID     = "eu-pid-device-bound"
+	pidCredentialConfigID = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
+	mobileAutomationTask  = "mobile-automation"
+)
+
+// credentialConsumingFlow marks a Maestro flow that can reach the consent
+// screen's Share action, which is the point at which the wallet spends a
+// credential instance.
+var credentialConsumingFlow = regexp.MustCompile(`successfully shared|tapOn:\s*"Share"|text:\s*"Share"`)
+
 var demoScenarioNames = []string{
 	"fcaf-wallet-solution-relying-party-engagement-haip-vp.yaml",
 }
@@ -248,9 +268,18 @@ func buildAggregate(
 		Steps: make([]map[string]any, 0, len(paths)*4),
 	}
 	aggregate.Steps = append(aggregate.Steps, onboardingPrelude())
+	walletActions, err := loadWalletActions(
+		filepath.Join(filepath.Dir(paths[0]), "..", "..", "..", "imports"),
+	)
+	if err != nil {
+		return err
+	}
 	pipelineOutputs := map[string]any{}
 	testIDs := map[string]struct{}{}
 	seenStepIDs := map[string]string{}
+	// The wallet keeps an unconsumed instance across scenarios, so an issuance
+	// the scenario already performs covers the next consuming presentation.
+	pidAvailable := false
 
 	for _, path := range paths {
 		definition, err := loadPipeline(path)
@@ -293,6 +322,18 @@ func buildAggregate(
 				)
 			}
 			seenStepIDs[id] = path
+			consuming, err := consumesCredentialInstance(rewritten, walletActions)
+			if err != nil {
+				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
+			}
+			switch {
+			case issuesCredential(rewritten):
+				pidAvailable = true
+			case consuming && pidAvailable:
+				pidAvailable = false
+			case consuming:
+				aggregate.Steps = append(aggregate.Steps, pidIssuanceSteps(id, fixture)...)
+			}
 			aggregate.Steps = append(aggregate.Steps, rewritten)
 		}
 	}
@@ -414,6 +455,120 @@ func onboardingPrelude() map[string]any {
 		"with": map[string]any{
 			"action_id":  "forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1",
 			"version_id": "forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo",
+		},
+	}
+}
+
+// loadWalletActions maps every declared wallet action identifier to its Maestro
+// flow source so the generator can tell a consuming presentation from one the
+// wallet is expected to refuse.
+func loadWalletActions(importsDir string) (map[string]string, error) {
+	catalogs, err := filepath.Glob(filepath.Join(importsDir, "*", "wallet-actions.yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("list wallet action catalogs: %w", err)
+	}
+	actions := map[string]string{}
+	for _, catalogPath := range catalogs {
+		data, err := os.ReadFile(catalogPath)
+		if err != nil {
+			return nil, fmt.Errorf("read wallet action catalog %s: %w", catalogPath, err)
+		}
+		var declaration struct {
+			Organization string `yaml:"organization"`
+			Wallet       string `yaml:"wallet"`
+			Actions      []struct {
+				Name string `yaml:"name"`
+				File string `yaml:"file"`
+			} `yaml:"actions"`
+		}
+		if err := yaml.Unmarshal(data, &declaration); err != nil {
+			return nil, fmt.Errorf("parse wallet action catalog %s: %w", catalogPath, err)
+		}
+		for _, action := range declaration.Actions {
+			flow, err := os.ReadFile(filepath.Join(filepath.Dir(catalogPath), action.File))
+			if err != nil {
+				return nil, fmt.Errorf("read wallet action %s: %w", action.Name, err)
+			}
+			id := declaration.Organization + "/" + declaration.Wallet + "/" + action.Name
+			actions[id] = string(flow)
+		}
+	}
+	if len(actions) == 0 {
+		return nil, fmt.Errorf("no wallet actions declared under %s", importsDir)
+	}
+	return actions, nil
+}
+
+// issuesCredential reports whether a step already adds a credential instance to
+// the wallet, which the next consuming presentation can spend.
+func issuesCredential(step map[string]any) bool {
+	if use, _ := step["use"].(string); use != mobileAutomationTask {
+		return false
+	}
+	with, _ := step["with"].(map[string]any)
+	actionID, _ := with["action_id"].(string)
+	return actionID == issuanceActionID
+}
+
+// consumesCredentialInstance reports whether a step presents a credential in a
+// way that spends one of the wallet's instances.
+func consumesCredentialInstance(step map[string]any, actions map[string]string) (bool, error) {
+	if use, _ := step["use"].(string); use != mobileAutomationTask {
+		return false, nil
+	}
+	with, _ := step["with"].(map[string]any)
+	actionID, _ := with["action_id"].(string)
+	if actionID == issuanceActionID || actionID == onboardingActionID {
+		return false, nil
+	}
+	source, _ := with["action_code"].(string)
+	if source == "" {
+		if actionID == "" {
+			return false, nil
+		}
+		flow, known := actions[actionID]
+		if !known {
+			return false, fmt.Errorf("unknown wallet action %q", actionID)
+		}
+		source = flow
+	}
+	return credentialConsumingFlow.MatchString(source), nil
+}
+
+// pidIssuanceSteps issues one fresh PID for the presentation that follows.
+func pidIssuanceSteps(presentationID string, fixture map[string]any) []map[string]any {
+	base := "${fixture.verifier_url}"
+	if _, declared := fixture["issuer_url"].(string); declared {
+		base = "${fixture.issuer_url}"
+	}
+	sessionID := presentationID + "-issue-pid-session"
+	return []map[string]any{
+		{
+			"id":                sessionID,
+			"use":               "http-request",
+			"continue_on_error": true,
+			"with": map[string]any{
+				"method":          "POST",
+				"url":             base + "/sessions",
+				"expected_status": 201,
+				"headers":         map[string]any{"Content-Type": "application/json"},
+				"body": map[string]any{
+					"issuer_configuration_id":     pidIssuerConfigID,
+					"credential_configuration_id": pidCredentialConfigID,
+				},
+			},
+		},
+		{
+			"id":                presentationID + "-issue-pid",
+			"use":               mobileAutomationTask,
+			"continue_on_error": true,
+			"with": map[string]any{
+				"action_id":  issuanceActionID,
+				"version_id": "installed_from_external_source",
+				"parameters": map[string]any{
+					"deeplink": "${{ " + sessionID + ".outputs.body.deeplink }}",
+				},
+			},
 		},
 	}
 }

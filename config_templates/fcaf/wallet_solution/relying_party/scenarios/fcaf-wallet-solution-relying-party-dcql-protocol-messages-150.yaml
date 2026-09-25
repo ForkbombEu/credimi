@@ -16,7 +16,7 @@ steps:
     headers:
       Content-Type: application/json
     body:
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-150
         dcql_query:

@@ -17,7 +17,7 @@ steps:
       body:
         client_id_scheme: decentralized_identifier
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         client_metadata: {}
         presentation_request:
           nonce: fcaf-did-empty-metadata

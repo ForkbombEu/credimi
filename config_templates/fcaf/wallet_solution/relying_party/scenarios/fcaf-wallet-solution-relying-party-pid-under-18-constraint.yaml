@@ -49,7 +49,7 @@ steps:
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: pid-under-18-match
         dcql_query:
@@ -91,7 +91,7 @@ steps:
       Content-Type: application/json
     body:
       request_uri_method: post
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: pid-over-18-constraint
         dcql_query:

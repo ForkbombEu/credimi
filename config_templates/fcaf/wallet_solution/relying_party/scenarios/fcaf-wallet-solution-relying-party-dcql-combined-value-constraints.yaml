@@ -187,7 +187,7 @@ steps:
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: combined-value-constraints-inventory
         dcql_query:
@@ -231,7 +231,7 @@ steps:
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: combined-value-constraints
         dcql_query:

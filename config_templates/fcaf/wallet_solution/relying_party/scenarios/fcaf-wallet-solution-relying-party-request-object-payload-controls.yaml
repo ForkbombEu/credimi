@@ -15,7 +15,7 @@ steps:
       request_delivery: by_reference
       request_uri_method: post
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: different-iss
         dcql_query:
@@ -51,7 +51,7 @@ steps:
       request_delivery: by_reference
       request_uri_method: post
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: missing-client-id
         dcql_query:
@@ -88,7 +88,7 @@ steps:
       request_delivery: by_reference
       request_uri_method: post
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: unknown-parameter
         dcql_query:
@@ -124,7 +124,7 @@ steps:
       request_delivery: by_reference
       request_uri_method: post
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: invalid-state
         dcql_query:
@@ -161,7 +161,7 @@ steps:
       request_delivery: by_reference
       request_uri_method: post
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: no-state-without-holder-binding
         dcql_query:

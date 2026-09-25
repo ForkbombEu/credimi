@@ -17,7 +17,7 @@ steps:
       body:
         client_id_scheme: decentralized_identifier
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         client_metadata: {vp_formats_supported: {mso_mdoc: {alg: [ES256]}}}
         presentation_request:
           nonce: fcaf-did-metadata

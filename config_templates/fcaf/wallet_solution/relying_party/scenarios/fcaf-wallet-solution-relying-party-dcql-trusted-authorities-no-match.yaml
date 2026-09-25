@@ -14,7 +14,7 @@ steps:
       expected_status: 201
       headers: { Content-Type: application/json }
       body:
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-dcql-trusted-authorities-no-match
           dcql_query:
@@ -35,7 +35,7 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-                - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
+        - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
         - extendedWaitUntil:
             visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
             timeout: 30000
@@ -73,6 +73,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 30000 }
         - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }

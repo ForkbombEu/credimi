@@ -28,16 +28,24 @@ tags:
       - tapOn:
           point: "11%,40%"
       - inputText: "123456"
+      - hideKeyboard
+      - tapOn:
+          point: "50%,10%"
 - extendedWaitUntil:
     visible: "Share"
-    timeout: 30000
+    timeout: 100000
 - tapOn:
     text: "Share"
     enabled: true
 - extendedWaitUntil:
     visible: "verify your identity|PIN"
     timeout: 30000
+- tapOn:
+    point: "11%,39%"
 - inputText: "123456"
+- hideKeyboard
+- tapOn:
+    point: "50%,10%"
 - extendedWaitUntil:
     visible: "Close"
     timeout: 30000

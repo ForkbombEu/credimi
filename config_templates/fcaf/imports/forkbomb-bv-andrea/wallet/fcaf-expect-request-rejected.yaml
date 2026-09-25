@@ -59,7 +59,7 @@ tags:
           text: "Always"
           optional: true
 - extendedWaitUntil:
-    visible: "Welcome back|Error|invalid request|Something went wrong|Home|Documents"
+    visible: "Welcome back|Error|invalid request|Oups! Something went wrong|Home|Documents"
     timeout: 100000
 - runFlow:
     when:
@@ -72,6 +72,6 @@ tags:
       - tapOn:
           point: "50%,10%"
 - extendedWaitUntil:
-    visible: "Error|invalid request|Something went wrong|Home|Documents"
+    visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
     timeout: 30000
 - takeScreenshot: expect-request-rejected

@@ -20,7 +20,7 @@ steps:
         scheme: haip-vp://
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-dcql-meta-vct-mismatch
           dcql_query:
@@ -52,7 +52,7 @@ steps:
               camera: allow
               notifications: allow
               all: unset
-                - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
         - waitForAnimationToEnd:
             timeout: 5000
         - takeScreenshot: fcaf-dcql-meta-vct-mismatch
@@ -61,7 +61,6 @@ steps:
             optional: true
         - waitForAnimationToEnd:
             timeout: 5000
-
   - id: get-presentation-result
     use: http-request
     with:

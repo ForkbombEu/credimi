@@ -44,7 +44,7 @@ steps:
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-ia-034c
         dcql_query:
@@ -81,7 +81,7 @@ steps:
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-ia-034e
         dcql_query:
@@ -118,7 +118,7 @@ steps:
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-ia-034f
         dcql_query:
@@ -155,7 +155,7 @@ steps:
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-ia-034g
         dcql_query:
@@ -192,7 +192,7 @@ steps:
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-ia-034d
         dcql_query:

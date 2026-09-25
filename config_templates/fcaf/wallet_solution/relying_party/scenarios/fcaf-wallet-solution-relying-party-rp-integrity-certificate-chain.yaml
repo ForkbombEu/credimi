@@ -23,7 +23,7 @@ steps:
       request_delivery: by_reference
       client_id_scheme: x509_hash
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: rp-integrity-incomplete-chain
         dcql_query:
@@ -64,7 +64,7 @@ steps:
       request_delivery: by_reference
       client_id_scheme: x509_hash
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: rp-integrity-untrusted-root
         dcql_query:
@@ -105,7 +105,7 @@ steps:
       request_delivery: by_reference
       client_id_scheme: x509_hash
       response_type: vp_token
-      response_mode: direct_post
+      response_mode: direct_post.jwt
       presentation_request:
         nonce: rp-integrity-self-signed-leaf
         dcql_query:

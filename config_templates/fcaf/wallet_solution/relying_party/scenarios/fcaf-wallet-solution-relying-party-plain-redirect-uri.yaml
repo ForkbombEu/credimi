@@ -20,7 +20,7 @@ steps:
         client_id_scheme: redirect_uri
         redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-plain-redirect-uri
           dcql_query:

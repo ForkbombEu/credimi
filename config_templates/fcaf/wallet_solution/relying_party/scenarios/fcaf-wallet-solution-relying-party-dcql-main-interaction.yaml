@@ -29,7 +29,7 @@ steps:
                 nonce: main-interaction
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -96,7 +96,7 @@ steps:
                   notifications: allow
                   all: unset
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - waitForAnimationToEnd:
@@ -163,11 +163,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Welcome back|DATA SHARING REQUEST"
+                visible: "Welcome back|Data sharing request"
                 timeout: 100000
             - runFlow:
                 when:
@@ -176,10 +176,11 @@ steps:
                   - tapOn:
                       point: "11%,39%"
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn:
                       point: "50%,10%"
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - extendedWaitUntil:
@@ -188,6 +189,7 @@ steps:
             - tapOn:
                 point: "11%,39%"
             - inputText: "123456"
+            - hideKeyboard
             - tapOn:
                 point: "50%,10%"
             - extendedWaitUntil:
@@ -234,11 +236,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|invalid request|Something went wrong|Home|Documents"
+                visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-022
         parameters:
@@ -293,11 +295,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - takeScreenshot: fcaf-ia-025
@@ -343,11 +345,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-026
         parameters:
@@ -394,11 +396,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-027
         parameters:
@@ -667,7 +669,7 @@ steps:
                 nonce: fcaf-main-interaction-039
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -694,6 +696,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -704,7 +707,7 @@ steps:
                 when: { visible: "Just once" }
                 commands:
                   - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+            - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
             - takeScreenshot: fcaf-main-interaction-039-two-credentials
@@ -712,6 +715,7 @@ steps:
             - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
             - tapOn: { point: "11%,39%" }
             - inputText: "123456"
+            - hideKeyboard
             - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
             - tapOn: "Close"

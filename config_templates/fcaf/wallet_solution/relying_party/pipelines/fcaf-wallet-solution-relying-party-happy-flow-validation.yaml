@@ -33,7 +33,7 @@ steps:
                 nonce: credential-formats
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -41,6 +41,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-credential-formats-3cfeac03-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-exercise-wallet
       use: mobile-automation
@@ -90,7 +110,7 @@ steps:
                 nonce: fcaf-credential-format-mso-mdoc
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -145,7 +165,7 @@ steps:
                 nonce: fcaf-credential-format-dc-sd-jwt
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -187,7 +207,7 @@ steps:
                 nonce: fcaf-credential-formats-039
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token id_token
             scheme: haip-vp://
         expected_status: 201
@@ -210,6 +230,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -225,6 +246,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: "unsupported_response_type|Oups! Something went wrong|Error|Home|Documents|Welcome, .*", timeout: 100000 }
             - takeScreenshot: fcaf-credential-formats-039-response-type-rejected
@@ -257,7 +279,7 @@ steps:
                 nonce: fcaf-credential-formats-040
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: code
             scheme: haip-vp://
         expected_status: 201
@@ -280,6 +302,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -295,6 +318,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: "unsupported_response_type|Oups! Something went wrong|Error|Home|Documents|Welcome, .*", timeout: 100000 }
             - takeScreenshot: fcaf-credential-formats-040-response-type-rejected
@@ -401,7 +425,7 @@ steps:
                 nonce: cryptography
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -409,6 +433,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-cryptography-1a488a33-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-cryptography-1a488a33-exercise-wallet
       use: mobile-automation
@@ -443,7 +487,7 @@ steps:
                 nonce: device-binding
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -451,6 +495,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-device-binding-f7c71f86-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-device-binding-f7c71f86-exercise-wallet
       use: mobile-automation
@@ -485,7 +549,7 @@ steps:
                 nonce: interaction-metadata
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -493,6 +557,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-interaction-metadata-f9737358-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-exercise-wallet
       use: mobile-automation
@@ -527,7 +611,7 @@ steps:
                 nonce: main-interaction
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -535,6 +619,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-exercise-wallet
       use: mobile-automation
@@ -598,7 +702,7 @@ steps:
                   notifications: allow
                   all: unset
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - waitForAnimationToEnd:
@@ -658,6 +762,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option
       use: mobile-automation
       with:
@@ -668,11 +792,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Welcome back|DATA SHARING REQUEST"
+                visible: "Welcome back|Data sharing request"
                 timeout: 100000
             - runFlow:
                 when:
@@ -681,10 +805,11 @@ steps:
                   - tapOn:
                       point: "11%,39%"
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn:
                       point: "50%,10%"
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - extendedWaitUntil:
@@ -693,6 +818,7 @@ steps:
             - tapOn:
                 point: "11%,39%"
             - inputText: "123456"
+            - hideKeyboard
             - tapOn:
                 point: "50%,10%"
             - extendedWaitUntil:
@@ -742,11 +868,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|invalid request|Something went wrong|Home|Documents"
+                visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-022
         parameters:
@@ -794,6 +920,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback
       use: mobile-automation
       with:
@@ -804,11 +950,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - takeScreenshot: fcaf-ia-025
@@ -857,11 +1003,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-026
         parameters:
@@ -911,11 +1057,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-027
         parameters:
@@ -1056,6 +1202,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match
       use: mobile-automation
@@ -1209,7 +1375,7 @@ steps:
                 nonce: fcaf-main-interaction-039
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1217,6 +1383,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials
       use: mobile-automation
@@ -1237,6 +1423,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -1247,7 +1434,7 @@ steps:
                 when: { visible: "Just once" }
                 commands:
                   - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+            - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
             - takeScreenshot: fcaf-main-interaction-039-two-credentials
@@ -1255,6 +1442,7 @@ steps:
             - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
             - tapOn: { point: "11%,39%" }
             - inputText: "123456"
+            - hideKeyboard
             - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
             - tapOn: "Close"
@@ -1287,7 +1475,7 @@ steps:
                 nonce: metadata
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1295,6 +1483,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-metadata-b66a6319-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-metadata-b66a6319-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-metadata-b66a6319-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-metadata-b66a6319-exercise-wallet
       use: mobile-automation
@@ -1329,7 +1537,7 @@ steps:
                 nonce: protocol-messages
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1356,7 +1564,7 @@ steps:
                 nonce: protocol-messages-request-uri-media-type
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1371,6 +1579,26 @@ steps:
         expected_status: 200
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-request-uri-media-type-probe.outputs.body.session_id }}/request
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-protocol-messages-a25772b2-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-exercise-wallet
       use: mobile-automation
@@ -1412,7 +1640,7 @@ steps:
                 nonce: rp-integrity
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1420,6 +1648,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-rp-integrity-3576cc79-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-rp-integrity-3576cc79-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-rp-integrity-3576cc79-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-exercise-wallet
       use: mobile-automation
@@ -1463,6 +1711,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-session-encryption-210827bd-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-session-encryption-210827bd-exercise-wallet
       use: mobile-automation
       with:
@@ -1496,7 +1764,7 @@ steps:
                 nonce: trust-mechanisms
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1504,6 +1772,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-exercise-wallet
       use: mobile-automation
@@ -1546,6 +1834,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet
       use: mobile-automation
@@ -1648,7 +1956,7 @@ steps:
                 nonce: fcaf-engagement-haip-vp
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1781,7 +2089,7 @@ steps:
                 nonce: fcaf-pid-mdoc-data-model
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1825,7 +2133,7 @@ steps:
                             doctype_value: eu.europa.ec.eudi.pid.1
                 nonce: fcaf-request-object-by-value
             request_delivery: by_value
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -1833,6 +2141,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-by-value-f1c94061-submit-request-object-by-value
       use: mobile-automation

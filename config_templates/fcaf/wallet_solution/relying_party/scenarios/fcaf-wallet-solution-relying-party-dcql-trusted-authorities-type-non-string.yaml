@@ -29,6 +29,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - evalScript: ${output.typeValue = null}
         - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:output.typeValue,values:['authority-key-id']}]}]})}
@@ -42,6 +43,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-091-null
@@ -57,6 +59,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-091-true
@@ -72,6 +75,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-091-false
@@ -87,6 +91,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-091-zero
@@ -102,6 +107,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-091-number
@@ -117,6 +123,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-091-array
@@ -132,6 +139,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
         - takeScreenshot: fcaf-091-object

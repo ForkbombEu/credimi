@@ -20,7 +20,7 @@ steps:
         scheme: haip-vp://
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-dcql-trusted-authorities-match
           dcql_query:
@@ -50,7 +50,7 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-                - launchApp:
+        - launchApp:
             stopApp: true
             clearState: false
             permissions:
@@ -72,7 +72,7 @@ steps:
         - extendedWaitUntil:
             visible: "Home|Documents|Add document|Welcome, .*"
             timeout: 30000
-                - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
         - runFlow:
             when:
               visible: "EUDI Wallet"
@@ -94,6 +94,7 @@ steps:
             commands:
               - tapOn: { point: "11%,40%" }
               - inputText: "123456"
+              - hideKeyboard
               - tapOn: { point: "50%,10%" }
         - extendedWaitUntil: { visible: "Share", timeout: 30000 }
         - tapOn: "Share"
@@ -102,12 +103,12 @@ steps:
             timeout: 100000
         - tapOn: { point: "11%,40%" }
         - inputText: "123456"
+        - hideKeyboard
         - tapOn: { point: "50%,10%" }
         - assertNotVisible: { text: "Oups! Something went wrong" }
         - extendedWaitUntil: { visible: "Close", timeout: 30000 }
         - takeScreenshot: fcaf-dcql-trusted-authorities-match
         - tapOn: "Close"
-
   - id: fetch-capture-session
     use: http-request
     with:

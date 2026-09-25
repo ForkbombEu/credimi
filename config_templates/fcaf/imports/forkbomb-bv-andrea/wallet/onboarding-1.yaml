@@ -21,12 +21,14 @@ tags:
       - tapOn:
           point: "11%,42%"
       - inputText: "123456"
+      - hideKeyboard
       - extendedWaitUntil:
           visible: "Confirm PIN"
           timeout: 15000
       - tapOn:
           point: "11%,42%"
       - inputText: "123456"
+      - hideKeyboard
 - runFlow:
     when:
       visible: "Welcome back"
@@ -34,6 +36,7 @@ tags:
       - tapOn:
           point: "11%,40%"
       - inputText: "123456"
+      - hideKeyboard
 - extendedWaitUntil:
     visible: "GO TO HOME|Home|Documents|Add document"
     timeout: 30000

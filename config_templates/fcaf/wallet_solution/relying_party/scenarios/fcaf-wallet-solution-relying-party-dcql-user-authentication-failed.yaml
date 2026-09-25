@@ -12,7 +12,7 @@ steps:
         scheme: haip-vp://
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-149-user-authentication-failed
           dcql_query:
@@ -32,7 +32,7 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-                - launchApp: { stopApp: true, clearState: false }
+        - launchApp: { stopApp: true, clearState: false }
         - extendedWaitUntil:
             visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
             timeout: 30000
@@ -48,7 +48,7 @@ steps:
         - extendedWaitUntil:
             visible: "Home|Documents|Add document|Welcome, .*"
             timeout: 30000
-        - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
         - runFlow:
             when:
               visible: "EUDI Wallet"
@@ -64,7 +64,7 @@ steps:
               visible: "Always"
             commands:
               - tapOn: { text: "Always", optional: true }
-        - extendedWaitUntil: { visible: "Welcome back|DATA SHARING REQUEST", timeout: 100000 }
+        - extendedWaitUntil: { visible: "Welcome back|Data sharing request", timeout: 100000 }
         - runFlow:
             when: { visible: "Welcome back" }
             commands:
@@ -75,10 +75,10 @@ steps:
               - tapOn: { text: "4", retryTapIfNoChange: false }
               - tapOn: { text: "5", retryTapIfNoChange: false }
               - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
-        - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+        - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
         - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
         - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false }
-        - assertVisible: "Given Name(s)"
+        - assertVisible: "Given Name"
         - takeScreenshot: fcaf-149-consent-screen-before-authentication
         - tapOn: "Share"
         - extendedWaitUntil: { visible: "PIN|To approve the transaction you need to verify your identity.", timeout: 30000 }
@@ -88,10 +88,9 @@ steps:
         - assertNotVisible: ".*successfully shared.*"
         - takeScreenshot: fcaf-149-user-authentication-failed
         - tapOn: "Go Back"
-        - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 30000 }
+        - extendedWaitUntil: { visible: "Data sharing request", timeout: 30000 }
         - tapOn: "Go Back"
         - extendedWaitUntil: { visible: "Home|Welcome, .*", timeout: 30000 }
-
   - id: fetch-result
     use: http-request
     with:

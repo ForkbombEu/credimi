@@ -41,13 +41,14 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Welcome back|DATA SHARING REQUEST"
+                visible: "Welcome back|Data sharing request"
                 timeout: 100000
             - runFlow:
                 when:
@@ -55,9 +56,10 @@ steps:
                 commands:
                   - tapOn: { point: "11%,39%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - extendedWaitUntil:
@@ -65,6 +67,7 @@ steps:
                 timeout: 30000
             - tapOn: { point: "11%,39%" }
             - inputText: "123456"
+            - hideKeyboard
             - tapOn: { point: "50%,10%" }
             - extendedWaitUntil:
                 visible: ".*successfully shared.*"

@@ -7,6 +7,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 872)
+	require.Len(t, definition.Steps, 1134)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
@@ -127,7 +128,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 118)
+	require.Len(t, definition.Steps, 150)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validationSteps := make([]map[string]any, 0, 1)
@@ -190,4 +191,87 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	))
 	require.NoError(t, err)
 	require.Equal(t, committed, data, "generated happy flow pipeline is stale")
+}
+
+// TestAggregateHoldsACredentialForEveryConsumingPresentation guards the
+// reference wallet's single-use credential instances: a presentation that can
+// reach Share must always be preceded by an issuance that has not already been
+// spent by an earlier presentation.
+func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
+	root := filepath.Join(
+		"..",
+		"..",
+		"config_templates",
+		"fcaf",
+		"wallet_solution",
+		"relying_party",
+	)
+	actions, err := loadWalletActions(filepath.Join(root, "..", "..", "imports"))
+	require.NoError(t, err)
+
+	for _, pipeline := range []string{
+		"fcaf-wallet-solution-relying-party-complete-validation.yaml",
+		"fcaf-wallet-solution-relying-party-happy-flow-validation.yaml",
+		"fcaf-wallet-solution-relying-party-demo-validation.yaml",
+	} {
+		data, err := os.ReadFile(filepath.Join(root, "pipelines", pipeline))
+		require.NoError(t, err)
+		var definition pipelineDefinition
+		require.NoError(t, yaml.Unmarshal(data, &definition))
+
+		available := 0
+		presentations := 0
+		injected := 0
+		for index, step := range definition.Steps {
+			if issuesCredential(step) {
+				available++
+				id, _ := step["id"].(string)
+				if strings.HasSuffix(id, "-issue-pid") {
+					injected++
+					// An injected issuance exists only to feed the very next
+					// presentation; anything else means it would be left unspent.
+					require.Lessf(
+						t,
+						index+1,
+						len(definition.Steps),
+						"%s: injected issuance %q is the last step",
+						pipeline,
+						id,
+					)
+					consuming, err := consumesCredentialInstance(
+						definition.Steps[index+1],
+						actions,
+					)
+					require.NoError(t, err)
+					require.Truef(
+						t,
+						consuming,
+						"%s: injected issuance %q is not followed by a presentation",
+						pipeline,
+						id,
+					)
+				}
+				continue
+			}
+			consuming, err := consumesCredentialInstance(step, actions)
+			require.NoError(t, err)
+			if !consuming {
+				continue
+			}
+			presentations++
+			// A scenario-authored issuance may deliberately stay unspent, for
+			// example to prove a held credential does not match the request, but
+			// a presentation that shares must always find an unspent instance.
+			require.Positivef(
+				t,
+				available,
+				"%s: presentation %q has no unspent credential instance",
+				pipeline,
+				step["id"],
+			)
+			available--
+		}
+		require.Positivef(t, presentations, "%s: no consuming presentation found", pipeline)
+		t.Logf("%s: %d consuming presentations, %d injected issuances", pipeline, presentations, injected)
+	}
 }

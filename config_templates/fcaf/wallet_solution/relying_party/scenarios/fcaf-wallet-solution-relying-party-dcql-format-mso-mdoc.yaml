@@ -20,7 +20,7 @@ steps:
         scheme: haip-vp://
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-dcql-format-mso-mdoc
           dcql_query:
@@ -53,7 +53,7 @@ steps:
               camera: allow
               notifications: allow
               all: unset
-                - openLink: { link: ${env.DEEPLINK}, autoVerify: false, browser: false }
+        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
         - waitForAnimationToEnd:
             timeout: 5000
         - tapOn:
@@ -67,7 +67,6 @@ steps:
         - waitForAnimationToEnd:
             timeout: 5000
         - takeScreenshot: fcaf-dcql-format-mso-mdoc
-
   - id: get-presentation-result
     use: http-request
     with:
