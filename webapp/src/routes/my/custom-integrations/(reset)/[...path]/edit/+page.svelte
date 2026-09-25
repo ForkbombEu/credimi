@@ -10,4 +10,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 </script>
 
-<CustomCheckForm record={data.record} />
+<CustomCheckForm organizationId={data.organization.id} record={data.record} />
