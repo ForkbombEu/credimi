@@ -38,10 +38,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
+		organizationId: string;
 		record?: CustomChecksResponse;
 	};
 
-	let { record }: Props = $props();
+	let { organizationId, record }: Props = $props();
 
 	//
 
@@ -71,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 
 			if (formMode === 'new') {
-				await pb.collection('custom_checks').create(data);
+				await pb.collection('custom_checks').create({ ...data, owner: organizationId });
 			} else if (record) {
 				await pb.collection('custom_checks').update(record.id, data);
 			}

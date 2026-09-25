@@ -28,6 +28,7 @@ import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
 
 type Props = {
 	mode: 'create' | 'edit';
+	organizationId: string;
 	pipeline?: EnrichedPipeline;
 	startLockedManual?: boolean;
 };
@@ -198,7 +199,9 @@ export class PipelineForm implements Renderable<PipelineForm> {
 							.collection('pipelines')
 							.update(this.props.pipeline.record.id, data);
 					} else {
-						await pb.collection('pipelines').create(data);
+						await pb
+							.collection('pipelines')
+							.create({ ...data, owner: this.props.organizationId });
 					}
 					this.exitConfirmed = true;
 					await goto('/my/pipelines');

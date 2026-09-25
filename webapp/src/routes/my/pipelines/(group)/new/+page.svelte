@@ -8,7 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Render } from '$lib/renderable';
 	import { PipelineForm } from '$pipeline-form/pipeline-form.svelte.js';
 
-	const form = new PipelineForm({ mode: 'create' });
+	const { data } = $props();
+	const form = new PipelineForm({ mode: 'create', organizationId: data.organization.id });
 </script>
 
 <Render item={form} />
