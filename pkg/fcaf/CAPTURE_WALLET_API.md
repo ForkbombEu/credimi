@@ -10,13 +10,12 @@ This Credimi reference tracks the published Capture Wallet API and records the
 additional deployment facts required to decide whether an FCAF test is
 implementable. The upstream API and the applicable OpenID specifications remain
 the wire-contract authorities.
-Synced from the upstream [Capture Wallet API reference](https://github.com/ForkbombEu/credimi-capture-wallet/blob/master/CAPTURE_WALLET_API.md).
-
-
+Synced from the upstream [Capture Wallet API reference](https://github.com/ForkbombEu/credimi-capture-wallet/blob/master/CAPTURE_WALLET_API.md)
+at `5b03750` on 25/09/2026.
 
 ## Published service contract
 
-The Capture Wallet service is a stateful [OpenID4VCI 1.0](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) credential issuer and [OpenID4VP 1.0](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) verifier. It issues deterministic PID and degree test credentials and captures wallet protocol evidence per session.
+The Capture Wallet service is a stateful [OpenID4VCI 1.0](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) credential issuer and [OpenID4VP 1.0](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) verifier. It issues deterministic PID, degree, and numeric test credentials and captures wallet protocol evidence per session.
 
 This is a companion to the machine-readable [OpenAPI document](/openapi.json). The OpenAPI document and the applicable OpenID specifications are authoritative for wire-level details. Use the issuer metadata rather than hard-coding credential configuration IDs, endpoints, or keys.
 
@@ -65,26 +64,37 @@ For each `{issuerConfigurationId}`:
 | `credential_configuration_id` | A configuration advertised by the selected issuer metadata | First configuration for the issuer |
 | `status_list_enabled` | Boolean; allocate and embed a Token Status List reference in each issued credential | `false` |
 | `fixture_id` | Predefined PID claim set the issued credential carries | `pid_default` |
-| `status_reference` | Shape of the `status` claim in the issued SD-JWT VC; anything but `valid` is test-only | `valid` |
+| `status_reference` | Shape of the `status` structure in an issued SD-JWT VC or mdoc; anything but `valid` is test-only | `valid` |
+| `digest_algorithm` | Hash function the issued SD-JWT VC digests its disclosures with: `sha-256`, `sha-384`, `sha-512` | `sha-256` |
 
 It returns `201` with `session_id`, issuer and authorization-server identifiers, the selected flow and configuration, `fixture_id`, `offer_url`, `deeplink`, and `status: "created"`. A configuration belonging to another issuer is rejected.
 
 `fixture_id` names a predefined PID claim set; an unknown value is rejected with `unsupported_fixture_id` and the supported list. Every fixture is a fully valid, normally signed PID and differs from the baseline along one value axis, which is what the DCQL value-matching tests need: `pid_default`, `pid_person_b` (a second complete identity), `pid_under_18` (`age_over_18: false`), `pid_family_name_uppercase`, `pid_family_name_trailing_space`, `pid_locality_diacritics`, `pid_locality_no_diacritics`, `pid_multiple_nationalities`, and `pid_expiry_2032`. Each carries a distinct `document_number`. There is no caller-supplied claim override, so an issued credential always corresponds to a named fixture, and the selected one is recorded as `fixture_id` in the issuance capture.
 
-`status_reference` shapes the `status` claim of an issued SD-JWT VC. `valid` embeds the allocated Token Status List reference and is the default. The other values are the deliberately malformed structures the revocation-metadata tests require, and are refused with `status_reference_not_enabled` unless the deployment sets `FCAF_SCENARIOS_ENABLED`:
+`status_reference` shapes the `status` structure of an issued SD-JWT VC or mdoc. `valid` embeds
+the allocated Token Status List reference and is the default. The other values are the deliberately
+malformed structures the revocation-metadata tests require, and are refused with
+`status_reference_not_enabled` unless the deployment sets `FCAF_SCENARIOS_ENABLED`:
 
-| `status_reference` | Issued `status` claim |
+| `status_reference` | Issued status structure |
 | --- | --- |
-| `valid` | `{"status_list":{"uri":"…","idx":42}}` |
-| `status_without_status_list` | `{}` — the claim is present without a `status_list` member |
+| `valid` | `{"status_list":{"uri":"…","idx":42}}` or the equivalent valid COSE status |
+| `status_without_status_list` | `{}` — the status structure is present without a `status_list` member |
 | `negative_index` | `idx` is `-1` |
 | `missing_index` | `status_list` carries only `uri` |
 | `malformed_uri` | `uri` is not a parseable URI |
 | `missing_uri` | `status_list` carries only `idx` |
 
-A malformed fixture requires `status_list_enabled: true`, otherwise it is refused with `status_reference_requires_status_list`: the reference is always allocated from the configured Status List service first, and the fixture only reshapes that real allocation. It is refused with `status_reference_unsupported_for_mdoc` for an mdoc configuration, and the selected value is recorded as `status_reference` in the issuance capture.
+A malformed fixture requires `status_list_enabled: true`, otherwise it is refused with
+`status_reference_requires_status_list`: the reference is always allocated from the configured
+Status List service first, and the fixture only reshapes that real allocation. For mdoc
+credentials, the service reconstructs and signs only the Mobile Security Object status structure;
+the issuer key remains in Credo's KMS. The selected value is recorded as `status_reference` in the
+issuance capture.
 
 An issued credential with no `status` claim at all is `status_list_enabled: false`, which is the default and needs no fixture.
+
+`digest_algorithm` sets the `_sd_alg` of an issued SD-JWT VC. `sha-256` is the Section 4.1.1 default and is omitted from the response and the capture; `sha-384` and `sha-512` are recorded as `digest_algorithm` in both. Credential Issuer Metadata keeps advertising SHA-256 only, so a credential digested with anything else is one a Wallet can present only if it supports that hash function, which is what `WS_RP_SH_Cryptography_CryptographicHash_010` asks for. An unsupported value is refused with `unsupported_digest_algorithm` and the supported list; `sha-1` is not offered, because SD-JWT requires a hash function that is secure at issuance. An mdoc configuration is refused with `digest_algorithm_unsupported_for_mdoc`: those digests belong to the Mobile Security Object, not to `_sd_alg`.
 
 [FCAF_FIXTURES.md](FCAF_FIXTURES.md) catalogues every credential, claim-set fixture, and status-list fixture together with the conformance tests each serves.
 
@@ -125,7 +135,8 @@ The credential request normally uses `application/json` with `credential_configu
 | --- | --- | --- |
 | `scheme` | URL-scheme prefix, such as `openid4vp://` | `openid4vp://` |
 | `request_uri_method` | Any string; OpenID4VP defines case-sensitive `get`, `post` | `get` |
-| `client_id_scheme` | `x509_hash`, `x509_san_dns`, `decentralized_identifier`, `redirect_uri` | `x509_hash` |
+| `client_id_scheme` | `x509_hash`, `x509_san_dns`, `decentralized_identifier`, `verifier_attestation`, `redirect_uri` | `x509_hash` |
+| `verifier_attestation` | Object; requires `client_id_scheme: "verifier_attestation"` | Attestation with the real subject, the fixture issuer, and no `redirect_uris` |
 | `request_delivery` | `by_reference`, `by_value`, `plain` | `by_reference` |
 | `response_type` | `vp_token`, `vp_token id_token`, `code` | `vp_token` |
 | `response_mode` | `direct_post`, `direct_post.jwt`, `dc_api`, `dc_api.jwt` | `direct_post.jwt` |
@@ -145,13 +156,17 @@ The credential request normally uses `application/json` with `credential_configu
 
 `dcql_query: null` omits the query from the request the Wallet receives, which is how a Section 5.1 scope-based request is sent: combine it with `scopes`. The Verifier keeps a query regardless, because the Authorization Response is matched against the request object this service signs, so a presentation returned for a scope-only request still verifies. The kept query appears in `authorization_request` and the delivered request in `raw.authorization_request_delivered`. Scope values are caller-supplied and resolved by the Wallet's profile; this service defines none.
 
+`verifier_info` is delivered exactly as supplied. OpenID4VP Section 5.11 leaves the format and semantics of these attestations to ecosystems and profiles, so this service signs none of its own. To bind a key-bound attestation to the request, read the Client Identifier from `/openid4vp/client-identifiers`, choose the `nonce`, sign the attestation and its proof of possession over that `nonce` and Client Identifier in the structure the profile defines, then create the session with the same `nonce` and the whole `verifier_info` array. A missing `nonce` or `client_id` in the proof, a broken signature, and an unrecognised format are all differences in what the caller signs.
+
+Each decoded SD-JWT VC presentation carries `digest_algorithm`, the credential's `_sd_alg` defaulted to `sha-256` when the issuer omitted it, since that value is absent from the disclosed claims but determines the digest algorithm a Wallet needed to support.
+
 A session that sent transaction data records `checks.transaction_data_verified`: `true` when the presentation was accepted, which includes the Section 8.4 binding Credo-TS verifies from the signed request object; `false` when the presentation was rejected with `invalid_transaction_data`; and `null` when no transaction data was sent, or when the presentation failed for an unrelated reason that says nothing about the binding. The binding requires the Wallet to return, in `transaction_data_hashes`, a hash of each base64url-encoded entry that applies to the presented Credential, using an algorithm the entry offered in `transaction_data_hashes_alg`.
 
 Entries of a `transaction_data` array that are JSON objects are base64url-encoded as OpenID4VP Section 5.1 requires, so a caller supplies the entry it wants the Wallet to decode; entries of any other type, strings included, are delivered exactly as supplied, and a `transaction_data` value that is not an array is passed through untouched. Use `request_mutation` on `/transaction_data` to deliver a parameter that bypasses encoding entirely.
 
 `scheme`, `request_uri_method`, `client_id_scheme`, `request_delivery`, `response_mode`, `client_metadata`, and `redirect_uri` are top-level fields only. They select how the service builds, signs, and delivers the request instead of being request-object claims, so nesting any of them inside `presentation_request` has no effect and is not reported as an error. In particular, a `client_metadata` value inside `presentation_request` is discarded and the generated verifier metadata is used. Only `response_type`, `dcql_query`, `nonce`, `scopes`, `transaction_data`, and `verifier_info` are honoured in both positions, and a top-level `response_type` wins over a nested one.
 
-`client_id_scheme: "x509_san_dns"` signs the request with the existing verifier certificate and uses its DNS Subject Alternative Name as the Client Identifier value. `client_id_scheme: "decentralized_identifier"` signs with a separate `did:web` key and publishes its DID Document at `/openid4vp/did.json`. `client_id_scheme: "redirect_uri"` creates an unsigned request and therefore requires `request_delivery: "plain"`; signed and by-reference delivery are rejected. The default remains the certificate hash prefix, `x509_hash`.
+`client_id_scheme: "x509_san_dns"` signs the request with the existing verifier certificate and uses its DNS Subject Alternative Name as the Client Identifier value. `client_id_scheme: "decentralized_identifier"` signs with a separate `did:web` key and publishes its DID Document at `/openid4vp/did.json`. `client_id_scheme: "verifier_attestation"` signs with the request key but publishes no certificate: the request object's `jwt` JOSE header carries a Verifier Attestation JWT whose `sub` is the Client Identifier after the prefix, whose `cnf.jwk` is the request signing key, and whose `iss` is the fixture attestation issuer published at `/openid4vp/verifier-attestation-issuer/jwks.json`. The optional `verifier_attestation` object sets `subject`, `issuer`, `redirect_uris`, extra `claims`, or `signature: "corrupt"`; the last requires `FCAF_SCENARIOS_ENABLED`, and supplying the object under any other client identifier prefix is refused with `verifier_attestation_requires_verifier_attestation_client_id`. `client_id_scheme: "redirect_uri"` creates an unsigned request and therefore requires `request_delivery: "plain"`; signed and by-reference delivery are rejected. The default remains the certificate hash prefix, `x509_hash`.
 
 When `dcql_query` is `null`, the service omits it from the wallet-facing request. Credo retains the normal default query only as internal verification-session state; a wallet response to this deliberately incomplete request may not validate.
 
@@ -177,6 +192,8 @@ When `redirect_uri` is supplied, the service appends a fresh 128-bit `response_c
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/openid4vp/did.json` | Verifier `did:web` Document used by `client_id_scheme: "decentralized_identifier"`. |
+| `GET` | `/openid4vp/client-identifiers` | Client Identifier presented under each supported prefix, for binding a caller-signed `verifier_info` attestation. |
+| `GET` | `/openid4vp/verifier-attestation-issuer/jwks.json` | Public key of the fixture issuer of Verifier Attestation JWTs, for configuring a Wallet to trust it. |
 | `GET` | `/openid4vp/sessions/{sessionId}` | Full current presentation capture. |
 | `GET` | `/openid4vp/sessions/{sessionId}/deeplink` | `{ deeplink, authorization_request }`; records a deeplink event. |
 | `GET` | `/openid4vp/sessions/{sessionId}/events` | Chronological presentation events. |
@@ -421,14 +438,30 @@ source test permits it.
   requiring JWT serialization details must pair them with the captured compact
   response and JOSE header evidence.
 
-- Resynced from upstream master on 22/09/2026 (`6b94fa4`). The refresh adds
-  `request_behavior.signing_key`, `request_behavior.certificate_chain`,
-  Section 5.1 object encoding for `transaction_data` with the
-  `checks.transaction_data_verified` binding check, and the `dcql_query: null`
-  plus `scopes` scope-only request. None of the four has been probed on beta,
-  so treat them as published contract rather than executable evidence until a
-  dated probe exists. The tests they reclassify are listed in
+- Resynced from upstream master on 25/09/2026 (`5b03750`). Since the 22/09/2026
+  sync (`6b94fa4`) the contract adds the SD-JWT VC `digest_algorithm` issuance
+  option and its per-presentation echo, `client_id_scheme:
+  "verifier_attestation"` with the optional `verifier_attestation` object,
+  `GET /openid4vp/client-identifiers`, `GET
+  /openid4vp/verifier-attestation-issuer/jwks.json`, guidance for binding a
+  caller-signed `verifier_info` attestation, mdoc support for
+  `status_reference`, and a numeric test credential. The earlier sync's
+  `request_behavior.signing_key`, `request_behavior.certificate_chain`, Section
+  5.1 `transaction_data` object encoding, and the `dcql_query: null` plus
+  `scopes` scope-only request are still unprobed on beta; treat them as
+  published contract rather than executable evidence. The tests they reclassify
+  are listed in
   `config_templates/fcaf/wallet_solution/relying_party/ASSERTION_REVIEW_BACKLOG.md`.
+- On 25/09/2026, beta served `GET /openid4vp/client-identifiers` and `GET
+  /openid4vp/verifier-attestation-issuer/jwks.json` with `200`, publishing the
+  `x509_hash`, `decentralized_identifier`, and `verifier_attestation` Client
+  Identifiers and the ES256 attestation issuer key.
+- On 25/09/2026, beta accepted `digest_algorithm: "sha-384"` and `"sha-512"`
+  and recorded the selection in the issuance capture; `"sha-1"` was refused
+  with `unsupported_digest_algorithm` and the supported list. This is
+  executable evidence for `WS_RP_SH_Cryptography_CryptographicHash_010`.
+- On 25/09/2026, `eu-pid-device-bound` and `eu-pid-jwt-proof-only` each
+  advertised a fourth configuration, `urn:credimi:numeric-claims:1.sd-jwt.*`.
 - The `certificate_chain` behaviours recompute the `x509_hash` Client
   Identifier from the replaced leaf. A request built with them therefore
   carries a Client Identifier the verifier no longer expects, so a presentation
@@ -442,6 +475,7 @@ source test permits it.
 | Empty `credential_sets[].options` | The reference Android Wallet displayed an error but did not POST `error=invalid_request`; beta captured only request retrieval. | Blocked for the required protocol assertion. `REFERENCE-WALLET-ISSUES.md` RI-WALLET-001 |
 | Positive PID verification | Beta received a `vp_token` but rejected it because the PID issuer URI did not match the issuer certificate SAN. | Verifier-blocked acceptance, not a Wallet failure. `REFERENCE-WALLET-ISSUES.md` MOCK-VERIFIER-001 |
 | Invalid `request_uri_method` | The contract permits malformed values in the Wallet-facing deeplink; production rejected `DELETE` on 14/09/2026. | Supported for beta-only negative tests; production deployment lag remains. |
+| `client_id_scheme: verifier_attestation` | Session creation returned `500 internal_error`: `the domain of the OpenID4VCI issuer does not match a SAN DNS name in the x5c certificate`, on 25/09/2026. `x509_san_dns` fails identically. | Beta-blocked by the deployed certificate, not by the contract. |
 
 ## Safe scenario use
 

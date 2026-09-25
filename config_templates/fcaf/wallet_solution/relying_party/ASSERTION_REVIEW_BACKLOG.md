@@ -6,35 +6,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # FCAF assertion review backlog
 
-This is the dedicated worklist for source tests that have no Credimi definition,
-and for defined tests whose assertions remain pending or blocked. The tests that
-already have a definition remain in the generated aggregate pipeline;
-completing an item means reviewing its source scenario, pipeline evidence, and
-assertions rather than removing it from execution.
+Open work only. A completed item is removed from this file; its reasoning stays
+in git history and in `pkg/fcaf/MEMORY.md`. Everything below is either **ready
+to work** or **blocked**, and a blocked entry names the exact missing input.
+
+A test that already has a Credimi definition keeps running in the generated
+aggregate pipeline. Listing it here means its assertions or its evidence are not
+yet trustworthy, not that it is absent from execution.
 
 Review baseline: the local source mirror under
 `config_templates/fcaf_sources/wallet_solution/relying_party/`, cross-checked
 against upstream `submitted` commit `2b223b56be0d0a073ee0cdc9db1d7fd31d9529a1`
-(13/08/2026), and the Capture Wallet contract in
-`pkg/fcaf/CAPTURE_WALLET_API.md`. The source mirror has 621 distinct
-`WS_RP_*` files and Credimi has 595 matching test definitions. The remaining
-source-test difference is listed below; it is deliberately separate from
-assertion work that is incomplete or incorrect.
+(13/08/2026), and the Capture Wallet contract in `pkg/fcaf/CAPTURE_WALLET_API.md`
+as synced on 25/09/2026. The mirror has 621 distinct `WS_RP_*` files against 595
+Credimi test definitions; the difference is listed under **Blocked**.
 
-The lists below are the active review state; test-definition totals are kept in
-the baseline above and validated by the FCAF catalog loader.
+## Ready to work
 
-## Reclassified after Capture Wallet API refresh
+### Implemented, awaiting an emulator run against beta
 
-The current Capture Wallet contract adds named PID fixtures, status-reference
-fixtures, Request Object mutations, request-delivery behaviours, configurable
-verifier responses, and DC API session creation. The following source tests are
-**constructible but unimplemented**. Each remains pending until its exact source
-scenario, delivered request, reference-Wallet behaviour, and protocol evidence
-are verified on beta; none is a conformance pass merely because the API accepts
-its setup.
-
-### Constructible pending beta evidence
+These scenarios exist and their assertions are written. None has a reference
+Wallet verdict yet: the setup is accepted by beta, which is not evidence that
+the Wallet received the property or answered as the source requires.
 
 - **Implemented; beta evidence pending:** `WS_RP_MS_ProtocolMessages__003_UF`,
   `006`, `007`, `009`, `010`, `016`, `033`, `034`, `049`, `051`, and
@@ -76,13 +69,6 @@ its setup.
   malformed_uri` expresses only the unparseable one. The missing-scheme,
   unencoded-space, invalid-percent-encoding, illegal-character and empty-string
   shapes need additional issuer fixtures.
-
-### Reclassified by the 22/09/2026 Capture Wallet refresh
-
-`pkg/fcaf/CAPTURE_WALLET_API.md` was resynced from upstream master on
-22/09/2026. It adds four capabilities. None has been probed on beta yet, so
-every item below is constructible from the published contract and unverified in
-deployment.
 
 `request_behavior.signing_key: "unrelated"` signs the Request Object with a key
 that is not the one bound to the advertised client identifier, leaving `x5c` and
@@ -149,135 +135,82 @@ evidence gap but not the blocker: `WS_RP_MS_ProtocolMessages__017`, `018`,
 `135` and `154`–`159` still need a transaction-data type the reference Wallet
 supports.
 
-### Implemented after the Digital Credentials API scope change
+### Digital Credentials API batch, awaiting a verdict
 
-Capture supports `dc_api` and `dc_api.jwt`, and the user authorised widening
-the work selection, so `WS_RP_IA_Engagement__002`,
-`WS_RP_IA_ProtocolFlow__003a`, `003b_UF` and `WS_RP_SM_RpIntegrity__002`–`005`,
-`022` are now implemented across four scenarios: `dc-api-signed-encrypted`,
-`dc-api-unencrypted`, `dc-api-unsigned` and `dc-api-invalid-signature`.
+`WS_RP_IA_Engagement__002`, `WS_RP_IA_ProtocolFlow__003a`, `003b_UF` and
+`WS_RP_SM_RpIntegrity__002`-`005`, `022` are implemented across the
+`dc-api-signed-encrypted`, `dc-api-unencrypted`, `dc-api-unsigned` and
+`dc-api-invalid-signature` scenarios. Two facts shaped their assertions and must
+hold when they run: a DC API request carries no `response_uri`, `redirect_uri`,
+`state` or `aud`, so `WS_RP_IA_Engagement__002` asserts `expected_origins` is
+present and the redirect parameters are absent; and the Key Binding JWT audience
+becomes `origin:<browser origin>`, which is why `WS_RP_SM_RpIntegrity__022` uses
+`sdjwt.kb_jwt_claim_string_prefix`.
 
-Two facts shaped the assertions:
+The `fcaf-dc-api-present` action drives the full browser path on wallet
+2026.09.42, so these are now runnable.
 
-- A DC API request carries no `response_uri`, `redirect_uri`, `state` or
-  `aud`; the browser origin replaces them. `WS_RP_IA_Engagement__002` therefore
-  asserts the presence of `expected_origins` and the absence of the redirect
-  parameters, not merely that a request was delivered.
-- The Key Binding JWT audience becomes `origin:<browser origin>` instead of
-  the Client Identifier. The SD-JWT parser stores the Key Binding payload
-  beside the claims, so no `sdjwt.claim_*` validator could read it; that is why
-  `WS_RP_SM_RpIntegrity__022` uses the new
-  `sdjwt.kb_jwt_claim_string_prefix`.
+### Unblocked by the 25/09/2026 Capture Wallet refresh
 
-The remaining blocker is the reference Wallet, not the service: none of these
-can report a real verdict until an emulator is attached.
+- [ ] `WS_RP_SH_Cryptography_CryptographicHash_010` is now constructible: beta
+  accepted `digest_algorithm: "sha-384"` and `"sha-512"` on 25/09/2026 and
+  records the selection in the issuance capture, which is the non-SHA-256
+  credential digest fixture the source needs. It still needs a scenario, and a
+  Wallet that supports the chosen hash function.
 
-## Resolved assertion defects
+### Known gaps inside implemented coverage
 
-Kept because the reasoning is the reviewable part: each entry records a
-definition that ran in the aggregate and reported a pass for the wrong reason,
-and what now decides it.
+- `WS_RP_MS_ProtocolMessages__125` and `126` can only evidence the Wallet's own
+  error visually: the Wallet has already submitted its Authorization Response
+  when the malformed verifier reply arrives.
+- The 15 malformed-DCQL tests migrated on 25/09/2026 assert the delivered
+  request, a screenshot count, and `oid4vp.no_presentation_returned`. The
+  reference Wallet answers several of those requests instead of rejecting them,
+  so they are expected to fail until the Wallet is fixed; see
+  `pkg/fcaf/MEMORY.md` for the per-variant table to report upstream.
 
-### `WS_RP_IA_MainInteraction__033`: DCQL value matching was never checked
-
-**What the source asks.** The Wallet must hold eight credentials of the same
-type and receive one DCQL query carrying several value constraints at once.
-Exactly one credential satisfies all of them. Every other credential is a
-deliberate near miss that fails exactly one constraint. The Wallet must release
-the matching credential and must exclude all seven traps from the selection
-prompt. This is a test of value matching, not of query parsing.
-
-The Capture fixtures that realise those eight credentials are:
-
-| Role | `fixture_id` | Differs along |
-| --- | --- | --- |
-| A, full match | `pid_default` | baseline: `family_name` `Rossi`, locality `Roma`, `age_over_18` `true`, `nationalities` `["IT"]`, `date_of_expiry` `2031-01-01` |
-| B1, fails age | `pid_under_18` | `age_over_18: false` |
-| B2, fails data type | *none* | no PID or degree claim is numeric; see the blocked list |
-| B3, fails case | `pid_family_name_uppercase` | `family_name: "ROSSI"` |
-| B4, fails whitespace | `pid_family_name_trailing_space` | `family_name: "Rossi "` |
-| B5, fails encoding | `pid_locality_no_diacritics` | locality `Munchen` instead of `München` |
-| B6, fails array | `pid_multiple_nationalities` | `nationalities: ["FR","DE"]` |
-| B7, fails expiry bound | `pid_expiry_2032` | `date_of_expiry: 2032-01-01` |
-
-**What the definition asserted.** One `dcql.response_satisfies_constraints` in
-`credentials_match` mode over the shared `pipeline.dcql.main-interaction`
-exchange, plus a screenshot check.
-
-**Why that decided nothing.** `credentials_match` reads the captured
-`dcql_query`, checks the credential queries are well formed, and then requires
-`vp_token[<query id>]` to be non-empty. It never opens the returned
-presentation. It therefore could not see which credential came back, and in
-particular never compared a disclosed claim against the `values` restriction
-that selected it. A Wallet that ignored value matching entirely and released
-`pid_family_name_uppercase` produces a non-empty `vp_token` under the same
-query id and passed. The assertion answered "did the Wallet answer at all",
-while the source asks "did the Wallet answer with the one credential that
-satisfies every constraint".
-
-**What identifies the credential.** Not the set of disclosed claims: all eight
-fixtures are complete PIDs, so a query for `family_name`, `address.locality`
-and `nationalities` makes every one of them disclose exactly that same set. The
-discriminator is the disclosed **value**. A presentation disclosing
-`family_name: "Rossi"` is A and cannot be B3 (`"ROSSI"`) or B4 (`"Rossi "`);
-one disclosing locality `Roma` cannot be B5. Asserting every constrained claim
-carries a value from its `values` list is therefore both necessary and
-sufficient to name the released credential.
-
-**How it is decided now.** `fcaf-wallet-solution-relying-party-dcql-combined-value-constraints`
-issues the eight fixtures, proves they are all held through an unconstrained
-`multiple: true` inventory query (`oid4vp.distinct_presentations`, minimum 8),
-and then sends one query restricting five independent axes at once:
-`family_name = Rossi`, `age_over_18 = true`, `address.locality = Roma`,
-`nationalities[0] = IT` and `date_of_expiry = 2031-01-01`. Only `pid_default`
-satisfies all five and every trap fails exactly one, so no single constraint
-can carry the result. The new
-`oid4vp.dcql_value_constraints_satisfied` validator reads the restrictions from
-the delivered query itself and requires every released presentation to disclose
-each restricted claim with a value from that claim's list.
-
-**Why the query sets `multiple: true`.** With `multiple` omitted the Wallet
-returns one credential; releasing the match while also treating traps as
-matches would stay invisible. `multiple: true` makes the Wallet return every
-credential it considered a match, so a released trap cannot hide behind the
-matching one. The validator's `require_multiple` param refuses evidence
-gathered without it.
-
-**Caveat if minimal disclosure is asserted too.** "The Wallet disclosed only
-the requested claims" is a separate and worthwhile property, but `status` lives
-in the SD-JWT payload outside the issuer disclosure frame, so it is always
-present and must not be counted as an extra disclosure.
-
-**Interaction with the status-reference probes, resolved.** Implementing this
-case means issuing B3–B7, which are the same fixtures the
-malformed-`status_reference` rejection scenario probes by `document_number`. A
-fixture's `document_number` is a claim value rather than a per-issuance serial
-and the aggregate never clears wallet state, so those probes could no longer
-treat "a credential came back" as "the malformed token was kept". They now use
-`multiple: true` and `oid4vp.malformed_status_credential_absent`, which
-inspects the `status` claim of every returned credential and fails only on the
-malformed shape the issuer was asked to emit. A validly issued duplicate of the
-same fixture is therefore no longer mistaken for a retained rejected token.
-
-## Still blocked
+## Blocked
 
 The beta contract supplies only the capabilities documented in
-`CAPTURE_WALLET_API.md`. These items require an input, credential fixture,
-transport capture, Wallet profile, or verifier behavior that remains absent.
+`CAPTURE_WALLET_API.md`. Each entry names the input, credential fixture,
+transport capture, Wallet profile, or verifier behaviour that is absent.
 
-### Capture Wallet certificate controls
+### Blocked on the beta deployment certificate
 
+The 25/09/2026 contract adds `client_id_scheme: "verifier_attestation"` and a
+`verifier_attestation` object that sets `subject`, `issuer`, `redirect_uris`,
+extra `claims`, or `signature: "corrupt"`, so the entries below are constructible
+from the published contract. Beta refuses the session: on 25/09/2026 both
+`verifier_attestation` and `x509_san_dns` returned `500 internal_error`, `the
+domain of the OpenID4VCI issuer does not match a SAN DNS name in the x5c
+certificate`. Re-check after beta publishes a SAN-matching certificate.
+
+- [ ] `WS_RP_SM_RpIntegrity__001` (requires a controllable invalid `verifier_info` attestation)
+- [ ] `WS_RP_SM_RpIntegrity__010` (requires a trusted verifier-attestation issuer)
+- [ ] `WS_RP_SM_RpIntegrity__011` (requires an untrusted verifier-attestation issuer)
+- [ ] `WS_RP_SM_RpIntegrity__012` (requires an invalid verifier-attestation signature)
+- [ ] `WS_RP_MS_Metadata__116` (needs a valid verifier attestation JWT and matching client identifier)
+- [ ] `WS_RP_MS_Metadata__117` (needs a verifier attestation JWT with a mismatched subject)
+- [ ] `WS_RP_MS_Metadata__118` (needs a verifier attestation JWT in the Request Object JOSE header)
+- [ ] `WS_RP_MS_Metadata__120` (needs a controllable verifier attestation redirect_uris claim)
+- [ ] `WS_RP_MS_Metadata__121` (needs a verifier attestation redirect_uris mismatch)
+- [ ] `WS_RP_MS_Metadata__122` (needs a verifier attestation without redirect_uris)
+- [ ] `WS_RP_MS_Metadata__123` (needs a verifier attestation request with external non-key metadata)
+- [ ] `WS_RP_MS_Metadata__124` (needs a verifier attestation request with client_metadata-only non-key metadata)
 - [ ] `WS_RP_MS_Metadata__125` and `WS_RP_MS_Metadata__127` (Capture Wallet
   rejects `client_id_scheme: x509_san_dns` because its supplied X.509 leaf
   certificate has no DNS SAN. Re-enable only after the service publishes a
   matching certificate and the Request Object can be captured.)
+- [ ] `WS_RP_MS_Metadata__126` (needs an x509_san_dns request with SAN mismatch)
+- [ ] `WS_RP_MS_Metadata__128` (needs an x509_san_dns request with redirect URI hostname mismatch)
 
-### Missing controls for source tests without a Credimi definition
+### Blocked on a missing Capture Wallet or reference Wallet capability
+
+#### Missing controls for source tests without a Credimi definition
 
 - [ ] `WS_RP_IA_Engagement__001b` (the beta Capture service can generate an
   `eu-eaap://` deeplink, but the reference Android Wallet has no registered
   handler for that scheme, so invocation cannot be evidenced)
-
 - [ ] `WS_RP_IA_ProtocolFlow__002d` (requires a reference Wallet profile that
   does not support `request_uri_method=post`; beta has only the post-supporting
   reference Wallet)
@@ -293,7 +226,7 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_SM_TrustMechanisms__101c_UF` (requires two WRPAC fixtures with a
   controlled organization mismatch)
 
-### Reclassified from pending
+#### Inputs the verifier cannot express
 
 - [ ] `WS_RP_IA_MainInteraction__024` (requires an encrypted request that remains deliverable and user-confirmable; Capture does not publish encrypted Request Object delivery)
 - [ ] `WS_RP_IA_Metadata__012` (requires Static Discovery with a controlled SIOPv2 `aud`; it is not a supported client identifier scheme)
@@ -303,18 +236,14 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_MS_ProtocolMessages__151` (requires an unsupported mdoc format, while the reference Wallet supports `mso_mdoc`)
 - [ ] `WS_RP_SM_IssuerIntegrity__012` (requires an mdoc revocation fixture; Capture publishes Token Status List allocation, not an ISO mdoc revocation fixture)
 
-### Signature, trust, and Digital Credentials API controls
+#### Signature, trust, and Digital Credentials API controls
 
 - [ ] `WS_RP_SM_RpIntegrity_CryptographicSignature_002` (requires an RS384-signed presentation request)
 - [ ] `WS_RP_SM_RpIntegrity_CryptographicSignature_003` (requires a COSE `-7` signed presentation request)
 - [ ] `WS_RP_SM_RpIntegrity_CryptographicSignature_004` (requires a COSE `-9` signed presentation request)
-- [ ] `WS_RP_SM_RpIntegrity__001` (requires a controllable invalid `verifier_info` attestation)
 - [ ] `WS_RP_SM_RpIntegrity__007` (requires a DID document whose verification method deliberately excludes the signing key)
 - [ ] `WS_RP_SM_RpIntegrity__008` (requires a controlled verifier attestation `cnf` key)
 - [ ] `WS_RP_SM_RpIntegrity__009` (requires a controlled verifier attestation `cnf` key)
-- [ ] `WS_RP_SM_RpIntegrity__010` (requires a trusted verifier-attestation issuer)
-- [ ] `WS_RP_SM_RpIntegrity__011` (requires an untrusted verifier-attestation issuer)
-- [ ] `WS_RP_SM_RpIntegrity__012` (requires an invalid verifier-attestation signature)
 - [ ] `WS_RP_SM_RpIntegrity__014` (requires a signed X.509 request without `x5c`)
 - [ ] `WS_RP_SM_RpIntegrity__021` (requires verifier metadata outside `client_metadata` to be delivered in the Request Object)
 - [ ] `WS_RP_SM_RpIntegrity__024` (requires a Wallet profile that rejects every non-`x509_hash` client identifier, contrary to the supported DID and SAN schemes)
@@ -324,7 +253,7 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_SM_RpIntegrity__033` (requires a COSE `-7` signed Request Object)
 - [ ] `WS_RP_SM_RpIntegrity__034` (requires a COSE `-9` signed Request Object)
 
-### Nonce, key-fixture, and trust-list controls
+#### Nonce, key-fixture, and trust-list controls
 
 - [ ] `WS_RP_SM_TrustMechanisms__002` (requires an AKI-backed issuer certificate fixture)
 - [ ] `WS_RP_SM_TrustMechanisms__003` (requires an AKI-backed matching credential fixture)
@@ -343,7 +272,6 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_UC_Presentation__003` (requires a defined scope-to-DCQL mapping)
 - [ ] `WS_RP_UC_Presentation__004` (requires an independently controlled second-device invocation path)
 - [ ] `WS_RP_IA_MainInteraction__046` (requires a credential/presentation fixture exceeding user-agent URL limits)
-
 - [ ] `WS_RP_MS_ProtocolMessages__011` (needs a wallet configuration that does not support POST `request_uri` retrieval)
 - [ ] `WS_RP_MS_ProtocolMessages__013` (needs two available credentials that satisfy one DCQL credential query)
 - [ ] `WS_RP_MS_ProtocolMessages__017` (needs a wallet configuration without `transaction_data` support and a verifier callback capture)
@@ -354,12 +282,8 @@ transport capture, Wallet profile, or verifier behavior that remains absent.
 - [ ] `WS_RP_MS_ProtocolMessages__041` (needs a direct_post.jwt request with `redirect_uri:` client identifier and no `response_uri`)
 - [ ] `WS_RP_MS_ProtocolMessages__043` (needs a controllable HTTP request_uri endpoint)
 
-### Remaining issuer status-list controls
+#### Remaining issuer status-list controls
 
-`status_reference` now provides the SD-JWT status shapes moved to the
-constructible list above. Capture still cannot create the COSE/ISO mdoc shapes,
-custom CBOR labels, or OpenID Federation and verifier-attestation fixtures
-required by the following source tests.
 - [ ] `WS_RP_MS_Metadata__094` (needs a COSE referenced token without status_list)
 - [ ] `WS_RP_MS_Metadata__095` (needs a COSE token with controlled unsigned status_list.idx encoding)
 - [ ] `WS_RP_MS_Metadata__096` (needs malformed COSE status_list.idx encodings)
@@ -375,24 +299,13 @@ required by the following source tests.
 - [ ] `WS_RP_MS_Metadata__113` (needs malformed or untrusted OpenID Federation chains)
 - [ ] `WS_RP_MS_Metadata__114` (needs OpenID Federation metadata resolution with conflicting client_metadata)
 - [ ] `WS_RP_MS_Metadata__115` (needs OpenID Federation metadata resolution without client_metadata)
-- [ ] `WS_RP_MS_Metadata__116` (needs a valid verifier attestation JWT and matching client identifier)
-- [ ] `WS_RP_MS_Metadata__117` (needs a verifier attestation JWT with a mismatched subject)
-- [ ] `WS_RP_MS_Metadata__118` (needs a verifier attestation JWT in the Request Object JOSE header)
 - [ ] `WS_RP_MS_Metadata__119` (needs a verifier_attestation request missing the jwt header)
-- [ ] `WS_RP_MS_Metadata__120` (needs a controllable verifier attestation redirect_uris claim)
-- [ ] `WS_RP_MS_Metadata__121` (needs a verifier attestation redirect_uris mismatch)
-- [ ] `WS_RP_MS_Metadata__122` (needs a verifier attestation without redirect_uris)
-- [ ] `WS_RP_MS_Metadata__123` (needs a verifier attestation request with external non-key metadata)
-- [ ] `WS_RP_MS_Metadata__124` (needs a verifier attestation request with client_metadata-only non-key metadata)
-- [ ] `WS_RP_MS_Metadata__126` (needs an x509_san_dns request with SAN mismatch)
-- [ ] `WS_RP_MS_Metadata__128` (needs an x509_san_dns request with redirect URI hostname mismatch)
 - [ ] `WS_RP_MS_Metadata__130` (needs an x509_hash request with leaf certificate hash mismatch; `request_behavior.certificate_chain` does not serve it, because the service recomputes the `x509_hash` Client Identifier from the replaced leaf, so the hash keeps matching)
 - [ ] `WS_RP_MS_Metadata__133` (needs an origin-prefixed request outside the Digital Credentials API)
 - [ ] `WS_RP_MS_Metadata__134` (needs verifier-issued encrypted Request Objects from POST wallet metadata)
 - [ ] `WS_RP_MS_Metadata__135` (needs a verifier to return an unencrypted Request Object after encryption negotiation)
 - [ ] `WS_RP_MS_Metadata__136` (needs POST wallet metadata for a verifier signing-capable client identifier prefix)
 - [ ] `WS_RP_MS_Metadata__137` (needs POST wallet metadata for a redirect_uri-prefixed request)
-
 - [ ] `WS_RP_IA_MainInteraction__006`   (credential with no hb)
 - [ ] `WS_RP_IA_MainInteraction__008`   (credential with no hb)
 - [ ] `WS_RP_IA_MainInteraction__010`   (credential with no hb)
@@ -433,4 +346,3 @@ required by the following source tests.
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_006` (requires a Wallet Metadata retrieval mechanism and a Wallet profile with another supported hash algorithm)
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_007` (requires a Wallet profile with another supported hash algorithm and a defined client-metadata representation)
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_008` (requires a verifier to use and expose a non-SHA-256 hashing function)
-- [ ] `WS_RP_SH_Cryptography_CryptographicHash_010` (requires an issuer fixture using a non-SHA-256 credential digest algorithm)
