@@ -139,10 +139,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-094-single
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-094-single-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
       - openLink: { link: "${DEEPLINK_MIXED}", autoVerify: false, browser: false }
       - waitForAnimationToEnd:
           timeout: 5000
@@ -169,10 +193,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-094-mixed
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-094-mixed-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
     parameters:
       DEEPLINK_SINGLE: ${{ create-single.outputs.body.deeplink }}
       DEEPLINK_MIXED: ${{ create-mixed.outputs.body.deeplink }}
@@ -200,6 +248,8 @@ steps:
           single_value: ${{ fetch-single.outputs.body.raw.authorization_request_delivered }}
           mixed_value: ${{ fetch-mixed.outputs.body.raw.authorization_request_delivered }}
           visual_evidence: ${{ exercise-trusted-authorities-values-empty-string.outputs.screenshot_urls }}
+          single_value_session: ${{ fetch-single.outputs.body }}
+          mixed_value_session: ${{ fetch-mixed.outputs.body }}
 outputs:
   single_value:
     path: $.output.fetch-single.outputs.body.raw.authorization_request_delivered
@@ -209,5 +259,11 @@ outputs:
     decoder: raw
   visual_evidence:
     path: $.output.exercise-trusted-authorities-values-empty-string.outputs.screenshot_urls
+    decoder: raw
+  single_value_session:
+    path: $.output.fetch-single.outputs.body
+    decoder: raw
+  mixed_value_session:
+    path: $.output.fetch-mixed.outputs.body
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

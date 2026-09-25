@@ -91,6 +91,28 @@ steps:
       - takeScreenshot: fcaf-085-claim-sets-empty-rejected
       - runFlow:
           when:
+            visible: "Requested data"
+          commands:
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-085-claim-sets-empty-rejected-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
             visible: "Data sharing request"
           commands:
           - tapOn: "Cancel"
@@ -117,3 +139,4 @@ steps:
           visual_evidence: ${{ reject-empty-claim-sets.outputs.flow_output.maestro_screenshot_urls }}
           fetch-empty-claim-sets-request: ${{ fetch-empty-claim-sets-request.outputs.body.raw.authorization_request_delivered }}
           reject-empty-claim-sets: ${{ reject-empty-claim-sets.outputs }}
+          dcql_exchange_session: ${{ fetch-empty-claim-sets-request.outputs.body }}

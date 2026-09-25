@@ -111,20 +111,43 @@ surfaced now because nothing had executed them.
 5. `client_metadata` nested inside `presentation_request` is discarded by Capture,
    which documents it as top-level only. `dcql-protocol-messages-145` and `-146`
    nest it, so they do not deliver the metadata conflict they describe.
-6. Open assertion gap, exposed by the migration. Against a properly signed HAIP
-   request the reference wallet does not uniformly reject a malformed DCQL member.
-   Observed on 2026.09.42: `claims: null` and several non-array `claims` /
-   `claim_sets` values produce
-   `The requested document is not available in your EUDI Wallet`; some variants
-   return silently to Home; and at least one non-boolean
-   `require_cryptographic_holder_binding` is accepted outright, with the wallet
-   rendering the normal consent screen for a matching document. The migrated flows
-   therefore accept error, no-match, discontinuation, or consent as terminal states,
-   cancel any consent screen, and screenshot whichever occurred. The tests for these
-   15 IDs assert only that the delivered request carried the malformed member plus a
-   screenshot count, so a tolerant wallet still passes. Add a "no `vp_token` in the
-   session" assertion before trusting these verdicts; the evidence is now available
-   from the same `fetch-*` step.
+6. Malformed-request tests now assert the normative outcome. A test states what the
+   Wallet must do; if the reference Wallet does not do it, the test fails and the
+   defect is reported upstream. It is never softened to keep a run green.
+   `oid4vp.no_presentation_returned` (`pkg/fcaf/validators/generic.go`) fails a
+   Verifier session that reached `presentation_validated` or `presentation_invalid`,
+   that carries `decoded_presentations`, or whose `checks.presentation_valid` was
+   recorded at all: any Authorization Response means the Wallet did not reject.
+   48 assertions were added across the ten migrated scenarios' owning tests, each
+   bound to `<key>_session` -> `${{ fetch-*.outputs.body }}`.
+   The flows had to change to match: on a consent screen that lists `Requested data`
+   they now tap `Share` and complete the PIN instead of cancelling, so a tolerant
+   Wallet produces a real Authorization Response the Verifier records. A consent
+   screen without `Requested data` is the no-match screen, whose `Share` button does
+   nothing, so it is dismissed with `Cancel`.
+
+### Reference wallet 2026.09.42 non-conformance, ready to report upstream
+
+Observed with a credential available in the Wallet, each variant isolated against
+`beta-capture-wallet.credimi.io`. Rejection means the session stopped at
+`request_retrieved`; an answer means it advanced to `presentation_*`.
+
+| Malformed member | Wallet |
+| --- | --- |
+| `claims: null` | rejects |
+| `claims` = `true`, `false`, `0`, `73`, `"not-an-array"`, object | answers |
+| `claim_sets` non-array, same six values | answers |
+| `trusted_authorities[].type` non-string, all seven values | answers |
+| `trusted_authorities[].values` non-array, all seven values | answers |
+| `trusted_authorities[].values` items non-string, all seven | answers |
+| `trusted_authorities[].values` containing an empty string | rejects |
+| `trusted_authorities[]` without `values` | answers |
+| `require_cryptographic_holder_binding` = `"true"` (string) | answers, and the Verifier validated the presentation |
+| `require_cryptographic_holder_binding` numeric and other string forms | answers |
+
+The string `require_cryptographic_holder_binding` case is the cleanest report: a
+single isolated run produced `presentation_validated` with `dcql_query_matched:
+true`, so the Wallet both accepted a non-boolean and satisfied the query from it.
 
 ## Git state at handoff
 

@@ -79,10 +79,27 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-090-trusted-authorities-missing-values-rejected
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-090-trusted-authorities-missing-values-rejected-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
       - runFlow:
           when:
             visible: "Data sharing request"
@@ -110,6 +127,7 @@ steps:
           trusted_authority: ${{ evidence-missing-trusted-authorities-values.outputs.trusted_authority }}
           dcql_exchange: ${{ fetch-missing-trusted-authorities-values.outputs.body.raw.authorization_request_delivered }}
           visual_evidence: ${{ reject-missing-trusted-authorities-values.outputs.screenshot_urls }}
+          dcql_exchange_session: ${{ fetch-missing-trusted-authorities-values.outputs.body }}
 outputs:
   trusted_authority:
     path: $.output.fetch-missing-trusted-authorities-values.outputs.body.raw.authorization_request_delivered.trusted_authority
@@ -119,5 +137,8 @@ outputs:
     decoder: raw
   visual_evidence:
     path: $.output.reject-missing-trusted-authorities-values.outputs.screenshot_urls
+    decoder: raw
+  dcql_exchange_session:
+    path: $.output.fetch-missing-trusted-authorities-values.outputs.body
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

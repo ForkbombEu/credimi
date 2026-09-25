@@ -352,10 +352,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-092-null
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-092-null-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
       - openLink: { link: "${DEEPLINK_TRUE}", autoVerify: false, browser: false }
       - waitForAnimationToEnd:
           timeout: 5000
@@ -382,10 +406,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-092-true
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-092-true-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
       - openLink: { link: "${DEEPLINK_FALSE}", autoVerify: false, browser: false }
       - waitForAnimationToEnd:
           timeout: 5000
@@ -412,10 +460,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-092-false
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-092-false-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
       - openLink: { link: "${DEEPLINK_ZERO}", autoVerify: false, browser: false }
       - waitForAnimationToEnd:
           timeout: 5000
@@ -442,10 +514,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-092-zero
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-092-zero-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
       - openLink: { link: "${DEEPLINK_NUMBER}", autoVerify: false, browser: false }
       - waitForAnimationToEnd:
           timeout: 5000
@@ -472,10 +568,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-092-number
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-092-number-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
       - openLink: { link: "${DEEPLINK_STRING}", autoVerify: false, browser: false }
       - waitForAnimationToEnd:
           timeout: 5000
@@ -502,10 +622,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-092-string
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-092-string-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
       - openLink: { link: "${DEEPLINK_OBJECT}", autoVerify: false, browser: false }
       - waitForAnimationToEnd:
           timeout: 5000
@@ -532,10 +676,34 @@ steps:
       - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
       - takeScreenshot: fcaf-092-object
       - runFlow:
-          when: { visible: "Data sharing request" }
+          when:
+            visible: "Requested data"
           commands:
-            - tapOn: "Cancel"
-            - waitForAnimationToEnd: { timeout: 3000 }
+          - tapOn: "Share"
+          - runFlow:
+              when:
+                visible: "PIN"
+              commands:
+              - tapOn:
+                  point: "11%,39%"
+              - inputText: "123456"
+              - hideKeyboard
+              - tapOn:
+                  point: "50%,10%"
+          - extendedWaitUntil:
+              visible: ".*successfully shared.*|Oups! Something went wrong"
+              timeout: 60000
+          - takeScreenshot: fcaf-092-object-presented
+          - tapOn:
+              text: "Close|TRY AGAIN"
+              optional: true
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
     parameters:
       DEEPLINK_NULL: ${{ create-null.outputs.body.deeplink }}
       DEEPLINK_TRUE: ${{ create-true.outputs.body.deeplink }}
@@ -603,6 +771,13 @@ steps:
           string_value: ${{ fetch-string.outputs.body.raw.authorization_request_delivered }}
           object_value: ${{ fetch-object.outputs.body.raw.authorization_request_delivered }}
           visual_evidence: ${{ exercise-trusted-authorities-values-non-array.outputs.screenshot_urls }}
+          null_value_session: ${{ fetch-null.outputs.body }}
+          true_value_session: ${{ fetch-true.outputs.body }}
+          false_value_session: ${{ fetch-false.outputs.body }}
+          zero_value_session: ${{ fetch-zero.outputs.body }}
+          random_number_session: ${{ fetch-number.outputs.body }}
+          string_value_session: ${{ fetch-string.outputs.body }}
+          object_value_session: ${{ fetch-object.outputs.body }}
 outputs:
   null_value:
     path: $.output.fetch-null.outputs.body.raw.authorization_request_delivered
@@ -627,5 +802,26 @@ outputs:
     decoder: raw
   visual_evidence:
     path: $.output.exercise-trusted-authorities-values-non-array.outputs.screenshot_urls
+    decoder: raw
+  null_value_session:
+    path: $.output.fetch-null.outputs.body
+    decoder: raw
+  true_value_session:
+    path: $.output.fetch-true.outputs.body
+    decoder: raw
+  false_value_session:
+    path: $.output.fetch-false.outputs.body
+    decoder: raw
+  zero_value_session:
+    path: $.output.fetch-zero.outputs.body
+    decoder: raw
+  random_number_session:
+    path: $.output.fetch-number.outputs.body
+    decoder: raw
+  string_value_session:
+    path: $.output.fetch-string.outputs.body
+    decoder: raw
+  object_value_session:
+    path: $.output.fetch-object.outputs.body
     decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

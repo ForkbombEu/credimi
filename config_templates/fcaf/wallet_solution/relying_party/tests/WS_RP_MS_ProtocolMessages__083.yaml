@@ -19,6 +19,8 @@ evidence:
     from: pipeline.dcql.claims-empty.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.claims-empty.outputs.visual_evidence
+  dcql_exchange_session:
+    from: pipeline.dcql.claims-empty.outputs.dcql_exchange_session
 assertions:
 - id: ws_rp_ms_protocolmessages__083_dcql_valid
   validator: dcql.response_satisfies_constraints
@@ -28,5 +30,8 @@ assertions:
 - id: ws_rp_ms_protocolmessages__083_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
+- id: dcql_exchange_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.dcql_exchange_session
 verdict:
   pass_when: all_assertions_pass

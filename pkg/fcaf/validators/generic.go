@@ -723,3 +723,57 @@ func hasAnyKey(object map[string]any, keys ...string) bool {
 	}
 	return false
 }
+
+// OID4VPNoPresentationValidator fails when a Verifier session shows that the
+// Wallet answered an Authorization Request with a presentation. FCAF negative
+// tests require the Wallet to reject the request instead, so any Authorization
+// Response, valid or not, is a failure of the test's normative requirement.
+type OID4VPNoPresentationValidator struct{}
+
+func (OID4VPNoPresentationValidator) ID() string {
+	return "oid4vp.no_presentation_returned"
+}
+
+func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Result {
+	session, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("session evidence is %T, expected object", input.Value),
+		}
+	}
+	if _, submitted := session["decoded_presentations"]; submitted {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned a presentation for a request it had to reject",
+		}
+	}
+	if checks, ok := session["checks"].(map[string]any); ok {
+		if valid, recorded := checks["presentation_valid"]; recorded && valid != nil {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"wallet submitted an authorization response (presentation_valid=%v) for a request it had to reject",
+					valid,
+				),
+			}
+		}
+	}
+	status, _ := session["status"].(string)
+	switch status {
+	case "presentation_validated", "presentation_invalid":
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"verifier session reached %q, so the wallet did not reject the request",
+				status,
+			),
+		}
+	case "":
+		return Result{Status: StatusFail, Message: "session evidence does not contain status"}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("wallet returned no presentation; session stopped at %q", status),
+	}
+}

@@ -10,29 +10,122 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-  - title: OpenID for Verifiable Presentations 1.0
-    section: "6.1, 8.5"
-    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: OpenID for Verifiable Presentations 1.0
+  section: 6.1, 8.5
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  null_value: { from: pipeline.dcql.claims-non-array.outputs.null_value }
-  true_value: { from: pipeline.dcql.claims-non-array.outputs.true_value }
-  false_value: { from: pipeline.dcql.claims-non-array.outputs.false_value }
-  zero_value: { from: pipeline.dcql.claims-non-array.outputs.zero_value }
-  random_number: { from: pipeline.dcql.claims-non-array.outputs.random_number }
-  string_value: { from: pipeline.dcql.claims-non-array.outputs.string_value }
-  object_value: { from: pipeline.dcql.claims-non-array.outputs.object_value }
-  visual_evidence: { from: pipeline.dcql.claims-non-array.outputs.visual_evidence }
+  null_value:
+    from: pipeline.dcql.claims-non-array.outputs.null_value
+  true_value:
+    from: pipeline.dcql.claims-non-array.outputs.true_value
+  false_value:
+    from: pipeline.dcql.claims-non-array.outputs.false_value
+  zero_value:
+    from: pipeline.dcql.claims-non-array.outputs.zero_value
+  random_number:
+    from: pipeline.dcql.claims-non-array.outputs.random_number
+  string_value:
+    from: pipeline.dcql.claims-non-array.outputs.string_value
+  object_value:
+    from: pipeline.dcql.claims-non-array.outputs.object_value
+  visual_evidence:
+    from: pipeline.dcql.claims-non-array.outputs.visual_evidence
+  null_value_session:
+    from: pipeline.dcql.claims-non-array.outputs.null_value_session
+  true_value_session:
+    from: pipeline.dcql.claims-non-array.outputs.true_value_session
+  false_value_session:
+    from: pipeline.dcql.claims-non-array.outputs.false_value_session
+  zero_value_session:
+    from: pipeline.dcql.claims-non-array.outputs.zero_value_session
+  random_number_session:
+    from: pipeline.dcql.claims-non-array.outputs.random_number_session
+  string_value_session:
+    from: pipeline.dcql.claims-non-array.outputs.string_value_session
+  object_value_session:
+    from: pipeline.dcql.claims-non-array.outputs.object_value_session
 assertions:
-  - { id: claims_null_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.null_value, params: { mode: property_type, property: claims, expected_type: array, valid: false } }
-  - { id: claims_true_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.true_value, params: { mode: property_type, property: claims, expected_type: array, valid: false } }
-  - { id: claims_false_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.false_value, params: { mode: property_type, property: claims, expected_type: array, valid: false } }
-  - { id: claims_zero_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.zero_value, params: { mode: property_type, property: claims, expected_type: array, valid: false } }
-  - { id: claims_random_number_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.random_number, params: { mode: property_type, property: claims, expected_type: array, valid: false } }
-  - { id: claims_string_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.string_value, params: { mode: property_type, property: claims, expected_type: array, valid: false } }
-  - { id: claims_object_is_rejected, validator: dcql.response_satisfies_constraints, input: evidence.object_value, params: { mode: property_type, property: claims, expected_type: array, valid: false } }
-  - id: every_non_array_variant_has_visual_evidence
-    validator: evidence.minimum_items
-    input: evidence.visual_evidence
-    params: { min_items: 7 }
+- id: claims_null_is_rejected
+  validator: dcql.response_satisfies_constraints
+  input: evidence.null_value
+  params:
+    mode: property_type
+    property: claims
+    expected_type: array
+    valid: false
+- id: claims_true_is_rejected
+  validator: dcql.response_satisfies_constraints
+  input: evidence.true_value
+  params:
+    mode: property_type
+    property: claims
+    expected_type: array
+    valid: false
+- id: claims_false_is_rejected
+  validator: dcql.response_satisfies_constraints
+  input: evidence.false_value
+  params:
+    mode: property_type
+    property: claims
+    expected_type: array
+    valid: false
+- id: claims_zero_is_rejected
+  validator: dcql.response_satisfies_constraints
+  input: evidence.zero_value
+  params:
+    mode: property_type
+    property: claims
+    expected_type: array
+    valid: false
+- id: claims_random_number_is_rejected
+  validator: dcql.response_satisfies_constraints
+  input: evidence.random_number
+  params:
+    mode: property_type
+    property: claims
+    expected_type: array
+    valid: false
+- id: claims_string_is_rejected
+  validator: dcql.response_satisfies_constraints
+  input: evidence.string_value
+  params:
+    mode: property_type
+    property: claims
+    expected_type: array
+    valid: false
+- id: claims_object_is_rejected
+  validator: dcql.response_satisfies_constraints
+  input: evidence.object_value
+  params:
+    mode: property_type
+    property: claims
+    expected_type: array
+    valid: false
+- id: every_non_array_variant_has_visual_evidence
+  validator: evidence.minimum_items
+  input: evidence.visual_evidence
+  params:
+    min_items: 7
+- id: null_value_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.null_value_session
+- id: true_value_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.true_value_session
+- id: false_value_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.false_value_session
+- id: zero_value_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.zero_value_session
+- id: random_number_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.random_number_session
+- id: string_value_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.string_value_session
+- id: object_value_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.object_value_session
 verdict:
   pass_when: all_assertions_pass
