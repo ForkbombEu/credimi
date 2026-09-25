@@ -149,6 +149,33 @@ The string `require_cryptographic_holder_binding` case is the cleanest report: a
 single isolated run produced `presentation_validated` with `dcql_query_matched:
 true`, so the Wallet both accepted a non-boolean and satisfied the query from it.
 
+### `WS_RP_SH_Cryptography_CryptographicHash_010`, implemented 25/09/2026
+
+The source requires that a Wallet which supports only SHA-256 does not present a
+credential digested with another hash function. Capture's `digest_algorithm`
+issuance option creates that credential while Credential Issuer Metadata keeps
+advertising SHA-256 only, which is the source's precondition exactly.
+
+`fcaf-wallet-solution-relying-party-credential-digest-algorithm` issues a
+SHA-384 `pid_person_b` and then queries `family_name` restricted to `Bianchi`.
+The fixture choice is the isolation: no other fixture carries that family name,
+so a SHA-256 credential the Wallet holds from an earlier scenario cannot satisfy
+the query and mask the result. The verdict reads the digest algorithm of what
+came back, not the screen the Wallet showed.
+
+`sdjwt.presentation_digest_algorithm_unsupported` distinguishes the two outcomes
+the source separates. Withholding the credential is `pass`. Presenting it is
+`not_applicable`, not `fail`: the source scopes itself to a Wallet that does not
+support other hash functions, and a Wallet that presents has demonstrated it
+does. Reporting that as a defect would be a false bug report.
+
+Observed on 2026.09.42: the Wallet stored the SHA-384 credential and presented
+it, `presentation_validated`, `decoded_presentations[pid_sha384][0]
+.digest_algorithm = "sha-384"`. The test therefore reports `not_applicable`,
+with both issuance assertions passing. Ownership moved off
+`fcaf-wallet-solution-relying-party-dcql-cryptography`, whose
+`jwt.payload_field_presence` on a `hash` field decided nothing about this test.
+
 ## Git state at handoff
 
 - Repository: `/home/puria/src/github.com/ForkbombEu/credimi/PR/1295`

@@ -1,5 +1,5 @@
 id: WS_RP_SH_Cryptography_CryptographicHash_010
-title: FCAF WS_RP_SH_Cryptography_CryptographicHash_010
+title: Do not present a credential digested with an unsupported hash function.
 source:
   path: Shared/Cryptography/WS_RP_SH_Cryptography_CryptographicHash_010.md
 suite:
@@ -10,22 +10,38 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.cryptography
+- title: OpenID4VC High Assurance Interoperability Profile
+  section: '8'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: SD-JWT-based Verifiable Credentials
+  section: '4.1.1'
+  url: https://www.ietf.org/archive/id/draft-ietf-oauth-sd-jwt-vc-12.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.cryptography.outputs.dcql_exchange
+  issuance_capture:
+    from: pipeline.cryptography.digest-algorithm.outputs.issuance_capture
+  presentation_session:
+    from: pipeline.cryptography.digest-algorithm.outputs.presentation_session
   visual_evidence:
-    from: pipeline.dcql.cryptography.outputs.visual_evidence
+    from: pipeline.cryptography.digest-algorithm.outputs.visual_evidence
 assertions:
-- id: ws_rp_sh_cryptography_cryptographichash_010_crypto_verified
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: issued_credential_uses_a_non_sha_256_digest_algorithm
+  validator: json.field_equals
+  input: evidence.issuance_capture
   params:
-    field: hash
-- id: ws_rp_sh_cryptography_cryptographichash_010_visual_evidence
+    field: digest_algorithm
+    value: sha-384
+- id: credential_reached_the_wallet
+  validator: json.field_equals
+  input: evidence.issuance_capture
+  params:
+    field: status
+    value: credential_issued
+- id: wallet_did_not_present_the_unsupported_digest_credential
+  validator: sdjwt.presentation_digest_algorithm_unsupported
+  input: evidence.presentation_session
+  params:
+    digest_algorithm: sha-384
+- id: interaction_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

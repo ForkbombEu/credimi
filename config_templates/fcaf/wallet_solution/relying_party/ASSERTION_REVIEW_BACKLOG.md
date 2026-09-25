@@ -152,11 +152,6 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
 
 ### Unblocked by the 25/09/2026 Capture Wallet refresh
 
-- [ ] `WS_RP_SH_Cryptography_CryptographicHash_010` is now constructible: beta
-  accepted `digest_algorithm: "sha-384"` and `"sha-512"` on 25/09/2026 and
-  records the selection in the issuance capture, which is the non-SHA-256
-  credential digest fixture the source needs. It still needs a scenario, and a
-  Wallet that supports the chosen hash function.
 - [ ] `WS_RP_IA_MainInteraction__033` can complete its eight-credential trap
   set. `fcaf-wallet-solution-relying-party-dcql-combined-value-constraints`
   issues seven fixtures; the data-type trap has no PID or degree fixture with a
@@ -170,6 +165,11 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
 - `WS_RP_MS_ProtocolMessages__125` and `126` can only evidence the Wallet's own
   error visually: the Wallet has already submitted its Authorization Response
   when the malformed verifier reply arrives.
+- `WS_RP_SH_Cryptography_CryptographicHash_010` is implemented and reports
+  `not_applicable` against wallet 2026.09.42, which stored and presented a
+  SHA-384 digested PID. Its source only requires withholding for a Wallet that
+  does not support the hash function, so this is a profile mismatch, not a
+  Wallet defect. Revisit if a Wallet under test advertises SHA-256 only.
 - The 15 malformed-DCQL tests migrated on 25/09/2026 assert the delivered
   request, a screenshot count, and `oid4vp.no_presentation_returned`. The
   reference Wallet answers several of those requests instead of rejecting them,

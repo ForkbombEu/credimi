@@ -777,3 +777,87 @@ func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Re
 		Message: fmt.Sprintf("wallet returned no presentation; session stopped at %q", status),
 	}
 }
+
+// SDJWTPresentationDigestAlgorithmValidator decides a source test whose
+// requirement is conditional on the Wallet's supported hash functions: the
+// Wallet must not present a credential digested with an algorithm it does not
+// support. A Wallet that presents it has demonstrated support, which puts it
+// outside the source's profile applicability instead of in breach of it, so
+// that case is reported as not applicable rather than as a failure.
+type SDJWTPresentationDigestAlgorithmValidator struct{}
+
+func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
+	return "sdjwt.presentation_digest_algorithm_unsupported"
+}
+
+func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		DigestAlgorithm string `json:"digest_algorithm"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.DigestAlgorithm == "" {
+		return Result{Status: StatusError, Message: "digest_algorithm param is required"}
+	}
+	session, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("session evidence is %T, expected object", input.Value),
+		}
+	}
+	if _, recorded := session["status"]; !recorded {
+		return Result{Status: StatusFail, Message: "session evidence does not contain status"}
+	}
+	decoded, present := session["decoded_presentations"].(map[string]any)
+	if !present {
+		return Result{
+			Status: StatusPass,
+			Message: fmt.Sprintf(
+				"wallet returned no presentation digested with %q",
+				params.DigestAlgorithm,
+			),
+		}
+	}
+	for queryID, raw := range decoded {
+		entries, ok := raw.([]any)
+		if !ok {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("decoded_presentations[%q] is %T, expected array", queryID, raw),
+			}
+		}
+		for index, entry := range entries {
+			presentation, ok := entry.(map[string]any)
+			if !ok {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"decoded_presentations[%q][%d] is %T, expected object",
+						queryID,
+						index,
+						entry,
+					),
+				}
+			}
+			algorithm, _ := presentation["digest_algorithm"].(string)
+			if algorithm == params.DigestAlgorithm {
+				return Result{
+					Status: StatusNotApplicable,
+					Message: fmt.Sprintf(
+						"wallet presented a credential digested with %q, so it supports that hash function and the source's profile applicability does not hold",
+						params.DigestAlgorithm,
+					),
+				}
+			}
+		}
+	}
+	return Result{
+		Status: StatusPass,
+		Message: fmt.Sprintf(
+			"wallet returned no presentation digested with %q",
+			params.DigestAlgorithm,
+		),
+	}
+}

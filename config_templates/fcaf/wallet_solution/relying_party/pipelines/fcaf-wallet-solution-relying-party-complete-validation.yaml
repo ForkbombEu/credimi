@@ -76,6 +76,82 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ callback-redirect-298d09a0-create-callback-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-create-sha384-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            digest_algorithm: sha-384
+            fixture_id: pid_person_b
+            flow: pre_authorized_code
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://beta-capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-obtain-sha384-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ credential-digest-algorithm-1354cfc6-create-sha384-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-fetch-sha384-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://beta-capture-wallet.credimi.io/sessions/${{ credential-digest-algorithm-1354cfc6-create-sha384-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-create-sha384-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - family_name
+                              values:
+                                - Bianchi
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid_sha384
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-cryptographic-hash-010
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-exercise-sha384-presentation
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ credential-digest-algorithm-1354cfc6-create-sha384-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-fetch-sha384-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-digest-algorithm-1354cfc6-create-sha384-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: credential-status-list-13040d21-create-status-sdjwt-issuance-session
       use: http-request
       with:
@@ -21686,6 +21762,11 @@ steps:
                 output:
                     pid_sdjwt: ${{ credential-status-list-13040d21-fetch-status-sdjwt-presentation.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ credential-status-list-13040d21-present-status-sdjwt.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.cryptography.digest-algorithm:
+                output:
+                    issuance_capture: ${{ credential-digest-algorithm-1354cfc6-fetch-sha384-issuance.outputs.body | optional }}
+                    presentation_session: ${{ credential-digest-algorithm-1354cfc6-fetch-sha384-presentation.outputs.body | optional }}
+                    visual_evidence: ${{ credential-digest-algorithm-1354cfc6-exercise-sha384-presentation.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dc-api.invalid-signature:
                 output:
                     encrypted_response: ${{ dc-api-invalid-signature-32532cf2-fetch-dc-api-invalid-signature.outputs.body.observed.wallet_response.value.response | optional }}
