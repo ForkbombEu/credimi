@@ -334,3 +334,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: Under (a), any new create form or direct `create` call that omits `owner` fails with an opaque "Failed to create record." error; the `add_owner.pb.js` create hook is no longer what makes those creates pass the rule.
 - follow-up: Decide whether to keep the client-side contract or restore server ownership.
 - note (2026-09-25): `add_owner.pb.js` overwrites the rule-checked client `owner` with the user's first `orgAuthorizations` row. Harmless while each user has one org (current product assumption, confirmed by the user); the create/update hooks must stop overwriting `owner` before multiple org memberships per user are supported. The server does not enforce one org per user: `organizations.pb.js` creates an owner authorization for the creator without checking existing memberships, and invites/join requests add memberships.
+
+### 2026-09-25 - Pipeline live view calls the runner over direct HTTP
+
+- status: resolved
+- owner: human maintainer
+- context: `POST /api/pipeline/live-view` (`pkg/internal/apis/handlers/pipeline_live_view_handler.go`) asks the runner holding a running pipeline's device for a live-view URL via `POST {runner_url}/credimi/live-view` and returns it to the UI, which opens it in a new tab. Runner HTTP from credimi-2 normally goes through the `mobile-runner-http-request` Temporal activity.
+- question: May the live-view API handler call the runner directly over HTTP instead of through the `mobile-runner-http-request` activity?
+- options considered: (a) direct HTTP from the API handler via `mobilerunner.HTTPClient`, with the internal admin key and a 15s timeout (chosen); (b) start a workflow/activity and wait on it from the request.
+- default risk: The call bypasses Temporal retries and history; a slow or offline runner surfaces as `503 device runner is offline` to the user instead of being retried. The runner contract is listed in `AGENTS.md` "External runner HTTP contract".
+- decision: Approved exception — option (a), because the UI needs a synchronous answer (the URL) inside the click. Precedent: `checkMobileRunnerHealthHTTP` in `mobile_runners_handlers.go`, which also calls the runner directly.
+- follow-up: None.

@@ -351,6 +351,11 @@ External runner HTTP contract:
 - `POST {runner_url}/store-pipeline-result`
     - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url }`
     - Response: `{ result_urls: string[], screenshot_urls: string[] }`
+- `POST {runner_url}/credimi/live-view`
+    - Header: `Credimi-Api-Key: <CREDIMI_INTERNAL_ADMIN_KEY>`
+    - Body: `{ device_identifier, serial, namespace, workflow_id, run_id }`
+    - Response: `{ path: "/live/<token>" }`; errors use the runner `APIError` JSON (`400`, `401`, `403`, `500`, `503`).
+    - Called directly over HTTP by `POST /api/pipeline/live-view` (see `.agents/HITL.md`), not through `mobile-runner-http-request`.
 
 The external runner service is implemented in `github.com/forkbombeu/credimi-extra`. If the contract changes, ask whether the sibling repository must change.
 

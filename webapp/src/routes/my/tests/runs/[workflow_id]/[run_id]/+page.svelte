@@ -11,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
+	import { watchLive, type LiveViewStream } from '$lib/pipeline/live-view';
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
@@ -48,6 +49,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const timezone = $derived(user.current?.Timezone);
 	const startDisplay = $derived(formatExecutionTimestamp(execution.startTime, timezone) ?? '-');
 	const endDisplay = $derived(formatExecutionTimestamp(execution.endTime, timezone) ?? '-');
+
+	/* Live view */
+
+	let liveStreams = $state<LiveViewStream[]>([]);
+
+	$effect(() => {
+		if (execution.status !== 'Running') liveStreams = [];
+	});
 
 	/* Iframe communication */
 
@@ -211,7 +220,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</tbody>
 		</table>
 
-		<div class="pt-6">
+		<div class="flex flex-wrap gap-2 pt-6">
 			<Button
 				variant="outline"
 				onclick={() => runWithLoading({ fn: () => Workflow.cancel(workflowId, runId) })}
@@ -219,7 +228,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			>
 				{m.Cancel()}
 			</Button>
+			{#if workflow.execution.name === 'Dynamic Pipeline Workflow'}
+				<Button
+					variant="outline"
+					disabled={execution.status !== 'Running'}
+					onclick={async () => {
+						liveStreams = (await watchLive(workflowId, runId)) ?? [];
+					}}
+				>
+					{m.Watch_live()}
+				</Button>
+			{/if}
 		</div>
+
+		{#if liveStreams.length > 1}
+			<div class="pt-4 text-sm">
+				<p>{m.Live_view_choose_device()}</p>
+				<ul class="pt-1">
+					{#each liveStreams as s (s.device_id)}
+						<li>
+							<a
+								class="underline"
+								href={s.url}
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								{s.device_name} ↗
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 	</div>
 
 	{#if workflow.execution.name !== 'Dynamic Pipeline Workflow'}

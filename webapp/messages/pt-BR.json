@@ -1039,5 +1039,9 @@
 	"Role": "Função",
 	"Component": "Componente",
 	"Provider": "Provedor",
-	"Clear_filters": "Limpar filtros"
+	"Clear_filters": "Limpar filtros",
+	"Watch_live": "Watch live",
+	"Watch_live_on_device": "Watch live: {device}",
+	"Live_view_open_failed": "Could not open the live view",
+	"Live_view_choose_device": "Choose a device to watch:"
 }

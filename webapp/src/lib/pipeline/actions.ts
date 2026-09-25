@@ -16,6 +16,7 @@ import { getExceptionMessage } from '@/utils/errors';
 
 import type { ExecutionSummary } from './workflows';
 
+import { liveViewDropdownItems } from './live-view';
 import * as PipelineQueue from './queue';
 import * as PipelineWorkflows from './workflows';
 
@@ -125,6 +126,7 @@ export function makeDropdownActions(
 	options?: PipelineActionOptions
 ): DropdownMenuItem[] {
 	return [
+		...liveViewDropdownItems(workflow),
 		{
 			label: m.Cancel(),
 			icon: XIcon,

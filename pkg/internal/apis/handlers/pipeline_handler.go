@@ -97,6 +97,14 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Description: "Get one pipeline execution with its child workflows",
 		},
 		{
+			Method:         http.MethodPost,
+			Path:           "/live-view",
+			Handler:        HandlePipelineLiveView,
+			RequestSchema:  PipelineLiveViewInput{},
+			ResponseSchema: PipelineLiveViewResponse{},
+			Description:    "Open live device views for a running pipeline execution",
+		},
+		{
 			Method:      http.MethodPost,
 			Path:        "/execute",
 			Handler:     HandlePipelineExecute,
