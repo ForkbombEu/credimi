@@ -14,6 +14,12 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
 
+// Record paths shared by the synthetic catalog collection route groups.
+const (
+	catalogRecordsPath = "/records"
+	catalogRecordPath  = "/records/{id}"
+)
+
 // ConformanceCatalogRoutes exposes catalog maintenance endpoints.
 var ConformanceCatalogRoutes = routing.RouteGroup{
 	BaseURL:                "/api/conformance-catalog",
@@ -45,31 +51,31 @@ var ConformanceChecksRecordsRoutes = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:      http.MethodGet,
-			Path:        "/records",
+			Path:        catalogRecordsPath,
 			Handler:     conformancecatalog.RecordsListHTTP,
 			Description: "List conformance catalog checks (ephemeral; PB URL shape)",
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/records/{id}",
+			Path:        catalogRecordPath,
 			Handler:     conformancecatalog.RecordViewHTTP,
 			Description: "Get one conformance catalog check by id",
 		},
 		{
 			Method:      http.MethodPost,
-			Path:        "/records",
+			Path:        catalogRecordsPath,
 			Handler:     conformancecatalog.RecordsWriteRejectHTTP,
 			Description: "Reject creates on the read-only conformance catalog",
 		},
 		{
 			Method:      http.MethodPatch,
-			Path:        "/records/{id}",
+			Path:        catalogRecordPath,
 			Handler:     conformancecatalog.RecordsWriteRejectHTTP,
 			Description: "Reject updates on the read-only conformance catalog",
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/records/{id}",
+			Path:        catalogRecordPath,
 			Handler:     conformancecatalog.RecordsWriteRejectHTTP,
 			Description: "Reject deletes on the read-only conformance catalog",
 		},
@@ -86,31 +92,31 @@ var ConformanceSuitesRecordsRoutes = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:      http.MethodGet,
-			Path:        "/records",
+			Path:        catalogRecordsPath,
 			Handler:     conformancecatalog.SuitesListHTTP,
 			Description: "List conformance catalog suites (ephemeral; PB URL shape)",
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/records/{id}",
+			Path:        catalogRecordPath,
 			Handler:     conformancecatalog.SuiteViewHTTP,
 			Description: "Get one conformance catalog suite by id",
 		},
 		{
 			Method:      http.MethodPost,
-			Path:        "/records",
+			Path:        catalogRecordsPath,
 			Handler:     conformancecatalog.SuitesWriteRejectHTTP,
 			Description: "Reject creates on the read-only conformance suites catalog",
 		},
 		{
 			Method:      http.MethodPatch,
-			Path:        "/records/{id}",
+			Path:        catalogRecordPath,
 			Handler:     conformancecatalog.SuitesWriteRejectHTTP,
 			Description: "Reject updates on the read-only conformance suites catalog",
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/records/{id}",
+			Path:        catalogRecordPath,
 			Handler:     conformancecatalog.SuitesWriteRejectHTTP,
 			Description: "Reject deletes on the read-only conformance suites catalog",
 		},
