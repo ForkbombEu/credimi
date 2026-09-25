@@ -157,6 +157,13 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
   records the selection in the issuance capture, which is the non-SHA-256
   credential digest fixture the source needs. It still needs a scenario, and a
   Wallet that supports the chosen hash function.
+- [ ] `WS_RP_IA_MainInteraction__033` can complete its eight-credential trap
+  set. `fcaf-wallet-solution-relying-party-dcql-combined-value-constraints`
+  issues seven fixtures; the data-type trap has no PID or degree fixture with a
+  numeric claim, so it was omitted. Beta issued
+  `urn:credimi:numeric-claims:1.sd-jwt.key-attestation-required` on 25/09/2026,
+  which supplies that claim. Add the eighth credential and raise the
+  `oid4vp.distinct_presentations` minimum from 8 accordingly.
 
 ### Known gaps inside implemented coverage
 

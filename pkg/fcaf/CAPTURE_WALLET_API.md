@@ -461,7 +461,11 @@ source test permits it.
   with `unsupported_digest_algorithm` and the supported list. This is
   executable evidence for `WS_RP_SH_Cryptography_CryptographicHash_010`.
 - On 25/09/2026, `eu-pid-device-bound` and `eu-pid-jwt-proof-only` each
-  advertised a fourth configuration, `urn:credimi:numeric-claims:1.sd-jwt.*`.
+  advertised a fourth configuration, `urn:credimi:numeric-claims:1.sd-jwt.*`,
+  and beta created an issuance session for it (`201`, vct
+  `urn:credimi:numeric-claims:1`, format `dc+sd-jwt`). This is the numeric
+  claim value the `WS_RP_IA_MainInteraction__033` data-type trap needs; no PID
+  or degree claim is numeric.
 - The `certificate_chain` behaviours recompute the `x509_hash` Client
   Identifier from the replaced leaf. A request built with them therefore
   carries a Client Identifier the verifier no longer expects, so a presentation
