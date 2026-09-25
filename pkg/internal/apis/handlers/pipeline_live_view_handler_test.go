@@ -221,32 +221,61 @@ func TestPipelineLiveViewRejectsUnknownExplicitDevice(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "pipeline mobile device is not initialized")
 }
 
-func TestPipelineLiveViewForwardsRunnerUnavailable(t *testing.T) {
-	t.Setenv(InternalAdminAPIKeyEnvVar, "k")
-	app, authRecord, _ := pipelineLiveViewTestApp(t)
-	runner, _ := newLiveViewRunner(t, http.StatusServiceUnavailable, map[string]any{
-		"name":    "service_unavailable",
-		"code":    http.StatusServiceUnavailable,
-		"domain":  "live_view",
-		"reason":  "live view unavailable",
-		"message": "scrcpy is not installed",
-	})
-	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		"tenant/runner-1/pixel": map[string]any{
-			"serial":     "emulator-5554",
-			"type":       "android_emulator",
-			"runner_url": runner.URL,
+func TestPipelineLiveViewForwardsRunnerRefusals(t *testing.T) {
+	cases := []struct {
+		name         string
+		runnerStatus int
+		message      string
+		wantStatus   int
+	}{
+		{
+			name:         "unavailable",
+			runnerStatus: http.StatusServiceUnavailable,
+			message:      "scrcpy is not installed",
+			wantStatus:   http.StatusServiceUnavailable,
 		},
-	})
+		{
+			name:         "unsupported device",
+			runnerStatus: http.StatusBadRequest,
+			message:      "this device does not support live stream",
+			wantStatus:   http.StatusUnprocessableEntity,
+		},
+		{
+			name:         "unauthorized",
+			runnerStatus: http.StatusUnauthorized,
+			message:      "invalid api key",
+			wantStatus:   http.StatusBadGateway,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(InternalAdminAPIKeyEnvVar, "k")
+			app, authRecord, _ := pipelineLiveViewTestApp(t)
+			runner, _ := newLiveViewRunner(t, tc.runnerStatus, map[string]any{
+				"name":    "runner_error",
+				"code":    tc.runnerStatus,
+				"domain":  "live_view",
+				"reason":  tc.message,
+				"message": tc.message,
+			})
+			stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
+				"tenant/runner-1/pixel": map[string]any{
+					"serial":     "emulator-5554",
+					"type":       "android_emulator",
+					"runner_url": runner.URL,
+				},
+			})
 
-	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
-		WorkflowID: "pipeline-1",
-		RunID:      "run-1",
-		DeviceID:   "tenant/runner-1/pixel",
-	})
+			rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
+				WorkflowID: "pipeline-1",
+				RunID:      "run-1",
+				DeviceID:   "tenant/runner-1/pixel",
+			})
 
-	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
-	require.Contains(t, rec.Body.String(), "scrcpy is not installed")
+			require.Equal(t, tc.wantStatus, rec.Code)
+			require.Contains(t, rec.Body.String(), tc.message)
+		})
+	}
 }
 
 func TestPipelineLiveViewRequiresAuth(t *testing.T) {

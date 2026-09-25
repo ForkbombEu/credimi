@@ -386,6 +386,14 @@ func openRunnerLiveViewHTTP(
 				message,
 			)
 		}
+		if resp.StatusCode == http.StatusBadRequest {
+			return "", apierror.New(
+				http.StatusUnprocessableEntity,
+				"live_view",
+				message,
+				message,
+			)
+		}
 		return "", apierror.New(
 			http.StatusBadGateway,
 			"live_view",
